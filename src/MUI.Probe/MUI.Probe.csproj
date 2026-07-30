@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>MUI.Probe</RootNamespace>
+    <AssemblyName>mui-probe</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MUI.Crawl\MUI.Crawl.csproj" />
+  </ItemGroup>
+
+</Project>

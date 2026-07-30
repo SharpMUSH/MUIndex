@@ -3,6 +3,7 @@
     <Project Path="src/MUI.Catalog/MUI.Catalog.csproj" />
     <Project Path="src/MUI.Crawl/MUI.Crawl.csproj" />
     <Project Path="src/MUI.Discovery/MUI.Discovery.csproj" />
+    <Project Path="src/MUI.Probe/MUI.Probe.csproj" />
     <Project Path="src/MUI.Web/MUI.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
