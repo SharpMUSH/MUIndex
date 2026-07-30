@@ -138,6 +138,9 @@ Every one of these will occur on real data and needs a designed answer:
 - Declared and measured capabilities in conflict.
 - Suspected duplicate awaiting review.
 - A game with almost no data at all — one endpoint, a name, nothing else.
+- **Imported but never first-party probed** — everything on the page came from another directory's
+  backfill (spec §7.6). Must be distinguishable from a game we have measured ourselves, and must
+  credit the originating source visibly.
 - A game whose MSSP was last confirmed in 2019 and has been rotting since.
 
 ## 7. Owner dashboard

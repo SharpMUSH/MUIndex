@@ -124,7 +124,8 @@ No append-only ledger. One row per `(game, field)`:
 GameField(game_id, field, value, source, confidence, first_seen_at, last_confirmed_at)
 ```
 
-`source ∈ { mssp, handshake, who, banner, owner, staff, imported }`.
+`source ∈ { mssp, handshake, who, banner, owner, staff, imported_measured, imported_asserted }`.
+The two import tiers are defined in §7.6.
 
 Every probe does exactly one of two things to each field:
 
@@ -140,8 +141,8 @@ provenance, per-field age (so stale hand-typed MSSP can be greyed out), and a pe
 that is a table of *events that actually happened* — which is also what one wants to render.
 
 **Precedence when sources disagree** (highest first): `handshake` for capability fields, since it
-is observed; `owner` for enrichment-only fields; `mssp`; `banner`; `imported`. `staff` overrides
-anything, and is logged. Player count is not a `GameField` and does not use this ladder — it lives
+is observed; `owner` for enrichment-only fields; `mssp`; `banner`; `imported_measured`;
+`imported_asserted`. `staff` overrides anything, and is logged. Player count is not a `GameField` and does not use this ladder — it lives
 in §5.2, where `who` outranks `mssp`. A page shows the winning value and offers
 the losing ones with their sources — "declared GMCP, not offered in handshake" is a fact worth
 surfacing, not a conflict to hide.
@@ -317,16 +318,17 @@ grace = clamp(cumulative_measured_uptime / 4, 60 days, 365 days)
 
 **Cumulative, not span.** The input is the sum of `up` interval durations from §5.3, so a game
 that was reachable for two years out of five is credited with two. A game with a long history of
-flapping does not accrue grace for the gaps.
+flapping does not accrue grace for the gaps. Imported history counts at half weight, per §7.6.
 
 **A claimed game always receives the ceiling.** Someone with server access has demonstrably staked
 a claim, which is worth a year regardless of how long we have been watching. This is also one more
 concrete reason to claim (§8).
 
-**Known limitation, stated plainly on the about page:** grace is computed from uptime *we measured*,
-so a game running since 1995 that we discovered last month starts at the floor and accrues from
-there. We do not credit MSSP `CREATED`, because it is hand-typed and unverifiable, and crediting it
-would make the archive threshold trivially gameable.
+**Known limitation, stated plainly on the about page:** grace is computed from uptime that
+*somebody probed* — ours at full weight, an importable third party's at half (§7.6). A game running
+since 1995 that no directory ever recorded starts at the floor and accrues from there. We do not
+credit MSSP `CREATED`, because it is hand-typed and unverifiable, and crediting it would make the
+archive threshold trivially gameable by editing one line of `mush.cnf`.
 
 #### What archiving does and does not do
 
@@ -345,7 +347,39 @@ would make the archive threshold trivially gameable.
 listing and fires the *came back* feed (§9). Archiving is never a manual action, never permanent,
 and never requires a human on either side of the transition.
 
-### 7.6 Scheduling
+### 7.6 Backfill and imported history
+
+The existing directories are the best day-one seed available, and several of them hold years of
+history we cannot otherwise obtain. Importing them is planned. Two rules govern it.
+
+**Imported data splits by whether the source measured or merely recorded.** This is the same
+measured-versus-declared spine that runs through the rest of the design, applied one level up:
+
+| Tier | Sources | What it may do |
+|---|---|---|
+| `imported_measured` | MudStats, MudVerse, Grapevine — sites that actively ping | Seeds discovery; populates historical `AvailabilityInterval` and `PresenceSample` rows; **counts toward grace at half weight** (§7.5) |
+| `imported_asserted` | The MUD Connector, MUSHCode lists, hand-maintained pages | Seeds discovery and endpoints **only**. No history, no presence, no grace |
+
+A third party that ran its own probe produced a measurement, and a measurement is worth more than a
+self-report — that is the whole argument of this project, and it does not stop applying because
+someone else did the probing. A hand-maintained list is an assertion and is treated as one.
+
+Half weight for `imported_measured` reflects that we cannot audit their probe, their parser or
+their failure handling. The existing clamp still applies, so an eight-year record credits four
+years and reaches the ceiling — which is the correct outcome for a genuine decade-old institution.
+
+**Imported facts never outrank measured ones and are never laundered into looking first-party.**
+Both import tiers already sit at the bottom of the §5.1 precedence ladder. Every imported value carries
+the originating site and the import date in its provenance chip, and the about page names every
+source we ingested.
+
+**Etiquette, before any of it runs:** ask for a bulk export or use a documented API in preference to
+scraping; honour `robots.txt` and rate-limit hard where scraping is the only option; attribute
+every source on the about page and in the API. These sites are run by people in the same small
+hobby, and several of them are the reason any of this data exists at all. A short email first is
+both the decent move and the one most likely to get better data than scraping would.
+
+### 7.7 Scheduling
 
 A single scheduler picks due targets by `next_probe_at`, feeding a bounded worker pool. Interval is
 `max(CRAWL DELAY, base_interval)`, tightened for games with recent activity, lengthened on failure,
@@ -451,7 +485,8 @@ failures degrade to `unknown` and are logged with the response redacted.
 
 **In:** probe engine, discovery graph, identity matcher, the three storage shapes, auto-listing,
 claiming, game listing and game pages, tiered archiving and the archive section, the three liveness
-feeds, ecosystem dashboard, read API, hand-written reference pages for clients/codebases/protocols.
+feeds, ecosystem dashboard, read API, hand-written reference pages for clients/codebases/protocols,
+and a one-off backfill import from the existing directories (§7.6).
 
 **Out, designed for but not built:** automated tracking of client and codebase releases; protocol
 conformance matrices derived from measured handshakes; hosting-provider and tools catalogues;
