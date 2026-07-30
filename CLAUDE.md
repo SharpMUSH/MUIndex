@@ -105,17 +105,8 @@ information.**
 and `src/SharpMUTerm.Core/Telnet/Mssp`, especially `MsspHost`'s referral parsing and scope
 classification. Read it, then write MUIndex's own. Do not copy files across.
 
-`TelnetNegotiationCore` is first-party, so a gap in it is a PR rather than a workaround. Two known
-ones, neither worked around here:
-
-- **`MSSPProtocol.FlushField` decodes MSSP with a hardcoded `Encoding.ASCII`**, so a game named
-  `Café Noir` reports `Caf? Noir` whatever CHARSET settled on. Arguably conformant — RFC 2066 scopes
-  CHARSET to text, not commands — but lossy where it need not be; `Encoding.Latin1` would round-trip
-  all 256 values. It matters here because MSSP `NAME` feeds the identity matcher, so two games
-  differing only in accented characters can collapse to one string and auto-merge.
-- **The plaintext `MSSP-REQUEST` fallback does not go through `MSSPProtocol` at all**, so the same
-  server read the two ways disagrees byte for byte. The transport used to obtain a value is part of
-  its provenance.
+`TelnetNegotiationCore` is first-party, so **a gap in it is a PR rather than a workaround here**.
+Never carry a compensating hack for library behaviour; fix it upstream and take the new version.
 
 ## Conventions
 
