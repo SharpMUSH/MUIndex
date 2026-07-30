@@ -1,0 +1,80 @@
+using MUI.Crawl;
+
+namespace MUI.Crawl.Tests;
+
+/// <summary>
+/// Default MSSP values are the absence of a signal, not a weak one.
+/// </summary>
+/// <remarks>
+/// These cases come from real servers, not imagination. The second game this crawler probed —
+/// eldertaleonline.com:7705 — publishes <c>NAME "PennMUSH"</c>, and every unedited PennMUSH on the
+/// internet publishes the same thing.
+/// </remarks>
+public class MsspDefaultsTests
+{
+    [Test]
+    public async Task ACodebaseNamePublishedAsTheGameNameIsNotAName()
+    {
+        // Observed on eldertaleonline.com:7705.
+        await Assert.That(MsspDefaults.MeaningfulName("PennMUSH", "PennMUSH 1.8.8p0")).IsNull();
+    }
+
+    [Test]
+    [Arguments("PennMUSH")]
+    [Arguments("Evennia")]
+    [Arguments("TinyMUX")]
+    [Arguments("RhostMUSH")]
+    [Arguments("Unknown")]
+    [Arguments("Change Me")]
+    [Arguments("Your MUD Name")]
+    [Arguments("   ")]
+    [Arguments(null)]
+    public async Task APlaceholderIsRecognisedWhateverItsShape(string? value)
+    {
+        await Assert.That(MsspDefaults.IsPlaceholder(value)).IsTrue();
+    }
+
+    [Test]
+    [Arguments("M*U*S*H")]
+    [Arguments("Tidewater Nights")]
+    [Arguments("Eldertale")]
+    public async Task ARealNameSurvives(string value)
+    {
+        await Assert.That(MsspDefaults.IsPlaceholder(value)).IsFalse();
+        await Assert.That(MsspDefaults.MeaningfulName(value, "PennMUSH 1.8.8p0")).IsEqualTo(value);
+    }
+
+    [Test]
+    public async Task ANameThatMerelyRestatesTheCodebaseWithItsVersionIsAlsoNotAName()
+    {
+        await Assert.That(MsspDefaults.MeaningfulName("PennMUSH 1.8.8p0", "PennMUSH 1.8.8p0")).IsNull();
+    }
+
+    [Test]
+    public async Task TwoUneditedServersMustNotLookLikeTheSameGame()
+    {
+        // The reason this type exists. Spec §7.3 weights MSSP NAME heavily when deciding whether two
+        // endpoints are one game. If a default counted as a signal, every unedited PennMUSH would
+        // score as a match for every other one and auto-merge would fuse unrelated games.
+        var first = MsspDefaults.MeaningfulName("PennMUSH", "PennMUSH 1.8.8p0");
+        var second = MsspDefaults.MeaningfulName("PennMUSH", "PennMUSH 1.8.7");
+
+        await Assert.That(first).IsNull();
+        await Assert.That(second).IsNull();
+
+        // Both null: the matcher has nothing to compare, which is correct. It must not conclude
+        // "equal" from two absences.
+        await Assert.That(first is not null && first == second).IsFalse();
+    }
+
+    [Test]
+    public async Task TheStringZeroIsAPlaceholderButAMeasuredZeroCountIsNot()
+    {
+        // Guarding the opposite error. `PLAYERS 0` was measured on a live server and means nobody
+        // was on — a real fact, and exactly what rule 2 protects. Only a name-shaped field reading
+        // "0" is a non-answer; the numeric count is data, and it is asserted as such in
+        // MUI.Catalog.Tests.PresenceContractTests, which is the assembly that can see the type.
+        await Assert.That(MsspDefaults.IsPlaceholder("0")).IsTrue();
+        await Assert.That(MsspDefaults.MeaningfulName("0", "PennMUSH")).IsNull();
+    }
+}

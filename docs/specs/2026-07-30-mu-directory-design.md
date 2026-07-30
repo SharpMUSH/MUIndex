@@ -448,6 +448,22 @@ Weighted match over stable signals:
 | `CODEBASE` + version | Weak alone; useful as corroboration |
 | Site-issued claim token (§8) | Decisive when present — a claimed game is never duplicated |
 
+**A codebase default is the absence of a signal, not a weak one.** Observed on the second server
+this crawler ever probed: it publishes `NAME "PennMUSH"`, because whoever installed it never edited
+that line — and so does every other unedited PennMUSH on the internet. Scored naively, all of them
+match each other on the strongest textual signal in the table, and auto-merge fuses unrelated games
+into one listing. The failure is silent and the damage is hard to unpick, because a merge that
+should never have happened looks exactly like a merge that should.
+
+So every signal is filtered through a placeholder check before it is weighed, and a placeholder
+contributes **nothing** rather than a little. That includes the codebase's own name as the game's
+name, the same with a version appended, blank values, and template text (`Unknown`, `Change Me`,
+`Your MUD Name`). Two absences must never score as an agreement.
+
+The same caution applies to `CONTACT` and `WEBSITE`, which are shared across every game on a hosting
+provider more often than they are unique, and to `CREATED`, which is a year and therefore collides
+freely on its own.
+
 Above threshold: auto-merge into the existing game, recording the endpoint change as a
 `FieldChange`. Middling: open a suspected-duplicate pair for review — **both pages stay live and
 link to each other reciprocally**, because a wrongly hidden game is worse than a visible duplicate.
