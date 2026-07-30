@@ -8,7 +8,7 @@
 
 **Tech Stack:** .NET 10, Npgsql 10, Dapper 2.1, PostgreSQL 17, `Testcontainers.PostgreSql` 4.7, TUnit 1.61 on Microsoft.Testing.Platform.
 
-**Depends on:** Plan 01 (probe engine) for the `ProbeResult` shape, `SharpMU.Mssp.MsspData`, `PresenceAggregates` and the captured JSON fixtures. This plan touches no socket: every test here runs against a `ProbeResult` fixture.
+**Depends on:** Plan 01 (probe engine) for the `ProbeResult` shape, `MUI.Crawl.Mssp.MsspData`, the four-state `WhoReading`/`WhoConfidence`, `PresenceAggregates` and the captured JSON fixtures. This plan touches no socket: every test here runs against a `ProbeResult` fixture.
 
 ---
 
@@ -52,16 +52,21 @@ These apply to every task in this plan without being repeated.
 - **Never persist player names.** `WHO` is parsed in memory; aggregates use salted hashes with a
   rotating salt, so a unique-player estimate is possible while re-identification across salt epochs
   is not.
-- **Parsers never fabricate.** An unreadable `WHO` yields `WhoConfidence.Unknown`, never zero.
+- **Parsers never fabricate.** An unreadable `WHO` yields `WhoConfidence.Unknown`, never zero — and a
+  `WHO` that was never sent yields `WhoConfidence.NotAttempted`, which is a different state. Task 15
+  turns on that difference.
 - **Vocabulary is "reachable", never "uptime"** — schema, API, code and copy alike (spec §5.7).
 - **Branch from `main`, open a PR, never commit directly to `main`.**
 - **Any new test project goes into `MUIndex.slnx` AND `.github/workflows/ci.yml`**, which runs each
   suite as its own explicit step.
-- **The shared MSSP package is `SharpMU.Mssp`** — namespace `SharpMU.Mssp`, referenced as
-  `<PackageReference Include="SharpMU.Mssp" />` with a central `<PackageVersion>` in
-  `Directory.Packages.props`. It is **model and parsing only**: no transport, no probe, no
-  scheduling. Never re-declare `MsspData`, `MsspHost`, `MsspVariables` or
-  `MsspSubnegotiationParser` locally.
+- **MUIndex owns the MSSP domain** — namespace `MUI.Crawl.Mssp`, in `src/MUI.Crawl`, Plan 01's code
+  written against Plan 01's own tests. There is **no shared package**: nothing named `SharpMU.Mssp`
+  was ever published and the repository that would have produced it is archived, so MUIndex
+  implements its crawler end to end and shares no code with SharpMUTerm. `MsspData`, `MsspHost`,
+  `MsspHostScope` and `MsspVariables` live there; telnet option 70 is parsed by
+  `TelnetNegotiationCore` 2.6.5 itself, and `MUI.Crawl.Mssp.MsspPlaintextReply` handles only the
+  out-of-band `MSSP-REQUEST` text reply. This plan **consumes** those types through the
+  `MUI.Discovery` → `MUI.Crawl` reference and adds no package of its own; never re-declare them.
 - **Persistence is PostgreSQL 17 with Npgsql + Dapper and plain numbered `.sql` migration files
   applied by a small idempotent runner. No EF Core**, ever. Integration tests use
   `Testcontainers.PostgreSql`.
@@ -80,6 +85,7 @@ These apply to every task in this plan without being repeated.
 | `FieldRegistry.cs` | New — `FieldValueKind`, `FieldDefinition`, `FieldRegistry`, `CapabilityFields` (§5.6). |
 | `CatalogRecords.cs` | New — `FieldConfidence`, `FieldConfidences`, `Game`, `GameField`, `FieldChange`, `PresenceSource`, `UnmeasurableReasons`, `PresenceSample`, `AvailabilityInterval`, `EndpointKind`, `EndpointState`, `GameEndpoint`. |
 | `SourcePrecedence.cs` | New — the §5.1 ladder as a decision function. |
+| `HostName.cs` | New — one canonical spelling of a host (§7.3). Deliberately mirrors `MsspHost`'s normalisation, which `MUI.Catalog` cannot reference. |
 | `AvailabilityArithmetic.cs` | New — cumulative reachable, reachable percent, longest outage (§13). Pure, so §5.3's arithmetic is testable without a database. |
 
 **`src/MUI.Storage`** (new; references `MUI.Catalog`, `Npgsql`, `Dapper`, `Microsoft.Extensions.Logging.Abstractions`)
@@ -146,7 +152,7 @@ carries the reasoning as a comment and a test pins the choice.
 | 7 | §7.4 names `active → quiet → dark` and never gives thresholds. | Out of scope here. `ArchiveSweeper` moves only `→ Archived` and `Archived → Active`. The intermediate presentational bands are Plan 5's. |
 | 8 | §5.2 mentions hourly and daily rollups; no interface, table or plan owns them. | Not built here. `presence_sample` is partitioned monthly so a rollup can later work on whole partitions. |
 | 9 | `Game.Slug` is stored but nothing says who mints it. | The schema enforces uniqueness; minting belongs to Plan 3's identity matcher, which is what creates games. |
-| 10 | `WhoReading.Unread` is `new(WhoConfidence.Unknown)` and record equality makes it *indistinguishable* from a WHO that was sent and could not be parsed. | `PresenceWriter` picks its `unmeasurable_reason` from `MsspVia` instead. **Recommended Plan 1 follow-up:** give `WhoReading` a way to say "attempted". |
+| 10 | `WhoReading.Unread` was `new(WhoConfidence.Unknown)`, and record equality made "we never sent WHO" indistinguishable from "we sent WHO and could not read the answer" — so `PresenceWriter` could not tell §5.4's own named bug case from never having asked. | **Fixed at source in Plan 01; the workaround here is withdrawn.** `WhoConfidence` gains `NotAttempted` as its *zero* value, so a default-constructed reading claims nothing; `WhoReading` gains the `NotAttempted` and `Unreadable` statics and a `WasAttempted` predicate, and `WhoReading.Unread` no longer exists. Task 15's `PresenceWriter` reads `Who.Confidence` directly and **derives** the reason from it — `MsspVia` no longer enters the decision at all. `PresenceWriterTests.NeverHavingAskedAndAskingAndFailingAreDifferentReasons` is the pin that stops it regressing. |
 | 11 | The no-"uptime" rule collides with MSSP's own `UPTIME` variable. | The rule binds schema *identifiers*. `UPTIME` may appear as a field *value* in `game_field.field`; the test greps `information_schema.columns` only. |
 
 ---
@@ -3083,6 +3089,8 @@ git commit -m "feat(storage): availability as intervals, with at most one open p
 ### Task 10: `0005_game_endpoint.sql` and `NpgsqlEndpointRepository` (spec §5.5)
 
 **Files:**
+- Create: `src/MUI.Catalog/HostName.cs`
+- Create: `tests/MUI.Catalog.Tests/HostNameTests.cs`
 - Create: `src/MUI.Storage/Migrations/0005_game_endpoint.sql`
 - Modify: `src/MUI.Storage/Repositories.cs`
 - Create: `src/MUI.Storage/NpgsqlEndpointRepository.cs`
@@ -3091,17 +3099,31 @@ git commit -m "feat(storage): availability as intervals, with at most one open p
 **Interfaces:**
 - Consumes: `GameEndpoint`, `EndpointKind`, `EndpointState` (Task 3); `SqlEnums` (Task 6); `GameSeed` (Task 8).
 - Produces:
+  - `static class MUI.Catalog.HostName` with `string Normalize(string host)`
   - `interface MUI.Storage.IEndpointRepository` with
     `Task<IReadOnlyList<GameEndpoint>> ForGameAsync(Guid gameId, CancellationToken ct)`,
     `Task<GameEndpoint?> ByAddressAsync(string host, int port, CancellationToken ct)`,
     `Task UpsertAsync(GameEndpoint endpoint, CancellationToken ct)`
   - `sealed class MUI.Storage.NpgsqlEndpointRepository(NpgsqlDataSource source) : IEndpointRepository`
 
+**Why a host has one spelling, decided here.** `ByAddressAsync` is §7.3's strongest identity signal and
+the query that decides whether a host re-links to a game we have or becomes a new one. If `host` can be
+stored two ways then `MUD.Example.ORG` and `mud.example.org` are two rows, the unique index on
+`(host, port)` does not stop it, and the second spelling mints a duplicate endpoint — and through Plan
+03's identity matcher, a duplicate *game*. That is precisely the failure §7.3 exists to prevent.
+
+The fix is **one canonical form, not a lenient comparison.** `HostName.Normalize` produces it, both
+ends of this repository call it, the schema refuses anything else, and every comparison is then
+ordinal — which is also the only kind an index can serve. A case-insensitive comparison would have
+papered over the same problem while leaving two rows in the table.
+
 - [ ] **Step 1: Write the failing test**
 
 `tests/MUI.Storage.Tests/EndpointRepositoryTests.cs`:
 
 ```csharp
+using Dapper;
+
 using MUI.Catalog;
 using MUI.Storage.Tests.Support;
 
@@ -3109,7 +3131,8 @@ namespace MUI.Storage.Tests;
 
 /// <summary>
 /// Spec §5.5: endpoints are plural and historical, so a game that moves does not become unfindable
-/// and a referral pointing at an old address re-links rather than minting a duplicate.
+/// and a referral pointing at an old address re-links rather than minting a duplicate — which it can
+/// only do if two spellings of one host are one row (spec §7.3).
 /// </summary>
 public class EndpointRepositoryTests
 {
@@ -3219,15 +3242,227 @@ public class EndpointRepositoryTests
             Endpoint(gameId, "corvid.example", 0, EndpointState.Active), CancellationToken.None))
             .Throws<Npgsql.PostgresException>();
     }
+
+    /// <summary>
+    /// The spellings that must all be one endpoint. Shared, in this order, with
+    /// <c>InMemoryEndpointRepositoryTests.TheFakeCanonicalisesAHostExactlyAsTheRealRepositoryDoes</c>
+    /// in MUI.Discovery.Tests — the fake and the real thing cannot be driven by one test because one
+    /// needs a container and the other must never touch one, so the two tests are named for each other
+    /// and assert the same table.
+    /// </summary>
+    public static readonly string[] OneHostManySpellings =
+    [
+        "corvid.example",
+        "Corvid.Example",
+        "CORVID.EXAMPLE",
+        "corvid.example.",
+        "  corvid.example  ",
+    ];
+
+    [Test]
+    public async Task EverySpellingOfOneHostIsOneEndpointAndNotSeveral()
+    {
+        // The bug this prevents is silent and expensive: a second spelling arrives, the unique index
+        // on (host, port) sees a different string, a second endpoint row appears, and §7.3's endpoint
+        // signal then fails to match a game we already have. A duplicate listing is the outcome.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var gameId = await GameSeed.InsertAsync(db.DataSource);
+        var repository = new NpgsqlEndpointRepository(db.DataSource);
+
+        foreach (var spelling in OneHostManySpellings)
+        {
+            await repository.UpsertAsync(Endpoint(gameId, spelling, 4201, EndpointState.Active), CancellationToken.None);
+        }
+
+        var endpoints = await repository.ForGameAsync(gameId, CancellationToken.None);
+
+        await Assert.That(endpoints).HasCount(1);
+        await Assert.That(endpoints[0].Host).IsEqualTo("corvid.example");
+
+        foreach (var spelling in OneHostManySpellings)
+        {
+            var found = await repository.ByAddressAsync(spelling, 4201, CancellationToken.None);
+
+            await Assert.That(found).IsNotNull();
+            await Assert.That(found!.GameId).IsEqualTo(gameId);
+        }
+    }
+
+    [Test]
+    public async Task WhatIsStoredIsCharacterForCharacterWhatHostNameProduces()
+    {
+        // The repository and the helper cannot drift: this asserts the stored value against
+        // HostName.Normalize itself rather than against a literal somebody typed twice.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var repository = new NpgsqlEndpointRepository(db.DataSource);
+
+        foreach (var (spelling, index) in OneHostManySpellings.Select((s, i) => (s, i)))
+        {
+            var gameId = await GameSeed.InsertAsync(db.DataSource);
+            await repository.UpsertAsync(Endpoint(gameId, spelling, 5000 + index, EndpointState.Active), CancellationToken.None);
+
+            var endpoints = await repository.ForGameAsync(gameId, CancellationToken.None);
+
+            await Assert.That(endpoints[0].Host).IsEqualTo(HostName.Normalize(spelling));
+        }
+    }
+
+    [Test]
+    public async Task TheSchemaItselfRefusesAHostNobodyCanonicalised()
+    {
+        // Teeth, like §5.7's vocabulary constraints: a write path that forgets to normalise fails at
+        // the database instead of quietly adding a second row for a host we already know.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var gameId = await GameSeed.InsertAsync(db.DataSource);
+
+        await using var connection = await db.DataSource.OpenConnectionAsync();
+
+        await Assert.That(async () => await connection.ExecuteAsync(
+            """
+            INSERT INTO game_endpoint (game_id, host, port, kind, first_seen_at, last_seen_at, state)
+            VALUES (@gameId, 'Corvid.Example', 4201, 'telnet', now(), now(), 'active')
+            """,
+            new { gameId })).Throws<Npgsql.PostgresException>();
+    }
 }
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [ ] **Step 2: Write the failing `HostName` test**
+
+`tests/MUI.Catalog.Tests/HostNameTests.cs` — pure, no container, and the only place the rules
+themselves are asserted:
+
+```csharp
+namespace MUI.Catalog.Tests;
+
+/// <summary>
+/// One host has one spelling. Every rule here exists because two spellings of one address become two
+/// endpoints, and two endpoints become two games (spec §7.3).
+/// </summary>
+public class HostNameTests
+{
+    [Test]
+    public async Task CaseIsNotPartOfAHostName()
+    {
+        await Assert.That(HostName.Normalize("MUD.Example.ORG")).IsEqualTo("mud.example.org");
+        await Assert.That(HostName.Normalize("MUD.EXAMPLE.ORG")).IsEqualTo("mud.example.org");
+    }
+
+    [Test]
+    public async Task TheRootLabelsTrailingDotMeansTheSameName()
+    {
+        await Assert.That(HostName.Normalize("mud.example.org.")).IsEqualTo("mud.example.org");
+        await Assert.That(HostName.Normalize("MUD.Example.ORG.")).IsEqualTo("mud.example.org");
+    }
+
+    [Test]
+    public async Task SurroundingWhitespaceIsNotPartOfAHostEither()
+    {
+        await Assert.That(HostName.Normalize("  mud.example.org  ")).IsEqualTo("mud.example.org");
+    }
+
+    [Test]
+    public async Task TwoSpellingsOfOneIpLiteralAreOneAddress()
+    {
+        // The same reason MsspHost canonicalises: an import writes one form, a referral the other,
+        // and an uncanonicalised pair is two endpoints for one machine.
+        await Assert.That(HostName.Normalize("2001:0DB8:0000:0000:0000:0000:0000:0001"))
+            .IsEqualTo("2001:db8::1");
+        await Assert.That(HostName.Normalize("2001:DB8::1")).IsEqualTo("2001:db8::1");
+        await Assert.That(HostName.Normalize("[2001:db8::1]")).IsEqualTo("2001:db8::1");
+    }
+
+    [Test]
+    public async Task AlreadyCanonicalIsLeftExactlyAlone()
+    {
+        // Idempotence is what lets a CHECK constraint be written as `host = normalised host`.
+        foreach (var host in new[] { "mud.example.org", "2001:db8::1", "192.168.0.1" })
+        {
+            await Assert.That(HostName.Normalize(host)).IsEqualTo(host);
+            await Assert.That(HostName.Normalize(HostName.Normalize(host))).IsEqualTo(host);
+        }
+    }
+
+    [Test]
+    public async Task ItNormalisesRatherThanValidates()
+    {
+        // Whether a host is real, routable or worth crawling is MsspHost.IsCrawlable's question and
+        // DNS's. This one only decides how a string is spelled, so nonsense passes through unharmed
+        // rather than becoming an exception a repository would have to catch.
+        await Assert.That(HostName.Normalize("NOT A HOST")).IsEqualTo("not a host");
+        await Assert.That(HostName.Normalize("")).IsEqualTo("");
+    }
+}
+```
+
+- [ ] **Step 3: Run it to verify it fails**
 
 Run: `dotnet build MUIndex.slnx -c Release`
-Expected: FAIL — `CS0246: The type or namespace name 'NpgsqlEndpointRepository' could not be found`.
+Expected: FAIL — `CS0246: The type or namespace name 'HostName' could not be found`, and the same for
+`NpgsqlEndpointRepository`.
 
-- [ ] **Step 3: Write the migration**
+- [ ] **Step 4: Write `HostName`**
+
+`src/MUI.Catalog/HostName.cs`:
+
+```csharp
+using System.Net;
+
+namespace MUI.Catalog;
+
+/// <summary>
+/// One canonical spelling of a host, so that two ways of writing one address are one row.
+/// </summary>
+/// <remarks>
+/// <para>
+/// This exists for spec §7.3. A previously-seen endpoint is the strongest identity signal there is,
+/// and it is asked as <c>ByAddressAsync(host, port)</c> — so if <c>MUD.Example.ORG</c> and
+/// <c>mud.example.org</c> are different strings, the second one does not match a game we already
+/// have, a second endpoint row appears beside the first, and a duplicate listing is created by
+/// nothing worse than a directory that shouts. Normalising on the way in is what makes the unique
+/// index on <c>(host, port)</c> mean what it says.
+/// </para>
+/// <para>
+/// <b>It deliberately mirrors <c>MUI.Crawl.Mssp.MsspHost.Create</c>'s normalisation</b> — lower-case,
+/// trailing root dot removed, IP literals in <see cref="IPAddress"/>'s canonical form, brackets
+/// stripped — so an endpoint and a referral agree about what one host is. It is a second
+/// implementation of one rule by necessity: <c>MUI.Catalog</c> may never reference <c>MUI.Crawl</c>,
+/// and a referral arrives as an <c>MsspHost</c> while an import arrives as a bare string. The two are
+/// held together by <c>HostNormalisationAgreementTests</c> in MUI.Discovery.Tests, which is the one
+/// project that sees both — not by anybody remembering this paragraph.
+/// </para>
+/// <para>
+/// It normalises and does not validate. Whether a host is plausible, routable or worth a crawler's
+/// time is <c>MsspHost</c>'s question; answering it here would make a repository responsible for
+/// rejecting addresses, which is not its job.
+/// </para>
+/// </remarks>
+public static class HostName
+{
+    /// <summary>The one spelling of <paramref name="host"/> that is stored and compared.</summary>
+    public static string Normalize(string host)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+
+        var trimmed = host.Trim();
+
+        // A bracketed IPv6 literal, [2001:db8::1], as a URL spells it. The brackets are punctuation
+        // for a colon problem a host column does not have.
+        if (trimmed.Length > 2 && trimmed[0] == '[' && trimmed[^1] == ']')
+        {
+            trimmed = trimmed[1..^1].Trim();
+        }
+
+        // ToString() is the canonical form: it compresses IPv6 zero runs and strips leading zeroes,
+        // so two spellings of one address become one key.
+        return IPAddress.TryParse(trimmed, out var address)
+            ? address.ToString().ToLowerInvariant()
+            : trimmed.TrimEnd('.').ToLowerInvariant();
+    }
+}
+```
+
+- [ ] **Step 5: Write the migration**
 
 `src/MUI.Storage/Migrations/0005_game_endpoint.sql`:
 
@@ -3249,21 +3484,39 @@ CREATE TABLE game_endpoint (
     CONSTRAINT game_endpoint_kind_vocabulary CHECK (kind IN ('telnet', 'tls', 'websocket', 'http')),
     CONSTRAINT game_endpoint_state_vocabulary CHECK (state IN ('active', 'stale', 'gone')),
     CONSTRAINT game_endpoint_port_is_a_port CHECK (port BETWEEN 1 AND 65535),
-    CONSTRAINT game_endpoint_seen_after_first_seen CHECK (last_seen_at >= first_seen_at)
+    CONSTRAINT game_endpoint_seen_after_first_seen CHECK (last_seen_at >= first_seen_at),
+
+    -- Teeth for HostName.Normalize, in the same spirit as §5.7's vocabulary constraints. The unique
+    -- index below is only an identity guarantee if one host has one spelling: 'MUD.Example.ORG' and
+    -- 'mud.example.org' are different strings and would be two rows for one machine. Postgres cannot
+    -- check the IP-literal half of the rule, so this covers the two textual rules and the repository
+    -- covers the rest — but a write path that forgets to normalise at all now fails here, loudly,
+    -- rather than quietly minting the duplicate listing §7.3 exists to prevent.
+    CONSTRAINT game_endpoint_host_is_canonical CHECK (
+        host = lower(host) AND host = btrim(host) AND host NOT LIKE '%.')
 );
 
 -- §7.3 calls a previously-seen endpoint the strongest identity signal, and asks it of an address with
 -- no game in hand. UNIQUE rather than merely indexed, because that is only a signal if one address
 -- cannot be claimed by two games — which is exactly the duplicate-listing failure §7.3 exists to stop.
+-- Plain equality on a canonical column, so the lookup uses this index; there is no lower(host)
+-- functional index because there is nothing left for it to fold.
 CREATE UNIQUE INDEX game_endpoint_address_idx ON game_endpoint (host, port);
 ```
 
-- [ ] **Step 4: Add the interface**
+- [ ] **Step 6: Add the interface**
 
 Append to `src/MUI.Storage/Repositories.cs`:
 
 ```csharp
 /// <summary>The addresses a game answers on (spec §5.5).</summary>
+/// <remarks>
+/// Hosts are canonicalised by every implementation, on both ends: <c>UpsertAsync</c> stores
+/// <c>HostName.Normalize(endpoint.Host)</c> and <c>ByAddressAsync</c> looks up
+/// <c>HostName.Normalize(host)</c>. That is part of this interface's contract rather than one
+/// repository's private habit, because a fake that compared more leniently than the real thing would
+/// pass every test while production minted a duplicate endpoint for a host spelled in capitals.
+/// </remarks>
 public interface IEndpointRepository
 {
     Task<IReadOnlyList<GameEndpoint>> ForGameAsync(Guid gameId, CancellationToken ct);
@@ -3275,7 +3528,7 @@ public interface IEndpointRepository
 }
 ```
 
-- [ ] **Step 5: Write the repository**
+- [ ] **Step 7: Write the repository**
 
 `src/MUI.Storage/NpgsqlEndpointRepository.cs`:
 
@@ -3312,9 +3565,13 @@ public sealed class NpgsqlEndpointRepository(NpgsqlDataSource source) : IEndpoin
     {
         await using var connection = await source.OpenConnectionAsync(ct);
 
+        // Ordinal equality against a canonical column, which is what lets this use
+        // game_endpoint_address_idx. It can be ordinal only because the parameter is normalised here
+        // and the stored value was normalised on the way in — the comparison is strict precisely
+        // because the spelling was settled earlier.
         var row = await connection.QuerySingleOrDefaultAsync<EndpointRow>(new CommandDefinition(
             $"SELECT {Columns} FROM game_endpoint WHERE host = @host AND port = @port",
-            new { host, port },
+            new { host = HostName.Normalize(host), port },
             cancellationToken: ct));
 
         return row is null ? null : Map(row);
@@ -3322,6 +3579,8 @@ public sealed class NpgsqlEndpointRepository(NpgsqlDataSource source) : IEndpoin
 
     public async Task UpsertAsync(GameEndpoint endpoint, CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(endpoint);
+
         await using var connection = await source.OpenConnectionAsync(ct);
 
         // first_seen_at is when WE first saw this address, so a later sighting must never move it
@@ -3338,7 +3597,9 @@ public sealed class NpgsqlEndpointRepository(NpgsqlDataSource source) : IEndpoin
             new
             {
                 gameId = endpoint.GameId,
-                host = endpoint.Host,
+                // The one place a host becomes canonical on the way into the catalogue. The CHECK
+                // constraint would reject anything else, which is the point: this is not a courtesy.
+                host = HostName.Normalize(endpoint.Host),
                 port = endpoint.Port,
                 kind = SqlEnums.ToDb(endpoint.Kind),
                 firstSeenAt = endpoint.FirstSeenAt,
@@ -3363,19 +3624,20 @@ public sealed class NpgsqlEndpointRepository(NpgsqlDataSource source) : IEndpoin
 }
 ```
 
-- [ ] **Step 6: Run the suite to verify it passes**
+- [ ] **Step 8: Run both suites to verify they pass**
 
 Run:
 ```bash
 dotnet build MUIndex.slnx -c Release
+dotnet run -c Release --no-build --project tests/MUI.Catalog.Tests </dev/null
 dotnet run -c Release --no-build --project tests/MUI.Storage.Tests </dev/null
 ```
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add src/MUI.Storage tests/MUI.Storage.Tests
+git add src/MUI.Catalog src/MUI.Storage tests/MUI.Catalog.Tests tests/MUI.Storage.Tests
 git commit -m "feat(storage): game_endpoint, with one address belonging to at most one game"
 ```
 
@@ -4098,21 +4360,23 @@ one would be evidence the arrow had been broken.
 **Files:**
 - Modify: `src/MUI.Discovery/MUI.Discovery.csproj`
 - Create: `src/MUI.Discovery/Writers/FailureCauseMap.cs`
-- Create: `tests/MUI.Discovery.Tests/Support/FakeRepositories.cs`
+- Create: `tests/MUI.Discovery.Tests/Support/InMemoryRepositories.cs`
 - Create: `tests/MUI.Discovery.Tests/Support/ProbeFixtures.cs`
 - Create: `tests/MUI.Discovery.Tests/Writers/FailureCauseMapTests.cs`
+- Create: `tests/MUI.Discovery.Tests/InMemoryEndpointRepositoryTests.cs`
+- Create: `tests/MUI.Discovery.Tests/HostNormalisationAgreementTests.cs`
 
 **Interfaces:**
 - Consumes: `ProbeFailureCauses`, `ProbeResult`, `ProbeOutcome`, `FailureDetail`, `WhoReading`,
-  `WhoConfidence`, `MsspTransport`, `PresenceAggregates` (Plan 1); `SharpMU.Mssp.MsspData`,
-  `MsspVariables` (`SharpMU.Mssp`); `FailureCause` (Task 3); the six repository interfaces
-  (Tasks 8–12).
+  `WhoConfidence`, `MsspTransport`, `PresenceAggregates` (Plan 1); `MUI.Crawl.Mssp.MsspData`,
+  `MUI.Crawl.Mssp.MsspVariables`, `MUI.Crawl.Mssp.MsspHost.Create` (Plan 1); `FailureCause` (Task 3);
+  `HostName.Normalize` (Task 10); the six repository interfaces (Tasks 8–12).
 - Produces:
   - `static class MUI.Discovery.Writers.FailureCauseMap` with
     `FailureCause From(string probeCause)` and `string To(FailureCause cause)`
-  - `MUI.Discovery.Tests.Support.FakeGameFieldRepository`, `FakePresenceRepository`,
-    `FakeAvailabilityRepository`, `FakeGameRepository` — each implementing its interface with
-    public `List<T>` state the tests read directly
+  - `MUI.Discovery.Tests.Support.InMemoryGameFieldRepository`, `InMemoryPresenceRepository`,
+    `InMemoryAvailabilityRepository`, `InMemoryGameRepository`, `InMemoryEndpointRepository` — five
+    fakes, each implementing its interface with public `List<T>` state the tests read directly
   - `static class MUI.Discovery.Tests.Support.ProbeFixtures` with
     `ProbeResult Answered(...)` and `ProbeResult Failed(string cause, DateTimeOffset at)`
 
@@ -4259,7 +4523,7 @@ public static class FailureCauseMap
 
 - [ ] **Step 5: Write the in-memory repositories**
 
-`tests/MUI.Discovery.Tests/Support/FakeRepositories.cs`:
+`tests/MUI.Discovery.Tests/Support/InMemoryRepositories.cs`:
 
 ```csharp
 using MUI.Catalog;
@@ -4273,7 +4537,7 @@ namespace MUI.Discovery.Tests.Support;
 /// gap, extend or transition — and a container would only slow that down while proving the same
 /// thing. The schema's own constraints are proved in MUI.Storage.Tests.
 /// </summary>
-public sealed class FakeGameFieldRepository : IGameFieldRepository
+public sealed class InMemoryGameFieldRepository : IGameFieldRepository
 {
     public List<GameField> Fields { get; } = [];
 
@@ -4324,7 +4588,7 @@ public sealed class FakeGameFieldRepository : IGameFieldRepository
                 .Take(limit).ToList());
 }
 
-public sealed class FakePresenceRepository : IPresenceRepository
+public sealed class InMemoryPresenceRepository : IPresenceRepository
 {
     public List<PresenceSample> Samples { get; } = [];
 
@@ -4350,11 +4614,23 @@ public sealed class FakePresenceRepository : IPresenceRepository
     }
 }
 
-public sealed class FakeAvailabilityRepository : IAvailabilityRepository
+public sealed class InMemoryAvailabilityRepository : IAvailabilityRepository
 {
+    // AvailabilityInterval carries no origin property — the column is written by the repository and
+    // never round-trips through the record — so the fake keeps the tier beside the row, which is the
+    // only way it can answer the two cumulative questions apart.
+    private readonly HashSet<long> _imported = [];
+
     public List<AvailabilityInterval> Intervals { get; } = [];
 
+    /// <summary>
+    /// Imported reachable time a test wants to assert against without writing intervals for it. It is
+    /// added to whatever <see cref="InsertImportedAsync"/> actually wrote.
+    /// </summary>
     public TimeSpan ImportedMeasuredReachable { get; set; } = TimeSpan.Zero;
+
+    /// <summary>Whether the interval with this id was written by the imported path.</summary>
+    public bool IsImported(long intervalId) => _imported.Contains(intervalId);
 
     public Task<AvailabilityInterval?> OpenIntervalAsync(Guid gameId, CancellationToken ct) =>
         Task.FromResult(Intervals.SingleOrDefault(i => i.GameId == gameId && i.ToAt is null));
@@ -4386,16 +4662,32 @@ public sealed class FakeAvailabilityRepository : IAvailabilityRepository
             Intervals.Where(i => i.GameId == gameId && i.FromAt < to && (i.ToAt is null || i.ToAt > from))
                 .OrderBy(i => i.FromAt).ToList());
 
+    public Task<long> InsertImportedAsync(
+        Guid gameId,
+        AvailabilityState state,
+        FailureCause cause,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken ct)
+    {
+        var id = Intervals.Count + 1;
+        Intervals.Add(new AvailabilityInterval(id, gameId, state, from, to, cause));
+        _imported.Add(id);
+
+        return Task.FromResult((long)id);
+    }
+
     public Task<TimeSpan> CumulativeReachableAsync(Guid gameId, DateTimeOffset now, CancellationToken ct) =>
         Task.FromResult(AvailabilityArithmetic.CumulativeReachable(
-            Intervals.Where(i => i.GameId == gameId), now));
+            Intervals.Where(i => i.GameId == gameId && !_imported.Contains(i.Id)), now));
 
     public Task<TimeSpan> CumulativeImportedMeasuredReachableAsync(
         Guid gameId, DateTimeOffset now, CancellationToken ct) =>
-        Task.FromResult(ImportedMeasuredReachable);
+        Task.FromResult(ImportedMeasuredReachable + AvailabilityArithmetic.CumulativeReachable(
+            Intervals.Where(i => i.GameId == gameId && _imported.Contains(i.Id)), now));
 }
 
-public sealed class FakeGameRepository : IGameRepository
+public sealed class InMemoryGameRepository : IGameRepository
 {
     public List<Game> Games { get; } = [];
 
@@ -4433,16 +4725,212 @@ public sealed class FakeGameRepository : IGameRepository
                 .Take(query.Limit)
                 .ToList());
 }
+
+/// <summary>
+/// Endpoints, in memory. <see cref="ByAddressAsync"/> is the one query identity turns on — Plans 03
+/// and 04 both ask "do we already know this address" to decide whether a host merges into a game we
+/// have or becomes a fresh crawl target — so this fake mirrors the real repository exactly on all
+/// three of the rules that matter: hosts are canonicalised by <see cref="HostName.Normalize"/> and
+/// then compared <b>ordinally</b>, <c>first_seen_at</c> never moves forward, and <c>last_seen_at</c>
+/// never moves back.
+/// </summary>
+/// <remarks>
+/// The ordinal comparison is deliberate and is the whole point. A fake that compared
+/// case-insensitively would be <em>kinder</em> than the database, which is the worst direction for a
+/// disagreement to run: every test would pass while production stored a second row for
+/// <c>MUD.Example.ORG</c> and lost §7.3's endpoint signal. Leniency belongs in the normalisation, which
+/// both sides share, and nowhere else. Pinned by
+/// <c>InMemoryEndpointRepositoryTests</c>, whose assertions are those of
+/// <c>MUI.Storage.Tests.EndpointRepositoryTests</c>.
+/// </remarks>
+public sealed class InMemoryEndpointRepository : IEndpointRepository
+{
+    public List<GameEndpoint> Endpoints { get; } = [];
+
+    public Task<IReadOnlyList<GameEndpoint>> ForGameAsync(Guid gameId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<GameEndpoint>>(
+            Endpoints.Where(e => e.GameId == gameId)
+                .OrderBy(e => e.Host, StringComparer.Ordinal).ThenBy(e => e.Port).ToList());
+
+    public Task<GameEndpoint?> ByAddressAsync(string host, int port, CancellationToken ct)
+    {
+        var canonical = HostName.Normalize(host);
+
+        return Task.FromResult(Endpoints.SingleOrDefault(e =>
+            string.Equals(e.Host, canonical, StringComparison.Ordinal) && e.Port == port));
+    }
+
+    public Task UpsertAsync(GameEndpoint endpoint, CancellationToken ct)
+    {
+        var canonical = endpoint with { Host = HostName.Normalize(endpoint.Host) };
+
+        var index = Endpoints.FindIndex(e =>
+            e.GameId == canonical.GameId
+            && string.Equals(e.Host, canonical.Host, StringComparison.Ordinal)
+            && e.Port == canonical.Port);
+
+        if (index < 0)
+        {
+            Endpoints.Add(canonical);
+        }
+        else
+        {
+            // first_seen_at is when WE first saw the address and a later sighting must not move it;
+            // last_seen_at is GREATEST of the two, exactly as 0005_game_endpoint.sql's ON CONFLICT has it.
+            var incumbent = Endpoints[index];
+
+            Endpoints[index] = canonical with
+            {
+                FirstSeenAt = incumbent.FirstSeenAt,
+                LastSeenAt = canonical.LastSeenAt > incumbent.LastSeenAt ? canonical.LastSeenAt : incumbent.LastSeenAt,
+            };
+        }
+
+        return Task.CompletedTask;
+    }
+}
 ```
 
-- [ ] **Step 6: Write the fixture builder**
+- [ ] **Step 6: Pin the fake against the real repository, and both against `MsspHost`**
+
+Two small files. Neither can be folded into the other's suite: the real repository needs a container
+and `MUI.Discovery.Tests` must never start one, and `MUI.Storage.Tests` cannot see `MUI.Crawl` at all.
+So the agreement is asserted from both ends, and each test names its counterpart.
+
+`tests/MUI.Discovery.Tests/InMemoryEndpointRepositoryTests.cs`:
+
+```csharp
+using MUI.Catalog;
+using MUI.Discovery.Tests.Support;
+
+namespace MUI.Discovery.Tests;
+
+/// <summary>
+/// The fake must not be kinder than the database. These are the assertions of
+/// <c>MUI.Storage.Tests.EndpointRepositoryTests.EverySpellingOfOneHostIsOneEndpointAndNotSeveral</c>
+/// and <c>…WhatIsStoredIsCharacterForCharacterWhatHostNameProduces</c>, over the same table of
+/// spellings, run against <see cref="InMemoryEndpointRepository"/> instead. If the two ever disagree,
+/// the one that is wrong is whichever one is more forgiving.
+/// </summary>
+public class InMemoryEndpointRepositoryTests
+{
+    private static readonly DateTimeOffset Now = new(2026, 7, 30, 0, 0, 0, TimeSpan.Zero);
+
+    /// <summary>The same table as <c>EndpointRepositoryTests.OneHostManySpellings</c>, in the same order.</summary>
+    private static readonly string[] OneHostManySpellings =
+    [
+        "corvid.example",
+        "Corvid.Example",
+        "CORVID.EXAMPLE",
+        "corvid.example.",
+        "  corvid.example  ",
+    ];
+
+    private static GameEndpoint Endpoint(Guid gameId, string host, int port) =>
+        new(gameId, host, port, EndpointKind.Telnet, Now.AddYears(-1), Now, EndpointState.Active);
+
+    [Test]
+    public async Task EverySpellingOfOneHostIsOneEndpointAndNotSeveral()
+    {
+        var gameId = Guid.NewGuid();
+        var endpoints = new InMemoryEndpointRepository();
+
+        foreach (var spelling in OneHostManySpellings)
+        {
+            await endpoints.UpsertAsync(Endpoint(gameId, spelling, 4201), CancellationToken.None);
+        }
+
+        await Assert.That(endpoints.Endpoints).HasCount(1);
+
+        foreach (var spelling in OneHostManySpellings)
+        {
+            var found = await endpoints.ByAddressAsync(spelling, 4201, CancellationToken.None);
+
+            await Assert.That(found).IsNotNull();
+            await Assert.That(found!.GameId).IsEqualTo(gameId);
+        }
+    }
+
+    [Test]
+    public async Task WhatIsStoredIsCharacterForCharacterWhatHostNameProduces()
+    {
+        var endpoints = new InMemoryEndpointRepository();
+
+        await endpoints.UpsertAsync(Endpoint(Guid.NewGuid(), "MUD.Example.ORG.", 4000), CancellationToken.None);
+
+        await Assert.That(endpoints.Endpoints[0].Host).IsEqualTo(HostName.Normalize("MUD.Example.ORG."));
+        await Assert.That(endpoints.Endpoints[0].Host).IsEqualTo("mud.example.org");
+    }
+
+    [Test]
+    public async Task ADifferentHostIsStillADifferentEndpoint()
+    {
+        // The correction is one canonical form, not a lenient comparison — so once the spelling is
+        // settled, two genuinely different names stay two endpoints.
+        var gameId = Guid.NewGuid();
+        var endpoints = new InMemoryEndpointRepository();
+
+        await endpoints.UpsertAsync(Endpoint(gameId, "corvid.example", 4201), CancellationToken.None);
+        await endpoints.UpsertAsync(Endpoint(gameId, "corvid.example.org", 4201), CancellationToken.None);
+
+        await Assert.That(endpoints.Endpoints).HasCount(2);
+    }
+}
+```
+
+`tests/MUI.Discovery.Tests/HostNormalisationAgreementTests.cs` — the pin `HostName`'s doc comment
+promises. `MUI.Discovery` is the one project that sees both `MUI.Catalog` and `MUI.Crawl`, so it is
+the only place the two implementations of one rule can be compared at all:
+
+```csharp
+using MUI.Catalog;
+using MUI.Crawl.Mssp;
+
+namespace MUI.Discovery.Tests;
+
+/// <summary>
+/// <see cref="HostName.Normalize"/> and <see cref="MsspHost.Create"/> canonicalise a host twice,
+/// because <c>MUI.Catalog</c> may never reference <c>MUI.Crawl</c> and both layers need the answer.
+/// Two implementations of one rule drift unless something compares them, and if they drift then a
+/// referral and an import disagree about what one host is — which is a duplicate endpoint, and then a
+/// duplicate game (spec §7.3).
+/// </summary>
+public class HostNormalisationAgreementTests
+{
+    [Test]
+    public async Task TheTwoImplementationsAgreeOnEveryHostEitherWillSee()
+    {
+        string[] hosts =
+        [
+            "mud.example.org",
+            "MUD.Example.ORG",
+            "MUD.EXAMPLE.ORG.",
+            "  mud.example.org.  ",
+            "2001:0DB8:0000:0000:0000:0000:0000:0001",
+            "2001:DB8::1",
+            "[2001:db8::1]",
+            "203.0.113.7",
+        ];
+
+        foreach (var host in hosts)
+        {
+            var referral = MsspHost.Create(host, 4201);
+
+            await Assert.That(referral).IsNotNull();
+            await Assert.That(HostName.Normalize(host)).IsEqualTo(referral!.Host);
+        }
+    }
+}
+```
+
+- [ ] **Step 7: Write the fixture builder**
 
 `tests/MUI.Discovery.Tests/Support/ProbeFixtures.cs`:
 
 ```csharp
 using MUI.Crawl;
 
-using SharpMU.Mssp;
+using MUI.Crawl.Mssp;
 
 namespace MUI.Discovery.Tests.Support;
 
@@ -4452,6 +4940,13 @@ namespace MUI.Discovery.Tests.Support;
 /// Plan 1's captured JSON deserialises into this same type, so a fixture here and a real capture are
 /// interchangeable inputs.
 /// </summary>
+/// <remarks>
+/// The <c>who</c> default is <see cref="WhoReading.NotAttempted"/> — the same default
+/// <see cref="ProbeResult.Who"/> itself carries — so a fixture that says nothing about WHO stands for
+/// a probe that never asked, and not for one that asked and failed. Task 15 turns on exactly that
+/// difference, so a fixture meaning "we asked and could not read the answer" must say
+/// <c>who: WhoReading.Unreadable</c> out loud.
+/// </remarks>
 public static class ProbeFixtures
 {
     public static readonly DateTimeOffset At = new(2026, 7, 30, 12, 0, 0, TimeSpan.Zero);
@@ -4477,7 +4972,7 @@ public static class ProbeFixtures
             Outcome = ProbeOutcome.Answered,
             OfferedOptions = offered ?? new HashSet<string>(StringComparer.Ordinal),
             Banner = banner,
-            Who = who ?? WhoReading.Unread,
+            Who = who ?? WhoReading.NotAttempted,
             Mssp = mssp ?? MsspData.Empty,
             MsspVia = msspVia,
             TlsObserved = tlsObserved,
@@ -4498,16 +4993,17 @@ public static class ProbeFixtures
 }
 ```
 
-- [ ] **Step 7: Run the suite to verify it passes**
+- [ ] **Step 8: Run the suite to verify it passes**
 
 Run:
 ```bash
 dotnet build MUIndex.slnx -c Release
 dotnet run -c Release --no-build --project tests/MUI.Discovery.Tests </dev/null
 ```
-Expected: PASS — 4 new tests plus the existing `ReferralEdgeTests`.
+Expected: PASS — 8 new tests (4 `FailureCauseMapTests`, 3 `InMemoryEndpointRepositoryTests`, 1
+`HostNormalisationAgreementTests`) plus the existing `ReferralEdgeTests`.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add src/MUI.Discovery tests/MUI.Discovery.Tests
@@ -4520,17 +5016,20 @@ git commit -m "feat(discovery): the failure-cause map, plus fakes and ProbeResul
 
 **Files:**
 - Create: `src/MUI.Discovery/Writers/FieldReconciler.cs`
+- Create: `tests/MUI.Discovery.Tests/Support/ManualTimeProvider.cs`
 - Create: `tests/MUI.Discovery.Tests/Writers/FieldReconcilerTests.cs`
 
 **Interfaces:**
 - Consumes: `IGameFieldRepository` (Task 12), `SourcePrecedence` (Task 4), `FieldRegistry`,
   `CapabilityFields` (Task 2), `FieldConfidences`, `GameField`, `FieldChange` (Task 3),
-  `ProbeResult` (Plan 1), `MsspData`, `MsspVariables` (`SharpMU.Mssp`), `ProbeFixtures`,
-  `FakeGameFieldRepository` (Task 13).
+  `ProbeResult`, `MsspData`, `MsspVariables` (Plan 1, `MUI.Crawl.Mssp`), `ProbeFixtures`,
+  `InMemoryGameFieldRepository` (Task 13).
 - Produces:
   - `sealed record MUI.Discovery.Writers.FieldReconciliation(int Confirmed, int Changed, int Rejected)`
   - `sealed class MUI.Discovery.Writers.FieldReconciler(IGameFieldRepository fields, TimeProvider time)`
     with `Task<FieldReconciliation> ApplyAsync(Guid gameId, ProbeResult result, CancellationToken ct)`
+  - `sealed class MUI.Discovery.Tests.Support.ManualTimeProvider(DateTimeOffset? start = null) : TimeProvider`
+    with `void Advance(TimeSpan by)`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -4542,7 +5041,7 @@ using MUI.Crawl;
 using MUI.Discovery.Tests.Support;
 using MUI.Discovery.Writers;
 
-using SharpMU.Mssp;
+using MUI.Crawl.Mssp;
 
 namespace MUI.Discovery.Tests.Writers;
 
@@ -4554,10 +5053,10 @@ public class FieldReconcilerTests
 {
     private static readonly Guid AGame = Guid.Parse("6f1d5b1e-0c4a-4a4e-9b7a-6a1d5c2f8b31");
 
-    private static (FieldReconciler Reconciler, FakeGameFieldRepository Fields, FakeTimeProvider Time) Subject()
+    private static (FieldReconciler Reconciler, InMemoryGameFieldRepository Fields, ManualTimeProvider Time) Subject()
     {
-        var time = new FakeTimeProvider(ProbeFixtures.At);
-        var fields = new FakeGameFieldRepository();
+        var time = new ManualTimeProvider(ProbeFixtures.At);
+        var fields = new InMemoryGameFieldRepository();
 
         return (new FieldReconciler(fields, time), fields, time);
     }
@@ -4755,15 +5254,24 @@ public class FieldReconcilerTests
 }
 ```
 
-Add the small clock the tests use, `tests/MUI.Discovery.Tests/Support/FakeTimeProvider.cs`:
+Add the small clock the tests use, `tests/MUI.Discovery.Tests/Support/ManualTimeProvider.cs`:
 
 ```csharp
 namespace MUI.Discovery.Tests.Support;
 
-/// <summary>A clock the test moves by hand, so "twenty probes an hour apart" is a loop and not a wait.</summary>
-public sealed class FakeTimeProvider(DateTimeOffset now) : TimeProvider
+/// <summary>
+/// A clock the test moves by hand, so "twenty probes an hour apart" is a loop and not a wait.
+/// </summary>
+/// <remarks>
+/// Deliberately not named <c>FakeTimeProvider</c>, to avoid being mistaken for
+/// <c>Microsoft.Extensions.Time.Testing.FakeTimeProvider</c>, which is a real type this project does
+/// not reference. Plan 03 builds on the same file and the same name, extending it with a working
+/// <c>CreateTimer</c>; whichever plan lands second extends this file rather than declaring a second
+/// clock beside it.
+/// </remarks>
+public sealed class ManualTimeProvider(DateTimeOffset? start = null) : TimeProvider
 {
-    private DateTimeOffset _now = now;
+    private DateTimeOffset _now = start ?? new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     public override DateTimeOffset GetUtcNow() => _now;
 
@@ -4787,7 +5295,7 @@ using MUI.Catalog;
 using MUI.Crawl;
 using MUI.Storage;
 
-using SharpMU.Mssp;
+using MUI.Crawl.Mssp;
 
 /// <summary>What one probe did to one game's fields.</summary>
 public sealed record FieldReconciliation(int Confirmed, int Changed, int Rejected);
@@ -4964,14 +5472,25 @@ git commit -m "feat(discovery): the field reconciler — confirm, change or reje
 unmeasurable probe and a failed probe is, per `CLAUDE.md`, "the worst single bug this codebase could
 ship".
 
+**The unmeasurable row's `unmeasurable_reason` is derived from `WhoReading.Confidence`, never from
+`MsspVia`.** An earlier draft of this task inferred "did we ask WHO?" from whether MSSP had answered,
+because `WhoReading.Unread` was `new(WhoConfidence.Unknown)` and record equality made *never asked*
+and *asked and could not read the answer* the same value. Plan 01 fixed that at source (contract
+addendum §3): `WhoConfidence.NotAttempted` is now the enum's zero, `WhoReading` exposes the
+`NotAttempted` and `Unreadable` statics and a `WasAttempted` predicate, and `WhoReading.Unread` is
+gone. So this writer asks the reading what happened and takes the answer. That matters because the
+old inference was **wrong on a common shape**: a game that answers MSSP without a `PLAYERS` variable
+*and* has a customised `DOING` header got `no_mssp_players` when §5.4 calls it `who_unparseable`.
+
 **Files:**
 - Create: `src/MUI.Discovery/Writers/PresenceWriter.cs`
 - Create: `tests/MUI.Discovery.Tests/Writers/PresenceWriterTests.cs`
 
 **Interfaces:**
 - Consumes: `IPresenceRepository` (Task 8), `PresenceSample`, `PresenceSource`, `UnmeasurableReasons`
-  (Task 3), `ProbeResult`, `WhoReading`, `WhoConfidence`, `MsspTransport`, `PresenceAggregates`
-  (Plan 1), `ProbeFixtures`, `FakePresenceRepository` (Task 13).
+  (Task 3), `ProbeResult`, `WhoReading` (its `NotAttempted`/`Unreadable` statics, `WasAttempted` and
+  `HasCount`), `WhoConfidence` (four members, `NotAttempted` first), `PresenceAggregates` (Plan 1),
+  `ProbeFixtures`, `InMemoryPresenceRepository` (Task 13). **Not `MsspTransport`** — see below.
 - Produces:
   - `enum MUI.Discovery.Writers.PresenceOutcome { Counted, Unmeasurable, NoSample }`
   - `sealed class MUI.Discovery.Writers.PresenceWriter(IPresenceRepository presence)` with
@@ -4987,7 +5506,7 @@ using MUI.Crawl;
 using MUI.Discovery.Tests.Support;
 using MUI.Discovery.Writers;
 
-using SharpMU.Mssp;
+using MUI.Crawl.Mssp;
 
 namespace MUI.Discovery.Tests.Writers;
 
@@ -4999,9 +5518,9 @@ public class PresenceWriterTests
 {
     private static readonly Guid AGame = Guid.Parse("6f1d5b1e-0c4a-4a4e-9b7a-6a1d5c2f8b31");
 
-    private static (PresenceWriter Writer, FakePresenceRepository Presence) Subject()
+    private static (PresenceWriter Writer, InMemoryPresenceRepository Presence) Subject()
     {
-        var presence = new FakePresenceRepository();
+        var presence = new InMemoryPresenceRepository();
 
         return (new PresenceWriter(presence), presence);
     }
@@ -5043,11 +5562,15 @@ public class PresenceWriterTests
     [Test]
     public async Task RowTwo_ProbeSucceededAndNoCountWasObtainable()
     {
+        // We never asked WHO — an owner override, or ProbeOptions.SendWho off — and MSSP answered
+        // without a PLAYERS variable. There is nothing to reproach the WHO parser with, so the
+        // reason names the thing that was actually missing.
         var (writer, presence) = Subject();
 
         var outcome = await writer.ApplyAsync(
             AGame,
-            ProbeFixtures.Answered(ProbeFixtures.Mssp(("GENRE", "Fantasy"))),
+            ProbeFixtures.Answered(
+                ProbeFixtures.Mssp(("GENRE", "Fantasy")), who: WhoReading.NotAttempted),
             CancellationToken.None);
 
         await Assert.That(outcome).IsEqualTo(PresenceOutcome.Unmeasurable);
@@ -5075,11 +5598,15 @@ public class PresenceWriterTests
         // WhoConfidence.Unknown and no MSSP PLAYERS — and if that wrote nothing, the heatmap would
         // draw it permanently dark while it ran fine. It must write a row, and that row must be
         // distinguishable from the failed-probe case, which writes none.
+        //
+        // The fixture keeps the default MsspVia (TelnetOption70) deliberately: MSSP answered, and it
+        // simply had no PLAYERS. The reason must still be who_unparseable, because it is the WHO
+        // reading's own confidence that says what went wrong — not which transport MSSP arrived on.
         var (writer, presence) = Subject();
 
         var running = await writer.ApplyAsync(
             AGame,
-            ProbeFixtures.Answered(who: WhoReading.Unread, msspVia: MsspTransport.None),
+            ProbeFixtures.Answered(who: WhoReading.Unreadable),
             CancellationToken.None);
         var dark = await writer.ApplyAsync(
             AGame, ProbeFixtures.Failed(ProbeFailureCauses.Refused), CancellationToken.None);
@@ -5087,6 +5614,60 @@ public class PresenceWriterTests
         await Assert.That(running).IsEqualTo(PresenceOutcome.Unmeasurable);
         await Assert.That(dark).IsEqualTo(PresenceOutcome.NoSample);
         await Assert.That(presence.Samples).HasCount(1);
+        await Assert.That(presence.Samples[0].UnmeasurableReason).IsEqualTo(UnmeasurableReasons.WhoUnparseable);
+        await Assert.That(presence.Samples[0].Source).IsEqualTo(PresenceSource.Who);
+    }
+
+    [Test]
+    public async Task NeverHavingAskedAndAskingAndFailingAreDifferentReasons()
+    {
+        // The pin for the fix Plan 01 made at source (gap 10). Both probes are identical except for
+        // the WHO reading: same MSSP transport, same MSSP variables, no PLAYERS in either. Before
+        // WhoConfidence.NotAttempted existed these two were the same value and this test could not
+        // have been written; if the two reasons ever coincide again, the distinction has been lost.
+        var (writer, presence) = Subject();
+
+        var neverAsked = await writer.ApplyAsync(
+            AGame,
+            ProbeFixtures.Answered(
+                ProbeFixtures.Mssp(("GENRE", "Fantasy")), who: WhoReading.NotAttempted),
+            CancellationToken.None);
+        var askedAndFailed = await writer.ApplyAsync(
+            AGame,
+            ProbeFixtures.Answered(
+                ProbeFixtures.Mssp(("GENRE", "Fantasy")), who: WhoReading.Unreadable),
+            CancellationToken.None);
+
+        await Assert.That(neverAsked).IsEqualTo(PresenceOutcome.Unmeasurable);
+        await Assert.That(askedAndFailed).IsEqualTo(PresenceOutcome.Unmeasurable);
+
+        await Assert.That(WhoReading.NotAttempted.WasAttempted).IsFalse();
+        await Assert.That(WhoReading.Unreadable.WasAttempted).IsTrue();
+        await Assert.That(WhoReading.NotAttempted).IsNotEqualTo(WhoReading.Unreadable);
+
+        await Assert.That(presence.Samples).HasCount(2);
+        await Assert.That(presence.Samples[0].UnmeasurableReason)
+            .IsEqualTo(UnmeasurableReasons.NoMsspPlayers);
+        await Assert.That(presence.Samples[1].UnmeasurableReason)
+            .IsEqualTo(UnmeasurableReasons.WhoUnparseable);
+        await Assert.That(presence.Samples[0].UnmeasurableReason)
+            .IsNotEqualTo(presence.Samples[1].UnmeasurableReason);
+    }
+
+    [Test]
+    public async Task AWhoWeReadButCouldNotCountIsAnAttemptedWhoAndNotAMissingOne()
+    {
+        // The third arm: the parser got far enough to classify the answer but produced no number,
+        // so HasCount is false while WasAttempted is true. That is a WHO failure, not an absent WHO.
+        var (writer, presence) = Subject();
+
+        var outcome = await writer.ApplyAsync(
+            AGame,
+            ProbeFixtures.Answered(who: new WhoReading(WhoConfidence.Count)),
+            CancellationToken.None);
+
+        await Assert.That(outcome).IsEqualTo(PresenceOutcome.Unmeasurable);
+        await Assert.That(presence.Samples[0].Count).IsNull();
         await Assert.That(presence.Samples[0].UnmeasurableReason).IsEqualTo(UnmeasurableReasons.WhoUnparseable);
     }
 
@@ -5111,15 +5692,19 @@ public class PresenceWriterTests
     [Test]
     public async Task MsspPlayersIsUsedWhenWhoCouldNotBeRead()
     {
+        // A declared count is still a count. The WHO reading having failed changes where the number
+        // came from and therefore its label — it does not turn a filled cell into a hatched one.
         var (writer, presence) = Subject();
 
         await writer.ApplyAsync(
             AGame,
-            ProbeFixtures.Answered(ProbeFixtures.Mssp((MsspVariables.Players, "99"))),
+            ProbeFixtures.Answered(
+                ProbeFixtures.Mssp((MsspVariables.Players, "99")), who: WhoReading.Unreadable),
             CancellationToken.None);
 
         await Assert.That(presence.Samples[0].Count).IsEqualTo(99);
         await Assert.That(presence.Samples[0].Source).IsEqualTo(PresenceSource.Mssp);
+        await Assert.That(presence.Samples[0].UnmeasurableReason).IsNull();
     }
 
     [Test]
@@ -5218,6 +5803,13 @@ public enum PresenceOutcome
 /// header has been customised past our parser writes nothing under that reading, which is identical
 /// on screen to downtime: the game renders as permanently dark while running perfectly.
 /// </para>
+/// <para>
+/// Which <em>reason</em> the middle case carries is read off <see cref="WhoReading.Confidence"/> and
+/// nothing else. That is only possible because Plan 01 gave <see cref="WhoConfidence"/> a
+/// <c>NotAttempted</c> member: while "we never asked" and "we asked and could not read the answer"
+/// were the same value, this writer had to guess the difference from <c>MsspVia</c> — which is a fact
+/// about a different protocol and was wrong whenever MSSP answered but omitted <c>PLAYERS</c>.
+/// </para>
 /// </remarks>
 public sealed class PresenceWriter(IPresenceRepository presence)
 {
@@ -5254,13 +5846,22 @@ public sealed class PresenceWriter(IPresenceRepository presence)
             return PresenceOutcome.Counted;
         }
 
-        // Row two. Which reason applies is read off whether MSSP answered at all, because a
-        // WhoReading that was never attempted and one that could not be parsed are the same value
-        // (WhoReading.Unread is a record equal to any other Unknown reading) and cannot be told
-        // apart here. See the plan's gap table, entry 10.
-        var consultedMssp = result.MsspVia is not MsspTransport.None;
-        var reason = consultedMssp ? UnmeasurableReasons.NoMsspPlayers : UnmeasurableReasons.WhoUnparseable;
-        var source = consultedMssp ? PresenceSource.Mssp : PresenceSource.Who;
+        // Row two, and the reason is *derived* rather than guessed. Neither measurement produced a
+        // number, so the question is which one we are entitled to blame — and the WHO reading says
+        // so itself:
+        //
+        //   attempted (Unknown, or a confidence with no count) => we asked and could not read the
+        //     answer. That is §5.4's middle row by name: who_unparseable.
+        //   not attempted                                      => there is nothing to blame the WHO
+        //     parser for. What was missing is a declared count: no_mssp_players.
+        //
+        // MsspVia deliberately plays no part. It reports which transport MSSP arrived on, which is a
+        // fact about a different protocol; reading intent out of it was this writer's workaround
+        // while WhoConfidence had no NotAttempted member, and it mislabelled every probe where MSSP
+        // answered without a PLAYERS variable. See the plan's gap table, entry 10.
+        var attemptedWho = result.Who.WasAttempted;
+        var reason = attemptedWho ? UnmeasurableReasons.WhoUnparseable : UnmeasurableReasons.NoMsspPlayers;
+        var source = attemptedWho ? PresenceSource.Who : PresenceSource.Mssp;
 
         await presence.AppendAsync(
             new PresenceSample(gameId, result.ObservedAt, null, source, reason, null), ct);
@@ -5304,7 +5905,7 @@ git commit -m "feat(discovery): the presence writer, keeping the three states an
 **Interfaces:**
 - Consumes: `IAvailabilityRepository` (Task 9), `AvailabilityState`, `FailureCause` (Task 3),
   `FailureCauseMap` (Task 13), `ProbeResult`, `ProbeFailureCauses` (Plan 1), `ProbeFixtures`,
-  `FakeAvailabilityRepository` (Task 13).
+  `InMemoryAvailabilityRepository` (Task 13).
 - Produces:
   - `sealed record MUI.Discovery.Writers.AvailabilityOutcome(AvailabilityState State, FailureCause Cause, bool OpenedNewInterval)`
   - `sealed class MUI.Discovery.Writers.AvailabilityWriter(IAvailabilityRepository availability)` with
@@ -5330,9 +5931,9 @@ public class AvailabilityWriterTests
 {
     private static readonly Guid AGame = Guid.Parse("6f1d5b1e-0c4a-4a4e-9b7a-6a1d5c2f8b31");
 
-    private static (AvailabilityWriter Writer, FakeAvailabilityRepository Availability) Subject()
+    private static (AvailabilityWriter Writer, InMemoryAvailabilityRepository Availability) Subject()
     {
-        var availability = new FakeAvailabilityRepository();
+        var availability = new InMemoryAvailabilityRepository();
 
         return (new AvailabilityWriter(availability), availability);
     }
@@ -5567,6 +6168,21 @@ git commit -m "feat(discovery): availability as intervals, with only a cause cha
   - `sealed class MUI.Discovery.Writers.ProbeIngestor(FieldReconciler fields, PresenceWriter presence, AvailabilityWriter availability)`
     with `Task<IngestOutcome> IngestAsync(Guid gameId, ProbeResult result, CancellationToken ct)`
 
+**What may be handed to this seam, and what may not.** §7.2 gained a subsection on `main` (`dfff339`,
+not yet on this branch) putting the SSRF gate on the *resolved address* rather than the name, and one
+of its bullets is a fact about **this** class's input: **a refusal writes no availability sample.** We
+declined to dial; we did not measure; recording it as downtime would put our own security policy into
+a game's public reachability history — §5.4's unparseable-WHO-as-zero-players lie, one table over.
+
+Nothing in this plan changes as a result, and that is the finding rather than an omission.
+`ProbeOutcome` has exactly two members and both of them mean the socket was opened, so a refusal has
+no representation a `ProbeResult` can carry and cannot reach these writers by any honest route. The
+one way it *could* arrive is dressed as `ProbeResult.Failed(ProbeFailureCauses.Refused, …)` — note
+that `FailureCause.Refused` means the far end sent an RST, and reusing it for a policy refusal would
+be a second lie on top of the first. This class cannot tell the two apart after the fact, so the guard
+belongs to whatever owns the dial (Plans 01 and 03), and the invariant is written into
+`ProbeIngestor`'s own doc comment so an implementer meets it at the seam it constrains.
+
 - [ ] **Step 1: Write the failing test**
 
 `tests/MUI.Discovery.Tests/Writers/ProbeIngestorTests.cs`:
@@ -5577,7 +6193,7 @@ using MUI.Crawl;
 using MUI.Discovery.Tests.Support;
 using MUI.Discovery.Writers;
 
-using SharpMU.Mssp;
+using MUI.Crawl.Mssp;
 
 namespace MUI.Discovery.Tests.Writers;
 
@@ -5591,16 +6207,16 @@ public class ProbeIngestorTests
 
     private sealed record Rig(
         ProbeIngestor Ingestor,
-        FakeGameFieldRepository Fields,
-        FakePresenceRepository Presence,
-        FakeAvailabilityRepository Availability);
+        InMemoryGameFieldRepository Fields,
+        InMemoryPresenceRepository Presence,
+        InMemoryAvailabilityRepository Availability);
 
     private static Rig Subject()
     {
-        var fields = new FakeGameFieldRepository();
-        var presence = new FakePresenceRepository();
-        var availability = new FakeAvailabilityRepository();
-        var time = new FakeTimeProvider(ProbeFixtures.At);
+        var fields = new InMemoryGameFieldRepository();
+        var presence = new InMemoryPresenceRepository();
+        var availability = new InMemoryAvailabilityRepository();
+        var time = new ManualTimeProvider(ProbeFixtures.At);
 
         return new Rig(
             new ProbeIngestor(
@@ -5701,9 +6317,23 @@ public sealed record IngestOutcome(
 /// writers, none of which knows a socket exists.
 /// </summary>
 /// <remarks>
+/// <para>
 /// The order is deliberate but not load-bearing — the three touch disjoint tables. Fields first
 /// because it is the only one that reads before it writes, presence second, availability last so
 /// that a transition is recorded after the evidence for it has been stored.
+/// </para>
+/// <para>
+/// <b>Everything reaching this method is a measurement, and a caller must not hand it anything else.</b>
+/// <see cref="ProbeOutcome"/> has two members and both of them mean we dialled: <c>Answered</c>, and
+/// <c>Failed</c>, which is a socket that was opened and did not work. A dial the crawler <em>declined
+/// to make</em> — §7.2's refusal, when the address a name resolved to is not globally routable — is
+/// neither, and there is deliberately no third member for it. Manufacturing a
+/// <c>ProbeResult.Failed(ProbeFailureCauses.Refused, …)</c> for one would write an unreachable
+/// interval and put our own security policy into a game's public reachability history: the same class
+/// of lie as recording an unparseable WHO as zero players (§5.4). This class cannot defend against it
+/// — a refusal that has already been dressed as a failure is indistinguishable here — so the guard
+/// lives in whatever owns the dial, and this paragraph is the contract it is guarding.
+/// </para>
 /// </remarks>
 public sealed class ProbeIngestor(
     FieldReconciler fields,
@@ -5748,7 +6378,7 @@ git commit -m "feat(discovery): the probe ingestor, fanning one result out to th
 **Interfaces:**
 - Consumes: `IGameRepository`, `GameQuery` (Task 11), `IAvailabilityRepository` (Task 9),
   `ArchivePolicy` (existing), `Game`, `LifecycleState`, `AvailabilityState` (Task 3),
-  `FakeGameRepository`, `FakeAvailabilityRepository`, `FakeTimeProvider` (Tasks 13–14).
+  `InMemoryGameRepository`, `InMemoryAvailabilityRepository`, `ManualTimeProvider` (Tasks 13–14).
 - Produces:
   - `sealed class MUI.Discovery.Writers.ArchiveSweeper(IGameRepository games, IAvailabilityRepository availability, TimeProvider time)`
     with `Task<int> SweepAsync(CancellationToken ct)`
@@ -5777,14 +6407,14 @@ public class ArchiveSweeperTests
 {
     private static readonly DateTimeOffset Now = new(2026, 7, 30, 0, 0, 0, TimeSpan.Zero);
 
-    private sealed record Rig(ArchiveSweeper Sweeper, FakeGameRepository Games, FakeAvailabilityRepository Availability);
+    private sealed record Rig(ArchiveSweeper Sweeper, InMemoryGameRepository Games, InMemoryAvailabilityRepository Availability);
 
     private static Rig Subject()
     {
-        var games = new FakeGameRepository();
-        var availability = new FakeAvailabilityRepository();
+        var games = new InMemoryGameRepository();
+        var availability = new InMemoryAvailabilityRepository();
 
-        return new Rig(new ArchiveSweeper(games, availability, new FakeTimeProvider(Now)), games, availability);
+        return new Rig(new ArchiveSweeper(games, availability, new ManualTimeProvider(Now)), games, availability);
     }
 
     private static Game Dark(Guid id, double reachableDays, double darkDays, bool isClaimed = false) =>
@@ -5792,7 +6422,7 @@ public class ArchiveSweeperTests
             Now.AddDays(-(reachableDays + darkDays)), Now.AddDays(-darkDays), ArchivedAt: null);
 
     private static async Task GiveHistory(
-        FakeAvailabilityRepository availability, Guid id, double reachableDays, double darkDays)
+        InMemoryAvailabilityRepository availability, Guid id, double reachableDays, double darkDays)
     {
         var start = Now.AddDays(-(reachableDays + darkDays));
         var wentDark = Now.AddDays(-darkDays);
@@ -6108,9 +6738,12 @@ git commit -m "feat(discovery): tiered archiving, fed cumulative reachable time,
 
 **Not covered, deliberately, and stated in the gap table:** §5.2's hourly/daily rollups (no
 interface, table or plan owns them; the monthly partitioning is the groundwork), §7.4's
-`active → quiet → dark` bands (the spec gives no thresholds; Plan 5's), slug minting (Plan 3's
-identity matcher), and the imported-interval *write* path (Plan 4's — `AvailabilityInterval` carries
-no `origin` property, so Plan 4 will need an `InsertImportedAsync` on `IAvailabilityRepository`).
+`active → quiet → dark` bands (the spec gives no thresholds; Plan 5's) and slug minting (Plan 3's
+identity matcher). The imported-interval *write* path is **not** in that list any more: Task 9
+declares `IAvailabilityRepository.InsertImportedAsync` and implements it, because `AvailabilityInterval`
+carries no `origin` property and the column has to be written from somewhere that knows about it.
+Plan 4's `MeasuredHistorySink` calls it instead of `OpenAsync`, which is what keeps a third party's
+history at half weight rather than full.
 
 **2. Placeholder scan.** No "TBD", no "similar to Task N", no "add error handling". Every code step
 carries the full text of the file or the exact fragment to insert. The one instruction that names
@@ -6121,7 +6754,9 @@ that already exists in the repository and is already pinned by its own tests.
 constructed in Task 14 and destructured in Task 17; `AvailabilityOutcome(State, Cause, OpenedNewInterval)`
 likewise; `PresenceOutcome` values `Counted`/`Unmeasurable`/`NoSample` used identically in Tasks 15
 and 17; `CapabilityFields.Measured`/`Declared` used in Tasks 2, 3, 4, 11 and 14 with the same
-spelling; `SqlEnums.ToDb`/`Parse` used in Tasks 6, 8, 9, 10, 11 and 12; `FakeTimeProvider` introduced
+spelling; `SqlEnums.ToDb`/`Parse` used in Tasks 6, 8, 9, 10, 11 and 12; `HostName.Normalize`
+introduced in Task 10 and called by both implementations of `IEndpointRepository` (Tasks 10 and 13) and
+by Plan 04's; `ManualTimeProvider` introduced
 in Task 14 and reused in Tasks 17 and 18; `GameSeed.InsertAsync` introduced in Task 8 and reused in
 Tasks 9, 10 and 12; `PostgresFixture.MigratedAsync` introduced in Task 6 and used from Task 7 on.
 `FieldSource`'s declared order is read as the ladder in exactly one place (`SourcePrecedence.RankOf`)
@@ -6131,4 +6766,85 @@ One consistency hazard is worth naming for the implementer: **`SqlEnums.ToDb` an
 constraints are two spellings of the same vocabulary and nothing but a test holds them together.**
 `MigrationRunnerTests.EveryStoredEnumMemberRoundTripsBothWays` covers the C# side and the repository
 round-trip tests cover the pairing; if a new enum member is added later, both halves move.
+
+**4. Addendum sweep — the MSSP package, and the `WhoReading` workaround.** Re-read after the contract
+addendum reversed two earlier decisions.
+
+- *No shared package.* `SharpMU.Mssp` was never published and is not coming, so `MsspData`,
+  `MsspHost`, `MsspHostScope` and `MsspVariables` are Plan 01's own types in `MUI.Crawl.Mssp`. For
+  this plan that is a `using` and a sentence: the type *names* are unchanged, this plan adds no
+  package reference and consumes them through the `MUI.Discovery` → `MUI.Crawl` arrow it already has.
+  `MsspSubnegotiationParser` is gone from the design — `TelnetNegotiationCore` 2.6.5 parses telnet
+  option 70 itself — and nothing in this plan ever named it outside the retired constraint bullet.
+- *The workaround is withdrawn.* Gap-table entry 10 no longer recommends a Plan 01 follow-up; it
+  records the fix. Task 15's `PresenceWriter` derives `unmeasurable_reason` from
+  `WhoReading.WasAttempted` and nothing else, `MsspVia` has left the decision, and three fixtures
+  that used to read `WhoReading.Unread` now say which of the two states they mean. Two tests are new:
+  `NeverHavingAskedAndAskingAndFailingAreDifferentReasons`, which asserts the two states are unequal
+  *and* produce different reasons, and `AWhoWeReadButCouldNotCountIsAnAttemptedWhoAndNotAMissingOne`,
+  which covers the attempted-but-countless arm that neither static value names.
+
+**5. Two naming corrections folded in, and one fake that was missing.**
+
+- *The repository doubles.* The Task 13 test doubles were spelled `Fake<Thing>Repository` while this
+  plan's own convention table (and every one of Plan 03's ~60 uses of them) says
+  `InMemory<Thing>Repository`. They are renamed here, along with `Support/FakeRepositories.cs` →
+  `Support/InMemoryRepositories.cs`.
+- *The clock.* Task 14's clock was `Support/FakeTimeProvider.cs`, and Plan 03's is
+  `Support/ManualTimeProvider.cs` in the **same** `Support/` directory doing the same job — two names
+  for one helper, and the losing one collides with `Microsoft.Extensions.Time.Testing.FakeTimeProvider`,
+  a real type someone would reasonably assume was in play. This plan now spells it
+  `ManualTimeProvider`, at Plan 03's path and with Plan 03's constructor
+  (`DateTimeOffset? start = null`), and its doc comment says why it is not called `FakeTimeProvider`.
+  Renamed at its declaration in Task 14 and at all three uses (Tasks 14, 17, 18). Plan 03's version is
+  a superset — it also implements `CreateTimer` — so whichever plan lands second extends this file
+  rather than declaring a second clock beside it.
+- *The fifth fake.* Task 13 built four in-memory repositories and Plan 03 constructs five: it also
+  wants `InMemoryEndpointRepository`. It is added here, in `Support/InMemoryRepositories.cs` with its
+  neighbours, mirroring `NpgsqlEndpointRepository`'s upsert rules (`first_seen_at` never moves
+  forward, `last_seen_at` never moves back). Task 13's `InMemoryAvailabilityRepository` also gained
+  `InsertImportedAsync` — without it the fake does not implement the interface Task 9 declares — and
+  with it the two cumulative sums answer apart, imported time counting only toward the imported one.
+
+**6. A host now has exactly one spelling (Task 10).** Writing the fifth fake surfaced a real defect in
+the fourth-oldest part of this plan: `NpgsqlEndpointRepository.ByAddressAsync` compared `host = @host`,
+ordinally, while the natural in-memory spelling of the same lookup is `OrdinalIgnoreCase`. **A fake
+kinder than the database is the worst direction for a disagreement to run** — every test passes and
+production quietly writes a second `game_endpoint` row the first time a host arrives as
+`MUD.Example.ORG`. The unique index on `(host, port)` does not stop it, because the two rows are two
+different strings; §7.3's endpoint signal then fails to find a game we already have, and Plan 03's
+identity matcher mints a duplicate *listing*. That is the specific failure §7.3 exists to prevent.
+
+It is corrected by making one canonical form rather than by making the comparison lenient:
+
+- `MUI.Catalog.HostName.Normalize` — trim, strip IPv6 brackets, canonicalise an IP literal through
+  `IPAddress.ToString()`, otherwise drop the DNS root dot and lower-case. It deliberately mirrors
+  `MsspHost.Create`, which `MUI.Catalog` may never reference, so it is a second implementation of one
+  rule; `HostNormalisationAgreementTests` in MUI.Discovery.Tests — the one project that sees both —
+  compares them over a table of spellings rather than trusting the comment.
+- `NpgsqlEndpointRepository` normalises at both ends, `UpsertAsync` and `ByAddressAsync`'s parameter,
+  so the comparison can stay ordinal and keep using `game_endpoint_address_idx`.
+- `0005_game_endpoint.sql` gains `game_endpoint_host_is_canonical`, which refuses a host that is not
+  lower-cased, trimmed and dotless. Postgres cannot check the IP-literal half, but a write path that
+  forgets to normalise at all now fails loudly instead of duplicating silently.
+- The fake normalises identically and compares `Ordinal`, and `InMemoryEndpointRepositoryTests` runs
+  the same table of spellings as `EndpointRepositoryTests`. The two suites cannot be one test — one
+  needs a container and the other must never touch one — so each names the other in its doc comment.
+
+Plan 04's own `InMemoryEndpointRepository` and its `ImportPipeline` were brought into line at the same
+time: an import is where hosts arrive spelled by somebody else, so it is where this bug would have been
+reached first.
+
+**7. §7.2's new resolved-address gate, checked against this plan (`dfff339` on `main`, not yet on this
+branch).** It adds four rules to the crawler's dial and one of them names a write: **a refusal writes
+no availability sample.** Every rule but that one is Plan 01's and Plan 03's — resolving, refusing a
+mixed answer, keeping "could not resolve" distinct, and the operator-seed exemption all happen before
+a `ProbeResult` exists. The write rule is checked here and needs **no change**: `ProbeOutcome` is
+`Answered` or `Failed` and both mean the socket was opened, so a refusal has no representation these
+writers can receive. The reachable hazard is a caller dressing one as
+`ProbeResult.Failed(ProbeFailureCauses.Refused, …)` — which is doubly wrong, since `FailureCause.Refused`
+means the far end sent an RST — and `ProbeIngestor` cannot detect that after the fact. So the invariant
+is stated at the seam, in Task 17's prose and in `ProbeIngestor`'s doc comment, where an implementer of
+the dial will meet it; the guard itself belongs to whoever writes the dial. Flagged for Plans 01 and 03
+rather than fixed here.
 

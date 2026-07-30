@@ -2,10 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the MUIndex crawler run unattended — a monotonic crawl-target registry that never retires
-anything, an exponential probe schedule against a permanent weekly ceiling, a referral graph that is
-provenance rather than scheduling, per-host serialisation, a scored identity matcher with reversible
-merges, and a `CrawlerService` gated on a Postgres advisory lock so N web replicas run exactly one crawler.
+**Goal:** Make the MUIndex crawler run unattended — MUIndex's own scheduler, per spec §7: a
+Postgres-backed permanent crawl-target registry, selected by `next_probe_at`, that never retires
+anything; an exponential probe schedule against a permanent weekly ceiling; a referral graph that is
+provenance rather than scheduling; per-host serialisation; a scored identity matcher with reversible
+merges; and a `CrawlerService` gated on a Postgres advisory lock so N web replicas run exactly one crawler.
 
 **Architecture:** Everything lands in `src/MUI.Discovery`, which is the only project allowed to see both
 `MUI.Crawl` (a `ProbeResult`) and `MUI.Catalog`/`MUI.Storage` (catalogue state). Scheduling is a pure
@@ -20,8 +21,10 @@ PostgreSQL 17, `Testcontainers.PostgreSql` for integration tests, `MUI.Crawl.Mss
 domain types, written by Plan 01 over `TelnetNegotiationCore` 2.6.5 — for host modelling and scope
 classification, `Microsoft.Extensions.Hosting.Abstractions` for `BackgroundService`.
 
-**Depends on: Plan 01 for `IProbe`/`ProbeResult`, Plan 02 for `MUI.Storage`, the repositories, the
-`MigrationRunner` and `ProbeIngestor`. This plan is what makes the crawler run unattended.**
+**Depends on: Plan 01 for `IProbe`/`ProbeResult` and the `MUI.Crawl.Mssp` domain types, Plan 02 for
+`MUI.Storage`, the repositories, the `MigrationRunner` and `ProbeIngestor`. Both are in this repository:
+there is no external prerequisite, and nothing here waits on a package. This plan is what makes the
+crawler run unattended.**
 
 **Spec:** `docs/specs/2026-07-30-mu-directory-design.md`, §7.1–§7.4, §7.7, §11, §12, §13.
 
@@ -117,11 +120,12 @@ are stated; the default remains "copy the contract verbatim".
 | `ActivityBand` | `MUI.Discovery` | §7.7 says the interval is "tightened for games with recent activity". The contract's `ProbeSchedule.Next(int, TimeSpan?)` cannot express it. |
 | `CrawlRateLimiter` | `MUI.Discovery` | The contract has `DiscoveryOptions.GlobalInterval`/`PerHostInterval` but no type that consumes them. Written here, keyed on the host rather than on (host, port). |
 | `IGameFieldIndex`, `NpgsqlGameFieldIndex` | `MUI.Discovery`, `MUI.Discovery.Storage` | Identity needs a **reverse** lookup ("which game has `name` = *Corvid*"). Plan 2's `IGameFieldRepository` only reads forward, by game id. |
-| `IdentityFields`, `ClaimTokenBeacon`, `IdentitySignals` | `MUI.Discovery` | The field-name vocabulary the matcher compares on, the two places a claim-token *beacon* can be read off a probe, and signal→JSON. `ClaimTokenBeacon` is deliberately not `ClaimToken` — Plan 06 owns `MUI.Catalog.ClaimToken`, the issued record, and both are in scope here. |
+| `IdentityFields`, `ClaimTokenBeacon`, `IdentitySignals` | `MUI.Discovery` | The field-name vocabulary the matcher compares on, the reader that pulls a claim-token *beacon* off a probe, and signal→JSON. `ClaimTokenBeacon` is deliberately not `ClaimToken` — Plan 06 owns `MUI.Catalog.ClaimToken`, the issued record, and both are in scope here. It **reads** the wire spellings from Plan 06's `MUI.Catalog.ClaimVocabulary` and declares none of its own. |
 | `MergeApplier` | `MUI.Discovery` | `IdentityMatcher` only *decides*. Something has to attach the endpoint and write the `FieldChange`. |
 | `DuplicateReview`, `IDuplicateReviewRepository`, `NpgsqlDuplicateReviewRepository` | `MUI.Discovery`, `.Storage` | §7.3's "suspected-duplicate pair … both pages stay live and link to each other reciprocally" has no contract type. |
 | `GameListingGate`, `Slug` | `MUI.Discovery` | §7.2's "must independently answer MSSP with its own `NAME`/`HOSTNAME` before it is listed", and a slug for a newly created game. |
 | `CrawlCycle` | `MUI.Discovery` | What one pass of the loop did, so the loop is assertable without a background thread. |
+| `IHostResolver`, `SystemHostResolver`, `HostScopeGuard`, `HostScopeDecision`, `HostScopeRuling` | `MUI.Discovery` | **§7.2's gate, closed on the resolved address.** `MsspHost.IsCrawlable` only ever sees a string, so it cannot be the whole gate — see Task 9 and the note below. Nothing in `CONTRACT.md` resolves a name. |
 | `NpgsqlCrawlTargetRepository`, `NpgsqlReferralRepository`, `NpgsqlMergeLog` | `MUI.Discovery.Storage` | The interfaces live in `MUI.Discovery` and `MUI.Storage` may not reference it, so the implementations cannot live in `MUI.Storage`. |
 | `DiscoveryServiceCollectionExtensions.AddMuiCrawler` | `MUI.Discovery` | One composition entry point, so `MUI.Web` gains one line. |
 | `ReferralVerdict.FanOutExceeded` | `MUI.Discovery` | **Enum member added.** §7.2 caps fan-out per source; without a verdict the overflow would be silently dropped and a run could not explain itself. |
@@ -143,6 +147,47 @@ are stated; the default remains "copy the contract verbatim".
    collaborator that can do any of the three.
 4. `DiscoveryOptions` gains `BatchSize`, `PollInterval`, `LeaseRetryInterval`, `ProbeTimeout`,
    `AutoMergeThreshold`, `ReviewThreshold` and a `Validate()` method. Purely additive.
+5. `CrawlerService`'s constructor further gains `HostScopeGuard scopes`, after `referrals`. Reason:
+   Task 9's resolved-address gate has to run between taking a target off the registry and opening a
+   socket to it, and no contracted collaborator can do that.
+6. `IdentityMatcher`'s constructor further gains a trailing optional
+   `ClaimBeaconPolicy? beacons = null` (Plan 06's type). Optional and trailing so `null` is the
+   pre-claiming bare comparison and no existing test changes. Reason: **the claim token is
+   simultaneously public and decisive**, so on the bare comparison anyone can republish a claimed
+   game's token and be auto-merged into it — see item 8 below and the type's remarks.
+7. `CrawlerService`'s constructor further gains a trailing optional `ClaimCycle? claims = null` (Plan
+   06's type), **called in `ApplyAsync` between `ingestor.IngestAsync` and `RescheduleAsync`**. The
+   call *position* is the requirement, not the parameter: verification rides a visit the crawler was
+   making anyway and cannot reach the schedule from there, which is what stops a pending claim buying
+   an extra dial. Optional only so Plan 03 builds before Plan 06 lands.
+8. `CrawlTarget` gains `bool IsOperatorSeed { get; init; }`, defaulting to **false**. Reason: Task 9's
+   gate refuses a host that resolves into non-global space, and an operator who types `127.0.0.1`
+   against their own test server has said what they mean. The default is the *guarded* value on
+   purpose — a target built without thinking about it, which is every referral and every import, is
+   checked. Contract callers that never set it are unaffected and get the safe behaviour.
+
+## Names this plan **requires** from Plan 01 that `CONTRACT.md` does not fix
+
+Task 9's guard classifies a **resolved `IPAddress`**, and `MsspHost` already implements exactly that
+classification for the literal-address case. Writing a second copy of the loopback / RFC 1918 / RFC
+6598 / `fc00::/7` / link-local / multicast range checks in `MUI.Discovery` would be two sets of rules
+that must agree for ever, and the day they disagree is the day one of them is wrong about
+`169.254.169.254`. **Plan 01 must therefore expose its classifier as a public static over `IPAddress`:**
+
+```csharp
+namespace MUI.Crawl.Mssp;
+
+public sealed record MsspHost
+{
+    /// The scope of an already-resolved address. Public because the crawl loop must classify what DNS
+    /// returned, not just what a REFERRAL string said — see Plan 03 Task 9.
+    public static MsspHostScope ScopeOf(System.Net.IPAddress address);
+}
+```
+
+It is a refactor rather than new behaviour: `MsspHost.Create` already computes this internally when the
+host string parses as an address, so the body moves and the existing behaviour is unchanged. If Plan 01
+lands without it, add it there — do not re-implement the ranges here.
 
 ## Names this plan **requires** from Plan 02 that `CONTRACT.md` does not fix
 
@@ -152,6 +197,15 @@ fixtures have to construct one to seed a `game` row for foreign keys. **Plan 2 m
 `NpgsqlPresenceRepository`, `NpgsqlAvailabilityRepository`, each with a single-argument constructor
 taking `NpgsqlDataSource`.** This plan also assumes Plan 2's `game_field` table has columns
 `game_id`, `field`, `value` and that `MUI.Storage.csproj` embeds `Migrations/*.sql` by glob.
+
+It further consumes **`MUI.Catalog.HostName.Normalize`** (Plan 02 Task 10). `crawl_target.host` adopts
+the same canonical form Plan 02 gave `game_endpoint.host`, with the same CHECK constraint and the same
+ordinal comparison on both sides — see Task 4 and Task 5. Plan 04 raised this and correctly stopped at
+this plan's boundary rather than tightening only its own fake; adopting it here is what makes the rule
+one rule. `HostNormalisationAgreementTests` (Task 5) pins `HostName.Normalize` against
+`MsspHost.Create(…).Host`, because those are two implementations of one rule that no compiler can
+check against each other. **That file is Plan 02's** (Task 10) — Task 5 adds a method to the existing
+class rather than declaring a second one, because `tests/MUI.Discovery.Tests` is a single assembly.
 
 ---
 
@@ -167,6 +221,7 @@ taking `NpgsqlDataSource`.** This plan also assumes Plan 2's `game_field` table 
 | `src/MUI.Discovery/BannerFingerprint.cs` | ANSI-stripped, whitespace-collapsed SHA-256. |
 | `src/MUI.Discovery/HostGate.cs` | Per-host serialisation. |
 | `src/MUI.Discovery/CrawlRateLimiter.cs` | Two time floors; answers questions, never sleeps for you. |
+| `src/MUI.Discovery/HostScopeGuard.cs` | `IHostResolver`, `SystemHostResolver`, `HostScopeDecision`, `HostScopeRuling`, the guard. §7.2 on the resolved address. |
 | `src/MUI.Discovery/Identity.cs` | `IdentitySignal`, `IdentityScore`, `IdentityWeights`, `IdentityVerdict`, `IdentityFields`, `ClaimTokenBeacon`, `IdentitySignals`, `IGameFieldIndex`. |
 | `src/MUI.Discovery/IdentityMatcher.cs` | The scored fingerprint. |
 | `src/MUI.Discovery/MergeLog.cs` | `MergeRecord`, `IMergeLog`. |
@@ -177,7 +232,7 @@ taking `NpgsqlDataSource`.** This plan also assumes Plan 2's `game_field` table 
 | `src/MUI.Discovery/DiscoveryServiceCollectionExtensions.cs` | One `AddMuiCrawler()`. |
 | `src/MUI.Discovery/Storage/*.cs` | Dapper implementations of this plan's three-plus repositories. |
 | `src/MUI.Storage/Migrations/0010…0013_*.sql` | `crawl_target`, `referral_edge`, `merge_log`, `duplicate_review`. Numbered from 0010 to leave Plan 2 room below. |
-| `tests/MUI.Discovery.Tests/Support/*.cs` | `ManualTimeProvider`, `PostgresFixture`, in-memory doubles, `FakeProbe`. |
+| `tests/MUI.Discovery.Tests/Support/*.cs` | **Created here:** `PostgresFixture`, `FakeProbe`, `FakeHostResolver`, `ProbeIngestors`, and the doubles for this plan's own interfaces — `InMemoryCrawlTargetRepository`, `InMemoryReferralRepository`, `InMemoryMergeLog`, `InMemoryDuplicateReviewRepository`. **Extended, not created:** `ManualTimeProvider` (Plan 02 Task 14 declares it; this plan adds `CreateTimer`) and `InMemoryRepositories.cs`'s `InMemoryGameFieldRepository` (Plan 02 Task 13; this plan adds `IGameFieldIndex`). **Consumed unchanged:** `InMemoryGameRepository`, `InMemoryEndpointRepository`, `InMemoryPresenceRepository`, `InMemoryAvailabilityRepository`. This is one test assembly — a second declaration of any of these is CS0101, not a merge conflict. |
 
 ---
 
@@ -188,17 +243,23 @@ taking `NpgsqlDataSource`.** This plan also assumes Plan 2's `game_field` table 
 - Modify: `src/MUI.Discovery/MUI.Discovery.csproj`
 - Modify: `tests/MUI.Discovery.Tests/MUI.Discovery.Tests.csproj`
 - Modify: `.github/workflows/ci.yml:47-49`
-- Create: `tests/MUI.Discovery.Tests/Support/ManualTimeProvider.cs`
+- **Modify (do not create):** `tests/MUI.Discovery.Tests/Support/ManualTimeProvider.cs` — **Plan 02
+  Task 14 creates this file**, and `tests/MUI.Discovery.Tests` is one assembly, so a second declaration
+  is a duplicate-type compile error rather than a merge inconvenience. Plan 02 lands first; this plan
+  extends what is there.
 - Create: `tests/MUI.Discovery.Tests/Support/PostgresFixture.cs`
 - Test: `tests/MUI.Discovery.Tests/Support/PostgresFixtureTests.cs`
 
 **Interfaces:**
 - Consumes: `MUI.Storage.MigrationRunner(NpgsqlDataSource, ILogger?)` and its
-  `Task<IReadOnlyList<string>> ApplyAsync(CancellationToken)` (Plan 2).
-- Produces: `MUI.Discovery.Tests.Support.ManualTimeProvider : TimeProvider` with
-  `ManualTimeProvider(DateTimeOffset? start = null)`, `void Advance(TimeSpan by)` and working
-  `CreateTimer`, so `Task.Delay(ts, timeProvider, ct)` and
-  `new CancellationTokenSource(ts, timeProvider)` are driven by hand.
+  `Task<IReadOnlyList<string>> ApplyAsync(CancellationToken)` (Plan 2); and Plan 02's
+  `MUI.Discovery.Tests.Support.ManualTimeProvider : TimeProvider`, whose constructor
+  `ManualTimeProvider(DateTimeOffset? start = null)` and `void Advance(TimeSpan by)` this plan keeps
+  unchanged in signature.
+- Produces: on `ManualTimeProvider`, a working **`CreateTimer`** — the one thing Plan 02's version does
+  not have, and the thing this plan cannot do without, because `Task.Delay(ts, timeProvider, ct)` and
+  `new CancellationTokenSource(ts, timeProvider)` are how the rate limiter, the probe bound and the
+  crawl loop are driven by hand.
   `MUI.Discovery.Tests.Support.PostgresFixture` with
   `static Task<NpgsqlDataSource> SourceAsync()`, `static Task ResetAsync(NpgsqlDataSource)` and
   `static Task<Guid> InsertGameAsync(NpgsqlDataSource, string name, Guid? id = null)`.
@@ -257,44 +318,25 @@ Add to `tests/MUI.Discovery.Tests/MUI.Discovery.Tests.csproj`, inside the `TUnit
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 ```
 
-- [ ] **Step 3: Write the manual clock**
+- [ ] **Step 3: Give Plan 02's manual clock working timers**
 
-Create `tests/MUI.Discovery.Tests/Support/ManualTimeProvider.cs`:
+**Do not create this file — Plan 02 Task 14 already did, and `tests/MUI.Discovery.Tests` is one
+assembly.** Open `tests/MUI.Discovery.Tests/Support/ManualTimeProvider.cs` and extend the class that is
+there. Plan 02's version moves `GetUtcNow()` by hand, which is all Plan 02's writers need; this plan
+additionally needs `CreateTimer`, because `Task.Delay(ts, timeProvider, ct)` and
+`new CancellationTokenSource(ts, timeProvider)` are what `CrawlRateLimiter.WaitForTurnAsync`,
+`CrawlerService.ProbeBoundedAsync` and `RestAsync` are built on. Without it those calls fall back to
+real time and three tasks in this plan become sleep-and-hope.
+
+Add the field, the override, the remover and the nested timer; **replace** `Advance`, whose current
+body only assigns `_now`. For a test with no timers the replacement behaves identically, which is why
+Plan 02's suite is unaffected.
 
 ```csharp
-namespace MUI.Discovery.Tests.Support;
-
-/// <summary>
-/// A clock the test moves by hand, with timers that fire as it passes them. Nothing in this suite
-/// sleeps: a schedule tested by waiting for its own interval proves only that the machine was not
-/// busy, and a rate limit tested that way proves nothing at all.
-/// </summary>
-public sealed class ManualTimeProvider : TimeProvider
-{
-    private readonly Lock _gate = new();
+    // ---- Added by Plan 03. Plan 02's writers need only a clock; the crawler needs timers, because
+    // Task.Delay(ts, timeProvider, ct) and CancellationTokenSource(ts, timeProvider) are how the rate
+    // limiter, the probe bound and the loop's rest are driven without sleeping.
     private readonly List<ManualTimer> _timers = [];
-    private DateTimeOffset _now;
-
-    public ManualTimeProvider(DateTimeOffset? start = null) =>
-        _now = start ?? new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
-
-    public override DateTimeOffset GetUtcNow()
-    {
-        lock (_gate)
-        {
-            return _now;
-        }
-    }
-
-    public override long GetTimestamp()
-    {
-        lock (_gate)
-        {
-            return _now.UtcTicks;
-        }
-    }
-
-    public override long TimestampFrequency => TimeSpan.TicksPerSecond;
 
     public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
     {
@@ -308,7 +350,14 @@ public sealed class ManualTimeProvider : TimeProvider
         return timer;
     }
 
-    /// <summary>Moves the clock, firing every timer that falls due on the way, in due order.</summary>
+    /// <summary>
+    /// Moves the clock, firing every timer that falls due on the way, in due order.
+    /// </summary>
+    /// <remarks>
+    /// Replaces Plan 02's body, which assigned <c>_now</c> and returned. With no timers registered the
+    /// two are indistinguishable; with timers, this is the difference between a test that drives the
+    /// crawl loop and a test that waits for it.
+    /// </remarks>
     public void Advance(TimeSpan by)
     {
         var end = GetUtcNow() + by;
@@ -375,8 +424,17 @@ public sealed class ManualTimeProvider : TimeProvider
             return ValueTask.CompletedTask;
         }
     }
-}
 ```
+
+Three things this assumes about Plan 02's file, each cheap to reconcile if it landed differently:
+
+- **the backing field is `_now`** and the lock guarding it is `_gate`. If they are named otherwise, use
+  Plan 02's names — do not add a second field.
+- **`_gate` is a `Lock`** (or a plain object). Either works with `lock`.
+- **`TimestampFrequency` and `GetTimestamp()` are already overridden.** If not, add
+  `public override long TimestampFrequency => TimeSpan.TicksPerSecond;` and a `GetTimestamp()`
+  returning `_now.UtcTicks` under the lock; `Task.Delay` does not need them, but `Stopwatch`-shaped
+  code does and getting a real timestamp from a fake clock is a confusing failure.
 
 - [ ] **Step 4: Write the Postgres fixture**
 
@@ -797,7 +855,22 @@ public static class IdentityWeights
     /// <summary><c>CODEBASE</c> and its version. Weak alone; useful as corroboration.</summary>
     public const double CodebaseAndVersion = 0.15;
 
-    /// <summary>The site-issued claim token: decisive. A claimed game is never duplicated (spec §7.3, §8).</summary>
+    /// <summary>
+    /// The site-issued claim token (spec §7.3, §8). Decisive — <em>subject to</em>
+    /// <c>ClaimBeaconPolicy</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Read this before treating the number on its own as the guarantee.</b> Four times
+    /// <see cref="AutoMergeThreshold"/> means one matching token merges two games with nothing else
+    /// agreeing — and every §8 channel <em>publishes</em> the token, because proving control without an
+    /// email round-trip is the entire point. On a bare value comparison this weight is therefore a merge
+    /// primitive that any passer-by can trigger: read a claimed game's MSSP, republish the token from
+    /// your own host, be absorbed into their listing. Secrecy cannot fix a credential whose job is to be
+    /// public. What makes it safe is <c>ClaimBeaconPolicy</c> (Plan 06), which
+    /// <see cref="IdentityMatcher"/> consults: the token counts on the game's own known endpoints, and
+    /// from a strange host only once the game's own addresses have stopped answering. §7.3's "a claimed
+    /// game is never duplicated" holds under that policy and not without it.
+    /// </remarks>
     public const double ClaimToken = 10.0;
 
     /// <summary>At or above this, merge. Equal to <see cref="Endpoint"/>: a known endpoint <em>is</em> the game.</summary>
@@ -1095,10 +1168,34 @@ public class CrawlTargetSchemaTests
              WHERE table_name = 'crawl_target'
                AND column_name IN ('id', 'game_id', 'host', 'port', 'use_tls', 'next_probe_at',
                                    'consecutive_failures', 'crawl_delay_seconds', 'first_seen_at',
-                                   'last_probed_at', 'discovered_from_game_id', 'depth');
+                                   'last_probed_at', 'discovered_from_game_id', 'depth',
+                                   'is_operator_seed');
             """);
 
-        await Assert.That(columns).IsEqualTo(12L);
+        await Assert.That(columns).IsEqualTo(13L);
+    }
+
+    [Test]
+    public async Task ATargetIsGuardedUnlessSomebodySaidOtherwise()
+    {
+        // is_operator_seed exempts a target from Task 9's resolved-address gate, so its default decides
+        // what happens to every row inserted by code that had not thought about it — every referral and
+        // every Plan 4 import. The safe value must be the default, not the considered one.
+        var source = await PostgresFixture.SourceAsync();
+        await PostgresFixture.ResetAsync(source);
+
+        await using var connection = await source.OpenConnectionAsync();
+        await using var insert = connection.CreateCommand();
+        insert.CommandText = """
+            INSERT INTO crawl_target (id, host, port, next_probe_at, first_seen_at)
+            VALUES (gen_random_uuid(), 'unconsidered.example.org', 4201, now(), now());
+            """;
+        await insert.ExecuteNonQueryAsync();
+
+        var seeded = await PostgresFixture.ScalarAsync<bool>(
+            source, "SELECT is_operator_seed FROM crawl_target WHERE host = 'unconsidered.example.org'");
+
+        await Assert.That(seeded).IsFalse();
     }
 
     [Test]
@@ -1174,6 +1271,16 @@ CREATE TABLE crawl_target (
     port                    integer     NOT NULL CHECK (port BETWEEN 1 AND 65535),
     use_tls                 boolean     NOT NULL DEFAULT false,
 
+    -- Teeth for MUI.Catalog.HostName.Normalize, exactly as 0005_game_endpoint.sql has it. The UNIQUE
+    -- constraint below is only a "one address, one row" guarantee if one host has one spelling:
+    -- 'MUD.Example.ORG' and 'mud.example.org' are different strings and would be two targets for one
+    -- machine — which is two probes, twice the traffic at somebody else's server, and eventually the
+    -- duplicate listing §7.3 exists to prevent. Postgres cannot check the IP-literal half of the rule,
+    -- so this covers the two textual rules and the repository covers the rest; a write path that forgets
+    -- to normalise now fails here, loudly.
+    CONSTRAINT crawl_target_host_is_canonical CHECK (
+        host = lower(host) AND host = btrim(host) AND host NOT LIKE '%.'),
+
     next_probe_at           timestamptz NOT NULL,
     consecutive_failures    integer     NOT NULL DEFAULT 0 CHECK (consecutive_failures >= 0),
 
@@ -1185,6 +1292,13 @@ CREATE TABLE crawl_target (
     last_probed_at          timestamptz NULL,
     discovered_from_game_id uuid        NULL REFERENCES game (id),
     depth                   integer     NOT NULL DEFAULT 0 CHECK (depth >= 0),
+
+    -- Exempts this target from the resolved-address gate (§7.2, Plan 03 Task 9). True only for an
+    -- address a human operator configured: someone pointing the crawler at 127.0.0.1 to test against
+    -- their own server has said what they mean. DEFAULT false is load-bearing — every referral and
+    -- every imported row is inserted by code that never considers this column, and the value they get
+    -- by not thinking about it must be the guarded one.
+    is_operator_seed        boolean     NOT NULL DEFAULT false,
 
     CONSTRAINT crawl_target_address_unique UNIQUE (host, port)
 );
@@ -1243,6 +1357,18 @@ public sealed record CrawlTarget
     public Guid? DiscoveredFromGameId { get; init; }
 
     public int Depth { get; init; }
+
+    /// <summary>
+    /// Exempts this target from <see cref="HostScopeGuard"/>'s resolved-address check (spec §7.2).
+    /// </summary>
+    /// <remarks>
+    /// True only for an address a human operator configured. Someone pointing the crawler at
+    /// <c>127.0.0.1</c> to test against their own server has said what they mean; a stranger's
+    /// <c>REFERRAL</c> list has not. <b>The default is false, and that is the security-relevant half of
+    /// this property</b> — every referral and every Plan 4 import is constructed by code that never
+    /// mentions it, and what they get by not thinking about it must be the guarded behaviour.
+    /// </remarks>
+    public bool IsOperatorSeed { get; init; }
 }
 
 /// <summary>
@@ -1294,10 +1420,13 @@ git commit -m "feat: the crawl_target registry — monotonic, with no retirement
 **Files:**
 - Create: `src/MUI.Discovery/Storage/NpgsqlCrawlTargetRepository.cs`
 - Test: `tests/MUI.Discovery.Tests/CrawlTargetRepositoryTests.cs`
+- **Modify, not create:** `tests/MUI.Discovery.Tests/HostNormalisationAgreementTests.cs` — Plan 02
+  Task 10 declares the class; Step 5 adds one method to it. One test assembly, so a second declaration
+  is CS0101.
 
 **Interfaces:**
 - Consumes: `ICrawlTargetRepository`, `CrawlTarget` (Task 4); `ProbeSchedule` (Task 3);
-  `PostgresFixture` (Task 1).
+  `PostgresFixture` (Task 1); `MUI.Catalog.HostName.Normalize` (Plan 02 Task 10).
 - Produces: `MUI.Discovery.Storage.NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICrawlTargetRepository`.
 
 - [ ] **Step 1: Write the failing test**
@@ -1372,6 +1501,33 @@ public class CrawlTargetRepositoryTests
         var found = await repository.ByAddressAsync("mud.example.org", 4201, None);
         await Assert.That(found!.NextProbeAt).IsEqualTo(Now.AddDays(3));
         await Assert.That(found.ConsecutiveFailures).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task HoweverAReferralSpellsAHostItIsTheSameTarget()
+    {
+        // One host, one spelling — the same rule Plan 02 applies to game_endpoint, adopted here because
+        // `MUD.Example.ORG` and `mud.example.org.` are different strings and would otherwise be two
+        // targets for one machine: two probes, twice the traffic at one operator's server, and
+        // eventually the duplicate listing §7.3 exists to prevent.
+        var repository = await RepositoryAsync();
+        var id = await repository.AddAsync(Target("mud.example.org"), None);
+
+        foreach (var spelling in new[] { "MUD.Example.ORG", "mud.example.org.", "  MUD.EXAMPLE.ORG.  " })
+        {
+            var found = await repository.ByAddressAsync(spelling, 4201, None);
+
+            await Assert.That(found).IsNotNull();
+            await Assert.That(found!.Id).IsEqualTo(id);
+            await Assert.That(found.Host).IsEqualTo("mud.example.org");
+
+            // And adding it again under that spelling is the same row, not a second one.
+            await Assert.That(await repository.AddAsync(Target(spelling), None)).IsEqualTo(id);
+        }
+
+        var rows = await PostgresFixture.ScalarAsync<long>(
+            await PostgresFixture.SourceAsync(), "SELECT count(*) FROM crawl_target");
+        await Assert.That(rows).IsEqualTo(1L);
     }
 
     [Test]
@@ -1494,6 +1650,7 @@ Create `src/MUI.Discovery/Storage/NpgsqlCrawlTargetRepository.cs`:
 
 ```csharp
 using Dapper;
+using MUI.Catalog;
 using Npgsql;
 
 namespace MUI.Discovery.Storage;
@@ -1522,16 +1679,23 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
                first_seen_at           AS "FirstSeenAt",
                last_probed_at          AS "LastProbedAt",
                discovered_from_game_id AS "DiscoveredFromGameId",
-               depth                   AS "Depth"
+               depth                   AS "Depth",
+               is_operator_seed        AS "IsOperatorSeed"
           FROM crawl_target
         """;
 
     public async Task<CrawlTarget?> ByAddressAsync(string host, int port, CancellationToken ct)
     {
         await using var connection = await source.OpenConnectionAsync(ct);
+
+        // Canonical form on the way in, then plain ordinal equality — not a lenient comparison. The
+        // column is guaranteed canonical by the CHECK constraint, so `host = @host` uses the unique
+        // index and there is nothing left for a lower(host) to fold. Same rule as Plan 02 applied to
+        // game_endpoint; the fake applies it identically, because a fake kinder than the database hides
+        // a duplicate row instead of failing a test.
         var row = await connection.QuerySingleOrDefaultAsync<Row>(new CommandDefinition(
             $"{Projection} WHERE host = @host AND port = @port;",
-            new { host, port },
+            new { host = HostName.Normalize(host), port },
             cancellationToken: ct));
 
         return row?.ToTarget();
@@ -1544,13 +1708,21 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
         // Monotonic. A repeat sighting of a known address changes exactly one thing — the recorded
         // depth, and only downward — because depth is what the fan-out cap is measured against. It
         // never touches next_probe_at, so a second referral cannot drag a backed-off host forward.
+        //
+        // It also never touches is_operator_seed, which matters in one direction: a referral naming an
+        // address cannot promote it to an exempt seed. The cost is that an operator seeding an address a
+        // referral already produced does not retroactively exempt it — the row stays guarded, and if
+        // that is genuinely wanted it is an UPDATE somebody writes deliberately. Failing that way round
+        // is the correct way round.
         return await connection.ExecuteScalarAsync<Guid>(new CommandDefinition("""
             INSERT INTO crawl_target (id, game_id, host, port, use_tls, next_probe_at,
                                       consecutive_failures, crawl_delay_seconds, first_seen_at,
-                                      last_probed_at, discovered_from_game_id, depth)
+                                      last_probed_at, discovered_from_game_id, depth,
+                                      is_operator_seed)
             VALUES (@Id, @GameId, @Host, @Port, @UseTls, @NextProbeAt,
                     @ConsecutiveFailures, @CrawlDelaySeconds, @FirstSeenAt,
-                    @LastProbedAt, @DiscoveredFromGameId, @Depth)
+                    @LastProbedAt, @DiscoveredFromGameId, @Depth,
+                    @IsOperatorSeed)
             ON CONFLICT (host, port) DO UPDATE
                SET depth = LEAST(crawl_target.depth, EXCLUDED.depth)
             RETURNING id;
@@ -1559,7 +1731,9 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
             {
                 target.Id,
                 target.GameId,
-                target.Host,
+                // The one place a host becomes canonical on the way into the registry. The CHECK
+                // constraint would reject anything else, which is the point: this is not a courtesy.
+                Host = HostName.Normalize(target.Host),
                 target.Port,
                 target.UseTls,
                 target.NextProbeAt,
@@ -1569,6 +1743,7 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
                 target.LastProbedAt,
                 target.DiscoveredFromGameId,
                 target.Depth,
+                target.IsOperatorSeed,
             },
             cancellationToken: ct));
     }
@@ -1637,7 +1812,8 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
         DateTimeOffset FirstSeenAt,
         DateTimeOffset? LastProbedAt,
         Guid? DiscoveredFromGameId,
-        int Depth)
+        int Depth,
+        bool IsOperatorSeed)
     {
         public CrawlTarget ToTarget() => new()
         {
@@ -1653,6 +1829,7 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
             LastProbedAt = LastProbedAt,
             DiscoveredFromGameId = DiscoveredFromGameId,
             Depth = Depth,
+            IsOperatorSeed = IsOperatorSeed,
         };
     }
 }
@@ -1677,17 +1854,74 @@ and the `game_id` line to:
     game_id                 uuid        NULL REFERENCES game (id) ON DELETE SET NULL,
 ```
 
-- [ ] **Step 5: Run the tests**
+- [ ] **Step 5: Pin the two host rules against each other**
+
+There are now two implementations of "one host, one spelling" in this solution:
+`MUI.Catalog.HostName.Normalize`, which the catalogue and this registry use, and
+`MUI.Crawl.Mssp.MsspHost`'s own normalisation, which the referral reader uses on the way in. They must
+agree, or a referral produces one spelling and a lookup asks for another.
+
+**Extend, do not create.** `tests/MUI.Discovery.Tests/HostNormalisationAgreementTests.cs` already
+exists — Plan 02 Task 10 creates it, with the class comment `HostName`'s own doc comment promises and a
+`TheTwoImplementationsAgreeOnEveryHostEitherWillSee` case. Plan 02 lands first, this is one test
+assembly, and a second `public class HostNormalisationAgreementTests` is a CS0101 build failure rather
+than a merge conflict. **Add this method to the existing class** and leave the class declaration, the
+usings and Plan 02's case alone:
+
+```csharp
+    /// <summary>
+    /// The same agreement, asserted case by case so a failure names the spelling that broke it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Do not "simplify" this away as testing somebody else's code, and do not fold it into the
+    /// case above to save a method.</b> Two implementations of one rule is a real cost, accepted only
+    /// because <c>MUI.Catalog</c> may never reference <c>MUI.Crawl</c> — so neither can call the other,
+    /// and there is no compiler check that they still match. <c>MUI.Discovery.Tests</c> is the only
+    /// project that can see both, which makes this the only thing keeping them honest. Where they
+    /// diverge, a <c>REFERRAL</c> writes a target under one spelling and every later lookup asks for
+    /// another, and the registry quietly grows two rows per machine — which is two probes at somebody
+    /// else's server and eventually the duplicate listing §7.3 exists to prevent. This plan added
+    /// <c>crawl_target.host</c> to the set of columns that rule governs, which is why it is restated
+    /// here and not left as Plan 02's private business.
+    /// </remarks>
+    [Test]
+    [Arguments("MUD.Example.ORG")]
+    [Arguments("mud.example.org.")]
+    [Arguments("  MUD.EXAMPLE.ORG.  ")]
+    [Arguments("203.0.113.10")]
+    [Arguments("2001:0DB8:0000:0000:0000:0000:0000:0001")]
+    [Arguments("2001:DB8::1")]
+    [Arguments("[2001:db8::1]")]
+    public async Task TheCatalogueAndTheMsspReaderCanonicaliseAHostTheSameWay(string spelling)
+    {
+        var viaMssp = MsspHost.Create(spelling, 4201);
+
+        await Assert.That(viaMssp).IsNotNull();
+        await Assert.That(HostName.Normalize(spelling)).IsEqualTo(viaMssp!.Host);
+    }
+```
+
+Both usings this needs (`MUI.Catalog`, `MUI.Crawl.Mssp`) are already at the top of Plan 02's file. If
+Plan 02 landed without the file, create it with the class comment from Plan 02 Task 10 Step 6 and this
+method in it — do not invent a second class name to dodge the collision.
+
+- [ ] **Step 6: Run the tests**
 
 Run: `dotnet build MUIndex.slnx -c Release && dotnet run -c Release --no-build --project tests/MUI.Discovery.Tests </dev/null`
-Expected: PASS, all eight.
+Expected: PASS — nine `CrawlTargetRepositoryTests`, and `HostNormalisationAgreementTests` now reporting
+Plan 02's case plus this method's seven.
 
-- [ ] **Step 6: Commit**
+If an agreement case fails, **fix whichever normaliser is wrong rather than relaxing the test**, and
+fix it in its own plan's suite: the IPv6 cases are the ones most likely to diverge, because zero-run
+compression has more than one defensible spelling and only one of them can be canonical.
+
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/MUI.Discovery/Storage/NpgsqlCrawlTargetRepository.cs \
         src/MUI.Storage/Migrations/0010_crawl_target.sql \
-        tests/MUI.Discovery.Tests/CrawlTargetRepositoryTests.cs
+        tests/MUI.Discovery.Tests/CrawlTargetRepositoryTests.cs \
+        tests/MUI.Discovery.Tests/HostNormalisationAgreementTests.cs
 git commit -m "feat: NpgsqlCrawlTargetRepository — a target outlives the referral that found it"
 ```
 
@@ -2329,11 +2563,22 @@ git commit -m "feat: the referral graph as provenance, with wholesale subtree tr
 Create `tests/MUI.Discovery.Tests/Support/InMemoryCrawlTargetRepository.cs`:
 
 ```csharp
+using MUI.Catalog;
 using MUI.Discovery;
 
 namespace MUI.Discovery.Tests.Support;
 
-/// <summary>The registry's contract in memory: monotonic, no delete, depth only ever shrinks.</summary>
+/// <summary>
+/// The registry's contract in memory: monotonic, no delete, depth only ever shrinks.
+/// </summary>
+/// <remarks>
+/// <b>Hosts are canonicalised with <see cref="HostName.Normalize"/> and then compared ordinally</b> —
+/// the same rule, in the same order, as <c>NpgsqlCrawlTargetRepository</c> and its CHECK constraint.
+/// A convenient <c>OrdinalIgnoreCase</c> dictionary here would be a fake kinder than the database:
+/// every test would pass while the real registry minted a second target for the same machine, which is
+/// double the traffic at somebody else's server and eventually the duplicate listing §7.3 exists to
+/// prevent. That is exactly the bug Plan 02 found in <c>game_endpoint</c>.
+/// </remarks>
 public sealed class InMemoryCrawlTargetRepository : ICrawlTargetRepository
 {
     private readonly Dictionary<(string Host, int Port), CrawlTarget> _targets = new();
@@ -2341,19 +2586,20 @@ public sealed class InMemoryCrawlTargetRepository : ICrawlTargetRepository
     public IReadOnlyCollection<CrawlTarget> All => _targets.Values.ToList();
 
     public Task<CrawlTarget?> ByAddressAsync(string host, int port, CancellationToken ct) =>
-        Task.FromResult(_targets.GetValueOrDefault((host, port)));
+        Task.FromResult(_targets.GetValueOrDefault((HostName.Normalize(host), port)));
 
     public Task<Guid> AddAsync(CrawlTarget target, CancellationToken ct)
     {
-        var key = (target.Host, target.Port);
+        var canonical = target with { Host = HostName.Normalize(target.Host) };
+        var key = (canonical.Host, canonical.Port);
         if (_targets.TryGetValue(key, out var existing))
         {
-            _targets[key] = existing with { Depth = Math.Min(existing.Depth, target.Depth) };
+            _targets[key] = existing with { Depth = Math.Min(existing.Depth, canonical.Depth) };
             return Task.FromResult(existing.Id);
         }
 
-        _targets[key] = target;
-        return Task.FromResult(target.Id);
+        _targets[key] = canonical;
+        return Task.FromResult(canonical.Id);
     }
 
     public Task<IReadOnlyList<CrawlTarget>> DueAsync(DateTimeOffset now, int limit, CancellationToken ct) =>
@@ -2849,20 +3095,68 @@ git commit -m "feat: ReferralGraphWriter — candidate hostnames, capped, and ne
 
 ---
 
-### Task 9: `HostGate` and `CrawlRateLimiter`
+### Task 9: The three gates a dial passes — `HostGate`, `CrawlRateLimiter`, `HostScopeGuard`
 
 **Files:**
 - Create: `src/MUI.Discovery/HostGate.cs`
 - Create: `src/MUI.Discovery/CrawlRateLimiter.cs`
+- Create: `src/MUI.Discovery/HostScopeGuard.cs`
+- Create: `tests/MUI.Discovery.Tests/Support/FakeHostResolver.cs`
 - Test: `tests/MUI.Discovery.Tests/HostGateTests.cs`
 - Test: `tests/MUI.Discovery.Tests/CrawlRateLimiterTests.cs`
+- Test: `tests/MUI.Discovery.Tests/HostScopeGuardTests.cs`
 
 **Interfaces:**
-- Consumes: `DiscoveryOptions` (Task 2), `ManualTimeProvider` (Task 1).
+- Consumes: `DiscoveryOptions` (Task 2), `ManualTimeProvider` (Task 1), `CrawlTarget` (Task 4), and
+  **`MUI.Crawl.Mssp.MsspHost.ScopeOf(IPAddress)` plus `MsspHostScope`** — Plan 01's classifier, which
+  this plan requires be public (see *Names this plan requires from Plan 01*). The ranges are not
+  re-implemented here.
 - Produces: `MUI.Discovery.HostGate` with `Task<IDisposable> EnterAsync(string host, CancellationToken ct)`;
   `MUI.Discovery.CrawlRateLimiter(DiscoveryOptions options, TimeProvider time)` with
   `TimeSpan DelayBefore(string host)`, `void RecordStart(string host)` and
-  `Task WaitForTurnAsync(string host, CancellationToken ct)`.
+  `Task WaitForTurnAsync(string host, CancellationToken ct)`;
+  `MUI.Discovery.IHostResolver` with
+  `Task<IReadOnlyList<IPAddress>> ResolveAsync(string host, CancellationToken ct)`;
+  `MUI.Discovery.SystemHostResolver : IHostResolver`;
+  `MUI.Discovery.HostScopeDecision` — `Allowed`, `OperatorSeed`, `ResolvedNonGlobal`, `Unresolvable`;
+  `MUI.Discovery.HostScopeRuling(HostScopeDecision Decision, IReadOnlyList<IPAddress> Addresses, MsspHostScope? Offending)`
+  with `bool MayDial`;
+  `MUI.Discovery.HostScopeGuard(IHostResolver resolver)` with
+  `Task<HostScopeRuling> RuleOnAsync(CrawlTarget target, CancellationToken ct)`.
+  Test double `MUI.Discovery.Tests.Support.FakeHostResolver`.
+
+**Why there is a third gate, and why the first two are not enough.** `HostGate` and `CrawlRateLimiter`
+are politeness. `HostScopeGuard` is not: it implements **spec §7.2's "The gate is on the resolved
+address, not the name"**, and every rule below is that subsection's, quoted rather than invented — read
+it before changing any of them.
+
+Task 8 already refuses a `REFERRAL` whose *literal* address is loopback, RFC 1918, RFC 6598, `fc00::/7`,
+link-local (including `169.254.169.254`) or multicast, via `MsspHost.IsCrawlable`. **That check is
+worth nothing against an attacker who owns a domain**, and the spec names it a server-side request
+forgery hole: `MsspHost.Scope` is `Unresolved` for every DNS name and `IsCrawlable` is true for
+`Unresolved` — correctly, because nothing can be known about a name until DNS answers. So a referral
+naming `games.example.com`, with an A record pointing at `127.0.0.1` or `169.254.169.254`, sails
+through Task 8 and gets dialled. "The name passes; the socket goes somewhere it must never go."
+
+It cannot be fixed in `MsspHost`, which only ever sees a string. It has to run **after resolution and
+before the socket is used**, which is here: every dial resolves first and is refused unless *every*
+returned address is globally routable.
+
+Four rules follow, all of them §7.2's, each with a test below:
+
+1. **Refuse, don't filter.** One public address and one private one refuses the whole target.
+   "Connecting to 'the good one' is a coin flip we would lose the moment DNS reordered, and a mixed
+   answer is itself evidence of intent." Refusing on *any* non-global address, not on the first one
+   found, is what implements this.
+2. **"Could not resolve" and "resolved somewhere we won't go" are different facts**, and only the
+   second is a refusal. The first is an ordinary DNS failure and gets ordinary backoff — hence
+   `Unresolvable` and `ResolvedNonGlobal` as distinct verdicts rather than one "no".
+3. **A refusal writes no availability sample.** We declined to dial; we did not measure. The spec puts
+   this in the same class as recording an unparseable WHO as zero players (§5.4). The guard therefore
+   runs *before* anything on the ingest path that could write availability.
+4. **Operator-supplied seeds may be exempted, and nothing else may.** `CrawlTarget.IsOperatorSeed` is
+   "a stored property defaulting to *not exempt*, never inferred, and never granted by a referral or an
+   import — so the dangerous paths are guarded by not having to remember to guard them" (Task 4).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -3220,17 +3514,372 @@ public sealed class CrawlRateLimiter(DiscoveryOptions options, TimeProvider time
 }
 ```
 
-- [ ] **Step 5: Run the tests**
+- [ ] **Step 5: Write the fake resolver and the guard's failing tests**
+
+Create `tests/MUI.Discovery.Tests/Support/FakeHostResolver.cs`:
+
+```csharp
+using System.Net;
+using MUI.Discovery;
+
+namespace MUI.Discovery.Tests.Support;
+
+/// <summary>
+/// DNS, scripted. <b>No test in this suite performs a live lookup</b>: a guard tested against real DNS
+/// asserts what somebody else's zone file says today, and would go green or red for reasons that have
+/// nothing to do with this code.
+/// </summary>
+public sealed class FakeHostResolver : IHostResolver
+{
+    private readonly Dictionary<string, IReadOnlyList<IPAddress>> _answers =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    public List<string> Asked { get; } = [];
+
+    public FakeHostResolver Resolving(string host, params string[] addresses)
+    {
+        _answers[host] = addresses.Select(IPAddress.Parse).ToList();
+        return this;
+    }
+
+    /// <summary>A name with no record at all. Not a refusal — a dead host.</summary>
+    public FakeHostResolver Failing(string host)
+    {
+        _answers[host] = [];
+        return this;
+    }
+
+    public Task<IReadOnlyList<IPAddress>> ResolveAsync(string host, CancellationToken ct)
+    {
+        Asked.Add(host);
+        return Task.FromResult(_answers.TryGetValue(host, out var addresses) ? addresses : []);
+    }
+}
+```
+
+Create `tests/MUI.Discovery.Tests/HostScopeGuardTests.cs`:
+
+```csharp
+using MUI.Crawl.Mssp;
+using MUI.Discovery;
+using MUI.Discovery.Tests.Support;
+
+namespace MUI.Discovery.Tests;
+
+/// <summary>
+/// Spec §7.2 closed on the resolved address. The literal-address check in <c>MsspHost.IsCrawlable</c>
+/// is bypassed by anybody who owns a domain, so this is the gate that actually holds.
+/// </summary>
+public class HostScopeGuardTests
+{
+    private static readonly DateTimeOffset Now = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    private static readonly CancellationToken None = CancellationToken.None;
+
+    private static CrawlTarget Target(string host, bool operatorSeed = false) => new()
+    {
+        Id = Guid.CreateVersion7(),
+        Host = host,
+        Port = 4201,
+        NextProbeAt = Now,
+        FirstSeenAt = Now,
+        IsOperatorSeed = operatorSeed,
+    };
+
+    [Test]
+    public async Task ANameResolvingToPublicSpaceIsDialled()
+    {
+        var resolver = new FakeHostResolver().Resolving("mud.example.org", "203.0.113.10");
+        var guard = new HostScopeGuard(resolver);
+
+        var ruling = await guard.RuleOnAsync(Target("mud.example.org"), None);
+
+        await Assert.That(ruling.Decision).IsEqualTo(HostScopeDecision.Allowed);
+        await Assert.That(ruling.MayDial).IsTrue();
+    }
+
+    [Test]
+    [Arguments("127.0.0.1")]
+    [Arguments("10.0.0.5")]
+    [Arguments("192.168.1.1")]
+    [Arguments("172.16.0.1")]
+    [Arguments("100.64.0.1")]
+    [Arguments("169.254.169.254")]
+    [Arguments("::1")]
+    [Arguments("fd00::1")]
+    [Arguments("fe80::1")]
+    [Arguments("239.255.255.250")]
+    public async Task ANameResolvingIntoOurOwnNetworkIsRefused(string address)
+    {
+        // The whole point. Every one of these passes MsspHost.IsCrawlable when it arrives as the name
+        // "internal.example.org", because a name is Unresolved and Unresolved is crawlable. Publishing
+        // the A record costs an attacker nothing; 169.254.169.254 is the cloud metadata address and
+        // hands out credentials.
+        var resolver = new FakeHostResolver().Resolving("internal.example.org", address);
+        var guard = new HostScopeGuard(resolver);
+
+        var ruling = await guard.RuleOnAsync(Target("internal.example.org"), None);
+
+        await Assert.That(ruling.Decision).IsEqualTo(HostScopeDecision.ResolvedNonGlobal);
+        await Assert.That(ruling.MayDial).IsFalse();
+        await Assert.That(ruling.Offending).IsNotNull();
+    }
+
+    [Test]
+    public async Task ANameResolvingToBothPublicAndPrivateIsRefusedRatherThanFiltered()
+    {
+        // The DNS-rebinding shape. Taking the address we liked and proceeding is the bug: a host whose
+        // records straddle the boundary is telling us something inconsistent, and the safe reading of an
+        // inconsistent answer is no.
+        var resolver = new FakeHostResolver()
+            .Resolving("rebind.example.org", "203.0.113.10", "10.0.0.5");
+        var guard = new HostScopeGuard(resolver);
+
+        var ruling = await guard.RuleOnAsync(Target("rebind.example.org"), None);
+
+        await Assert.That(ruling.Decision).IsEqualTo(HostScopeDecision.ResolvedNonGlobal);
+        await Assert.That(ruling.Offending).IsEqualTo(MsspHostScope.Private);
+    }
+
+    [Test]
+    public async Task TheOrderOfTheAnswersDoesNotChangeTheRuling()
+    {
+        // Guards against the "first address wins" implementation, which passes the test above by luck
+        // whenever the private record happens to sort first.
+        var guard = new HostScopeGuard(new FakeHostResolver()
+            .Resolving("a.example.org", "10.0.0.5", "203.0.113.10")
+            .Resolving("b.example.org", "203.0.113.10", "10.0.0.5"));
+
+        await Assert.That((await guard.RuleOnAsync(Target("a.example.org"), None)).MayDial).IsFalse();
+        await Assert.That((await guard.RuleOnAsync(Target("b.example.org"), None)).MayDial).IsFalse();
+    }
+
+    [Test]
+    public async Task AnOperatorSeedPointingAtLoopbackIsAllowedWithoutAskingDns()
+    {
+        // Somebody running the crawler against their own test server has said what they mean. And the
+        // exemption short-circuits: there is nothing to verify about an address a human typed.
+        var resolver = new FakeHostResolver();
+        var guard = new HostScopeGuard(resolver);
+
+        var ruling = await guard.RuleOnAsync(Target("127.0.0.1", operatorSeed: true), None);
+
+        await Assert.That(ruling.Decision).IsEqualTo(HostScopeDecision.OperatorSeed);
+        await Assert.That(ruling.MayDial).IsTrue();
+        await Assert.That(resolver.Asked).IsEmpty();
+    }
+
+    [Test]
+    public async Task AReferralNamingLoopbackDirectlyIsStillRefusedHere()
+    {
+        // Task 8 already refuses this shape, but the guard must not assume Task 8 ran: an imported
+        // target never passed through the referral writer at all.
+        var guard = new HostScopeGuard(new FakeHostResolver());
+
+        var ruling = await guard.RuleOnAsync(Target("127.0.0.1"), None);
+
+        await Assert.That(ruling.Decision).IsEqualTo(HostScopeDecision.ResolvedNonGlobal);
+    }
+
+    [Test]
+    public async Task ANameThatResolvesToNothingIsADeadHostRatherThanARefusal()
+    {
+        // Distinct on purpose: "we could not look it up" and "we looked it up and will not go there"
+        // are different facts, and the loop treats them differently — the first is an ordinary DNS
+        // failure with ordinary backoff.
+        var guard = new HostScopeGuard(new FakeHostResolver().Failing("gone.example.org"));
+
+        var ruling = await guard.RuleOnAsync(Target("gone.example.org"), None);
+
+        await Assert.That(ruling.Decision).IsEqualTo(HostScopeDecision.Unresolvable);
+        await Assert.That(ruling.MayDial).IsFalse();
+    }
+
+    [Test]
+    public async Task AResolverThatThrowsIsUnresolvableAndNotAnAllow()
+    {
+        // Fail closed. A guard that lets a dial through because DNS was briefly unhappy is not a guard.
+        var guard = new HostScopeGuard(new ThrowingResolver());
+
+        var ruling = await guard.RuleOnAsync(Target("mud.example.org"), None);
+
+        await Assert.That(ruling.Decision).IsEqualTo(HostScopeDecision.Unresolvable);
+        await Assert.That(ruling.MayDial).IsFalse();
+    }
+
+    private sealed class ThrowingResolver : IHostResolver
+    {
+        public Task<IReadOnlyList<System.Net.IPAddress>> ResolveAsync(string host, CancellationToken ct) =>
+            throw new System.Net.Sockets.SocketException(11001);
+    }
+}
+```
+
+- [ ] **Step 6: Write the guard**
+
+Create `src/MUI.Discovery/HostScopeGuard.cs`:
+
+```csharp
+using System.Net;
+using MUI.Crawl.Mssp;
+
+namespace MUI.Discovery;
+
+/// <summary>Where a name actually points, once DNS has answered.</summary>
+public interface IHostResolver
+{
+    /// <summary>Every address the name resolves to. Empty when it resolves to none.</summary>
+    Task<IReadOnlyList<IPAddress>> ResolveAsync(string host, CancellationToken ct);
+}
+
+/// <summary>The real thing. Injected so no test in this suite performs a live lookup.</summary>
+public sealed class SystemHostResolver : IHostResolver
+{
+    public async Task<IReadOnlyList<IPAddress>> ResolveAsync(string host, CancellationToken ct)
+    {
+        if (IPAddress.TryParse(host, out var literal))
+        {
+            // A literal needs no lookup, and asking DNS about one invites a resolver to answer
+            // something else.
+            return [literal];
+        }
+
+        return await Dns.GetHostAddressesAsync(host, ct).ConfigureAwait(false);
+    }
+}
+
+/// <summary>What the guard decided, and why.</summary>
+public enum HostScopeDecision
+{
+    /// <summary>Resolved, and every address is globally routable.</summary>
+    Allowed,
+
+    /// <summary>Exempt: a human operator configured this address (<see cref="CrawlTarget.IsOperatorSeed"/>).</summary>
+    OperatorSeed,
+
+    /// <summary>At least one resolved address is not globally routable. Refused (spec §7.2).</summary>
+    ResolvedNonGlobal,
+
+    /// <summary>DNS returned nothing, or failed. A dead host, not a refusal — but still not a dial.</summary>
+    Unresolvable,
+}
+
+/// <summary>One ruling on one target.</summary>
+public sealed record HostScopeRuling(
+    HostScopeDecision Decision,
+    IReadOnlyList<IPAddress> Addresses,
+    MsspHostScope? Offending)
+{
+    public bool MayDial => Decision is HostScopeDecision.Allowed or HostScopeDecision.OperatorSeed;
+}
+
+/// <summary>
+/// Spec §7.2, "The gate is on the resolved address, not the name".
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Do not delete this as redundant with <see cref="MsspHost.IsCrawlable"/>. It is not.</b>
+/// <c>IsCrawlable</c> classifies a string, and <see cref="MsspHostScope.Unresolved"/> — which every DNS
+/// name is — counts as crawlable, correctly, because nothing can be known about a name until DNS
+/// answers. The consequence is that the literal-address checks are worth nothing against an attacker
+/// who owns a domain: a <c>REFERRAL</c> naming <c>internal.example.org</c>, with an A record pointing at
+/// <c>10.0.0.5</c>, passes every check Task 8 makes. Publishing that record costs nothing, so a DNS name
+/// is the cheapest bypass of the one gate §7.2 exists to provide. The check has to happen after
+/// resolution, and <c>MsspHost</c> never sees a resolution.
+/// </para>
+/// <para>
+/// <b>Any non-global address refuses the whole target.</b> Not the first one found, and the good ones
+/// are not filtered out and used: a name resolving to one public and one private address is the
+/// DNS-rebinding shape, and proceeding on the half we liked is the bug rather than the mitigation.
+/// </para>
+/// <para>
+/// <b>Known limitation, stated rather than implied</b> (§7.2's own words). This is a
+/// time-of-check-to-time-of-use gap: the name is resolved, then connected by name, so a DNS answer that
+/// changes in between is not caught. The fix is to connect to the pinned <see cref="IPAddress"/> that
+/// was checked rather than re-resolving — a <c>MUI.Crawl.Transport.TcpTransport</c> change, Plan 01's
+/// to make, and worth doing. Caching resolutions would <em>widen</em> this window, so the crawler
+/// resolves per dial. <b>Do not restate this guard as airtight; it raises the cost of the attack, it
+/// does not close it.</b>
+/// </para>
+/// <para>
+/// <b>A refusal is not a <c>ProbeOutcome</c>, and there is deliberately no <c>Refused</c> member to
+/// reach for.</b> <c>ProbeOutcome</c> has exactly two members, <c>Answered</c> and <c>Failed</c>, and
+/// <em>both mean the socket was opened</em>. This guard runs <b>before</b> a <see cref="ProbeResult"/>
+/// exists at all, so there is no honest route by which a refusal could produce an availability row —
+/// which is how §7.2's "a refusal writes no availability sample" is satisfied structurally rather than
+/// by a check somebody has to remember. <b>The tempting shortcut is
+/// <c>ProbeResult.Failed(ProbeFailureCauses.Refused, …)</c>, and it is wrong twice:</b>
+/// <c>FailureCause.Refused</c> means the far end sent an RST — a real measurement of a real host — so
+/// dressing a policy refusal as a probe failure makes the two permanently inseparable downstream, and
+/// it writes our own security policy into a game's public reachability history, which is exactly what
+/// §7.2 forbids. A refusal is counted on <c>CrawlCycle.Refused</c> instead, which belongs to whatever
+/// owns the dial. Do not add the enum member; do not manufacture a <c>ProbeResult</c> here.
+/// </para>
+/// <para>
+/// The range checks themselves are <see cref="MsspHost.ScopeOf(IPAddress)"/>'s. Writing a second copy
+/// here would be two sets of rules that must agree for ever, and the day they disagree is the day one
+/// of them is wrong about <c>169.254.169.254</c>.
+/// </para>
+/// </remarks>
+public sealed class HostScopeGuard(IHostResolver resolver)
+{
+    public async Task<HostScopeRuling> RuleOnAsync(CrawlTarget target, CancellationToken ct)
+    {
+        if (target.IsOperatorSeed)
+        {
+            // Nothing to verify about an address a human configured, and no lookup worth making.
+            return new HostScopeRuling(HostScopeDecision.OperatorSeed, [], null);
+        }
+
+        IReadOnlyList<IPAddress> addresses;
+        try
+        {
+            addresses = await resolver.ResolveAsync(target.Host, ct).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            // Fail closed. A guard that allows a dial because DNS was briefly unhappy is not a guard.
+            return new HostScopeRuling(HostScopeDecision.Unresolvable, [], null);
+        }
+
+        if (addresses.Count == 0)
+        {
+            return new HostScopeRuling(HostScopeDecision.Unresolvable, [], null);
+        }
+
+        // Every address, not the first: the answer as a whole has to be clean.
+        foreach (var address in addresses)
+        {
+            var scope = MsspHost.ScopeOf(address);
+            if (scope is not MsspHostScope.Global)
+            {
+                return new HostScopeRuling(HostScopeDecision.ResolvedNonGlobal, addresses, scope);
+            }
+        }
+
+        return new HostScopeRuling(HostScopeDecision.Allowed, addresses, null);
+    }
+}
+```
+
+- [ ] **Step 7: Run the tests**
 
 Run: `dotnet build MUIndex.slnx -c Release && dotnet run -c Release --no-build --project tests/MUI.Discovery.Tests </dev/null`
-Expected: PASS, four `HostGateTests` and seven `CrawlRateLimiterTests`.
+Expected: PASS — four `HostGateTests`, seven `CrawlRateLimiterTests`, and seventeen
+`HostScopeGuardTests` (the `[Arguments]` case counts ten).
 
-- [ ] **Step 6: Commit**
+If `ANameResolvingIntoOurOwnNetworkIsRefused` fails on one address, the gap is in
+`MsspHost.ScopeOf` and the fix belongs in Plan 01's suite, not here — add the case there first.
+
+- [ ] **Step 8: Commit**
 
 ```bash
 git add src/MUI.Discovery/HostGate.cs src/MUI.Discovery/CrawlRateLimiter.cs \
-        tests/MUI.Discovery.Tests/HostGateTests.cs tests/MUI.Discovery.Tests/CrawlRateLimiterTests.cs
-git commit -m "feat: per-host serialisation and a rate limiter that answers instead of sleeping"
+        src/MUI.Discovery/HostScopeGuard.cs \
+        tests/MUI.Discovery.Tests/Support/FakeHostResolver.cs \
+        tests/MUI.Discovery.Tests/HostGateTests.cs \
+        tests/MUI.Discovery.Tests/CrawlRateLimiterTests.cs \
+        tests/MUI.Discovery.Tests/HostScopeGuardTests.cs
+git commit -m "feat: the three gates a dial passes, including §7.2 on the resolved address"
 ```
 
 ---
@@ -3240,15 +3889,26 @@ git commit -m "feat: per-host serialisation and a rate limiter that answers inst
 **Files:**
 - Modify: `src/MUI.Discovery/Identity.cs` (append everything but `IdentityWeights`, which Task 2 wrote)
 - Create: `src/MUI.Discovery/IdentityMatcher.cs`
-- Create: `tests/MUI.Discovery.Tests/Support/InMemoryGameRepository.cs`
-- Create: `tests/MUI.Discovery.Tests/Support/InMemoryEndpointRepository.cs`
-- Create: `tests/MUI.Discovery.Tests/Support/InMemoryGameFieldRepository.cs`
+- **Modify (do not create):** `tests/MUI.Discovery.Tests/Support/InMemoryRepositories.cs` — **Plan 02
+  Task 13 declares `InMemoryGameRepository`, `InMemoryEndpointRepository`,
+  `InMemoryGameFieldRepository`, `InMemoryPresenceRepository` and `InMemoryAvailabilityRepository`
+  there.** This is one test assembly, so a second file declaring any of them is a duplicate-type
+  compile error. This plan adds one member to one of them; see Step 1.
 - Test: `tests/MUI.Discovery.Tests/IdentityMatcherTests.cs`
 
 **Interfaces:**
 - Consumes: Plan 2's `IGameRepository`, `IEndpointRepository`, `IGameFieldRepository`, `Game`,
   `GameField`, `GameEndpoint`, `GameQuery`, `FieldSource`, `FieldConfidence`, `EndpointKind`,
-  `EndpointState`, `LifecycleState`; `BannerFingerprint` (Task 6); `DiscoveryOptions` (Task 2).
+  `EndpointState`, `LifecycleState`; **Plan 02 Task 13's test doubles `InMemoryGameRepository`,
+  `InMemoryEndpointRepository` and `InMemoryGameFieldRepository`** from
+  `tests/MUI.Discovery.Tests/Support/InMemoryRepositories.cs`, which this plan uses as they are and
+  extends by exactly one member (Step 1); `BannerFingerprint` (Task 6); `DiscoveryOptions` (Task 2); and
+  **Plan 06's `MUI.Catalog.ClaimVocabulary`** — `MsspVariable`, `ConnectScreenPrefix`, `DnsLabel`, the
+  wire spellings of §8's three channels. It lives in `MUI.Catalog` because the claim flow that *tells
+  an operator what to set* and this reader that *looks for it* must agree, and `MUI.Catalog` is the
+  only project both can see. **This plan reads those constants and declares none of them.** If Plan 06
+  has not landed, add `ClaimVocabulary` to `MUI.Catalog` with the three values above — it is three
+  `const string`s with no dependencies — rather than declaring literals here.
 - Produces:
   - `MUI.Discovery.IdentitySignal(string Name, double Weight, bool Matched)`
   - `MUI.Discovery.IdentityScore(Guid? CandidateGameId, double Score, IReadOnlyList<IdentitySignal> Signals)`
@@ -3256,140 +3916,53 @@ git commit -m "feat: per-host serialisation and a rate limiter that answers inst
     `Review(Guid GameId, IdentityScore Score)`, `Fresh(IdentityScore? Best)`
   - `MUI.Discovery.IdentityFields` — `Name`, `Created`, `BannerHash`, `Website`, `Contact`,
     `Codebase`, `ClaimToken`, `Endpoint` (the `game_field.field` strings)
-  - `MUI.Discovery.ClaimToken` — `const string MsspVariable`, `static string? Of(ProbeResult)`
+  - `MUI.Discovery.ClaimTokenBeacon` — `const string MsspVariable`, `const string ConnectScreenPrefix`
+    (both aliasing `MUI.Catalog.ClaimVocabulary`, not declaring their own literals), and
+    `static string? Read(ProbeResult)`. **Named `ClaimTokenBeacon` and not `ClaimToken`**: Plan 06 owns
+    `MUI.Catalog.ClaimToken`, the record modelling an *issued* token, and `MUI.Discovery` references
+    `MUI.Catalog`, so both would be in scope in every file here. This one reads a beacon off a probe;
+    Plan 06's models and issues the token. `Read` loops
+    `ClaimVocabulary.AcceptedMsspVariables` rather than probing one variable, and falls back from the
+    labelled connect-screen form to a bare `ClaimTokenFormat.FindIn` scan — **Plan 06 Task 4 Step 6
+    carries the authoritative source for this method; take it from there rather than re-deriving it.**
   - `MUI.Discovery.IdentitySignals` — `static string ToJson(IReadOnlyList<IdentitySignal>)`
   - `MUI.Discovery.IGameFieldIndex` — `Task<IReadOnlyList<Guid>> GamesWithFieldAsync(string field, string value, CancellationToken ct)`
   - `MUI.Discovery.IdentityMatcher(IGameRepository games, IEndpointRepository endpoints, IGameFieldRepository fields, IGameFieldIndex index, DiscoveryOptions options)`
     with `Task<IdentityVerdict> ResolveAsync(ProbeResult result, CancellationToken ct)`
-  - Test doubles `InMemoryGameRepository` (also implementing `IGameFieldIndex` is **not** done — the
-    field index double lives on `InMemoryGameFieldRepository`), `InMemoryEndpointRepository`,
-    `InMemoryGameFieldRepository : IGameFieldRepository, IGameFieldIndex`.
+  - **On Plan 02's existing `InMemoryGameFieldRepository`**, one added interface and one added method:
+    `InMemoryGameFieldRepository : IGameFieldRepository, IGameFieldIndex`, with
+    `GamesWithFieldAsync`. It goes on the *existing* type deliberately — the forward store and the
+    reverse index then read one dictionary, so a test cannot set up a field the matcher then fails to
+    find. `InMemoryGameRepository` is **not** given `IGameFieldIndex`; the reverse lookup is about
+    fields, not games.
 
-- [ ] **Step 1: Write the in-memory doubles**
+- [ ] **Step 1: Add the reverse index to Plan 02's field double**
 
-Create `tests/MUI.Discovery.Tests/Support/InMemoryGameRepository.cs`:
+**Do not create `InMemoryGameRepository.cs`, `InMemoryEndpointRepository.cs` or
+`InMemoryGameFieldRepository.cs`.** Plan 02 Task 13 declares all three types in
+`tests/MUI.Discovery.Tests/Support/InMemoryRepositories.cs`, and this is one test assembly — a second
+file declaring any of them fails the build with CS0101 rather than merging. `InMemoryGameRepository`
+and `InMemoryEndpointRepository` are used exactly as Plan 02 wrote them and need no change.
 
-```csharp
-using MUI.Catalog;
-using MUI.Storage;
-
-namespace MUI.Discovery.Tests.Support;
-
-public sealed class InMemoryGameRepository : IGameRepository
-{
-    private readonly Dictionary<Guid, Game> _games = new();
-
-    public IReadOnlyCollection<Game> All => _games.Values.ToList();
-
-    public Task<Game?> ByIdAsync(Guid id, CancellationToken ct) =>
-        Task.FromResult(_games.GetValueOrDefault(id));
-
-    public Task<Game?> BySlugAsync(string slug, CancellationToken ct) =>
-        Task.FromResult(_games.Values.FirstOrDefault(g => g.Slug == slug));
-
-    public Task<Guid> InsertAsync(Game game, CancellationToken ct)
-    {
-        _games[game.Id] = game;
-        return Task.FromResult(game.Id);
-    }
-
-    public Task SetStateAsync(Guid id, LifecycleState state, DateTimeOffset? archivedAt, CancellationToken ct)
-    {
-        if (_games.TryGetValue(id, out var game))
-        {
-            _games[id] = game with { State = state, ArchivedAt = archivedAt };
-        }
-
-        return Task.CompletedTask;
-    }
-
-    public Task<IReadOnlyList<Game>> ListAsync(GameQuery query, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<Game>>(_games.Values
-            .Where(g => query.IncludeArchived || g.State is not LifecycleState.Archived)
-            .Skip(query.Offset)
-            .Take(query.Limit)
-            .ToList());
-}
-```
-
-Create `tests/MUI.Discovery.Tests/Support/InMemoryEndpointRepository.cs`:
+`InMemoryGameFieldRepository` needs one thing Plan 02's version does not have, because Plan 02 has no
+reverse lookup to fake: `IGameFieldIndex`. **Extend the existing type — do not write a second one.**
+Open `Support/InMemoryRepositories.cs`, add the interface to its declaration and add the method:
 
 ```csharp
-using MUI.Catalog;
-using MUI.Storage;
-
-namespace MUI.Discovery.Tests.Support;
-
-public sealed class InMemoryEndpointRepository : IEndpointRepository
-{
-    private readonly Dictionary<(string Host, int Port), GameEndpoint> _endpoints = new();
-
-    public IReadOnlyCollection<GameEndpoint> All => _endpoints.Values.ToList();
-
-    public Task<IReadOnlyList<GameEndpoint>> ForGameAsync(Guid gameId, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<GameEndpoint>>(
-            _endpoints.Values.Where(e => e.GameId == gameId).ToList());
-
-    public Task<GameEndpoint?> ByAddressAsync(string host, int port, CancellationToken ct) =>
-        Task.FromResult(_endpoints.GetValueOrDefault((host, port)));
-
-    public Task UpsertAsync(GameEndpoint endpoint, CancellationToken ct)
-    {
-        _endpoints[(endpoint.Host, endpoint.Port)] = endpoint;
-        return Task.CompletedTask;
-    }
-}
-```
-
-Create `tests/MUI.Discovery.Tests/Support/InMemoryGameFieldRepository.cs`:
-
-```csharp
-using MUI.Catalog;
-using MUI.Storage;
-
-namespace MUI.Discovery.Tests.Support;
-
-/// <summary>
-/// Plan 2's forward repository and this plan's reverse index over one dictionary, so a test cannot set
-/// up a field the matcher then fails to find.
-/// </summary>
+// Was: public sealed class InMemoryGameFieldRepository : IGameFieldRepository
 public sealed class InMemoryGameFieldRepository : IGameFieldRepository, IGameFieldIndex
 {
-    private readonly Dictionary<(Guid GameId, string Field), GameField> _fields = new();
-    private readonly List<FieldChange> _changes = [];
+    // ... everything Plan 02 wrote is unchanged ...
 
-    public IReadOnlyList<FieldChange> Changes => _changes;
-
-    public Task<IReadOnlyList<GameField>> ForGameAsync(Guid gameId, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<GameField>>(
-            _fields.Values.Where(f => f.GameId == gameId).ToList());
-
-    public Task UpsertAsync(GameField field, CancellationToken ct)
-    {
-        _fields[(field.GameId, field.Field)] = field;
-        return Task.CompletedTask;
-    }
-
-    public Task ConfirmAsync(Guid gameId, string field, DateTimeOffset at, CancellationToken ct)
-    {
-        if (_fields.TryGetValue((gameId, field), out var existing))
-        {
-            _fields[(gameId, field)] = existing with { LastConfirmedAt = at };
-        }
-
-        return Task.CompletedTask;
-    }
-
-    public Task AppendChangeAsync(FieldChange change, CancellationToken ct)
-    {
-        _changes.Add(change);
-        return Task.CompletedTask;
-    }
-
-    public Task<IReadOnlyList<FieldChange>> ChangesAsync(Guid gameId, int limit, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<FieldChange>>(
-            _changes.Where(c => c.GameId == gameId).TakeLast(limit).ToList());
-
+    /// <summary>
+    /// Added by Plan 03. The reverse lookup <see cref="IdentityMatcher"/> gathers candidates with.
+    /// </summary>
+    /// <remarks>
+    /// It belongs on this type rather than on a second double, and that is not tidiness: the forward
+    /// store and the reverse index then read <em>one</em> dictionary, so a test cannot seed a field
+    /// through <c>UpsertAsync</c> that the matcher then fails to find. Two fakes over two dictionaries
+    /// would let the matcher's tests pass against a world the matcher could never see.
+    /// </remarks>
     public Task<IReadOnlyList<Guid>> GamesWithFieldAsync(string field, string value, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<Guid>>(_fields.Values
             .Where(f => string.Equals(f.Field, field, StringComparison.OrdinalIgnoreCase)
@@ -3399,6 +3972,16 @@ public sealed class InMemoryGameFieldRepository : IGameFieldRepository, IGameFie
             .ToList());
 }
 ```
+
+Two assumptions about Plan 02's file, both cheap to reconcile:
+
+- **the backing dictionary is `_fields`, keyed by `(Guid GameId, string Field)`, holding `GameField`.**
+  If Plan 02 keyed it differently, adapt the `Where` — the behaviour to preserve is
+  *case-insensitive on both field name and value, trimmed on both sides, distinct game ids*, which is
+  what `NpgsqlGameFieldIndex`'s `lower(value)` comparison does in Task 12. The two must agree, or the
+  matcher passes its tests and misses candidates in production.
+- **the double exposes `Changes`** (used by `MergeApplierTests`). If Plan 02's does not, add
+  `public IReadOnlyList<FieldChange> Changes => _changes;` alongside — again on the existing type.
 
 - [ ] **Step 2: Write the failing test**
 
@@ -3619,8 +4202,11 @@ Expected: FAIL — `IdentityMatcher`, `IdentityFields`, `IdentityVerdict` do not
 
 - [ ] **Step 4: Append the identity vocabulary**
 
-Append to `src/MUI.Discovery/Identity.cs`, adding `using System.Text.Json;`, `using MUI.Crawl;` and
-`using SharpMU.Mssp;` at the top:
+Append to `src/MUI.Discovery/Identity.cs`, adding `using System.Text.Json;`, `using MUI.Catalog;`,
+`using MUI.Crawl;`, `using MUI.Crawl.Mssp;` and `using MUI.Crawl.Who;` at the top — `MUI.Catalog` for
+`ClaimVocabulary` and `ClaimTokenFormat`, whose constants are the wire spellings this file reads and
+never re-declares, and `MUI.Crawl.Who` for `AnsiText.Strip` (Plan 01), because a connect screen arrives
+with colour in it and a beacon must not be missed for sitting inside an SGR run:
 
 ```csharp
 /// <summary>One weighted signal and whether it fired, kept whether it fired or not.</summary>
@@ -3660,6 +4246,9 @@ public abstract record IdentityVerdict
 /// The <c>game_field.field</c> names the matcher compares on. These must be the same strings Plan 2's
 /// <c>FieldRegistry</c> registers; <see cref="BannerHash"/> and <see cref="ClaimToken"/> are additions
 /// this plan writes, and an unregistered name simply gets the registry's permissive default window.
+/// <see cref="ClaimToken"/> here is a <em>field name</em>, <c>claim_token</c>, and keeps that spelling:
+/// the type that reads a beacon off a probe is <see cref="ClaimTokenBeacon"/>, and the record modelling
+/// an issued token is Plan 06's <c>MUI.Catalog.ClaimToken</c>.
 /// </summary>
 public static class IdentityFields
 {
@@ -3676,29 +4265,63 @@ public static class IdentityFields
 }
 
 /// <summary>
-/// Where the site-issued claim token may appear (spec §8).
+/// Where a site-issued claim token may be <em>seen on the wire</em>, and how to read it off a probe
+/// (spec §8, §7.3's beacon).
 /// </summary>
 /// <remarks>
+/// <para>
+/// <b>This type reads a beacon; it does not model a token.</b> The two halves of §8 belong to different
+/// plans and must not be confused: Plan 06 owns <c>MUI.Catalog.ClaimToken</c> — the record for an
+/// <em>issued</em> token, with its state, validity window and verification channel — and owns issuing
+/// and verifying it. This plan owns only the reading: given a <see cref="ProbeResult"/>, what token
+/// string, if any, did the server show us. That is why it is called <c>ClaimTokenBeacon</c>: both types
+/// are in scope in every file here, because <c>MUI.Discovery</c> references <c>MUI.Catalog</c>.
+/// </para>
+/// <para>
 /// Two of §8's three channels are visible to a probe — an MSSP variable and a line on the connect
-/// screen. The third, a DNS TXT record, is not: nothing in a telnet session can see it, so it is the
-/// claiming subsystem's job and not this one's. <b>Claiming itself is not built by any of the five
-/// plans</b>, so until it exists this signal never fires and the matcher scores as though the weight
-/// were absent — which is correct, not degraded.
+/// screen. The third, a DNS TXT record at <c>ClaimVocabulary.DnsNameFor(host)</c>, is not: nothing in a
+/// telnet session can see it, so Plan 06 carries its own <c>IDnsTxtResolver</c> for that channel. Until
+/// Plan 06 lands and something writes a verified token into <c>game_field["claim_token"]</c>, this
+/// signal never fires and the matcher scores as though the weight were absent — which is correct, not
+/// degraded.
+/// </para>
+/// <para>
+/// <b>The spellings themselves are not declared here.</b> They are
+/// <see cref="MUI.Catalog.ClaimVocabulary"/>'s, because the claim flow that <em>tells an operator</em>
+/// what to set and this reader that <em>looks for it</em> have to agree, and <c>MUI.Catalog</c> is the
+/// only project both sides can see (<c>MUI.Catalog</c> may never reference <c>MUI.Discovery</c>). One
+/// literal, one owner: an operator is told the same variable name the crawler looks for, and neither
+/// half can drift without the other.
+/// </para>
+/// <para>
+/// <b>Both channels accept more than one spelling, and that is not sloppiness.</b> The MSSP side loops
+/// <see cref="ClaimVocabulary.AcceptedMsspVariables"/> — canonical <c>MUINDEX CLAIM</c> first, then
+/// aliases including <c>CONTACT_TOKEN</c>, which is what the delivered design handoff shows an operator
+/// typing. The connect-screen side tries the label and then falls back to scanning for a well-formed
+/// bare token, because the handoff shows operators pasting the token in with no label at all. An
+/// operator who does exactly what a screenshot told them must not be informed their claim failed;
+/// that support mail is the thing §8's diagnostic exists to prevent. The bare scan is only safe because
+/// <see cref="ClaimTokenFormat"/>'s rendering is self-identifying — <c>muidx-</c> plus three groups from
+/// a fixed unambiguous alphabet is not a string that occurs in a MUSH banner by accident.
+/// </para>
 /// </remarks>
-public static class ClaimToken
+public static class ClaimTokenBeacon
 {
-    /// <summary>The unofficial MSSP variable the site asks owners to set.</summary>
-    public const string MsspVariable = "MUINDEX CLAIM";
+    /// <summary>The MSSP variable the site asks owners to set.</summary>
+    public const string MsspVariable = ClaimVocabulary.MsspVariable;
 
-    /// <summary>The connect-screen form, e.g. <c>MUINDEX-CLAIM: 7f3a…</c>.</summary>
-    public const string BannerPrefix = "MUINDEX-CLAIM:";
+    /// <summary>The labelled connect-screen form, e.g. <c>MUINDEX-CLAIM: muidx-a2b3-c4d5-e6f7</c>.</summary>
+    public const string ConnectScreenPrefix = ClaimVocabulary.ConnectScreenPrefix;
 
-    /// <summary>The token this probe carries, from either channel, or null.</summary>
-    public static string? Of(ProbeResult result)
+    /// <summary>The token this probe carries, from any channel a probe can see, or null.</summary>
+    public static string? Read(ProbeResult result)
     {
-        if (result.Mssp.Default(MsspVariable) is { } declared && !string.IsNullOrWhiteSpace(declared))
+        foreach (var variable in ClaimVocabulary.AcceptedMsspVariables)
         {
-            return declared.Trim();
+            if (result.Mssp.Default(variable) is { } declared && !string.IsNullOrWhiteSpace(declared))
+            {
+                return declared.Trim();
+            }
         }
 
         if (result.Banner is not { Length: > 0 } banner)
@@ -3706,15 +4329,23 @@ public static class ClaimToken
             return null;
         }
 
-        var start = banner.IndexOf(BannerPrefix, StringComparison.OrdinalIgnoreCase);
-        if (start < 0)
+        // Stripped first: a beacon inside an SGR run is still a beacon, and a colourised banner is the
+        // normal case rather than the exception.
+        var plain = AnsiText.Strip(banner);
+        var start = plain.IndexOf(ConnectScreenPrefix, StringComparison.OrdinalIgnoreCase);
+        if (start >= 0)
         {
-            return null;
+            var rest = plain[(start + ConnectScreenPrefix.Length)..];
+            var labelled = new string(rest.TrimStart().TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray());
+            if (labelled.Length > 0)
+            {
+                return labelled;
+            }
         }
 
-        var rest = banner[(start + BannerPrefix.Length)..];
-        var token = new string(rest.TrimStart().TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray());
-        return token.Length == 0 ? null : token;
+        // A bare, well-formed token, which is what the delivered claim flow asks an operator to paste.
+        // Findable without a label only because the rendering is self-identifying.
+        return ClaimTokenFormat.FindIn(plain);
     }
 }
 
@@ -3744,8 +4375,9 @@ Create `src/MUI.Discovery/IdentityMatcher.cs`:
 ```csharp
 using MUI.Catalog;
 using MUI.Crawl;
+using MUI.Crawl.Mssp;
+using MUI.Discovery.Ownership;   // ClaimBeaconPolicy, BeaconVerdict — Plan 06
 using MUI.Storage;
-using SharpMU.Mssp;
 
 namespace MUI.Discovery;
 
@@ -3753,16 +4385,32 @@ namespace MUI.Discovery;
 /// Scores a probe against the games it might already be (spec §7.3).
 /// </summary>
 /// <remarks>
+/// <para>
 /// Candidates are gathered by reverse lookup rather than by scanning: the endpoint, then every game
 /// sharing this probe's claim token, name, banner hash, website or contact. Each candidate is then
 /// scored over all six signals, so a candidate found by one signal is still credited for the others.
+/// </para>
+/// <para>
+/// <b><paramref name="beacons"/> is optional, and what it guards is not optional at all.</b> A claim
+/// token is <em>published</em> — that is the whole point of §8's channels — and it is weighted 10.0,
+/// four times the auto-merge threshold. So on the bare comparison, anyone can read a claimed game's
+/// MSSP, republish that token from their own host, and be auto-merged into that game. Secrecy cannot
+/// fix a credential whose job is to be public. <c>ClaimBeaconPolicy</c> (Plan 06) narrows it: the token
+/// is decisive on the game's own known endpoints, and from a strange host only once the game's own
+/// addresses have stopped answering — which is what a genuine move looks like and what a clone does
+/// not, because the original keeps answering. Where it declines, the score falls back to the other
+/// signals and the verdict becomes <c>Review</c> rather than <c>Merge</c>, which is §7.3's own answer
+/// under uncertainty. Passing <c>null</c> keeps the pre-claiming bare comparison, which is what this
+/// plan's own tests assert; <b>a deployment that issues tokens must pass a policy.</b>
+/// </para>
 /// </remarks>
 public sealed class IdentityMatcher(
     IGameRepository games,
     IEndpointRepository endpoints,
     IGameFieldRepository fields,
     IGameFieldIndex index,
-    DiscoveryOptions options)
+    DiscoveryOptions options,
+    ClaimBeaconPolicy? beacons = null)
 {
     public async Task<IdentityVerdict> ResolveAsync(ProbeResult result, CancellationToken ct)
     {
@@ -3774,7 +4422,7 @@ public sealed class IdentityMatcher(
         }
 
         var bannerHash = result.Banner is { Length: > 0 } banner ? BannerFingerprint.Of(banner) : null;
-        var token = ClaimToken.Of(result);
+        var token = ClaimTokenBeacon.Read(result);
         var endpoint = await endpoints.ByAddressAsync(result.Host, result.Port, ct);
 
         var candidates = new HashSet<Guid>();
@@ -3863,10 +4511,40 @@ public sealed class IdentityMatcher(
                 Same(stored, IdentityFields.Codebase, result.Mssp.Codebase)),
 
             new(nameof(IdentityWeights.ClaimToken), IdentityWeights.ClaimToken,
-                Same(stored, IdentityFields.ClaimToken, token)),
+                await IsBeaconDecisiveAsync(gameId, stored, token, result.Host, ct)),
         };
 
         return new IdentityScore(gameId, signals.Where(s => s.Matched).Sum(s => s.Weight), signals);
+    }
+
+    /// <summary>
+    /// Whether a presented claim token counts for this game.
+    /// </summary>
+    /// <remarks>
+    /// With no policy supplied this is the bare value comparison every other signal uses, which is the
+    /// pre-claiming behaviour and what this plan's tests assert. With one, the token is decisive only
+    /// where <c>ClaimBeaconPolicy</c> says it could legitimately have come from this game — see the
+    /// type's remarks for why a published credential needs that guard at all.
+    /// </remarks>
+    private async Task<bool> IsBeaconDecisiveAsync(
+        Guid gameId,
+        IReadOnlyDictionary<string, string> stored,
+        string? presented,
+        string probedHost,
+        CancellationToken ct)
+    {
+        if (beacons is null)
+        {
+            return Same(stored, IdentityFields.ClaimToken, presented);
+        }
+
+        stored.TryGetValue(IdentityFields.ClaimToken, out var storedToken);
+
+        // No clock argument: ClaimBeaconPolicy takes no `now` (Plan 06). A policy that later needs
+        // time takes an injected TimeProvider, so ManualTimeProvider can drive it — never an ambient
+        // DateTimeOffset.UtcNow reached from inside this otherwise-deterministic matcher.
+        return await beacons.WeighAsync(gameId, presented, storedToken, probedHost, ct)
+            is BeaconVerdict.Decisive;
     }
 
     private static bool Same(IReadOnlyDictionary<string, string> stored, string field, string? candidate) =>
@@ -3898,11 +4576,17 @@ git commit -m "feat: the scored identity matcher, with configurable thresholds"
 - Modify: `src/MUI.Discovery/IdentityMatcher.cs` only if a corpus case fails
 
 **Interfaces:**
-- Consumes: everything Task 10 produced. Adds no new types.
+- Consumes: everything Task 10 produced, plus `MUI.Catalog.ClaimVocabulary`. Adds no new types.
 
 Spec §13 asks for the matcher to be "tested against known move events and against deliberate
 near-collisions". Task 10 tested the mechanism; this task tests the *judgement*, and it is a separate
 deliverable because a reviewer can reasonably accept the mechanism and reject the calibration.
+
+One case here is not about judgement at all: `TheWireSpellingsAreWhatWeTellOperatorsToType` pins
+`ClaimVocabulary`'s three literals. It is the single place in this plan where a wire spelling is the
+subject rather than a dependency, and it earns its place because those strings are a published contract
+with server operators shared across two plans — Plan 06 prints them in its claim instructions, this
+plan looks for them, and a silent edit on either side breaks claiming with no failing test anywhere.
 
 - [ ] **Step 1: Write the corpus**
 
@@ -4084,15 +4768,71 @@ public class IdentityCorpusTests
     // ---- The claim token ----
 
     [Test]
+    public async Task TheWireSpellingsAreWhatWeTellOperatorsToType()
+    {
+        // The ONE place in this suite where the literal is the subject rather than a dependency. These
+        // three strings are a published contract with server operators: they appear in Plan 06's claim
+        // instructions and in this plan's reader, and if either side edits one the other stops seeing a
+        // token that is sitting right there in the MSSP report. Changing a value here is changing what
+        // every already-claimed game has typed into its config, so it is a migration, not an edit.
+        await Assert.That(ClaimVocabulary.MsspVariable).IsEqualTo("MUINDEX CLAIM");
+        await Assert.That(ClaimVocabulary.ConnectScreenPrefix).IsEqualTo("MUINDEX-CLAIM:");
+        await Assert.That(ClaimVocabulary.DnsLabel).IsEqualTo("_muindex");
+
+        // The canonical name must be first, because Read returns the first accepted variable it finds
+        // and a game setting both should be read as having set the canonical one.
+        await Assert.That(ClaimVocabulary.AcceptedMsspVariables[0]).IsEqualTo(ClaimVocabulary.MsspVariable);
+
+        // And the alias the delivered design handoff actually shows an operator typing.
+        await Assert.That(ClaimVocabulary.AcceptedMsspVariables).Contains("CONTACT_TOKEN");
+
+        // And the reader really does read the shared constants rather than a copy that could drift.
+        await Assert.That(ClaimTokenBeacon.MsspVariable).IsEqualTo(ClaimVocabulary.MsspVariable);
+        await Assert.That(ClaimTokenBeacon.ConnectScreenPrefix).IsEqualTo(ClaimVocabulary.ConnectScreenPrefix);
+    }
+
+    [Test]
+    public async Task AnOperatorWhoFollowedTheScreenshotIsStillRecognised()
+    {
+        // The delivered handoff shows `mssp CONTACT_TOKEN/…` and shows the bare token pasted into the
+        // banner with no label. Both are accepted, because someone who did exactly what the design told
+        // them must not be informed their claim failed — that support mail is what §8's diagnostic
+        // exists to prevent. Canonical spellings are covered by the two tests below.
+        var token = ClaimTokenFormat.New();
+        var alias = await GameAsync("Alias", (IdentityFields.ClaimToken, token));
+
+        var viaAlias = await Matcher.ResolveAsync(ProbeResults.Answered(
+            host: "somewhere.else.example",
+            mssp: ProbeResults.Mssp(("NAME", ["Totally Different"]), ("CONTACT_TOKEN", [token]))), None);
+
+        await Assert.That(viaAlias).IsTypeOf<IdentityVerdict.Merge>();
+        await Assert.That(((IdentityVerdict.Merge)viaAlias).GameId).IsEqualTo(alias);
+
+        var viaBareBanner = await Matcher.ResolveAsync(ProbeResults.Answered(
+            host: "elsewhere.example",
+            banner: $"Welcome to the game.\r\n\r\n  {token}\r\n\r\nType 'connect'.\r\n"), None);
+
+        await Assert.That(viaBareBanner).IsTypeOf<IdentityVerdict.Merge>();
+        await Assert.That(((IdentityVerdict.Merge)viaBareBanner).GameId).IsEqualTo(alias);
+    }
+
+    [Test]
     public async Task AClaimedGameIsNeverDuplicated()
     {
         // §7.3: "decisive when present — a claimed game is never duplicated". Everything else disagrees
         // here: different host, different name, different banner, no shared field at all.
+        //
+        // This matcher is built with no ClaimBeaconPolicy, so it takes the bare-comparison arm — which
+        // is exactly the arm a stranger can exploit by republishing a public token, and exactly why a
+        // deployment that issues tokens passes a policy. Plan 06 Task 10 owns the guarded cases; what
+        // is asserted here is that the signal reaches the threshold at all.
         var corvid = await GameAsync("Corvid", (IdentityFields.ClaimToken, "7f3a91c4e2"));
 
         var verdict = await Matcher.ResolveAsync(ProbeResults.Answered(
             host: "somewhere.else.example", port: 9999,
-            mssp: ProbeResults.Mssp(("NAME", ["Totally Different"]), ("MUINDEX CLAIM", ["7f3a91c4e2"]))), None);
+            mssp: ProbeResults.Mssp(
+                ("NAME", ["Totally Different"]),
+                (ClaimVocabulary.MsspVariable, ["7f3a91c4e2"]))), None);
 
         await Assert.That(verdict).IsTypeOf<IdentityVerdict.Merge>();
         await Assert.That(((IdentityVerdict.Merge)verdict).GameId).IsEqualTo(corvid);
@@ -4106,7 +4846,7 @@ public class IdentityCorpusTests
 
         var verdict = await Matcher.ResolveAsync(ProbeResults.Answered(
             host: "somewhere.else.example",
-            banner: "Welcome!\r\nMUINDEX-CLAIM: 7f3a91c4e2\r\nType 'connect'.\r\n"), None);
+            banner: $"Welcome!\r\n{ClaimVocabulary.ConnectScreenPrefix} 7f3a91c4e2\r\nType 'connect'.\r\n"), None);
 
         await Assert.That(verdict).IsTypeOf<IdentityVerdict.Merge>();
         await Assert.That(((IdentityVerdict.Merge)verdict).GameId).IsEqualTo(corvid);
@@ -4121,7 +4861,9 @@ public class IdentityCorpusTests
 
         var verdict = await Matcher.ResolveAsync(ProbeResults.Answered(
             host: "somewhere.else.example",
-            mssp: ProbeResults.Mssp(("NAME", ["Corvid"]), ("MUINDEX CLAIM", ["7f3a91c4e3"]))), None);
+            mssp: ProbeResults.Mssp(
+                ("NAME", ["Corvid"]),
+                (ClaimVocabulary.MsspVariable, ["7f3a91c4e3"]))), None);
 
         await Assert.That(verdict).IsTypeOf<IdentityVerdict.Fresh>();
     }
@@ -4131,9 +4873,11 @@ public class IdentityCorpusTests
 - [ ] **Step 2: Run the corpus**
 
 Run: `dotnet build MUIndex.slnx -c Release && dotnet run -c Release --no-build --project tests/MUI.Discovery.Tests </dev/null`
-Expected: PASS, all ten. If a case fails, fix `IdentityMatcher` — the corpus encodes §7.3's judgement
-and the weights in `IdentityWeights` are what implements it. Do **not** move a weight to make a case
-pass without re-running every other case in this file and in `IdentityMatcherTests`.
+Expected: PASS, all twelve. If a judgement case fails, fix `IdentityMatcher` — the corpus encodes
+§7.3's judgement and the weights in `IdentityWeights` are what implements it. Do **not** move a weight
+to make a case pass without re-running every other case in this file and in `IdentityMatcherTests`. If
+`TheWireSpellingsAreWhatWeTellOperatorsToType` fails, do **not** change the expected strings: somebody
+edited a published contract, and the fix is in `MUI.Catalog.ClaimVocabulary`.
 
 - [ ] **Step 3: Record what needs calibrating**
 
@@ -5439,7 +6183,12 @@ git commit -m "feat: AdvisoryLock — N web replicas, exactly one crawler"
     with `static readonly CrawlCycle Empty`
   - `MUI.Discovery.GameListingGate` — `static bool MayList(ProbeResult result)`
   - `MUI.Discovery.Slug` — `static string For(string name)`
-  - `MUI.Discovery.CrawlerService(IProbe probe, ICrawlTargetRepository targets, ProbeIngestor ingestor, IdentityMatcher identity, IGameRepository games, MergeApplier merges, IDuplicateReviewRepository reviews, ReferralGraphWriter referrals, AdvisoryLock advisoryLock, DiscoveryOptions options, TimeProvider time, ILogger<CrawlerService> logger) : BackgroundService`
+  - `MUI.Discovery.CrawlerService(IProbe probe, ICrawlTargetRepository targets, ProbeIngestor ingestor, IdentityMatcher identity, IGameRepository games, MergeApplier merges, IDuplicateReviewRepository reviews, ReferralGraphWriter referrals, HostScopeGuard scopes, AdvisoryLock advisoryLock, DiscoveryOptions options, TimeProvider time, ILogger<CrawlerService> logger, ClaimCycle? claims = null) : BackgroundService` —
+    **fourteen parameters**, thirteen required plus the trailing optional `claims`. This order is the
+    order in the Step 5 definition below and in all three construction sites (`World.Service` here,
+    and Task 17's `Build` and `CrawlAgainstARealServerTests`); none of the three passes `claims`, which
+    is why Plan 03 builds and goes green before Plan 06 exists. The count is a recorded smell — see
+    *Known limitations* item 4 and *What this plan owes itself when the code exists* item 1.
     with `bool HoldsLease { get; }` and `Task<CrawlCycle> RunCycleAsync(CancellationToken ct)`
   - `MUI.Discovery.Tests.Support.FakeProbe`
 
@@ -5504,12 +6253,14 @@ using MUI.Catalog;
 using MUI.Crawl;
 using MUI.Discovery;
 using MUI.Discovery.Tests.Support;
+using MUI.Discovery.Writers;
 
 namespace MUI.Discovery.Tests;
 
 /// <summary>
-/// One pass of the crawl loop, against a scripted probe. The lease is exercised separately (Task 17);
-/// <c>RunCycleAsync</c> is the unit the loop is built from and the unit worth asserting.
+/// One pass of the crawl loop, against a scripted probe and scripted DNS. The lease is exercised
+/// separately (Task 17); <c>RunCycleAsync</c> is the unit the loop is built from and the unit worth
+/// asserting.
 /// </summary>
 public class CrawlLoopTests
 {
@@ -5534,6 +6285,13 @@ public class CrawlLoopTests
             MaxConcurrency = 1,
         };
 
+        /// <summary>
+        /// Scripted DNS. Every target this harness makes is an operator seed by default, so the guard
+        /// short-circuits and no test touches live DNS by accident; the cases that exercise the guard
+        /// ask for <c>operatorSeed: false</c> and script an answer here.
+        /// </summary>
+        public FakeHostResolver Dns { get; } = new();
+
         public World() => Probe = new FakeProbe(Time);
 
         public CrawlerService Service => new(
@@ -5545,16 +6303,28 @@ public class CrawlLoopTests
             new MergeApplier(Endpoints, Fields, Merges, Time),
             Reviews,
             new ReferralGraphWriter(Edges, Targets, Options, Time),
+            new HostScopeGuard(Dns),
             advisoryLock: null!,     // RunCycleAsync never touches it; ExecuteAsync is Task 17's test
             Options,
             Time,
             NullLogger<CrawlerService>.Instance);
 
-        // Plan 2's ingestor over the in-memory repositories. Presence and availability are Plan 2's
-        // behaviour and are asserted there; here it only has to be real enough to be called.
-        public MUI.Discovery.Writers.ProbeIngestor Ingestor { get; } = ProbeIngestors.InMemory();
+        public InMemoryPresenceRepository Presence { get; } = new();
+        public InMemoryAvailabilityRepository Availability { get; } = new();
 
-        public async Task<Guid> TargetAsync(string host, int port = 4201, Guid? gameId = null)
+        // A real Plan 2 ingestor over *this World's* repositories rather than over private ones, so a
+        // test can assert what the loop did and did not write. What it writes is Plan 2's behaviour and
+        // is asserted in Plan 2's suite; what matters here is whether the loop called it at all.
+        public ProbeIngestor Ingestor => new(
+            new FieldReconciler(Fields, Time),
+            new PresenceWriter(Presence),
+            new AvailabilityWriter(Availability));
+
+        public async Task<Guid> TargetAsync(
+            string host,
+            int port = 4201,
+            Guid? gameId = null,
+            bool operatorSeed = true)
         {
             var id = await Targets.AddAsync(new CrawlTarget
             {
@@ -5563,6 +6333,7 @@ public class CrawlLoopTests
                 Port = port,
                 NextProbeAt = Time.GetUtcNow(),
                 FirstSeenAt = Time.GetUtcNow(),
+                IsOperatorSeed = operatorSeed,
             }, None);
 
             if (gameId is { } game)
@@ -5752,6 +6523,79 @@ public class CrawlLoopTests
     }
 
     [Test]
+    public async Task AReferredHostThatResolvesIntoOurOwnNetworkIsNeverDialled()
+    {
+        // Spec §7.2, and the reason HostScopeGuard exists. This target passed every check Task 8 makes:
+        // "internal.example.org" is a name, a name is MsspHostScope.Unresolved, and Unresolved is
+        // crawlable. Only the resolved address gives it away, and only the loop can see that.
+        var world = new World();
+        await world.TargetAsync("internal.example.org", operatorSeed: false);
+        world.Dns.Resolving("internal.example.org", "10.0.0.5");
+        world.Probe.Answering("internal.example.org", 4201, () =>
+            throw new InvalidOperationException("the guard should have stopped this before the socket"));
+
+        var cycle = await world.Service.RunCycleAsync(None);
+
+        await Assert.That(cycle.Refused).IsEqualTo(1);
+        await Assert.That(cycle.Answered).IsEqualTo(0);
+        await Assert.That(world.Probe.Visited).IsEmpty();
+        await Assert.That(world.Games.All).IsEmpty();
+    }
+
+    [Test]
+    public async Task ARefusedTargetIsRescheduledWithBackoffAndNeverRetired()
+    {
+        // §7.4 does not stop applying because we refused: a name pointing somewhere bad today may be a
+        // real game tomorrow. It backs off like any other failure, and it stays on the books for ever.
+        var world = new World();
+        await world.TargetAsync("internal.example.org", operatorSeed: false);
+        world.Dns.Resolving("internal.example.org", "10.0.0.5");
+
+        await world.Service.RunCycleAsync(None);
+        var after = world.Targets.All.Single();
+
+        await Assert.That(after.ConsecutiveFailures).IsEqualTo(1);
+        await Assert.That(after.NextProbeAt).IsGreaterThan(world.Time.GetUtcNow());
+    }
+
+    [Test]
+    public async Task ARefusalIsNotRecordedAsTheGameBeingUnreachable()
+    {
+        // We did not measure this game and find it down; we declined to open the socket. Writing an
+        // availability sample would put our own security policy into a game's public reachability
+        // history as though it were a fact about them.
+        var world = new World();
+        var corvid = Guid.CreateVersion7();
+        await world.Games.InsertAsync(new Game(corvid, "corvid", "Corvid",
+            LifecycleState.Active, false, ProbeResults.Observed, ProbeResults.Observed, null), None);
+        await world.TargetAsync("moved.example.org", gameId: corvid, operatorSeed: false);
+        world.Dns.Resolving("moved.example.org", "192.168.1.1");
+
+        var cycle = await world.Service.RunCycleAsync(None);
+
+        await Assert.That(cycle.Refused).IsEqualTo(1);
+        await Assert.That(world.Probe.Visited).IsEmpty();
+        await Assert.That(world.Availability.All).IsEmpty();
+        await Assert.That(world.Presence.All).IsEmpty();
+    }
+
+    [Test]
+    public async Task AHostThatResolvesCleanlyIsDialledAsNormal()
+    {
+        // The guard must not be a blanket refusal of everything that is not an operator seed.
+        var world = new World();
+        await world.TargetAsync("mud.example.org", operatorSeed: false);
+        world.Dns.Resolving("mud.example.org", "203.0.113.10");
+        world.Probe.Answering("mud.example.org", 4201, () => ProbeResults.Answered(
+            mssp: ProbeResults.Mssp(("NAME", ["Corvid"]))));
+
+        var cycle = await world.Service.RunCycleAsync(None);
+
+        await Assert.That(cycle.Refused).IsEqualTo(0);
+        await Assert.That(cycle.Created).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task AWedgedProbeIsBoundedAndBecomesATimeoutRatherThanStallingTheCycle()
     {
         // Spec §12: the crawler shares a process with the web tier, so bounding is a correctness
@@ -5822,7 +6666,15 @@ public class CrawlLoopTests
 - [ ] **Step 3: Write the ingestor helper the tests need**
 
 `ProbeIngestor` is Plan 2's, and its collaborators are Plan 2's writers over Plan 2's interfaces. Add
-one factory so the loop tests construct a real one over the in-memory repositories.
+one factory so the simpler loop tests construct a real one in a single expression.
+
+**`InMemoryPresenceRepository` and `InMemoryAvailabilityRepository` are not created here.** Plan 02
+Task 13 declares them, alongside `InMemoryGameFieldRepository` and the rest, in
+`tests/MUI.Discovery.Tests/Support/InMemoryRepositories.cs`; this is one test assembly, so declaring
+them again is a CS0101 build failure rather than a merge conflict. Use them as they are. This step
+needs only two things of them, both of which Plan 02's have: they implement their interface, and they
+expose what they collected (`All`), which is what lets `CrawlLoopTests` assert that a refused target
+wrote no presence sample and no availability row.
 
 Create `tests/MUI.Discovery.Tests/Support/ProbeIngestors.cs`:
 
@@ -5832,104 +6684,39 @@ using MUI.Discovery.Writers;
 namespace MUI.Discovery.Tests.Support;
 
 /// <summary>
-/// A real Plan 2 ingestor over in-memory repositories. What it writes is Plan 2's behaviour and is
-/// asserted in Plan 2's suite; here it only has to be genuinely wired, so that the loop's calls into it
-/// are exercised rather than mocked away.
+/// A real Plan 2 ingestor over Plan 2's in-memory repositories. What it writes is Plan 2's behaviour
+/// and is asserted in Plan 2's suite; here it only has to be genuinely wired, so that the loop's calls
+/// into it are exercised rather than mocked away.
 /// </summary>
+/// <remarks>
+/// <para>
+/// This factory keeps no references to what it built, so a test that needs to assert what was written
+/// composes the ingestor from its own repositories instead — <c>CrawlLoopTests.World</c> does exactly
+/// that. This one is for the sites that only need the loop to have a real collaborator to call.
+/// </para>
+/// <para>
+/// <b>Compose over held repositories wherever a test must see what was written, and keep this factory
+/// for the many sites that only need a working collaborator. Both forms exist on purpose.</b> The
+/// reason is that the assertions which matter most in this suite are about writes that did <em>not</em>
+/// happen — a refused target writes no presence sample and no availability row (§7.2) — and you cannot
+/// assert an absence against a repository you cannot reach. A factory that owns its repositories
+/// privately can only ever prove that something was written, never that nothing was.
+/// <b>So this must never become the only door.</b> If a future test needs to look at what the ingestor
+/// wrote, compose one from that test's own repositories; do not add a getter here and turn a
+/// convenience into the single construction path.
+/// </para>
+/// </remarks>
 public static class ProbeIngestors
 {
     public static ProbeIngestor InMemory(TimeProvider? time = null)
     {
         var clock = time ?? new ManualTimeProvider();
-        var fields = new InMemoryGameFieldRepository();
-        var presence = new InMemoryPresenceRepository();
-        var availability = new InMemoryAvailabilityRepository();
 
         return new ProbeIngestor(
-            new FieldReconciler(fields, clock),
-            new PresenceWriter(presence),
-            new AvailabilityWriter(availability));
+            new FieldReconciler(new InMemoryGameFieldRepository(), clock),
+            new PresenceWriter(new InMemoryPresenceRepository()),
+            new AvailabilityWriter(new InMemoryAvailabilityRepository()));
     }
-}
-```
-
-and the two remaining doubles, `tests/MUI.Discovery.Tests/Support/InMemoryPresenceRepository.cs`:
-
-```csharp
-using MUI.Catalog;
-using MUI.Storage;
-
-namespace MUI.Discovery.Tests.Support;
-
-public sealed class InMemoryPresenceRepository : IPresenceRepository
-{
-    private readonly List<PresenceSample> _samples = [];
-
-    public IReadOnlyList<PresenceSample> All => _samples;
-
-    public Task AppendAsync(PresenceSample sample, CancellationToken ct)
-    {
-        _samples.Add(sample);
-        return Task.CompletedTask;
-    }
-
-    public Task<IReadOnlyList<PresenceSample>> RangeAsync(
-        Guid gameId, DateTimeOffset from, DateTimeOffset to, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<PresenceSample>>(_samples
-            .Where(s => s.GameId == gameId && s.At >= from && s.At <= to)
-            .ToList());
-
-    public Task EnsurePartitionAsync(DateTimeOffset month, CancellationToken ct) => Task.CompletedTask;
-}
-```
-
-and `tests/MUI.Discovery.Tests/Support/InMemoryAvailabilityRepository.cs`:
-
-```csharp
-using MUI.Catalog;
-using MUI.Storage;
-
-namespace MUI.Discovery.Tests.Support;
-
-public sealed class InMemoryAvailabilityRepository : IAvailabilityRepository
-{
-    private readonly List<AvailabilityInterval> _intervals = [];
-    private long _next = 1;
-
-    public IReadOnlyList<AvailabilityInterval> All => _intervals;
-
-    public Task<AvailabilityInterval?> OpenIntervalAsync(Guid gameId, CancellationToken ct) =>
-        Task.FromResult(_intervals.FirstOrDefault(i => i.GameId == gameId && i.ToAt is null));
-
-    public Task<long> OpenAsync(
-        Guid gameId, AvailabilityState state, FailureCause cause, DateTimeOffset from, CancellationToken ct)
-    {
-        var id = _next++;
-        _intervals.Add(new AvailabilityInterval(id, gameId, state, from, null, cause));
-        return Task.FromResult(id);
-    }
-
-    public Task CloseAsync(long intervalId, DateTimeOffset at, CancellationToken ct)
-    {
-        var index = _intervals.FindIndex(i => i.Id == intervalId);
-        if (index >= 0)
-        {
-            _intervals[index] = _intervals[index] with { ToAt = at };
-        }
-
-        return Task.CompletedTask;
-    }
-
-    public Task<IReadOnlyList<AvailabilityInterval>> RangeAsync(
-        Guid gameId, DateTimeOffset from, DateTimeOffset to, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<AvailabilityInterval>>(_intervals
-            .Where(i => i.GameId == gameId && i.FromAt <= to && (i.ToAt is null || i.ToAt >= from))
-            .ToList());
-
-    public Task<TimeSpan> CumulativeReachableAsync(Guid gameId, DateTimeOffset now, CancellationToken ct) =>
-        Task.FromResult(_intervals
-            .Where(i => i.GameId == gameId && i.State is AvailabilityState.Reachable)
-            .Aggregate(TimeSpan.Zero, (total, i) => total + ((i.ToAt ?? now) - i.FromAt)));
 }
 ```
 
@@ -5960,9 +6747,10 @@ public sealed record CrawlCycle(
     int Merged,
     int Created,
     int Review,
-    int ReferralsAdded)
+    int ReferralsAdded,
+    int Refused)
 {
-    public static readonly CrawlCycle Empty = new(0, 0, 0, 0, 0, 0, 0);
+    public static readonly CrawlCycle Empty = new(0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 /// <summary>
@@ -6019,6 +6807,23 @@ public static class Slug
 /// below is "not too many in flight anywhere". Only the last is about connections, which is why it is
 /// here and not in the limiter.
 /// </para>
+/// <para>
+/// A fourth gate, <see cref="HostScopeGuard"/>, is not a limit at all — it is spec §7.2, and it is the
+/// only place §7.2 can actually be enforced, because a referral or an import names a host as a
+/// <em>string</em> and where that string points is not known until DNS answers. It runs after the
+/// politeness gates and before the socket.
+/// </para>
+/// <para>
+/// <b><see cref="ClaimCycle"/> is called from <c>ApplyAsync</c>, between the ingestor and the
+/// rescheduler, and that position is load-bearing rather than incidental.</b> Claim verification is a
+/// <em>passenger</em> on a visit the crawler was going to make anyway: sitting there, it can see the
+/// probe result and it structurally cannot reach the schedule, so a pending claim can never cause an
+/// extra dial. Anything that runs when a claim is <em>created</em> — a second loop, a timer, a "check
+/// now" button wired to a probe — reintroduces exactly the polling §11 forbids, and does it on somebody
+/// else's server because a stranger clicked a button. A claim is not an exemption from the politeness
+/// contract. It is optional only so that Plan 03 builds before Plan 06 lands; a deployment with
+/// claiming passes one.
+/// </para>
 /// </remarks>
 public sealed class CrawlerService(
     IProbe probe,
@@ -6029,10 +6834,12 @@ public sealed class CrawlerService(
     MergeApplier merges,
     IDuplicateReviewRepository reviews,
     ReferralGraphWriter referrals,
+    HostScopeGuard scopes,
     AdvisoryLock advisoryLock,
     DiscoveryOptions options,
     TimeProvider time,
-    ILogger<CrawlerService> logger) : BackgroundService
+    ILogger<CrawlerService> logger,
+    ClaimCycle? claims = null) : BackgroundService
 {
     private readonly HostGate _hosts = new();
     private readonly CrawlRateLimiter _limiter = new(options, time);
@@ -6095,7 +6902,8 @@ public sealed class CrawlerService(
             Merged: outcomes.Count(outcome => outcome.Merged),
             Created: outcomes.Count(outcome => outcome.Created),
             Review: outcomes.Count(outcome => outcome.Review),
-            ReferralsAdded: outcomes.Sum(outcome => outcome.ReferralsAdded));
+            ReferralsAdded: outcomes.Sum(outcome => outcome.ReferralsAdded),
+            Refused: outcomes.Count(outcome => outcome.Refused));
     }
 
     private async Task<TargetOutcome> ProbeOneAsync(
@@ -6108,6 +6916,15 @@ public sealed class CrawlerService(
         {
             using var host = await _hosts.EnterAsync(target.Host, cancellationToken);
             await _limiter.WaitForTurnAsync(target.Host, cancellationToken);
+
+            // Spec §7.2, on the resolved address. Inside the host gate and after the rate limit, because
+            // a DNS lookup is still traffic aimed at somebody's infrastructure — and before the socket,
+            // because that is the whole point.
+            var ruling = await scopes.RuleOnAsync(target, cancellationToken);
+            if (!ruling.MayDial)
+            {
+                return await RefuseAsync(target, ruling, cancellationToken);
+            }
 
             var result = await ProbeBoundedAsync(target, cancellationToken);
             return await ApplyAsync(target, result, cancellationToken);
@@ -6123,6 +6940,58 @@ public sealed class CrawlerService(
         {
             slots.Release();
         }
+    }
+
+    /// <summary>
+    /// A target we declined to dial. Rescheduled with ordinary backoff so a hostile or broken name is
+    /// re-checked at a decreasing rate for ever rather than every six hours for ever — §7.4 still
+    /// applies, because a name that points somewhere bad today may be a real game tomorrow.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>No availability sample is written, deliberately.</b> We did not measure this game and find it
+    /// unreachable; we declined to open the socket. Recording it as downtime would put our own security
+    /// policy into a game's public reachability history, which is a claim about them that is not true.
+    /// Parsers never fabricate, and neither does this.
+    /// </para>
+    /// <para>
+    /// <b>Note what this method does not do: it never builds a <see cref="ProbeResult"/>.</b> That is
+    /// what makes the paragraph above structural instead of a promise — the ingestor is the only thing
+    /// that writes an availability row, it is only reachable from a <c>ProbeResult</c>, and no refusal
+    /// ever produces one. <b>Do not "fix" this by adding a <c>Refused</c> member to
+    /// <c>ProbeOutcome</c>, and do not return
+    /// <c>ProbeResult.Failed(ProbeFailureCauses.Refused, …)</c> from here.</b> <c>ProbeOutcome</c> has
+    /// two members and both mean the socket was opened; <c>FailureCause.Refused</c> means the far end
+    /// sent an RST, which is a real measurement of a real host. Reusing it for a policy decision of ours
+    /// makes the two permanently inseparable everywhere downstream and writes our security policy into
+    /// somebody else's reachability history — the precise thing §7.2 forbids. The refusal is carried on
+    /// <see cref="CrawlCycle.Refused"/>, which is the right level: the invariant belongs to whatever
+    /// owns the dial, and the guard runs before a probe result can exist.
+    /// </para>
+    /// </remarks>
+    private async Task<TargetOutcome> RefuseAsync(
+        CrawlTarget target,
+        HostScopeRuling ruling,
+        CancellationToken cancellationToken)
+    {
+        if (ruling.Decision is HostScopeDecision.ResolvedNonGlobal)
+        {
+            logger.LogWarning(
+                "Refused {Host}:{Port}: it resolves into {Scope} space ({Addresses}). Spec §7.2.",
+                target.Host, target.Port, ruling.Offending,
+                string.Join(", ", ruling.Addresses));
+        }
+
+        var now = time.GetUtcNow();
+        await targets.RecordAttemptAsync(
+            target.Id,
+            now,
+            succeeded: false,
+            crawlDelay: null,
+            ProbeSchedule.NextProbeAt(now, target.ConsecutiveFailures + 1, target.CrawlDelay),
+            cancellationToken);
+
+        return TargetOutcome.Refusal;
     }
 
     private async Task<ProbeResult> ProbeBoundedAsync(CrawlTarget target, CancellationToken cancellationToken)
@@ -6204,6 +7073,14 @@ public sealed class CrawlerService(
         if (gameId is { } known)
         {
             await ingestor.IngestAsync(known, result, cancellationToken);
+
+            // Spec §8, and the position matters more than the call. Verification rides this visit: it
+            // reads the ProbeResult we already have, and from here it cannot reach the schedule at all,
+            // so a pending claim can never buy a game an extra dial. See the type's remarks.
+            if (claims is not null)
+            {
+                await claims.OnProbeAsync(known, result, cancellationToken);
+            }
         }
 
         var intake = gameId is { } source && result.Outcome is ProbeOutcome.Answered
@@ -6213,7 +7090,7 @@ public sealed class CrawlerService(
         await RescheduleAsync(target, result, cancellationToken);
 
         return new TargetOutcome(
-            result.Outcome is ProbeOutcome.Answered, merged, created, review, intake.Added);
+            result.Outcome is ProbeOutcome.Answered, merged, created, review, intake.Added, Refused: false);
     }
 
     private async Task RescheduleAsync(CrawlTarget target, ProbeResult result, CancellationToken cancellationToken)
@@ -6270,9 +7147,13 @@ public sealed class CrawlerService(
         }
     }
 
-    private sealed record TargetOutcome(bool Answered, bool Merged, bool Created, bool Review, int ReferralsAdded)
+    private sealed record TargetOutcome(
+        bool Answered, bool Merged, bool Created, bool Review, int ReferralsAdded, bool Refused)
     {
-        public static readonly TargetOutcome Failure = new(false, false, false, false, 0);
+        public static readonly TargetOutcome Failure = new(false, false, false, false, 0, false);
+
+        /// <summary>A refusal counts as a failure too — it is a cycle in which nothing was reached.</summary>
+        public static readonly TargetOutcome Refusal = new(false, false, false, false, 0, true);
     }
 }
 ```
@@ -6280,7 +7161,7 @@ public sealed class CrawlerService(
 - [ ] **Step 6: Run the tests**
 
 Run: `dotnet build MUIndex.slnx -c Release && dotnet run -c Release --no-build --project tests/MUI.Discovery.Tests </dev/null`
-Expected: PASS, all twelve `CrawlLoopTests`.
+Expected: PASS, all sixteen `CrawlLoopTests`.
 
 - [ ] **Step 7: Commit**
 
@@ -6333,6 +7214,7 @@ Add to `tests/MUI.Discovery.Tests/MUI.Discovery.Tests.csproj`:
 Create `tests/MUI.Discovery.Tests/CrawlerLeaseTests.cs`:
 
 ```csharp
+using System.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using MUI.Discovery;
 using MUI.Discovery.Storage;
@@ -6348,6 +7230,12 @@ namespace MUI.Discovery.Tests;
 public class CrawlerLeaseTests
 {
     private static readonly CancellationToken None = CancellationToken.None;
+
+    /// <summary>
+    /// A fixed instant for seeded rows. The lease is what this test exercises, not the schedule, so
+    /// the seed only has to be safely in the past — and a literal keeps it out of the ambient clock.
+    /// </summary>
+    private static readonly DateTimeOffset Seeded = new(2026, 7, 30, 12, 0, 0, TimeSpan.Zero);
 
     private static CrawlerService Build(Npgsql.NpgsqlDataSource source, FakeProbe probe, TimeProvider time)
     {
@@ -6373,6 +7261,9 @@ public class CrawlerLeaseTests
             new MergeApplier(endpoints, fields, new InMemoryMergeLog(), time),
             new InMemoryDuplicateReviewRepository(),
             new ReferralGraphWriter(new InMemoryReferralRepository(), new InMemoryCrawlTargetRepository(), options, time),
+            // A resolver that answers nothing. This suite's targets are operator seeds, so the guard
+            // short-circuits before asking — which is also what keeps a lease test off live DNS.
+            new HostScopeGuard(new FakeHostResolver()),
             new AdvisoryLock(source),
             options,
             time,
@@ -6381,8 +7272,11 @@ public class CrawlerLeaseTests
 
     private static async Task UntilAsync(Func<bool> condition, string what)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
+        // Stopwatch, not the wall clock: this measures real elapsed time against a real database,
+        // so it is monotonic and immune to a clock adjustment mid-test. TimeProvider would be wrong
+        // here — nothing about this wait is virtual.
+        var elapsed = Stopwatch.StartNew();
+        while (elapsed.Elapsed < TimeSpan.FromSeconds(20))
         {
             if (condition())
             {
@@ -6406,8 +7300,11 @@ public class CrawlerLeaseTests
             Id = Guid.CreateVersion7(),
             Host = "a.example.org",
             Port = 4201,
-            NextProbeAt = DateTimeOffset.UtcNow.AddMinutes(-1),
-            FirstSeenAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+            NextProbeAt = Seeded.AddMinutes(-1),
+            FirstSeenAt = Seeded.AddMinutes(-1),
+            // What is under test is the lease, not the gate. Seeding it keeps HostScopeGuard from
+            // resolving a name against real DNS in a test that has nothing to do with DNS.
+            IsOperatorSeed = true,
         }, None);
 
         var probeA = new FakeProbe(TimeProvider.System);
@@ -6511,6 +7408,13 @@ public class CrawlAgainstARealServerTests
             Port = server.Port,
             NextProbeAt = time.GetUtcNow(),
             FirstSeenAt = time.GetUtcNow(),
+
+            // Loopback, and dialled anyway — this is the seed exemption doing its job, and it is worth
+            // seeing once in a test that opens a real socket. Without it HostScopeGuard refuses this
+            // target, correctly: 127.0.0.1 arriving from a REFERRAL or an import is exactly what §7.2
+            // exists to stop. A human pointing the crawler at their own test server has said what they
+            // mean, and that is the only way to say it.
+            IsOperatorSeed = true,
         }, None);
 
         var games = new InMemoryGameRepository();
@@ -6526,6 +7430,7 @@ public class CrawlAgainstARealServerTests
             new MergeApplier(endpoints, fields, new InMemoryMergeLog(), time),
             new InMemoryDuplicateReviewRepository(),
             new ReferralGraphWriter(new InMemoryReferralRepository(), targets, options, time),
+            new HostScopeGuard(new SystemHostResolver()),
             advisoryLock: null!,
             options,
             time,
@@ -6557,6 +7462,7 @@ Create `src/MUI.Discovery/DiscoveryServiceCollectionExtensions.cs`:
 
 ```csharp
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using MUI.Discovery.Storage;
 
 namespace MUI.Discovery;
@@ -6585,6 +7491,14 @@ public static class DiscoveryServiceCollectionExtensions
         services.AddSingleton<IdentityMatcher>();
         services.AddSingleton<MergeApplier>();
         services.AddSingleton<ReferralGraphWriter>();
+
+        // Spec §7.2, on the resolved address. Registered here rather than left to the host, because a
+        // crawler wired up without this gate looks completely healthy and will happily dial whatever an
+        // attacker's A record points at. A deployment may replace IHostResolver — TryAdd, not Add — but
+        // it has to do so on purpose.
+        services.TryAddSingleton<IHostResolver, SystemHostResolver>();
+        services.AddSingleton<HostScopeGuard>();
+
         services.AddHostedService<CrawlerService>();
 
         return services;
@@ -6642,12 +7556,28 @@ public class CrawlerCompositionTests
     [Arguments(typeof(IdentityMatcher))]
     [Arguments(typeof(MergeApplier))]
     [Arguments(typeof(ReferralGraphWriter))]
+    [Arguments(typeof(HostScopeGuard))]
+    [Arguments(typeof(IHostResolver))]
     [Arguments(typeof(DiscoveryOptions))]
     public async Task EveryTypeThisPlanOwnsIsRegistered(Type service)
     {
         var services = new ServiceCollection().AddMuiCrawler();
 
         await Assert.That(services.Any(descriptor => descriptor.ServiceType == service)).IsTrue();
+    }
+
+    [Test]
+    public async Task TheScopeGuardIsWiredByDefaultRatherThanLeftToTheHost()
+    {
+        // A crawler assembled without §7.2's resolved-address gate looks completely healthy and will
+        // dial whatever an attacker's A record points at. Forgetting one line in Program.cs must not be
+        // able to produce that, so the default resolver is registered here and a deployment has to
+        // replace it on purpose.
+        var services = new ServiceCollection().AddMuiCrawler();
+
+        var resolver = services.Single(descriptor => descriptor.ServiceType == typeof(IHostResolver));
+
+        await Assert.That(resolver.ImplementationType).IsEqualTo(typeof(SystemHostResolver));
     }
 
     [Test]
@@ -6694,13 +7624,21 @@ git push -u origin HEAD
 gh pr create --title "Discovery, scheduling and identity (Plan 03)" --body "$(cat <<'BODY'
 Spec §7.1–§7.4, §7.7, §11, §12, §13. Makes the crawler run unattended.
 
-- `crawl_target`: monotonic, and with no `retired` column by construction (§7.4). A game dark for two
-  years is still probed weekly, for ever, including after archiving.
+- `crawl_target`: MUIndex's own permanent registry, selected by `next_probe_at` — monotonic, and with
+  no `retired` column by construction (§7.4). A game dark for two years is still probed weekly, for
+  ever, including after archiving.
 - `ProbeSchedule`: exponential backoff clamped to `LongestInterval` (7 days), tightened for games with
   players, with `CRAWL DELAY` applied afterwards as a floor so a server asking for longer gets it.
 - `ReferralGraphWriter`: referrals are candidate hostnames. A referred host is crawled on its own
-  account and listed only once it answers MSSP with its own `NAME`; scope is checked with
-  `MsspHost.IsCrawlable`, so nobody can aim our crawler at our own network.
+  account and listed only once it answers MSSP with its own `NAME`; a literal address is checked with
+  `MUI.Crawl.Mssp.MsspHost.IsCrawlable`.
+- `HostScopeGuard`: §7.2 closed on the **resolved** address, which is where it actually holds. A name
+  is `Unresolved` and therefore crawlable, so the literal checks alone are bypassed by anyone who owns
+  a domain and publishes an A record into private space. The guard resolves before the socket and
+  refuses if *any* address is non-global — refusing rather than filtering, because a name straddling
+  the boundary is the DNS-rebinding shape. Operator-configured seeds are exempt; referrals and imports
+  are not. Known limitation, documented: this narrows the TOCTOU window rather than shutting it, and
+  the named fix is connecting to a pinned address in `TcpTransport` (Plan 01).
 - `IdentityMatcher`: the six weighted signals of §7.3, thresholds configurable per §15.5, tested
   against known move events and deliberate near-collisions.
 - Merges are redirects — reversible, logged with every signal weighed, and nothing is deleted.
@@ -6713,12 +7651,52 @@ BODY
 
 ---
 
+## What this plan owes itself when the code exists
+
+Decisions deliberately deferred to implementation, because they are much easier to judge with the code
+in hand than from a plan. **Do these before the PR, not after it.**
+
+1. **Split `CrawlerService`. Fourteen constructor parameters is too many, and it is the plan admitting
+   the type does more than one job.** Count it exactly, because a smell that is not named precisely is
+   a smell nobody acts on: `probe`, `targets`, `ingestor`, `identity`, `games`, `merges`, `reviews`,
+   `referrals`, `scopes`, `advisoryLock`, `options`, `time`, `logger` — thirteen required — plus the
+   trailing optional `ClaimCycle? claims`, which is fourteen. The
+   coordinator's ruling is that the shape stands *while the plans are being written* — three are in
+   flight, and reshaping a `CONTRACT.md` type now buys a refactor whose right seam nobody can see yet.
+   That ruling is about timing, not about the shape being acceptable. Once Task 17 is green the seam
+   should be visible, and the likely one is already legible in `RunCycleAsync`: **"take what is due,
+   pace it, dial it, reschedule it"** needs `targets`, `probe`, `scopes`, the gates, `options` and
+   `time`; **"turn one probe into catalogue state"** needs `identity`, `games`, `merges`, `reviews`,
+   `ingestor`, `claims` and `referrals` and touches the schedule not at all. That second half is a
+   collaborator with one method, and the fact that it must not reach the scheduler is a property this
+   plan already argues for twice — once for `ClaimCycle`'s call position and once for referrals being
+   provenance rather than scheduling. **The person who has just written it decides**; what is not
+   acceptable is shipping fourteen and saying nothing. This is expected to be resolved *during*
+   implementation by whoever writes the type, not deferred indefinitely into a backlog. If the split
+   turns out to be wrong, say so here and leave the reasoning.
+
+---
+
 ## Notes for the other plans
 
 These are handoffs this plan could not make itself. Each one is a real coupling, not a nicety.
 
 1. **Plan 01 must expose `ScriptedMuServer` with `StartAsync()`, `Port`, `Greeting`, `Mssp` and
    `IAsyncDisposable`** (Task 17). It is compiled into this suite by file link.
+
+1a. **Plan 01 must expose `MsspHost.ScopeOf(IPAddress) → MsspHostScope` as a public static** (Task 9).
+   `MsspHost.Create` already computes it internally for the literal-address case, so this is a refactor
+   rather than new behaviour. `HostScopeGuard` classifies what DNS returned, and a second copy of the
+   loopback / RFC 1918 / RFC 6598 / `fc00::/7` / link-local / multicast ranges in `MUI.Discovery` is two
+   sets of rules that must agree for ever — the day they disagree is the day one of them is wrong about
+   `169.254.169.254`.
+
+1b. **Plan 01 should let `TcpTransport` connect to an already-resolved `IPAddress`, not only a host
+   string** — the named fix for the TOCTOU residue in the *Known limitations* section below. Today
+   `HostScopeGuard` resolves and then `TcpTransport` resolves again, and the record can change in
+   between. Handing the transport the address the guard vetted closes it. This is a real change to a
+   Plan 01 type and is deliberately **not** attempted from here; until it lands, the guard narrows the
+   window rather than shutting it, which is what the doc comment and the limitations section both say.
 2. **Plan 02 must name its Npgsql implementations `NpgsqlGameRepository`,
    `NpgsqlGameFieldRepository`, `NpgsqlEndpointRepository`, `NpgsqlPresenceRepository`,
    `NpgsqlAvailabilityRepository`, each taking one `NpgsqlDataSource`,** and must embed
@@ -6736,9 +7714,33 @@ These are handoffs this plan could not make itself. Each one is a real coupling,
    the same game as X", each side linking to the other (§7.3).
 6. **Plan 05 completes `AddMuiCrawler`'s graph**: `NpgsqlDataSource`, `TimeProvider.System`, `IProbe`,
    `ProbeIngestor`, `IGameRepository`, `IEndpointRepository`, `IGameFieldRepository`.
-7. **Claiming (§8) is in no plan.** `IdentityWeights.ClaimToken` and `ClaimToken.Of` are built and
-   tested here, and the signal simply never fires until something issues tokens and stores them in
-   `game_field["claim_token"]`. See the self-review below.
+7. **Claiming (§8) is split between this plan and Plan 06, and the seam is two names.** The *reading*
+   half is here: `IdentityWeights.ClaimToken` (10.0), `IdentityFields.ClaimToken` (the `game_field` name
+   `claim_token`), and `ClaimTokenBeacon.Read`, which pulls a token off an MSSP variable or a connect
+   screen. The *issuing and verifying* half is Plan 06's, along with `MUI.Catalog.ClaimToken` — the
+   record for an issued token — which is why this plan's reader is called `ClaimTokenBeacon`: both are
+   in scope in every file here. **Plan 06 must write a verified token into
+   `game_field["claim_token"]`**, because that row is what the matcher compares against; until it does,
+   the signal never fires. Plan 06 additionally carries its own DNS TXT resolver, for §8's third
+   channel, which a telnet probe cannot see at all.
+
+   **The wire spellings live in `MUI.Catalog.ClaimVocabulary`** — `MsspVariable`,
+   `ConnectScreenPrefix`, `DnsLabel` — declared by Plan 06 and read by both sides. They were briefly
+   about to be declared twice: this plan's reader had them as its own literals, and Plan 06's claim
+   instructions and `ClaimAttempt.MsspFieldsSeen` diagnostic need the same three strings. `MUI.Catalog`
+   is where they landed because it is the lowest project both can see — `MUI.Catalog` may never
+   reference `MUI.Discovery`, so the constant could not live here and be shared. `ClaimTokenBeacon`
+   keeps `MsspVariable` and `ConnectScreenPrefix` as **forwarding properties**, not `const` aliases: a
+   `const` copy is baked into the consuming assembly at compile time, which is the drift a shared
+   vocabulary exists to prevent. `IdentityCorpusTests.TheWireSpellingsAreWhatWeTellOperatorsToType` is
+   the pin, and it is the only place in this plan where one of those strings is written as a literal.
+
+8. **Plan 04's importers must leave `CrawlTarget.IsOperatorSeed` alone — that is, false.** An imported
+   directory row is a stranger's assertion about a hostname, exactly like a `REFERRAL`, and it must
+   pass Task 9's resolved-address gate. The property defaults to false, so the requirement is *do
+   nothing*, and the only way to get this wrong is to set it deliberately. The exemption exists for an
+   address a human operator typed into our own configuration and for nothing else; if an import ever
+   needs one, that is a per-row human decision and not a property of the importer.
 
 ---
 
@@ -6752,7 +7754,10 @@ These are handoffs this plan could not make itself. Each one is a real coupling,
 | §7.1 an edge disappearing sets `Present = false` and nothing else | 7, 8 |
 | §7.2 referrals are candidates, `GameId = null` until it answers | 8, 16 (`GameListingGate`) |
 | §7.2 depth and fan-out caps | 8 |
-| §7.2 refuse referrals into non-routable space | 8 |
+| §7.2 refuse referrals into non-routable space — *literal* address | 8 |
+| §7.2 "the gate is on the resolved address, not the name" — refuse-don't-filter, unresolvable ≠ refused, no availability sample, seeds exempt only | 9 (`HostScopeGuard`), 16 |
+| §8 read a claim beacon off a probe (MSSP aliases + labelled and bare connect-screen forms) | 10 (`ClaimTokenBeacon`) |
+| §8 verification rides the crawl schedule and cannot cause a dial | 16 (`ClaimCycle` between ingest and reschedule) |
 | §7.2 trace and prune a poisoned subtree | 7 (`SubtreeOfAsync`) |
 | §7.3 the six weighted signals | 10 |
 | §7.3 auto-merge, recording the endpoint change as a `FieldChange` | 14, 16 |
@@ -6768,8 +7773,9 @@ These are handoffs this plan could not make itself. Each one is a real coupling,
 | §13 known moves and near-collisions | 11 |
 | §15.5 conservative and configurable thresholds | 2, 10, 11 |
 
-Not covered, and deliberately: §7.5 archiving (Plan 2's `ArchiveSweeper`), §7.6 imports (Plan 4), §8
-claiming (no plan — see below).
+Not covered, and deliberately: §7.5 archiving (Plan 2's `ArchiveSweeper`), §7.6 imports (Plan 4), the
+issuing and verifying half of §8 claiming (Plan 6 — see below; the reading half is Task 10's
+`ClaimTokenBeacon`).
 
 **2. Placeholder scan.** No "TBD", no "add error handling", no "similar to Task N". Every code step
 carries the code. Three steps are conditional on what a sibling plan did (Task 4 Step 1's migration
@@ -6780,8 +7786,42 @@ branches and the exact text for each.
 same in Tasks 3, 5, 16. `IdentityFields.*` constants are introduced in Task 10 and used in 11, 12, 14,
 16, 17. `MergeApplier.AttachAsync`/`MergeGamesAsync` are declared in 14 and called in 16 and 17.
 `IDuplicateReviewRepository.OpenAsync(a, b, score, at, ct)` matches its two implementations and its
-call site. `CrawlerService`'s twelve constructor parameters are in the same order in Task 16's
-definition and in Tasks 16 and 17's three construction sites.
+call site. `CrawlerService`'s **fourteen** constructor parameters — thirteen required, with
+`HostScopeGuard scopes` sitting between `referrals` and `advisoryLock`, plus the optional
+`ClaimCycle? claims = null` trailing
+`logger` — are in the same order in Task 16's definition and in Tasks 16 and 17's three construction
+sites, none of which passes the optional one. (Fourteen is too many, and it is a symptom that this type
+does more than one job; see *Known limitations* item 4 and
+*What this plan owes itself* item 1.) `IdentityMatcher`'s trailing optional `ClaimBeaconPolicy? beacons
+= null` is likewise unpassed at all four of its construction sites, which is what keeps every identity
+test on the pre-claiming arm. `CrawlCycle`'s eighth field, `Refused`, is set in `RunCycleAsync`, carried by
+`TargetOutcome`, and defaulted in `CrawlCycle.Empty`. `ClaimTokenBeacon` — declared in Task 10,
+called once from `IdentityMatcher.ResolveAsync` — is spelled that way everywhere, including the names
+table and the file-structure table, because `MUI.Catalog.ClaimToken` (Plan 06's issued-token record) is
+in scope in every file of this project and the two must not be confusable at a glance. The three
+constants that keep the word plain — `IdentityFields.ClaimToken`, `IdentityWeights.ClaimToken` and the
+`game_field` value `claim_token` — are field and weight names, not types, and are unchanged. The wire
+spellings `ClaimTokenBeacon` reads by are `MUI.Catalog.ClaimVocabulary`'s and are not declared here;
+`"MUINDEX CLAIM"` and `"MUINDEX-CLAIM:"` appear as literals in exactly one place in this plan, the test
+that pins them.
+
+**3a. Test-support ownership.** `tests/MUI.Discovery.Tests` is a single assembly shared with Plan 02,
+so every fixture type has exactly one declaring plan and this plan says which for each of them. Plan 02
+lands first and owns `ManualTimeProvider` and `Support/InMemoryRepositories.cs`
+(`InMemoryGameRepository`, `InMemoryEndpointRepository`, `InMemoryGameFieldRepository`,
+`InMemoryPresenceRepository`, `InMemoryAvailabilityRepository`); this plan **extends** two of those in
+place — `CreateTimer` on the clock (Task 1 Step 3) and `IGameFieldIndex` on the field double (Task 10
+Step 1) — and creates nothing that would shadow them. The doubles for interfaces this plan alone
+declares — `InMemoryCrawlTargetRepository`, `InMemoryReferralRepository`, `InMemoryMergeLog`,
+`InMemoryDuplicateReviewRepository` — stay this plan's, because `ICrawlTargetRepository`,
+`IReferralRepository`, `IMergeLog` and `IDuplicateReviewRepository` do. Both extension points state
+what they assume about Plan 02's file and what to do if it landed differently; neither says "create".
+
+**4. External dependencies.** None. `MUI.Discovery` references `MUI.Catalog`, `MUI.Crawl`,
+`MUI.Storage`, `Npgsql`, `Dapper` and the hosting/DI/logging abstractions, and nothing else. The MSSP
+types this plan leans on (`MsspData`, `MsspHost.IsCrawlable`, `MsspHostScope`) are MUIndex's own, in
+`MUI.Crawl.Mssp`, written by Plan 01 — there is no shared MSSP package, and nothing here is blocked on
+anything outside this repository.
 
 ### Three places the spec is genuinely unresolved
 
@@ -6793,16 +7833,57 @@ These are not gaps in the plan; they are gaps in the spec that the plan had to d
    server's request afterwards, so politeness wins and the ceiling is not absolute. Named
    `LongestInterval` with both readings in the doc comment, pinned by
    `AServerAskingForLongerThanTheCeilingGetsIt`.
-2. **§7.3's claim-token signal depends on §8, which no plan builds.** It is the highest-weighted signal
-   (10.0) and the one thing that guarantees a claimed game is never duplicated — and there is nothing in
-   any of the five plans that issues a token, verifies it, or writes it to `game_field`. The plan builds
-   and tests the *reading* half so that claiming becomes a small piece of work rather than a change to
-   the matcher, and it is honest in the doc comment that the signal never fires today. **Somebody has to
-   plan §8.** The DNS TXT channel is additionally invisible to a telnet probe and will need its own
-   resolver.
+2. **§7.3's claim-token signal depends on §8 — found unplanned here, and now Plan 06.** It is the
+   highest-weighted signal (10.0) and the one thing that guarantees a claimed game is never duplicated,
+   and when this plan was written there was nothing in any of the five plans that issued a token,
+   verified it, or wrote it to `game_field`. **That finding is why Plan 06 exists**, and it is recorded
+   rather than deleted so the reason survives the fix. The split is now explicit: the *reading* half is
+   this plan's (`ClaimTokenBeacon.Read` off an MSSP variable or a connect screen, plus
+   `IdentityFields.ClaimToken` and `IdentityWeights.ClaimToken`), and the *issuing and verifying* half
+   is Plan 06's, along
+   with `MUI.Catalog.ClaimToken` — the record for an issued token, whose name collision with this plan's
+   reader is what forced the `ClaimTokenBeacon` spelling. Plan 06 also plans an `IDnsTxtResolver`,
+   because §8's third channel is a DNS TXT record at `ClaimVocabulary.DnsLabel`.`<host>` and no telnet
+   probe can see it. Nothing in this plan changes when Plan 06 lands: the signal starts firing the first
+   time a verified token reaches `game_field["claim_token"]`, which was the point of building the
+   reading half early. The wire spellings both halves depend on are `MUI.Catalog.ClaimVocabulary`'s —
+   see handoff note 7 for why they could not live in `MUI.Discovery`.
 3. **§7.2's "answer MSSP with its own `NAME`/`HOSTNAME`" is ambiguous.** Read as a conjunction it would
    refuse to list a great many real games — `HOSTNAME` is one of the fields §3.1 identifies as
    hand-typed and commonly unset. The plan reads it as "identifies itself", requires a non-blank `NAME`,
    and treats `HOSTNAME` as an endpoint hint. `GameListingGate` is one line so the decision is
    reversible.
+
+### Known limitations, stated rather than implied
+
+1. **`HostScopeGuard` narrows the SSRF window; it does not shut it.** Recorded in spec §7.2 in the same
+   terms, and repeated here so an implementer meets it. Resolution and connection are separate
+   syscalls: the guard resolves `games.example.com`, sees `203.0.113.10`, allows the dial — and
+   `TcpTransport` then resolves the name *again* to open the socket, by which time the record may say
+   `10.0.0.5`. No amount of care inside the guard closes that, because the guard does not own the
+   connect. **The fix is named and assigned:** connect to the pinned address from
+   `HostScopeRuling.Addresses` rather than re-resolving the host string — a
+   `MUI.Crawl.Transport.TcpTransport` change, Plan 01's to make (handoff note 1b), and worth doing.
+   **Do not restate the guard as airtight; it raises the cost of the attack, it does not close it.**
+2. **A refusal writes no availability sample**, so a listed game whose DNS starts pointing into private
+   space stops accruing reachability history rather than being recorded as unreachable. That is the
+   honest reading — we declined to dial, we did not measure — but it does mean a game can go quiet in
+   the record for a reason that is ours rather than theirs. The refusal is logged at warning level and
+   counted in `CrawlCycle.Refused`, which is where an operator would see it. If this ever needs to be
+   visible to *readers* rather than operators, it is a new `AvailabilityState`, not a reuse of an
+   existing one.
+3. **The guard costs one DNS lookup per due target per cycle**, on top of whatever the transport does.
+   It is inside the host gate and after the rate limiter, so it is serialised and paced like everything
+   else, and **no cache is introduced, deliberately** — §7.2: "caching resolutions would *widen* this
+   window, so the crawler resolves per dial". If this becomes a load problem the answer is a shorter
+   batch, not a longer-lived answer.
+4. **`CrawlerService` takes fourteen constructor parameters** — thirteen required, plus the trailing
+   optional `ClaimCycle? claims`. That is a smell and it is recorded rather than hidden: a type needing that
+   many collaborators is doing more than one job, and the loop plausibly splits into "take what is due
+   and reschedule it" and "turn one probe into catalogue state". The coordinator's ruling is that the
+   shape stays for now — three plans are in flight and reshaping a `CONTRACT.md` type buys a refactor
+   whose right seam is much easier to judge with the code in hand than from a plan. **It is expected to
+   be resolved during implementation, by whoever has just finished writing it, and not deferred
+   indefinitely.** See item 1 of *What this plan owes itself when the code exists*, which is the first
+   thing that section asks for after Task 16 and carries the exact parameter list and the likely seam.
 

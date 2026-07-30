@@ -4,7 +4,7 @@
 
 **Goal:** Build `src/MUI.Backfill` — the one-off, re-runnable backfill that reads the existing MU\* directories (spec §7.6), seeds crawl targets and endpoints from them, and admits third-party *measured* history at half weight while making it structurally impossible for a *asserted* source to write any history at all.
 
-**Architecture:** Six `IDirectoryImporter`s each parse a committed fixture payload fetched through a `DirectorySource` that reads `robots.txt` before its first content fetch, rate-limits on an injected `TimeProvider`, and refuses to touch a scrape URI when a bulk export or documented API is configured. `ImportPipeline` routes every write through an `IImportWriter` (committing or dry-run) and every history write through an `IHistorySink` chosen by tier — the asserted sink holds no writer at all, so it cannot write even by mistake. Identity is resolved on the way in against `IEndpointRepository`: an endpoint we already know merges into that game; anything below threshold becomes a crawl target and *not* a game. Every imported value gets a row in a new `import_provenance` sidecar carrying the originating site and the import date, which is also what lets `ArchivePolicy.GraceFor` separate imported reachable time from ours.
+**Architecture:** Six `IDirectoryImporter`s each parse a committed fixture payload fetched through a `DirectorySource` that reads `robots.txt` before its first content fetch, rate-limits on an injected `TimeProvider`, and refuses to touch a scrape URI when a bulk export or documented API is configured. `ImportPipeline` routes every write through an `IImportWriter` (committing or dry-run) and every history write through an `IHistorySink` chosen by tier — the asserted sink holds no writer at all, so it cannot write even by mistake. Identity is resolved on the way in against `IEndpointRepository`: an endpoint we already know merges into that game; anything below threshold becomes a crawl target and *not* a game. Every imported value gets a row in a new `import_provenance` sidecar carrying the originating site and the import date — §7.6's provenance chip, and nothing to do with grace: the half weight is carried by Plan 02's `origin` column on the interval itself, which is what `ArchivePolicy.GraceFor` separates imported reachable time by.
 
 **Tech Stack:** .NET 10, C# 14, `System.Text.Json` (BCL, no HTML/JSON dependency added), `System.Net.Http` with a fake `HttpMessageHandler` in tests, Npgsql + Dapper for the one new table, TUnit on Microsoft.Testing.Platform, `Testcontainers.PostgreSql` for the single integration test.
 
@@ -27,22 +27,27 @@ be read through them:
 2. **`MeasuredHistorySink` must therefore not call `OpenAsync`.** That write path defaults `origin`
    to `'first_party'`, which would credit a third party's history at **full** weight — the exact
    opposite of §7.5, and a silent one. It calls Plan 02's imported write path instead:
-   `IAvailabilityRepository.InsertImportedAsync(Guid gameId, AvailabilityState state, FailureCause cause, DateTimeOffset from, DateTimeOffset? to, CancellationToken)`,
-   which writes `origin = 'imported_measured'` and a closed interval in one statement. Wire it in
-   Task 7, where the sink is built, and assert the stored `origin` in Task 8.
-3. **`ImportedGraceCalculator` is dropped from this plan** — remove it from the type list, the file
-   table and Task 8's **Files**/**Interfaces** blocks. Grace is computed in exactly one place, Plan
-   02's `ArchiveSweeper`; a second calculator reading the sidecar would count the same history twice.
-   Task 8 keeps its subject and both of its pinning tests unchanged in substance: an asserted source
-   still writes zero history rows, and a measured source's four imported years still yield the same
-   grace as two of ours. It proves the second by writing through the sink and then calling
-   `CumulativeImportedMeasuredReachableAsync` and `ArchivePolicy.GraceFor` directly, instead of
-   through a calculator of its own.
+   `IAvailabilityRepository.InsertImportedAsync(Guid gameId, AvailabilityState state, FailureCause cause, DateTimeOffset from, DateTimeOffset to, CancellationToken ct)`,
+   which writes `origin = 'imported_measured'` and a closed interval in one statement. Note the `to`
+   is **not** nullable: an imported span is always closed, which is the same rule this plan already
+   applies at the sink. It is wired in Task 7, in `CommittingImportWriter.WriteClosedAvailabilityAsync`
+   — the single place the sink's availability write lands — and Task 8 asserts the stored `origin`,
+   in memory and against a real Postgres.
+3. **`ImportedGraceCalculator` is dropped from this plan.** Grace is computed in exactly one place,
+   Plan 02's `ArchiveSweeper`; a second calculator reading the sidecar would count the same history
+   twice. It is gone from the type list, the file table and Task 8, and this plan adds **no**
+   production type for grace. Task 8 keeps its subject and both of its pinning tests unchanged in
+   substance: an asserted source still writes zero history rows and is counted for trying, and a
+   measured source's four imported years still yield the same grace as two of ours. It proves the
+   second by writing through `MeasuredHistorySink` and then calling
+   `IAvailabilityRepository.CumulativeImportedMeasuredReachableAsync` and
+   `MUI.Catalog.ArchivePolicy.GraceFor` directly, instead of through a calculator of its own.
 4. **`import_provenance` stays, and its justification narrows.** Plan 02's `origin` column records
    the *tier*; §7.6 additionally requires the originating **site** and the import **date** on every
-   imported value, which no Plan 02 record carries. The sidecar is what serves the provenance chip
-   and the about page's attribution list. It is not on the grace path at all — strike the clause in
-   the Architecture paragraph above that says it is.
+   imported value, which no Plan 02 record carries — `GameField` has a `FieldSource`, `PresenceSample`
+   a `PresenceSource`, `AvailabilityInterval` a tier-valued `origin`, and none of the three names a
+   site or a date. The sidecar is what serves the provenance chip and the about page's attribution
+   list. **It is not on the grace path at all**, and nothing in this plan may read it to compute one.
 
 ## Global Constraints
 
@@ -113,7 +118,7 @@ must say so in its own text. This plan makes exactly these changes, all additive
    `ImportTierMap`, `CrawlerIdentity`, `FetchRoute`, `FetchDecision`, `EtiquettePlanner`,
    `EtiquetteViolationException`, `DirectorySource`, `DirectoryImporter` (abstract base),
    `ImportSubjectKind`, `ImportProvenance`, `IImportProvenanceRepository`,
-   `NpgsqlImportProvenanceRepository`, `ImportedGraceCalculator`, `ImportMatch`, `ImportIdentity`,
+   `NpgsqlImportProvenanceRepository`, `ImportMatch`, `ImportIdentity`,
    `IImportWriter`, `CommittingImportWriter`, `DryRunImportWriter`, `HistoryWrite`, `IHistorySink`,
    `MeasuredHistorySink`, `AssertedHistorySink`, `HistorySink`, `SourceAttribution`,
    `ImporterRegistry`, `ImportRunOptions`, `ImportRunner`.
@@ -135,7 +140,6 @@ must say so in its own text. This plan makes exactly these changes, all additive
 | `src/MUI.Backfill/DirectorySource.cs` | The only place an HTTP request is made; enforces all of the above |
 | `src/MUI.Backfill/ImportProvenance.cs` | The provenance sidecar's record, kinds and repository interface |
 | `src/MUI.Backfill/NpgsqlImportProvenanceRepository.cs` | Its Dapper implementation |
-| `src/MUI.Backfill/ImportedGraceCalculator.cs` | §7.5's half weight, fed from the sidecar |
 | `src/MUI.Backfill/ImportIdentity.cs` | Endpoint matching on the way in |
 | `src/MUI.Backfill/IImportWriter.cs` | Commit vs dry-run, as a type rather than a flag |
 | `src/MUI.Backfill/HistorySink.cs` | Measured vs asserted, as a type rather than an `if` |
@@ -1152,6 +1156,11 @@ namespace MUI.Backfill.Tests.Support;
 /// Only <see cref="GetUtcNow"/> is overridden. That is sufficient because <c>PolitenessGate</c>
 /// exposes its wait as a pure function of "now" (<c>WaitFor</c>) and only ever sleeps when that
 /// function returns a positive span — which no test in this suite arranges.
+/// <para>
+/// Deliberately not named <c>FakeTimeProvider</c>, to avoid being mistaken for
+/// <c>Microsoft.Extensions.Time.Testing.FakeTimeProvider</c>, which is a real type this project does
+/// not reference. Plans 02 and 03 spell their own manual clocks the same way.
+/// </para>
 /// </remarks>
 public sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
 {
@@ -1764,9 +1773,10 @@ already provide.
 -- Spec §7.6: "Every imported value carries the originating site and the import date in its
 -- provenance chip." No catalogue record has anywhere to put that, so it lives beside them.
 --
--- Also spec §7.5: archive grace credits third-party measured history at half weight, which means
--- the imported reachable spans must be distinguishable from ours. The join key for an availability
--- row is (game_id, subject_at = availability_interval.from_at).
+-- NOT the half-weight mechanism. §7.5's separation of imported reachable time from ours is carried by
+-- availability_interval.origin (Plan 02), which ArchiveSweeper reads; nothing may compute grace from
+-- this table, or the same history is counted twice. What subject_at buys is traceability — which site
+-- an interval came from, and when we took it — for the provenance chip and the attribution list.
 --
 -- No FK to game(id): that table belongs to an earlier plan and coupling the migration order buys
 -- nothing the unique index below does not already give us.
@@ -2214,13 +2224,14 @@ git commit -m "feat(backfill): stamp every imported value with the site it came 
   `MUI.Discovery.ICrawlTargetRepository`, `CrawlTarget`, `IdentityWeights` (Plan 3);
   `MUI.Catalog.Game`, `GameField`, `FieldChange`, `PresenceSample`, `AvailabilityInterval`,
   `GameEndpoint`, `EndpointKind`, `EndpointState`, `AvailabilityState`, `FailureCause`,
-  `LifecycleState` (Plan 2); `ImportedGame` (Task 1).
+  `LifecycleState`, `HostName.Normalize` (Plan 2, Task 10); `ImportedGame` (Task 1).
 - Produces: `ImportMatch(Guid? GameId, double Score, string Signal)` with `ImportMatch.None`;
   `ImportIdentity(IEndpointRepository endpoints)` with
   `.ResolveAsync(ImportedGame, CancellationToken) → Task<ImportMatch>`;
   `Support.InMemoryGameRepository` (`.Games`), `Support.InMemoryGameFieldRepository`
   (`.Fields`, `.Changes`, `.Confirmations`), `Support.InMemoryPresenceRepository` (`.Samples`),
-  `Support.InMemoryAvailabilityRepository` (`.Intervals`), `Support.InMemoryEndpointRepository`
+  `Support.InMemoryAvailabilityRepository` (`.Intervals`, `.Origins` — the `origin` column
+  `AvailabilityInterval` has no property for), `Support.InMemoryEndpointRepository`
   (`.Endpoints`), `Support.InMemoryCrawlTargetRepository` (`.Targets`, `.Attempts`).
 
 - [ ] **Step 1: Write the in-memory repositories**
@@ -2276,6 +2287,19 @@ public sealed class InMemoryGameRepository : IGameRepository
     }
 }
 
+/// <summary>
+/// Endpoints, in memory. Hosts are canonicalised by <see cref="HostName.Normalize"/> and then compared
+/// <b>ordinally</b>, exactly as <c>NpgsqlEndpointRepository</c> does — one canonical form rather than a
+/// lenient comparison.
+/// </summary>
+/// <remarks>
+/// This matters more here than anywhere else in the system. An import is where hosts arrive spelled by
+/// somebody else: a directory that prints <c>MUD.Example.ORG</c>, or a name carrying its root dot, must
+/// resolve to the game we already have — otherwise <see cref="ImportIdentity"/> scores no endpoint
+/// match, the record falls below threshold, and the import seeds a crawl target for a machine already
+/// in the catalogue. That is §7.3's duplicate listing, arrived at through §7.6. A fake that compared
+/// case-insensitively would hide it, because it would be kinder than the database that ships.
+/// </remarks>
 public sealed class InMemoryEndpointRepository : IEndpointRepository
 {
     public List<GameEndpoint> Endpoints { get; } = [];
@@ -2283,26 +2307,32 @@ public sealed class InMemoryEndpointRepository : IEndpointRepository
     public Task<IReadOnlyList<GameEndpoint>> ForGameAsync(Guid gameId, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<GameEndpoint>>([.. Endpoints.Where(e => e.GameId == gameId)]);
 
-    public Task<GameEndpoint?> ByAddressAsync(string host, int port, CancellationToken ct) =>
-        Task.FromResult(Endpoints.FirstOrDefault(e =>
-            string.Equals(e.Host, host, StringComparison.OrdinalIgnoreCase) && e.Port == port));
+    public Task<GameEndpoint?> ByAddressAsync(string host, int port, CancellationToken ct)
+    {
+        var canonical = HostName.Normalize(host);
+
+        return Task.FromResult(Endpoints.FirstOrDefault(e =>
+            string.Equals(e.Host, canonical, StringComparison.Ordinal) && e.Port == port));
+    }
 
     public Task UpsertAsync(GameEndpoint endpoint, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(endpoint);
 
+        var canonical = endpoint with { Host = HostName.Normalize(endpoint.Host) };
+
         var index = Endpoints.FindIndex(e =>
-            e.GameId == endpoint.GameId
-            && string.Equals(e.Host, endpoint.Host, StringComparison.OrdinalIgnoreCase)
-            && e.Port == endpoint.Port);
+            e.GameId == canonical.GameId
+            && string.Equals(e.Host, canonical.Host, StringComparison.Ordinal)
+            && e.Port == canonical.Port);
 
         if (index >= 0)
         {
-            Endpoints[index] = endpoint;
+            Endpoints[index] = canonical;
         }
         else
         {
-            Endpoints.Add(endpoint);
+            Endpoints.Add(canonical);
         }
 
         return Task.CompletedTask;
@@ -2392,11 +2422,20 @@ public sealed class InMemoryPresenceRepository : IPresenceRepository
     }
 }
 
+/// <summary>
+/// Availability, in memory. <see cref="AvailabilityInterval"/> carries no <c>origin</c> property —
+/// Plan 02 writes that column from the repository and never round-trips it through the record — so
+/// this fake keeps the tier beside the row in <see cref="Origins"/>. Without it the two cumulative
+/// questions cannot be answered apart, which is the whole of §7.5's half weight.
+/// </summary>
 public sealed class InMemoryAvailabilityRepository : IAvailabilityRepository
 {
     private long _next = 1;
 
     public List<AvailabilityInterval> Intervals { get; } = [];
+
+    /// <summary>Interval id → the <c>origin</c> value the real column would hold.</summary>
+    public Dictionary<long, string> Origins { get; } = [];
 
     public Task<AvailabilityInterval?> OpenIntervalAsync(Guid gameId, CancellationToken ct) =>
         Task.FromResult(Intervals.FirstOrDefault(i => i.GameId == gameId && i.ToAt is null));
@@ -2405,6 +2444,21 @@ public sealed class InMemoryAvailabilityRepository : IAvailabilityRepository
     {
         var id = _next++;
         Intervals.Add(new AvailabilityInterval(id, gameId, state, from, null, cause));
+        Origins[id] = FirstParty;
+        return Task.FromResult(id);
+    }
+
+    public Task<long> InsertImportedAsync(
+        Guid gameId,
+        AvailabilityState state,
+        FailureCause cause,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken ct)
+    {
+        var id = _next++;
+        Intervals.Add(new AvailabilityInterval(id, gameId, state, from, to, cause));
+        Origins[id] = ImportedMeasured;
         return Task.FromResult(id);
     }
 
@@ -2429,9 +2483,22 @@ public sealed class InMemoryAvailabilityRepository : IAvailabilityRepository
         ]);
 
     public Task<TimeSpan> CumulativeReachableAsync(Guid gameId, DateTimeOffset now, CancellationToken ct) =>
-        Task.FromResult(Intervals
-            .Where(i => i.GameId == gameId && i.State is AvailabilityState.Reachable)
-            .Aggregate(TimeSpan.Zero, (total, i) => total + ((i.ToAt ?? now) - i.FromAt)));
+        Task.FromResult(SumReachable(gameId, now, FirstParty));
+
+    public Task<TimeSpan> CumulativeImportedMeasuredReachableAsync(
+        Guid gameId, DateTimeOffset now, CancellationToken ct) =>
+        Task.FromResult(SumReachable(gameId, now, ImportedMeasured));
+
+    private TimeSpan SumReachable(Guid gameId, DateTimeOffset now, string origin) =>
+        Intervals
+            .Where(i => i.GameId == gameId
+                && i.State is AvailabilityState.Reachable
+                && string.Equals(Origins.GetValueOrDefault(i.Id, FirstParty), origin, StringComparison.Ordinal))
+            .Aggregate(TimeSpan.Zero, (total, i) => total + ((i.ToAt ?? now) - i.FromAt));
+
+    // The two words 0004_availability_interval.sql's CHECK constraint allows, spelled once.
+    private const string FirstParty = "first_party";
+    private const string ImportedMeasured = "imported_measured";
 }
 
 /// <summary>
@@ -2538,18 +2605,26 @@ public class ImportIdentityTests
     }
 
     [Test]
-    public async Task TheHostMatchesCaseInsensitivelyBecauseDirectoriesSpellItHoweverTheyLike()
+    public async Task HoweverADirectorySpellsAHostItIsTheSameHost()
     {
+        // Not a case-insensitive comparison — a canonical one. HostName.Normalize settles the spelling
+        // on both ends of IEndpointRepository, so an import that shouts, or that carries the DNS root
+        // dot, still lands the endpoint signal instead of seeding a crawl target for a game we have.
         var gameId = Guid.NewGuid();
         var endpoints = new InMemoryEndpointRepository();
         await endpoints.UpsertAsync(
             new GameEndpoint(gameId, "anachronism.example", 4000, EndpointKind.Telnet, Now, Now, EndpointState.Active),
             CancellationToken.None);
 
-        var match = await new ImportIdentity(endpoints)
-            .ResolveAsync(Imported("Anachronism", ("Anachronism.Example", 4000)), CancellationToken.None);
+        var identity = new ImportIdentity(endpoints);
 
-        await Assert.That(match.GameId).IsEqualTo(gameId);
+        foreach (var spelling in new[] { "Anachronism.Example", "ANACHRONISM.EXAMPLE", "anachronism.example." })
+        {
+            var match = await identity.ResolveAsync(
+                Imported("Anachronism", (spelling, 4000)), CancellationToken.None);
+
+            await Assert.That(match.GameId).IsEqualTo(gameId);
+        }
     }
 
     [Test]
@@ -2644,10 +2719,12 @@ public sealed class ImportIdentity(IEndpointRepository endpoints)
                 continue;
             }
 
+            // The stored host, not the imported spelling: the signal is what we matched on, and a
+            // note reading "endpoint MUD.Example.ORG:4000" would name an address no table contains.
             return new ImportMatch(
                 known.GameId,
                 IdentityWeights.Endpoint,
-                $"endpoint {endpoint.Host}:{endpoint.Port}");
+                $"endpoint {known.Host}:{known.Port}");
         }
 
         return ImportMatch.None;
@@ -2684,7 +2761,9 @@ git commit -m "feat(backfill): resolve an imported game against endpoints we alr
 - Create: `tests/MUI.Backfill.Tests/ImportPipelineTests.cs`
 
 **Interfaces:**
-- Consumes: everything from Tasks 1–6.
+- Consumes: everything from Tasks 1–6, plus
+  `MUI.Storage.IAvailabilityRepository.InsertImportedAsync(Guid, AvailabilityState, FailureCause, DateTimeOffset from, DateTimeOffset to, CancellationToken)`
+  (Plan 02 Task 9) — the **only** availability write this plan may make.
 - Produces: `IDirectoryImporter` (`SourceName`, `Tier`, `Etiquette`,
   `ReadAsync(CancellationToken) → IAsyncEnumerable<ImportedGame>`);
   `ImportReport(string Source, ImportTier Tier, int GamesSeen, int TargetsAdded, int FieldsWritten,
@@ -3111,9 +3190,9 @@ public interface IImportWriter
     Task AppendPresenceAsync(PresenceSample sample, CancellationToken ct);
 
     /// <summary>
-    /// Writes an availability span that is already over. Imported spans are never left open: we did
-    /// not measure them and cannot extend them, and an open imported interval would collide with the
-    /// one our own crawler keeps.
+    /// Writes an availability span that is already over, stamped <c>origin = 'imported_measured'</c>.
+    /// Imported spans are never left open: we did not measure them and cannot extend them, and an open
+    /// imported interval would collide with the one our own crawler keeps.
     /// </summary>
     Task WriteClosedAvailabilityAsync(
         Guid gameId,
@@ -3152,17 +3231,18 @@ public sealed class CommittingImportWriter(
     public Task AppendPresenceAsync(PresenceSample sample, CancellationToken ct) =>
         presence.AppendAsync(sample, ct);
 
-    public async Task WriteClosedAvailabilityAsync(
+    // InsertImportedAsync and NOT OpenAsync/CloseAsync. OpenAsync defaults origin to 'first_party',
+    // which would credit a third party's history at FULL weight — the exact inversion of §7.5, and a
+    // silent one, because the resulting grace still looks plausible. Plan 02 Task 9 exists so this
+    // line has somewhere to go; there is no other imported write path and none may be added.
+    public Task WriteClosedAvailabilityAsync(
         Guid gameId,
         AvailabilityState state,
         FailureCause cause,
         DateTimeOffset from,
         DateTimeOffset to,
-        CancellationToken ct)
-    {
-        var id = await availability.OpenAsync(gameId, state, cause, from, ct).ConfigureAwait(false);
-        await availability.CloseAsync(id, to, ct).ConfigureAwait(false);
-    }
+        CancellationToken ct) =>
+        availability.InsertImportedAsync(gameId, state, cause, from, to, ct);
 
     public Task RecordProvenanceAsync(ImportProvenance record, CancellationToken ct) =>
         provenance.RecordAsync(record, ct);
@@ -3319,7 +3399,12 @@ public sealed class ImportPipeline(
 
         foreach (var endpoint in record.Endpoints)
         {
-            if (await _targets.ByAddressAsync(endpoint.Host, endpoint.Port, ct).ConfigureAwait(false) is not null)
+            // Canonicalised once, here, so the crawl target and the endpoint row this import writes
+            // carry the same spelling. IEndpointRepository would normalise for itself; a CrawlTarget
+            // is written straight through, and two spellings there are two targets for one machine.
+            var host = HostName.Normalize(endpoint.Host);
+
+            if (await _targets.ByAddressAsync(host, endpoint.Port, ct).ConfigureAwait(false) is not null)
             {
                 continue;
             }
@@ -3331,7 +3416,7 @@ public sealed class ImportPipeline(
                 {
                     Id = Guid.NewGuid(),
                     GameId = match.GameId,
-                    Host = endpoint.Host,
+                    Host = host,
                     Port = endpoint.Port,
                     UseTls = endpoint.Kind is EndpointKind.Tls,
                     NextProbeAt = now,
@@ -3446,12 +3531,17 @@ public interface IHistorySink
 /// no writer and no repository, so spec §7.6's "no history, no presence, no grace" is a fact about
 /// this type rather than a rule somebody has to remember.
 /// </summary>
+/// <remarks>
+/// It writes nothing already. What it does not yet do is <em>say</em> how much it refused, so a run
+/// against an asserted source silently reports zero rows offered and zero rows written — which reads
+/// exactly like a source that offered nothing. Task 8 is where that becomes a number.
+/// </remarks>
 public sealed class AssertedHistorySink : IHistorySink
 {
     public Task<HistoryWrite> WriteAsync(Guid gameId, ImportedGame game, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(game);
-        return Task.FromResult(new HistoryWrite(0, 0, game.Presence.Count + game.Availability.Count));
+        return Task.FromResult(HistoryWrite.Nothing);
     }
 }
 
@@ -3478,9 +3568,16 @@ namespace MUI.Backfill;
 /// <summary>
 /// The measured tier's sink. A third party that ran its own probe produced a measurement, and a
 /// measurement is worth more than a self-report — so this writes real
-/// <c>PresenceSample</c> and <c>AvailabilityInterval</c> rows (spec §7.6), each stamped with the site
-/// it came from so §7.5 can credit it at half weight and no more.
+/// <c>PresenceSample</c> and <c>AvailabilityInterval</c> rows (spec §7.6).
 /// </summary>
+/// <remarks>
+/// Two stamps, doing two different jobs. The <c>import_provenance</c> row records which site the value
+/// came from and when we took it (§7.6's provenance chip). The availability row's own
+/// <c>origin = 'imported_measured'</c> is what §7.5's half weight is computed from, and it is written
+/// by <c>IAvailabilityRepository.InsertImportedAsync</c> — never <c>OpenAsync</c>, which would default
+/// it to <c>first_party</c> and credit somebody else's history at full weight. Neither stamp can do the
+/// other's job, and grace is never computed from the sidecar.
+/// </remarks>
 public sealed class MeasuredHistorySink(
     IImportWriter writer,
     IImportProvenanceRepository provenance,
@@ -3565,23 +3662,36 @@ git commit -m "feat(backfill): seed crawl targets and write fields only for game
 ### Task 8: The tier is enforced by code, not by care
 
 **Files:**
-- Create: `src/MUI.Backfill/ImportedGraceCalculator.cs`
 - Create: `tests/MUI.Backfill.Tests/HistoryTierTests.cs`
-- Modify: `src/MUI.Backfill/HistorySink.cs` (documentation only — the behaviour is already there)
+- Create: `tests/MUI.Backfill.Tests/ImportedOriginTests.cs`
+- Modify: `src/MUI.Backfill/HistorySink.cs`
 
 **Interfaces:**
 - Consumes: `HistoryWrite`, `IHistorySink`, `AssertedHistorySink`, `MeasuredHistorySink`,
-  `HistorySink.For` (Task 7); `IImportProvenanceRepository` (Task 5);
-  `MUI.Storage.IAvailabilityRepository` (Plan 2); `MUI.Catalog.ArchivePolicy` (existing).
-- Produces: `ImportedGraceCalculator(IAvailabilityRepository availability, IImportProvenanceRepository provenance)`
-  with `.ImportedMeasuredReachableAsync(Guid gameId, DateTimeOffset now, CancellationToken) → Task<TimeSpan>`
-  and `.GraceForAsync(Guid gameId, TimeSpan firstPartyReachable, bool isClaimed, DateTimeOffset now, CancellationToken) → Task<TimeSpan>`.
+  `HistorySink.For`, `CommittingImportWriter`, `DryRunImportWriter`, `ImportPipeline` (Task 7);
+  `IImportProvenanceRepository`, `NpgsqlImportProvenanceRepository` (Task 5);
+  `MUI.Storage.IAvailabilityRepository` — `.InsertImportedAsync`, `.CumulativeReachableAsync`,
+  `.CumulativeImportedMeasuredReachableAsync` — plus `NpgsqlAvailabilityRepository` and
+  `MigrationRunner` (Plan 2); `MUI.Catalog.ArchivePolicy.GraceFor` and `.Floor` (existing).
+- Produces: **no new production type.** Grace is computed in exactly one place in this system — Plan
+  02's `ArchiveSweeper`, from the two cumulative sums the availability repository already answers —
+  and a second calculator here would count the same history twice. What this task changes is three
+  lines of `AssertedHistorySink`, so a refusal is *counted* rather than swallowed; the rest of it is
+  the tests that hold the tier in place.
 
 **This is the task that stops the rule being a comment.** Spec §7.6's table is two rows: a measured
 source may populate historical `AvailabilityInterval` and `PresenceSample` rows and counts toward
 archive grace at half weight; an asserted source seeds discovery and endpoints only. The pin below
 hands the pipeline an asserted importer whose `ImportedGame` is *full* of presence and availability
 rows and asserts that zero of them were written and that the refusal was counted.
+
+The half weight is asserted the same way it is *computed* — by asking the availability repository for
+its two sums and handing them to `ArchivePolicy.GraceFor` — because that is precisely what
+`ArchiveSweeper` does, and a test that took any other route would agree with itself rather than with
+the thing that ships. It rests on one column, `availability_interval.origin`, so this task also pins
+the value that lands in it: in memory through `InMemoryAvailabilityRepository.Origins`, and once
+against a real Postgres, because the fake and the column are two spellings of the same fact and
+nothing else holds them together.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -3780,6 +3890,26 @@ public class HistoryTierTests
     }
 
     [Test]
+    public async Task AnImportedSpanIsStampedImportedMeasuredAndNeverFirstParty()
+    {
+        var harness = Build();
+        await SeedProbedGameAsync(harness);
+
+        var importer = new FakeImporter("MudVerse", ImportTier.Measured,
+            FakeImporter.ApiEtiquette("MudVerse"), [Stuffed("MudVerse")]);
+
+        await harness.Pipeline.RunAsync(importer, CancellationToken.None);
+
+        // The whole of §7.5 rests on this one word. OpenAsync would have written 'first_party' and
+        // credited MudVerse's history at full weight, and the resulting grace would still have looked
+        // entirely plausible — which is why it is asserted rather than reasoned about.
+        foreach (var interval in harness.Availability.Intervals)
+        {
+            await Assert.That(harness.Availability.Origins[interval.Id]).IsEqualTo("imported_measured");
+        }
+    }
+
+    [Test]
     public async Task FourYearsOfImportedReachableTimeIsCreditedAsTwo()
     {
         var harness = Build();
@@ -3794,19 +3924,24 @@ public class HistoryTierTests
             FakeImporter.ApiEtiquette("MudVerse"), [stuffed]);
         await harness.Pipeline.RunAsync(importer, CancellationToken.None);
 
-        var calculator = new ImportedGraceCalculator(harness.Availability, harness.Provenance);
+        // Asked exactly the way ArchiveSweeper asks it: the repository separates the two sums by the
+        // origin column, and ArchivePolicy applies the weight. There is no calculator in between —
+        // grace is computed in one place in this system, and this test reads that place.
+        var ours = await harness.Availability.CumulativeReachableAsync(gameId, Now, CancellationToken.None);
+        var imported = await harness.Availability
+            .CumulativeImportedMeasuredReachableAsync(gameId, Now, CancellationToken.None);
 
-        var imported = await calculator.ImportedMeasuredReachableAsync(gameId, Now, CancellationToken.None);
+        await Assert.That(ours).IsEqualTo(TimeSpan.Zero);
         await Assert.That(imported.TotalDays).IsEqualTo(1460).Within(0.001);
 
         // §7.5: half weight, then clamp. 1460 × 0.5 ÷ 4 = 182.5 days — the same as two years of ours.
-        var grace = await calculator.GraceForAsync(gameId, TimeSpan.Zero, false, Now, CancellationToken.None);
+        var grace = ArchivePolicy.GraceFor(ours, imported);
         await Assert.That(grace).IsEqualTo(ArchivePolicy.GraceFor(firstPartyReachable: TimeSpan.FromDays(730)));
         await Assert.That(grace.TotalDays).IsEqualTo(182.5).Within(0.01);
     }
 
     [Test]
-    public async Task AnAssertedSourceEarnsNoGraceBecauseItLeftNoAvailabilityStamp()
+    public async Task AnAssertedSourceEarnsNoGraceBecauseItWroteNoAvailabilityAtAll()
     {
         var harness = Build();
         var gameId = await SeedProbedGameAsync(harness);
@@ -3815,12 +3950,11 @@ public class HistoryTierTests
             FakeImporter.ApiEtiquette("TheMudConnector"), [Stuffed("The MUD Connector")]);
         await harness.Pipeline.RunAsync(importer, CancellationToken.None);
 
-        var calculator = new ImportedGraceCalculator(harness.Availability, harness.Provenance);
+        var imported = await harness.Availability
+            .CumulativeImportedMeasuredReachableAsync(gameId, Now, CancellationToken.None);
 
-        await Assert.That(await calculator.ImportedMeasuredReachableAsync(gameId, Now, CancellationToken.None))
-            .IsEqualTo(TimeSpan.Zero);
-        await Assert.That(await calculator.GraceForAsync(gameId, TimeSpan.Zero, false, Now, CancellationToken.None))
-            .IsEqualTo(ArchivePolicy.Floor);
+        await Assert.That(imported).IsEqualTo(TimeSpan.Zero);
+        await Assert.That(ArchivePolicy.GraceFor(TimeSpan.Zero, imported)).IsEqualTo(ArchivePolicy.Floor);
     }
 
     [Test]
@@ -3829,95 +3963,204 @@ public class HistoryTierTests
         var harness = Build();
         var gameId = await SeedProbedGameAsync(harness);
 
-        // An interval our own crawler wrote: no provenance stamp, so it must not be discounted.
+        // An interval our own crawler wrote, through the first-party path. It must be credited at
+        // full weight and must not appear in the imported sum — the inversion of the bug above.
         var id = await harness.Availability.OpenAsync(gameId, AvailabilityState.Reachable, FailureCause.None,
             Now.AddDays(-1460), CancellationToken.None);
         await harness.Availability.CloseAsync(id, Now, CancellationToken.None);
 
-        var calculator = new ImportedGraceCalculator(harness.Availability, harness.Provenance);
-
-        await Assert.That(await calculator.ImportedMeasuredReachableAsync(gameId, Now, CancellationToken.None))
+        await Assert.That(await harness.Availability
+                .CumulativeImportedMeasuredReachableAsync(gameId, Now, CancellationToken.None))
             .IsEqualTo(TimeSpan.Zero);
+        await Assert.That((await harness.Availability
+                .CumulativeReachableAsync(gameId, Now, CancellationToken.None)).TotalDays)
+            .IsEqualTo(1460).Within(0.001);
+    }
+}
+```
+
+`tests/MUI.Backfill.Tests/ImportedOriginTests.cs` — the second Postgres-gated test in this suite,
+gated identically to Task 5's so the suite still runs where there is no Linux Docker daemon:
+
+```csharp
+using MUI.Backfill.Tests.Support;
+using MUI.Storage;
+
+using Npgsql;
+using Testcontainers.PostgreSql;
+
+using static TUnit.Core.HookType;
+
+namespace MUI.Backfill.Tests;
+
+/// <summary>
+/// <c>InMemoryAvailabilityRepository.Origins</c> and <c>availability_interval.origin</c> are two
+/// spellings of the same fact, and <c>HistoryTierTests</c> reads only the first. This one reads the column,
+/// through the real repository, so a fake that agreed with itself cannot hide a sink that writes a
+/// third party's history as ours.
+/// </summary>
+public class ImportedOriginTests
+{
+    private static readonly DateTimeOffset Now = new(2026, 7, 30, 12, 0, 0, TimeSpan.Zero);
+
+    private static PostgreSqlContainer? _container;
+    private static NpgsqlDataSource? _source;
+
+    private static bool Enabled =>
+        string.Equals(Environment.GetEnvironmentVariable("MUI_INTEGRATION"), "1", StringComparison.Ordinal);
+
+    [Before(Class)]
+    public static async Task StartPostgres()
+    {
+        if (!Enabled)
+        {
+            return;
+        }
+
+        _container = new PostgreSqlBuilder().WithImage("postgres:17-alpine").Build();
+        await _container.StartAsync();
+
+        _source = NpgsqlDataSource.Create(_container.GetConnectionString());
+        await new MigrationRunner(_source).ApplyAsync(CancellationToken.None);
+    }
+
+    [After(Class)]
+    public static async Task StopPostgres()
+    {
+        if (_source is not null)
+        {
+            await _source.DisposeAsync();
+        }
+
+        if (_container is not null)
+        {
+            await _container.DisposeAsync();
+        }
+    }
+
+    [Test]
+    public async Task AMeasuredImportLandsAsImportedMeasuredInTheColumnItself()
+    {
+        if (!Enabled)
+        {
+            return;
+        }
+
+        var gameId = Guid.NewGuid();
+
+        // availability_interval.game_id references game(id), so the row has to exist first. Raw SQL
+        // rather than NpgsqlGameRepository: what is under test is one column of another table.
+        await using (var seed = _source!.CreateCommand(
+            """
+            INSERT INTO game (id, slug, name, state, is_claimed, first_seen_at)
+            VALUES (@gameId, @slug, 'Anachronism', 'active', false, @firstSeenAt)
+            """))
+        {
+            seed.Parameters.AddWithValue("gameId", gameId);
+            seed.Parameters.AddWithValue("slug", gameId.ToString("N"));
+            seed.Parameters.AddWithValue("firstSeenAt", Now.AddYears(-4));
+            await seed.ExecuteNonQueryAsync();
+        }
+
+        // The real availability repository, the real sink, and nothing else faked on the path the
+        // origin travels. The other repositories the writer holds are irrelevant to this assertion.
+        var writer = new CommittingImportWriter(
+            new InMemoryCrawlTargetRepository(),
+            new InMemoryEndpointRepository(),
+            new InMemoryGameFieldRepository(),
+            new InMemoryPresenceRepository(),
+            new NpgsqlAvailabilityRepository(_source!),
+            new InMemoryImportProvenanceRepository());
+
+        var sink = new MeasuredHistorySink(writer, new InMemoryImportProvenanceRepository(), Now);
+
+        await sink.WriteAsync(
+            gameId,
+            new ImportedGame
+            {
+                SourceName = "MudVerse",
+                SourceKey = "anachronism",
+                Name = "Anachronism",
+                Availability = [new ImportedAvailability(Now.AddYears(-2), Now.AddDays(-1), true)],
+            },
+            CancellationToken.None);
+
+        var origins = new List<string>();
+
+        await using (var read = _source!.CreateCommand(
+            "SELECT origin FROM availability_interval WHERE game_id = @gameId"))
+        {
+            read.Parameters.AddWithValue("gameId", gameId);
+
+            await using var reader = await read.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                origins.Add(reader.GetString(0));
+            }
+        }
+
+        await Assert.That(origins.Count).IsEqualTo(1);
+        await Assert.That(origins[0]).IsEqualTo("imported_measured");
+
+        // And the two sums come apart on it, which is the only reason the column exists.
+        var repository = new NpgsqlAvailabilityRepository(_source!);
+
+        await Assert.That(await repository.CumulativeReachableAsync(gameId, Now, CancellationToken.None))
+            .IsEqualTo(TimeSpan.Zero);
+        await Assert.That((await repository
+                .CumulativeImportedMeasuredReachableAsync(gameId, Now, CancellationToken.None)).TotalDays)
+            .IsGreaterThan(700);
     }
 }
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `dotnet build MUIndex.slnx -c Release`
-Expected: FAIL — `The type or namespace name 'ImportedGraceCalculator' could not be found`.
+Run:
+```bash
+dotnet build MUIndex.slnx -c Release
+dotnet run -c Release --no-build --project tests/MUI.Backfill.Tests </dev/null
+```
+Expected: FAIL — `AnAssertedSourceStuffedWithHistoryWritesNoneOfItAndIsCountedForTrying`, on
+`Expected 5 but was 0` for `report.Rejected`, and on the note that is never added. Task 7's
+`AssertedHistorySink` writes nothing, which is the half that was already structural; what it does not
+do is *say* that it refused, so a run against The MUD Connector is indistinguishable from a run
+against a source that offered no history at all. Every other test in the file passes already, and
+that is the point of the task: the tier is a property of the object graph, and these tests are what
+stop somebody "simplifying" it back into an `if`.
 
-- [ ] **Step 3: Write `ImportedGraceCalculator`**
+- [ ] **Step 3: Make the refusal a number**
 
-`src/MUI.Backfill/ImportedGraceCalculator.cs`:
+The behaviour under test is one expression. In `src/MUI.Backfill/HistorySink.cs`, replace
+`AssertedHistorySink` with its finished form:
 
 ```csharp
-using MUI.Catalog;
-using MUI.Storage;
-
-namespace MUI.Backfill;
-
 /// <summary>
-/// Spec §7.5's half weight, made computable. <c>ArchivePolicy.GraceFor</c> already takes imported
-/// reachable time as a separate argument and already halves it; what it needed was somebody able to
-/// say which of a game's reachable intervals were imported, and that is what the provenance sidecar
-/// answers.
+/// The asserted tier's sink. It takes no constructor parameters, which is the enforcement: it holds
+/// no writer and no repository, so spec §7.6's "no history, no presence, no grace" is a fact about
+/// this type rather than a rule somebody has to remember.
 /// </summary>
 /// <remarks>
-/// The join is on the interval's start instant, which is the stamp's <c>SubjectAt</c>. An interval
-/// with no stamp is ours and is not discounted; an interval stamped by an asserted source cannot
-/// exist, because that tier never writes one.
+/// It counts what it turned away. A hand-maintained directory offering three presence points and two
+/// availability spans is not an error to swallow — <c>ImportRunner</c> prints the figure, and the
+/// difference between "The MUD Connector offered five rows we are not entitled to keep" and "The MUD
+/// Connector offered nothing" is the difference between a working import and a broken parser.
 /// </remarks>
-public sealed class ImportedGraceCalculator(
-    IAvailabilityRepository availability,
-    IImportProvenanceRepository provenance)
+public sealed class AssertedHistorySink : IHistorySink
 {
-    private readonly IAvailabilityRepository _availability = availability ?? throw new ArgumentNullException(nameof(availability));
-    private readonly IImportProvenanceRepository _provenance = provenance ?? throw new ArgumentNullException(nameof(provenance));
-
-    public async Task<TimeSpan> ImportedMeasuredReachableAsync(Guid gameId, DateTimeOffset now, CancellationToken ct)
+    public Task<HistoryWrite> WriteAsync(Guid gameId, ImportedGame game, CancellationToken ct)
     {
-        var stamps = (await _provenance.ForGameAsync(gameId, ct).ConfigureAwait(false))
-            .Where(p => p.SubjectKind is ImportSubjectKind.Availability
-                && p.Tier is ImportTier.Measured
-                && p.SubjectAt is not null)
-            .Select(p => p.SubjectAt!.Value)
-            .ToHashSet();
-
-        if (stamps.Count == 0)
-        {
-            return TimeSpan.Zero;
-        }
-
-        var intervals = await _availability.RangeAsync(gameId, stamps.Min(), now, ct).ConfigureAwait(false);
-        var total = TimeSpan.Zero;
-
-        foreach (var interval in intervals)
-        {
-            if (interval.State is not AvailabilityState.Reachable || !stamps.Contains(interval.FromAt))
-            {
-                continue;
-            }
-
-            total += (interval.ToAt ?? now) - interval.FromAt;
-        }
-
-        return total;
+        ArgumentNullException.ThrowIfNull(game);
+        return Task.FromResult(new HistoryWrite(0, 0, game.Presence.Count + game.Availability.Count));
     }
-
-    /// <summary>The grace this game has earned, with third-party history at half weight.</summary>
-    public async Task<TimeSpan> GraceForAsync(
-        Guid gameId,
-        TimeSpan firstPartyReachable,
-        bool isClaimed,
-        DateTimeOffset now,
-        CancellationToken ct) =>
-        ArchivePolicy.GraceFor(
-            firstPartyReachable,
-            await ImportedMeasuredReachableAsync(gameId, now, ct).ConfigureAwait(false),
-            isClaimed);
 }
 ```
+
+Nothing else changes: `MeasuredHistorySink` was finished in Task 7, and it reaches
+`IAvailabilityRepository.InsertImportedAsync` — never `OpenAsync` — through
+`CommittingImportWriter.WriteClosedAvailabilityAsync`, which is what the origin assertions above
+are reading back.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
@@ -3926,12 +4169,13 @@ Run:
 dotnet build MUIndex.slnx -c Release
 dotnet run -c Release --no-build --project tests/MUI.Backfill.Tests </dev/null
 ```
-Expected: PASS, 61 tests.
+Expected: PASS, 63 tests. Without `MUI_INTEGRATION=1` the Postgres test returns early and the count
+is unchanged; with it, `ImportedOriginTests` starts a container of its own.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/MUI.Backfill tests/MUI.Backfill.Tests/HistoryTierTests.cs
+git add src/MUI.Backfill tests/MUI.Backfill.Tests/HistoryTierTests.cs tests/MUI.Backfill.Tests/ImportedOriginTests.cs
 git commit -m "feat(backfill): make an asserted source structurally unable to write history"
 ```
 
@@ -4173,7 +4417,7 @@ Run:
 dotnet build MUIndex.slnx -c Release
 dotnet run -c Release --no-build --project tests/MUI.Backfill.Tests </dev/null
 ```
-Expected: PASS, 67 tests.
+Expected: PASS, 69 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -4494,7 +4738,7 @@ Run:
 dotnet build MUIndex.slnx -c Release
 dotnet run -c Release --no-build --project tests/MUI.Backfill.Tests </dev/null
 ```
-Expected: PASS, 73 tests.
+Expected: PASS, 75 tests.
 
 - [ ] **Step 6: Commit**
 
@@ -5018,7 +5262,7 @@ Run:
 dotnet build MUIndex.slnx -c Release
 dotnet run -c Release --no-build --project tests/MUI.Backfill.Tests </dev/null
 ```
-Expected: PASS, 81 tests.
+Expected: PASS, 83 tests.
 
 - [ ] **Step 7: Commit**
 
@@ -5355,7 +5599,7 @@ Run:
 dotnet build MUIndex.slnx -c Release
 dotnet run -c Release --no-build --project tests/MUI.Backfill.Tests </dev/null
 ```
-Expected: PASS, 87 tests.
+Expected: PASS, 89 tests.
 
 - [ ] **Step 6: Commit**
 
@@ -5753,7 +5997,7 @@ Run:
 dotnet build MUIndex.slnx -c Release
 dotnet run -c Release --no-build --project tests/MUI.Backfill.Tests </dev/null
 ```
-Expected: PASS, 94 tests.
+Expected: PASS, 96 tests.
 
 - [ ] **Step 7: Commit**
 
@@ -6022,7 +6266,7 @@ Run:
 dotnet build MUIndex.slnx -c Release
 dotnet run -c Release --no-build --project tests/MUI.Backfill.Tests </dev/null
 ```
-Expected: PASS, 103 tests.
+Expected: PASS, 105 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -6374,7 +6618,7 @@ Run:
 dotnet build MUIndex.slnx -c Release
 dotnet run -c Release --no-build --project tests/MUI.Backfill.Tests </dev/null
 ```
-Expected: PASS, 110 tests.
+Expected: PASS, 112 tests.
 
 - [ ] **Step 5: Write the CLI project**
 
@@ -6561,7 +6805,7 @@ dotnet run -c Release --no-build --project tests/MUI.Backfill.Tests </dev/null
 dotnet run -c Release --no-build --project src/MUI.Backfill.Cli -- --help
 dotnet run -c Release --no-build --project src/MUI.Backfill.Cli -- --sources
 ```
-Expected: 110 tests pass; `--help` prints the usage; `--sources` prints a six-row Markdown table.
+Expected: 112 tests pass; `--help` prints the usage; `--sources` prints a six-row Markdown table.
 
 - [ ] **Step 9: Run every suite in the solution**
 
@@ -6617,23 +6861,29 @@ only", which does not say whether a third party's measurement counts as measured
 falsify a number rather than weight a confidence — and instead labels every imported presence row
 `PresenceSource.ImportedMeasured` so a later decision about rankings can include, exclude or weight
 them without re-importing anything. The half weight is expressed in exactly one place,
-`ArchivePolicy.GraceFor`'s `importedMeasuredReachable` parameter, fed by `ImportedGraceCalculator`.
+`ArchivePolicy.GraceFor`'s `importedMeasuredReachable` parameter, fed by
+`IAvailabilityRepository.CumulativeImportedMeasuredReachableAsync` and by nothing else in this plan.
 **This is an open question for Plan 5, not a settled one.**
 
 **3. No catalogue record can hold "which site said this, and when" — and §7.6 requires it.**
 `GameField` carries a `FieldSource` (a tier, not a site), `PresenceSample` carries a `PresenceSource`
-(likewise), and `AvailabilityInterval` carries neither. §7.6's "every imported value carries the
-originating site and the import date in its provenance chip" therefore had nowhere to live.
-Compounding it, §7.5 needs imported reachable time separated from ours and
-`IAvailabilityRepository.CumulativeReachableAsync(gameId, now)` returns one undifferentiated number.
-*Decision:* one additive sidecar table, `import_provenance`, plus `ImportedGraceCalculator` which
-joins it to the availability intervals. No contract type changes.
-**Concrete cross-plan consequence, flagged rather than fixed here:** Plan 2's `ArchiveSweeper` calls
-`CumulativeReachableAsync`, which *includes* imported intervals, so as written it credits third-party
-history at **full** weight — the opposite of §7.5. The fix is one subtraction:
-`ArchiveSweeper` must take the total, subtract `ImportedGraceCalculator.ImportedMeasuredReachableAsync`,
-and pass the two figures to `ArchivePolicy.GraceFor` separately. That is a change to Plan 2's class
-and so is deliberately not made in this plan; it should be raised on Plan 2 before either ships.
+(likewise), and `AvailabilityInterval` carries an `origin` that is also a tier. §7.6's "every imported
+value carries the originating site and the import date in its provenance chip" therefore had nowhere
+to live. *Decision:* one additive sidecar table, `import_provenance`, carrying the site, that site's
+own key, the source URI and the import instant, for every imported field, endpoint, presence point
+and availability span. No contract type changes.
+
+**The grace half of this gap is Plan 02's and is closed there, not here.** §7.5 also needs imported
+reachable time separated from ours, and an earlier draft of this plan answered it with an
+`ImportedGraceCalculator` that joined the sidecar back to the intervals. That type is **dropped**:
+Plan 02 carries an `origin` column on `availability_interval` and exposes
+`CumulativeImportedMeasuredReachableAsync` beside `CumulativeReachableAsync`, and its `ArchiveSweeper`
+already hands the two to `ArchivePolicy.GraceFor` separately. Two calculators reading the same history
+would have counted it twice, and the sidecar would have become load-bearing for a number it was never
+meant to produce. So `import_provenance` serves the provenance chip and the attribution list, is read
+by nothing on the grace path, and this plan's only obligation to §7.5 is to write availability through
+`InsertImportedAsync` so the column says `imported_measured` — pinned in Task 8, in memory and against
+a real Postgres.
 
 **4. §3's table of incumbents lists seven sites; §7.6's tier table covers five of them.** Top Mud
 Sites and MUNexus appear in §3 and in neither tier. *Decision:* neither gets an importer. Top Mud
@@ -6678,7 +6928,7 @@ pinned by `HistoryTierTests.AnImportedAvailabilitySpanIsNeverLeftOpen`.
 | §11 crawler self-identifies with an info URL | Tasks 2, 4 |
 | §7.6 measured tier populates availability and presence | Tasks 7, 8 |
 | §7.6 asserted tier seeds discovery and endpoints only | Task 8 (the pin) |
-| §7.5 imported measured history at half weight | Task 8 (`ImportedGraceCalculator`) |
+| §7.5 imported measured history at half weight | Task 7 (writes through `InsertImportedAsync`), Task 8 (`FourYearsOfImportedReachableTimeIsCreditedAsTwo`, `AnImportedSpanIsStampedImportedMeasuredAndNeverFirstParty`) — the *arithmetic* is Plan 02's `ArchiveSweeper` and this plan adds none |
 | §7.6 every imported value carries site and import date | Task 5, Task 7 |
 | §7.6 the about page names every source ingested | Task 14 |
 | §7.1 discovery is never scheduling | Task 7 (`AnImportNeverSchedulesAnything`) |
@@ -6690,8 +6940,10 @@ pinned by `HistoryTierTests.AnImportedAvailabilitySpanIsNeverLeftOpen`.
 
 **Placeholder scan.** No "TBD", no "similar to Task N", no "add error handling", no "write tests for
 the above". Every code step carries the code. The two forward references are explicit and bounded:
-Task 7 Step 6 writes the minimal `HistorySink` that Task 8 then tests, and Task 15's Interfaces block
-names the six Plan 2/Plan 3 class names it assumes and confines them to one file.
+Task 7 Step 6 writes the minimal `HistorySink` — `MeasuredHistorySink` finished, `AssertedHistorySink`
+writing nothing but not yet *counting* what it turned away — which Task 8 then tests and completes in
+one expression; and Task 15's Interfaces block names the six Plan 2/Plan 3 class names it assumes and
+confines them to one file.
 
 **Type consistency.** Checked across tasks: `ImportTierMap.SourceFor` / `.MayWriteHistory`;
 `EtiquettePlanner.Decide` / `.MayFetch` and the three refusal constants;
@@ -6708,6 +6960,52 @@ names the six Plan 2/Plan 3 class names it assumes and confines them to one file
 pair of statics, `Etiquette(bool contactedMaintainer = false)` and `Create(HttpClient, TimeProvider)`,
 which is what lets `ImporterRegistry.Default` build all six uniformly.
 
+**Cross-plan reconciliation, applied to the body and not only announced.** The reconciliation section
+at the head of this plan was written before its four consequences reached the tasks, and one of them —
+the strike on `ImportedGraceCalculator` — had not. The plan told an executor to delete a type and then
+spent three hundred lines building and testing it, which an executor reading top-down survives and one
+reading Task 8 alone does not. It is now applied everywhere: the type is gone from the declared-types
+list, the file table, Task 8's **Files** and **Interfaces**, Task 8's code, the spec-gap notes and the
+coverage table above, and Task 8 proves the same two things without it —
+`CumulativeImportedMeasuredReachableAsync` plus `ArchivePolicy.GraceFor`, which is exactly how
+`ArchiveSweeper` computes the number this plan is asserting about. The other three consequences were
+checked the same way: `MeasuredHistorySink` reaches `InsertImportedAsync` (not `OpenAsync`) through
+`CommittingImportWriter.WriteClosedAvailabilityAsync`, with the signature matched to Plan 02 Task 9's
+declaration including its **non-nullable** `to`; `InMemoryAvailabilityRepository` gained
+`InsertImportedAsync`, `CumulativeImportedMeasuredReachableAsync` and the `Origins` map without which
+it does not implement the interface at all; and `import_provenance` survives with its justification
+narrowed to §7.6's site-and-date, stated identically in the Architecture paragraph, the reconciliation
+bullet and gap 3.
+
+**One host, one spelling — the correction that reaches this plan hardest.** Plan 02 Task 10 now
+canonicalises hosts through `MUI.Catalog.HostName.Normalize` on both ends of `IEndpointRepository`,
+because the real repository compared `host = @host` ordinally while the fakes compared
+`OrdinalIgnoreCase`, and a fake kinder than the database hides a duplicate row rather than a failing
+test. **An import is where that bug would have been found first**: a directory prints
+`MUD.Example.ORG`, `ImportIdentity` asks `ByAddressAsync` for it, no endpoint matches, the record falls
+below `IdentityWeights.AutoMergeThreshold`, and this plan seeds a crawl target for a machine already in
+the catalogue — §7.3's duplicate listing, arrived at through §7.6. Three changes here: the fake in Task
+6 normalises and then compares ordinally; `ImportIdentity`'s signal string names the *stored* host
+rather than the imported spelling, so a note cannot cite an address no table holds; and
+`ImportPipeline.SeedTargetsAsync` canonicalises once per endpoint, so the `CrawlTarget` and the
+`GameEndpoint` one import writes carry the same string. Task 6's
+`HoweverADirectorySpellsAHostItIsTheSameHost` covers case, shouting and the DNS root dot in one test —
+it used to be called `TheHostMatchesCaseInsensitively…`, which named a mechanism that is no longer the
+one in use.
+
+*Flagged, not fixed here:* `crawl_target.host` has no canonical form. `ICrawlTargetRepository` and its
+schema are Plan 03's, and its fake in Task 6 still matches a host case-insensitively. This plan now
+hands it an already-normalised string on every call, so nothing here writes a duplicate target — but
+the *guarantee* belongs in Plan 03, as `HostName.Normalize` in `NpgsqlCrawlTargetRepository`'s two
+address methods and an ordinal comparison in the fake, exactly as Plan 02 Task 10 did for endpoints.
+Raise it there; do not tighten only the fake in this plan, which would assert a rule Plan 03 has not
+adopted.
+
+**One naming correction, shared with Plans 02 and 03.** The manual clock in this suite is
+`Support/ManualTimeProvider.cs`. Plan 02 called its own `FakeTimeProvider` and has been renamed to
+match; the doc comment here and there now says why neither is called that — it would be mistaken for
+`Microsoft.Extensions.Time.Testing.FakeTimeProvider`, a real type this project does not reference.
+
 **Addendum sweep.** Re-read after the contract addendum retired the `SharpMU.Mssp` package and moved
 the MSSP domain into `MUI.Crawl.Mssp`. This plan referenced the package in exactly one place — the
 global constraint — and never in code: `MUI.Backfill` reads other people's directory exports and
@@ -6717,5 +7015,5 @@ this plan's own mapping into lower-cased field names, and is untouched by the ch
 **Files**, **Interfaces** or code steps moved.
 
 **Running test count by task** (cumulative, so a task that does not reach its number has lost one):
-1 → 5, 2 → 13, 3 → 26, 4 → 33, 5 → 36, 6 → 42, 7 → 51, 8 → 61, 9 → 67, 10 → 73, 11 → 81, 12 → 87,
-13 → 94, 14 → 103, 15 → 110.
+1 → 5, 2 → 13, 3 → 26, 4 → 33, 5 → 36, 6 → 42, 7 → 51, 8 → 63, 9 → 69, 10 → 75, 11 → 83, 12 → 89,
+13 → 96, 14 → 105, 15 → 112.

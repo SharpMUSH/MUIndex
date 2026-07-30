@@ -6,28 +6,33 @@
 
 **Architecture:** `MUI.Crawl` owns transport, telnet, parsing and aggregation and references nothing of ours. A probe opens one `TcpTransport`, wraps it in a `NegotiationRecorder` decorator that sniffs `IAC WILL/DO` off the inbound byte stream (layer 1), drives `TelnetNegotiationCore` over it to get framing-stripped text (layers 2 and 3) and MSSP (layer 4), and assembles one `ProbeResult`. Player names exist only inside the probe: what leaves is `PresenceAggregates` — salted hashes and bucket counts. Everything downstream consumes `ProbeResult` and never sees a socket.
 
-**Tech Stack:** .NET 10 (`net10.0`), C# latest, TUnit on Microsoft.Testing.Platform, `TelnetNegotiationCore` 2.6.0, `SharpMU.Mssp` 1.0.0, `Microsoft.Extensions.Logging.Abstractions`, `System.Text.Json`.
+**Tech Stack:** .NET 10 (`net10.0`), C# latest, TUnit on Microsoft.Testing.Platform, `TelnetNegotiationCore` 2.6.5, `Microsoft.Extensions.Logging.Abstractions`, `System.Text.Json`.
 
 **Depends on: nothing. This is the first plan; it produces the `ProbeResult` every later plan consumes.**
 
 ---
 
-## Blocking external prerequisite — read before Task 1
+## No external prerequisite — this plan is blocked on nothing
 
-`SharpMU.Mssp` **1.0.0 is not on nuget.org as of 2026-07-30** (`https://api.nuget.org/v3-flatcontainer/sharpmu.mssp/index.json` returns `BlobNotFound`). The package is being extracted from SharpMUTerm by another agent; the source is at `/home/grave/RiderProjects/SharpMU.Mssp` (commit `5591a21`, "Extract MSSP's model and parsing into a package of its own").
+An earlier draft of this plan opened with a **blocking** prerequisite: a shared `SharpMU.Mssp`
+package, extracted from SharpMUTerm, that Task 1 was to consume and without which CI could not go
+green. **That decision is reversed and the block is gone.** Nothing was ever published —
+`https://api.nuget.org/v3-flatcontainer/sharpmu.mssp/index.json` returns `BlobNotFound`, verified —
+and the repository that would have produced it is archived. There is no package, there will be no
+package, and **no code is shared with SharpMUTerm**.
 
-Task 1 cannot restore, and CI cannot go green, until that package is published. Two options, in order of preference:
+**MUIndex implements its own crawler end to end.** The MSSP domain types this plan needs are
+MUIndex's own, in namespace `MUI.Crawl.Mssp`, written against MUIndex's own tests (Tasks 1 and 2).
+The type *names* `MsspData`, `MsspHost`, `MsspHostScope` and `MsspVariables` are the ones the
+cross-plan contract already used, so for every later plan this reversal is a changed `using` and
+nothing else.
 
-1. **Wait for the publish.** Confirm with `curl -s https://api.nuget.org/v3-flatcontainer/sharpmu.mssp/index.json` before starting.
-2. **Unblock locally, and do not commit the unblock.** Pack the sibling clone into a local feed and add the feed at the machine level so no repo file changes:
-   ```bash
-   dotnet pack /home/grave/RiderProjects/SharpMU.Mssp/src/SharpMU.Mssp/SharpMU.Mssp.csproj \
-     -c Release -o /tmp/mui-local-packages
-   dotnet nuget add source /tmp/mui-local-packages -n mui-local
-   ```
-   Every task after Task 1 then builds normally, but **CI stays red until the package ships**. Say so in the PR description rather than papering over it.
+The only external dependency involved is **`TelnetNegotiationCore` 2.6.5** — on nuget.org, and
+first-party (see CLAUDE.md), so a gap in it is a PR rather than a workaround. It already parses
+MSSP's telnet option 70, which is why **this plan contains no subnegotiation parser and must never
+grow one**.
 
-Do **not** vendor `MsspData`, `MsspHost`, `MsspVariables` or `MsspSubnegotiationParser` into this repository as a workaround. Two copies of the MSSP model is exactly the outcome the shared package exists to prevent.
+There is nothing to wait for. Start at Task 1.
 
 ---
 
@@ -54,16 +59,25 @@ These apply to every task in this plan without being repeated.
 - **Never persist player names.** `WHO` is parsed in memory; aggregates use salted hashes with a
   rotating salt, so a unique-player estimate is possible while re-identification across salt epochs
   is not.
-- **Parsers never fabricate.** An unreadable `WHO` yields `WhoConfidence.Unknown`, never zero.
+- **Parsers never fabricate, and "we did not ask" is not "we could not read it".** A `WHO` that was
+  sent and could not be parsed yields `WhoConfidence.Unknown`, never zero — that is spec §5.4's
+  hatched cell. A `WHO` that was never sent yields `WhoConfidence.NotAttempted`, which is the enum's
+  **zero value**, so a default-constructed `WhoReading` claims nothing. Collapsing those two is what
+  left `PresenceWriter` unable to tell §5.4's own named bug case from never having asked.
 - **Vocabulary is "reachable", never "uptime"** — schema, API, code and copy alike (spec §5.7).
 - **Branch from `main`, open a PR, never commit directly to `main`.**
 - **Any new test project goes into `MUIndex.slnx` AND `.github/workflows/ci.yml`**, which runs each
   suite as its own explicit step.
-- **The shared MSSP package is `SharpMU.Mssp`** — namespace `SharpMU.Mssp`, referenced as
-  `<PackageReference Include="SharpMU.Mssp" />` with a central `<PackageVersion>` in
-  `Directory.Packages.props`. It is **model and parsing only**: no transport, no probe, no
-  scheduling. Never re-declare `MsspData`, `MsspHost`, `MsspVariables` or
-  `MsspSubnegotiationParser` locally.
+- **The MSSP domain is ours, in `MUI.Crawl.Mssp`; the wire is TelnetNegotiationCore's.** TNC **2.6.5**
+  parses option 70's subnegotiation and hands back an ordered name → value-list map
+  (`MSSPConfig.Variables`, `MSSPVariableCollection`), canonicalises variable names so `MINIMUM_AGE`
+  and `MINIMUM AGE` are one variable (`MSSPVariables.Canonicalize`), knows which names the
+  specification defines (`IsOfficial`/`IsKnown`/`Official`), and reads flags and integers
+  (`Flag`, `Integer`, `MSSPValue.TryParseFlag`). **None of that is re-implemented here, and there is
+  no subnegotiation parser in this plan.** What Tasks 1 and 2 add on top is the four domain readings
+  the library does not have — `CRAWL DELAY`'s `-1`, ports validated as ports, `REFERRAL` read as
+  crawlable hosts, and an immutable snapshot — plus `MsspPlaintextReply`, the out-of-band
+  `MSSP-REQUEST` text protocol, which is not a telnet option and which TNC knows nothing about.
 - **Persistence is PostgreSQL 17 with Npgsql + Dapper and plain numbered `.sql` migration files
   applied by a small idempotent runner. No EF Core**, ever. Integration tests use
   `Testcontainers.PostgreSql`.
@@ -91,29 +105,43 @@ public commands that the server answers to anonymous connections by design:
 | `MSSP-REQUEST` | spec §6.4 — the protocol's own plaintext fallback | only if telnet option 70 yielded nothing |
 
 Why it is still polite: it is one line at a screen the server prints to every anonymous connection;
-the client names itself in TTYPE/MTTS with an info URL before it says anything (Task 6); it is
+the client names itself in TTYPE/MTTS with an info URL before it says anything (Task 8); it is
 rate-limited by `CRAWL DELAY` upstream (Plan 3); and it stops there. **The probe never logs in, never
 sends a password, never sends a command that is not in the table above, and never sends anything at
-all after the transcript it asked for.** Task 13 carries `TheProbeSendsNothingButTheThreeDocumentedLines`,
+all after the transcript it asked for.** Task 15 carries `TheProbeSendsNothingButTheThreeDocumentedLines`,
 which asserts that against the bytes the scripted server actually received — the same shape of test
 SharpMUTerm has, with the allowance made explicit rather than assumed.
 
 ---
 
-## Additions to CONTRACT.md, declared
+## Where the contract stands after the addendum
 
-Every type in `/tmp/.../CONTRACT.md` is used verbatim. This plan adds the following, which the
-contract does not name, because the contract specifies the seam and not the machinery behind it.
-Later plans do not consume any of them except `ProbeResultJson`.
+`/tmp/.../CONTRACT-ADDENDUM.md` **supersedes CONTRACT.md wherever they disagree**, and two of its
+changes land in this plan rather than downstream:
+
+- **The MSSP model moved here.** `MsspData`, `MsspHost`, `MsspHostScope` and `MsspVariables` keep
+  their names and their shape, and change namespace to `MUI.Crawl.Mssp`. The addendum's §2b listing
+  is their signature and is used verbatim (Tasks 1 and 2). `MsspSubnegotiationParser` is **deleted
+  outright** — TNC parses option 70 — and its plaintext half becomes
+  `MsspPlaintextReply.TryParse(string, out MsspData)`, which is the only MSSP *parsing* MUIndex owns.
+- **`WhoReading` gains a fourth state, `WhoConfidence.NotAttempted`, fixed at source here** rather
+  than worked around in Plan 2. `WhoReading.Unread` is gone; `WhoReading.NotAttempted` and
+  `WhoReading.Unreadable` replace it, `WasAttempted` is new, and `HasCount` is corrected (Task 3).
+  Plan 2's `PresenceWriter` then reads intent directly instead of inferring it from `MsspVia`.
+
+Everything else in CONTRACT.md is used verbatim. This plan adds the following, which neither document
+names, because they specify the seam and not the machinery behind it. Later plans do not consume any
+of them except `ProbeResultJson`.
 
 | Added type | Where | Why |
 |---|---|---|
+| `MUI.Crawl.Mssp.MsspPlaintextReply` | `src/MUI.Crawl/Mssp/` | Named in the addendum, absent from CONTRACT.md. The out-of-band `MSSP-REQUEST` text protocol (spec §6.4) — the half of MSSP that is not a telnet option and so not TNC's. |
 | `MUI.Crawl.Telnet.ProbeTelnetSession` | `src/MUI.Crawl/Telnet/` | `ProbeSession`'s contract signature takes a transport factory, so something has to drive `TelnetNegotiationCore` over it. Trimmed from SharpMUTerm's `TelnetSession`. |
 | `MUI.Crawl.BoundedTranscript` | `src/MUI.Crawl/` | Layer 2 and layer 3 both need a size-capped text sink. Named for what it is rather than `BannerCollector`, because the WHO transcript uses it too. |
 | `MUI.Crawl.Who.AnsiText` | `src/MUI.Crawl/Who/` | The banner is stored ANSI-intact; the parser needs it stripped. One place, so the two never disagree. |
 | `MUI.Crawl.Who.ColumnLayout` | `src/MUI.Crawl/Who/` | The structural column detector — the heart of §6.3 and worth its own unit tests. |
 | `MUI.Crawl.PresenceAggregateBuilder` | `src/MUI.Crawl/` | Turns a `WhoTable` into `PresenceAggregates`. The contract names both ends and not the hinge. |
-| `MUI.Crawl.ProbeResultJson` | `src/MUI.Crawl/` | The fixture format. **Plan 2 consumes this**; its exact output is pinned in Task 15. |
+| `MUI.Crawl.ProbeResultJson` | `src/MUI.Crawl/` | The fixture format. **Plan 2 consumes this**; its exact output is pinned in Task 17. |
 
 One contract *type* is extended rather than added: `ProbeOptions` gains
 `public int MaxCaptureBytes { get; init; } = 64 * 1024;`. Every other member is verbatim. Spec §13
@@ -123,67 +151,42 @@ sane size.
 Two behavioural notes that are choices, not transcriptions:
 
 - **The info URL rides the first TTYPE answer** as `MUINDEX (+https://muindex.org/crawler)`.
-  Spec §11 asks for TTYPE/MTTS **and** MNES `CLIENT_NAME`; TelnetNegotiationCore 2.6.0 registers no
+  Spec §11 asks for TTYPE/MTTS **and** MNES `CLIENT_NAME`; TelnetNegotiationCore 2.6.5 registers no
   NEW-ENVIRON plugin in `AddDefaultMUDProtocols` and exposes no client-side environment send, so
   MNES is not reachable from here. The `(+url)` form is the HTTP `User-Agent` convention, it lands in
   the field a server operator's log actually records, and it costs nothing. A client-side MNES sender
   is a good upstream PR; until then this is the honest half.
 - **`handshake_stalled` is produced by `ProbeSession`, not by `FailureClassifier`.** The classifier
   maps exceptions; a server that accepts the connection and then says nothing at all throws nothing.
-  That case is spec §13's fourth misbehaviour and §5.3's named cause, and Task 13 owns it.
+  That case is spec §13's fourth misbehaviour and §5.3's named cause, and Task 15 owns it.
 
 ---
 
-## Known limitation: MSSP over telnet option 70 is decoded as ASCII, lossily
+## Prerequisite: TelnetNegotiationCore's MSSP decoding fix
 
-**Verified in the source, not reported.** `TelnetNegotiationCore.Protocols.MSSPProtocol` decodes every
-MSSP variable name and every MSSP value with `System.Text.Encoding.ASCII.GetString`. In the pinned
-**2.6.0** it happens inline in `MSSPProtocol.cs` (four call sites — names at lines 254/256, values at
-265/267); in **2.6.5** the same decode was refactored into a single private `FlushField()`, reached
-from `CompleteMSSPVariable`, `CompleteMSSPValue` and both accumulator paths. Same defect, same
-effect, both versions.
-
-**It is lossy, not merely non-decoding.** .NET's `Encoding.ASCII` uses a replacement fallback, so
-every byte above `0x7F` becomes a literal `?` (`0x3F`) and the original bytes are unrecoverable
-downstream. A game named `Café Noir` arrives as `Caf? Noir` and is stored, displayed and fingerprinted
-that way. **MUIndex cannot repair this from its side**, and must not try: by the time `MsspData`
-exists the bytes are gone. Seeding `TelnetInterpreter.CurrentEncoding` (Task 6) does **not** reach it
-— that seed governs the text callbacks and the GMCP/MSDP paths; `MSSPProtocol` ignores it and
-hardcodes ASCII.
-
-**It is a limitation rather than a bug.** RFC 2066 scopes CHARSET to text, not to command or
-subnegotiation payloads, so decoding MSSP as ASCII is a defensible reading. The upstream fix is
-`Encoding.Latin1`, which round-trips all 256 byte values losslessly — no byte sequence decodes worse
-under Latin-1 than under ASCII, so it is a strict improvement at no compatibility cost.
-TelnetNegotiationCore is first-party (CLAUDE.md), so this is a PR, not a workaround.
-
-Three consequences this plan carries:
-
-1. **It touches identity, not only display.** A non-ASCII MSSP `NAME` is one of Plan 3's identity
-   signals (§7.3, `IdentityWeights.MsspNameAndCreated`). Two different games whose names differ only
-   in non-ASCII characters collapse to the same mangled string and could be auto-merged into one.
-   Rare, but a correctness consequence rather than a blemish, and the strongest argument for the PR.
-2. **`MsspVia` carries a second meaning because of this.** The plaintext fallback (Task 11) does not
-   go through `MSSPProtocol`: it is decoded by our own UTF-8 text path and handed to
-   `MsspSubnegotiationParser.ParsePlaintextReply(string)`. The same server read through
-   `MSSP-REQUEST` therefore keeps its non-ASCII characters while the option-70 read mangles them, so
-   `MsspTransport.TelnetOption70` is also a marker for "the non-ASCII characters in this report are
-   not trustworthy".
-3. **Task 11 pins it with a test that is meant to fail one day.** When the upstream fix ships that
-   test goes red, and the correct response is to delete the test and this section.
+MSSP over telnet option 70 is decoded by the library, and a fix to how it decodes non-ASCII bytes
+is landing upstream before this plan is implemented. TelnetNegotiationCore is first-party, so a gap
+in it is a PR rather than something MUIndex compensates for. **This plan builds no defence around
+it and pins no test to the pre-fix behaviour** — assume the fix has shipped, and if it has not,
+raise it upstream rather than working around it here.
 
 ---
 
 ## File Structure
 
 ```
-Directory.Packages.props                        + SharpMU.Mssp
+Directory.Packages.props                        TelnetNegotiationCore 2.6.0 → 2.6.5
 MUIndex.slnx                                    + src/MUI.Probe.Cli
 .github/workflows/ci.yml                        (unchanged: Crawl suite already has a step)
 
 src/MUI.Crawl/
-  MUI.Crawl.csproj                              + SharpMU.Mssp
-  ProbeResult.cs            (modified)          the seam — §6.5
+  MUI.Crawl.csproj                              (unchanged: TNC is already referenced)
+  Mssp/
+    MsspHost.cs             (new)               REFERRAL's host+port, and §7.2's crawlability gate
+    MsspVariables.cs        (new)               the variable names our accessors read by
+    MsspData.cs             (new)               immutable projection over TNC's collection — §6.4
+    MsspPlaintextReply.cs   (new)               the out-of-band MSSP-REQUEST reply — §6.4
+  ProbeResult.cs            (modified)          the seam — §6.5, and WhoReading's four states
   ProbeOptions.cs           (new)               ProbeTarget, ProbeOptions, IProbe
   ProbeFailureCauses.cs     (new)               the cause vocabulary crossing the project boundary
   BoundedTranscript.cs      (new)               size-capped text sink, layers 2 and 3
@@ -217,6 +220,11 @@ tests/MUI.Crawl.Tests/
     ScriptedMuServer.cs     (new)               real TcpListener; §13's misbehaviour switches
     WhoCorpus.cs            (new)               the seven-plus real-shaped WHO fixtures
     FixtureLibrary.cs       (new)               loads Fixtures/*.json
+  MsspHostTests.cs          (new)               referral parsing + the §7.2 gate
+  MsspDataTests.cs          (new)               the four domain readings, and nothing TNC already does
+  MsspPlaintextReplyTests.cs (new)              §6.4's out-of-band reply
+  WhoReadingTests.cs        (modified)          the four states, and the two that used to be one
+  ProbeResultShapeTests.cs  (new)
   TransportTests.cs         (new)
   ScriptedMuServerTests.cs  (new)
   MisbehaviourTests.cs      (new)
@@ -236,31 +244,1597 @@ tests/MUI.Crawl.Tests/
 
 ---
 
-### Task 1: `SharpMU.Mssp` wired in, and `ProbeResult` retyped
+### Task 1: `MsspHost` — a referral read as a host, and the §7.2 crawlability gate
 
-Spec §6.4 (MSSP is the payload), §6.5 (the seam). Contract: "Plan 1 produces — `MUI.Crawl`".
+Spec §6.4 (MSSP is the payload), §7.2 ("referrals are candidate hostnames, not facts"). Contract
+addendum §2b.
+
+**This is the security-relevant type in this plan.** A `REFERRAL` list is hand-maintained
+configuration on somebody else's server, and following it is how a crawler is aimed. `IsCrawlable`
+is the gate: false for loopback, RFC 1918, RFC 6598 carrier-grade NAT, IPv6 unique-local
+(`fc00::/7`), link-local — which includes `169.254.169.254`, the cloud metadata address — and
+multicast. That is spec §7.2's verify-don't-trust, and it is what stops a stranger's referral list
+pointing our crawler at our own network. Plan 3 refuses to follow anything this says no to; nothing
+downstream re-derives the judgement.
+
+The second half of the type is duller and just as load-bearing: **normalising equality**, so
+`MUD.Example.ORG.`, `mud.example.org` and `mud.example.org:4201` are one entry rather than three, and
+`2001:0DB8:0000::0001` and `2001:db8::1` are one address rather than two. Without it a crawl walks
+the same server once per spelling its peers happen to use, and cycle detection never closes.
+
+**Prior art read, not copied.** SharpMUTerm's `src/SharpMUTerm.Core/Telnet/Mssp/MsspHost.cs` solves
+the same problem and is worth reading before writing this. It is **not** a dependency and its code is
+not lifted: this is MUIndex's own type in MUIndex's namespace, and it deliberately handles two cases
+that one does not — a bracketed literal with a colon separator (`[2001:db8::1]:4201`), and an
+IPv4-mapped IPv6 address (`::ffff:127.0.0.1`), which is a loopback referral wearing IPv6 clothes.
 
 **Files:**
-- Modify: `Directory.Packages.props`
-- Modify: `src/MUI.Crawl/MUI.Crawl.csproj`
-- Modify: `src/MUI.Crawl/ProbeResult.cs`
-- Create: `src/MUI.Crawl/ProbeOptions.cs`
-- Create: `src/MUI.Crawl/ProbeFailureCauses.cs`
-- Test: `tests/MUI.Crawl.Tests/ProbeResultShapeTests.cs`
+- Create: `src/MUI.Crawl/Mssp/MsspHost.cs`
+- Test: `tests/MUI.Crawl.Tests/MsspHostTests.cs`
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `ProbeResult` (with `Mssp` typed `SharpMU.Mssp.MsspData`, plus `MsspVia`, `TlsObserved`,
-  `Aggregates`), `enum MsspTransport { None, TelnetOption70, PlaintextRequest }`,
-  `ProbeFailureCauses` constants, `ProbeTarget`, `ProbeOptions` (incl. `MaxCaptureBytes`),
-  `interface IProbe`. Every later task in this plan and every later plan depends on these names.
+- Produces: `MUI.Crawl.Mssp.MsspHostScope` (`Unresolved`, `Global`, `Loopback`, `Private`,
+  `LinkLocal`, `Multicast`); `sealed record MUI.Crawl.Mssp.MsspHost` with `Host`, `Port`, `Scope`,
+  `IsIpV6`, `IsCrawlable`, `static MsspHost? Create(string?, int)`,
+  `static bool TryParse(string?, out MsspHost?)`, `string ToReferralString()`.
+  Task 2's `MsspData.Referrals` is a list of these; Plan 3's `ReferralGraphWriter` gates on
+  `IsCrawlable` and keys its cycle detection on the record's equality.
 
 - [ ] **Step 1: Write the failing test**
+
+Create `tests/MUI.Crawl.Tests/MsspHostTests.cs`:
+
+```csharp
+using MUI.Crawl.Mssp;
+
+namespace MUI.Crawl.Tests;
+
+/// <summary>
+/// <c>REFERRAL</c> read as a host: the format the MSSP specification defines, the spellings real
+/// servers use instead, and the addresses a crawler must refuse to be aimed at (spec §7.2).
+/// </summary>
+public class MsspHostTests
+{
+    private static MsspHost Parse(string value)
+    {
+        MsspHost.TryParse(value, out var host);
+        return host ?? throw new InvalidOperationException($"'{value}' should have parsed.");
+    }
+
+    [Test]
+    public async Task TheSpecifiedFormatIsHostSpacePort()
+    {
+        // "using the host port format … Make sure to separate the host and port with a space rather
+        // than : because IPv6 addresses contain colons."
+        var host = Parse("mud.example.org 4000");
+
+        await Assert.That(host.Host).IsEqualTo("mud.example.org");
+        await Assert.That(host.Port).IsEqualTo(4000);
+        await Assert.That(host.Scope).IsEqualTo(MsspHostScope.Unresolved);
+        await Assert.That(host.ToReferralString()).IsEqualTo("mud.example.org 4000");
+    }
+
+    [Test]
+    public async Task AnIpV6ReferralIsCanonicalisedSoTwoSpellingsAreOneAddress()
+    {
+        // The exact reason the specification chose a space rather than a colon.
+        var verbose = Parse("2001:0DB8:0000:0000:0000:0000:0000:0001 4201");
+        var compact = Parse("2001:db8::1 4201");
+
+        await Assert.That(verbose.Host).IsEqualTo("2001:db8::1");
+        await Assert.That(verbose).IsEqualTo(compact);
+        await Assert.That(verbose.IsIpV6).IsTrue();
+        await Assert.That(verbose.ToString()).IsEqualTo("[2001:db8::1]:4201");
+        await Assert.That(verbose.ToReferralString()).IsEqualTo("2001:db8::1 4201");
+    }
+
+    [Test]
+    public async Task ABracketedLiteralIsAcceptedWithEitherSeparator()
+    {
+        // URLs bracket an IPv6 literal, and servers copy their own connection string into REFERRAL.
+        // The brackets are punctuation for a colon problem this format does not have, so they go —
+        // but while they are there they make the colon form unambiguous, so it is accepted too.
+        await Assert.That(Parse("[2001:db8::1] 4201").Host).IsEqualTo("2001:db8::1");
+        await Assert.That(Parse("[2001:db8::1]:4201").Host).IsEqualTo("2001:db8::1");
+        await Assert.That(Parse("[2001:db8::1]:4201").Port).IsEqualTo(4201);
+        await Assert.That(MsspHost.TryParse("[2001:db8::1", out _)).IsFalse();
+    }
+
+    [Test]
+    public async Task TheColonFormIsToleratedOnlyWhereThereIsExactlyOneColon()
+    {
+        // Real servers emit host:port despite the specification, and refusing it loses referrals for
+        // nothing…
+        await Assert.That(Parse("mud.example.org:4000").Port).IsEqualTo(4000);
+
+        // …but an unbracketed string with two or more colons is far more likely to be a bare IPv6
+        // address than a host:port pair, and splitting it at a colon would silently rewrite it into a
+        // different address. Those are rejected rather than guessed at.
+        await Assert.That(MsspHost.TryParse("2001:db8::1", out _)).IsFalse();
+        await Assert.That(MsspHost.TryParse("2001:db8::1:4201", out _)).IsFalse();
+    }
+
+    [Test]
+    [Arguments("")]
+    [Arguments("   ")]
+    [Arguments("mud.example.org")]
+    [Arguments("mud.example.org 0")]
+    [Arguments("mud.example.org 65536")]
+    [Arguments("mud.example.org -1")]
+    [Arguments("mud.example.org notaport")]
+    [Arguments("http://mud.example.org/ 4000")]
+    [Arguments("a stale line someone typed")]
+    public async Task AMalformedReferralIsRejectedRatherThanGuessedAt(string value) =>
+        await Assert.That(MsspHost.TryParse(value, out _)).IsFalse();
+
+    [Test]
+    public async Task HostNamesAreNormalisedSoOneServerIsOneEntry()
+    {
+        // Identity is what cycle detection and deduplication are built on. Case, the root label's
+        // trailing dot, and the separator a peer happened to use are all spelling.
+        var spellings = new[]
+        {
+            "MUD.Example.ORG 4201",
+            "mud.example.org 4201",
+            "mud.example.org. 4201",
+            "  mud.example.org\t4201  ",
+            "mud.example.org:4201",
+        };
+
+        await Assert.That(spellings.Select(Parse).ToHashSet().Count).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task ADifferentPortOnTheSameHostIsADifferentEntry()
+    {
+        // One machine hosting two games is ordinary, and merging them would lose one.
+        await Assert.That(Parse("mud.example.org 4201")).IsNotEqualTo(Parse("mud.example.org 4202"));
+    }
+
+    [Test]
+    public async Task ALoopbackReferralIsNotCrawlable()
+    {
+        await Assert.That(Parse("127.0.0.1 4201").Scope).IsEqualTo(MsspHostScope.Loopback);
+        await Assert.That(Parse("::1 4201").Scope).IsEqualTo(MsspHostScope.Loopback);
+        await Assert.That(Parse("0.0.0.0 4201").Scope).IsEqualTo(MsspHostScope.Loopback);
+        await Assert.That(Parse("127.0.0.1 4201").IsCrawlable).IsFalse();
+    }
+
+    [Test]
+    public async Task PrivateSpaceIncludingCarrierGradeNatIsNotCrawlable()
+    {
+        await Assert.That(Parse("10.1.2.3 4201").Scope).IsEqualTo(MsspHostScope.Private);
+        await Assert.That(Parse("172.16.0.1 4201").Scope).IsEqualTo(MsspHostScope.Private);
+        await Assert.That(Parse("172.31.255.254 4201").Scope).IsEqualTo(MsspHostScope.Private);
+        await Assert.That(Parse("192.168.1.1 4201").Scope).IsEqualTo(MsspHostScope.Private);
+
+        // RFC 6598, 100.64.0.0/10 — a carrier-grade NAT range, and not RFC 1918, so a check that
+        // only knew the three classic blocks would follow it.
+        await Assert.That(Parse("100.64.0.1 4201").Scope).IsEqualTo(MsspHostScope.Private);
+        await Assert.That(Parse("100.127.255.254 4201").Scope).IsEqualTo(MsspHostScope.Private);
+
+        // 172.15 and 172.32 are outside RFC 1918 and are ordinary public addresses.
+        await Assert.That(Parse("172.15.0.1 4201").Scope).IsEqualTo(MsspHostScope.Global);
+        await Assert.That(Parse("172.32.0.1 4201").Scope).IsEqualTo(MsspHostScope.Global);
+        await Assert.That(Parse("100.63.0.1 4201").Scope).IsEqualTo(MsspHostScope.Global);
+    }
+
+    [Test]
+    public async Task IpV6UniqueLocalAndLinkLocalAreNotCrawlable()
+    {
+        // fc00::/7 is IPv6's RFC 1918, and it is spelled by two leading bytes rather than a prefix
+        // a switch on the first octet would catch.
+        await Assert.That(Parse("fd00::1 4201").Scope).IsEqualTo(MsspHostScope.Private);
+        await Assert.That(Parse("fc00::1 4201").Scope).IsEqualTo(MsspHostScope.Private);
+        await Assert.That(Parse("fe80::1 4201").Scope).IsEqualTo(MsspHostScope.LinkLocal);
+        await Assert.That(Parse("ff02::1 4201").Scope).IsEqualTo(MsspHostScope.Multicast);
+        await Assert.That(Parse("fd00::1 4201").IsCrawlable).IsFalse();
+    }
+
+    [Test]
+    public async Task TheCloudMetadataAddressIsNotCrawlable()
+    {
+        // 169.254.169.254 is the one that matters. A referral to it is either a misconfiguration or
+        // an attempt to make somebody else's crawler read credentials out of its own instance
+        // metadata, and following it would be both.
+        var metadata = Parse("169.254.169.254 80");
+
+        await Assert.That(metadata.Scope).IsEqualTo(MsspHostScope.LinkLocal);
+        await Assert.That(metadata.IsCrawlable).IsFalse();
+    }
+
+    [Test]
+    public async Task AnIpV4MappedIpV6AddressIsClassifiedAsTheAddressItActuallyIs()
+    {
+        // ::ffff:127.0.0.1 is loopback wearing IPv6 clothes, and a classifier that read only the
+        // address family would call it globally routable. This is the bypass, and it is one line.
+        var mapped = Parse("::ffff:127.0.0.1 4201");
+
+        await Assert.That(mapped.Scope).IsEqualTo(MsspHostScope.Loopback);
+        await Assert.That(mapped.IsCrawlable).IsFalse();
+        await Assert.That(Parse("::ffff:10.0.0.1 4201").Scope).IsEqualTo(MsspHostScope.Private);
+        await Assert.That(Parse("::ffff:198.51.100.7 4201").Scope).IsEqualTo(MsspHostScope.Global);
+    }
+
+    [Test]
+    public async Task MulticastAndBroadcastAreNotCrawlable()
+    {
+        await Assert.That(Parse("224.0.0.1 4201").Scope).IsEqualTo(MsspHostScope.Multicast);
+        await Assert.That(Parse("255.255.255.255 4201").Scope).IsEqualTo(MsspHostScope.Multicast);
+        await Assert.That(Parse("239.1.2.3 4201").IsCrawlable).IsFalse();
+    }
+
+    [Test]
+    public async Task ANameAndAGloballyRoutableLiteralAreTheOnlyCrawlableThings()
+    {
+        // Unresolved is crawlable because a name is exactly what DNS is for: refusing it would refuse
+        // every real referral. What DNS then answers is checked when the socket is opened, not here.
+        var crawlable = new[] { MsspHostScope.Unresolved, MsspHostScope.Global };
+        var representative = new Dictionary<MsspHostScope, MsspHost>
+        {
+            [MsspHostScope.Unresolved] = Parse("mud.example.org 4201"),
+            [MsspHostScope.Global] = Parse("198.51.100.7 4201"),
+            [MsspHostScope.Loopback] = Parse("127.0.0.1 4201"),
+            [MsspHostScope.Private] = Parse("10.0.0.1 4201"),
+            [MsspHostScope.LinkLocal] = Parse("169.254.169.254 80"),
+            [MsspHostScope.Multicast] = Parse("224.0.0.1 4201"),
+        };
+
+        // Every scope the enum has is answered for. A scope added later fails this test rather than
+        // quietly defaulting into "crawlable", which is the direction a mistake here goes.
+        await Assert.That(representative.Keys).IsEquivalentTo(Enum.GetValues<MsspHostScope>());
+
+        foreach (var (scope, host) in representative)
+        {
+            await Assert.That(host.Scope).IsEqualTo(scope);
+            await Assert.That(host.IsCrawlable).IsEqualTo(crawlable.Contains(scope)).Because($"{scope}");
+        }
+    }
+
+    [Test]
+    public async Task CreateRefusesAPortOutsideOneToSixtyFiveThousandFiveHundredAndThirtyFive()
+    {
+        await Assert.That(MsspHost.Create("mud.example.org", 0)).IsNull();
+        await Assert.That(MsspHost.Create("mud.example.org", -1)).IsNull();
+        await Assert.That(MsspHost.Create("mud.example.org", 65536)).IsNull();
+        await Assert.That(MsspHost.Create("mud.example.org", 65535)).IsNotNull();
+        await Assert.That(MsspHost.Create(null, 4201)).IsNull();
+        await Assert.That(MsspHost.Create("   ", 4201)).IsNull();
+    }
+
+    [Test]
+    public async Task ANameThatCouldNotBeAHostIsRefusedBeforeItReachesAResolver()
+    {
+        // Deliberately permissive about what a label may contain — underscores and non-ASCII both
+        // occur in the wild — and strict only about what a host name can never contain.
+        await Assert.That(MsspHost.Create("mud example org", 4201)).IsNull();
+        await Assert.That(MsspHost.Create("mud.example.org/status", 4201)).IsNull();
+        await Assert.That(MsspHost.Create("user@mud.example.org", 4201)).IsNull();
+        await Assert.That(MsspHost.Create(".mud.example.org", 4201)).IsNull();
+        await Assert.That(MsspHost.Create("mud..example.org", 4201)).IsNull();
+        await Assert.That(MsspHost.Create(new string('a', 254), 4201)).IsNull();
+        await Assert.That(MsspHost.Create("_minecraft._tcp.example.org", 4201)).IsNotNull();
+    }
+
+    [Test]
+    public async Task ToReferralStringRoundTripsThroughTryParse()
+    {
+        foreach (var value in new[] { "mud.example.org 4201", "198.51.100.7 4000", "2001:db8::1 4201" })
+        {
+            var host = Parse(value);
+
+            await Assert.That(Parse(host.ToReferralString())).IsEqualTo(host);
+        }
+    }
+}
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `dotnet build MUIndex.slnx -c Release`
+Expected: FAIL — `error CS0234: The type or namespace name 'Mssp' does not exist in the namespace 'MUI.Crawl'`.
+
+- [ ] **Step 3: Write the type**
+
+Create `src/MUI.Crawl/Mssp/MsspHost.cs`:
+
+```csharp
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Net;
+using System.Net.Sockets;
+
+namespace MUI.Crawl.Mssp;
+
+/// <summary>
+/// What kind of address a host names, as far as can be told without resolving it. The crawler uses
+/// this to refuse referrals that point inside a network rather than at a public game server.
+/// </summary>
+public enum MsspHostScope
+{
+    /// <summary>A name, not a literal — nothing can be told about it until DNS answers.</summary>
+    Unresolved,
+
+    /// <summary>A globally routable IP literal.</summary>
+    Global,
+
+    /// <summary>127.0.0.0/8, ::1, or an unspecified address.</summary>
+    Loopback,
+
+    /// <summary>RFC 1918, RFC 6598 carrier-grade NAT, or IPv6 unique-local space (fc00::/7).</summary>
+    Private,
+
+    /// <summary>169.254.0.0/16 or fe80::/10 — including the cloud metadata address.</summary>
+    LinkLocal,
+
+    /// <summary>A multicast group or the broadcast address; never a game server.</summary>
+    Multicast,
+}
+
+/// <summary>
+/// A host and port as MSSP names one: the unit a <c>REFERRAL</c> value carries, and the identity a
+/// crawler deduplicates on.
+/// <para>
+/// The specification is explicit about the wire format: a referral uses "the host port format and
+/// array notation … Make sure to separate the host and port with a space rather than <c>:</c>
+/// because IPv6 addresses contain colons." <see cref="TryParse"/> implements exactly that, and
+/// tolerates the two other spellings real servers actually emit (see its remarks).
+/// </para>
+/// <para>
+/// Equality is over the <em>normalised</em> host and the port, which is what makes deduplication and
+/// cycle detection work: <c>MUD.Example.ORG.</c>, <c>mud.example.org</c> and <c>MUD.EXAMPLE.ORG</c>
+/// are one host, and <c>2001:0DB8:0000::0001</c> and <c>2001:db8::1</c> are one address. Without that
+/// a crawl walks the same server once per spelling its peers happen to use.
+/// </para>
+/// </summary>
+public sealed record MsspHost
+{
+    private MsspHost(string host, int port, MsspHostScope scope, bool isIpV6)
+    {
+        Host = host;
+        Port = port;
+        Scope = scope;
+        IsIpV6 = isIpV6;
+    }
+
+    /// <summary>The normalised host: lower-cased, trailing dot removed, IP literals in canonical form.</summary>
+    public string Host { get; }
+
+    /// <summary>The TCP port, 1–65535.</summary>
+    public int Port { get; }
+
+    /// <summary>What kind of address <see cref="Host"/> is, as far as a literal reveals.</summary>
+    public MsspHostScope Scope { get; }
+
+    /// <summary>True when this is an IPv6 literal, which display has to bracket.</summary>
+    public bool IsIpV6 { get; }
+
+    /// <summary>
+    /// True when this host is worth a crawler's time: a name, or a globally routable literal.
+    /// <para>
+    /// <b>This is spec §7.2's gate and the security-relevant member of this type.</b> A referral into
+    /// loopback, RFC 1918 or RFC 6598 space, IPv6 unique-local space, or link-local — which includes
+    /// <c>169.254.169.254</c>, the cloud metadata address — is either a misconfiguration or an attempt
+    /// to make somebody else's crawler probe a network it could not otherwise reach. Neither is worth
+    /// following, and the second is the reason this is not merely a tidiness filter.
+    /// </para>
+    /// <para>
+    /// A name is crawlable because a name is what DNS is for; refusing one would refuse every real
+    /// referral. What DNS answers is checked when the socket is opened, not here.
+    /// </para>
+    /// </summary>
+    public bool IsCrawlable => Scope is MsspHostScope.Unresolved or MsspHostScope.Global;
+
+    /// <summary>
+    /// Builds a host from an already-separated host and port, normalising the host. Returns null when
+    /// the host is empty or could not be a host name, or the port is outside 1–65535.
+    /// </summary>
+    public static MsspHost? Create(string? host, int port)
+    {
+        if (string.IsNullOrWhiteSpace(host) || port is < 1 or > 65535)
+        {
+            return null;
+        }
+
+        var trimmed = host.Trim();
+
+        // A bracketed IPv6 literal, [2001:db8::1], as a URL spells it. The brackets are punctuation
+        // for a colon problem this format does not have, so they are stripped rather than kept.
+        if (trimmed.Length > 2 && trimmed[0] == '[' && trimmed[^1] == ']')
+        {
+            trimmed = trimmed[1..^1].Trim();
+        }
+
+        if (trimmed.Length == 0)
+        {
+            return null;
+        }
+
+        if (IPAddress.TryParse(trimmed, out var address))
+        {
+            // ToString() is the canonical form: it compresses IPv6 zero runs and strips leading
+            // zeroes, so two spellings of one address become one key.
+            var literal = address.ToString().ToLowerInvariant();
+            return new MsspHost(
+                literal,
+                port,
+                Classify(address),
+                address.AddressFamily == AddressFamily.InterNetworkV6);
+        }
+
+        // A DNS name. The root label's trailing dot is legal and means the same name, so it goes.
+        var name = trimmed.TrimEnd('.').ToLowerInvariant();
+        return name.Length != 0 && IsPlausibleName(name)
+            ? new MsspHost(name, port, MsspHostScope.Unresolved, false)
+            : null;
+    }
+
+    /// <summary>
+    /// Parses one <c>REFERRAL</c> array element.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Three forms, in this order. The specification's own — <c>host port</c>, whitespace-separated,
+    /// chosen precisely so an IPv6 literal's colons are unambiguous — is the one parsed without
+    /// reservation.
+    /// </para>
+    /// <para>
+    /// A <b>bracketed</b> literal (<c>[2001:db8::1] 4201</c>, <c>[2001:db8::1]:4201</c>) carries its
+    /// own delimiter, so whichever separator follows it the split is unambiguous. Servers copy their
+    /// own connection strings into <c>REFERRAL</c>, and a connection string is a URL.
+    /// </para>
+    /// <para>
+    /// Bare <c>host:port</c> is accepted, but <b>only when the string contains exactly one colon</b> —
+    /// which is to say only when it cannot be an IPv6 literal. Real servers emit it despite the
+    /// specification and refusing it loses referrals for no gain; but a string with two or more colons
+    /// is far more likely to be a bare IPv6 address than a host:port pair, and guessing wrong there
+    /// would silently rewrite one address into a different one. Those are rejected.
+    /// </para>
+    /// </remarks>
+    public static bool TryParse(string? value, [NotNullWhen(true)] out MsspHost? host)
+    {
+        host = null;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var text = value.Trim();
+
+        if (text[0] == '[')
+        {
+            var close = text.IndexOf(']');
+            if (close < 0)
+            {
+                return false;
+            }
+
+            var rest = text[(close + 1)..].Trim().TrimStart(':').Trim();
+            if (!int.TryParse(rest, NumberStyles.None, CultureInfo.InvariantCulture, out var bracketedPort))
+            {
+                return false;
+            }
+
+            host = Create(text[..(close + 1)], bracketedPort);
+            return host is not null;
+        }
+
+        // The specified form. Split at the last run of whitespace, so a (malformed) host containing a
+        // space still yields its port rather than being thrown away twice over.
+        var separator = text.LastIndexOfAny([' ', '\t']);
+        if (separator > 0 &&
+            int.TryParse(text[(separator + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out var spacedPort))
+        {
+            host = Create(text[..separator], spacedPort);
+            return host is not null;
+        }
+
+        // The tolerated form, only where no IPv6 literal could be meant.
+        var colon = text.IndexOf(':');
+        if (colon > 0 &&
+            text.IndexOf(':', colon + 1) < 0 &&
+            int.TryParse(text[(colon + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out var colonPort))
+        {
+            host = Create(text[..colon], colonPort);
+            return host is not null;
+        }
+
+        return false;
+    }
+
+    /// <summary>The wire form MSSP uses: host, a space, port.</summary>
+    public string ToReferralString() => $"{Host} {Port}";
+
+    /// <summary>The display form, bracketing IPv6 literals the way a URL would.</summary>
+    public override string ToString() => IsIpV6 ? $"[{Host}]:{Port}" : $"{Host}:{Port}";
+
+    private static MsspHostScope Classify(IPAddress address) =>
+        address.AddressFamily == AddressFamily.InterNetworkV6 ? ClassifyV6(address) : ClassifyV4(address);
+
+    private static MsspHostScope ClassifyV6(IPAddress address)
+    {
+        // An IPv4-mapped address wears IPv6 clothes and is an IPv4 address. Classify what it is, or
+        // ::ffff:127.0.0.1 is a loopback referral that reads as globally routable.
+        if (address.IsIPv4MappedToIPv6)
+        {
+            return ClassifyV4(address.MapToIPv4());
+        }
+
+        if (IPAddress.IsLoopback(address) || address.Equals(IPAddress.IPv6Any))
+        {
+            return MsspHostScope.Loopback;
+        }
+
+        if (address.IsIPv6LinkLocal)
+        {
+            return MsspHostScope.LinkLocal;
+        }
+
+        if (address.IsIPv6Multicast)
+        {
+            return MsspHostScope.Multicast;
+        }
+
+        // Unique local addresses, fc00::/7 — the IPv6 analogue of RFC 1918. It is a prefix on the
+        // first seven bits, so fc00:: and fd00:: are both inside it.
+        var bytes = address.GetAddressBytes();
+        return (bytes[0] & 0xFE) == 0xFC ? MsspHostScope.Private : MsspHostScope.Global;
+    }
+
+    private static MsspHostScope ClassifyV4(IPAddress address)
+    {
+        var b = address.GetAddressBytes();
+        return b[0] switch
+        {
+            0 => MsspHostScope.Loopback,                                  // 0.0.0.0/8, "this network"
+            10 => MsspHostScope.Private,
+            100 when b[1] is >= 64 and <= 127 => MsspHostScope.Private,   // RFC 6598 carrier-grade NAT
+            127 => MsspHostScope.Loopback,
+            169 when b[1] == 254 => MsspHostScope.LinkLocal,              // includes 169.254.169.254
+            172 when b[1] is >= 16 and <= 31 => MsspHostScope.Private,
+            192 when b[1] == 168 => MsspHostScope.Private,
+            >= 224 => MsspHostScope.Multicast,                            // and 255.255.255.255
+            _ => MsspHostScope.Global,
+        };
+    }
+
+    /// <summary>
+    /// A cheap sanity filter on a DNS name, so a value that is plainly not a host — a sentence, a
+    /// URL, a control character smuggled through — never reaches a resolver. Deliberately permissive
+    /// about which characters a label may hold (underscores and non-ASCII both occur in the wild) and
+    /// strict only about what a host name can never contain.
+    /// </summary>
+    private static bool IsPlausibleName(string name)
+    {
+        if (name.Length > 253 || name.StartsWith('.') || name.Contains("..", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        foreach (var character in name)
+        {
+            if (char.IsWhiteSpace(character) ||
+                char.IsControl(character) ||
+                character is '/' or '\\' or '@' or ':' or '?' or '#' or '[' or ']')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}
+```
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run:
+```bash
+dotnet build MUIndex.slnx -c Release
+dotnet run -c Release --no-build --project tests/MUI.Crawl.Tests </dev/null
+```
+Expected: PASS — 25 new test cases from 17 test methods (the `[Arguments]` one is nine of them),
+plus the existing `WhoReadingTests`, no warnings.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/MUI.Crawl/Mssp/MsspHost.cs tests/MUI.Crawl.Tests/MsspHostTests.cs
+git commit -m "feat(crawl): read a REFERRAL as a host, and refuse the ones pointing inwards
+
+Spec §7.2: a referral is a candidate hostname, not a fact. IsCrawlable is the gate
+— false for loopback, RFC 1918, RFC 6598, fc00::/7, link-local (including
+169.254.169.254) and multicast — because a REFERRAL list is configuration on
+somebody else's server and following it is how a crawler is aimed. IPv4-mapped
+IPv6 is classified as the address it actually is, or ::ffff:127.0.0.1 reads as
+globally routable.
+
+Equality is over the normalised host and port, so one server is one entry however
+its peers spell it, which is what lets a crawl terminate."
+```
+
+---
+
+### Task 2: `MsspData` over TelnetNegotiationCore 2.6.5, and the plaintext reply
+
+Spec §6.4 (MSSP is the payload; telnet option 70 with the plaintext `MSSP-REQUEST` fallback).
+Contract addendum §2a and §2b.
+
+**Read §2a before writing a line of this.** TelnetNegotiationCore 2.6.5 already provides — verified by
+reflection against the shipped assembly — the ordered name → value-list map (`MSSPConfig.Variables`,
+`MSSPVariableCollection` with its indexer, `Keys`, `Count`, `TryGetValue`, `ContainsKey`, `Default`,
+`Flag`, `Integer`, `OfficialNames`, `UnofficialNames`), the vocabulary rules
+(`MSSPVariables.Canonicalize`, `IsOfficial`, `IsKnown`, `Official`) and flag parsing
+(`MSSPValue.TryParseFlag`). **None of that is re-implemented here, and there is no subnegotiation
+parser in this repository.**
+
+`MsspData` **projects; it does not parse.** It exists for exactly four readings the library does not
+have, and the type's own doc comment says so:
+
+1. `CRAWL DELAY`'s `-1` means "use the crawler's default" and resolves to **null**, never to a
+   negative interval — a caller combining this with its own default has to be able to tell "no
+   preference" from "zero".
+2. Ports validated as ports, so a `PORT` of `0`, `99999` or `web` never reaches a connect attempt.
+3. `REFERRAL` read as `MsspHost`s (Task 1) — deduplicated, unparseable values dropped silently, the
+   raw strings still readable through the indexer.
+4. An **immutable** snapshot. `MSSPConfig` is the live negotiation's own mutable state; a
+   `ProbeResult` is a fact about one moment and cannot hold something that changes underneath it.
+
+The second half of this task is the half TNC genuinely does not have: `MsspPlaintextReply`. Telnet
+option 70 is TNC's job; the out-of-band `MSSP-REQUEST` text protocol (spec §6.4 — tab-separated pairs
+delimited by `MSSP-REPLY-START` / `MSSP-REPLY-END`) is not a telnet option at all, and the library
+knows nothing about it. It is the only MSSP *parsing* MUIndex owns.
+
+**Files:**
+- Modify: `Directory.Packages.props`
+- Create: `src/MUI.Crawl/Mssp/MsspVariables.cs`
+- Create: `src/MUI.Crawl/Mssp/MsspData.cs`
+- Create: `src/MUI.Crawl/Mssp/MsspPlaintextReply.cs`
+- Test: `tests/MUI.Crawl.Tests/MsspDataTests.cs`
+- Test: `tests/MUI.Crawl.Tests/MsspPlaintextReplyTests.cs`
+
+**Interfaces:**
+- Consumes: `MsspHost` (Task 1); `TelnetNegotiationCore.Models.{MSSPConfig, MSSPVariableCollection,
+  MSSPVariables, MSSPValue}`.
+- Produces: `MUI.Crawl.Mssp.MsspVariables` (the names); `MUI.Crawl.Mssp.MsspData` with `Empty`, the
+  three `From` overloads, the dictionary surface, `Default`/`Flag`/`Integer`, the typed accessors,
+  `CrawlDelay` and `Referrals`; `MUI.Crawl.Mssp.MsspPlaintextReply.TryParse(string, out MsspData)`.
+  Task 3 types `ProbeResult.Mssp` as `MsspData`; Task 8 hands one to `MsspReceived`; Task 13 chooses
+  between the two routes; Plans 2 and 3 read the typed accessors and `Referrals`.
+
+- [ ] **Step 1: Raise the pinned TelnetNegotiationCore**
+
+In `Directory.Packages.props`, change the version and say why the number matters:
+
+```xml
+    <!--
+      Telnet negotiation. The probe engine is this library pointed outward: the handshake it performs
+      IS the capability measurement (spec §6.1), so what a server offers is observed rather than
+      taken from a game's own MSSP claim.
+
+      2.6.5 is the version the MSSP surface MsspData projects — MSSPVariableCollection,
+      MSSPVariables.Canonicalize, MSSPValue.TryParseFlag — was verified against by reflection.
+    -->
+    <PackageVersion Include="TelnetNegotiationCore" Version="2.6.5" />
+```
+
+`src/MUI.Crawl/MUI.Crawl.csproj` already carries `<PackageReference Include="TelnetNegotiationCore" />`
+and needs no edit.
+
+- [ ] **Step 2: Write the failing tests**
+
+Create `tests/MUI.Crawl.Tests/MsspDataTests.cs`:
+
+```csharp
+using MUI.Crawl.Mssp;
+
+namespace MUI.Crawl.Tests;
+
+/// <summary>
+/// The projection, and only the projection. Every test here is about something TelnetNegotiationCore
+/// does <em>not</em> do: if a test could be satisfied by handing back the library's own collection,
+/// it does not belong in this file.
+/// </summary>
+public class MsspDataTests
+{
+    private static MsspData Report(params (string Variable, string[] Values)[] entries) =>
+        MsspData.From(entries.Select(entry =>
+            new KeyValuePair<string, IReadOnlyList<string>>(entry.Variable, entry.Values)));
+
+    [Test]
+    public async Task AnEmptyReportIsOneSharedInstance()
+    {
+        // ProbeResult defaults to it (Task 3) and the fixtures assert on the reference, so it has to
+        // be a singleton rather than a fresh empty each time.
+        await Assert.That(MsspData.Empty).IsSameReferenceAs(MsspData.Empty);
+        await Assert.That(MsspData.Empty.Count).IsEqualTo(0);
+        await Assert.That(MsspData.Empty["NAME"]).IsEmpty();
+        await Assert.That(MsspData.Empty.Name).IsNull();
+    }
+
+    [Test]
+    public async Task EveryValueOfEveryVariableIsKeptInWireOrder()
+    {
+        // The reason this is a map to a list rather than to a string. MSSP says "multiple values
+        // should be ordered from least to most relevant", so a model with one value per variable
+        // would silently pick a server's least preferred port and lose REFERRAL entirely.
+        var data = Report(("PORT", ["23", "4201"]), ("NAME", ["Corvid Nest"]));
+
+        await Assert.That(data["PORT"]).IsEquivalentTo(new[] { "23", "4201" });
+        await Assert.That(data.Keys).IsEquivalentTo(new[] { "PORT", "NAME" });
+        await Assert.That(data.Count).IsEqualTo(2);
+        await Assert.That(data.ContainsKey("port")).IsTrue();
+        await Assert.That(data.TryGetValue("NAME", out var name)).IsTrue();
+        await Assert.That(name).IsEquivalentTo(new[] { "Corvid Nest" });
+    }
+
+    [Test]
+    public async Task ADefaultIsTheLastValueSentBecauseTheSpecificationSaysSo()
+    {
+        var data = Report(("CODEBASE", ["TinyMUSH 2.2", "PennMUSH 1.8.8"]));
+
+        await Assert.That(data.Default("CODEBASE")).IsEqualTo("PennMUSH 1.8.8");
+        await Assert.That(data.Codebase).IsEqualTo("PennMUSH 1.8.8");
+        await Assert.That(data.Default("NOT SENT")).IsNull();
+    }
+
+    [Test]
+    public async Task NameFoldingIsTheLibrarysSoTwoSpellingsAreOneVariable()
+    {
+        // MSSPVariables.Canonicalize is TelnetNegotiationCore's, deliberately: two copies of a
+        // vocabulary drift, and this one reads the wire.
+        var data = Report(("MINIMUM_AGE", ["13"]), ("MINIMUM AGE", ["18"]));
+
+        await Assert.That(data.Count).IsEqualTo(1);
+        await Assert.That(data["MINIMUM AGE"]).IsEquivalentTo(new[] { "13", "18" });
+        await Assert.That(data.Default("minimum_age")).IsEqualTo("18");
+    }
+
+    [Test]
+    public async Task TheOfficialAndUnofficialSplitIsAlsoTheLibrarys()
+    {
+        // A crawler records what a server said rather than what a model expected, so an unofficial
+        // variable is kept beside the official ones instead of dropped — and MSSP's unofficial half
+        // is where several widely deployed variables live.
+        var data = Report(("NAME", ["Corvid Nest"]), ("FAVOURITE BIRD", ["Corvid"]));
+
+        await Assert.That(data.OfficialNames).IsEquivalentTo(new[] { "NAME" });
+        await Assert.That(data.UnofficialNames).IsEquivalentTo(new[] { "FAVOURITE BIRD" });
+        await Assert.That(data["FAVOURITE BIRD"]).IsEquivalentTo(new[] { "Corvid" });
+    }
+
+    [Test]
+    public async Task PortsAreValidatedAsPorts()
+    {
+        // Reading number one of the four. A PORT this model hands back is dialled, so a 0, a 99999
+        // or a word must never reach a connect attempt.
+        var data = Report(("PORT", ["0", "web", "99999", "23", "4201"]));
+
+        await Assert.That(data.Ports).IsEquivalentTo(new[] { 23, 4201 });
+        await Assert.That(data.Port).IsEqualTo(4201).Because("the last listed is the most important");
+        await Assert.That(Report(("PORT", ["nonsense"])).Port).IsNull();
+    }
+
+    [Test]
+    public async Task CrawlDelayOfMinusOneIsNoPreferenceAndNeverANegativeInterval()
+    {
+        // Reading number two, and the one with teeth: the specification gives -1 the meaning "use the
+        // crawler's default", and a caller combining this with its own default has to be able to tell
+        // "no preference" from "zero". A negative TimeSpan here would schedule a probe in the past.
+        await Assert.That(Report(("CRAWL DELAY", ["-1"])).CrawlDelay).IsNull();
+        await Assert.That(Report(("CRAWL DELAY", ["0"])).CrawlDelay).IsEqualTo(TimeSpan.Zero);
+        await Assert.That(Report(("CRAWL DELAY", ["5"])).CrawlDelay).IsEqualTo(TimeSpan.FromHours(5));
+        await Assert.That(Report(("CRAWL DELAY", ["soon"])).CrawlDelay).IsNull();
+        await Assert.That(MsspData.Empty.CrawlDelay).IsNull();
+    }
+
+    [Test]
+    public async Task ReferralsAreParsedDeduplicatedAndTheRawStringsSurvive()
+    {
+        // Reading number three. One stale line in somebody else's hand-maintained list is not a fault
+        // in their report, so it is dropped silently — but the raw values stay readable, because a
+        // report page should be able to show what a server actually said.
+        var data = Report(("REFERRAL",
+        [
+            "a.example.org 4000",
+            "b.example.org 4000",
+            "A.EXAMPLE.ORG 4000",
+            "not a referral",
+            "2001:db8::9 4201",
+        ]));
+
+        await Assert.That(data.Referrals.Select(r => r.ToReferralString()))
+            .IsEquivalentTo(new[] { "a.example.org 4000", "b.example.org 4000", "2001:db8::9 4201" });
+        await Assert.That(data["REFERRAL"].Count).IsEqualTo(5);
+    }
+
+    [Test]
+    public async Task AReferralIntoPrivateSpaceIsListedAndIsNotCrawlable()
+    {
+        // This model reports; it does not decide. Dropping an uncrawlable referral here would hide it
+        // from the report that traces a poisoned source (spec §7.2), so it is listed and marked.
+        var data = Report(("REFERRAL", ["169.254.169.254 80", "good.example.org 4000"]));
+
+        await Assert.That(data.Referrals.Count).IsEqualTo(2);
+        await Assert.That(data.Referrals.Count(r => r.IsCrawlable)).IsEqualTo(1);
+        await Assert.That(data.Referrals.Single(r => !r.IsCrawlable).Scope).IsEqualTo(MsspHostScope.LinkLocal);
+    }
+
+    [Test]
+    public async Task ASnapshotDoesNotChangeUnderneathItsHolder()
+    {
+        // Reading number four. MSSPConfig is the live negotiation's mutable state; a ProbeResult is a
+        // fact about one moment, so what it holds is copied out rather than referenced.
+        var values = new List<string> { "17" };
+        var data = MsspData.From([new KeyValuePair<string, IReadOnlyList<string>>("PLAYERS", values)]);
+
+        values.Add("999");
+
+        await Assert.That(data.Players).IsEqualTo(17);
+        await Assert.That(data["PLAYERS"].Count).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task AnIntegerIsNeverNegativeBecauseMinusOneMeansDataNotAvailable()
+    {
+        // Narrower than the library's own Integer, which returns -1 as-is so a caller can tell "the
+        // server cannot count its rooms" from "the server never mentioned rooms". Everything reading
+        // this type wants a number it can print or compare, and the raw string is one indexer away.
+        await Assert.That(Report(("PLAYERS", ["-1"])).Players).IsNull();
+        await Assert.That(Report(("PLAYERS", ["-1"]))["PLAYERS"]).IsEquivalentTo(new[] { "-1" });
+        await Assert.That(Report(("PLAYERS", ["0"])).Players).IsEqualTo(0);
+        await Assert.That(Report(("PLAYERS", ["many"])).Players).IsNull();
+    }
+
+    [Test]
+    public async Task FlagsAreReadByTheLibrarysOwnParser()
+    {
+        await Assert.That(Report(("SSL", ["1"])).Flag("SSL")).IsTrue();
+        await Assert.That(Report(("SSL", ["0"])).Flag("SSL")).IsFalse();
+        await Assert.That(Report(("SSL", ["maybe"])).Flag("SSL")).IsNull();
+        await Assert.That(MsspData.Empty.Flag("SSL")).IsNull();
+    }
+
+    [Test]
+    public async Task UptimeIsTheUnixTimestampTheServerBootedAt()
+    {
+        await Assert.That(Report(("UPTIME", ["1735689600"])).Uptime)
+            .IsEqualTo(DateTimeOffset.FromUnixTimeSeconds(1735689600));
+        await Assert.That(Report(("UPTIME", ["0"])).Uptime).IsNull();
+        await Assert.That(Report(("UPTIME", ["yesterday"])).Uptime).IsNull();
+    }
+
+    [Test]
+    public async Task TheTypedAccessorsAreTheOnesTheCatalogueReads()
+    {
+        var data = Report(
+            ("NAME", ["Corvid Nest"]),
+            ("HOSTNAME", ["corvid.example.org"]),
+            ("CONTACT", ["admin@corvid.example.org"]),
+            ("WEBSITE", ["https://corvid.example.org/"]),
+            ("CODEBASE", ["PennMUSH 1.8.8"]),
+            ("FAMILY", ["TinyMUSH"]),
+            ("CREATED", ["2003"]));
+
+        await Assert.That(data.Name).IsEqualTo("Corvid Nest");
+        await Assert.That(data.Hostname).IsEqualTo("corvid.example.org");
+        await Assert.That(data.Contact).IsEqualTo("admin@corvid.example.org");
+        await Assert.That(data.Website).IsEqualTo("https://corvid.example.org/");
+        await Assert.That(data.Codebase).IsEqualTo("PennMUSH 1.8.8");
+        await Assert.That(data.Family).IsEqualTo("TinyMUSH");
+
+        // CREATED is half of Plan 3's second-strongest identity signal (§7.3), which is why it is a
+        // named variable here and not only a string in the map.
+        await Assert.That(data.Created).IsEqualTo("2003");
+    }
+
+    [Test]
+    public async Task AVariableMentionedWithNoValuesIsKept()
+    {
+        // "The server mentioned this and said nothing" is a different fact from "the server never
+        // mentioned it", and a capability matrix reads the difference.
+        var data = Report(("GENRE", []));
+
+        await Assert.That(data.ContainsKey("GENRE")).IsTrue();
+        await Assert.That(data["GENRE"]).IsEmpty();
+        await Assert.That(data.Default("GENRE")).IsNull();
+    }
+}
+```
+
+Create `tests/MUI.Crawl.Tests/MsspPlaintextReplyTests.cs`:
+
+```csharp
+using MUI.Crawl.Mssp;
+
+namespace MUI.Crawl.Tests;
+
+/// <summary>
+/// Spec §6.4's out-of-band reply — the half of MSSP that is not a telnet option, and so the only
+/// MSSP parsing this repository owns. TelnetNegotiationCore reads option 70 and knows nothing
+/// whatsoever about this text protocol.
+/// </summary>
+public class MsspPlaintextReplyTests
+{
+    private const string Reply =
+        "MSSP-REPLY-START\r\n" +
+        "NAME\tCorvid Nest\r\n" +
+        "PLAYERS\t17\r\n" +
+        "CODEBASE\tPennMUSH 1.8.8\r\n" +
+        "MSSP-REPLY-END\r\n";
+
+    [Test]
+    public async Task TabSeparatedPairsBetweenTheDelimitersAreRead()
+    {
+        await Assert.That(MsspPlaintextReply.TryParse(Reply, out var data)).IsTrue();
+
+        await Assert.That(data.Name).IsEqualTo("Corvid Nest");
+        await Assert.That(data.Players).IsEqualTo(17);
+        await Assert.That(data.Codebase).IsEqualTo("PennMUSH 1.8.8");
+        await Assert.That(data.Count).IsEqualTo(3);
+    }
+
+    [Test]
+    public async Task TheReplyIsFoundEvenWhenTheConnectScreenPrecedesIt()
+    {
+        // What actually arrives: the tail of the login screen, an echo of the command, then the
+        // reply, then a prompt.
+        var transcript = "Welcome to Corvid Nest.\r\nMSSP-REQUEST\r\n" + Reply + "By what name? ";
+
+        await Assert.That(MsspPlaintextReply.TryParse(transcript, out var data)).IsTrue();
+        await Assert.That(data.Name).IsEqualTo("Corvid Nest");
+    }
+
+    [Test]
+    public async Task ARepeatedVariableBecomesAnArrayInTheOrderGiven()
+    {
+        // The plaintext form has no array notation, so a server repeats the variable. It means the
+        // same thing as several MSSP_VALs, and PORT and REFERRAL both depend on it.
+        const string ports =
+            "MSSP-REPLY-START\r\nPORT\t23\r\nPORT\t4201\r\nREFERRAL\ta.example.org 4000\r\nMSSP-REPLY-END\r\n";
+
+        await Assert.That(MsspPlaintextReply.TryParse(ports, out var data)).IsTrue();
+        await Assert.That(data.Ports).IsEquivalentTo(new[] { 23, 4201 });
+        await Assert.That(data.Port).IsEqualTo(4201);
+        await Assert.That(data.Referrals.Single().ToReferralString()).IsEqualTo("a.example.org 4000");
+    }
+
+    [Test]
+    public async Task AValueMayContainSpacesBecauseOnlyTheFirstTabSeparates()
+    {
+        const string spaced = "MSSP-REPLY-START\r\nNAME\tThe  Iron  Marches\r\nMSSP-REPLY-END\r\n";
+
+        await Assert.That(MsspPlaintextReply.TryParse(spaced, out var data)).IsTrue();
+        await Assert.That(data.Name).IsEqualTo("The  Iron  Marches");
+    }
+
+    [Test]
+    public async Task AnEmptyValueIsKeptRatherThanDroppingTheVariable()
+    {
+        const string empty = "MSSP-REPLY-START\r\nWEBSITE\t\r\nMSSP-REPLY-END\r\n";
+
+        await Assert.That(MsspPlaintextReply.TryParse(empty, out var data)).IsTrue();
+        await Assert.That(data.ContainsKey("WEBSITE")).IsTrue();
+        await Assert.That(data.Default("WEBSITE")).IsEqualTo(string.Empty);
+    }
+
+    [Test]
+    public async Task ALineWithNoTabIsNotAPair()
+    {
+        const string chatty =
+            "MSSP-REPLY-START\r\n(here you go)\r\nNAME\tCorvid Nest\r\n\r\nMSSP-REPLY-END\r\n";
+
+        await Assert.That(MsspPlaintextReply.TryParse(chatty, out var data)).IsTrue();
+        await Assert.That(data.Count).IsEqualTo(1);
+    }
+
+    [Test]
+    [Arguments("Huh? Type HELP for a list of commands.\r\n")]
+    [Arguments("")]
+    [Arguments("NAME\tCorvid Nest\r\n")]
+    [Arguments("MSSP-REPLY-START\r\nNAME\tCorvid Nest\r\n")]
+    [Arguments("MSSP-REPLY-END\r\nNAME\tCorvid Nest\r\n")]
+    public async Task WithoutBothDelimitersItIsNotAReplyAndIsNotHalfRead(string text)
+    {
+        // "Huh?" is the usual answer to MSSP-REQUEST and must never become a report. A reply that
+        // started and did not finish is the more interesting case: the transcript was capped or the
+        // server hung up mid-report, and recording a partial report as a complete one would write a
+        // game's fields away to nothing.
+        await Assert.That(MsspPlaintextReply.TryParse(text, out var data)).IsFalse();
+        await Assert.That(data).IsSameReferenceAs(MsspData.Empty);
+    }
+
+    [Test]
+    public async Task TheDelimitersAreMatchedWithoutRegardToCaseOrTrailingSpace()
+    {
+        const string sloppy = "mssp-reply-start  \r\nNAME\tCorvid Nest\r\n  Mssp-Reply-End\r\n";
+
+        await Assert.That(MsspPlaintextReply.TryParse(sloppy, out var data)).IsTrue();
+        await Assert.That(data.Name).IsEqualTo("Corvid Nest");
+    }
+}
+```
+
+- [ ] **Step 3: Run the tests to verify they fail**
+
+Run: `dotnet build MUIndex.slnx -c Release`
+Expected: FAIL — `error CS0103: The name 'MsspData' does not exist in the current context`.
+
+- [ ] **Step 4: Write the variable names**
+
+Create `src/MUI.Crawl/Mssp/MsspVariables.cs`:
+
+```csharp
+namespace MUI.Crawl.Mssp;
+
+/// <summary>
+/// The canonical spellings of the MSSP variables this crawler reads by name — the ones
+/// <see cref="MsspData"/>'s typed accessors are built on.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Names only. The vocabulary <em>rules</em> — which names are official, and the folding that makes
+/// <c>MINIMUM_AGE</c> and <c>MINIMUM AGE</c> one variable — belong to
+/// <c>TelnetNegotiationCore.Models.MSSPVariables</c>, which derives them from the same model that
+/// reads the wire. Two copies of a vocabulary drift; this one exists only so an accessor can say what
+/// it is reading instead of repeating a string literal.
+/// </para>
+/// <para>
+/// Canonical form is the <em>spaced, upper-case</em> spelling, which is what the specification's own
+/// tables print and what a server operator recognises from their configuration.
+/// See <see href="https://mudhalla.net/tintin/protocols/mssp/">the specification</see>.
+/// </para>
+/// </remarks>
+public static class MsspVariables
+{
+    // ---- Required ----
+    public const string Name = "NAME";
+    public const string Players = "PLAYERS";
+    public const string Uptime = "UPTIME";
+
+    // ---- Generic ----
+    public const string Charset = "CHARSET";
+    public const string Codebase = "CODEBASE";
+    public const string Contact = "CONTACT";
+    public const string CrawlDelay = "CRAWL DELAY";
+    public const string Hostname = "HOSTNAME";
+    public const string MinimumAge = "MINIMUM AGE";
+    public const string Port = "PORT";
+    public const string Referral = "REFERRAL";
+    public const string Ssl = "SSL";
+    public const string Website = "WEBSITE";
+
+    // ---- Categorisation ----
+    public const string Family = "FAMILY";
+    public const string Genre = "GENRE";
+    public const string Status = "STATUS";
+
+    /// <summary>
+    /// The year the game was created. Half of Plan 3's second-strongest identity signal (§7.3):
+    /// a year rarely changes, so <c>NAME</c> + <c>CREATED</c> survives a host move.
+    /// </summary>
+    public const string Created = "CREATED";
+}
+```
+
+- [ ] **Step 5: Write the projection**
+
+Create `src/MUI.Crawl/Mssp/MsspData.cs`:
+
+```csharp
+using System.Collections;
+using System.Globalization;
+using TelnetNegotiationCore.Models;
+
+namespace MUI.Crawl.Mssp;
+
+/// <summary>
+/// One server's MSSP report, in the shape this crawler wants it: every variable it sent, with every
+/// value, in the order it sent them, plus the domain readings a directory asks for.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>This projects; it does not parse.</b> The bytes are read by TelnetNegotiationCore, which hands
+/// back an ordered name → value-list map (<c>MSSPConfig.Variables</c>), canonicalises the names, and
+/// reads flags and integers. There is no subnegotiation parser in this repository and there must
+/// never be one.
+/// </para>
+/// <para>
+/// <b>Four readings are the entire reason this type exists</b> over the library's own collection:
+/// <c>CRAWL DELAY</c>'s <c>-1</c> read as the specification's "no preference" rather than a negative
+/// interval; ports validated as ports; <c>REFERRAL</c> read as <see cref="MsspHost"/>s a crawler can
+/// follow, deduplicate and refuse; and an immutable snapshot, because <c>MSSPConfig</c> is a live
+/// negotiation's mutable state and a <c>ProbeResult</c> is a fact about one moment.
+/// </para>
+/// <para>
+/// The shape is a map from a canonical name to an <em>ordered list</em>, and that is not incidental.
+/// MSSP has two ways to attach several values to one variable — repeating the variable, and repeating
+/// <c>MSSP_VAL</c> under one variable — and gives both the same meaning: "multiple values should be
+/// ordered from least to most relevant", with the default reported last. A model keeping one value
+/// per variable would silently pick a server's <em>least</em> preferred port and would lose
+/// <c>REFERRAL</c> entirely, a referral list being nothing but an array.
+/// </para>
+/// <para>
+/// Nothing is discarded on the way in. Variables the specification does not define are kept beside
+/// the ones it does (<see cref="UnofficialNames"/>): a crawler's job is to record what a server said
+/// rather than what a model expected, and MSSP's unofficial half is where several widely deployed
+/// variables live.
+/// </para>
+/// </remarks>
+public sealed class MsspData : IReadOnlyDictionary<string, IReadOnlyList<string>>
+{
+    private readonly Dictionary<string, IReadOnlyList<string>> _values;
+    private readonly List<string> _order;
+
+    private MsspData(Dictionary<string, IReadOnlyList<string>> values, List<string> order)
+    {
+        _values = values;
+        _order = order;
+    }
+
+    /// <summary>An empty report — no MSSP, or a server that negotiated it and then said nothing.</summary>
+    public static MsspData Empty { get; } = new([], []);
+
+    /// <summary>Variable names in the order the server first mentioned them.</summary>
+    public IEnumerable<string> Keys => _order;
+
+    public IEnumerable<IReadOnlyList<string>> Values => _order.Select(name => _values[name]);
+
+    public int Count => _order.Count;
+
+    /// <summary>Every value of <paramref name="variable"/>, in wire order; empty when it was not sent.</summary>
+    public IReadOnlyList<string> this[string variable] =>
+        _values.TryGetValue(MSSPVariables.Canonicalize(variable), out var values) ? values : [];
+
+    /// <summary>The names in this report the specification defines, in wire order.</summary>
+    public IReadOnlyList<string> OfficialNames => _order.Where(MSSPVariables.IsOfficial).ToList();
+
+    /// <summary>The names in this report the specification does not define, in wire order.</summary>
+    public IReadOnlyList<string> UnofficialNames => _order.Where(name => !MSSPVariables.IsOfficial(name)).ToList();
+
+    public bool ContainsKey(string variable) => _values.ContainsKey(MSSPVariables.Canonicalize(variable));
+
+    public bool TryGetValue(string variable, out IReadOnlyList<string> values) =>
+        _values.TryGetValue(MSSPVariables.Canonicalize(variable), out values!);
+
+    /// <summary>
+    /// The <em>default</em> value of <paramref name="variable"/> — the last one sent, per the
+    /// specification — or null when the server did not send it.
+    /// </summary>
+    public string? Default(string variable)
+    {
+        var values = this[variable];
+        return values.Count == 0 ? null : values[^1];
+    }
+
+    /// <summary>An MSSP boolean, read by the library's own parser so there is one idea of what one is.</summary>
+    public bool? Flag(string variable) =>
+        Default(variable) is { } value && MSSPValue.TryParseFlag(value, out var flag) ? flag : null;
+
+    /// <summary>
+    /// An MSSP integer, or null when unreported or unparseable.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately narrower than the library's <c>MSSPVariableCollection.Integer</c>, which returns
+    /// <c>-1</c> as-is so a caller can tell "the server says it cannot count its rooms" from "the
+    /// server never mentioned rooms". Everything reading this type wants a number it can print or
+    /// compare, and the raw string is still one indexer away.
+    /// </remarks>
+    public int? Integer(string variable) =>
+        int.TryParse(Default(variable), NumberStyles.None, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
+
+    // ---- The variables the catalogue reads by name ----
+
+    /// <summary>The game's name, or null.</summary>
+    public string? Name => Default(MsspVariables.Name);
+
+    /// <summary>Players the server says are logged in, or null. Declared, never measured (spec §3.1).</summary>
+    public int? Players => Integer(MsspVariables.Players);
+
+    /// <summary>The Unix timestamp the server booted at, or null.</summary>
+    public DateTimeOffset? Uptime =>
+        long.TryParse(Default(MsspVariables.Uptime), NumberStyles.None, CultureInfo.InvariantCulture, out var unix)
+        && unix > 0
+            ? DateTimeOffset.FromUnixTimeSeconds(unix)
+            : null;
+
+    /// <summary>The preferred port — the last listed, which the specification calls the most important.</summary>
+    public int? Port => Ports.Count == 0 ? null : Ports[^1];
+
+    /// <summary>
+    /// Every port the server listed that is actually a port, least to most important. Validated
+    /// because a value here is dialled: a <c>0</c>, a <c>99999</c> or a word must never reach a
+    /// connect attempt.
+    /// </summary>
+    public IReadOnlyList<int> Ports => this[MsspVariables.Port]
+        .Select(value => int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var port) ? port : -1)
+        .Where(port => port is > 0 and <= 65535)
+        .ToList();
+
+    /// <summary>The hostname the server says it is reachable at, or null.</summary>
+    public string? Hostname => Default(MsspVariables.Hostname);
+
+    /// <summary>Contact e-mail, or null.</summary>
+    public string? Contact => Default(MsspVariables.Contact);
+
+    /// <summary>Website URL, or null.</summary>
+    public string? Website => Default(MsspVariables.Website);
+
+    /// <summary>The current codebase — the last listed, per the specification.</summary>
+    public string? Codebase => Default(MsspVariables.Codebase);
+
+    /// <summary>The family — the last listed, which the specification calls the most distant ancestor.</summary>
+    public string? Family => Default(MsspVariables.Family);
+
+    /// <summary>The year the game was created, as the server wrote it. Half of §7.3's second signal.</summary>
+    public string? Created => Default(MsspVariables.Created);
+
+    /// <summary>
+    /// How long the server asks a crawler to leave between visits, or null when it did not say or
+    /// asked for the crawler's own default.
+    /// </summary>
+    /// <remarks>
+    /// The specification defines <c>CRAWL DELAY</c> as a "preferred minimum number of hours between
+    /// crawls" and gives <c>-1</c> the meaning "use the crawler's default". A negative value therefore
+    /// resolves to null rather than to a negative interval — the distinction matters, because a caller
+    /// combining this with its own default must be able to tell "no preference" from "zero", and
+    /// because a negative interval would schedule the next probe in the past.
+    /// </remarks>
+    public TimeSpan? CrawlDelay =>
+        int.TryParse(Default(MsspVariables.CrawlDelay), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var hours)
+        && hours >= 0
+            ? TimeSpan.FromHours(hours)
+            : null;
+
+    /// <summary>
+    /// The peers this server points a crawler at: every parseable <c>REFERRAL</c> value, deduplicated,
+    /// in the order given.
+    /// </summary>
+    /// <remarks>
+    /// Values that do not parse are dropped silently rather than surfaced as errors — a referral list
+    /// is hand-maintained configuration on somebody else's server, and one stale line in it is not a
+    /// fault in the report. Values that parse but are not crawlable are <b>kept</b> and marked
+    /// (<see cref="MsspHost.IsCrawlable"/>): this type reports, and Plan 3 decides. The raw strings
+    /// remain available through <c>this["REFERRAL"]</c> for anything auditing a poisoned source.
+    /// </remarks>
+    public IReadOnlyList<MsspHost> Referrals
+    {
+        get
+        {
+            var seen = new HashSet<MsspHost>();
+            var result = new List<MsspHost>();
+            foreach (var value in this[MsspVariables.Referral])
+            {
+                if (MsspHost.TryParse(value, out var host) && seen.Add(host))
+                {
+                    result.Add(host);
+                }
+            }
+
+            return result;
+        }
+    }
+
+    public IEnumerator<KeyValuePair<string, IReadOnlyList<string>>> GetEnumerator() =>
+        _order.Select(name => new KeyValuePair<string, IReadOnlyList<string>>(name, _values[name])).GetEnumerator();
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    /// <summary>The live path: the report TelnetNegotiationCore assembled from the subnegotiation.</summary>
+    public static MsspData From(MSSPConfig config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        return From(config.Variables);
+    }
+
+    /// <summary>The library's collection, projected.</summary>
+    public static MsspData From(MSSPVariableCollection variables)
+    {
+        ArgumentNullException.ThrowIfNull(variables);
+        return From((IEnumerable<KeyValuePair<string, IReadOnlyList<string>>>)variables);
+    }
+
+    /// <summary>
+    /// Projects a name → values map into this model, keeping every value of every variable in the
+    /// order given — and <b>copying</b> them, so the snapshot cannot change underneath its holder.
+    /// </summary>
+    /// <remarks>
+    /// Names are canonicalised on the way in by the library's <see cref="MSSPVariables.Canonicalize"/>,
+    /// so there is one vocabulary in the solution rather than two, which means a source spelling both
+    /// <c>MINIMUM_AGE</c> and <c>MINIMUM AGE</c> still yields one variable. A name that canonicalises
+    /// to nothing is dropped; a variable with no values is kept, because "the server mentioned this
+    /// and said nothing" is a different fact from "the server never mentioned it".
+    /// </remarks>
+    public static MsspData From(IEnumerable<KeyValuePair<string, IReadOnlyList<string>>> variables)
+    {
+        ArgumentNullException.ThrowIfNull(variables);
+
+        var values = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        var order = new List<string>();
+
+        foreach (var (variable, list) in variables)
+        {
+            var name = MSSPVariables.Canonicalize(variable);
+            if (name.Length == 0)
+            {
+                continue;
+            }
+
+            if (!values.TryGetValue(name, out var accumulated))
+            {
+                accumulated = [];
+                values[name] = accumulated;
+                order.Add(name);
+            }
+
+            accumulated.AddRange(list);
+        }
+
+        return new MsspData(
+            values.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<string>)pair.Value, StringComparer.Ordinal),
+            order);
+    }
+}
+```
+
+- [ ] **Step 6: Write the plaintext reply reader**
+
+Create `src/MUI.Crawl/Mssp/MsspPlaintextReply.cs`:
+
+```csharp
+namespace MUI.Crawl.Mssp;
+
+/// <summary>
+/// The plaintext <c>MSSP-REQUEST</c> reply (spec §6.4): tab-separated variable/value pairs between
+/// <c>MSSP-REPLY-START</c> and <c>MSSP-REPLY-END</c>, sent as ordinary text at the login screen.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>This is the only MSSP parsing MUIndex owns.</b> Telnet option 70 is
+/// TelnetNegotiationCore's — it reads the subnegotiation and hands back a variable collection — but
+/// this is not a telnet option at all. It is an out-of-band text protocol the library knows nothing
+/// about, and a great many games implement MSSP this way and only this way.
+/// </para>
+/// <para>
+/// <b>Both delimiters are required.</b> A transcript that opened the reply and never closed it was
+/// capped (Task 9's cap) or the server hung up mid-report, and recording a partial report as a
+/// complete one would write a game's fields away to nothing on the next reconciliation. "Huh?" —
+/// the usual answer to a command a game does not have — has neither delimiter and is likewise not a
+/// report.
+/// </para>
+/// </remarks>
+public static class MsspPlaintextReply
+{
+    /// <summary>The line that opens a reply.</summary>
+    public const string StartDelimiter = "MSSP-REPLY-START";
+
+    /// <summary>The line that closes one.</summary>
+    public const string EndDelimiter = "MSSP-REPLY-END";
+
+    /// <summary>
+    /// Reads a reply out of <paramref name="text"/>, which is generally a whole transcript with the
+    /// connect screen in front of it and a prompt behind it. Returns false — and
+    /// <see cref="MsspData.Empty"/> — when there is no complete reply in it.
+    /// </summary>
+    public static bool TryParse(string? text, out MsspData data)
+    {
+        data = MsspData.Empty;
+        if (string.IsNullOrEmpty(text))
+        {
+            return false;
+        }
+
+        var entries = new List<KeyValuePair<string, IReadOnlyList<string>>>();
+        var started = false;
+        var finished = false;
+
+        foreach (var raw in text.Split('\n'))
+        {
+            // Trim carriage returns and spaces, never tabs: the tab is the separator, and a variable
+            // sent with an empty value is a fact rather than a malformed line.
+            var line = raw.Trim('\r', ' ');
+
+            if (!started)
+            {
+                started = line.Equals(StartDelimiter, StringComparison.OrdinalIgnoreCase);
+                continue;
+            }
+
+            if (line.Equals(EndDelimiter, StringComparison.OrdinalIgnoreCase))
+            {
+                finished = true;
+                break;
+            }
+
+            var tab = line.IndexOf('\t');
+            if (tab <= 0)
+            {
+                // Chrome, a blank line, or a server being chatty inside its own reply.
+                continue;
+            }
+
+            entries.Add(new KeyValuePair<string, IReadOnlyList<string>>(
+                line[..tab].Trim(),
+                [line[(tab + 1)..].Trim()]));
+        }
+
+        if (!started || !finished)
+        {
+            return false;
+        }
+
+        data = MsspData.From(entries);
+        return true;
+    }
+}
+```
+
+- [ ] **Step 7: Run the tests to verify they pass**
+
+Run:
+```bash
+dotnet build MUIndex.slnx -c Release
+dotnet run -c Release --no-build --project tests/MUI.Crawl.Tests </dev/null
+```
+Expected: PASS — 27 new tests (`MsspDataTests` has 15, `MsspPlaintextReplyTests` has 12 counting the
+five `[Arguments]` cases), no warnings.
+
+If a test fails inside `MSSPVariables.Canonicalize` or `MSSPValue.TryParseFlag`, check the member
+against the pinned package (`~/.nuget/packages/telnetnegotiationcore/2.6.5/`) and assert what the
+library actually implements. **Do not answer a gap in it by writing a second parser here** — the
+library is first-party (CLAUDE.md), so the answer is a PR upstream and, until it lands, a named
+limitation in this plan.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add Directory.Packages.props src/MUI.Crawl/Mssp tests/MUI.Crawl.Tests/MsspDataTests.cs \
+        tests/MUI.Crawl.Tests/MsspPlaintextReplyTests.cs
+git commit -m "feat(crawl): project TelnetNegotiationCore's MSSP into a snapshot we can reason about
+
+TNC 2.6.5 already reads option 70, folds MINIMUM_AGE into MINIMUM AGE, splits
+official from unofficial and parses flags and integers, so none of that is written
+here and there is no subnegotiation parser in this repository.
+
+MsspData adds the four readings the library does not have: CRAWL DELAY's -1 is 'no
+preference' rather than a negative interval that would schedule the next probe in
+the past, ports are validated because a PORT gets dialled, REFERRAL is read as
+MsspHosts that can be deduplicated and refused, and the whole thing is an immutable
+snapshot because a ProbeResult is a fact about one moment.
+
+MsspPlaintextReply is the half TNC cannot have: MSSP-REQUEST is not a telnet option
+but an out-of-band text protocol, and it is the only MSSP parsing we own."
+```
+
+---
+
+### Task 3: The seam — `ProbeResult` retyped, and `WhoReading`'s fourth state
+
+Spec §6.5 (the seam), §5.4 (the three states an hour can be in), §6.3 (a claimed owner may assert
+"use MSSP `PLAYERS`"). Contract: "Plan 1 produces — `MUI.Crawl`", with addendum §3.
+
+**Two changes, and the second is a correctness fix rather than a retype.** `ProbeResult.Mssp` becomes
+`MsspData` (Task 2) instead of `IReadOnlyDictionary<string, string>`, which cannot express an
+array-valued variable and so cannot hold `PORT` or `REFERRAL`. And `WhoReading` gains a fourth state.
+
+`WhoReading.Unread` was `new(WhoConfidence.Unknown)`, so record equality made **"we never sent WHO"
+equal to "we sent WHO and could not parse the answer"**. Those are different facts with different
+consequences: the first writes no presence sample at all, and the second is spec §5.4's own named bug
+case — the middle row, a sample with `count = NULL` and `unmeasurable_reason = who_unparseable`, which
+renders as a hatched cell rather than as downtime. With one value for both, `PresenceWriter` could not
+tell them apart and had to infer intent from `MsspVia`, which is a guess about a different layer.
+Fixed here, at source, so Plan 2 reads `Who.WasAttempted` and `Who.Confidence` directly.
+
+`NotAttempted` is deliberately the enum's **zero value**, so a default-constructed reading claims
+nothing.
+
+**Files:**
+- Modify: `src/MUI.Crawl/ProbeResult.cs`
+- Create: `src/MUI.Crawl/ProbeOptions.cs`
+- Create: `src/MUI.Crawl/ProbeFailureCauses.cs`
+- Modify: `tests/MUI.Crawl.Tests/WhoReadingTests.cs` (it references `WhoReading.Unread` and will not
+  compile)
+- Test: `tests/MUI.Crawl.Tests/ProbeResultShapeTests.cs`
+
+**Interfaces:**
+- Consumes: `MsspData` (Task 2).
+- Produces: `ProbeResult` (with `Mssp` typed `MUI.Crawl.Mssp.MsspData`, plus `MsspVia`, `TlsObserved`,
+  `Aggregates`), `enum MsspTransport { None, TelnetOption70, PlaintextRequest }`,
+  `WhoReading` with `NotAttempted`/`Unreadable`/`WasAttempted`/`HasCount`,
+  `enum WhoConfidence { NotAttempted, Unknown, Count, PerPlayer }`, `ProbeFailureCauses` constants,
+  `ProbeTarget`, `ProbeOptions` (incl. `MaxCaptureBytes`), `interface IProbe`. Every later task in
+  this plan and every later plan depends on these names.
+
+- [ ] **Step 1: Rewrite the reading's own test**
+
+`tests/MUI.Crawl.Tests/WhoReadingTests.cs` exists and uses `WhoReading.Unread`, which is being
+deleted. Replace the whole file — the two new tests at the top are the point of the change:
+
+```csharp
+using MUI.Crawl;
+
+namespace MUI.Crawl.Tests;
+
+/// <summary>
+/// The rule that a WHO parser may not invent a number, and — one level down — that "we never asked"
+/// and "we asked and could not read the answer" are two different facts (spec §5.4, §6.3).
+/// </summary>
+public class WhoReadingTests
+{
+    [Test]
+    public async Task NotAttemptedAndUnreadableAreNotTheSameReading()
+    {
+        // The whole point of the fourth state, pinned as one assertion. Both carry no count, and
+        // record equality used to make them one value — so PresenceWriter could not tell spec §5.4's
+        // middle row (probed, unmeasurable: count NULL, unmeasurable_reason = who_unparseable, a
+        // hatched cell) from a probe that never asked, which writes no presence sample at all.
+        await Assert.That(WhoReading.NotAttempted).IsNotEqualTo(WhoReading.Unreadable);
+
+        await Assert.That(WhoReading.NotAttempted.WasAttempted).IsFalse();
+        await Assert.That(WhoReading.Unreadable.WasAttempted).IsTrue();
+
+        await Assert.That(WhoReading.NotAttempted.HasCount).IsFalse();
+        await Assert.That(WhoReading.Unreadable.HasCount).IsFalse();
+        await Assert.That(WhoReading.Unreadable.Confidence).IsEqualTo(WhoConfidence.Unknown);
+    }
+
+    [Test]
+    public async Task NotAttemptedIsTheZeroValueSoADefaultReadingClaimsNothing()
+    {
+        // A reading nobody filled in must not assert that a game was probed and found unreadable.
+        await Assert.That(default(WhoConfidence)).IsEqualTo(WhoConfidence.NotAttempted);
+        await Assert.That(new WhoReading(default)).IsEqualTo(WhoReading.NotAttempted);
+    }
+
+    [Test]
+    public async Task ACountAttachedToAReadingThatNeverAskedIsNotACount()
+    {
+        // HasCount is a question about the confidence, not about whether the field happens to be
+        // filled. The old spelling — "not Unknown, and Count is not null" — answers true for the
+        // first of these, which is a reading that never asked reporting a count.
+        await Assert.That(new WhoReading(WhoConfidence.NotAttempted, Count: 3).HasCount).IsFalse();
+        await Assert.That(new WhoReading(WhoConfidence.Unknown, Count: 3).HasCount).IsFalse();
+        await Assert.That(new WhoReading(WhoConfidence.Count).HasCount).IsFalse();
+    }
+
+    [Test]
+    public async Task AnUnreadableResponseCarriesNoCount()
+    {
+        await Assert.That(WhoReading.Unreadable.HasCount).IsFalse();
+        await Assert.That(WhoReading.Unreadable.Count).IsNull();
+    }
+
+    [Test]
+    public async Task AnEmptyGameIsACountOfZeroAndNotAnAbsentCount()
+    {
+        var empty = new WhoReading(WhoConfidence.Count, Count: 0);
+
+        await Assert.That(empty.HasCount).IsTrue();
+        await Assert.That(empty.Count).IsEqualTo(0);
+        await Assert.That(empty.WasAttempted).IsTrue();
+    }
+
+    [Test]
+    public async Task PerPlayerConfidenceIsWhatUnlocksAggregates()
+    {
+        var reading = new WhoReading(WhoConfidence.PerPlayer, Count: 7, IdentifiablePlayers: 7);
+
+        await Assert.That(reading.Confidence).IsEqualTo(WhoConfidence.PerPlayer);
+        await Assert.That(reading.IdentifiablePlayers).IsEqualTo(7);
+        await Assert.That(reading.HasCount).IsTrue();
+    }
+}
+```
+
+- [ ] **Step 2: Write the failing test for the seam**
 
 Create `tests/MUI.Crawl.Tests/ProbeResultShapeTests.cs`:
 
 ```csharp
-using SharpMU.Mssp;
+using MUI.Crawl.Mssp;
 
 namespace MUI.Crawl.Tests;
 
@@ -290,7 +1864,19 @@ public class ProbeResultShapeTests
     }
 
     [Test]
-    public async Task MsspIsTheSharedPackagesModelAndNotAStringDictionary()
+    public async Task AResultNobodyFilledInHasNotAskedAnybodyAnything()
+    {
+        // The default matters because a failed probe never reaches layer 3 and is constructed from
+        // exactly this. It must not claim we asked and could not read the answer.
+        var result = Minimal();
+
+        await Assert.That(result.Who).IsEqualTo(WhoReading.NotAttempted);
+        await Assert.That(result.Who.WasAttempted).IsFalse();
+        await Assert.That(result.Who.Count).IsNull();
+    }
+
+    [Test]
+    public async Task MsspIsTheDomainModelAndNotAStringDictionary()
     {
         var result = Minimal() with
         {
@@ -338,36 +1924,19 @@ public class ProbeResultShapeTests
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [ ] **Step 3: Run the tests to verify they fail**
 
 Run: `dotnet build MUIndex.slnx -c Release`
-Expected: FAIL — `error CS0246: The type or namespace name 'SharpMU' could not be found`.
+Expected: FAIL — `error CS0117: 'WhoReading' does not contain a definition for 'NotAttempted'`, and
+`error CS0246: The type or namespace name 'ProbeOptions' could not be found`.
 
-- [ ] **Step 3: Add the package**
+- [ ] **Step 4: Retype the seam and give `WhoReading` its fourth state**
 
-In `Directory.Packages.props`, inside the first `<ItemGroup>`, after the
-`TelnetNegotiationCore` entry:
-
-```xml
-    <!--
-      MSSP's model and parsing, shared with SharpMUTerm. Model only: no transport, no probe, no
-      scheduling. Two copies of this model is precisely what the package exists to prevent.
-    -->
-    <PackageVersion Include="SharpMU.Mssp" Version="1.0.0" />
-```
-
-In `src/MUI.Crawl/MUI.Crawl.csproj`, inside the existing `<ItemGroup>`:
-
-```xml
-    <PackageReference Include="SharpMU.Mssp" />
-```
-
-- [ ] **Step 4: Retype `ProbeResult`**
-
-Replace the body of `src/MUI.Crawl/ProbeResult.cs` from the `Mssp` property to the end of the
-`ProbeResult` record, and append the new declarations. The whole file becomes:
+Rewrite `src/MUI.Crawl/ProbeResult.cs` whole. It becomes:
 
 ```csharp
+using MUI.Crawl.Mssp;
+
 namespace MUI.Crawl;
 
 /// <summary>
@@ -398,11 +1967,15 @@ public sealed record ProbeResult
     /// <summary>Layer 2 — the connect screen, ANSI intact. Display asset and codebase fingerprint both.</summary>
     public string? Banner { get; init; }
 
-    /// <summary>Layer 3 — what <c>WHO</c> or <c>DOING</c> yielded at the login screen.</summary>
-    public WhoReading Who { get; init; } = WhoReading.Unread;
+    /// <summary>
+    /// Layer 3 — what <c>WHO</c> or <c>DOING</c> yielded at the login screen, or the fact that we did
+    /// not ask. Defaults to <see cref="WhoReading.NotAttempted"/>, which is what a failed probe
+    /// carries: it never reached layer 3, and must not claim it read something it could not.
+    /// </summary>
+    public WhoReading Who { get; init; } = WhoReading.NotAttempted;
 
     /// <summary>Layer 4 — MSSP, whether by telnet option 70 or the plaintext <c>MSSP-REQUEST</c> fallback.</summary>
-    public SharpMU.Mssp.MsspData Mssp { get; init; } = SharpMU.Mssp.MsspData.Empty;
+    public MsspData Mssp { get; init; } = MsspData.Empty;
 
     /// <summary>
     /// How layer 4 arrived. Worth recording rather than inferring: a server read only through the
@@ -424,9 +1997,38 @@ public sealed record ProbeResult
     public TimeSpan Elapsed { get; init; }
 }
 
+/// <summary>
+/// How a probe ended. <b>Exactly two members, and both mean the socket was opened</b> — the far end
+/// answered, or the exchange failed. There is deliberately no third member.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Never add a <c>Refused</c> member, and never construct a <see cref="ProbeResult"/> for a host
+/// we declined to dial.</b> Plan 03's <c>HostScopeGuard</c> refuses a target whose name resolves into
+/// non-global address space (spec §7.2), and that refusal happens <em>before</em> a
+/// <see cref="ProbeResult"/> exists. That ordering is what satisfies §7.2's "a refusal writes no
+/// availability sample" <em>structurally</em> rather than by a check somebody has to remember: a
+/// refusal cannot reach the writers because there is nothing for it to reach them with.
+/// </para>
+/// <para>
+/// The tempting shortcut is <c>ProbeResult.Failed(ProbeFailureCauses.Refused, …)</c>, and it is wrong
+/// twice. <c>Refused</c> means the far end sent an RST — a real measurement of a real host — so a
+/// policy refusal wearing that cause is permanently inseparable downstream from a genuine connection
+/// refusal. And it would write our own security policy into a game's public reachability history,
+/// which is the same class of lie as recording an unparseable WHO as zero players (§5.4), and is
+/// exactly what §7.2 forbids.
+/// </para>
+/// <para>
+/// A refusal belongs to whatever owns the dial: Plan 03 counts it as <c>CrawlCycle.Refused</c> and
+/// reschedules with ordinary backoff. It is not a probe outcome, because no probe happened.
+/// </para>
+/// </remarks>
 public enum ProbeOutcome
 {
+    /// <summary>The socket opened and the server said something usable.</summary>
     Answered,
+
+    /// <summary>The exchange failed; <see cref="ProbeResult.Failure"/> says how.</summary>
     Failed,
 }
 
@@ -435,7 +2037,7 @@ public enum MsspTransport
 {
     None,
 
-    /// <summary>The telnet option, reached by asking — <c>IAC DO 70</c> (see Task 6).</summary>
+    /// <summary>The telnet option, reached by asking — <c>IAC DO 70</c> (see Task 8).</summary>
     TelnetOption70,
 
     /// <summary>The plaintext <c>MSSP-REQUEST</c> reply, tab-separated between REPLY-START and REPLY-END.</summary>
@@ -446,29 +2048,56 @@ public enum MsspTransport
 public sealed record FailureDetail(string Cause, string? Detail = null);
 
 /// <summary>
-/// How much of a <c>WHO</c> response the structural parser could make sense of.
+/// How much of a <c>WHO</c> response the structural parser could make sense of — and, first of all,
+/// whether one was ever asked for.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Parsing is structural rather than per-dialect (spec §6.3): find the trailing
 /// "<c>N Players logged in</c>" summary, else count rows between the header rule and the footer.
 /// Penn, MUX and Rhost all let operators rewrite the DOING header in softcode, so a per-codebase
 /// parser would be a maintenance treadmill that still lost to any game that customised it.
+/// </para>
+/// <para>
+/// <b>The two empty readings are not one reading.</b> <see cref="NotAttempted"/> means nobody asked;
+/// <see cref="Unreadable"/> means we asked and could not make sense of the answer, which is spec
+/// §5.4's middle row and writes a presence sample with a null count. These were a single value once,
+/// and a downstream writer could not tell the specification's own named bug case from silence.
+/// </para>
 /// </remarks>
 public sealed record WhoReading(WhoConfidence Confidence, int? Count = null, int? IdentifiablePlayers = null)
 {
-    public static readonly WhoReading Unread = new(WhoConfidence.Unknown);
+    /// <summary>We did not ask. Writes no presence sample at all.</summary>
+    public static readonly WhoReading NotAttempted = new(WhoConfidence.NotAttempted);
+
+    /// <summary>We asked and could not read the answer. Writes a sample with a null count (spec §5.4).</summary>
+    public static readonly WhoReading Unreadable = new(WhoConfidence.Unknown);
+
+    /// <summary>Whether a <c>WHO</c> or <c>DOING</c> was actually sent.</summary>
+    public bool WasAttempted => Confidence is not WhoConfidence.NotAttempted;
 
     /// <summary>
     /// The count is trustworthy. Never synthesised: an unreadable WHO reports
     /// <see cref="WhoConfidence.Unknown"/> and the site falls back to MSSP <c>PLAYERS</c>, labelled
     /// as such. A parser that guessed zero would be indistinguishable from an empty game.
     /// </summary>
-    public bool HasCount => Confidence is not WhoConfidence.Unknown && Count is not null;
+    public bool HasCount => Confidence is WhoConfidence.Count or WhoConfidence.PerPlayer && Count is not null;
 }
 
 public enum WhoConfidence
 {
-    /// <summary>Nothing usable. Writes no presence sample at all.</summary>
+    /// <summary>
+    /// We did not ask. An owner override said to use MSSP <c>PLAYERS</c> (spec §6.3), or
+    /// <c>ProbeOptions.SendWho</c> is off, or the probe failed before layer 3.
+    /// <b>Deliberately the zero value</b>, so a default-constructed reading claims nothing.
+    /// </summary>
+    NotAttempted,
+
+    /// <summary>
+    /// We asked and could not make sense of the answer. <b>This</b> is the state that writes a
+    /// presence sample with <c>count = NULL</c> and <c>unmeasurable_reason = who_unparseable</c> —
+    /// spec §5.4's middle row, rendered as a hatched cell rather than as downtime.
+    /// </summary>
     Unknown,
 
     /// <summary>The number of connected players is readable.</summary>
@@ -497,13 +2126,26 @@ namespace MUI.Crawl;
 public static class ProbeFailureCauses
 {
     public const string Dns = "dns";
+
+    /// <summary>
+    /// The far end sent an RST — a real measurement of a real host that actively rejected us.
+    /// <para>
+    /// <b>This is not the cause for a host we declined to dial.</b> Plan 03's <c>HostScopeGuard</c>
+    /// refuses a target whose name resolves into non-global space (spec §7.2), and that refusal must
+    /// never be dressed as <c>ProbeResult.Failed(ProbeFailureCauses.Refused, …)</c>: it would make our
+    /// own security policy indistinguishable from a game genuinely refusing connections, forever, and
+    /// would write that policy into the game's public reachability history. A scope refusal produces
+    /// no <see cref="ProbeResult"/> at all — see <see cref="ProbeOutcome"/>.
+    /// </para>
+    /// </summary>
     public const string Refused = "refused";
+
     public const string Tls = "tls";
     public const string Timeout = "timeout";
 
     /// <summary>
     /// The socket opened and the server then said nothing at all. Not thrown by anything, so it is
-    /// never produced by <c>FailureClassifier</c>: <c>ProbeSession</c> decides it (Task 13).
+    /// never produced by <c>FailureClassifier</c>: <c>ProbeSession</c> decides it (Task 15).
     /// </summary>
     public const string HandshakeStalled = "handshake_stalled";
 
@@ -559,7 +2201,12 @@ public sealed record ProbeOptions
 
     public string InfoUrl { get; init; } = "https://muindex.org/crawler";
 
-    /// <summary>Layer 3. Off makes the probe silent — negotiation only, SharpMUTerm's crawler exactly.</summary>
+    /// <summary>
+    /// Layer 3. Off makes the probe silent — negotiation only, SharpMUTerm's crawler exactly — and
+    /// the result carries <see cref="WhoReading.NotAttempted"/> rather than an unreadable reading.
+    /// That is the state an owner override saying "use MSSP <c>PLAYERS</c>" produces (spec §6.3), and
+    /// it is why the two are separate values: nobody asked, so nothing failed.
+    /// </summary>
     public bool SendWho { get; init; } = true;
 
     /// <summary>Layer 4's second half: the plaintext <c>MSSP-REQUEST</c> when option 70 yielded nothing.</summary>
@@ -589,30 +2236,47 @@ Run:
 dotnet build MUIndex.slnx -c Release
 dotnet run -c Release --no-build --project tests/MUI.Crawl.Tests </dev/null
 ```
-Expected: PASS — 4 new tests plus the 3 existing `WhoReadingTests`, no warnings.
+Expected: PASS — 5 new tests in `ProbeResultShapeTests` and 6 in the rewritten `WhoReadingTests`,
+alongside Tasks 1 and 2, no warnings.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add Directory.Packages.props src/MUI.Crawl tests/MUI.Crawl.Tests/ProbeResultShapeTests.cs
-git commit -m "feat(crawl): type ProbeResult's MSSP as the shared package's model
+git add src/MUI.Crawl/ProbeResult.cs src/MUI.Crawl/ProbeOptions.cs \
+        src/MUI.Crawl/ProbeFailureCauses.cs tests/MUI.Crawl.Tests/ProbeResultShapeTests.cs \
+        tests/MUI.Crawl.Tests/WhoReadingTests.cs
+git commit -m "feat(crawl): retype the seam, and split 'we never asked' from 'we could not read it'
 
 ProbeResult carried IReadOnlyDictionary<string,string>, which cannot express an
 array-valued MSSP variable — PORT and REFERRAL are both arrays and both are load
-bearing. SharpMU.Mssp's MsspData is the model, shared with SharpMUTerm so there is
-one of it. Adds MsspVia, TlsObserved and Aggregates to the seam, plus the target,
-the options and the failure vocabulary the rest of the engine is built against."
+bearing — so Mssp becomes MUI.Crawl.Mssp.MsspData.
+
+WhoReading.Unread was new(WhoConfidence.Unknown), so record equality made 'we never
+sent WHO' equal to 'we sent WHO and could not parse the answer'. They have
+different consequences: the first writes no presence sample, the second writes one
+with a null count and unmeasurable_reason = who_unparseable, which is spec §5.4's
+own named bug case. WhoConfidence.NotAttempted is now the zero value, Unread is
+gone in favour of NotAttempted and Unreadable, WasAttempted is new and HasCount is
+corrected — it asked 'not Unknown, and Count is not null', which answers yes for a
+reading that never asked.
+
+Adds MsspVia, TlsObserved and Aggregates to the seam, plus the target, the options
+and the failure vocabulary the rest of the engine is built against."
 ```
 
 ---
 
-### Task 2: The transport
+### Task 4: The transport
 
 Spec §6 (one telnet connection per target), §6.1 (TLS observed by completing a handshake or failing to).
 
 Lifted from SharpMUTerm — `src/SharpMUTerm.Core/Transport/{ITransport,ConnectionOptions,TcpTransport}.cs`
 — with two deliberate edits: the namespace, and a 15-second default connect timeout instead of 30
 (a crawler visiting thousands of hosts cannot wait half a minute on each dead one).
+
+"Lifted" means *copied into this repository and owned here*, not depended upon: both projects are MIT
+and share an author, and after this task the file is MUIndex's to change. There is no build-time
+relationship between the two repositories and there is not going to be one.
 
 **Files:**
 - Create: `src/MUI.Crawl/Transport/ITransport.cs`
@@ -624,7 +2288,7 @@ Lifted from SharpMUTerm — `src/SharpMUTerm.Core/Transport/{ITransport,Connecti
 - Consumes: nothing.
 - Produces: `MUI.Crawl.Transport.ITransport` (`IsConnected`, `RemoteDescription`, `ConnectAsync`,
   `SendAsync`, `ReceiveAsync`, `CloseAsync`, `DisposeAsync`), `ConnectionOptions`,
-  `sealed class TcpTransport(ConnectionOptions options) : ITransport`. Tasks 5, 6, 13 consume all three.
+  `sealed class TcpTransport(ConnectionOptions options) : ITransport`. Tasks 7, 8, 15 consume all three.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -982,7 +2646,7 @@ world can wait thirty, a crawler visiting thousands of addresses cannot."
 
 ---
 
-### Task 3: The scripted fake MU\* server
+### Task 5: The scripted fake MU\* server
 
 Spec §13 ("a scripted fake MU\* server ... tests the probe engine end to end"). This is the backbone
 of every later task, so it comes before anything it tests.
@@ -1000,7 +2664,7 @@ exercises the whole stack.
 - Test: `tests/MUI.Crawl.Tests/ScriptedMuServerTests.cs`
 
 **Interfaces:**
-- Consumes: `MUI.Crawl.Transport.{ITransport, ConnectionOptions, TcpTransport}` (Task 2).
+- Consumes: `MUI.Crawl.Transport.{ITransport, ConnectionOptions, TcpTransport}` (Task 4).
 - Produces: `MUI.Crawl.Tests.Support.TelnetWire` (`Iac`, `Sb`, `Se`, `Will`, `Wont`, `Do`, `Dont`,
   `Mssp`, `Ttype`, `Gmcp`, `Subnegotiation(params (string, string[])[])`, `Offer(byte)`,
   `PlaintextMssp(params (string, string)[])`);
@@ -1008,7 +2672,7 @@ exercises the whole stack.
   `EnormousBannerBytes`, `Listen()`, `RespondingToDo(byte, byte[])`,
   `RespondingToCommand(string, string)`, `Received`, `ReceivedText`, `Commands`,
   `WaitForReceivedAsync(byte[])`, `WaitForCommandAsync(string)`, `DisposeAsync()`;
-  and `[Flags] enum Misbehaviour`. Tasks 4–15 all use it.
+  and `[Flags] enum Misbehaviour`. Tasks 6–17 all use it.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1282,7 +2946,7 @@ public enum Misbehaviour
 /// <para>
 /// It is a <em>server</em>, not a tape: MSSP is a conversation — the report is only sent once the
 /// client has said <c>IAC DO MSSP</c> — and the WHO reply is keyed on the literal command line
-/// received, so a probe that sent nothing gets nothing, which is exactly the property Task 13 asserts.
+/// received, so a probe that sent nothing gets nothing, which is exactly the property Task 15 asserts.
 /// </para>
 /// </remarks>
 public sealed class ScriptedMuServer : IAsyncDisposable
@@ -1655,12 +3319,12 @@ line, so a probe that sent nothing gets nothing."
 
 ---
 
-### Task 4: The misbehaviour switches
+### Task 6: The misbehaviour switches
 
 Spec §13 ("deliberate misbehaviour: half-open connections, truncated subnegotiation, enormous
 banners"), plus the fourth case §5.3's `handshake_stalled` exists for.
 
-The switches were written in Task 3; this task proves each one actually misbehaves, against the real
+The switches were written in Task 5; this task proves each one actually misbehaves, against the real
 transport. Without this, a later "the probe survives an enormous banner" test could pass because the
 banner was never sent.
 
@@ -1668,9 +3332,9 @@ banner was never sent.
 - Test: `tests/MUI.Crawl.Tests/MisbehaviourTests.cs`
 
 **Interfaces:**
-- Consumes: `ScriptedMuServer`, `Misbehaviour`, `TelnetWire` (Task 3); `TcpTransport`,
-  `ConnectionOptions` (Task 2).
-- Produces: nothing new — a proof that Tasks 7, 11 and 13 are testing what they claim.
+- Consumes: `ScriptedMuServer`, `Misbehaviour`, `TelnetWire` (Task 5); `TcpTransport`,
+  `ConnectionOptions` (Task 4).
+- Produces: nothing new — a proof that Tasks 9, 13 and 15 are testing what they claim.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1828,7 +3492,7 @@ public class MisbehaviourTests
 
 - [ ] **Step 2: Run the tests to verify they pass**
 
-These exercise code written in Task 3, so they should pass on the first run. That is the point of the
+These exercise code written in Task 5, so they should pass on the first run. That is the point of the
 task: it is a verification gate, not new behaviour.
 
 Run:
@@ -1844,7 +3508,7 @@ The likely failure is `AnEnormousBannerIsGenuinelyEnormous` timing out, because 
 `WriteAsync` of a megabyte blocks until the client drains it. `DrainAsync` reads concurrently, so it
 should not — but if it does on your platform, lower `EnormousBannerBytes` in the test rather than
 changing the harness, and note it. Do **not** "fix" it by making the banner smaller in
-`ScriptedMuServer`'s default; Task 7 needs a banner that genuinely exceeds `MaxCaptureBytes`.
+`ScriptedMuServer`'s default; Task 9 needs a banner that genuinely exceeds `MaxCaptureBytes`.
 
 - [ ] **Step 4: Commit**
 
@@ -1860,7 +3524,7 @@ worthless if X never happened."
 
 ---
 
-### Task 5: Layer 1 — the handshake capability recorder
+### Task 7: Layer 1 — the handshake capability recorder
 
 Spec §6.1: "What the server offers via `IAC WILL/DO` is *observed*, not claimed."
 
@@ -1886,11 +3550,11 @@ decorator is the honest measurement either way.
 - Test: `tests/MUI.Crawl.Tests/NegotiationRecorderTests.cs`
 
 **Interfaces:**
-- Consumes: `ITransport` (Task 2), `TelnetWire`, `ScriptedMuServer` (Task 3).
+- Consumes: `ITransport` (Task 4), `TelnetWire`, `ScriptedMuServer` (Task 5).
 - Produces: `MUI.Crawl.Transport.TelnetOptionNames.NameOf(byte)`;
   `sealed class NegotiationRecorder(ITransport inner) : ITransport` with
   `IReadOnlySet<string> Offered` and `IReadOnlyList<(byte Verb, byte Option)> Observed`.
-  Task 13 wraps the transport in one and copies `Offered` into `ProbeResult.OfferedOptions`.
+  Task 15 wraps the transport in one and copies `Offered` into `ProbeResult.OfferedOptions`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2336,7 +4000,7 @@ decorator sees all three and cannot be wrong about what arrived (spec §6.1)."
 
 ---
 
-### Task 6: The telnet layer, the crawler's identity, and asking for MSSP
+### Task 8: The telnet layer, the crawler's identity, and asking for MSSP
 
 Spec §6.1 (the handshake is our own library pointed outward), §6.4 (telnet option 70), §11 (the
 crawler self-identifies so an admin can find out who we are and how to opt out).
@@ -2357,15 +4021,15 @@ having no MSSP. So this probe sends `IAC DO 70` on every connection.
 - Test: `tests/MUI.Crawl.Tests/ProbeTelnetSessionTests.cs`
 
 **Interfaces:**
-- Consumes: `ITransport`, `TcpTransport`, `ConnectionOptions` (Task 2); `ProbeOptions` (Task 1);
-  `ScriptedMuServer`, `TelnetWire` (Task 3).
+- Consumes: `ITransport`, `TcpTransport`, `ConnectionOptions` (Task 4); `ProbeOptions` (Task 3);
+  `ScriptedMuServer`, `TelnetWire` (Task 5).
 - Produces: `MUI.Crawl.Telnet.ProbeTelnetSession` —
   `ProbeTelnetSession(ITransport transport, ProbeOptions options, ILogger? logger = null)`,
   `bool IdentityStated`, `event EventHandler<string>? TextReceived`,
-  `event EventHandler<SharpMU.Mssp.MsspData>? MsspReceived`,
+  `event EventHandler<MUI.Crawl.Mssp.MsspData>? MsspReceived`,
   `event EventHandler<Exception?>? Closed`, `Task ConnectAsync(CancellationToken)`,
   `ValueTask SendLineAsync(string, CancellationToken)`, `Task CloseAsync()`, `ValueTask DisposeAsync()`.
-  Tasks 7, 11 and 13 all drive it.
+  Tasks 9, 13 and 15 all drive it.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2373,10 +4037,10 @@ Create `tests/MUI.Crawl.Tests/ProbeTelnetSessionTests.cs`:
 
 ```csharp
 using System.Text;
+using MUI.Crawl.Mssp;
 using MUI.Crawl.Telnet;
 using MUI.Crawl.Tests.Support;
 using MUI.Crawl.Transport;
-using SharpMU.Mssp;
 
 namespace MUI.Crawl.Tests;
 
@@ -2558,8 +4222,8 @@ using System.Reflection;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using MUI.Crawl.Mssp;
 using MUI.Crawl.Transport;
-using SharpMU.Mssp;
 using TelnetNegotiationCore.Builders;
 using TelnetNegotiationCore.Interpreters;
 using TelnetNegotiationCore.Models;
@@ -2595,11 +4259,6 @@ public sealed class ProbeTelnetSession : IAsyncDisposable
     // byte handed to the callbacks. On the many MU* servers that never negotiate CHARSET, every byte
     // above 0x7F became '?' — which for a crawler means a mangled connect screen and a mangled banner
     // hash. Seeded with UTF-8, exactly as SharpMUTerm does.
-    //
-    // It does NOT reach MSSP. MSSPProtocol decodes variable names and values with a hardcoded
-    // Encoding.ASCII (verified in 2.6.0 and 2.6.5) and never consults this property, so a non-ASCII
-    // MSSP value arrives as '?' whatever is seeded here. That is upstream's to fix — see the plan's
-    // "Known limitation" section — and it cannot be repaired from this side.
     private static readonly PropertyInfo? InterpreterEncodingProperty =
         typeof(TelnetInterpreter).GetProperty(nameof(TelnetInterpreter.CurrentEncoding)) is { CanWrite: true } p
             ? p
@@ -2630,7 +4289,7 @@ public sealed class ProbeTelnetSession : IAsyncDisposable
 
     /// <summary>
     /// True once the telnet layer has been told what to answer TTYPE with. False means this probe
-    /// cannot say who it is — which spec §11 makes a reason to abandon rather than continue (Task 13).
+    /// cannot say who it is — which spec §11 makes a reason to abandon rather than continue (Task 15).
     /// </summary>
     public bool IdentityStated { get; private set; }
 
@@ -2712,7 +4371,7 @@ public sealed class ProbeTelnetSession : IAsyncDisposable
     /// <remarks>
     /// The URL rides the first entry — the client name — as <c>MUINDEX (+https://…)</c>, the HTTP
     /// User-Agent convention. Spec §11 also asks for MNES <c>CLIENT_NAME</c>; TelnetNegotiationCore
-    /// 2.6.0 registers no NEW-ENVIRON plugin in <c>AddDefaultMUDProtocols</c> and exposes no
+    /// 2.6.5 registers no NEW-ENVIRON plugin in <c>AddDefaultMUDProtocols</c> and exposes no
     /// client-side environment send, so that half is not reachable from here. A client-side MNES
     /// sender is a good upstream PR.
     /// </remarks>
@@ -2912,10 +4571,10 @@ dotnet run -c Release --no-build --project tests/MUI.Crawl.Tests </dev/null
 Expected: PASS — 7 new tests.
 
 If `TheCrawlerNamesItselfAndSaysWhereToReadAboutIt` fails with `IdentityStated` false, the library's
-private field was renamed: check `TerminalTypeProtocol` in the pinned 2.6.0 package
-(`~/.nuget/packages/telnetnegotiationcore/2.6.0/`) for the field name and update
+private field was renamed: check `TerminalTypeProtocol` in the pinned 2.6.5 package
+(`~/.nuget/packages/telnetnegotiationcore/2.6.5/`) for the field name and update
 `TerminalTypesField`. Do not paper over it by dropping the assertion — spec §11 makes stating an
-identity a requirement, and Task 13 abandons a probe that cannot.
+identity a requirement, and Task 15 abandons a probe that cannot.
 
 - [ ] **Step 5: Commit**
 
@@ -2933,7 +4592,7 @@ are and how to opt out (spec §11)."
 
 ---
 
-### Task 7: Layer 2 — the connect screen
+### Task 9: Layer 2 — the connect screen
 
 Spec §6.2 ("display asset and fingerprint both"), §13 (enormous banners).
 
@@ -2945,12 +4604,12 @@ Everything decoded **before the WHO command goes out**, ANSI intact, capped at
 - Test: `tests/MUI.Crawl.Tests/BannerCaptureTests.cs`
 
 **Interfaces:**
-- Consumes: `ProbeOptions` (Task 1); `ProbeTelnetSession` (Task 6); `ScriptedMuServer` (Task 3).
+- Consumes: `ProbeOptions` (Task 3); `ProbeTelnetSession` (Task 8); `ScriptedMuServer` (Task 5).
 - Produces: `MUI.Crawl.BoundedTranscript` — `BoundedTranscript(int maxBytes)`, `void Append(string)`,
   `string Text`, `bool IsFull`, `bool Truncated`, `int ByteCount`, `DateTimeOffset? LastAppendAt`
   (set by `Append` from the supplied `TimeProvider`), `void Reset()`, and the static
   `Task<string> CollectAsync(ProbeTelnetSession session, BoundedTranscript sink, TimeSpan quietPeriod, TimeSpan cap, TimeProvider time, CancellationToken ct)`.
-  Tasks 11 and 13 use both the sink and `CollectAsync`.
+  Tasks 13 and 15 use both the sink and `CollectAsync`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -3060,7 +4719,7 @@ public class BannerCaptureTests
     public async Task CollectionEndsAtTheCapEvenIfTheServerNeverGoesQuiet()
     {
         // A server that never stops talking must not be able to hold a worker for ever. The cap here
-        // is the phase's own bound; the probe's hard timeout (Task 13) is the outer one.
+        // is the phase's own bound; the probe's hard timeout (Task 15) is the outer one.
         await using var server = new ScriptedMuServer
         {
             Misbehave = Misbehaviour.EnormousBanner,
@@ -3313,7 +4972,7 @@ character cap would promise a third of the memory it delivered."
 
 ---
 
-### Task 8: Layer 3 — the structural WHO/DOING parser
+### Task 10: Layer 3 — the structural WHO/DOING parser
 
 Spec §6.3, and locked decision §4.7 ("WHO parsing: structural, not dialectal"). The most detailed
 task in this plan, because it is the one that decides whether a game's activity heatmap is filled,
@@ -3344,15 +5003,15 @@ Penn's `Idle` passes both; `Player Name`'s inner space fails the second.
 - Test: `tests/MUI.Crawl.Tests/WhoParserTests.cs`
 
 **Interfaces:**
-- Consumes: `WhoReading`, `WhoConfidence` (Task 1).
+- Consumes: `WhoReading`, `WhoConfidence` (Task 3).
 - Produces: `MUI.Crawl.Who.WhoParser.Parse(string) → WhoReading`,
   `MUI.Crawl.Who.WhoParser.ParseTable(string) → WhoTable?`,
   `sealed record WhoTable(IReadOnlyList<WhoRow> Rows, int? SummaryCount)`,
   `sealed record WhoRow(string Name, TimeSpan? OnFor, TimeSpan? Idle, string? Doing)`,
   `MUI.Crawl.Who.AnsiText.Strip(string)`,
   `MUI.Crawl.Who.ColumnLayout.{Starts, Fits, Field}`,
-  and `MUI.Crawl.Tests.Support.WhoCorpus` (the fixtures, reused by Task 9 and Task 15).
-  Task 10 consumes `WhoTable`/`WhoRow`; Task 13 calls `Parse` and `ParseTable`.
+  and `MUI.Crawl.Tests.Support.WhoCorpus` (the fixtures, reused by Task 11 and Task 17).
+  Task 12 consumes `WhoTable`/`WhoRow`; Task 15 calls `Parse` and `ParseTable`.
 
 - [ ] **Step 1: Write the corpus**
 
@@ -3658,6 +5317,20 @@ public class WhoParserTests
         await Assert.That(WhoParser.Parse(string.Empty).Confidence).IsEqualTo(WhoConfidence.Unknown);
         await Assert.That(WhoParser.Parse("   \r\n\r\n").Confidence).IsEqualTo(WhoConfidence.Unknown);
         await Assert.That(WhoParser.ParseTable("   ")).IsNull();
+    }
+
+    [Test]
+    public async Task TheParserNeverReportsThatNobodyAsked()
+    {
+        // NotAttempted is a fact about the probe, not about a response, and this is only ever called
+        // on a response. A parser that returned it would tell PresenceWriter no WHO was sent when one
+        // was — which is the §5.4 confusion the fourth state exists to end, re-introduced one layer up.
+        foreach (var (name, text) in WhoCorpus.All)
+        {
+            await Assert.That(WhoParser.Parse(text).WasAttempted).IsTrue().Because(name);
+        }
+
+        await Assert.That(WhoParser.Parse(string.Empty)).IsEqualTo(WhoReading.Unreadable);
     }
 
     [Test]
@@ -4009,19 +5682,24 @@ public static class WhoParser
     /// The reading spec §6.3 defines: <c>PerPlayer</c> when every row yielded a name, <c>Count</c>
     /// when there is a number but no usable name column, <c>Unknown</c> when there is neither.
     /// </summary>
+    /// <remarks>
+    /// It never returns <see cref="WhoConfidence.NotAttempted"/>. Whether a <c>WHO</c> was sent at all
+    /// is <c>ProbeSession</c>'s fact and not a parser's — this is only ever called on a response — so
+    /// the answer to an unreadable one is <see cref="WhoReading.Unreadable"/>.
+    /// </remarks>
     public static WhoReading Parse(string transcript)
     {
         var table = ParseTable(transcript);
         if (table is null)
         {
-            return WhoReading.Unread;
+            return WhoReading.Unreadable;
         }
 
         var named = table.Rows.Count(row => row.Name.Length > 0);
         int? count = table.SummaryCount ?? (table.Rows.Count > 0 ? table.Rows.Count : null);
         if (count is null)
         {
-            return WhoReading.Unread;
+            return WhoReading.Unreadable;
         }
 
         // The summary is what the game says about itself and is the count; the rows are what we could
@@ -4353,7 +6031,7 @@ Run:
 dotnet build MUIndex.slnx -c Release
 dotnet run -c Release --no-build --project tests/MUI.Crawl.Tests </dev/null
 ```
-Expected: PASS — 16 new tests.
+Expected: PASS — 17 new tests.
 
 If a *column* assertion fails (`Idle`, `OnFor`, `Doing`, or `ColumnLayout.Starts` returning something
 other than `{0, 21, 28, 34}`), the fixture's spacing is wrong, not the parser: count the columns in
@@ -4378,12 +6056,12 @@ common MUSH codebase; splitting on every space splits 'Player Name' in two."
 
 ---
 
-### Task 9: The parser never returns a count it did not read
+### Task 11: The parser never returns a count it did not read
 
 Spec §13 ("property tests for the structural WHO parser"), CLAUDE.md rule 4 ("parsers never
 fabricate").
 
-Task 8 proves the parser reads eight known shapes. This task proves the *negative*: that across
+Task 10 proves the parser reads eight known shapes. This task proves the *negative*: that across
 inputs nobody wrote by hand, every number it produces was either read from the text or is a count of
 rows it actually saw. That is the property the whole activity heatmap rests on.
 
@@ -4391,7 +6069,7 @@ rows it actually saw. That is the property the whole activity heatmap rests on.
 - Test: `tests/MUI.Crawl.Tests/WhoParserPropertyTests.cs`
 
 **Interfaces:**
-- Consumes: `WhoParser`, `WhoTable` (Task 8); `WhoCorpus` (Task 8).
+- Consumes: `WhoParser`, `WhoTable` (Task 10); `WhoCorpus` (Task 10).
 - Produces: nothing.
 
 - [ ] **Step 1: Write the failing test**
@@ -4500,7 +6178,7 @@ public class WhoParserPropertyTests
     [Test]
     public async Task NoTruncationOfARealTranscriptEverInventsAPlayer()
     {
-        // Transcripts arrive over TCP and are capped (Task 7), so the parser sees prefixes of real
+        // Transcripts arrive over TCP and are capped (Task 9), so the parser sees prefixes of real
         // responses constantly. A prefix may read fewer players than the whole; it may never read more.
         foreach (var (name, text) in WhoCorpus.All)
         {
@@ -4610,7 +6288,7 @@ may read fewer players, never more), and over leading chatter and echoed command
 
 ---
 
-### Task 10: Salted-hash aggregates — what §11 permits to leave the probe
+### Task 12: Salted-hash aggregates — what §11 permits to leave the probe
 
 Spec §11 ("player names are never persisted ... aggregates use salted hashes with a rotating salt, so
 a unique-player estimate is possible while re-identification across salt epochs is not"), §6.3
@@ -4623,14 +6301,14 @@ a unique-player estimate is possible while re-identification across salt epochs 
 - Test: `tests/MUI.Crawl.Tests/PresenceAggregateTests.cs`
 
 **Interfaces:**
-- Consumes: `WhoTable`, `WhoRow` (Task 8).
+- Consumes: `WhoTable`, `WhoRow` (Task 10).
 - Produces: `MUI.Crawl.ISaltProvider` (`(string Epoch, byte[] Salt) Current(DateTimeOffset now)`),
   `sealed class RotatingSaltProvider(byte[] seed, TimeSpan period, TimeProvider? time = null) : ISaltProvider`,
   `static class PlayerHash { static string Of(string name, byte[] salt); }`,
   `sealed record PresenceAggregates(string SaltEpoch, IReadOnlyList<string> PlayerHashes, IReadOnlyList<int> IdleBucketCounts, IReadOnlyList<int> ConnectedBucketCounts)`,
   `static class PresenceBuckets { static IReadOnlyList<TimeSpan> Edges { get; } static int IndexFor(TimeSpan value); }`,
   `static class PresenceAggregateBuilder { static PresenceAggregates? From(WhoTable table, ISaltProvider salt, DateTimeOffset now); }`.
-  Task 13 calls `PresenceAggregateBuilder.From`; Plan 2 serialises `PresenceAggregates` into
+  Task 15 calls `PresenceAggregateBuilder.From`; Plan 2 serialises `PresenceAggregates` into
   `PresenceSample.AggregatesJson`.
 
 - [ ] **Step 1: Write the failing test**
@@ -5023,26 +6701,27 @@ survives is made against the serialised JSON rather than a reading of the code."
 
 ---
 
-### Task 11: Layer 4 — MSSP, both ways in
+### Task 13: Layer 4 — MSSP, both ways in
 
 Spec §6.4: "Telnet option 70, with the plaintext `MSSP-REQUEST` fallback (tab-separated, delimited by
 `MSSP-REPLY-START` / `MSSP-REPLY-END`)."
 
-Task 6 delivered the option-70 half and proved a silent-until-asked server is read. This task adds the
-second half and the `MsspVia` distinction, and it is a *reading* task: `SharpMU.Mssp` owns the
-parsing, and re-implementing either format here would be exactly the duplication the shared package
-exists to prevent.
+Task 8 delivered the option-70 half and proved a silent-until-asked server is read. This task adds the
+second half and the `MsspVia` distinction, and it parses nothing at all: **option 70's subnegotiation
+is TelnetNegotiationCore's** and arrives already projected into an `MsspData` (Task 2), and the
+out-of-band `MSSP-REQUEST` reply is read by `MsspPlaintextReply.TryParse` (Task 2). This file decides
+*when to ask* and records *how the answer arrived*.
 
 **Files:**
 - Create: `src/MUI.Crawl/MsspLayer.cs`
 - Test: `tests/MUI.Crawl.Tests/MsspLayerTests.cs`
 
 **Interfaces:**
-- Consumes: `ProbeTelnetSession` (Task 6), `BoundedTranscript` (Task 7), `ProbeOptions`,
-  `MsspTransport` (Task 1), `SharpMU.Mssp.{MsspData, MsspSubnegotiationParser}`.
+- Consumes: `ProbeTelnetSession` (Task 8), `BoundedTranscript` (Task 9), `ProbeOptions`,
+  `MsspTransport` (Task 3), `MUI.Crawl.Mssp.{MsspData, MsspPlaintextReply}` (Task 2).
 - Produces: `MUI.Crawl.MsspLayer` —
   `static Task<(MsspData Data, MsspTransport Via)> ReadAsync(ProbeTelnetSession session, Task<MsspData> negotiated, ProbeOptions options, TimeProvider time, CancellationToken ct)`
-  and `const string RequestCommand = "MSSP-REQUEST"`. Task 13 calls `ReadAsync`.
+  and `const string RequestCommand = "MSSP-REQUEST"`. Task 15 calls `ReadAsync`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -5050,10 +6729,10 @@ Create `tests/MUI.Crawl.Tests/MsspLayerTests.cs`:
 
 ```csharp
 using System.Text;
+using MUI.Crawl.Mssp;
 using MUI.Crawl.Telnet;
 using MUI.Crawl.Tests.Support;
 using MUI.Crawl.Transport;
-using SharpMU.Mssp;
 
 namespace MUI.Crawl.Tests;
 
@@ -5204,50 +6883,6 @@ public class MsspLayerTests
         await Assert.That(data.Count).IsEqualTo(0);
     }
 
-    [Test]
-    public async Task TheTelnetOptionManglesNonAsciiAndThePlaintextFallbackDoesNot()
-    {
-        // A pinned upstream limitation, not a wish. TelnetNegotiationCore's MSSPProtocol decodes
-        // variable names and values with a hardcoded Encoding.ASCII (verified in the source of 2.6.0
-        // and 2.6.5), and .NET's ASCII decoder uses a replacement fallback — so every byte above 0x7F
-        // becomes a literal '?' and the original bytes are gone. Nothing on our side can repair it.
-        //
-        // The plaintext fallback does not go through MSSPProtocol: it is decoded by our own UTF-8 text
-        // path and parsed from a string. So the same name survives one route and not the other, which
-        // is why MsspVia also records how trustworthy a report's non-ASCII characters are.
-        //
-        // WHEN THIS TEST FAILS, UPSTREAM HAS BEEN FIXED. Delete it, delete the plan's "Known
-        // limitation" section, and raise the pinned TelnetNegotiationCore version.
-        await using var negotiating = new ScriptedMuServer();
-        negotiating.RespondingToDo(TelnetWire.Mssp, TelnetWire.Subnegotiation(("NAME", ["Café Noir"])));
-        negotiating.Listen();
-
-        var options = new ProbeOptions { MsspTimeout = TimeSpan.FromSeconds(5) };
-        await using var overOption = SessionFor(negotiating, options);
-        var negotiated = Negotiated(overOption);
-        await overOption.ConnectAsync(CancellationToken.None);
-
-        var (mangled, viaOption) = await MsspLayer.ReadAsync(
-            overOption, negotiated, options, TimeProvider.System, CancellationToken.None);
-
-        await Assert.That(viaOption).IsEqualTo(MsspTransport.TelnetOption70);
-        await Assert.That(mangled.Name).IsEqualTo("Caf? Noir");
-
-        await using var asking = new ScriptedMuServer();
-        asking.RespondingToCommand("MSSP-REQUEST", TelnetWire.PlaintextMssp(("NAME", "Café Noir")));
-        asking.Listen();
-
-        var plaintextOptions = new ProbeOptions { MsspTimeout = TimeSpan.FromMilliseconds(400) };
-        await using var overPlaintext = SessionFor(asking, plaintextOptions);
-        var never = Negotiated(overPlaintext);
-        await overPlaintext.ConnectAsync(CancellationToken.None);
-
-        var (intact, viaPlaintext) = await MsspLayer.ReadAsync(
-            overPlaintext, never, plaintextOptions, TimeProvider.System, CancellationToken.None);
-
-        await Assert.That(viaPlaintext).IsEqualTo(MsspTransport.PlaintextRequest);
-        await Assert.That(intact.Name).IsEqualTo("Café Noir");
-    }
 }
 ```
 
@@ -5261,8 +6896,8 @@ Expected: FAIL — `error CS0246: The type or namespace name 'MsspLayer' could n
 Create `src/MUI.Crawl/MsspLayer.cs`:
 
 ```csharp
+using MUI.Crawl.Mssp;
 using MUI.Crawl.Telnet;
-using SharpMU.Mssp;
 
 namespace MUI.Crawl;
 
@@ -5271,10 +6906,10 @@ namespace MUI.Crawl;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Neither format is parsed here. <c>SharpMU.Mssp</c> owns both — <c>MsspSubnegotiationParser</c>
-/// reads the subnegotiation body and <c>ParsePlaintextReply</c> reads the tab-separated form — and a
-/// second implementation of either is exactly the duplication the shared package exists to prevent.
-/// This file decides <em>when to ask</em> and <em>what to record about how the answer arrived</em>.
+/// Neither format is parsed here, and by two different routes. Option 70's subnegotiation is read by
+/// TelnetNegotiationCore and reaches this method already projected into an <see cref="MsspData"/>
+/// (Task 2); the out-of-band reply is read by <see cref="MsspPlaintextReply.TryParse"/>. This file
+/// decides <em>when to ask</em> and <em>what to record about how the answer arrived</em>.
 /// </para>
 /// <para>
 /// The option is preferred because it is negotiation rather than traffic, and because a server that
@@ -5318,9 +6953,9 @@ public static class MsspLayer
         var reply = await BoundedTranscript.CollectAsync(
             session, transcript, options.MsspTimeout, options.MsspTimeout, time, cancellationToken).ConfigureAwait(false);
 
-        // Null when there is no REPLY-START/END pair — which is what "Huh?" produces, and it must not
-        // become a half-read report.
-        return MsspSubnegotiationParser.ParsePlaintextReply(reply) is { } parsed
+        // False when there is no REPLY-START/END pair — which is what "Huh?" produces, and what a
+        // capped or half-arrived reply produces too. Neither may become a half-read report.
+        return MsspPlaintextReply.TryParse(reply, out var parsed)
             ? (parsed, MsspTransport.PlaintextRequest)
             : (MsspData.Empty, MsspTransport.None);
     }
@@ -5334,17 +6969,11 @@ Run:
 dotnet build MUIndex.slnx -c Release
 dotnet run -c Release --no-build --project tests/MUI.Crawl.Tests </dev/null
 ```
-Expected: PASS — 7 new tests.
+Expected: PASS — 6 new tests.
 
-If `TheTelnetOptionManglesNonAsciiAndThePlaintextFallbackDoesNot` fails because the *option* route now
-preserves `Café Noir`, upstream has fixed the ASCII decode: delete that test, delete the plan's
-"Known limitation" section, and raise the pinned `TelnetNegotiationCore` version. If it fails because
-the *plaintext* route mangles it, that is ours — check `ProbeTelnetSession`'s UTF-8 seed.
-
-If `TheTelnetOptionIsPreferredAndIsRecordedAsSuch` fails on `CrawlDelay`, check what
-`SharpMU.Mssp.MsspData.CrawlDelay` does with the value `5` — the MSSP specification says `CRAWL DELAY`
-is in **hours** — and assert what the package actually implements rather than changing the package
-from here.
+If `TheTelnetOptionIsPreferredAndIsRecordedAsSuch` fails on `CrawlDelay`, read `MsspData.CrawlDelay`
+(Task 2): the MSSP specification measures `CRAWL DELAY` in **hours**, so `5` is five hours, and Task 2
+pins that alongside `-1` meaning "no preference".
 
 - [ ] **Step 5: Commit**
 
@@ -5352,18 +6981,18 @@ from here.
 git add src/MUI.Crawl/MsspLayer.cs tests/MUI.Crawl.Tests/MsspLayerTests.cs
 git commit -m "feat(crawl): read MSSP by option 70, then by MSSP-REQUEST
 
-Spec §6.4. Neither format is parsed here — SharpMU.Mssp owns both — so this file
-only decides when to ask and records how the answer arrived. MsspVia is worth
-keeping for two reasons: a server read only through the plaintext fallback did not
-negotiate the option, and — verified in TelnetNegotiationCore 2.6.0 and 2.6.5 —
-MSSPProtocol decodes with a hardcoded Encoding.ASCII, so an option-70 read turns
-every byte above 0x7F into '?' while the plaintext route, decoded by our own UTF-8
-path, does not. Pinned by a test that is meant to go red when upstream is fixed."
+Spec §6.4. Neither format is parsed here — TelnetNegotiationCore reads option 70
+and MsspPlaintextReply reads the out-of-band reply — so this file only decides when
+to ask and records how the answer arrived.
+
+MsspVia is worth keeping because a server read only through the plaintext
+fallback did not negotiate the option at all, which is a fact about the server
+worth recording beside the report itself."
 ```
 
 ---
 
-### Task 12: Classifying a failure
+### Task 14: Classifying a failure
 
 Spec §5.3 (`cause ∈ { dns, refused, tls, timeout, handshake_stalled, … }`), §12 ("failures classify
 into causes; only a cause change writes an availability transition").
@@ -5377,8 +7006,8 @@ history into one undifferentiated row, and one that was unstable would write a t
 - Test: `tests/MUI.Crawl.Tests/FailureClassifierTests.cs`
 
 **Interfaces:**
-- Consumes: `FailureDetail`, `ProbeFailureCauses` (Task 1).
-- Produces: `MUI.Crawl.FailureClassifier.Classify(Exception error) → FailureDetail`. Task 13 calls it;
+- Consumes: `FailureDetail`, `ProbeFailureCauses` (Task 3).
+- Produces: `MUI.Crawl.FailureClassifier.Classify(Exception error) → FailureDetail`. Task 15 calls it;
   Plan 2's `FailureCauseMap` maps its `Cause` strings onto `MUI.Catalog.FailureCause`.
 
 - [ ] **Step 1: Write the failing test**
@@ -5597,7 +7226,7 @@ nothing throws it, and ProbeSession owns that case."
 
 ---
 
-### Task 13: `ProbeSession` — one connection, four layers, hard-bounded
+### Task 15: `ProbeSession` — one connection, four layers, hard-bounded
 
 Spec §6.5 (the seam), §12 (every probe is hard-bounded by timeout **and** `CancellationToken`; because
 the crawler runs in-process with the web tier, bounding is a correctness requirement rather than
@@ -5609,10 +7238,10 @@ prior art: SharpMUTerm's `TelnetMsspProbe` does exactly this).
 - Test: `tests/MUI.Crawl.Tests/ProbeSessionTests.cs`
 
 **Interfaces:**
-- Consumes: everything from Tasks 1, 2, 5, 6, 7, 8, 10, 11, 12.
+- Consumes: everything from Tasks 3, 4, 7, 8, 9, 10, 12, 13, 14.
 - Produces: `sealed class ProbeSession : IProbe` with the contract's constructor
   `ProbeSession(ProbeOptions options, Func<ConnectionOptions, ITransport>? transportFactory = null, ISaltProvider? salt = null, ILogger? logger = null, TimeProvider? time = null)`.
-  Task 14's CLI and Plan 3's `CrawlerService` construct it.
+  Task 16's CLI and Plan 3's `CrawlerService` construct it.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -5727,8 +7356,12 @@ public class ProbeSessionTests
             .ProbeAsync(TargetFor(server), CancellationToken.None);
 
         await Assert.That(server.Commands).IsEmpty();
-        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Unknown);
         await Assert.That(result.Mssp.Name).IsEqualTo("Corvid Nest");
+
+        // Nobody asked, so nothing failed. Half of the pair this and the next test hold apart: a
+        // writer reading these two results must be able to tell them from each other.
+        await Assert.That(result.Who).IsEqualTo(WhoReading.NotAttempted);
+        await Assert.That(result.Who.WasAttempted).IsFalse();
     }
 
     [Test]
@@ -5747,9 +7380,15 @@ public class ProbeSessionTests
         // Answered, because we got in — but with no count, which spec §5.4 renders as a hatched cell
         // rather than as an empty one or a zero.
         await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
-        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Unknown);
         await Assert.That(result.Who.Count).IsNull();
         await Assert.That(result.Aggregates).IsNull();
+
+        // The other half of the pair: we asked, twice, and could not read either answer. This is the
+        // state that writes a presence sample with a null count and who_unparseable, and it must not
+        // be equal to the reading a probe that never asked carries.
+        await Assert.That(result.Who).IsEqualTo(WhoReading.Unreadable);
+        await Assert.That(result.Who.WasAttempted).IsTrue();
+        await Assert.That(result.Who).IsNotEqualTo(WhoReading.NotAttempted);
     }
 
     [Test]
@@ -5896,10 +7535,10 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using MUI.Crawl.Mssp;
 using MUI.Crawl.Telnet;
 using MUI.Crawl.Transport;
 using MUI.Crawl.Who;
-using SharpMU.Mssp;
 
 namespace MUI.Crawl;
 
@@ -5974,7 +7613,7 @@ public sealed class ProbeSession : IProbe
             Outcome = outcome,
             OfferedOptions = offered ?? new HashSet<string>(StringComparer.Ordinal),
             Banner = banner,
-            Who = who ?? WhoReading.Unread,
+            Who = who ?? WhoReading.NotAttempted,
             Mssp = mssp ?? MsspData.Empty,
             MsspVia = via,
             TlsObserved = target.UseTls && outcome == ProbeOutcome.Answered,
@@ -6025,7 +7664,14 @@ public sealed class ProbeSession : IProbe
                 .ConfigureAwait(false);
 
             // Layer 3 — WHO, then DOING only if WHO was unreadable (spec §6.3).
-            var who = WhoReading.Unread;
+            //
+            // The starting value is NotAttempted, and it survives when SendWho is off: nobody asked,
+            // so nothing failed. That is the state an owner override saying "use MSSP PLAYERS"
+            // produces, and Plan 2's PresenceWriter reads it to decide between writing no presence
+            // sample at all and writing §5.4's middle row — a sample with a null count and
+            // unmeasurable_reason = who_unparseable. Overwriting it with Unreadable here would claim
+            // a failure nobody incurred.
+            var who = WhoReading.NotAttempted;
             WhoTable? table = null;
             if (_options.SendWho)
             {
@@ -6045,8 +7691,7 @@ public sealed class ProbeSession : IProbe
 
             // Nothing whatsoever came back: not a refusal, not a DNS failure, and not an answer.
             // Spec §5.3 has a cause for exactly this, and it is the one case no exception describes.
-            if (banner.Length == 0 && offered.Count == 0 && via == MsspTransport.None &&
-                who.Confidence == WhoConfidence.Unknown)
+            if (banner.Length == 0 && offered.Count == 0 && via == MsspTransport.None && !who.HasCount)
             {
                 return Result(
                     ProbeOutcome.Failed,
@@ -6138,7 +7783,7 @@ cannot state its identity abandons rather than continuing anonymously (§11)."
 
 ---
 
-### Task 14: `ProbeResultJson` and the `mui-probe` console
+### Task 16: `ProbeResultJson` and the `mui-probe` console
 
 Spec §6.5 (`ProbeResult` fixtures "captured from real games" are the primary test surface), §13.
 This is the plan's runnable deliverable: a person can point it at a real MUSH and read the answer.
@@ -6178,7 +7823,7 @@ public constructor and is an `IReadOnlyDictionary<string, IReadOnlyList<string>>
 - Test: `tests/MUI.Crawl.Tests/ProbeResultJsonTests.cs`
 
 **Interfaces:**
-- Consumes: `ProbeResult` and everything it holds (Tasks 1, 8, 10); `ProbeSession` (Task 13).
+- Consumes: `ProbeResult` and everything it holds (Tasks 3, 10, 12); `ProbeSession` (Task 15).
 - Produces: `MUI.Crawl.ProbeResultJson` — `static JsonSerializerOptions Options { get; }`,
   `static string Serialize(ProbeResult result)`, `static ProbeResult Deserialize(string json)`;
   and the `mui-probe` executable. **Plan 2 loads fixtures with `ProbeResultJson.Deserialize`.**
@@ -6189,7 +7834,7 @@ Create `tests/MUI.Crawl.Tests/ProbeResultJsonTests.cs`:
 
 ```csharp
 using System.Text.Json;
-using SharpMU.Mssp;
+using MUI.Crawl.Mssp;
 
 namespace MUI.Crawl.Tests;
 
@@ -6285,7 +7930,11 @@ public class ProbeResultJsonTests
         await Assert.That(restored.Failure!.Cause).IsEqualTo("dns");
         await Assert.That(restored.Failure.Detail).IsEqualTo("HostNotFound");
         await Assert.That(restored.Mssp).IsSameReferenceAs(MsspData.Empty);
-        await Assert.That(restored.Who).IsEqualTo(WhoReading.Unread);
+
+        // A failed probe never reached layer 3, so what it round-trips is "nobody asked" — not the
+        // reading that says we asked and could not read the answer.
+        await Assert.That(restored.Who).IsEqualTo(WhoReading.NotAttempted);
+        await Assert.That(restored.Who.WasAttempted).IsFalse();
     }
 
     [Test]
@@ -6316,7 +7965,7 @@ Create `src/MUI.Crawl/ProbeResultJson.cs`:
 ```csharp
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using SharpMU.Mssp;
+using MUI.Crawl.Mssp;
 
 namespace MUI.Crawl;
 
@@ -6577,6 +8226,7 @@ internal static class Program
         {
             WhoConfidence.PerPlayer => $"  who       {result.Who.Count} players, {result.Who.IdentifiablePlayers} identifiable (measured)",
             WhoConfidence.Count => $"  who       {result.Who.Count} players (measured)",
+            WhoConfidence.NotAttempted => "  who       not asked",
             _ => "  who       unreadable — no count, which is not the same as zero",
         });
 
@@ -6626,7 +8276,7 @@ offered-options set sorted so a captured fixture does not churn in diffs."
 
 ---
 
-### Task 15: Captured fixtures, and the loader later plans reuse
+### Task 17: Captured fixtures, and the loader later plans reuse
 
 Spec §13: "`ProbeResult` fixtures captured from real games — PennMUSH, TinyMUX, RhostMUSH, Evennia,
 and a DIKU-family game for contrast — exercise every downstream behaviour without a socket."
@@ -6636,7 +8286,7 @@ and cannot be a CI dependency: the games move, go dark, and change their WHO. So
 by running the *real* `ProbeSession` against `ScriptedMuServer` scripted with each codebase's shape,
 and checked in. The pipeline is identical to a real capture — same session, same socket, same
 serialiser — so a fixture captured from a live game later drops into the same directory with no code
-change. `mui-probe --capture` (Task 14) is that path.
+change. `mui-probe --capture` (Task 16) is that path.
 
 **Files:**
 - Create: `tests/MUI.Crawl.Tests/Support/FixtureLibrary.cs`
@@ -6645,7 +8295,7 @@ change. `mui-probe --capture` (Task 14) is that path.
 - Test: `tests/MUI.Crawl.Tests/FixtureTests.cs`
 
 **Interfaces:**
-- Consumes: `ProbeSession` (Task 13), `ProbeResultJson` (Task 14), `ScriptedMuServer`, `WhoCorpus`.
+- Consumes: `ProbeSession` (Task 15), `ProbeResultJson` (Task 16), `ScriptedMuServer`, `WhoCorpus`.
 - Produces: `MUI.Crawl.Tests.Support.FixtureLibrary` — `static IReadOnlyList<string> Names { get; }`,
   `static string PathOf(string name)`, `static ProbeResult Load(string name)`,
   `static Task WriteAllAsync()`; and the five JSON files.
@@ -6724,6 +8374,10 @@ public class FixtureTests
         await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
         await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Unknown);
         await Assert.That(result.Who.Count).IsNull();
+
+        // Asked and unreadable, not unasked. This distinction is the entire reason Plan 2's
+        // PresenceWriter can write §5.4's middle row from this fixture, so it is pinned on disk.
+        await Assert.That(result.Who.WasAttempted).IsTrue();
         await Assert.That(result.MsspVia).IsEqualTo(MsspTransport.None);
         await Assert.That(result.Aggregates).IsNull();
     }
@@ -7073,8 +8727,8 @@ dotnet run -c Release --no-build --project src/MUI.Probe.Cli -- --help
 All green, no warnings (warnings are errors), and `mui-probe` runs. No new test project was added, so
 `.github/workflows/ci.yml` needs no new step — the Crawl suite already has one.
 
-Open the PR. Say in its description whether `SharpMU.Mssp` 1.0.0 was published; if it was not, CI is
-red for that reason and for no other.
+Open the PR. Nothing external gates it: every dependency this plan needs is on nuget.org, so a red CI
+here is ours.
 
 ---
 
@@ -7084,50 +8738,76 @@ red for that reason and for no other.
 
 | Spec section | Task |
 |---|---|
-| §6 — one connection per target, four layers | 2, 13 |
-| §6.1 — handshake as measured capability | 5 (recorder), 6 (negotiation), 13 (into `OfferedOptions`) |
-| §6.2 — connect screen, ANSI intact | 7, 13 |
-| §6.3 — structural WHO/DOING, three confidences, never fabricate | 8, 9, 13 |
-| §6.4 — MSSP option 70 + plaintext fallback | 6 (option 70), 11 (fallback, `MsspVia`) |
-| §6.5 — one immutable `ProbeResult`; fixtures as the test surface | 1, 13, 14, 15 |
-| §5.3 — failure causes | 12, 13 |
-| §5.4 — the three states an hour can be in | 8 (`Unknown` ≠ 0), 13, 15 (`diku.json`) |
-| §11 — self-identification with an info URL | 6, 13 (abandon if unstated) |
-| §11 — names never persisted; salted rotating hashes | 10, 13, 14, 15 |
-| §12 — hard timeout **and** `CancellationToken`; bounded | 7, 11, 13 |
-| §13 — scripted fake server incl. misbehaviour | 3, 4 |
-| §13 — property tests for the WHO parser | 9 |
-| §13 — `ProbeResult` fixtures per codebase | 15 |
-| Runnable deliverable (`mui-probe`) | 14 |
+| §6 — one connection per target, four layers | 4, 15 |
+| §6.1 — handshake as measured capability | 7 (recorder), 8 (negotiation), 15 (into `OfferedOptions`) |
+| §6.2 — connect screen, ANSI intact | 9, 15 |
+| §6.3 — structural WHO/DOING, never fabricate | 10, 11, 15 |
+| §6.3 — an owner may assert "use MSSP `PLAYERS`" | 3 (`NotAttempted`), 15 (`SendWho` off leaves it) |
+| §6.4 — MSSP: the model, option 70, and the plaintext fallback | 1, 2 (the model), 8 (option 70), 13 (fallback, `MsspVia`) |
+| §6.5 — one immutable `ProbeResult`; fixtures as the test surface | 3, 15, 16, 17 |
+| §5.3 — failure causes | 14, 15 |
+| §5.4 — the three states an hour can be in | 3 (`NotAttempted` ≠ `Unknown`), 10 (`Unknown` ≠ 0), 15, 17 (`diku.json`) |
+| §7.2 — a referral is a candidate, not a fact | 1 (`MsspHost.IsCrawlable`), 2 (`Referrals` lists and marks) |
+| §11 — self-identification with an info URL | 8, 15 (abandon if unstated) |
+| §11 — names never persisted; salted rotating hashes | 12, 15, 16, 17 |
+| §12 — hard timeout **and** `CancellationToken`; bounded | 9, 13, 15 |
+| §13 — scripted fake server incl. misbehaviour | 5, 6 |
+| §13 — property tests for the WHO parser | 11 |
+| §13 — `ProbeResult` fixtures per codebase | 17 |
+| Runnable deliverable (`mui-probe`) | 16 |
 
 Not covered, deliberately, and each belongs to a later plan: `CRAWL DELAY` enforcement and per-host
-serialisation (§7.7 → Plan 3), referral following (§7.1–7.2 → Plan 3), the advisory lock (§12 →
-Plan 3), banner *fingerprinting* (§7.3's `BannerFingerprint` → Plan 3; this plan captures the banner,
-which is its input), and everything in §5.1–5.2's storage (Plan 2).
+serialisation (§7.7 → Plan 3), referral *following* (§7.1 → Plan 3; this plan produces the gate it
+follows through, and Plan 3 must not re-derive the judgement), the advisory lock (§12 → Plan 3),
+banner *fingerprinting* (§7.3's `BannerFingerprint` → Plan 3; this plan captures the banner, which is
+its input), and everything in §5.1–5.2's storage (Plan 2).
 
 **2. Placeholder scan.** No "TBD", no "add error handling", no "similar to Task N", no "write tests
 for the above". Every code step carries the code. Two steps are deliberately conditional rather than
-vague — Task 4 Step 3 and Task 9 Step 3 — and both name the exact symptom, the exact lever, and which
+vague — Task 6 Step 3 and Task 11 Step 3 — and both name the exact symptom, the exact lever, and which
 of the two sides to change.
 
 **3. Type consistency.** Checked across tasks:
-`ITransport`/`ConnectionOptions`/`TcpTransport` (2) → used by 3, 5, 6, 11, 13.
-`NegotiationRecorder.Offered` (5) → `ProbeResult.OfferedOptions` (1) in 13.
+`MsspHost.{Create, TryParse, Scope, IsCrawlable, ToReferralString}` (1) → 2's `Referrals`, and Plan 3's
+`ReferralGraphWriter`.
+`MsspData.{Empty, From, Default, Flag, Integer, Name, Players, Port, Ports, CrawlDelay, Referrals}`
+(2) → 3's seam, 8's `MsspReceived`, 13, 15, 16, 17, and Plans 2 and 3.
+`MsspPlaintextReply.TryParse(string, out MsspData)` (2) → 13 only.
+`WhoReading.{NotAttempted, Unreadable, WasAttempted, HasCount}` and `WhoConfidence`'s four members
+(3) → 10, 11, 15, 16, 17, and Plan 2's `PresenceWriter`.
+`ITransport`/`ConnectionOptions`/`TcpTransport` (4) → used by 5, 7, 8, 13, 15.
+`NegotiationRecorder.Offered` (7) → `ProbeResult.OfferedOptions` (3) in 15.
 `ProbeTelnetSession.{IdentityStated, TextReceived, MsspReceived, Closed, SendLineAsync, CloseAsync}`
-(6) → used by 7's `CollectAsync`, 11's `ReadAsync`, 13.
-`BoundedTranscript.{Append, Text, IsFull, Truncated, CollectAsync}` (7) → 11, 13.
+(8) → used by 9's `CollectAsync`, 13's `ReadAsync`, 15.
+`BoundedTranscript.{Append, Text, IsFull, Truncated, CollectAsync}` (9) → 13, 15.
 `WhoParser.{Parse, ParseTable}`, `WhoTable(Rows, SummaryCount)`, `WhoRow(Name, OnFor, Idle, Doing)`
-(8) → 9, 10, 13, 15.
+(10) → 11, 12, 15, 17.
 `ISaltProvider.Current(DateTimeOffset)`, `PresenceAggregateBuilder.From(WhoTable, ISaltProvider, DateTimeOffset)`
-(10) → 13.
-`MsspLayer.ReadAsync(session, negotiated, options, time, ct)` (11) → 13.
-`FailureClassifier.Classify(Exception) → FailureDetail` (12) → 13.
-`ProbeResultJson.{Serialize, Deserialize, Options}` (14) → 15, and Plan 2.
-`ProbeOptions.MaxCaptureBytes` is used in 7, 11, 13 and declared in 1.
+(12) → 15.
+`MsspLayer.ReadAsync(session, negotiated, options, time, ct)` (13) → 15.
+`FailureClassifier.Classify(Exception) → FailureDetail` (14) → 15.
+`ProbeResultJson.{Serialize, Deserialize, Options}` (16) → 17, and Plan 2.
+`ProbeOptions.MaxCaptureBytes` is used in 9, 13, 15 and declared in 3.
 `ScriptedMuServer.{Listen, RespondingToDo, RespondingToCommand, Commands, Received, ReceivedText, WaitForReceivedAsync, WaitForCommandAsync}`
-and `Misbehaviour` (3) → 4, 6, 7, 11, 13, 15. `TelnetWire.{Mssp, Ttype, Iac, Do, Will, Sb, Se, Offer, Ask, Subnegotiation, PlaintextMssp, RepresentativeReport}`
-(3) → 5, 6, 11, 13, 15. `WhoCorpus` (8) → 9, 13, 15.
+and `Misbehaviour` (5) → 6, 8, 9, 13, 15, 17. `TelnetWire.{Mssp, Ttype, Iac, Do, Will, Sb, Se, Offer, Ask, Subnegotiation, PlaintextMssp, RepresentativeReport}`
+(5) → 7, 8, 13, 15, 17. `WhoCorpus` (10) → 11, 15, 17.
 
-One name appears in the contract and nowhere in this plan's code: `ProbeTarget.UseTls` is consumed in
-13 and produced in 1 — consistent. `MsspTransport` values `None`/`TelnetOption70`/`PlaintextRequest`
-are spelled identically in 1, 11, 13, 14, 15.
+`ProbeTarget.UseTls` is produced in 3 and consumed in 15 — consistent. `MsspTransport` values
+`None`/`TelnetOption70`/`PlaintextRequest` are spelled identically in 3, 13, 15, 16, 17.
+
+**4. Deviations and gaps, restated after the reversal.**
+
+| What | Standing |
+|---|---|
+| **The `SharpMU.Mssp` package** | **Reversed.** Nothing was published and the source repository is archived, so this plan is blocked on nothing and shares no code with SharpMUTerm. Tasks 1 and 2 are the replacement: MUIndex's own MSSP domain in `MUI.Crawl.Mssp`, with the addendum's names kept so no later plan changes more than a `using`. The old "CI stays red until the package ships" note is gone with it. |
+| **`TelnetNegotiationCore` 2.6.0 → 2.6.5** | Raised in Task 2. 2.6.5 is what the addendum's §2a surface — `MSSPVariableCollection`, `MSSPVariables.Canonicalize`, `MSSPValue.TryParseFlag` — was verified against by reflection, and it is what Task 2 projects rather than re-implements. |
+| **`MsspSubnegotiationParser`** | Deleted from the plan entirely. Option 70 is TNC's, and there is no subnegotiation parser in this repository. Its plaintext half survives as `MsspPlaintextReply` (Task 2), which is the only MSSP parsing MUIndex owns because `MSSP-REQUEST` is not a telnet option. |
+| **MNES `CLIENT_NAME`** | Not reachable: TNC registers no NEW-ENVIRON plugin and exposes no client-side environment send, so §11's self-identification is served by TTYPE/MTTS alone, with the info URL riding the client name. A client-side MNES sender is a good upstream PR. |
+| **`WhoReading`'s fourth state** | Fixed **at source** in Task 3 rather than worked around downstream. `WhoReading.Unread` collapsed "we never asked" into "we asked and could not read the answer", so Plan 2's `PresenceWriter` could not tell spec §5.4's own named bug case from silence and had to infer intent from `MsspVia` — a guess about a different layer. Plan 2's deviation row for it is struck. |
+| **A crawlable *name* is not a resolved name** | **A gap, and it is here rather than fixed here.** `MsspHost.Scope` is `Unresolved` for every DNS name, and `IsCrawlable` says yes, because refusing names would refuse every real referral. So a referral of `internal.example.org` that resolves to `10.0.0.5` passes this gate and would be dialled. Closing it needs a check *after* resolution and *before* the socket is used, which is Plan 3's scheduler or `TcpTransport`, not a type that only ever sees a string. Recorded on `MsspHost` because that is where a reader will look for it. |
+
+**5. The two tests that are the point of this revision.** If a reviewer reads only two assertions, read
+`WhoReadingTests.NotAttemptedAndUnreadableAreNotTheSameReading` (Task 3) and
+`MsspHostTests.TheCloudMetadataAddressIsNotCrawlable` (Task 1). The first is a correctness fix one
+level below where the bug was reported; the second is the whole reason `MsspHost` is not merely a
+tidy way to hold a host and a port.
