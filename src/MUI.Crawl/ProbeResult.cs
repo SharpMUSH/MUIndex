@@ -34,9 +34,66 @@ public sealed record ProbeResult
     /// <summary>Layer 4 — MSSP, whether by telnet option 70 or the plaintext <c>MSSP-REQUEST</c> fallback.</summary>
     public IReadOnlyDictionary<string, string> Mssp { get; init; } = new Dictionary<string, string>();
 
+    /// <summary>
+    /// How layer 4 went. Empty <see cref="Mssp"/> is not self-explaining — see <see cref="MsspOutcome"/>.
+    /// </summary>
+    public MsspOutcome MsspOutcome { get; init; } = MsspOutcome.NotOffered;
+
+    /// <summary>
+    /// When <see cref="MsspOutcome"/> is <see cref="MsspOutcome.RejectedTooLarge"/>, how many bytes
+    /// arrived before the report was dropped. Recorded so a limit can be tuned against real servers
+    /// rather than guessed at.
+    /// </summary>
+    public int? MsspBytesRejected { get; init; }
+
+    /// <summary>Which transport produced <see cref="Mssp"/>. Part of the value's provenance.</summary>
+    public MsspTransport MsspTransport { get; init; } = MsspTransport.None;
+
     public FailureDetail? Failure { get; init; }
 
     public TimeSpan Elapsed { get; init; }
+}
+
+/// <summary>
+/// What happened when MSSP was asked for. <b>Three outcomes, because an empty report has three
+/// different meanings and only one of them is "this game has no MSSP".</b>
+/// </summary>
+/// <remarks>
+/// TelnetNegotiationCore 2.7.0 bounds the MSSP payload and, at the ceiling, <b>drops the report
+/// rather than truncating it</b> — a truncated report would be worse, since half a report parses
+/// cleanly and lies. The drop is surfaced through <c>OnMSSPMessageTooLarge</c>, and the crawler must
+/// carry it as its own outcome: recording a dropped report as an absent one would publish "this game
+/// does not support MSSP" on the strength of our own size limit, which is a decision of ours
+/// masquerading as a measurement of theirs.
+/// </remarks>
+public enum MsspOutcome
+{
+    /// <summary>The server never offered MSSP and did not answer the plaintext request.</summary>
+    NotOffered,
+
+    /// <summary>A report arrived and was parsed. It may still be empty, which is the server's answer.</summary>
+    Received,
+
+    /// <summary>
+    /// A report arrived and exceeded the configured ceiling, so it was dropped whole. We asked, the
+    /// server answered, and we chose not to hold it — <b>never render this as "no MSSP"</b>.
+    /// </summary>
+    RejectedTooLarge,
+}
+
+/// <summary>
+/// Which route produced an MSSP report, because the two do not always agree byte for byte and the
+/// route is therefore part of the value's provenance.
+/// </summary>
+public enum MsspTransport
+{
+    None,
+
+    /// <summary>Telnet option 70 subnegotiation.</summary>
+    TelnetOption70,
+
+    /// <summary>The plaintext <c>MSSP-REQUEST</c> reply, delimited by START/END markers.</summary>
+    PlaintextRequest,
 }
 
 public enum ProbeOutcome

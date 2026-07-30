@@ -340,6 +340,38 @@ A claimed owner may override the format from the dashboard, or simply assert "us
 Telnet option 70, with the plaintext `MSSP-REQUEST` fallback (tab-separated, delimited by
 `MSSP-REPLY-START` / `MSSP-REPLY-END`).
 
+**MSSP must be asked for, not waited for.** The specification says a server "should send
+`IAC WILL MSSP`" on connect, and a great many servers that fully support it never volunteer
+anything — they answer `IAC DO MSSP` and are otherwise silent. A crawler that only listens reports
+those servers as having no MSSP, which is why the protocol's own reference client asks. Sending
+`IAC DO 70` is negotiation, not traffic.
+
+#### An empty report has three meanings
+
+TelnetNegotiationCore 2.7.0 bounds the payload and, at the ceiling, **drops the report rather than
+truncating it** — correctly, since half a report parses cleanly and lies. Layer 4 therefore has
+three outcomes and the store must carry which one:
+
+| Outcome | Meaning |
+|---|---|
+| `NotOffered` | The server never offered MSSP and did not answer the plaintext request |
+| `Received` | A report arrived and was parsed. It may still be empty — that is the server's answer |
+| `RejectedTooLarge` | A report arrived and exceeded our ceiling, so we dropped it whole |
+
+**`RejectedTooLarge` must never render as "no MSSP".** We asked, the server answered, and we chose
+not to hold it; publishing that as an absence would state our own size limit as a fact about their
+game — the same error as recording an unparseable `WHO` as zero players (§5.4) or a scope refusal as
+downtime (§7.2). The rejected byte count is retained so the ceiling can be tuned against real
+servers rather than guessed at.
+
+The ceiling is set well below the library's 1 MiB default: a real report is a few kilobytes and the
+official vocabulary is 45 variables, so the bound is generous for anything legitimate and finite for
+anything hostile. A crawler connects to servers it does not trust by definition.
+
+**Which route produced a value is part of its provenance.** Option 70 and the plaintext reply are
+read by different code paths and need not agree byte for byte, so the transport is recorded
+alongside the value rather than discarded once parsed.
+
 ### 6.5 The seam
 
 ```
