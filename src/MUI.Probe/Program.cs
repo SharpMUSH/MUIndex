@@ -12,6 +12,7 @@ Console.WriteLine($"target        {result.Host}:{result.Port}");
 Console.WriteLine($"outcome       {result.Outcome}");
 Console.WriteLine($"elapsed       {result.Elapsed.TotalSeconds:F1}s");
 Console.WriteLine($"mssp          {result.MsspOutcome} via {result.MsspTransport}");
+Console.WriteLine($"who           {result.Who.Confidence}" + (result.Who.HasCount ? $" \u2192 {result.Who.Count} players" : " \u2014 no count"));
 
 if (result.MsspBytesRejected is { } rejected)
 {

@@ -97,9 +97,29 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             var telnet = built.Item1;
 
             // Let the connect screen arrive, then ask the one question we are allowed to ask.
+            // The banner is whatever came before the question; the answer is whatever came after.
+            // Keeping them apart matters because they are different evidence: one is a display
+            // asset and codebase fingerprint, the other is a measurement.
             await Task.Delay(_options.BannerQuietPeriod, budget.Token);
+
+            int bannerLineCount;
+            lock (lines)
+            {
+                bannerLineCount = lines.Count;
+            }
+
             await telnet.SendAsync(Encoding.ASCII.GetBytes($"{PermittedCommands[0]}\r\n"));
             await Task.Delay(_options.BannerQuietPeriod, budget.Token);
+
+            string whoText;
+            lock (lines)
+            {
+                whoText = string.Join("\n", lines.Skip(bannerLineCount));
+                banner.Clear();
+                banner.AppendJoin('\n', lines.Take(bannerLineCount));
+            }
+
+            var who = new WhoParser().Parse(whoText);
 
             if (telnet.CurrentEncoding is not null)
             {
@@ -114,7 +134,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Outcome = ProbeOutcome.Answered,
                 OfferedOptions = offered,
                 Banner = banner.ToString(),
-                Who = WhoReading.Unread,
+                Who = who,
                 Mssp = Flatten(mssp),
                 MsspOutcome = msspOutcome,
                 MsspBytesRejected = rejectedBytes,
