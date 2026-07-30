@@ -83,7 +83,7 @@ These apply to every task in this plan without being repeated.
   was ever published and the repository that would have produced it is archived, so MUIndex
   implements its crawler end to end and shares no code with SharpMUTerm. `MsspData`, `MsspHost`,
   `MsspHostScope` and `MsspVariables` live there; telnet option 70 is parsed by
-  `TelnetNegotiationCore` 2.6.5 itself, and `MUI.Crawl.Mssp.MsspPlaintextReply` handles only the
+  `TelnetNegotiationCore` 2.7.0 itself, and `MUI.Crawl.Mssp.MsspPlaintextReply` handles only the
   out-of-band `MSSP-REQUEST` text reply. Never re-declare those types locally. **`MUI.Backfill`
   references none of it** — an importer reads someone else's directory export, never a live server —
   so for this plan the rule is only "do not reach for it".

@@ -73,7 +73,7 @@ These apply to every task in this plan without being repeated.
   suite as its own explicit step.
 - **There is no shared MSSP package, and MUIndex shares no code with SharpMUTerm.** The MSSP domain
   types are MUIndex's own, in namespace `MUI.Crawl.Mssp` — `MsspData`, `MsspHost`, `MsspHostScope`,
-  `MsspVariables`, `MsspPlaintextReply` — written by Plan 01 over `TelnetNegotiationCore` 2.6.5,
+  `MsspVariables`, `MsspPlaintextReply` — written by Plan 01 over `TelnetNegotiationCore` 2.7.0,
   which parses telnet option 70 itself. Never re-declare them locally, and never reach for a
   `SharpMU.Mssp` package: it was tried, abandoned, and never published.
 - **Persistence is PostgreSQL 17 with Npgsql + Dapper and plain numbered `.sql` migration files
@@ -90,7 +90,7 @@ places that agree.
 
 The type names `MsspData`, `MsspHost`, `MsspVariables` are unchanged from the abandoned design; only
 the namespace and the origin moved. Everywhere this plan writes `MsspData` it means
-`MUI.Crawl.Mssp.MsspData`, and there is no `MsspSubnegotiationParser` at all — TNC 2.6.5 parses
+`MUI.Crawl.Mssp.MsspData`, and there is no `MsspSubnegotiationParser` at all — TNC 2.7.0 parses
 telnet option 70 itself, and the only MSSP text MUIndex parses is the out-of-band plaintext
 `MSSP-REQUEST` reply, via `MsspPlaintextReply.TryParse`.
 

@@ -6,7 +6,7 @@
 
 **Architecture:** `MUI.Crawl` owns transport, telnet, parsing and aggregation and references nothing of ours. A probe opens one `TcpTransport`, wraps it in a `NegotiationRecorder` decorator that sniffs `IAC WILL/DO` off the inbound byte stream (layer 1), drives `TelnetNegotiationCore` over it to get framing-stripped text (layers 2 and 3) and MSSP (layer 4), and assembles one `ProbeResult`. Player names exist only inside the probe: what leaves is `PresenceAggregates` — salted hashes and bucket counts. Everything downstream consumes `ProbeResult` and never sees a socket.
 
-**Tech Stack:** .NET 10 (`net10.0`), C# latest, TUnit on Microsoft.Testing.Platform, `TelnetNegotiationCore` 2.6.5, `Microsoft.Extensions.Logging.Abstractions`, `System.Text.Json`.
+**Tech Stack:** .NET 10 (`net10.0`), C# latest, TUnit on Microsoft.Testing.Platform, `TelnetNegotiationCore` 2.7.0, `Microsoft.Extensions.Logging.Abstractions`, `System.Text.Json`.
 
 **Depends on: nothing. This is the first plan; it produces the `ProbeResult` every later plan consumes.**
 
@@ -27,7 +27,7 @@ The type *names* `MsspData`, `MsspHost`, `MsspHostScope` and `MsspVariables` are
 cross-plan contract already used, so for every later plan this reversal is a changed `using` and
 nothing else.
 
-The only external dependency involved is **`TelnetNegotiationCore` 2.6.5** — on nuget.org, and
+The only external dependency involved is **`TelnetNegotiationCore` 2.7.0** — on nuget.org, and
 first-party (see CLAUDE.md), so a gap in it is a PR rather than a workaround. It already parses
 MSSP's telnet option 70, which is why **this plan contains no subnegotiation parser and must never
 grow one**.
@@ -68,7 +68,7 @@ These apply to every task in this plan without being repeated.
 - **Branch from `main`, open a PR, never commit directly to `main`.**
 - **Any new test project goes into `MUIndex.slnx` AND `.github/workflows/ci.yml`**, which runs each
   suite as its own explicit step.
-- **The MSSP domain is ours, in `MUI.Crawl.Mssp`; the wire is TelnetNegotiationCore's.** TNC **2.6.5**
+- **The MSSP domain is ours, in `MUI.Crawl.Mssp`; the wire is TelnetNegotiationCore's.** TNC **2.7.0**
   parses option 70's subnegotiation and hands back an ordered name → value-list map
   (`MSSPConfig.Variables`, `MSSPVariableCollection`), canonicalises variable names so `MINIMUM_AGE`
   and `MINIMUM AGE` are one variable (`MSSPVariables.Canonicalize`), knows which names the
@@ -151,7 +151,7 @@ sane size.
 Two behavioural notes that are choices, not transcriptions:
 
 - **The info URL rides the first TTYPE answer** as `MUINDEX (+https://muindex.org/crawler)`.
-  Spec §11 asks for TTYPE/MTTS **and** MNES `CLIENT_NAME`; TelnetNegotiationCore 2.6.5 registers no
+  Spec §11 asks for TTYPE/MTTS **and** MNES `CLIENT_NAME`; TelnetNegotiationCore 2.7.0 registers no
   NEW-ENVIRON plugin in `AddDefaultMUDProtocols` and exposes no client-side environment send, so
   MNES is not reachable from here. The `(+url)` form is the HTTP `User-Agent` convention, it lands in
   the field a server operator's log actually records, and it costs nothing. A client-side MNES sender
@@ -175,7 +175,7 @@ raise it upstream rather than working around it here.
 ## File Structure
 
 ```
-Directory.Packages.props                        TelnetNegotiationCore 2.6.0 → 2.6.5
+Directory.Packages.props                        TelnetNegotiationCore 2.6.0 → 2.7.0
 MUIndex.slnx                                    + src/MUI.Probe.Cli
 .github/workflows/ci.yml                        (unchanged: Crawl suite already has a step)
 
@@ -856,12 +856,12 @@ its peers spell it, which is what lets a crawl terminate."
 
 ---
 
-### Task 2: `MsspData` over TelnetNegotiationCore 2.6.5, and the plaintext reply
+### Task 2: `MsspData` over TelnetNegotiationCore 2.7.0, and the plaintext reply
 
 Spec §6.4 (MSSP is the payload; telnet option 70 with the plaintext `MSSP-REQUEST` fallback).
 Contract addendum §2a and §2b.
 
-**Read §2a before writing a line of this.** TelnetNegotiationCore 2.6.5 already provides — verified by
+**Read §2a before writing a line of this.** TelnetNegotiationCore 2.7.0 already provides — verified by
 reflection against the shipped assembly — the ordered name → value-list map (`MSSPConfig.Variables`,
 `MSSPVariableCollection` with its indexer, `Keys`, `Count`, `TryGetValue`, `ContainsKey`, `Default`,
 `Flag`, `Integer`, `OfficialNames`, `UnofficialNames`), the vocabulary rules
@@ -913,10 +913,10 @@ In `Directory.Packages.props`, change the version and say why the number matters
       IS the capability measurement (spec §6.1), so what a server offers is observed rather than
       taken from a game's own MSSP claim.
 
-      2.6.5 is the version the MSSP surface MsspData projects — MSSPVariableCollection,
+      2.7.0 is the version the MSSP surface MsspData projects — MSSPVariableCollection,
       MSSPVariables.Canonicalize, MSSPValue.TryParseFlag — was verified against by reflection.
     -->
-    <PackageVersion Include="TelnetNegotiationCore" Version="2.6.5" />
+    <PackageVersion Include="TelnetNegotiationCore" Version="2.7.0" />
 ```
 
 `src/MUI.Crawl/MUI.Crawl.csproj` already carries `<PackageReference Include="TelnetNegotiationCore" />`
@@ -1683,7 +1683,7 @@ Expected: PASS — 27 new tests (`MsspDataTests` has 15, `MsspPlaintextReplyTest
 five `[Arguments]` cases), no warnings.
 
 If a test fails inside `MSSPVariables.Canonicalize` or `MSSPValue.TryParseFlag`, check the member
-against the pinned package (`~/.nuget/packages/telnetnegotiationcore/2.6.5/`) and assert what the
+against the pinned package (`~/.nuget/packages/telnetnegotiationcore/2.7.0/`) and assert what the
 library actually implements. **Do not answer a gap in it by writing a second parser here** — the
 library is first-party (CLAUDE.md), so the answer is a PR upstream and, until it lands, a named
 limitation in this plan.
@@ -1695,7 +1695,7 @@ git add Directory.Packages.props src/MUI.Crawl/Mssp tests/MUI.Crawl.Tests/MsspDa
         tests/MUI.Crawl.Tests/MsspPlaintextReplyTests.cs
 git commit -m "feat(crawl): project TelnetNegotiationCore's MSSP into a snapshot we can reason about
 
-TNC 2.6.5 already reads option 70, folds MINIMUM_AGE into MINIMUM AGE, splits
+TNC 2.7.0 already reads option 70, folds MINIMUM_AGE into MINIMUM AGE, splits
 official from unofficial and parses flags and integers, so none of that is written
 here and there is no subnegotiation parser in this repository.
 
@@ -4371,7 +4371,7 @@ public sealed class ProbeTelnetSession : IAsyncDisposable
     /// <remarks>
     /// The URL rides the first entry — the client name — as <c>MUINDEX (+https://…)</c>, the HTTP
     /// User-Agent convention. Spec §11 also asks for MNES <c>CLIENT_NAME</c>; TelnetNegotiationCore
-    /// 2.6.5 registers no NEW-ENVIRON plugin in <c>AddDefaultMUDProtocols</c> and exposes no
+    /// 2.7.0 registers no NEW-ENVIRON plugin in <c>AddDefaultMUDProtocols</c> and exposes no
     /// client-side environment send, so that half is not reachable from here. A client-side MNES
     /// sender is a good upstream PR.
     /// </remarks>
@@ -4571,8 +4571,8 @@ dotnet run -c Release --no-build --project tests/MUI.Crawl.Tests </dev/null
 Expected: PASS — 7 new tests.
 
 If `TheCrawlerNamesItselfAndSaysWhereToReadAboutIt` fails with `IdentityStated` false, the library's
-private field was renamed: check `TerminalTypeProtocol` in the pinned 2.6.5 package
-(`~/.nuget/packages/telnetnegotiationcore/2.6.5/`) for the field name and update
+private field was renamed: check `TerminalTypeProtocol` in the pinned 2.7.0 package
+(`~/.nuget/packages/telnetnegotiationcore/2.7.0/`) for the field name and update
 `TerminalTypesField`. Do not paper over it by dropping the assertion — spec §11 makes stating an
 identity a requirement, and Task 15 abandons a probe that cannot.
 
@@ -8800,7 +8800,7 @@ and `Misbehaviour` (5) → 6, 8, 9, 13, 15, 17. `TelnetWire.{Mssp, Ttype, Iac, D
 | What | Standing |
 |---|---|
 | **The `SharpMU.Mssp` package** | **Reversed.** Nothing was published and the source repository is archived, so this plan is blocked on nothing and shares no code with SharpMUTerm. Tasks 1 and 2 are the replacement: MUIndex's own MSSP domain in `MUI.Crawl.Mssp`, with the addendum's names kept so no later plan changes more than a `using`. The old "CI stays red until the package ships" note is gone with it. |
-| **`TelnetNegotiationCore` 2.6.0 → 2.6.5** | Raised in Task 2. 2.6.5 is what the addendum's §2a surface — `MSSPVariableCollection`, `MSSPVariables.Canonicalize`, `MSSPValue.TryParseFlag` — was verified against by reflection, and it is what Task 2 projects rather than re-implements. |
+| **`TelnetNegotiationCore` 2.6.0 → 2.7.0** | Raised in Task 2. 2.7.0 is what the addendum's §2a surface — `MSSPVariableCollection`, `MSSPVariables.Canonicalize`, `MSSPValue.TryParseFlag` — was verified against by reflection, and it is what Task 2 projects rather than re-implements. |
 | **`MsspSubnegotiationParser`** | Deleted from the plan entirely. Option 70 is TNC's, and there is no subnegotiation parser in this repository. Its plaintext half survives as `MsspPlaintextReply` (Task 2), which is the only MSSP parsing MUIndex owns because `MSSP-REQUEST` is not a telnet option. |
 | **MNES `CLIENT_NAME`** | Not reachable: TNC registers no NEW-ENVIRON plugin and exposes no client-side environment send, so §11's self-identification is served by TTYPE/MTTS alone, with the info URL riding the client name. A client-side MNES sender is a good upstream PR. |
 | **`WhoReading`'s fourth state** | Fixed **at source** in Task 3 rather than worked around downstream. `WhoReading.Unread` collapsed "we never asked" into "we asked and could not read the answer", so Plan 2's `PresenceWriter` could not tell spec §5.4's own named bug case from silence and had to infer intent from `MsspVia` — a guess about a different layer. Plan 2's deviation row for it is struck. |

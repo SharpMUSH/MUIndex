@@ -18,7 +18,7 @@ they implement live in `MUI.Discovery` and `MUI.Storage` may not reference it.
 
 **Tech Stack:** .NET 10, C# 14, TUnit on Microsoft.Testing.Platform, Npgsql 10 + Dapper 2 against
 PostgreSQL 17, `Testcontainers.PostgreSql` for integration tests, `MUI.Crawl.Mssp` — MUIndex's own MSSP
-domain types, written by Plan 01 over `TelnetNegotiationCore` 2.6.5 — for host modelling and scope
+domain types, written by Plan 01 over `TelnetNegotiationCore` 2.7.0 — for host modelling and scope
 classification, `Microsoft.Extensions.Hosting.Abstractions` for `BackgroundService`.
 
 **Depends on: Plan 01 for `IProbe`/`ProbeResult` and the `MUI.Crawl.Mssp` domain types, Plan 02 for
@@ -61,7 +61,7 @@ These apply to every task in this plan without being repeated.
 - **The MSSP domain is MUIndex's own, in namespace `MUI.Crawl.Mssp`** — `MsspData`, `MsspHost`,
   `MsspHostScope`, `MsspVariables`. There is no shared package and no external dependency here:
   MUIndex implements its own crawler end to end, and Plan 01 writes these types in `MUI.Crawl`
-  against its own tests, projecting `TelnetNegotiationCore` 2.6.5's own MSSP collection rather than
+  against its own tests, projecting `TelnetNegotiationCore` 2.7.0's own MSSP collection rather than
   re-parsing option 70. `MUI.Discovery` consumes them with `using MUI.Crawl.Mssp;` and never
   re-declares one.
 - **Persistence is PostgreSQL 17 with Npgsql + Dapper and plain numbered `.sql` migration files

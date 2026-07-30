@@ -64,7 +64,7 @@ These apply to every task in this plan without being repeated.
   was ever published and the repository that would have produced it is archived, so MUIndex
   implements its crawler end to end and shares no code with SharpMUTerm. `MsspData`, `MsspHost`,
   `MsspHostScope` and `MsspVariables` live there; telnet option 70 is parsed by
-  `TelnetNegotiationCore` 2.6.5 itself, and `MUI.Crawl.Mssp.MsspPlaintextReply` handles only the
+  `TelnetNegotiationCore` 2.7.0 itself, and `MUI.Crawl.Mssp.MsspPlaintextReply` handles only the
   out-of-band `MSSP-REQUEST` text reply. This plan **consumes** those types through the
   `MUI.Discovery` → `MUI.Crawl` reference and adds no package of its own; never re-declare them.
 - **Persistence is PostgreSQL 17 with Npgsql + Dapper and plain numbered `.sql` migration files
@@ -6774,7 +6774,7 @@ addendum reversed two earlier decisions.
   `MsspHost`, `MsspHostScope` and `MsspVariables` are Plan 01's own types in `MUI.Crawl.Mssp`. For
   this plan that is a `using` and a sentence: the type *names* are unchanged, this plan adds no
   package reference and consumes them through the `MUI.Discovery` → `MUI.Crawl` arrow it already has.
-  `MsspSubnegotiationParser` is gone from the design — `TelnetNegotiationCore` 2.6.5 parses telnet
+  `MsspSubnegotiationParser` is gone from the design — `TelnetNegotiationCore` 2.7.0 parses telnet
   option 70 itself — and nothing in this plan ever named it outside the retired constraint bullet.
 - *The workaround is withdrawn.* Gap-table entry 10 no longer recommends a Plan 01 follow-up; it
   records the fix. Task 15's `PresenceWriter` derives `unmeasurable_reason` from
