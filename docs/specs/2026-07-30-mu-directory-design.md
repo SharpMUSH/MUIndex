@@ -140,8 +140,9 @@ provenance, per-field age (so stale hand-typed MSSP can be greyed out), and a pe
 that is a table of *events that actually happened* — which is also what one wants to render.
 
 **Precedence when sources disagree** (highest first): `handshake` for capability fields, since it
-is observed; `who` for player count; `owner` for enrichment-only fields; `mssp`; `banner`;
-`imported`. `staff` overrides anything, and is logged. A page shows the winning value and offers
+is observed; `owner` for enrichment-only fields; `mssp`; `banner`; `imported`. `staff` overrides
+anything, and is logged. Player count is not a `GameField` and does not use this ladder — it lives
+in §5.2, where `who` outranks `mssp`. A page shows the winning value and offers
 the losing ones with their sources — "declared GMCP, not offered in handshake" is a fact worth
 surfacing, not a conflict to hide.
 
@@ -348,7 +349,7 @@ versioned in git. **Not a wiki**; this is how wiki value is obtained without wik
 ## 10. API and open data
 
 Read-only JSON with stable IDs and ETags. Bulk dumps under an open licence. Time-series endpoints
-for presence and availability. RSS and webhooks on status change.
+for presence and availability. RSS on status change in v1; webhooks are deferred (§14).
 
 Consume Grapevine and the TinTin mudlist as seed sources; republish rather than silo.
 
@@ -362,7 +363,8 @@ Consume Grapevine and the TinTin mudlist as seed sources; republish rather than 
   hashes with a rotating salt, so a unique-player estimate is possible while re-identification
   across salt epochs is not.
 - Raw probe payloads are retained on a short TTL, redacted of names before touching disk, keyed to
-  the ledger writes they produced so that parser improvements can be replayed over a recent window.
+  the `GameField` and `FieldChange` writes they produced so that parser improvements can be
+  replayed over a recent window.
 - Connect screens are displayed on the grounds that the server sends them unauthenticated to every
   anonymous connection. Suppressed on owner request, no questions asked.
 
