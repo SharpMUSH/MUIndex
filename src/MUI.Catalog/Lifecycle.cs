@@ -7,7 +7,7 @@ namespace MUI.Catalog;
 public enum AvailabilityState
 {
     /// <summary>
-    /// Deliberately <em>reachable</em> rather than <c>Up</c> (spec §5.7). We measured a socket from
+    /// Deliberately <em>reachable</em> rather than <c>Up</c> (spec §5.8). We measured a socket from
     /// one vantage point; we did not measure whether the game was up, and "up" claims we did. A game
     /// with a routing problem to our host is unreachable and perfectly alive.
     /// </summary>
