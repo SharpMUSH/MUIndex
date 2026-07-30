@@ -9,11 +9,11 @@ namespace MUI.Catalog;
 /// institution do not deserve the same benefit of the doubt (spec §7.5):
 /// </para>
 /// <code>
-/// grace = clamp(credited_uptime / 4, 60 days, 365 days)
+/// grace = clamp(credited_reachable_time / 4, 60 days, 365 days)
 /// </code>
 /// <para>
-/// The input is <em>cumulative</em> uptime summed from availability intervals, not the span between
-/// first and last sighting — so a game reachable for two years out of five is credited with two, and
+/// The input is <em>cumulative</em> reachable time summed from availability intervals, not the span
+/// between first and last sighting — a game reachable for two years out of five is credited with two, and
 /// a history of flapping accrues nothing for the gaps.
 /// </para>
 /// <para>
@@ -30,8 +30,8 @@ public static class ArchivePolicy
     /// <summary>No game waits longer than this, however venerable.</summary>
     public static readonly TimeSpan Ceiling = TimeSpan.FromDays(365);
 
-    /// <summary>Grace is a quarter of credited uptime before clamping.</summary>
-    public const double UptimeDivisor = 4.0;
+    /// <summary>Grace is a quarter of credited reachable time before clamping.</summary>
+    public const double ReachableDivisor = 4.0;
 
     /// <summary>
     /// Third-party measured history counts for half. Not because it is suspect, but because we cannot
@@ -42,9 +42,9 @@ public static class ArchivePolicy
     /// <summary>
     /// The grace period a game has earned.
     /// </summary>
-    /// <param name="firstPartyUptime">Cumulative uptime this site measured itself.</param>
-    /// <param name="importedMeasuredUptime">
-    /// Cumulative uptime imported from a directory that ran its own probe. Uptime imported from a
+    /// <param name="firstPartyReachable">Cumulative time this site measured the game as reachable.</param>
+    /// <param name="importedMeasuredReachable">
+    /// Cumulative reachable time imported from a directory that ran its own probe. Time imported from a
     /// hand-maintained list is not a parameter here, deliberately: it earns nothing.
     /// </param>
     /// <param name="isClaimed">
@@ -53,20 +53,20 @@ public static class ArchivePolicy
     /// regardless of how long we happen to have been watching.
     /// </param>
     public static TimeSpan GraceFor(
-        TimeSpan firstPartyUptime,
-        TimeSpan importedMeasuredUptime = default,
+        TimeSpan firstPartyReachable,
+        TimeSpan importedMeasuredReachable = default,
         bool isClaimed = false)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(firstPartyUptime, TimeSpan.Zero);
-        ArgumentOutOfRangeException.ThrowIfLessThan(importedMeasuredUptime, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfLessThan(firstPartyReachable, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfLessThan(importedMeasuredReachable, TimeSpan.Zero);
 
         if (isClaimed)
         {
             return Ceiling;
         }
 
-        var credited = firstPartyUptime + importedMeasuredUptime * ImportedMeasuredWeight;
-        var grace = credited / UptimeDivisor;
+        var credited = firstPartyReachable + importedMeasuredReachable * ImportedMeasuredWeight;
+        var grace = credited / ReachableDivisor;
 
         return grace < Floor ? Floor
             : grace > Ceiling ? Ceiling
@@ -78,8 +78,8 @@ public static class ArchivePolicy
     /// </summary>
     public static bool ShouldArchive(
         TimeSpan darkFor,
-        TimeSpan firstPartyUptime,
-        TimeSpan importedMeasuredUptime = default,
+        TimeSpan firstPartyReachable,
+        TimeSpan importedMeasuredReachable = default,
         bool isClaimed = false) =>
-        darkFor >= GraceFor(firstPartyUptime, importedMeasuredUptime, isClaimed);
+        darkFor >= GraceFor(firstPartyReachable, importedMeasuredReachable, isClaimed);
 }

@@ -152,12 +152,17 @@ surfacing, not a conflict to hide.
 ### 5.2 Presence — historical, high volume
 
 ```
-PresenceSample(game_id, at, count, source, aggregates)
+PresenceSample(game_id, at, count NULL, source, unmeasurable_reason NULL, aggregates)
 ```
 
 Partitioned by time; rolled up hourly and daily. `source` distinguishes a WHO parse from MSSP
 `PLAYERS`. Feeds the day-of-week × hour heatmap and trend lines. The only table growing linearly
 with games × time.
+
+**`count` is nullable, and that is load-bearing (§5.4).** A probe that *succeeded* but could not
+yield a number — WHO unparseable and no MSSP `PLAYERS` — writes a row with `count = NULL` and an
+`unmeasurable_reason`. Writing nothing at all would be indistinguishable from not having probed,
+which renders identically to downtime.
 
 `aggregates` is a JSON column holding what §11 permits: idle-time histogram buckets, session-length
 estimates, and a unique-player estimate derived from salted rotating hashes. It is populated only
@@ -169,18 +174,31 @@ when the WHO parser reaches per-player confidence (§6.3); otherwise null.
 AvailabilityInterval(game_id, state, from_at, to_at NULL, cause)
 ```
 
-`state ∈ { up, degraded, unreachable }`; `cause ∈ { dns, refused, tls, timeout, handshake_stalled,
-… }`. A game up for three years is one open row, not twenty-six thousand samples. "Uptime over 90
-days" and "longest outage" become arithmetic over a handful of rows.
+`state ∈ { reachable, degraded, unreachable }`; `cause ∈ { dns, refused, tls, timeout, handshake_stalled,
+… }`. A game reachable for three years is one open row, not twenty-six thousand samples.
+"Reachable over 90 days" and "longest outage" become arithmetic over a handful of rows.
 
 Each probe either extends the open interval or closes it and opens a new one. **Only a cause change
 writes a transition** — a hundred consecutive timeouts are one interval.
 
-### 5.4 The distinction that makes the heatmap honest
+### 5.4 The three states an hour can be in
 
-**Zero players is not the same fact as unreachable.** A failed probe writes an availability
-transition and *no* presence sample. A fortnight of downtime therefore leaves a gap in the heatmap,
-not a fortnight of zeroes that would render as a running-but-dead game.
+**Zero players is not the same fact as unreachable — and neither is "we got in but could not
+count".** The heatmap has three renderings, so the store must distinguish three cases:
+
+| What happened | Written | Renders as |
+|---|---|---|
+| Probe succeeded, count obtained | `PresenceSample(count = n)` | Filled cell, including a measured zero |
+| Probe succeeded, no count obtainable | `PresenceSample(count = NULL, unmeasurable_reason)` | Hatched cell — *probed, unmeasurable* |
+| Probe failed | `AvailabilityInterval` transition, **no** presence row | Empty cell — *not reachable* |
+
+The middle row is the one the first cut of this spec missed: it said only that a *failed* probe
+writes no sample, which left a successful probe with an unparseable WHO writing nothing either —
+identical on screen to downtime. A game whose `DOING` header is customised past our parser would
+have rendered as permanently dark while running fine.
+
+A measured zero is a filled cell, not an absence. It means we got in and nobody was there, which is
+a real and useful fact about a game.
 
 ### 5.5 Endpoints
 
@@ -191,6 +209,29 @@ GameEndpoint(game_id, host, port, kind, first_seen_at, last_seen_at, state)
 `kind ∈ { telnet, tls, websocket, http }`. Plural and historical: a game that moves does not become
 unfindable, because old endpoints are still probed at the backoff floor, and a referral or DNS
 record pointing at an old address re-links to the existing game rather than minting a duplicate.
+
+### 5.6 The field registry, and why staleness is a stored property
+
+Every descriptive field is declared once in a registry: its name, its type, whether it is
+owner-enrichable, and — the part that matters — its **expected refresh window**.
+
+"Old" is not one duration. A player count is stale in hours; a hand-typed MSSP `GENRE` is
+unremarkable at six months and notable at six years. The window belongs beside the field
+definition, not in a front-end conditional, because the API, the plain-text surface and the
+rendered page must all agree on when a value has aged out, and only one of them is a front end.
+
+`GameField` therefore exposes a derived `IsStale(now)` from `last_confirmed_at` plus the
+registry's window for that field. Nothing downstream re-derives it.
+
+### 5.7 Reachable, not uptime
+
+The vocabulary is **reachable** throughout — schema, API, and copy. We measure a socket from one
+vantage point at intervals; we did not measure whether the game was up, and "uptime" claims we did.
+A single game with a routing problem to our host is unreachable and perfectly alive.
+
+This is a naming rule with teeth because the word leaks: `AvailabilityInterval.state` uses
+`Reachable`/`Unreachable`, the API field is `reachablePercent`, and the archive grace input
+(§7.5) is *cumulative reachable time*.
 
 ## 6. The probe
 
@@ -285,7 +326,9 @@ Weighted match over stable signals:
 | Site-issued claim token (§8) | Decisive when present — a claimed game is never duplicated |
 
 Above threshold: auto-merge into the existing game, recording the endpoint change as a
-`FieldChange`. Middling: open a suspected-duplicate pair for review. Below: create a new game.
+`FieldChange`. Middling: open a suspected-duplicate pair for review — **both pages stay live and
+link to each other reciprocally**, because a wrongly hidden game is worse than a visible duplicate.
+Below: create a new game.
 **Merges are reversible and logged.**
 
 Duplicate listings are the specific failure that clutters every incumbent catalogue. This is the
@@ -308,10 +351,10 @@ not a constant, because a fortnight-old game and a decade-old institution do not
 benefit of the doubt:
 
 ```
-grace = clamp(cumulative_measured_uptime / 4, 60 days, 365 days)
+grace = clamp(cumulative_reachable_time / 4, 60 days, 365 days)
 ```
 
-| Measured lifetime up | Grace before archiving |
+| Measured time reachable | Grace before archiving |
 |---|---|
 | ≤ 8 months | 60 days (floor) |
 | 1 year | 91 days |
@@ -326,7 +369,7 @@ flapping does not accrue grace for the gaps. Imported history counts at half wei
 a claim, which is worth a year regardless of how long we have been watching. This is also one more
 concrete reason to claim (§8).
 
-**Known limitation, stated plainly on the about page:** grace is computed from uptime that
+**Known limitation, stated plainly on the about page:** grace is computed from reachable time that
 *somebody probed* — ours at full weight, an importable third party's at half (§7.6). A game running
 since 1995 that no directory ever recorded starts at the floor and accrues from there. We do not
 credit MSSP `CREATED`, because it is hand-typed and unverifiable, and crediting it would make the
@@ -416,15 +459,33 @@ that have gone dark, with the date each was last reachable and how long it was k
 the historical record the incumbents threw away, and it is worth presenting as an asset rather than
 as a bin.
 
-**Game page.** Hero is the ANSI-rendered connect screen. Below it: live count, day × hour activity
-heatmap, uptime, a capability matrix showing **measured beside declared with an age on each**,
-endpoint history, change feed, referral neighbours, outbound links.
+**Game page.** The *game* is the hero — mark, name, its own one-line description, the paragraph it
+wrote about itself, and the address you connect to, in that order and above the fold. The
+ANSI-rendered connect screen follows immediately, labelled *what you see when you connect*, which
+is what it actually is: the first piece of evidence, not the masthead.
+
+This reverses the first cut, on the design handoff's argument, and the argument is right on two
+counts. A reader arriving from a search engine needs to know what the game *is* in one glance, and
+forty lines of box-drawing does not answer that. And the connect screen is the one element we do
+not control — leading with it hands the top of every page to whatever the server happens to send,
+including the blank, enormous and hostile cases.
+
+Below: live count, day × hour activity heatmap, the 90-day reachable strip, a capability matrix
+showing **measured beside declared with an age on each**, endpoint history, change feed, referral
+neighbours, outbound links.
+
+**Plain mode, `?plain=1`**, served automatically to text browsers. Not a courtesy — it is the test
+of the whole system: *if a fact cannot survive in plain text, its graphic on the main site is
+decoration.* Bounded in cost because it renders from the same view models; the graphical game page
+is the plain page with graphics added, not a second document.
 
 **Rankings.** Computed from measured data only.
 
-**Ecosystem dashboard.** Hobby population over time, codebase market share, protocol adoption
-curves (TLS, UTF-8, GMCP, MXP). No existing site publishes these; the crawler produces them as a
-by-product.
+**Ecosystem dashboard.** Codebase market share and protocol adoption curves (TLS, UTF-8, GMCP,
+MXP) — *shares, not totals*. The absolute "how many people play MU\*" figure is deliberately
+withheld (§15.7): a ratio over the measured set survives the unclaimed and unreachable biases, and
+an absolute count does not. No existing site publishes even the ratios; the crawler produces them
+as a by-product.
 
 **The three liveness feeds** — *newly discovered*, *went dark*, *came back*. These are the product
 differentiator and no incumbent can publish them.
@@ -507,5 +568,8 @@ webhooks beyond RSS; non-English UI (listings carry `LANGUAGE` from day one).
 6. **The archive grace factor** in §7.5 — the quarter, the 60-day floor and the 365-day ceiling are
    reasoned but unvalidated. Once a year of availability history exists, check them against what
    actually came back: if returning games were routinely archived first, the factor is too tight.
-7. **Whether the ecosystem dashboard's population figures are defensible enough to publish
-   headline numbers**, given that unreachable ≠ zero and unclaimed games may under-report.
+7. ~~Whether the ecosystem dashboard's population figures are defensible enough to publish headline
+   numbers.~~ **Resolved by the design handoff: they are not, and the absolute figure does not
+   ship.** Per-codebase and per-protocol *shares* do — they are ratios over the same measured set,
+   so the unclaimed and unreachable biases cancel. "How many people play MU\*?" is withheld until
+   there is a method that survives being quoted.

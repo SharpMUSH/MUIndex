@@ -50,10 +50,10 @@ How long it gets is tiered by what we actually measured, because a fortnight-old
 decade-old institution don't deserve the same benefit of the doubt:
 
 ```
-grace = clamp(cumulative_measured_uptime / 4, 60 days, 365 days)
+grace = clamp(cumulative_reachable_time / 4, 60 days, 365 days)
 ```
 
-| Measured lifetime up | Grace before archiving |
+| Measured time reachable | Grace before archiving |
 |---|---|
 | ≤ 8 months | 60 days |
 | 1 year | 91 days |
@@ -96,11 +96,23 @@ Storage splits three ways, because the data has three shapes:
 |---|---|---|
 | Descriptive fields | Current value + source + age; append a row only *on change* | A field that never moves costs one row forever, not one per hour |
 | Presence | High-volume time series, rolled up | Feeds the day × hour activity heatmap |
-| Availability | Intervals, not samples | A game up for three years is one row; "longest outage" is arithmetic |
+| Availability | Intervals, not samples | A game reachable for three years is one row; "longest outage" is arithmetic |
 
-Keeping presence and availability apart is what makes the heatmap honest: **zero players is not the
-same fact as unreachable.** A failed probe writes an availability transition and no presence sample,
-so downtime leaves a gap rather than a run of zeroes that would render as a dead-but-running game.
+Keeping presence and availability apart is what makes the heatmap honest, and an hour has **three**
+states, not two:
+
+| What happened | Renders as |
+|---|---|
+| Probed, count obtained | Filled cell — including a measured zero, which means we got in and nobody was there |
+| Probed, no count obtainable | Hatched cell — the WHO was unparseable and MSSP had no `PLAYERS` |
+| Probe failed | Empty cell — not reachable |
+
+Collapsing the middle case into either neighbour is the worst bug this system could ship: a game
+whose `DOING` header is customised past our parser would otherwise render as permanently dark while
+running perfectly well.
+
+The vocabulary is **reachable**, never *uptime* — we measure a socket from one vantage point, and a
+game with a routing problem to our host is unreachable and perfectly alive.
 
 ## Catalogues
 
@@ -126,8 +138,12 @@ salt epochs is not.
 
 - **[`docs/specs/2026-07-30-mu-directory-design.md`](docs/specs/2026-07-30-mu-directory-design.md)**
   — the system design. Authoritative; read this first.
-- **[`docs/design-brief.md`](docs/design-brief.md)** — input to a site-design session: the
+- **[`docs/design-brief.md`](docs/design-brief.md)** — input to the site-design session: the
   constraints design may not violate, and the areas it must decide.
+- **[`docs/design-handoff.html`](docs/design-handoff.html)** — the delivered visual design. Open it
+  in a browser; it is a self-contained interactive document covering identity, type, colour, the
+  ANSI quotation frame, all seven signature components, page layouts, the nine-state matrix,
+  accessibility, and the claim/owner/ecosystem/crawler/reference surfaces.
 
 ## Building
 
