@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MUI.Catalog</RootNamespace>
+    <AssemblyName>MUI.Catalog</AssemblyName>
+  </PropertyGroup>
+
+  <!--
+    The domain, and deliberately dependency-free. Catalog must not reference MUI.Crawl: the writers
+    that consume a probe result are not allowed to know a socket exists (spec §6.5), and the cheapest
+    way to keep that true is to make the reference impossible.
+  -->
+
+</Project>

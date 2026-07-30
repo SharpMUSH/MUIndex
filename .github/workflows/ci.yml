@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: build & test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore MUIndex.slnx
+
+      # Warnings are errors solution-wide (Directory.Build.props), so a clean build is the signal.
+      - name: Build
+        run: dotnet build MUIndex.slnx -c Release --no-restore
+
+      # TUnit runs on Microsoft.Testing.Platform; execute each test project directly, because the
+      # classic `dotnet test`/VSTest path is not available on .NET 10.
+      - name: Test — Catalog
+        shell: bash
+        run: dotnet run -c Release --no-build --project tests/MUI.Catalog.Tests/MUI.Catalog.Tests.csproj
+
+      - name: Test — Crawl
+        shell: bash
+        run: dotnet run -c Release --no-build --project tests/MUI.Crawl.Tests/MUI.Crawl.Tests.csproj
+
+      - name: Test — Discovery
+        shell: bash
+        run: dotnet run -c Release --no-build --project tests/MUI.Discovery.Tests/MUI.Discovery.Tests.csproj
+
+      - name: Test — Web
+        shell: bash
+        run: dotnet run -c Release --no-build --project tests/MUI.Web.Tests/MUI.Web.Tests.csproj

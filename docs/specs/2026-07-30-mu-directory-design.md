@@ -1,8 +1,10 @@
-# MuIndex — design
+# MUIndex — design
 
 **Status:** approved design, pre-implementation.
 **Date:** 2026-07-30.
-**Working name:** *MuIndex*. Provisional; naming is an open question (§15) and a design-session topic.
+**Name:** **MUIndex**, short form **MUI** — also the assembly prefix (`MUI.Catalog`, `MUI.Crawl`,
+`MUI.Discovery`, `MUI.Web`). Deliberately not `Sharp`-prefixed: a directory that indexes PennMUSH,
+Evennia and DIKU games on equal terms should not wear one server's brand.
 
 ---
 
@@ -494,8 +496,9 @@ webhooks beyond RSS; non-English UI (listings carry `LANGUAGE` from day one).
 
 ## 15. Open questions
 
-1. **Name and domain.** *MuIndex* is a placeholder.
-2. **Licence** for the codebase, and the licence for the published dataset (they need not match).
+1. **Domain.** The name is settled; the domain is not.
+2. **Dataset licence.** The codebase is MIT. The licence for the *published data* is a separate
+   decision and need not match.
 3. **Hosting and cost envelope**, which bounds probe frequency and retention.
 4. **Retention policy** for `PresenceSample` before rollup, and the salt rotation period for §11
    aggregates.

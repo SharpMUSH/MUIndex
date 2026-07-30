@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>MUI.Web</RootNamespace>
+    <AssemblyName>MUI.Web</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MUI.Catalog\MUI.Catalog.csproj" />
+    <ProjectReference Include="..\MUI.Crawl\MUI.Crawl.csproj" />
+    <ProjectReference Include="..\MUI.Discovery\MUI.Discovery.csproj" />
+  </ItemGroup>
+
+  <!--
+    The single deployable: public site, owner dashboard, read API, and the crawler as an in-process
+    BackgroundService against the same database (spec §4.11). Two things that entails, both of which
+    are correctness rather than hygiene: a wedged probe must be hard-bounded so it cannot starve
+    request threads, and the crawl loop must be gated behind a lock so N web replicas still run
+    exactly one crawler (spec §12).
+  -->
+
+</Project>

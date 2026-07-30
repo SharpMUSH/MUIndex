@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MUI.Discovery</RootNamespace>
+    <AssemblyName>MUI.Discovery</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MUI.Catalog\MUI.Catalog.csproj" />
+    <ProjectReference Include="..\MUI.Crawl\MUI.Crawl.csproj" />
+  </ItemGroup>
+
+</Project>

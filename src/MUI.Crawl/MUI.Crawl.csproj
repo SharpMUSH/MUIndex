@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MUI.Crawl</RootNamespace>
+    <AssemblyName>MUI.Crawl</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TelnetNegotiationCore" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <!--
+    No reference to MUI.Catalog, and that is the point. A ProbeResult is raw observation; turning it
+    into catalogue state is Discovery's job. Keeping the arrow one-way means every downstream writer
+    is testable against a captured fixture with no network anywhere in sight (spec §6.5, §13).
+  -->
+
+</Project>

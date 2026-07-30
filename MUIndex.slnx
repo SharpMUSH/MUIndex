@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MUI.Catalog/MUI.Catalog.csproj" />
+    <Project Path="src/MUI.Crawl/MUI.Crawl.csproj" />
+    <Project Path="src/MUI.Discovery/MUI.Discovery.csproj" />
+    <Project Path="src/MUI.Web/MUI.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MUI.Catalog.Tests/MUI.Catalog.Tests.csproj" />
+    <Project Path="tests/MUI.Crawl.Tests/MUI.Crawl.Tests.csproj" />
+    <Project Path="tests/MUI.Discovery.Tests/MUI.Discovery.Tests.csproj" />
+    <Project Path="tests/MUI.Web.Tests/MUI.Web.Tests.csproj" />
+  </Folder>
+</Solution>

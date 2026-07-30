@@ -1,0 +1,25 @@
+<Project>
+
+  <!-- Central package version management for the whole solution. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Telnet negotiation. The probe engine is this library pointed outward: the handshake it performs
+      IS the capability measurement (spec §6.1), so what a server offers is observed rather than
+      taken from a game's own MSSP claim.
+    -->
+    <PackageVersion Include="TelnetNegotiationCore" Version="2.6.0" />
+
+    <!-- Logging abstractions (TelnetNegotiationCore takes an ILogger). -->
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Test stack: TUnit (source-generated, runs on Microsoft.Testing.Platform). -->
+    <PackageVersion Include="TUnit" Version="1.61.38" />
+  </ItemGroup>
+
+</Project>

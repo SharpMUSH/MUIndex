@@ -1,4 +1,4 @@
-# MuIndex
+# MUIndex
 
 An information site for the MU\* hobby — MUSHes, MUDs, MUCKs, MOOs — whose distinguishing property
 is that **its data is measured rather than asserted**.
@@ -6,7 +6,10 @@ is that **its data is measured rather than asserted**.
 Every fact on a game's page carries how it was obtained and how old it is. The catalogue is a
 by-product of continuous measurement, not a form somebody filled in once.
 
-> **Status:** design complete, nothing implemented. *MuIndex* is a working name.
+> **Status:** design complete, implementation not started. What exists is the design, a brief for a
+> site-design session, and a solution skeleton holding the few types the spec pinned down concretely.
+
+Short form **MUI**, which is also the assembly prefix.
 
 ---
 
@@ -126,7 +129,26 @@ salt epochs is not.
 - **[`docs/design-brief.md`](docs/design-brief.md)** — input to a site-design session: the
   constraints design may not violate, and the areas it must decide.
 
+## Building
+
+.NET 10, with `TreatWarningsAsErrors` on solution-wide so a clean build means something.
+
+```bash
+dotnet build MUIndex.slnx -c Release
+```
+
+Tests are [TUnit](https://tunit.dev/) on Microsoft.Testing.Platform. `dotnet test` does **not** work
+— .NET 10 dropped VSTest — so each suite is run directly, with `</dev/null` to stop the test host
+waiting on stdin:
+
+```bash
+dotnet run -c Release --no-build --project tests/MUI.Catalog.Tests   </dev/null
+dotnet run -c Release --no-build --project tests/MUI.Crawl.Tests     </dev/null
+dotnet run -c Release --no-build --project tests/MUI.Discovery.Tests </dev/null
+dotnet run -c Release --no-build --project tests/MUI.Web.Tests       </dev/null
+```
+
 ## Licence
 
-Undecided — see the open questions in the spec. The codebase licence and the published dataset
-licence need not match.
+Code is [MIT](LICENSE). The licence for the **published dataset** is a separate decision and is
+still open — see the spec's open questions.

@@ -35,8 +35,8 @@ wrong regardless of how it looks.
 
 ## 1. Identity
 
-- **Name.** *MuIndex* is a placeholder. Requirements: says "MU\*" not "MUD" (MUSH/MUCK/MOO players
-  read MUD-branding as not-for-them), pronounceable, domain-available.
+- **Name.** Settled: **MUIndex**, short form **MUI**. Not up for redesign — but how the wordmark
+  treats the `MU` is, and the domain is still open.
 - **Positioning line.** One sentence that communicates *measured, not asserted*, without jargon.
 - **Tone.** Where does it sit between archival/institutional (a register of record) and
   enthusiast/warm (a hobby site)? The data is rigorous; the subject is people's creative
