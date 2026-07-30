@@ -33,8 +33,32 @@ Three design decisions, one per failure:
 - **Rankings computed only from measured data.** There is no voting affordance anywhere on the
   site, and there never will be.
 - **A permanent probe floor.** Failures lengthen the probe interval exponentially but never past a
-  floor — a game dark for two years is still checked weekly, forever. Nothing is ever deleted;
-  archived games keep their page, their history and their URL.
+  floor — a game dark for two years is still checked weekly, forever, *including after it has been
+  archived*. Nothing is ever deleted.
+
+### The archive
+
+A game that stays dark eventually leaves the default listing, but only ever *into* the archive —
+a browsable section in its own right, never a deletion. Its page, URL, history and change feed are
+untouched, and a single successful probe restores it to the listing and fires the *came back* feed.
+No human is involved in either direction.
+
+How long it gets is tiered by what we actually measured, because a fortnight-old game and a
+decade-old institution don't deserve the same benefit of the doubt:
+
+```
+grace = clamp(cumulative_measured_uptime / 4, 60 days, 365 days)
+```
+
+| Measured lifetime up | Grace before archiving |
+|---|---|
+| ≤ 8 months | 60 days |
+| 1 year | 91 days |
+| 2 years | 182 days |
+| ≥ 4 years | 365 days |
+
+Cumulative rather than span, so a game up two years out of five is credited with two. **A claimed
+game always gets the ceiling** — someone with server access has demonstrably staked a claim.
 
 ## What gets measured
 

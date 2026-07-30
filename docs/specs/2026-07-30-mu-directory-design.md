@@ -291,18 +291,66 @@ component that prevents it.
 ### 7.4 Unreachable never means removed
 
 Failures lengthen the probe interval exponentially **against a floor** — a game dark for two years
-is still probed weekly, forever. A returning game therefore re-lists itself with no human involved,
-which is precisely what no incumbent managed (§3).
+is still probed weekly, forever, *including after it has been archived*. A returning game therefore
+re-lists itself with no human involved, which is precisely what no incumbent managed (§3).
 
 Lifecycle states are presentational, derived from availability history: `active` → `quiet` →
 `dark` → `archived`. **Nothing is ever deleted.** An archived game keeps its page, its history and
 its URL — the historical record is part of the product.
 
-### 7.5 Scheduling
+### 7.5 Archiving: tiered by measured history
+
+A game that has been dark long enough leaves the default listing for the archive. The threshold is
+not a constant, because a fortnight-old game and a decade-old institution do not deserve the same
+benefit of the doubt:
+
+```
+grace = clamp(cumulative_measured_uptime / 4, 60 days, 365 days)
+```
+
+| Measured lifetime up | Grace before archiving |
+|---|---|
+| ≤ 8 months | 60 days (floor) |
+| 1 year | 91 days |
+| 2 years | 182 days |
+| ≥ 4 years | 365 days (ceiling) |
+
+**Cumulative, not span.** The input is the sum of `up` interval durations from §5.3, so a game
+that was reachable for two years out of five is credited with two. A game with a long history of
+flapping does not accrue grace for the gaps.
+
+**A claimed game always receives the ceiling.** Someone with server access has demonstrably staked
+a claim, which is worth a year regardless of how long we have been watching. This is also one more
+concrete reason to claim (§8).
+
+**Known limitation, stated plainly on the about page:** grace is computed from uptime *we measured*,
+so a game running since 1995 that we discovered last month starts at the floor and accrues from
+there. We do not credit MSSP `CREATED`, because it is hand-typed and unverifiable, and crediting it
+would make the archive threshold trivially gameable.
+
+#### What archiving does and does not do
+
+| | Archived game |
+|---|---|
+| Default listing and search | **Excluded.** Reachable via an explicit *include archived* filter and a dedicated archive section |
+| Rankings | Excluded |
+| "Games active today" headline | Excluded |
+| Historical series on the ecosystem dashboard | **Included**, for the periods it was actually up — archiving changes presentation, never the past |
+| Its own page, URL, history, change feed | Unchanged, plus a clear statement of when it went dark and how long it was known live |
+| Probing | Continues at the weekly floor, forever |
+| API | Present, with `state` as a field; `?include=archived` on collection endpoints |
+| Search-engine indexing | Retained — the historical record is part of the product |
+
+**Un-archiving is automatic and immediate.** One successful probe restores the game to the default
+listing and fires the *came back* feed (§9). Archiving is never a manual action, never permanent,
+and never requires a human on either side of the transition.
+
+### 7.6 Scheduling
 
 A single scheduler picks due targets by `next_probe_at`, feeding a bounded worker pool. Interval is
 `max(CRAWL DELAY, base_interval)`, tightened for games with recent activity, lengthened on failure,
-floored per §7.4. Per-host serialisation prevents a multi-port game from being hit concurrently.
+floored per §7.4. Archiving does not change the schedule. Per-host serialisation prevents a
+multi-port game from being hit concurrently.
 
 ## 8. Claiming and ownership
 
@@ -324,8 +372,13 @@ Owner-published outputs: a live player-count SVG badge and a JSON endpoint for t
 ## 9. Site surface, v1
 
 **Game listing.** Faceted search over the MSSP taxonomy plus derived facets: activity band,
-*measured* protocol support, TLS, charset, language, last-seen. Random game. A find-a-game facet
-wizard.
+*measured* protocol support, TLS, charset, language, last-seen. Archived games are excluded by
+default and reachable via an *include archived* toggle. Random game. A find-a-game facet wizard.
+
+**The archive.** A first-class section, not a hidden flag — browsable and searchable over games
+that have gone dark, with the date each was last reachable and how long it was known live. This is
+the historical record the incumbents threw away, and it is worth presenting as an asset rather than
+as a bin.
 
 **Game page.** Hero is the ANSI-rendered connect screen. Below it: live count, day × hour activity
 heatmap, uptime, a capability matrix showing **measured beside declared with an age on each**,
@@ -397,8 +450,8 @@ failures degrade to `unknown` and are logged with the response redacted.
 ## 14. v1 boundary
 
 **In:** probe engine, discovery graph, identity matcher, the three storage shapes, auto-listing,
-claiming, game listing and game pages, the three liveness feeds, ecosystem dashboard, read API,
-hand-written reference pages for clients/codebases/protocols.
+claiming, game listing and game pages, tiered archiving and the archive section, the three liveness
+feeds, ecosystem dashboard, read API, hand-written reference pages for clients/codebases/protocols.
 
 **Out, designed for but not built:** automated tracking of client and codebase releases; protocol
 conformance matrices derived from measured handshakes; hosting-provider and tools catalogues;
@@ -413,5 +466,8 @@ webhooks beyond RSS; non-English UI (listings carry `LANGUAGE` from day one).
    aggregates.
 5. **Auto-merge threshold** in §7.3 — needs calibration against real data, so ship conservative and
    tune.
-6. **Whether the ecosystem dashboard's population figures are defensible enough to publish
+6. **The archive grace factor** in §7.5 — the quarter, the 60-day floor and the 365-day ceiling are
+   reasoned but unvalidated. Once a year of availability history exists, check them against what
+   actually came back: if returning games were routinely archived first, the factor is too tight.
+7. **Whether the ecosystem dashboard's population figures are defensible enough to publish
    headline numbers**, given that unreachable ≠ zero and unclaimed games may under-report.

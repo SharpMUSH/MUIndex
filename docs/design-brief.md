@@ -110,7 +110,7 @@ For each: what it must carry, what is above the fold, and what it degrades to on
 1. Home
 2. Game listing / search results
 3. **Game page** (the most important page on the site)
-4. Archived-game page (same URL, different treatment)
+4. Archived-game page (same URL, different treatment) — and the archive section that indexes them
 5. Ecosystem dashboard
 6. Client / codebase / protocol reference pages
 7. Orientation and explainer articles
@@ -126,6 +126,13 @@ Every one of these will occur on real data and needs a designed answer:
 - Discovered but unclaimed (the majority of listings at launch).
 - Claimed and enriched (the aspirational state — it should visibly reward claiming).
 - Dark for a week / a year / three years.
+- **Archived** — out of the default listing, still probed, still permanently addressable. Needs a
+  treatment that reads as *historical record*, not as *deleted* or *failed*. The archive is a
+  browsable section in its own right (spec §7.5), so it needs an entry point in the IA, an
+  *include archived* affordance on the listing, and a page treatment stating when the game was last
+  reachable and how long it was known live.
+- **Just came back** — un-archived by a successful probe after months or years dark. The most
+  delightful state on the site; design it as one.
 - Player count unknown because WHO was unparseable and MSSP `PLAYERS` is absent.
 - Connect screen suppressed by the owner.
 - Declared and measured capabilities in conflict.
