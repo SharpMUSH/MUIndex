@@ -375,6 +375,34 @@ A referred host must independently answer MSSP with its own `NAME`/`HOSTNAME` be
 Depth and fan-out per source are capped. The referring game is recorded on the discovered entry so
 that a hostile or careless `REFERRAL` list can be traced and its whole subtree pruned.
 
+#### The gate is on the resolved address, not the name
+
+**Checking the hostname is not enough, and treating it as enough is a server-side request forgery
+hole.** `10.0.0.5` and `localhost` are refused by inspection, but nothing stops a hostile `REFERRAL`
+naming `games.example.com` and pointing its DNS at `127.0.0.1`, `169.254.169.254`, or anything on
+the network the crawler happens to run inside. The name passes; the socket goes somewhere it must
+never go.
+
+So every dial resolves first and is refused unless **every** returned address is globally routable:
+
+- **Refuse, don't filter.** If a name answers with one public address and one private one, the whole
+  target is refused. Connecting to "the good one" is a coin flip we would lose the moment DNS
+  reordered, and a mixed answer is itself evidence of intent.
+- **"Could not resolve" and "resolved somewhere we won't go" are different facts**, and only the
+  second is a refusal. The first is an ordinary DNS failure and gets ordinary backoff.
+- **A refusal writes no availability sample.** We declined to dial; we did not measure. Recording it
+  as downtime would put our own security policy into a game's public reachability history, which is
+  the same class of lie as recording an unparseable WHO as zero players (§5.4).
+- **Operator-supplied seeds may be exempted, and nothing else may.** The exemption is a stored
+  property defaulting to *not exempt*, never inferred, and never granted by a referral or an import —
+  so the dangerous paths are guarded by not having to remember to guard them.
+
+**Known limitation, stated rather than implied:** this is a time-of-check-to-time-of-use gap. The
+name is resolved, then connected by name, so a DNS answer that changes in between is not caught. The
+fix is to connect to the pinned `IPAddress` that was checked rather than re-resolving, and it is
+worth doing. Caching resolutions would *widen* this window, so the crawler resolves per dial. Do not
+restate the guard as airtight; it raises the cost of the attack, it does not close it.
+
 ### 7.3 Identity: scored fingerprint, auto-merge above threshold
 
 Weighted match over stable signals:
