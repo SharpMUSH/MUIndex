@@ -16,8 +16,9 @@ limiter. Persistence is plain SQL migrations in `src/MUI.Storage/Migrations` app
 they implement live in `MUI.Discovery` and `MUI.Storage` may not reference it.
 
 **Tech Stack:** .NET 10, C# 14, TUnit on Microsoft.Testing.Platform, Npgsql 10 + Dapper 2 against
-PostgreSQL 17, `Testcontainers.PostgreSql` for integration tests, `SharpMU.Mssp` for MSSP host modelling
-and scope classification, `Microsoft.Extensions.Hosting.Abstractions` for `BackgroundService`.
+PostgreSQL 17, `Testcontainers.PostgreSql` for integration tests, `MUI.Crawl.Mssp` — MUIndex's own MSSP
+domain types, written by Plan 01 over `TelnetNegotiationCore` 2.6.5 — for host modelling and scope
+classification, `Microsoft.Extensions.Hosting.Abstractions` for `BackgroundService`.
 
 **Depends on: Plan 01 for `IProbe`/`ProbeResult`, Plan 02 for `MUI.Storage`, the repositories, the
 `MigrationRunner` and `ProbeIngestor`. This plan is what makes the crawler run unattended.**
@@ -54,11 +55,12 @@ These apply to every task in this plan without being repeated.
 - **Branch from `main`, open a PR, never commit directly to `main`.**
 - **Any new test project goes into `MUIndex.slnx` AND `.github/workflows/ci.yml`**, which runs each
   suite as its own explicit step.
-- **The shared MSSP package is `SharpMU.Mssp`** — namespace `SharpMU.Mssp`, referenced as
-  `<PackageReference Include="SharpMU.Mssp" />` with a central `<PackageVersion>` in
-  `Directory.Packages.props`. It is **model and parsing only**: no transport, no probe, no
-  scheduling. Never re-declare `MsspData`, `MsspHost`, `MsspVariables` or
-  `MsspSubnegotiationParser` locally.
+- **The MSSP domain is MUIndex's own, in namespace `MUI.Crawl.Mssp`** — `MsspData`, `MsspHost`,
+  `MsspHostScope`, `MsspVariables`. There is no shared package and no external dependency here:
+  MUIndex implements its own crawler end to end, and Plan 01 writes these types in `MUI.Crawl`
+  against its own tests, projecting `TelnetNegotiationCore` 2.6.5's own MSSP collection rather than
+  re-parsing option 70. `MUI.Discovery` consumes them with `using MUI.Crawl.Mssp;` and never
+  re-declares one.
 - **Persistence is PostgreSQL 17 with Npgsql + Dapper and plain numbered `.sql` migration files
   applied by a small idempotent runner. No EF Core**, ever. Integration tests use
   `Testcontainers.PostgreSql`.
@@ -67,14 +69,23 @@ These apply to every task in this plan without being repeated.
 
 ## The one thing this plan must not get wrong
 
-**Nothing is ever retired.** SharpMUTerm's `CrawlFrontier` — the prior art this plan otherwise lifts
-from freely — retires a host after `RetireAfterFailures` consecutive failures and never dials it
-again. **MUIndex must never do that.** Spec §7.4 is explicit: a game dark for two years is still
-probed weekly, forever, *including after it has been archived*, because that is precisely what no
-incumbent managed (§3: MudStats came back in Sept 2024, TMC in Jul 2023, and no directory noticed
-automatically — including their own). There is no `retired` column in `crawl_target`, no
-`RetireAfterFailures` option, and no code path that removes a row. `ProbeSchedule` lengthens the
-interval and clamps it; it never returns "never".
+**Nothing is ever retired.** The scheduler this plan builds is MUIndex's own, answering §7.1 and §7.4
+on their own terms: a **Postgres-backed permanent registry, selected by `next_probe_at`, that never
+retires a host**. Spec §7.4 is explicit — a game dark for two years is still probed weekly, forever,
+*including after it has been archived*, because that is precisely what no incumbent managed (§3:
+MudStats came back in Sept 2024, TMC in Jul 2023, and no directory noticed automatically — including
+their own). There is no `retired` column in `crawl_target`, no `RetireAfterFailures` option, and no
+code path that removes a row. `ProbeSchedule` lengthens the interval and clamps it; it never returns
+"never".
+
+SharpMUTerm's in-memory `CrawlFrontier` was read while this was designed and answers a *different*
+question: it holds one bounded run's hosts in a dictionary, keyed on a normalised `MsspHost`, and
+retires a host after `RetireAfterFailures` consecutive failures because a run has to end. A registry
+that grows monotonically forever and outlives every process that touches it has no such moment.
+Prior art may be read; **nothing is shared, inherited or ported.** Every type below is MUIndex's own,
+in MUIndex's namespaces, with MUIndex's own tests —
+`CrawlTargetSchemaTests.ThereIsNoRetiredColumnAndThereNeverWillBe` is the one that holds the
+difference in place.
 
 ### The wording trap in §7.4, stated once so nobody clamps the wrong way
 
@@ -104,9 +115,9 @@ are stated; the default remains "copy the contract verbatim".
 | Name | Namespace | Why |
 |---|---|---|
 | `ActivityBand` | `MUI.Discovery` | §7.7 says the interval is "tightened for games with recent activity". The contract's `ProbeSchedule.Next(int, TimeSpan?)` cannot express it. |
-| `CrawlRateLimiter` | `MUI.Discovery` | The contract has `DiscoveryOptions.GlobalInterval`/`PerHostInterval` but no type that consumes them. Lifted from SharpMUTerm's `CrawlRateLimiter`. |
+| `CrawlRateLimiter` | `MUI.Discovery` | The contract has `DiscoveryOptions.GlobalInterval`/`PerHostInterval` but no type that consumes them. Written here, keyed on the host rather than on (host, port). |
 | `IGameFieldIndex`, `NpgsqlGameFieldIndex` | `MUI.Discovery`, `MUI.Discovery.Storage` | Identity needs a **reverse** lookup ("which game has `name` = *Corvid*"). Plan 2's `IGameFieldRepository` only reads forward, by game id. |
-| `IdentityFields`, `ClaimToken`, `IdentitySignals` | `MUI.Discovery` | The field-name vocabulary the matcher compares on, the two places a claim token can appear, and signal→JSON. |
+| `IdentityFields`, `ClaimTokenBeacon`, `IdentitySignals` | `MUI.Discovery` | The field-name vocabulary the matcher compares on, the two places a claim-token *beacon* can be read off a probe, and signal→JSON. `ClaimTokenBeacon` is deliberately not `ClaimToken` — Plan 06 owns `MUI.Catalog.ClaimToken`, the issued record, and both are in scope here. |
 | `MergeApplier` | `MUI.Discovery` | `IdentityMatcher` only *decides*. Something has to attach the endpoint and write the `FieldChange`. |
 | `DuplicateReview`, `IDuplicateReviewRepository`, `NpgsqlDuplicateReviewRepository` | `MUI.Discovery`, `.Storage` | §7.3's "suspected-duplicate pair … both pages stay live and link to each other reciprocally" has no contract type. |
 | `GameListingGate`, `Slug` | `MUI.Discovery` | §7.2's "must independently answer MSSP with its own `NAME`/`HOSTNAME` before it is listed", and a slug for a newly created game. |
@@ -156,7 +167,7 @@ taking `NpgsqlDataSource`.** This plan also assumes Plan 2's `game_field` table 
 | `src/MUI.Discovery/BannerFingerprint.cs` | ANSI-stripped, whitespace-collapsed SHA-256. |
 | `src/MUI.Discovery/HostGate.cs` | Per-host serialisation. |
 | `src/MUI.Discovery/CrawlRateLimiter.cs` | Two time floors; answers questions, never sleeps for you. |
-| `src/MUI.Discovery/Identity.cs` | `IdentitySignal`, `IdentityScore`, `IdentityWeights`, `IdentityVerdict`, `IdentityFields`, `ClaimToken`, `IdentitySignals`, `IGameFieldIndex`. |
+| `src/MUI.Discovery/Identity.cs` | `IdentitySignal`, `IdentityScore`, `IdentityWeights`, `IdentityVerdict`, `IdentityFields`, `ClaimTokenBeacon`, `IdentitySignals`, `IGameFieldIndex`. |
 | `src/MUI.Discovery/IdentityMatcher.cs` | The scored fingerprint. |
 | `src/MUI.Discovery/MergeLog.cs` | `MergeRecord`, `IMergeLog`. |
 | `src/MUI.Discovery/DuplicateReview.cs` | `DuplicateReview`, `IDuplicateReviewRepository`. |
@@ -202,7 +213,6 @@ Plans 1 and 2 add some of these:**
     <!-- BackgroundService for the in-process crawler (spec §4.11). -->
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.2" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.2" />
-    <PackageVersion Include="SharpMU.Mssp" Version="1.0.0" />
     <PackageVersion Include="Npgsql" Version="10.0.0" />
     <PackageVersion Include="Dapper" Version="2.1.66" />
 ```
@@ -225,8 +235,11 @@ Replace the `<ItemGroup>` in `src/MUI.Discovery/MUI.Discovery.csproj` with:
     <ProjectReference Include="..\MUI.Storage\MUI.Storage.csproj" />
   </ItemGroup>
 
+  <!--
+    No MSSP package reference, deliberately. The MSSP domain types live in MUI.Crawl.Mssp, which the
+    ProjectReference above already brings in; MUIndex implements its own crawler end to end.
+  -->
   <ItemGroup>
-    <PackageReference Include="SharpMU.Mssp" />
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
@@ -947,10 +960,12 @@ namespace MUI.Discovery;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>There is no retirement here, and there must never be.</b> SharpMUTerm's crawl frontier retires a
-/// host after a handful of consecutive failures; this one lengthens the interval and clamps it. Spec
-/// §7.4 is explicit that a game dark for two years is still probed weekly, forever, including after it
-/// has been archived — which is exactly what no incumbent managed (spec §3).
+/// <b>There is no retirement here, and there must never be.</b> This schedule serves a permanent
+/// registry that grows monotonically and outlives every process that touches it, so failure has only
+/// one effect: the interval lengthens, and it is clamped. Spec §7.4 is explicit that a game dark for
+/// two years is still probed weekly, forever, including after it has been archived — which is exactly
+/// what no incumbent managed (spec §3). A bounded single-run frontier can afford to give a host up
+/// because its run ends; this one has no such moment, so it has no such verdict.
 /// </para>
 /// <para>
 /// <b>The wording trap.</b> §7.4 calls the clamp a "floor". It means a floor under <em>frequency</em>
@@ -1089,8 +1104,8 @@ public class CrawlTargetSchemaTests
     [Test]
     public async Task ThereIsNoRetiredColumnAndThereNeverWillBe()
     {
-        // Spec §7.4. SharpMUTerm's frontier retires a host after N failures; MUIndex must not, because a
-        // game that comes back must re-list itself with no human involved — the one thing no incumbent
+        // Spec §7.4. This registry is permanent, so it has no retirement verdict at all: a game that
+        // comes back must re-list itself with no human involved, which is the one thing no incumbent
         // managed. If this test ever fails, the fix is to delete the column, not the test.
         var source = await PostgresFixture.SourceAsync();
 
@@ -1142,11 +1157,11 @@ Create `src/MUI.Storage/Migrations/0010_crawl_target.sql`:
 -- scheduled, so the referring game is recorded (discovered_from_game_id) purely so a poisoned source
 -- can be traced — losing the referral does not lose the target.
 --
--- THERE IS NO `retired` COLUMN, DELIBERATELY. SharpMUTerm's crawler retires a host after N consecutive
--- failures. This one must not: §7.4 says a game dark for two years is still probed weekly, for ever,
--- including after archiving, because a returning game re-listing itself with no human involved is the
--- thing every incumbent failed at (§3 — MudStats returned Sept 2024, TMC Jul 2023, and no directory
--- noticed automatically, including their own). Backoff lengthens the interval; it never says "never".
+-- THERE IS NO `retired` COLUMN, DELIBERATELY. This is a permanent registry, not one run's work queue:
+-- §7.4 says a game dark for two years is still probed weekly, for ever, including after archiving,
+-- because a returning game re-listing itself with no human involved is the thing every incumbent failed
+-- at (§3 — MudStats returned Sept 2024, TMC Jul 2023, and no directory noticed automatically, including
+-- their own). Backoff lengthens the interval; it never says "never".
 
 CREATE TABLE crawl_target (
     id                      uuid        PRIMARY KEY,
@@ -2302,7 +2317,8 @@ git commit -m "feat: the referral graph as provenance, with wholesale subtree tr
 
 **Interfaces:**
 - Consumes: `IReferralRepository`, `ICrawlTargetRepository`, `DiscoveryOptions`, `ReferralVerdict`,
-  `ReferralIntake`, `ProbeResult`, `MsspData`, `MsspHost.IsCrawlable`, `ManualTimeProvider`.
+  `ReferralIntake`, `ProbeResult`, and from Plan 01's `MUI.Crawl.Mssp`: `MsspData`, `MsspHost` and its
+  `IsCrawlable`; plus `ManualTimeProvider`.
 - Produces: `MUI.Discovery.ReferralGraphWriter(IReferralRepository edges, ICrawlTargetRepository targets, DiscoveryOptions options, TimeProvider time)`
   with `Task<ReferralIntake> ApplyAsync(Guid fromGameId, int fromDepth, ProbeResult result, CancellationToken ct)`.
   Test doubles `InMemoryReferralRepository`, `InMemoryCrawlTargetRepository`, and
@@ -2435,7 +2451,7 @@ Create `tests/MUI.Discovery.Tests/Support/ProbeResults.cs`:
 
 ```csharp
 using MUI.Crawl;
-using SharpMU.Mssp;
+using MUI.Crawl.Mssp;
 
 namespace MUI.Discovery.Tests.Support;
 
@@ -2466,7 +2482,9 @@ public static class ProbeResults
         Mssp = mssp ?? MsspData.Empty,
         MsspVia = mssp is null ? MsspTransport.None : MsspTransport.TelnetOption70,
         Banner = banner,
-        Who = who ?? WhoReading.Unread,
+        // NotAttempted, not Unreadable: a fixture that says nothing about WHO must not claim we asked
+        // and failed. Plan 01 split those two states apart; `WhoReading.Unread` no longer exists.
+        Who = who ?? WhoReading.NotAttempted,
     };
 
     public static ProbeResult Failed(
@@ -2692,7 +2710,7 @@ Expected: FAIL — `ReferralGraphWriter` does not exist.
 - [ ] **Step 4: Append the writer**
 
 Append to `src/MUI.Discovery/ReferralGraphWriter.cs`, with `using MUI.Crawl;` and
-`using SharpMU.Mssp;` at the top of the file:
+`using MUI.Crawl.Mssp;` at the top of the file:
 
 ```csharp
 /// <summary>
@@ -2705,7 +2723,9 @@ Append to `src/MUI.Discovery/ReferralGraphWriter.cs`, with `using MUI.Crawl;` an
 /// MSSP with its own <c>NAME</c>, which happens in the crawl loop and not here.
 /// </para>
 /// <para>
-/// <b>Scope is checked with <see cref="MsspHost.IsCrawlable"/>, from the shared package.</b> A referral
+/// <b>Scope is checked with <see cref="MsspHost.IsCrawlable"/>, from <c>MUI.Crawl.Mssp</c>.</b> That is
+/// MUIndex's own type, written by Plan 01 against its own tests — the gate is not borrowed and not
+/// taken on trust from a package. A referral
 /// into loopback, RFC 1918, link-local — which includes the cloud metadata address
 /// <c>169.254.169.254</c> — or multicast is either a server misreporting itself or an attempt to aim
 /// somebody else's crawler at a network it cannot otherwise reach. Neither is worth a packet, and
@@ -2986,9 +3006,9 @@ public class CrawlRateLimiterTests
     [Test]
     public async Task PortsOnOneMachineShareTheHostLimitBecauseTheKeyIsTheHost()
     {
-        // The divergence from SharpMUTerm's limiter, which keys on host *and* port. Here HostGate owns
-        // "not two at once" and the limiter owns "not two in quick succession", and both mean the
-        // machine rather than the socket — six advertised ports are one server operator's box.
+        // The key is the host, not (host, port). HostGate owns "not two at once" and the limiter owns
+        // "not two in quick succession", and both mean the machine rather than the socket — six
+        // advertised ports are one server operator's box, and politeness is owed to the operator.
         var time = new ManualTimeProvider();
         var limiter = new CrawlRateLimiter(Options, time);
 

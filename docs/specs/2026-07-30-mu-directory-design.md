@@ -111,8 +111,26 @@ Peak activity hours are *derived from the crawl*, not asked for.
    DNS TXT.
 10. **Identity: scored fingerprint with auto-merge above threshold.**
 11. **Stack:** one ASP.NET Core deployable; crawler as an in-process `BackgroundService`; one
-    database. Probe engine built on **TelnetNegotiationCore**.
-12. **v1:** crawler + game listings + hand-written reference pages for the other three catalogues.
+    **PostgreSQL** database (Npgsql + Dapper, SQL migrations, no EF Core). Probe engine built
+    directly on **TelnetNegotiationCore**, with MUIndex owning its own MSSP domain types — see
+    §4.13.
+12. **No shared crawler library.** MUIndex implements its own crawler; SharpMUTerm keeps its own.
+    Extracting a common package was tried and abandoned: TelnetNegotiationCore 2.6.5 had already
+    absorbed most of what was worth sharing, and the remainder — an in-memory bounded-run frontier —
+    is a different shape from a permanent database-backed registry that never retires a host (§7.4).
+    What MUIndex owns instead is small: host/referral parsing with private-address scope gating
+    (§7.2), and the domain readings TNC does not provide (`CRAWL DELAY -1` as "no preference", ports
+    validated as ports, `REFERRAL` as crawlable hosts).
+13. **Postgres, despite the referral graph.** The graph is real but shallow and small — order 10k
+    edges, almost all queries one hop, with recursive traversal needed only for §7.2's subtree prune
+    and a discovery path. A recursive CTE covers both. Everything that actually dominates the
+    workload — partitioned presence time series, availability interval arithmetic, faceted counts —
+    is where relational is strongest and graph stores are weakest, so a graph database would
+    optimise a twentieth of the queries at the expense of the rest. **Revisit if, and only if, the
+    referral graph becomes something the product queries rather than records** — shortest paths,
+    community detection, centrality. Centrality in particular would collide with rankings being
+    computed from measured data only (§2).
+14. **v1:** crawler + game listings + hand-written reference pages for the other three catalogues.
 
 ## 5. Domain model
 
@@ -120,14 +138,23 @@ Storage splits three ways because the data has three different shapes and lifeti
 
 ### 5.1 Descriptive fields — current, with age
 
-No append-only ledger. One row per `(game, field)`:
+No append-only ledger. One row per `(game, field, source)`:
 
 ```
-GameField(game_id, field, value, source, confidence, first_seen_at, last_confirmed_at)
+GameField(game_id, field, source, value, first_seen_at, last_confirmed_at)
 ```
 
 `source ∈ { mssp, handshake, who, banner, owner, staff, imported_measured, imported_asserted }`.
 The two import tiers are defined in §7.6.
+
+**Keyed by source, not just by field** — the first cut of this spec said one row per `(game, field)`
+and *also* asked the page to show the losing sources, which cannot both be true. The capability
+matrix's two columns are a design requirement, not an edge case: `GMCP ✕ measured / ◇ declared` needs
+both values, each with its own age, at the same time. The winner is derived at read time by the
+precedence ladder below and is never stored, so it cannot go stale against the rows it summarises.
+
+There is no `confidence` column. Provenance and age carry the meaning between them, and an
+unspecified numeric confidence would be a field nothing sets consistently and nothing renders.
 
 Every probe does exactly one of two things to each field:
 
@@ -138,9 +165,10 @@ Every probe does exactly one of two things to each field:
 FieldChange(game_id, field, old_value, new_value, source, at)
 ```
 
-A game whose `GENRE` never moves costs one row forever, not one per hour. This yields per-field
-provenance, per-field age (so stale hand-typed MSSP can be greyed out), and a per-game change feed
-that is a table of *events that actually happened* — which is also what one wants to render.
+A game whose `GENRE` never moves costs one row per source forever, not one per hour. This yields
+per-field provenance, per-field age (so stale hand-typed MSSP can be greyed out), and a per-game
+change feed that is a table of *events that actually happened* — which is also what one wants to
+render.
 
 **Precedence when sources disagree** (highest first): `handshake` for capability fields, since it
 is observed; `owner` for enrichment-only fields; `mssp`; `banner`; `imported_measured`;
@@ -168,6 +196,18 @@ which renders identically to downtime.
 estimates, and a unique-player estimate derived from salted rotating hashes. It is populated only
 when the WHO parser reaches per-player confidence (§6.3); otherwise null.
 
+**Rollups.** Raw samples are retained for 90 days, then dropped. An hourly rollup — count min/max/mean
+and the three-state tally from §5.4 — is retained for two years; a daily rollup is retained forever. The
+day × hour heatmap reads the hourly rollup over an 8-week window, never the raw table. This is the only
+data in the system that is ever deleted, and only after it has been aggregated into something that
+outlives it.
+
+**Activity band**, the facet §9 exposes, is derived here and defined once: `players now` (a non-null
+count above zero in the most recent hourly rollup), `active this week` (any such count in 7 days),
+`quiet` (reachable within 30 days but no non-zero count), `dark` (not reachable), `archived` (§7.5).
+A game whose counts are all unmeasurable is `quiet`, never `dark` — being uncountable is not being
+absent.
+
 ### 5.3 Availability — historical, as intervals
 
 ```
@@ -175,7 +215,13 @@ AvailabilityInterval(game_id, state, from_at, to_at NULL, cause)
 ```
 
 `state ∈ { reachable, degraded, unreachable }`; `cause ∈ { dns, refused, tls, timeout, handshake_stalled,
-… }`. A game reachable for three years is one open row, not twenty-six thousand samples.
+… }`.
+
+**`degraded` means we got in and could not finish**: the TCP connection succeeded and the banner was
+captured, but the session did not complete negotiation within the probe timeout, or a stated TLS port
+failed while the plaintext port answered. It is neither reachable nor unreachable and the design renders
+it as its own short bar. Without this definition the state was named by the schema and produced by
+nothing. A game reachable for three years is one open row, not twenty-six thousand samples.
 "Reachable over 90 days" and "longest outage" become arithmetic over a handful of rows.
 
 Each probe either extends the open interval or closes it and opens a new one. **Only a cause change
@@ -223,7 +269,24 @@ rendered page must all agree on when a value has aged out, and only one of them 
 `GameField` therefore exposes a derived `IsStale(now)` from `last_confirmed_at` plus the
 registry's window for that field. Nothing downstream re-derives it.
 
-### 5.7 Reachable, not uptime
+### 5.7 Identity: a GUID for the API, a slug for the URL
+
+Two identifiers, deliberately:
+
+- **`id`** — an immutable GUID minted once and never reused. This is what the API returns, what bulk
+  dumps key on, and what every foreign key points at. It never changes, including across a merge
+  (§7.3), where the surviving game keeps its own and the absorbed one's id becomes a permanent alias.
+- **`slug`** — a URL segment minted from the game's name (`/g/tidewater-nights/`), and mutable, because
+  games rename themselves. Every slug a game has ever had redirects to it, forever. Nothing is ever
+  deleted here either: a URL that once worked keeps working, which is the same promise the archive
+  makes about pages.
+
+Slugs are minted from the winning `NAME` field, lowercased, non-alphanumerics collapsed to hyphens,
+with a numeric suffix on collision. A rename does **not** re-mint automatically — a game that flips its
+name daily would otherwise churn its URL — it is re-minted only when the name has been stable for one
+grace period, and the old slug redirects from that moment.
+
+### 5.8 Reachable, not uptime
 
 The vocabulary is **reachable** throughout — schema, API, and copy. We measure a socket from one
 vantage point at intervals; we did not measure whether the game was up, and "uptime" claims we did.
@@ -384,7 +447,7 @@ archive threshold trivially gameable by editing one line of `mush.cnf`.
 | "Games active today" headline | Excluded |
 | Historical series on the ecosystem dashboard | **Included**, for the periods it was actually up — archiving changes presentation, never the past |
 | Its own page, URL, history, change feed | Unchanged, plus a clear statement of when it went dark and how long it was known live |
-| Probing | Continues at the weekly floor, forever |
+| Probing | Continues forever, at the weekly floor or the game's own `CRAWL DELAY`, whichever is longer (§7.7) |
 | API | Present, with `state` as a field; `?include=archived` on collection endpoints |
 | Search-engine indexing | Retained — the historical record is part of the product |
 
@@ -427,9 +490,20 @@ both the decent move and the one most likely to get better data than scraping wo
 ### 7.7 Scheduling
 
 A single scheduler picks due targets by `next_probe_at`, feeding a bounded worker pool. Interval is
-`max(CRAWL DELAY, base_interval)`, tightened for games with recent activity, lengthened on failure,
-floored per §7.4. Archiving does not change the schedule. Per-host serialisation prevents a
-multi-port game from being hit concurrently.
+`max(CRAWL DELAY, base_interval)`, tightened for games with recent activity, lengthened on failure.
+Archiving does not change the schedule. Per-host serialisation prevents a multi-port game from being
+hit concurrently.
+
+**When `CRAWL DELAY` and the permanent floor disagree, politeness wins.** §7.4's "still probed weekly,
+forever" is a bound on how far *our own backoff* may lengthen — it is not a promise to knock weekly at a
+server that asked for less. A game stating `CRAWL DELAY 720` is probed monthly, and the two rules
+compose as `max(CRAWL DELAY, backoff)` with backoff capped at a week. Read the other way round, the
+floor would let us override a server's own stated wishes, which is the one thing the politeness contract
+exists to prevent, and it is stated in a *standard* rather than invented by us.
+
+The liveness guarantee survives this: a game asking for a month is still re-listed automatically when it
+returns, just up to a month later. A game that wants to be crawled less than that has effectively said
+so, and §11's opt-out is the honest way to say it entirely.
 
 ## 8. Claiming and ownership
 

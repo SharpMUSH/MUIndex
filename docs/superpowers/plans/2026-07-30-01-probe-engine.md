@@ -134,6 +134,46 @@ Two behavioural notes that are choices, not transcriptions:
 
 ---
 
+## Known limitation: MSSP over telnet option 70 is decoded as ASCII, lossily
+
+**Verified in the source, not reported.** `TelnetNegotiationCore.Protocols.MSSPProtocol` decodes every
+MSSP variable name and every MSSP value with `System.Text.Encoding.ASCII.GetString`. In the pinned
+**2.6.0** it happens inline in `MSSPProtocol.cs` (four call sites — names at lines 254/256, values at
+265/267); in **2.6.5** the same decode was refactored into a single private `FlushField()`, reached
+from `CompleteMSSPVariable`, `CompleteMSSPValue` and both accumulator paths. Same defect, same
+effect, both versions.
+
+**It is lossy, not merely non-decoding.** .NET's `Encoding.ASCII` uses a replacement fallback, so
+every byte above `0x7F` becomes a literal `?` (`0x3F`) and the original bytes are unrecoverable
+downstream. A game named `Café Noir` arrives as `Caf? Noir` and is stored, displayed and fingerprinted
+that way. **MUIndex cannot repair this from its side**, and must not try: by the time `MsspData`
+exists the bytes are gone. Seeding `TelnetInterpreter.CurrentEncoding` (Task 6) does **not** reach it
+— that seed governs the text callbacks and the GMCP/MSDP paths; `MSSPProtocol` ignores it and
+hardcodes ASCII.
+
+**It is a limitation rather than a bug.** RFC 2066 scopes CHARSET to text, not to command or
+subnegotiation payloads, so decoding MSSP as ASCII is a defensible reading. The upstream fix is
+`Encoding.Latin1`, which round-trips all 256 byte values losslessly — no byte sequence decodes worse
+under Latin-1 than under ASCII, so it is a strict improvement at no compatibility cost.
+TelnetNegotiationCore is first-party (CLAUDE.md), so this is a PR, not a workaround.
+
+Three consequences this plan carries:
+
+1. **It touches identity, not only display.** A non-ASCII MSSP `NAME` is one of Plan 3's identity
+   signals (§7.3, `IdentityWeights.MsspNameAndCreated`). Two different games whose names differ only
+   in non-ASCII characters collapse to the same mangled string and could be auto-merged into one.
+   Rare, but a correctness consequence rather than a blemish, and the strongest argument for the PR.
+2. **`MsspVia` carries a second meaning because of this.** The plaintext fallback (Task 11) does not
+   go through `MSSPProtocol`: it is decoded by our own UTF-8 text path and handed to
+   `MsspSubnegotiationParser.ParsePlaintextReply(string)`. The same server read through
+   `MSSP-REQUEST` therefore keeps its non-ASCII characters while the option-70 read mangles them, so
+   `MsspTransport.TelnetOption70` is also a marker for "the non-ASCII characters in this report are
+   not trustworthy".
+3. **Task 11 pins it with a test that is meant to fail one day.** When the upstream fix ships that
+   test goes red, and the correct response is to delete the test and this section.
+
+---
+
 ## File Structure
 
 ```
@@ -2555,6 +2595,11 @@ public sealed class ProbeTelnetSession : IAsyncDisposable
     // byte handed to the callbacks. On the many MU* servers that never negotiate CHARSET, every byte
     // above 0x7F became '?' — which for a crawler means a mangled connect screen and a mangled banner
     // hash. Seeded with UTF-8, exactly as SharpMUTerm does.
+    //
+    // It does NOT reach MSSP. MSSPProtocol decodes variable names and values with a hardcoded
+    // Encoding.ASCII (verified in 2.6.0 and 2.6.5) and never consults this property, so a non-ASCII
+    // MSSP value arrives as '?' whatever is seeded here. That is upstream's to fix — see the plan's
+    // "Known limitation" section — and it cannot be repaired from this side.
     private static readonly PropertyInfo? InterpreterEncodingProperty =
         typeof(TelnetInterpreter).GetProperty(nameof(TelnetInterpreter.CurrentEncoding)) is { CanWrite: true } p
             ? p
@@ -5158,6 +5203,51 @@ public class MsspLayerTests
         await Assert.That(via).IsEqualTo(MsspTransport.None);
         await Assert.That(data.Count).IsEqualTo(0);
     }
+
+    [Test]
+    public async Task TheTelnetOptionManglesNonAsciiAndThePlaintextFallbackDoesNot()
+    {
+        // A pinned upstream limitation, not a wish. TelnetNegotiationCore's MSSPProtocol decodes
+        // variable names and values with a hardcoded Encoding.ASCII (verified in the source of 2.6.0
+        // and 2.6.5), and .NET's ASCII decoder uses a replacement fallback — so every byte above 0x7F
+        // becomes a literal '?' and the original bytes are gone. Nothing on our side can repair it.
+        //
+        // The plaintext fallback does not go through MSSPProtocol: it is decoded by our own UTF-8 text
+        // path and parsed from a string. So the same name survives one route and not the other, which
+        // is why MsspVia also records how trustworthy a report's non-ASCII characters are.
+        //
+        // WHEN THIS TEST FAILS, UPSTREAM HAS BEEN FIXED. Delete it, delete the plan's "Known
+        // limitation" section, and raise the pinned TelnetNegotiationCore version.
+        await using var negotiating = new ScriptedMuServer();
+        negotiating.RespondingToDo(TelnetWire.Mssp, TelnetWire.Subnegotiation(("NAME", ["Café Noir"])));
+        negotiating.Listen();
+
+        var options = new ProbeOptions { MsspTimeout = TimeSpan.FromSeconds(5) };
+        await using var overOption = SessionFor(negotiating, options);
+        var negotiated = Negotiated(overOption);
+        await overOption.ConnectAsync(CancellationToken.None);
+
+        var (mangled, viaOption) = await MsspLayer.ReadAsync(
+            overOption, negotiated, options, TimeProvider.System, CancellationToken.None);
+
+        await Assert.That(viaOption).IsEqualTo(MsspTransport.TelnetOption70);
+        await Assert.That(mangled.Name).IsEqualTo("Caf? Noir");
+
+        await using var asking = new ScriptedMuServer();
+        asking.RespondingToCommand("MSSP-REQUEST", TelnetWire.PlaintextMssp(("NAME", "Café Noir")));
+        asking.Listen();
+
+        var plaintextOptions = new ProbeOptions { MsspTimeout = TimeSpan.FromMilliseconds(400) };
+        await using var overPlaintext = SessionFor(asking, plaintextOptions);
+        var never = Negotiated(overPlaintext);
+        await overPlaintext.ConnectAsync(CancellationToken.None);
+
+        var (intact, viaPlaintext) = await MsspLayer.ReadAsync(
+            overPlaintext, never, plaintextOptions, TimeProvider.System, CancellationToken.None);
+
+        await Assert.That(viaPlaintext).IsEqualTo(MsspTransport.PlaintextRequest);
+        await Assert.That(intact.Name).IsEqualTo("Café Noir");
+    }
 }
 ```
 
@@ -5244,7 +5334,12 @@ Run:
 dotnet build MUIndex.slnx -c Release
 dotnet run -c Release --no-build --project tests/MUI.Crawl.Tests </dev/null
 ```
-Expected: PASS — 6 new tests.
+Expected: PASS — 7 new tests.
+
+If `TheTelnetOptionManglesNonAsciiAndThePlaintextFallbackDoesNot` fails because the *option* route now
+preserves `Café Noir`, upstream has fixed the ASCII decode: delete that test, delete the plan's
+"Known limitation" section, and raise the pinned `TelnetNegotiationCore` version. If it fails because
+the *plaintext* route mangles it, that is ours — check `ProbeTelnetSession`'s UTF-8 seed.
 
 If `TheTelnetOptionIsPreferredAndIsRecordedAsSuch` fails on `CrawlDelay`, check what
 `SharpMU.Mssp.MsspData.CrawlDelay` does with the value `5` — the MSSP specification says `CRAWL DELAY`
@@ -5259,8 +5354,11 @@ git commit -m "feat(crawl): read MSSP by option 70, then by MSSP-REQUEST
 
 Spec §6.4. Neither format is parsed here — SharpMU.Mssp owns both — so this file
 only decides when to ask and records how the answer arrived. MsspVia is worth
-keeping: a server read only through the plaintext fallback did not negotiate the
-option, and that is a capability fact about it."
+keeping for two reasons: a server read only through the plaintext fallback did not
+negotiate the option, and — verified in TelnetNegotiationCore 2.6.0 and 2.6.5 —
+MSSPProtocol decodes with a hardcoded Encoding.ASCII, so an option-70 read turns
+every byte above 0x7F into '?' while the plaintext route, decoded by our own UTF-8
+path, does not. Pinned by a test that is meant to go red when upstream is fixed."
 ```
 
 ---

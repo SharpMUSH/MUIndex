@@ -67,16 +67,21 @@ These apply to every task in this plan without being repeated.
 - **Never persist player names.** `WHO` is parsed in memory; aggregates use salted hashes with a
   rotating salt, so a unique-player estimate is possible while re-identification across salt epochs
   is not.
-- **Parsers never fabricate.** An unreadable `WHO` yields `WhoConfidence.Unknown`, never zero.
+- **Parsers never fabricate.** An unreadable `WHO` yields `WhoConfidence.Unknown`, never zero — and a
+  `WHO` that was never sent yields `WhoConfidence.NotAttempted`, which is a different state.
 - **Vocabulary is "reachable", never "uptime"** — schema, API, code and copy alike (spec §5.7).
 - **Branch from `main`, open a PR, never commit directly to `main`.**
 - **Any new test project goes into `MUIndex.slnx` AND `.github/workflows/ci.yml`**, which runs each
   suite as its own explicit step.
-- **The shared MSSP package is `SharpMU.Mssp`** — namespace `SharpMU.Mssp`, referenced as
-  `<PackageReference Include="SharpMU.Mssp" />` with a central `<PackageVersion>` in
-  `Directory.Packages.props`. It is **model and parsing only**: no transport, no probe, no
-  scheduling. Never re-declare `MsspData`, `MsspHost`, `MsspVariables` or
-  `MsspSubnegotiationParser` locally.
+- **MUIndex owns the MSSP domain** — namespace `MUI.Crawl.Mssp`, in `src/MUI.Crawl`, Plan 01's code
+  written against Plan 01's own tests. There is **no shared package**: nothing named `SharpMU.Mssp`
+  was ever published and the repository that would have produced it is archived, so MUIndex
+  implements its crawler end to end and shares no code with SharpMUTerm. `MsspData`, `MsspHost`,
+  `MsspHostScope` and `MsspVariables` live there; telnet option 70 is parsed by
+  `TelnetNegotiationCore` 2.6.5 itself, and `MUI.Crawl.Mssp.MsspPlaintextReply` handles only the
+  out-of-band `MSSP-REQUEST` text reply. Never re-declare those types locally. **`MUI.Backfill`
+  references none of it** — an importer reads someone else's directory export, never a live server —
+  so for this plan the rule is only "do not reach for it".
 - **Persistence is PostgreSQL 17 with Npgsql + Dapper and plain numbered `.sql` migration files
   applied by a small idempotent runner. No EF Core**, ever. Integration tests use
   `Testcontainers.PostgreSql`.
@@ -6702,6 +6707,14 @@ names the six Plan 2/Plan 3 class names it assumes and confines them to one file
 `.RenderAttributionMarkdown` / `.Default`; `ImportRunner.RunAsync`. Each importer exposes the same
 pair of statics, `Etiquette(bool contactedMaintainer = false)` and `Create(HttpClient, TimeProvider)`,
 which is what lets `ImporterRegistry.Default` build all six uniformly.
+
+**Addendum sweep.** Re-read after the contract addendum retired the `SharpMU.Mssp` package and moved
+the MSSP domain into `MUI.Crawl.Mssp`. This plan referenced the package in exactly one place — the
+global constraint — and never in code: `MUI.Backfill` reads other people's directory exports and
+never speaks to a server, so it constructs no `MsspData`, adds no package reference and imports no
+MSSP type. The `mssp` object inside MudVerse's fixture (Task 11) is that site's own JSON, parsed by
+this plan's own mapping into lower-cased field names, and is untouched by the change. No task's
+**Files**, **Interfaces** or code steps moved.
 
 **Running test count by task** (cumulative, so a task that does not reach its number has lost one):
 1 → 5, 2 → 13, 3 → 26, 4 → 33, 5 → 36, 6 → 42, 7 → 51, 8 → 61, 9 → 67, 10 → 73, 11 → 81, 12 → 87,
