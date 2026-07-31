@@ -6,8 +6,10 @@ is that **its data is measured rather than asserted**.
 Every fact on a game's page carries how it was obtained and how old it is. The catalogue is a
 by-product of continuous measurement, not a form somebody filled in once.
 
-> **Status:** design complete, implementation not started. What exists is the design, a brief for a
-> site-design session, and a solution skeleton holding the few types the spec pinned down concretely.
+> **Status:** the truth engine works. A probe reads real servers, storage keeps what it measured with
+> the three-state discipline intact, discovery walks referrals behind a resolved-address gate, and the
+> site renders both a graphical and a plain surface from one set of view models. 511 tests, Postgres
+> exercised in CI. Not yet joined end to end, and not yet deployed.
 
 Short form **MUI**, which is also the assembly prefix.
 
@@ -133,6 +135,13 @@ kind. No player profiles or social graph. We do not host games and we are not a 
 Player names are never persisted — `WHO` is parsed in memory, and activity aggregates use salted
 hashes with a rotating salt, so unique-player estimates are possible while re-identification across
 salt epochs is not.
+
+## What it looks like
+
+![The game page](docs/screenshots/03-game-page.png)
+
+More in [`docs/screenshots/`](docs/screenshots/), including the plain rendering — which is the test
+of whether a fact is being communicated at all, rather than decorated.
 
 ## Documents
 

@@ -11,9 +11,16 @@ reading the file raw.
 MOOs — whose distinguishing property is that **its data is measured rather than asserted**. Every
 displayed fact carries how it was obtained and how old it is.
 
-**Nothing is implemented.** The repository holds the design, the design brief, the delivered design,
-implementation plans, and a solution skeleton with the types the spec pinned down concretely enough
-to write.
+**The truth engine works; it is not yet joined end to end.** `MUI.Crawl` probes real servers,
+`MUI.Catalog` persists what they said to Postgres, `MUI.Discovery` schedules and de-duplicates them,
+and `MUI.Web` renders it. 511 tests, Postgres exercised in CI rather than skipped.
+
+**Read `docs/codebase-survey-2026-07-30.md` before changing the probe or the parsers.** It records
+one live game per codebase across 38 of them, and nearly every rule in `MUI.Crawl` traces to a row in
+it. Five of the six real defects this project has found came from running against real servers rather
+than from reasoning about them — a false zero on a busy DIKU, `NAME "PennMUSH"` collapsing identity,
+an archived game's heatmap hatched, MCCP negotiated but never inflated, and our own `IAC DO 70`
+poisoning the next command we sent. **Probe something before you theorise about it.**
 
 ## The five rules that generate everything else
 
