@@ -203,3 +203,26 @@ is the entire connect screen, the whole `WHO` reply, and any later MSSP.
 This is upstream, not ours, and worth fixing there rather than working around here: MCCP is one of
 the most widely deployed MU\* options and a client that cannot read a compressed stream cannot read
 a third of the hobby.
+
+## Resolved — TelnetNegotiationCore 2.8.0 inflates
+
+Filed as upstream issue #62, fixed, and shipped in **2.8.0**. MUIndex takes the new version and
+**MCCP is registered again**; the stopgap decline is gone and so is the hole in layer 1 it opened.
+
+Re-measured on the same servers that proved the bug, with compression accepted:
+
+| Target | Negotiated | Banner |
+|---|---|---|
+| `realms.reichel.net:4000` | CHARSET, **MCCP2**, MSSP | 18 readable lines |
+| `coffeemud.net:2327` | **MCCP2**, MSSP | 2 |
+| `play.arxmush.org:3000` | **MCCP2**, MSSP | 11 |
+| `nonamemud.duckdns.org:4000` | GMCP, **MCCP2**, MSSP | 8 |
+| `mush.pennmush.org:4201` (control, no MCCP) | CHARSET, MSSP | 21, `WHO` → 13 |
+
+On 2.7.0 the first four returned a single line of roughly 37% printable bytes. Negotiating compression
+*and* reading the text is a combination that was not previously possible.
+
+Two things came back with it. We can once more observe that a server **offers** MCCP, which is a
+capability the decline had cost us. And `nonamemud.duckdns.org` turns out to speak **GMCP** — a
+protocol we could not see while its stream was arriving as raw zlib, so the survey's original row for
+it understated what that server does.

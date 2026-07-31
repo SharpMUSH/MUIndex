@@ -673,6 +673,23 @@ for presence and availability. RSS on status change in v1; webhooks are deferred
 
 Consume Grapevine and the TinTin mudlist as seed sources; republish rather than silo.
 
+### 10.1 Known gap — the listing endpoint is less honest than the listing page
+
+`GameSummary` carries no provenance, so `/api/games` publishes `playersNow` and `codebase` as bare
+values while `/api/games/{slug}` labels every field with its source, age and staleness. **That is the
+one place the API contradicts the rule the whole project exists to serve**, and it is a view-model
+gap rather than a mapping choice — the summary type has nowhere to put the label.
+
+Fixing it means putting `ProvenanceChip` on `GameSummary` for at least the count and the codebase.
+Until then, a consumer reading only the listing cannot tell a count measured four minutes ago from
+one asserted six years ago, which is exactly the confusion the incumbents' directories thrive on.
+
+Three smaller gaps found the same way, all currently worked around inside `src/MUI.Web/Api/`:
+`IGameQueries` has no `FindAsync(Guid)`, so a GUID lookup scans the whole listing; `FeedEntry` has no
+`Id`, so every feed request reads the listing to join identifiers onto slugs; and §5.7's
+forever-redirect has no former-slug table, so aliases live in configuration rather than beside the
+games.
+
 ## 11. Politeness, consent, privacy
 
 - `CRAWL DELAY` honoured as a floor.

@@ -11,17 +11,25 @@
       IS the capability measurement (spec §6.1), so what a server offers is observed rather than
       taken from a game's own MSSP claim.
     -->
-    <PackageVersion Include="TelnetNegotiationCore" Version="2.7.0" />
+    <PackageVersion Include="TelnetNegotiationCore" Version="2.8.0" />
 
     <!-- Logging abstractions (TelnetNegotiationCore takes an ILogger). -->
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.2" />
 
     <!--
-      Registration only. MUI.Import exposes AddMuiImporters so the web tier can compose a backfill
-      run; the abstractions package is deliberately the whole of it, so nothing in a class library
-      that reads other people's web pages gains a hosting dependency.
+      Hosting and DI *abstractions* only. The crawler is an in-process BackgroundService in the web
+      deployable (spec §4.11, §12), so it needs BackgroundService and IServiceCollection and nothing
+      that decides how a host is built; MUI.Import exposes AddMuiImporters for the same reason, so a
+      class library that reads other people's web pages gains no hosting dependency.
     -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.2" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.2" />
+
+    <!--
+      A console sink, for mui-crawl and nothing else. The site's own logging is the host's business;
+      a one-shot command that writes a crawl cycle to a terminal needs somewhere for it to go.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.2" />
   </ItemGroup>
 
   <ItemGroup>

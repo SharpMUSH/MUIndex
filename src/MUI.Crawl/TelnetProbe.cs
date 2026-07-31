@@ -318,6 +318,14 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             return ValueTask.CompletedTask;
         });
 
+        var mccp = new Watched.Mccp(Note);
+        mccp.OnCompressionEnabled((version, _) =>
+        {
+            seen.CompressionVersion = version;
+            Note($"MCCP{version}");
+            return ValueTask.CompletedTask;
+        });
+
         var eor = new Watched.Eor(Note);
         eor.OnPrompt(() =>
         {
@@ -357,27 +365,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             .AddPlugin(gmcp)
             .AddPlugin(msdp)
             .AddPlugin(eor)
-            // MCCP is NOT registered, and this is a STOPGAP waiting on upstream, not a design
-            // position. The reason is exactly one thing: TelnetNegotiationCore negotiates MCCP2 and
-            // then never inflates the stream (upstream issue #62). Accepting it therefore loses the
-            // payload outright — the connect screen and the whole WHO reply arrive as raw zlib and
-            // are decoded as text.
-            //
-            // Measured on realms.reichel.net:4000 against 2.7.0: registered, the banner is one
-            // 162-character "line" that is 37% printable ASCII; declined, it is 18 lines that are
-            // 100% printable. OnCompressionEnabled fires with v2 enabled=True either way, so the
-            // library is certain it negotiated and equally certain it need not inflate. 13 of the
-            // 38 codebases surveyed offer MCCP2, so this is a third of the hobby.
-            //
-            // Re-register the moment #62 ships. Do not re-derive a principled-sounding reason for
-            // this: "a crawler reads a few kilobytes so compression buys it nothing" was the earlier
-            // comment here, and it is a rationalisation that reads like a permanent decision and
-            // hides the fact that anything is being waited on.
-            //
-            // THE COST, which is real and belongs next to the decision: we no longer observe that a
-            // server *offers* MCCP, because the library only reports it on acceptance. That is a
-            // hole in layer 1 — a capability we could measure and currently do not — and it closes
-            // when #62 does.
+            .AddPlugin(mccp)
             .AddPlugin(new Watched.Mxp(Note))
             .AddPlugin(new Watched.SuppressGoAhead(Note))
             .AddPlugin(new Watched.Naws(Note))
@@ -410,6 +398,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         public int? MsspRejectedBytes;
         public string? Charset;
         public bool Prompts;
+        public int? CompressionVersion;
         public bool CharsetNegotiated;
 
         public IReadOnlySet<string> Supported
@@ -457,6 +446,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                     {
                         Supported = Supported,
                         Charset = Charset,
+                        CompressionVersion = CompressionVersion,
                         CharsetNegotiated = CharsetNegotiated,
                         EnvironmentRequested = _environment.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
                         GmcpPackages = _gmcp.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),

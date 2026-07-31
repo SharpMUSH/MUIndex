@@ -1,0 +1,235 @@
+using MUI.Catalog;
+using MUI.Catalog.Persistence;
+using MUI.Crawl;
+
+namespace MUI.Crawler;
+
+/// <summary>
+/// Everything one probe observed about a game's descriptive fields, in the vocabulary
+/// <see cref="IFieldReconciler"/> stores (spec §5.1, §6.1).
+/// </summary>
+/// <remarks>
+/// <para>
+/// Three sources come out of one probe and they are kept apart, because <c>game_field</c> is keyed
+/// <c>(game, field, source)</c> and the capability matrix's two columns are the whole point:
+/// <see cref="FieldSource.Handshake"/> for what the server actually negotiated,
+/// <see cref="FieldSource.Mssp"/> for what it claims about itself, and
+/// <see cref="FieldSource.Banner"/> for the connect screen. "Declared GMCP, not offered in the
+/// handshake" is a fact the site exists to publish, and it is only expressible because these never
+/// contend for one row.
+/// </para>
+/// </remarks>
+public static class FieldObservations
+{
+    /// <summary>The field the negotiated character encoding is stored under.</summary>
+    public const string CharsetField = "CHARSET";
+
+    /// <summary>The MSSP capability whose absence is itself a measurement. See <see cref="Measured"/>.</summary>
+    public const string MsspCapability = "MSSP";
+
+    /// <summary>
+    /// MSSP values that mean "no". Everything else non-blank means yes, including a port number:
+    /// <c>SSL 4202</c> is a game saying it has TLS and where.
+    /// </summary>
+    private static readonly HashSet<string> Falsehoods =
+        new(StringComparer.OrdinalIgnoreCase) { "0", "-1", "no", "false", "off", "none" };
+
+    /// <summary>
+    /// Every field this probe observed that goes through the reconciler.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Empty for a probe that did not answer — a failed dial saw nothing, and handing its (necessarily
+    /// empty) observations to the reconciler would be worse than useless: reconciling an absent value
+    /// is silent, but reconciling a <em>stale</em> one would bump <c>last_confirmed_at</c> on rows
+    /// nothing confirmed, which is a probe of ours reported as a measurement of theirs.
+    /// </para>
+    /// <para>
+    /// <b>The connect screen is deliberately not here.</b> It is written by
+    /// <c>CatalogueBinder.AttachAsync</c>, beside the banner fingerprint it is the other half of,
+    /// because the reconciler's contract is that a changed value is a change-feed <em>event</em> — and
+    /// a banner is not. Measured on <c>aardmud.org:4000</c>, whose connect screen states its own live
+    /// player count, so a first cycle and a second one apart wrote
+    /// "connect_screen changed from ####… to ####…" and would have done so for ever, at one row per
+    /// probe per game. That is exactly the cost §5.1 exists to avoid, and it would have buried every
+    /// real event under a diff nobody can read. A redesign is still noticed: that is what the
+    /// <c>banner_hash</c> signal is for.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<FieldObservation> From(ProbeResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        if (result.Outcome is not ProbeOutcome.Answered)
+        {
+            return [];
+        }
+
+        var observations = new List<FieldObservation>();
+
+        observations.AddRange(Measured(result));
+        observations.AddRange(Declared(result));
+
+        return observations;
+    }
+
+    /// <summary>
+    /// Layer 1 — what the server actually negotiated (spec §6.1).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A capability is written <c>true</c> when it was observed and is otherwise not written at
+    /// all. There is exactly one exception, and it is MSSP.</b> The temptation is to write
+    /// <c>false</c> for every capability the handshake did not produce, because that is what makes
+    /// "declared GMCP, never offered" render as a disagreement. It would be a lie, and the crawler has
+    /// already measured that it would be: <c>alteraeon.com:23</c> is a game that plainly implements
+    /// MSDP, GMCP, MXP and MCCP, and one probe of it yields an offered set of exactly
+    /// <c>{ MSSP }</c> — because this client only <em>requests</em> option 70 (see
+    /// <c>ProbeOptions.RequestOptions</c>), because it declines MCCP outright while upstream issue #62
+    /// is open, and because the library's <c>OnEnabledAsync</c> was measured not firing on live
+    /// servers where the payload callbacks did. Publishing "Alter Aeon does not offer MSDP" on the
+    /// strength of that is our own instrumentation recorded as a fact about their game, which rule 5
+    /// forbids in the same breath as an unparseable <c>WHO</c> read as zero.
+    /// </para>
+    /// <para>
+    /// MSSP is different because we <em>ask</em>. <c>IAC DO 70</c> goes out on every probe, so a
+    /// server that answered the session and never engaged MSSP has declined a question that was put —
+    /// which is a measurement. Aardwolf is the worked example: it offers MCCP1/2, ATCP and GMCP and
+    /// simply does not answer <c>IAC DO MSSP</c>. <see cref="MsspOutcome.RejectedTooLarge"/> is
+    /// emphatically <b>not</b> that case and is recorded as present: we asked, the server answered,
+    /// and we chose not to hold the reply (§6.4).
+    /// </para>
+    /// <para>
+    /// A protocol the library named that is not in <see cref="CapabilityFields.Names"/> is still
+    /// recorded, under the same naming convention. The registry is not a gate on ingestion, and a
+    /// crawler whose premise is faithful measurement does not get to drop an observation because no
+    /// column of the matrix renders it.
+    /// </para>
+    /// </remarks>
+    private static IEnumerable<FieldObservation> Measured(ProbeResult result)
+    {
+        foreach (var protocol in result.OfferedOptions.Order(StringComparer.Ordinal))
+        {
+            yield return new FieldObservation(
+                CapabilityFields.Measured(Canonical(protocol) ?? protocol), FieldSource.Handshake, "true");
+        }
+
+        // The one honest negative. Asked for on every probe, so silence is an answer.
+        if (result.MsspOutcome is MsspOutcome.NotOffered)
+        {
+            yield return new FieldObservation(
+                CapabilityFields.Measured(MsspCapability), FieldSource.Handshake, "false");
+        }
+
+        if (!result.Negotiation.CharsetNegotiated || result.Negotiation.Charset is not { Length: > 0 } charset)
+        {
+            yield break;
+        }
+
+        // CHARSET settling is a measurement; the interpreter merely *having* an encoding is not, which
+        // is what CharsetNegotiated distinguishes. The game's own MSSP CHARSET lands on the same field
+        // under a different source, and handshake outranks mssp — which is the ladder working.
+        yield return new FieldObservation(CharsetField, FieldSource.Handshake, charset);
+
+        if (string.Equals(charset, "utf-8", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return new FieldObservation(
+                CapabilityFields.Measured("UTF-8"), FieldSource.Handshake, "true");
+        }
+    }
+
+    /// <summary>
+    /// Layer 4 — everything the game claims about itself, exactly as it said it (spec §6.4).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Nothing is filtered.</b> Every variable the server reported becomes a row, including names
+    /// no specification lists — a protocol whose entire purpose is servers describing themselves does
+    /// not get an allow-list, and a field declined at the socket cannot be reconsidered downstream.
+    /// <c>PLAYERS</c> and <c>UPTIME</c> are the exception in <em>storage</em> rather than here:
+    /// <see cref="FieldReconciler.VolatileFields"/> drops them, so that rule has one home and this
+    /// projection does not acquire a second copy of it.
+    /// </para>
+    /// <para>
+    /// <b>A variable with several values is reduced by MSSP's own rule</b> — "the last reported value
+    /// should be used as the default value" — and never by joining them. A value may legitimately
+    /// contain a comma, so <c>string.Join</c> would manufacture something that looks like a value and
+    /// cannot be split back apart, which is a fabrication and the rule against those does not stop at
+    /// player counts. The variables where every value matters are read from
+    /// <see cref="ProbeResult.Mssp"/> directly by the code that cares: <c>REFERRAL</c> by
+    /// <c>MsppReferrals</c>, and the descriptive row is not where a game's ports live —
+    /// <c>game_endpoint</c> is (§5.5).
+    /// </para>
+    /// <para>
+    /// A capability variable produces a <c>.declared</c> row, and additionally a descriptive row when
+    /// its value carries information beyond the yes: <c>SSL 4202</c> is a claim and a port,
+    /// <c>GMCP 1</c> is only a claim, and listing the second among a game's descriptive fields would
+    /// be the capability matrix restated as noise.
+    /// </para>
+    /// </remarks>
+    private static IEnumerable<FieldObservation> Declared(ProbeResult result)
+    {
+        if (result.MsspOutcome is not MsspOutcome.Received)
+        {
+            // NotOffered says nothing, and RejectedTooLarge says only that we declined to hold what
+            // arrived. Neither is a game withdrawing its answers, so neither writes one.
+            yield break;
+        }
+
+        foreach (var (variable, values) in result.Mssp)
+        {
+            if (values.Count == 0)
+            {
+                continue;
+            }
+
+            var name = variable.Trim();
+            var value = values[^1].Trim();
+
+            if (Canonical(name) is { } capability)
+            {
+                yield return new FieldObservation(
+                    CapabilityFields.Declared(capability), FieldSource.Mssp, IsTrue(value) ? "true" : "false");
+
+                if (IsBare(value))
+                {
+                    continue;
+                }
+            }
+
+            if (name.Length > 0 && value.Length > 0)
+            {
+                yield return new FieldObservation(name, FieldSource.Mssp, value);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The <see cref="CapabilityFields.Names"/> entry a protocol or MSSP variable names, or null.
+    /// </summary>
+    /// <remarks>
+    /// Folded on case and on the separators the two vocabularies spell differently —
+    /// TelnetNegotiationCore's <c>NEW-ENVIRON</c> against MSSP's <c>XTERM 256 COLORS</c> — so one
+    /// capability is one field however it arrived.
+    /// </remarks>
+    private static string? Canonical(string name)
+    {
+        var folded = Fold(name);
+
+        return CapabilityFields.Names.FirstOrDefault(known => Fold(known) == folded);
+    }
+
+    private static string Fold(string name) =>
+        name.Trim().ToLowerInvariant().Replace('_', '-').Replace(' ', '-');
+
+    /// <summary>MSSP's yes/no reading. Anything not an explicit no is a yes, including a port number.</summary>
+    private static bool IsTrue(string value) => value.Length > 0 && !Falsehoods.Contains(value);
+
+    /// <summary>Whether a value says nothing beyond yes or no, and so needs no descriptive row.</summary>
+    private static bool IsBare(string value) =>
+        value.Length == 0
+        || Falsehoods.Contains(value)
+        || string.Equals(value, "1", StringComparison.Ordinal)
+        || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+}

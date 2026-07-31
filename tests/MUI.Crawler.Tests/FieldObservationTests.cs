@@ -1,0 +1,176 @@
+using MUI.Catalog;
+using MUI.Catalog.Persistence;
+using MUI.Crawl;
+using MUI.Crawler.Tests.Support;
+
+namespace MUI.Crawler.Tests;
+
+/// <summary>
+/// Measured beside declared, each with its own source (spec §5.1, §6.1, §6.4).
+/// </summary>
+public class FieldObservationTests
+{
+    private static string? Value(IReadOnlyList<FieldObservation> observed, string field, FieldSource source) =>
+        observed.FirstOrDefault(o => o.Field == field && o.Source == source)?.Value;
+
+    [Test]
+    public async Task AnObservedProtocolIsMeasuredAndAClaimedOneIsDeclared()
+    {
+        // The two columns of the capability matrix, from one probe, never contending for one row.
+        var observed = FieldObservations.From(Probes.Answered(
+            offered: Probes.Offered("MSSP", "CHARSET"),
+            mssp: Probes.Mssp(("GMCP", "1"), ("MSSP", "1"))));
+
+        await Assert.That(Value(observed, CapabilityFields.Measured("MSSP"), FieldSource.Handshake))
+            .IsEqualTo("true");
+        await Assert.That(Value(observed, CapabilityFields.Declared("GMCP"), FieldSource.Mssp))
+            .IsEqualTo("true");
+
+        // And the disagreement the site exists to publish: claimed, never observed.
+        await Assert.That(Value(observed, CapabilityFields.Measured("GMCP"), FieldSource.Handshake))
+            .IsNull();
+    }
+
+    [Test]
+    public async Task ACapabilityWeNeverAskedAboutIsNotRecordedAsAbsent()
+    {
+        // Measured on alteraeon.com:23, which plainly implements MSDP, GMCP, MXP and MCCP and whose
+        // offered set from one probe is exactly { MSSP }: this client only requests option 70, it
+        // declines MCCP while upstream #62 is open, and the library's OnEnabledAsync was measured not
+        // firing where the payload callbacks did. Writing "false" here would publish our own
+        // instrumentation as a fact about their game.
+        var observed = FieldObservations.From(Probes.Answered(
+            offered: Probes.Offered("MSSP"), mssp: Probes.Mssp()));
+
+        var negatives = observed
+            .Where(o => o.Value == "false" && o.Source == FieldSource.Handshake)
+            .ToList();
+
+        await Assert.That(negatives).IsEmpty();
+    }
+
+    [Test]
+    public async Task TheOneMeasuredNegativeIsMsspBecauseMsspIsTheOneWeAskFor()
+    {
+        // IAC DO 70 goes out on every probe, so a server that answered the session and never engaged
+        // MSSP declined a question that was put. Aardwolf is the worked example.
+        var observed = FieldObservations.From(Probes.Answered());
+
+        await Assert.That(Value(observed, CapabilityFields.Measured("MSSP"), FieldSource.Handshake))
+            .IsEqualTo("false");
+    }
+
+    [Test]
+    public async Task ADroppedOversizedReportIsNeverRecordedAsNoMssp()
+    {
+        // §6.4: we asked, the server answered, and we chose not to hold the reply. Publishing that as
+        // an absence would state our own size limit as a fact about their game.
+        var observed = FieldObservations.From(Probes.Answered(
+            msspOutcome: MsspOutcome.RejectedTooLarge));
+
+        await Assert.That(Value(observed, CapabilityFields.Measured("MSSP"), FieldSource.Handshake))
+            .IsNotEqualTo("false");
+    }
+
+    [Test]
+    public async Task ADroppedOversizedReportWithdrawsNothingTheGameHadAlreadyDeclared()
+    {
+        var observed = FieldObservations.From(Probes.Answered(
+            mssp: Probes.Mssp(("GENRE", "Fantasy")), msspOutcome: MsspOutcome.RejectedTooLarge));
+
+        await Assert.That(observed.Where(o => o.Source == FieldSource.Mssp)).IsEmpty();
+    }
+
+    [Test]
+    public async Task ARepeatedVariableIsReducedByMsspsOwnRuleAndNeverByJoining()
+    {
+        // "The last reported value should be used as the default value." A join would manufacture
+        // something that looks like a value and cannot be split back apart.
+        var observed = FieldObservations.From(Probes.Answered(
+            mssp: Probes.Mssp(("PORT", "23"), ("PORT", "3000"), ("PORT", "3010"))));
+
+        await Assert.That(Value(observed, "PORT", FieldSource.Mssp)).IsEqualTo("3010");
+    }
+
+    [Test]
+    public async Task ACapabilityCarryingAPortKeepsItsValueAndABareYesDoesNot()
+    {
+        // SSL 4202 is a claim and a port; GMCP 1 is only a claim, and listing it among a game's
+        // descriptive fields would be the capability matrix restated as noise.
+        var observed = FieldObservations.From(Probes.Answered(
+            mssp: Probes.Mssp(("SSL", "4202"), ("GMCP", "1"))));
+
+        await Assert.That(Value(observed, "SSL", FieldSource.Mssp)).IsEqualTo("4202");
+        await Assert.That(Value(observed, CapabilityFields.Declared("SSL"), FieldSource.Mssp))
+            .IsEqualTo("true");
+        await Assert.That(Value(observed, "GMCP", FieldSource.Mssp)).IsNull();
+    }
+
+    [Test]
+    public async Task AZeroIsReadAsADenialRatherThanAsAnAssertion()
+    {
+        var observed = FieldObservations.From(Probes.Answered(mssp: Probes.Mssp(("GMCP", "0"))));
+
+        await Assert.That(Value(observed, CapabilityFields.Declared("GMCP"), FieldSource.Mssp))
+            .IsEqualTo("false");
+    }
+
+    [Test]
+    public async Task AVariableNoSpecificationListsIsStillRecorded()
+    {
+        // A protocol whose entire purpose is servers describing themselves does not get an allow-list,
+        // and a field declined at the socket cannot be reconsidered downstream.
+        var observed = FieldObservations.From(Probes.Answered(
+            mssp: Probes.Mssp(("RP ENFORCEMENT", "strict"))));
+
+        await Assert.That(Value(observed, "RP ENFORCEMENT", FieldSource.Mssp)).IsEqualTo("strict");
+    }
+
+    [Test]
+    public async Task TheConnectScreenIsNotReconciledBecauseABannerIsNotAnEvent()
+    {
+        // Measured on aardmud.org:4000, whose connect screen states its own live player count: two
+        // cycles apart wrote "connect_screen changed from ####… to ####…", and would have written one
+        // per probe per game for ever. It is upserted by CatalogueBinder instead, beside the banner
+        // fingerprint it is the other half of.
+        var observed = FieldObservations.From(Probes.Answered(banner: "Players Online: 206"));
+
+        await Assert.That(observed.Select(o => o.Field))
+            .DoesNotContain(CatalogueBinder.ConnectScreenField);
+    }
+
+    [Test]
+    public async Task ANegotiatedCharsetIsAMeasurementAndAnInterpreterDefaultIsNot()
+    {
+        var negotiated = FieldObservations.From(Probes.Answered(
+            negotiation: new Negotiation { Charset = "utf-8", CharsetNegotiated = true }));
+        var defaulted = FieldObservations.From(Probes.Answered(
+            negotiation: new Negotiation { Charset = "utf-8", CharsetNegotiated = false }));
+
+        await Assert.That(Value(negotiated, FieldObservations.CharsetField, FieldSource.Handshake))
+            .IsEqualTo("utf-8");
+        await Assert.That(Value(negotiated, CapabilityFields.Measured("UTF-8"), FieldSource.Handshake))
+            .IsEqualTo("true");
+        await Assert.That(Value(defaulted, FieldObservations.CharsetField, FieldSource.Handshake))
+            .IsNull();
+    }
+
+    [Test]
+    public async Task AFailedProbeObservedNothingAndSaysSo()
+    {
+        await Assert.That(FieldObservations.From(Probes.Failed())).IsEmpty();
+    }
+
+    [Test]
+    public async Task TheVolatileFieldsAreDroppedByTheReconcilerRatherThanHere()
+    {
+        // One home for that rule. PLAYERS is presence and UPTIME is a counter, and reconciling either
+        // would write a change row per probe per game — but the projection does not acquire a second
+        // copy of the list to keep in step.
+        var observed = FieldObservations.From(Probes.Answered(
+            mssp: Probes.Mssp(("PLAYERS", "13"), ("UPTIME", "1672885596"))));
+
+        await Assert.That(observed.Select(o => o.Field))
+            .Contains(f => FieldReconciler.VolatileFields.Contains(f));
+    }
+}
