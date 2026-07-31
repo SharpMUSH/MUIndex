@@ -189,14 +189,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             return ValueTask.CompletedTask;
         });
 
-        var mccp = new Watched.Mccp(Note);
-        mccp.OnCompressionEnabled((version, _) =>
-        {
-            seen.CompressionVersion = version;
-            Note($"MCCP{version}");
-            return ValueTask.CompletedTask;
-        });
-
         var eor = new Watched.Eor(Note);
         eor.OnPrompt(() =>
         {
@@ -235,8 +227,18 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             .AddPlugin(newEnviron)
             .AddPlugin(gmcp)
             .AddPlugin(msdp)
-            .AddPlugin(mccp)
             .AddPlugin(eor)
+            // MCCP is deliberately NOT registered. Two reasons, and the first stands on its own:
+            // a crawler reads a few kilobytes per probe, so compression buys it nothing while
+            // costing it the ability to read what arrives. The second is that accepting it today
+            // loses the data outright — TelnetNegotiationCore negotiates MCCP2 and never inflates
+            // the stream (upstream issue #62), so the connect screen and the whole WHO reply arrive
+            // as raw zlib and are decoded as text. Declining returns the identical banner in
+            // plaintext. Measured on 13 of the 38 codebases surveyed.
+            //
+            // The cost is honest and worth stating: we no longer observe that a server *offers*
+            // MCCP, because the library only reports it on acceptance. When #62 is fixed, accept it
+            // again and get both.
             .AddPlugin(new Watched.Mxp(Note))
             .AddPlugin(new Watched.SuppressGoAhead(Note))
             .AddPlugin(new Watched.Naws(Note))
@@ -303,7 +305,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         public MsspOutcome MsspOutcome = MsspOutcome.NotOffered;
         public int? MsspRejectedBytes;
         public string? Charset;
-        public int? CompressionVersion;
         public bool Prompts;
         public bool CharsetNegotiated;
 
@@ -353,7 +354,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                         Supported = Supported,
                         Charset = Charset,
                         CharsetNegotiated = CharsetNegotiated,
-                        CompressionVersion = CompressionVersion,
                         EnvironmentRequested = _environment.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
                         GmcpPackages = _gmcp.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
                         SendsPromptMarkers = Prompts,

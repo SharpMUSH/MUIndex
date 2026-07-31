@@ -33,7 +33,15 @@ public sealed record Negotiation
     /// </remarks>
     public bool CharsetNegotiated { get; init; }
 
-    /// <summary>MCCP compression, and which version if it engaged.</summary>
+    /// <summary>
+    /// MCCP compression, and which version if it engaged.
+    /// </summary>
+    /// <remarks>
+    /// Currently always null: the probe declines MCCP outright. A crawler reads a few kilobytes per
+    /// probe so compression buys it nothing, and accepting it today loses the payload entirely —
+    /// TelnetNegotiationCore negotiates MCCP2 without inflating the stream (upstream issue #62).
+    /// Kept on the record because the field is the right shape for when that is fixed.
+    /// </remarks>
     public int? CompressionVersion { get; init; }
 
     /// <summary>

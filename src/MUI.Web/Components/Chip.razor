@@ -1,0 +1,29 @@
+@*
+    The provenance chip. One glyph, one relative age, no border.
+
+    The glyph carries the state and the colour only reinforces it, so greyscale printing and
+    colour-blind rendering both survive — that is a design constraint, not a nicety.
+*@
+<span class="chip @Class" title="@Title">
+    <span class="value">@Fact.Value</span>
+    <span class="glyph" aria-hidden="true">@Glyph</span>
+    <span class="age">@Age</span>
+</span>
+
+@code {
+    [Parameter, EditorRequired] public ProvenanceChip Fact { get; set; } = default!;
+    [Parameter] public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
+
+    private string Glyph => Fact.IsMeasured ? "●" : "◇";
+
+    private string Class =>
+        (Fact.IsMeasured ? "measured" : "declared") + (Fact.IsStale ? " stale" : string.Empty);
+
+    private string Age => Relative.Format(Now - Fact.LastConfirmedAt);
+
+    // The full record belongs in the title as well as the expanded view: a reader hovering wants
+    // the absolute time, and a screen reader gets the source named rather than inferred from colour.
+    private string Title =>
+        $"{Fact.Value} — {(Fact.IsMeasured ? "measured" : "declared")} via {Fact.Source}, "
+        + $"last confirmed {Fact.LastConfirmedAt:u}{(Fact.IsStale ? " (past its expected refresh)" : string.Empty)}";
+}

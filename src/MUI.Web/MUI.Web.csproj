@@ -12,11 +12,13 @@
   </ItemGroup>
 
   <!--
-    The single deployable: public site, owner dashboard, read API, and the crawler as an in-process
-    BackgroundService against the same database (spec §4.11). Two things that entails, both of which
-    are correctness rather than hygiene: a wedged probe must be hard-bounded so it cannot starve
-    request threads, and the crawl loop must be gated behind a lock so N web replicas still run
-    exactly one crawler (spec §12).
+    Blazor *static* server rendering: components render to plain HTML on the server and ship no
+    WebAssembly and no required script. That is what lets ?plain=1 be the same view models with a
+    different renderer, and the facet panel be a real GET form that works with scripting off
+    (spec §9). Interactivity, if it is ever needed, is added per-island rather than page-wide.
+
+    The crawler runs in this same process as a BackgroundService (spec §4.11), which is why this
+    project references MUI.Crawl and MUI.Discovery as well as the catalogue.
   -->
 
 </Project>

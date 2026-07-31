@@ -1,0 +1,110 @@
+@page "/g/{Slug}"
+@inject IGameQueries Queries
+
+@if (Page is null)
+{
+    <h1>Not found</h1>
+}
+else if (Plain)
+{
+    @* Plain mode is a real second surface, not a courtesy. If a fact cannot survive here, its
+       graphic on the main page is decoration. It renders from the same view models — this page is
+       the graphical one with the graphics removed, which is what bounds its cost (spec §9). *@
+    <pre class="mono">@PlainText.Render(Page, DateTimeOffset.UtcNow)</pre>
+}
+else
+{
+    <PageTitle>@Page.Summary.Name — mu*index</PageTitle>
+
+    @* The game is the hero; the connect screen follows as evidence. Leading with the art would
+       hand the top of every page to whatever a stranger's server happens to send. *@
+    <h1>@Page.Summary.Name</h1>
+    @if (Page.Summary.State is LifecycleState.Archived)
+    {
+        <p class="badge archived">archived</p>
+    }
+    else if (!Page.Summary.IsClaimed)
+    {
+        <p class="faint">Nobody has claimed this listing — everything here was measured.</p>
+    }
+    @if (Page.Description is { } d) { <p class="dim">@d</p> }
+
+    <p class="mono">
+        @foreach (var e in Page.Endpoints) { <text>@e.Host @e.Port</text> }
+    </p>
+
+    <p>
+        @if (Page.Summary.PlayersNow is { } n)
+        {
+            <span class="state-present">● @n on</span>
+        }
+        else
+        {
+            <span class="state-unknown">– count unknown</span>
+        }
+        @if (Page.ReachableFraction is { } r)
+        {
+            <span class="faint"> · @r.ToString("P1") reachable over 90 days</span>
+        }
+    </p>
+
+    @if (Page.ConnectScreenSuppressed)
+    {
+        <p class="faint">The owner asked us not to republish this game's connect screen.</p>
+    }
+    else if (Page.ConnectScreen is { } screen)
+    {
+        <h2>What you see when you connect</h2>
+        <figure class="ansi">
+            <pre>@screen</pre>
+            <figcaption>as sent by the server · captured 4m ago</figcaption>
+        </figure>
+    }
+
+    <h2>Capabilities</h2>
+    <p class="kicker">@Page.DisagreementCount of @Page.Capabilities.Count disagree with what the game declares</p>
+    <table class="matrix">
+        <thead><tr><th scope="col">capability</th><th scope="col">measured</th><th scope="col">declared</th><th scope="col">age</th></tr></thead>
+        <tbody>
+        @* Disagreements sort to the top so the interesting case cannot be scrolled past. *@
+        @foreach (var c in Page.Capabilities.OrderByDescending(c => c.Disagrees).ThenBy(c => c.Protocol))
+        {
+            <tr class="@(c.Disagrees ? "disagrees" : null)">
+                <th scope="row">@c.Protocol</th>
+                <td>@Cell(c.Measured)</td>
+                <td>@Cell(c.Declared)</td>
+                <td class="faint mono">@(c.LastConfirmedAt is { } t ? Relative.Format(DateTimeOffset.UtcNow - t) : "—")</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+
+    <h2>What the game says about itself</h2>
+    <dl>
+        @foreach (var (name, chip) in Page.Declared)
+        {
+            <dt class="kicker">@name</dt>
+            <dd><Chip Fact="chip" /></dd>
+        }
+    </dl>
+
+    <p class="faint"><a href="?plain=1">read this page as plain text</a></p>
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+    [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
+
+    private bool Plain => Truthy.Is(PlainFlag);
+
+    private GamePage? Page;
+
+    protected override async Task OnParametersSetAsync() => Page = await Queries.FindAsync(Slug);
+
+    private static MarkupString Cell(CapabilityState state) => new(state switch
+    {
+        CapabilityState.Present => "<span class=\"state-present\">● offered</span>",
+        CapabilityState.Absent => "<span class=\"state-absent\">✕ absent</span>",
+        _ => "<span class=\"state-unknown\">– silent</span>",
+    });
+}

@@ -1,0 +1,74 @@
+@page "/"
+@page "/games"
+@inject IGameQueries Queries
+
+<PageTitle>Games — mu*index</PageTitle>
+
+<h1>Games</h1>
+<p class="dim">Every fact below was measured. Nothing here was typed into a form by us.</p>
+
+@*
+    A plain GET form. No script, no framework: the querystring *is* the state, so the back button
+    works, a filtered listing is linkable, and the panel cannot lie about what a click will produce
+    because the server recomputes it. Spec §9 requires this to work with scripting off.
+*@
+<form method="get" action="/games">
+    <fieldset class="facets">
+        <legend>filters</legend>
+        <label>
+            <input type="checkbox" name="archived" value="true" checked="@Filter.IncludeArchived" />
+            include archived
+        </label>
+        <input type="search" name="q" value="@Filter.Text" placeholder="search games" aria-label="Search games" />
+        <button type="submit">show</button>
+    </fieldset>
+</form>
+
+<p class="kicker">@Summaries.Count games</p>
+
+<ul class="games">
+    @foreach (var g in Summaries)
+    {
+        <li>
+            <a class="name" href="/g/@g.Slug">@g.Name</a>
+            @if (g.State is LifecycleState.Archived)
+            {
+                <span class="badge archived">archived</span>
+            }
+            else if (!g.IsClaimed)
+            {
+                <span class="badge">unclaimed</span>
+            }
+            <div class="meta">
+                @*
+                    Three states, spelled rather than implied. A missing count says so in words —
+                    it is never rendered as a zero, and never left blank for a reader to guess at.
+                *@
+                @if (g.PlayersNow is { } n)
+                {
+                    <span class="state-present">● @n on</span>
+                }
+                else
+                {
+                    <span class="state-unknown">– count unknown</span>
+                }
+                @if (g.Codebase is { } cb) { <text> · @cb</text> }
+                @foreach (var p in g.MeasuredProtocols) { <text> · @p ●</text> }
+            </div>
+            @if (g.Tagline is { } t) { <div class="dim">@t</div> }
+        </li>
+    }
+</ul>
+
+@code {
+    [SupplyParameterFromQuery(Name = "q")] private string? Query { get; set; }
+    [SupplyParameterFromQuery(Name = "archived")] private string? ArchivedFlag { get; set; }
+
+    private bool Archived => Truthy.Is(ArchivedFlag);
+
+    private GameFilter Filter => new() { Text = Query, IncludeArchived = Archived };
+    private IReadOnlyList<GameSummary> Summaries = [];
+
+    protected override async Task OnParametersSetAsync() =>
+        Summaries = await Queries.ListAsync(Filter);
+}

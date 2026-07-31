@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link rel="stylesheet" href="app.css" />
+    <HeadOutlet />
+</head>
+<body>
+    <Routes />
+    @*
+        No blazor.web.js. Static server rendering only — every page here is a document, and the
+        three places the design allows motion are plain CSS. Adding the script would opt the whole
+        site into enhanced navigation and quietly break the no-script guarantee the facet panel
+        and plain mode both depend on.
+    *@
+</body>
+</html>
