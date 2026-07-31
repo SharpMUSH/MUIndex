@@ -42,8 +42,8 @@ public sealed record ProbeResult
     public WhoReading Who { get; init; } = WhoReading.NotAsked;
 
     /// <summary>
-    /// Layer 4 — MSSP as the server reported it, whether by telnet option 70 or the plaintext
-    /// <c>MSSP-REQUEST</c> fallback. Every variable, every value, in wire order.
+    /// Layer 4 — MSSP as the server reported it over telnet option 70. Every variable, every value,
+    /// in wire order.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -155,6 +155,14 @@ public enum MsspTransport
     TelnetOption70,
 
     /// <summary>The plaintext <c>MSSP-REQUEST</c> reply, delimited by START/END markers.</summary>
+    /// <remarks>
+    /// <b>Nothing produces this yet, deliberately.</b> The plaintext form belongs in
+    /// TelnetNegotiationCore, where it is filed as issue #61; implementing it here would duplicate a
+    /// first-party dependency and then have to be deleted. The member stays because the transport is
+    /// part of a value's provenance the moment there are two routes, and spec §6.4 describes both —
+    /// see <c>docs/codebase-survey-2026-07-30.md</c> for what the form actually reached when it was
+    /// measured against twenty live games.
+    /// </remarks>
     PlaintextRequest,
 }
 

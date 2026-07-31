@@ -57,26 +57,15 @@ public sealed record ProbeOptions
     /// </summary>
     public TimeSpan PollInterval { get; init; } = TimeSpan.FromMilliseconds(50);
 
-    /// <summary>
-    /// Whether to fall back to the plaintext <c>MSSP-REQUEST</c> form when telnet option 70 yields
-    /// nothing. <b>Off by default, and that default is a safety property rather than caution.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <c>IAC DO 70</c> is negotiation: a server that does not implement MSSP ignores it, and nothing
-    /// it does is affected. <c>MSSP-REQUEST</c> is <em>text</em>, sent at a login screen, and a
-    /// server that does not implement it reads the word as a character name. Measured:
-    /// <c>realms.reichel.net:4000</c> and <c>tsosmud.org:7070</c> both answer
-    /// <c>Illegal name, try another.</c> — so the fallback spends one of a stranger's login attempts
-    /// to ask a question they have already declined to answer.
-    /// </para>
-    /// <para>
-    /// Roughly 69 of the surveyed repositories implement the server side (the SMAUG family, CoffeeMUD
-    /// and Riftforge among them), so the fallback is worth having. It is worth having as an explicit
-    /// choice per target rather than as something every probe does to every stranger by default.
-    /// </para>
-    /// </remarks>
-    public bool RequestPlaintextMssp { get; init; }
+    // There is deliberately no option here for the plaintext MSSP-REQUEST form. It belongs in
+    // TelnetNegotiationCore, where it is filed as issue #61, and a compensating implementation here
+    // would duplicate a first-party dependency and then have to be deleted when that lands.
+    //
+    // The measurements are in docs/codebase-survey-2026-07-30.md and they say the same thing: of
+    // twenty games asked directly, the three that answered — CoffeeMUD, NarutoMUD and Riftforge —
+    // all answer telnet option 70 as well, so the plaintext form reached nothing the option did not.
+    // Eight others read the request as a character name and spent one of a stranger's login attempts
+    // on it.
 
     /// <summary>
     /// Ceiling on a single subnegotiation payload, handed to TelnetNegotiationCore's

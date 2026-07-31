@@ -8,11 +8,10 @@ namespace MUI.Crawl;
 /// </summary>
 /// <remarks>
 /// <para>
-/// This is a shape, not a parser. Both routes into layer 4 produce one of these — the telnet option,
-/// whose decoding is TelnetNegotiationCore's, and the plaintext <c>MSSP-REQUEST</c> reply, whose
-/// decoding is <see cref="PlaintextMssp"/>'s — and neither invents, discards or reformats anything
-/// on the way. Where the two disagree is recorded as <see cref="MsspTransport"/> rather than
-/// resolved here.
+/// This is a shape, not a parser. The decoding is TelnetNegotiationCore's; nothing here invents,
+/// discards or reformats anything on the way through. Should the plaintext <c>MSSP-REQUEST</c> form
+/// arrive — upstream, as issue #61, rather than here — it produces the same shape, and which route
+/// answered is recorded as <see cref="MsspTransport"/> rather than resolved away.
 /// </para>
 /// <para>
 /// <b>Order is meaningful and is preserved.</b> MSSP has no notion of a sorted report, and the

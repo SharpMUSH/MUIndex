@@ -115,6 +115,11 @@ MUSH family, which is precisely this project's audience.
 
 ## The plaintext `MSSP-REQUEST` form — 3 answered of 20, and 8 read it as a name
 
+**Measured, and deliberately not implemented here.** The plaintext form belongs in
+TelnetNegotiationCore, where it is filed as **issue #61**; `CLAUDE.md`'s rule is that a gap in that
+library is a PR rather than a compensating hack in this repository. This section is the evidence for
+whoever writes that PR — the probe carries none of it.
+
 Twenty games were sent the literal line `MSSP-REQUEST` at their login screen. Three answered with a
 well-formed `MSSP-REPLY-START` / tab-separated / `MSSP-REPLY-END` report:
 
@@ -124,10 +129,10 @@ well-formed `MSSP-REPLY-START` / tab-separated / `MSSP-REPLY-END` report:
 | `narutofor.us:4545` (NarutoMUD Engine) | 59 | |
 | `162.243.50.82:4000` (Riftforge) | 18 | "Mortals and Monsters"; `CRAWL DELAY -1` |
 
-**All three also answer telnet option 70**, so on this sample the plaintext form was never the only
-route to a report — it added no game the option did not already reach. That is the honest case for
-having it *and* for leaving it off: it is a fallback for a server we have not met yet, not a second
-opinion worth spending on servers that already answered.
+**All three also answer telnet option 70**, so on this sample the plaintext form was the only route to
+**no** game at all — it added nothing option 70 did not already reach. That is the case for not
+carrying an implementation of it here while #61 is open: it would be code and tests buying zero
+coverage today, duplicating a first-party dependency, and needing deletion when the library ships it.
 
 And the cost of asking is measured rather than theorised. Eight servers read the request as a
 character name and said so, spending one of the login attempts a stranger allows us:
@@ -178,9 +183,18 @@ active — it simply does not inflate the stream afterwards.
 **Still true at TelnetNegotiationCore 2.7.0, re-measured on `realms.reichel.net:4000`.** Registering
 `MCCPProtocol` yields one "line" of 162 characters that is 37% printable ASCII; declining yields 18
 lines that are 100% printable. `OnCompressionEnabled` fires with `v2 enabled=True` in the first case,
-so the library is certain it negotiated and equally certain it need not inflate. **Do not re-register
-MCCP until this is fixed upstream** — it costs the connect screen and the whole `WHO` reply on the 13
-codebases above, which is the exact regression declining it repaired.
+so the library is certain it negotiated and equally certain it need not inflate.
+
+**This is tracked upstream as issue #62 and is not worked around here.** Nothing in `MUI.Crawl`
+inflates a stream, reimplements MCCP, or compensates for the library in any way — the probe simply
+does not register the plugin, which is a **stopgap pending #62 and not a design position**. Two things
+follow that a later reader needs:
+
+- **Re-register MCCP the moment #62 ships.** It is a one-line change and it is waiting on nothing else.
+- **The decline has a real cost, and it is a hole in layer 1.** We no longer observe that a server
+  *offers* MCCP, because the library only reports the option on acceptance. So "no MCCP" in the table
+  above is, for the 13 codebases concerned, our own silence rather than a measurement of theirs — the
+  one place in this survey where that is true, and it closes when #62 does.
 
 **Why MSSP still worked:** we send `IAC DO 70` immediately on connect, and the server answers before
 compression starts. Anything arriving *after* the MCCP2 marker is lost — which on these 13 codebases

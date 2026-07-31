@@ -6,12 +6,7 @@ using MUI.Crawl;
 var host = args.Length > 0 ? args[0] : "mush.pennmush.org";
 var port = args.Length > 1 && int.TryParse(args[1], out var p) ? p : 4201;
 
-// The plaintext MSSP fallback puts text on a stranger's login screen, so it stays off unless the
-// operator asks for it by name — the same default the library-level probe carries.
-var plaintextMssp = args.Contains("--plaintext-mssp", StringComparer.Ordinal);
-
-var options = new ProbeOptions { RequestPlaintextMssp = plaintextMssp };
-var result = await new TelnetProbe(options).ProbeAsync(new ProbeTarget(host, port));
+var result = await new TelnetProbe().ProbeAsync(new ProbeTarget(host, port));
 
 Console.WriteLine($"target        {result.Host}:{result.Port}");
 Console.WriteLine($"outcome       {result.Outcome}");

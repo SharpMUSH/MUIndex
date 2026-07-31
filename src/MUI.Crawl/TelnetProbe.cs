@@ -33,21 +33,22 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     public const string WhoCommand = "WHO";
 
     /// <summary>
-    /// The plaintext MSSP request, sent only when a caller opts in
-    /// (<see cref="ProbeOptions.RequestPlaintextMssp"/>) and telnet option 70 yielded nothing.
-    /// </summary>
-    public const string MsspRequestCommand = PlaintextMssp.Request;
-
-    /// <summary>
     /// Every command this probe is allowed to send. Anything that logs in, creates a character, or
     /// changes server state is absent by construction.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The bare line terminator the probe sends between the banner and the <c>WHO</c> is deliberately
     /// not on this list, because it is not a command: it carries no text, names nothing, and asks for
     /// nothing. What it does is described at its call site.
+    /// </para>
+    /// <para>
+    /// <c>MSSP-REQUEST</c> is not on it either, and that is a decision rather than an omission — see
+    /// <see cref="ProbeOptions"/>. MSSP is asked for by negotiation, which a server that does not
+    /// implement it simply ignores.
+    /// </para>
     /// </remarks>
-    public static readonly IReadOnlyList<string> PermittedCommands = [WhoCommand, MsspRequestCommand];
+    public static readonly IReadOnlyList<string> PermittedCommands = [WhoCommand];
 
     private const byte Iac = 255;
     private const byte Do = 253;
@@ -121,25 +122,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             await SettleAsync(telnet, Arrived, flushLines, _options.SilenceGrace, budget.Token);
             var whoLines = Arrived();
 
-            // Phase 4 — the plaintext MSSP fallback, off unless asked for, and skipped outright when
-            // option 70 already answered. Sending it last is not tidiness: it is text at a login
-            // screen, and a server that reads it as a character name may hang up on us. Everything
-            // above is already measured by the time it goes out.
-            IReadOnlyDictionary<string, IReadOnlyList<string>>? plaintext = null;
-            if (_options.RequestPlaintextMssp && seen.MsspOutcome is MsspOutcome.NotOffered)
-            {
-                await telnet.SendAsync(Encoding.ASCII.GetBytes(MsspRequestCommand));
-                await SettleAsync(telnet, Arrived, whoLines, _options.SilenceGrace, budget.Token);
-
-                List<string> reply;
-                lock (lines)
-                {
-                    reply = lines.Skip(whoLines).ToList();
-                }
-
-                plaintext = PlaintextMssp.Parse(reply);
-            }
-
             string banner, whoText;
             lock (lines)
             {
@@ -165,14 +147,10 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Banner = banner,
                 Who = new WhoParser().Parse(whoText),
                 BannerPlayerCount = BannerCount.Find(banner),
-                Mssp = viaOption ? MsspReport.From(seen.Mssp) : plaintext ?? MsspReport.Empty,
-                MsspOutcome = plaintext is not null ? MsspOutcome.Received : seen.MsspOutcome,
+                Mssp = viaOption ? MsspReport.From(seen.Mssp) : MsspReport.Empty,
+                MsspOutcome = seen.MsspOutcome,
                 MsspBytesRejected = seen.MsspRejectedBytes,
-                MsspTransport = viaOption
-                    ? MsspTransport.TelnetOption70
-                    : plaintext is not null
-                        ? MsspTransport.PlaintextRequest
-                        : MsspTransport.None,
+                MsspTransport = viaOption ? MsspTransport.TelnetOption70 : MsspTransport.None,
                 Elapsed = Stopwatch.GetElapsedTime(started),
             };
         }
@@ -379,17 +357,27 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             .AddPlugin(gmcp)
             .AddPlugin(msdp)
             .AddPlugin(eor)
-            // MCCP is deliberately NOT registered. Two reasons, and the first stands on its own:
-            // a crawler reads a few kilobytes per probe, so compression buys it nothing while
-            // costing it the ability to read what arrives. The second is that accepting it today
-            // loses the data outright — TelnetNegotiationCore negotiates MCCP2 and never inflates
-            // the stream (upstream issue #62), so the connect screen and the whole WHO reply arrive
-            // as raw zlib and are decoded as text. Declining returns the identical banner in
-            // plaintext. Measured on 13 of the 38 codebases surveyed.
+            // MCCP is NOT registered, and this is a STOPGAP waiting on upstream, not a design
+            // position. The reason is exactly one thing: TelnetNegotiationCore negotiates MCCP2 and
+            // then never inflates the stream (upstream issue #62). Accepting it therefore loses the
+            // payload outright — the connect screen and the whole WHO reply arrive as raw zlib and
+            // are decoded as text.
             //
-            // The cost is honest and worth stating: we no longer observe that a server *offers*
-            // MCCP, because the library only reports it on acceptance. When #62 is fixed, accept it
-            // again and get both.
+            // Measured on realms.reichel.net:4000 against 2.7.0: registered, the banner is one
+            // 162-character "line" that is 37% printable ASCII; declined, it is 18 lines that are
+            // 100% printable. OnCompressionEnabled fires with v2 enabled=True either way, so the
+            // library is certain it negotiated and equally certain it need not inflate. 13 of the
+            // 38 codebases surveyed offer MCCP2, so this is a third of the hobby.
+            //
+            // Re-register the moment #62 ships. Do not re-derive a principled-sounding reason for
+            // this: "a crawler reads a few kilobytes so compression buys it nothing" was the earlier
+            // comment here, and it is a rationalisation that reads like a permanent decision and
+            // hides the fact that anything is being waited on.
+            //
+            // THE COST, which is real and belongs next to the decision: we no longer observe that a
+            // server *offers* MCCP, because the library only reports it on acceptance. That is a
+            // hole in layer 1 — a capability we could measure and currently do not — and it closes
+            // when #62 does.
             .AddPlugin(new Watched.Mxp(Note))
             .AddPlugin(new Watched.SuppressGoAhead(Note))
             .AddPlugin(new Watched.Naws(Note))

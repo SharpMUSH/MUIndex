@@ -54,6 +54,56 @@ public class MsspReferralsTests
     }
 
     [Test]
+    public async Task AVariableTheServerRepeatedIsSeveralCandidates()
+    {
+        // MSSP's own way of expressing a list is to send the variable again, and it is how REFERRAL
+        // and PORT actually arrive — coffeemud.net:2327 reports PORT nine times. This could not be
+        // expressed at all while the probe flattened a report into one string per name: the entries
+        // were glued together with ", " and this parser had to guess where the glue was.
+        var mssp = ProbeResults.Mssp(
+            ("REFERRAL", "a.example.org 4000"),
+            ("REFERRAL", "b.example.org 4001"),
+            ("REFERRAL", "c.example.org 4002"));
+
+        var candidates = MsspReferrals.From(mssp);
+
+        await Assert.That(candidates.Count).IsEqualTo(3);
+        await Assert.That(candidates.Select(c => c.Host))
+            .IsEquivalentTo(new[] { "a.example.org", "b.example.org", "c.example.org" });
+    }
+
+    [Test]
+    public async Task ACommaInsideAnEntryIsNoLongerMistakenForTheSeparatorBetweenTwo()
+    {
+        // The reason joining was worse than dropping. A four-column entry carrying a game name with
+        // a comma in it survives now, because it arrives as its own value rather than as part of a
+        // string this parser has to re-split.
+        var mssp = ProbeResults.Mssp(
+            ("REFERRAL", "Bravo, the Second\tb.example.org\t4001\tPennMUSH"),
+            ("REFERRAL", "c.example.org 4002"));
+
+        var candidates = MsspReferrals.From(mssp);
+
+        await Assert.That(candidates.Count).IsEqualTo(2);
+        await Assert.That(candidates[0].Host).IsEqualTo("b.example.org");
+        await Assert.That(candidates[0].Port).IsEqualTo(4001);
+        await Assert.That(candidates[1].Host).IsEqualTo("c.example.org");
+    }
+
+    [Test]
+    public async Task TheOrderTheServerListedThemInIsKept()
+    {
+        var mssp = ProbeResults.Mssp(
+            ("REFERRAL", "first.example.org 4000"),
+            ("REFERRAL", "second.example.org 4001"));
+
+        var candidates = MsspReferrals.From(mssp);
+
+        await Assert.That(candidates[0].Host).IsEqualTo("first.example.org");
+        await Assert.That(candidates[1].Host).IsEqualTo("second.example.org");
+    }
+
+    [Test]
     public async Task TheVariableIsMatchedCaseInsensitively()
     {
         var mssp = ProbeResults.Mssp(("Referral", "b.example.org 4000"));

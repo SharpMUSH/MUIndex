@@ -60,19 +60,34 @@ public static class MsspReferrals
     private static readonly char[] TokenSeparators = [' ', '\t'];
 
     /// <summary>Every candidate this probe's <c>REFERRAL</c> named, in the order the server listed them.</summary>
-    public static IReadOnlyList<ReferralCandidate> From(IReadOnlyDictionary<string, string> mssp)
+    /// <remarks>
+    /// <b>The repeated-variable form is now read from the list, not recovered from a joined string.</b>
+    /// MSSP's own way of expressing a list is to send the variable more than once, and that used to
+    /// reach here as one value with the entries glued together by a comma — so this parser had to
+    /// split them apart again, and could not distinguish the glue from a comma inside an entry. Each
+    /// reported value is parsed on its own now. The in-value separators stay, because servers really
+    /// do put several entries in one value as well, and both shapes turn up in the wild.
+    /// </remarks>
+    public static IReadOnlyList<ReferralCandidate> From(IReadOnlyDictionary<string, IReadOnlyList<string>> mssp)
     {
         ArgumentNullException.ThrowIfNull(mssp);
 
-        foreach (var (variable, value) in mssp)
+        var candidates = new List<ReferralCandidate>();
+
+        foreach (var (variable, values) in mssp)
         {
-            if (string.Equals(variable.Trim(), Variable, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(variable.Trim(), Variable, StringComparison.OrdinalIgnoreCase))
             {
-                return Parse(value);
+                continue;
+            }
+
+            foreach (var value in values)
+            {
+                candidates.AddRange(Parse(value));
             }
         }
 
-        return [];
+        return candidates;
     }
 
     /// <summary>Parses one <c>REFERRAL</c> value, which may hold any number of entries.</summary>

@@ -24,14 +24,13 @@ namespace MUI.Crawl.Tests;
 public class ProbeSessionTests
 {
     /// <summary>Short, so the suite settles in a moment rather than in the live defaults.</summary>
-    private static ProbeOptions Fast(bool plaintextMssp = false) => new()
+    private static ProbeOptions Fast() => new()
     {
         QuietPeriod = TimeSpan.FromMilliseconds(120),
         SilenceGrace = TimeSpan.FromMilliseconds(300),
         MaxPhase = TimeSpan.FromSeconds(3),
         PollInterval = TimeSpan.FromMilliseconds(15),
         Timeout = TimeSpan.FromSeconds(20),
-        RequestPlaintextMssp = plaintextMssp,
     };
 
     [Test]
@@ -136,58 +135,21 @@ public class ProbeSessionTests
     }
 
     [Test]
-    public async Task ThePlaintextMsspFallbackIsReadAndItsTransportRecorded()
+    public async Task TheProbeNeverSendsAnythingButItsOnePermittedCommand()
     {
+        // The restraint test with a wire under it. Everything the probe types must be the permitted
+        // command or an empty line; nothing that logs in, creates or changes anything — and, since
+        // the plaintext form belongs upstream rather than here, nothing that a login screen would
+        // read as a character name.
         await using var game = new FakeGame
         {
             Banner = "Welcome to Nowhere\r\n",
             WhoReply = "There are 2 players connected.\r\n",
-            PlaintextMsspReply =
-                "MSSP-REPLY-START\r\nNAME\tNowhere\r\nPORT\t4201\r\nPORT\t4202\r\nMSSP-REPLY-END\r\n",
         };
 
-        var result = await new TelnetProbe(Fast(plaintextMssp: true)).ProbeAsync(game.Target);
-
-        await Assert.That(result.MsspOutcome).IsEqualTo(MsspOutcome.Received);
-        await Assert.That(result.MsspTransport).IsEqualTo(MsspTransport.PlaintextRequest);
-        await Assert.That(result.MsspField("NAME")).IsEqualTo("Nowhere");
-        await Assert.That(result.MsspValues("PORT").Count).IsEqualTo(2);
-
-        // And it must not have leaked into the measurement that was taken before it.
-        await Assert.That(result.Who.Count).IsEqualTo(2);
-    }
-
-    [Test]
-    public async Task TheFallbackPutsNothingOnTheWireUnlessItWasAskedFor()
-    {
-        // Default options, a server that would happily answer: the request must still not go out.
-        await using var game = new FakeGame
-        {
-            Banner = "Welcome to Nowhere\r\n",
-            WhoReply = "There are 2 players connected.\r\n",
-            PlaintextMsspReply = "MSSP-REPLY-START\r\nNAME\tNowhere\r\nMSSP-REPLY-END\r\n",
-        };
-
-        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+        await new TelnetProbe(Fast()).ProbeAsync(game.Target);
 
         await Assert.That(game.Received).DoesNotContain("MSSP-REQUEST");
-        await Assert.That(result.MsspOutcome).IsEqualTo(MsspOutcome.NotOffered);
-        await Assert.That(result.MsspTransport).IsEqualTo(MsspTransport.None);
-    }
-
-    [Test]
-    public async Task TheProbeNeverSendsAnythingButItsTwoPermittedCommands()
-    {
-        // The restraint test with a wire under it. Everything the probe types must be one of the
-        // permitted commands or an empty line; nothing that logs in, creates or changes anything.
-        await using var game = new FakeGame
-        {
-            Banner = "Welcome to Nowhere\r\n",
-            WhoReply = "There are 2 players connected.\r\n",
-            PlaintextMsspReply = "MSSP-REPLY-START\r\nMSSP-REPLY-END\r\n",
-        };
-
-        await new TelnetProbe(Fast(plaintextMssp: true)).ProbeAsync(game.Target);
 
         foreach (var line in game.Received)
         {
@@ -244,8 +206,6 @@ public class ProbeSessionTests
         public string? WhoTail { get; init; }
 
         public string? BlankLineReply { get; init; }
-
-        public string? PlaintextMsspReply { get; init; }
 
         /// <summary>
         /// Whether this server fails to strip telnet negotiation at its login screen, so our IAC
@@ -360,14 +320,6 @@ public class ProbeSessionTests
                 {
                     await SendAsync(stream, WhoTail);
                 }
-
-                return;
-            }
-
-            if (command.Equals("MSSP-REQUEST", StringComparison.OrdinalIgnoreCase)
-                && PlaintextMsspReply is not null)
-            {
-                await SendAsync(stream, PlaintextMsspReply);
             }
         }
 
