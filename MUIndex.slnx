@@ -5,6 +5,7 @@
     <Project Path="src/MUI.Crawler/MUI.Crawler.csproj" />
     <Project Path="src/MUI.Crawler.Cli/MUI.Crawler.Cli.csproj" />
     <Project Path="src/MUI.Discovery/MUI.Discovery.csproj" />
+    <Project Path="src/MUI.Import/MUI.Import.csproj" />
     <Project Path="src/MUI.Probe/MUI.Probe.csproj" />
     <Project Path="src/MUI.Web/MUI.Web.csproj" />
   </Folder>
@@ -13,6 +14,15 @@
     <Project Path="tests/MUI.Crawl.Tests/MUI.Crawl.Tests.csproj" />
     <Project Path="tests/MUI.Crawler.Tests/MUI.Crawler.Tests.csproj" />
     <Project Path="tests/MUI.Discovery.Tests/MUI.Discovery.Tests.csproj" />
+    <Project Path="tests/MUI.Import.Tests/MUI.Import.Tests.csproj" />
     <Project Path="tests/MUI.Web.Tests/MUI.Web.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <!--
+      Built by CI and never run by it. This is the one thing in the repository that talks to somebody
+      else's live web server; it is in the solution so it cannot rot, and it runs when a human decides
+      to run it.
+    -->
+    <Project Path="tools/live-tintin-import/live-tintin-import.csproj" />
   </Folder>
 </Solution>

@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>MUI.Import.Tests</RootNamespace>
+    <AssemblyName>MUI.Import.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TUnit" />
+
+    <!--
+      One end-to-end import against a real PostgreSQL 17, because the two-tier rule finally rests on
+      a CHECK constraint and a column default, and a fake agreeing with the code proves only that
+      they were written by the same person.
+    -->
+    <PackageReference Include="Testcontainers.PostgreSql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MUI.Import\MUI.Import.csproj" />
+  </ItemGroup>
+
+  <!--
+    Every byte any test in this suite parses comes from here. There is no HttpClient in this project
+    that can reach the internet: the fixtures were recorded once, by hand, and committed.
+  -->
+  <ItemGroup>
+    <Content Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
