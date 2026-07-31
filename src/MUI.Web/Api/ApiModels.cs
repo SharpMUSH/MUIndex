@@ -213,7 +213,7 @@ public sealed record FilterView(
             filter.Family?.Token,
             filter.Genre?.Token,
             filter.Language?.Token,
-            filter.CodebaseFamily);
+            filter.CodebaseFamily?.Token);
     }
 }
 

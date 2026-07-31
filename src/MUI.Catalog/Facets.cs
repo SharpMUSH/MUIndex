@@ -88,7 +88,7 @@ public enum FacetKind
 /// real and useful question; it is not "games with no codebase", and neither is it a games-with-any
 /// filter left blank. Modelling it as a value would let one be typed where the other was meant.
 /// </remarks>
-public sealed record FacetChoice(string? Value)
+public sealed record FacetChoice(string? Value, bool Exclude = false)
 {
     /// <summary>
     /// The querystring spelling of the absence. Tilde-prefixed so it cannot collide with a real
@@ -96,22 +96,89 @@ public sealed record FacetChoice(string? Value)
     /// </summary>
     public const string UnknownToken = "~unknown";
 
+    /// <summary>
+    /// The prefix that turns a selection inside out: <c>?codebase=!Evennia</c> is every game whose
+    /// codebase is not Evennia.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A facet has three states, not two</b>, and the third one is what makes the panel a filter
+    /// rather than a set of shortcuts. Absent means the facet is not being asked about; a value
+    /// means <em>only these</em>; an excluded value means <em>anything but these</em>. Without the
+    /// third, "show me the games that are not Evennia" is a question the catalogue can answer and
+    /// the interface cannot ask.
+    /// </para>
+    /// <para>
+    /// <c>!</c> rather than <c>-</c> because a codebase, genre or language may legitimately begin
+    /// with a hyphen and none of the values observed in the wild begin with a bang. A literal
+    /// leading <c>!</c> is written <c>!!</c>, so a value is never unreachable — see
+    /// <see cref="Parse"/>.
+    /// </para>
+    /// </remarks>
+    public const string ExcludeToken = "!";
+
     /// <summary>Games for which this facet has no value at all.</summary>
     public static readonly FacetChoice Unknown = new((string?)null);
 
     public static FacetChoice Of(string value) => new(value);
 
+    /// <summary>The same selection, inside out.</summary>
+    public static FacetChoice Not(string value) => new(value, Exclude: true);
+
     public bool IsUnknown => Value is null;
 
-    /// <summary>What this selection is called in a URL.</summary>
-    public string Token => Value ?? UnknownToken;
+    /// <summary>What this selection is called in a URL, polarity included.</summary>
+    public string Token =>
+        (Exclude ? ExcludeToken : string.Empty) + Escaped(Value ?? UnknownToken);
 
-    public static FacetChoice Parse(string token) =>
-        string.Equals(token, UnknownToken, StringComparison.Ordinal) ? Unknown : Of(token);
+    /// <summary>The same facet with its polarity flipped, which is what a panel's toggle emits.</summary>
+    /// <remarks>
+    /// <b>A method and not a property, deliberately.</b> A record's generated <c>ToString</c> prints
+    /// every public property, so a property returning another <see cref="FacetChoice"/> makes
+    /// printing one recurse until the stack runs out — which is exactly what happened, and it
+    /// surfaced as an unrelated test dying inside an assertion message rather than as anything to do
+    /// with facets.
+    /// </remarks>
+    public FacetChoice Invert() => this with { Exclude = !Exclude };
 
-    /// <summary>Whether a game whose value for this facet is <paramref name="actual"/> matches.</summary>
-    public bool Matches(string? actual) =>
+    public static FacetChoice Parse(string token)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+
+        var exclude = token.StartsWith(ExcludeToken, StringComparison.Ordinal)
+            && !token.StartsWith(ExcludeToken + ExcludeToken, StringComparison.Ordinal);
+
+        var body = exclude
+            ? token[ExcludeToken.Length..]
+            // A doubled bang is a literal one: a value that genuinely starts with "!" stays
+            // reachable rather than being silently reinterpreted as its own negation.
+            : token.StartsWith(ExcludeToken + ExcludeToken, StringComparison.Ordinal)
+                ? token[ExcludeToken.Length..]
+                : token;
+
+        return string.Equals(body, UnknownToken, StringComparison.Ordinal)
+            ? Unknown with { Exclude = exclude }
+            : new FacetChoice(body, exclude);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="actual"/> is the value this selection names — <b>polarity ignored</b>.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately separate from <see cref="Admits"/>. A facet can hand a row several tokens (a
+    /// game reached an hour ago is in the last day, week and month), and inverting the comparison
+    /// per token would make an excluded selection mean "some token differs" — which every row with
+    /// more than one token satisfies. The polarity is applied once, to the answer.
+    /// </remarks>
+    public bool Covers(string? actual) =>
         IsUnknown ? actual is null : string.Equals(actual, Value, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Whether a row that did or did not match this selection survives it.</summary>
+    public bool Admits(bool covered) => covered != Exclude;
+
+    /// <summary>A value that begins with the exclusion marker is doubled so it round-trips.</summary>
+    private static string Escaped(string value) =>
+        value.StartsWith(ExcludeToken, StringComparison.Ordinal) ? ExcludeToken + value : value;
 }
 
 /// <summary>
@@ -151,7 +218,36 @@ public enum LastSeenBand
 /// results it will not deliver. A value nothing matches is never offered at all — the one exception
 /// is a value that is currently selected, which stays visible at zero so it can be seen and undone.
 /// </remarks>
-public sealed record FacetValue(string Token, int Count, bool IsSelected, bool IsUnknown);
+public sealed record FacetValue(
+    string Token,
+    int Count,
+    bool IsSelected,
+    bool IsUnknown,
+    bool IsExcluded = false)
+{
+    /// <summary>
+    /// The three states a value can be in, as one question a renderer can switch on.
+    /// </summary>
+    /// <remarks>
+    /// A panel that only knew <see cref="IsSelected"/> would draw an included and an excluded value
+    /// identically, which is the one thing a tri-state filter must not do — a reader would have no
+    /// way to tell "only Evennia" from "anything but Evennia" except by reading the URL.
+    /// </remarks>
+    public FacetState State => (IsSelected, IsExcluded) switch
+    {
+        (true, true) => FacetState.Excluded,
+        (true, false) => FacetState.Included,
+        _ => FacetState.Unselected,
+    };
+}
+
+/// <summary>Whether a facet value is being filtered in, filtered out, or not asked about.</summary>
+public enum FacetState
+{
+    Unselected,
+    Included,
+    Excluded,
+}
 
 /// <summary>One facet, ready to render: what it is called, what it reads, and what it offers.</summary>
 /// <remarks>
@@ -257,7 +353,7 @@ public static class FacetedSearch
         var baseRows = rows
             .Where(r => (wantsArchived || r.Band is not ActivityBand.Archived)
                 && MatchesText(r, filter.Text)
-                && CodebaseFamily.Matches(r.Codebase, filter.CodebaseFamily))
+                && AdmitsFamily(r, filter.CodebaseFamily))
             .ToList();
 
         var results = baseRows.Where(r => Chosen(r, filter, null) && Present(r, filter)).ToList();
@@ -324,6 +420,18 @@ public static class FacetedSearch
             || (row.Codebase?.Contains(needle, StringComparison.OrdinalIgnoreCase) ?? false);
     }
 
+    /// <summary>
+    /// Whether a row survives the codebase-family filter, polarity included.
+    /// </summary>
+    /// <remarks>
+    /// Separate from the choice facets because the test is a bounded prefix rather than an equality,
+    /// and because this is a filter rather than a counted facet — it narrows the set the panel's
+    /// counts are taken over, which is what makes a codebase page's facet counts counts within that
+    /// codebase.
+    /// </remarks>
+    private static bool AdmitsFamily(GameFacetRow row, FacetChoice? family) =>
+        family is null || family.Admits(CodebaseFamily.Matches(row.Codebase, family.Value));
+
     private static bool Chosen(GameFacetRow row, GameFilter filter, string? except)
     {
         foreach (var facet in Choices)
@@ -333,8 +441,9 @@ public static class FacetedSearch
                 continue;
             }
 
+            // Applied once to the answer, not per token: see FacetChoice.Covers.
             if (facet.SelectionOf(filter) is { } selection
-                && !facet.TokensOf(row).Any(selection.Matches))
+                && !selection.Admits(facet.TokensOf(row).Any(selection.Covers)))
             {
                 return false;
             }
@@ -416,8 +525,9 @@ public static class FacetedSearch
                 .Select(token => new FacetValue(
                     token,
                     counts.GetValueOrDefault(token),
-                    selection?.Matches(token) ?? false,
-                    IsUnknown: false))
+                    selection?.Covers(token) ?? false,
+                    IsUnknown: false,
+                    IsExcluded: (selection?.Covers(token) ?? false) && selection!.Exclude))
                 .Where(v => v.Count > 0 || v.IsSelected),
         ];
     }
@@ -442,7 +552,11 @@ public static class FacetedSearch
         var named = counts
             .Where(c => !string.Equals(c.Key, FacetChoice.UnknownToken, StringComparison.Ordinal))
             .Select(c => new FacetValue(
-                c.Key, c.Value, selection?.Matches(c.Key) ?? false, IsUnknown: false))
+                c.Key,
+                c.Value,
+                selection?.Covers(c.Key) ?? false,
+                IsUnknown: false,
+                IsExcluded: (selection?.Covers(c.Key) ?? false) && selection!.Exclude))
             .OrderByDescending(v => v.IsSelected)
             .ThenByDescending(v => v.Count)
             .ThenBy(v => v.Token, StringComparer.Ordinal)
@@ -456,7 +570,12 @@ public static class FacetedSearch
 
         if (unknown > 0 || unknownSelected)
         {
-            named.Add(new FacetValue(FacetChoice.UnknownToken, unknown, unknownSelected, IsUnknown: true));
+            named.Add(new FacetValue(
+                FacetChoice.UnknownToken,
+                unknown,
+                unknownSelected,
+                IsUnknown: true,
+                IsExcluded: unknownSelected && selection!.Exclude));
         }
 
         return named;

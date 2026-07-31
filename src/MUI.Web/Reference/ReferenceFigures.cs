@@ -33,7 +33,7 @@ public sealed record CodebaseFigures(int Listed, int Archived, IReadOnlyList<str
         ArgumentNullException.ThrowIfNull(queries);
 
         var games = await queries.ListAsync(
-            new GameFilter { CodebaseFamily = family, IncludeArchived = true },
+            new GameFilter { CodebaseFamily = FacetChoice.Of(family), IncludeArchived = true },
             cancellationToken);
 
         return new CodebaseFigures(

@@ -188,8 +188,15 @@ public sealed record GameFilter
     /// variable, which answers <c>TinyMUD</c> or <c>DikuMUD</c>; this is the codebase with its
     /// version taken off. A reference page for PennMUSH wants the third and neither of the others.
     /// </para>
+    /// <para>
+    /// A <see cref="FacetChoice"/> for its polarity rather than its matching: the choice carries the
+    /// value and whether it is being filtered in or out, and the <em>test</em> is supplied by the
+    /// caller — <see cref="CodebaseFamily.Matches"/>, a bounded prefix, so <c>ROM</c> does not gather
+    /// <c>ROMulus</c>. It is not offered as a counted facet in the panel, so it never appears in the
+    /// vocabulary the choice facets are drawn from.
+    /// </para>
     /// </remarks>
-    public string? CodebaseFamily { get; init; }
+    public FacetChoice? CodebaseFamily { get; init; }
 }
 
 /// <summary>
