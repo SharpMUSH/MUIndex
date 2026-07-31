@@ -1,4 +1,5 @@
 using MUI.Catalog;
+using MUI.Web.Accounts;
 using MUI.Web.Api;
 using MUI.Web.Components;
 using MUI.Web.Data;
@@ -36,6 +37,14 @@ else
 
 builder.Services.AddSingleton(new CatalogueSource(connectionString is not null));
 
+// Claiming needs a database: an account, a passkey and a claim are all rows (spec §8). Against the
+// demo fixture the sign-in and claim surfaces are simply absent rather than present and broken —
+// half a claim flow over invented games would be a worse answer than none.
+if (connectionString is not null)
+{
+    builder.Services.AddMuiAccounts(builder.Configuration);
+}
+
 // Ages are relative to a clock, and a clock is a dependency like any other — the plain surface and
 // the rendered page must not each reach for DateTimeOffset.UtcNow and disagree by a tick.
 builder.Services.AddSingleton(TimeProvider.System);
@@ -63,6 +72,13 @@ app.UseStaticFiles();
 // present even though this site has no POST form yet. The facet panel is a GET form deliberately —
 // a filter is a bookmarkable question, not a state change — so nothing here is token-protected.
 app.UseAntiforgery();
+
+if (connectionString is not null)
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+    app.MapMuiAccounts();
+}
 
 app.MapRazorComponents<App>();
 app.MapMuiApi();

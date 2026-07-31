@@ -3,6 +3,7 @@
 @inject IGameQueries Queries
 @inject IAvailabilityHistory History
 @inject TimeProvider Clock
+@inject IServiceProvider Services
 
 @if (Page is null)
 {
@@ -54,7 +55,19 @@ else
                 }
                 @if (!Page.Summary.IsClaimed && !Archived)
                 {
-                    <p class="faint">Nobody has claimed this listing — everything here was measured.</p>
+                    @*
+                        The invitation sits with the fact rather than in a banner. An owner arriving
+                        at their own listing is the one reader for whom "nobody has claimed this" is
+                        an action rather than a note — and it is a link, not a button, because
+                        nothing happens until they are signed in (spec §8.1).
+                    *@
+                    <p class="faint">
+                        Nobody has claimed this listing — everything here was measured.
+                        @if (Claimable)
+                        {
+                            <a href="/g/@Page.Summary.Slug/claim">Run this game?</a>
+                        }
+                    </p>
                 }
             </div>
             <div class="connect">
@@ -150,6 +163,15 @@ else
 }
 
 @code {
+    /// <summary>
+    /// Whether claiming is available at all — it needs a database, and the demo has none.
+    /// </summary>
+    /// <remarks>
+    /// Asked of the container rather than re-derived from a connection string, so the page and the
+    /// endpoints cannot disagree about whether accounts exist.
+    /// </remarks>
+    private bool Claimable => Services.GetService<MUI.Catalog.Persistence.ClaimService>() is not null;
+
     [Parameter] public string Slug { get; set; } = string.Empty;
 
     [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }

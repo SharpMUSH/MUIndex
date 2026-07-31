@@ -224,6 +224,43 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         return [.. rows];
     }
 
+    public async Task<GameSummary?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        var row = await connection.QuerySingleOrDefaultAsync<GameRow>(new CommandDefinition(
+            """
+            SELECT id AS Id, slug AS Slug, name AS Name, tagline AS Tagline, state AS State,
+                   is_claimed AS IsClaimed, last_reachable_at AS LastReachableAt
+              FROM game
+             WHERE id = @id
+            """,
+            new { id },
+            cancellationToken: cancellationToken));
+
+        if (row is null)
+        {
+            return null;
+        }
+
+        Guid[] ids = [row.Id];
+        var fields = (await FieldsForAsync(connection, ids, cancellationToken))
+            .GetValueOrDefault(row.Id, []);
+        var digest = (await PresenceDigestAsync(connection, ids, Clock(), cancellationToken))
+            .GetValueOrDefault(row.Id, PresenceDigest.None);
+
+        return new GameSummary(
+            row.Id,
+            row.Slug,
+            row.Name,
+            row.Tagline,
+            SqlEnums.ToLifecycleState(row.State),
+            row.IsClaimed,
+            digest.CountNow,
+            Winner(fields, "CODEBASE")?.Value,
+            MeasuredProtocolsOf(fields));
+    }
+
     public async Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default)
     {
         var now = Clock();

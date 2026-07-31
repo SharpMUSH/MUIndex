@@ -1,0 +1,187 @@
+@page "/account"
+@using Microsoft.AspNetCore.Identity
+@using MUI.Catalog
+@using MUI.Catalog.Persistence
+@using MUI.Web.Accounts
+@inject IGameQueries Queries
+@inject IServiceProvider Services
+
+@*
+    An operator's own page: the games they have claimed, the ones still waiting on a token, and the
+    passkeys that reach the account.
+
+    Deliberately thin. Everything editable from here is enrichment (spec §8.5) — an owner may add
+    what MSSP has no field for and may never touch a measurement, so there is nothing on this page
+    that could change a player count, a capability or a reachability history.
+*@
+
+<PageTitle>Your games — mu*index</PageTitle>
+
+@if (Users is null)
+{
+    <section class="prose">
+        <h1>Your games</h1>
+        <p>Accounts need a database behind them, and this site is running on the demo fixture.</p>
+    </section>
+}
+else if (User is null)
+{
+    <section class="prose">
+        <h1>Your games</h1>
+        <p><a class="button" href="/account/sign-in">Sign in</a></p>
+    </section>
+}
+else
+{
+    <section class="prose">
+        <h1>Your games</h1>
+        <p class="faint">Signed in as @User.DisplayName.</p>
+
+        @if (Verified.Count == 0 && Pending.Count == 0)
+        {
+            <p>
+                You have not claimed anything yet. Find your game in
+                <a href="/games">the listing</a> and press <em>claim this game</em> on its page.
+            </p>
+        }
+
+        @if (Verified.Count > 0)
+        {
+            <h2>Claimed</h2>
+            <ul class="claims">
+                @foreach (var (claim, game) in Verified)
+                {
+                    <li>
+                        <a href="/g/@game.Slug">@game.Name</a>
+                        <span class="faint">
+                            verified @claim.ClaimedAt!.Value.ToString("d MMM yyyy")@(BeaconNote(claim))
+                        </span>
+                    </li>
+                }
+            </ul>
+        }
+
+        @if (Pending.Count > 0)
+        {
+            <h2>Waiting on a token</h2>
+            <ul class="claims">
+                @foreach (var (claim, game) in Pending)
+                {
+                    <li>
+                        <a href="/g/@game.Slug/claim">@game.Name</a>
+                        <span class="faint">
+                            token issued @claim.IssuedAt.ToString("d MMM yyyy"), good until
+                            @claim.ExpiresAt.ToString("d MMM yyyy")
+                        </span>
+                    </li>
+                }
+            </ul>
+        }
+
+        <h2>Passkeys</h2>
+        <ul class="passkeys">
+            @foreach (var key in Keys)
+            {
+                <li>
+                    <span class="mono">@(key.Name ?? "unnamed")</span>
+                    <span class="faint">
+                        added @key.CreatedAt.ToString("d MMM yyyy")@(key.IsBackedUp ? string.Empty : " · on one device only")
+                    </span>
+                </li>
+            }
+        </ul>
+
+        @if (Keys.Any(k => !k.IsBackedUp) && Keys.Count == 1)
+        {
+            <p class="faint">
+                That passkey lives on one device rather than syncing. If you lose the device you can
+                still get back in by publishing a fresh token on your game — but adding a second
+                passkey is quicker.
+            </p>
+        }
+
+        <form data-passkey="register" method="post" action="/account/passkey/register">
+            <button type="submit" disabled>Add another passkey</button>
+            <p class="faint" data-passkey-status></p>
+        </form>
+
+        <form method="post" action="/account/sign-out">
+            <AntiforgeryToken />
+            <button type="submit" class="quiet">Sign out</button>
+        </form>
+    </section>
+
+    <script src="/passkey.js" defer></script>
+}
+
+@code {
+    private UserManager<MuiUser>? Users { get; set; }
+
+    private MuiUser? User { get; set; }
+
+    private List<(GameClaim Claim, GameSummary Game)> Verified { get; set; } = [];
+
+    private List<(GameClaim Claim, GameSummary Game)> Pending { get; set; } = [];
+
+    private IList<UserPasskeyInfo> Keys { get; set; } = [];
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Users = Services.GetService<UserManager<MuiUser>>();
+
+        if (Users is null
+            || Services.GetService<IClaimStore>() is not { } claims
+            || HttpContext?.User is not { Identity.IsAuthenticated: true } principal)
+        {
+            return;
+        }
+
+        User = await Users.GetUserAsync(principal);
+
+        if (User is null)
+        {
+            return;
+        }
+
+        Keys = await Users.GetPasskeysAsync(User);
+
+        var now = DateTimeOffset.UtcNow;
+
+        foreach (var claim in await claims.ForUserAsync(User.Id))
+        {
+            // A claim names a game id; the listing names a slug. Resolved one at a time because an
+            // operator holds a handful of games, not a page of them — if that stops being true this
+            // wants a single query rather than a loop, and the shape of the fix is a batch read.
+            if (await Queries.FindByIdAsync(claim.GameId) is not { } game)
+            {
+                continue;
+            }
+
+            if (claim.IsVerified)
+            {
+                Verified.Add((claim, game));
+            }
+            else if (claim.IsPending(now))
+            {
+                Pending.Add((claim, game));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Says when the beacon was last seen, and never treats its absence as a problem.
+    /// </summary>
+    /// <remarks>
+    /// Spec §8.4: presence establishes, absence never revokes. This is a note, not a warning — a
+    /// missing beacon means a probe did not read one, which happens for reasons that have nothing to
+    /// do with the owner, and alarming them about it would be the interface arguing for a rule the
+    /// system does not have.
+    /// </remarks>
+    private static string BeaconNote(GameClaim claim) =>
+        claim.BeaconLastSeenAt is { } seen
+            ? $", token last seen {seen:d MMM yyyy}"
+            : string.Empty;
+}

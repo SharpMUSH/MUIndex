@@ -1,0 +1,93 @@
+@page "/account/sign-in"
+@using Microsoft.AspNetCore.Identity
+@using MUI.Web.Accounts
+@inject IServiceProvider Services
+
+@*
+    Sign-in, and the only page on this site that needs JavaScript (spec §8.2).
+
+    Passkeys and nothing else: no password to store, no address to recover to, no third party. The
+    part of passwordless that usually forces one of those back in is account recovery, and it does
+    not apply — lose every device and the way back is to publish a fresh token on the game you
+    control, because the root of trust is the server rather than the credential.
+
+    That also means an account here is worth almost nothing to steal, which is the design working
+    rather than a shortcut: taking one gets you the ability to edit four enrichment fields on games
+    whose real owner takes them back in a single probe.
+*@
+
+<PageTitle>Sign in — mu*index</PageTitle>
+
+@if (!Available)
+{
+    <section class="prose">
+        <h1>Sign in</h1>
+        <p>
+            Claiming needs a database behind it, and this site is running on the demo fixture.
+            There is nothing here to sign in to.
+        </p>
+    </section>
+}
+else
+{
+    <section class="prose auth">
+        <h1>Sign in</h1>
+
+        <p>
+            Sign-in is a <strong>passkey</strong> — your device or password manager holds a private
+            key and we hold only the public half. There is no password to forget and no email to
+            give us.
+        </p>
+
+        <form data-passkey="sign-in" method="post" action="/account/sign-in">
+            <button type="submit" disabled>Sign in with a passkey</button>
+            <p class="faint" data-passkey-status>
+                This is the one page here that needs JavaScript. Passkeys have no way to work
+                without it.
+            </p>
+        </form>
+
+        <h2>No account yet?</h2>
+
+        <p>
+            You need one only to claim a game you run. Pick a name to be known by — it is a label
+            beside your claim, not a real name, and we ask for nothing else.
+        </p>
+
+        <form data-passkey="register" method="post" action="/account/register">
+            <label for="name">Name</label>
+            <input id="name" name="name" type="text" maxlength="40" autocomplete="username"
+                   placeholder="e.g. corvid-admin" />
+            <button type="submit" disabled>Create an account with a passkey</button>
+            <p class="faint" data-passkey-status></p>
+        </form>
+
+        <h2>What we store</h2>
+
+        <ul>
+            <li>The name you chose.</li>
+            <li>The public key of each passkey you register, and what your device called it.</li>
+            <li>Which games you have claimed, and when.</li>
+        </ul>
+
+        <p class="faint">
+            No email address, no password, no IP log tied to your account. If you lose every passkey,
+            publish a fresh claim token on your game and start again — the game is the proof, not
+            the account.
+        </p>
+    </section>
+
+    <script src="/passkey.js" defer></script>
+}
+
+@code {
+    /// <summary>
+    /// Whether there is a database to sign in against.
+    /// </summary>
+    /// <remarks>
+    /// Identity is only registered when a connection string is configured, so this asks the
+    /// container rather than re-deriving the condition — two places deciding whether accounts exist
+    /// is how a page ends up offering a button that throws.
+    /// </remarks>
+    private bool Available => Services.GetService<SignInManager<MuiUser>>() is not null;
+}

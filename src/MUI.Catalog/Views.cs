@@ -241,6 +241,17 @@ public interface IGameQueries
 
     Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The listing entry for a game known by id, or null.
+    /// </summary>
+    /// <remarks>
+    /// The public surfaces address a game by slug, because that is what a URL carries. The owner
+    /// surfaces address it by id, because a claim is bound to the game and not to a name a rename can
+    /// move — so this exists rather than having those pages reach past the interface to a store, or
+    /// resolve a slug they were never given.
+    /// </remarks>
+    Task<GameSummary?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
     /// <summary>The three liveness feeds (spec §9) — the differentiator no incumbent can publish.</summary>
     Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default);
 
