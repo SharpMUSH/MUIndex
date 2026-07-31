@@ -1,0 +1,60 @@
+@page "/games/random"
+@using MUI.Web.Api
+@inject IGameQueries Queries
+@inject NavigationManager Nav
+
+@*
+    Random game (spec §9). A link rather than a control, so it works with scripting off and can be
+    bookmarked — and it carries whatever filters were on screen, because "surprise me" after
+    narrowing to Evennia games means surprise me among those.
+
+    It renders only when it could not choose. The ordinary path is a redirect raised out of
+    OnInitializedAsync, which never reaches markup.
+*@
+
+<PageTitle>Random game — mu*index</PageTitle>
+
+<h1>Nothing to pick from</h1>
+
+@if (Error is { } problem)
+{
+    <p class="problem" role="alert">@problem</p>
+}
+else
+{
+    <p class="dim">
+        No game matches that filter, so there is nothing to choose between. Nothing is ever deleted
+        here — try <a href="/games">the whole listing</a>, or
+        <a href="/games?archived=true">include the archive</a>.
+    </p>
+}
+
+@code {
+    private string? Error { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!GameFilterBinding.TryRead(new Uri(Nav.Uri).Query, out var query, out var error))
+        {
+            Error = error;
+            return;
+        }
+
+        var games = await Queries.ListAsync(query.Filter);
+
+        if (games.Count == 0)
+        {
+            return;
+        }
+
+        // A whole-listing read for one game, which is what IGameQueries can currently answer. It is
+        // the same scan every listing request already does; the cheaper shape is an
+        // ORDER BY random() LIMIT 1 on the read side, and it needs a new query rather than a
+        // different caller here.
+        var pick = games[Random.Shared.Next(games.Count)];
+
+        // In static SSR this raises a NavigationException the framework turns into a redirect, so
+        // the markup below is only ever reached when there was nothing to redirect to.
+        Nav.NavigateTo($"/g/{Uri.EscapeDataString(pick.Slug)}");
+    }
+}

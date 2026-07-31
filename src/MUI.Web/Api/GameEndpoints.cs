@@ -29,14 +29,18 @@ public static class GameEndpoints
             return;
         }
 
-        var matched = await queries.ListAsync(query.Filter, http.RequestAborted);
-        var page = matched.Skip(query.Offset).Take(query.Limit).Select(ApiMapper.Summary).ToList();
+        // The facets come back with the listing rather than from a second call, so a consumer
+        // building a filter UI over this endpoint gets counts that describe the page it was handed
+        // — the same guarantee the site's own panel has, for the same reason.
+        var matched = await queries.SearchAsync(query.Filter, http.RequestAborted);
+        var page = matched.Games.Skip(query.Offset).Take(query.Limit).Select(ApiMapper.Summary).ToList();
 
         await ApiResponse.WriteJsonAsync(http, new GameListView(
             ApiVersion.Current,
             ApiClock.Now(clock),
             query.Echo,
-            Total: matched.Count,
+            [.. matched.Facets.Select(ApiMapper.Facet)],
+            Total: matched.Games.Count,
             query.Limit,
             query.Offset,
             Count: page.Count,

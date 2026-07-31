@@ -142,6 +142,10 @@ public sealed record GameSummaryView(
     PlayerCountState PlayersNowState,
     string? Codebase,
     IReadOnlyList<string> MeasuredProtocols,
+
+    // Null means never once reached, which is not "reached a long time ago" — the last-seen facet
+    // (spec §9) keeps them apart and a consumer reading only the listing has to be able to as well.
+    DateTimeOffset? LastReachableAt,
     string Url,
     string ApiUrl);
 
@@ -170,17 +174,71 @@ public sealed record GameView(
     string Url,
     string ApiUrl);
 
-/// <summary>What the listing was asked for, echoed so a cached response says what it answers.</summary>
+/// <summary>
+/// What the listing was asked for, echoed so a cached response says what it answers.
+/// </summary>
+/// <remarks>
+/// One property per facet, named for the querystring parameter that sets it, built by
+/// <see cref="Of"/> from the filter itself rather than from the raw query — so an echo cannot claim
+/// a filter the query did not apply, and a facet added to <see cref="GameFilter"/> and forgotten
+/// here fails to compile rather than silently vanishing from the answer.
+/// </remarks>
 public sealed record FilterView(
     string? Q,
     bool IncludeArchived,
     IReadOnlyList<string> Protocol,
-    ActivityBand? Band);
+    bool Tls,
+    ActivityBand? Band,
+    LastSeenBand? Seen,
+    string? Charset,
+    string? Codebase,
+    string? Family,
+    string? Genre,
+    string? Language)
+{
+    public static FilterView Of(GameFilter filter)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        return new FilterView(
+            filter.Text,
+            filter.IncludeArchived,
+            filter.MeasuredProtocols,
+            filter.Tls,
+            filter.Band,
+            filter.LastSeen,
+            filter.Charset?.Token,
+            filter.Codebase?.Token,
+            filter.Family?.Token,
+            filter.Genre?.Token,
+            filter.Language?.Token);
+    }
+}
+
+/// <summary>One facet value as the API publishes it, with what choosing it returns.</summary>
+public sealed record FacetValueView(string Value, int Count, bool Selected, bool Unknown);
+
+/// <summary>
+/// One facet: its querystring name, whether it reads a measurement or a claim, and its values.
+/// </summary>
+/// <remarks>
+/// <c>evidence</c> is published rather than left for a consumer to infer, for the same reason the
+/// page prints it: a facet reading <c>capability.gmcp.measured</c> and one reading MSSP's
+/// <c>GENRE</c> are not the same kind of statement, and a client that presented them identically
+/// would be making the claim this whole site exists to stop making.
+/// </remarks>
+public sealed record FacetGroupView(
+    string Key,
+    FacetEvidence Evidence,
+    FacetKind Kind,
+    int Total,
+    IReadOnlyList<FacetValueView> Values);
 
 public sealed record GameListView(
     string ApiVersion,
     DateTimeOffset GeneratedAt,
     FilterView Filter,
+    IReadOnlyList<FacetGroupView> Facets,
     int Total,
     int Limit,
     int Offset,
