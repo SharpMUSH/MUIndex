@@ -18,8 +18,25 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      Persistence: PostgreSQL 17 with Npgsql and Dapper, and plain numbered .sql migrations applied
+      by our own runner. No EF Core, ever — the schema is legible to anyone with psql, which is the
+      property that matters when something has gone wrong in production at four in the morning.
+    -->
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="Dapper" Version="2.1.79" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Test stack: TUnit (source-generated, runs on Microsoft.Testing.Platform). -->
     <PackageVersion Include="TUnit" Version="1.61.38" />
+
+    <!--
+      A real PostgreSQL 17 for the repository tests. A writer asserted against an in-memory fake and
+      never against a database has not been tested against the CHECK constraints that carry half the
+      design, so the storage suite talks to a container or honestly skips.
+    -->
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
   </ItemGroup>
 
 </Project>
