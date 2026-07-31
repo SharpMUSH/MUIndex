@@ -202,6 +202,17 @@ day × hour heatmap reads the hourly rollup over an 8-week window, never the raw
 data in the system that is ever deleted, and only after it has been aggregated into something that
 outlives it.
 
+**One probe writes at most one presence row.** The table is keyed `(game_id, at)`, which settles
+something §5.2 left open: the `who` beats `mssp` precedence must be applied **before** the writer is
+called, by whatever assembles the probe's reading. It cannot be applied afterwards by keeping both
+and choosing later, because there is nowhere to keep both. This is a constraint on the ingestor, not
+a limitation of the store.
+
+**Rollups are not built and have no owner.** §5.2 states the retention shape — raw 90 days, hourly
+two years, daily forever — and nothing implements it. Until it does, the heatmap reads raw samples
+over an eight-week window. Monthly range-partitioning is in place, which is what makes a rollup a
+cheap addition rather than a rewrite.
+
 **Activity band**, the facet §9 exposes, is derived here and defined once: `players now` (a non-null
 count above zero in the most recent hourly rollup), `active this week` (any such count in 7 days),
 `quiet` (reachable within 30 days but no non-zero count), `dark` (not reachable), `archived` (§7.5).
@@ -211,15 +222,24 @@ absent.
 ### 5.3 Availability — historical, as intervals
 
 ```
-AvailabilityInterval(game_id, state, from_at, to_at NULL, cause)
+AvailabilityInterval(game_id, state, from_at, to_at NULL, cause, origin)
 ```
 
 `state ∈ { reachable, degraded, unreachable }`; `cause ∈ { dns, refused, tls, timeout, handshake_stalled,
-… }`.
+… }`; `origin ∈ { first_party, imported_measured }`.
+
+**`origin` exists because §7.6 needs it.** Imported reachable history counts at half weight toward
+archive grace, and `ArchivePolicy.GraceFor` therefore takes two sums rather than one — which is
+unimplementable unless an interval records whose probe produced it. No earlier section named the
+column; it is required by the rule rather than optional to it.
 
 **`degraded` means we got in and could not finish**: the TCP connection succeeded and the banner was
-captured, but the session did not complete negotiation within the probe timeout, or a stated TLS port
-failed while the plaintext port answered. It is neither reachable nor unreachable and the design renders
+captured, but the session did not complete negotiation within the probe timeout (`handshake_stalled`
+is the cause that produces it), or a stated TLS port failed while the plaintext port answered.
+
+It follows — and the first cut of this spec never said so — that **a degraded game is not dark**. The
+socket answered, so §7.5's grace clock does not run. Archiving measures absence, and a server that
+picks up the phone and then falls silent is present in the only sense availability tracks. It is neither reachable nor unreachable and the design renders
 it as its own short bar. Without this definition the state was named by the schema and produced by
 nothing. A game reachable for three years is one open row, not twenty-six thousand samples.
 "Reachable over 90 days" and "longest outage" become arithmetic over a handful of rows.
