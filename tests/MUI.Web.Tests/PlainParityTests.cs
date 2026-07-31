@@ -40,7 +40,7 @@ public class PlainParityTests
     {
         var text = Render.Words(await GameAsync("m-u-s-h"));
 
-        await Assert.That(text).Contains("could not be measured — the game was not reachable");
+        await Assert.That(text).Contains("have no measurement yet");
         await Assert.That(text).Contains("answered but produced no count");
         await Assert.That(text).Contains("including a measured zero");
     }

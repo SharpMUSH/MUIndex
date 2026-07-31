@@ -96,6 +96,16 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // different evidence: one is a display asset and codebase fingerprint, the other is a
             // measurement.
             await SettleAsync(telnet, Arrived, 0, _options.SilenceGrace, budget.Token);
+
+            // A screen that has told us it is not ready has not settled, it has paused. Waiting once
+            // more is conditional on there being almost nothing there, so a server that has already
+            // painted pays nothing — see ProbeOptions.BannerPatience for the server this is measured
+            // against and for what recording the placeholder cost.
+            if (LooksUnfinished(BannerSoFar(lines, Arrived())))
+            {
+                await SettleAsync(telnet, Arrived, Arrived(), _options.BannerPatience, budget.Token);
+            }
+
             var bannerLines = Arrived();
 
             // Phase 2 — an empty line, and everything it produces is thrown away.
@@ -168,6 +178,34 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Elapsed = Stopwatch.GetElapsedTime(started),
             };
         }
+    }
+
+    /// <summary>The connect screen as it stands part-way through the phase that is collecting it.</summary>
+    private static string BannerSoFar(List<string> lines, int count)
+    {
+        lock (lines)
+        {
+            return string.Join("\n", lines.Take(count));
+        }
+    }
+
+    /// <summary>
+    /// Whether what we have is a screen that has not finished arriving.
+    /// </summary>
+    /// <remarks>
+    /// Two conditions, and both are needed. <b>Slight</b> is measured on the text rather than the
+    /// bytes, so a screenful of colour codes carrying one word counts as one word. <b>Not at a
+    /// prompt</b> is what keeps the wait off servers whose screen really is that short: a screen
+    /// ending in <c>Please enter a name:</c> has reached the point where it is waiting for us, and
+    /// there is nothing more to wait for. tbaMUD's placeholder ends <c>Please Wait...</c>, which is
+    /// the opposite statement.
+    /// </remarks>
+    private bool LooksUnfinished(string banner)
+    {
+        var text = BannerText.Flatten(banner);
+
+        return text.Length <= _options.SlightBannerLength
+            && (text.Length == 0 || text[^1] is not (':' or '?' or '>' or '#'));
     }
 
     /// <summary>
@@ -351,7 +389,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             .UseLogger(_logger)
             .OnSubmit((bytes, encoding, _) =>
             {
-                var text = (encoding ?? Encoding.UTF8).GetString(bytes);
+                // Cleaned here, at the one place text enters the crawler from the wire. See WireText.
+                var text = WireText.Clean((encoding ?? Encoding.UTF8).GetString(bytes));
                 lock (lines)
                 {
                     lines.Add(text);

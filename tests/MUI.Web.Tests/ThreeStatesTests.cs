@@ -9,9 +9,11 @@ namespace MUI.Web.Tests;
 /// </summary>
 /// <remarks>
 /// Conflating any two of these is the worst bug this codebase can ship. A measured zero is a filled
-/// cell — we got in and nobody was there. An unmeasurable hour is hatched. An unreachable hour is
-/// empty. They are three different elements in the markup and three different sentences in the text,
-/// and neither difference is carried by a colour.
+/// cell — we got in and nobody was there. An unmeasurable hour is hatched — we got in and could not
+/// count. An hour with no measurement at all is empty, and says only that: a failed probe writes no
+/// presence row, so silence here cannot tell an outage of theirs from a gap of ours, and the strip
+/// beside the grid is what answers that. They are three different elements in the markup and three
+/// different sentences in the text, and no difference is carried by a colour.
 /// </remarks>
 public class ThreeStatesTests
 {
@@ -53,7 +55,7 @@ public class ThreeStatesTests
     }
 
     [Test]
-    public async Task AMeasuredZeroSaysMeasuredAndAnUnreachableHourSaysNotReachable()
+    public async Task AMeasuredZeroSaysMeasuredAndAnUnmeasuredHourSaysSo()
     {
         // The distinction has to survive with no cell shape and no colour at all, so it is in the
         // cell's own text as well as its class — the value a reader arrows onto, and the whole
@@ -61,9 +63,9 @@ public class ThreeStatesTests
         var html = await GridAsync(OneOfEach());
 
         await Assert.That(html).Contains("0 players, measured");
-        await Assert.That(html).Contains("not reachable, no measurement");
+        await Assert.That(html).Contains("no measurement in this hour");
         await Assert.That(html).Contains("probed, no count could be read");
-        await Assert.That(html).Contains(">not reached<");
+        await Assert.That(html).Contains(">not measured<");
         await Assert.That(html).Contains(">not counted<");
     }
 
@@ -76,7 +78,7 @@ public class ThreeStatesTests
         await Assert.That(ActivitySummary.CellValue(new ActivityCell(0, 0, 4, true))).IsEqualTo("4");
         await Assert.That(ActivitySummary.CellValue(new ActivityCell(0, 1, 0, true))).IsEqualTo("0");
         await Assert.That(ActivitySummary.CellValue(new ActivityCell(0, 2, null, true))).IsEqualTo("not counted");
-        await Assert.That(ActivitySummary.CellValue(new ActivityCell(0, 3, null, false))).IsEqualTo("not reached");
+        await Assert.That(ActivitySummary.CellValue(new ActivityCell(0, 3, null, false))).IsEqualTo("not measured");
     }
 
     [Test]
@@ -84,10 +86,16 @@ public class ThreeStatesTests
     {
         // Hatched means "we got in and could not count". A game that has not answered the door
         // since 2023 did not get in, and saying it did is the same conflation one square over.
+        //
+        // Empty says only that no measurement exists for the hour — not that the game was down. A
+        // presence row is written only when a probe got far enough to try counting, so silence here
+        // cannot tell an outage of theirs from a gap of ours; that question belongs to the strip,
+        // which is derived from intervals that can.
         var page = await new FixtureGameQueries().FindAsync("gaslight-row");
 
         await Assert.That(page!.Activity.All(c => c.IsGap)).IsTrue();
-        await Assert.That(ActivitySummary.Sentence(page.Activity)).Contains("was not reachable");
+        await Assert.That(ActivitySummary.Sentence(page.Activity)).Contains("no measurement yet");
+        await Assert.That(ActivitySummary.Sentence(page.Activity)).DoesNotContain("reachable");
         await Assert.That(ActivitySummary.Sentence(page.Activity)).DoesNotContain("answered but produced");
     }
 
@@ -116,13 +124,14 @@ public class ThreeStatesTests
     }
 
     [Test]
-    public async Task TheSentenceNamesUnreachableAndUncountableHoursSeparately()
+    public async Task TheSentenceNamesUnmeasuredAndUncountableHoursSeparately()
     {
         // The design's own specimen sentence says only "could not be measured", which covers both.
-        // They are different facts about a game and the summary keeps them apart.
+        // They are different facts about a game and the summary keeps them apart — an hour nobody
+        // has a measurement for, and an hour we reached and could not count.
         var sentence = ActivitySummary.Sentence(FixtureActivity());
 
-        await Assert.That(sentence).Contains("the game was not reachable");
+        await Assert.That(sentence).Contains("have no measurement yet");
         await Assert.That(sentence).Contains("answered but produced no count");
     }
 

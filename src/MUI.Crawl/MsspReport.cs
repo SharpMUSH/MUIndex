@@ -56,7 +56,10 @@ public static class MsspReport
             var values = config.Variables[variable];
             if (values.Count > 0)
             {
-                report[variable] = [.. values];
+                // The subnegotiation is a second door into the crawler and needs the same cleaning
+                // as the line reader — a NUL in an MSSP value is no more storable than one in a
+                // banner, and it arrives without ever passing through OnSubmit. See WireText.
+                report[WireText.Clean(variable)] = [.. values.Select(WireText.Clean)];
             }
         }
 

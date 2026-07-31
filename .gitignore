@@ -4,3 +4,8 @@ obj/
 .idea/
 *.user
 appsettings.*.local.json
+
+# Backfill artifacts. The importer is code and is committed; what it harvests is not (spec §7.6).
+imports/
+*.import.json
+*.import.ndjson

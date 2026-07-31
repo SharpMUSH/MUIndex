@@ -6,10 +6,15 @@ is that **its data is measured rather than asserted**.
 Every fact on a game's page carries how it was obtained and how old it is. The catalogue is a
 by-product of continuous measurement, not a form somebody filled in once.
 
-> **Status:** the truth engine works. A probe reads real servers, storage keeps what it measured with
-> the three-state discipline intact, discovery walks referrals behind a resolved-address gate, and the
-> site renders both a graphical and a plain surface from one set of view models. 511 tests, Postgres
-> exercised in CI. Not yet joined end to end, and not yet deployed.
+> **Status: joined end to end.** `mui-crawl` probes live servers into PostgreSQL and the site renders
+> that database — sixteen real games, measured, in [`docs/screenshots/`](docs/screenshots/). Referral
+> discovery has been walked in the wild: two of 141 live servers publish `REFERRAL`, and the endpoints
+> they name became depth-1 targets and were probed without being seeded. Not yet deployed.
+>
+> A run against real servers immediately found three sentences the fixture could not: a percentage
+> claiming ninety days of evidence from one probe, an empty heatmap cell asserting downtime it had not
+> measured, and an internal digest presented as something a game said about itself. That is the
+> argument for measuring rather than asserting, turned on the site itself.
 
 Short form **MUI**, which is also the assembly prefix.
 
@@ -83,7 +88,10 @@ One telnet connection per probe, yielding four independent layers — not a fall
    not here — and every game we found that answers it answers option 70 too.
 
 Discovery walks the MSSP `REFERRAL` graph, honours `CRAWL DELAY`, and verifies rather than trusts —
-a referred host is a candidate hostname until it answers for itself.
+a referred host is a candidate hostname until it answers for itself. Measured on the live graph:
+`REFERRAL` is rare (two publishers in 141 servers) and the gate bites — the game they both name
+publishes only its codebase's name, so it is discovered, probed, kept, and *not* listed until it says
+who it is. Referral is a bonus path, not the primary one; that is what the backfill importer is for.
 
 ## Shape
 
@@ -111,11 +119,16 @@ states, not two:
 |---|---|
 | Probed, count obtained | Filled cell — including a measured zero, which means we got in and nobody was there |
 | Probed, no count obtainable | Hatched cell — the WHO was unparseable and MSSP had no `PLAYERS` |
-| Probe failed | Empty cell — not reachable |
+| Not measured | Empty cell — we have no measurement for that hour, which is not a claim the game was down |
 
 Collapsing the middle case into either neighbour is the worst bug this system could ship: a game
 whose `DOING` header is customised past our parser would otherwise render as permanently dark while
 running perfectly well.
+
+The third case is stated as *ours*, not theirs. A failed probe writes no presence row at all, so an
+empty cell covers both an hour we could not reach and an hour we never probed — and a game found an
+hour ago would otherwise have a perfect week described as 167 hours of downtime. Reachability is the
+90-day strip's question, and it is derived from intervals that can tell the two apart.
 
 The vocabulary is **reachable**, never *uptime* — we measure a socket from one vantage point, and a
 game with a routing problem to our host is unreachable and perfectly alive.

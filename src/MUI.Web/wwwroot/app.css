@@ -504,3 +504,16 @@ fieldset.facets .check { display: inline-flex; gap: 6px; align-items: center; fo
 @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; transition: none !important; }
 }
+
+/*
+  The demo banner. Amber, because amber means "declared, unverified" site-wide and demo data is the
+  purest case of that — nothing here was observed. Deliberately at the very top, before the mark, so
+  it cannot be mistaken for a footnote about one page.
+*/
+.demo-banner {
+    margin: 0;
+    padding: var(--cpad);
+    background: color-mix(in srgb, var(--amber) 16%, transparent);
+    border-bottom: 1px solid var(--amber);
+    color: var(--text);
+}

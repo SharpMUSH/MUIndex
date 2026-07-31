@@ -18,6 +18,13 @@ namespace MUI.Web.Components;
 /// reached and could not count, and those are different facts about a game. Conflating them is the
 /// worst bug this codebase can ship, so the sentence names each separately.
 /// </para>
+/// <para>
+/// And an hour with no presence row is said as <em>not measured</em>, never as <em>not reachable</em>.
+/// A failed probe writes no presence row at all, so silence in this grid cannot tell an outage of
+/// theirs from a gap of ours — and the difference is not cosmetic: this sentence described a game we
+/// had measured once, and found perfectly reachable, as unreachable for 167 hours of the week.
+/// Reachability is the strip's job and it is derived from intervals, which can tell the two apart.
+/// </para>
 /// </remarks>
 public static class ActivitySummary
 {
@@ -43,7 +50,7 @@ public static class ActivitySummary
     /// </summary>
     public static string CellLabel(ActivityCell cell) => cell switch
     {
-        { IsGap: true } => $"{ShortDayName(cell.DayOfWeek)} {cell.Hour:00}:00 — not reachable, no measurement",
+        { IsGap: true } => $"{ShortDayName(cell.DayOfWeek)} {cell.Hour:00}:00 — no measurement in this hour",
         { IsUnmeasurable: true } => $"{ShortDayName(cell.DayOfWeek)} {cell.Hour:00}:00 — probed, no count could be read",
         { Count: 0 } => $"{ShortDayName(cell.DayOfWeek)} {cell.Hour:00}:00 — 0 players, measured",
         { Count: 1 } => $"{ShortDayName(cell.DayOfWeek)} {cell.Hour:00}:00 — 1 player on average",
@@ -61,7 +68,7 @@ public static class ActivitySummary
     /// </remarks>
     public static string CellValue(ActivityCell cell) => cell switch
     {
-        { IsGap: true } => "not reached",
+        { IsGap: true } => "not measured",
         { IsUnmeasurable: true } => "not counted",
         _ => cell.Count!.Value.ToString(),
     };
@@ -100,15 +107,18 @@ public static class ActivitySummary
         var gaps = cells.Count(c => c.IsGap);
         if (gaps > 0)
         {
-            parts.Add($"{Spell(gaps)} {Hours(gaps)} {WhereFrom(cells.Where(c => c.IsGap))} could not be "
-                + "measured — the game was not reachable.");
+            // "Not measured", never "not reachable" — see ActivityCell.IsGap. The strip beside this
+            // grid is where reachability is stated, from intervals that can tell an outage of theirs
+            // from a gap of ours.
+            parts.Add($"{Spell(gaps)} {Hours(gaps)} {WhereFrom(cells.Where(c => c.IsGap))} "
+                + $"{(gaps == 1 ? "has" : "have")} no measurement yet.");
         }
 
         var unmeasurable = cells.Count(c => c.IsUnmeasurable);
         if (unmeasurable > 0)
         {
             parts.Add($"{Spell(unmeasurable)} {Hours(unmeasurable)} {WhereFrom(cells.Where(c => c.IsUnmeasurable))} "
-                + "answered but produced no count.");
+                + $"answered but produced no count.");
         }
 
         return string.Join(' ', parts);
@@ -146,7 +156,7 @@ public static class ActivitySummary
             var gaps = forDay.Count(c => c.IsGap);
             if (gaps > 0)
             {
-                clauses.Add($"{gaps} {Hours(gaps)} not reachable");
+                clauses.Add($"{gaps} {Hours(gaps)} not measured");
             }
 
             var unmeasurable = forDay.Count(c => c.IsUnmeasurable);
@@ -183,7 +193,7 @@ public static class ActivitySummary
         var part = PartOfDay(band);
         var when = part is null
             ? $"{band.From:00}:00–{band.To:00}:59"
-            : $"{part}s, {band.From:00}:00–{band.To:00}:59";
+            : $"{Plural(part)}, {band.From:00}:00–{band.To:00}:59";
 
         return busyDays.Count == 7
             ? $"Busiest every day, {when}."
@@ -274,6 +284,10 @@ public static class ActivitySummary
         var days = cells.Select(c => c.DayOfWeek).Distinct().Order().ToList();
         return days.Count == 1 ? $"on {DayName(days[0])}" : "across the week";
     }
+
+    /// <summary>"evening" becomes "evenings"; "small hours" is already plural and stays.</summary>
+    private static string Plural(string part) =>
+        part.EndsWith('s') ? part : part + "s";
 
     private static string Spell(int n) => n < Numbers.Length ? Numbers[n] : n.ToString();
 

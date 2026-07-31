@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using MUI.Crawl;
 
 namespace MUI.Discovery;
 
@@ -27,93 +28,10 @@ public static class BannerFingerprint
     /// <see cref="Of"/> hashes.
     /// </summary>
     /// <remarks>
-    /// Public because <see cref="ClaimTokenBeacon"/> has to search the same flattened text: a beacon
-    /// sitting inside an SGR run is still a beacon, and a colourised connect screen is the normal case
-    /// rather than the exception. One normaliser with two readers cannot drift; two would.
+    /// Forwards to <see cref="BannerText.Flatten"/>, which the probe reads as well. Kept as a name
+    /// here because <see cref="ClaimTokenBeacon"/> searches "the same text the fingerprint hashes",
+    /// and that sentence should stay true by construction rather than by two implementations
+    /// agreeing.
     /// </remarks>
-    public static string Flatten(string banner)
-    {
-        ArgumentNullException.ThrowIfNull(banner);
-
-        var text = new StringBuilder(banner.Length);
-        var pendingSpace = false;
-
-        for (var i = 0; i < banner.Length; i++)
-        {
-            var ch = banner[i];
-
-            if (ch == '\e')
-            {
-                i = SkipEscape(banner, i);
-                continue;
-            }
-
-            if (char.IsWhiteSpace(ch))
-            {
-                pendingSpace = text.Length > 0;
-                continue;
-            }
-
-            if (char.IsControl(ch))
-            {
-                continue;
-            }
-
-            if (pendingSpace)
-            {
-                text.Append(' ');
-                pendingSpace = false;
-            }
-
-            text.Append(ch);
-        }
-
-        return text.ToString();
-    }
-
-    /// <summary>The index of the last character of the escape sequence starting at <paramref name="start"/>.</summary>
-    private static int SkipEscape(string banner, int start)
-    {
-        var i = start + 1;
-        if (i >= banner.Length)
-        {
-            return start;
-        }
-
-        // CSI: ESC [ … final byte in 0x40–0x7E.
-        if (banner[i] == '[')
-        {
-            for (i++; i < banner.Length; i++)
-            {
-                if (banner[i] is >= '@' and <= '~')
-                {
-                    return i;
-                }
-            }
-
-            return banner.Length - 1;
-        }
-
-        // OSC: ESC ] … BEL, or ESC ] … ESC \.
-        if (banner[i] == ']')
-        {
-            for (i++; i < banner.Length; i++)
-            {
-                if (banner[i] == '\a')
-                {
-                    return i;
-                }
-
-                if (banner[i] == '\e' && i + 1 < banner.Length && banner[i + 1] == '\\')
-                {
-                    return i + 1;
-                }
-            }
-
-            return banner.Length - 1;
-        }
-
-        // Anything else two-byte: ESC 7, ESC =, ESC ( B and friends.
-        return i;
-    }
+    public static string Flatten(string banner) => BannerText.Flatten(banner);
 }

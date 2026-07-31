@@ -256,7 +256,7 @@ count".** The heatmap has three renderings, so the store must distinguish three 
 |---|---|---|
 | Probe succeeded, count obtained | `PresenceSample(count = n)` | Filled cell, including a measured zero |
 | Probe succeeded, no count obtainable | `PresenceSample(count = NULL, unmeasurable_reason)` | Hatched cell — *probed, unmeasurable* |
-| Probe failed | `AvailabilityInterval` transition, **no** presence row | Empty cell — *not reachable* |
+| Probe failed, or no probe at all | `AvailabilityInterval` transition, **no** presence row | Empty cell — *no measurement for that hour* |
 
 The middle row is the one the first cut of this spec missed: it said only that a *failed* probe
 writes no sample, which left a successful probe with an unparseable WHO writing nothing either —
@@ -265,6 +265,20 @@ have rendered as permanently dark while running fine.
 
 A measured zero is a filled cell, not an absence. It means we got in and nobody was there, which is
 a real and useful fact about a game.
+
+**The empty cell is a statement about us, and must be worded as one.** Because a failed probe writes
+no presence row, the third case covers both an hour we could not reach and an hour we never probed —
+and the store cannot tell them apart from presence alone. Every surface therefore says *no
+measurement*, never *not reachable*: it shipped the other way, and a game the crawler had measured
+once, and found perfectly reachable, had 167 hours of its week described as downtime. Whether the
+game was reachable in an hour is §5.8's question, answered from intervals, which carry that fact
+directly.
+
+The same reading applies to any figure derived from a partly-observed window. A reachability
+percentage divides by *observed* time, so a surface may print it as a fraction of the last 90 days
+only when all ninety were measured; otherwise it names the days it measured. One successful probe an
+hour ago is not "reachable 100% of the last 90 days", and the arithmetic being right does not make
+the sentence true.
 
 ### 5.5 Endpoints
 
@@ -427,6 +441,20 @@ A referred host must independently answer MSSP with its own `NAME`/`HOSTNAME` be
 Depth and fan-out per source are capped. The referring game is recorded on the discovered entry so
 that a hostile or careless `REFERRAL` list can be traced and its whole subtree pruned.
 
+**Measured, and rarer than the protocol implies.** Of 141 live servers probed on 30 July 2026 — the
+codebase survey's set plus every entry in TinTin's MSSP crawler list — exactly **two** publish
+`REFERRAL`, and both name the same game: `mud.virtustan.net:8888` and `mud.kharkov.org:3000` (one
+operator, two servers) point at `tbamud.com`, one of them naming two ports. Both referred endpoints
+became depth-1 targets, were probed on their own schedule, and are **not listed** — tbaMUD's only
+self-description is `NAME "tbaMUD"`, its codebase's name, which §7.3's placeholder rule reads as
+unset. That is the gate above working exactly as written, and it is worth knowing that the first
+real graph this crawler walked ended that way.
+
+Two consequences. Referral is a *bonus* discovery path and cannot be the primary one at this
+density, which is what §7.6's backfill is for. And the rule has a cost worth restating: a real,
+reachable game stays unlisted because its operator never edited one line — recoverable the moment it
+publishes a name, and the target is kept and re-probed for ever in the meantime.
+
 #### The gate is on the resolved address, not the name
 
 **Checking the hostname is not enough, and treating it as enough is a server-side request forgery
@@ -483,6 +511,17 @@ name, the same with a version appended, blank values, and template text (`Unknow
 The same caution applies to `CONTACT` and `WEBSITE`, which are shared across every game on a hosting
 provider more often than they are unique, and to `CREATED`, which is a year and therefore collides
 freely on its own.
+
+**The banner signal has the same failure mode one layer down, and the probe is where it is fixed.**
+A connect screen is a good fingerprint because operators edit it; a *placeholder* connect screen is
+the codebase's, shared by every install. tbaMUD sends `Attempting to Detect Client, Please Wait...`,
+pauses for about a second and a half, and then paints the real screen — so a probe that settles on a
+gap between lines stored that one placeholder line as the banner, and two unrelated tbaMUDs
+fingerprinted identically. That is `NAME "PennMUSH"` again in a different field, and the answer is
+not to discount the signal but to stop truncating the evidence: the connect-screen phase waits
+longer when what it has is slight and has not reached a prompt (`ProbeOptions.BannerPatience`).
+Found by a referral crawl, which is the only thing that had put two servers of one codebase side by
+side.
 
 Above threshold: auto-merge into the existing game, recording the endpoint change as a
 `FieldChange`. Middling: open a suspected-duplicate pair for review — **both pages stay live and
@@ -582,6 +621,24 @@ scraping; honour `robots.txt` and rate-limit hard where scraping is the only opt
 every source on the about page and in the API. These sites are run by people in the same small
 hobby, and several of them are the reason any of this data exists at all. A short email first is
 both the decent move and the one most likely to get better data than scraping would.
+
+**The import is a one-time operation against one deployment, and its output is not part of the
+source tree.** MUIndex is deployed to a single place; the backfill exists to give *that* database a
+day-one population, and once it has run the crawler keeps the catalogue true by measuring. So it is
+one command, run once, by an operator, pointed at the production connection string — not a startup
+step, not a scheduled job, and not something a fresh clone reproduces.
+
+The consequence is a repository rule: **the importer is code and is committed; the imported data is
+not.** No harvested catalogue is checked in — no mirrored listing file, no seed list of real hosts
+scraped from a directory, no snapshot of anyone's database. Test fixtures are exempt because they are
+inputs to a test rather than the dataset: a handful of hand-written rows exercising a parser is a
+fixture, and a copy of a third party's catalogue is not, whatever it is named. A run that produces an
+artifact writes it to a path the operator chose, and those paths are ignored by git.
+
+Two reasons beyond tidiness. Republishing another site's catalogue as a file in our repository is a
+redistribution nobody agreed to, whatever the etiquette above secured for *ingesting* it. And a
+committed dataset is asserted data with a git history — the exact thing the front page says this
+project does not do — which would rot in place while the live catalogue moved on.
 
 ### 7.7 Scheduling
 
