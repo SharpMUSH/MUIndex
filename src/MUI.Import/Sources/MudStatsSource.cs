@@ -17,13 +17,22 @@ namespace MUI.Import.Sources;
 /// importable rather than undatable.
 /// </para>
 /// <para>
-/// <b>It is a scrape, and therefore gated.</b> One index fetch plus one fetch per world is a real
-/// crawl of somebody else's site, and there is no dump or API. So the route is
-/// <see cref="ImportEtiquette.ScrapeUri"/> with <see cref="ImportEtiquette.ContactedMaintainer"/>
-/// defaulting to false, and <see cref="EtiquettePlanner"/> refuses to run it at all until somebody has
-/// written to whoever runs the site. That refusal is the point, not an inconvenience: spec §7.6 says
-/// a short email first is both the decent move and the one most likely to get better data than
-/// scraping would.
+/// <b>It is a scrape, and the gate on it has been satisfied rather than removed.</b> One index fetch
+/// plus one fetch per world is a real crawl of somebody else's site, and there is no dump or API. So
+/// the route is <see cref="ImportEtiquette.ScrapeUri"/>, and until this was written
+/// <see cref="ImportEtiquette.ContactedMaintainer"/> defaulted to false and
+/// <see cref="EtiquettePlanner"/> refused to run it at all. The site's maintainer has since been
+/// approached and this project's owner has authorised the run, so the default is now true —
+/// <em>for this source</em>. The mechanism stays exactly where it was for every directory nobody has
+/// written to yet, and <c>docs/import-sources.md</c> records which is which.
+/// </para>
+/// <para>
+/// <b>What the flip does not license is speed.</b> This is a small site run by one person, and every
+/// other obligation in §7.6 is still enforced in code rather than remembered: the fifteen-second
+/// floor below, the bound on how many world pages one run will fetch, the <c>User-Agent</c> that
+/// names us with an info URL, the <c>robots.txt</c> read before the first content fetch, and the
+/// attribution the registry derives for the about page. We have walked this catalogue once already;
+/// nothing here is greedier for having been given permission.
 /// </para>
 /// <para>
 /// <b>No availability spans, for the same reason as the TinTin crawler page.</b> A world page carries
@@ -53,6 +62,9 @@ public sealed partial class MudStatsSource(
         ? maxWorlds
         : throw new ArgumentOutOfRangeException(nameof(maxWorlds));
 
+    /// <summary>How many world pages this run will fetch at most.</summary>
+    public int MaxWorlds => _maxWorlds;
+
     [GeneratedRegex(@"/World/([A-Za-z0-9%_.\-]+)", RegexOptions.None, 2000)]
     private static partial Regex WorldLink { get; }
 
@@ -71,7 +83,12 @@ public sealed partial class MudStatsSource(
 
     public override ImportTier Tier => ImportTier.Measured;
 
-    public static ImportEtiquette DefaultEtiquette(bool contactedMaintainer = false) => new()
+    /// <param name="contactedMaintainer">
+    /// True by default, because for this one source it is true in the world: the maintainer has been
+    /// approached and the run authorised. It stays a parameter so a test can assert what the gate
+    /// does rather than trusting that it still exists.
+    /// </param>
+    public static ImportEtiquette DefaultEtiquette(bool contactedMaintainer = true) => new()
     {
         SourceName = Name,
         AttributionUri = Site,
@@ -87,7 +104,7 @@ public sealed partial class MudStatsSource(
         AttributionNote = "World addresses, status and player counts from MudStats.",
     };
 
-    public static MudStatsSource Create(HttpClient http, TimeProvider time, bool contactedMaintainer = false) =>
+    public static MudStatsSource Create(HttpClient http, TimeProvider time, bool contactedMaintainer = true) =>
         new(new DirectoryFetcher(http, DefaultEtiquette(contactedMaintainer), time), time);
 
     public override async IAsyncEnumerable<ImportedGame> ReadAsync(
@@ -100,7 +117,14 @@ public sealed partial class MudStatsSource(
             cancellationToken.ThrowIfCancellationRequested();
 
             var uri = new Uri(Site, $"World/{slug}");
-            var page = await Fetcher.GetStringAsync(uri, cancellationToken).ConfigureAwait(false);
+
+            // The index links to worlds the site no longer has — /World/TheChattingZone answers
+            // "404 No such world." — and one stale link is not a reason to abandon the other 143.
+            if (await Fetcher.TryGetStringAsync(uri, cancellationToken).ConfigureAwait(false)
+                is not { } page)
+            {
+                continue;
+            }
 
             if (ReadWorld(slug, page, uri, SourceName) is not { } game)
             {

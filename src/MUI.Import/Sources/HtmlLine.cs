@@ -199,6 +199,38 @@ public static partial class HtmlText
         return HrefAttribute.Matches(body).Select(match => match.Groups[1].Value).ToList();
     }
 
+    /// <summary>
+    /// The inner <em>markup</em> of the first element carrying <c>id="<paramref name="id"/>"</c>, or
+    /// null. The markup rather than the text, for a caller whose next question is about the rows or
+    /// the links inside it.
+    /// </summary>
+    public static string? ElementBodyById(string document, string id)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentException.ThrowIfNullOrEmpty(id);
+
+        return Body(document, id);
+    }
+
+    /// <summary>
+    /// The inner markup of the first element whose <c>class</c> carries <paramref name="className"/>
+    /// as one of its whitespace-separated tokens, or null.
+    /// </summary>
+    /// <remarks>
+    /// Matched on a whole token so <c>mssp-data</c> does not also match <c>mssp-data-legacy</c>, and
+    /// returning <em>markup</em> rather than text because the caller's next question is usually about
+    /// the rows or the links inside it. Its one job here is to bound a search: a page that uses one
+    /// table class for two unrelated tables — a game's MSSP readings and its player reviews — cannot
+    /// be read by class alone, and the panel around the right one is what tells them apart.
+    /// </remarks>
+    public static string? ElementBodyByClass(string document, string className)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentException.ThrowIfNullOrEmpty(className);
+
+        return Body(document, attributes => HasClass(attributes, className));
+    }
+
     /// <summary>Renders markup to text, with tags removed and entities decoded.</summary>
     public static string StripTags(string markup)
     {
@@ -239,7 +271,10 @@ public static partial class HtmlText
     /// The inner markup of the first element with this id, found by counting that element's own tag
     /// name in and out again so a nested <c>&lt;div&gt;</c> does not end the search early.
     /// </summary>
-    private static string? Body(string document, string id)
+    private static string? Body(string document, string id) =>
+        Body(document, attributes => IdMatches(attributes, id));
+
+    private static string? Body(string document, Func<string, bool> matches)
     {
         foreach (Match match in Tag.Matches(document))
         {
@@ -249,7 +284,7 @@ public static partial class HtmlText
             }
 
             var attributes = match.Groups[3].Value;
-            if (!IdMatches(attributes, id))
+            if (!matches(attributes))
             {
                 continue;
             }
@@ -284,6 +319,18 @@ public static partial class HtmlText
         var match = Regex.Match(attributes, @"\bid\s*=\s*['""]([^'""]*)['""]", RegexOptions.None, MatchTimeout);
 
         return match.Success && string.Equals(match.Groups[1].Value, id, StringComparison.Ordinal);
+    }
+
+    private static bool HasClass(string attributes, string className)
+    {
+        if (ClassAttribute.Match(attributes) is not { Success: true } match)
+        {
+            return false;
+        }
+
+        return match.Groups[1].Value
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Contains(className, StringComparer.Ordinal);
     }
 
     /// <summary>

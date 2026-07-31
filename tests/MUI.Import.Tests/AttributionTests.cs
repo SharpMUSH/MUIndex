@@ -22,7 +22,10 @@ public class AttributionTests
 
         return new SourceRegistry([
             TinTinMsspCrawlerSource.Create(client, time),
+            TinTinMsdpCrawlerSource.Create(client, time),
+            MudConnectorSource.Create(client, time),
             MudStatsSource.Create(client, time),
+            MudVerseSource.Create(client, time),
         ]);
     }
 
@@ -31,35 +34,69 @@ public class AttributionTests
     {
         var attributions = Registry().Attributions();
 
-        await Assert.That(attributions.Count).IsEqualTo(2);
+        await Assert.That(attributions.Count).IsEqualTo(5);
 
         foreach (var attribution in attributions)
         {
             await Assert.That(attribution.SourceName).IsNotEmpty();
             await Assert.That(attribution.Uri.Scheme).IsEqualTo("https");
             await Assert.That(attribution.Entitlement).IsNotEmpty();
+            await Assert.That(attribution.Note).IsNotNull();
         }
     }
 
     [Test]
     public async Task ASourceIsCreditedEvenWhileItIsRefusedPermissionToFetch()
     {
-        // MudStats is gated on somebody having emailed its maintainer, and is credited regardless:
+        // MudVerse is gated on somebody having emailed its maintainer, and is credited regardless:
         // the about page names what we ingest, and a refused source is a fact about us rather than a
         // reason to leave a site off the list once it does run.
-        var attribution = Registry().Attributions().Single(row => row.SourceName == "MudStats");
+        var attribution = Registry().Attributions().Single(row => row.SourceName == "MudVerse");
 
         await Assert.That(attribution.Route).IsEqualTo(FetchRoute.None);
         await Assert.That(attribution.Note).IsNotNull();
     }
 
     [Test]
+    public async Task ASourceWhoseGateHasBeenSatisfiedIsCreditedWithTheRouteItWillActuallyUse()
+    {
+        var attribution = Registry().Attributions().Single(row => row.SourceName == "MudStats");
+
+        await Assert.That(attribution.Route).IsEqualTo(FetchRoute.Scrape);
+    }
+
+    [Test]
     public async Task TheTierIsSpelledOutInTheWordsTheSpecUses()
     {
-        var tintin = Registry().Attributions().Single(row => row.SourceName.StartsWith("TinTin", StringComparison.Ordinal));
+        var attributions = Registry().Attributions();
+
+        var tintin = attributions.Single(row => row.SourceName.StartsWith("TinTin++ MSSP", StringComparison.Ordinal));
 
         await Assert.That(tintin.Tier).IsEqualTo(ImportTier.Measured);
         await Assert.That(tintin.Entitlement).Contains("half weight");
+
+        var tmc = attributions.Single(row => row.SourceName == "The Mud Connector");
+
+        await Assert.That(tmc.Tier).IsEqualTo(ImportTier.Asserted);
+        await Assert.That(tmc.Entitlement).Contains("no history, no presence, no grace");
+    }
+
+    [Test]
+    public async Task EveryMeasuredSourceIsOneThatActuallyConnectsToTheGames()
+    {
+        // The one mis-tiering that is worse than skipping a source: an asserted list filed as
+        // measured earns archive grace nobody observed. Both directions are named here so that
+        // adding a source has to make a deliberate choice rather than inherit one.
+        var byName = Registry().Attributions().ToDictionary(row => row.SourceName, StringComparer.Ordinal);
+
+        await Assert.That(byName["TinTin++ MSSP Mud Crawler"].Tier).IsEqualTo(ImportTier.Measured);
+        await Assert.That(byName["TinTin++ MSDP Mud Crawler"].Tier).IsEqualTo(ImportTier.Measured);
+        await Assert.That(byName["MudStats"].Tier).IsEqualTo(ImportTier.Measured);
+        await Assert.That(byName["MudVerse"].Tier).IsEqualTo(ImportTier.Measured);
+
+        // Hand-maintained. It does connect, but publishes no time for the result, so nothing it says
+        // is importable as a measurement.
+        await Assert.That(byName["The Mud Connector"].Tier).IsEqualTo(ImportTier.Asserted);
     }
 
     [Test]
@@ -68,7 +105,7 @@ public class AttributionTests
         var harness = Harness.Build(Start);
         var runner = new ImportRunner(Registry(), harness.Pipeline);
 
-        var run = await runner.RunAsync(new ImportRunOptions { Only = ["MudStats"] }, CancellationToken.None);
+        var run = await runner.RunAsync(new ImportRunOptions { Only = ["MudVerse"] }, CancellationToken.None);
 
         await Assert.That(run.Reports).IsEmpty();
         await Assert.That(run.Skipped.Single()).Contains(EtiquettePlanner.MaintainerNotContacted);

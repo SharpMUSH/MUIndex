@@ -31,17 +31,41 @@ public class MudStatsSourceTests
     }
 
     [Test]
-    public async Task ItIsAScrapeAndIsRefusedUntilSomebodyHasWrittenToTheMaintainer()
+    public async Task ItIsAScrapeThatMayNowRunBecauseItsMaintainerHasBeenApproached()
     {
-        await Assert.That(MudStatsSource.DefaultEtiquette().ContactedMaintainer).IsFalse();
+        // The gate was satisfied, not removed. This one source's default is true because it is true
+        // in the world; the mechanism is unchanged and still refuses every directory nobody has
+        // written to — see MudVerseSourceTests for the source it is currently holding back.
+        await Assert.That(MudStatsSource.DefaultEtiquette().ContactedMaintainer).IsTrue();
+        await Assert.That(EtiquettePlanner.Decide(MudStatsSource.DefaultEtiquette()).Route)
+            .IsEqualTo(FetchRoute.Scrape);
+    }
 
-        var refused = EtiquettePlanner.Decide(MudStatsSource.DefaultEtiquette());
+    [Test]
+    public async Task TheGateStillBitesTheMomentTheFactStopsBeingTrue()
+    {
+        // The same etiquette with the one fact retracted, so what is under test is the gate and not
+        // a source that happens to be past it.
+        var refused = EtiquettePlanner.Decide(MudStatsSource.DefaultEtiquette(contactedMaintainer: false));
 
         await Assert.That(refused.Route).IsEqualTo(FetchRoute.None);
         await Assert.That(refused.RefusedReason).IsEqualTo(EtiquettePlanner.MaintainerNotContacted);
+    }
 
-        await Assert.That(EtiquettePlanner.Decide(MudStatsSource.DefaultEtiquette(contactedMaintainer: true)).Route)
-            .IsEqualTo(FetchRoute.Scrape);
+    [Test]
+    public async Task PermissionToRunIsNotPermissionToHurry()
+    {
+        var etiquette = MudStatsSource.DefaultEtiquette();
+
+        // Every other obligation §7.6 states is enforced here rather than remembered: the rate limit,
+        // the bound on how much of the site one run touches, the user agent that names us with an
+        // info URL, the robots.txt read before the first content fetch, and the attribution.
+        await Assert.That(etiquette.MinimumInterval).IsGreaterThanOrEqualTo(TimeSpan.FromSeconds(15));
+        await Assert.That(MudStatsSource.Create(FakeHttp.Serving().Client, new ManualTimeProvider(Start))
+            .MaxWorlds).IsLessThanOrEqualTo(500);
+        await Assert.That(ImporterIdentity.SelfIdentifies(etiquette.UserAgent)).IsTrue();
+        await Assert.That(etiquette.RobotsUri.AbsoluteUri).IsEqualTo("https://mudstats.com/robots.txt");
+        await Assert.That(etiquette.AttributionNote).IsNotNull();
     }
 
     [Test]
@@ -134,7 +158,7 @@ public class MudStatsSourceTests
     [Test]
     public async Task TheWholeSourceWalksTheIndexThenEachWorldPage()
     {
-        var etiquette = MudStatsSource.DefaultEtiquette(contactedMaintainer: true);
+        var etiquette = MudStatsSource.DefaultEtiquette();
         var (handler, client) = FakeHttp.Serving(
             ("https://mudstats.com/", "<a href=\"/World/4Dimensions\">4 Dimensions</a>"),
             ("https://mudstats.com/World/4Dimensions", Page()));

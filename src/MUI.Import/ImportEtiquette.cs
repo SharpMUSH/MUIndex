@@ -39,9 +39,20 @@ public sealed record ImportEtiquette
     /// Whether a human has actually written to whoever runs this site.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Flipping this to <c>true</c> is a statement of fact about the world, not a configuration
     /// convenience. Spec §7.6: "a short email first is both the decent move and the one most likely
     /// to get better data than scraping would".
+    /// </para>
+    /// <para>
+    /// <b>It only ever gates a scrape</b>, and that is the whole of its remaining purpose now that
+    /// one source has passed it. A bulk export or a documented API is a route its owner published for
+    /// the purpose of being read, and needs no permission asked; walking a site page by page is a
+    /// stranger's traffic on a hobbyist's server and does. So the field stays false — and the source
+    /// stays registered, credited, and refused at the moment of fetching — for every directory we
+    /// have not yet approached. <c>docs/import-sources.md</c> records which ones those are and what
+    /// each is waiting on.
+    /// </para>
     /// </remarks>
     public bool ContactedMaintainer { get; init; }
 

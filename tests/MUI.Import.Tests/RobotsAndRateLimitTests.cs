@@ -221,4 +221,62 @@ public class RobotsAndRateLimitTests
 
         await Assert.That(fetcher.Gate.EffectiveInterval).IsEqualTo(TimeSpan.FromSeconds(45));
     }
+
+    [Test]
+    public async Task APageThatIsNotThereIsNullRatherThanTheEndOfTheRun()
+    {
+        // Found by running the importer against the live site: MudStats' index links 144 worlds and
+        // one of them, /World/TheChattingZone, answers "404 No such world." On GetStringAsync that
+        // one stale link ended the whole import at the hundredth page.
+        var (_, client) = FakeHttp.Serving(("https://example.test/api/present", "{}"));
+        var fetcher = new DirectoryFetcher(client, Etiquette(TimeSpan.Zero), new ManualTimeProvider(Start));
+
+        await fetcher.PrimeRobotsAsync(CancellationToken.None);
+
+        await Assert.That(
+                await fetcher.TryGetStringAsync(new Uri("https://example.test/api/gone"), CancellationToken.None))
+            .IsNull();
+        await Assert.That(
+                await fetcher.TryGetStringAsync(new Uri("https://example.test/api/present"), CancellationToken.None))
+            .IsEqualTo("{}");
+    }
+
+    [Test]
+    public async Task ASiteAskingUsToStopIsNotAPageThatIsNotThere()
+    {
+        // The distinction the whole method rests on. 404 means the page does not exist; 429, 503 or a
+        // reset mean we are being asked to stop or the site is unwell — and swallowing those would
+        // walk a struggling server to the end of its index and report a catalogue full of holes.
+        var handler = new FakeHttp.Handler(new Dictionary<string, (System.Net.HttpStatusCode, string)>
+        {
+            ["https://example.test/api/busy"] = (System.Net.HttpStatusCode.TooManyRequests, "slow down"),
+        });
+
+        var fetcher = new DirectoryFetcher(
+            new HttpClient(handler), Etiquette(TimeSpan.Zero), new ManualTimeProvider(Start));
+
+        await fetcher.PrimeRobotsAsync(CancellationToken.None);
+
+        await Assert.That(async () =>
+                await fetcher.TryGetStringAsync(new Uri("https://example.test/api/busy"), CancellationToken.None))
+            .Throws<HttpRequestException>();
+    }
+
+    [Test]
+    public async Task AMissingPageIsRefusedByTheEtiquetteJustAsAPresentOneWouldBe()
+    {
+        // TryGetStringAsync is the same fetch with one status handled differently. It is not a way
+        // round robots.txt, the route, or the rate limit.
+        var (handler, client) = FakeHttp.Serving(
+            ("https://example.test/robots.txt", "User-agent: *\nDisallow: /api/\n"));
+
+        var fetcher = new DirectoryFetcher(client, Etiquette(TimeSpan.Zero), new ManualTimeProvider(Start));
+        await fetcher.PrimeRobotsAsync(CancellationToken.None);
+
+        await Assert.That(async () =>
+                await fetcher.TryGetStringAsync(new Uri("https://example.test/api/gone"), CancellationToken.None))
+            .Throws<EtiquetteViolationException>();
+        await Assert.That(handler.Requests.Any(request => request.Uri.Contains("/api/", StringComparison.Ordinal)))
+            .IsFalse();
+    }
 }

@@ -1,3 +1,5 @@
+using System.Net;
+
 namespace MUI.Import;
 
 /// <summary>
@@ -16,6 +18,24 @@ public interface IDirectoryFetcher
     Task PrimeRobotsAsync(CancellationToken cancellationToken);
 
     Task<string> GetStringAsync(Uri uri, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The same fetch, but null rather than an exception when the page is not there.
+    /// </summary>
+    /// <remarks>
+    /// For a page an index <em>linked to</em> and the site does not have. A live MudStats run walks
+    /// 144 world links and one of them — <c>/World/TheChattingZone</c> — answers <c>404 No such
+    /// world.</c>; on <see cref="GetStringAsync"/> that one dead link ended the whole import at the
+    /// hundredth page. A stale link is the ordinary condition of somebody else's website and is not
+    /// a reason to abandon the other hundred and forty-three.
+    /// <para>
+    /// <b>Only "it is not there" is swallowed</b>, and that is the whole of the distinction: 404 and
+    /// 410 mean the page does not exist, while a 429, a 503 or a connection reset mean we are being
+    /// asked to stop or the site is unwell. Treating those as an empty page would walk a struggling
+    /// server to the end of its index and silently report a catalogue full of holes.
+    /// </para>
+    /// </remarks>
+    Task<string?> TryGetStringAsync(Uri uri, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -75,6 +95,29 @@ public sealed class DirectoryFetcher : IDirectoryFetcher
 
     public async Task<string> GetStringAsync(Uri uri, CancellationToken cancellationToken)
     {
+        using var response = await FetchAsync(uri, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<string?> TryGetStringAsync(Uri uri, CancellationToken cancellationToken)
+    {
+        using var response = await FetchAsync(uri, cancellationToken).ConfigureAwait(false);
+
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<HttpResponseMessage> FetchAsync(Uri uri, CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(uri);
 
         if (!Gate.RobotsAdopted)
@@ -106,10 +149,8 @@ public sealed class DirectoryFetcher : IDirectoryFetcher
         await Gate.EnterAsync(cancellationToken).ConfigureAwait(false);
 
         using var request = Request(uri);
-        using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
 
-        return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        return await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
     private HttpRequestMessage Request(Uri uri)
