@@ -83,8 +83,10 @@ MUSH family, which is precisely this project's audience.
   This is the most valuable outstanding fix in the probe.
 - **`NakedMud` answers a menu** — `Please enter A or C:` — and has no WHO to give. MudStats reports 1
   player for it, so it has a route we do not. Worth finding out which.
-- **ROM's MSSP report contained bytes that broke text handling** on `realms.reichel.net:4000`; it
-  reported `Received` with no `PLAYERS` parsed. Binary in an MSSP value is worth a fixture.
+- **~~ROM's MSSP report contained bytes that broke text handling~~ — retracted, and it turned out to
+  be something much worse.** ROM's MSSP is well-formed (`\x01NAME\x02Abysmal Realms MUD\x01PLAYERS\x024…`)
+  and parses correctly; the missing `PLAYERS` in the first survey run was an artifact of piping
+  binary through `grep`, not a failure. See **MCCP2** below for what the binary actually was.
 - **`EternityMUD` disagrees with itself**: MSSP says `PLAYERS 0`, its connect screen says 3. Exactly
   why the banner count is ranked last of the three sources.
 
@@ -94,3 +96,30 @@ Small differences throughout — AresMUSH 34 vs 33, TinyMUX 32 vs 28, SMAUG 9 vs
 — all consistent with ordinary churn between two observations minutes apart, not with misreporting.
 No server in this sample published a count that contradicted its own other sources, except
 EternityMUD above.
+
+## The MCCP2 bug — TelnetNegotiationCore does not decompress
+
+**Every server that negotiates MCCP2 gives us garbage text.** 13 of the 38 codebases surveyed do:
+CoffeeMUD, LPMud, Evennia, DikuMUD, ROM, NarutoMUD Engine, GWM, Epiphany, FluffOS, Anatolia,
+Dark City, IME, LoFP.
+
+Proven on `realms.reichel.net:4000` (ROM):
+
+1. Accept `IAC WILL MCCP2` with `IAC DO MCCP2`. The server emits `IAC SB MCCP2 IAC SE` at byte 18
+   and everything after it is zlib.
+2. That payload decompresses cleanly with a plain `zlib.decompressobj()` into the game's ASCII-art
+   connect screen — so the server is correct and the stream is valid.
+3. Our probe's banner begins `48 c7 8c 52 5d 6b`, **byte-for-byte the compressed payload**. It is
+   handed to the text path undecompressed and decoded as UTF-8, which is why it renders as a wall of
+   `U+FFFD` replacement characters.
+
+The library negotiates the option and fires `OnCompressionEnabled`, so it believes compression is
+active — it simply does not inflate the stream afterwards.
+
+**Why MSSP still worked:** we send `IAC DO 70` immediately on connect, and the server answers before
+compression starts. Anything arriving *after* the MCCP2 marker is lost — which on these 13 codebases
+is the entire connect screen, the whole `WHO` reply, and any later MSSP.
+
+This is upstream, not ours, and worth fixing there rather than working around here: MCCP is one of
+the most widely deployed MU\* options and a client that cannot read a compressed stream cannot read
+a third of the hobby.
