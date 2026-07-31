@@ -95,12 +95,6 @@ public sealed class NpgsqlAvailabilityStore(NpgsqlDataSource source) : IAvailabi
         CancellationToken cancellationToken = default) =>
         CumulativeAsync(gameId, now, IntervalOrigin.FirstParty, cancellationToken);
 
-    public Task<TimeSpan> CumulativeImportedMeasuredReachableAsync(
-        Guid gameId,
-        DateTimeOffset now,
-        CancellationToken cancellationToken = default) =>
-        CumulativeAsync(gameId, now, IntervalOrigin.ImportedMeasured, cancellationToken);
-
     private async Task<TimeSpan> CumulativeAsync(
         Guid gameId,
         DateTimeOffset now,

@@ -16,7 +16,7 @@ public sealed record ProvenanceChip(
     bool IsStale)
 {
     /// <summary>Whether somebody observed this, as opposed to a game asserting it.</summary>
-    public bool IsMeasured => Source is FieldSource.Handshake or FieldSource.Who or FieldSource.ImportedMeasured;
+    public bool IsMeasured => Source is FieldSource.Handshake or FieldSource.Who;
 }
 
 /// <summary>

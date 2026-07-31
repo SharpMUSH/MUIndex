@@ -72,10 +72,4 @@ public interface IReachableHistory
         Guid gameId,
         DateTimeOffset now,
         CancellationToken cancellationToken = default);
-
-    /// <summary>The same sum over intervals imported from a directory that ran its own probe.</summary>
-    Task<TimeSpan> CumulativeImportedMeasuredReachableAsync(
-        Guid gameId,
-        DateTimeOffset now,
-        CancellationToken cancellationToken = default);
 }

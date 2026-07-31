@@ -51,18 +51,21 @@ public sealed record GameEndpoint(
     EndpointState State);
 
 /// <summary>
-/// Who measured an availability interval (spec §7.6).
+/// Who measured an availability interval.
 /// </summary>
 /// <remarks>
-/// Not a provenance nicety. <see cref="ArchivePolicy.GraceFor"/> takes first-party and
-/// imported-measured reachable time as separate arguments and weights the second at half, so one
-/// undifferentiated total cannot feed it. A hand-maintained list is not on this enum at all: it
-/// earns no history and therefore no grace.
+/// One member, and it is kept as an enum on purpose. It had a second — <c>ImportedMeasured</c>, for a
+/// span a third-party directory had probed, credited toward archive grace at half weight because we
+/// could not audit their prober. The backfill no longer imports history (spec §7.6), so every
+/// interval in the table is ours and the weighting has nothing to weigh.
+///
+/// The column stays because the day some other party's measurements are ingested, an undifferentiated
+/// total would already be in the table and unsplittable. A one-member enum costs a column; losing the
+/// distinction costs the history.
 /// </remarks>
 public enum IntervalOrigin
 {
     FirstParty,
-    ImportedMeasured,
 }
 
 /// <summary>

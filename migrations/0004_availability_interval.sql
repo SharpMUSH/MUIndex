@@ -11,9 +11,11 @@ CREATE TABLE availability_interval (
     to_at   timestamptz,
     cause   text NOT NULL,
 
-    -- §7.6 — imported history counts toward archive grace at HALF weight, so it has to be summable
-    -- apart from our own. Not a provenance nicety: ArchivePolicy.GraceFor takes the two as separate
-    -- arguments and weights them differently, so one undifferentiated total cannot feed it.
+    -- Who measured the span. One value today, because the backfill contributes addresses and no
+    -- history at all (spec §7.6) and every interval here is therefore ours. The column stays anyway:
+    -- if another party's measurements are ever ingested, an undifferentiated total would already be
+    -- in this table and could not be split back apart. A column is cheap; the distinction is not
+    -- recoverable.
     origin  text NOT NULL DEFAULT 'first_party',
 
     -- §5.8's vocabulary, in the schema so the word cannot leak. Reachable, never up. `degraded` is
@@ -27,7 +29,7 @@ CREATE TABLE availability_interval (
         'none', 'dns', 'refused', 'tls', 'timeout', 'handshake_stalled')),
 
     CONSTRAINT availability_interval_origin_vocabulary CHECK (origin IN (
-        'first_party', 'imported_measured')),
+        'first_party')),
 
     CONSTRAINT availability_interval_does_not_end_before_it_starts CHECK (
         to_at IS NULL OR to_at >= from_at)

@@ -19,8 +19,6 @@ public static class SqlEnums
         FieldSource.Who => "who",
         FieldSource.Mssp => "mssp",
         FieldSource.Banner => "banner",
-        FieldSource.ImportedMeasured => "imported_measured",
-        FieldSource.ImportedAsserted => "imported_asserted",
         _ => throw Unmapped(source),
     };
 
@@ -32,8 +30,6 @@ public static class SqlEnums
         "who" => FieldSource.Who,
         "mssp" => FieldSource.Mssp,
         "banner" => FieldSource.Banner,
-        "imported_measured" => FieldSource.ImportedMeasured,
-        "imported_asserted" => FieldSource.ImportedAsserted,
         _ => throw Unread(value, nameof(FieldSource)),
     };
 
@@ -150,14 +146,12 @@ public static class SqlEnums
     public static string ToDb(IntervalOrigin origin) => origin switch
     {
         IntervalOrigin.FirstParty => "first_party",
-        IntervalOrigin.ImportedMeasured => "imported_measured",
         _ => throw Unmapped(origin),
     };
 
     public static IntervalOrigin ToIntervalOrigin(string value) => value switch
     {
         "first_party" => IntervalOrigin.FirstParty,
-        "imported_measured" => IntervalOrigin.ImportedMeasured,
         _ => throw Unread(value, nameof(IntervalOrigin)),
     };
 

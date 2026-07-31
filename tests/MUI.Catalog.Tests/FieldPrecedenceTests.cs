@@ -1,4 +1,5 @@
 using MUI.Catalog;
+using MUI.Catalog.Persistence;
 using MUI.Catalog.Tests.Support;
 
 namespace MUI.Catalog.Tests;
@@ -63,15 +64,15 @@ public class FieldPrecedenceTests
     }
 
     [Test]
-    public async Task ImportedAssertedIsTheWeakestSource()
+    public async Task EverySourceOnTheLadderIsOneThisCrawlerCanProduce()
     {
-        var winner = FieldPrecedence.Winner(
-        [
-            Row(FieldSource.ImportedAsserted, "from a hand-typed list"),
-            Row(FieldSource.ImportedMeasured, "from somebody's crawler"),
-        ]);
-
-        await Assert.That(winner!.Source).IsEqualTo(FieldSource.ImportedMeasured);
+        // The ladder had two rungs below Banner — ImportedMeasured and ImportedAsserted — for values
+        // taken from other directories. Nothing imports values any more (spec §7.6): the backfill
+        // contributes addresses, and every field is then measured here. A source no writer can
+        // produce is not harmless on an enum; it is an invitation to write one.
+        await Assert.That(Enum.GetNames<FieldSource>()).DoesNotContain("ImportedMeasured");
+        await Assert.That(Enum.GetNames<FieldSource>()).DoesNotContain("ImportedAsserted");
+        await Assert.That(Enum.GetNames<IntervalOrigin>().Length).IsEqualTo(1);
     }
 
     [Test]
