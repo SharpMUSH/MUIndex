@@ -10,8 +10,73 @@ public sealed record ProbeOptions
     /// </remarks>
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(20);
 
-    /// <summary>How long to wait for the connect screen before giving up on a banner.</summary>
-    public TimeSpan BannerQuietPeriod { get; init; } = TimeSpan.FromSeconds(3);
+    /// <summary>
+    /// How long the server must say nothing before a phase is treated as finished.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The probe used to spend a flat three seconds waiting for the connect screen and another three
+    /// for the <c>WHO</c> reply, which is fine for one server and wrong for a fleet: it made every
+    /// probe cost six seconds whether the game answered in eighty milliseconds or not at all. Most do
+    /// answer in well under a second, so settling on a gap rather than a stopwatch is most of the
+    /// crawl budget back.
+    /// </para>
+    /// <para>
+    /// The gap is measured between <em>lines</em>, which is the only arrival signal a line-oriented
+    /// callback gives. That is sound because a server's last line lands in the same breath as its
+    /// second-to-last; what it cannot see is a trailing line the server never terminated, which is
+    /// why every phase ends by flushing one (see <see cref="TelnetProbe"/>).
+    /// </para>
+    /// </remarks>
+    public TimeSpan QuietPeriod { get; init; } = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>
+    /// How long to wait for a phase to produce anything at all before concluding it never will.
+    /// </summary>
+    /// <remarks>
+    /// Longer than <see cref="QuietPeriod"/> and for a different reason: a gap between lines means
+    /// the server has finished, while silence from the start means it has not begun, and a game
+    /// behind a slow link has not said no just because it has not yet said anything. A server with
+    /// no connect screen at all — measured on <c>bigdamn.com:7777</c> — pays this once.
+    /// </remarks>
+    public TimeSpan SilenceGrace { get; init; } = TimeSpan.FromMilliseconds(2500);
+
+    /// <summary>
+    /// The ceiling on any one phase, so a server that talks forever cannot outlast
+    /// <see cref="QuietPeriod"/> indefinitely.
+    /// </summary>
+    /// <remarks>
+    /// A phase that keeps producing lines never goes quiet, so quiet-period settling on its own has
+    /// no upper bound. <see cref="Timeout"/> still bounds the whole session; this bounds one part of
+    /// it, so a chatty banner cannot eat the budget the <c>WHO</c> reply needs.
+    /// </remarks>
+    public TimeSpan MaxPhase { get; init; } = TimeSpan.FromSeconds(8);
+
+    /// <summary>
+    /// How often the settle loop looks for new output. Purely a resolution knob.
+    /// </summary>
+    public TimeSpan PollInterval { get; init; } = TimeSpan.FromMilliseconds(50);
+
+    /// <summary>
+    /// Whether to fall back to the plaintext <c>MSSP-REQUEST</c> form when telnet option 70 yields
+    /// nothing. <b>Off by default, and that default is a safety property rather than caution.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>IAC DO 70</c> is negotiation: a server that does not implement MSSP ignores it, and nothing
+    /// it does is affected. <c>MSSP-REQUEST</c> is <em>text</em>, sent at a login screen, and a
+    /// server that does not implement it reads the word as a character name. Measured:
+    /// <c>realms.reichel.net:4000</c> and <c>tsosmud.org:7070</c> both answer
+    /// <c>Illegal name, try another.</c> — so the fallback spends one of a stranger's login attempts
+    /// to ask a question they have already declined to answer.
+    /// </para>
+    /// <para>
+    /// Roughly 69 of the surveyed repositories implement the server side (the SMAUG family, CoffeeMUD
+    /// and Riftforge among them), so the fallback is worth having. It is worth having as an explicit
+    /// choice per target rather than as something every probe does to every stranger by default.
+    /// </para>
+    /// </remarks>
+    public bool RequestPlaintextMssp { get; init; }
 
     /// <summary>
     /// Ceiling on a single subnegotiation payload, handed to TelnetNegotiationCore's

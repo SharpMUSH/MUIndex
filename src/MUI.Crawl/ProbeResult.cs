@@ -35,10 +35,56 @@ public sealed record ProbeResult
     public string? Banner { get; init; }
 
     /// <summary>Layer 3 — what <c>WHO</c> or <c>DOING</c> yielded at the login screen.</summary>
-    public WhoReading Who { get; init; } = WhoReading.Unread;
+    /// <remarks>
+    /// Defaults to <see cref="WhoReading.NotAsked"/> rather than to an unreadable answer, so a probe
+    /// that failed before it could ask does not claim to have tried.
+    /// </remarks>
+    public WhoReading Who { get; init; } = WhoReading.NotAsked;
 
-    /// <summary>Layer 4 — MSSP, whether by telnet option 70 or the plaintext <c>MSSP-REQUEST</c> fallback.</summary>
-    public IReadOnlyDictionary<string, string> Mssp { get; init; } = new Dictionary<string, string>();
+    /// <summary>
+    /// Layer 4 — MSSP as the server reported it, whether by telnet option 70 or the plaintext
+    /// <c>MSSP-REQUEST</c> fallback. Every variable, every value, in wire order.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A value is a list because MSSP says it is.</b> "The same variable can be sent more than
+    /// once with different values", and two of the variables this project most depends on use that:
+    /// <c>REFERRAL</c>, which is the entire basis of crawl discovery and which a game may publish
+    /// several of, and <c>PORT</c>, which a game listening on 4201 and 4202 publishes twice. A flat
+    /// <c>string</c> map kept one of them.
+    /// </para>
+    /// <para>
+    /// Joining them into one string was worse than dropping them, which is what this replaced: a
+    /// value may legitimately contain a comma, so <c>string.Join(", ", …)</c> manufactured something
+    /// that looks like a value and cannot be split back apart — a fabrication, and the rule against
+    /// those does not stop at player counts.
+    /// </para>
+    /// <para>
+    /// <b>Nothing is filtered.</b> The probe used to hand-pick seven variables and discard the rest,
+    /// including <c>REFERRAL</c>, <c>WEBSITE</c>, <c>PORT</c>, <c>SSL</c>, <c>LANGUAGE</c> and every
+    /// name a codebase invented. A crawler whose premise is faithful measurement does not get to
+    /// decide which of a server's own answers were worth keeping; deciding what to display is the
+    /// catalogue's job, and it cannot display what was thrown away at the socket.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> Mssp { get; init; } = MsspReport.Empty;
+
+    /// <summary>
+    /// The single value of an MSSP variable, or null when the server did not report it.
+    /// </summary>
+    /// <remarks>
+    /// The convenience half of the pair, so a caller after <c>NAME</c> is no worse off than it was
+    /// under a flat map. Where a variable carries several values this is the <em>last</em>, which is
+    /// the specification's own rule for reducing one to a scalar ("the last reported value should be
+    /// used as the default value"). Anything that cares about the others — discovery, reading
+    /// <c>REFERRAL</c> — must read <see cref="Mssp"/> rather than this.
+    /// </remarks>
+    public string? MsspField(string variable) =>
+        Mssp.TryGetValue(variable, out var values) && values.Count > 0 ? values[^1] : null;
+
+    /// <summary>Every value of an MSSP variable, in wire order, or empty when it was not reported.</summary>
+    public IReadOnlyList<string> MsspValues(string variable) =>
+        Mssp.TryGetValue(variable, out var values) ? values : [];
 
     /// <summary>
     /// How layer 4 went. Empty <see cref="Mssp"/> is not self-explaining — see <see cref="MsspOutcome"/>.
@@ -132,19 +178,55 @@ public sealed record FailureDetail(string Cause, string? Detail = null);
 /// </remarks>
 public sealed record WhoReading(WhoConfidence Confidence, int? Count = null, int? IdentifiablePlayers = null)
 {
-    public static readonly WhoReading Unread = new(WhoConfidence.Unknown);
+    /// <summary>
+    /// No <c>WHO</c> was ever sent, so there is nothing to have failed to read.
+    /// </summary>
+    /// <remarks>
+    /// The state a probe carries when it never got as far as asking — a dial that failed, a session
+    /// abandoned against the budget. <b>Distinct from <see cref="Unreadable"/> by value</b>, which is
+    /// the whole reason it exists.
+    /// </remarks>
+    public static readonly WhoReading NotAsked = new(WhoConfidence.NotAsked);
+
+    /// <summary>
+    /// A <c>WHO</c> was sent and the answer could not be made sense of.
+    /// </summary>
+    /// <remarks>
+    /// This is a measurement of the parser meeting a dialect it cannot read, and it is the state
+    /// spec §5.4's hatched cell is made of: probed, and uncountable. It is emphatically not zero.
+    /// </remarks>
+    public static readonly WhoReading Unreadable = new(WhoConfidence.Unknown);
 
     /// <summary>
     /// The count is trustworthy. Never synthesised: an unreadable WHO reports
     /// <see cref="WhoConfidence.Unknown"/> and the site falls back to MSSP <c>PLAYERS</c>, labelled
     /// as such. A parser that guessed zero would be indistinguishable from an empty game.
     /// </summary>
-    public bool HasCount => Confidence is not WhoConfidence.Unknown && Count is not null;
+    public bool HasCount => Count is not null
+        && Confidence is WhoConfidence.Count or WhoConfidence.PerPlayer;
+
+    /// <summary>
+    /// Whether the question was put to the server at all.
+    /// </summary>
+    /// <remarks>
+    /// The distinction §5.4 turns on one level down. A probe that asked and could not read the answer
+    /// has measured something about the game — it renders as the hatched, *probed but uncountable*
+    /// cell. A probe that never asked has measured nothing and must render as neither that nor zero.
+    /// While both states were <c>new(WhoConfidence.Unknown)</c> they were equal by value, so no
+    /// writer downstream could tell them apart however carefully it was written.
+    /// </remarks>
+    public bool Attempted => Confidence is not WhoConfidence.NotAsked;
 }
 
 public enum WhoConfidence
 {
-    /// <summary>Nothing usable. Writes no presence sample at all.</summary>
+    /// <summary>
+    /// The question was never asked. The default, deliberately: a <see cref="WhoReading"/> nobody
+    /// filled in has measured nothing, and that is the honest thing for it to say.
+    /// </summary>
+    NotAsked,
+
+    /// <summary>Asked, and nothing usable came back. Writes no presence sample at all.</summary>
     Unknown,
 
     /// <summary>The number of connected players is readable.</summary>

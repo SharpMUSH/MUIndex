@@ -29,14 +29,29 @@ namespace MUI.Crawl;
 /// </remarks>
 public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = null) : IProbe
 {
+    /// <summary>The one question this probe exists to ask.</summary>
+    public const string WhoCommand = "WHO";
+
+    /// <summary>
+    /// The plaintext MSSP request, sent only when a caller opts in
+    /// (<see cref="ProbeOptions.RequestPlaintextMssp"/>) and telnet option 70 yielded nothing.
+    /// </summary>
+    public const string MsspRequestCommand = PlaintextMssp.Request;
+
     /// <summary>
     /// Every command this probe is allowed to send. Anything that logs in, creates a character, or
     /// changes server state is absent by construction.
     /// </summary>
-    public static readonly IReadOnlyList<string> PermittedCommands = ["WHO"];
+    /// <remarks>
+    /// The bare line terminator the probe sends between the banner and the <c>WHO</c> is deliberately
+    /// not on this list, because it is not a command: it carries no text, names nothing, and asks for
+    /// nothing. What it does is described at its call site.
+    /// </remarks>
+    public static readonly IReadOnlyList<string> PermittedCommands = [WhoCommand, MsspRequestCommand];
 
     private const byte Iac = 255;
     private const byte Do = 253;
+    private const byte NewLine = (byte)'\n';
 
     private readonly ProbeOptions _options = options ?? new ProbeOptions();
     private readonly ILogger _logger = logger ?? NullLogger.Instance;
@@ -61,6 +76,14 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             var built = await Build(seen, lines).BuildAndStartAsync(client, budget.Token);
             var telnet = built.Item1;
 
+            int Arrived()
+            {
+                lock (lines)
+                {
+                    return lines.Count;
+                }
+            }
+
             // Ask for the options a server may support without volunteering. Negotiation, not
             // traffic — written straight to the network so it is not escaped as data would be.
             foreach (var option in _options.RequestOptions)
@@ -68,31 +91,68 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 await telnet.WriteToNetworkAsync(new byte[] { Iac, Do, option }, budget.Token);
             }
 
-            // Let the connect screen arrive, then ask the one question we are allowed to ask.
-            // Banner and answer are kept apart because they are different evidence: one is a display
-            // asset and codebase fingerprint, the other is a measurement.
-            await Task.Delay(_options.BannerQuietPeriod, budget.Token);
+            // Phase 1 — the connect screen. Banner and WHO answer are kept apart because they are
+            // different evidence: one is a display asset and codebase fingerprint, the other is a
+            // measurement.
+            await SettleAsync(telnet, Arrived, 0, _options.SilenceGrace, budget.Token);
+            var bannerLines = Arrived();
 
-            int bannerLines;
-            lock (lines)
+            // Phase 2 — an empty line, and everything it produces is thrown away.
+            //
+            // The IAC DO above is well-formed telnet, and a server that does not implement telnet at
+            // its login screen does not know that: it takes the three bytes as typing and leaves them
+            // sitting in its line buffer. The next thing we send is then not WHO but
+            // "\xff\xfd\x46WHO", which is not a command it has, so it answers by redisplaying the
+            // connect screen and the count is lost. Measured on chaos.caile.org:4444 (TinyMUSH),
+            // where IAC DO 70 poisons the following line and IAC WILL NAWS does not.
+            //
+            // A bare terminator flushes that residue as a line of its own. What the server says back
+            // is a reaction to a byte sequence *we* chose to send, so it is neither the game's
+            // connect screen nor its answer to WHO, and recording it as either would be recording a
+            // decision of ours as a measurement of theirs. It is dropped on the floor deliberately —
+            // that is what the gap between bannerLines and flushLines is.
+            await telnet.SendAsync([]);
+            await SettleAsync(telnet, Arrived, bannerLines, _options.QuietPeriod, budget.Token);
+            var flushLines = Arrived();
+
+            // Phase 3 — the one question we are allowed to ask. SendAsync appends the line ending
+            // itself, so the command is handed over bare.
+            await telnet.SendAsync(Encoding.ASCII.GetBytes(WhoCommand));
+            await SettleAsync(telnet, Arrived, flushLines, _options.SilenceGrace, budget.Token);
+            var whoLines = Arrived();
+
+            // Phase 4 — the plaintext MSSP fallback, off unless asked for, and skipped outright when
+            // option 70 already answered. Sending it last is not tidiness: it is text at a login
+            // screen, and a server that reads it as a character name may hang up on us. Everything
+            // above is already measured by the time it goes out.
+            IReadOnlyDictionary<string, IReadOnlyList<string>>? plaintext = null;
+            if (_options.RequestPlaintextMssp && seen.MsspOutcome is MsspOutcome.NotOffered)
             {
-                bannerLines = lines.Count;
-            }
+                await telnet.SendAsync(Encoding.ASCII.GetBytes(MsspRequestCommand));
+                await SettleAsync(telnet, Arrived, whoLines, _options.SilenceGrace, budget.Token);
 
-            await telnet.SendAsync(Encoding.ASCII.GetBytes($"{PermittedCommands[0]}\r\n"));
-            await Task.Delay(_options.BannerQuietPeriod, budget.Token);
+                List<string> reply;
+                lock (lines)
+                {
+                    reply = lines.Skip(whoLines).ToList();
+                }
+
+                plaintext = PlaintextMssp.Parse(reply);
+            }
 
             string banner, whoText;
             lock (lines)
             {
                 banner = string.Join("\n", lines.Take(bannerLines));
-                whoText = string.Join("\n", lines.Skip(bannerLines));
+                whoText = string.Join("\n", lines.Skip(flushLines).Take(whoLines - flushLines));
             }
 
             if (telnet.CurrentEncoding is not null)
             {
                 seen.Charset ??= telnet.CurrentEncoding.WebName;
             }
+
+            var viaOption = seen.MsspOutcome is MsspOutcome.Received;
 
             return new ProbeResult
             {
@@ -105,12 +165,14 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Banner = banner,
                 Who = new WhoParser().Parse(whoText),
                 BannerPlayerCount = BannerCount.Find(banner),
-                Mssp = Flatten(seen.Mssp),
-                MsspOutcome = seen.MsspOutcome,
+                Mssp = viaOption ? MsspReport.From(seen.Mssp) : plaintext ?? MsspReport.Empty,
+                MsspOutcome = plaintext is not null ? MsspOutcome.Received : seen.MsspOutcome,
                 MsspBytesRejected = seen.MsspRejectedBytes,
-                MsspTransport = seen.MsspOutcome is MsspOutcome.Received
+                MsspTransport = viaOption
                     ? MsspTransport.TelnetOption70
-                    : MsspTransport.None,
+                    : plaintext is not null
+                        ? MsspTransport.PlaintextRequest
+                        : MsspTransport.None,
                 Elapsed = Stopwatch.GetElapsedTime(started),
             };
         }
@@ -128,6 +190,95 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Elapsed = Stopwatch.GetElapsedTime(started),
             };
         }
+    }
+
+    /// <summary>
+    /// Waits for the server to stop talking, then flushes any line it left unterminated.
+    /// </summary>
+    /// <param name="telnet">The live interpreter, so the flush goes through its own line assembly.</param>
+    /// <param name="arrived">How many lines have arrived in total, so far.</param>
+    /// <param name="baseline">How many had arrived when this phase began.</param>
+    /// <param name="grace">How long to wait for this phase to say anything at all.</param>
+    /// <param name="cancellationToken">The probe's overall budget.</param>
+    /// <remarks>
+    /// <para>
+    /// Two fixed delays used to make every probe cost six seconds regardless of how fast the game
+    /// answered. Settling on a gap gets that back: a phase ends when nothing new has arrived for
+    /// <see cref="ProbeOptions.QuietPeriod"/>, bounded above by <see cref="ProbeOptions.MaxPhase"/>
+    /// so a server that never stops talking cannot stall the crawl, and by the caller's
+    /// <see cref="ProbeOptions.Timeout"/> beyond that.
+    /// </para>
+    /// <para>
+    /// Silence and a gap are different facts and get different budgets. A gap between lines means
+    /// the server has finished; silence from the start of a phase means it has not begun, and the
+    /// answer may still be in flight over a slow link.
+    /// </para>
+    /// </remarks>
+    private async Task SettleAsync(
+        TelnetInterpreter telnet,
+        Func<int> arrived,
+        int baseline,
+        TimeSpan grace,
+        CancellationToken cancellationToken)
+    {
+        var deadline = DateTime.UtcNow + _options.MaxPhase;
+        var seen = arrived() - baseline;
+        var lastChange = DateTime.UtcNow;
+
+        while (DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(_options.PollInterval, cancellationToken);
+
+            var now = arrived() - baseline;
+            if (now != seen)
+            {
+                seen = now;
+                lastChange = DateTime.UtcNow;
+                continue;
+            }
+
+            if (DateTime.UtcNow - lastChange >= (seen == 0 ? grace : _options.QuietPeriod))
+            {
+                break;
+            }
+        }
+
+        await FlushPendingLineAsync(telnet);
+    }
+
+    /// <summary>
+    /// Delivers a line the server never terminated, by feeding the interpreter the newline it is
+    /// waiting for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Unterminated output is normal in this hobby and a line-oriented callback loses it
+    /// systematically.</b> TelnetNegotiationCore submits a line only on entering its <c>Act</c>
+    /// state, which nothing but a newline reaches, so a trailing partial line sits in the
+    /// interpreter's buffer until the connection closes and <c>OnSubmit</c> never fires for it.
+    /// Measured: <c>aardmud.org:4000</c> ends its connect screen with
+    /// <c>What be thy name, adventurer?</c> and its <c>WHO</c> reply with <c>Name:</c>,
+    /// <c>realms.reichel.net:4000</c> with <c>By what name do you wish to be known?</c>, and
+    /// <c>resort.org:2323</c> ends <em>both</em> with <c>Please enter a name:</c> — five of twelve
+    /// reference servers leave the last line hanging.
+    /// </para>
+    /// <para>
+    /// Losing those is not cosmetic. The guard that stops a busy DIKU being read as a measured zero
+    /// works by recognising a login prompt, and a login prompt is exactly the kind of line a server
+    /// leaves unterminated.
+    /// </para>
+    /// <para>
+    /// The newline goes in through <c>InterpretAsync</c>, which is the same channel the read loop
+    /// feeds, so it is ordered behind every byte already received and races with nothing. Nothing
+    /// goes on the wire, and line assembly, IAC handling and encoding all stay the library's — this
+    /// is not a second decoder, it is the terminator the server omitted. When the buffer is empty,
+    /// which is the common case, the library discards it and no line is produced.
+    /// </para>
+    /// </remarks>
+    private static async Task FlushPendingLineAsync(TelnetInterpreter telnet)
+    {
+        await telnet.InterpretAsync(NewLine);
+        await telnet.WaitForProcessingAsync(maxWaitMs: 500, additionalDelayMs: 25);
     }
 
     /// <summary>
@@ -258,41 +409,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         OperationCanceledException => new("timeout", "probe budget exhausted"),
         _ => new("error", error.Message),
     };
-
-    private static IReadOnlyDictionary<string, string> Flatten(MSSPConfig? config)
-    {
-        if (config is null)
-        {
-            return new Dictionary<string, string>();
-        }
-
-        var flat = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        void Put(string name, object? value)
-        {
-            var text = value switch
-            {
-                null => null,
-                IEnumerable<string> many => string.Join(", ", many),
-                _ => value.ToString(),
-            };
-
-            if (!string.IsNullOrWhiteSpace(text))
-            {
-                flat[name] = text;
-            }
-        }
-
-        Put("NAME", config.Name);
-        Put("PLAYERS", config.Players);
-        Put("UPTIME", config.Uptime);
-        Put("CODEBASE", config.Codebase);
-        Put("CONTACT", config.Contact);
-        Put("CRAWL DELAY", config.Crawl_Delay);
-        Put("CHARSET", config.Charset);
-
-        return flat;
-    }
 
     /// <summary>Mutable scratch for one probe. Callbacks arrive on the read loop, so it locks.</summary>
     private sealed class Observations

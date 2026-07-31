@@ -6,13 +6,20 @@ using MUI.Crawl;
 var host = args.Length > 0 ? args[0] : "mush.pennmush.org";
 var port = args.Length > 1 && int.TryParse(args[1], out var p) ? p : 4201;
 
-var result = await new TelnetProbe().ProbeAsync(new ProbeTarget(host, port));
+// The plaintext MSSP fallback puts text on a stranger's login screen, so it stays off unless the
+// operator asks for it by name — the same default the library-level probe carries.
+var plaintextMssp = args.Contains("--plaintext-mssp", StringComparer.Ordinal);
+
+var options = new ProbeOptions { RequestPlaintextMssp = plaintextMssp };
+var result = await new TelnetProbe(options).ProbeAsync(new ProbeTarget(host, port));
 
 Console.WriteLine($"target        {result.Host}:{result.Port}");
 Console.WriteLine($"outcome       {result.Outcome}");
 Console.WriteLine($"elapsed       {result.Elapsed.TotalSeconds:F1}s");
 Console.WriteLine($"mssp          {result.MsspOutcome} via {result.MsspTransport}");
-Console.WriteLine($"who           {result.Who.Confidence}" + (result.Who.HasCount ? $" \u2192 {result.Who.Count} players" : " \u2014 no count"));
+Console.WriteLine($"who           {result.Who.Confidence}" + (result.Who.HasCount
+    ? $" \u2192 {result.Who.Count} players"
+    : result.Who.Attempted ? " \u2014 asked, unreadable" : " \u2014 never asked"));
 
 if (result.MsspBytesRejected is { } rejected)
 {
@@ -44,10 +51,14 @@ if (result.Failure is { } failure)
 
 if (result.Mssp.Count > 0)
 {
-    Console.WriteLine("mssp fields");
-    foreach (var (key, value) in result.Mssp.OrderBy(kv => kv.Key))
+    // Wire order, not alphabetical: MSSP has no sorted form, and for a variable a game repeats —
+    // REFERRAL above all — the sequence is the game listing them rather than naming a set.
+    Console.WriteLine($"mssp fields   {result.Mssp.Count}");
+    foreach (var (key, values) in result.Mssp)
     {
-        Console.WriteLine($"  {key,-14} {value}");
+        Console.WriteLine(values.Count == 1
+            ? $"  {key,-16} {values[0]}"
+            : $"  {key,-16} {values.Count} values: {string.Join(" | ", values)}");
     }
 }
 
