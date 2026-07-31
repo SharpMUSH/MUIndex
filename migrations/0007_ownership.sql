@@ -65,9 +65,19 @@ CREATE TABLE user_passkey (
     is_backed_up        boolean NOT NULL DEFAULT false,
     is_backup_eligible  boolean NOT NULL DEFAULT false,
 
-    transports          text,
+    -- Identity hands these back as a string array; the column is one so that a round trip through
+    -- storage cannot silently reorder or re-delimit what the authenticator reported.
+    transports          text[],
+
+    -- Whether the authenticator verified a human at registration (biometric or PIN) rather than
+    -- merely detecting a touch. Identity carries it per credential, so it is stored per credential.
+    is_user_verified    boolean NOT NULL DEFAULT false,
+
     attestation_object  bytea,
-    attestation_format  text,
+
+    -- Kept because Identity's UserPasskeyInfo carries it and a store that drops half a record hands
+    -- back something that is not what was registered.
+    client_data_json    bytea,
 
     -- "My phone", "the yubikey in the drawer". A person with three passkeys needs to know which is
     -- which before they can revoke one, so this is bounded rather than free — see §8's note on
