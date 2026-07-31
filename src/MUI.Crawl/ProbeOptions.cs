@@ -123,9 +123,26 @@ public sealed record ProbeOptions
     /// What the crawler calls itself over TTYPE/MTTS and MNES <c>CLIENT_NAME</c> (spec §11).
     /// </summary>
     /// <remarks>
+    /// <para>
     /// An admin reading their logs must be able to find out who we are and how to opt out, so this
     /// is a politeness obligation rather than a cosmetic string. It carries a URL for the same
     /// reason.
+    /// </para>
+    /// <para>
+    /// <b>It does not reach the wire yet, and neither does <see cref="InfoUrl"/>.</b>
+    /// TelnetNegotiationCore's <c>TerminalTypeProtocol</c> hardcodes a client's terminal types to
+    /// <c>TNC</c>, <c>XTERM</c>, <c>MTTS 3853</c> in a private field with no setter, and its
+    /// <c>NewEnvironProtocol</c> answers a server's NEW-ENVIRON request with the crawler host's own
+    /// <c>USER</c> and a fixed <c>LANG</c> — so what an admin actually sees is the library's default
+    /// and a local account name, not us. The library is first-party: the fix is a PR there making
+    /// both settable, never a reflection hack or a hand-rolled plugin here.
+    /// </para>
+    /// <para>
+    /// Until then nothing may claim otherwise. <c>/about</c> reads this field and says plainly that
+    /// the crawler is <em>configured</em> to call itself this and does not manage to, because
+    /// "the crawler identifies itself" is a claim about our own behaviour and that one would be
+    /// false in exactly the way <c>ContactedMaintainer</c>'s default was.
+    /// </para>
     /// </remarks>
     public IReadOnlyList<string> TerminalTypes { get; init; } =
         ["MUINDEX-CRAWLER", "MUINDEX", "MTTS 9"];
@@ -159,5 +176,11 @@ public sealed record ProbeOptions
     public const byte MsspOption = 70;
 
     /// <summary>Where an admin can read what we do and ask us to stop.</summary>
+    /// <remarks>
+    /// A placeholder domain, because the domain is an open question (spec §15.1) and inventing one
+    /// here would settle it by accident. It is also not yet sent to anybody — see
+    /// <see cref="TerminalTypes"/> — so a deployment that leaves this alone is publishing an address
+    /// that answers nobody. <c>/about</c> compares against this default and says so when it matches.
+    /// </remarks>
     public string InfoUrl { get; init; } = "https://muindex.example/crawler";
 }

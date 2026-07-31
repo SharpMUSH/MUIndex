@@ -350,6 +350,79 @@ public static class PlainText
         return b.ToString();
     }
 
+    /// <summary>
+    /// The about page. Prose, so the only thing the graphical version adds is the shape of it.
+    /// </summary>
+    /// <remarks>
+    /// The attribution list is the part that has to survive here above all: it is what this project
+    /// owes the directories it read, and an acknowledgement a text browser cannot render is an
+    /// acknowledgement made to the layout rather than to anybody.
+    /// </remarks>
+    public static string RenderAbout(AboutPage page)
+    {
+        var b = new StringBuilder();
+
+        b.AppendLine("ABOUT MU*INDEX");
+        b.AppendLine();
+        Wrap(b, page.Lede);
+
+        foreach (var section in page.Sections)
+        {
+            Heading(b, section.Heading);
+
+            foreach (var point in section.Points)
+            {
+                b.AppendLine();
+                Wrap(b, point.Sentence, "  ");
+            }
+
+            if (section.Identity is { } identity)
+            {
+                b.AppendLine();
+                Wrap(b, identity.Wording, "  ");
+                b.AppendLine();
+                Wrap(b, $"Crawler: {identity.Name}", "  ");
+                Wrap(b, $"Contact: {identity.InfoUrl}", "  ");
+
+                if (!identity.ContactConfigured)
+                {
+                    Wrap(b, "This deployment has not set a contact address, so the one above is "
+                        + "the built-in placeholder and answers nobody.", "  ");
+                }
+            }
+
+            foreach (var source in section.Sources)
+            {
+                b.AppendLine();
+                b.AppendLine($"  {source.Name} — {source.StatusWording}");
+                b.AppendLine($"  {source.Url}");
+                Wrap(b, source.Note, "    ");
+            }
+
+            if (section.Licence is { } licence)
+            {
+                b.AppendLine();
+                // Every one of these goes through the wrapper rather than being laid out in columns:
+                // a licence name and an attribution are both configuration, and a deployment that
+                // sets a long one must not push a line off the side of a text browser.
+                Wrap(b, $"Code: {licence.CodeLicence}", "  ");
+                Wrap(b, $"Data: {licence.DataLicenceName}", "  ");
+
+                if (licence.DataLicenceUrl is { } url)
+                {
+                    Wrap(b, url, "  ");
+                }
+
+                Wrap(b, "(what this deployment serves. The project's own answer is still open.)", "  ");
+                Wrap(b, $"Credit as: {licence.Attribution}", "  ");
+                b.AppendLine();
+                Wrap(b, licence.Notice, "  ");
+            }
+        }
+
+        return b.ToString();
+    }
+
     private static void Heading(StringBuilder b, string title)
     {
         b.AppendLine();

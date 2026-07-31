@@ -517,3 +517,21 @@ fieldset.facets .check { display: inline-flex; gap: 6px; align-items: center; fo
     border-bottom: 1px solid var(--amber);
     color: var(--text);
 }
+
+/* ── about ─────────────────────────────────────────────────────────────────
+   Prose measure and nothing else. The one page whose whole job is to say what the rest of the site
+   can and cannot prove is the wrong place to spend the accent on decoration, so it carries no
+   colour of its own — the only tinted thing here is a contact address nobody configured, which is
+   amber for the same reason every other unverified value on this site is.                       */
+
+section.about { max-width: 68ch; }
+section.about h2 { margin-top: calc(var(--cpad) * 2.5); }
+
+dl.identity { font-size: 13px; margin: var(--cpad) 0; }
+dl.identity dt { margin-top: 8px; }
+dl.identity dd { margin: 2px 0 0; color: var(--dim); }
+
+ul.sources { list-style: none; margin: var(--cpad) 0 0; padding: 0; }
+ul.sources li { border-top: 1px solid var(--line); padding: var(--cpad) 0; }
+ul.sources .name { font-size: 15px; font-weight: 600; text-decoration: none; }
+ul.sources .source-head { display: flex; gap: var(--cpad); align-items: baseline; flex-wrap: wrap; }
