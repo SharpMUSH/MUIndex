@@ -1,8 +1,14 @@
+@*
+    No data-theme here. Dark is the stylesheet's default and a reader whose system says light gets
+    light — pinning the attribute meant a light-preferring reader was served dark regardless, which
+    is not "dark is the default", it is "there is one theme".
+*@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
     <base href="/" />
     <link rel="stylesheet" href="app.css" />
     <HeadOutlet />

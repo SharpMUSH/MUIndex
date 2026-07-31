@@ -1,110 +1,191 @@
 @page "/g/{Slug}"
+@using MUI.Web.Data
 @inject IGameQueries Queries
+@inject IAvailabilityHistory History
+@inject TimeProvider Clock
 
 @if (Page is null)
 {
     <h1>Not found</h1>
+    <p class="dim">
+        No game here. Nothing is ever deleted, so a game that once lived at this address still
+        does — check the spelling.
+    </p>
 }
 else if (Plain)
 {
     @* Plain mode is a real second surface, not a courtesy. If a fact cannot survive here, its
        graphic on the main page is decoration. It renders from the same view models — this page is
        the graphical one with the graphics removed, which is what bounds its cost (spec §9). *@
-    <pre class="mono">@PlainText.Render(Page, DateTimeOffset.UtcNow)</pre>
+    <pre class="mono plain">@PlainText.Render(Page, Now, Reach)</pre>
 }
 else
 {
     <PageTitle>@Page.Summary.Name — mu*index</PageTitle>
 
-    @* The game is the hero; the connect screen follows as evidence. Leading with the art would
-       hand the top of every page to whatever a stranger's server happens to send. *@
-    <h1>@Page.Summary.Name</h1>
-    @if (Page.Summary.State is LifecycleState.Archived)
-    {
-        <p class="badge archived">archived</p>
-    }
-    else if (!Page.Summary.IsClaimed)
-    {
-        <p class="faint">Nobody has claimed this listing — everything here was measured.</p>
-    }
-    @if (Page.Description is { } d) { <p class="dim">@d</p> }
+    @* The game is the hero; the connect screen follows as evidence. Leading with the art would hand
+       the top of every page to whatever a stranger's server happens to send. *@
+    <article class="game @(Archived ? "archived" : null)">
+        <header class="game-head">
+            <div class="plate mono" aria-hidden="true">@Initials</div>
+            <div class="game-title">
+                <h1>@Page.Summary.Name</h1>
+                <p class="badges">
+                    @if (Archived)
+                    {
+                        <span class="badge archived">archived</span>
+                    }
+                    else if (Page.Summary.IsClaimed)
+                    {
+                        <span class="badge claimed">claimed</span>
+                    }
+                    else
+                    {
+                        <span class="badge">discovered · unclaimed</span>
+                    }
+                </p>
+                @if (Page.Summary.Tagline is { } tagline)
+                {
+                    <p class="tagline dim">@tagline</p>
+                }
+                @if (Page.Description is { } description)
+                {
+                    <p class="lede">@description</p>
+                }
+                @if (!Page.Summary.IsClaimed && !Archived)
+                {
+                    <p class="faint">Nobody has claimed this listing — everything here was measured.</p>
+                }
+            </div>
+            <div class="connect">
+                <p class="live mono">
+                    @if (Page.Summary.PlayersNow is { } n)
+                    {
+                        <span class="state-present">● @n players on now</span>
+                    }
+                    else
+                    {
+                        @* Never a zero and never a blank: those are different facts and only one of
+                           them is a measurement. *@
+                        <span class="state-unknown">– count unknown</span>
+                    }
+                </p>
+                @foreach (var e in Page.Endpoints)
+                {
+                    <p class="endpoint mono">
+                        @e.Host @e.Port
+                        @if (e.TlsMeasured)
+                        {
+                            <span class="state-present">● tls</span>
+                        }
+                    </p>
+                }
+            </div>
+        </header>
 
-    <p class="mono">
-        @foreach (var e in Page.Endpoints) { <text>@e.Host @e.Port</text> }
-    </p>
-
-    <p>
-        @if (Page.Summary.PlayersNow is { } n)
+        @if (Archived)
         {
-            <span class="state-present">● @n on</span>
+            <div class="archive-plate">
+                <p>
+                    Last answered <strong>@Entry.LastAnswered</strong>, @Entry.DarkFor(Now) ago. We
+                    still try the door every week, and this page will update itself the day it
+                    opens. Everything below is preserved as it was.
+                </p>
+                @if (Entry.Run is { } run)
+                {
+                    <p class="mono faint">@run · @Entry.KnownLiveWording known live</p>
+                }
+            </div>
         }
-        else
-        {
-            <span class="state-unknown">– count unknown</span>
-        }
-        @if (Page.ReachableFraction is { } r)
-        {
-            <span class="faint"> · @r.ToString("P1") reachable over 90 days</span>
-        }
-    </p>
 
-    @if (Page.ConnectScreenSuppressed)
-    {
-        <p class="faint">The owner asked us not to republish this game's connect screen.</p>
-    }
-    else if (Page.ConnectScreen is { } screen)
-    {
-        <h2>What you see when you connect</h2>
-        <figure class="ansi">
-            <pre>@screen</pre>
-            <figcaption>as sent by the server · captured 4m ago</figcaption>
-        </figure>
-    }
+        <section aria-labelledby="screen-heading">
+            <h2 id="screen-heading">What you see when you connect</h2>
+            <AnsiQuote Screen="ConnectScreen" CapturedAt="Captured" Now="Now" Frozen="Archived" />
+        </section>
 
-    <h2>Capabilities</h2>
-    <p class="kicker">@Page.DisagreementCount of @Page.Capabilities.Count disagree with what the game declares</p>
-    <table class="matrix">
-        <thead><tr><th scope="col">capability</th><th scope="col">measured</th><th scope="col">declared</th><th scope="col">age</th></tr></thead>
-        <tbody>
-        @* Disagreements sort to the top so the interesting case cannot be scrolled past. *@
-        @foreach (var c in Page.Capabilities.OrderByDescending(c => c.Disagrees).ThenBy(c => c.Protocol))
-        {
-            <tr class="@(c.Disagrees ? "disagrees" : null)">
-                <th scope="row">@c.Protocol</th>
-                <td>@Cell(c.Measured)</td>
-                <td>@Cell(c.Declared)</td>
-                <td class="faint mono">@(c.LastConfirmedAt is { } t ? Relative.Format(DateTimeOffset.UtcNow - t) : "—")</td>
-            </tr>
-        }
-        </tbody>
-    </table>
+        <div class="two-up">
+            <section aria-labelledby="activity-heading">
+                <h2 id="activity-heading">When people are on</h2>
+                <ActivityHeatmap Cells="Page.Activity" />
 
-    <h2>What the game says about itself</h2>
-    <dl>
-        @foreach (var (name, chip) in Page.Declared)
-        {
-            <dt class="kicker">@name</dt>
-            <dd><Chip Fact="chip" /></dd>
-        }
-    </dl>
+                <h2>Reachable</h2>
+                <AvailabilityStrip Summary="Reach" />
 
-    <p class="faint"><a href="?plain=1">read this page as plain text</a></p>
+                @if (Page.Changes.Count > 0)
+                {
+                    <h2>What changed</h2>
+                    <ol class="changes mono">
+                        @foreach (var change in Page.Changes.OrderByDescending(c => c.At))
+                        {
+                            <li><span class="faint">@change.At.ToString("yyyy-MM-dd")</span> @change.Summary</li>
+                        }
+                    </ol>
+                }
+            </section>
+
+            <section aria-labelledby="capabilities">
+                <CapabilityMatrix Rows="Page.Capabilities" Now="Now" />
+
+                <h2>What the game says about itself</h2>
+                <dl class="declared">
+                    @foreach (var (name, chip) in Page.Declared)
+                    {
+                        <dt class="kicker">@name</dt>
+                        <dd><Chip Fact="chip" Now="Now" /></dd>
+                    }
+                </dl>
+                @if (StaleCount > 0)
+                {
+                    <p class="note faint">
+                        @StaleCount of these have not been confirmed inside their own refresh window.
+                        Nothing here is wrong — it is old, and the page says so rather than presenting
+                        it as current.
+                    </p>
+                }
+            </section>
+        </div>
+
+        <p class="faint"><a href="?plain=1">read this page as plain text</a></p>
+    </article>
 }
 
 @code {
     [Parameter] public string Slug { get; set; } = string.Empty;
+
     [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
 
     private bool Plain => Truthy.Is(PlainFlag);
 
     private GamePage? Page;
+    private ReachSummary Reach = default!;
+    private ArchiveEntry Entry = default!;
+    private AnsiScreen ConnectScreen = default!;
 
-    protected override async Task OnParametersSetAsync() => Page = await Queries.FindAsync(Slug);
+    private DateTimeOffset Now => Clock.GetUtcNow();
 
-    private static MarkupString Cell(CapabilityState state) => new(state switch
+    private bool Archived => Page?.Summary.State is LifecycleState.Archived;
+
+    private DateTimeOffset? Captured => Archived ? Entry.LastReachableAt : Now.AddMinutes(-4);
+
+    private int StaleCount => Page?.Declared.Count(d => d.Value.IsStale) ?? 0;
+
+    private string Initials => string.Concat(
+        (Page?.Summary.Name ?? "?")
+            .Split([' ', '*', '-'], StringSplitOptions.RemoveEmptyEntries)
+            .Take(2)
+            .Select(w => char.ToUpperInvariant(w[0])));
+
+    protected override async Task OnParametersSetAsync()
     {
-        CapabilityState.Present => "<span class=\"state-present\">● offered</span>",
-        CapabilityState.Absent => "<span class=\"state-absent\">✕ absent</span>",
-        _ => "<span class=\"state-unknown\">– silent</span>",
-    });
+        Page = await Queries.FindAsync(Slug);
+        if (Page is null)
+        {
+            return;
+        }
+
+        var intervals = await History.ForGameAsync(Page.Summary.Id);
+        Reach = ReachSeries.Build(intervals, Now);
+        Entry = ArchiveEntry.For(Page.Summary, intervals, Now);
+        ConnectScreen = Ansi.Parse(Page.ConnectScreen, Page.ConnectScreenSuppressed);
+    }
 }

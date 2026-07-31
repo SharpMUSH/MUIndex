@@ -1,0 +1,82 @@
+@*
+    The availability strip: ninety bars, oldest at the left.
+
+    Status-page convention, because readers already know how to read one. Two deliberate divergences,
+    both from the design handoff: degraded is a *short* bar rather than only a different colour, and
+    unreachable is hatched and outlined so it reads as "absent" rather than as an alarm.
+
+    The word is "reachable", never "uptime". We measured a socket from one vantage point and did not
+    measure whether the game was up. The wording matters more than the graphic.
+*@
+
+<div class="kicker">reachable · last @Summary.Window days</div>
+<p class="summary">@Summary.Sentence</p>
+
+@if (Summary.HasAnyMeasurement)
+{
+    @* One image with one label, rather than ninety announced bars. The spells are underneath in
+       words, so nothing here is only available to a reader who can see it. *@
+    <div class="strip" role="img" aria-label="@Summary.Sentence">
+        @foreach (var day in Summary.Days)
+        {
+            <span class="bar @Class(day.State)" title="@day.Label"></span>
+        }
+    </div>
+    <div class="strip-scale mono faint">
+        <span>@Summary.Window days ago</span>
+        <span>today</span>
+    </div>
+
+    <dl class="stats">
+        <div>
+            <dt class="kicker">reachable</dt>
+            <dd class="mono state-present">
+                @(Summary.ReachableFraction is { } f ? Wording.Percent(f) : "not measured")
+            </dd>
+        </div>
+        <div>
+            <dt class="kicker">longest outage</dt>
+            <dd class="mono">
+                @(Summary.LongestOutage is { } o ? Wording.Duration(o) : "none in the window")
+            </dd>
+        </div>
+        <div>
+            <dt class="kicker">last cause</dt>
+            <dd class="mono @(Summary.LastCause is FailureCause.None ? "faint" : "warn")">
+                @(Summary.LastCause is FailureCause.None ? "nothing recorded" : Wording.Cause(Summary.LastCause))
+            </dd>
+        </div>
+    </dl>
+
+    <ul class="legend">
+        <li><span class="swatch bar-reachable" aria-hidden="true"></span>reachable</li>
+        <li><span class="swatch bar-degraded" aria-hidden="true"></span>degraded — answered, could not finish</li>
+        <li><span class="swatch bar-unreachable" aria-hidden="true"></span>unreachable</li>
+        <li><span class="swatch bar-unmeasured" aria-hidden="true"></span>not measured</li>
+    </ul>
+
+    @if (Summary.Spells.Count > 0)
+    {
+        <details class="read-as-text">
+            <summary>read as text</summary>
+            <ul class="spells">
+                @foreach (var spell in Summary.Spells)
+                {
+                    <li>@spell</li>
+                }
+            </ul>
+        </details>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public ReachSummary Summary { get; set; } = default!;
+
+    private static string Class(ReachState state) => state switch
+    {
+        ReachState.Reachable => "bar-reachable",
+        ReachState.Degraded => "bar-degraded",
+        ReachState.Unreachable => "bar-unreachable",
+        _ => "bar-unmeasured",
+    };
+}

@@ -1,0 +1,54 @@
+@*
+    One shape, three registers.
+
+    Neutral for newly discovered, unlit for went dark, and — for a return — the one place the site
+    raises its voice. It earns it: a game dark for two years answering again is the thing no
+    incumbent can tell you, and it is the whole argument for probing forever instead of giving up.
+
+    The return card gets a full sentence at body size instead of mono metadata, and it is the one
+    element allowed motion beyond a disclosure: a single 1.4s glow on arrival, never repeating,
+    suppressed entirely under prefers-reduced-motion.
+*@
+
+<article class="feed-card @Register">
+    @* Off when the card sits under a column that already names the register, so the page does not
+       read "newly discovered newly discovered". A screen reader still gets it: the columns are
+       sections labelled by their own heading. *@
+    @if (ShowRegister)
+    {
+        <div class="kicker">@Heading</div>
+    }
+    <div class="feed-name">
+        <a href="/g/@Entry.Slug">@Entry.Name</a>
+        <span class="mono faint">@Relative.Format(Now - Entry.At)</span>
+        @if (Kind is FeedKind.CameBack)
+        {
+            <span class="mono state-present">● live</span>
+        }
+    </div>
+    <p class="@(Kind is FeedKind.CameBack ? "return-line" : "mono detail")">@Entry.Detail</p>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public FeedEntry Entry { get; set; } = default!;
+
+    [Parameter, EditorRequired] public FeedKind Kind { get; set; }
+
+    [Parameter] public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
+
+    [Parameter] public bool ShowRegister { get; set; } = true;
+
+    private string Register => Kind switch
+    {
+        FeedKind.WentDark => "unlit",
+        FeedKind.CameBack => "returned",
+        _ => "neutral",
+    };
+
+    private string Heading => Kind switch
+    {
+        FeedKind.WentDark => "went dark",
+        FeedKind.CameBack => "came back",
+        _ => "newly discovered",
+    };
+}
