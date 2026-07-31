@@ -1,0 +1,144 @@
+@page "/rankings"
+@inject IGameQueries Queries
+@inject TimeProvider Clock
+
+@*
+    The rankings (spec §9), computed from measured data only.
+
+    What a ranking on this site can honestly be is a short list. "Busiest" is defensible once the
+    window, the statistic and the eligible set are stated: it is the median of counts we actually
+    read, over seven days, among the games that produced enough samples to have a median. "Best" is
+    not defensible at any length, because nobody measured it — and the affordance that would let
+    readers assert it is the one thing §2 rules out permanently, since vote-gaming is what reduced
+    Top Mud Sites to a link graveyard.
+
+    So both tables here say what they rank on, over what window, out of how many games, and what
+    they exclude. A ranking whose arithmetic a reader cannot check is a ranking they have to trust,
+    and this site does not ask for trust.
+
+    The component is RankingsPage and not Rankings because the view model it renders is called
+    Rankings, and a page class of that name shadows it inside its own code block.
+*@
+
+@if (Plain)
+{
+    <pre class="mono plain">@PlainText.RenderRankings(Table, Now)</pre>
+}
+else
+{
+    <PageTitle>Rankings — mu*index</PageTitle>
+
+    <h1>Rankings</h1>
+    <p class="dim">@EcosystemCopy.NoVote</p>
+
+    <section aria-labelledby="busiest">
+        <h2 id="busiest">Busiest, by measured concurrent players</h2>
+        <p class="dim">@EcosystemCopy.BusiestBasis(Table)</p>
+
+        @if (Table.Busiest.Count == 0)
+        {
+            <p class="faint">
+                No listed game has produced enough counted samples to be ranked yet. That is a
+                statement about how long we have been measuring and not about how busy anybody is.
+            </p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="ranking">
+                    <caption class="sr-only">
+                        Games ranked by the median of the player counts we measured over the last
+                        @((int)Table.Window.TotalDays) days.
+                    </caption>
+                    <thead>
+                        <tr>
+                            <th scope="col" class="place">#</th>
+                            <th scope="col">game</th>
+                            <th scope="col">median</th>
+                            <th scope="col">peak</th>
+                            <th scope="col">counted samples</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ var place = 0; }
+                        @foreach (var game in Table.Busiest)
+                        {
+                            place++;
+                            <tr>
+                                <td class="place mono">@place</td>
+                                <th scope="row"><a href="/g/@game.Slug">@game.Name</a></th>
+                                @* The rank is on the median, so the median is the emphasised cell and
+                                   the peak sits beside it as context. A peak is one sample, and a game
+                                   that had forty players for a minute is not busier than one that has
+                                   thirty all day. *@
+                                <td class="mono state-present">@game.Median</td>
+                                <td class="mono">@game.Peak</td>
+                                <td class="mono faint">@game.Samples</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section aria-labelledby="spells">
+        <h2 id="spells">Longest unbroken reachable spell</h2>
+        <p class="dim">@EcosystemCopy.SpellBasis</p>
+
+        @if (Table.LongestUnbroken.Count == 0)
+        {
+            <p class="faint">No listed game is in an unbroken reachable spell right now.</p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="ranking">
+                    <caption class="sr-only">
+                        Games whose every probe since the date given found them reachable.
+                    </caption>
+                    <thead>
+                        <tr>
+                            <th scope="col" class="place">#</th>
+                            <th scope="col">game</th>
+                            <th scope="col">reachable since</th>
+                            <th scope="col">that is</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ var place = 0; }
+                        @foreach (var spell in Table.LongestUnbroken)
+                        {
+                            place++;
+                            <tr>
+                                <td class="place mono">@place</td>
+                                <th scope="row"><a href="/g/@spell.Slug">@spell.Name</a></th>
+                                <td class="mono">@spell.Since.ToString("d MMMM yyyy")</td>
+                                <td class="mono state-present">@Wording.Duration(spell.LengthAt(Now))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <p class="faint">
+        Archived games are out of both tables and of nothing else — their pages, URLs and series all
+        survive, and one successful probe puts them back. <a href="/archive">the archive</a> ·
+        <a href="/ecosystem">the ecosystem</a> ·
+        <a href="?plain=1">read this page as plain text</a>
+    </p>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
+
+    private bool Plain => Truthy.Is(PlainFlag);
+
+    private DateTimeOffset Now => Clock.GetUtcNow();
+
+    private Rankings Table = Rankings.Empty(default, TimeSpan.Zero, 0);
+
+    protected override async Task OnParametersSetAsync() => Table = await Queries.RankingsAsync();
+}

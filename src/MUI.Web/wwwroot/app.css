@@ -535,3 +535,65 @@ ul.sources { list-style: none; margin: var(--cpad) 0 0; padding: 0; }
 ul.sources li { border-top: 1px solid var(--line); padding: var(--cpad) 0; }
 ul.sources .name { font-size: 15px; font-weight: 600; text-decoration: none; }
 ul.sources .source-head { display: flex; gap: var(--cpad); align-items: baseline; flex-wrap: wrap; }
+/*
+  ── ecosystem dashboard & rankings ──
+
+  The bars are illustrations and are styled as such: the accent means "measured" site-wide, so a
+  measured share is drawn in it and a declared figure is left in plain text — an amber bar beside a
+  green one would invite the two columns to be compared as if they were one measurement over one
+  set, which is the exact misreading their separate denominators exist to prevent.
+
+  No bar carries a fact of its own. Every one of them sits beside the count and the denominator it
+  illustrates, and is aria-hidden, because a screen reader announcing "39.4 per cent" twice is worse
+  than announcing it once and a bar cannot say "of 310 games".
+*/
+
+ul.shares { list-style: none; margin: var(--cpad) 0; padding: 0; }
+ul.shares li {
+    display: grid;
+    grid-template-columns: minmax(0, 12rem) minmax(0, 1fr) auto;
+    gap: var(--cpad);
+    align-items: center;
+    padding: var(--row-pad) 0;
+    border-bottom: 1px solid var(--line);
+}
+ul.shares .share-label { color: var(--text); }
+ul.shares .share-figure { color: var(--dim); white-space: nowrap; }
+
+.share-track {
+    display: block;
+    height: 10px;
+    background: var(--recessed);
+    border-radius: 2px;
+    overflow: hidden;
+}
+.share-track.narrow { height: 6px; margin-bottom: 5px; max-width: 14rem; }
+.share-fill { display: block; height: 100%; background: var(--accent); }
+
+/* Wide content scrolls inside its own box; the page body never scrolls sideways. */
+.table-wrap { overflow-x: auto; margin: var(--cpad) 0; }
+
+table.protocols, table.ranking { border-collapse: collapse; width: 100%; }
+table.protocols th, table.protocols td,
+table.ranking th, table.ranking td {
+    text-align: left;
+    vertical-align: top;
+    padding: var(--row-pad) var(--cpad) var(--row-pad) 0;
+    border-bottom: 1px solid var(--line);
+}
+table.protocols thead th, table.ranking thead th {
+    font: 10px/1.4 var(--kick);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
+    font-weight: 400;
+}
+table.protocols tbody th { font-weight: 400; white-space: nowrap; }
+table.protocols td.declared { color: var(--amber); }
+table.ranking td.place, table.ranking th.place { width: 3rem; color: var(--faint); }
+table.ranking tbody th { font-weight: 400; }
+
+@media (max-width: 900px) {
+    /* The label stops competing with the bar for a width neither of them has. */
+    ul.shares li { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+}

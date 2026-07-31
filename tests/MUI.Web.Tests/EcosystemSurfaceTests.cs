@@ -1,0 +1,215 @@
+using MUI.Catalog;
+using MUI.Web.Components;
+using MUI.Web.Fixtures;
+
+namespace MUI.Web.Tests;
+
+/// <summary>
+/// The two aggregate surfaces, asserted in words.
+/// </summary>
+/// <remarks>
+/// A dashboard is where a site's honesty is cheapest to lose, because a percentage is quotable and a
+/// qualification is not. The three assertions worth having are all about what the page must
+/// <em>refuse</em> to say: it may not publish an absolute player figure, it may not print a share
+/// without the set it is a share of, and it may not describe a snapshot as a trend.
+/// </remarks>
+public class EcosystemSurfaceTests
+{
+    private static readonly DateTimeOffset Now = FixtureGameQueries.Now;
+    private static readonly FixtureGameQueries Queries = new();
+
+    private static async Task<string> EcosystemAsync() =>
+        PlainText.RenderEcosystem(await Queries.EcosystemAsync(), Now);
+
+    private static async Task<string> RankingsAsync() =>
+        PlainText.RenderRankings(await Queries.RankingsAsync(), Now);
+
+    [Test]
+    public async Task NoAbsolutePlayerFigureIsEmittedByEitherSurface()
+    {
+        // §15.7, and the "Never" list. The absolute "how many people play MU*" number is withheld
+        // because a ratio over the measured set survives the unclaimed and unreachable biases and a
+        // headcount survives neither. The pin is the arithmetic itself: sum the fixture's measured
+        // counts and require that the number never appears, so a future "total players on right now"
+        // fails here rather than in review.
+        var listed = await Queries.ListAsync(new GameFilter());
+        var total = listed.Sum(g => g.PlayersNow ?? 0).ToString();
+        var text = await EcosystemAsync() + await RankingsAsync();
+
+        await Assert.That(total).IsNotEqualTo("0");
+        await Assert.That(text).DoesNotContain(total);
+        await Assert.That(text).DoesNotContain("players in total");
+        await Assert.That(text).DoesNotContain("total players");
+        await Assert.That(text).DoesNotContain("across all games");
+
+        // And it says out loud that the omission is deliberate rather than an oversight.
+        await Assert.That(Render.Words(text)).Contains("Shares, never totals");
+    }
+
+    [Test]
+    public async Task EveryPercentageOnTheDashboardArrivesWithItsDenominator()
+    {
+        // "62% of games offer UTF-8" is not a fact until "of the 431 games whose handshake we have
+        // completed" is attached to it. The count and the set come first on every line, and the
+        // percentage second, so a line carrying one and not the other is the defect.
+        var lines = (await EcosystemAsync())
+            .Split('\n')
+            .Where(line => line.Contains('%', StringComparison.Ordinal))
+            .ToList();
+
+        await Assert.That(lines).IsNotEmpty();
+
+        foreach (var line in lines)
+        {
+            await Assert.That(line).Contains(" of ");
+        }
+    }
+
+    [Test]
+    public async Task BothDenominatorsAreNamedRatherThanImplied()
+    {
+        // Measured and declared are counted over two different sets of games, and a page that named
+        // one denominator for both would be comparing a share of the reachable against a share of the
+        // talkative and calling the difference adoption.
+        var text = Render.Words(await EcosystemAsync());
+
+        await Assert.That(text).Contains("whose handshake we have completed");
+        await Assert.That(text).Contains("whose MSSP report we hold");
+        await Assert.That(text).Contains("two different sets of games");
+    }
+
+    [Test]
+    public async Task AProtocolWithNoMeasurementSaysSoRatherThanShowingNoughtPerCent()
+    {
+        // The one place a true number would be a false statement. Nothing has been observed to offer
+        // this, which is a fact about our reach; "0.0%" is a claim about everybody else's servers.
+        var never = new ProtocolAdoption("TLS", Offered: null, Declined: 0, Handshakes: 400, Declared: 12, MsspReports: 300);
+
+        await Assert.That(EcosystemCopy.Measured(never)).Contains("not measured");
+        await Assert.That(EcosystemCopy.Measured(never)).DoesNotContain("0.0%");
+        await Assert.That(EcosystemCopy.Measured(never)).DoesNotContain("0 of 400");
+
+        // The declared side is unaffected and still carries its own set.
+        await Assert.That(EcosystemCopy.Declared(never)).IsEqualTo("12 of 300 (4.0%)");
+    }
+
+    [Test]
+    public async Task AnEmptyDenominatorIsNothingMeasuredAndNotNoughtPerCent()
+    {
+        // 0 of 0 is not 0%, in the same way CapabilityState.Unknown is not Absent.
+        var nothing = new MeasuredShare("GMCP", 0, 0);
+
+        await Assert.That(nothing.Fraction).IsNull();
+        await Assert.That(EcosystemCopy.Share(nothing)).Contains("nothing measured yet");
+        await Assert.That(EcosystemCopy.Share(nothing)).DoesNotContain("%");
+    }
+
+    [Test]
+    public async Task TheMeasuredColumnIsSaidToBeAFloor()
+    {
+        // The crawler writes a capability down when it observes one and otherwise writes nothing,
+        // because it requests MSSP alone and declines MCCP outright. Printing that column without
+        // saying so publishes our own instrumentation as a fact about somebody's game.
+        var text = Render.Words(await EcosystemAsync());
+
+        await Assert.That(text).Contains("A protocol we did not see is not a protocol a game lacks");
+        await Assert.That(text).Contains("as a floor");
+    }
+
+    [Test]
+    public async Task TheDashboardCallsItselfASnapshotAndNotATrend()
+    {
+        // §9 asks for adoption curves and the store cannot honestly draw one yet. Saying so is better
+        // than a plot of first sightings, which would draw a confident rising line measuring the
+        // crawl reaching more games and nothing about anybody adopting anything.
+        var text = Render.Words(await EcosystemAsync());
+
+        await Assert.That(text).Contains("not a trend");
+        await Assert.That(text).Contains("nothing to plot yet");
+        await Assert.That(text).DoesNotContain("growth");
+    }
+
+    [Test]
+    public async Task AGameWithNoCodebaseIsOutsideTheDenominatorAndSaidToBe()
+    {
+        var dashboard = await Queries.EcosystemAsync();
+        var text = Render.Words(await EcosystemAsync());
+
+        await Assert.That(dashboard.Codebases.NotIdentified).IsGreaterThan(0);
+        await Assert.That(dashboard.Codebases.Families.Sum(f => f.Count))
+            .IsEqualTo(dashboard.Codebases.Identified);
+        await Assert.That(text).Contains("counted as nothing at all, and never as something else");
+        await Assert.That(text).Contains("outside the denominator")
+            .Or.Contains("have not told us one");
+    }
+
+    [Test]
+    public async Task TheRankingsStateWhatTheyRankOnAndOverWhatWindow()
+    {
+        var text = Render.Words(await RankingsAsync());
+
+        await Assert.That(text).Contains("median of the player counts we measured over the last 7 days");
+        await Assert.That(text).Contains("counted samples a median needs");
+        await Assert.That(text).Contains("is not a zero and is not among them");
+    }
+
+    [Test]
+    public async Task TheRankingsOfferNoVoteAndClaimNoBest()
+    {
+        // §2's permanent non-goal, said on the surface a reader would look for it on.
+        var text = Render.Words(await RankingsAsync());
+
+        await Assert.That(text).Contains("There is no vote, star or rating anywhere on this site");
+        await Assert.That(text.ToLowerInvariant()).DoesNotContain("rate this");
+        await Assert.That(text.ToLowerInvariant()).DoesNotContain("top rated");
+    }
+
+    [Test]
+    public async Task AMeasuredZeroIsRankedRatherThanDroppedFromTheTable()
+    {
+        // Eldertale sits at a measured zero across the week. That is a measurement and a strong one,
+        // and a league table that quietly omitted it would be softening a fact into a shrug.
+        var rankings = await Queries.RankingsAsync();
+        var lowest = rankings.Busiest[^1];
+
+        await Assert.That(lowest.Slug).IsEqualTo("eldertale");
+        await Assert.That(lowest.Median).IsEqualTo(0);
+        await Assert.That(lowest.Samples).IsGreaterThan(0);
+    }
+
+    [Test]
+    public async Task AGameThatCannotBeCountedIsNotRankedAtZero()
+    {
+        // Midnight Sun answers and offers nothing we can count. It has no median, so it is absent
+        // from the busiest table — and it is present in the reachability one, because those are two
+        // different measurements and only one of them failed.
+        var rankings = await Queries.RankingsAsync();
+
+        await Assert.That(rankings.Busiest.Any(g => g.Slug == "midnight-sun")).IsFalse();
+        await Assert.That(rankings.LongestUnbroken.Any(s => s.Slug == "midnight-sun")).IsTrue();
+    }
+
+    [Test]
+    public async Task AnArchivedGameIsInNeitherTable()
+    {
+        var rankings = await Queries.RankingsAsync();
+        var dashboard = await Queries.EcosystemAsync();
+        var archived = await Queries.ListAsync(new GameFilter { Band = ActivityBand.Archived });
+        var slugs = archived.Select(g => g.Slug).ToHashSet(StringComparer.Ordinal);
+
+        await Assert.That(slugs).IsNotEmpty();
+        await Assert.That(rankings.Busiest.Any(g => slugs.Contains(g.Slug))).IsFalse();
+        await Assert.That(rankings.LongestUnbroken.Any(s => slugs.Contains(s.Slug))).IsFalse();
+        await Assert.That(dashboard.ListedGames).IsEqualTo(8 - slugs.Count);
+    }
+
+    [Test]
+    public async Task NothingOnEitherSurfaceExceedsEightyColumns()
+    {
+        // The plain surface is the test of the whole system, and a text browser is eighty wide.
+        foreach (var line in (await EcosystemAsync() + await RankingsAsync()).Split('\n'))
+        {
+            await Assert.That(line.TrimEnd().Length).IsLessThanOrEqualTo(PlainText.Columns);
+        }
+    }
+}

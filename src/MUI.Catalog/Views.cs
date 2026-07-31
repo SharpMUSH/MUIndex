@@ -158,6 +158,14 @@ public interface IGameQueries
 
     /// <summary>The three liveness feeds (spec §9) — the differentiator no incumbent can publish.</summary>
     Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Codebase share and protocol adoption over the measured set (spec §9). Shares, never totals.
+    /// </summary>
+    Task<EcosystemDashboard> EcosystemAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Rankings computed from measured data only (spec §9). There is no vote anywhere.</summary>
+    Task<Rankings> RankingsAsync(CancellationToken cancellationToken = default);
 }
 
 public sealed record LivenessFeeds(
