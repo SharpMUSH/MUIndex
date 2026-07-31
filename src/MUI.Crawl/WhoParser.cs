@@ -90,6 +90,16 @@ public sealed partial class WhoParser : IWhoParser
     {
         count = 0;
 
+        // Spelled-out counts are real. resort.org:2323 says "There are seven people connected." and
+        // a MOO says "one of three players are active." — both would read as unparseable against a
+        // digits-only pattern, losing a count we could have had. Bounded to twenty because past that
+        // no server spells it out, and an open-ended word-number parser is a liability.
+        var worded = WordedPattern().Match(line);
+        if (worded.Success && Words.TryGetValue(worded.Groups["w"].Value.ToLowerInvariant(), out count))
+        {
+            return true;
+        }
+
         var none = NoPlayersPattern().Match(line);
         if (none.Success)
         {
@@ -132,23 +142,42 @@ public sealed partial class WhoParser : IWhoParser
     /// by that name found." and a busy DIKU reports zero players — a fabricated measurement, which
     /// is worse than admitting we could not tell.
     /// </remarks>
-    private const string Connectivity = @"(?:connected|online|logged\s*(?:in|on)|playing|in\s+the\s+game)";
+    private const string Connectivity = @"(?:connected|online|logged\s*(?:in|on)|playing|active|in\s+the\s+game)";
+
+    /// <summary>Nouns a server uses for the people on it.</summary>
+    private const string People = @"(?:players?|users?|characters?|people|persons?|folks?)";
+
+    private static readonly Dictionary<string, int> Words = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["no"] = 0, ["zero"] = 0, ["one"] = 1, ["two"] = 2, ["three"] = 3, ["four"] = 4,
+        ["five"] = 5, ["six"] = 6, ["seven"] = 7, ["eight"] = 8, ["nine"] = 9, ["ten"] = 10,
+        ["eleven"] = 11, ["twelve"] = 12, ["thirteen"] = 13, ["fourteen"] = 14, ["fifteen"] = 15,
+        ["sixteen"] = 16, ["seventeen"] = 17, ["eighteen"] = 18, ["nineteen"] = 19, ["twenty"] = 20,
+    };
 
     // "There are no players connected." / "No players are online." / "Nobody is logged in."
     [GeneratedRegex(
-        @"\bno(?:body)?\s+(?:players?|users?|characters?|one)?\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
+        @"\bno(?:body)?\s+(?:" + People + @"|one)?\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex NoPlayersPattern();
 
     // "There are 16 players connected." / "16 Players logged in, 41 record"
     [GeneratedRegex(
-        @"\b(?<n>\d+)\s+(?:players?|users?|characters?)\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
+        @"\b(?<n>\d+)\s+" + People + @"\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex NumberedPattern();
 
     // "Players: 5" — a labelled field, unambiguous without a connectivity word.
     [GeneratedRegex(@"^\s*(?:players?|users?)\s*[:=]\s*(?<n>\d+)\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex LabelledPattern();
+
+    // "There are seven people connected." / "one of three players are active."
+    [GeneratedRegex(
+        @"\b(?<w>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen"
+        + @"|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\s+" + People
+        + @"\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex WordedPattern();
 
     // Login prompts that mean WHO was eaten as a character name.
     [GeneratedRegex(

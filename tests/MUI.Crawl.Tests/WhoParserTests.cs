@@ -188,4 +188,40 @@ public class WhoParserTests
         await Assert.That(bySummary.Confidence).IsEqualTo(WhoConfidence.Count);
         await Assert.That(bySummary.IdentifiablePlayers).IsNull();
     }
+
+    [Test]
+    [Arguments("There are seven people connected.", 7)]
+    // "one of three players are active" reads as three, not one: three are connected and one of
+    // them is doing something. Connected is what a presence sample measures, and the MOO this came
+    // from lists three rows above that sentence.
+    [Arguments("one of three players are active.", 3)]
+    [Arguments("Two users are online.", 2)]
+    [Arguments("Twenty players logged in.", 20)]
+    public async Task ACountSpelledAsAWordIsStillACount(string footer, int expected)
+    {
+        // resort.org:2323 spells it out — "There are seven people connected." — and a MOO says
+        // "one of three players are active." A digits-only pattern reads both as unparseable and
+        // discards a count we could have had. Bounded to twenty: past that nobody spells it out,
+        // and an open-ended word-number parser is a liability rather than a feature.
+        var reading = Parser.Parse(footer);
+
+        await Assert.That(reading.Count).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task PeopleAndFolksCountAsPlayers()
+    {
+        // "players" is not the only noun a server reaches for.
+        await Assert.That(Parser.Parse("There are 4 people connected.").Count).IsEqualTo(4);
+        await Assert.That(Parser.Parse("No folks are online.").Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task AWordThatIsNotACountIsStillRefused()
+    {
+        // The word list is a fixed vocabulary, not a general parser. "Several" and "many" are not
+        // numbers and must not become one.
+        await Assert.That(Parser.Parse("There are several people connected.").HasCount).IsFalse();
+        await Assert.That(Parser.Parse("Many players are online.").HasCount).IsFalse();
+    }
 }
