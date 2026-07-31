@@ -1,10 +1,13 @@
 @page "/games"
+@using Microsoft.AspNetCore.WebUtilities
+@using MUI.Web.Api
 @inject IGameQueries Queries
 @inject TimeProvider Clock
+@inject NavigationManager Nav
 
 @if (Plain)
 {
-    <pre class="mono plain">@PlainText.RenderListing(Summaries, Filter, Now)</pre>
+    <pre class="mono plain">@PlainText.RenderListing(Listing, Filter, Now)</pre>
 }
 else
 {
@@ -13,133 +16,177 @@ else
     <h1>Games</h1>
     <p class="dim">Every fact below was measured. Nothing here was typed into a form by us.</p>
 
-    @*
-        A plain GET form. No script, no framework: the querystring *is* the state, so the back button
-        works, a filtered listing is linkable, and the panel cannot lie about what a click will
-        produce because the server recomputes it. Spec §9 requires this to work with scripting off.
-    *@
-    <form method="get" action="/games" role="search">
-        <fieldset class="facets">
-            <legend>filters</legend>
-            <label for="q" class="sr-only">Search games</label>
-            <input id="q" type="search" name="q" value="@Filter.Text" placeholder="search games" />
-            <label class="check">
-                <input type="checkbox" name="archived" value="true" checked="@Filter.IncludeArchived" />
-                include archived
-            </label>
-            <button type="submit">show</button>
-        </fieldset>
-    </form>
+    @if (Error is { } problem)
+    {
+        @*
+            A filter we cannot read is refused rather than dropped. Listing the whole catalogue under
+            a filter that did not apply would present our own parse failure as the answer to
+            somebody's question — the same rule that stops an unparseable WHO reading as zero.
+        *@
+        <p class="problem" role="alert">@problem</p>
+        <p><a href="/games">start again with no filter</a></p>
+    }
+    else
+    {
+        <FacetPanel Facets="Listing.Facets" Filter="Filter" />
 
-    <p class="kicker">@Summaries.Count games · counts measured, never asserted</p>
+        <p class="kicker">
+            @Listing.Games.Count games · counts measured, never asserted ·
+            <a href="@RandomHref">show me a random one</a>
+        </p>
 
-    <ul class="games">
-        @foreach (var g in Summaries)
-        {
-            <li>
-                <div class="row-main">
-                    <div>
-                        <a class="name" href="/g/@g.Slug">@g.Name</a>
-                        @if (g.State is LifecycleState.Archived)
-                        {
-                            <span class="badge archived">archived</span>
-                        }
-                        else if (g.IsClaimed)
-                        {
-                            <span class="badge claimed">claimed</span>
-                        }
-                        else
-                        {
-                            <span class="badge">unclaimed</span>
-                        }
-
-                        @if (g.Tagline is { } t)
-                        {
-                            <div class="dim">@t</div>
-                        }
-
-                        <div class="meta mono">
-                            @if (g.Codebase is { } cb)
+        <ul class="games">
+            @foreach (var g in Listing.Games)
+            {
+                <li>
+                    <div class="row-main">
+                        <div>
+                            <a class="name" href="/g/@g.Slug">@g.Name</a>
+                            @if (g.State is LifecycleState.Archived)
                             {
-                                <text>@cb</text>
+                                <span class="badge archived">archived</span>
+                            }
+                            else if (g.IsClaimed)
+                            {
+                                <span class="badge claimed">claimed</span>
                             }
                             else
                             {
-                                <span class="state-unknown">codebase not identified</span>
+                                <span class="badge">unclaimed</span>
                             }
-                            @foreach (var p in g.MeasuredProtocols)
+
+                            @if (g.Tagline is { } t)
                             {
-                                <text> · @p <span class="state-present">●</span></text>
+                                <div class="dim">@t</div>
                             }
+
+                            <div class="meta mono">
+                                @if (g.Codebase is { } cb)
+                                {
+                                    <text>@cb</text>
+                                }
+                                else
+                                {
+                                    <span class="state-unknown">codebase not identified</span>
+                                }
+                                @foreach (var p in g.MeasuredProtocols)
+                                {
+                                    <text> · @p <span class="state-present">●</span></text>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="count mono">
+                            @*
+                                Three states, spelled rather than implied. A missing count says so in
+                                words — it is never rendered as a zero, and never left blank for a
+                                reader to guess at.
+                            *@
+                            @if (g.PlayersNow is { } n)
+                            {
+                                <span class="state-present">● @n on</span>
+                            }
+                            else
+                            {
+                                <span class="state-unknown">– count unknown</span>
+                            }
+
+                            @*
+                                What the last-seen facet filters on, shown on the rows it returned, so
+                                a reader can check the facet did what it said. Never reached is its own
+                                sentence and is never dated from our own first sighting.
+                            *@
+                            <div class="faint">
+                                @if (g.LastReachableAt is { } seen)
+                                {
+                                    <text>last reached @Relative.Format(Now - seen) ago</text>
+                                }
+                                else
+                                {
+                                    <span class="state-unknown">never reached</span>
+                                }
+                            </div>
                         </div>
                     </div>
+                </li>
+            }
+        </ul>
 
-                    <div class="count mono">
-                        @*
-                            Three states, spelled rather than implied. A missing count says so in
-                            words — it is never rendered as a zero, and never left blank for a
-                            reader to guess at.
-                        *@
-                        @if (g.PlayersNow is { } n)
-                        {
-                            <span class="state-present">● @n on</span>
-                        }
-                        else
-                        {
-                            <span class="state-unknown">– count unknown</span>
-                        }
-                    </div>
-                </div>
-            </li>
+        @if (Listing.Games.Count == 0)
+        {
+            <p class="dim">
+                Nothing matched. Nothing is ever deleted here, so a name that once worked still does —
+                try fewer words, drop a filter, or <a href="/archive">look in the archive</a>.
+            </p>
         }
-    </ul>
-
-    @if (Summaries.Count == 0)
-    {
-        <p class="dim">
-            Nothing matched. Nothing is ever deleted here, so a name that once worked still does —
-            try fewer words, or <a href="/archive">look in the archive</a>.
-        </p>
     }
 
     <p class="faint"><a href="@PlainHref">read this page as plain text</a></p>
 }
 
 @code {
-    [SupplyParameterFromQuery(Name = "q")] private string? Query { get; set; }
-    [SupplyParameterFromQuery(Name = "archived")] private string? ArchivedFlag { get; set; }
-    [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
-
-    private bool Archived => Truthy.Is(ArchivedFlag);
-
-    private bool Plain => Truthy.Is(PlainFlag);
-
     private DateTimeOffset Now => Clock.GetUtcNow();
 
-    private GameFilter Filter => new() { Text = Query, IncludeArchived = Archived };
+    private GameFilter Filter { get; set; } = new();
 
-    private IReadOnlyList<GameSummary> Summaries = [];
+    private GameListing Listing { get; set; } = GameListing.Empty;
 
-    /// <summary>Plain mode keeps the query it was reading, or it is not the same page in text.</summary>
-    private string PlainHref
+    private string? Error { get; set; }
+
+    /// <summary>The querystring this render is answering, exactly as the request carried it.</summary>
+    private string Query => new Uri(Nav.Uri).Query;
+
+    private bool Plain => Truthy.Is(
+        QueryHelpers.ParseQuery(Query).TryGetValue("plain", out var flag) ? flag.ToString() : null);
+
+    /// <summary>
+    /// Plain mode keeps the whole question it was reading, whatever that question grows into.
+    /// </summary>
+    /// <remarks>
+    /// Rebuilt from the live querystring rather than from a hand-kept list of parameters. That list
+    /// carried <c>q</c> and <c>archived</c> and nothing else, so the day a facet arrived the plain
+    /// link would have quietly dropped it and offered the unfiltered catalogue as "this page, as
+    /// text" — which is the same page in neither sense.
+    /// </remarks>
+    private string PlainHref => Relink("plain", "1");
+
+    /// <summary>
+    /// Random, within whatever is on screen (spec §9). The filters ride along, because "surprise me"
+    /// after narrowing to Evennia games means surprise me among those.
+    /// </summary>
+    private string RandomHref => "/games/random" + Relink("plain", null);
+
+    protected override async Task OnParametersSetAsync()
     {
-        get
+        // One parser, two callers: this is the same function /api/games binds through, so a URL
+        // means the same thing whichever surface reads it.
+        if (!GameFilterBinding.TryRead(Query, out var query, out var error))
         {
-            var parts = new List<string> { "plain=1" };
-            if (!string.IsNullOrWhiteSpace(Query))
-            {
-                parts.Add($"q={Uri.EscapeDataString(Query)}");
-            }
-
-            if (Archived)
-            {
-                parts.Add("archived=true");
-            }
-
-            return "?" + string.Join('&', parts);
+            Error = error;
+            Filter = new GameFilter();
+            Listing = GameListing.Empty;
+            return;
         }
+
+        Error = null;
+        Filter = query.Filter;
+        Listing = await Queries.SearchAsync(Filter);
     }
 
-    protected override async Task OnParametersSetAsync() =>
-        Summaries = await Queries.ListAsync(Filter);
+    /// <summary>This page's querystring with one parameter set, replaced, or — on null — removed.</summary>
+    private string Relink(string name, string? value)
+    {
+        var parts = QueryHelpers.ParseQuery(Query)
+            .Where(p => !string.Equals(p.Key, name, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(p => p.Value.Select(v =>
+                $"{Uri.EscapeDataString(p.Key)}={Uri.EscapeDataString(v ?? string.Empty)}"))
+            .ToList();
+
+        if (value is not null)
+        {
+            parts.Add($"{Uri.EscapeDataString(name)}={Uri.EscapeDataString(value)}");
+        }
+
+        return parts.Count == 0 ? string.Empty : "?" + string.Join('&', parts);
+    }
 }

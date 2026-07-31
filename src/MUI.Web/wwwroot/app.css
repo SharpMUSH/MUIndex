@@ -596,4 +596,55 @@ table.ranking tbody th { font-weight: 400; }
 @media (max-width: 900px) {
     /* The label stops competing with the bar for a width neither of them has. */
     ul.shares li { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+/* ══ faceted search ═════════════════════════════════════════════════════════
+   The panel on /games. It is a plain GET form with no script, so everything
+   here dresses controls the browser already knows how to operate — no rule
+   below is load-bearing for the filter working.
+
+   Two things are deliberate rather than decorative. The evidence chip beside
+   each facet's name takes the site's own accent/amber split for measured
+   versus declared, because a reader has to be able to see which half of the
+   panel is evidence — and it says the words too, since colour is not a fact.
+   And a count is never hidden at a narrow width: a facet whose numbers
+   disappear has stopped saying what a click will produce, which is the only
+   reason they are there.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+form.facet-form { margin-bottom: var(--gap); }
+
+.facet-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: var(--cpad);
+    margin-top: var(--cpad);
+}
+
+.facet { min-width: 0; }
+.facet > label, .facet > legend { display: block; font-size: 12px; color: var(--dim); margin-bottom: 4px; }
+.facet select { width: 100%; max-width: 100%; padding: 4px 6px; }
+
+fieldset.facet.presence {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 6px 8px 8px;
+    min-width: 0;
+}
+
+fieldset.facet.presence .check { display: flex; gap: 6px; align-items: baseline; font-size: 13px; }
+fieldset.facet.presence .check .count { margin-left: auto; color: var(--dim); font-variant-numeric: tabular-nums; }
+
+/* Measured and declared, in the site's own two registers. Never the only carrier of the
+   difference — the chip spells it out in words as well, because colour is not a fact. */
+.evidence { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; margin-left: 6px; }
+.evidence.measured { color: var(--accent); }
+.evidence.declared { color: var(--amber); }
+
+.facet-note { margin: var(--cpad) 0 0; font-size: 12px; color: var(--dim); max-width: 68ch; }
+
+/* A filter we could not read is refused out loud rather than dropped, so it needs somewhere loud
+   to be said. Amber, like every other "we are not showing you a measurement" state here. */
+.problem {
+    padding: var(--cpad);
+    border-left: 3px solid var(--amber);
+    background: color-mix(in srgb, var(--amber) 10%, transparent);
 }

@@ -165,7 +165,7 @@ public class PlainParityTests
             await GameAsync("m-u-s-h"),
             await GameAsync("midnight-sun"),
             PlainText.RenderFeeds(await Queries.FeedsAsync(), Now),
-            PlainText.RenderListing(await Queries.ListAsync(new GameFilter()), new GameFilter(), Now),
+            PlainText.RenderListing(await Queries.SearchAsync(new GameFilter()), new GameFilter(), Now),
         };
 
         foreach (var line in surfaces.SelectMany(s => s.Split('\n')))
@@ -179,7 +179,7 @@ public class PlainParityTests
     {
         // Aardwolf's codebase is genuinely unidentified. A missing line reads as an oversight; the
         // words read as the measurement it is.
-        var text = PlainText.RenderListing(await Queries.ListAsync(new GameFilter()), new GameFilter(), Now);
+        var text = PlainText.RenderListing(await Queries.SearchAsync(new GameFilter()), new GameFilter(), Now);
 
         await Assert.That(text).Contains("Codebase:    not identified");
     }
@@ -205,7 +205,7 @@ public class PlainParityTests
         {
             await GameAsync("m-u-s-h"),
             PlainText.RenderHome(counts, await Queries.FeedsAsync(), Now),
-            PlainText.RenderListing(await Queries.ListAsync(new GameFilter()), new GameFilter(), Now),
+            PlainText.RenderListing(await Queries.SearchAsync(new GameFilter()), new GameFilter(), Now),
         };
 
         foreach (var word in new[] { "vote", "rating", "star", "recommend", "upvote" })

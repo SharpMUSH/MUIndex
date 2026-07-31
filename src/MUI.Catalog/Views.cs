@@ -78,6 +78,12 @@ public sealed record ActivityCell(int DayOfWeek, int Hour, int? Count, bool Prob
 }
 
 /// <summary>A game as the listing shows it.</summary>
+/// <remarks>
+/// <see cref="LastReachableAt"/> is carried because the last-seen facet (spec §9) filters on it, and
+/// a facet whose value cannot be read off the rows it returned is one a reader has to take on trust.
+/// Null means we have never once reached the game, which is a different fact from "reachable a long
+/// time ago" and is never rendered as the older of the two.
+/// </remarks>
 public sealed record GameSummary(
     Guid Id,
     string Slug,
@@ -87,7 +93,8 @@ public sealed record GameSummary(
     bool IsClaimed,
     int? PlayersNow,
     string? Codebase,
-    IReadOnlyList<string> MeasuredProtocols);
+    IReadOnlyList<string> MeasuredProtocols,
+    DateTimeOffset? LastReachableAt = null);
 
 /// <summary>A game as its own page shows it.</summary>
 /// <remarks>
@@ -116,15 +123,49 @@ public sealed record GameEndpointView(string Host, int Port, string Kind, bool T
 public sealed record ChangeEntry(DateTimeOffset At, string Summary);
 
 /// <summary>What the listing was asked for. A plain GET form's worth of state and nothing more.</summary>
+/// <remarks>
+/// <para>
+/// Every member here is one control on the panel and one querystring parameter, named in
+/// <see cref="FacetKeys"/>. That correspondence is what makes a filtered listing linkable, the back
+/// button work and the read API answer the same question the page does — there is no filter state
+/// anywhere else, and nothing here needs a session to mean something.
+/// </para>
+/// <para>
+/// <see cref="MeasuredProtocols"/> and <see cref="Tls"/> read observations; <see cref="Codebase"/>,
+/// <see cref="Family"/>, <see cref="Genre"/> and <see cref="Language"/> read what a game says about
+/// itself. <see cref="Charset"/> is the odd one and is deliberately on the measured side: it is what
+/// CHARSET settled on in the handshake, never the game's MSSP claim about an encoding.
+/// </para>
+/// </remarks>
 public sealed record GameFilter
 {
     public string? Text { get; init; }
 
     public bool IncludeArchived { get; init; }
 
+    /// <summary>
+    /// Protocols the handshake was observed offering, intersected. Never what MSSP declared —
+    /// <c>capability.*.measured</c> and <c>capability.*.declared</c> are two fields for exactly this
+    /// reason, and a facet reading the second would be the central lie of the project.
+    /// </summary>
     public IReadOnlyList<string> MeasuredProtocols { get; init; } = [];
 
+    /// <summary>An endpoint we completed a TLS connection to — not an <c>SSL</c> line in MSSP.</summary>
+    public bool Tls { get; init; }
+
     public ActivityBand? Band { get; init; }
+
+    public LastSeenBand? LastSeen { get; init; }
+
+    public FacetChoice? Charset { get; init; }
+
+    public FacetChoice? Codebase { get; init; }
+
+    public FacetChoice? Family { get; init; }
+
+    public FacetChoice? Genre { get; init; }
+
+    public FacetChoice? Language { get; init; }
 }
 
 /// <summary>
@@ -152,7 +193,27 @@ public enum ActivityBand
 /// </remarks>
 public interface IGameQueries
 {
-    Task<IReadOnlyList<GameSummary>> ListAsync(GameFilter filter, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// The listing and the facet counts that describe it, from one pass (spec §9).
+    /// </summary>
+    /// <remarks>
+    /// One method rather than a listing call and a counts call, because a facet must not be able to
+    /// lie about what a click will produce. Two calls are two answers to two slightly different
+    /// questions, and the first time they disagreed the panel would be advertising a count the
+    /// listing could not deliver.
+    /// </remarks>
+    Task<GameListing> SearchAsync(GameFilter filter, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Just the games — for the callers that want a listing and no panel.
+    /// </summary>
+    /// <remarks>
+    /// Every implementation answers it by projecting <see cref="SearchAsync"/>, so there is no route
+    /// by which a caller that does not want facets gets a different listing from one that does.
+    /// </remarks>
+    Task<IReadOnlyList<GameSummary>> ListAsync(
+        GameFilter filter,
+        CancellationToken cancellationToken = default);
 
     Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default);
 

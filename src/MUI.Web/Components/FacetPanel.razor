@@ -1,0 +1,97 @@
+@*
+    The facet panel: one plain GET form, no script.
+
+    The querystring *is* the state, so a filtered listing is linkable, the back button works, and the
+    server recomputes every count on every request. Nothing here is a control that remembers
+    something — there is no state anywhere but the URL, which is what makes a shared link the same
+    page for the person who receives it.
+
+    Every count beside a value came from the same pass that produced the listing below it (see
+    FacetedSearch), so a choice cannot promise results it will not deliver, and a value nothing
+    matches is never drawn at all.
+*@
+
+<form method="get" action="/games" role="search" class="facet-form">
+    <fieldset class="facets">
+        <legend>filters</legend>
+
+        <label for="q" class="sr-only">Search games</label>
+        <input id="q" type="search" name="@FacetKeys.Text" value="@Filter.Text" placeholder="search games" />
+
+        <label class="check">
+            <input type="checkbox" name="@FacetKeys.Archived" value="true" checked="@Filter.IncludeArchived" />
+            include archived
+        </label>
+
+        <button type="submit">show</button>
+    </fieldset>
+
+    @if (Facets.Count > 0)
+    {
+        <div class="facet-grid">
+            @foreach (var group in Facets)
+            {
+                @if (group.Kind is FacetKind.Choice)
+                {
+                    <div class="facet">
+                        <label for="facet-@group.Key">
+                            @FacetWords.Group(group.Key)
+                            <span class="evidence @Evidence(group)">@FacetWords.Evidence(group.Evidence)</span>
+                        </label>
+                        <select id="facet-@group.Key" name="@group.Key">
+                            @* Always first, always empty: a facet you cannot un-choose is a trap. *@
+                            <option value="">any (@group.Total)</option>
+                            @foreach (var value in group.Values)
+                            {
+                                <option value="@value.Token" selected="@value.IsSelected">
+                                    @FacetWords.Value(group.Key, value) (@value.Count)
+                                </option>
+                            }
+                        </select>
+                    </div>
+                }
+                else
+                {
+                    <fieldset class="facet presence">
+                        <legend>
+                            @FacetWords.Group(group.Key)
+                            <span class="evidence @Evidence(group)">@FacetWords.Evidence(group.Evidence)</span>
+                        </legend>
+                        @foreach (var value in group.Values)
+                        {
+                            <label class="check">
+                                <input type="checkbox" name="@group.Key" value="@value.Token"
+                                       checked="@value.IsSelected" />
+                                @FacetWords.Value(group.Key, value) <span class="count">@value.Count</span>
+                            </label>
+                        }
+                    </fieldset>
+                }
+            }
+        </div>
+    }
+
+    @*
+        Said here, in the markup, and not only in a comment. Two of the three sentences are the whole
+        reason this panel is shaped the way it is, and a reader ticking boxes is exactly the person
+        who would otherwise read an unticked box as a "no".
+    *@
+    <p class="facet-note">
+        Each count is what that choice returns, computed from the same query as the list below.
+        A tick box asks which games were <em>seen</em> offering something, so leaving one unticked
+        never means a game lacks it — we may simply never have measured it. Where a facet has no
+        value for a game it says so in its own words (<em>not identified</em>, <em>not declared</em>,
+        <em>nothing negotiated</em>); none of those is a no, and none is folded into another value.
+        Open-ended facets offer their @FacetedSearch.MaxValues commonest values; the rest are
+        reachable by search and by URL.
+    </p>
+</form>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<FacetGroup> Facets { get; set; } = [];
+
+    [Parameter, EditorRequired] public GameFilter Filter { get; set; } = new();
+
+    private static string Evidence(FacetGroup group) =>
+        group.Evidence is FacetEvidence.Measured ? "measured" : "declared";
+}

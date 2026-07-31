@@ -207,21 +207,35 @@ public static class PlainText
         }
     }
 
-    /// <summary>The listing, with every state spelled and no column past 80.</summary>
-    public static string RenderListing(IReadOnlyList<GameSummary> games, GameFilter filter, DateTimeOffset now)
+    /// <summary>
+    /// The listing and its facets, with every state spelled and no column past 80.
+    /// </summary>
+    /// <remarks>
+    /// The facets are here in full — every value, its count, and the parameter that selects it —
+    /// because a text browser cannot operate a <c>&lt;select&gt;</c> but can perfectly well edit a
+    /// URL. A panel that only worked as a widget would fail §9's own test of itself: if a fact
+    /// cannot survive in plain text, its graphic on the main site is decoration.
+    /// </remarks>
+    public static string RenderListing(GameListing listing, GameFilter filter, DateTimeOffset now)
     {
+        ArgumentNullException.ThrowIfNull(listing);
+        ArgumentNullException.ThrowIfNull(filter);
+
+        var games = listing.Games;
         var b = new StringBuilder();
 
         b.AppendLine("GAMES");
         b.AppendLine($"{games.Count} game(s)"
             + (string.IsNullOrWhiteSpace(filter.Text) ? string.Empty : $" matching \"{filter.Text}\"")
             + (filter.IncludeArchived ? ", archived included" : ", archived excluded"));
+
+        AppendFacets(b, listing.Facets);
         b.AppendLine();
 
         if (games.Count == 0)
         {
             b.AppendLine("Nothing matched. Nothing is ever deleted here, so a name that once");
-            b.AppendLine("worked still does — try fewer words.");
+            b.AppendLine("worked still does — try fewer words, or drop a filter.");
             return b.ToString();
         }
 
@@ -243,6 +257,13 @@ public static class PlainText
                 ? $"  Measured:    {string.Join(", ", g.MeasuredProtocols)}"
                 : "  Measured:    nothing offered in the handshake");
 
+            // The last-seen facet's own column. Never once reached is its own sentence rather than
+            // the oldest bucket, because a game we have never got an answer from has no date and
+            // inventing one from our first sighting would read as its outage.
+            b.AppendLine(g.LastReachableAt is { } seen
+                ? $"  Last reached: {Relative.Format(now - seen)} ago"
+                : "  Last reached: never — we have not once got an answer from it");
+
             if (g.Tagline is { } tagline)
             {
                 Wrap(b, tagline, "  ");
@@ -251,8 +272,49 @@ public static class PlainText
             b.AppendLine();
         }
 
-        _ = now;
         return b.ToString();
+    }
+
+    /// <summary>
+    /// The facet panel in text: what each choice returns, and what to put in the URL to choose it.
+    /// </summary>
+    /// <remarks>
+    /// The two sentences at the top are the same two the rendered panel carries, and they are not
+    /// blurb. An unticked protocol is not a game declining a protocol, and a facet with no value for
+    /// a game is not a no — those are the two readings this whole design exists to prevent, and a
+    /// surface that leaves them to be inferred has left the important half out.
+    /// </remarks>
+    private static void AppendFacets(StringBuilder b, IReadOnlyList<FacetGroup> facets)
+    {
+        if (facets.Count == 0)
+        {
+            return;
+        }
+
+        Heading(b, "FILTERS");
+        Wrap(b, "Each count is what choosing that value returns, from the same query as the list "
+            + "below. A protocol is listed when we saw a game offer it, so a game missing from one "
+            + "may simply never have been measured for it and is never a \"no\". Where a facet has "
+            + "no value for a game it says so in its own words, and that is not a no either.");
+
+        foreach (var group in facets)
+        {
+            b.AppendLine();
+            b.AppendLine($"  {FacetWords.Group(group.Key)}"
+                + $" — {FacetWords.Evidence(group.Evidence)}  (?{group.Key}=…)");
+
+            foreach (var value in group.Values)
+            {
+                var words = FacetWords.Value(group.Key, value);
+                var gloss = string.Equals(words, value.Token, StringComparison.Ordinal)
+                    ? string.Empty
+                    : "  " + words;
+
+                // A star, not a colour: the selected value has to be visible where there is no ink.
+                b.AppendLine($"  {(value.IsSelected ? '*' : ' ')} {value.Token,-24}{value.Count,5}{gloss}"
+                    .TrimEnd());
+            }
+        }
     }
 
     /// <summary>

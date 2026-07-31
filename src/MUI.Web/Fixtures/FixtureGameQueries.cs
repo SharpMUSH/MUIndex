@@ -40,98 +40,144 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     private static readonly GameSummary Mush = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), "m-u-s-h", "M*U*S*H",
         "The PennMUSH development server.", LifecycleState.Active, IsClaimed: false,
-        PlayersNow: 15, Codebase: "PennMUSH 1.8.8p0", MeasuredProtocols: ["MSSP", "CHARSET"]);
+        PlayersNow: 15, Codebase: "PennMUSH 1.8.8p0", MeasuredProtocols: ["MSSP", "CHARSET"],
+        LastReachableAt: Now.AddMinutes(-4));
 
     private static readonly GameSummary Eldertale = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000002"), "eldertale", "Eldertale Online",
         null, LifecycleState.Active, IsClaimed: false,
-        PlayersNow: 0, Codebase: "PennMUSH 1.8.8p0", MeasuredProtocols: ["MSSP", "CHARSET"]);
+        PlayersNow: 0, Codebase: "PennMUSH 1.8.8p0", MeasuredProtocols: ["MSSP", "CHARSET"],
+        LastReachableAt: Now.AddHours(-3));
 
     // No MSSP PLAYERS, no pre-login WHO. Its count exists only because the connect screen states it.
     private static readonly GameSummary Aardwolf = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000003"), "aardwolf", "Aardwolf MUD",
         "Counted from the connect screen, which is the only place this game publishes a number.",
         LifecycleState.Active, IsClaimed: false,
-        PlayersNow: 219, Codebase: null, MeasuredProtocols: ["MSSP", "GMCP", "MCCP2", "MSDP"]);
+        PlayersNow: 219, Codebase: null, MeasuredProtocols: ["MSSP", "GMCP", "MCCP2", "MSDP"],
+        LastReachableAt: Now.AddMinutes(-40));
 
     // Answers, but nothing we can count. Renders "count unknown" — never a zero.
     private static readonly GameSummary MidnightSun = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000004"), "midnight-sun", "Midnight Sun II",
         null, LifecycleState.Active, IsClaimed: false,
-        PlayersNow: null, Codebase: "Midnight Sun", MeasuredProtocols: []);
+        PlayersNow: null, Codebase: "Midnight Sun", MeasuredProtocols: [],
+        LastReachableAt: Now.AddHours(-1));
 
     private static readonly GameSummary Enormous = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000006"), "batmud", "BatMUD",
         "An intro screen long enough that the frame has to explain why it stopped.",
         LifecycleState.Active, IsClaimed: false,
-        PlayersNow: 71, Codebase: null, MeasuredProtocols: ["MSSP", "MCCP2"]);
+        PlayersNow: 71, Codebase: null, MeasuredProtocols: ["MSSP", "MCCP2"],
+        LastReachableAt: Now.AddDays(-2));
 
     // Claimed, and the owner turned republication off. Stated without editorial (spec §8).
     private static readonly GameSummary Ashen = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000007"), "ashen-court", "Ashen Court",
         "Courtly intrigue, low fantasy. Application required.", LifecycleState.Active,
-        IsClaimed: true, PlayersNow: 9, Codebase: "Evennia", MeasuredProtocols: ["MSSP", "GMCP", "TLS"]);
+        IsClaimed: true, PlayersNow: 9, Codebase: "Evennia", MeasuredProtocols: ["MSSP", "GMCP", "TLS"],
+        LastReachableAt: Now.AddMinutes(-9));
 
     private static readonly GameSummary Gaslight = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000005"), "gaslight-row", "Gaslight Row",
         "Ceased answering in March 2023. We still try the door every week.",
         LifecycleState.Archived, IsClaimed: false,
-        PlayersNow: null, Codebase: "PennMUSH 1.8.5", MeasuredProtocols: []);
+        PlayersNow: null, Codebase: "PennMUSH 1.8.5", MeasuredProtocols: [],
+        LastReachableAt: Now.AddDays(-1237));
 
     private static readonly GameSummary Verdigris = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000008"), "verdigris", "Verdigris",
         "Stopped answering in 2024; the host still refuses the port every week.",
         LifecycleState.Archived, IsClaimed: false,
-        PlayersNow: null, Codebase: "TinyMUX 2.12", MeasuredProtocols: []);
+        PlayersNow: null, Codebase: "TinyMUX 2.12", MeasuredProtocols: [],
+        LastReachableAt: Now.AddDays(-700));
 
     private static readonly GameSummary[] All =
         [Mush, Eldertale, Aardwolf, MidnightSun, Enormous, Ashen, Gaslight, Verdigris];
 
-    public Task<IReadOnlyList<GameSummary>> ListAsync(
-        GameFilter filter, CancellationToken cancellationToken = default)
-    {
-        var games = All.AsEnumerable();
+    /// <summary>
+    /// The listing and its facets, through the same <see cref="FacetedSearch"/> the database uses.
+    /// </summary>
+    /// <remarks>
+    /// The filtering is emphatically not reimplemented here. A fixture with its own idea of what a
+    /// filter means can pass a test the real query fails, and this one already did: it read
+    /// <c>band=archived</c> as lifting the archive exclusion and Postgres did not, so one filter had
+    /// two answers and only the fixture's was ever exercised. All this owes the shared search now is
+    /// one row per game.
+    /// </remarks>
+    public Task<GameListing> SearchAsync(
+        GameFilter filter, CancellationToken cancellationToken = default) =>
+        Task.FromResult(FacetedSearch.Search([.. All.Select(FacetRow)], filter));
 
-        if (filter.Band is { } band)
-        {
-            games = games.Where(g => InBand(g, band));
-        }
-        else if (!filter.IncludeArchived)
-        {
-            // Archived games leave the default listing and nothing else (spec §7.5). Asking for the
-            // archived band explicitly is not the default listing, so the exclusion does not apply.
-            games = games.Where(g => g.State is not LifecycleState.Archived);
-        }
-
-        if (!string.IsNullOrWhiteSpace(filter.Text))
-        {
-            games = games.Where(g =>
-                g.Name.Contains(filter.Text, StringComparison.OrdinalIgnoreCase)
-                || (g.Tagline?.Contains(filter.Text, StringComparison.OrdinalIgnoreCase) ?? false)
-                || (g.Codebase?.Contains(filter.Text, StringComparison.OrdinalIgnoreCase) ?? false));
-        }
-
-        if (filter.MeasuredProtocols.Count > 0)
-        {
-            games = games.Where(g => filter.MeasuredProtocols.All(
-                p => g.MeasuredProtocols.Contains(p, StringComparer.OrdinalIgnoreCase)));
-        }
-
-        return Task.FromResult<IReadOnlyList<GameSummary>>(games.ToList());
-    }
+    /// <summary>A listing with no panel — the same search, projected.</summary>
+    public async Task<IReadOnlyList<GameSummary>> ListAsync(
+        GameFilter filter,
+        CancellationToken cancellationToken = default) =>
+        (await SearchAsync(filter, cancellationToken)).Games;
 
     /// <summary>
-    /// A game whose counts are all unmeasurable is <see cref="ActivityBand.Quiet"/> and never
-    /// <see cref="ActivityBand.Dark"/> — being uncountable is not being absent (spec §5.2).
+    /// One game's facet values.
     /// </summary>
-    private static bool InBand(GameSummary g, ActivityBand band) => band switch
+    /// <remarks>
+    /// The bands are assigned rather than derived, because there is no presence series here to
+    /// derive them from — which is the fixture's whole nature, and why every page it renders carries
+    /// the demo banner. Midnight Sun is <see cref="ActivityBand.Quiet"/> and never
+    /// <see cref="ActivityBand.Dark"/> on purpose: every one of its counts is unmeasurable, and
+    /// being uncountable is not being absent (spec §5.2).
+    /// </remarks>
+    private static GameFacetRow FacetRow(GameSummary game) => new(
+        game,
+        Band(game),
+        FacetedSearch.LastSeenOf(game.LastReachableAt, Now),
+
+        // An endpoint we opened, never an SSL line in a self-description — the same distinction the
+        // real query draws, so the demo cannot show a facet the database could not.
+        TlsMeasured: Endpoints(game).Any(e => e.TlsMeasured),
+        Charset: Charset(game),
+        Language: game.Slug is "midnight-sun" ? "Swedish" : "English",
+        Codebase: game.Codebase,
+        Family: Family(game),
+        Genre: Genre(game));
+
+    private static ActivityBand Band(GameSummary g) => g.Slug switch
     {
-        ActivityBand.PlayersNow => g.PlayersNow > 0,
-        ActivityBand.ActiveThisWeek => g.State is LifecycleState.Active,
-        ActivityBand.Quiet => g.State is LifecycleState.Quiet
-            || (g.State is LifecycleState.Active && g.PlayersNow is null or 0),
-        ActivityBand.Dark => g.State is LifecycleState.Dark,
-        _ => g.State is LifecycleState.Archived,
+        "gaslight-row" or "verdigris" => ActivityBand.Archived,
+        "eldertale" => ActivityBand.ActiveThisWeek,
+        "midnight-sun" => ActivityBand.Quiet,
+        _ => ActivityBand.PlayersNow,
+    };
+
+    /// <summary>
+    /// The <em>negotiated</em> encoding — which most servers never negotiate, so most of these are
+    /// null and land in the facet's "not measured" bucket rather than being filled in from MSSP.
+    /// </summary>
+    private static string? Charset(GameSummary g) =>
+        g.MeasuredProtocols.Contains("CHARSET") ? "UTF-8" : null;
+
+    /// <summary>
+    /// MSSP <c>FAMILY</c>, which is the coarse taxonomy <c>CODEBASE</c>'s version strings are too
+    /// fine to serve as. BatMUD and Aardwolf declare neither, which is the common case and why the
+    /// facet has an unknown bucket at all.
+    /// </summary>
+    private static string? Family(GameSummary g) => g.Codebase switch
+    {
+        var c when c is not null && c.StartsWith("PennMUSH", StringComparison.Ordinal) => "PennMUSH",
+        var c when c is not null && c.StartsWith("TinyMUX", StringComparison.Ordinal) => "TinyMUX",
+        "Evennia" => "Evennia",
+        _ => null,
+    };
+
+    /// <summary>
+    /// MSSP <c>GENRE</c>. Midnight Sun declares none, which is the commonest state of a hand-typed
+    /// field and the one a demo of well-behaved games would never show — the facet's unknown bucket
+    /// exists for it, and a fixture with nothing in that bucket does not exercise it.
+    /// </summary>
+    private static string? Genre(GameSummary g) => g.Slug switch
+    {
+        "ashen-court" => "Historical",
+        "aardwolf" or "batmud" => "Fantasy",
+        "m-u-s-h" or "eldertale" => "Development",
+        _ => null,
     };
 
     public Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default)

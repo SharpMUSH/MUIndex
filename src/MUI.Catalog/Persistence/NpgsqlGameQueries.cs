@@ -81,7 +81,28 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// </summary>
     public Func<DateTimeOffset> Clock { get; init; } = () => DateTimeOffset.UtcNow;
 
-    public async Task<IReadOnlyList<GameSummary>> ListAsync(
+    /// <summary>
+    /// The listing and its facets (spec §9), from one pass over one set of games.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The database narrows on the one thing that is not a facet — the archive toggle — and
+    /// everything else is decided by <see cref="FacetedSearch"/> over <see cref="GameFacetRow"/>.
+    /// That is deliberate rather than laziness about SQL: a facet count has to be measured against
+    /// the same set the listing came from, and a <c>WHERE</c> clause that filtered here beside a
+    /// <c>GROUP BY</c> that counted there would be two answers to one question. Sharing the
+    /// arithmetic also means the demo fixture and this class cannot disagree about what a filter
+    /// means, which they already did for <c>band=archived</c>.
+    /// </para>
+    /// <para>
+    /// The cost is a pass over the unarchived catalogue and its fields per listing request — the
+    /// same order as before, since <c>FieldsForAsync</c> already read every field of every listed
+    /// game. The point at which that stops being affordable is aggregation in the database, and the
+    /// counts would then need pinning against the listing rather than being the same arithmetic by
+    /// construction.
+    /// </para>
+    /// </remarks>
+    public async Task<GameListing> SearchAsync(
         GameFilter filter,
         CancellationToken cancellationToken = default)
     {
@@ -91,9 +112,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
-        var capabilityFields = filter.MeasuredProtocols
-            .Select(CapabilityFields.Measured)
-            .ToArray();
+        // Archived games leave the default listing and nothing else (spec §7.5) — and asking for the
+        // archived band is asking for them, so it lifts the exclusion by itself. Without that the one
+        // facet value naming the archive returned nothing at all, while the fixture returned the
+        // archive: one filter, two answers, and only one of them was tested.
+        var includeArchived = filter.IncludeArchived || filter.Band is ActivityBand.Archived;
 
         var rows = (await connection.QueryAsync<GameRow>(new CommandDefinition(
             """
@@ -101,47 +124,30 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                    g.state AS State, g.is_claimed AS IsClaimed, g.last_reachable_at AS LastReachableAt
               FROM game g
              WHERE (@includeArchived OR g.state <> 'archived')
-               AND (@text IS NULL OR g.name ILIKE @text)
-               AND (cardinality(@capabilityFields::text[]) = 0 OR (
-                       SELECT count(DISTINCT f.field)
-                         FROM game_field f
-                        WHERE f.game_id = g.id
-                          AND f.field = ANY(@capabilityFields)
-                          AND f.value = 'true') = cardinality(@capabilityFields::text[]))
              ORDER BY g.name
             """,
-            new
-            {
-                includeArchived = filter.IncludeArchived,
-                text = string.IsNullOrWhiteSpace(filter.Text) ? null : $"%{filter.Text.Trim()}%",
-                capabilityFields,
-            },
+            new { includeArchived },
             cancellationToken: cancellationToken))).ToList();
 
         if (rows.Count == 0)
         {
-            return [];
+            return GameListing.Empty;
         }
 
         var ids = rows.Select(row => row.Id).ToArray();
         var fields = await FieldsForAsync(connection, ids, cancellationToken);
         var presence = await PresenceDigestAsync(connection, ids, now, cancellationToken);
+        var tls = await TlsEndpointsAsync(connection, ids, cancellationToken);
 
-        var summaries = new List<GameSummary>(rows.Count);
+        var facetRows = new List<GameFacetRow>(rows.Count);
 
         foreach (var row in rows)
         {
             var forGame = fields.TryGetValue(row.Id, out var list) ? list : [];
             var digest = presence.TryGetValue(row.Id, out var found) ? found : PresenceDigest.None;
             var state = SqlEnums.ToLifecycleState(row.State);
-            var band = BandOf(state, row.LastReachableAt, digest, now);
 
-            if (filter.Band is { } wanted && band != wanted)
-            {
-                continue;
-            }
-
-            summaries.Add(new GameSummary(
+            var summary = new GameSummary(
                 row.Id,
                 row.Slug,
                 row.Name,
@@ -150,10 +156,72 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 row.IsClaimed,
                 digest.CountNow,
                 Winner(forGame, "CODEBASE")?.Value,
-                MeasuredProtocolsOf(forGame)));
+                MeasuredProtocolsOf(forGame),
+                row.LastReachableAt);
+
+            facetRows.Add(new GameFacetRow(
+                summary,
+                BandOf(state, row.LastReachableAt, digest, now),
+                FacetedSearch.LastSeenOf(row.LastReachableAt, now),
+                TlsMeasured: tls.Contains(row.Id),
+                Charset: NegotiatedCharset(forGame),
+                Language: Winner(forGame, "LANGUAGE")?.Value,
+                Codebase: summary.Codebase,
+                Family: Winner(forGame, "FAMILY")?.Value,
+                Genre: Winner(forGame, "GENRE")?.Value));
         }
 
-        return summaries;
+        return FacetedSearch.Search(facetRows, filter);
+    }
+
+    /// <summary>A listing with no panel — the same query, projected.</summary>
+    public async Task<IReadOnlyList<GameSummary>> ListAsync(
+        GameFilter filter,
+        CancellationToken cancellationToken = default) =>
+        (await SearchAsync(filter, cancellationToken)).Games;
+
+    /// <summary>
+    /// The encoding CHARSET settled on, and never the game's MSSP claim about one.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not the precedence winner. <c>CHARSET</c> is one of the few fields both a
+    /// handshake and MSSP write, so the winner is the handshake's <em>when there is one</em> and
+    /// silently the game's own assertion when there is not — which would make a facet advertised as
+    /// measured answer from the declared column for every server that never negotiates, without
+    /// saying so anywhere. Games with no measurement belong in the unknown bucket, which is a
+    /// different answer and an honest one.
+    /// </remarks>
+    private static string? NegotiatedCharset(IReadOnlyList<GameField> fields) =>
+        fields.FirstOrDefault(f =>
+            string.Equals(f.Field, "CHARSET", StringComparison.Ordinal)
+            && f.Source is FieldSource.Handshake)?.Value;
+
+    /// <summary>
+    /// The games we have completed a TLS connection to.
+    /// </summary>
+    /// <remarks>
+    /// An endpoint row, not a capability claim. <c>capability.ssl.declared</c> exists and says only
+    /// that somebody typed <c>SSL 4202</c> into their configuration; an endpoint of kind <c>tls</c>
+    /// says a socket was opened. Nothing writes one yet — <c>CatalogueBinder</c> records what it
+    /// dialled and the crawler dials plaintext — so this comes back empty and the facet does not
+    /// render at all, which is the honest rendering of a measurement nobody has taken. It becomes a
+    /// real facet the day the crawler takes it, with no change here.
+    /// </remarks>
+    private static async Task<HashSet<Guid>> TlsEndpointsAsync(
+        NpgsqlConnection connection,
+        Guid[] ids,
+        CancellationToken cancellationToken)
+    {
+        var rows = await connection.QueryAsync<Guid>(new CommandDefinition(
+            """
+            SELECT DISTINCT game_id
+              FROM game_endpoint
+             WHERE game_id = ANY(@ids) AND kind = 'tls' AND state <> 'gone'
+            """,
+            new { ids },
+            cancellationToken: cancellationToken));
+
+        return [.. rows];
     }
 
     public async Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default)
@@ -197,7 +265,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             row.IsClaimed,
             digest.CountNow,
             Winner(fields, "CODEBASE")?.Value,
-            MeasuredProtocolsOf(fields));
+            MeasuredProtocolsOf(fields),
+            row.LastReachableAt);
 
         return new GamePage(
             summary,

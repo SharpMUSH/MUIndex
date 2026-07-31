@@ -28,8 +28,29 @@ public static class ApiMapper
         Counted(game.PlayersNow),
         game.Codebase,
         game.MeasuredProtocols,
+        game.LastReachableAt,
         ApiRoutes.Page(game.Slug),
         ApiRoutes.Game(game.Id));
+
+    /// <summary>
+    /// One facet, carried across exactly as the catalogue counted it.
+    /// </summary>
+    /// <remarks>
+    /// Nothing is recomputed, re-ordered or trimmed here. A count is only trustworthy because it
+    /// came from the same pass as the listing beside it, and a mapper that adjusted one would break
+    /// that with no surface left to say so.
+    /// </remarks>
+    public static FacetGroupView Facet(FacetGroup group)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+
+        return new FacetGroupView(
+            group.Key,
+            group.Evidence,
+            group.Kind,
+            group.Total,
+            [.. group.Values.Select(v => new FacetValueView(v.Token, v.Count, v.IsSelected, v.IsUnknown))]);
+    }
 
     public static GameView Game(
         GamePage page,
