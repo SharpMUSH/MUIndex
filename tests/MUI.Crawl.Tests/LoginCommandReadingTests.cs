@@ -46,6 +46,20 @@ public class LoginCommandReadingTests
     }
 
     [Test]
+    public async Task AFamilyHeadingCanPrefixANumericVersionField()
+    {
+        var version = """
+            TinyMUSH Engine
+            ---------------
+            Version : 4.0 stable
+            """;
+
+        var read = LoginCommandReading.MeaningfulCodebase(null, version);
+
+        await Assert.That(read).IsEqualTo("TinyMUSH 4.0 stable");
+    }
+
+    [Test]
     public async Task GenericInfoWithoutCodebaseHintsReturnsNull()
     {
         var info = """

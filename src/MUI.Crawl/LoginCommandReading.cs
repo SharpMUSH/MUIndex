@@ -12,12 +12,30 @@ public static class LoginCommandReading
 {
     private static readonly string[] CodebaseLabels = ["codebase", "server", "engine", "family"];
     private static readonly string[] VersionLabels = ["version", "release"];
-    private static readonly string[] FamilyMarkers =
-    [
-        "pennmush", "rhostmush", "tinymush", "tinymux", "aresmush", "cobramush",
-        "muck", "tinymuck", "mudos", "fluffos", "lpmud", "moo", "evennia",
-        "coffeemud", "smaug", "dikumud", "circlemud", "tbamud", "rom"
-    ];
+    private static readonly IReadOnlyDictionary<string, string> FamilyNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["pennmush"] = "PennMUSH",
+        ["rhostmush"] = "RhostMUSH",
+        ["tinymush"] = "TinyMUSH",
+        ["tinymux"] = "TinyMUX",
+        ["aresmush"] = "AresMUSH",
+        ["cobramush"] = "CobraMUSH",
+        ["muck"] = "MUCK",
+        ["tinymuck"] = "TinyMUCK",
+        ["mudos"] = "MudOS",
+        ["fluffos"] = "FluffOS",
+        ["lpmud"] = "LPMud",
+        ["moo"] = "MOO",
+        ["evennia"] = "Evennia",
+        ["coffeemud"] = "CoffeeMUD",
+        ["smaug"] = "SMAUG",
+        ["dikumud"] = "DikuMUD",
+        ["diku"] = "DikuMUD",
+        ["circlemud"] = "CircleMUD",
+        ["tbamud"] = "tbaMUD",
+        ["rom"] = "ROM",
+        ["merc"] = "Merc",
+    };
 
     /// <summary>
     /// The best codebase/version hint from login-screen command replies, or null.
@@ -31,7 +49,10 @@ public static class LoginCommandReading
 
     private static string? FromLabelledValue(string? text)
     {
-        foreach (var line in Lines(text))
+        var lines = Lines(text).ToArray();
+        var family = FamilyFrom(lines);
+
+        foreach (var line in lines)
         {
             if (!TrySplitLabelled(line, out var label, out var value))
             {
@@ -50,7 +71,22 @@ public static class LoginCommandReading
             if (VersionLabels.Contains(label, StringComparer.OrdinalIgnoreCase))
             {
                 var release = Clean(value);
-                if (release is not null && (MentionsKnownFamily(release) || ContainsDigit(release)))
+                if (release is null)
+                {
+                    continue;
+                }
+
+                if (MentionsKnownFamily(release))
+                {
+                    return release;
+                }
+
+                if (family is not null && ContainsDigit(release))
+                {
+                    return $"{family} {release}";
+                }
+
+                if (ContainsDigit(release))
                 {
                     return release;
                 }
@@ -129,5 +165,21 @@ public static class LoginCommandReading
     private static bool ContainsDigit(string value) => value.Any(char.IsDigit);
 
     private static bool MentionsKnownFamily(string value) =>
-        FamilyMarkers.Any(marker => value.Contains(marker, StringComparison.OrdinalIgnoreCase));
+        FamilyNames.Keys.Any(marker => value.Contains(marker, StringComparison.OrdinalIgnoreCase));
+
+    private static string? FamilyFrom(IEnumerable<string> lines)
+    {
+        foreach (var line in lines)
+        {
+            foreach (var (marker, canonical) in FamilyNames)
+            {
+                if (line.Contains(marker, StringComparison.OrdinalIgnoreCase))
+                {
+                    return canonical;
+                }
+            }
+        }
+
+        return null;
+    }
 }
