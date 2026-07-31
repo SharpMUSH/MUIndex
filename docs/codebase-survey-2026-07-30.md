@@ -226,3 +226,19 @@ Two things came back with it. We can once more observe that a server **offers** 
 capability the decline had cost us. And `nonamemud.duckdns.org` turns out to speak **GMCP** — a
 protocol we could not see while its stream was arriving as raw zlib, so the survey's original row for
 it understated what that server does.
+
+### Follow-on: 2.8.0 inflates the first chunk and stops
+
+Filed as [TNC #66](https://github.com/HarryCordewener/TelnetNegotiationCore/issues/66). Measured
+during the first end-to-end crawl into a real database: two of four MCCP2 servers abort mid-stream
+with *"the peer's compressed stream is not valid zlib"*, and the two that fail are the two with the
+largest connect screens.
+
+It is **not** concurrency — identical at 1 and 4 probes in flight. The same failing server succeeds
+when the session is short enough to finish inside one read, which points at an inflater re-created
+per chunk rather than kept for the connection. An MCCP2 stream is one continuous zlib stream, so a
+fresh inflater meets mid-stream bytes where it expects a header.
+
+**MCCP stays registered.** This is materially better than 2.7.0 — the handshake and the MSSP report
+arrive intact and the first chunk of text is readable, where before the whole stream was noise. What
+is lost is the tail. Not worked around here, for the same reason as last time.
