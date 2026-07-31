@@ -20,6 +20,11 @@ if (result.MsspBytesRejected is { } rejected)
 }
 
 Console.WriteLine($"negotiated    {(result.OfferedOptions.Count == 0 ? "(none observed)" : string.Join(", ", result.OfferedOptions.Order()))}");
+if (result.BannerPlayerCount is { } fromBanner)
+{
+    Console.WriteLine($"banner count  {fromBanner} (stated in the connect screen)");
+}
+
 Console.WriteLine($"charset       {result.Negotiation.Charset ?? "(unset)"}{(result.Negotiation.CharsetNegotiated ? " (negotiated)" : " (default)")}");
 
 if (result.Negotiation.EnvironmentRequested.Count > 0)

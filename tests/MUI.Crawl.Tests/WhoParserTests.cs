@@ -167,8 +167,8 @@ public class WhoParserTests
     public async Task AnsiColourIsStrippedBeforeParsing()
     {
         // Eldertale's connect screen is dense SGR; a coloured WHO is entirely ordinary.
-        var coloured = "[1;37;44mPlayer Name  On For  Idle  Doing[0m\n"
-            + "[32mThere are 4 players connected.[0m";
+        var coloured = "\u001b[1;37;44mPlayer Name  On For  Idle  Doing\u001b[0m\n"
+            + "\u001b[32mThere are 4 players connected.\u001b[0m";
 
         var reading = Parser.Parse(coloured);
 

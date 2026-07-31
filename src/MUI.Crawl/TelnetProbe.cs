@@ -104,6 +104,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Negotiation = seen.ToNegotiation(),
                 Banner = banner,
                 Who = new WhoParser().Parse(whoText),
+                BannerPlayerCount = BannerCount.Find(banner),
                 Mssp = Flatten(seen.Mssp),
                 MsspOutcome = seen.MsspOutcome,
                 MsspBytesRejected = seen.MsspRejectedBytes,

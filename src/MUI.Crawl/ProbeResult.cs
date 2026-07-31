@@ -52,6 +52,16 @@ public sealed record ProbeResult
     /// </summary>
     public int? MsspBytesRejected { get; init; }
 
+    /// <summary>
+    /// A player count the connect screen stated about itself, when it did.
+    /// </summary>
+    /// <remarks>
+    /// The weakest of the three count sources and the only one that reaches a game with neither MSSP
+    /// nor a pre-login <c>WHO</c> — Aardwolf being the case in point. Ranked last deliberately: it is
+    /// pattern-matching a stranger's ASCII art, so it is read only when the other two have failed.
+    /// </remarks>
+    public int? BannerPlayerCount { get; init; }
+
     /// <summary>Which transport produced <see cref="Mssp"/>. Part of the value's provenance.</summary>
     public MsspTransport MsspTransport { get; init; } = MsspTransport.None;
 
