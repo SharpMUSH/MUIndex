@@ -6,9 +6,29 @@
   </PropertyGroup>
 
   <!--
-    The domain, and deliberately dependency-free. Catalog must not reference MUI.Crawl: the writers
-    that consume a probe result are not allowed to know a socket exists (spec §6.5), and the cheapest
-    way to keep that true is to make the reference impossible.
+    The domain. Catalog must not reference MUI.Crawl: the writers that consume a probe result are not
+    allowed to know a socket exists (spec §6.5), and the cheapest way to keep that true is to make the
+    reference impossible.
+
+    Persistence/ is the one place here with dependencies, and they are a database driver and a
+    micro-ORM rather than another of our projects. Nothing outside Persistence/ may use them — the
+    records, the interfaces and the arithmetic stay testable with no I/O at all.
   -->
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <!--
+    The migrations are plain numbered .sql files at the repository root, so they can be read, diffed
+    and applied by hand with psql. They are embedded here as well, so a deployed binary carries the
+    schema it expects and MigrationRunner needs nothing on disk.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)..\..\migrations\*.sql">
+      <LogicalName>MUI.Catalog.Migrations.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
 
 </Project>

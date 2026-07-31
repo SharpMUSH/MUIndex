@@ -36,8 +36,14 @@ jobs:
 
       # TUnit runs on Microsoft.Testing.Platform; execute each test project directly, because the
       # classic `dotnet test`/VSTest path is not available on .NET 10.
+      # The Catalog suite's Persistence tests want a real PostgreSQL 17 through Testcontainers. On a
+      # laptop with no container runtime they skip by name, which is honest — but a silently skipped
+      # storage suite in CI is a green build that tested no storage, so the Linux leg (where a Docker
+      # daemon is present) demands one and fails if it cannot get it.
       - name: Test — Catalog
         shell: bash
+        env:
+          MUI_REQUIRE_POSTGRES: ${{ matrix.os == 'ubuntu-latest' }}
         run: dotnet run -c Release --no-build --project tests/MUI.Catalog.Tests/MUI.Catalog.Tests.csproj
 
       - name: Test — Crawl

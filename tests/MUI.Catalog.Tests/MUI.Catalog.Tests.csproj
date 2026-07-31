@@ -10,6 +10,13 @@
 
   <ItemGroup>
     <PackageReference Include="TUnit" />
+
+    <!--
+      The Persistence tests talk to a real PostgreSQL 17. Half the design lives in CHECK constraints,
+      so a writer asserted only against an in-memory fake has not been tested against the thing that
+      enforces it. Where no container runtime is available they skip out loud rather than pass.
+    -->
+    <PackageReference Include="Testcontainers.PostgreSql" />
   </ItemGroup>
 
   <ItemGroup>

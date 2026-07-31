@@ -1,0 +1,129 @@
+using MUI.Catalog.Persistence;
+using MUI.Catalog.Tests.Persistence.Support;
+
+namespace MUI.Catalog.Tests.Persistence;
+
+/// <summary>
+/// Spec §5.1 against a real database: confirm versus change, and the source-keyed row that lets a
+/// capability be measured and declared at once.
+/// </summary>
+public class GameFieldStorePostgresTests
+{
+    private static readonly DateTimeOffset Noon = Seed.Now;
+
+    [Test]
+    public async Task ARepeatedValueBumpsTheConfirmationAndAppendsNoChangeRow()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlGameFieldStore(db.DataSource);
+        var reconciler = new FieldReconciler(store);
+        List<FieldObservation> observed = [new("GENRE", FieldSource.Mssp, "Fantasy")];
+
+        await reconciler.ApplyAsync(game, observed, Noon);
+        var again = await reconciler.ApplyAsync(game, observed, Noon.AddHours(1));
+
+        var stored = (await store.ForGameAsync(game)).Single();
+
+        await Assert.That(again.Confirmed).IsEqualTo(1);
+        await Assert.That(stored.LastConfirmedAt).IsEqualTo(Noon.AddHours(1));
+        await Assert.That(stored.FirstSeenAt).IsEqualTo(Noon);
+        await Assert.That(await store.ChangesAsync(game, 10)).IsEmpty();
+    }
+
+    [Test]
+    public async Task AFieldThatNeverMovesCostsOneRowPerSourceForever()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlGameFieldStore(db.DataSource);
+        var reconciler = new FieldReconciler(store);
+        List<FieldObservation> observed = [new("GENRE", FieldSource.Mssp, "Fantasy")];
+
+        for (var probe = 0; probe < 25; probe++)
+        {
+            await reconciler.ApplyAsync(game, observed, Noon.AddHours(probe));
+        }
+
+        await Assert.That(await store.ForGameAsync(game)).Count().IsEqualTo(1);
+        await Assert.That(await store.ChangesAsync(game, 10)).IsEmpty();
+    }
+
+    [Test]
+    public async Task OnlyATransitionReachesTheChangeFeed()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlGameFieldStore(db.DataSource);
+        var reconciler = new FieldReconciler(store);
+
+        await reconciler.ApplyAsync(
+            game, [new FieldObservation("CODEBASE", FieldSource.Mssp, "PennMUSH 1.8.7")], Noon);
+        await reconciler.ApplyAsync(
+            game, [new FieldObservation("CODEBASE", FieldSource.Mssp, "PennMUSH 1.8.7")], Noon.AddHours(1));
+        await reconciler.ApplyAsync(
+            game, [new FieldObservation("CODEBASE", FieldSource.Mssp, "PennMUSH 1.8.8p0")], Noon.AddHours(2));
+
+        var changes = await store.ChangesAsync(game, 10);
+
+        await Assert.That(changes).Count().IsEqualTo(1);
+        await Assert.That(changes[0].OldValue).IsEqualTo("PennMUSH 1.8.7");
+        await Assert.That(changes[0].NewValue).IsEqualTo("PennMUSH 1.8.8p0");
+        await Assert.That((await store.ForGameAsync(game)).Single().Value).IsEqualTo("PennMUSH 1.8.8p0");
+    }
+
+    [Test]
+    public async Task MeasuredAndDeclaredSurviveAsSeparateRowsWithSeparateAges()
+    {
+        // One row per (game, field) could not hold both, and §9's capability matrix needs both at
+        // once. This is the assertion the key exists for.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlGameFieldStore(db.DataSource);
+
+        await store.UpsertAsync(new GameField(
+            game, CapabilityFields.Measured("GMCP"), FieldSource.Handshake, "false", Noon, Noon));
+        await store.UpsertAsync(new GameField(
+            game, CapabilityFields.Declared("GMCP"), FieldSource.Mssp, "true",
+            Noon.AddYears(-6), Noon.AddYears(-6)));
+
+        var stored = await store.ForGameAsync(game);
+
+        await Assert.That(stored).Count().IsEqualTo(2);
+        await Assert.That(stored.Single(f => f.Source is FieldSource.Handshake).Value).IsEqualTo("false");
+        await Assert.That(stored.Single(f => f.Source is FieldSource.Mssp).LastConfirmedAt)
+            .IsEqualTo(Noon.AddYears(-6));
+    }
+
+    [Test]
+    public async Task TwoSourcesForOneFieldAreTwoRowsAndThePrecedenceLadderPicks()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlGameFieldStore(db.DataSource);
+
+        await store.UpsertAsync(new GameField(game, "CODEBASE", FieldSource.Banner, "PennMUSH 1.8.7", Noon, Noon));
+        await store.UpsertAsync(new GameField(game, "CODEBASE", FieldSource.Mssp, "PennMUSH 1.8.8p0", Noon, Noon));
+
+        var stored = await store.ForGameAsync(game);
+
+        await Assert.That(stored).Count().IsEqualTo(2);
+        await Assert.That(FieldPrecedence.Winner(stored)!.Source).IsEqualTo(FieldSource.Mssp);
+    }
+
+    [Test]
+    public async Task AConfirmationNeverWalksTheAgeBackwards()
+    {
+        // Probes for a multi-port game are not serialised against each other, so an older answer can
+        // arrive after a newer one. It must not make a fresh value look stale.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlGameFieldStore(db.DataSource);
+
+        await store.UpsertAsync(new GameField(game, "GENRE", FieldSource.Mssp, "Fantasy", Noon, Noon.AddHours(2)));
+        await store.UpsertAsync(new GameField(game, "GENRE", FieldSource.Mssp, "Fantasy", Noon, Noon));
+
+        await Assert.That((await store.ForGameAsync(game)).Single().LastConfirmedAt)
+            .IsEqualTo(Noon.AddHours(2));
+    }
+}

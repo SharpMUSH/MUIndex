@@ -1,0 +1,222 @@
+using Dapper;
+
+using MUI.Catalog.Persistence;
+using MUI.Catalog.Tests.Persistence.Support;
+
+namespace MUI.Catalog.Tests.Persistence;
+
+/// <summary>
+/// Spec §5.3, §7.5, §7.6 against a real database — intervals, and the two sums that feed
+/// <see cref="ArchivePolicy"/>.
+/// </summary>
+public class AvailabilityStorePostgresTests
+{
+    private static readonly DateTimeOffset Now = Seed.Now;
+
+    [Test]
+    public async Task AHundredConsecutiveTimeoutsAreOneRow()
+    {
+        // The property this table exists for, asserted where it actually costs storage.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlAvailabilityStore(db.DataSource);
+        var writer = new AvailabilityWriter(store);
+
+        for (var probe = 0; probe < 100; probe++)
+        {
+            await writer.ObserveAsync(
+                game, AvailabilityState.Unreachable, FailureCause.Timeout, Now.AddHours(probe));
+        }
+
+        await using var connection = await db.DataSource.OpenConnectionAsync();
+        var rows = await connection.ExecuteScalarAsync<long>(
+            "SELECT count(*) FROM availability_interval WHERE game_id = @game", new { game });
+
+        await Assert.That(rows).IsEqualTo(1);
+        await Assert.That((await store.OpenIntervalAsync(game))!.FromAt).IsEqualTo(Now);
+    }
+
+    [Test]
+    public async Task OnlyAChangeOfCauseWritesATransition()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlAvailabilityStore(db.DataSource);
+        var writer = new AvailabilityWriter(store);
+
+        await writer.ObserveAsync(game, AvailabilityState.Unreachable, FailureCause.Dns, Now);
+        await writer.ObserveAsync(game, AvailabilityState.Unreachable, FailureCause.Dns, Now.AddHours(1));
+        await writer.ObserveAsync(game, AvailabilityState.Unreachable, FailureCause.Refused, Now.AddHours(2));
+
+        var intervals = await store.ForGameAsync(game);
+
+        await Assert.That(intervals).Count().IsEqualTo(2);
+        await Assert.That(intervals[0].ToAt).IsEqualTo(Now.AddHours(2));
+        await Assert.That(intervals[1].Cause).IsEqualTo(FailureCause.Refused);
+        await Assert.That(intervals[1].IsOpen).IsTrue();
+    }
+
+    [Test]
+    public async Task ClosingAnIntervalLeavesItInTheHistory()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlAvailabilityStore(db.DataSource);
+
+        await store.OpenAsync(new AvailabilityInterval
+        {
+            GameId = game,
+            State = AvailabilityState.Reachable,
+            FromAt = Now.AddDays(-10),
+        });
+        await store.CloseAsync(game, Now);
+
+        await Assert.That(await store.OpenIntervalAsync(game)).IsNull();
+        await Assert.That(await store.ForGameAsync(game)).Count().IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task CumulativeReachableIsSummedNotSpanned()
+    {
+        // Reachable for two years out of five is credited with two: a history of flapping accrues
+        // nothing for the gaps, which is what stops grace being a function of mere longevity.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlAvailabilityStore(db.DataSource);
+
+        await Insert(store, game, AvailabilityState.Reachable, 1825, 1460);
+        await Insert(store, game, AvailabilityState.Unreachable, 1460, 365, FailureCause.Dns);
+        await Insert(store, game, AvailabilityState.Reachable, 365, 0);
+
+        var cumulative = await store.CumulativeReachableAsync(game, Now);
+
+        await Assert.That(cumulative.TotalDays).IsEqualTo(730).Within(0.001);
+    }
+
+    [Test]
+    public async Task TheOpenIntervalIsCountedUpToNow()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlAvailabilityStore(db.DataSource);
+
+        await store.OpenAsync(new AvailabilityInterval
+        {
+            GameId = game,
+            State = AvailabilityState.Reachable,
+            FromAt = Now.AddDays(-90),
+        });
+
+        await Assert.That((await store.CumulativeReachableAsync(game, Now)).TotalDays)
+            .IsEqualTo(90).Within(0.001);
+    }
+
+    [Test]
+    public async Task ImportedReachableTimeIsSummedApartFromOurs()
+    {
+        // §7.6: ArchivePolicy.GraceFor takes the two as separate arguments and weights the second at
+        // half, so one undifferentiated total cannot feed it. That is why `origin` is a column.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlAvailabilityStore(db.DataSource);
+
+        await store.OpenAsync(
+            new AvailabilityInterval
+            {
+                GameId = game,
+                State = AvailabilityState.Reachable,
+                FromAt = Now.AddDays(-1000),
+                ToAt = Now.AddDays(-400),
+            },
+            IntervalOrigin.ImportedMeasured);
+        await store.OpenAsync(new AvailabilityInterval
+        {
+            GameId = game,
+            State = AvailabilityState.Reachable,
+            FromAt = Now.AddDays(-100),
+        });
+
+        var ours = await store.CumulativeReachableAsync(game, Now);
+        var theirs = await store.CumulativeImportedMeasuredReachableAsync(game, Now);
+
+        await Assert.That(ours.TotalDays).IsEqualTo(100).Within(0.001);
+        await Assert.That(theirs.TotalDays).IsEqualTo(600).Within(0.001);
+
+        // And the two together are what the policy is asked. 100 + 600/2 = 400 days credited, which
+        // is 100 days of grace.
+        await Assert.That(ArchivePolicy.GraceFor(ours, theirs).TotalDays).IsEqualTo(100).Within(0.001);
+    }
+
+    [Test]
+    public async Task AGameNobodyEverReachedIsCreditedWithNothing()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlAvailabilityStore(db.DataSource);
+
+        await store.OpenAsync(new AvailabilityInterval
+        {
+            GameId = game,
+            State = AvailabilityState.Unreachable,
+            FromAt = Now.AddDays(-10),
+            Cause = FailureCause.Dns,
+        });
+
+        await Assert.That(await store.CumulativeReachableAsync(game, Now)).IsEqualTo(TimeSpan.Zero);
+    }
+
+    [Test]
+    public async Task TheSweepArchivesAndAProbeRestoresAgainstARealDatabase()
+    {
+        // The same behaviour as ArchiveSweeperTests, through Postgres — because a fake agreeing with
+        // the code it stands in for proves only that one person wrote both.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, lastReachableAt: Now.AddDays(-400));
+        var availability = new NpgsqlAvailabilityStore(db.DataSource);
+        var games = new NpgsqlGameStore(db.DataSource);
+
+        await Insert(availability, game, AvailabilityState.Reachable, 800, 400);
+        await availability.OpenAsync(new AvailabilityInterval
+        {
+            GameId = game,
+            State = AvailabilityState.Unreachable,
+            FromAt = Now.AddDays(-400),
+            Cause = FailureCause.Dns,
+        });
+
+        var sweeper = new ArchiveSweeper(games, availability, availability);
+
+        var swept = await sweeper.SweepAsync(Now);
+        var archived = await games.ByIdAsync(game);
+
+        await Assert.That(swept.Archived).IsEqualTo(1);
+        await Assert.That(archived!.State).IsEqualTo(LifecycleState.Archived);
+        await Assert.That(archived.ArchivedAt).IsEqualTo(Now);
+
+        await Assert.That(await sweeper.RestoreAsync(game, Now.AddDays(1))).IsTrue();
+
+        var restored = await games.ByIdAsync(game);
+
+        await Assert.That(restored!.State).IsEqualTo(LifecycleState.Active);
+        await Assert.That(restored.ArchivedAt).IsNull();
+
+        // Nothing was deleted on the way through: the history that earned the grace is still there.
+        await Assert.That(await availability.ForGameAsync(game)).Count().IsEqualTo(2);
+    }
+
+    private static Task Insert(
+        NpgsqlAvailabilityStore store,
+        Guid game,
+        AvailabilityState state,
+        double fromDaysAgo,
+        double toDaysAgo,
+        FailureCause cause = FailureCause.None) =>
+        store.OpenAsync(new AvailabilityInterval
+        {
+            GameId = game,
+            State = state,
+            FromAt = Now.AddDays(-fromDaysAgo),
+            ToAt = Now.AddDays(-toDaysAgo),
+            Cause = cause,
+        });
+}
