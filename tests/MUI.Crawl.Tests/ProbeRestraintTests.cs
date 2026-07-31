@@ -29,12 +29,14 @@ public class ProbeRestraintTests
     }
 
     [Test]
-    public async Task TheOnlyThingItAsksForIsWho()
+    public async Task TheOnlyThingsItAsksForAreThePreLoginReadOnlyCommands()
     {
         // A short list is the point. Every addition here is a new way to affect a stranger's server,
         // so it should be hard to grow and obvious when it does.
-        await Assert.That(TelnetProbe.PermittedCommands).Count().IsEqualTo(1);
-        await Assert.That(TelnetProbe.PermittedCommands[0]).IsEqualTo("WHO");
+        await Assert.That(TelnetProbe.PermittedCommands).Count().IsEqualTo(3);
+        await Assert.That(TelnetProbe.PermittedCommands).Contains("WHO");
+        await Assert.That(TelnetProbe.PermittedCommands).Contains("INFO");
+        await Assert.That(TelnetProbe.PermittedCommands).Contains("VERSION");
     }
 
     [Test]

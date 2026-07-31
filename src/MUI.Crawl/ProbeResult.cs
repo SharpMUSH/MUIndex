@@ -34,12 +34,18 @@ public sealed record ProbeResult
     /// <summary>Layer 2 — the connect screen, ANSI intact. Display asset and codebase fingerprint both.</summary>
     public string? Banner { get; init; }
 
-    /// <summary>Layer 3 — what <c>WHO</c> or <c>DOING</c> yielded at the login screen.</summary>
+    /// <summary>Layer 3 — what login-screen commands yielded.</summary>
     /// <remarks>
     /// Defaults to <see cref="WhoReading.NotAsked"/> rather than to an unreadable answer, so a probe
     /// that failed before it could ask does not claim to have tried.
     /// </remarks>
     public WhoReading Who { get; init; } = WhoReading.NotAsked;
+
+    /// <summary>The reply to <c>INFO</c> at the login screen, when one arrived.</summary>
+    public string? Info { get; init; }
+
+    /// <summary>The reply to <c>VERSION</c> at the login screen, when one arrived.</summary>
+    public string? Version { get; init; }
 
     /// <summary>
     /// Layer 4 — MSSP as the server reported it over telnet option 70. Every variable, every value,

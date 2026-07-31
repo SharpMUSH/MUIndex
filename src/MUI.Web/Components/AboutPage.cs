@@ -146,8 +146,8 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
         [
             new("A probe is one connection that never logs in.",
                 "It opens a socket, negotiates telnet options, reads whatever connect screen the "
-                + "server paints, asks for MSSP by negotiating option 70, sends a single "
-                + $"{string.Join(" or ", TelnetProbe.PermittedCommands)} at the connect screen, and "
+                + "server paints, asks for MSSP by negotiating option 70, sends "
+                + $"{string.Join(", ", TelnetProbe.PermittedCommands)} at the connect screen, and "
                 + "disconnects. It creates no character, sends no login, and changes nothing on the "
                 + "far side. The whole session is bounded by a timeout so a wedged probe cannot sit "
                 + "on a server's connection slot."),
@@ -328,7 +328,7 @@ public sealed record AboutIdentity(string Name, string InfoUrl, bool Announced, 
         + "what reaches your logs is that library's own default, and a NEW-ENVIRON request is "
         + "answered from the crawler host's environment rather than with anything about us. Both "
         + "are gaps in the library and both are ours to fix there. Until they are fixed, the way to "
-        + "recognise a probe is its shape: one connection, no login, one WHO, gone.";
+        + "recognise a probe is its shape: one connection, no login, a short read-only command set, gone.";
 }
 
 /// <summary>Whether a directory was actually read, which is not the same as whether we can read it.</summary>

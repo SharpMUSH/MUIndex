@@ -17,7 +17,7 @@ namespace MUI.Crawl;
 /// <para>
 /// <b>This client never authenticates.</b> Everything it reads is what a server hands an anonymous
 /// connection: the banner it sends unprompted, the options it negotiates, the MSSP report it
-/// publishes for crawlers, and the pre-login <c>WHO</c> the TinyMUD family answers before login.
+/// publishes for crawlers, and the pre-login commands games may answer before login.
 /// <see cref="PermittedCommands"/> is the complete list of what may go on the wire, and
 /// <c>connect</c> and <c>create</c> are not on it — enforced by test, not by good intentions.
 /// </para>
@@ -29,8 +29,10 @@ namespace MUI.Crawl;
 /// </remarks>
 public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = null) : IProbe
 {
-    /// <summary>The one question this probe exists to ask.</summary>
+    /// <summary>The login-screen commands this probe is allowed to ask.</summary>
     public const string WhoCommand = "WHO";
+    public const string InfoCommand = "INFO";
+    public const string VersionCommand = "VERSION";
 
     /// <summary>
     /// Every command this probe is allowed to send. Anything that logs in, creates a character, or
@@ -48,7 +50,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// implement it simply ignores.
     /// </para>
     /// </remarks>
-    public static readonly IReadOnlyList<string> PermittedCommands = [WhoCommand];
+    public static readonly IReadOnlyList<string> PermittedCommands = [WhoCommand, InfoCommand, VersionCommand];
 
     private const byte Iac = 255;
     private const byte Do = 253;
@@ -126,17 +128,29 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             await SettleAsync(telnet, Arrived, bannerLines, _options.QuietPeriod, budget.Token);
             var flushLines = Arrived();
 
-            // Phase 3 — the one question we are allowed to ask. SendAsync appends the line ending
+            // Phase 3 — the first question we are allowed to ask. SendAsync appends the line ending
             // itself, so the command is handed over bare.
             await telnet.SendAsync(Encoding.ASCII.GetBytes(WhoCommand));
             await SettleAsync(telnet, Arrived, flushLines, _options.SilenceGrace, budget.Token);
             var whoLines = Arrived();
 
-            string banner, whoText;
+            // Phase 4 — INFO at the login screen.
+            await telnet.SendAsync(Encoding.ASCII.GetBytes(InfoCommand));
+            await SettleAsync(telnet, Arrived, whoLines, _options.SilenceGrace, budget.Token);
+            var infoLines = Arrived();
+
+            // Phase 5 — VERSION at the login screen.
+            await telnet.SendAsync(Encoding.ASCII.GetBytes(VersionCommand));
+            await SettleAsync(telnet, Arrived, infoLines, _options.SilenceGrace, budget.Token);
+            var versionLines = Arrived();
+
+            string banner, whoText, infoText, versionText;
             lock (lines)
             {
                 banner = string.Join("\n", lines.Take(bannerLines));
                 whoText = string.Join("\n", lines.Skip(flushLines).Take(whoLines - flushLines));
+                infoText = string.Join("\n", lines.Skip(whoLines).Take(infoLines - whoLines));
+                versionText = string.Join("\n", lines.Skip(infoLines).Take(versionLines - infoLines));
             }
 
             if (telnet.CurrentEncoding is not null)
@@ -156,6 +170,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Negotiation = seen.ToNegotiation(),
                 Banner = banner,
                 Who = new WhoParser().Parse(whoText),
+                Info = infoText.Length == 0 ? null : infoText,
+                Version = versionText.Length == 0 ? null : versionText,
                 BannerPlayerCount = BannerCount.Find(banner),
                 Mssp = viaOption ? MsspReport.From(seen.Mssp) : MsspReport.Empty,
                 MsspOutcome = seen.MsspOutcome,
