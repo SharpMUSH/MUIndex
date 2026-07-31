@@ -3,12 +3,12 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <RootNamespace>MUI.Import.LiveVerification</RootNamespace>
-    <AssemblyName>live-tintin-import</AssemblyName>
+    <AssemblyName>live-import</AssemblyName>
     <IsPackable>false</IsPackable>
 
     <!--
-      Not in MUIndex.slnx and not in CI, on purpose. This is the one thing in the repository that
-      talks to somebody else's live web server, and it runs when a human decides to run it.
+      Built by CI and never run by it. This is the one thing in the repository that talks to somebody
+      else's live web server, and it runs when a human decides to run it.
     -->
   </PropertyGroup>
 

@@ -23,6 +23,6 @@
       else's live web server; it is in the solution so it cannot rot, and it runs when a human decides
       to run it.
     -->
-    <Project Path="tools/live-tintin-import/live-tintin-import.csproj" />
+    <Project Path="tools/live-import/live-import.csproj" />
   </Folder>
 </Solution>

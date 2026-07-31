@@ -34,7 +34,7 @@ jobs:
       - name: Build
         run: dotnet build MUIndex.slnx -c Release --no-restore
 
-      # TUnit runs on Microsoft.Testing.Platform; execute each of the five test projects directly,
+      # TUnit runs on Microsoft.Testing.Platform; execute each of the six test projects directly,
       # because the classic `dotnet test`/VSTest path is not available on .NET 10.
       # The Catalog and Crawler suites want a real PostgreSQL 17 through Testcontainers. On a laptop
       # with no container runtime they skip by name, which is honest — but a silently skipped storage

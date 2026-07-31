@@ -4,3 +4,10 @@ obj/
 .idea/
 *.user
 appsettings.*.local.json
+
+# Somebody else's catalogue. `tools/live-import --cache` writes raw fetched pages so that a second
+# look at the same data costs the site nothing; the harvested data is not ours to commit, and an
+# import is one command a human runs against one deployment rather than something this repository
+# carries. Name a path outside the working tree — these patterns are the backstop, not the plan.
+import-cache/
+*.import-cache/
