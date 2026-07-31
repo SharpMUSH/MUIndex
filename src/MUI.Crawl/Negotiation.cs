@@ -33,18 +33,7 @@ public sealed record Negotiation
     /// </remarks>
     public bool CharsetNegotiated { get; init; }
 
-    /// <summary>
-    /// MCCP compression, and which version if it engaged.
-    /// </summary>
-    /// <remarks>
-    /// <b>Currently always null, and that is a stopgap rather than a design position.</b> The probe
-    /// declines MCCP because TelnetNegotiationCore negotiates MCCP2 and never inflates the stream
-    /// (upstream issue #62), so accepting it loses the banner and the whole <c>WHO</c> reply to raw
-    /// zlib decoded as text — 37% printable against 100% when declined, measured on
-    /// <c>realms.reichel.net:4000</c>. The cost of declining is that we cannot see a server
-    /// <em>offer</em> MCCP either, since the library only reports it on acceptance. The field stays
-    /// because it is the right shape for the day #62 ships and this goes back on.
-    /// </remarks>
+    /// <summary>MCCP compression, and which version, when the server negotiated it.</summary>
     public int? CompressionVersion { get; init; }
 
     /// <summary>
