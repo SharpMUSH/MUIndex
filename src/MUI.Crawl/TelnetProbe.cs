@@ -85,14 +85,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 }
             }
 
-            if (_options.RequestOptions.Count > 0)
-            {
-                _logger.LogWarning(
-                    "TelnetNegotiationCore has no client API to request options by number. "
-                    + "Configured request options ({Options}) are not sent.",
-                    string.Join(", ", _options.RequestOptions));
-            }
-
             // Phase 1 — the connect screen. Banner and WHO answer are kept apart because they are
             // different evidence: one is a display asset and codebase fingerprint, the other is a
             // measurement.

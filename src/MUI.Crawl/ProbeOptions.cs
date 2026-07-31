@@ -147,21 +147,6 @@ public sealed record ProbeOptions
     public IReadOnlyList<string> TerminalTypes { get; init; } =
         ["MUINDEX-CRAWLER", "MUINDEX", "MTTS 9"];
 
-    /// <summary>
-    /// Telnet options a deployment would like to request, when the client API exists to do it.
-    /// </summary>
-    /// <remarks>
-    /// TelnetNegotiationCore currently exposes no client method for sending a generic option request
-    /// by number (the <c>IAC DO/WILL/WONT/DONT</c> handshake). MUIndex therefore does not send these
-    /// bytes directly and probes only what the server offers first. This is a known blocker for "ask
-    /// for MSSP rather than waiting to be offered", and the list stays as configuration for when the
-    /// upstream API exists.
-    /// </remarks>
-    public IReadOnlyList<byte> RequestOptions { get; init; } = [];
-
-    /// <summary>The MSSP telnet option, 70.</summary>
-    public const byte MsspOption = 70;
-
     /// <summary>Where an admin can read what we do and ask us to stop.</summary>
     /// <remarks>
     /// A placeholder domain, because the domain is an open question (spec §15.1) and inventing one
