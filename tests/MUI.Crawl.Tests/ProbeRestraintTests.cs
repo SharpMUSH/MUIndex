@@ -40,20 +40,13 @@ public class ProbeRestraintTests
     }
 
     [Test]
-    public async Task MsspIsAskedForByNegotiationAndNeverByTypingAtALoginScreen()
+    public async Task PlaintextMsspRequestIsNeverTypedAtALoginScreen()
     {
-        // IAC DO 70 is the client half of an option handshake: a server that does not implement MSSP
-        // ignores it and nothing it does is affected, and asking is what makes a "no" a measurement
-        // rather than an assumption never tested.
-        //
         // The plaintext MSSP-REQUEST form is text at a login screen, and eight of twenty games tried
         // read it as a character name — "Illegal name, try another." on realms.reichel.net:4000 and
         // tsosmud.org:7070, "'MSSP-REQUEST' does not exist." on eternitymud.com:23. It belongs in
         // TelnetNegotiationCore (issue #61), not here, and the three games that did answer it all
         // answer option 70 as well.
-        var options = new ProbeOptions();
-
-        await Assert.That(options.RequestOptions).Contains(ProbeOptions.MsspOption);
         await Assert.That(TelnetProbe.PermittedCommands).DoesNotContain("MSSP-REQUEST");
     }
 

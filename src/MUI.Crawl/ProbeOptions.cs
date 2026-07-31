@@ -148,29 +148,16 @@ public sealed record ProbeOptions
         ["MUINDEX-CRAWLER", "MUINDEX", "MTTS 9"];
 
     /// <summary>
-    /// Telnet options to request outright with <c>IAC DO</c> rather than waiting to be offered.
+    /// Telnet options a deployment would like to request, when the client API exists to do it.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Waiting is not enough.</b> The MSSP specification says a server "should send
-    /// <c>IAC WILL MSSP</c>" on connect, so a listen-only crawler assumes it will hear one. Many
-    /// servers that support MSSP never volunteer anything and answer only when asked, which is why
-    /// the protocol's own reference client (TinTin++'s <c>#session mssp</c>) asks rather than listens.
-    /// </para>
-    /// <para>
-    /// Asking also makes a negative answer meaningful. Aardwolf, measured directly, offers MCCP1/2,
-    /// ATCP, GMCP and its own option 102, and requests TTYPE and NAWS — but does not answer
-    /// <c>IAC DO MSSP</c> at all. Because we asked, "no MSSP" there is a measurement rather than an
-    /// assumption we never tested.
-    /// </para>
-    /// <para>
-    /// This is negotiation, not traffic: <c>IAC DO</c> is the client half of the option handshake and
-    /// is the only category of byte this probe puts on the wire beyond the pre-login <c>WHO</c>. Only
-    /// MSSP is requested, because MSSP is the one option that exists specifically to be asked for by
-    /// crawlers — the rest are observed if a server offers them and left alone if it does not.
-    /// </para>
+    /// TelnetNegotiationCore currently exposes no client method for sending a generic option request
+    /// by number (the <c>IAC DO/WILL/WONT/DONT</c> handshake). MUIndex therefore does not send these
+    /// bytes directly and probes only what the server offers first. This is a known blocker for "ask
+    /// for MSSP rather than waiting to be offered", and the list stays as configuration for when the
+    /// upstream API exists.
     /// </remarks>
-    public IReadOnlyList<byte> RequestOptions { get; init; } = [MsspOption];
+    public IReadOnlyList<byte> RequestOptions { get; init; } = [];
 
     /// <summary>The MSSP telnet option, 70.</summary>
     public const byte MsspOption = 70;

@@ -52,8 +52,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// </remarks>
     public static readonly IReadOnlyList<string> PermittedCommands = [WhoCommand, InfoCommand, VersionCommand];
 
-    private const byte Iac = 255;
-    private const byte Do = 253;
     private const byte NewLine = (byte)'\n';
 
     private readonly ProbeOptions _options = options ?? new ProbeOptions();
@@ -87,11 +85,12 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 }
             }
 
-            // Ask for the options a server may support without volunteering. Negotiation, not
-            // traffic — written straight to the network so it is not escaped as data would be.
-            foreach (var option in _options.RequestOptions)
+            if (_options.RequestOptions.Count > 0)
             {
-                await telnet.WriteToNetworkAsync(new byte[] { Iac, Do, option }, budget.Token);
+                _logger.LogWarning(
+                    "TelnetNegotiationCore has no client API to request options by number. "
+                    + "Configured request options ({Options}) are not sent.",
+                    string.Join(", ", _options.RequestOptions));
             }
 
             // Phase 1 — the connect screen. Banner and WHO answer are kept apart because they are
