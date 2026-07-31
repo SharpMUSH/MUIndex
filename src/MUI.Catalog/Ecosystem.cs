@@ -139,57 +139,6 @@ public static class EcosystemProtocols
     public static IReadOnlyList<string> Headline { get; } = ["TLS", "UTF-8", "GMCP", "MXP"];
 }
 
-/// <summary>
-/// The family a <c>CODEBASE</c> value names, with a trailing version folded away.
-/// </summary>
-/// <remarks>
-/// <para>
-/// Market share is a question about codebases and not about point releases: PennMUSH 1.8.8p0 and
-/// PennMUSH 1.8.7 are one answer, and reporting them as two would spread one codebase's share across
-/// as many rows as there are patch levels in the wild. MSSP's own convention is name-then-version,
-/// which is what makes the fold possible at all.
-/// </para>
-/// <para>
-/// Exactly one trailing token is folded, and only when the whole of it looks like a version — it
-/// starts with a digit or a <c>v</c> before one, and contains nothing but letters, digits and the
-/// separators a version number uses. So <c>Midnight Sun</c> keeps both its words and
-/// <c>Rhost 4.0.4 (patchlevel 1)</c> keeps its parenthesis rather than being truncated mid-phrase.
-/// The value as the game reported it is still on the game's own page; this is the dashboard's
-/// grouping key and nothing else.
-/// </para>
-/// </remarks>
-public static class CodebaseFamily
-{
-    public static string Of(string codebase)
-    {
-        ArgumentNullException.ThrowIfNull(codebase);
-
-        var trimmed = codebase.Trim();
-        var space = trimmed.LastIndexOf(' ');
-
-        if (space <= 0)
-        {
-            return trimmed;
-        }
-
-        return LooksLikeAVersion(trimmed[(space + 1)..])
-            ? trimmed[..space].TrimEnd()
-            : trimmed;
-    }
-
-    private static bool LooksLikeAVersion(string token)
-    {
-        if (token.Length == 0)
-        {
-            return false;
-        }
-
-        var starts = char.IsAsciiDigit(token[0])
-            || (token[0] is 'v' or 'V' && token.Length > 1 && char.IsAsciiDigit(token[1]));
-
-        return starts && token.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_');
-    }
-}
 
 /// <summary>
 /// One game in the busiest ranking, with the measurements the rank is computed from beside it.

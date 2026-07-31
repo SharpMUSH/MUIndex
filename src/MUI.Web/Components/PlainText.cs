@@ -618,7 +618,7 @@ public static class PlainText
     }
 
     /// <summary>Wraps to 80 columns, because that is the width a text browser has.</summary>
-    private static void Wrap(StringBuilder b, string text, string indent = "")
+    internal static void Wrap(StringBuilder b, string text, string indent = "")
     {
         var width = Columns - indent.Length;
         var line = new StringBuilder();

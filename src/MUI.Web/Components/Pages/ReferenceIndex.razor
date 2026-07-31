@@ -1,0 +1,66 @@
+@page "/reference"
+@using MUI.Web.Reference
+
+@*
+    The reference section's front door.
+
+    Spec §9's argument for this whole section is that it obtains wiki value without wiki governance:
+    the content is curated, single-author and versioned in git. That has to be said on the page —
+    a reader who assumes they are looking at a wiki will read a gap as vandalism rather than as work
+    nobody has done yet, and will look for an edit button that will never exist.
+*@
+
+@if (Plain)
+{
+    <pre class="mono plain">@ReferencePlainText.RenderIndex(Library)</pre>
+}
+else
+{
+    <PageTitle>Reference — mu*index</PageTitle>
+
+    <h1>Reference</h1>
+    <p class="dim">
+        What the codebases are, what the clients do, and what the protocols mean. Written by hand and
+        kept in the repository beside the crawler — not a wiki, and there is nothing on this page to
+        edit. Every <em>number</em> here is a different thing: it comes from the catalogue and is
+        recomputed each time you load the page.
+    </p>
+
+    @foreach (var kind in Kinds)
+    {
+        var documents = Library.OfKind(kind);
+
+        if (documents.Count == 0)
+        {
+            continue;
+        }
+
+        <section aria-labelledby="ref-@kind">
+            <h2 id="ref-@kind">@ReferencePlainText.Heading(kind)</h2>
+            <ul class="reference-index">
+                @foreach (var document in documents)
+                {
+                    <li>
+                        <a class="name" href="@document.Path">@document.Title</a>
+                        <span class="dim">@document.Summary</span>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    <p class="faint"><a href="?plain=1">read this page as plain text</a></p>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
+
+    private bool Plain => Truthy.Is(PlainFlag);
+
+    private static readonly ReferenceKind[] Kinds =
+    [
+        ReferenceKind.Orientation, ReferenceKind.Codebase, ReferenceKind.Client, ReferenceKind.Protocol,
+    ];
+
+    private static ReferenceLibrary Library => ReferenceLibrary.Shipped;
+}

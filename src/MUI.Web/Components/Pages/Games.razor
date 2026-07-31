@@ -30,6 +30,18 @@ else
     {
         <FacetPanel Facets="Listing.Facets" Filter="Filter" />
 
+        @if (Filter.CodebaseFamily is { } family)
+        {
+            @* The filter a reference page links in on. It is a filter and not a search, so it says
+               which family it is showing and offers the way back out — a reader who arrived from
+               /reference/codebases/pennmush should not have to guess why the listing is short. *@
+            <p class="kicker">
+                codebase <span class="mono">@family</span> ·
+                <a href="/reference/codebases/@family.ToLowerInvariant()">what this codebase is</a> ·
+                <a href="/games">every game</a>
+            </p>
+        }
+
         <p class="kicker">
             @Listing.Games.Count games · counts measured, never asserted ·
             <a href="@RandomHref">show me a random one</a>

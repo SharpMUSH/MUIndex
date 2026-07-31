@@ -648,3 +648,67 @@ fieldset.facet.presence .check .count { margin-left: auto; color: var(--dim); fo
     border-left: 3px solid var(--amber);
     background: color-mix(in srgb, var(--amber) 10%, transparent);
 }
+/* ── reference and orientation pages ───────────────────────────────────────
+   The hand-written section (spec §9). Two things it has to communicate that no
+   other page does.
+
+   First, that the prose is ours and the figures are not. A measured figure sits
+   in its own panel with the site's accent on it — the accent means "measured"
+   everywhere on this site and is spent nowhere else — while the prose that
+   surrounds it is styled as body copy and carries no accent at all. A reader who
+   knows nothing about how this site works can still see that the number and the
+   paragraph are different kinds of thing.
+
+   Second, that a client capability table is not a game's capability matrix. It
+   reuses table.matrix so the two read alike structurally, and deliberately does
+   NOT reuse the disagreement tint: there is only one column of claims here, so
+   there is nothing to disagree with, and an amber row would imply a conflict
+   that cannot exist. */
+
+article.reference { max-width: 72ch; }
+article.reference header { margin-bottom: calc(var(--cpad) * 2); }
+article.reference header .lede { font-size: 15px; margin: 4px 0 8px; }
+
+.reference-index { list-style: none; margin: 0; padding: 0; }
+.reference-index li { padding: var(--row-pad) 0; border-bottom: 1px solid var(--line); }
+.reference-index .name { font-weight: 600; text-decoration: none; display: inline-block; margin-right: 8px; }
+.reference-index .dim { font-size: 13px; }
+
+/* The measured half of a codebase or protocol page, boxed away from the prose. */
+.measured-panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: var(--cpad);
+    margin: 0 0 calc(var(--cpad) * 2);
+}
+.measured-panel h2 { margin-top: 0; }
+.measured-panel .figure { font-size: 20px; margin: 0 0 6px; }
+.measured-panel .figure a { text-decoration: none; }
+.measured-panel .dim { font-size: 13px; margin: 0 0 6px; max-width: 62ch; }
+.measured-panel table.matrix { margin-top: var(--cpad); }
+
+/* The accessibility row is first and stays visually first, because it is the row
+   this section exists to publish and the one nobody else does. A left rule, not
+   a fill: a filled row would read as the warning state the game pages use. */
+table.client-matrix tr.accessibility th { border-left: 2px solid var(--accent); padding-left: 8px; }
+table.client-matrix td a { color: var(--faint); }
+
+/* Prose. Measure capped at 62ch for the same reason the plain surface stops at
+   eighty columns — a line a reader loses their place in is a line they re-read. */
+.prose { max-width: 62ch; }
+.prose h2 { font-size: 17px; }
+.prose h3 { font-size: 15px; font-weight: 600; margin: calc(var(--cpad) * 1.5) 0 6px; }
+.prose p, .prose li { color: var(--dim); }
+.prose strong { color: var(--text); font-weight: 600; }
+.prose code { font-family: var(--mono); font-size: 13px; color: var(--text); }
+.prose pre {
+    background: var(--recessed);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: var(--cpad);
+    overflow-x: auto;
+}
+.prose pre code { font-size: 13px; }
+.prose ul, .prose ol { padding-left: 1.4em; }
+.prose li { margin-bottom: 4px; }

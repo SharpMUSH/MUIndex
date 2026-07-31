@@ -1,0 +1,205 @@
+@page "/reference/{Slug}"
+@page "/reference/codebases/{Slug}"
+@page "/reference/clients/{Slug}"
+@page "/reference/protocols/{Slug}"
+@using MUI.Web.Reference
+@inject IGameQueries Queries
+@inject NavigationManager Navigation
+
+@*
+    One reference page, whichever kind it is.
+
+    The four routes resolve through the document's own Path rather than through a kind parameter, so
+    a page's URL has exactly one spelling — the one every link on the site is built from. A kind
+    passed separately would let a link and a route disagree, and the failure would be a page that
+    renders the wrong measurement beside the right prose.
+
+    The prose is ours and the figures are measured, and that split is the reason the section exists.
+    Nothing below reads a number out of a content file; every count is a query made on this request.
+*@
+
+@if (Document is null)
+{
+    <h1>Not found</h1>
+    <p class="dim">
+        No reference page here. This section is hand-written, so a gap is work nobody has done rather
+        than something that was removed — <a href="/reference">see what there is</a>.
+    </p>
+}
+else if (Plain)
+{
+    <pre class="mono plain">@ReferencePlainText.Render(Document, Codebase, Protocol, Related)</pre>
+}
+else
+{
+    <PageTitle>@Document.Title — mu*index</PageTitle>
+
+    <article class="reference">
+        <header>
+            <p class="kicker">@ReferencePlainText.Kind(Document.Kind)</p>
+            <h1>@Document.Title</h1>
+            <p class="lede dim">@Document.Summary</p>
+            <p class="mono faint">
+                @if (Document.Home is { } home)
+                {
+                    <a href="@home" rel="nofollow noopener">@home</a>
+                }
+                @if (Document.Platforms.Count > 0)
+                {
+                    <span> · @string.Join(", ", Document.Platforms)</span>
+                }
+            </p>
+        </header>
+
+        @if (Codebase is { } codebase)
+        {
+            <section class="measured-panel" aria-labelledby="running">
+                <h2 id="running">Games running it</h2>
+                @if (codebase.Known == 0)
+                {
+                    @* Never a zero standing on its own. Zero here is a statement about our coverage
+                       and reads as a statement about the codebase unless it is spelled out. *@
+                    <p class="dim">
+                        We have not identified any yet. That is a fact about what this crawler has
+                        measured, not about what exists — a game we have not reached, or whose
+                        codebase we could not read, is not counted here.
+                    </p>
+                }
+                else
+                {
+                    <p class="figure mono">
+                        <a class="state-present" href="@Document.GamesPath">@codebase.Listed listed</a>
+                        <span class="faint"> · @codebase.Archived archived · measured, never asserted</span>
+                    </p>
+                    <p class="dim">
+                        Counted from the catalogue on this request, over the same filter the link
+                        above carries — so this number and that listing are one query and cannot
+                        drift apart.
+                    </p>
+                    @if (codebase.MeasuredProtocols.Count > 0)
+                    {
+                        <p class="mono faint">
+                            offered in their handshakes:
+                            @string.Join(", ", codebase.MeasuredProtocols)
+                        </p>
+                    }
+                }
+            </section>
+        }
+
+        @if (Protocol is { } protocol)
+        {
+            <section class="measured-panel" aria-labelledby="adoption">
+                <h2 id="adoption">Measured adoption</h2>
+                @if (protocol.Listed == 0)
+                {
+                    <p class="dim">Nothing measured yet.</p>
+                }
+                else
+                {
+                    <p class="figure mono">
+                        <a class="state-present" href="@Document.GamesPath">@protocol.Offering</a>
+                        <span class="faint">
+                            of @protocol.Listed listed games — @Wording.Percent(protocol.Share ?? 0)
+                        </span>
+                    </p>
+                    <p class="dim">@ReferencePlainText.ProtocolRemainderCaveat</p>
+
+                    @if (MeasuredRows.Count > 0)
+                    {
+                        <table class="matrix">
+                            <caption class="sr-only">
+                                Games observed offering @Document.Title in a handshake, by the
+                                codebase we identified them as running.
+                            </caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">codebase</th>
+                                    <th scope="col">offered it</th>
+                                    <th scope="col">identified</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in MeasuredRows)
+                                {
+                                    <tr>
+                                        <th scope="row"><a href="@row.Path">@row.Codebase</a></th>
+                                        <td class="mono">
+                                            <span class="@(row.Offering > 0 ? "state-present" : "state-unknown")">@row.Offering</span>
+                                        </td>
+                                        <td class="mono faint">@row.Identified</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                }
+            </section>
+        }
+
+        @if (Document.Kind is ReferenceKind.Client)
+        {
+            <ClientCapabilityMatrix Claims="Claims" />
+        }
+
+        <div class="prose">@((MarkupString)Html)</div>
+
+        @if (Related.Count > 0)
+        {
+            <h2>See also</h2>
+            <ul class="reference-index">
+                @foreach (var other in Related)
+                {
+                    <li>
+                        <a class="name" href="@other.Path">@other.Title</a>
+                        <span class="dim">@other.Summary</span>
+                    </li>
+                }
+            </ul>
+        }
+
+        <p class="faint"><a href="?plain=1">read this page as plain text</a></p>
+    </article>
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+
+    [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
+
+    private bool Plain => Truthy.Is(PlainFlag);
+
+    private ReferenceDocument? Document;
+    private CodebaseFigures? Codebase;
+    private ProtocolFigures? Protocol;
+    private IReadOnlyList<ReferenceDocument> Related = [];
+    private IReadOnlyList<CapabilityClaim> Claims = [];
+    private string Html = string.Empty;
+
+    private IReadOnlyList<ProtocolByCodebase> MeasuredRows =>
+        [.. (Protocol?.ByCodebase ?? []).Where(r => r.IsMeasured)];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var library = ReferenceLibrary.Shipped;
+
+        Document = library.Find(new Uri(Navigation.Uri).LocalPath.TrimEnd('/'));
+
+        if (Document is null)
+        {
+            return;
+        }
+
+        Related = library.Related(Document);
+        Claims = ClientCapabilities.For(Document);
+        Html = ReferenceMarkdown.ToHtml(Document.Body);
+
+        Codebase = Document.Codebase is { } family
+            ? await CodebaseFigures.ReadAsync(Queries, family)
+            : null;
+
+        Protocol = Document.Protocol is { } protocol
+            ? await ProtocolFigures.ReadAsync(Queries, protocol, library.OfKind(ReferenceKind.Codebase))
+            : null;
+    }
+}

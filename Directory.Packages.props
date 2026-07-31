@@ -43,6 +43,19 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      Markdown, for the hand-written reference pages (spec §9) and nothing else. Pure managed, no
+      transitive dependencies, and no runtime asset of its own — which matters because a rendered
+      page here may fetch from no external host, and a renderer that emitted a CDN link or a remote
+      font would break that on a surface nobody thinks to check. The pipeline is built with raw HTML
+      disabled for the same reason: an author cannot put a remote script or image into a content file
+      even by accident, so "no external hosts" is a property of the parser rather than of editorial
+      care.
+    -->
+    <PackageVersion Include="Markdig" Version="1.3.2" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Test stack: TUnit (source-generated, runs on Microsoft.Testing.Platform). -->
     <PackageVersion Include="TUnit" Version="1.61.38" />
 

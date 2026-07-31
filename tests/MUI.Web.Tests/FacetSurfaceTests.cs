@@ -289,5 +289,6 @@ public class FacetSurfaceTests
         f.Family?.Token,
         f.Genre?.Token,
         f.Language?.Token,
+        f.CodebaseFamily,
         string.Join(',', f.MeasuredProtocols));
 }

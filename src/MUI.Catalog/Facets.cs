@@ -31,6 +31,13 @@ public static class FacetKeys
 
     public const string Codebase = "codebase";
 
+    /// <summary>
+    /// The codebase with its version taken off. Its own key, because <see cref="Codebase"/> is the
+    /// counted facet over raw values and the two answer different questions (see
+    /// <c>GameFilter.CodebaseFamily</c>).
+    /// </summary>
+    public const string CodebaseFamily = "codebase-family";
+
     public const string Family = "family";
 
     public const string Genre = "genre";
@@ -243,8 +250,14 @@ public static class FacetedSearch
         // database and the demo fixture disagreed about that until this became one function.
         var wantsArchived = filter.IncludeArchived || filter.Band is ActivityBand.Archived;
 
+        // The codebase family narrows the base set rather than being offered as a counted facet,
+        // which is deliberate: a reference page links here to say "the games running PennMUSH", and
+        // the facet counts on the page it lands on should be counts *within* that codebase. It sits
+        // beside the text search for the same reason — both are the question, not an answer to it.
         var baseRows = rows
-            .Where(r => (wantsArchived || r.Band is not ActivityBand.Archived) && MatchesText(r, filter.Text))
+            .Where(r => (wantsArchived || r.Band is not ActivityBand.Archived)
+                && MatchesText(r, filter.Text)
+                && CodebaseFamily.Matches(r.Codebase, filter.CodebaseFamily))
             .ToList();
 
         var results = baseRows.Where(r => Chosen(r, filter, null) && Present(r, filter)).ToList();
