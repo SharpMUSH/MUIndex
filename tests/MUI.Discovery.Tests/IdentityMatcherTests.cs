@@ -128,6 +128,29 @@ public class IdentityMatcherTests
     }
 
     [Test]
+    public async Task CodebaseCanComeFromInfoWhenMsspCodebaseIsAbsent()
+    {
+        var world = new IdentityWorld();
+        await world.GameAsync(
+            (IdentityFields.Codebase, "RhostMUSH 4.27.3"),
+            (IdentityFields.Website, "https://convergence.example"));
+
+        var verdict = await world.Matcher.ResolveAsync(ProbeResults.Answered(
+            host: "new.example.org",
+            mssp: ProbeResults.Mssp(("WEBSITE", "https://convergence.example")),
+            info: """
+                ### Begin INFO 1
+                Name: Convergence MUSH
+                Version: RhostMUSH 4.27.3
+                ### End INFO
+                """), None);
+
+        await Assert.That(verdict).IsTypeOf<IdentityVerdict.Review>();
+        await Assert.That(((IdentityVerdict.Review)verdict).Score.Score)
+            .IsEqualTo(IdentityWeights.WebsiteOrContact + IdentityWeights.CodebaseAndVersion);
+    }
+
+    [Test]
     public async Task TheThresholdsAreConfigurableBecauseTheyNeedCalibrating()
     {
         // Spec §15.5. Ship conservative, tune against real data — without a redeploy of the constants.
