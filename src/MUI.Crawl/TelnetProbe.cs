@@ -16,14 +16,15 @@ namespace MUI.Crawl;
 /// <remarks>
 /// <para>
 /// <b>This client never authenticates.</b> Everything it reads is what a server hands an anonymous
-/// connection: the banner it sends unprompted, the options it offers in the handshake, the MSSP
-/// report it publishes for crawlers, and the pre-login <c>WHO</c> the TinyMUD family answers before
-/// login. <see cref="PermittedCommands"/> is the complete list of what may go on the wire, and
+/// connection: the banner it sends unprompted, the options it negotiates, the MSSP report it
+/// publishes for crawlers, and the pre-login <c>WHO</c> the TinyMUD family answers before login.
+/// <see cref="PermittedCommands"/> is the complete list of what may go on the wire, and
 /// <c>connect</c> and <c>create</c> are not on it — enforced by test, not by good intentions.
 /// </para>
 /// <para>
-/// Temporary: this is the real-server path used while there is no scripted fake MU* server. It is
-/// deliberately conservative — one connection, one short quiet period, one <c>WHO</c>.
+/// <b>Layer 1 comes from the library's own callbacks, not from parsing bytes.</b> Each plugin below
+/// fires only when the server actually negotiated that option, so being told by the thing that did
+/// the negotiating is both simpler and more truthful than decoding the same exchange a second time.
 /// </para>
 /// </remarks>
 public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = null) : IProbe
@@ -45,12 +46,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(_options.Timeout);
 
-        var banner = new StringBuilder();
         var lines = new List<string>();
-        MSSPConfig? mssp = null;
-        var msspOutcome = MsspOutcome.NotOffered;
-        int? rejectedBytes = null;
-        var offered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seen = new Observations();
 
         using var client = new TcpClient();
 
@@ -58,72 +55,33 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         {
             await client.ConnectAsync(target.Host, target.Port, budget.Token);
 
-            var built = await new TelnetInterpreterBuilder()
-                .UseMode(TelnetInterpreter.TelnetMode.Client)
-                .UseLogger(_logger)
-                .OnSubmit((bytes, encoding, _) =>
-                {
-                    var text = (encoding ?? Encoding.UTF8).GetString(bytes);
-                    lock (lines)
-                    {
-                        lines.Add(text);
-                        banner.AppendLine(text);
-                    }
-
-                    return ValueTask.CompletedTask;
-                })
-                .AddDefaultMUDProtocols()
-                .AddPlugin<MSSPProtocol>()
-                    .OnMSSP(config =>
-                    {
-                        mssp = config;
-                        msspOutcome = MsspOutcome.Received;
-                        offered.Add("MSSP");
-                        return ValueTask.CompletedTask;
-                    })
-                    // 2.7.0 drops an oversized report whole rather than truncating it. Recorded as
-                    // its own outcome: "we asked, they answered, we declined to hold it" is not
-                    // "no MSSP", and rendering it as one would publish our limit as their fact.
-                    .OnMSSPMessageTooLarge(sizes =>
-                    {
-                        msspOutcome = MsspOutcome.RejectedTooLarge;
-                        rejectedBytes = (int)Math.Min(sizes.Item1, int.MaxValue);
-                        offered.Add("MSSP");
-                        return ValueTask.CompletedTask;
-                    })
-                    .WithMaxMessageSize(_options.MaxSubnegotiationBytes)
-                .BuildAndStartAsync(client, budget.Token);
-
+            var built = await Build(seen, lines).BuildAndStartAsync(client, budget.Token);
             var telnet = built.Item1;
 
             // Let the connect screen arrive, then ask the one question we are allowed to ask.
-            // The banner is whatever came before the question; the answer is whatever came after.
-            // Keeping them apart matters because they are different evidence: one is a display
+            // Banner and answer are kept apart because they are different evidence: one is a display
             // asset and codebase fingerprint, the other is a measurement.
             await Task.Delay(_options.BannerQuietPeriod, budget.Token);
 
-            int bannerLineCount;
+            int bannerLines;
             lock (lines)
             {
-                bannerLineCount = lines.Count;
+                bannerLines = lines.Count;
             }
 
             await telnet.SendAsync(Encoding.ASCII.GetBytes($"{PermittedCommands[0]}\r\n"));
             await Task.Delay(_options.BannerQuietPeriod, budget.Token);
 
-            string whoText;
+            string banner, whoText;
             lock (lines)
             {
-                whoText = string.Join("\n", lines.Skip(bannerLineCount));
-                banner.Clear();
-                banner.AppendJoin('\n', lines.Take(bannerLineCount));
+                banner = string.Join("\n", lines.Take(bannerLines));
+                whoText = string.Join("\n", lines.Skip(bannerLines));
             }
-
-            var who = new WhoParser().Parse(whoText);
 
             if (telnet.CurrentEncoding is not null)
             {
-                offered.Add($"CHARSET:{telnet.CurrentEncoding.WebName}");
+                seen.Charset ??= telnet.CurrentEncoding.WebName;
             }
 
             return new ProbeResult
@@ -132,13 +90,14 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Port = target.Port,
                 ObservedAt = observedAt,
                 Outcome = ProbeOutcome.Answered,
-                OfferedOptions = offered,
-                Banner = banner.ToString(),
-                Who = who,
-                Mssp = Flatten(mssp),
-                MsspOutcome = msspOutcome,
-                MsspBytesRejected = rejectedBytes,
-                MsspTransport = msspOutcome is MsspOutcome.Received
+                OfferedOptions = seen.Supported,
+                Negotiation = seen.ToNegotiation(),
+                Banner = banner,
+                Who = new WhoParser().Parse(whoText),
+                Mssp = Flatten(seen.Mssp),
+                MsspOutcome = seen.MsspOutcome,
+                MsspBytesRejected = seen.MsspRejectedBytes,
+                MsspTransport = seen.MsspOutcome is MsspOutcome.Received
                     ? MsspTransport.TelnetOption70
                     : MsspTransport.None,
                 Elapsed = Stopwatch.GetElapsedTime(started),
@@ -152,11 +111,126 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Port = target.Port,
                 ObservedAt = observedAt,
                 Outcome = ProbeOutcome.Failed,
-                Banner = banner.Length == 0 ? null : banner.ToString(),
+                OfferedOptions = seen.Supported,
+                Negotiation = seen.ToNegotiation(),
                 Failure = Classify(error),
                 Elapsed = Stopwatch.GetElapsedTime(started),
             };
         }
+    }
+
+    /// <summary>
+    /// Registers every protocol worth observing and hooks the callback that proves it engaged.
+    /// </summary>
+    /// <remarks>
+    /// Each plugin is here to be <em>watched</em>, not used. This client renders nothing, so MXP and
+    /// MCCP buy it no features — what they buy is the knowledge that this server offers them, which
+    /// is what the capability matrix is made of.
+    /// <para>
+    /// A protocol is recorded from inside its own callback, because that is the event that proves it
+    /// ran. The <c>OnEnabledAsync</c> overrides in <see cref="Watched"/> are a second, cheaper signal
+    /// for the same thing — but they are not sufficient on their own: measured against live servers
+    /// they did not fire, while <c>OnMSSP</c> and <c>OnCharsetChange</c> did. Keeping both means a
+    /// protocol counts as supported if either the library says it enabled or it demonstrably did
+    /// something, and neither route can silently become the only one.
+    /// </para>
+    /// </remarks>
+    private TelnetInterpreterBuilder Build(Observations seen, List<string> lines)
+    {
+        void Note(string protocol) => seen.Note(protocol);
+
+        var mssp = new Watched.Mssp(Note);
+        mssp.WithMaxMessageSize(_options.MaxSubnegotiationBytes);
+        mssp.OnMSSP(config =>
+        {
+            seen.Mssp = config;
+            seen.MsspOutcome = MsspOutcome.Received;
+            Note("MSSP");
+            return ValueTask.CompletedTask;
+        });
+        // 2.7.0 drops an oversized report whole rather than truncating it. Kept as its own outcome:
+        // we asked, they answered, we declined to hold it — which is not "no MSSP".
+        mssp.OnMSSPMessageTooLarge(sizes =>
+        {
+            seen.MsspOutcome = MsspOutcome.RejectedTooLarge;
+            seen.MsspRejectedBytes = (int)Math.Min(sizes.Item1, int.MaxValue);
+            Note("MSSP");
+            return ValueTask.CompletedTask;
+        });
+
+        var gmcp = new Watched.Gmcp(Note);
+        gmcp.WithMaxMessageSize(_options.MaxSubnegotiationBytes);
+        gmcp.OnGMCPMessage(message =>
+        {
+            seen.Gmcp(message.Item1);
+            Note("GMCP");
+            return ValueTask.CompletedTask;
+        });
+
+        var msdp = new Watched.Msdp(Note);
+        msdp.WithMaxMessageSize(_options.MaxSubnegotiationBytes);
+
+        var newEnviron = new Watched.NewEnviron(Note);
+        newEnviron.OnEnvironmentVariables((requested, _) =>
+        {
+            seen.Environment(requested.Keys);
+            Note("NEW-ENVIRON");
+            return ValueTask.CompletedTask;
+        });
+
+        var mccp = new Watched.Mccp(Note);
+        mccp.OnCompressionEnabled((version, _) =>
+        {
+            seen.CompressionVersion = version;
+            Note($"MCCP{version}");
+            return ValueTask.CompletedTask;
+        });
+
+        var eor = new Watched.Eor(Note);
+        eor.OnPrompt(() =>
+        {
+            seen.Prompts = true;
+            Note("EOR");
+            return ValueTask.CompletedTask;
+        });
+
+        // CharsetProtocol takes its order as a property rather than a builder call, and exposes
+        // OnCharsetChange on the instance — so the settled encoding is captured here rather than
+        // read off the interpreter afterwards, where a default is indistinguishable from a result.
+        var charset = new Watched.Charset(Note) { CharsetOrder = [Encoding.UTF8, Encoding.Latin1] };
+        charset.OnCharsetChange(encoding =>
+        {
+            seen.Charset = encoding.WebName;
+            seen.CharsetNegotiated = true;
+            Note("CHARSET");
+            return ValueTask.CompletedTask;
+        });
+
+        return new TelnetInterpreterBuilder()
+            .UseMode(TelnetInterpreter.TelnetMode.Client)
+            .UseLogger(_logger)
+            .OnSubmit((bytes, encoding, _) =>
+            {
+                var text = (encoding ?? Encoding.UTF8).GetString(bytes);
+                lock (lines)
+                {
+                    lines.Add(text);
+                }
+
+                return ValueTask.CompletedTask;
+            })
+            .AddPlugin(mssp)
+            .AddPlugin(charset)
+            .AddPlugin(newEnviron)
+            .AddPlugin(gmcp)
+            .AddPlugin(msdp)
+            .AddPlugin(mccp)
+            .AddPlugin(eor)
+            .AddPlugin(new Watched.Mxp(Note))
+            .AddPlugin(new Watched.SuppressGoAhead(Note))
+            .AddPlugin(new Watched.Naws(Note))
+            .AddPlugin(new Watched.TerminalType(Note))
+            .AddPlugin(new Watched.Echo(Note));
     }
 
     /// <summary>
@@ -169,12 +243,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         SocketException { SocketErrorCode: SocketError.ConnectionRefused } => new("refused", error.Message),
         SocketException { SocketErrorCode: SocketError.TimedOut } => new("timeout", error.Message),
         OperationCanceledException => new("timeout", "probe budget exhausted"),
-        AuthenticationExceptionMarker => new("tls", error.Message),
         _ => new("error", error.Message),
     };
-
-    /// <summary>Matches TLS failures without taking a dependency on the auth namespace here.</summary>
-    private abstract class AuthenticationExceptionMarker : Exception;
 
     private static IReadOnlyDictionary<string, string> Flatten(MSSPConfig? config)
     {
@@ -187,20 +257,16 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
         void Put(string name, object? value)
         {
-            if (value is null)
-            {
-                return;
-            }
-
             var text = value switch
             {
+                null => null,
                 IEnumerable<string> many => string.Join(", ", many),
                 _ => value.ToString(),
             };
 
             if (!string.IsNullOrWhiteSpace(text))
             {
-                flat[name] = text!;
+                flat[name] = text;
             }
         }
 
@@ -213,5 +279,76 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         Put("CHARSET", config.Charset);
 
         return flat;
+    }
+
+    /// <summary>Mutable scratch for one probe. Callbacks arrive on the read loop, so it locks.</summary>
+    private sealed class Observations
+    {
+        private readonly HashSet<string> _supported = new(StringComparer.Ordinal);
+        private readonly List<string> _environment = [];
+        private readonly List<string> _gmcp = [];
+
+        public MSSPConfig? Mssp;
+        public MsspOutcome MsspOutcome = MsspOutcome.NotOffered;
+        public int? MsspRejectedBytes;
+        public string? Charset;
+        public int? CompressionVersion;
+        public bool Prompts;
+        public bool CharsetNegotiated;
+
+        public IReadOnlySet<string> Supported
+        {
+            get
+            {
+                lock (_supported)
+                {
+                    return _supported.ToHashSet(StringComparer.Ordinal);
+                }
+            }
+        }
+
+        public void Note(string protocol)
+        {
+            lock (_supported)
+            {
+                _supported.Add(protocol);
+            }
+        }
+
+        public void Environment(IEnumerable<string> names)
+        {
+            lock (_environment)
+            {
+                _environment.AddRange(names);
+            }
+        }
+
+        public void Gmcp(string package)
+        {
+            lock (_gmcp)
+            {
+                _gmcp.Add(package);
+            }
+        }
+
+        public Negotiation ToNegotiation()
+        {
+            lock (_environment)
+            {
+                lock (_gmcp)
+                {
+                    return new Negotiation
+                    {
+                        Supported = Supported,
+                        Charset = Charset,
+                        CharsetNegotiated = CharsetNegotiated,
+                        CompressionVersion = CompressionVersion,
+                        EnvironmentRequested = _environment.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                        GmcpPackages = _gmcp.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                        SendsPromptMarkers = Prompts,
+                    };
+                }
+            }
+        }
     }
 }

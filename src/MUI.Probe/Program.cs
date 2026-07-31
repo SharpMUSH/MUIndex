@@ -19,7 +19,18 @@ if (result.MsspBytesRejected is { } rejected)
     Console.WriteLine($"mssp dropped  {rejected} bytes");
 }
 
-Console.WriteLine($"offered       {(result.OfferedOptions.Count == 0 ? "(none observed)" : string.Join(", ", result.OfferedOptions.Order()))}");
+Console.WriteLine($"negotiated    {(result.OfferedOptions.Count == 0 ? "(none observed)" : string.Join(", ", result.OfferedOptions.Order()))}");
+Console.WriteLine($"charset       {result.Negotiation.Charset ?? "(unset)"}{(result.Negotiation.CharsetNegotiated ? " (negotiated)" : " (default)")}");
+
+if (result.Negotiation.EnvironmentRequested.Count > 0)
+{
+    Console.WriteLine($"mnes asked    {string.Join(", ", result.Negotiation.EnvironmentRequested)}");
+}
+
+if (result.Negotiation.GmcpPackages.Count > 0)
+{
+    Console.WriteLine($"gmcp          {string.Join(", ", result.Negotiation.GmcpPackages)}");
+}
 
 if (result.Failure is { } failure)
 {

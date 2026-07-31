@@ -25,6 +25,12 @@ public sealed record ProbeResult
     /// </summary>
     public IReadOnlySet<string> OfferedOptions { get; init; } = new HashSet<string>();
 
+    /// <summary>
+    /// Layer 1, decoded — the full option exchange, including refusals, the charsets the server
+    /// offered, and any MNES/MTTS behaviour it revealed by asking us questions.
+    /// </summary>
+    public Negotiation Negotiation { get; init; } = new();
+
     /// <summary>Layer 2 — the connect screen, ANSI intact. Display asset and codebase fingerprint both.</summary>
     public string? Banner { get; init; }
 
