@@ -31,6 +31,22 @@ public static class Render
     /// </remarks>
     public static Task<string> PageAsync<TComponent>(Dictionary<string, object?> parameters)
         where TComponent : IComponent =>
+        PageAsync<TComponent>(parameters, string.Empty);
+
+    /// <summary>
+    /// The same page, rendered at a URL.
+    /// </summary>
+    /// <remarks>
+    /// The listing reads its own querystring rather than binding parameter by parameter, because one
+    /// parser answers both it and the read API — so rendering it at all means giving it somewhere to
+    /// read that from. Nothing here did until there was a sort whose survival of the URL had to be
+    /// proved, which is also how "last reached now ago" reached a real page: no test had ever looked
+    /// at a rendered listing row.
+    /// </remarks>
+    public static Task<string> PageAsync<TComponent>(
+        Dictionary<string, object?> parameters,
+        string query)
+        where TComponent : IComponent =>
         ComponentAsync<TComponent>(parameters, services =>
         {
             var fixture = new FixtureGameQueries();
@@ -39,7 +55,19 @@ public static class Render
             services.AddSingleton<IAvailabilityHistory>(fixture);
             services.AddSingleton(TimeProvider.System);
             services.AddSingleton(new CatalogueSource(IsMeasured: false));
+            services.AddSingleton<NavigationManager>(new StubNavigation(query));
         });
+
+    /// <summary>A navigation manager with nothing to do but answer "which URL am I on".</summary>
+    private sealed class StubNavigation : NavigationManager
+    {
+        public StubNavigation(string query) =>
+            Initialize("http://localhost/", "http://localhost/games" + query);
+
+        protected override void NavigateToCore(string uri, bool forceLoad)
+        {
+        }
+    }
 
     public static async Task<string> ComponentAsync<TComponent>(
         Dictionary<string, object?> parameters,

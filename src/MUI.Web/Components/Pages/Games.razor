@@ -13,8 +13,10 @@ else
 {
     <PageTitle>Games — mu*index</PageTitle>
 
-    <h1>Games</h1>
-    <p class="dim">Every fact below was measured. Nothing here was typed into a form by us.</p>
+    <header class="listing-head">
+        <h1>Games</h1>
+        <p class="dim">Every fact below was measured. Nothing here was typed into a form by us.</p>
+    </header>
 
     @if (Error is { } problem)
     {
@@ -28,7 +30,7 @@ else
     }
     else
     {
-        <FacetPanel Facets="Listing.Facets" Filter="Filter" />
+        <FacetPanel Facets="Listing.Facets" Filter="Filter" Query="@Query" />
 
         @if (Filter.CodebaseFamily is { Exclude: false, Value: { } family })
         {
@@ -42,37 +44,73 @@ else
             </p>
         }
 
-        <p class="kicker">
-            @Listing.Games.Count games · counts measured, never asserted ·
-            <a href="@RandomHref">show me a random one</a>
-        </p>
+        <div class="listing-bar">
+            <p class="result-count">
+                <strong>@Listing.Games.Count</strong>
+                <span class="dim">@(Listing.Games.Count == 1 ? "game" : "games")</span>
+            </p>
+            <p class="kicker listing-order">
+                @* The order is stated rather than left to be inferred from the first few rows. *@
+                by @FacetWords.Sort(Filter.Sort) · counts measured, never asserted
+                @if (Listing.Games.Count > 0)
+                {
+                    @* Only where there is something to be random among. An affordance that cannot do
+                       what it offers is worse than one that is not there. *@
+                    <text> · </text><a href="@RandomHref">show me a random one</a>
+                }
+            </p>
+        </div>
 
         <ul class="games">
             @foreach (var g in Listing.Games)
             {
-                <li>
+                @*
+                    Where a sort runs out of things it can rank, the list says so before it goes on.
+                    Sorted by players, the counted games end and the ones we reached but could not
+                    count begin — and without this break the page reads 54, 11, 2, 0, and then a long
+                    tail showing no number, which looks exactly like a tail of empty games. It is a
+                    real list item so it survives in the accessibility tree and in plain text.
+                *@
+                @if (BreakBefore(g))
+                {
+                    <li class="unranked-break">
+                        <span class="kicker">from here</span>
+                        <span>@FacetWords.Unranked(Filter.Sort)</span>
+                    </li>
+                }
+                <li class="game-row @(g.State is LifecycleState.Archived ? "archived" : null)">
                     <div class="row-main">
-                        <div>
-                            <a class="name" href="/g/@g.Slug">@g.Name</a>
-                            @if (g.State is LifecycleState.Archived)
-                            {
-                                <span class="badge archived">archived</span>
-                            }
-                            else if (g.IsClaimed)
-                            {
-                                <span class="badge claimed">claimed</span>
-                            }
-                            else
-                            {
-                                <span class="badge">unclaimed</span>
-                            }
+                        <div class="row-text">
+                            <p class="row-head">
+                                <a class="name" href="/g/@g.Slug">@g.Name</a>
+                                @*
+                                    Archived and claimed are the two states worth a pill. Unclaimed is
+                                    the majority state of the catalogue and is drawn as the quiet word
+                                    it is — pilled on every row it was chrome, and a badge every game
+                                    wears is a badge that distinguishes none of them. The word itself
+                                    stays, on every row and in plain text, because "nobody has claimed
+                                    this" is a fact about the entry.
+                                *@
+                                @if (g.State is LifecycleState.Archived)
+                                {
+                                    <span class="badge archived">archived</span>
+                                }
+                                else if (g.IsClaimed)
+                                {
+                                    <span class="badge claimed">claimed</span>
+                                }
+                                else
+                                {
+                                    <span class="unclaimed">unclaimed</span>
+                                }
+                            </p>
 
                             @if (g.Tagline is { } t)
                             {
-                                <div class="dim">@t</div>
+                                <p class="tagline">@t</p>
                             }
 
-                            <div class="meta mono">
+                            <p class="meta mono">
                                 @if (g.Codebase is { } cb)
                                 {
                                     <text>@cb</text>
@@ -83,24 +121,25 @@ else
                                 }
                                 @foreach (var p in g.MeasuredProtocols)
                                 {
-                                    <text> · @p <span class="state-present">●</span></text>
+                                    <text> · </text><span class="protocol">@p <span class="state-present" aria-hidden="true">●</span></span>
                                 }
-                            </div>
+                            </p>
                         </div>
 
-                        <div class="count mono">
+                        <p class="row-figure mono">
                             @*
                                 Three states, spelled rather than implied. A missing count says so in
                                 words — it is never rendered as a zero, and never left blank for a
-                                reader to guess at.
+                                reader to guess at. A measured zero keeps the accent glyph every other
+                                count has, because it is every bit as much a measurement.
                             *@
                             @if (g.PlayersNow is { } n)
                             {
-                                <span class="state-present">● @n on</span>
+                                <span class="players"><span class="state-present" aria-hidden="true">●</span> @n <span class="unit">on</span></span>
                             }
                             else
                             {
-                                <span class="state-unknown">– count unknown</span>
+                                <span class="players unknown"><span aria-hidden="true">–</span> count unknown</span>
                             }
 
                             @*
@@ -108,17 +147,17 @@ else
                                 a reader can check the facet did what it said. Never reached is its own
                                 sentence and is never dated from our own first sighting.
                             *@
-                            <div class="faint">
+                            <span class="seen">
                                 @if (g.LastReachableAt is { } seen)
                                 {
-                                    <text>last reached @Relative.Format(Now - seen) ago</text>
+                                    <text>reached @Relative.Ago(Now - seen)</text>
                                 }
                                 else
                                 {
                                     <span class="state-unknown">never reached</span>
                                 }
-                            </div>
-                        </div>
+                            </span>
+                        </p>
                     </div>
                 </li>
             }
@@ -126,10 +165,16 @@ else
 
         @if (Listing.Games.Count == 0)
         {
-            <p class="dim">
-                Nothing matched. Nothing is ever deleted here, so a name that once worked still does —
-                try fewer words, drop a filter, or <a href="/archive">look in the archive</a>.
-            </p>
+            <div class="empty-state">
+                <p class="empty-head">Nothing matched.</p>
+                <p class="dim">
+                    Nothing is ever deleted here, so a name that once worked still does. Try fewer
+                    words, or drop a filter.
+                </p>
+                <p class="kicker">
+                    <a href="/games">clear every filter</a> · <a href="/archive">look in the archive</a>
+                </p>
+            </div>
         }
     }
 
@@ -160,13 +205,27 @@ else
     /// link would have quietly dropped it and offered the unfiltered catalogue as "this page, as
     /// text" — which is the same page in neither sense.
     /// </remarks>
-    private string PlainHref => Relink("plain", "1");
+    private string PlainHref => ListingLinks.With(Query, "plain", "1");
 
     /// <summary>
     /// Random, within whatever is on screen (spec §9). The filters ride along, because "surprise me"
     /// after narrowing to Evennia games means surprise me among those.
     /// </summary>
-    private string RandomHref => "/games/random" + Relink("plain", null);
+    private string RandomHref => "/games/random" + ListingLinks.With(Query, "plain", null);
+
+    /// <summary>
+    /// The first game this sort had nothing to rank, which is where the list says so.
+    /// </summary>
+    /// <remarks>
+    /// Held as the game rather than as an index because the loop has the game and not its position,
+    /// and resolved once per render rather than per row. Null when the sort ranks everything it was
+    /// given — including when it ranks nothing, which is the case where the break is the first thing
+    /// on the list and is exactly as worth drawing.
+    /// </remarks>
+    private GameSummary? FirstUnranked => Listing.Games
+        .FirstOrDefault(g => GameSorting.IsUnranked(g, Filter.Sort));
+
+    private bool BreakBefore(GameSummary game) => ReferenceEquals(game, FirstUnranked);
 
     protected override async Task OnParametersSetAsync()
     {
@@ -183,22 +242,5 @@ else
         Error = null;
         Filter = query.Filter;
         Listing = await Queries.SearchAsync(Filter);
-    }
-
-    /// <summary>This page's querystring with one parameter set, replaced, or — on null — removed.</summary>
-    private string Relink(string name, string? value)
-    {
-        var parts = QueryHelpers.ParseQuery(Query)
-            .Where(p => !string.Equals(p.Key, name, StringComparison.OrdinalIgnoreCase))
-            .SelectMany(p => p.Value.Select(v =>
-                $"{Uri.EscapeDataString(p.Key)}={Uri.EscapeDataString(v ?? string.Empty)}"))
-            .ToList();
-
-        if (value is not null)
-        {
-            parts.Add($"{Uri.EscapeDataString(name)}={Uri.EscapeDataString(value)}");
-        }
-
-        return parts.Count == 0 ? string.Empty : "?" + string.Join('&', parts);
     }
 }

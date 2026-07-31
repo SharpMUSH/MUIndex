@@ -41,6 +41,103 @@ public static class FacetKeys
     public const string Family = "family";
 
     public const string Genre = "genre";
+
+    /// <summary>
+    /// What order the listing comes back in. A filter parameter by spelling and by plumbing, so the
+    /// panel, the page and the read API cannot grow two words for one question.
+    /// </summary>
+    public const string Sort = "sort";
+}
+
+/// <summary>
+/// The orders the catalogue can be read in.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Every one of these sorts on a fact already on the row.</b> There is no "busiest" here and the
+/// word is deliberately not used: <c>/rankings</c> means something specific by it — a median over a
+/// window with a sample floor under it — and a sort that reads one instantaneous count would be a
+/// cruder question wearing the same name. This is "players on now", which is exactly what it orders
+/// by and exactly as much as it claims.
+/// </para>
+/// <para>
+/// <b>There is no "recently listed".</b> The only date we have for that is <c>game.first_seen_at</c>,
+/// which is when <em>our crawler</em> first reached a game — a picture of where the frontier has got
+/// to, not of anything happening in the hobby (the same reasoning that keeps it off the adoption
+/// curves, see <c>EcosystemDashboard</c>). Sorted to the top of the catalogue it would read as "new
+/// games", which is a claim we would be making out of our own schedule. The <em>newly discovered</em>
+/// feed publishes the same dates with the framing that makes them honest, and that is where it stays.
+/// </para>
+/// </remarks>
+public enum GameSort
+{
+    /// <summary>
+    /// Alphabetical, and the default.
+    /// </summary>
+    /// <remarks>
+    /// The default is the one order that ranks nobody. Every other sort in this enum puts some games
+    /// above others on a measurement, and a listing that arrives pre-ranked is making an editorial
+    /// claim the reader never asked for — the same objection this project has to star ratings, one
+    /// step removed. Sorting is a thing a reader chooses.
+    /// </remarks>
+    Name,
+
+    /// <summary>Most players counted on right now, first.</summary>
+    Players,
+
+    /// <summary>Most recently reached first.</summary>
+    Reached,
+}
+
+/// <summary>
+/// The listing's order, and what it does with the games a sort cannot rank.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>An unknown is never a zero and never sorts as one.</b> Most of this catalogue answers with
+/// nothing we can count — we got in and the <c>WHO</c> was past our parser, or the game published no
+/// <c>PLAYERS</c> — and <c>null</c> ordered as <c>0</c> would pile every one of those at the bottom
+/// of "players on now" indistinguishably from the games we measured and found empty. That is the
+/// central claim of this project made backwards, on the page it is most likely to be read off.
+/// </para>
+/// <para>
+/// So the games a sort can rank come first, in order, and the ones it cannot follow as a group in
+/// the default order. <see cref="IsUnranked"/> is the same question the surfaces ask to know where to
+/// draw the line and what to call the group, so the ordering and the label cannot disagree about
+/// which games are in it.
+/// </para>
+/// </remarks>
+public static class GameSorting
+{
+    /// <summary>Whether this sort has nothing to rank a game by — never "whether it is zero".</summary>
+    public static bool IsUnranked(GameSummary game, GameSort sort)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+
+        return sort switch
+        {
+            GameSort.Players => game.PlayersNow is null,
+            GameSort.Reached => game.LastReachableAt is null,
+            _ => false,
+        };
+    }
+
+    public static IReadOnlyList<GameSummary> Apply(IEnumerable<GameSummary> games, GameSort sort)
+    {
+        ArgumentNullException.ThrowIfNull(games);
+
+        // Ranked before unranked, always — then the sort's own key, then the name, so the order is
+        // total and a listing does not shuffle between two identical requests.
+        var ordered = games
+            .OrderBy(g => IsUnranked(g, sort) ? 1 : 0)
+            .ThenByDescending(g => sort is GameSort.Players ? g.PlayersNow ?? 0 : 0)
+            .ThenByDescending(g => sort is GameSort.Reached
+                ? g.LastReachableAt ?? DateTimeOffset.MinValue
+                : DateTimeOffset.MinValue)
+            .ThenBy(g => g.Name, StringComparer.OrdinalIgnoreCase);
+
+        return [.. ordered];
+    }
 }
 
 /// <summary>
@@ -377,7 +474,10 @@ public static class FacetedSearch
 
         groups.AddRange(Presence(results, filter));
 
-        return new GameListing([.. results.Select(r => r.Summary)], groups);
+        // Ordered after the counting, never before it. Every facet count is taken over a set, and a
+        // set has no order — so sorting here cannot move a number, which is what lets the panel go on
+        // promising exactly what a click returns whichever way the list is arranged.
+        return new GameListing(GameSorting.Apply(results.Select(r => r.Summary), filter.Sort), groups);
     }
 
     /// <summary>
@@ -656,6 +756,9 @@ public static class FacetTokens
     public static IReadOnlyList<string> LastSeenBands { get; } =
         [.. Enum.GetValues<LastSeenBand>().Select(Of)];
 
+    public static IReadOnlyList<string> Sorts { get; } =
+        [.. Enum.GetValues<GameSort>().Select(Of)];
+
     /// <summary>The three windows that nest, widest last.</summary>
     private static readonly string?[] Nested =
         [Of(LastSeenBand.Day), Of(LastSeenBand.Week), Of(LastSeenBand.Month)];
@@ -684,9 +787,13 @@ public static class FacetTokens
 
     public static string Of(LastSeenBand band) => Camel(band.ToString());
 
+    public static string Of(GameSort sort) => Camel(sort.ToString());
+
     public static bool TryBand(string? text, out ActivityBand band) => TryRead(text, out band);
 
     public static bool TryLastSeen(string? text, out LastSeenBand band) => TryRead(text, out band);
+
+    public static bool TrySort(string? text, out GameSort sort) => TryRead(text, out sort);
 
     /// <summary>
     /// Reads one of the derived vocabularies, forgivingly about separators and strictly about

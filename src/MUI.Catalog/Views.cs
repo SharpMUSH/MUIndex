@@ -197,6 +197,17 @@ public sealed record GameFilter
     /// </para>
     /// </remarks>
     public FacetChoice? CodebaseFamily { get; init; }
+
+    /// <summary>
+    /// What order the answer comes back in.
+    /// </summary>
+    /// <remarks>
+    /// A question about presentation, and still part of the filter, because the URL is the whole of
+    /// this page's state: a sorted listing has to be linkable exactly as a filtered one is, and the
+    /// read API has to answer the same question the page asked. <see cref="GameSort.Name"/> is the
+    /// default and is the one order that ranks nobody.
+    /// </remarks>
+    public GameSort Sort { get; init; } = GameSort.Name;
 }
 
 /// <summary>

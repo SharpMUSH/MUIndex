@@ -63,7 +63,9 @@ public static class GameFilterBinding
     {
         result = null!;
 
-        if (!TryBand(read, out var band, out error) || !TryLastSeen(read, out var seen, out error))
+        if (!TryBand(read, out var band, out error)
+            || !TryLastSeen(read, out var seen, out error)
+            || !TrySort(read, out var sort, out error))
         {
             return false;
         }
@@ -92,6 +94,7 @@ public static class GameFilterBinding
             CodebaseFamily = string.IsNullOrWhiteSpace(codebaseFamily)
                 ? null
                 : FacetChoice.Parse(codebaseFamily.Trim()),
+            Sort = sort,
         };
 
         result = new GameQuery(
@@ -172,6 +175,32 @@ public static class GameFilterBinding
         }
 
         seen = parsed;
+        return true;
+    }
+
+    /// <summary>
+    /// The listing's order. Refused rather than ignored, like every other unreadable facet: a
+    /// consumer who asked for <c>?sort=busiest</c> and silently got the alphabet would read the first
+    /// name on the page as the busiest game on the site.
+    /// </summary>
+    private static bool TrySort(Func<string, StringValues> read, out GameSort sort, out string? error)
+    {
+        sort = GameSort.Name;
+        error = null;
+        var text = read(FacetKeys.Sort).ToString();
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return true;
+        }
+
+        if (!FacetTokens.TrySort(text, out var parsed))
+        {
+            error = $"'{text}' is not a sort order. Accepted: {string.Join(", ", FacetTokens.Sorts)}.";
+            return false;
+        }
+
+        sort = parsed;
         return true;
     }
 
