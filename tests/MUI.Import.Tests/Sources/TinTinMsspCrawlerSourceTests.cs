@@ -114,7 +114,7 @@ public class TinTinMsspCrawlerSourceTests
     [Test]
     public async Task ThePlayerCountIsDatedByThePagesOwnGenerationStamp()
     {
-        await Assert.That(MsspCrawlerTable.GeneratedAt(Fixture.Read("tintin-mssp-mudlist.html")))
+        await Assert.That(TinTinCrawlerTable.GeneratedAt(Fixture.Read("tintin-mssp-mudlist.html")))
             .IsEqualTo(Generated);
 
         var game = Games().Single(candidate => candidate.Name == "Alter Aeon");
