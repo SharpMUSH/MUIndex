@@ -38,15 +38,36 @@
                             @FacetWords.Group(group.Key)
                             <span class="evidence @Evidence(group)">@FacetWords.Evidence(group.Evidence)</span>
                         </label>
+                        @*
+                            Every value appears twice — once to filter in, once to filter out — which
+                            is the only way to offer the third state in a plain GET form with no
+                            script. A facet has three states (spec §9 and FacetChoice): not asked
+                            about, only these, anything but these. Two <optgroup>s rather than a
+                            second control, so one <select> still carries the whole question and the
+                            browser's own keyboard handling still works.
+                        *@
                         <select id="facet-@group.Key" name="@group.Key">
                             @* Always first, always empty: a facet you cannot un-choose is a trap. *@
                             <option value="">any (@group.Total)</option>
-                            @foreach (var value in group.Values)
-                            {
-                                <option value="@value.Token" selected="@value.IsSelected">
-                                    @FacetWords.Value(group.Key, value) (@value.Count)
-                                </option>
-                            }
+                            <optgroup label="only">
+                                @foreach (var value in group.Values)
+                                {
+                                    <option value="@value.Token"
+                                            selected="@(value.State is FacetState.Included)">
+                                        @FacetWords.Value(group.Key, value) (@value.Count)
+                                    </option>
+                                }
+                            </optgroup>
+                            <optgroup label="anything but">
+                                @foreach (var value in group.Values)
+                                {
+                                    <option value="@Excluded(value).Token"
+                                            selected="@(value.State is FacetState.Excluded)">
+                                        not @FacetWords.Value(group.Key, value)
+                                        (@(group.Total - value.Count))
+                                    </option>
+                                }
+                            </optgroup>
                         </select>
                     </div>
                 }
@@ -88,6 +109,17 @@
 </form>
 
 @code {
+    /// <summary>
+    /// The same value, spelled as an exclusion — <c>Evennia</c> becomes <c>!Evennia</c>.
+    /// </summary>
+    /// <remarks>
+    /// Built through <see cref="FacetChoice"/> rather than by prefixing a string here, so the
+    /// panel's spelling and the binding's parser cannot drift: a value that itself begins with the
+    /// marker is escaped by the same code that unescapes it.
+    /// </remarks>
+    private static FacetChoice Excluded(FacetValue value) =>
+        (value.IsUnknown ? FacetChoice.Unknown : FacetChoice.Of(value.Token)) with { Exclude = true };
+
     [Parameter, EditorRequired] public IReadOnlyList<FacetGroup> Facets { get; set; } = [];
 
     [Parameter, EditorRequired] public GameFilter Filter { get; set; } = new();

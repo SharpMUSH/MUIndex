@@ -89,7 +89,9 @@ public static class GameFilterBinding
             Family = Choice(read, FacetKeys.Family),
             Genre = Choice(read, FacetKeys.Genre),
             Language = Choice(read, FacetKeys.Language),
-            CodebaseFamily = string.IsNullOrWhiteSpace(codebaseFamily) ? null : codebaseFamily.Trim(),
+            CodebaseFamily = string.IsNullOrWhiteSpace(codebaseFamily)
+                ? null
+                : FacetChoice.Parse(codebaseFamily.Trim()),
         };
 
         result = new GameQuery(
