@@ -1,4 +1,5 @@
 using MUI.Catalog;
+using MUI.Web.Api;
 using MUI.Web.Components;
 using MUI.Web.Data;
 using MUI.Web.Fixtures;
@@ -6,6 +7,11 @@ using MUI.Web.Fixtures;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents();
+
+// The read API (spec §10) reads through the same IGameQueries the pages do, so the two surfaces
+// cannot disagree about a fact. What it adds of its own — the dataset licence, the slug aliases and
+// the attribution list — is configuration, because none of it is a measurement.
+builder.Services.AddMuiApi(builder.Configuration);
 
 // The site reads through IGameQueries and nothing else. Today a fixture answers it; Postgres will
 // answer it later without a page changing. That seam is what lets the web tier and the crawler be
@@ -33,6 +39,7 @@ app.UseStaticFiles();
 app.UseAntiforgery();
 
 app.MapRazorComponents<App>();
+app.MapMuiApi();
 
 app.Run();
 
