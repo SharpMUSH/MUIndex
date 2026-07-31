@@ -96,6 +96,9 @@ var cycle = new CrawlCycle(
     new HostGate(),
     discovery,
     time,
+    // §8 — a probe of a claimed game refreshes what we last saw, and a probe of a game whose owner
+    // has just published their token settles the claim. Both happen on the ordinary schedule.
+    new ClaimService(new NpgsqlClaimStore(source), games, time),
     loggerFactory.CreateLogger<CrawlCycle>());
 
 if (arguments.DryRun)

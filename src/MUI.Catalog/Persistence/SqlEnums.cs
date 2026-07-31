@@ -33,6 +33,52 @@ public static class SqlEnums
         _ => throw Unread(value, nameof(FieldSource)),
     };
 
+    /// <summary>
+    /// The channel a claim token was read from (spec §8.3). DNS is absent from the enum, not merely
+    /// unmapped here — a TXT record proves control of a hostname, and a hostname is not a game.
+    /// </summary>
+    public static string ToDb(ClaimChannel channel) => channel switch
+    {
+        ClaimChannel.Mssp => "mssp",
+        ClaimChannel.ConnectScreen => "connect_screen",
+        _ => throw Unmapped(channel),
+    };
+
+    public static ClaimChannel ToClaimChannel(string value) => value switch
+    {
+        "mssp" => ClaimChannel.Mssp,
+        "connect_screen" => ClaimChannel.ConnectScreen,
+        _ => throw Unread(value, nameof(ClaimChannel)),
+    };
+
+    public static string ToDb(ClaimEventKind kind) => kind switch
+    {
+        ClaimEventKind.Issued => "issued",
+        ClaimEventKind.Reissued => "reissued",
+        ClaimEventKind.Verified => "verified",
+        ClaimEventKind.BeaconSeen => "beacon_seen",
+        ClaimEventKind.BeaconMissing => "beacon_missing",
+        ClaimEventKind.Revoked => "revoked",
+        ClaimEventKind.Expired => "expired",
+        ClaimEventKind.CounterClaimed => "counter_claimed",
+        ClaimEventKind.CheckRequested => "check_requested",
+        _ => throw Unmapped(kind),
+    };
+
+    public static ClaimEventKind ToClaimEventKind(string value) => value switch
+    {
+        "issued" => ClaimEventKind.Issued,
+        "reissued" => ClaimEventKind.Reissued,
+        "verified" => ClaimEventKind.Verified,
+        "beacon_seen" => ClaimEventKind.BeaconSeen,
+        "beacon_missing" => ClaimEventKind.BeaconMissing,
+        "revoked" => ClaimEventKind.Revoked,
+        "expired" => ClaimEventKind.Expired,
+        "counter_claimed" => ClaimEventKind.CounterClaimed,
+        "check_requested" => ClaimEventKind.CheckRequested,
+        _ => throw Unread(value, nameof(ClaimEventKind)),
+    };
+
     public static string ToDb(AvailabilityState state) => state switch
     {
         // Reachable, never up (spec §5.8). We measured a socket from one vantage point; we did not
