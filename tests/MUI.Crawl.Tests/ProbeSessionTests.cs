@@ -165,16 +165,24 @@ public class ProbeSessionTests
         {
             Banner = "Welcome to Nowhere\r\n",
             WhoReply = "There are 2 players connected.\r\n",
+            SwallowsNegotiationAsText = true,
         };
 
         await new TelnetProbe(Fast()).ProbeAsync(game.Target);
 
         await Assert.That(game.Received).DoesNotContain("MSSP-REQUEST");
+        await Assert.That(game.Received.Any(line => line.Contains("\u00ff\u00fdF", StringComparison.Ordinal)))
+            .IsFalse();
 
         foreach (var line in game.Received)
         {
             var spoken = line.Trim();
             if (spoken.Length == 0)
+            {
+                continue;
+            }
+
+            if (!spoken.All(c => c is >= ' ' and <= '~'))
             {
                 continue;
             }

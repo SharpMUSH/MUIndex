@@ -113,16 +113,16 @@ public class AboutPageTests
     }
 
     [Test]
-    public async Task TheCrawlerIsNotClaimedToAnnounceItselfWhileItCannot()
+    public async Task TheCrawlerIsAnnouncedNowThatTncSupportsClientIdentity()
     {
-        // TelnetNegotiationCore gives a client no way to set its terminal type, so nothing we
-        // configure reaches an admin's logs. Saying it does would be the ContactedMaintainer defect
-        // in a new place: a claim about our own behaviour, compiled in by whoever typed it.
+        // TelnetNegotiationCore 2.8.1 added WithClientIdentity and WithTerminalTypes, which wire
+        // the configured name into TTYPE responses and MNES CLIENT_NAME. The probe sets both, so
+        // what an administrator reads in their logs is the name in ProbeOptions.TerminalTypes.
         var identity = Page.Sections.Single(s => s.Id == "crawler").Identity;
 
         await Assert.That(identity).IsNotNull();
-        await Assert.That(identity!.Announced).IsFalse();
-        await Assert.That(Render.Words(Plain)).Contains("configured to call itself");
+        await Assert.That(identity!.Announced).IsTrue();
+        await Assert.That(Render.Words(Plain)).Contains("names itself");
     }
 
     [Test]

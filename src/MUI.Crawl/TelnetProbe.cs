@@ -52,8 +52,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// </remarks>
     public static readonly IReadOnlyList<string> PermittedCommands = [WhoCommand, InfoCommand, VersionCommand];
 
-    private const byte Iac = 255;
-    private const byte Do = 253;
     private const byte NewLine = (byte)'\n';
 
     private readonly ProbeOptions _options = options ?? new ProbeOptions();
@@ -85,13 +83,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 {
                     return lines.Count;
                 }
-            }
-
-            // Ask for the options a server may support without volunteering. Negotiation, not
-            // traffic — written straight to the network so it is not escaped as data would be.
-            foreach (var option in _options.RequestOptions)
-            {
-                await telnet.WriteToNetworkAsync(new byte[] { Iac, Do, option }, budget.Token);
             }
 
             // Phase 1 — the connect screen. Banner and WHO answer are kept apart because they are
@@ -400,9 +391,17 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             return ValueTask.CompletedTask;
         });
 
+        // The verbatim TTYPE list from options is passed to WithTerminalTypes so it reaches the
+        // wire exactly as configured. WithClientIdentity on the builder feeds the same name into
+        // the MNES/NEW-ENVIRON side (CLIENT_NAME), which reads it from shared state independently
+        // of the TTYPE list.
+        var terminalType = new Watched.TerminalType(Note);
+        terminalType.WithTerminalTypes([.. _options.TerminalTypes]);
+
         return new TelnetInterpreterBuilder()
             .UseMode(TelnetInterpreter.TelnetMode.Client)
             .UseLogger(_logger)
+            .WithClientIdentity(_options.TerminalTypes.Count > 0 ? _options.TerminalTypes[0] : "MUINDEX-CRAWLER")
             .OnSubmit((bytes, encoding, _) =>
             {
                 // Cleaned here, at the one place text enters the crawler from the wire. See WireText.
@@ -424,7 +423,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             .AddPlugin(new Watched.Mxp(Note))
             .AddPlugin(new Watched.SuppressGoAhead(Note))
             .AddPlugin(new Watched.Naws(Note))
-            .AddPlugin(new Watched.TerminalType(Note))
+            .AddPlugin(terminalType)
             .AddPlugin(new Watched.Echo(Note));
     }
 

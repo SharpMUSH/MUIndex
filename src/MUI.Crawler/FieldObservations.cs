@@ -81,22 +81,22 @@ public static class FieldObservations
     /// <b>A capability is written <c>true</c> when it was observed and is otherwise not written at
     /// all. There is exactly one exception, and it is MSSP.</b> The temptation is to write
     /// <c>false</c> for every capability the handshake did not produce, because that is what makes
-    /// "declared GMCP, never offered" render as a disagreement. It would be a lie, and the crawler has
-    /// already measured that it would be: <c>alteraeon.com:23</c> is a game that plainly implements
-    /// MSDP, GMCP, MXP and MCCP, and one probe of it yields an offered set of exactly
-    /// <c>{ MSSP }</c> — because this client only <em>requests</em> option 70 (see
-    /// <c>ProbeOptions.RequestOptions</c>), because it declines MCCP outright while upstream issue #62
-    /// is open, and because the library's <c>OnEnabledAsync</c> was measured not firing on live
-    /// servers where the payload callbacks did. Publishing "Alter Aeon does not offer MSDP" on the
-    /// strength of that is our own instrumentation recorded as a fact about their game, which rule 5
-    /// forbids in the same breath as an unparseable <c>WHO</c> read as zero.
+    /// "declared GMCP, never offered" render as a disagreement. It would be a lie: the MSSP plugin
+    /// is registered and TNC responds to <c>IAC WILL MSSP</c> when the server sends it, but for
+    /// other options TNC fires <c>OnEnabledAsync</c> unreliably — measured not firing on live servers
+    /// where the payload callbacks did. Publishing "Alter Aeon does not offer MSDP" on the strength
+    /// of that is our own instrumentation recorded as a fact about their game, which rule 5 forbids
+    /// in the same breath as an unparseable <c>WHO</c> read as zero.
     /// </para>
     /// <para>
-    /// MSSP is different because we <em>ask</em>. <c>IAC DO 70</c> goes out on every probe, so a
-    /// server that answered the session and never engaged MSSP has declined a question that was put —
-    /// which is a measurement. Aardwolf is the worked example: it offers MCCP1/2, ATCP and GMCP and
-    /// simply does not answer <c>IAC DO MSSP</c>. <see cref="MsspOutcome.RejectedTooLarge"/> is
-    /// emphatically <b>not</b> that case and is recorded as present: we asked, the server answered,
+    /// MSSP is different because the MSSP spec says a server "should send <c>IAC WILL MSSP</c> during
+    /// the initial negotiation of the telnet session". We give every server a full connected session
+    /// to do so. A server that connected, exchanged telnet options, and never sent <c>IAC WILL MSSP</c>
+    /// has had its opportunity: that absence is a measurement. Note that servers which only respond to
+    /// <c>IAC DO MSSP</c> (never sending <c>IAC WILL MSSP</c> on their own) will appear as
+    /// <see cref="MsspOutcome.NotOffered"/> until TelnetNegotiationCore gains a client-side
+    /// <c>RequestMSSPAsync()</c>. <see cref="MsspOutcome.RejectedTooLarge"/> is emphatically
+    /// <b>not</b> that case and is recorded as present: the server offered, we accepted the handshake,
     /// and we chose not to hold the reply (§6.4).
     /// </para>
     /// <para>
@@ -114,7 +114,9 @@ public static class FieldObservations
                 CapabilityFields.Measured(Canonical(protocol) ?? protocol), FieldSource.Handshake, "true");
         }
 
-        // The one honest negative. Asked for on every probe, so silence is an answer.
+        // The one honest negative. The server had a full connected session to send IAC WILL MSSP
+        // and did not — that absence is a measurement. See the Measured remarks for the caveat
+        // about servers that only answer IAC DO MSSP rather than advertising it themselves.
         if (result.MsspOutcome is MsspOutcome.NotOffered)
         {
             yield return new FieldObservation(

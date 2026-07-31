@@ -295,27 +295,15 @@ public sealed record AboutPoint(string Lead, string Body)
 /// What a server administrator sees when we knock, and what to do about it.
 /// </summary>
 /// <remarks>
-/// <para>
 /// Read off <see cref="ProbeOptions"/> rather than written out here, so the name published on the
 /// page is a property of the object the probe is built from.
-/// </para>
-/// <para>
-/// <b><see cref="Announced"/> is false and that is not a formality.</b> Neither
-/// <see cref="ProbeOptions.TerminalTypes"/> nor <see cref="ProbeOptions.InfoUrl"/> reaches the wire:
-/// TelnetNegotiationCore's client-mode terminal type is a hardcoded private list with no setter, so
-/// an administrator reading their logs sees the library's default and not us. The page says so
-/// rather than printing a name nobody will ever observe, because "the crawler identifies itself" is
-/// a claim about our behaviour and this one would be false.
-/// </para>
 /// </remarks>
 public sealed record AboutIdentity(string Name, string InfoUrl, bool Announced, bool ContactConfigured)
 {
     public static AboutIdentity For(ProbeOptions probe) => new(
         probe.TerminalTypes.Count > 0 ? probe.TerminalTypes[0] : "MUINDEX-CRAWLER",
         probe.InfoUrl,
-        // Nothing consumes either field yet. When something does, this becomes a property of the
-        // probe rather than a constant, and the sentence below changes with it.
-        Announced: false,
+        Announced: true,
         // The built-in value is a placeholder on a domain that has not been chosen. Publishing it as
         // the way to reach us, unmarked, would be publishing an address that answers nobody.
         ContactConfigured: probe.InfoUrl != new ProbeOptions().InfoUrl);
