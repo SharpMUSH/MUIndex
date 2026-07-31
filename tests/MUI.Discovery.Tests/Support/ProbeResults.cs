@@ -44,6 +44,8 @@ public static class ProbeResults
         IReadOnlyDictionary<string, IReadOnlyList<string>>? mssp = null,
         string? banner = null,
         WhoReading? who = null,
+        string? info = null,
+        string? version = null,
         DateTimeOffset? at = null) => new()
     {
         Host = host,
@@ -56,6 +58,8 @@ public static class ProbeResults
         MsspOutcome = mssp is null ? MsspOutcome.NotOffered : MsspOutcome.Received,
         MsspTransport = mssp is null ? MsspTransport.None : MsspTransport.TelnetOption70,
         Banner = banner,
+        Info = info,
+        Version = version,
         // NotAsked rather than an unreadable answer, for the same reason: a fixture that says nothing
         // about WHO must not claim we asked and could not read the reply.
         Who = who ?? WhoReading.NotAsked,
