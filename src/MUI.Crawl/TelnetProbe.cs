@@ -35,6 +35,9 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// </summary>
     public static readonly IReadOnlyList<string> PermittedCommands = ["WHO"];
 
+    private const byte Iac = 255;
+    private const byte Do = 253;
+
     private readonly ProbeOptions _options = options ?? new ProbeOptions();
     private readonly ILogger _logger = logger ?? NullLogger.Instance;
 
@@ -57,6 +60,13 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
             var built = await Build(seen, lines).BuildAndStartAsync(client, budget.Token);
             var telnet = built.Item1;
+
+            // Ask for the options a server may support without volunteering. Negotiation, not
+            // traffic — written straight to the network so it is not escaped as data would be.
+            foreach (var option in _options.RequestOptions)
+            {
+                await telnet.WriteToNetworkAsync(new byte[] { Iac, Do, option }, budget.Token);
+            }
 
             // Let the connect screen arrive, then ask the one question we are allowed to ask.
             // Banner and answer are kept apart because they are different evidence: one is a display
