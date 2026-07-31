@@ -5,6 +5,13 @@
 -- FieldSource, an availability_interval a tier-valued `origin` — and none of the three names a site
 -- or a date. This is the sidecar that does, and it exists for the chip and the attribution list.
 --
+-- THE WRITER DOES NOT LIVE IN THIS REPOSITORY, AND THE TABLE STILL DOES. The backfill importer is a
+-- one-time tool run once against the one deployment and is parked on a branch outside main (spec
+-- §7.6). This migration stays because the rows it defines outlive the tool that wrote them: a game
+-- whose GENRE came from MudStats says so on its page for as long as that value stands, and dropping
+-- the table would turn a provenance chip into an unattributed fact. A migration is a statement about
+-- the shape of data that exists, not about which code happens to be checked out.
+--
 -- IT IS NOT ON THE GRACE PATH. §7.5's half weight is computed from availability_interval.origin by
 -- ArchivePolicy.GraceFor, in ArchiveSweeper, and nowhere else. A second calculator reading these rows
 -- would count the same history twice.

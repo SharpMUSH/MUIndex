@@ -91,7 +91,10 @@ Discovery walks the MSSP `REFERRAL` graph, honours `CRAWL DELAY`, and verifies r
 a referred host is a candidate hostname until it answers for itself. Measured on the live graph:
 `REFERRAL` is rare (two publishers in 141 servers) and the gate bites — the game they both name
 publishes only its codebase's name, so it is discovered, probed, kept, and *not* listed until it says
-who it is. Referral is a bonus path, not the primary one; that is what the backfill importer is for.
+who it is. Referral is a bonus path, not the primary one; that is what the backfill importer is for —
+a one-time tool that primes the one deployment and then has no further job, so it is **not carried in
+this tree** (see [`docs/import-sources.md`](docs/import-sources.md) for what it reads and what it
+refuses, and spec §7.6 for why the code is parked rather than shipped).
 
 ## Shape
 

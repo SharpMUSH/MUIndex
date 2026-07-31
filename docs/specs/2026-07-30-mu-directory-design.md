@@ -628,17 +628,35 @@ day-one population, and once it has run the crawler keeps the catalogue true by 
 one command, run once, by an operator, pointed at the production connection string — not a startup
 step, not a scheduled job, and not something a fresh clone reproduces.
 
-The consequence is a repository rule: **the importer is code and is committed; the imported data is
-not.** No harvested catalogue is checked in — no mirrored listing file, no seed list of real hosts
-scraped from a directory, no snapshot of anyone's database. Test fixtures are exempt because they are
-inputs to a test rather than the dataset: a handful of hand-written rows exercising a parser is a
-fixture, and a copy of a third party's catalogue is not, whatever it is named. A run that produces an
-artifact writes it to a path the operator chose, and those paths are ignored by git.
+The consequence is a repository rule with two halves. **Neither the harvested data nor the importer
+lives on `main`.**
 
-Two reasons beyond tidiness. Republishing another site's catalogue as a file in our repository is a
-redistribution nobody agreed to, whatever the etiquette above secured for *ingesting* it. And a
-committed dataset is asserted data with a git history — the exact thing the front page says this
-project does not do — which would rot in place while the live catalogue moved on.
+*The data*, first and most obviously. No harvested catalogue is checked in — no mirrored listing
+file, no seed list of real hosts scraped from a directory, no snapshot of anyone's database. Test
+fixtures are exempt because they are inputs to a test rather than the dataset: a handful of
+hand-written rows exercising a parser is a fixture, and a copy of a third party's catalogue is not,
+whatever it is named. A run that produces an artifact writes it to a path the operator chose, and
+those paths are ignored by git. Republishing another site's catalogue as a file in our repository is
+a redistribution nobody agreed to, whatever the etiquette above secured for *ingesting* it — and a
+committed dataset is asserted data with a git history, the exact thing the front page says this
+project does not do, rotting in place while the live catalogue moves on.
+
+*The importer*, which is the less obvious half. Fetchers, HTML parsers for four third-party sites,
+the etiquette gate and the one-off runner exist only while the run is happening, and carrying them on
+`main` means maintaining parsers against sites we intend never to fetch again, in CI, for ever. A
+parser that never runs but still compiles is worse than no parser: it rots silently and reads as a
+supported feature. So the importer lives on a branch outside `main`, and running the import means
+checking that branch out.
+
+**What stays behind is everything the imported *rows* depend on**, because they outlive the tool:
+
+| Stays on `main` | Why |
+|---|---|
+| `migrations/0100_import_provenance.sql` | Live rows point at it. A game whose `GENRE` came from MudStats says so on its page, and dropping the table turns a provenance chip into an unattributed fact. |
+| `FieldSource.ImportedMeasured` / `Asserted`, `IntervalOrigin.ImportedMeasured` | The tier is stored on every imported row and read by §7.5's half-weight grace, which is catalogue behaviour. |
+| `docs/import-sources.md` | The attribution obligation, and the record of which sources were ingested, which were refused, and why. Worth more than the code that acted on it. |
+
+Read together: a schema is a statement about data that exists, and a checked-out working tree is not.
 
 ### 7.7 Scheduling
 

@@ -71,12 +71,26 @@ our host is unreachable and perfectly alive.
   A refusal happens *before* a probe exists, and `FailureCause.Refused` already means the far end
   sent an RST — a real measurement of a real host. Conflating them is unrecoverable downstream. The
   guard belongs to whatever owns the dial.
-- **Commit a harvested dataset.** The backfill importer is code and belongs here; its output does
-  not. No mirrored listing file, no seed list of real hosts scraped from a directory, no snapshot of
-  anyone's catalogue. The import is a *one-time* operation an operator runs once against the one
-  deployment — not a startup step, not a scheduled job, not something a clone reproduces (spec §7.6).
-  Test fixtures are exempt: a handful of hand-written rows exercising a parser is a test input, and a
-  copy of a third party's catalogue is not, whatever it is named or how small it starts.
+- **Commit a harvested dataset, or bring the backfill importer back onto `main`.** Both are one
+  rule (spec §7.6): the import is a *one-time* operation an operator runs once against the one
+  deployment — not a startup step, not a scheduled job, not something a clone reproduces — so neither
+  its output nor its machinery belongs in the shipped tree. No mirrored listing file, no seed list of
+  real hosts scraped from a directory, no snapshot of anyone's catalogue; and no fetchers, no HTML
+  parsers for third-party sites, no etiquette gate. Four parsers for sites we intend never to fetch
+  again, carried in CI for ever, rot silently and read as a supported feature. **The importer lives
+  on the local `import/one-time` branch**; running the import means checking it out.
+  - What *stays* is what the imported rows depend on, because rows outlive tools:
+    `migrations/0100_import_provenance.sql` (live rows point at it — dropping it turns a provenance
+    chip into an unattributed fact), `FieldSource.ImportedMeasured`/`Asserted` and
+    `IntervalOrigin.ImportedMeasured` (§7.5's half-weight grace reads the tier off stored rows), and
+    `docs/import-sources.md` (the attribution obligation and the record of what was refused and why).
+  - Test fixtures were never the problem: a handful of hand-written rows exercising a parser is a
+    test input, and a copy of a third party's catalogue is not, whatever it is named.
+- **Compile in a claim about somebody else's consent.** `ContactedMaintainer` defaulted to `true`
+  for MudStats with a comment stating the maintainer had been approached; nobody had emailed them,
+  and a 143-page crawl went out on the strength of it. The instruction it was written from was *do
+  the MudStats import* — a decision about our priorities, not a fact about a third party. A gate like
+  that is satisfied by a caller who can make the claim (`--contacted MudStats`), never by a default.
 - **Ship invented data without saying so on the page.** `MUI.Web` reads Postgres when
   `MUI_POSTGRES` (or `ConnectionStrings:MUIndex`) is set. With neither it still starts, on the
   fixture — and then every page carries the demo banner, because a reader who cannot tell a
