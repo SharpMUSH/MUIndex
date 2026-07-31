@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MUI.Crawler</RootNamespace>
+    <AssemblyName>MUI.Crawler</AssemblyName>
+  </PropertyGroup>
+
+  <!--
+    The join. MUI.Crawl produces a ProbeResult, MUI.Catalog stores what one means, MUI.Discovery
+    decides who to dial and who a probe is, and until this project existed nothing connected them.
+
+    This is deliberately the ONLY assembly that references all three, and the arrows below it stay
+    exactly as they were: MUI.Catalog still cannot see MUI.Crawl, so every writer downstream of a
+    probe is still testable against a captured fixture with no socket anywhere (spec §6.5).
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\MUI.Catalog\MUI.Catalog.csproj" />
+    <ProjectReference Include="..\MUI.Crawl\MUI.Crawl.csproj" />
+    <ProjectReference Include="..\MUI.Discovery\MUI.Discovery.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+
+    <!--
+      The crawler is an in-process BackgroundService in the web deployable (spec §4.11, §12), so it
+      takes the hosting and DI *abstractions* and nothing else. A library that pulled in the hosting
+      implementation would be deciding how its host is built.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+</Project>

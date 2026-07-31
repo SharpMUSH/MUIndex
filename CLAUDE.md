@@ -96,8 +96,18 @@ dotnet build MUIndex.slnx -c Release
 dotnet run -c Release --no-build --project tests/MUI.Catalog.Tests </dev/null
 ```
 
-Four suites: Catalog, Crawl, Discovery, Web. Add a new one to **both** `MUIndex.slnx` and
-`.github/workflows/ci.yml`, which runs each suite explicitly.
+Five suites: Catalog, Crawl, Crawler, Discovery, Web. Add a new one to **both** `MUIndex.slnx` and
+`.github/workflows/ci.yml`, which runs each suite explicitly. Catalog and Crawler both want a real
+PostgreSQL, so CI's Linux leg sets `MUI_REQUIRE_POSTGRES` and a missing container runtime fails
+rather than skips.
+
+`mui-crawl` runs crawl cycles against a real database and prints what landed — the counterpart to
+`mui-probe`, which prints what one server said:
+
+```bash
+MUI_CRAWL_POSTGRES=… dotnet run -c Release --project src/MUI.Crawler.Cli -- \
+  --seed mush.pennmush.org:4201 --seed aardmud.org:4000
+```
 
 ## MUIndex owns its crawler
 
