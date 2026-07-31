@@ -92,8 +92,7 @@ public sealed class ArchiveSweeper(
         var darkFor = now - open.FromAt;
 
         var firstParty = await history.CumulativeReachableAsync(game.Id, now, cancellationToken);
-        var imported = await history.CumulativeImportedMeasuredReachableAsync(game.Id, now, cancellationToken);
 
-        return ArchivePolicy.ShouldArchive(darkFor, firstParty, imported, game.IsClaimed);
+        return ArchivePolicy.ShouldArchive(darkFor, firstParty, game.IsClaimed);
     }
 }

@@ -132,12 +132,6 @@ public sealed class FakeAvailabilityStore : IAvailabilityStore, IReachableHistor
         CancellationToken cancellationToken = default) =>
         Task.FromResult(Reachability.CumulativeReachable(
             Intervals.Where(i => i.GameId == gameId).ToList(), now));
-
-    public Task<TimeSpan> CumulativeImportedMeasuredReachableAsync(
-        Guid gameId,
-        DateTimeOffset now,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(TimeSpan.Zero);
 }
 
 public sealed class FakeGameFieldStore : IGameFieldStore

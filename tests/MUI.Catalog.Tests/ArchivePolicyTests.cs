@@ -52,13 +52,16 @@ public class ArchivePolicyTests
     }
 
     [Test]
-    public async Task ImportedHistoryCountsForHalf()
+    public async Task OnlyOurOwnMeasurementsEarnGrace()
     {
-        // Four years of somebody else's probing is credited as two of ours.
-        var imported = ArchivePolicy.GraceFor(firstPartyReachable: TimeSpan.Zero, importedMeasuredReachable: Days(1460));
-        var firstParty = ArchivePolicy.GraceFor(firstPartyReachable: Days(730));
-
-        await Assert.That(imported).IsEqualTo(firstParty);
+        // This used to credit a third party's reachable history at half weight. The backfill
+        // contributes addresses and no history at all now (spec §7.6), so there is no such time to
+        // credit — a game found through somebody's listing starts at the floor exactly like a game
+        // found through a referral, and earns its grace by being measured here.
+        await Assert.That(ArchivePolicy.GraceFor(firstPartyReachable: TimeSpan.Zero))
+            .IsEqualTo(ArchivePolicy.Floor);
+        await Assert.That(ArchivePolicy.GraceFor(firstPartyReachable: Days(1460)).TotalDays)
+            .IsEqualTo(365).Within(0.001);
     }
 
     [Test]

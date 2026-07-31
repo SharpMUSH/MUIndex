@@ -79,13 +79,21 @@ our host is unreachable and perfectly alive.
   parsers for third-party sites, no etiquette gate. Four parsers for sites we intend never to fetch
   again, carried in CI for ever, rot silently and read as a supported feature. **The importer lives
   on the local `import/one-time` branch**; running the import means checking it out.
-  - What *stays* is what the imported rows depend on, because rows outlive tools:
-    `migrations/0100_import_provenance.sql` (live rows point at it — dropping it turns a provenance
-    chip into an unattributed fact), `FieldSource.ImportedMeasured`/`Asserted` and
-    `IntervalOrigin.ImportedMeasured` (§7.5's half-weight grace reads the tier off stored rows), and
-    `docs/import-sources.md` (the attribution obligation and the record of what was refused and why).
+  - What *stays* is `docs/import-sources.md` — which sources were read, which were refused and why.
   - Test fixtures were never the problem: a handful of hand-written rows exercising a parser is a
     test input, and a copy of a third party's catalogue is not, whatever it is named.
+- **Import a value, or record where a game came from.** The backfill takes **host and port and
+  nothing else** (spec §7.6); every fact on this site is measured by this crawler. There is no
+  `imported_measured`/`imported_asserted` field source, no imported presence or availability row, no
+  `import_provenance` table, and no half-weight archive grace — all of it existed and all of it is
+  deleted. Three reasons: a game's origin is **not one fact** (the catalogue is cross-checked against
+  several directories and any game worth listing is in more than one, so "imported from MudStats"
+  names whichever fetch ran first, not the game); that a game exists is **public information**, so
+  recording where we read it adds nothing and republishes the part with the least claim to be ours;
+  and the point of the seed is to **start with a lot of games and then gather our own data**, which a
+  history import would undercut by filling the graphs of exactly the games somebody else was already
+  watching. `IntervalOrigin` survives as a one-member enum on purpose — an undifferentiated total
+  cannot be split back apart if another party's measurements are ever ingested.
 - **Compile in a claim about somebody else's consent.** `ContactedMaintainer` defaulted to `true`
   for MudStats with a comment stating the maintainer had been approached; nobody had emailed them,
   and a 143-page crawl went out on the strength of it. The instruction it was written from was *do

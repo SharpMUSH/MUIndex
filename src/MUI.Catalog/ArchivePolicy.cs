@@ -34,39 +34,31 @@ public static class ArchivePolicy
     public const double ReachableDivisor = 4.0;
 
     /// <summary>
-    /// Third-party measured history counts for half. Not because it is suspect, but because we cannot
-    /// audit their probe, their parser or their failure handling (spec §7.6).
-    /// </summary>
-    public const double ImportedMeasuredWeight = 0.5;
-
-    /// <summary>
     /// The grace period a game has earned.
     /// </summary>
+    /// <remarks>
+    /// <b>Only our own measurements earn grace, because only our own measurements exist.</b> This used
+    /// to credit third-party reachable history at half weight — imported from a directory that ran its
+    /// own probe, halved because we cannot audit their prober. The backfill no longer imports history
+    /// at all (spec §7.6): it contributes addresses and nothing else, and every fact about a game is
+    /// then measured here. A weight is not needed for a kind of row that is never written.
+    /// </remarks>
     /// <param name="firstPartyReachable">Cumulative time this site measured the game as reachable.</param>
-    /// <param name="importedMeasuredReachable">
-    /// Cumulative reachable time imported from a directory that ran its own probe. Time imported from a
-    /// hand-maintained list is not a parameter here, deliberately: it earns nothing.
-    /// </param>
     /// <param name="isClaimed">
     /// Whether an owner has proved control of the game (spec §8). A claimed game receives the ceiling
     /// outright — someone with server access has demonstrably staked a claim, and that is worth a year
     /// regardless of how long we happen to have been watching.
     /// </param>
-    public static TimeSpan GraceFor(
-        TimeSpan firstPartyReachable,
-        TimeSpan importedMeasuredReachable = default,
-        bool isClaimed = false)
+    public static TimeSpan GraceFor(TimeSpan firstPartyReachable, bool isClaimed = false)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(firstPartyReachable, TimeSpan.Zero);
-        ArgumentOutOfRangeException.ThrowIfLessThan(importedMeasuredReachable, TimeSpan.Zero);
 
         if (isClaimed)
         {
             return Ceiling;
         }
 
-        var credited = firstPartyReachable + importedMeasuredReachable * ImportedMeasuredWeight;
-        var grace = credited / ReachableDivisor;
+        var grace = firstPartyReachable / ReachableDivisor;
 
         return grace < Floor ? Floor
             : grace > Ceiling ? Ceiling
@@ -79,7 +71,6 @@ public static class ArchivePolicy
     public static bool ShouldArchive(
         TimeSpan darkFor,
         TimeSpan firstPartyReachable,
-        TimeSpan importedMeasuredReachable = default,
         bool isClaimed = false) =>
-        darkFor >= GraceFor(firstPartyReachable, importedMeasuredReachable, isClaimed);
+        darkFor >= GraceFor(firstPartyReachable, isClaimed);
 }

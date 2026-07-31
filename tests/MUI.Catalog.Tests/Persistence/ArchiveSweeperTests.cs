@@ -92,22 +92,19 @@ public class ArchiveSweeperTests
     }
 
     [Test]
-    public async Task ImportedHistoryCountsTowardGraceAtHalfWeight()
+    public async Task AGameWeHaveOnlyJustFoundGetsTheFloorHoweverItWasFound()
     {
-        // §7.6: a third party that ran its own probe produced a measurement, and a measurement is
-        // worth more than a self-report — but we cannot audit their probe, parser or failure
-        // handling. Two years imported is one year credited, which is 91 days of grace.
+        // This used to credit two years of a third party's probing as one of ours, for 91 days of
+        // grace. The backfill imports no history now (spec §7.6) — it contributes addresses, and
+        // every fact is measured here — so a game we learned of from somebody's listing and a game
+        // we learned of from a referral start in exactly the same place: the floor.
         var scene = Build();
-        await scene.Availability.OpenAsync(Dark(80));
-        scene.History.ImportedMeasured[Game] = TimeSpan.FromDays(365 * 2);
+        await scene.Availability.OpenAsync(Dark(59));
 
-        var swept = await scene.Sweeper.SweepAsync(Now);
-
-        await Assert.That(swept.Archived).IsEqualTo(0);
+        await Assert.That((await scene.Sweeper.SweepAsync(Now)).Archived).IsEqualTo(0);
 
         var later = Build();
-        await later.Availability.OpenAsync(Dark(95));
-        later.History.ImportedMeasured[Game] = TimeSpan.FromDays(365 * 2);
+        await later.Availability.OpenAsync(Dark(61));
 
         await Assert.That((await later.Sweeper.SweepAsync(Now)).Archived).IsEqualTo(1);
     }

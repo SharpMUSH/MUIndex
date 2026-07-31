@@ -112,10 +112,12 @@ public class AvailabilityStorePostgresTests
     }
 
     [Test]
-    public async Task ImportedReachableTimeIsSummedApartFromOurs()
+    public async Task ReachableTimeIsSummedByOriginSoADistinctionCanBeMadeLater()
     {
-        // §7.6: ArchivePolicy.GraceFor takes the two as separate arguments and weights the second at
-        // half, so one undifferentiated total cannot feed it. That is why `origin` is a column.
+        // `origin` is one value today — the backfill imports no history (spec §7.6), so every
+        // interval here is ours. The column survives the tier because an undifferentiated total is
+        // not splittable after the fact: if another party's measurements are ever ingested, the
+        // question "how much of this did we measure" has to still have an answer.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var store = new NpgsqlAvailabilityStore(db.DataSource);
@@ -128,7 +130,7 @@ public class AvailabilityStorePostgresTests
                 FromAt = Now.AddDays(-1000),
                 ToAt = Now.AddDays(-400),
             },
-            IntervalOrigin.ImportedMeasured);
+            IntervalOrigin.FirstParty);
         await store.OpenAsync(new AvailabilityInterval
         {
             GameId = game,
@@ -137,14 +139,11 @@ public class AvailabilityStorePostgresTests
         });
 
         var ours = await store.CumulativeReachableAsync(game, Now);
-        var theirs = await store.CumulativeImportedMeasuredReachableAsync(game, Now);
 
-        await Assert.That(ours.TotalDays).IsEqualTo(100).Within(0.001);
-        await Assert.That(theirs.TotalDays).IsEqualTo(600).Within(0.001);
+        await Assert.That(ours.TotalDays).IsEqualTo(700).Within(0.001);
 
-        // And the two together are what the policy is asked. 100 + 600/2 = 400 days credited, which
-        // is 100 days of grace.
-        await Assert.That(ArchivePolicy.GraceFor(ours, theirs).TotalDays).IsEqualTo(100).Within(0.001);
+        // 700 days measured is 175 days of grace, unweighted and unhalved.
+        await Assert.That(ArchivePolicy.GraceFor(ours).TotalDays).IsEqualTo(175).Within(0.001);
     }
 
     [Test]

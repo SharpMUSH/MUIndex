@@ -5,12 +5,21 @@ not read — why not. Spec [§7.6](specs/2026-07-30-mu-directory-design.md) is t
 is the record of applying it, so that a source is investigated once and a decision is not
 re-litigated from scratch by the next person.
 
-**The tier is the thing to get right.** `imported_measured` is for a site that connected to the game
-itself; `imported_asserted` is for a site that wrote something down. Filing an asserted list as
-measured earns a game archive grace nobody observed, which is worse than skipping the source
-entirely. And a *measured* fact is only importable if the source says **when** it measured — an
-undated reading is not a measurement we can place in time, and dating it to the moment we read the
-page is fabrication.
+> **We take addresses, and nothing else.** §7.6 was rewritten after this survey was made: a game's
+> origin is not one fact — the catalogue is cross-checked against several directories and any game
+> worth listing appears in more than one — that a game exists is public information, and the point of
+> the seed is to start with a lot of games and then gather our own data. So no player counts, no
+> reachability history, no fields, and no record of which site an address came from. The tiering
+> below, and every "dated player count" column, is **the survey as it was taken**, kept because it is
+> the evidence for which sources are worth reading at all and because it says what each site would be
+> able to give if that decision is ever revisited. None of it is ingested today.
+
+**The tier was the thing to get right, when tiers still decided what a source could write.**
+`imported_measured` meant a site that connected to the game itself; `imported_asserted` meant a site
+that wrote something down, and filing an asserted list as measured would have earned a game archive
+grace nobody observed. A *measured* fact was importable only if the source said **when** it measured —
+an undated reading is not a measurement we can place in time, and dating it to the moment we read the
+page is fabrication. Under a seed-only import both tiers write the same thing: a host and a port.
 
 ## Read
 

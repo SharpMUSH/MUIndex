@@ -72,17 +72,9 @@ internal sealed class InMemoryReachableHistory : IReachableHistory
 {
     public Dictionary<Guid, TimeSpan> FirstParty { get; } = [];
 
-    public Dictionary<Guid, TimeSpan> ImportedMeasured { get; } = [];
-
     public Task<TimeSpan> CumulativeReachableAsync(
         Guid gameId,
         DateTimeOffset now,
         CancellationToken cancellationToken = default) =>
         Task.FromResult(FirstParty.GetValueOrDefault(gameId));
-
-    public Task<TimeSpan> CumulativeImportedMeasuredReachableAsync(
-        Guid gameId,
-        DateTimeOffset now,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(ImportedMeasured.GetValueOrDefault(gameId));
 }

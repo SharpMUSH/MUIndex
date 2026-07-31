@@ -18,18 +18,11 @@ public enum FieldSource
     Mssp,
     Banner,
 
-    /// <summary>
-    /// Imported from a third party that ran its own probe — MudStats, MudVerse, Grapevine. Worth more
-    /// than a self-report, because it is still a measurement; worth less than ours, because we cannot
-    /// audit their probe, parser or failure handling (spec §7.6).
-    /// </summary>
-    ImportedMeasured,
-
-    /// <summary>
-    /// Imported from a hand-maintained list. Seeds discovery and endpoints and nothing else — no
-    /// history, no presence, no archive grace.
-    /// </summary>
-    ImportedAsserted,
+    // There is deliberately no imported source here, and there was: ImportedMeasured for a directory
+    // that ran its own probe, ImportedAsserted for a hand-maintained list. The backfill contributes
+    // *addresses* and nothing else now (spec §7.6) — every value about a game is measured by this
+    // crawler — so an imported field is a row that can no longer be written, and a source nothing can
+    // produce is a ladder rung that only invites somebody to reach for it.
 }
 
 /// <summary>
@@ -42,7 +35,7 @@ public sealed record Provenance(
     DateTimeOffset LastConfirmedAt)
 {
     /// <summary>Whether this was observed by somebody rather than asserted by the game itself.</summary>
-    public bool IsMeasured => Source is FieldSource.Handshake or FieldSource.Who or FieldSource.ImportedMeasured;
+    public bool IsMeasured => Source is FieldSource.Handshake or FieldSource.Who;
 
     public TimeSpan AgeAt(DateTimeOffset now) => now - LastConfirmedAt;
 }

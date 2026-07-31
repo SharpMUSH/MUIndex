@@ -27,7 +27,7 @@ CREATE TABLE presence_sample (
     -- outranks `mssp`. `banner` is in this list because several games publish their count only on the
     -- connect screen, and that is still a measurement of ours.
     CONSTRAINT presence_sample_source_vocabulary CHECK (source IN (
-        'who', 'mssp', 'banner', 'imported_measured')),
+        'who', 'mssp', 'banner')),
 
     CONSTRAINT presence_sample_reason_vocabulary CHECK (unmeasurable_reason IS NULL OR unmeasurable_reason IN (
         'who_unparseable', 'who_not_offered', 'players_not_numeric')),

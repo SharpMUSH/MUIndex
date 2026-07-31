@@ -144,8 +144,9 @@ No append-only ledger. One row per `(game, field, source)`:
 GameField(game_id, field, source, value, first_seen_at, last_confirmed_at)
 ```
 
-`source ∈ { mssp, handshake, who, banner, owner, staff, imported_measured, imported_asserted }`.
-The two import tiers are defined in §7.6.
+`source ∈ { mssp, handshake, who, banner, owner, staff }` — every one of them something this crawler
+or a person here produced. There is no imported source, because the backfill contributes addresses
+and no values (§7.6).
 
 **Keyed by source, not just by field** — the first cut of this spec said one row per `(game, field)`
 and *also* asked the page to show the losing sources, which cannot both be true. The capability
@@ -171,8 +172,9 @@ change feed that is a table of *events that actually happened* — which is also
 render.
 
 **Precedence when sources disagree** (highest first): `handshake` for capability fields, since it
-is observed; `owner` for enrichment-only fields; `mssp`; `banner`; `imported_measured`;
-`imported_asserted`. `staff` overrides anything, and is logged. Player count is not a `GameField` and does not use this ladder — it lives
+is observed; `owner` for enrichment-only fields; `mssp`; `banner`. `staff` overrides anything, and is
+logged. The ladder had two rungs below `banner` for imported values and no longer does — a source
+nothing can write is an invitation to write one. Player count is not a `GameField` and does not use this ladder — it lives
 in §5.2, where `who` outranks `mssp`. A page shows the winning value and offers
 the losing ones with their sources — "declared GMCP, not offered in handshake" is a fact worth
 surfacing, not a conflict to hide.
@@ -226,12 +228,14 @@ AvailabilityInterval(game_id, state, from_at, to_at NULL, cause, origin)
 ```
 
 `state ∈ { reachable, degraded, unreachable }`; `cause ∈ { dns, refused, tls, timeout, handshake_stalled,
-… }`; `origin ∈ { first_party, imported_measured }`.
+… }`; `origin ∈ { first_party }`.
 
-**`origin` exists because §7.6 needs it.** Imported reachable history counts at half weight toward
-archive grace, and `ArchivePolicy.GraceFor` therefore takes two sums rather than one — which is
-unimplementable unless an interval records whose probe produced it. No earlier section named the
-column; it is required by the rule rather than optional to it.
+**`origin` has one value and is still a column.** It existed because imported reachable history was
+credited toward archive grace at half weight, which is unimplementable unless an interval records
+whose probe produced it. §7.6 no longer imports history, so every interval is ours — but the column
+stays, because if another party's measurements are ever ingested an undifferentiated total would
+already be in the table and could not be split back apart. A column is cheap; the distinction is not
+recoverable after the fact.
 
 **`degraded` means we got in and could not finish**: the TCP connection succeeded and the banner was
 captured, but the session did not complete negotiation within the probe timeout (`handshake_stalled`
@@ -561,17 +565,24 @@ grace = clamp(cumulative_reachable_time / 4, 60 days, 365 days)
 
 **Cumulative, not span.** The input is the sum of `up` interval durations from §5.3, so a game
 that was reachable for two years out of five is credited with two. A game with a long history of
-flapping does not accrue grace for the gaps. Imported history counts at half weight, per §7.6.
+flapping does not accrue grace for the gaps.
+
+**Only our own measurements count, because only our own measurements exist.** This clause used to
+credit imported history at half weight — a third party that ran its own probe produced a measurement,
+halved because we could not audit their prober. §7.6 no longer imports history at all, so there is no
+such time to weigh: however a game reached the catalogue, its grace is earned here.
 
 **A claimed game always receives the ceiling.** Someone with server access has demonstrably staked
 a claim, which is worth a year regardless of how long we have been watching. This is also one more
 concrete reason to claim (§8).
 
-**Known limitation, stated plainly on the about page:** grace is computed from reachable time that
-*somebody probed* — ours at full weight, an importable third party's at half (§7.6). A game running
-since 1995 that no directory ever recorded starts at the floor and accrues from there. We do not
-credit MSSP `CREATED`, because it is hand-typed and unverifiable, and crediting it would make the
-archive threshold trivially gameable by editing one line of `mush.cnf`.
+**Known limitation, stated plainly on the about page:** grace is computed from reachable time *we*
+probed, so a game running since 1995 starts at the floor on the day we find it and accrues from
+there. This is a larger limitation than it was — a backfill that imported history used to soften it
+for the games some other directory had been watching — and it is the accepted cost of §7.6's decision
+that every fact here is measured here. We do not credit MSSP `CREATED`, because it is hand-typed and
+unverifiable, and crediting it would make the archive threshold trivially gameable by editing one
+line of `mush.cnf`.
 
 #### What archiving does and does not do
 
@@ -590,37 +601,50 @@ archive threshold trivially gameable by editing one line of `mush.cnf`.
 listing and fires the *came back* feed (§9). Archiving is never a manual action, never permanent,
 and never requires a human on either side of the transition.
 
-### 7.6 Backfill and imported history
+### 7.6 Backfill: a list of addresses, and nothing else
 
-The existing directories are the best day-one seed available, and several of them hold years of
-history we cannot otherwise obtain. Importing them is planned. Two rules govern it.
+The existing directories are the best day-one seed available. **What we take from them is the list of
+games — host, port, and nothing more.** Every fact about a game on this site is then measured by this
+crawler.
 
-**Imported data splits by whether the source measured or merely recorded.** This is the same
-measured-versus-declared spine that runs through the rest of the design, applied one level up:
+**This is deliberately less than the sites can give.** Several of them hold years of dated player
+counts and reachability history, and an earlier version of this section imported it, split into two
+tiers — `imported_measured` for a site that runs its own probe, `imported_asserted` for a
+hand-maintained list — with the first credited toward archive grace at half weight and both sitting
+at the bottom of §5.1's precedence ladder. That machinery is gone: there are no imported field
+sources, no imported presence rows, no imported availability intervals, and no provenance sidecar
+recording which site a value came from.
 
-| Tier | Sources | What it may do |
-|---|---|---|
-| `imported_measured` | MudStats, MudVerse, Grapevine — sites that actively ping | Seeds discovery; populates historical `AvailabilityInterval` and `PresenceSample` rows; **counts toward grace at half weight** (§7.5) |
-| `imported_asserted` | The MUD Connector, MUSHCode lists, hand-maintained pages | Seeds discovery and endpoints **only**. No history, no presence, no grace |
+Three reasons, and the first is the strongest.
 
-A third party that ran its own probe produced a measurement, and a measurement is worth more than a
-self-report — that is the whole argument of this project, and it does not stop applying because
-someone else did the probing. A hand-maintained list is an assertion and is treated as one.
+**A game's origin is not one fact.** The catalogue will be cross-checked against several directories
+over time, and any game worth listing appears in more than one of them. "Imported from MudStats" is
+then a statement about which fetch happened to run first, not about the game — and a provenance chip
+saying it would be presenting an accident as a fact, which is the failure this whole design exists to
+avoid. There is no honest single-origin field to store.
 
-Half weight for `imported_measured` reflects that we cannot audit their probe, their parser or
-their failure handling. The existing clamp still applies, so an eight-year record credits four
-years and reaches the ceiling — which is the correct outcome for a genuine decade-old institution.
+**That a game exists is public information.** The address of a public MU\* is published by its
+operator to be dialled. Recording where we happened to read it adds nothing a reader can use, and it
+is the part of a third party's work with the least claim to be ours to republish. The addresses seed
+a crawl; the crawl produces the data.
 
-**Imported facts never outrank measured ones and are never laundered into looking first-party.**
-Both import tiers already sit at the bottom of the §5.1 precedence ladder. Every imported value carries
-the originating site and the import date in its provenance chip, and the about page names every
-source we ingested.
+**The point is to start with a lot of games, then gather our own data.** A backfill that also
+imported history would fill the heatmaps and the reachable strips of exactly the games some other
+directory had been watching, in a way no reader could distinguish from our own measurement without
+reading the fine print — and would leave the site's central claim resting on somebody else's prober.
+Starting every game's history empty is slower and is the whole point.
 
-**Etiquette, before any of it runs:** ask for a bulk export or use a documented API in preference to
-scraping; honour `robots.txt` and rate-limit hard where scraping is the only option; attribute
-every source on the about page and in the API. These sites are run by people in the same small
-hobby, and several of them are the reason any of this data exists at all. A short email first is
-both the decent move and the one most likely to get better data than scraping would.
+**What it costs, stated plainly.** Every game starts at the archive floor on the day we find it
+(§7.5), every heatmap starts empty, and the day-one site is a large list of games about which we know
+their address and one probe's worth of everything else. That is the intended shape.
+
+**Etiquette is unchanged, and still binds** — asking for a bulk export or a documented API in
+preference to scraping, honouring `robots.txt`, rate-limiting hard where scraping is the only option,
+and crediting every source we read on the about page. Taking less data does not make a crawl of
+somebody's site less of a crawl of somebody's site. **The contacted-maintainer gate is satisfied by a
+caller who can make the claim, never by a default in a source file**: it once defaulted to true for
+MudStats with a comment asserting the maintainer had been approached, and a 143-page crawl went out
+before anyone had emailed them.
 
 **The import is a one-time operation against one deployment, and its output is not part of the
 source tree.** MUIndex is deployed to a single place; the backfill exists to give *that* database a
@@ -648,15 +672,16 @@ parser that never runs but still compiles is worse than no parser: it rots silen
 supported feature. So the importer lives on a branch outside `main`, and running the import means
 checking that branch out.
 
-**What stays behind is everything the imported *rows* depend on**, because they outlive the tool:
+What stays behind on `main` is **`docs/import-sources.md`** — which sources were read, which were
+refused and why, and the record of the MudStats crawl that went out before anyone had emailed them.
+It outlives the code that acted on it.
 
-| Stays on `main` | Why |
-|---|---|
-| `migrations/0100_import_provenance.sql` | Live rows point at it. A game whose `GENRE` came from MudStats says so on its page, and dropping the table turns a provenance chip into an unattributed fact. |
-| `FieldSource.ImportedMeasured` / `Asserted`, `IntervalOrigin.ImportedMeasured` | The tier is stored on every imported row and read by §7.5's half-weight grace, which is catalogue behaviour. |
-| `docs/import-sources.md` | The attribution obligation, and the record of which sources were ingested, which were refused, and why. Worth more than the code that acted on it. |
-
-Read together: a schema is a statement about data that exists, and a checked-out working tree is not.
+What does *not* stay is anything that existed to carry imported values: the `import_provenance`
+table, `FieldSource.ImportedMeasured`/`ImportedAsserted`, and `IntervalOrigin.ImportedMeasured` are
+all deleted, because a seed-only import writes no row any of them could label. `IntervalOrigin`
+survives as a one-member enum and `availability_interval.origin` as a column: if another party's
+measurements are ever ingested, an undifferentiated total would already be in the table and could not
+be split back apart.
 
 ### 7.7 Scheduling
 

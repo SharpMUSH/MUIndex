@@ -24,7 +24,7 @@ CREATE TABLE game_field (
     -- The §5.1 precedence ladder's vocabulary. The declared order of MUI.Catalog.FieldSource is the
     -- ladder itself; this list is only the spelling.
     CONSTRAINT game_field_source_vocabulary CHECK (source IN (
-        'staff', 'handshake', 'owner', 'who', 'mssp', 'banner', 'imported_measured', 'imported_asserted')),
+        'staff', 'handshake', 'owner', 'who', 'mssp', 'banner')),
 
     -- A value cannot have been confirmed before it was first seen.
     CONSTRAINT game_field_confirmed_after_first_seen CHECK (last_confirmed_at >= first_seen_at)
@@ -49,7 +49,7 @@ CREATE TABLE field_change (
     at        timestamptz NOT NULL,
 
     CONSTRAINT field_change_source_vocabulary CHECK (source IN (
-        'staff', 'handshake', 'owner', 'who', 'mssp', 'banner', 'imported_measured', 'imported_asserted'))
+        'staff', 'handshake', 'owner', 'who', 'mssp', 'banner'))
 );
 
 -- §9's change feed is "the most recent N changes for this game", newest first, which is exactly this.
