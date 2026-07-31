@@ -11,6 +11,26 @@
     <ProjectReference Include="..\MUI.Discovery\MUI.Discovery.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Markdig" />
+  </ItemGroup>
+
+  <!--
+    The hand-written reference section (spec §9). The prose lives at the repository root, outside
+    this project, because it is content rather than code: a reviewer reads content/reference/*.md as
+    prose, and somebody who does not write C# can correct a codebase description without opening the
+    rendering shell.
+
+    Embedded rather than copied beside the binary, so the pages ship inside the assembly. There is
+    then no content root to resolve, no file that can be present in one deployment and missing in
+    another, and no way for a running site to serve a page that is not in the repository — which is
+    what "versioned in git" has to mean when it is the substitute for wiki governance.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\content\reference\*.md"
+                      Link="Content\reference\%(Filename)%(Extension)" />
+  </ItemGroup>
+
   <!--
     Blazor *static* server rendering: components render to plain HTML on the server and ship no
     WebAssembly and no required script. That is what lets ?plain=1 be the same view models with a

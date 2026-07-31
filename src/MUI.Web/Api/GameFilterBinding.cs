@@ -71,6 +71,11 @@ public static class GameFilterBinding
         var protocols = Protocols(read);
         var text = read(FacetKeys.Text).ToString();
 
+        // A codebase *family*, matched as a prefix — PennMUSH, not PennMUSH 1.8.8p0. It has its own
+        // key because `codebase` is taken by the counted facet over raw values, and
+        // an API that invented a second name for the same question would let the two drift.
+        var codebaseFamily = read(FacetKeys.CodebaseFamily).ToString();
+
         var filter = new GameFilter
         {
             Text = string.IsNullOrWhiteSpace(text) ? null : text,
@@ -84,6 +89,7 @@ public static class GameFilterBinding
             Family = Choice(read, FacetKeys.Family),
             Genre = Choice(read, FacetKeys.Genre),
             Language = Choice(read, FacetKeys.Language),
+            CodebaseFamily = string.IsNullOrWhiteSpace(codebaseFamily) ? null : codebaseFamily.Trim(),
         };
 
         result = new GameQuery(

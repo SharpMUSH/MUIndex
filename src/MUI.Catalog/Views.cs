@@ -159,6 +159,10 @@ public sealed record GameFilter
 
     public FacetChoice? Charset { get; init; }
 
+    /// <summary>
+    /// The codebase exactly as a game reports it, <c>PennMUSH 1.8.8p0</c> and all — a counted facet
+    /// over the values actually present in the catalogue.
+    /// </summary>
     public FacetChoice? Codebase { get; init; }
 
     public FacetChoice? Family { get; init; }
@@ -166,6 +170,26 @@ public sealed record GameFilter
     public FacetChoice? Genre { get; init; }
 
     public FacetChoice? Language { get; init; }
+
+    /// <summary>
+    /// A codebase <em>family</em> — <c>PennMUSH</c>, not <c>PennMUSH 1.8.8p0</c>. Matched by
+    /// <see cref="CodebaseFamily"/>, so every patchlevel of one codebase is one facet.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This exists because a reference page for a codebase has to link to the games running it, and
+    /// a link is only honest if the page's own count and the listing it lands on are one query. Free
+    /// text will not do the job: <c>?q=PennMUSH</c> searches names against the database and would
+    /// find the games <em>called</em> PennMUSH rather than the games running it.
+    /// </para>
+    /// <para>
+    /// <b>Distinct from <see cref="Codebase"/> and from <see cref="Family"/>, and all three are real.</b>
+    /// <c>Codebase</c> is the raw string a game published; <c>Family</c> is MSSP's own <c>FAMILY</c>
+    /// variable, which answers <c>TinyMUD</c> or <c>DikuMUD</c>; this is the codebase with its
+    /// version taken off. A reference page for PennMUSH wants the third and neither of the others.
+    /// </para>
+    /// </remarks>
+    public string? CodebaseFamily { get; init; }
 }
 
 /// <summary>

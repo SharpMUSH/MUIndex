@@ -1,0 +1,84 @@
+@using MUI.Web.Reference
+
+@*
+    A client's capability matrix: one hand-written column, and the source that backs each cell.
+
+    This is deliberately shaped differently from the game pages' CapabilityMatrix, which has two
+    columns because it has two kinds of claim to hold apart. Here there is only one kind — somebody
+    read somebody else's documentation — so a second column would imply a measurement that does not
+    exist. What takes its place is the citation, which is the load-bearing part of the record: an
+    uncited cell is not a weaker claim, it is not a claim at all, and it renders as unknown.
+*@
+
+<div class="section-head">
+    <h2 id="@Id">Capabilities</h2>
+    <p class="count faint">@Established of @Claims.Count established from the project's own documentation</p>
+</div>
+
+<p class="dim">@ReferencePlainText.ClientMatrixCaveat</p>
+
+<table class="matrix client-matrix">
+    <caption class="sr-only">
+        Client capabilities, each read off the project's own documentation. Unknown means we did not
+        establish it, and never that the client lacks it.
+    </caption>
+    <thead>
+        <tr>
+            <th scope="col">capability</th>
+            <th scope="col">documented</th>
+            <th scope="col">source</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var claim in Claims)
+        {
+            <tr class="@(claim.Name == ClientCapabilities.ScreenReader ? "accessibility" : null)">
+                <th scope="row"><span class="mono">@claim.Name</span></th>
+
+                @* The word is the state and the colour only reinforces it. In greyscale, in a screen
+                   reader and on a printout the cell still says which of the three things it is —
+                   which is the entire difference between an unknown and a no. *@
+                <td class="mono">
+                    <span class="@Tone(claim.State)">@ClientCapabilities.Word(claim.State)</span>
+                </td>
+                <td class="mono faint">
+                    @if (claim.Source is { } source)
+                    {
+                        <a href="@source" rel="nofollow noopener">@Host(source)</a>
+                    }
+                    else
+                    {
+                        <text>we did not find one</text>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<CapabilityClaim> Claims { get; set; } = [];
+
+    [Parameter] public string Id { get; set; } = "capabilities";
+
+    private int Established => Claims.Count(c => c.IsClaimed);
+
+    /// <summary>
+    /// Accent for a documented yes, amber for a documented no, and the unknown tone for the rest —
+    /// the site's one colour rule (measured / declared / absent) applied to a table where every cell
+    /// is on the declared side of it.
+    /// </summary>
+    private static string Tone(CapabilityState state) => state switch
+    {
+        CapabilityState.Present => "state-present",
+        CapabilityState.Absent => "state-absent",
+        _ => "state-unknown",
+    };
+
+    /// <summary>
+    /// The host, not the whole URL. A citation column of eighty-character links is unreadable, and
+    /// the link itself still goes where it says.
+    /// </summary>
+    private static string Host(string source) =>
+        Uri.TryCreate(source, UriKind.Absolute, out var uri) ? uri.Host : source;
+}
