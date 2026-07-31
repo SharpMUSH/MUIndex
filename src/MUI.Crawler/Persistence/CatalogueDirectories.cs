@@ -101,6 +101,14 @@ public sealed class NpgsqlGameFieldIndex(NpgsqlDataSource source) : IGameFieldIn
               FROM game_field
              WHERE lower(btrim(field)) = lower(btrim(@field))
                AND lower(btrim(value)) = lower(btrim(@value))
+               -- The bound is here as well as on the index, and both are deliberate. PostgreSQL's
+               -- btree cannot hold a row past ~2704 bytes, and a connect screen is thousands of
+               -- characters, so an unbounded index refused the INSERT and cost the game its whole
+               -- ingestion. The index is now partial; repeating its predicate here is what lets the
+               -- planner use it rather than sequentially scanning game_field once per identity
+               -- signal per probe. It changes no answer: every §7.3 signal — a name, a year, a
+               -- hostname, a hash, a token — is short, and a value longer than this is not one.
+               AND length(value) <= 256
             """,
             new { field, value },
             cancellationToken: ct));
