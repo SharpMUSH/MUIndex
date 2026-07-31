@@ -1,3 +1,6 @@
+using MUI.Catalog;
+using MUI.Web.Data;
+using MUI.Web.Fixtures;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,11 +20,35 @@ namespace MUI.Web.Tests;
 /// </remarks>
 public static class Render
 {
-    public static async Task<string> ComponentAsync<TComponent>(Dictionary<string, object?> parameters)
+    /// <summary>
+    /// A whole routable page, with the services a page injects.
+    /// </summary>
+    /// <remarks>
+    /// Wired to the same fixture the site falls back on, and deliberately <em>without</em> the
+    /// account services — which is the condition under test for anything about claiming: those are
+    /// registered only when a connection string is, so a page rendered here sees exactly what a
+    /// reader of the demo site sees.
+    /// </remarks>
+    public static Task<string> PageAsync<TComponent>(Dictionary<string, object?> parameters)
+        where TComponent : IComponent =>
+        ComponentAsync<TComponent>(parameters, services =>
+        {
+            var fixture = new FixtureGameQueries();
+
+            services.AddSingleton<IGameQueries>(fixture);
+            services.AddSingleton<IAvailabilityHistory>(fixture);
+            services.AddSingleton(TimeProvider.System);
+            services.AddSingleton(new CatalogueSource(IsMeasured: false));
+        });
+
+    public static async Task<string> ComponentAsync<TComponent>(
+        Dictionary<string, object?> parameters,
+        Action<IServiceCollection>? configure = null)
         where TComponent : IComponent
     {
         var services = new ServiceCollection();
         services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
+        configure?.Invoke(services);
         await using var provider = services.BuildServiceProvider();
 
         await using var renderer = new HtmlRenderer(provider, NullLoggerFactory.Instance);

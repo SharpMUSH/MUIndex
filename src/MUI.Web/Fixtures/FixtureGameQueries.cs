@@ -180,6 +180,12 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         _ => null,
     };
 
+    /// <summary>
+    /// The demo has no accounts, so nothing here ever asks — but the interface is the interface.
+    /// </summary>
+    public Task<GameSummary?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Task.FromResult(All.FirstOrDefault(g => g.Id == id));
+
     public Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default)
     {
         var summary = All.FirstOrDefault(g => g.Slug == slug);

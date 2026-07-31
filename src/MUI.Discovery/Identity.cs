@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MUI.Catalog;
 using MUI.Crawl;
 
 using MUI.Catalog.Persistence;
@@ -187,7 +188,20 @@ public static class ClaimTokenBeacon
         [MsspVariable, "MUINDEX_CLAIM", "CONTACT_TOKEN"];
 
     /// <summary>The token this probe carries, from any channel a probe can see, or null.</summary>
-    public static string? Read(ProbeResult result)
+    /// <remarks>
+    /// The identity matcher wants the value and not the provenance — a token is decisive wherever it
+    /// was published. <see cref="Find"/> is the arm that also says which channel, which is what the
+    /// claim record stores so an owner can be told what we actually saw.
+    /// </remarks>
+    public static string? Read(ProbeResult result) => Find(result)?.Token;
+
+    /// <summary>The token and the channel it was read from, or null.</summary>
+    /// <remarks>
+    /// MSSP is looked at before the connect screen because it is the channel we ask for first and the
+    /// one that survives a screen redesign. A server publishing the token in both is reported as MSSP,
+    /// which is true and is the more durable of the two.
+    /// </remarks>
+    public static ClaimBeacon? Find(ProbeResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
 
@@ -195,7 +209,7 @@ public static class ClaimTokenBeacon
         {
             if (MsspReading.Value(result.Mssp, variable) is { } declared && !string.IsNullOrWhiteSpace(declared))
             {
-                return declared.Trim();
+                return new ClaimBeacon(declared.Trim(), ClaimChannel.Mssp);
             }
         }
 
@@ -215,9 +229,12 @@ public static class ClaimTokenBeacon
 
         var rest = plain[(start + ConnectScreenPrefix.Length)..].TrimStart();
         var labelled = new string(rest.TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray());
-        return labelled.Length > 0 ? labelled : null;
+        return labelled.Length > 0 ? new ClaimBeacon(labelled, ClaimChannel.ConnectScreen) : null;
     }
 }
+
+/// <summary>A claim token read off a server, and where it was published (spec §8.3).</summary>
+public sealed record ClaimBeacon(string Token, ClaimChannel Channel);
 
 /// <summary>
 /// Reading an MSSP report without ever treating a codebase default as an answer.

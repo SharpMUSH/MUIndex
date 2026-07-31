@@ -26,6 +26,16 @@ public interface IGameStore
     Task MarkReachableAsync(Guid id, DateTimeOffset at, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Sets whether any account has proved control of this game (spec §8).
+    /// </summary>
+    /// <remarks>
+    /// A cache of "does a verified claim exist", denormalised onto the game because the listing reads
+    /// it for every row and §7.5's grace reads it on every sweep. <see cref="ClaimService"/> owns it;
+    /// nothing else may write it, or the flag and the claims it summarises will drift.
+    /// </remarks>
+    Task SetClaimedAsync(Guid id, bool isClaimed, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Games eligible for the archive sweep: everything not already archived. Deliberately not
     /// "everything dark" — the sweeper computes darkness from the availability series, and a
     /// pre-filter here would be a second definition of it.

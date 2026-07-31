@@ -1,3 +1,4 @@
+using MUI.Catalog.Persistence;
 using MUI.Catalog;
 using MUI.Crawl;
 using MUI.Discovery;
@@ -47,6 +48,9 @@ public sealed class CrawlCycle(
     HostGate gate,
     DiscoveryOptions options,
     TimeProvider time,
+    // Optional, and null on every path that has no database behind it. A crawl that cannot settle
+    // claims is a crawl doing slightly less, not a crawl that should refuse to run.
+    ClaimService? claims = null,
     ILogger<CrawlCycle>? logger = null)
 {
     /// <summary>Probes everything that is due, and returns what the pass did.</summary>
@@ -206,6 +210,39 @@ public sealed class CrawlCycle(
         await StoreAsync(target, result, tally, cancellationToken);
     }
 
+    /// <summary>
+    /// Offers whatever claim beacon this probe carried to the claim store (spec §8.1).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the whole of the verification step, and it is deliberately this small: the crawler
+    /// reads the beacon and knows nothing about what it means, and <see cref="ClaimService"/> decides
+    /// and knows nothing about sockets. Every probe of a claimed game passes through here, which is
+    /// also how <c>beacon_last_seen_at</c> stays current without a second schedule.
+    /// </para>
+    /// <para>
+    /// <b>A probe that read no beacon does nothing at all</b>, rather than reporting an absence. §8.4:
+    /// presence establishes, absence never revokes — and a silence here would be indistinguishable
+    /// from a compression bug eating the subnegotiation that carried it.
+    /// </para>
+    /// </remarks>
+    private async Task SettleClaimsAsync(Guid gameId, ProbeResult result, CancellationToken cancellationToken)
+    {
+        if (claims is null || ClaimTokenBeacon.Find(result) is not { } beacon)
+        {
+            return;
+        }
+
+        var verdict = await claims.OfferBeaconAsync(gameId, beacon.Token, beacon.Channel, cancellationToken);
+
+        if (verdict is ClaimVerdict.Verified)
+        {
+            logger?.LogInformation(
+                "{Host}:{Port} published a claim token we issued; the claim is verified via {Channel}",
+                result.Host, result.Port, beacon.Channel);
+        }
+    }
+
     private async Task StoreAsync(
         CrawlTarget target,
         ProbeResult result,
@@ -234,6 +271,8 @@ public sealed class CrawlCycle(
                 var intake = await referrals.ApplyAsync(
                     binding.GameId, target.Depth, result, cancellationToken);
                 tally.Referred(intake);
+
+                await SettleClaimsAsync(binding.GameId, result, cancellationToken);
             }
         }
 

@@ -89,6 +89,19 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
             cancellationToken: cancellationToken));
     }
 
+    public async Task SetClaimedAsync(
+        Guid id,
+        bool isClaimed,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE game SET is_claimed = @isClaimed WHERE id = @id",
+            new { id, isClaimed },
+            cancellationToken: cancellationToken));
+    }
+
     public async Task MarkReachableAsync(
         Guid id,
         DateTimeOffset at,

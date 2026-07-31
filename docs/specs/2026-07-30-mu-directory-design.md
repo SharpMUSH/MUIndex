@@ -703,20 +703,125 @@ so, and §11's opt-out is the honest way to say it entirely.
 
 ## 8. Claiming and ownership
 
-The site issues a token. The owner proves control by emitting it in one of three places — an MSSP
-field, a line on the connect screen, or a DNS TXT record on the hostname. All three require server
-or DNS access; all three are verified by the crawler that already exists; none requires the site to
-send mail or trust a third-party registry.
+### 8.1 The order is: sign in, then claim
 
-The claim token doubles as a permanent identity beacon (§7.3), which gives owners a concrete
-technical reason to claim beyond editing their listing.
+An account exists **before** any token does, and the claim binds to the account rather than to the
+token. That ordering is not a convenience; it is what makes the scheme sound.
 
-Owner dashboard: enrichment fields (fandom/IP, RP enforcement, application process, consent tools),
-connect-screen suppression, WHO-format override, opt-out, and the MSSP linter scorecard —
-continuous rather than one-shot, flagging missing fields, wrong types and non-standard values.
-Multi-owner, transfer, and an audit log.
+1. The visitor signs in. A session cookie now identifies a durable account.
+2. They press *claim this game*. The site mints a token and stores a **pending claim** keyed
+   `(account, game)`.
+3. They publish the token where a probe can read it.
+4. The next probe compares. On a match the claim completes, bound to **the account that minted the
+   token** — never to whoever holds it.
+
+**The token is a nonce, not a credential, and it cannot be anything else.** We ask an operator to
+publish it on a connect screen or in an MSSP field, which every anonymous connection reads —
+including every other crawler. A bearer-secret model, where holding the token confers the claim, is
+therefore broken the instant it succeeds. What the token proves is that *somebody with write access
+to that server published it*; the account binding answers the separate question of *who asked*.
+
+Mallory reading Alice's token off the connect screen can do nothing with it: it verifies only against
+Alice's pending claim. To take the game she must publish her own token on that server, which is
+precisely the control being tested.
+
+**Nobody has to write anything down.** The pending claim is durable server-side state, shown on the
+claimant's dashboard for as long as it is pending, with each channel's exact line ready to copy. Close
+the tab, come back next week, it is still there. A token that had to be captured in one sitting would
+put a transcription error between an owner and their listing.
+
+Bounds: one pending token per `(account, game)`, expiring after 30 days — otherwise abandoned tokens
+accumulate on connect screens and linger as identity beacons for claims nobody completed. Verification
+is idempotent and re-runnable; a non-match is *not yet* rather than a failure, and the page says when
+we last looked and when we will look again.
+
+**Verification is asked for, not polled at.** A claimant may request one on-demand probe per pending
+claim per few minutes — enough that an operator who has just edited `mush.cnf` is not waiting on the
+scheduler, and bounded so that the button is not a free way to make us dial a stranger. `CRAWL DELAY`
+still binds, and the target must already be one we crawl.
+
+### 8.2 Sign-in is passkeys, and v1 has nothing else
+
+**Passkeys only** (WebAuthn/FIDO2, native to ASP.NET Core Identity in .NET 10). No passwords, no
+email, no federated provider, no third party of any kind. We hold a public key; the private key never
+leaves the operator's authenticator.
+
+Three properties earned rather than assumed. There is **no password database to breach** — what we
+store is public by construction. Sign-in is **phishing-resistant structurally**, because the browser
+binds the credential to our domain and will not release a signature to a look-alike. And replay is
+caught by the credential's own signature counter.
+
+**The hard part of passwordless does not apply here.** Account recovery is what usually forces a
+password, an email flow or recovery codes onto a passkey deployment. Our recovery path is: make a new
+account, publish a fresh token on your game, verify. **The root of trust is the server the operator
+controls, not the credential** — so losing every device is recoverable without us knowing an email
+address, and an account is worth almost nothing to steal.
+
+Three consequences to hold onto:
+
+- **Sign-in requires JavaScript, and it is the only thing on this site that does.** `navigator
+  .credentials` has no scripting-off path. The public catalogue — listing, game pages, archive,
+  plain mode, the API — stays fully functional without scripting, and that boundary is a design
+  constraint rather than an accident: the part that requires JS is the part used by people who
+  administer a game server.
+- **A passkey is bound to a domain**, and §15.1's open domain question therefore has a deadline.
+  `IdentityPasskeyOptions.ServerDomain` is set explicitly rather than inferred from the host header
+  (the inference is a credential-scoping risk), and no untrusted content is ever served on a
+  subdomain of it. Passkeys registered before the domain settles must be re-registered after a move;
+  either settle it before claiming opens or accept a one-time re-enrolment and say so on the page.
+- **Enrolment is still a minority behaviour** across the web — a reason to expect federated options
+  to be added later, and not a reason to add them now. Every person who can complete a claim already
+  has shell access to a MU\* server; this is the audience most able to use a passkey.
+
+Federated sign-in (Discord, a forge, the fediverse) is a **later** addition, and one that also
+restores a scripting-free login path, since OAuth is redirects. It is deliberately out of v1.
+
+### 8.3 The channels a token may be published in
+
+**MSSP** (`MUINDEX CLAIM`, with `MUINDEX_CLAIM` and `CONTACT_TOKEN` also accepted — an MSSP variable
+name does not reliably survive a config file, and an operator who did exactly what they were told must
+not be told their claim failed) and **the connect screen** (`MUINDEX-CLAIM: muidx-…`). Both are read
+by the probe that already exists.
+
+**DNS TXT is deferred, and not merely for lack of a resolver.** A TXT record proves control of a
+*hostname*, and a hostname is not a game: MU\* hosting routinely puts many unrelated games on one
+domain, separated only by port. The host's operator could claim all of them, and a game running on
+somebody else's domain could never use the channel at all. If it returns it needs a port qualifier.
+The two channels above prove control of *that listener*, which is the thing being claimed.
+
+### 8.4 Presence establishes; absence never revokes
+
+A verified claim survives the token being removed. The alternative — absence revokes — hands
+revocation to any transient failure: a server restart, an MSSP hiccup, a compression bug eating a
+subnegotiation. This project has already watched MCCP swallow a connection's payload whole, and a
+silent unclaiming on that basis would be indistinguishable from an owner walking away.
+
+So two timestamps, because they are two facts: `claimed_at`, written once when verification succeeds,
+and `beacon_last_seen_at`, updated whenever a probe still sees the token. Revocation is explicit, or
+the consequence of a **counter-claim** — a different account proving control *now* — which is also
+the correct handling of a game changing hands. The published token keeps earning its keep meanwhile
+as §7.3's decisive identity signal, which is the concrete technical reason to leave it in place.
+
+### 8.5 What a claim grants, and the line it may not cross
+
+Enrichment fields (fandom/IP, RP enforcement, application process, consent tools), connect-screen
+suppression, `WHO`-format override, opt-out, and the MSSP linter scorecard — continuous rather than
+one-shot, flagging missing fields, wrong types and non-standard values. Multi-owner, transfer, and an
+audit log; one account may hold many games, and a game may have several owners, each having verified
+a token of their own.
+
+**An owner may never edit a measurement.** They can add `FANDOM`; they cannot touch a player count, a
+capability matrix, or a reachability history. The writable set *is* the field registry's
+`OwnerEnrichable` flag, and a write to any other field is refused out loud rather than dropped — a
+silent no-op teaches an owner that the site is broken, and a successful one would make the whole site
+a self-report with extra steps.
 
 Owner-published outputs: a live player-count SVG badge and a JSON endpoint for the game's own site.
+
+**Claiming lights up two paths that are currently unreachable**, and that is worth knowing when
+testing it: nothing sets `game.is_claimed` today, so the `claimed` badge in the listing and
+`ArchivePolicy`'s ceiling-grace-for-claimed-games (§7.5) have never once been exercised against real
+data.
 
 ## 9. Site surface, v1
 

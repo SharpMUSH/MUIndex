@@ -52,6 +52,16 @@ internal sealed class InMemoryGameStore : IGameStore
         return Task.CompletedTask;
     }
 
+    public Task SetClaimedAsync(Guid id, bool isClaimed, CancellationToken cancellationToken = default)
+    {
+        if (_games.TryGetValue(id, out var game))
+        {
+            _games[id] = game with { IsClaimed = isClaimed };
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task MarkReachableAsync(Guid id, DateTimeOffset at, CancellationToken cancellationToken = default)
     {
         if (_games.TryGetValue(id, out var game)

@@ -1,0 +1,163 @@
+@page "/g/{Slug}/claim"
+@using Microsoft.AspNetCore.Identity
+@using MUI.Catalog
+@using MUI.Catalog.Persistence
+@using MUI.Discovery
+@using MUI.Web.Accounts
+@inject IGameQueries Queries
+@inject IServiceProvider Services
+@inject TimeProvider Clock
+
+@*
+    Claiming a game: sign in, then publish a token where a probe can read it (spec §8.1).
+
+    Nobody has to write anything down. What is on this page is durable server-side state, shown for
+    as long as the claim is pending, with each channel's exact line ready to copy — close the tab and
+    come back next week and it is unchanged. A scheme that had to be finished in one sitting would
+    put a transcription error between an owner and their listing.
+
+    The token is a nonce and not a secret. We are asking for it to be published where every anonymous
+    connection reads it, so holding it can never confer anything: it proves somebody with write
+    access to that server published it, and the account this claim is bound to answers who asked.
+*@
+
+<PageTitle>Claim @(Page?.Summary.Name ?? Slug) — mu*index</PageTitle>
+
+@if (Page is null)
+{
+    <section class="prose"><h1>No such game</h1></section>
+}
+else if (Claims is null)
+{
+    <section class="prose">
+        <h1>Claim @Page.Summary.Name</h1>
+        <p>Claiming needs a database behind it, and this site is running on the demo fixture.</p>
+    </section>
+}
+else if (User is null)
+{
+    <section class="prose">
+        <h1>Claim @Page.Summary.Name</h1>
+        <p>
+            You need an account first, so that the claim has somewhere to belong. It takes a passkey
+            and a name, and nothing else.
+        </p>
+        <p><a class="button" href="/account/sign-in">Sign in or create an account</a></p>
+    </section>
+}
+else
+{
+    <section class="prose">
+        <h1>Claim @Page.Summary.Name</h1>
+
+        @if (Pending!.IsVerified)
+        {
+            <p class="verified">
+                <strong>Verified.</strong> We read your token from
+                @(Pending.VerifiedVia == ClaimChannel.Mssp ? "the game's MSSP report" : "the connect screen")
+                on @Pending.ClaimedAt!.Value.ToString("d MMMM yyyy").
+            </p>
+            <p>
+                Leave the token where it is. It doubles as a permanent identity signal, so this game
+                stays recognisably itself if it moves host or changes its name — and removing it
+                will never un-claim you.
+            </p>
+            <p><a href="/account">Your games</a></p>
+        }
+        else
+        {
+            <p>
+                Publish this token anywhere the game shows it to an anonymous connection, and the
+                next probe will pick it up. It proves you can write to that server, which is the
+                whole test.
+            </p>
+
+            <p class="token mono">@Pending.Token</p>
+
+            <h2>Either of these will do</h2>
+
+            <h3>An MSSP variable</h3>
+            <pre class="mono">@ClaimTokenBeacon.MsspVariable @Pending.Token</pre>
+            <p class="faint">
+                In PennMUSH that is a line in <code>mush.cnf</code>; every codebase with MSSP has an
+                equivalent. <code>MUINDEX_CLAIM</code> and <code>CONTACT_TOKEN</code> are accepted
+                too — an MSSP variable name does not always survive a config file, and you should not
+                be told your claim failed for doing exactly what you were told.
+            </p>
+
+            <h3>A line on the connect screen</h3>
+            <pre class="mono">@ClaimTokenBeacon.ConnectScreenPrefix @Pending.Token</pre>
+            <p class="faint">
+                Anywhere in the screen, and colour codes around it are fine.
+            </p>
+
+            <h2>Then</h2>
+            <p>
+                We check on the ordinary crawl schedule. This token is good until
+                @Pending.ExpiresAt.ToString("d MMMM yyyy"), and you can come back to this page any time
+                — nothing needs writing down.
+            </p>
+
+            <form method="post" action="/g/@Slug/claim/check">
+                <AntiforgeryToken />
+                <button type="submit" disabled="@(!CanCheck)">Check now</button>
+                @if (!CanCheck)
+                {
+                    <span class="faint">
+                        Just looked. You can ask again in a few minutes — the button dials a real
+                        server, so it is rationed.
+                    </span>
+                }
+            </form>
+        }
+    </section>
+}
+
+@code {
+    [Parameter]
+    public string Slug { get; set; } = string.Empty;
+
+    private GamePage? Page { get; set; }
+
+    private ClaimService? Claims { get; set; }
+
+    private MuiUser? User { get; set; }
+
+    private GameClaim? Pending { get; set; }
+
+    private bool CanCheck => Pending is not null && Claims!.MayRecheck(Pending);
+
+    /// <summary>
+    /// Loads the page, and mints a token if this account has none outstanding for this game.
+    /// </summary>
+    /// <remarks>
+    /// Minting on view rather than behind a second button is deliberate: arriving here is the ask.
+    /// <see cref="ClaimService.IssueAsync"/> returns an existing pending claim rather than replacing
+    /// it, so a refresh does not invalidate what the operator has just finished pasting into their
+    /// config — which would look exactly like the site being broken.
+    /// </remarks>
+    protected override async Task OnInitializedAsync()
+    {
+        Page = await Queries.FindAsync(Slug);
+        Claims = Services.GetService<ClaimService>();
+
+        if (Page is null || Claims is null)
+        {
+            return;
+        }
+
+        if (Services.GetService<UserManager<MuiUser>>() is { } users
+            && HttpContext?.User is { Identity.IsAuthenticated: true } principal)
+        {
+            User = await users.GetUserAsync(principal);
+        }
+
+        if (User is not null)
+        {
+            Pending = await Claims.IssueAsync(Page.Summary.Id, User.Id);
+        }
+    }
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+}
