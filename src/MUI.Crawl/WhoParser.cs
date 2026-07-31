@@ -40,6 +40,15 @@ public sealed partial class WhoParser : IWhoParser
             return WhoReading.Unread;
         }
 
+        // A server that did not understand WHO must never be read as an answer to it. DIKU-family
+        // games treat the login prompt as a character-name prompt, so "WHO" comes back as
+        // "No character by that name found." — which is one careless regex away from being reported
+        // as a measured zero for a game with hundreds of players online. Observed on alteraeon.com.
+        if (meaningful.Any(LooksLikeLoginPrompt))
+        {
+            return WhoReading.Unread;
+        }
+
         // 1. The server's own summary, which is the only statement here it makes deliberately.
         foreach (var line in Enumerable.Reverse(meaningful).Take(6))
         {
@@ -93,7 +102,8 @@ public sealed partial class WhoParser : IWhoParser
             return true;
         }
 
-        return false;
+        var labelled = LabelledPattern().Match(line);
+        return labelled.Success && int.TryParse(labelled.Groups["n"].Value, out count);
     }
 
     private static bool IsColumnHeader(string line) =>
@@ -107,18 +117,45 @@ public sealed partial class WhoParser : IWhoParser
         || line.TrimStart().StartsWith("---", StringComparison.Ordinal)
         || line.TrimStart().StartsWith("===", StringComparison.Ordinal);
 
+    /// <summary>
+    /// Whether the server answered the login prompt rather than the question.
+    /// </summary>
+    private static bool LooksLikeLoginPrompt(string line) => LoginPromptPattern().IsMatch(line);
+
     private static string StripAnsi(string text) => AnsiPattern().Replace(text, string.Empty);
 
-    // "There are no players connected." / "No players are connected."
-    [GeneratedRegex(@"\b(?:there\s+(?:are|is)\s+)?no\s+(?:players?|users?|characters?)\b",
+    /// <summary>
+    /// A count only counts when the sentence is about people being <em>connected</em>.
+    /// </summary>
+    /// <remarks>
+    /// The qualifier is the whole defence. Without it, <c>no\s+characters?</c> matches "No character
+    /// by that name found." and a busy DIKU reports zero players — a fabricated measurement, which
+    /// is worse than admitting we could not tell.
+    /// </remarks>
+    private const string Connectivity = @"(?:connected|online|logged\s*(?:in|on)|playing|in\s+the\s+game)";
+
+    // "There are no players connected." / "No players are online." / "Nobody is logged in."
+    [GeneratedRegex(
+        @"\bno(?:body)?\s+(?:players?|users?|characters?|one)?\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex NoPlayersPattern();
 
-    // "There are 16 players connected." / "16 Players logged in, 41 record" / "Players: 5"
+    // "There are 16 players connected." / "16 Players logged in, 41 record"
     [GeneratedRegex(
-        @"(?:(?<n>\d+)\s+(?:players?|users?|characters?)\b)|(?:(?:players?|users?)\s*[:=]\s*(?<n>\d+))",
+        @"\b(?<n>\d+)\s+(?:players?|users?|characters?)\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex NumberedPattern();
+
+    // "Players: 5" — a labelled field, unambiguous without a connectivity word.
+    [GeneratedRegex(@"^\s*(?:players?|users?)\s*[:=]\s*(?<n>\d+)\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex LabelledPattern();
+
+    // Login prompts that mean WHO was eaten as a character name.
+    [GeneratedRegex(
+        @"no\s+character\s+by\s+that\s+name|enter\s+(?:the\s+)?name|create\s+a\s+new\s+character"
+        + @"|what\s+is\s+your\s+name|password\s*:|type\s+'?new'?",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex LoginPromptPattern();
 
     [GeneratedRegex(@"\x1B\[[0-9;?]*[ -/]*[@-~]")]
     private static partial Regex AnsiPattern();

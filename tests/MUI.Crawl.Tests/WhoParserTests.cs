@@ -87,6 +87,58 @@ public class WhoParserTests
         await Assert.That(reading.Count).IsEqualTo(expected);
     }
 
+    /// <summary>alteraeon.com:23, captured 2026-07-30. WHO was eaten as a character name.</summary>
+    private const string AlterAeonResponse = """
+        No character by that name found.
+        (To log on an existing character, enter the name now.)
+        Would you like to create a new character?
+        """;
+
+    [Test]
+    public async Task ALoginPromptIsNeverReadAsAnAnswer()
+    {
+        // The worst bug this parser can have, caught on a real DIKU. Alter Aeon treats the login
+        // prompt as a character-name prompt, so "WHO" returns "No character by that name found."
+        // An earlier pattern matched `no characters?` and reported ZERO PLAYERS for a game with
+        // hundreds online — a fabricated measurement, which is worse than admitting we cannot tell.
+        var reading = Parser.Parse(AlterAeonResponse);
+
+        await Assert.That(reading.Confidence).IsEqualTo(WhoConfidence.Unknown);
+        await Assert.That(reading.HasCount).IsFalse();
+        await Assert.That(reading.Count).IsNull();
+    }
+
+    [Test]
+    [Arguments("No character by that name found.")]
+    [Arguments("What is your name?")]
+    [Arguments("Enter the name of your character:")]
+    [Arguments("Password:")]
+    [Arguments("Type 'new' to create a character.")]
+    public async Task AnyLoginPromptSuppressesTheWholeReading(string line)
+    {
+        // Suppression is deliberately whole-response rather than per-line: if any part of the reply
+        // is a login prompt, the server did not answer the question and nothing in the reply is an
+        // answer to it.
+        var reading = Parser.Parse($"Player Name  On For  Idle  Doing\n{line}");
+
+        await Assert.That(reading.Confidence).IsEqualTo(WhoConfidence.Unknown);
+    }
+
+    [Test]
+    public async Task ACountOnlyCountsWhenTheSentenceIsAboutBeingConnected()
+    {
+        // "3 characters deleted" is not a player count. The connectivity qualifier is what keeps a
+        // number in an unrelated sentence from becoming a measurement.
+        //
+        // Deliberately no column header: with one present the row-counting fallback would count this
+        // line as a player row, which is correct for that path and would hide what is being tested
+        // here — that the *summary* pattern does not fire on a number in an unrelated sentence.
+        var reading = Parser.Parse("3 characters were deleted last night.");
+
+        await Assert.That(reading.HasCount).IsFalse();
+        await Assert.That(reading.Confidence).IsEqualTo(WhoConfidence.Unknown);
+    }
+
     [Test]
     public async Task AnUnreadableResponseYieldsUnknownAndNeverZero()
     {
