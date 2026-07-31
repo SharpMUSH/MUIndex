@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>MUI.Crawler.Tests</RootNamespace>
+    <AssemblyName>MUI.Crawler.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TUnit" />
+
+    <!--
+      The end-to-end tests run a whole cycle against a real PostgreSQL 17. Half this pipeline's
+      design lives in CHECK constraints — the three presence states, the availability vocabulary, at
+      most one open interval per game — so a cycle asserted only against in-memory fakes has not been
+      tested against the thing that enforces them. Where no container runtime is available they skip
+      out loud rather than pass.
+    -->
+    <PackageReference Include="Testcontainers.PostgreSql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MUI.Crawler\MUI.Crawler.csproj" />
+  </ItemGroup>
+
+</Project>

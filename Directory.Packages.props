@@ -15,6 +15,20 @@
 
     <!-- Logging abstractions (TelnetNegotiationCore takes an ILogger). -->
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.2" />
+
+    <!--
+      Hosting and DI *abstractions* only, for MUI.Crawler. The crawler is an in-process
+      BackgroundService in the web deployable (spec §4.11, §12), so it needs BackgroundService and
+      IServiceCollection and nothing that decides how a host is built.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.2" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.2" />
+
+    <!--
+      A console sink, for mui-crawl and nothing else. The site's own logging is the host's business;
+      a one-shot command that writes a crawl cycle to a terminal needs somewhere for it to go.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.2" />
   </ItemGroup>
 
   <ItemGroup>

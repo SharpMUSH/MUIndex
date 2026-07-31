@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>MUI.Crawler.Cli</RootNamespace>
+    <AssemblyName>mui-crawl</AssemblyName>
+  </PropertyGroup>
+
+  <!--
+    mui-probe shows what one server said. This shows what a cycle WROTE — which is a different
+    question and the only one that can be answered by looking at a database. It exists because a
+    pipeline proven only against fixtures has not been proven.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\MUI.Crawler\MUI.Crawler.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" />
+  </ItemGroup>
+
+</Project>
