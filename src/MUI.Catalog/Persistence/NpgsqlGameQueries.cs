@@ -31,6 +31,29 @@ namespace MUI.Catalog.Persistence;
 public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? registry = null)
     : IGameQueries
 {
+    /// <summary>
+    /// The rule that keeps an unclaimed submission off every public surface (spec §8, migration 0010).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A game is public if nobody submitted it, or if it has been claimed.</b> Anything the
+    /// crawler found for itself is listed on sight exactly as §7.1 says; a stranger's assertion that
+    /// some address is a game waits until that stranger proves they run it.
+    /// </para>
+    /// <para>
+    /// It is one constant because it has to hold on <em>every</em> read — the listing, the search,
+    /// the three feeds, the ecosystem shares, the rankings, and both lookups. A predicate written
+    /// out per query is a predicate that will be forgotten on the next query somebody adds, and the
+    /// failure mode is a game on a public page that nobody vouched for. The test that enumerates
+    /// <c>IGameQueries</c> and asserts an unclaimed submission appears in none of it is the real
+    /// guard; this constant is what makes passing it easy.
+    /// </para>
+    /// </remarks>
+    private const string Public = "(submitted_by IS NULL OR is_claimed)";
+
+    /// <summary>The same rule where the table is aliased.</summary>
+    private const string PublicG = "(g.submitted_by IS NULL OR g.is_claimed)";
+
     /// <summary>The heatmap's window (spec §5.2).</summary>
     public static readonly TimeSpan ActivityWindow = TimeSpan.FromDays(56);
 
@@ -119,11 +142,12 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         var includeArchived = filter.IncludeArchived || filter.Band is ActivityBand.Archived;
 
         var rows = (await connection.QueryAsync<GameRow>(new CommandDefinition(
-            """
+            $"""
             SELECT g.id AS Id, g.slug AS Slug, g.name AS Name, g.tagline AS Tagline,
                    g.state AS State, g.is_claimed AS IsClaimed, g.last_reachable_at AS LastReachableAt
               FROM game g
              WHERE (@includeArchived OR g.state <> 'archived')
+               AND {PublicG}
              ORDER BY g.name
             """,
             new { includeArchived },
@@ -229,11 +253,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
         var row = await connection.QuerySingleOrDefaultAsync<GameRow>(new CommandDefinition(
-            """
+            $"""
             SELECT id AS Id, slug AS Slug, name AS Name, tagline AS Tagline, state AS State,
                    is_claimed AS IsClaimed, last_reachable_at AS LastReachableAt
               FROM game
-             WHERE id = @id
+             WHERE id = @id AND {Public}
             """,
             new { id },
             cancellationToken: cancellationToken));
@@ -268,11 +292,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
         var row = await connection.QuerySingleOrDefaultAsync<GameRow>(new CommandDefinition(
-            """
+            $"""
             SELECT id AS Id, slug AS Slug, name AS Name, tagline AS Tagline, state AS State,
                    is_claimed AS IsClaimed, last_reachable_at AS LastReachableAt
               FROM game
-             WHERE slug = @slug
+             WHERE slug = @slug AND {Public}
             """,
             new { slug },
             cancellationToken: cancellationToken));
@@ -333,10 +357,10 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         // §9's three liveness feeds — the differentiator no incumbent can publish, because none of
         // them measured continuously enough to know when a game came back.
         var discovered = await connection.QueryAsync<FeedRow>(new CommandDefinition(
-            """
+            $"""
             SELECT slug AS Slug, name AS Name, first_seen_at AS At, NULL AS Cause
               FROM game
-             WHERE first_seen_at >= @since
+             WHERE first_seen_at >= @since AND {Public}
              ORDER BY first_seen_at DESC
              LIMIT @limit
             """,
@@ -411,9 +435,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
         var totals = await connection.QuerySingleAsync<EcosystemTotalsRow>(new CommandDefinition(
-            """
+            $"""
             SELECT
-              (SELECT count(*)::int FROM game WHERE state <> 'archived') AS Listed,
+              (SELECT count(*)::int FROM game WHERE state <> 'archived' AND {Public}) AS Listed,
 
               -- A completed session, which is what a measured capability is a capability of.
               (SELECT count(DISTINCT a.game_id)::int
@@ -507,7 +531,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
         var listed = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
-            "SELECT count(*)::int FROM game WHERE state <> 'archived'",
+            $"SELECT count(*)::int FROM game WHERE state <> 'archived' AND {Public}",
             cancellationToken: cancellationToken));
 
         var busiest = (await connection.QueryAsync<BusiestRow>(new CommandDefinition(
