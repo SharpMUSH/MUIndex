@@ -1,0 +1,161 @@
+@page "/ecosystem"
+@inject IGameQueries Queries
+@inject TimeProvider Clock
+
+@*
+    The ecosystem dashboard (spec §9): what the measured catalogue runs, and what it offers.
+
+    Two rules hold this page up, and both are load-bearing rather than stylistic.
+
+    Shares, never totals. §15.7 withholds the absolute "how many people play MU*" figure because a
+    ratio over the games we reached survives the ones we cannot reach and the ones nobody claimed,
+    and a headcount survives neither. There is nothing on this page that sums a player count, and
+    the view model it renders has nowhere to put one.
+
+    And a share is nothing without its denominator. "62% of games offer UTF-8" is not a fact until
+    "of the 431 games whose handshake we have completed" is attached to it, so the count and the
+    set come first on every line here and the percentage comes second. The bars are illustrations
+    of sentences that are already complete: a reader in plain mode loses the seeing-at-once and no
+    figure at all.
+*@
+
+@if (Plain)
+{
+    <pre class="mono plain">@PlainText.RenderEcosystem(Dashboard, Now)</pre>
+}
+else
+{
+    <PageTitle>The ecosystem — mu*index</PageTitle>
+
+    <h1>The ecosystem</h1>
+    <p class="dim">@EcosystemCopy.NoTotals</p>
+
+    <ul class="counts mono">
+        <li><strong>@Dashboard.ListedGames</strong> games listed</li>
+        <li><strong>@Dashboard.Handshakes</strong> whose handshake we have completed</li>
+        <li><strong>@Dashboard.MsspReports</strong> whose MSSP report we hold</li>
+    </ul>
+
+    @if (Dashboard.OldestHandshake is { } oldest)
+    {
+        <p class="faint">The oldest handshake in this picture was last confirmed
+        @Relative.Format(Now - oldest) ago.</p>
+    }
+
+    <section aria-labelledby="codebases">
+        <h2 id="codebases">Codebases</h2>
+        <p class="dim">
+            Share of the @Dashboard.Codebases.Identified listed games that told us what they run. A
+            game whose codebase we could not read is counted as nothing at all, and never as
+            something else.
+        </p>
+
+        @if (Dashboard.Codebases.Families.Count == 0)
+        {
+            <p class="faint">No listed game has told us its codebase yet.</p>
+        }
+
+        <ul class="shares">
+            @foreach (var family in Dashboard.Codebases.Families)
+            {
+                <li>
+                    <span class="share-label">@family.Label</span>
+                    @* The bar carries no fact of its own, so it is hidden from assistive technology
+                       rather than announced twice beside the figure that does. *@
+                    <span class="share-track" aria-hidden="true">
+                        <span class="share-fill" style="width: @Percent(family.Fraction)"></span>
+                    </span>
+                    <span class="share-figure mono">@EcosystemCopy.Share(family)</span>
+                </li>
+            }
+        </ul>
+
+        @if (Dashboard.Codebases.NotIdentified > 0)
+        {
+            <p class="faint">
+                @Dashboard.Codebases.NotIdentified listed
+                @(Dashboard.Codebases.NotIdentified == 1 ? "game has" : "games have") not told us one.
+                They are outside the denominator above, not a share of it.
+            </p>
+        }
+    </section>
+
+    <section aria-labelledby="protocols">
+        <h2 id="protocols">Protocols</h2>
+        <p class="dim">@EcosystemCopy.Floor</p>
+
+        <div class="table-wrap">
+            <table class="protocols">
+                <caption class="sr-only">
+                    Protocol adoption. Measured is what a server offered our crawler in a completed
+                    handshake; declared is what its MSSP claims. The two columns have different
+                    denominators because they are different sets of games.
+                </caption>
+                <thead>
+                    <tr>
+                        <th scope="col">protocol</th>
+                        <th scope="col">measured — of @EcosystemCopy.Handshakes(Dashboard.Handshakes)</th>
+                        <th scope="col">declared — of @EcosystemCopy.MsspReports(Dashboard.MsspReports)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var protocol in Dashboard.Protocols)
+                    {
+                        <tr>
+                            <th scope="row" class="mono">@protocol.Protocol</th>
+                            <td>
+                                @if (protocol.Measured is { Fraction: { } fraction })
+                                {
+                                    <span class="share-track narrow" aria-hidden="true">
+                                        <span class="share-fill" style="width: @Percent(fraction)"></span>
+                                    </span>
+                                }
+                                <span class="@(protocol.Measured is null ? "faint" : "mono")">
+                                    @EcosystemCopy.Measured(protocol)
+                                </span>
+                            </td>
+                            <td class="mono declared">@EcosystemCopy.Declared(protocol)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section aria-labelledby="curve">
+        <h2 id="curve">Why this is a snapshot and not a curve</h2>
+        <p class="dim">@EcosystemCopy.NoCurve</p>
+        <p class="mono">@EcosystemCopy.Transitions(Dashboard.CapabilityTransitions)</p>
+    </section>
+
+    <p class="faint">
+        <a href="/rankings">the rankings</a> ·
+        <a href="/games">browse every game</a> ·
+        <a href="?plain=1">read this page as plain text</a>
+    </p>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
+
+    private bool Plain => Truthy.Is(PlainFlag);
+
+    private DateTimeOffset Now => Clock.GetUtcNow();
+
+    private EcosystemDashboard Dashboard = EcosystemDashboard.Empty(default);
+
+    protected override async Task OnParametersSetAsync() => Dashboard = await Queries.EcosystemAsync();
+
+    /// <summary>
+    /// A bar width, formatted by hand and under the invariant culture.
+    /// </summary>
+    /// <remarks>
+    /// Neither half of that is fussiness. <c>P1</c> writes a space before the sign, and
+    /// <c>width: 39.4 %</c> is a declaration the browser discards; a locale that writes a decimal
+    /// comma produces <c>width: 39,4%</c>, which it also discards. Both fail by making the bar vanish
+    /// on somebody else's machine, which is the class of defect a rendered frame here never shows.
+    /// </remarks>
+    private static string Percent(double? fraction) => fraction is { } f
+        ? FormattableString.Invariant($"{f * 100:0.0}%")
+        : "0%";
+}

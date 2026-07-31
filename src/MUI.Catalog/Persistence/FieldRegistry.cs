@@ -35,16 +35,7 @@ public static class CapabilityFields
     /// </summary>
     public static string? CapabilityOf(string field)
     {
-        if (!field.StartsWith(Prefix, StringComparison.Ordinal))
-        {
-            return null;
-        }
-
-        var suffix = field.EndsWith(MeasuredSuffix, StringComparison.Ordinal) ? MeasuredSuffix
-            : field.EndsWith(DeclaredSuffix, StringComparison.Ordinal) ? DeclaredSuffix
-            : null;
-
-        if (suffix is null)
+        if (SuffixOf(field) is not { } suffix)
         {
             return null;
         }
@@ -54,9 +45,54 @@ public static class CapabilityFields
         return Names.FirstOrDefault(name => Normalise(name) == slug);
     }
 
+    /// <summary>
+    /// The capability a field names, spelled the way a reader should see it, or null if it names no
+    /// capability at all.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="CapabilityOf"/> answers only for capabilities this class declares, which is the
+    /// right answer where a column of the matrix is at stake. An aggregate over the whole catalogue
+    /// needs the other one: a server naming a protocol nobody listed here is <em>still measured and
+    /// still stored</em> — <c>FieldObservations</c> refuses to drop an observation because no column
+    /// renders it — so a dashboard that knew only the declared set would silently discard real
+    /// measurements. The name the server used is returned in that case, folded back out of the slug,
+    /// so <c>capability.mccp2.measured</c> reads as <c>MCCP2</c>.
+    /// </remarks>
+    public static string? NameOf(string field)
+    {
+        if (CapabilityOf(field) is { } known)
+        {
+            return known;
+        }
+
+        var suffix = SuffixOf(field);
+
+        if (suffix is null)
+        {
+            return null;
+        }
+
+        var slug = field[Prefix.Length..^suffix.Length];
+
+        return slug.Length == 0 ? null : slug.Replace('-', ' ').ToUpperInvariant();
+    }
+
     public static bool IsMeasured(string field) =>
         field.StartsWith(Prefix, StringComparison.Ordinal)
         && field.EndsWith(MeasuredSuffix, StringComparison.Ordinal);
+
+    /// <summary>Which side of the matrix a field name is on, or null if it is on neither.</summary>
+    private static string? SuffixOf(string field)
+    {
+        if (!field.StartsWith(Prefix, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return field.EndsWith(MeasuredSuffix, StringComparison.Ordinal) ? MeasuredSuffix
+            : field.EndsWith(DeclaredSuffix, StringComparison.Ordinal) ? DeclaredSuffix
+            : null;
+    }
 
     private static string Normalise(string capability) =>
         capability.Trim().ToLowerInvariant().Replace(' ', '-');

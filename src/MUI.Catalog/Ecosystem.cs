@@ -1,0 +1,250 @@
+namespace MUI.Catalog;
+
+/// <summary>
+/// A count over the set it was counted in. There is no way to hold a proportion here without the
+/// denominator it is a proportion of.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The structural half of spec §15.7. "62% of games offer UTF-8" is not a fact — it is a fact only
+/// once "of the 431 games whose handshake we have completed" is attached to it, and a reader who
+/// cannot see the denominator cannot tell a ratio over four hundred measurements from a ratio over
+/// four. So the denominator is a field rather than a caption: a share cannot travel to a renderer
+/// without it, and <see cref="Fraction"/> cannot be computed from anything else.
+/// </para>
+/// <para>
+/// <see cref="Fraction"/> is null on an empty denominator rather than zero, for the same reason
+/// <see cref="CapabilityState.Unknown"/> is not <see cref="CapabilityState.Absent"/>: nothing
+/// measured is not nought per cent.
+/// </para>
+/// </remarks>
+public sealed record MeasuredShare(string Label, int Count, int Denominator)
+{
+    public double? Fraction => Denominator == 0 ? null : (double)Count / Denominator;
+}
+
+/// <summary>
+/// Which codebases the listed games run, as shares of the games that told us (spec §9).
+/// </summary>
+/// <remarks>
+/// <see cref="NotIdentified"/> is carried beside the shares rather than folded into them. A game
+/// whose codebase we could not read is not a game running "Other" — it is a game we have no answer
+/// for, and rolling those into a residual bar would publish our own gap as somebody's market share.
+/// </remarks>
+public sealed record CodebaseUsage(
+    IReadOnlyList<MeasuredShare> Families,
+    int Identified,
+    int NotIdentified);
+
+/// <summary>
+/// One protocol, measured beside declared, each with its own denominator (spec §9).
+/// </summary>
+/// <remarks>
+/// <para>
+/// Two denominators because they are two different sets, and this is exactly the place where one
+/// denominator for both would be a lie: <see cref="Handshakes"/> is the games whose session our
+/// crawler completed, and <see cref="MsspReports"/> is the games whose MSSP report we hold. A game
+/// can be in either, both or neither.
+/// </para>
+/// <para>
+/// <b><see cref="Offered"/> is nullable, and the null is load-bearing.</b> It is null when the store
+/// holds no measured observation of this protocol from any listed game — which is the state TLS is
+/// in today, because the probe dials plain telnet and TLS is not a telnet option. Rendering that as
+/// "0% of games offer TLS" would state a limit of our crawler as a fact about the hobby, which is
+/// rule 5. Deriving it from the data rather than from a list compiled here means the column starts
+/// reporting a share on its own the day the first measurement lands, and it fails in the safe
+/// direction: a protocol genuinely nobody offers reads as unmeasured, which understates a claim
+/// rather than manufacturing one.
+/// </para>
+/// <para>
+/// <see cref="Declined"/> counts only games with an explicit measured <c>false</c>, and the crawler
+/// writes one for exactly one protocol: MSSP, which every probe asks for by name, so silence there
+/// is an answer. For every other protocol the remainder is <see cref="Unobserved"/> — we did not see
+/// it, which is not the same fact as the game not having it. Every surface rendering this has to say
+/// so; <see cref="Offered"/> is a floor and not a measurement of absence.
+/// </para>
+/// </remarks>
+public sealed record ProtocolAdoption(
+    string Protocol,
+    int? Offered,
+    int Declined,
+    int Handshakes,
+    int Declared,
+    int MsspReports)
+{
+    /// <summary>
+    /// Games whose handshake completed and in which we saw neither a yes nor a no.
+    /// </summary>
+    /// <remarks>
+    /// Floored at nought rather than left to go negative. The two sides come from different tables —
+    /// the denominator from availability and the numerator from stored fields — so a capability row
+    /// on a game with no reachable interval, which a staff correction can write, would otherwise put
+    /// a negative count on a public page. The residual is the wrong place to surface that: it is a
+    /// number about the games, and an inconsistency of ours does not belong in it.
+    /// </remarks>
+    public int Unobserved => Math.Max(0, Handshakes - (Offered ?? 0) - Declined);
+
+    /// <summary>The measured side, or null where nothing has ever been measured.</summary>
+    public MeasuredShare? Measured =>
+        Offered is { } offered ? new MeasuredShare(Protocol, offered, Handshakes) : null;
+
+    /// <summary>The declared side. Always a share, because absence of a claim is not a claim.</summary>
+    public MeasuredShare DeclaredShare => new(Protocol, Declared, MsspReports);
+}
+
+/// <summary>
+/// The ecosystem dashboard: codebase share and protocol adoption over the measured set (spec §9).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Shares, not totals.</b> There is no player figure on this record and there is deliberately
+/// nowhere to put one. §15.7 withholds the absolute "how many people play MU*" number because a
+/// ratio over the measured set survives the unclaimed and unreachable biases and a count does not,
+/// and a total that exists on the view model is a total somebody will render.
+/// </para>
+/// <para>
+/// <b>A snapshot, and it says so.</b> The spec asks for adoption <em>curves</em>, and the store
+/// cannot yet honestly draw one: <c>game_field</c> holds a current value with transitions beside it
+/// in <c>field_change</c>, so a curve has to be reconstructed from transitions —
+/// <see cref="CapabilityTransitions"/> is how many exist so far, and it is the count that says when
+/// the curve becomes worth drawing. The tempting alternative is to plot each observation's
+/// <c>first_seen_at</c>, which would draw a beautiful rising line that is a picture of our crawl
+/// reaching more games and not of anybody adopting anything.
+/// </para>
+/// </remarks>
+public sealed record EcosystemDashboard(
+    DateTimeOffset AsOf,
+    int ListedGames,
+    int Handshakes,
+    int MsspReports,
+    DateTimeOffset? OldestHandshake,
+    int CapabilityTransitions,
+    CodebaseUsage Codebases,
+    IReadOnlyList<ProtocolAdoption> Protocols)
+{
+    public static EcosystemDashboard Empty(DateTimeOffset asOf) => new(
+        asOf, 0, 0, 0, null, 0, new CodebaseUsage([], 0, 0), []);
+}
+
+/// <summary>
+/// The protocols §9 names as the dashboard's headline four.
+/// </summary>
+/// <remarks>
+/// Listed even when nothing is known about them, because "we have not measured TLS yet" is one of
+/// the more useful things this page can say and it is only visible if the row exists. Every other
+/// capability appears when there is something to report and is left out when there is not.
+/// </remarks>
+public static class EcosystemProtocols
+{
+    public static IReadOnlyList<string> Headline { get; } = ["TLS", "UTF-8", "GMCP", "MXP"];
+}
+
+/// <summary>
+/// The family a <c>CODEBASE</c> value names, with a trailing version folded away.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Market share is a question about codebases and not about point releases: PennMUSH 1.8.8p0 and
+/// PennMUSH 1.8.7 are one answer, and reporting them as two would spread one codebase's share across
+/// as many rows as there are patch levels in the wild. MSSP's own convention is name-then-version,
+/// which is what makes the fold possible at all.
+/// </para>
+/// <para>
+/// Exactly one trailing token is folded, and only when the whole of it looks like a version — it
+/// starts with a digit or a <c>v</c> before one, and contains nothing but letters, digits and the
+/// separators a version number uses. So <c>Midnight Sun</c> keeps both its words and
+/// <c>Rhost 4.0.4 (patchlevel 1)</c> keeps its parenthesis rather than being truncated mid-phrase.
+/// The value as the game reported it is still on the game's own page; this is the dashboard's
+/// grouping key and nothing else.
+/// </para>
+/// </remarks>
+public static class CodebaseFamily
+{
+    public static string Of(string codebase)
+    {
+        ArgumentNullException.ThrowIfNull(codebase);
+
+        var trimmed = codebase.Trim();
+        var space = trimmed.LastIndexOf(' ');
+
+        if (space <= 0)
+        {
+            return trimmed;
+        }
+
+        return LooksLikeAVersion(trimmed[(space + 1)..])
+            ? trimmed[..space].TrimEnd()
+            : trimmed;
+    }
+
+    private static bool LooksLikeAVersion(string token)
+    {
+        if (token.Length == 0)
+        {
+            return false;
+        }
+
+        var starts = char.IsAsciiDigit(token[0])
+            || (token[0] is 'v' or 'V' && token.Length > 1 && char.IsAsciiDigit(token[1]));
+
+        return starts && token.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_');
+    }
+}
+
+/// <summary>
+/// One game in the busiest ranking, with the measurements the rank is computed from beside it.
+/// </summary>
+/// <remarks>
+/// The median rather than the peak, because a peak is one sample and a game that had forty players
+/// for a minute is not busier than one that has thirty all day. Both are carried anyway, with the
+/// number of samples they were taken over, so the basis is on the page rather than in a footnote —
+/// a ranking whose arithmetic a reader cannot check is the kind of ranking §2 refuses.
+/// <see cref="Median"/> is an observed value and never an average of two, so it is a number some
+/// probe actually read.
+/// </remarks>
+public sealed record BusiestGame(string Slug, string Name, int Median, int Peak, int Samples);
+
+/// <summary>
+/// A game's current unbroken run of measured reachability.
+/// </summary>
+/// <remarks>
+/// <see cref="Since"/> is carried rather than a duration alone because the duration means nothing
+/// without it: a spell cannot be longer than we have been watching, so the honest sentence is
+/// "reachable on every probe since 12 March" and never "reachable for four years". Reachable, not
+/// up (spec §5.8) — we measured a socket from one vantage point.
+/// </remarks>
+public sealed record ReachableSpell(string Slug, string Name, DateTimeOffset Since)
+{
+    public TimeSpan LengthAt(DateTimeOffset now) => now - Since;
+}
+
+/// <summary>
+/// The rankings (spec §9), computed from measured data only.
+/// </summary>
+/// <remarks>
+/// <para>
+/// There is no voting affordance on this site and there never will be — that is what reduced Top Mud
+/// Sites to a link graveyard, and it is the first thing on §2's permanent non-goals. So every
+/// ranking here has to be a measurement with a stated basis, which rules out "best" and rules in
+/// "busiest by measured concurrent players over a named window, among games that produced enough
+/// samples to have a median".
+/// </para>
+/// <para>
+/// <see cref="Eligible"/> beside <see cref="ListedGames"/> is the denominator rule applied to a
+/// league table: a top ten drawn from twelve eligible games and a top ten drawn from four hundred
+/// are different claims, and the difference is invisible unless the page says which it is. Archived
+/// games are excluded here and from nothing else (spec §7.5).
+/// </para>
+/// </remarks>
+public sealed record Rankings(
+    DateTimeOffset AsOf,
+    TimeSpan Window,
+    int MinimumSamples,
+    int ListedGames,
+    int Eligible,
+    IReadOnlyList<BusiestGame> Busiest,
+    IReadOnlyList<ReachableSpell> LongestUnbroken)
+{
+    public static Rankings Empty(DateTimeOffset asOf, TimeSpan window, int minimumSamples) =>
+        new(asOf, window, minimumSamples, 0, 0, [], []);
+}

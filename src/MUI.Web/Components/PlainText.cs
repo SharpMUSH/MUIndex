@@ -423,6 +423,132 @@ public static class PlainText
         return b.ToString();
     }
 
+    /// <summary>
+    /// The ecosystem dashboard, which is the page whose graphic is most obviously an illustration.
+    /// </summary>
+    /// <remarks>
+    /// Every bar on the rendered page illustrates a sentence that is complete without it: "PennMUSH —
+    /// 122 of 310 (39.4%)" is the fact, and the bar is a way of seeing several of them at once.
+    /// Nothing is lost here but the seeing-at-once, which is the test §9 sets for a graphic.
+    /// </remarks>
+    public static string RenderEcosystem(EcosystemDashboard dashboard, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(dashboard);
+
+        var b = new StringBuilder();
+
+        b.AppendLine("THE ECOSYSTEM");
+        Wrap(b, EcosystemCopy.NoTotals);
+        b.AppendLine();
+        Wrap(b, $"{dashboard.ListedGames} games listed · "
+            + $"{EcosystemCopy.Handshakes(dashboard.Handshakes)} · "
+            + $"{EcosystemCopy.MsspReports(dashboard.MsspReports)}.");
+
+        if (dashboard.OldestHandshake is { } oldest)
+        {
+            Wrap(b, "The oldest handshake in this picture was last confirmed "
+                + $"{Relative.Format(now - oldest)} ago.");
+        }
+
+        Heading(b, "CODEBASES");
+        Wrap(b, $"Share of the {dashboard.Codebases.Identified} listed games that told us what they "
+            + "run. A game whose codebase we could not read is counted as nothing at all, and never "
+            + "as something else.");
+        b.AppendLine();
+
+        foreach (var family in dashboard.Codebases.Families)
+        {
+            b.AppendLine($"  {family.Label,-24} {EcosystemCopy.Share(family)}");
+        }
+
+        if (dashboard.Codebases.Families.Count == 0)
+        {
+            b.AppendLine("  No listed game has told us its codebase yet.");
+        }
+
+        if (dashboard.Codebases.NotIdentified > 0)
+        {
+            b.AppendLine();
+            b.AppendLine($"  {dashboard.Codebases.NotIdentified} listed game(s) have not told us one.");
+        }
+
+        Heading(b, "PROTOCOLS");
+        Wrap(b, EcosystemCopy.Floor);
+        b.AppendLine();
+
+        foreach (var protocol in dashboard.Protocols)
+        {
+            b.AppendLine($"  {protocol.Protocol}");
+            Wrap(b, $"measured: {EcosystemCopy.Measured(protocol)}", "    ");
+            Wrap(b, $"declared: {EcosystemCopy.Declared(protocol)}", "    ");
+        }
+
+        b.AppendLine();
+        Wrap(b, $"Measured is of {EcosystemCopy.Handshakes(dashboard.Handshakes)}; declared is of "
+            + $"{EcosystemCopy.MsspReports(dashboard.MsspReports)}. Two denominators, because they "
+            + "are two different sets of games.");
+
+        Heading(b, "WHY THIS IS A SNAPSHOT AND NOT A CURVE");
+        Wrap(b, EcosystemCopy.NoCurve);
+        b.AppendLine();
+        Wrap(b, EcosystemCopy.Transitions(dashboard.CapabilityTransitions));
+
+        return b.ToString();
+    }
+
+    /// <summary>The rankings, with every basis in the same words the rendered page uses.</summary>
+    public static string RenderRankings(Rankings rankings, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(rankings);
+
+        var b = new StringBuilder();
+
+        b.AppendLine("RANKINGS");
+        Wrap(b, EcosystemCopy.NoVote);
+
+        Heading(b, $"BUSIEST — median measured players, last {(int)rankings.Window.TotalDays} days");
+        Wrap(b, EcosystemCopy.BusiestBasis(rankings));
+        b.AppendLine();
+
+        if (rankings.Busiest.Count == 0)
+        {
+            Wrap(b, "No listed game has produced enough counted samples to be ranked yet. That is a "
+                + "statement about how long we have been measuring and not about how busy anybody "
+                + "is.", "  ");
+        }
+
+        var place = 0;
+
+        foreach (var game in rankings.Busiest)
+        {
+            place++;
+            b.AppendLine($"  {place,3}  {game.Name}");
+            b.AppendLine($"       median {game.Median} · peak {game.Peak} · "
+                + $"{game.Samples} counted samples · /g/{game.Slug}");
+        }
+
+        Heading(b, "LONGEST UNBROKEN REACHABLE SPELL");
+        Wrap(b, EcosystemCopy.SpellBasis);
+        b.AppendLine();
+
+        if (rankings.LongestUnbroken.Count == 0)
+        {
+            Wrap(b, "No listed game is in an unbroken reachable spell right now.", "  ");
+        }
+
+        place = 0;
+
+        foreach (var spell in rankings.LongestUnbroken)
+        {
+            place++;
+            b.AppendLine($"  {place,3}  {spell.Name}");
+            b.AppendLine($"       reachable on every probe since {spell.Since:d MMMM yyyy} · "
+                + $"{Wording.Duration(spell.LengthAt(now))} · /g/{spell.Slug}");
+        }
+
+        return b.ToString();
+    }
+
     private static void Heading(StringBuilder b, string title)
     {
         b.AppendLine();

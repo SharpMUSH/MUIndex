@@ -19,6 +19,14 @@ namespace MUI.Catalog.Persistence;
 /// <see cref="FieldPrecedence.Winner"/> picks, so the ladder has exactly one spelling — the declared
 /// order of <see cref="FieldSource"/> — and a `CASE source WHEN …` in a query cannot drift from it.
 /// </para>
+/// <para>
+/// The two aggregate reads are the one exception, and they keep the rule while breaking the shape:
+/// the ecosystem dashboard resolves a winner per <c>(game, field)</c> across the whole catalogue, and
+/// dragging every capability row of every game into memory to do it would be a scan for a page. They
+/// use <c>DISTINCT ON … ORDER BY array_position(@ladder, source)</c> instead — where
+/// <see cref="SourceLadder"/> is generated from the enum's declared order, so the ladder still has
+/// exactly one spelling and a hand-written <c>CASE</c> still cannot drift from it.
+/// </para>
 /// </remarks>
 public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? registry = null)
     : IGameQueries
@@ -32,9 +40,38 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// <summary>§5.2's "active this week".</summary>
     public static readonly TimeSpan ThisWeek = TimeSpan.FromDays(7);
 
+    /// <summary>
+    /// The window the busiest ranking is measured over, and named on the page.
+    /// </summary>
+    /// <remarks>
+    /// A week, because a MU* has a weekly shape — §5.2's heatmap is a day × hour grid for exactly that
+    /// reason — and a ranking over anything shorter would rank Saturday's games above Tuesday's.
+    /// </remarks>
+    public static readonly TimeSpan RankingWindow = TimeSpan.FromDays(7);
+
+    /// <summary>
+    /// How many counted samples a game needs before it can be ranked.
+    /// </summary>
+    /// <remarks>
+    /// A day's worth of hourly probes. A median over three samples is not a median, and a game found
+    /// on Friday would otherwise take the top of the table off one lucky evening probe — which is
+    /// ranking our crawl schedule rather than the game.
+    /// </remarks>
+    public const int MinimumRankingSamples = 24;
+
     private const int FeedLimit = 10;
 
     private const int ChangeLimit = 20;
+
+    private const int RankingLimit = 20;
+
+    /// <summary>
+    /// The §5.1 ladder as a SQL parameter, generated from the enum so it cannot drift from it.
+    /// </summary>
+    private static readonly string[] SourceLadder = Enum.GetValues<FieldSource>()
+        .OrderBy(FieldPrecedence.RankOf)
+        .Select(SqlEnums.ToDb)
+        .ToArray();
 
     private readonly IFieldRegistry _registry = registry ?? FieldRegistry.Instance;
 
@@ -234,6 +271,282 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             wentDark.Select(r => new FeedEntry(
                 r.Slug, r.Name, r.At, $"unreachable · {r.Cause ?? "unknown"} · we keep knocking")).ToList(),
             cameBack.Select(r => new FeedEntry(r.Slug, r.Name, r.At, "answered again")).ToList());
+    }
+
+    /// <summary>
+    /// Codebase share and protocol adoption over the listed games (spec §9).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every figure here is a count of <em>games</em>, and nothing sums a player count. §15.7 withholds
+    /// the absolute "how many people play MU*" number because a share over the measured set survives
+    /// the unclaimed and unreachable biases and a total does not — so this method has no access to
+    /// presence at all, which is the cheapest way to keep a total from ever being computed here.
+    /// </para>
+    /// <para>
+    /// <b>The protocol denominator is games we have completed a session with, and it is read off
+    /// availability rather than off the capability rows themselves.</b> A <c>reachable</c> interval
+    /// means a probe of ours got in and finished (a session that answered and could not finish is
+    /// <c>degraded</c>, §5.3), which is exactly the set a protocol share is a share of. Counting games
+    /// that <em>have</em> capability rows instead would define the denominator out of the numerator:
+    /// a game whose handshake completed and offered nothing measurable would drop out of the bottom of
+    /// the fraction and quietly raise every share on the page.
+    /// </para>
+    /// <para>
+    /// Archived games are excluded, which is the one presentation change archiving makes (§7.5). A
+    /// game that stopped answering in 2019 is a fact about 2019 and its handshake is not evidence
+    /// about what the hobby runs now.
+    /// </para>
+    /// </remarks>
+    public async Task<EcosystemDashboard> EcosystemAsync(CancellationToken cancellationToken = default)
+    {
+        var now = Clock();
+
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        var totals = await connection.QuerySingleAsync<EcosystemTotalsRow>(new CommandDefinition(
+            """
+            SELECT
+              (SELECT count(*)::int FROM game WHERE state <> 'archived') AS Listed,
+
+              -- A completed session, which is what a measured capability is a capability of.
+              (SELECT count(DISTINCT a.game_id)::int
+                 FROM availability_interval a
+                 JOIN game g ON g.id = a.game_id
+                WHERE g.state <> 'archived' AND a.state = 'reachable') AS Handshakes,
+
+              -- Games whose MSSP report we hold. A different set from the one above, and the whole
+              -- reason the declared column carries its own denominator.
+              (SELECT count(DISTINCT f.game_id)::int
+                 FROM game_field f
+                 JOIN game g ON g.id = f.game_id
+                WHERE g.state <> 'archived' AND f.source = 'mssp') AS MsspReports,
+
+              -- How stale the stalest handshake in this snapshot is, so the page can say how old the
+              -- picture is rather than implying it is of this minute.
+              (SELECT min(f.last_confirmed_at)
+                 FROM game_field f
+                 JOIN game g ON g.id = f.game_id
+                WHERE g.state <> 'archived' AND f.source = 'handshake'
+                  AND f.field LIKE 'capability.%.measured') AS OldestHandshake,
+
+              -- The raw material of the curve this page cannot yet draw (§5.1's change ledger).
+              (SELECT count(*)::int
+                 FROM field_change c
+                 JOIN game g ON g.id = c.game_id
+                WHERE g.state <> 'archived'
+                  AND c.field LIKE 'capability.%.measured') AS CapabilityTransitions
+            """,
+            cancellationToken: cancellationToken));
+
+        var codebases = (await connection.QueryAsync<string>(new CommandDefinition(
+            """
+            SELECT DISTINCT ON (f.game_id) f.value
+              FROM game_field f
+              JOIN game g ON g.id = f.game_id
+             WHERE g.state <> 'archived' AND f.field = 'CODEBASE' AND f.value <> ''
+             ORDER BY f.game_id, array_position(@ladder::text[], f.source), f.last_confirmed_at DESC
+            """,
+            new { ladder = SourceLadder },
+            cancellationToken: cancellationToken))).ToList();
+
+        var capabilities = (await connection.QueryAsync<CapabilityTallyRow>(new CommandDefinition(
+            """
+            SELECT winner.field AS Field, winner.value AS Value, count(*)::int AS Games
+              FROM (SELECT DISTINCT ON (f.game_id, f.field) f.field, f.value
+                      FROM game_field f
+                      JOIN game g ON g.id = f.game_id
+                     WHERE g.state <> 'archived' AND f.field LIKE 'capability.%'
+                     ORDER BY f.game_id, f.field,
+                              array_position(@ladder::text[], f.source), f.last_confirmed_at DESC) winner
+             GROUP BY winner.field, winner.value
+            """,
+            new { ladder = SourceLadder },
+            cancellationToken: cancellationToken))).ToList();
+
+        return new EcosystemDashboard(
+            now,
+            totals.Listed,
+            totals.Handshakes,
+            totals.MsspReports,
+            totals.OldestHandshake,
+            totals.CapabilityTransitions,
+            CodebasesOf(codebases, totals.Listed),
+            ProtocolsOf(capabilities, totals.Handshakes, totals.MsspReports));
+    }
+
+    /// <summary>
+    /// The rankings (spec §9) — measured data only, and every basis stated on the record so the page
+    /// and the plain surface cannot describe the same table two ways.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The busiest table ranks on a <em>median of measured concurrent counts</em> over
+    /// <see cref="RankingWindow"/>. A NULL count is a probe that got in and could not read a number
+    /// (§5.4) and is excluded rather than read as a zero, which is rule 4 in the one place it would be
+    /// most tempting to break: a game whose <c>DOING</c> header we cannot parse would otherwise sink
+    /// to the bottom of a league table while running perfectly well. A measured zero is a count and
+    /// stays in.
+    /// </para>
+    /// <para>
+    /// The second table is the current unbroken run of reachability, which is one open interval per
+    /// game and therefore arithmetic over a handful of rows (§5.3). It carries the date the spell
+    /// began rather than a duration, because a spell cannot be longer than we have been watching.
+    /// </para>
+    /// </remarks>
+    public async Task<Rankings> RankingsAsync(CancellationToken cancellationToken = default)
+    {
+        var now = Clock();
+
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        var listed = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            "SELECT count(*)::int FROM game WHERE state <> 'archived'",
+            cancellationToken: cancellationToken));
+
+        var busiest = (await connection.QueryAsync<BusiestRow>(new CommandDefinition(
+            """
+            WITH counted AS (
+                SELECT g.slug, g.name,
+                       percentile_disc(0.5) WITHIN GROUP (ORDER BY p.count) AS median,
+                       max(p.count) AS peak,
+                       count(*)::int AS samples
+                  FROM presence_sample p
+                  JOIN game g ON g.id = p.game_id
+                 WHERE p.at >= @from AND p.count IS NOT NULL AND g.state <> 'archived'
+                 GROUP BY g.slug, g.name
+                HAVING count(*) >= @minimum)
+            SELECT slug AS Slug, name AS Name, median AS Median, peak AS Peak, samples AS Samples,
+                   (count(*) OVER ())::int AS Eligible
+              FROM counted
+             ORDER BY median DESC, peak DESC, name
+             LIMIT @limit
+            """,
+            new
+            {
+                from = (now - RankingWindow).ToUniversalTime(),
+                minimum = MinimumRankingSamples,
+                limit = RankingLimit,
+            },
+            cancellationToken: cancellationToken))).ToList();
+
+        var spells = (await connection.QueryAsync<SpellRow>(new CommandDefinition(
+            """
+            SELECT g.slug AS Slug, g.name AS Name, a.from_at AS Since
+              FROM availability_interval a
+              JOIN game g ON g.id = a.game_id
+             WHERE a.to_at IS NULL AND a.state = 'reachable' AND g.state <> 'archived'
+             ORDER BY a.from_at
+             LIMIT @limit
+            """,
+            new { limit = RankingLimit },
+            cancellationToken: cancellationToken))).ToList();
+
+        return new Rankings(
+            now,
+            RankingWindow,
+            MinimumRankingSamples,
+            listed,
+            busiest.Count == 0 ? 0 : busiest[0].Eligible,
+            busiest.Select(r => new BusiestGame(r.Slug, r.Name, r.Median, r.Peak, r.Samples)).ToList(),
+            spells.Select(r => new ReachableSpell(r.Slug, r.Name, r.Since)).ToList());
+    }
+
+    /// <summary>
+    /// Codebase values folded to families and counted. The denominator is the games that told us,
+    /// never the listing — a game we could not identify is not a game running something else.
+    /// </summary>
+    private static CodebaseUsage CodebasesOf(IReadOnlyList<string> values, int listed)
+    {
+        var families = values
+            .Select(CodebaseFamily.Of)
+            .Where(family => family.Length > 0)
+            .GroupBy(family => family, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new MeasuredShare(
+                // The spelling the most games used, so one game's stray capitalisation does not name
+                // the family. Ordinal breaks the tie, so the label is the same on every render.
+                group.GroupBy(spelling => spelling, StringComparer.Ordinal)
+                    .OrderByDescending(spellings => spellings.Count())
+                    .ThenBy(spellings => spellings.Key, StringComparer.Ordinal)
+                    .First().Key,
+                group.Count(),
+                values.Count))
+            .OrderByDescending(share => share.Count)
+            .ThenBy(share => share.Label, StringComparer.Ordinal)
+            .ToList();
+
+        return new CodebaseUsage(families, values.Count, listed - values.Count);
+    }
+
+    /// <summary>
+    /// One row per capability worth reporting, measured beside declared.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A capability nothing offered is reported as <b>unmeasured</b> rather than as nought per cent,
+    /// and that is derived from the tally rather than compiled in: if no listed game has ever been
+    /// observed to offer a protocol, the honest reading is that our handshake does not reach it — TLS
+    /// is the standing example, because the probe dials plain telnet and TLS is not a telnet option.
+    /// The day the first measurement lands the column starts reporting a share on its own.
+    /// </para>
+    /// <para>
+    /// §9's headline four are listed whether or not anything is known about them, because "we have not
+    /// measured TLS yet" is only visible if the row exists. Everything else appears when there is
+    /// something to say, including capabilities no registry lists — a server naming a protocol we do
+    /// not carry a column for is still a measurement (see <c>FieldObservations</c>).
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<ProtocolAdoption> ProtocolsOf(
+        IReadOnlyList<CapabilityTallyRow> tallies,
+        int handshakes,
+        int msspReports)
+    {
+        var offered = new Dictionary<string, int>(StringComparer.Ordinal);
+        var declined = new Dictionary<string, int>(StringComparer.Ordinal);
+        var declared = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var tally in tallies)
+        {
+            if (CapabilityFields.NameOf(tally.Field) is not { } name)
+            {
+                continue;
+            }
+
+            var bucket = (CapabilityFields.IsMeasured(tally.Field), tally.Value) switch
+            {
+                (true, "true") => offered,
+                (true, "false") => declined,
+                (false, "true") => declared,
+                _ => null,
+            };
+
+            if (bucket is null)
+            {
+                continue;
+            }
+
+            bucket[name] = bucket.GetValueOrDefault(name) + tally.Games;
+        }
+
+        // A protocol we have observed at all — in either direction — has a measurable column. One we
+        // have never observed has none, and saying "0%" of it would be our own reach reported as the
+        // hobby's.
+        var measurable = offered.Keys.Concat(declined.Keys).ToHashSet(StringComparer.Ordinal);
+
+        var names = EcosystemProtocols.Headline
+            .Concat(measurable.Concat(declared.Keys).Order(StringComparer.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        return names
+            .Select(name => new ProtocolAdoption(
+                name,
+                measurable.Contains(name) ? offered.GetValueOrDefault(name) : null,
+                declined.GetValueOrDefault(name),
+                handshakes,
+                declared.GetValueOrDefault(name),
+                msspReports))
+            .ToList();
     }
 
     private static ChangeEntry Describe(FieldChange change) => new(
@@ -517,6 +830,52 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         public int Counted { get; init; }
 
         public double? Mean { get; init; }
+    }
+
+    private sealed class EcosystemTotalsRow
+    {
+        public int Listed { get; init; }
+
+        public int Handshakes { get; init; }
+
+        public int MsspReports { get; init; }
+
+        public DateTimeOffset? OldestHandshake { get; init; }
+
+        public int CapabilityTransitions { get; init; }
+    }
+
+    private sealed class CapabilityTallyRow
+    {
+        public string Field { get; init; } = string.Empty;
+
+        public string Value { get; init; } = string.Empty;
+
+        public int Games { get; init; }
+    }
+
+    private sealed class BusiestRow
+    {
+        public string Slug { get; init; } = string.Empty;
+
+        public string Name { get; init; } = string.Empty;
+
+        public int Median { get; init; }
+
+        public int Peak { get; init; }
+
+        public int Samples { get; init; }
+
+        public int Eligible { get; init; }
+    }
+
+    private sealed class SpellRow
+    {
+        public string Slug { get; init; } = string.Empty;
+
+        public string Name { get; init; } = string.Empty;
+
+        public DateTimeOffset Since { get; init; }
     }
 
     private sealed class FeedRow

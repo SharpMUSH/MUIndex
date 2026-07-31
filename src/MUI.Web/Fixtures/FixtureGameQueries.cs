@@ -29,6 +29,14 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// <summary>Fixed, so a rendered page is the same page tomorrow and a test can assert on it.</summary>
     public static readonly DateTimeOffset Now = new(2026, 7, 30, 20, 0, 0, TimeSpan.Zero);
 
+    /// <summary>
+    /// The same week and the same sample floor <c>NpgsqlGameQueries</c> ranks on, so the demo page
+    /// and the measured one describe their table the same way.
+    /// </summary>
+    private static readonly TimeSpan RankingWindow = TimeSpan.FromDays(7);
+
+    private const int MinimumSamples = 24;
+
     private static readonly GameSummary Mush = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), "m-u-s-h", "M*U*S*H",
         "The PennMUSH development server.", LifecycleState.Active, IsClaimed: false,
@@ -235,7 +243,12 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
             0.14, 0.18, 0.22, 0.26, 0.34, 0.45, 0.62, 0.82, 1.00, 0.94, 0.72, 0.50,
         ];
         double[] byDay = [0.72, 1.00, 0.78, 0.84, 0.92, 0.88, 0.66];
-        const int Peak = 17;
+
+        // Scaled to the game's own count rather than to one number for every game. A fixture where
+        // Aardwolf reports 219 players and draws the same week as a nine-player game is internally
+        // inconsistent in the way that matters here: the demo ranking reads off this series, and a
+        // league table whose every row ties is a table that cannot show whether it ranks anything.
+        var peak = g.PlayersNow ?? 17;
 
         var cells = new List<ActivityCell>(168);
 
@@ -269,7 +282,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
                     (4, 15, _) => new ActivityCell(day, hour, null, Probed: true),
 
                     _ => new ActivityCell(
-                        day, hour, (int)Math.Round(shape[hour] * byDay[day] * Peak), Probed: true),
+                        day, hour, (int)Math.Round(shape[hour] * byDay[day] * peak), Probed: true),
                 });
             }
         }
@@ -348,6 +361,126 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
                 Span(30, null, AvailabilityState.Reachable, FailureCause.None),
             ],
         };
+    }
+
+    /// <summary>
+    /// The dashboard, derived from this fixture's own games rather than from a table of percentages.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A hand-written set of shares would be the one thing this file may not contain: a page whose
+    /// whole subject is that a ratio has a denominator, showing ratios that never had one. So every
+    /// figure here is counted off the eight games above by the same rules the Postgres reader uses —
+    /// archived games are out, the protocol denominator is the games with a reachable interval, and a
+    /// protocol no fixture game offers is <em>unmeasured</em> rather than nought per cent.
+    /// </para>
+    /// <para>
+    /// <c>MSSP</c> is the one protocol whose absence is written down as an absence, here as in the
+    /// crawler: we ask for it by name on every probe, so a game that answered and never engaged it has
+    /// declined a question that was put. Every other silence stays a silence.
+    /// </para>
+    /// </remarks>
+    public Task<EcosystemDashboard> EcosystemAsync(CancellationToken cancellationToken = default)
+    {
+        var listed = All.Where(g => g.State is not LifecycleState.Archived).ToList();
+        var handshaked = listed
+            .Where(g => Intervals(g).Any(i => i.State is AvailabilityState.Reachable))
+            .ToList();
+
+        var codebases = listed.Select(g => g.Codebase).OfType<string>().ToList();
+        var families = codebases
+            .Select(CodebaseFamily.Of)
+            .GroupBy(family => family, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new MeasuredShare(group.First(), group.Count(), codebases.Count))
+            .OrderByDescending(share => share.Count)
+            .ThenBy(share => share.Label, StringComparer.Ordinal)
+            .ToList();
+
+        var offeredAnywhere = handshaked
+            .SelectMany(g => g.MeasuredProtocols)
+            .ToHashSet(StringComparer.Ordinal);
+
+        // Games whose MSSP report we hold — not every listed game, because Midnight Sun answers and
+        // offers no MSSP at all. That is the second denominator, and it is a different set.
+        var reporting = listed
+            .Where(g => g.MeasuredProtocols.Contains("MSSP", StringComparer.Ordinal))
+            .ToList();
+
+        var protocols = EcosystemProtocols.Headline
+            .Concat(offeredAnywhere.Order(StringComparer.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .Select(protocol => new ProtocolAdoption(
+                protocol,
+                offeredAnywhere.Contains(protocol)
+                    ? handshaked.Count(g => g.MeasuredProtocols.Contains(protocol, StringComparer.Ordinal))
+                    : null,
+
+                // The one honest negative: asked for on every probe, so silence is an answer.
+                protocol is "MSSP"
+                    ? handshaked.Count(g => !g.MeasuredProtocols.Contains("MSSP", StringComparer.Ordinal))
+                    : 0,
+                handshaked.Count,
+                reporting.Count(g => Capabilities(g)
+                    .Any(c => c.Protocol == protocol && c.Declared is CapabilityState.Present)),
+                reporting.Count))
+            .ToList();
+
+        return Task.FromResult(new EcosystemDashboard(
+            Now,
+            listed.Count,
+            handshaked.Count,
+            reporting.Count,
+            Now.AddMinutes(-4),
+
+            // Nothing in this fixture's change feed is a capability transition, which is the state a
+            // young crawl is really in: the page has to say the curve is not drawable yet, and a
+            // fixture that faked one would be teaching the page to lie.
+            CapabilityTransitions: 0,
+            new CodebaseUsage(families, codebases.Count, listed.Count - codebases.Count),
+            protocols));
+    }
+
+    /// <summary>
+    /// The rankings, computed off the same sampled week the heatmap renders.
+    /// </summary>
+    /// <remarks>
+    /// The activity grid <em>is</em> a series of measured samples, so the median and the peak here are
+    /// real arithmetic over it rather than numbers typed beside a name. A game whose every sample is
+    /// unmeasurable produces no median and drops out of the table — which is the behaviour that has to
+    /// be visible, because reading those as zeros is the failure §5.4 exists to prevent.
+    /// </remarks>
+    public Task<Rankings> RankingsAsync(CancellationToken cancellationToken = default)
+    {
+        var listed = All.Where(g => g.State is not LifecycleState.Archived).ToList();
+
+        var busiest = listed
+            .Select(g => (Game: g, Counts: Activity(g)
+                .Where(c => c.IsCounted)
+                .Select(c => c.Count!.Value)
+                .Order()
+                .ToList()))
+            .Where(entry => entry.Counts.Count >= MinimumSamples)
+            .Select(entry => new BusiestGame(
+                entry.Game.Slug,
+                entry.Game.Name,
+                entry.Counts[entry.Counts.Count / 2],
+                entry.Counts[^1],
+                entry.Counts.Count))
+            .OrderByDescending(row => row.Median)
+            .ThenByDescending(row => row.Peak)
+            .ThenBy(row => row.Name, StringComparer.Ordinal)
+            .ToList();
+
+        var spells = listed
+            .Select(g => (Game: g, Open: Intervals(g)
+                .FirstOrDefault(i => i.IsOpen && i.State is AvailabilityState.Reachable)))
+            .Where(entry => entry.Open is not null)
+            .Select(entry => new ReachableSpell(entry.Game.Slug, entry.Game.Name, entry.Open!.FromAt))
+            .OrderBy(spell => spell.Since)
+            .ToList();
+
+        return Task.FromResult(new Rankings(
+            Now, RankingWindow, MinimumSamples, listed.Count, busiest.Count, busiest, spells));
     }
 
     public Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default) =>
