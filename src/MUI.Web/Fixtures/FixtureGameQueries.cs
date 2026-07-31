@@ -1,25 +1,33 @@
 using MUI.Catalog;
+using MUI.Web.Data;
 
 namespace MUI.Web.Fixtures;
 
 /// <summary>
-/// Answers <see cref="IGameQueries"/> from data observed on real servers, so the site can be built
-/// and reviewed before the database exists.
+/// Answers <see cref="IGameQueries"/> and <see cref="IAvailabilityHistory"/> from data observed on
+/// real servers, so the site can be built and reviewed before the database exists.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every value here was measured, not invented — M*U*S*H's renamed <c>DOING</c> header, Eldertale's
-/// name left at the codebase default, Aardwolf's count published only in its connect screen. A
-/// fixture of tidy invented games would render a site that never has to show its hard states, and
-/// those states are the product.
+/// Every hard state here came off a real game: M*U*S*H disagrees with itself (its MSSP says
+/// <c>1.8.8p0</c> and its banner says <c>1.8.7</c>), Eldertale sits at a measured zero, Aardwolf
+/// publishes its count only in the connect screen, and Midnight Sun II answers with nothing we can
+/// count at all. A fixture of well-behaved games renders a site that never has to show its hard
+/// states, and those states are the product.
 /// </para>
 /// <para>
-/// Replaced by a Postgres implementation behind the same interface. No page changes when it is.
+/// The archived and suppressed entries are the design handoff's own exemplars rather than real
+/// games, deliberately: asserting that a named game is dead, or that its owner asked us to stop
+/// republishing it, is exactly the kind of claim this site may not make without a measurement.
+/// </para>
+/// <para>
+/// Replaced by a Postgres implementation behind the same interfaces. No page changes when it is.
 /// </para>
 /// </remarks>
-public sealed class FixtureGameQueries : IGameQueries
+public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
 {
-    private static readonly DateTimeOffset Now = new(2026, 7, 30, 20, 0, 0, TimeSpan.Zero);
+    /// <summary>Fixed, so a rendered page is the same page tomorrow and a test can assert on it.</summary>
+    public static readonly DateTimeOffset Now = new(2026, 7, 30, 20, 0, 0, TimeSpan.Zero);
 
     private static readonly GameSummary Mush = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), "m-u-s-h", "M*U*S*H",
@@ -31,11 +39,12 @@ public sealed class FixtureGameQueries : IGameQueries
         null, LifecycleState.Active, IsClaimed: false,
         PlayersNow: 0, Codebase: "PennMUSH 1.8.8p0", MeasuredProtocols: ["MSSP", "CHARSET"]);
 
-    // No MSSP, no pre-login WHO. Its count exists only because the connect screen states it.
+    // No MSSP PLAYERS, no pre-login WHO. Its count exists only because the connect screen states it.
     private static readonly GameSummary Aardwolf = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000003"), "aardwolf", "Aardwolf MUD",
-        null, LifecycleState.Active, IsClaimed: false,
-        PlayersNow: 219, Codebase: null, MeasuredProtocols: []);
+        "Counted from the connect screen, which is the only place this game publishes a number.",
+        LifecycleState.Active, IsClaimed: false,
+        PlayersNow: 219, Codebase: null, MeasuredProtocols: ["MSSP", "GMCP", "MCCP2", "MSDP"]);
 
     // Answers, but nothing we can count. Renders "count unknown" — never a zero.
     private static readonly GameSummary MidnightSun = new(
@@ -43,32 +52,79 @@ public sealed class FixtureGameQueries : IGameQueries
         null, LifecycleState.Active, IsClaimed: false,
         PlayersNow: null, Codebase: "Midnight Sun", MeasuredProtocols: []);
 
+    private static readonly GameSummary Enormous = new(
+        Guid.Parse("aaaaaaaa-0000-0000-0000-000000000006"), "batmud", "BatMUD",
+        "An intro screen long enough that the frame has to explain why it stopped.",
+        LifecycleState.Active, IsClaimed: false,
+        PlayersNow: 71, Codebase: null, MeasuredProtocols: ["MSSP", "MCCP2"]);
+
+    // Claimed, and the owner turned republication off. Stated without editorial (spec §8).
+    private static readonly GameSummary Ashen = new(
+        Guid.Parse("aaaaaaaa-0000-0000-0000-000000000007"), "ashen-court", "Ashen Court",
+        "Courtly intrigue, low fantasy. Application required.", LifecycleState.Active,
+        IsClaimed: true, PlayersNow: 9, Codebase: "Evennia", MeasuredProtocols: ["MSSP", "GMCP", "TLS"]);
+
     private static readonly GameSummary Gaslight = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000005"), "gaslight-row", "Gaslight Row",
         "Ceased answering in March 2023. We still try the door every week.",
         LifecycleState.Archived, IsClaimed: false,
         PlayersNow: null, Codebase: "PennMUSH 1.8.5", MeasuredProtocols: []);
 
-    private static readonly GameSummary[] All = [Mush, Eldertale, Aardwolf, MidnightSun, Gaslight];
+    private static readonly GameSummary Verdigris = new(
+        Guid.Parse("aaaaaaaa-0000-0000-0000-000000000008"), "verdigris", "Verdigris",
+        "Stopped answering in 2024; the host still refuses the port every week.",
+        LifecycleState.Archived, IsClaimed: false,
+        PlayersNow: null, Codebase: "TinyMUX 2.12", MeasuredProtocols: []);
+
+    private static readonly GameSummary[] All =
+        [Mush, Eldertale, Aardwolf, MidnightSun, Enormous, Ashen, Gaslight, Verdigris];
 
     public Task<IReadOnlyList<GameSummary>> ListAsync(
         GameFilter filter, CancellationToken cancellationToken = default)
     {
         var games = All.AsEnumerable();
 
-        // Archived games leave the default listing and nothing else (spec §7.5).
-        if (!filter.IncludeArchived)
+        if (filter.Band is { } band)
         {
+            games = games.Where(g => InBand(g, band));
+        }
+        else if (!filter.IncludeArchived)
+        {
+            // Archived games leave the default listing and nothing else (spec §7.5). Asking for the
+            // archived band explicitly is not the default listing, so the exclusion does not apply.
             games = games.Where(g => g.State is not LifecycleState.Archived);
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Text))
         {
-            games = games.Where(g => g.Name.Contains(filter.Text, StringComparison.OrdinalIgnoreCase));
+            games = games.Where(g =>
+                g.Name.Contains(filter.Text, StringComparison.OrdinalIgnoreCase)
+                || (g.Tagline?.Contains(filter.Text, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (g.Codebase?.Contains(filter.Text, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        if (filter.MeasuredProtocols.Count > 0)
+        {
+            games = games.Where(g => filter.MeasuredProtocols.All(
+                p => g.MeasuredProtocols.Contains(p, StringComparer.OrdinalIgnoreCase)));
         }
 
         return Task.FromResult<IReadOnlyList<GameSummary>>(games.ToList());
     }
+
+    /// <summary>
+    /// A game whose counts are all unmeasurable is <see cref="ActivityBand.Quiet"/> and never
+    /// <see cref="ActivityBand.Dark"/> — being uncountable is not being absent (spec §5.2).
+    /// </summary>
+    private static bool InBand(GameSummary g, ActivityBand band) => band switch
+    {
+        ActivityBand.PlayersNow => g.PlayersNow > 0,
+        ActivityBand.ActiveThisWeek => g.State is LifecycleState.Active,
+        ActivityBand.Quiet => g.State is LifecycleState.Quiet
+            || (g.State is LifecycleState.Active && g.PlayersNow is null or 0),
+        ActivityBand.Dark => g.State is LifecycleState.Dark,
+        _ => g.State is LifecycleState.Archived,
+    };
 
     public Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default)
     {
@@ -78,52 +134,142 @@ public sealed class FixtureGameQueries : IGameQueries
             return Task.FromResult<GamePage?>(null);
         }
 
+        var intervals = Intervals(summary);
+
         return Task.FromResult<GamePage?>(new GamePage(
             summary,
-            Description: summary.Slug is "m-u-s-h"
-                ? "The development server for PennMUSH. Open to visitors."
-                : null,
-            Endpoints: [new GameEndpointView("mush.pennmush.org", 4201, "telnet", TlsMeasured: false)],
-            ConnectScreen: summary.Slug is "m-u-s-h"
-                ? "Welcome to... M*U*S*H - mush.pennmush.org 4201 and 4202 (ssl)\n\nRunning PennMUSH 1.8.7\nContact: mush@gungnir.pennmush.org"
-                : null,
-            ConnectScreenSuppressed: false,
-            ReachableFraction: 0.956,
-            LongestOutage: TimeSpan.FromHours(52),
+            Description: Description(summary),
+            Endpoints: Endpoints(summary),
+            ConnectScreen: Screen(summary),
+            ConnectScreenSuppressed: summary.Slug is "ashen-court",
+            ReachableFraction: Reachability.FractionReachable(intervals, TimeSpan.FromDays(90), Now),
+            LongestOutage: Reachability.LongestOutage(intervals, TimeSpan.FromDays(90), Now),
             Capabilities: Capabilities(summary),
-            Activity: Activity(),
+            Activity: Activity(summary),
             Declared: Declared(summary),
-            Changes: [new ChangeEntry(Now.AddDays(-16), "MSSP CODEBASE changed to PennMUSH 1.8.8p0")]));
+            Changes: Changes(summary)));
     }
+
+    public Task<IReadOnlyList<AvailabilityInterval>> ForGameAsync(
+        Guid gameId, CancellationToken cancellationToken = default)
+    {
+        var summary = All.FirstOrDefault(g => g.Id == gameId);
+        return Task.FromResult<IReadOnlyList<AvailabilityInterval>>(
+            summary is null ? [] : Intervals(summary));
+    }
+
+    private static string? Description(GameSummary g) => g.Slug switch
+    {
+        "m-u-s-h" => "The development server for PennMUSH. Open to visitors, and the place a change "
+            + "to the codebase is tried before anybody else runs it.",
+        "aardwolf" => "A large, long-running combat MUD. It states its player count on the connect "
+            + "screen and nowhere a machine can ask for it.",
+        "ashen-court" => "Courtly intrigue in a low-fantasy setting. Applications are read weekly.",
+        _ => null,
+    };
+
+    private static GameEndpointView[] Endpoints(GameSummary g) => g.Slug switch
+    {
+        "m-u-s-h" =>
+        [
+            new GameEndpointView("mush.pennmush.org", 4201, "telnet", TlsMeasured: false),
+            new GameEndpointView("mush.pennmush.org", 4202, "tls", TlsMeasured: true),
+        ],
+        "aardwolf" => [new GameEndpointView("aardmud.org", 4000, "telnet", TlsMeasured: false)],
+        "midnight-sun" => [new GameEndpointView("midnightsun2.org", 3000, "telnet", TlsMeasured: false)],
+        "batmud" => [new GameEndpointView("bat.org", 23, "telnet", TlsMeasured: false)],
+        "ashen-court" => [new GameEndpointView("ashen.example", 4000, "tls", TlsMeasured: true)],
+        "gaslight-row" => [new GameEndpointView("gaslight.example", 4201, "telnet", TlsMeasured: false)],
+        "verdigris" => [new GameEndpointView("verdigris.example", 6250, "telnet", TlsMeasured: false)],
+        _ => [new GameEndpointView("eldertale.example", 4000, "telnet", TlsMeasured: false)],
+    };
+
+    private static string? Screen(GameSummary g) => g.Slug switch
+    {
+        "m-u-s-h" => FixtureScreens.Mush,
+        "aardwolf" => FixtureScreens.Aardwolf,
+        "midnight-sun" => FixtureScreens.MidnightSun,
+        "batmud" => FixtureScreens.Enormous,
+
+        // An archived game's last screen is preserved and labelled, not withdrawn.
+        "gaslight-row" => FixtureScreens.Mush,
+        _ => null,
+    };
 
     /// <summary>
     /// The disagreement is real and observed: M*U*S*H's MSSP says 1.8.8p0 while its banner says
-    /// 1.8.7. That row is the one a reader should not be able to scroll past.
+    /// 1.8.7, and every one of these games declares GMCP in a hand-typed field it has never offered.
+    /// That row is the one a reader should not be able to scroll past.
     /// </summary>
-    private static CapabilityRow[] Capabilities(GameSummary g) =>
-    [
-        new("MSSP", g.MeasuredProtocols.Contains("MSSP") ? CapabilityState.Present : CapabilityState.Absent,
-            CapabilityState.Unknown, Now.AddMinutes(-4)),
-        new("CHARSET", g.MeasuredProtocols.Contains("CHARSET") ? CapabilityState.Present : CapabilityState.Absent,
-            CapabilityState.Unknown, Now.AddMinutes(-4)),
-        new("GMCP", CapabilityState.Absent, CapabilityState.Present, Now.AddYears(-6)),
-        new("MXP", CapabilityState.Unknown, CapabilityState.Unknown, null),
-    ];
-
-    /// <summary>All three cell states, because a grid that only ever shows two is not a test of anything.</summary>
-    private static ActivityCell[] Activity()
+    private static CapabilityRow[] Capabilities(GameSummary g)
     {
-        var cells = new List<ActivityCell>();
+        bool Measured(string p) => g.MeasuredProtocols.Contains(p);
+
+        CapabilityState State(string p) => Measured(p) ? CapabilityState.Present : CapabilityState.Absent;
+
+        return
+        [
+            new("MSSP", State("MSSP"), CapabilityState.Unknown, Now.AddMinutes(-4)),
+            new("CHARSET", State("CHARSET"), CapabilityState.Unknown, Now.AddMinutes(-4)),
+            new("MCCP2", State("MCCP2"),
+                Measured("MCCP2") ? CapabilityState.Present : CapabilityState.Unknown, Now.AddMinutes(-4)),
+            new("TLS", State("TLS"), CapabilityState.Unknown, Now.AddMinutes(-4)),
+            new("GMCP", State("GMCP"), CapabilityState.Present, Now.AddYears(-6)),
+            new("MXP", CapabilityState.Unknown, CapabilityState.Unknown, null),
+        ];
+    }
+
+    /// <summary>
+    /// All three cell states, because a grid that only ever shows two is not a test of anything.
+    /// Wednesday's daytime gap is a real outage; the scattered hatched hours are probes that
+    /// answered and produced no number.
+    /// </summary>
+    private static ActivityCell[] Activity(GameSummary g)
+    {
+        // A week with a shape: night owls after midnight, nobody at all between five and noon, and
+        // an evening peak that is highest on Tuesday and Friday. A flat grid would let a renderer
+        // that never computes anything look right.
+        double[] shape =
+        [
+            0.40, 0.24, 0.16, 0.10, 0.06, 0, 0, 0, 0, 0, 0, 0,
+            0.14, 0.18, 0.22, 0.26, 0.34, 0.45, 0.62, 0.82, 1.00, 0.94, 0.72, 0.50,
+        ];
+        double[] byDay = [0.72, 1.00, 0.78, 0.84, 0.92, 0.88, 0.66];
+        const int Peak = 17;
+
+        var cells = new List<ActivityCell>(168);
+
+        // A game we cannot count is hatched in every hour it answered. It is not dark, and it is
+        // emphatically not a week of measured zeros.
+        var uncountable = g.PlayersNow is null;
+
+        // An archived game was not reachable in any of these hours, so every cell is empty. Hatching
+        // them would say we got in and could not count, which is a claim about a game that has not
+        // answered the door since 2023.
+        var dark = g.State is LifecycleState.Archived or LifecycleState.Dark;
+
         for (var day = 0; day < 7; day++)
         {
             for (var hour = 0; hour < 24; hour++)
             {
-                cells.Add((day, hour) switch
+                if (dark)
                 {
-                    (2, >= 2 and <= 13) => new ActivityCell(day, hour, null, Probed: false),
-                    (_, >= 19 and <= 23) => new ActivityCell(day, hour, 8 + ((day + hour) % 9), true),
-                    (4, 15) => new ActivityCell(day, hour, null, Probed: true),
-                    _ => new ActivityCell(day, hour, (day + hour) % 3, Probed: true),
+                    cells.Add(new ActivityCell(day, hour, null, Probed: false));
+                    continue;
+                }
+
+                cells.Add((day, hour, uncountable) switch
+                {
+                    // Wednesday's daytime: we could not reach the game at all. Empty cells.
+                    (2, >= 2 and <= 13, _) => new ActivityCell(day, hour, null, Probed: false),
+
+                    (_, _, true) => new ActivityCell(day, hour, null, Probed: true),
+
+                    // One hour that answered and produced no number. Hatched, and not a zero.
+                    (4, 15, _) => new ActivityCell(day, hour, null, Probed: true),
+
+                    _ => new ActivityCell(
+                        day, hour, (int)Math.Round(shape[hour] * byDay[day] * Peak), Probed: true),
                 });
             }
         }
@@ -133,18 +279,94 @@ public sealed class FixtureGameQueries : IGameQueries
 
     private static Dictionary<string, ProvenanceChip> Declared(GameSummary g) => new()
     {
-        ["codebase"] = new ProvenanceChip(g.Codebase ?? "unknown", FieldSource.Banner, Now.AddMinutes(-4), IsStale: false),
+        ["codebase"] = new ProvenanceChip(
+            g.Codebase ?? "not identified", FieldSource.Banner, Now.AddMinutes(-4), IsStale: false),
         ["genre"] = new ProvenanceChip("Modern Supernatural", FieldSource.Mssp, Now.AddDays(-14), IsStale: false),
         ["created"] = new ProvenanceChip("2009", FieldSource.Mssp, Now.AddYears(-6), IsStale: true),
         ["language"] = new ProvenanceChip("English", FieldSource.Mssp, Now.AddYears(-6), IsStale: true),
     };
 
+    private static ChangeEntry[] Changes(GameSummary g) =>
+    [
+        new(Now.AddDays(-16), g.Codebase is { } codebase
+            ? $"MSSP CODEBASE changed to {codebase}"
+            : "banner fingerprint changed; codebase still not identified"),
+        new(Now.AddDays(-50), "unreachable for 2d · connection refused"),
+    ];
+
+    /// <summary>
+    /// Availability as intervals (spec §5.3): a run of reachable time is one row, and only a change
+    /// of state or cause opens another. A hundred consecutive timeouts are one interval.
+    /// </summary>
+    private static AvailabilityInterval[] Intervals(GameSummary g)
+    {
+        AvailabilityInterval Span(double fromDaysAgo, double? toDaysAgo, AvailabilityState state, FailureCause cause) =>
+            new()
+            {
+                GameId = g.Id,
+                State = state,
+                FromAt = Now.AddDays(-fromDaysAgo),
+                ToAt = toDaysAgo is { } to ? Now.AddDays(-to) : null,
+                Cause = cause,
+            };
+
+        return g.Slug switch
+        {
+            // Dark since March 2023 and still knocked on weekly. The strip is one long hatched run.
+            "gaslight-row" =>
+            [
+                Span(5100, 1237, AvailabilityState.Reachable, FailureCause.None),
+                Span(1237, null, AvailabilityState.Unreachable, FailureCause.Dns),
+            ],
+            "verdigris" =>
+            [
+                Span(3600, 700, AvailabilityState.Reachable, FailureCause.None),
+                Span(700, null, AvailabilityState.Unreachable, FailureCause.Refused),
+            ],
+
+            // Found six weeks ago: the first half of the 90-day window predates anything we
+            // measured, and painting it as unreachable would record our own ignorance as a fact
+            // about the game.
+            "eldertale" =>
+            [
+                Span(44, 12, AvailabilityState.Reachable, FailureCause.None),
+                Span(12, 11, AvailabilityState.Degraded, FailureCause.HandshakeStalled),
+                Span(11, null, AvailabilityState.Reachable, FailureCause.None),
+            ],
+            "midnight-sun" =>
+            [
+                Span(2000, 60, AvailabilityState.Reachable, FailureCause.None),
+                Span(60, 58, AvailabilityState.Unreachable, FailureCause.Timeout),
+                Span(58, null, AvailabilityState.Reachable, FailureCause.None),
+            ],
+            _ =>
+            [
+                Span(4000, 51, AvailabilityState.Reachable, FailureCause.None),
+                Span(51, 49, AvailabilityState.Unreachable, FailureCause.Refused),
+                Span(49, 31, AvailabilityState.Reachable, FailureCause.None),
+                Span(31, 30, AvailabilityState.Degraded, FailureCause.HandshakeStalled),
+                Span(30, null, AvailabilityState.Reachable, FailureCause.None),
+            ],
+        };
+    }
+
     public Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(new LivenessFeeds(
-            NewlyDiscovered: [new FeedEntry("eldertale", "Eldertale Online", Now.AddHours(-2),
-                "found via REFERRAL · answered MSSP on first probe")],
-            WentDark: [new FeedEntry("gaslight-row", "Gaslight Row", Now.AddDays(-6),
-                "unreachable since 24 July · dns nxdomain · page stays, we keep knocking weekly")],
-            CameBack: [new FeedEntry("aardwolf", "Aardwolf MUD", Now.AddMinutes(-40),
-                "answered again after 26 months dark")]));
+            NewlyDiscovered:
+            [
+                new FeedEntry("eldertale", "Eldertale Online", Now.AddHours(-2),
+                    "found via REFERRAL from M*U*S*H · answered MSSP on first probe · PennMUSH 1.8.8p0"),
+                new FeedEntry("batmud", "BatMUD", Now.AddDays(-1),
+                    "found in the TinTin mudlist · answered MSSP · 214-row intro screen"),
+            ],
+            WentDark:
+            [
+                new FeedEntry("verdigris", "Verdigris", Now.AddDays(-6),
+                    "unreachable since 24 July · connection refused · page stays, we keep knocking weekly"),
+            ],
+            CameBack:
+            [
+                new FeedEntry("aardwolf", "Aardwolf MUD", Now.AddMinutes(-40),
+                    "Answered again after 26 months dark. Two hundred and nineteen players on within the hour."),
+            ]));
 }

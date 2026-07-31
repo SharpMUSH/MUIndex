@@ -1,0 +1,138 @@
+@*
+    The ANSI quotation frame.
+
+    A connect screen arrives with SGR we do not control and it will clash with any palette, so the
+    site does not host it — it quotes it. Fixed black ground, the locked 16-colour table in both
+    themes, a hairline border, and a caption strip stating source, size and depth. Inside the frame
+    arbitrary colour is expected; outside it the site keeps its own two hues.
+
+    It is a figure with a text alternative, skippable in one keystroke, and SGR codes are never
+    announced.
+*@
+
+@switch (Screen.State)
+{
+    case AnsiScreenState.Suppressed:
+        @* The owner's choice, stated and nothing more. No accusation, no empty box, and the plate
+           holds the same place the frame would have. *@
+        <div class="ansi-plate">
+            <p>The owner asked us not to republish this game's connect screen.</p>
+        </div>
+        break;
+
+    case AnsiScreenState.TooSmall:
+    case AnsiScreenState.Absent:
+        @* Under three rows there is nothing to frame, so the hero collapses entirely rather than
+           leaving a hole. What we did see is still said, because "nothing came back" is a
+           measurement. *@
+        <p class="faint">
+            @(Screen.State is AnsiScreenState.Absent
+                ? "No connect screen has been captured from this game."
+                : $"This game's connect screen is {Screen.RowCount} {(Screen.RowCount == 1 ? "row" : "rows")} — too little to be worth showing as a picture.")
+        </p>
+        break;
+
+    default:
+        <figure class="ansi" aria-labelledby="@($"{Id}-caption")">
+            <p id="@($"{Id}-caption")" class="sr-only">
+                Connect screen, @Screen.RowCount @(Screen.RowCount == 1 ? "row" : "rows"), as sent by
+                the server. The text follows under "read as text"; colour codes are not announced.
+            </p>
+            <div class="quote">
+                <pre>@Paint(Screen.Visible)</pre>
+                @if (Screen.IsCropped)
+                {
+                    <div class="crop-fade" aria-hidden="true"></div>
+                }
+            </div>
+            <figcaption>
+                <span>as sent by the server</span>
+                <span aria-hidden="true">·</span>
+                <span>@Ansi.Columns×@Screen.RowCount</span>
+                <span aria-hidden="true">·</span>
+                <span>@Depth</span>
+                @if (CapturedAt is { } at)
+                {
+                    <span aria-hidden="true">·</span>
+                    <span>captured @Relative.Format(Now - at) ago</span>
+                }
+                @if (Frozen)
+                {
+                    <span aria-hidden="true">·</span>
+                    <span>frozen — this is the last screen we saw</span>
+                }
+            </figcaption>
+        </figure>
+
+        @if (Screen.IsOversized)
+        {
+            <p class="faint">
+                This screen is @Screen.RowCount rows, which is unusually long. The first
+                @Ansi.CropRows are shown; the rest is under "show all rows".
+            </p>
+        }
+
+        @if (Screen.IsCropped)
+        {
+            <details class="read-as-text">
+                <summary>show all @Screen.RowCount rows</summary>
+                <div class="ansi">
+                    <div class="quote">
+                        <pre>@Paint(Screen.Rows)</pre>
+                    </div>
+                </div>
+            </details>
+        }
+
+        <details class="read-as-text">
+            <summary>read as text</summary>
+            <pre class="mono plain-screen">@Screen.PlainText</pre>
+        </details>
+        break;
+}
+
+@code {
+    [Parameter, EditorRequired] public AnsiScreen Screen { get; set; } = default!;
+
+    [Parameter] public string Id { get; set; } = "connect-screen";
+
+    [Parameter] public DateTimeOffset? CapturedAt { get; set; }
+
+    [Parameter] public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>An archived game's screen is preserved, not current, and the caption says which.</summary>
+    [Parameter] public bool Frozen { get; set; }
+
+    private string Depth => Screen.Rows.SelectMany(r => r.Runs).Any(r => !r.Style.IsPlain)
+        ? "16-colour SGR"
+        : "no colour";
+
+    /// <summary>
+    /// Rows into spans. Written against the builder rather than as markup because a connect screen
+    /// is whitespace-significant to the character: a Razor loop inside a &lt;pre&gt; would indent the
+    /// art by however far the source is indented.
+    /// </summary>
+    private RenderFragment Paint(IEnumerable<AnsiRow> rows) => builder =>
+    {
+        var sequence = 0;
+
+        foreach (var row in rows)
+        {
+            foreach (var run in row.Runs)
+            {
+                if (run.Style.IsPlain)
+                {
+                    builder.AddContent(sequence++, run.Text);
+                    continue;
+                }
+
+                builder.OpenElement(sequence++, "span");
+                builder.AddAttribute(sequence++, "style", run.Style.Css);
+                builder.AddContent(sequence++, run.Text);
+                builder.CloseElement();
+            }
+
+            builder.AddContent(sequence++, "\n");
+        }
+    };
+}

@@ -1,0 +1,161 @@
+using MUI.Catalog;
+using MUI.Web.Components;
+using MUI.Web.Fixtures;
+
+namespace MUI.Web.Tests;
+
+/// <summary>
+/// The three states an hour can be in, checked on the rendered grid and in the words beside it.
+/// </summary>
+/// <remarks>
+/// Conflating any two of these is the worst bug this codebase can ship. A measured zero is a filled
+/// cell — we got in and nobody was there. An unmeasurable hour is hatched. An unreachable hour is
+/// empty. They are three different elements in the markup and three different sentences in the text,
+/// and neither difference is carried by a colour.
+/// </remarks>
+public class ThreeStatesTests
+{
+    private static readonly DateTimeOffset Now = FixtureGameQueries.Now;
+
+    private static ActivityCell[] OneOfEach() =>
+    [
+        new(0, 0, 4, Probed: true),
+        new(0, 1, 0, Probed: true),
+        new(0, 2, null, Probed: true),
+        new(0, 3, null, Probed: false),
+    ];
+
+    private static Task<string> GridAsync(IReadOnlyList<ActivityCell> cells) =>
+        Render.ComponentAsync<ActivityHeatmap>(new() { ["Cells"] = cells });
+
+    [Test]
+    public async Task TheGridIsARealTableWithRowAndColumnHeaders()
+    {
+        // Not a compromise for accessibility — a real table is what makes arrow-key navigation work
+        // at all, and it costs the visual design nothing.
+        var html = await GridAsync(OneOfEach());
+
+        await Assert.That(html).Contains("<table class=\"heat\"");
+        await Assert.That(html).Contains("scope=\"col\"");
+        await Assert.That(html).Contains("scope=\"row\"");
+        await Assert.That(html).Contains("<caption");
+    }
+
+    [Test]
+    public async Task TheThreeStatesAreThreeDifferentCellsInTheMarkup()
+    {
+        var html = await GridAsync(OneOfEach());
+
+        await Assert.That(html).Contains("class=\"counted\"");
+        await Assert.That(html).Contains("class=\"counted zero\"");
+        await Assert.That(html).Contains("class=\"unmeasurable\"");
+        await Assert.That(html).Contains("class=\"gap\"");
+    }
+
+    [Test]
+    public async Task AMeasuredZeroSaysMeasuredAndAnUnreachableHourSaysNotReachable()
+    {
+        // The distinction has to survive with no cell shape and no colour at all, so it is in the
+        // cell's own text as well as its class — the value a reader arrows onto, and the whole
+        // sentence in the tooltip.
+        var html = await GridAsync(OneOfEach());
+
+        await Assert.That(html).Contains("0 players, measured");
+        await Assert.That(html).Contains("not reachable, no measurement");
+        await Assert.That(html).Contains("probed, no count could be read");
+        await Assert.That(html).Contains(">not reached<");
+        await Assert.That(html).Contains(">not counted<");
+    }
+
+    [Test]
+    public async Task AnAnnouncedCellIsAValueRatherThanARepeatedSentence()
+    {
+        // The headers already say which hour of which day a cell is. Repeating that in every cell
+        // turns 168 cells into 168 paragraphs, which is what the summary and the disclosure exist
+        // to prevent.
+        await Assert.That(ActivitySummary.CellValue(new ActivityCell(0, 0, 4, true))).IsEqualTo("4");
+        await Assert.That(ActivitySummary.CellValue(new ActivityCell(0, 1, 0, true))).IsEqualTo("0");
+        await Assert.That(ActivitySummary.CellValue(new ActivityCell(0, 2, null, true))).IsEqualTo("not counted");
+        await Assert.That(ActivitySummary.CellValue(new ActivityCell(0, 3, null, false))).IsEqualTo("not reached");
+    }
+
+    [Test]
+    public async Task AnArchivedGamesGridIsEmptyRatherThanHatched()
+    {
+        // Hatched means "we got in and could not count". A game that has not answered the door
+        // since 2023 did not get in, and saying it did is the same conflation one square over.
+        var page = await new FixtureGameQueries().FindAsync("gaslight-row");
+
+        await Assert.That(page!.Activity.All(c => c.IsGap)).IsTrue();
+        await Assert.That(ActivitySummary.Sentence(page.Activity)).Contains("was not reachable");
+        await Assert.That(ActivitySummary.Sentence(page.Activity)).DoesNotContain("answered but produced");
+    }
+
+    [Test]
+    public async Task TheSummarySentenceArrivesBeforeTheGrid()
+    {
+        // The answer is a sentence, not a picture, and a reader should not have to reach the
+        // picture to get it.
+        var html = await GridAsync(FixtureActivity());
+
+        var sentence = html.IndexOf("Busiest", StringComparison.Ordinal);
+        var table = html.IndexOf("<table", StringComparison.Ordinal);
+
+        await Assert.That(sentence).IsGreaterThanOrEqualTo(0);
+        await Assert.That(sentence).IsLessThan(table);
+    }
+
+    [Test]
+    public async Task AReadAsTextDisclosureGivesOneLinePerDayRatherThanAHundredAndSixtyEightCells()
+    {
+        var html = Render.Words(await GridAsync(FixtureActivity()));
+
+        await Assert.That(html).Contains("read as text");
+        await Assert.That(html).Contains("Mon —");
+        await Assert.That(html).Contains("Sun —");
+    }
+
+    [Test]
+    public async Task TheSentenceNamesUnreachableAndUncountableHoursSeparately()
+    {
+        // The design's own specimen sentence says only "could not be measured", which covers both.
+        // They are different facts about a game and the summary keeps them apart.
+        var sentence = ActivitySummary.Sentence(FixtureActivity());
+
+        await Assert.That(sentence).Contains("the game was not reachable");
+        await Assert.That(sentence).Contains("answered but produced no count");
+    }
+
+    [Test]
+    public async Task AGameCountedAtZeroAllWeekIsNotDescribedAsUnmeasured()
+    {
+        // A week of measured zeros is a strong measurement, not an absence of one.
+        var cells = Enumerable.Range(0, 7)
+            .SelectMany(d => Enumerable.Range(0, 24).Select(h => new ActivityCell(d, h, 0, Probed: true)))
+            .ToList();
+
+        var sentence = ActivitySummary.Sentence(cells);
+
+        await Assert.That(sentence).Contains("Measured every hour");
+        await Assert.That(sentence).DoesNotContain("not reachable");
+    }
+
+    [Test]
+    public async Task AGameThatAnswersAndCannotBeCountedIsNeverDescribedAsQuietOrDark()
+    {
+        // Midnight Sun II answers on every probe and offers nothing countable. Rendering that as a
+        // week of zeros — or as darkness — would be the reported bug in both directions.
+        var page = await new FixtureGameQueries().FindAsync("midnight-sun");
+        var text = Render.Words(PlainText.Render(page!, Now));
+
+        await Assert.That(text).Contains("No hour of the week has produced a player count");
+        await Assert.That(text).Contains("answered but produced no count");
+        await Assert.That(text).DoesNotContain("0 players");
+    }
+
+    private static ActivityCell[] FixtureActivity()
+    {
+        var page = new FixtureGameQueries().FindAsync("m-u-s-h").GetAwaiter().GetResult();
+        return [.. page!.Activity];
+    }
+}

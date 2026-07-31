@@ -1,0 +1,102 @@
+@page "/"
+@inject IGameQueries Queries
+@inject TimeProvider Clock
+
+@*
+    The feeds are the front page, not a sidebar.
+
+    A directory whose front page is a list of games is a list; a front page that says what changed in
+    the hobby this week is a record. Search sits above them because the second-most-common visit is
+    "find one specific game".
+*@
+
+@if (Plain)
+{
+    <pre class="mono plain">@PlainText.RenderHome(Counts, Feeds, Now)</pre>
+}
+else
+{
+    <PageTitle>mu*index</PageTitle>
+
+    <section class="hero">
+        <h1>Every game here was checked by a machine, and every fact says when.</h1>
+
+        <form class="search" method="get" action="/games" role="search">
+            <label for="q" class="sr-only">Search games by name, theme, codebase or host</label>
+            <input id="q" type="search" name="q" placeholder="search @Counts.Known games — name, theme, codebase, host" />
+            <button type="submit">search</button>
+        </form>
+
+        @* Only counts we measured. There is no "reachable this week" figure here because the store
+           cannot answer it yet, and an estimate on this page would undo the whole argument. *@
+        <ul class="counts mono">
+            <li><strong>@Counts.Known</strong> games known</li>
+            <li><span class="state-present">● @Counts.WithPlayersOn</span> with players on right now</li>
+            <li><strong>@Counts.CountUnknown</strong> answering with nothing we can count</li>
+            <li><a href="/archive">@Counts.Archived archived</a> — still probed, still addressable</li>
+        </ul>
+    </section>
+
+    <div class="feeds">
+        <section aria-labelledby="feed-new">
+            <h2 id="feed-new" class="kicker">newly discovered</h2>
+            @if (Feeds.NewlyDiscovered.Count == 0)
+            {
+                <p class="faint">Nothing new since we last looked.</p>
+            }
+            @foreach (var entry in Feeds.NewlyDiscovered)
+            {
+                <FeedCard Entry="entry" Kind="FeedKind.NewlyDiscovered" Now="Now" ShowRegister="false" />
+            }
+        </section>
+
+        <section aria-labelledby="feed-dark">
+            <h2 id="feed-dark" class="kicker">went dark</h2>
+            @if (Feeds.WentDark.Count == 0)
+            {
+                <p class="faint">Nothing has stopped answering.</p>
+            }
+            @foreach (var entry in Feeds.WentDark)
+            {
+                <FeedCard Entry="entry" Kind="FeedKind.WentDark" Now="Now" ShowRegister="false" />
+            }
+        </section>
+
+        <section aria-labelledby="feed-back">
+            <h2 id="feed-back" class="kicker">came back</h2>
+            @if (Feeds.CameBack.Count == 0)
+            {
+                <p class="faint">Nothing has come back yet. We keep knocking.</p>
+            }
+            @foreach (var entry in Feeds.CameBack)
+            {
+                <FeedCard Entry="entry" Kind="FeedKind.CameBack" Now="Now" ShowRegister="false" />
+            }
+        </section>
+    </div>
+
+    <p class="faint">
+        <a href="/games">browse every game</a> ·
+        <a href="/archive">the archive</a> ·
+        <a href="?plain=1">read this page as plain text</a>
+    </p>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
+
+    private bool Plain => Truthy.Is(PlainFlag);
+
+    private DateTimeOffset Now => Clock.GetUtcNow();
+
+    private SiteCounts Counts = new(0, 0, 0, 0);
+    private LivenessFeeds Feeds = new([], [], []);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Archived games are out of the default listing and of nothing else, so the front page's
+        // "games known" counts them: they are still known, still probed and still addressable.
+        Counts = SiteCounts.From(await Queries.ListAsync(new GameFilter { IncludeArchived = true }));
+        Feeds = await Queries.FeedsAsync();
+    }
+}

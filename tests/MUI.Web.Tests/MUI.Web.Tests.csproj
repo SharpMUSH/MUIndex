@@ -12,6 +12,17 @@
     <PackageReference Include="TUnit" />
   </ItemGroup>
 
+  <!--
+    So a test can render a component to HTML with the framework's own HtmlRenderer and assert on
+    what came out. Claims about markup — that the heatmap is a real table with headers, that a
+    hatched hour is a different element from an empty one — are only worth anything when they are
+    read off a rendered frame rather than off the source. No package: this is in the shared
+    framework the web project already targets.
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\MUI.Web\MUI.Web.csproj" />
   </ItemGroup>

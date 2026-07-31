@@ -1,73 +1,144 @@
-@page "/"
 @page "/games"
 @inject IGameQueries Queries
+@inject TimeProvider Clock
 
-<PageTitle>Games — mu*index</PageTitle>
+@if (Plain)
+{
+    <pre class="mono plain">@PlainText.RenderListing(Summaries, Filter, Now)</pre>
+}
+else
+{
+    <PageTitle>Games — mu*index</PageTitle>
 
-<h1>Games</h1>
-<p class="dim">Every fact below was measured. Nothing here was typed into a form by us.</p>
+    <h1>Games</h1>
+    <p class="dim">Every fact below was measured. Nothing here was typed into a form by us.</p>
 
-@*
-    A plain GET form. No script, no framework: the querystring *is* the state, so the back button
-    works, a filtered listing is linkable, and the panel cannot lie about what a click will produce
-    because the server recomputes it. Spec §9 requires this to work with scripting off.
-*@
-<form method="get" action="/games">
-    <fieldset class="facets">
-        <legend>filters</legend>
-        <label>
-            <input type="checkbox" name="archived" value="true" checked="@Filter.IncludeArchived" />
-            include archived
-        </label>
-        <input type="search" name="q" value="@Filter.Text" placeholder="search games" aria-label="Search games" />
-        <button type="submit">show</button>
-    </fieldset>
-</form>
+    @*
+        A plain GET form. No script, no framework: the querystring *is* the state, so the back button
+        works, a filtered listing is linkable, and the panel cannot lie about what a click will
+        produce because the server recomputes it. Spec §9 requires this to work with scripting off.
+    *@
+    <form method="get" action="/games" role="search">
+        <fieldset class="facets">
+            <legend>filters</legend>
+            <label for="q" class="sr-only">Search games</label>
+            <input id="q" type="search" name="q" value="@Filter.Text" placeholder="search games" />
+            <label class="check">
+                <input type="checkbox" name="archived" value="true" checked="@Filter.IncludeArchived" />
+                include archived
+            </label>
+            <button type="submit">show</button>
+        </fieldset>
+    </form>
 
-<p class="kicker">@Summaries.Count games</p>
+    <p class="kicker">@Summaries.Count games · counts measured, never asserted</p>
 
-<ul class="games">
-    @foreach (var g in Summaries)
+    <ul class="games">
+        @foreach (var g in Summaries)
+        {
+            <li>
+                <div class="row-main">
+                    <div>
+                        <a class="name" href="/g/@g.Slug">@g.Name</a>
+                        @if (g.State is LifecycleState.Archived)
+                        {
+                            <span class="badge archived">archived</span>
+                        }
+                        else if (g.IsClaimed)
+                        {
+                            <span class="badge claimed">claimed</span>
+                        }
+                        else
+                        {
+                            <span class="badge">unclaimed</span>
+                        }
+
+                        @if (g.Tagline is { } t)
+                        {
+                            <div class="dim">@t</div>
+                        }
+
+                        <div class="meta mono">
+                            @if (g.Codebase is { } cb)
+                            {
+                                <text>@cb</text>
+                            }
+                            else
+                            {
+                                <span class="state-unknown">codebase not identified</span>
+                            }
+                            @foreach (var p in g.MeasuredProtocols)
+                            {
+                                <text> · @p <span class="state-present">●</span></text>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="count mono">
+                        @*
+                            Three states, spelled rather than implied. A missing count says so in
+                            words — it is never rendered as a zero, and never left blank for a
+                            reader to guess at.
+                        *@
+                        @if (g.PlayersNow is { } n)
+                        {
+                            <span class="state-present">● @n on</span>
+                        }
+                        else
+                        {
+                            <span class="state-unknown">– count unknown</span>
+                        }
+                    </div>
+                </div>
+            </li>
+        }
+    </ul>
+
+    @if (Summaries.Count == 0)
     {
-        <li>
-            <a class="name" href="/g/@g.Slug">@g.Name</a>
-            @if (g.State is LifecycleState.Archived)
-            {
-                <span class="badge archived">archived</span>
-            }
-            else if (!g.IsClaimed)
-            {
-                <span class="badge">unclaimed</span>
-            }
-            <div class="meta">
-                @*
-                    Three states, spelled rather than implied. A missing count says so in words —
-                    it is never rendered as a zero, and never left blank for a reader to guess at.
-                *@
-                @if (g.PlayersNow is { } n)
-                {
-                    <span class="state-present">● @n on</span>
-                }
-                else
-                {
-                    <span class="state-unknown">– count unknown</span>
-                }
-                @if (g.Codebase is { } cb) { <text> · @cb</text> }
-                @foreach (var p in g.MeasuredProtocols) { <text> · @p ●</text> }
-            </div>
-            @if (g.Tagline is { } t) { <div class="dim">@t</div> }
-        </li>
+        <p class="dim">
+            Nothing matched. Nothing is ever deleted here, so a name that once worked still does —
+            try fewer words, or <a href="/archive">look in the archive</a>.
+        </p>
     }
-</ul>
+
+    <p class="faint"><a href="@PlainHref">read this page as plain text</a></p>
+}
 
 @code {
     [SupplyParameterFromQuery(Name = "q")] private string? Query { get; set; }
     [SupplyParameterFromQuery(Name = "archived")] private string? ArchivedFlag { get; set; }
+    [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
 
     private bool Archived => Truthy.Is(ArchivedFlag);
 
+    private bool Plain => Truthy.Is(PlainFlag);
+
+    private DateTimeOffset Now => Clock.GetUtcNow();
+
     private GameFilter Filter => new() { Text = Query, IncludeArchived = Archived };
+
     private IReadOnlyList<GameSummary> Summaries = [];
+
+    /// <summary>Plain mode keeps the query it was reading, or it is not the same page in text.</summary>
+    private string PlainHref
+    {
+        get
+        {
+            var parts = new List<string> { "plain=1" };
+            if (!string.IsNullOrWhiteSpace(Query))
+            {
+                parts.Add($"q={Uri.EscapeDataString(Query)}");
+            }
+
+            if (Archived)
+            {
+                parts.Add("archived=true");
+            }
+
+            return "?" + string.Join('&', parts);
+        }
+    }
 
     protected override async Task OnParametersSetAsync() =>
         Summaries = await Queries.ListAsync(Filter);

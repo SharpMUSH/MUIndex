@@ -1,0 +1,117 @@
+@page "/archive"
+@using MUI.Web.Data
+@inject IGameQueries Queries
+@inject IAvailabilityHistory History
+@inject TimeProvider Clock
+
+@*
+    The archive, as a first-class section rather than a hidden flag.
+
+    This is the historical record every incumbent threw away, and it is worth presenting as an asset
+    rather than as a bin. Dimmed one step, no red, no "dead", no strikethrough: the word is
+    "archived" and the tone is a library catalogue entry for a periodical that ceased publication.
+
+    Every URL here still works, every page is intact, and every game is still probed weekly forever.
+    One successful probe puts a game back in the listing (spec §7.5).
+*@
+
+@if (Plain)
+{
+    <pre class="mono plain">@PlainText.RenderArchive(Entries, Query, Now)</pre>
+}
+else
+{
+    <PageTitle>The archive — mu*index</PageTitle>
+
+    <h1>The archive</h1>
+    <p class="dim">
+        Games that have stopped answering. Nothing here was deleted: the pages, the URLs and the
+        measured series all survive, we still try the door every week, and one successful probe puts
+        a game back in the listing the same day.
+    </p>
+
+    <form method="get" action="/archive" role="search">
+        <fieldset class="facets">
+            <legend>search the archive</legend>
+            <label for="q" class="sr-only">Search archived games</label>
+            <input id="q" type="search" name="q" value="@Query" placeholder="name, codebase or description" />
+            <button type="submit">show</button>
+        </fieldset>
+    </form>
+
+    <p class="kicker">@Entries.Count archived @(Entries.Count == 1 ? "game" : "games")</p>
+
+    <ul class="archive">
+        @foreach (var entry in Entries)
+        {
+            <li>
+                <div class="row-main">
+                    <div>
+                        <a class="name" href="/g/@entry.Summary.Slug">@entry.Summary.Name</a>
+                        <span class="badge archived">archived</span>
+                        @if (entry.Summary.Tagline is { } tagline)
+                        {
+                            <div class="dim">@tagline</div>
+                        }
+                        <div class="meta mono">
+                            @if (entry.Summary.Codebase is { } codebase)
+                            {
+                                <text>@codebase · </text>
+                            }
+                            @entry.Run
+                        </div>
+                    </div>
+                    <dl class="archive-facts mono">
+                        <dt class="kicker">last reachable</dt>
+                        <dd>@entry.LastAnswered <span class="faint">(@entry.DarkFor(Now) ago)</span></dd>
+                        <dt class="kicker">known live</dt>
+                        <dd>@entry.KnownLiveWording</dd>
+                    </dl>
+                </div>
+            </li>
+        }
+    </ul>
+
+    @if (Entries.Count == 0)
+    {
+        <p class="dim">Nothing matched.</p>
+    }
+
+    <p class="faint"><a href="@PlainHref">read this page as plain text</a></p>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "q")] private string? Query { get; set; }
+    [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
+
+    private bool Plain => Truthy.Is(PlainFlag);
+
+    private DateTimeOffset Now => Clock.GetUtcNow();
+
+    private IReadOnlyList<ArchiveEntry> Entries = [];
+
+    private string PlainHref => string.IsNullOrWhiteSpace(Query)
+        ? "?plain=1"
+        : $"?plain=1&q={Uri.EscapeDataString(Query)}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // The archived band, not "everything with the archived flag filtered client-side" — the
+        // facet is a real query the store answers, and the archive is what it is for.
+        var games = await Queries.ListAsync(new GameFilter
+        {
+            Text = Query,
+            Band = ActivityBand.Archived,
+            IncludeArchived = true,
+        });
+
+        var entries = new List<ArchiveEntry>(games.Count);
+        foreach (var game in games)
+        {
+            entries.Add(ArchiveEntry.For(game, await History.ForGameAsync(game.Id), Now));
+        }
+
+        // Most recently lost first: a game that stopped last month is the one a reader came for.
+        Entries = [.. entries.OrderByDescending(e => e.LastReachableAt ?? DateTimeOffset.MinValue)];
+    }
+}

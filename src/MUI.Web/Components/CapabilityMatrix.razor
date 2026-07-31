@@ -1,0 +1,118 @@
+@*
+    The capability matrix: measured and declared as two columns, never merged into one badge.
+
+    There are two claims — what the server did in the handshake, and what the game says about itself
+    — and merging them throws away the only interesting case. Disagreements sort to the top, are
+    marked in the row itself rather than by tint alone, and the count sits in the section head so it
+    survives both a collapsed section and a screen reader.
+*@
+
+<div class="section-head">
+    <h2 id="@Id">Capabilities</h2>
+    @* The count lives in the section head so it survives a collapsed section and a screen reader
+       alike — a tint on a row does neither. *@
+    <p class="count @(Disagreements.Count > 0 ? "warn" : "faint")">
+        @Disagreements.Count of @Rows.Count capabilities
+        @(Disagreements.Count == 1 ? "disagrees" : "disagree") with what the game declares
+    </p>
+</div>
+
+<table class="matrix">
+    <caption class="sr-only">
+        Capabilities measured in the handshake beside the ones the game declares.
+        @Disagreements.Count of @Rows.Count @(Disagreements.Count == 1 ? "disagrees" : "disagree").
+    </caption>
+    <thead>
+        <tr>
+            <th scope="col">capability</th>
+            <th scope="col">measured</th>
+            <th scope="col">declared</th>
+            <th scope="col">age</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var row in Sorted)
+        {
+            <tr class="@(row.Disagrees ? "disagrees" : null)">
+                <th scope="row">
+                    <span class="mono">@row.Protocol</span>
+                    @if (row.Disagrees)
+                    {
+                        @* The mark is a word in the row, not a background tint. A tint is invisible
+                           in greyscale, to a screen reader, and to anyone who prints the page. *@
+                        <span class="mark warn">disagrees</span>
+                    }
+                </th>
+                <td class="mono">@((MarkupString)Cell(row.Measured, measured: true))</td>
+                <td class="mono">@((MarkupString)Cell(row.Declared, measured: false))</td>
+                <td class="mono faint">@Age(row)</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (Disagreements.Count > 0)
+{
+    <details class="disagreement">
+        <summary>where they disagree (@Disagreements.Count)</summary>
+        @foreach (var row in Disagreements)
+        {
+            <p>
+                <strong class="mono">@row.Protocol</strong> —
+                @if (row.Measured is CapabilityState.Absent)
+                {
+                    <text>
+                        the game declares it, and the server has never offered it in a handshake.
+                    </text>
+                }
+                else
+                {
+                    <text>
+                        the server offers it, and the game's own record says it does not.
+                    </text>
+                }
+            </p>
+            <p class="dim">
+                This is usually a hand-typed field left over from a codebase upgrade rather than a
+                lie. It is shown because a client should not rely on what the two do not agree about.
+            </p>
+        }
+    </details>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<CapabilityRow> Rows { get; set; } = [];
+
+    [Parameter] public string Id { get; set; } = "capabilities";
+
+    [Parameter] public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>Disagreements first, then measured-present, then absent, then unknown.</summary>
+    private IEnumerable<CapabilityRow> Sorted => Rows
+        .OrderByDescending(r => r.Disagrees)
+        .ThenBy(r => r.Measured switch
+        {
+            CapabilityState.Present => 0,
+            CapabilityState.Absent => 1,
+            _ => 2,
+        })
+        .ThenBy(r => r.Protocol, StringComparer.Ordinal);
+
+    private IReadOnlyList<CapabilityRow> Disagreements => [.. Rows.Where(r => r.Disagrees).OrderBy(r => r.Protocol, StringComparer.Ordinal)];
+
+    private string Age(CapabilityRow row) =>
+        row.LastConfirmedAt is { } at ? Relative.Format(Now - at) : "never";
+
+    /// <summary>
+    /// Glyph and word together. The glyph is the state and the colour only reinforces it, so the
+    /// cell still says which of the four things it is when there is no colour at all.
+    /// </summary>
+    private static string Cell(CapabilityState state, bool measured) => (state, measured) switch
+    {
+        (CapabilityState.Present, true) => "<span class=\"state-present\">● offered</span>",
+        (CapabilityState.Present, false) => "<span class=\"state-declared\">◇ claimed</span>",
+        (CapabilityState.Absent, true) => "<span class=\"state-absent\">✕ absent</span>",
+        (CapabilityState.Absent, false) => "<span class=\"state-absent\">✕ denied</span>",
+        _ => "<span class=\"state-unknown\">– silent</span>",
+    };
+}

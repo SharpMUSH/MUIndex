@@ -1,0 +1,116 @@
+@*
+    The activity heatmap: day-of-week × hour, in three states.
+
+    A real <table> with row and column headers, so a screen reader's table mode — which is arrow-key
+    navigation — works on it without a line of script. But the sentence comes first: it is the
+    accessible summary and the answer a reader actually wants, and the "read as text" disclosure
+    under the grid gives a line per day rather than 168 announced cells.
+
+    Flat fill for counted (including a measured zero), hatched outline for probed-but-uncountable,
+    empty for not-reachable. That distinction is the whole of spec §5.4, it is carried by cell shape
+    and not by colour, and it survives greyscale printing.
+*@
+
+<p class="summary">@ActivitySummary.Sentence(Cells)</p>
+<p class="faint mono">times in UTC · @Window</p>
+
+@if (Cells.Count > 0)
+{
+    <div class="heat-wrap">
+        <table class="heat">
+            <caption class="sr-only">
+                Players on by day of the week and hour, in UTC. @ActivitySummary.Sentence(Cells)
+            </caption>
+            <thead>
+                <tr>
+                    <td></td>
+                    @foreach (var hour in Hours)
+                    {
+                        @* Every third hour is labelled; the rest keep the column header for the
+                           table's own semantics and hide the text, so navigation still announces
+                           which hour a cell is in. *@
+                        <th scope="col" class="@(hour % 3 == 0 ? null : "quiet")">
+                            <span class="@(hour % 3 == 0 ? null : "sr-only")">@hour.ToString("00")</span>
+                        </th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var day in Days)
+                {
+                    <tr>
+                        <th scope="row">@ActivitySummary.ShortDayName(day)</th>
+                        @foreach (var hour in Hours)
+                        {
+                            var cell = Cell(day, hour);
+                            @* The value is announced; the whole sentence is the mouse tooltip. The
+                               headers already say which hour of which day this is. *@
+                            <td class="@CellClass(cell)" style="@CellStyle(cell)" title="@Label(cell)">
+                                <span class="sr-only">@ActivitySummary.CellValue(cell)</span>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <ul class="legend">
+        <li><span class="swatch counted" aria-hidden="true"></span>counted, including a measured zero</li>
+        <li><span class="swatch unmeasurable" aria-hidden="true"></span>probed, no count could be read</li>
+        <li><span class="swatch gap" aria-hidden="true"></span>not reachable — no measurement at all</li>
+    </ul>
+
+    <details class="read-as-text">
+        <summary>read as text</summary>
+        <ul class="perday">
+            @foreach (var line in ActivitySummary.PerDay(Cells))
+            {
+                <li>@line</li>
+            }
+        </ul>
+    </details>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<ActivityCell> Cells { get; set; } = [];
+
+    /// <summary>Stated in words, because a heatmap without its window is an unlabelled average.</summary>
+    [Parameter] public string Window { get; set; } = "8-week rolling average";
+
+    private static readonly int[] Hours = [.. Enumerable.Range(0, 24)];
+
+    private IEnumerable<int> Days => Cells.Select(c => c.DayOfWeek).Distinct().Order();
+
+    private ActivityCell Cell(int day, int hour) =>
+        Cells.FirstOrDefault(c => c.DayOfWeek == day && c.Hour == hour)
+        // A cell the store never mentioned is not reachable, which is the honest reading of silence.
+        ?? new ActivityCell(day, hour, null, Probed: false);
+
+    private static string Label(ActivityCell cell) => ActivitySummary.CellLabel(cell);
+
+    private static string CellClass(ActivityCell cell) => cell switch
+    {
+        { IsGap: true } => "gap",
+        { IsUnmeasurable: true } => "unmeasurable",
+        { Count: 0 } => "counted zero",
+        _ => "counted",
+    };
+
+    /// <summary>
+    /// Only the counted cells carry an intensity, and it is the one place a colour ramp appears on
+    /// this site. The other two states have no number to be a shade of.
+    /// </summary>
+    private string? CellStyle(ActivityCell cell)
+    {
+        if (!cell.IsCounted || cell.Count is not { } n || n == 0)
+        {
+            return null;
+        }
+
+        var peak = Cells.Where(c => c.IsCounted).Max(c => c.Count) ?? 1;
+        var share = peak <= 0 ? 1 : Math.Max(0.14, (double)n / peak);
+
+        return $"--fill:{share.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}";
+    }
+}
