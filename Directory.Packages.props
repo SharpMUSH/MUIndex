@@ -15,6 +15,13 @@
 
     <!-- Logging abstractions (TelnetNegotiationCore takes an ILogger). -->
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.2" />
+
+    <!--
+      Registration only. MUI.Import exposes AddMuiImporters so the web tier can compose a backfill
+      run; the abstractions package is deliberately the whole of it, so nothing in a class library
+      that reads other people's web pages gains a hosting dependency.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.2" />
   </ItemGroup>
 
   <ItemGroup>
