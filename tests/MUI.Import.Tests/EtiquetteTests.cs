@@ -77,6 +77,42 @@ public class EtiquetteTests
     }
 
     [Test]
+    public async Task ARouteDefinedByAQueryAuthorisesThatQueryAndNoOther()
+    {
+        // The Mud Connector's whole catalogue is one page at ?mode=mobile_biglist, and every other
+        // thing that site does is the same script under another mode — the 689 per-game listings, and
+        // an on-demand connectivity checker that opens a live socket to a third party's server on our
+        // behalf. Compared on path alone the route would be "that script, with any query at all".
+        var etiquette = Base() with
+        {
+            BulkExportUri = new Uri("https://example.test/cgi-bin/search.cgi?mode=biglist"),
+        };
+
+        await Assert.That(EtiquettePlanner.MayFetch(
+            etiquette, new Uri("https://example.test/cgi-bin/search.cgi?mode=biglist"))).IsTrue();
+
+        await Assert.That(EtiquettePlanner.MayFetch(
+            etiquette, new Uri("https://example.test/cgi-bin/search.cgi?mode=mud_listing&mud=Aardwolf")))
+            .IsFalse();
+        await Assert.That(EtiquettePlanner.MayFetch(
+            etiquette, new Uri("https://example.test/cgi-bin/search.cgi?mode=check_connect&host=x&port=23")))
+            .IsFalse();
+        await Assert.That(EtiquettePlanner.MayFetch(
+            etiquette, new Uri("https://example.test/cgi-bin/search.cgi"))).IsFalse();
+    }
+
+    [Test]
+    public async Task AQueryFreeRootStillAuthorisesTheSubtreeWhateverItsQuery()
+    {
+        // The other half of the same rule: a listing page that pages through ?page=2 must stay
+        // reachable, or every paginated source becomes unreadable.
+        var etiquette = Base() with { ApiUri = new Uri("https://example.test/api") };
+
+        await Assert.That(EtiquettePlanner.MayFetch(
+            etiquette, new Uri("https://example.test/api/games?page=2"))).IsTrue();
+    }
+
+    [Test]
     public async Task ScrapingIsOffUntilSomebodyHasEmailedTheMaintainer()
     {
         var etiquette = Base() with { ScrapeUri = new Uri("https://example.test/list") };

@@ -17,6 +17,13 @@
       they were written by the same person.
     -->
     <PackageReference Include="Testcontainers.PostgreSql" />
+
+    <!--
+      So the attribution and tier assertions read the registry AddMuiImporters composes rather than a
+      list written beside them. A hand-written list keeps passing while a source is registered with
+      the wrong tier, or left out of DI entirely.
+    -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
 
   <ItemGroup>

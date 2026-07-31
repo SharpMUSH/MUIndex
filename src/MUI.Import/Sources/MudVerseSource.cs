@@ -67,16 +67,29 @@ public sealed partial class MudVerseSource(
     /// MSSP variables worth carrying, in this site's spelling, mapped to <see cref="FieldRegistry"/>
     /// names. <c>PLAYERS</c> is absent because a count is not a field (§5.2) and is read as presence;
     /// <c>UPTIME</c> because this page renders it as "598 hours" rather than as MSSP's epoch second;
-    /// <c>PORT</c> and <c>HOSTNAME</c> because the connection panel says what the site actually
-    /// dialled and a declaration must not outrank it.
+    /// <c>PORT</c> because the connection panel already carries it as an address. <c>CONTACT</c> is
+    /// absent because this page renders it as an anchor labelled "E-mail", so the only value
+    /// recoverable from it is the <c>mailto:</c> URL — a different shape from the address the other
+    /// sources carry, and not one worth writing a second parse for to store a game's inbox.
+    /// <c>HOSTNAME</c> <em>is</em> carried, as the other sources carry it: it is the game's own claim
+    /// about where it lives, it sits at the bottom of the §5.1 ladder like any other imported field,
+    /// and where it disagrees with the address this directory publishes, that disagreement is the
+    /// interesting fact and must not be dropped.
     /// </summary>
     private static readonly string[] DescriptiveFields =
     [
-        "CRAWL DELAY", "CODEBASE", "CREATED", "FAMILY", "GAMEPLAY", "GAMESYSTEM", "GENRE", "INTERMUD",
-        "LANGUAGE", "LOCATION", "MINIMUM AGE", "NAME", "STATUS", "SUBGENRE",
+        "CRAWL DELAY", "CODEBASE", "CREATED", "FAMILY", "GAMEPLAY", "GAMESYSTEM", "GENRE", "HOSTNAME",
+        "INTERMUD", "LANGUAGE", "LOCATION", "MINIMUM AGE", "NAME", "STATUS", "SUBGENRE",
     ];
 
-    /// <summary>Cells whose text is anchor text and whose value lives only in the <c>href</c>.</summary>
+    /// <summary>
+    /// Cells whose text is anchor text and whose value lives only in the <c>href</c>. Of these only
+    /// the URLs are kept as fields — <c>CONTACT</c>'s <c>mailto:</c> is read so that it is not stored
+    /// as the word "E-mail", and then dropped.
+    /// </summary>
+    private static readonly string[] Linked = ["WEBSITE", "ICON", "DISCORD", "CONTACT"];
+
+    /// <summary>The subset of <see cref="Linked"/> stored, and stored as their URL.</summary>
     private static readonly string[] LinkedFields = ["WEBSITE", "ICON", "DISCORD"];
 
     /// <summary>Rendered <c>yes</c>/<c>no</c> by this site, and each the game's own claim.</summary>
@@ -96,8 +109,13 @@ public sealed partial class MudVerseSource(
     [GeneratedRegex(@"^https?://(?:www\.)?mudverse\.com/game/(\d+)/?$", RegexOptions.IgnoreCase, 2000)]
     private static partial Regex GamePath { get; }
 
-    /// <summary>One flat <c>&lt;tr&gt;&lt;td&gt;NAME&lt;/td&gt;&lt;td&gt;value&lt;/td&gt;&lt;/tr&gt;</summary>
-    [GeneratedRegex(@"<tr>\s*<td>(.*?)</td>\s*<td>(.*?)</td>\s*</tr>",
+    /// <summary>
+    /// One flat <c>&lt;tr&gt;&lt;td&gt;NAME&lt;/td&gt;&lt;td&gt;value&lt;/td&gt;&lt;/tr&gt;</c>, with
+    /// attributes tolerated on the tags. A regex demanding bare tags does not fail visibly when the
+    /// site adds a <c>class</c>: it reads the panel as empty, which this importer then reports as
+    /// "this game has no MSSP data" — indistinguishable from a game that genuinely has none.
+    /// </summary>
+    [GeneratedRegex(@"<tr\b[^>]*>\s*<td\b[^>]*>(.*?)</td>\s*<td\b[^>]*>(.*?)</td>\s*</tr>",
         RegexOptions.IgnoreCase | RegexOptions.Singleline, 2000)]
     private static partial Regex MsspRow { get; }
 
@@ -208,8 +226,10 @@ public sealed partial class MudVerseSource(
         ArgumentNullException.ThrowIfNull(uri);
         ArgumentException.ThrowIfNullOrEmpty(sourceName);
 
-        // The address the site dialled, out of the connection panel — not the MSSP HOSTNAME, which is
-        // what the game declared. A measurement outranks a declaration even when they agree.
+        // The address this directory publishes for the game, out of its connection panel. The
+        // Connectivity block directly below the panel reports testing THIS host and port, which is
+        // what makes it the address to lead with — and what stops the record being anchored on the
+        // game's own declared HOSTNAME, which is kept as a field instead.
         if (HtmlText.ElementTextById(page, "detailsHost") is not { Length: > 0 } host
             || Port(page, "detailsPort") is not { } port)
         {
@@ -218,8 +238,15 @@ public sealed partial class MudVerseSource(
 
         var endpoints = new List<ImportedEndpoint> { new(host, port, EndpointKind.Telnet) };
 
-        // A TLS port on this page is a port the crawler connected to, not an MSSP SSL declaration, so
-        // it earns an endpoint of its own where the TinTin sources' SSL claim deliberately does not.
+        // A TLS port in the same panel. Be precise about what is and is not known here: the page
+        // states one Connection Tested and one Last Successful Connection, both singular, so it does
+        // NOT say this port was dialled — it says the directory publishes it as a way in. That is a
+        // candidate address, and §7.2 is exactly what makes a candidate safe: it becomes a game by
+        // answering for itself, so seeding it costs one probe and asserts nothing.
+        //
+        // It is a different thing from the TinTin sources' MSSP `SSL`, which is refused: that is a
+        // number inside a GAME's own protocol reply, and minting an endpoint from a game's claim
+        // about itself is the measured-versus-declared confusion this project exists to avoid.
         if (Port(page, "detailsTlsPort") is { } tls && tls != port)
         {
             endpoints.Add(new ImportedEndpoint(host, tls, EndpointKind.Tls));
@@ -323,10 +350,15 @@ public sealed partial class MudVerseSource(
 
             var cell = row.Groups[2].Value;
 
-            // CONTACT, WEBSITE and ICON render as an anchor whose text is a label — "E-mail",
-            // "Website", "Icon Link" — so the value exists only in the href. Reading the cell stores
-            // the word "Website" as a game's website.
-            var value = HrefIn(cell) is { Length: > 0 } href
+            // CONTACT, WEBSITE, ICON and DISCORD render as an anchor whose text is a label —
+            // "E-mail", "Website", "Icon Link" — so the value exists only in the href. Reading the
+            // cell stores the word "Website" as a game's website.
+            //
+            // Named, rather than "prefer an href wherever there is one": the day the site links a
+            // CODEBASE or a LOCATION to a search page, a preference would silently turn that field
+            // into a URL, and a field quietly becoming the wrong kind of thing is worse than one
+            // that stops being read.
+            var value = Linked.Contains(name, StringComparer.Ordinal) && HrefIn(cell) is { Length: > 0 } href
                 ? href
                 : HtmlText.Collapse(HtmlText.StripTags(cell));
 

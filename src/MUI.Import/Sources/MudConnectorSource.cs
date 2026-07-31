@@ -44,7 +44,12 @@ public sealed partial class MudConnectorSource(IDirectoryFetcher fetcher) : Dire
     private static readonly Uri BigList =
         new("https://www.mudconnect.com/cgi-bin/search.cgi?mode=mobile_biglist");
 
-    [GeneratedRegex(@"<tr>(.*?)</tr>", RegexOptions.IgnoreCase | RegexOptions.Singleline, 4000)]
+    /// <summary>
+    /// One row, with attributes tolerated on the tag. A regex demanding a bare <c>&lt;tr&gt;</c> does
+    /// not fail visibly when the site adds a <c>class</c> — it reads the list as empty, which is
+    /// indistinguishable from a site that is down.
+    /// </summary>
+    [GeneratedRegex(@"<tr\b[^>]*>(.*?)</tr>", RegexOptions.IgnoreCase | RegexOptions.Singleline, 4000)]
     private static partial Regex Row { get; }
 
     /// <summary>The address TMC records for a game, inside the link it offers to connect with.</summary>

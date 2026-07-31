@@ -1,4 +1,5 @@
-using MUI.Import.Sources;
+using Microsoft.Extensions.DependencyInjection;
+
 using MUI.Import.Tests.Support;
 
 namespace MUI.Import.Tests;
@@ -15,19 +16,22 @@ public class AttributionTests
 {
     private static readonly DateTimeOffset Start = new(2026, 7, 30, 12, 0, 0, TimeSpan.Zero);
 
-    private static SourceRegistry Registry()
-    {
-        var (_, client) = FakeHttp.Serving();
-        var time = new ManualTimeProvider(Start);
-
-        return new SourceRegistry([
-            TinTinMsspCrawlerSource.Create(client, time),
-            TinTinMsdpCrawlerSource.Create(client, time),
-            MudConnectorSource.Create(client, time),
-            MudStatsSource.Create(client, time),
-            MudVerseSource.Create(client, time),
-        ]);
-    }
+    /// <summary>
+    /// The registry the application composes, not one written beside it.
+    /// </summary>
+    /// <remarks>
+    /// This is the difference between asserting that five sources are tiered correctly and asserting
+    /// that <em>the five sources this build reads</em> are. A hand-written list here would keep
+    /// passing while a source was registered in DI with the wrong tier, or left out of DI entirely —
+    /// and the tier is the one thing in this assembly whose being wrong is worse than the source
+    /// being skipped.
+    /// </remarks>
+    private static SourceRegistry Registry() =>
+        new ServiceCollection()
+            .AddSingleton<TimeProvider>(new ManualTimeProvider(Start))
+            .AddMuiImporters()
+            .BuildServiceProvider()
+            .GetRequiredService<SourceRegistry>();
 
     [Test]
     public async Task EverySourceIsCreditedWithAnAttributionUri()

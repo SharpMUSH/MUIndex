@@ -314,9 +314,15 @@ public static partial class HtmlText
         return null;
     }
 
+    /// <remarks>
+    /// The lookbehind is load-bearing. <c>\b</c> matches after a hyphen, so <c>\bid\s*=</c> reads
+    /// <c>data-listing-id="671"</c> — which is on the very page this is used to parse — as an
+    /// element's id.
+    /// </remarks>
     private static bool IdMatches(string attributes, string id)
     {
-        var match = Regex.Match(attributes, @"\bid\s*=\s*['""]([^'""]*)['""]", RegexOptions.None, MatchTimeout);
+        var match = Regex.Match(
+            attributes, @"(?<![-\w])id\s*=\s*['""]([^'""]*)['""]", RegexOptions.None, MatchTimeout);
 
         return match.Success && string.Equals(match.Groups[1].Value, id, StringComparison.Ordinal);
     }

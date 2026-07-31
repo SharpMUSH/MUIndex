@@ -13,8 +13,11 @@ public class MudVerseSourceTests
 {
     private static readonly DateTimeOffset Start = new(2026, 7, 30, 12, 0, 0, TimeSpan.Zero);
 
-    /// <summary>"07/31/26 03:35 am GMT", as the page states it.</summary>
+    /// <summary>The fixture's <em>Connection Tested</em> — the stamp that must NOT date a reading.</summary>
     private static readonly DateTimeOffset Tested = new(2026, 7, 31, 3, 35, 0, TimeSpan.Zero);
+
+    /// <summary>The fixture's <em>Last Successful Connection</em> — the one the count belongs to.</summary>
+    private static readonly DateTimeOffset Succeeded = new(2026, 7, 31, 2, 10, 0, TimeSpan.Zero);
 
     private static readonly Uri GameUri = new("https://www.mudverse.com/game/671");
 
@@ -54,7 +57,7 @@ public class MudVerseSourceTests
     public async Task ItRateLimitsHardBecauseScrapingIsTheOnlyRouteItHas()
     {
         await Assert.That(MudVerseSource.DefaultEtiquette().MinimumInterval)
-            .IsGreaterThanOrEqualTo(TimeSpan.FromSeconds(10));
+            .IsGreaterThanOrEqualTo(TimeSpan.FromSeconds(15));
     }
 
     [Test]
@@ -68,28 +71,35 @@ public class MudVerseSourceTests
     }
 
     [Test]
-    public async Task TheAddressComesFromTheConnectionPanelAndNotFromTheDeclaredHostname()
+    public async Task TheRecordIsAnchoredOnTheAddressTheDirectoryPublishesAndKeepsTheDeclaredOneAsAField()
     {
         var game = Game();
 
-        // The MSSP block declares HOSTNAME too. The connection panel is what the site dialled, and a
-        // measurement outranks a declaration even when the two agree.
+        // The Connectivity block below the panel reports testing this host and port, which is what
+        // makes it the address to lead with. The game's own declared HOSTNAME is kept as a field and
+        // sits at the bottom of the §5.1 ladder like any other imported value — where the two
+        // disagree, that disagreement is the interesting fact.
         await Assert.That(game.Endpoints[0])
             .IsEqualTo(new ImportedEndpoint("darkhopemud.com", 6777, EndpointKind.Telnet));
-        await Assert.That(game.Fields.Keys).DoesNotContain("HOSTNAME");
+        await Assert.That(game.Fields["HOSTNAME"]).IsEqualTo("darkhopemud.com");
     }
 
     [Test]
-    public async Task ATlsPortOnTheConnectionPanelIsAnEndpointBecauseTheSiteConnectedToIt()
+    public async Task ATlsPortInTheSamePanelIsSeededAsACandidateAndClaimsNothing()
     {
         var game = Game();
 
-        // Distinct from an MSSP `SSL` claim, which the TinTin sources deliberately do NOT turn into
-        // an endpoint: nobody had connected to that port. This one is in the panel of addresses the
-        // crawler used.
+        // The page states one Connection Tested and one Last Successful Connection, both singular, so
+        // it does not say this port was dialled — it says the directory publishes it as a way in.
+        // §7.2 is what makes that safe: a candidate becomes a game by answering for itself.
         await Assert.That(game.Endpoints.Count).IsEqualTo(2);
         await Assert.That(game.Endpoints[1])
             .IsEqualTo(new ImportedEndpoint("darkhopemud.com", 6778, EndpointKind.Tls));
+
+        // And it claims nothing about the game: no capability field is minted from it. That is the
+        // difference from an MSSP `SSL` number, which lives inside a game's own reply and which the
+        // TinTin sources refuse to turn into an endpoint for exactly the mirrored reason.
+        await Assert.That(game.Fields.Keys).DoesNotContain(CapabilityFields.Declared("SSL"));
     }
 
     [Test]
@@ -141,12 +151,31 @@ public class MudVerseSourceTests
     }
 
     [Test]
-    public async Task ThePlayerCountIsDatedByTheConnectionTheReadingCameFrom()
+    public async Task ThePlayerCountIsDatedByTheLastSuccessfulConnectionAndNotByTheLastTest()
     {
+        // The two stamps differ in this fixture on purpose. A failed test reads nothing, so a reading
+        // belongs to the last connection that succeeded — and with the two equal, as they are on a
+        // healthy game's live page, a parser reading the wrong one is indistinguishable from a parser
+        // reading the right one.
         var sample = Game().Presence.Single();
 
         await Assert.That(sample.Count).IsEqualTo(1);
-        await Assert.That(sample.At).IsEqualTo(Tested);
+        await Assert.That(sample.At).IsEqualTo(Succeeded);
+        await Assert.That(sample.At).IsNotEqualTo(Tested);
+    }
+
+    [Test]
+    public async Task AnMsspBlockCrawledOnADifferentDayFromTheSuccessfulConnectionYieldsNoCount()
+    {
+        // The failed-test case, whole: connectivity was tested this morning and last succeeded
+        // yesterday, and the MSSP block below is the one read yesterday. Dating that count to
+        // yesterday would be right and dating it to this morning would be a fabrication — but the
+        // page states the block's age only to the day, so the honest answer is no reading at all.
+        var lateFailure = Page()
+            .Replace(">07/31/26 02:10 am GMT<", ">07/30/26 11:40 pm GMT<", StringComparison.Ordinal);
+
+        await Assert.That(MudVerseSource.ReadGame("671", lateFailure, GameUri, "MudVerse")!.Presence)
+            .IsEmpty();
     }
 
     [Test]

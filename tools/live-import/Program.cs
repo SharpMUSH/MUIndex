@@ -4,6 +4,8 @@ using System.Text;
 
 using Dapper;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
 using MUI.Discovery;
@@ -32,6 +34,14 @@ using Npgsql;
 
 var arguments = Args.Parse(args);
 
+if (arguments.Error is { } complaint)
+{
+    Console.Error.WriteLine(complaint);
+    Console.Error.WriteLine("Run with --help for usage.");
+
+    return 2;
+}
+
 if (arguments.Help)
 {
     Console.WriteLine("""
@@ -55,13 +65,15 @@ var time = TimeProvider.System;
 
 using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
 
-var registry = new SourceRegistry([
-    TinTinMsspCrawlerSource.Create(http, time),
-    TinTinMsdpCrawlerSource.Create(http, time),
-    MudConnectorSource.Create(http, time),
-    MudStatsSource.Create(http, time),
-    MudVerseSource.Create(http, time),
-]);
+// Resolved from AddMuiImporters rather than listed again here, so that the sources this tool reads
+// and the sources the application credits cannot drift apart — a directory left out of one list and
+// present in the other is exactly the failure §7.6's attribution rule is about.
+var registry = new ServiceCollection()
+    .AddSingleton(time)
+    .AddSingleton(http)
+    .AddMuiImporters()
+    .BuildServiceProvider()
+    .GetRequiredService<SourceRegistry>();
 
 Console.WriteLine($"user agent : {ImporterIdentity.UserAgent}");
 Console.WriteLine();
@@ -163,7 +175,15 @@ foreach (var (source, games) in read)
 await using var connection = await dataSource.OpenConnectionAsync();
 var stored = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM import_provenance");
 
-Console.WriteLine($"crawl targets seeded: {targets.Targets.Count.ToString(CultureInfo.InvariantCulture)}");
+// Across every source in this run, deduplicated the way the crawl registry deduplicates: one target
+// per host and port, canonicalised, so a game two directories both list is one address to probe.
+var distinctHosts = targets.Targets
+    .Select(target => target.Host)
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .Count();
+
+Console.WriteLine($"crawl targets seeded: {targets.Targets.Count.ToString(CultureInfo.InvariantCulture)} "
+    + $"across {distinctHosts.ToString(CultureInfo.InvariantCulture)} distinct hosts");
 Console.WriteLine($"provenance rows     : {stored.ToString(CultureInfo.InvariantCulture)}");
 
 return 0;
@@ -182,9 +202,10 @@ void Report(IReadOnlyList<ImportedGame> games)
         + endpoints.Select(e => $"{e.Host.ToLowerInvariant()}:{e.Port}").Distinct(StringComparer.Ordinal).Count());
     Console.WriteLine($"  with a codebase    : {games.Count(game => game.Fields.ContainsKey("CODEBASE"))}");
     Console.WriteLine($"  with a website     : {games.Count(game => game.Fields.ContainsKey("WEBSITE"))}");
+    // Readings, and never their sum. An absolute "how many people play MU*" figure is the one number
+    // this project does not compute (spec §15.7), and a console is not a reason to start.
     Console.WriteLine($"  dated player counts: {games.Count(game => game.Presence.Count > 0)} "
-        + $"({games.Sum(game => game.Presence.Count)} readings, "
-        + $"{games.Sum(game => game.Presence.Sum(sample => sample.Count))} players in total)");
+        + $"({games.Sum(game => game.Presence.Count)} readings)");
     Console.WriteLine($"  availability spans : {games.Sum(game => game.Availability.Count)}");
 }
 
@@ -217,7 +238,13 @@ IDirectorySource Rebuild(IDirectorySource source, IDirectoryFetcher fetcher) => 
 };
 
 /// <summary>The command line, and the environment variables that stand in for each switch.</summary>
-internal sealed record Args(string? Source, string? Dsn, string? Cache, bool List, bool Help)
+/// <remarks>
+/// <see cref="Error"/> is separate from <see cref="Help"/> because they are different outcomes. A
+/// trailing <c>--dsn</c> with nothing after it used to print usage and exit 0 — a run that quietly
+/// wrote to no database and reported success, which is the worst answer available for a command whose
+/// whole job is a one-off write to production.
+/// </remarks>
+internal sealed record Args(string? Source, string? Dsn, string? Cache, bool List, bool Help, string? Error)
 {
     public static Args Parse(string[] args)
     {
@@ -226,30 +253,39 @@ internal sealed record Args(string? Source, string? Dsn, string? Cache, bool Lis
         string? cache = Environment.GetEnvironmentVariable("MUI_LIVE_CACHE");
         var list = false;
         var help = false;
+        string? error = null;
 
         for (var i = 0; i < args.Length; i++)
         {
-            switch (args[i])
+            var argument = args[i];
+
+            switch (argument)
             {
-                case "--source" when i + 1 < args.Length:
+                case "--source" or "--dsn" or "--cache" when i + 1 >= args.Length:
+                    error ??= $"{argument} needs a value.";
+                    break;
+                case "--source":
                     source = args[++i];
                     break;
-                case "--dsn" when i + 1 < args.Length:
+                case "--dsn":
                     dsn = args[++i];
                     break;
-                case "--cache" when i + 1 < args.Length:
+                case "--cache":
                     cache = args[++i];
                     break;
                 case "--list":
                     list = true;
                     break;
-                default:
+                case "--help" or "-h":
                     help = true;
+                    break;
+                default:
+                    error ??= $"Unrecognised argument '{argument}'.";
                     break;
             }
         }
 
-        return new Args(Blank(source), Blank(dsn), Blank(cache), list, help);
+        return new Args(Blank(source), Blank(dsn), Blank(cache), list, help, error);
     }
 
     private static string? Blank(string? value) => value is { Length: > 0 } ? value : null;
@@ -295,7 +331,19 @@ internal sealed class CachingFetcher(DirectoryFetcher inner, string directory) :
             var cached = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
             Console.WriteLine($"    cached  {uri}{(cached.Length == 0 ? " (absent)" : string.Empty)}");
 
-            return cached.Length == 0 && !required ? null : cached;
+            if (cached.Length > 0)
+            {
+                return cached;
+            }
+
+            // An empty file is how a 404 is remembered, so a resumed run does not ask again for a
+            // page it already knows is gone. On a page the run REQUIRES — an index, a sitemap — that
+            // must be an error and not an empty catalogue reported as a real one.
+            return required
+                ? throw new InvalidOperationException(
+                    $"{uri} is cached as absent, and this run cannot proceed without it. "
+                    + "Delete it from the cache directory to fetch it again.")
+                : null;
         }
 
         var body = required

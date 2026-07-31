@@ -76,9 +76,25 @@ public static class EtiquettePlanner
     }
 
     /// <summary>
-    /// Under, by scheme, host, port <em>and</em> path prefix — and the path prefix is compared on
-    /// whole segments, so <c>/list</c> does not authorise <c>/listing-of-something-else</c>.
+    /// Under, by scheme, host, port, path prefix <em>and</em> — when the root has one — query.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The path prefix is compared on whole segments, so <c>/list</c> does not authorise
+    /// <c>/listing-of-something-else</c>.
+    /// </para>
+    /// <para>
+    /// <b>A root that carries a query is a route the query defines, and the query is compared too.</b>
+    /// The Mud Connector's whole catalogue is one page at
+    /// <c>/cgi-bin/search.cgi?mode=mobile_biglist</c>, and every other thing that site does is the
+    /// same script under another <c>mode</c> — including <c>mode=mud_listing</c>, the 689 per-game
+    /// pages reading them one at a time would mean, and <c>mode=check_connect</c>, which opens a live
+    /// socket to a third party's server on our behalf. Compared on path alone the route degenerates
+    /// to "that script, with any query at all", and both of those become permitted; the promise that
+    /// they are never fetched would then be kept only by the importer being written correctly, which
+    /// is the exact thing this class exists so that nothing has to rely on.
+    /// </para>
+    /// </remarks>
     private static bool IsUnder(Uri root, Uri candidate)
     {
         if (Uri.Compare(root, candidate, UriComponents.SchemeAndServer, UriFormat.SafeUnescaped,
@@ -95,8 +111,18 @@ public static class EtiquettePlanner
             return false;
         }
 
-        return path.Length == rootPath.Length
+        var underPath = path.Length == rootPath.Length
             || rootPath.EndsWith('/')
-            || path[rootPath.Length] is '/' or '?';
+            || path[rootPath.Length] is '/';
+
+        if (!underPath)
+        {
+            return false;
+        }
+
+        // A query-free root authorises the subtree regardless of query, which is what a listing page
+        // with paging needs. A root WITH a query authorises that query and nothing else.
+        return root.Query.Length == 0
+            || string.Equals(root.Query, candidate.Query, StringComparison.Ordinal);
     }
 }

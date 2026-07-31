@@ -26,6 +26,16 @@
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.2" />
 
     <!--
+      The container itself, for the two places that have to BUILD one rather than contribute to one:
+      tools/live-import, so the directories it reads are the directories AddMuiImporters registers,
+      and the import suite, so the tiers it asserts are the tiers this build ships. That is the whole
+      reason — a second hand-written list of sources is how one ends up read and uncredited, or
+      credited and unread, and §7.6's attribution rule is the one part of the etiquette a reader can
+      check.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2" />
+
+    <!--
       A console sink, for mui-crawl and nothing else. The site's own logging is the host's business;
       a one-shot command that writes a crawl cycle to a terminal needs somewhere for it to go.
     -->

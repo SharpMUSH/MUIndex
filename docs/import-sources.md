@@ -22,6 +22,28 @@ page is fabrication.
 | [MudStats](https://mudstats.com/) | `imported_measured` | scrape | 1 + one per world | Addresses, codebase, website, one dated player count each |
 | [MudVerse](https://www.mudverse.com/) | `imported_measured` | scrape — **gated** | 1 + one per game | Addresses, MSSP fields, one dated player count each |
 
+### What one run of the four actually yielded
+
+Read live on 2026-07-30, into an empty database. **New** is crawl targets this source contributed
+that the ones above it had not already; the order is the order `AddMuiImporters` registers them in,
+so the overlap all lands on the later sources.
+
+| Source | Listed | Endpoints | New targets | Dated player counts |
+|---|---:|---:|---:|---:|
+| TinTin++ MSSP | 115 | 144 | 144 | 114 |
+| TinTin++ MSDP | 44 | 44 | 7 | 41 |
+| The Mud Connector | 661 | 661 | 550 | 0 |
+| MudStats | 142 | 142 | 104 | 100 |
+| **Combined** | | | **805 across 745 distinct hosts** | **255** |
+
+Two things worth reading off that table. The MSDP page contributes 7 addresses in 44 — it is very
+nearly a subset of its MSSP sibling, and it was added for those 7 and for its 41 readings rather
+than for volume. And The Mud Connector, the one *asserted* source, is two thirds of the whole
+address haul while contributing not one number: coverage and measurement are different jobs, and
+the tier split is what lets one source do each without either pretending to be the other.
+
+No source emitted a single availability span, so **no archive grace is granted by any of them.**
+
 ### TinTin++ MSSP and MSDP crawlers
 
 Two pages from one crawler on one site, in the same format, read by one reader

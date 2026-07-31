@@ -70,10 +70,22 @@ public sealed record TinTinCrawlerRecord(
 /// <b>A frame must be the full width of the page, and that is a guard rather than tidiness.</b> Both
 /// pages interleave the crawler's own boxes with the <em>connect screens</em> of the games it dialled
 /// — text a game controls completely. A reader that opened a record on any line merely beginning with
-/// <c>┌</c> would let a game draw a box in its own login banner and have the fields inside it read as
-/// a record; pointed at another game's <c>HOSTNAME</c> and <c>PORT</c>, that is a fabricated player
+/// <c>┌</c> lets a game draw a box in its own login banner and have the fields inside it read as a
+/// record; pointed at another game's <c>HOSTNAME</c> and <c>PORT</c>, that is a fabricated player
 /// count attached to somebody else's listing. Every genuine frame this crawler emits is exactly
-/// <c>Inner</c> + 2 cells wide and closes with the matching corner.
+/// <c>Inner</c> + 2 cells wide and closes with the matching corner, so requiring that costs nothing
+/// and refuses every casually-shaped box.
+/// </para>
+/// <para>
+/// <b>It raises the bar; it does not close the hole, and the residual is stated rather than papered
+/// over.</b> A game that draws a box of exactly the right width, with the right corners, and lays two
+/// columns out at the right label width, still opens a record — and there is no second factor
+/// available: the frames' colour is not one, because a game may emit colour too, and neither is
+/// indentation, because it is the same fact as the width. What is genuinely load-bearing downstream
+/// is <see cref="ImportIdentity"/>, which attaches an imported record to an existing game only by an
+/// address we already know — so a forgery has to name a real game's <em>host and port</em> to reach
+/// it, and every value it carries lands at the bottom of the §5.1 ladder with this source's name on
+/// it. Closing it properly needs the upstream page to separate the two, which is a good email.
 /// </para>
 /// </remarks>
 public static class TinTinCrawlerTable
