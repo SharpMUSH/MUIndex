@@ -129,19 +129,11 @@ public sealed record ProbeOptions
     /// reason.
     /// </para>
     /// <para>
-    /// <b>It does not reach the wire yet, and neither does <see cref="InfoUrl"/>.</b>
-    /// TelnetNegotiationCore's <c>TerminalTypeProtocol</c> hardcodes a client's terminal types to
-    /// <c>TNC</c>, <c>XTERM</c>, <c>MTTS 3853</c> in a private field with no setter, and its
-    /// <c>NewEnvironProtocol</c> answers a server's NEW-ENVIRON request with the crawler host's own
-    /// <c>USER</c> and a fixed <c>LANG</c> — so what an admin actually sees is the library's default
-    /// and a local account name, not us. The library is first-party: the fix is a PR there making
-    /// both settable, never a reflection hack or a hand-rolled plugin here.
-    /// </para>
-    /// <para>
-    /// Until then nothing may claim otherwise. <c>/about</c> reads this field and says plainly that
-    /// the crawler is <em>configured</em> to call itself this and does not manage to, because
-    /// "the crawler identifies itself" is a claim about our own behaviour and that one would be
-    /// false in exactly the way <c>ContactedMaintainer</c>'s default was.
+    /// The list is passed verbatim to <c>TerminalTypeProtocol.WithTerminalTypes</c>, which controls
+    /// the sequence of TTYPE responses. Per MTTS convention the first entry is the client name, the
+    /// second is the terminal type, and the third is the MTTS bitvector. The first entry is also
+    /// passed to <c>WithClientIdentity</c>, which feeds the MNES <c>CLIENT_NAME</c> variable that
+    /// <c>NewEnvironProtocol</c> answers when a server asks.
     /// </para>
     /// </remarks>
     public IReadOnlyList<string> TerminalTypes { get; init; } =
@@ -150,8 +142,7 @@ public sealed record ProbeOptions
     /// <summary>Where an admin can read what we do and ask us to stop.</summary>
     /// <remarks>
     /// A placeholder domain, because the domain is an open question (spec §15.1) and inventing one
-    /// here would settle it by accident. It is also not yet sent to anybody — see
-    /// <see cref="TerminalTypes"/> — so a deployment that leaves this alone is publishing an address
+    /// here would settle it by accident. A deployment that leaves this alone is publishing an address
     /// that answers nobody. <c>/about</c> compares against this default and says so when it matches.
     /// </remarks>
     public string InfoUrl { get; init; } = "https://muindex.example/crawler";
