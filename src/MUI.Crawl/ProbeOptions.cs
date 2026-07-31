@@ -10,8 +10,62 @@ public sealed record ProbeOptions
     /// </remarks>
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(20);
 
-    /// <summary>How long to wait for the connect screen before giving up on a banner.</summary>
-    public TimeSpan BannerQuietPeriod { get; init; } = TimeSpan.FromSeconds(3);
+    /// <summary>
+    /// How long the server must say nothing before a phase is treated as finished.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The probe used to spend a flat three seconds waiting for the connect screen and another three
+    /// for the <c>WHO</c> reply, which is fine for one server and wrong for a fleet: it made every
+    /// probe cost six seconds whether the game answered in eighty milliseconds or not at all. Most do
+    /// answer in well under a second, so settling on a gap rather than a stopwatch is most of the
+    /// crawl budget back.
+    /// </para>
+    /// <para>
+    /// The gap is measured between <em>lines</em>, which is the only arrival signal a line-oriented
+    /// callback gives. That is sound because a server's last line lands in the same breath as its
+    /// second-to-last; what it cannot see is a trailing line the server never terminated, which is
+    /// why every phase ends by flushing one (see <see cref="TelnetProbe"/>).
+    /// </para>
+    /// </remarks>
+    public TimeSpan QuietPeriod { get; init; } = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>
+    /// How long to wait for a phase to produce anything at all before concluding it never will.
+    /// </summary>
+    /// <remarks>
+    /// Longer than <see cref="QuietPeriod"/> and for a different reason: a gap between lines means
+    /// the server has finished, while silence from the start means it has not begun, and a game
+    /// behind a slow link has not said no just because it has not yet said anything. A server with
+    /// no connect screen at all — measured on <c>bigdamn.com:7777</c> — pays this once.
+    /// </remarks>
+    public TimeSpan SilenceGrace { get; init; } = TimeSpan.FromMilliseconds(2500);
+
+    /// <summary>
+    /// The ceiling on any one phase, so a server that talks forever cannot outlast
+    /// <see cref="QuietPeriod"/> indefinitely.
+    /// </summary>
+    /// <remarks>
+    /// A phase that keeps producing lines never goes quiet, so quiet-period settling on its own has
+    /// no upper bound. <see cref="Timeout"/> still bounds the whole session; this bounds one part of
+    /// it, so a chatty banner cannot eat the budget the <c>WHO</c> reply needs.
+    /// </remarks>
+    public TimeSpan MaxPhase { get; init; } = TimeSpan.FromSeconds(8);
+
+    /// <summary>
+    /// How often the settle loop looks for new output. Purely a resolution knob.
+    /// </summary>
+    public TimeSpan PollInterval { get; init; } = TimeSpan.FromMilliseconds(50);
+
+    // There is deliberately no option here for the plaintext MSSP-REQUEST form. It belongs in
+    // TelnetNegotiationCore, where it is filed as issue #61, and a compensating implementation here
+    // would duplicate a first-party dependency and then have to be deleted when that lands.
+    //
+    // The measurements are in docs/codebase-survey-2026-07-30.md and they say the same thing: of
+    // twenty games asked directly, the three that answered — CoffeeMUD, NarutoMUD and Riftforge —
+    // all answer telnet option 70 as well, so the plaintext form reached nothing the option did not.
+    // Eight others read the request as a character name and spent one of a stranger's login attempts
+    // on it.
 
     /// <summary>
     /// Ceiling on a single subnegotiation payload, handed to TelnetNegotiationCore's

@@ -20,11 +20,20 @@ namespace MUI.Crawl;
 /// </remarks>
 public sealed partial class WhoParser : IWhoParser
 {
+    /// <summary>
+    /// Reads a <c>WHO</c> response. Every unreadable outcome is
+    /// <see cref="WhoReading.Unreadable"/> and never <see cref="WhoReading.NotAsked"/>: this method
+    /// is only ever handed the answer to a question that was put, so "we could not read it" is the
+    /// most this parser is ever entitled to say. Deciding that nothing was asked belongs to whoever
+    /// owns the socket.
+    /// </summary>
     public WhoReading Parse(string? response)
     {
+        // Silence in the WHO window is still an answer to a WHO that went out — servers that eat the
+        // word at a login prompt say nothing at all (alteraeon.com, realms.reichel.net, measured).
         if (string.IsNullOrWhiteSpace(response))
         {
-            return WhoReading.Unread;
+            return WhoReading.Unreadable;
         }
 
         var lines = StripAnsi(response)
@@ -37,7 +46,7 @@ public sealed partial class WhoParser : IWhoParser
         var meaningful = lines.Where(l => l.Trim().Length > 0).ToList();
         if (meaningful.Count == 0)
         {
-            return WhoReading.Unread;
+            return WhoReading.Unreadable;
         }
 
         // A server that did not understand WHO must never be read as an answer to it. DIKU-family
@@ -46,7 +55,7 @@ public sealed partial class WhoParser : IWhoParser
         // as a measured zero for a game with hundreds of players online. Observed on alteraeon.com.
         if (meaningful.Any(LooksLikeLoginPrompt))
         {
-            return WhoReading.Unread;
+            return WhoReading.Unreadable;
         }
 
         // 1. The server's own summary, which is the only statement here it makes deliberately.
@@ -74,7 +83,7 @@ public sealed partial class WhoParser : IWhoParser
 
         // 3. Nothing legible. Never guess — an invented zero is indistinguishable from an empty
         //    game, and would render a healthy server as dead (spec §5.4).
-        return WhoReading.Unread;
+        return WhoReading.Unreadable;
     }
 
     /// <summary>

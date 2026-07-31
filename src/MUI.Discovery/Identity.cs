@@ -237,15 +237,23 @@ public static class ClaimTokenBeacon
 public static class MsspReading
 {
     /// <summary>The raw value of an MSSP variable, matched case-insensitively as MSSP variables are.</summary>
-    public static string? Value(IReadOnlyDictionary<string, string> mssp, string variable)
+    /// <remarks>
+    /// A variable holds a <em>list</em>, because MSSP lets a server repeat one — and identity wants a
+    /// scalar. Where there are several this takes the <b>last</b>, which is the specification's own
+    /// rule for reducing one ("the last reported value should be used as the default value") and what
+    /// <see cref="ProbeResult.MsspField"/> does. Anything that cares about the other values must read
+    /// the list, which is what <see cref="MsspReferrals"/> now does with <c>REFERRAL</c>.
+    /// </remarks>
+    public static string? Value(IReadOnlyDictionary<string, IReadOnlyList<string>> mssp, string variable)
     {
         ArgumentNullException.ThrowIfNull(mssp);
 
-        foreach (var (name, value) in mssp)
+        foreach (var (name, values) in mssp)
         {
-            if (string.Equals(name.Trim(), variable, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(name.Trim(), variable, StringComparison.OrdinalIgnoreCase)
+                && values.Count > 0)
             {
-                return value;
+                return values[^1];
             }
         }
 
@@ -257,7 +265,7 @@ public static class MsspReading
     /// default. Never returns an empty string — the two states a caller must tell apart are "answered"
     /// and "did not", and a placeholder is the second.
     /// </summary>
-    public static string? Meaningful(IReadOnlyDictionary<string, string> mssp, string variable)
+    public static string? Meaningful(IReadOnlyDictionary<string, IReadOnlyList<string>> mssp, string variable)
     {
         var raw = Value(mssp, variable);
         return MsspDefaults.IsPlaceholder(raw) ? null : raw!.Trim();
@@ -267,7 +275,7 @@ public static class MsspReading
     /// A game's declared name, or null when it is a placeholder <em>or</em> merely restates the
     /// codebase — <c>NAME "PennMUSH 1.8.8p0"</c> is the same non-answer as <c>NAME "PennMUSH"</c>.
     /// </summary>
-    public static string? MeaningfulName(IReadOnlyDictionary<string, string> mssp) =>
+    public static string? MeaningfulName(IReadOnlyDictionary<string, IReadOnlyList<string>> mssp) =>
         MsspDefaults.MeaningfulName(
             Value(mssp, IdentityMsspVariables.Name),
             Value(mssp, IdentityMsspVariables.Codebase));

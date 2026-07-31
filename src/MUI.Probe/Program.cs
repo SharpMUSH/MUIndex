@@ -12,7 +12,9 @@ Console.WriteLine($"target        {result.Host}:{result.Port}");
 Console.WriteLine($"outcome       {result.Outcome}");
 Console.WriteLine($"elapsed       {result.Elapsed.TotalSeconds:F1}s");
 Console.WriteLine($"mssp          {result.MsspOutcome} via {result.MsspTransport}");
-Console.WriteLine($"who           {result.Who.Confidence}" + (result.Who.HasCount ? $" \u2192 {result.Who.Count} players" : " \u2014 no count"));
+Console.WriteLine($"who           {result.Who.Confidence}" + (result.Who.HasCount
+    ? $" \u2192 {result.Who.Count} players"
+    : result.Who.Attempted ? " \u2014 asked, unreadable" : " \u2014 never asked"));
 
 if (result.MsspBytesRejected is { } rejected)
 {
@@ -44,10 +46,14 @@ if (result.Failure is { } failure)
 
 if (result.Mssp.Count > 0)
 {
-    Console.WriteLine("mssp fields");
-    foreach (var (key, value) in result.Mssp.OrderBy(kv => kv.Key))
+    // Wire order, not alphabetical: MSSP has no sorted form, and for a variable a game repeats —
+    // REFERRAL above all — the sequence is the game listing them rather than naming a set.
+    Console.WriteLine($"mssp fields   {result.Mssp.Count}");
+    foreach (var (key, values) in result.Mssp)
     {
-        Console.WriteLine($"  {key,-14} {value}");
+        Console.WriteLine(values.Count == 1
+            ? $"  {key,-16} {values[0]}"
+            : $"  {key,-16} {values.Count} values: {string.Join(" | ", values)}");
     }
 }
 

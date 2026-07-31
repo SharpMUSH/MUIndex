@@ -37,10 +37,13 @@ public sealed record Negotiation
     /// MCCP compression, and which version if it engaged.
     /// </summary>
     /// <remarks>
-    /// Currently always null: the probe declines MCCP outright. A crawler reads a few kilobytes per
-    /// probe so compression buys it nothing, and accepting it today loses the payload entirely —
-    /// TelnetNegotiationCore negotiates MCCP2 without inflating the stream (upstream issue #62).
-    /// Kept on the record because the field is the right shape for when that is fixed.
+    /// <b>Currently always null, and that is a stopgap rather than a design position.</b> The probe
+    /// declines MCCP because TelnetNegotiationCore negotiates MCCP2 and never inflates the stream
+    /// (upstream issue #62), so accepting it loses the banner and the whole <c>WHO</c> reply to raw
+    /// zlib decoded as text — 37% printable against 100% when declined, measured on
+    /// <c>realms.reichel.net:4000</c>. The cost of declining is that we cannot see a server
+    /// <em>offer</em> MCCP either, since the library only reports it on acceptance. The field stays
+    /// because it is the right shape for the day #62 ships and this goes back on.
     /// </remarks>
     public int? CompressionVersion { get; init; }
 
