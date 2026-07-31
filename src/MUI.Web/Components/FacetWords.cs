@@ -28,7 +28,11 @@ public static class FacetWords
         FacetKeys.LastSeen => "last seen",
         FacetKeys.Protocol => "protocols offered",
         FacetKeys.Tls => "encrypted",
-        FacetKeys.Charset => "encoding negotiated",
+        // "encoding", not "encoding negotiated": the evidence chip beside it already says measured,
+        // and the two words together wrapped the label and knocked its control out of line with the
+        // rest of the row. What negotiation has to do with it is in the values — "nothing negotiated"
+        // is what this facet calls a game it has no answer for.
+        FacetKeys.Charset => "encoding",
         FacetKeys.Codebase => "codebase",
         FacetKeys.Family => "family",
         FacetKeys.Genre => "genre",
@@ -37,17 +41,64 @@ public static class FacetWords
     };
 
     /// <summary>
-    /// How a facet's evidence is described, in three words a reader can act on.
+    /// What kind of statement a facet is, in one word.
     /// </summary>
     /// <remarks>
-    /// Never abbreviated to a symbol. The difference between something we watched happen and
-    /// something a game typed into <c>mush.cnf</c> in 2017 is the product, and a legend a reader has
+    /// <para>
+    /// A word and never only a symbol. The difference between something we watched happen and
+    /// something a game typed into <c>mush.cnf</c> in 2017 is the product, and a glyph a reader has
     /// to learn is a difference they will not read.
+    /// </para>
+    /// <para>
+    /// One word rather than the sentence it used to be. "codebase — the game says so" on every row
+    /// spends a line of prose per facet saying the same two things over and over, and a panel that
+    /// explains itself seven times is a panel nobody reads once. The sentence still exists — see
+    /// <see cref="EvidenceMeaning"/> — and is said once, beside the two words, where it reads as a
+    /// key rather than as commentary.
+    /// </para>
     /// </remarks>
     public static string Evidence(FacetEvidence evidence) => evidence switch
     {
-        FacetEvidence.Measured => "we measured this",
-        _ => "the game says so",
+        FacetEvidence.Measured => "measured",
+        _ => "declared",
+    };
+
+    /// <summary>What each of those two words means, said once per surface rather than once per facet.</summary>
+    public static string EvidenceMeaning(FacetEvidence evidence) => evidence switch
+    {
+        FacetEvidence.Measured => "we watched this happen",
+        _ => "the game says so, and we did not check",
+    };
+
+    /// <summary>What each sort order is called on the control.</summary>
+    /// <remarks>
+    /// Named for the fact each one reads, never for a superlative. "Players on now" is what the
+    /// column says and what the sort does; "busiest" is <c>/rankings</c>'s word for a median over
+    /// ninety days with a sample floor under it, and lending it to one instantaneous count would be
+    /// two different measurements answering to one name on the same site.
+    /// </remarks>
+    public static string Sort(GameSort sort) => sort switch
+    {
+        GameSort.Players => "players on now",
+        GameSort.Reached => "last reached",
+        _ => "name",
+    };
+
+    /// <summary>
+    /// What a sort did with the games it had nothing to rank.
+    /// </summary>
+    /// <remarks>
+    /// The sentence that keeps an unknown from reading as a zero. A game we reached and could not
+    /// count sorts <em>after</em> every counted game rather than among the measured zeroes, and the
+    /// surface that draws that break has to say what the break is — otherwise the reader sees a list
+    /// that runs 54, 11, 2, 0, and then a long tail of games showing no number, which is a list that
+    /// looks exactly like the lie.
+    /// </remarks>
+    public static string Unranked(GameSort sort) => sort switch
+    {
+        GameSort.Players => "answering with nothing we can count — not zero players",
+        GameSort.Reached => "never once reached — not reached long ago",
+        _ => string.Empty,
     };
 
     /// <summary>One value's label. Open-ended facets are their own labels; the derived ones are not.</summary>
@@ -68,6 +119,31 @@ public static class FacetWords
             _ => value.Token,
         };
     }
+
+    /// <summary>
+    /// The same value, negated — what the panel's <em>anything but</em> group offers.
+    /// </summary>
+    /// <remarks>
+    /// A closed <c>&lt;select&gt;</c> shows the option and never the group it came from, so each
+    /// option has to read as a negation on its own. Prefixing "not" does that for a value and makes
+    /// nonsense of an absence: <em>not not identified</em> is the exclusion of the games whose
+    /// codebase we could not read, and nobody has ever parsed that phrase on the first try. The
+    /// absences get the positive sentence they are the absence of.
+    /// </remarks>
+    public static string Excluded(string key, FacetValue value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        return value.IsUnknown ? Known(key) : "not " + Value(key, value);
+    }
+
+    /// <summary>The opposite of <see cref="Unknown"/> — the games this facet has any value for.</summary>
+    private static string Known(string key) => key switch
+    {
+        FacetKeys.Charset => "something negotiated",
+        FacetKeys.Codebase => "identified at all",
+        _ => "declared at all",
+    };
 
     /// <summary>
     /// What "we have no value for this game" is called, per facet.

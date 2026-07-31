@@ -9,104 +9,191 @@
     Every count beside a value came from the same pass that produced the listing below it (see
     FacetedSearch), so a choice cannot promise results it will not deliver, and a value nothing
     matches is never drawn at all.
+
+    It used to explain itself in a paragraph under the controls, and every facet wore a sentence for
+    a label — "codebase the game says so". The facts in that prose are all still here; none of them
+    is prose any more. The measured/declared split is a two-word chip on each group, the counts speak
+    for themselves, the one reading that has to be prevented at the moment of ticking sits inside the
+    fieldset it applies to, and the rest is one disclosure a reader can open once and never again.
 *@
 
 <form method="get" action="/games" role="search" class="facet-form">
-    <fieldset class="facets">
-        <legend>filters</legend>
-
+    @*
+        The bar: the whole question in one row — what to match, what order to read it in, and whether
+        the archive is in. Everything here is a control a reader touches on most visits; the facets
+        below are the ones they touch on some.
+    *@
+    <div class="filter-bar">
         <label for="q" class="sr-only">Search games</label>
-        <input id="q" type="search" name="@FacetKeys.Text" value="@Filter.Text" placeholder="search games" />
+        <input id="q" type="search" name="@FacetKeys.Text" value="@Filter.Text"
+               placeholder="search by name, description or codebase" />
 
-        <label class="check">
+        <span class="bar-field">
+            <label for="sort" class="bar-label">sort</label>
+            <select id="sort" name="@FacetKeys.Sort">
+                @foreach (var sort in Enum.GetValues<GameSort>())
+                {
+                    <option value="@FacetTokens.Of(sort)" selected="@(Filter.Sort == sort)">
+                        @FacetWords.Sort(sort)
+                    </option>
+                }
+            </select>
+        </span>
+
+        <label class="check bar-check">
             <input type="checkbox" name="@FacetKeys.Archived" value="true" checked="@Filter.IncludeArchived" />
-            include archived
+            <span>include archived</span>
         </label>
 
         <button type="submit">show</button>
-    </fieldset>
+    </div>
 
     @if (Facets.Count > 0)
     {
         <div class="facet-grid">
-            @foreach (var group in Facets)
+            @foreach (var group in Facets.Where(g => g.Kind is FacetKind.Choice))
             {
-                @if (group.Kind is FacetKind.Choice)
-                {
-                    <div class="facet">
-                        <label for="facet-@group.Key">
-                            @FacetWords.Group(group.Key)
-                            <span class="evidence @Evidence(group)">@FacetWords.Evidence(group.Evidence)</span>
-                        </label>
-                        @*
-                            Every value appears twice — once to filter in, once to filter out — which
-                            is the only way to offer the third state in a plain GET form with no
-                            script. A facet has three states (spec §9 and FacetChoice): not asked
-                            about, only these, anything but these. Two <optgroup>s rather than a
-                            second control, so one <select> still carries the whole question and the
-                            browser's own keyboard handling still works.
-                        *@
-                        <select id="facet-@group.Key" name="@group.Key">
-                            @* Always first, always empty: a facet you cannot un-choose is a trap. *@
-                            <option value="">any (@group.Total)</option>
-                            <optgroup label="only">
-                                @foreach (var value in group.Values)
-                                {
-                                    <option value="@value.Token"
-                                            selected="@(value.State is FacetState.Included)">
-                                        @FacetWords.Value(group.Key, value) (@value.Count)
-                                    </option>
-                                }
-                            </optgroup>
-                            <optgroup label="anything but">
-                                @foreach (var value in group.Values)
-                                {
-                                    <option value="@Excluded(value).Token"
-                                            selected="@(value.State is FacetState.Excluded)">
-                                        not @FacetWords.Value(group.Key, value)
-                                        (@(group.Total - value.Count))
-                                    </option>
-                                }
-                            </optgroup>
-                        </select>
-                    </div>
-                }
-                else
-                {
-                    <fieldset class="facet presence">
-                        <legend>
-                            @FacetWords.Group(group.Key)
-                            <span class="evidence @Evidence(group)">@FacetWords.Evidence(group.Evidence)</span>
-                        </legend>
-                        @foreach (var value in group.Values)
-                        {
-                            <label class="check">
-                                <input type="checkbox" name="@group.Key" value="@value.Token"
-                                       checked="@value.IsSelected" />
-                                @FacetWords.Value(group.Key, value) <span class="count">@value.Count</span>
-                            </label>
-                        }
-                    </fieldset>
-                }
+                <div class="facet">
+                    <label for="facet-@group.Key">
+                        <span class="facet-name">@FacetWords.Group(group.Key)</span>
+                        @Evidence(group)
+                    </label>
+                    @*
+                        Every value appears twice — once to filter in, once to filter out — which
+                        is the only way to offer the third state in a plain GET form with no
+                        script. A facet has three states (spec §9 and FacetChoice): not asked
+                        about, only these, anything but these. Two <optgroup>s rather than a
+                        second control, so one <select> still carries the whole question and the
+                        browser's own keyboard handling still works.
+                    *@
+                    <select id="facet-@group.Key" name="@group.Key" class="@(group.IsFiltered ? "chosen" : null)">
+                        @* Always first, always empty: a facet you cannot un-choose is a trap. *@
+                        <option value="">any (@group.Total)</option>
+                        <optgroup label="only">
+                            @foreach (var value in group.Values)
+                            {
+                                <option value="@value.Token"
+                                        selected="@(value.State is FacetState.Included)">
+                                    @FacetWords.Value(group.Key, value) (@value.Count)
+                                </option>
+                            }
+                        </optgroup>
+                        <optgroup label="anything but">
+                            @foreach (var value in group.Values)
+                            {
+                                <option value="@Excluded(value).Token"
+                                        selected="@(value.State is FacetState.Excluded)">
+                                    @FacetWords.Excluded(group.Key, value)
+                                    (@(group.Total - value.Count))
+                                </option>
+                            }
+                        </optgroup>
+                    </select>
+                </div>
             }
         </div>
+
+        @foreach (var group in Facets.Where(g => g.Kind is FacetKind.Presence))
+        {
+            <fieldset class="facet presence">
+                <legend>
+                    <span class="facet-name">@FacetWords.Group(group.Key)</span>
+                    @Evidence(group)
+                </legend>
+                <div class="checks">
+                    @foreach (var value in group.Values)
+                    {
+                        <label class="check">
+                            <input type="checkbox" name="@group.Key" value="@value.Token"
+                                   checked="@value.IsSelected" />
+                            <span class="check-name">@FacetWords.Value(group.Key, value)</span>
+                            <span class="count">@value.Count</span>
+                        </label>
+                    }
+                </div>
+                @*
+                    The one sentence that has to be readable at the moment of ticking rather than in
+                    a key somewhere else, because a reader ticking boxes is exactly the person who
+                    would otherwise read an unticked box as the game declining a protocol.
+                *@
+                <p class="hint">
+                    Unticked is never a no. We list what we watched happen, so a game we have not
+                    measured for one of these is missing from it too.
+                </p>
+            </fieldset>
+        }
     }
 
     @*
-        Said here, in the markup, and not only in a comment. Two of the three sentences are the whole
-        reason this panel is shaped the way it is, and a reader ticking boxes is exactly the person
-        who would otherwise read an unticked box as a "no".
+        The key. Two words and their meanings, said once, where the panel used to say them seven
+        times; and one disclosure holding the readings that would otherwise have to be guessed. Not a
+        tooltip and not a title attribute: this is the difference the site exists to publish, so it
+        stays in the document whether or not a pointer ever hovers anything.
     *@
-    <p class="facet-note">
-        Each count is what that choice returns, computed from the same query as the list below.
-        A tick box asks which games were <em>seen</em> offering something, so leaving one unticked
-        never means a game lacks it — we may simply never have measured it. Where a facet has no
-        value for a game it says so in its own words (<em>not identified</em>, <em>not declared</em>,
-        <em>nothing negotiated</em>); none of those is a no, and none is folded into another value.
-        Open-ended facets offer their @FacetedSearch.MaxValues commonest values; the rest are
-        reachable by search and by URL.
-    </p>
+    <div class="facet-key">
+        <span class="key-item">
+            <span class="evidence measured"><span aria-hidden="true">●</span> @FacetWords.Evidence(FacetEvidence.Measured)</span>
+            @FacetWords.EvidenceMeaning(FacetEvidence.Measured)
+        </span>
+        <span class="key-item">
+            <span class="evidence declared"><span aria-hidden="true">◇</span> @FacetWords.Evidence(FacetEvidence.Declared)</span>
+            @FacetWords.EvidenceMeaning(FacetEvidence.Declared)
+        </span>
+        <span class="key-item">every count is what that choice returns</span>
+
+        <details class="facet-more">
+            <summary>what a blank means</summary>
+            <ul>
+                <li>
+                    A protocol is listed against a game when we watched it offered, so leaving one
+                    unticked never means a game lacks it — we may simply never have measured it.
+                </li>
+                <li>
+                    Where a facet has no value for a game it says so in its own words
+                    (<em>not identified</em>, <em>not declared</em>, <em>nothing negotiated</em>);
+                    none of those is a no, and none is folded into another value.
+                </li>
+                <li>
+                    Every count is what that choice returns, computed from the same query as the list
+                    below — never an estimate and never a count of the catalogue.
+                </li>
+                <li>
+                    A measured zero is a count: we got in and nobody was there. An unknown count is
+                    not a zero, is never drawn as one, and never sorts as one.
+                </li>
+                <li>
+                    Open-ended facets offer their @FacetedSearch.MaxValues commonest values; the rest
+                    are reachable by search and by URL.
+                </li>
+            </ul>
+        </details>
+    </div>
 </form>
+
+@*
+    What the query is asking for, repeated where the results are, one removable chip each.
+
+    Outside the form on purpose: these are links rather than controls, and each undoes exactly one
+    selection while leaving every other in place — which no <select> on the panel can do. It is also
+    the only place the third state is legible at rest, since a <select> scrolled to an option in its
+    second <optgroup> shows nothing until it is opened.
+*@
+@if (Chips.Count > 0)
+{
+    <div class="active-filters">
+        <span class="kicker">showing</span>
+        @foreach (var chip in Chips)
+        {
+            <a class="filter-chip" href="@chip.RemoveHref">
+                <span class="chip-facet">@chip.Facet</span>
+                <span class="chip-value">@chip.Value</span>
+                <span class="chip-x" aria-hidden="true">✕</span>
+                <span class="sr-only">— stop filtering by this</span>
+            </a>
+        }
+        <a class="clear-all" href="/games">clear all</a>
+    </div>
+}
 
 @code {
     /// <summary>
@@ -124,6 +211,32 @@
 
     [Parameter, EditorRequired] public GameFilter Filter { get; set; } = new();
 
-    private static string Evidence(FacetGroup group) =>
+    /// <summary>
+    /// The querystring this listing is answering, which is what a chip needs to remove itself from.
+    /// </summary>
+    /// <remarks>
+    /// Optional, and an empty one only costs the chips: with no query there is nothing selected, so
+    /// there is nothing to draw. The panel itself needs no URL — it is a form, and the browser builds
+    /// the next one out of the controls.
+    /// </remarks>
+    [Parameter] public string Query { get; set; } = string.Empty;
+
+    private IReadOnlyList<ActiveFilter> Chips => ActiveFilters.For(Facets, Filter, Query);
+
+    /// <summary>
+    /// The evidence chip: a glyph, and the word, always both.
+    /// </summary>
+    /// <remarks>
+    /// The glyphs are the site's own state vocabulary — ● for something we watched, ◇ for something
+    /// only claimed — and they are <c>aria-hidden</c>, because the word beside them is the same fact
+    /// and a screen reader announcing "black circle measured" is worse than announcing "measured".
+    /// Colour is never the carrier: the word is legible with no ink at all.
+    /// </remarks>
+    private static RenderFragment Evidence(FacetGroup group) => @<span class="evidence @Kind(group)">
+        <span aria-hidden="true">@(group.Evidence is FacetEvidence.Measured ? "●" : "◇")</span>
+        @FacetWords.Evidence(group.Evidence)
+    </span>;
+
+    private static string Kind(FacetGroup group) =>
         group.Evidence is FacetEvidence.Measured ? "measured" : "declared";
 }

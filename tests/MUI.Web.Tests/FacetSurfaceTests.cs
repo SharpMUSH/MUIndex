@@ -39,6 +39,7 @@ public class FacetSurfaceTests
         FacetKeys.Band => "quiet",
         FacetKeys.LastSeen => "week",
         FacetKeys.Protocol => "GMCP",
+        FacetKeys.Sort => "players",
         _ => "something",
     };
 
@@ -173,11 +174,31 @@ public class FacetSurfaceTests
     {
         // Said in the markup, not only in a comment. A reader ticking boxes is exactly the person who
         // would otherwise read an unticked box as the game declining a protocol.
+        //
+        // The prose these used to sit in is gone — the panel explained itself at more length than it
+        // took to operate — so each of them now has a place of its own: the tick-box reading is a
+        // line inside the fieldset it is about, and the rest is one disclosure. What may not change
+        // is that they are all still in the document, which is what this asserts.
         var words = Render.Words(await PanelAsync(new GameFilter()));
 
+        await Assert.That(words).Contains("Unticked is never a no");
         await Assert.That(words).Contains("leaving one unticked never means a game lacks it");
         await Assert.That(words).Contains("none of those is a no");
         await Assert.That(words).Contains("computed from the same query as the list below");
+        await Assert.That(words).Contains("An unknown count is not a zero");
+    }
+
+    [Test]
+    public async Task TheDisclosureIsAnAffordanceRatherThanAPlaceToHideThings()
+    {
+        // <details> is closed by default and its contents are still in the document, in the
+        // accessibility tree and in the page a text browser gets — which is what makes it a fair
+        // place to put the long form of a rule. It stops being fair the moment the summary stops
+        // saying what is inside it, so the summary is asserted too.
+        var html = await PanelAsync(new GameFilter());
+
+        await Assert.That(html).Contains("<summary>");
+        await Assert.That(Render.Words(html)).Contains("what a blank means");
     }
 
     [Test]
@@ -202,12 +223,57 @@ public class FacetSurfaceTests
     {
         // The distinction is the product, and it is carried in words as well as colour — a legend a
         // reader has to learn is a difference they will not read.
+        //
+        // It is now one word per facet with the sentence said once, rather than the sentence on
+        // every facet. Both halves are asserted: the word has to be on the group (or the panel has
+        // stopped saying which half of itself is evidence) and the meaning has to be on the page (or
+        // the word is a legend nobody was given).
         var words = Render.Words(await PanelAsync(new GameFilter()));
 
-        await Assert.That(words).Contains("we measured this");
-        await Assert.That(words).Contains("the game says so");
+        await Assert.That(words).Contains("measured");
+        await Assert.That(words).Contains("declared");
+        await Assert.That(words).Contains(FacetWords.EvidenceMeaning(FacetEvidence.Measured));
+        await Assert.That(words).Contains(FacetWords.EvidenceMeaning(FacetEvidence.Declared));
+
         await Assert.That(FacetWords.Evidence(FacetEvidence.Measured))
             .IsNotEqualTo(FacetWords.Evidence(FacetEvidence.Declared));
+        await Assert.That(FacetWords.EvidenceMeaning(FacetEvidence.Measured))
+            .IsNotEqualTo(FacetWords.EvidenceMeaning(FacetEvidence.Declared));
+    }
+
+    [Test]
+    public async Task AGroupsEvidenceIsSaidOnTheGroupAndNotOnlyInTheKey()
+    {
+        // A word in a key at the bottom of the panel is not the same as a word on the control. The
+        // point of the compression was to stop the panel repeating a sentence per facet, not to move
+        // the fact off the facets.
+        var html = await PanelAsync(new GameFilter());
+        var listing = await Queries.SearchAsync(new GameFilter());
+
+        foreach (var group in listing.Facets)
+        {
+            // Read off the label element itself rather than off an offset into the page: the facet
+            // names are ordinary English words and several of them occur in the option text of other
+            // facets, so anything positional here measures the wrong thing.
+            var marker = $"<span class=\"facet-name\">{FacetWords.Group(group.Key)}</span>";
+            var at = html.IndexOf(marker, StringComparison.Ordinal);
+
+            await Assert.That(at).IsGreaterThanOrEqualTo(0).Because($"{group.Key} has no name of its own");
+
+            var rest = html[(at + marker.Length)..];
+            var label = rest[..new[]
+            {
+                rest.IndexOf("</label>", StringComparison.Ordinal),
+                rest.IndexOf("</legend>", StringComparison.Ordinal),
+            }.Where(i => i >= 0).Min()];
+
+            await Assert.That(label).Contains($"evidence {Word(group.Evidence)}")
+                .Because($"{group.Key} has no evidence chip beside its own name");
+            await Assert.That(label).Contains(FacetWords.Evidence(group.Evidence));
+        }
+
+        static string Word(FacetEvidence evidence) =>
+            evidence is FacetEvidence.Measured ? "measured" : "declared";
     }
 
     [Test]
@@ -258,6 +324,72 @@ public class FacetSurfaceTests
         }
     }
 
+    [Test]
+    public async Task WhatTheQueryIsAskingForIsRepeatedAsChipsThatRemoveThemselves()
+    {
+        // The panel is not the only place the query is visible. A <select> sitting on an option in
+        // its "anything but" group looks like every other select until it is opened, so without
+        // these the third state is invisible at rest — and a reader who wants to drop one filter has
+        // to find the control that set it and remember what "any" was called.
+        const string Url = "?codebase=!Evennia&protocol=GMCP&protocol=MSSP&q=sun";
+
+        await Assert.That(GameFilterBinding.TryRead(Url, out var query, out _)).IsTrue();
+        var listing = await Queries.SearchAsync(query.Filter);
+        var chips = ActiveFilters.For(listing.Facets, query.Filter, Url);
+
+        await Assert.That(chips.Select(c => c.Value)).Contains("not Evennia");
+        await Assert.That(chips.Select(c => c.Value)).Contains("sun");
+
+        // Removing one value of a repeatable facet leaves the other behind. Dropping the whole
+        // parameter would take MSSP off the query too, and the chip said nothing about MSSP.
+        var gmcp = chips.Single(c => c.Value is "GMCP");
+        await Assert.That(gmcp.RemoveHref).Contains("MSSP");
+        await Assert.That(gmcp.RemoveHref).DoesNotContain("GMCP");
+    }
+
+    [Test]
+    public async Task NothingSelectedIsNoChipsAtAll()
+    {
+        var listing = await Queries.SearchAsync(new GameFilter());
+
+        await Assert.That(ActiveFilters.For(listing.Facets, new GameFilter(), string.Empty)).IsEmpty();
+    }
+
+    [Test]
+    public async Task AnUnreadableSortIsRefusedRatherThanQuietlyIgnored()
+    {
+        // The same rule as band and seen. A consumer who asked for ?sort=busiest and silently got
+        // the alphabet would read the first name on the page as the busiest game on the site.
+        await Assert.That(GameFilterBinding.TryRead("?sort=busiest", out _, out var error)).IsFalse();
+        await Assert.That(error).Contains("players");
+    }
+
+    [Test]
+    public async Task TheSortIsAControlOnThePanelAndAParameterInTheUrl()
+    {
+        var html = await PanelAsync(new GameFilter { Sort = GameSort.Players });
+
+        await Assert.That(html).Contains($"name=\"{FacetKeys.Sort}\"");
+
+        foreach (var sort in Enum.GetValues<GameSort>())
+        {
+            await Assert.That(Render.Words(html)).Contains(FacetWords.Sort(sort));
+        }
+    }
+
+    [Test]
+    public async Task NoSortCallsItselfBusiestBecauseTheRankingsPageAlreadyMeansSomethingByThat()
+    {
+        // /rankings means a median over ninety days with a sample floor under it. A sort over one
+        // instantaneous count is a cruder question and must not borrow the word — two measurements
+        // answering to one name on one site is how a reader ends up comparing them.
+        foreach (var sort in Enum.GetValues<GameSort>())
+        {
+            await Assert.That(FacetWords.Sort(sort)).DoesNotContain("busiest");
+            await Assert.That(FacetWords.Sort(sort)).DoesNotContain("popular");
+        }
+    }
+
     private static async Task<string> PanelAsync(GameFilter filter)
     {
         var listing = await Queries.SearchAsync(filter);
@@ -290,5 +422,6 @@ public class FacetSurfaceTests
         f.Genre?.Token,
         f.Language?.Token,
         f.CodebaseFamily,
+        f.Sort,
         string.Join(',', f.MeasuredProtocols));
 }
