@@ -90,7 +90,7 @@ public static class PlainText
         b.AppendLine();
         b.AppendLine("  counted   = we got in and read a number, including a measured zero");
         b.AppendLine("  uncounted = we got in and no number could be read");
-        b.AppendLine("  no data   = we could not reach the game in that hour at all");
+        b.AppendLine("  no data   = we have no measurement for that hour");
     }
 
     /// <summary>The 90-day strip in words: the summary, then every spell that was not reachable.</summary>

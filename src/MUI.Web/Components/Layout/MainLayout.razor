@@ -1,8 +1,23 @@
 @inherits LayoutComponentBase
+@using MUI.Web.Data
+@inject CatalogueSource Catalogue
 
 @* A connect screen is a figure a reader may want past in one keystroke, so the page needs somewhere
    for that keystroke to land. *@
 <a class="skip" href="#content">skip to content</a>
+
+@*
+    A site whose whole claim is that its data is measured may not show invented data silently. This
+    is deliberately not dismissible and not subtle: a reader who cannot tell demo data from a
+    measurement is being misled by exactly the mechanism this project exists to replace.
+*@
+@if (!Catalogue.IsMeasured)
+{
+    <p class="demo-banner" role="status">
+        <strong>Demo data.</strong> Nothing on this page was measured — no database is configured, so
+        the site is showing a fixture. Every real page says where each fact came from and when.
+    </p>
+}
 
 <header class="site">
     <a class="mark mono" href="/">mu<span class="star">*</span>index</a>

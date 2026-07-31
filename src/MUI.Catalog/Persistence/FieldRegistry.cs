@@ -63,6 +63,47 @@ public static class CapabilityFields
 }
 
 /// <summary>
+/// Fields the catalogue stores for its own machinery and never presents as something a game said.
+/// </summary>
+/// <remarks>
+/// <para>
+/// A <c>GameField</c> row is not by itself a public fact. Some are working state — a fingerprint the
+/// de-duplicator compares on, the connect screen the page renders in its own frame — and putting
+/// them in the game's self-description panel is wrong twice over: <c>banner_hash</c> is a 64-character
+/// digest <em>we</em> computed rather than anything the game claims about itself, and it is
+/// meaningless to a reader besides.
+/// </para>
+/// <para>
+/// The check is a list rather than a naming convention because the alternative already failed here:
+/// the panel filtered on a <c>connect_screen</c> prefix inlined at the call site, which is a rule
+/// that only ever excludes the fields whoever wrote it happened to remember. <c>banner_hash</c> is
+/// not in the field registry at all — an unregistered field is stored like any other by design — so
+/// nothing else was going to catch it either.
+/// </para>
+/// </remarks>
+public static class InternalFields
+{
+    /// <summary>A digest of the connect screen, compared by the identity matcher (spec §5.7).</summary>
+    public const string BannerHash = "banner_hash";
+
+    /// <summary>The connect screen itself. Rendered in its own frame, not as a self-report.</summary>
+    public const string ConnectScreen = "connect_screen";
+
+    private static readonly HashSet<string> Names = new(StringComparer.Ordinal)
+    {
+        BannerHash,
+        ConnectScreen,
+    };
+
+    /// <summary>
+    /// Whether a field is machinery. Capability rows are excluded elsewhere — they have a surface of
+    /// their own — so this covers only fields with no public rendering at all.
+    /// </summary>
+    public static bool IsInternal(string field) =>
+        Names.Contains(field) || field.StartsWith(ConnectScreen, StringComparison.Ordinal);
+}
+
+/// <summary>
 /// Every descriptive field this site stores, and how long each may go unconfirmed (spec §5.6).
 /// </summary>
 /// <remarks>

@@ -29,17 +29,26 @@ poisoning the next command we sent. **Probe something before you theorise about 
    disagreement is the interesting fact and must not be hidden. This is why `GameField` is keyed
    `(game, field, **source**)` — one row per field cannot hold both sides of a disagreement.
 2. **An hour has three states, not two.** Probed-with-a-count is a filled cell (*including* a
-   measured zero — we got in and nobody was there). Probed-but-uncountable is hatched. Not reachable
-   is empty. Collapsing the middle case into either neighbour is the worst bug this codebase could
-   ship: a game whose `DOING` header is customised past our parser would render as permanently dark
-   while running perfectly well.
+   measured zero — we got in and nobody was there). Probed-but-uncountable is hatched. **Not
+   measured** is empty. Collapsing the middle case into either neighbour is the worst bug this
+   codebase could ship: a game whose `DOING` header is customised past our parser would render as
+   permanently dark while running perfectly well. The third state is *not measured*, never *not
+   reachable* — a failed probe writes no presence row at all (`PresenceWriter`), so an empty cell
+   covers an hour we could not reach and an hour we never probed alike, and it may not name a cause.
+   It said "the game was not reachable" until a real crawl put it beside a game measured once and
+   found perfectly reachable, described as down for 167 hours of the week. Reachability is the
+   strip's question and comes from intervals, which can tell the two apart.
 3. **Nothing is ever deleted.** Archiving removes a game from the default listing, the rankings and
    the "active today" figure — and from nothing else. Its page, URL, history and change feed survive,
    it keeps being probed forever, and one successful probe restores it.
 4. **Parsers never fabricate.** An unreadable `WHO` yields unknown, never zero.
 5. **Never record a decision of ours as a measurement of theirs.** A scope refusal is not downtime.
    An unparseable `WHO` is not zero players. Our security policy and our parser's limits must never
-   appear in a game's public record as facts about the game.
+   appear in a game's public record as facts about the game. **The same rule reads forward into every
+   sentence a surface writes**: a percentage whose denominator is what we observed may not be
+   presented as a fraction of a 90-day window, and a graphic's empty state may not be given a cause.
+   Both shipped, and both were found the first time the site rendered a real crawl instead of the
+   fixture — a fixture is written by someone who already knows what each panel is supposed to say.
 
 ## Vocabulary
 
@@ -62,6 +71,16 @@ our host is unreachable and perfectly alive.
   A refusal happens *before* a probe exists, and `FailureCause.Refused` already means the far end
   sent an RST — a real measurement of a real host. Conflating them is unrecoverable downstream. The
   guard belongs to whatever owns the dial.
+- **Commit a harvested dataset.** The backfill importer is code and belongs here; its output does
+  not. No mirrored listing file, no seed list of real hosts scraped from a directory, no snapshot of
+  anyone's catalogue. The import is a *one-time* operation an operator runs once against the one
+  deployment — not a startup step, not a scheduled job, not something a clone reproduces (spec §7.6).
+  Test fixtures are exempt: a handful of hand-written rows exercising a parser is a test input, and a
+  copy of a third party's catalogue is not, whatever it is named or how small it starts.
+- **Ship invented data without saying so on the page.** `MUI.Web` reads Postgres when
+  `MUI_POSTGRES` (or `ConnectionStrings:MUIndex`) is set. With neither it still starts, on the
+  fixture — and then every page carries the demo banner, because a reader who cannot tell a
+  measurement from a fixture is being misled by exactly the mechanism this project exists to replace.
 - Publish an absolute "how many people play MU\*" figure. Shares ship; totals do not (spec §15.7).
 
 ## Security: the gate is on the address, not the name

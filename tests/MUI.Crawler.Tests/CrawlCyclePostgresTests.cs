@@ -436,6 +436,68 @@ public class CrawlCyclePostgresTests
     }
 
     [Test]
+    public async Task AReferralThatNamesItselfBecomesASecondListedGameWithoutBeingSeeded()
+    {
+        // The other half of the rule above, and the whole reason the graph exists: one seed, two
+        // games. Nothing tells the crawler about hollow.example.net — it is named only by the
+        // game it was referred from, and it earns its listing by answering with a name of its own.
+        //
+        // Live counterpart, measured: mud.kharkov.org:3000 (Virtustan MUD, CircleMUD) publishes
+        // REFERRAL for two ports of tbamud.com, and both became depth-1 targets and were probed on
+        // their own schedule. They are not listed, because tbaMUD's only self-description is
+        // NAME "tbaMUD" — its codebase's name, which MsspDefaults reads as unset. That is the arm
+        // the previous test pins; this one pins the arm a well-described game takes.
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+
+        await SeedAsync(source, new CrawlSeed("mush.example.org", 4201));
+
+        var probe = new ScriptedProbe(target => target.Host switch
+        {
+            "mush.example.org" => Probes.Answered(
+                host: target.Host,
+                port: target.Port,
+                mssp: Probes.Mssp(("NAME", "Tidewater Nights"), ("REFERRAL", "hollow.example.net 4444"))),
+
+            _ => Probes.Answered(
+                host: target.Host,
+                port: target.Port,
+                mssp: Probes.Mssp(("NAME", "The Hollow Coast"))),
+        });
+
+        var cycle = Build(source, probe, TimeProvider.System);
+
+        await cycle.RunAsync();
+        var second = await cycle.RunAsync();
+
+        await Assert.That(second.Listed).IsEqualTo(1);
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<long>("SELECT count(*) FROM game"))
+            .IsEqualTo(2L);
+
+        // Listed as its own game, at depth 1, attributed to the game that named it — the provenance
+        // that makes the graph a graph rather than a bag of hosts.
+        await Assert.That(await connection.ExecuteScalarAsync<long>(
+                """
+                SELECT count(*)
+                  FROM crawl_target t
+                  JOIN game referrer ON referrer.id = t.discovered_from_game_id
+                 WHERE t.host = 'hollow.example.net'
+                   AND t.depth = 1
+                   AND t.game_id IS NOT NULL
+                   AND t.game_id <> referrer.id
+                """))
+            .IsEqualTo(1L);
+
+        await Assert.That(await connection.ExecuteScalarAsync<string>(
+                "SELECT name FROM game WHERE id = (SELECT game_id FROM crawl_target "
+                + "WHERE host = 'hollow.example.net')"))
+            .IsEqualTo("The Hollow Coast");
+    }
+
+    [Test]
     public async Task AKnownEndpointAttachesTheProbeToTheGameItAlreadyIsRatherThanMintingASecond()
     {
         // §7.3's strongest signal, exercised through the whole loop: the same address probed from a

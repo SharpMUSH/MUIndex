@@ -303,7 +303,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
         foreach (var group in fields
             .Where(f => !f.Field.StartsWith(CapabilityFields.Prefix, StringComparison.Ordinal)
-                && !f.Field.StartsWith("connect_screen", StringComparison.Ordinal))
+                && !InternalFields.IsInternal(f.Field))
             .GroupBy(f => f.Field, StringComparer.Ordinal))
         {
             if (FieldPrecedence.Winner(group) is not { } winner)

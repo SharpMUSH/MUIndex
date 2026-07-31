@@ -13,23 +13,49 @@ builder.Services.AddRazorComponents();
 // the attribution list — is configuration, because none of it is a measurement.
 builder.Services.AddMuiApi(builder.Configuration);
 
-// The site reads through IGameQueries and nothing else. Today a fixture answers it; Postgres will
-// answer it later without a page changing. That seam is what lets the web tier and the crawler be
-// built at the same time instead of one waiting on the other.
-builder.Services.AddSingleton<FixtureGameQueries>();
-builder.Services.AddSingleton<IGameQueries>(s => s.GetRequiredService<FixtureGameQueries>());
+// The site reads through IGameQueries and nothing else, and it prefers a real database to a
+// fixture. Point MUI_POSTGRES (or ConnectionStrings:MUIndex) at the catalogue the crawler writes and
+// every page renders measurements; without one the site still starts, but it says loudly and on
+// every page that what it is showing was not measured.
+//
+// The fixture is not a fallback so much as a confession. A directory whose whole claim is that its
+// data is measured must never quietly present invented data as though it were real — so the demo
+// path is opt-in by absence, announced in the log, and marked in the page itself.
+var connectionString = PostgresData.ResolveConnectionString(builder.Configuration);
 
-// IAvailabilityHistory is the one thing the pages need that IGameQueries does not yet expose: the
-// availability intervals the 90-day strip and the archive are both arithmetic over. It belongs on
-// IGameQueries and lives beside it only because that interface is owned elsewhere — see the
-// interface's own remarks.
-builder.Services.AddSingleton<IAvailabilityHistory>(s => s.GetRequiredService<FixtureGameQueries>());
+if (connectionString is not null)
+{
+    builder.Services.AddPostgresCatalogue(connectionString);
+}
+else
+{
+    builder.Services.AddSingleton<FixtureGameQueries>();
+    builder.Services.AddSingleton<IGameQueries>(s => s.GetRequiredService<FixtureGameQueries>());
+    builder.Services.AddSingleton<IAvailabilityHistory>(s => s.GetRequiredService<FixtureGameQueries>());
+}
+
+builder.Services.AddSingleton(new CatalogueSource(connectionString is not null));
 
 // Ages are relative to a clock, and a clock is a dependency like any other — the plain surface and
 // the rendered page must not each reach for DateTimeOffset.UtcNow and disagree by a tick.
 builder.Services.AddSingleton(TimeProvider.System);
 
 var app = builder.Build();
+
+var startupLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("MUIndex");
+
+if (connectionString is not null)
+{
+    await PostgresData.ApplyMigrationsAsync(app.Services, startupLog);
+    startupLog.LogInformation("Reading the catalogue from PostgreSQL.");
+}
+else
+{
+    startupLog.LogWarning(
+        "No {Env} and no {Key}: serving DEMO data. Nothing on this site was measured. "
+        + "Point it at the database the crawler writes to serve real measurements.",
+        PostgresData.EnvironmentVariable, PostgresData.ConfigurationKey);
+}
 
 app.UseStaticFiles();
 

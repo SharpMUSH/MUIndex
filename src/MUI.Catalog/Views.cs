@@ -61,7 +61,19 @@ public sealed record ActivityCell(int DayOfWeek, int Hour, int? Count, bool Prob
     /// <summary>Probed and could not be counted. Hatched, not empty.</summary>
     public bool IsUnmeasurable => Probed && Count is null;
 
-    /// <summary>Not reachable. Empty — and emphatically not a zero.</summary>
+    /// <summary>
+    /// No measurement for that hour. Empty — and emphatically not a zero.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not measured, not "not reachable".</b> A presence row exists only when a probe got far
+    /// enough to try counting, and a probe that failed writes no presence row at all — it goes to
+    /// the availability writer instead (see <c>PresenceWriter</c>'s own remarks). So silence here
+    /// covers both an hour we could not reach and an hour we never probed, and those are different
+    /// facts about a game. Rendering silence as unreachability states our own gap as their outage,
+    /// which is the one thing this site may never do: a game found an hour ago would have 167 hours
+    /// of a perfect week's uptime described as downtime. Reachability has its own strip, measured
+    /// from intervals that can tell the difference.
+    /// </remarks>
     public bool IsGap => !Probed;
 }
 

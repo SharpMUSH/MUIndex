@@ -29,6 +29,7 @@ public class ProbeSessionTests
         QuietPeriod = TimeSpan.FromMilliseconds(120),
         SilenceGrace = TimeSpan.FromMilliseconds(300),
         MaxPhase = TimeSpan.FromSeconds(3),
+        BannerPatience = TimeSpan.FromMilliseconds(300),
         PollInterval = TimeSpan.FromMilliseconds(15),
         Timeout = TimeSpan.FromSeconds(20),
     };
@@ -181,6 +182,60 @@ public class ProbeSessionTests
     }
 
     /// <summary>A MU* server, to the extent the probe can tell.</summary>
+    /// <summary>
+    /// A server that says it is not ready, then pauses for longer than a gap between lines.
+    /// </summary>
+    /// <remarks>
+    /// tbaMUD's shape, measured on <c>tbamud.com:4000</c>: <c>Attempting to Detect Client, Please
+    /// Wait...</c>, then about a second and a half of silence, then the real screen. Under a plain
+    /// quiet period the placeholder <em>was</em> the connect screen — it became the stored banner and
+    /// its hash became the game's identity, so two unrelated tbaMUDs fingerprinted alike and the
+    /// second went into a duplicate review instead of onto the site.
+    /// </remarks>
+    [Test]
+    public async Task AScreenThatSaidItWasNotReadyIsWaitedFor()
+    {
+        await using var game = new FakeGame
+        {
+            Preamble = "Attempting to Detect Client, Please Wait...\r\n",
+            BannerDelay = TimeSpan.FromMilliseconds(400),
+            Banner = "         T B A M U D\r\n   Based on CircleMUD by Jeremy Elson\r\n",
+            BannerTail = "By what name do you wish to be known? ",
+        };
+
+        var result = await new TelnetProbe(Fast() with { BannerPatience = TimeSpan.FromSeconds(2) })
+            .ProbeAsync(game.Target);
+
+        await Assert.That(result.Banner).Contains("T B A M U D");
+        await Assert.That(result.Banner).Contains("By what name do you wish to be known?");
+    }
+
+    /// <summary>
+    /// The patience is conditional, so a server that has already painted is not made to wait.
+    /// </summary>
+    /// <remarks>
+    /// This is the cost side of the fix. Every probe pays it if the condition is wrong, and a crawler
+    /// spending two extra seconds per game is a different program.
+    /// </remarks>
+    [Test]
+    public async Task AScreenThatIsAlreadyThereIsNotWaitedFor()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = new string('=', 60) + "\r\nWelcome to Nowhere, a quiet little place with a "
+                + "connect screen long enough to be one.\r\n" + new string('=', 60) + "\r\n",
+            WhoReply = "0 Players logged in.\r\n",
+        };
+
+        var started = DateTime.UtcNow;
+        var result = await new TelnetProbe(Fast() with { BannerPatience = TimeSpan.FromSeconds(5) })
+            .ProbeAsync(game.Target);
+        var elapsed = DateTime.UtcNow - started;
+
+        await Assert.That(result.Banner).Contains("Welcome to Nowhere");
+        await Assert.That(elapsed).IsLessThan(TimeSpan.FromSeconds(4));
+    }
+
     private sealed class FakeGame : IAsyncDisposable
     {
         private readonly TcpListener _listener;
@@ -194,6 +249,15 @@ public class ProbeSessionTests
             _listener.Start();
             _serving = ServeAsync();
         }
+
+        /// <summary>
+        /// What the server says before it is ready, if anything — tbaMUD's "Attempting to Detect
+        /// Client, Please Wait...".
+        /// </summary>
+        public string? Preamble { get; init; }
+
+        /// <summary>How long after the preamble the real screen arrives.</summary>
+        public TimeSpan BannerDelay { get; init; }
 
         public string Banner { get; init; } = string.Empty;
 
@@ -234,6 +298,16 @@ public class ProbeSessionTests
             {
                 using var client = await _listener.AcceptTcpClientAsync(_stopping.Token);
                 await using var stream = client.GetStream();
+
+                if (Preamble is not null)
+                {
+                    await SendAsync(stream, Preamble);
+                }
+
+                if (BannerDelay > TimeSpan.Zero)
+                {
+                    await Task.Delay(BannerDelay, _stopping.Token);
+                }
 
                 await SendAsync(stream, Banner);
                 if (BannerTail is not null)

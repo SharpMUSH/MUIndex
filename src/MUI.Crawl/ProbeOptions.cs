@@ -57,6 +57,39 @@ public sealed record ProbeOptions
     /// </summary>
     public TimeSpan PollInterval { get; init; } = TimeSpan.FromMilliseconds(50);
 
+    /// <summary>
+    /// A connect screen this slight, once the phase has gone quiet, is treated as unfinished rather
+    /// than as the screen.
+    /// </summary>
+    /// <remarks>
+    /// Measured in flattened characters — escape sequences stripped, whitespace collapsed — because
+    /// a screen can be a kilobyte of colour and one word of text.
+    /// </remarks>
+    public int SlightBannerLength { get; init; } = 120;
+
+    /// <summary>
+    /// Extra time the connect-screen phase may spend while what it has is no longer than
+    /// <see cref="SlightBannerLength"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Some servers announce that they are not ready, and are then quiet for longer than a gap
+    /// between lines.</b> <c>tbamud.com:4000</c> sends <c>Attempting to Detect Client, Please
+    /// Wait...</c>, negotiates, and paints its real screen about a second and a half later. Under a
+    /// 500 ms quiet period that one placeholder line <em>was</em> the connect screen: it became the
+    /// game's stored banner and its hash became the game's identity, so two unrelated tbaMUDs
+    /// fingerprinted identically and the second was held in a duplicate review rather than listed.
+    /// A referral crawl reaching the second one is what surfaced this.
+    /// </para>
+    /// <para>
+    /// The patience is conditional on the screen being nearly empty, so it costs nothing on the
+    /// common case — a server that has already painted a real screen settles at the quiet period as
+    /// before. <see cref="MaxPhase"/> still bounds the phase either way, and a server with no
+    /// connect screen at all pays this once, like <see cref="SilenceGrace"/>.
+    /// </para>
+    /// </remarks>
+    public TimeSpan BannerPatience { get; init; } = TimeSpan.FromMilliseconds(2500);
+
     // There is deliberately no option here for the plaintext MSSP-REQUEST form. It belongs in
     // TelnetNegotiationCore, where it is filed as issue #61, and a compensating implementation here
     // would duplicate a first-party dependency and then have to be deleted when that lands.

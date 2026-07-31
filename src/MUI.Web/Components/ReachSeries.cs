@@ -81,16 +81,26 @@ public sealed record ReachSummary(
 
             var parts = new List<string>(4);
 
-            parts.Add(ReachableFraction is { } f
-                ? $"Reachable {Wording.Percent(f)} of the last {Window} days."
-                : $"Reachability over the last {Window} days is not yet measured.");
-
             var bad = Days.Count(d => d.State is ReachState.Unreachable);
             var degraded = Days.Count(d => d.State is ReachState.Degraded);
             var unmeasured = Days.Count(d => d.State is ReachState.Unmeasured);
+            var measured = Window - unmeasured;
+
+            // The percentage's denominator is *observed* time, not the window (Reachability
+            // .FractionReachable). The sentence has to say so, or a game found an hour ago reads
+            // "Reachable 100.0% of the last 90 days" off a single successful probe — a true number
+            // wearing a claim eighty-nine days wider than the evidence. Only when the window is
+            // fully measured do the two denominators coincide and the shorter phrasing become true.
+            parts.Add(ReachableFraction is { } f
+                ? unmeasured == 0
+                    ? $"Reachable {Wording.Percent(f)} of the last {Window} days."
+                    : $"Reachable {Wording.Percent(f)} of the {DayCount(measured)} we have measured."
+                : $"Reachability over the last {Window} days is not yet measured.");
 
             parts.Add(bad == 0
-                ? "No day in the window was unreachable."
+                ? unmeasured == 0
+                    ? "No day in the window was unreachable."
+                    : "No day we measured was unreachable."
                 : $"{bad} {(bad == 1 ? "day" : "days")} unreachable.");
 
             if (degraded > 0)
@@ -116,6 +126,8 @@ public sealed record ReachSummary(
             return string.Join(' ', parts);
         }
     }
+
+    private static string DayCount(int n) => n == 1 ? "1 day" : $"{n} days";
 
     /// <summary>Every spell that was not plain reachable, as words. The strip's text alternative.</summary>
     public IReadOnlyList<string> Spells

@@ -1,6 +1,8 @@
 using System.Text.Json;
 using MUI.Crawl;
 
+using MUI.Catalog.Persistence;
+
 namespace MUI.Discovery;
 
 /// <summary>
@@ -113,7 +115,8 @@ public static class IdentityFields
 {
     public const string Name = "name";
     public const string Created = "created";
-    public const string BannerHash = "banner_hash";
+    /// <summary>The same name the catalogue keeps off the public page; one spelling, one decision.</summary>
+    public const string BannerHash = InternalFields.BannerHash;
     public const string Website = "website";
     public const string Contact = "contact";
     public const string Codebase = "codebase";

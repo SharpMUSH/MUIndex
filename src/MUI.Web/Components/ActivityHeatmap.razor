@@ -58,7 +58,7 @@
     <ul class="legend">
         <li><span class="swatch counted" aria-hidden="true"></span>counted, including a measured zero</li>
         <li><span class="swatch unmeasurable" aria-hidden="true"></span>probed, no count could be read</li>
-        <li><span class="swatch gap" aria-hidden="true"></span>not reachable — no measurement at all</li>
+        <li><span class="swatch gap" aria-hidden="true"></span>no measurement in that hour</li>
     </ul>
 
     <details class="read-as-text">
@@ -84,7 +84,8 @@
 
     private ActivityCell Cell(int day, int hour) =>
         Cells.FirstOrDefault(c => c.DayOfWeek == day && c.Hour == hour)
-        // A cell the store never mentioned is not reachable, which is the honest reading of silence.
+        // A cell the store never mentioned has no measurement — which is all silence can honestly
+        // be read as here. Whether the game was reachable in that hour is the strip's question.
         ?? new ActivityCell(day, hour, null, Probed: false);
 
     private static string Label(ActivityCell cell) => ActivitySummary.CellLabel(cell);
