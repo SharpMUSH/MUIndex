@@ -9,14 +9,19 @@ namespace MUI.Crawl.Tests;
 public class PayloadRedactionTests
 {
     /// <summary>
-    /// mush.pennmush.org:4201, captured 2026-07-30 — the response the structural parser was built
-    /// from, including the operator's renamed DOING column.
+    /// A WHO in the shape a real one has, with invented people in it.
     /// </summary>
-    private const string Mush = """
-        Player Name          On For   Idle  ThereIsNoSpoonButIWantYogurt
-        Xperta               9m 21s     9m  Stuck in my Own Prison
-        Thoran              11m 48s    11m
-        gelatin          7h 46m 19s     7h  wibble
+    /// <remarks>
+    /// Written rather than captured, deliberately. A fixture holding a real capture would put real
+    /// player names and real player-written text into source history, where they outlive the runtime
+    /// TTL this whole feature is built around — the file would keep for ever exactly what the table
+    /// drops in a fortnight. The layout is what matters here and the layout is reproducible.
+    /// </remarks>
+    private const string Who = """
+        Player Name          On For   Idle  AndNowForSomethingCompletelyElse
+        Quillon              9m 21s     9m  Brooding on a parapet
+        Marrow              11m 48s    11m
+        4815162342       7h 46m 19s     7h  counting
         There are 3 players connected.
         """;
 
@@ -24,16 +29,16 @@ public class PayloadRedactionTests
     [Test]
     public async Task NoNameSurvives()
     {
-        var redacted = PayloadRedaction.Structural(Mush);
+        var redacted = PayloadRedaction.Structural(Who);
 
-        foreach (var name in (string[])["Xperta", "Thoran", "gelatin", "wibble"])
+        foreach (var name in (string[])["Quillon", "Marrow", "counting", "4815162342"])
         {
             await Assert.That(redacted.Contains(name, StringComparison.OrdinalIgnoreCase)).IsFalse();
         }
 
         // Nor the free text beside them, which is a place people write about themselves.
-        await Assert.That(redacted.Contains("Prison", StringComparison.OrdinalIgnoreCase)).IsFalse();
-        await Assert.That(redacted.Contains("Yogurt", StringComparison.OrdinalIgnoreCase)).IsFalse();
+        await Assert.That(redacted.Contains("parapet", StringComparison.OrdinalIgnoreCase)).IsFalse();
+        await Assert.That(redacted.Contains("Completely", StringComparison.OrdinalIgnoreCase)).IsFalse();
     }
 
     /// <summary>
@@ -48,8 +53,8 @@ public class PayloadRedactionTests
     {
         var parser = new WhoParser();
 
-        var original = parser.Parse(Mush);
-        var replayed = parser.Parse(PayloadRedaction.Structural(Mush));
+        var original = parser.Parse(Who);
+        var replayed = parser.Parse(PayloadRedaction.Structural(Who));
 
         await Assert.That(replayed.Count).IsEqualTo(original.Count);
         await Assert.That(replayed.Confidence).IsEqualTo(original.Confidence);
@@ -57,7 +62,50 @@ public class PayloadRedactionTests
     }
 
     /// <summary>
-    /// A count is not a person, so digits go through untouched.
+    /// A name made of digits is a name, and does not survive because it is numeric.
+    /// </summary>
+    /// <remarks>
+    /// <c>4815162342</c> is a perfectly ordinary MU* name and a bare digit run. The first draft let
+    /// every digit through on the grounds that a count is not a person, which is true of a count and
+    /// not of that. A digit survives only on a line that also carries a word the parser reads — a
+    /// summary sentence has one, a row of players does not — and a run with any letter in it is
+    /// masked whole, so <c>A1ice</c> keeps neither its letters nor its digit.
+    /// </remarks>
+    [Test]
+    public async Task ANameMadeOfDigitsIsStillAName()
+    {
+        var redacted = PayloadRedaction.Structural(Who);
+
+        await Assert.That(redacted).DoesNotContain("4815162342");
+        await Assert.That(PayloadRedaction.Structural("A1ice")).IsEqualTo("A0aaa");
+
+        // And the count in the sentence that names what it counts is untouched.
+        await Assert.That(redacted).Contains("There are 3 players connected.");
+    }
+
+    /// <summary>
+    /// A shape that would parse differently is not kept at all.
+    /// </summary>
+    /// <remarks>
+    /// The replay guarantee enforced where it is written rather than only asserted here. A shape
+    /// exists to be re-parsed, so one that answers differently from the payload it came from is not
+    /// evidence about anything — and keeping it would let a later vocabulary change quietly fill the
+    /// window with rows that misreport what a server said.
+    /// </remarks>
+    [Test]
+    public async Task OnlyAShapeThatReplaysIsKept()
+    {
+        var parser = new WhoParser();
+        var shape = PayloadRedaction.Replayable(Who);
+
+        await Assert.That(shape).IsNotNull();
+        await Assert.That(parser.Parse(shape).Count).IsEqualTo(parser.Parse(Who).Count);
+
+        await Assert.That(PayloadRedaction.Replayable(null)).IsNull();
+    }
+
+    /// <summary>
+    /// A count is not a person, so digits go through where a count can be.
     /// </summary>
     /// <remarks>
     /// "There are 16 players connected" is the sentence the parser most wants to re-read, and a
@@ -82,9 +130,9 @@ public class PayloadRedactionTests
     [Test]
     public async Task EveryColumnStaysWhereItWas()
     {
-        var redacted = PayloadRedaction.Structural(Mush);
+        var redacted = PayloadRedaction.Structural(Who);
 
-        var before = Mush.Split('\n');
+        var before = Who.Split('\n');
         var after = redacted.Split('\n');
 
         await Assert.That(after.Length).IsEqualTo(before.Length);

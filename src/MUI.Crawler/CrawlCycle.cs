@@ -190,8 +190,6 @@ public sealed class CrawlCycle(
 
         var result = await probe.ProbeAsync(new ProbeTarget(target.Host, target.Port), budget.Token);
 
-        await RecordShapeAsync(target, result, cancellationToken);
-
         // Read before anything is stored, so that a game which used this reply to ask us to stop is
         // never dialled again — including by the rest of this same cycle (§11's "within one cycle").
         // What this probe measured is still stored: the reply was sent to a connection already made,
@@ -331,6 +329,12 @@ public sealed class CrawlCycle(
         var answered = result.Outcome is ProbeOutcome.Answered;
         var binding = await binder.BindAsync(target, result, cancellationToken);
 
+        // §11's shape, recorded once the game is known rather than before. The binder is what turns
+        // an address into a game, so recording ahead of it wrote a null game_id for the FIRST
+        // successful probe of every game — the one probe whose shape a replay most wants, filtered
+        // out of the window by the very query that reads it.
+        await RecordShapeAsync(target, binding?.GameId ?? target.GameId, result, cancellationToken);
+
         var activity = SchedulerBand.Unknown;
 
         if (binding is not null)
@@ -390,6 +394,7 @@ public sealed class CrawlCycle(
     /// </remarks>
     private async Task RecordShapeAsync(
         CrawlTarget target,
+        Guid? gameId,
         ProbeResult result,
         CancellationToken cancellationToken)
     {
@@ -403,7 +408,7 @@ public sealed class CrawlCycle(
             await payloads.RecordAsync(
                 [
                     new ProbePayload(
-                        target.GameId,
+                        gameId,
                         target.Host,
                         target.Port,
                         time.GetUtcNow(),

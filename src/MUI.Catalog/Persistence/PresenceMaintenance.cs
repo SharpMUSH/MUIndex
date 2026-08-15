@@ -153,11 +153,21 @@ public sealed class PresenceMaintenance(
         // rollup was late.
         if (payloads is not null && retention.ProbePayloads is { } keepShapes)
         {
-            var gone = await payloads.SweepAsync(now - keepShapes, cancellationToken);
-
-            if (gone > 0)
+            // Isolated, because this runs before the presence retention below it and a throw here
+            // would take that with it. Nothing on the site is derived from a shape, so a sweep that
+            // fails must cost a fortnight of evidence about our parser and not an hour of presence.
+            try
             {
-                logger?.LogInformation("Dropped {Count} probe shapes past their TTL", gone);
+                var gone = await payloads.SweepAsync(now - keepShapes, cancellationToken);
+
+                if (gone > 0)
+                {
+                    logger?.LogInformation("Dropped {Count} probe shapes past their TTL", gone);
+                }
+            }
+            catch (Exception error) when (error is not OperationCanceledException)
+            {
+                logger?.LogWarning(error, "The probe-shape sweep failed; retention continues");
             }
         }
 

@@ -184,6 +184,16 @@ public sealed record PresenceRetentionOptions
             throw new ArgumentException("The rollup overlap reaches backwards and cannot be negative.");
         }
 
+        // A negative TTL puts the sweep's cutoff in the future, which would delete the shapes taken
+        // moments ago and leave the old ones. The failure of every other setting here is keeping too
+        // much; this one's is deleting the newest evidence there is.
+        if (ProbePayloads < TimeSpan.Zero)
+        {
+            throw new ArgumentException(
+                "The probe-shape TTL cannot be negative: a cutoff in the future sweeps what was just "
+                + "recorded and keeps what should have gone.");
+        }
+
         Floor(RawSamples, HeatmapWindow, nameof(RawSamples));
         Floor(HourlyRollups, HeatmapWindow, nameof(HourlyRollups));
         Floor(DailyRollups, TimeSpan.FromDays(365), nameof(DailyRollups));
