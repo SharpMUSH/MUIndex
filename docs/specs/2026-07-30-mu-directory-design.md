@@ -818,10 +818,42 @@ a self-report with extra steps.
 
 Owner-published outputs: a live player-count SVG badge and a JSON endpoint for the game's own site.
 
-**Claiming lights up two paths that are currently unreachable**, and that is worth knowing when
-testing it: nothing sets `game.is_claimed` today, so the `claimed` badge in the listing and
-`ArchivePolicy`'s ceiling-grace-for-claimed-games (§7.5) have never once been exercised against real
-data.
+**Claiming is wired end to end, and it was not for a while after it shipped.** A verified probe now
+sets `game.is_claimed`, so the `claimed` badge in the listing and `ArchivePolicy`'s
+ceiling-grace-for-claimed-games (§7.5) are both reachable. What kept them dark was not the claim
+logic, which was complete and tested, but the **composition** — and the two are worth telling apart,
+because the second has no compiler and no unit test looking at it:
+
+- The site has two compositions of the same objects. `mui-crawl` builds the crawl loop by hand and
+  passes every collaborator explicitly; the deployed site assembles it through DI. `CrawlCycle` takes
+  its `ClaimService` as an *optional* parameter — a crawl with no database behind it should do
+  slightly less rather than refuse to run — so a composition that omits it settles no beacons and
+  says nothing about it. The crawl graph omitted it, and the site only had one because the accounts
+  module happened to register the same type for the dashboard.
+- `ClaimService` was registered scoped while the crawl loop that needs it is a singleton
+  `BackgroundService`. With scope validation on, which is what `dotnet run` does, **the container
+  refused to build**: the site would not start with a connection string set. Production leaves
+  validation off, so there it worked — by accident, and only there.
+- `IClaimStore` was registered nowhere at all. The dashboard service-locates it and reads a null as
+  "this site has no database", so every operator's list of claimed games was empty on a site that
+  had them, and the on-demand check endpoint threw on request.
+
+The lesson generalises past claiming: **an optional dependency and a service-located one both fail
+silently when the composition is wrong**, and this codebase has one of each on the claim path.
+`CompositionTests` resolves the graph `Program` builds — literally, by calling the same
+`AddMuiSite` the deployable calls, because a harness that restated the registrations would be a
+second copy that agrees with the first only until somebody edits one of them — under scope
+validation, in both environments, and asserts the services these paths need are really there. A
+wiring test, because the wiring is what was broken while every part it joined was correct.
+
+**The on-demand check was the same shape of gap and is fixed with it.** §8.1 offers a claimant one
+requested probe per few minutes; `RequestCheckAsync` wrote `last_checked_at` and a `check_requested`
+event, and due-ness comes only from `crawl_target.next_probe_at`, so nothing was ever probed and the
+page said the button dialled a real server. A rate limiter on an action that does not happen is the
+most convincing possible no-op. `IOnDemandProbes` brings the game's targets forward instead —
+`LEAST`, so an ask can only make a probe sooner — and the crawl loop still does the dialling under
+`CRAWL DELAY` and §7.2's address gate, which is what keeps a button on a page from becoming a way to
+make us connect to a stranger's server.
 
 ## 9. Site surface, v1
 
@@ -878,22 +910,63 @@ for presence and availability. RSS on status change in v1; webhooks are deferred
 
 Consume Grapevine and the TinTin mudlist as seed sources; republish rather than silo.
 
-### 10.1 Known gap — the listing endpoint is less honest than the listing page
+### 10.1 The listing is labelled — closed
 
-`GameSummary` carries no provenance, so `/api/games` publishes `playersNow` and `codebase` as bare
-values while `/api/games/{slug}` labels every field with its source, age and staleness. **That is the
-one place the API contradicts the rule the whole project exists to serve**, and it is a view-model
-gap rather than a mapping choice — the summary type has nowhere to put the label.
+`GameSummary` carried no provenance, so `/api/games` published `playersNow` and `codebase` as bare
+values while `/api/games/{slug}` labelled every field with its source, age and staleness. That was
+**the one place the API contradicted the rule the whole project exists to serve**, and it was a
+view-model gap rather than a mapping choice — the summary type had nowhere to put the label.
 
-Fixing it means putting `ProvenanceChip` on `GameSummary` for at least the count and the codebase.
-Until then, a consumer reading only the listing cannot tell a count measured four minutes ago from
-one asserted six years ago, which is exactly the confusion the incumbents' directories thrive on.
+`GameSummary` now carries a `ProvenanceChip` for the count and for the codebase, filled by both
+implementations of `IGameQueries` from the rows the value itself came from: the presence sample's own
+instant and source for a count, the winning `GameField` for a codebase, with staleness asked of the
+registry (§5.6) rather than judged at the surface. They travel out as `playersNowProvenance` and
+`codebaseProvenance` beside the bare values on both `/api/games` and `/api/games/{slug}`, so the rule
+a consumer needs is one sentence: **every bare value in this API has a `*Provenance` sibling or lives
+in `fields`**, and null means we hold no such value rather than that we mislaid its label.
 
-Three smaller gaps found the same way, all currently worked around inside `src/MUI.Web/Api/`:
-`IGameQueries` has no `FindAsync(Guid)`, so a GUID lookup scans the whole listing; `FeedEntry` has no
-`Id`, so every feed request reads the listing to join identifiers onto slugs; and §5.7's
-forever-redirect has no former-slug table, so aliases live in configuration rather than beside the
-games.
+The same fact reaches the reader, because an API-only fix would have left the listing page telling
+the same half-truth: a row wears the chip the game page already uses, and the plain listing spells
+`(measured, 4m)` or `(declared, 3y, stale)` in the words §9's plain surface uses everywhere else.
+That a count can be *declared* at all is the point — a game publishing `PLAYERS` in MSSP has asserted
+a number, and quoting it as a measurement of ours is rule 5 broken by a format string, which is
+exactly what the plain listing's hard-coded `(measured)` was doing to every row.
+
+**A labelling rule applied to one surface makes a liar of the others,** and fixing the listing first
+proved it three times over. `PlayerCountState` had two members, so `playersNowState` answered
+`measured` for any count that existed at all and shipped in the same object as a
+`playersNowProvenance.measured` of `false`; it has three now and is derived from the chip, so the
+two cannot disagree. The game page — the surface a reader trusts most — kept printing the measured
+glyph over every number it had, and its plain rendering kept saying `Players now: 9` flat, while the
+listing pointing at it said the game had asserted that number. The archive printed a bare codebase
+where the listing printed the same value labelled three years unconfirmed, which is precisely the
+page where the age matters most. All three now render the one chip: `Chip` grew a `ValueShown`
+switch so a count can wear the same component as a field without printing its number twice, and
+`PlainText.Label` is the single spelling every plain surface prints.
+
+`FeedEntry` now carries its `Id` from the query layer, so a feed request no longer reads the whole
+listing to join identifiers onto slugs and `FeedEntryView.Id` is no longer nullable — the durable
+identifier (§5.7) is not something a reader should have to handle the absence of.
+
+A lookup by GUID is one read of `game` and then the page, exactly as the slug route does. It listed
+the whole catalogue, archived games included, and picked one row out of the result — so the
+identifier this document tells consumers to store was the most expensive way to ask for a game, and
+got slower with every game added.
+
+**`IGameQueries.FindAsync(Guid)` after all.** It was first closed by routing through
+`FindByIdAsync`, on the argument that the method already existed and no interface change was
+needed. That is cheaper than a scan and still the wrong shape: `FindByIdAsync` assembles a whole
+summary — a `game` row, every field, the presence digest, both chips, on a connection of its own —
+to hand back one string, which `FindAsync(slug)` then throws away and re-reads. Roughly five round
+trips presented as two. The overload the gap description originally asked for is the honest fix, and
+it costs one predicate: both keys share the page assembly and differ only in their `WHERE` clause.
+
+Both routes are held there by a test catalogue that **throws** on `ListAsync` and on
+`FindByIdAsync` — a counter would pass a version that read the catalogue once and cached it, which
+is the same scan with a lifetime bolted on.
+
+One smaller gap remains, worked around inside `src/MUI.Web/Api/`: §5.7's forever-redirect has no
+former-slug table, so aliases live in configuration rather than beside the games.
 
 ## 11. Politeness, consent, privacy
 
