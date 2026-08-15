@@ -14,15 +14,27 @@ namespace MUI.Crawler;
 /// <c>(game, field, source)</c> and the capability matrix's two columns are the whole point:
 /// <see cref="FieldSource.Handshake"/> for what the server actually negotiated,
 /// <see cref="FieldSource.Mssp"/> for what it claims about itself, and
-/// <see cref="FieldSource.Banner"/> for the connect screen. "Declared GMCP, not offered in the
-/// handshake" is a fact the site exists to publish, and it is only expressible because these never
-/// contend for one row.
+/// <see cref="FieldSource.Banner"/> for what we parsed out of the text it painted before login.
+/// "Declared GMCP, not offered in the handshake" is a fact the site exists to publish, and it is only
+/// expressible because these never contend for one row.
 /// </para>
 /// </remarks>
 public static class FieldObservations
 {
     /// <summary>The field the negotiated character encoding is stored under.</summary>
     public const string CharsetField = "CHARSET";
+
+    /// <summary>
+    /// The field a codebase is stored under, whoever read it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Deliberately the same name MSSP uses</b>, so that a codebase we parsed out of a
+    /// <c>VERSION</c> reply and one a game declared land in the same field with different sources.
+    /// That is the whole point of keying <c>(game, field, source)</c>: the ladder picks the declared
+    /// one, and the page can still show that its own <c>VERSION</c> says something else — which is a
+    /// fact worth publishing rather than a conflict to hide (§5.1).
+    /// </remarks>
+    public const string CodebaseField = "CODEBASE";
 
     /// <summary>The MSSP capability whose absence is itself a measurement. See <see cref="Measured"/>.</summary>
     public const string MsspCapability = "MSSP";
@@ -69,8 +81,46 @@ public static class FieldObservations
 
         observations.AddRange(Measured(result));
         observations.AddRange(Declared(result));
+        observations.AddRange(Parsed(result));
 
         return observations;
+    }
+
+    /// <summary>
+    /// Layer 2 — what we read out of the free text the server painted before login (spec §6.2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// §6.2 asks for this in as many words: "version banners identify the codebase when
+    /// <c>CODEBASE</c> is unset or wrong", and it is measured, because a <c>VERSION</c> reply is text
+    /// this crawler asked for and parsed on this probe rather than a field the game reported. The
+    /// value sits on <see cref="FieldSource.Banner"/>, which is the bottom of the precedence ladder
+    /// and exactly where a conservatively-parsed free-form string belongs: a game that declares its
+    /// own codebase wins, and one that declares nothing gets a page with something on it.
+    /// </para>
+    /// <para>
+    /// <b>The reading itself is not new; its only consumer was.</b>
+    /// <see cref="LoginCommandReading.MeaningfulCodebase"/> has been deciding this since <c>INFO</c>
+    /// and <c>VERSION</c> were added to the probe, and the only caller was
+    /// <c>IdentityMatcher</c>, which used it to tell two games apart and then dropped it. Of the 409
+    /// games in the first real crawl, 281 answered the socket and published no MSSP at all — for
+    /// every one of those, this is the difference between a page that names what they run and a page
+    /// that does not.
+    /// </para>
+    /// <para>
+    /// Unlike the connect screen (see above) this is safe to reconcile: the value is a codebase name,
+    /// not a screen with a player count in it, so a change here is a game that upgraded — an event
+    /// worth a change-feed row rather than noise that buries them.
+    /// </para>
+    /// </remarks>
+    private static IEnumerable<FieldObservation> Parsed(ProbeResult result)
+    {
+        // Null unless the text labelled a value or plainly named a known family. Rule 4: a parser
+        // that guessed here would be inventing a fact about somebody else's server.
+        if (LoginCommandReading.MeaningfulCodebase(result.Info, result.Version) is { Length: > 0 } codebase)
+        {
+            yield return new FieldObservation(CodebaseField, FieldSource.Banner, codebase);
+        }
     }
 
     /// <summary>

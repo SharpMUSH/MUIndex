@@ -162,6 +162,49 @@ public class FieldObservationTests
     }
 
     [Test]
+    public async Task AVersionReplyNamesTheCodebaseOfAGameThatPublishesNoMssp()
+    {
+        // §6.2, and the case it was written for: 281 of the 409 games in the first real crawl
+        // answered the socket and published no MSSP at all. Their page could say only that they were
+        // reachable. This is the sentence it can say instead.
+        var observed = FieldObservations.From(Probes.Answered(
+            version: "PennMUSH version 1.8.8p1"));
+
+        await Assert.That(Value(observed, FieldObservations.CodebaseField, FieldSource.Banner))
+            .IsEqualTo("PennMUSH version 1.8.8p1");
+    }
+
+    [Test]
+    public async Task AParsedCodebaseAndADeclaredOneAreBothKeptAndDoNotContend()
+    {
+        // The reason game_field is keyed by source. The ladder puts mssp above banner, so the
+        // declared value is what a page leads with — and "its own VERSION says otherwise" survives
+        // as a row rather than being resolved away at write time.
+        var observed = FieldObservations.From(Probes.Answered(
+            mssp: Probes.Mssp(("CODEBASE", "Evennia")),
+            version: "TinyMUX 2.12"));
+
+        await Assert.That(Value(observed, FieldObservations.CodebaseField, FieldSource.Mssp))
+            .IsEqualTo("Evennia");
+        await Assert.That(Value(observed, FieldObservations.CodebaseField, FieldSource.Banner))
+            .IsEqualTo("TinyMUX 2.12");
+    }
+
+    [Test]
+    public async Task TextThatNamesNoCodebaseWritesNoCodebase()
+    {
+        // Rule 4. A server that answered INFO with its own house rules, or with nothing, has not
+        // told us what it runs, and a parser that produced a value here would be inventing a fact
+        // about somebody else's game.
+        var quiet = FieldObservations.From(Probes.Answered(
+            info: "Welcome. Type CREATE <name> <password> to begin.", version: "Yes"));
+        var silent = FieldObservations.From(Probes.Answered());
+
+        await Assert.That(Value(quiet, FieldObservations.CodebaseField, FieldSource.Banner)).IsNull();
+        await Assert.That(Value(silent, FieldObservations.CodebaseField, FieldSource.Banner)).IsNull();
+    }
+
+    [Test]
     public async Task TheVolatileFieldsAreDroppedByTheReconcilerRatherThanHere()
     {
         // One home for that rule. PLAYERS is presence and UPTIME is a counter, and reconciling either
