@@ -182,7 +182,9 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
                 + "which needs no MSSP support and no account here. Or write to a person and say so, "
                 + "and it is recorded with who asked. All three are honoured before the next "
                 + "connection is made — inside one crawl cycle — and each is written down with the "
-                + "date and with what we read."),
+                + "date and with what we read. They are also honoured by the form anybody can use "
+                + "to send us an address, so a stranger cannot put your game back on our list by "
+                + "typing it in after you have asked us to leave it alone."),
             new("The MSSP field stops that listener; the record stops the host.",
                 "A game's MSSP report is published by the port that answered us, so it speaks for "
                 + "that port: MU* hosting routinely runs unrelated games on one domain separated "
@@ -198,8 +200,10 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
                 + "address comes up, which is at most a week. An MSSP field cannot be re-read "
                 + "without doing the thing you asked us to stop "
                 + "doing, so an MSSP opt-out and a recorded request stand until you tell us "
-                + "otherwise. The one thing an opted-out address still gets from us is that single "
-                + "TXT lookup, which touches your nameserver and never your game."),
+                + "otherwise. The one thing an opted-out address still gets from us is that TXT "
+                + "lookup, which touches your nameserver and never your game — once before each "
+                + "dial we then do not make, and once more if somebody sends us your address "
+                + "through the submission form, which is rationed per sender for that reason."),
             new("Stopping is not deleting, and it is not downtime.",
                 "A game that opts out keeps its page, its address and everything we measured before "
                 + "it asked, because nothing here is ever deleted — including the last probe, which "
