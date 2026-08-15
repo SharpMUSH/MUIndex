@@ -56,7 +56,8 @@ public class FeedApiTests
         var expected = (await new FixtureGameQueries().ListAsync(new GameFilter { IncludeArchived = true }))
             .ToDictionary(g => g.Slug, g => g.Id, StringComparer.Ordinal);
 
-        await using var host = await ApiHost.StartAsync(queries: new NoListing(new FixtureGameQueries()));
+        await using var host = await ApiHost.StartAsync(
+            queries: new ListingRefusingQueries(new FixtureGameQueries()));
 
         var feeds = await Json.ElementAsync(await host.Client.GetAsync(ApiRoutes.Feeds));
 
@@ -70,33 +71,6 @@ public class FeedApiTests
                     .IsEqualTo(ApiRoutes.Game(expected[slug]));
             }
         }
-    }
-
-    /// <summary>
-    /// A catalogue that answers the feeds and refuses the listing. The refusal is the assertion.
-    /// </summary>
-    private sealed class NoListing(IGameQueries inner) : IGameQueries
-    {
-        public Task<GameListing> SearchAsync(GameFilter filter, CancellationToken cancellationToken = default) =>
-            throw new InvalidOperationException("The feed must not read the listing.");
-
-        public Task<IReadOnlyList<GameSummary>> ListAsync(GameFilter filter, CancellationToken cancellationToken = default) =>
-            throw new InvalidOperationException("The feed must not read the listing.");
-
-        public Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default) =>
-            inner.FindAsync(slug, cancellationToken);
-
-        public Task<GameSummary?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
-            inner.FindByIdAsync(id, cancellationToken);
-
-        public Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default) =>
-            inner.FeedsAsync(cancellationToken);
-
-        public Task<EcosystemDashboard> EcosystemAsync(CancellationToken cancellationToken = default) =>
-            inner.EcosystemAsync(cancellationToken);
-
-        public Task<Rankings> RankingsAsync(CancellationToken cancellationToken = default) =>
-            inner.RankingsAsync(cancellationToken);
     }
 
     [Test]

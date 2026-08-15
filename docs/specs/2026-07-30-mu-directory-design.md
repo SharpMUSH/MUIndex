@@ -904,10 +904,17 @@ exactly what the plain listing's hard-coded `(measured)` was doing to every row.
 listing to join identifiers onto slugs and `FeedEntryView.Id` is no longer nullable — the durable
 identifier (§5.7) is not something a reader should have to handle the absence of.
 
-Two smaller gaps remain, both worked around inside `src/MUI.Web/Api/`: `IGameQueries` has no
-`FindAsync(Guid)` returning a page, so a GUID lookup still scans the whole listing; and §5.7's
-forever-redirect has no former-slug table, so aliases live in configuration rather than beside the
-games.
+A lookup by GUID is two indexed reads rather than a scan. It listed the whole catalogue, archived
+games included, and picked one row out of the result — so the identifier this document tells
+consumers to store was the most expensive way to ask for a game, and got slower with every game
+added. It needed no `FindAsync(Guid)` in the end: `IGameQueries.FindByIdAsync` already existed for
+the owner surfaces and answers exactly this, and the slug it returns fetches the page. Both routes
+are held to it by a test that hands the endpoint a catalogue which **throws** on `ListAsync` — a
+counter would pass a version that read the catalogue once and cached it, which is the same scan with
+a lifetime bolted on.
+
+One smaller gap remains, worked around inside `src/MUI.Web/Api/`: §5.7's forever-redirect has no
+former-slug table, so aliases live in configuration rather than beside the games.
 
 ## 11. Politeness, consent, privacy
 
