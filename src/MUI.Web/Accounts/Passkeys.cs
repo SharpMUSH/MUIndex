@@ -118,6 +118,11 @@ public static class Passkeys
             options.Cookie.HttpOnly = true;
             options.Cookie.SameSite = SameSiteMode.Lax;
             options.SlidingExpiration = true;
+
+            // Stated rather than defaulted, because sliding expiry is only meaningful against a
+            // window somebody chose. Thirty days of not touching the site is a long absence for
+            // somebody who runs a game, and the way back in is one gesture at an authenticator.
+            options.ExpireTimeSpan = TimeSpan.FromDays(30);
         });
 
         return services;
@@ -226,11 +231,24 @@ public static class Passkeys
             SignInManager<MuiUser> signIn,
             PasskeySubmission submission) =>
         {
-            var result = await signIn.PasskeySignInAsync(submission.Credential);
+            // Asserted and then signed in, rather than PasskeySignInAsync, for one reason: that
+            // method has no isPersistent and issues a session cookie. So registering left a lasting
+            // session and *signing in* did not — an operator who came back was signed out by
+            // closing the window, while SlidingExpiration slid something that was already gone.
+            // Two doors into one account should not disagree about how long it stays open, and the
+            // one that lasts is right: §8.2 argues this account is worth almost nothing to steal,
+            // and the alternative is asking somebody who administers a game server to redo a
+            // WebAuthn ceremony every time they close a tab.
+            var assertion = await signIn.PerformPasskeyAssertionAsync(submission.Credential);
 
-            return result.Succeeded
-                ? Results.Ok(new { redirect = DashboardPath })
-                : Results.Unauthorized();
+            if (!assertion.Succeeded)
+            {
+                return Results.Unauthorized();
+            }
+
+            await signIn.SignInAsync(assertion.User, isPersistent: true);
+
+            return Results.Ok(new { redirect = DashboardPath });
         });
 
         // §8.1's on-demand check. It does not dial anything itself — it brings the game's crawl

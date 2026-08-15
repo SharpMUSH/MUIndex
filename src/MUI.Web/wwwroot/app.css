@@ -240,6 +240,10 @@ header.site nav a { color: var(--dim); text-decoration: none; }
 header.site nav a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 header.site .kicker { margin-left: auto; }
 
+/* The one link in this bar that leads somewhere only you can go, so it is not dimmed like the
+   catalogues beside it. */
+header.site nav.account a { color: var(--text); }
+
 h3 { font-size: 15px; font-weight: 600; margin: var(--cpad) 0 4px; }
 p { margin: 0 0 8px; }
 
