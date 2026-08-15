@@ -47,6 +47,7 @@ public sealed class ClaimService(
     public async Task<GameClaim> IssueAsync(
         Guid gameId,
         Guid userId,
+        ClaimIntent intent = ClaimIntent.Join,
         CancellationToken cancellationToken = default)
     {
         var now = time.GetUtcNow();
@@ -63,6 +64,7 @@ public sealed class ClaimService(
             GameId = gameId,
             UserId = userId,
             Token = ClaimToken.Mint(),
+            Intent = intent,
             IssuedAt = now,
             ExpiresAt = now + ClaimToken.PendingLifetime,
         };
@@ -124,7 +126,40 @@ public sealed class ClaimService(
             // reachable before now.
             await games.SetClaimedAsync(gameId, true, cancellationToken);
 
-            return ClaimVerdict.Verified;
+            if (pending.Intent is not ClaimIntent.Assume)
+            {
+                return ClaimVerdict.Verified;
+            }
+
+            // §8.4's counter-claim, which is how a game changes hands. The displaced owners are
+            // revoked here and nowhere else: this is the ONE revocation nobody typed, and it is
+            // sound because the account that caused it published a token on the same server the
+            // others did. It proves control now, which is the only thing ownership here ever meant.
+            //
+            // The game stays claimed throughout — SetClaimedAsync was called above — so a takeover
+            // never flickers the listing badge off and on.
+            var displaced = (await claims.ForGameAsync(gameId, cancellationToken))
+                .Where(other => other.Id != pending.Id && other.IsVerified)
+                .ToList();
+
+            foreach (var other in displaced)
+            {
+                await claims.UpdateAsync(
+                    other with
+                    {
+                        RevokedAt = now,
+                        RevokedReason = "counter-claim: another account proved control of this game",
+                    },
+                    cancellationToken);
+
+                // On the LOSING claim, because that is whose record changed. An owner reading their
+                // own history has to be able to see what happened to them and when.
+                await claims.RecordEventAsync(
+                    new ClaimEvent(other.Id, now, ClaimEventKind.CounterClaimed),
+                    cancellationToken);
+            }
+
+            return displaced.Count > 0 ? ClaimVerdict.Assumed : ClaimVerdict.Verified;
         }
 
         var onGame = await claims.ForGameAsync(gameId, cancellationToken);
@@ -209,6 +244,44 @@ public sealed class ClaimService(
     /// claimed only when no verified claim is left, because §8.5 allows several owners and one
     /// walking away does not unclaim the game for the others.
     /// </remarks>
+    /// <summary>
+    /// An owner giving up a game they hold.
+    /// </summary>
+    /// <remarks>
+    /// Scoped to the account, because <see cref="RevokeAsync"/> takes a claim id and a claim id is
+    /// not a credential — anybody who learns one could otherwise unclaim somebody else's game. The
+    /// caller is the account, so the check belongs here rather than in whichever page happens to
+    /// call it.
+    /// </remarks>
+    public async Task<bool> ResignAsync(
+        Guid claimId,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        if (await claims.FindAsync(claimId, cancellationToken) is not { } claim
+            || claim.UserId != userId
+            || !claim.IsVerified)
+        {
+            return false;
+        }
+
+        await RevokeAsync(claimId, "the owner gave up this claim", cancellationToken);
+
+        return true;
+    }
+
+    /// <summary>Every account that has proved control of a game, newest first (spec §8.5).</summary>
+    public async Task<IReadOnlyList<GameClaim>> OwnersAsync(
+        Guid gameId,
+        CancellationToken cancellationToken = default) =>
+        [.. (await claims.ForGameAsync(gameId, cancellationToken)).Where(claim => claim.IsVerified)];
+
+    /// <summary>One claim's audit log, oldest first (spec §8.5).</summary>
+    public Task<IReadOnlyList<ClaimEvent>> HistoryAsync(
+        Guid claimId,
+        CancellationToken cancellationToken = default) =>
+        claims.EventsAsync(claimId, cancellationToken);
+
     public async Task RevokeAsync(Guid claimId, string reason, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);

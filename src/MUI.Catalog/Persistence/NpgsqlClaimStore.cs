@@ -17,7 +17,7 @@ namespace MUI.Catalog.Persistence;
 public sealed class NpgsqlClaimStore(NpgsqlDataSource source) : IClaimStore
 {
     private const string Columns = """
-        id AS Id, game_id AS GameId, user_id AS UserId, token AS Token,
+        id AS Id, game_id AS GameId, user_id AS UserId, token AS Token, intent AS Intent,
         issued_at AS IssuedAt, expires_at AS ExpiresAt, claimed_at AS ClaimedAt,
         beacon_last_seen_at AS BeaconLastSeenAt, verified_via AS VerifiedVia,
         revoked_at AS RevokedAt, revoked_reason AS RevokedReason, last_checked_at AS LastCheckedAt
@@ -105,11 +105,11 @@ public sealed class NpgsqlClaimStore(NpgsqlDataSource source) : IClaimStore
         await connection.ExecuteAsync(new CommandDefinition(
             """
             INSERT INTO game_claim (
-                id, game_id, user_id, token, issued_at, expires_at,
+                id, game_id, user_id, token, intent, issued_at, expires_at,
                 claimed_at, beacon_last_seen_at, verified_via,
                 revoked_at, revoked_reason, last_checked_at)
             VALUES (
-                @Id, @GameId, @UserId, @Token, @IssuedAt, @ExpiresAt,
+                @Id, @GameId, @UserId, @Token, @Intent, @IssuedAt, @ExpiresAt,
                 @ClaimedAt, @BeaconLastSeenAt, @VerifiedVia,
                 @RevokedAt, @RevokedReason, @LastCheckedAt)
             """,
@@ -182,6 +182,7 @@ public sealed class NpgsqlClaimStore(NpgsqlDataSource source) : IClaimStore
         claim.GameId,
         claim.UserId,
         claim.Token,
+        Intent = SqlEnums.ToDb(claim.Intent),
         claim.IssuedAt,
         claim.ExpiresAt,
         claim.ClaimedAt,
@@ -207,6 +208,8 @@ public sealed class NpgsqlClaimStore(NpgsqlDataSource source) : IClaimStore
 
         public string Token { get; init; } = string.Empty;
 
+        public string Intent { get; init; } = "join";
+
         public DateTimeOffset IssuedAt { get; init; }
 
         public DateTimeOffset ExpiresAt { get; init; }
@@ -229,6 +232,7 @@ public sealed class NpgsqlClaimStore(NpgsqlDataSource source) : IClaimStore
             GameId = GameId,
             UserId = UserId,
             Token = Token,
+            Intent = SqlEnums.ToClaimIntent(Intent),
             IssuedAt = IssuedAt,
             ExpiresAt = ExpiresAt,
             ClaimedAt = ClaimedAt,
