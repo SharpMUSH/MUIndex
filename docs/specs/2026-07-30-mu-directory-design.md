@@ -818,10 +818,30 @@ a self-report with extra steps.
 
 Owner-published outputs: a live player-count SVG badge and a JSON endpoint for the game's own site.
 
-**Claiming lights up two paths that are currently unreachable**, and that is worth knowing when
-testing it: nothing sets `game.is_claimed` today, so the `claimed` badge in the listing and
-`ArchivePolicy`'s ceiling-grace-for-claimed-games (§7.5) have never once been exercised against real
-data.
+**Claiming is wired end to end, and it was not for a while after it shipped.** A verified probe now
+sets `game.is_claimed`, so the `claimed` badge in the listing and `ArchivePolicy`'s
+ceiling-grace-for-claimed-games (§7.5) are both reachable. What kept them dark was not the claim
+logic, which was complete and tested, but the **composition** — and the two are worth telling apart,
+because the second has no compiler and no unit test looking at it:
+
+- The site has two compositions of the same objects. `mui-crawl` builds the crawl loop by hand and
+  passes every collaborator explicitly; the deployed site assembles it through DI. `CrawlCycle` takes
+  its `ClaimService` as an *optional* parameter — a crawl with no database behind it should do
+  slightly less rather than refuse to run — so a composition that omits it settles no beacons and
+  says nothing about it. A crawler-only deployment did exactly that.
+- `ClaimService` was registered scoped while the crawl loop that needs it is a singleton
+  `BackgroundService`. With scope validation on, which is what `dotnet run` does, **the container
+  refused to build**: the site would not start with a connection string set. Production leaves
+  validation off, so there it worked — by accident, and only there.
+- `IClaimStore` was registered nowhere at all. The dashboard service-locates it and reads a null as
+  "this site has no database", so every operator's list of claimed games was empty on a site that
+  had them, and the on-demand check endpoint threw on request.
+
+The lesson generalises past claiming: **an optional dependency and a service-located one both fail
+silently when the composition is wrong**, and this codebase has one of each on the claim path.
+`CompositionTests` resolves the graph `Program` builds, under scope validation, and asserts the
+services these paths need are really there — a wiring test, because the wiring is what was broken
+while every part it joined was correct.
 
 ## 9. Site surface, v1
 

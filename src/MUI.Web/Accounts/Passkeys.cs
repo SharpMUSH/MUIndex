@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
@@ -52,10 +53,25 @@ public static class Passkeys
             s.GetRequiredService<NpgsqlDataSource>(),
             s.GetRequiredService<TimeProvider>()));
 
-        services.AddScoped<ClaimService>(s => new ClaimService(
-            new NpgsqlClaimStore(s.GetRequiredService<NpgsqlDataSource>()),
-            new NpgsqlGameStore(s.GetRequiredService<NpgsqlDataSource>()),
-            s.GetRequiredService<TimeProvider>()));
+        // Claiming's own two services, and both are singletons for a reason that is not tidiness.
+        //
+        // The dashboard resolves IClaimStore from the container and treats a null as "this site has
+        // no database" — so an unregistered store did not throw, it made every operator's list of
+        // claimed games empty on a site that had them. Nothing registered it, here or anywhere.
+        //
+        // ClaimService was scoped, and the crawl loop that settles beacons is a singleton
+        // BackgroundService: a scoped dependency is one CrawlCycle can never legally be given. With
+        // scope validation on — which is what `dotnet run` does — the container refused to build at
+        // all, so the site did not start with a connection string set. Both are stateless over a
+        // pooled NpgsqlDataSource, so a singleton is what they should always have been.
+        //
+        // TryAdd, because AddMuiCrawler registers the same pair for a crawler-only deployment and
+        // the two compositions overlap in the one that runs both.
+        services.TryAddSingleton<IClaimStore>(s => new NpgsqlClaimStore(
+            s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IGameStore>(s => new NpgsqlGameStore(
+            s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<ClaimService>();
 
         services.Configure<IdentityPasskeyOptions>(options =>
         {
