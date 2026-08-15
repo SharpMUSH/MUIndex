@@ -33,6 +33,21 @@ public static class SqlEnums
         _ => throw Unread(value, nameof(FieldSource)),
     };
 
+    /// <summary>Whether a claim joins a game's owners or displaces them (spec §8.4).</summary>
+    public static string ToDb(ClaimIntent intent) => intent switch
+    {
+        ClaimIntent.Join => "join",
+        ClaimIntent.Assume => "assume",
+        _ => throw Unmapped(intent),
+    };
+
+    public static ClaimIntent ToClaimIntent(string value) => value switch
+    {
+        "join" => ClaimIntent.Join,
+        "assume" => ClaimIntent.Assume,
+        _ => throw Unread(value, nameof(ClaimIntent)),
+    };
+
     /// <summary>
     /// The channel a claim token was read from (spec §8.3). DNS is absent from the enum, not merely
     /// unmapped here — a TXT record proves control of a hostname, and a hostname is not a game.

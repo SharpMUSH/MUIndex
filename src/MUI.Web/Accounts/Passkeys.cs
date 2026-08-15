@@ -249,6 +249,9 @@ public static class Passkeys
 
             return Results.Redirect("/");
         });
+
+        // §8.4's counter-claim and §8.5's several owners, as the two forms that reach them.
+        app.MapMuiOwnership();
     }
 
     /// <summary>What the page posts back after the authenticator has answered.</summary>

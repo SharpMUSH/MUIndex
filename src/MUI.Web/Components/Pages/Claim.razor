@@ -45,6 +45,44 @@ else if (User is null)
         <p><a class="button" href="/account/sign-in">Sign in or create an account</a></p>
     </section>
 }
+else if (Pending is null)
+{
+    @*
+        The game already has owners, so arriving here is not by itself the ask: §8.5 allows several
+        owners and §8.4 makes a counter-claim how a game changes hands, and NOTHING IN A PROBE CAN
+        TELL THEM APART — both publish the identical line in the identical config file. So the
+        choice is made before the token exists, by the person who knows which they mean.
+    *@
+    <section class="prose">
+        <h1>Claim @Page.Summary.Name</h1>
+
+        <p>
+            This game already has @(Owners.Count == 1 ? "an owner" : $"{Owners.Count} owners") who
+            proved control of the server. You can prove it too — the test is the same either way —
+            but we need to know what you mean by it, because we cannot tell from the token.
+        </p>
+
+        <form method="post" action="/g/@Slug/claim/start">
+            <AntiforgeryToken />
+            <input type="hidden" name="intent" value="join" />
+            <button type="submit">I run it too — add me as an owner</button>
+            <p class="faint">
+                Everyone keeps their claim. This is two people running one game.
+            </p>
+        </form>
+
+        <form method="post" action="/g/@Slug/claim/start">
+            <AntiforgeryToken />
+            <input type="hidden" name="intent" value="assume" />
+            <button type="submit">I have taken it over — transfer it to me</button>
+            <p class="faint">
+                When your token verifies, the existing @(Owners.Count == 1 ? "claim is" : "claims are")
+                revoked and the game is yours. They will see why in their own history. Nothing is
+                deleted, and they can prove control again the same way you are about to.
+            </p>
+        </form>
+    </section>
+}
 else
 {
     <section class="prose">
@@ -71,6 +109,15 @@ else
                 next probe will pick it up. It proves you can write to that server, which is the
                 whole test.
             </p>
+
+            @if (Pending.Intent is ClaimIntent.Assume)
+            {
+                <p class="refused">
+                    <strong>This is a transfer.</strong> When we read this token, the
+                    @(Owners.Count == 1 ? "current owner's claim" : "current owners' claims") on this
+                    game are revoked and it becomes yours.
+                </p>
+            }
 
             <p class="token mono">@Pending.Token</p>
 
@@ -125,6 +172,9 @@ else
 
     private GameClaim? Pending { get; set; }
 
+    /// <summary>Whoever has already proved control of this game (spec §8.5).</summary>
+    private IReadOnlyList<GameClaim> Owners { get; set; } = [];
+
     private bool CanCheck => Pending is not null && Claims!.MayRecheck(Pending);
 
     /// <summary>
@@ -152,7 +202,25 @@ else
             User = await users.GetUserAsync(principal);
         }
 
-        if (User is not null)
+        if (User is null)
+        {
+            return;
+        }
+
+        Owners = await Claims.OwnersAsync(Page.Summary.Id);
+
+        var mine = (await Services.GetRequiredService<IClaimStore>().ForUserAsync(User.Id))
+            .Where(claim => claim.GameId == Page.Summary.Id)
+            .ToList();
+
+        Pending = mine.FirstOrDefault(claim => claim.IsVerified)
+            ?? mine.FirstOrDefault(claim => claim.IsPending(Clock.GetUtcNow()));
+
+        // Minting on view is right for a game nobody owns — arriving here IS the ask, and
+        // IssueAsync returns an existing token rather than replacing one already pasted into a
+        // config file. It is wrong for a game that has owners, where the ask has two meanings and
+        // only the claimant knows which: that case falls through to the choice above.
+        if (Pending is null && Owners.Count == 0)
         {
             Pending = await Claims.IssueAsync(Page.Summary.Id, User.Id);
         }

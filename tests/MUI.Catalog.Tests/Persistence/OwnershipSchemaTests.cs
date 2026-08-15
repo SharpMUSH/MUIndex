@@ -152,6 +152,54 @@ public class OwnershipSchemaTests
         }
     }
 
+    /// <summary>
+    /// Both directions of <c>intent</c> (spec §8.4): the schema refuses what we cannot write, and
+    /// accepts everything we can.
+    /// </summary>
+    /// <remarks>
+    /// The second half matters more than it looks. A <c>CHECK</c> that refuses a value the code
+    /// really produces does not fail here — it fails the first time somebody tries to take over a
+    /// game, in production, at the end of a flow they have already published a token for.
+    /// </remarks>
+    [Test]
+    public async Task TheSchemaAndTheCodeAgreeAboutWhatAClaimCanMean()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var user = await AccountAsync(db, "owner");
+
+        await using var connection = await db.DataSource.OpenConnectionAsync();
+
+        // One account per intent, because a partial unique index allows an account only one pending
+        // claim per game — which is §8.1's own rule and not something to work around here.
+        foreach (var intent in Enum.GetValues<ClaimIntent>())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO game_claim (id, game_id, user_id, token, intent, issued_at, expires_at)
+                VALUES (@id, @game, @user, @token, @intent, @now, @later)
+                """,
+                new
+                {
+                    id = Guid.CreateVersion7(),
+                    game,
+                    user = await AccountAsync(db, $"claimant-{intent}"),
+                    token = "muidx-" + intent.ToString().ToLowerInvariant().PadRight(20, 'a'),
+                    intent = SqlEnums.ToDb(intent),
+                    now = Now,
+                    later = Now.AddDays(30),
+                });
+        }
+
+        await Assert.That(async () => await connection.ExecuteAsync(
+                """
+                INSERT INTO game_claim (id, game_id, user_id, token, intent, issued_at, expires_at)
+                VALUES (@id, @game, @user, 'muidx-bbbbbbbbbbbbbbbbbbbb', 'seize', @now, @later)
+                """,
+                new { id = Guid.CreateVersion7(), game, user, now = Now, later = Now.AddDays(30) }))
+            .Throws<PostgresException>();
+    }
+
     private static Task InsertClaimAsync(NpgsqlConnection connection, Guid game, Guid user, string token) =>
         connection.ExecuteAsync(
             """

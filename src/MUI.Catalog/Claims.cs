@@ -17,6 +17,36 @@ public enum ClaimChannel
 }
 
 /// <summary>
+/// Whether a claimant is joining a game's owners or taking it over (spec §8.4, §8.5).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Declared, never inferred.</b> §8.5 allows a game several owners, each having verified a token
+/// of their own; §8.4 makes a counter-claim the way a game changes hands. Both are real, they are
+/// opposite outcomes, and nothing in a probe can tell them apart — a co-founder joining and a new
+/// operator taking over publish the identical line in the identical config file. So the claimant says
+/// which, when they ask for the token, on a page that explains both.
+/// </para>
+/// <para>
+/// Guessing was the alternative and it is wrong in both directions. "A claim on an already-claimed
+/// game is a takeover" silently unclaims a partner the first time two people run one game; the
+/// opposite leaves a departed operator holding a listing they no longer run.
+/// </para>
+/// <para>
+/// Neither is the more trusted. Both publish a token on the server, which is the whole test — so the
+/// choice decides what happens to the <em>other</em> claims, not how hard this one was to make.
+/// </para>
+/// </remarks>
+public enum ClaimIntent
+{
+    /// <summary>Become one of the game's owners, alongside whoever else has proved it.</summary>
+    Join,
+
+    /// <summary>Take the game over. On verification, every other verified claim is revoked.</summary>
+    Assume,
+}
+
+/// <summary>
 /// A claim on a game by an account: pending while <see cref="ClaimedAt"/> is null, verified after.
 /// </summary>
 /// <remarks>
@@ -43,6 +73,9 @@ public sealed record GameClaim
     public required Guid UserId { get; init; }
 
     public required string Token { get; init; }
+
+    /// <summary>Whether verifying this joins the game's owners or displaces them (spec §8.4).</summary>
+    public ClaimIntent Intent { get; init; } = ClaimIntent.Join;
 
     public required DateTimeOffset IssuedAt { get; init; }
 
@@ -206,4 +239,9 @@ public enum ClaimVerdict
 
     /// <summary>A token we issued, matching a claim that has expired or been revoked.</summary>
     Stale,
+
+    /// <summary>
+    /// A counter-claim completed: this account now owns the game and the others were revoked (§8.4).
+    /// </summary>
+    Assumed,
 }

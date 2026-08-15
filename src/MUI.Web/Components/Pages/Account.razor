@@ -45,6 +45,14 @@ else
             </p>
         }
 
+        @if (Resigned)
+        {
+            <p class="verified">
+                <strong>Given up.</strong> The record of it is kept, and you can prove control again
+                any time by publishing a fresh token.
+            </p>
+        }
+
         @if (Verified.Count > 0)
         {
             <h2>Claimed</h2>
@@ -56,6 +64,47 @@ else
                         <span class="faint">
                             verified @claim.ClaimedAt!.Value.ToString("d MMM yyyy")@(BeaconNote(claim))
                         </span>
+
+                        @if (CoOwners(claim) is { Count: > 0 } others)
+                        {
+                            @* §8.5 — a game may have several owners, and each of them should know. *@
+                            <p class="faint">
+                                Also owned by @string.Join(", ", others.Select(Name)) — each having
+                                verified a token of their own.
+                            </p>
+                        }
+
+                        <details class="history">
+                            <summary class="faint">history</summary>
+                            <ol class="events mono">
+                                @foreach (var entry in History(claim))
+                                {
+                                    <li>
+                                        <span class="faint">@entry.At.ToString("yyyy-MM-dd HH:mm")</span>
+                                        @Word(entry.Kind)@(entry.Detail is { Length: > 0 } d ? $" · {d}" : string.Empty)
+                                    </li>
+                                }
+                            </ol>
+                        </details>
+
+                        @*
+                            Explicit, and typed. §8.4 lets a claim end only by an owner saying so or
+                            by a counter-claim — never by lapsing — and a bare button beside a game's
+                            name is one misclick from a listing somebody no longer owns.
+                        *@
+                        <details class="resign" open="@(Confirming == claim.Id)">
+                            <summary class="faint">give up this claim</summary>
+                            <form method="post" action="/account/claims/@claim.Id/resign">
+                                <AntiforgeryToken />
+                                <p class="faint">
+                                    Type <code>resign</code> to confirm. Nothing is deleted and you
+                                    can prove control again by publishing a fresh token; the game
+                                    stays claimed if anybody else owns it.
+                                </p>
+                                <input type="text" name="confirm" autocomplete="off" />
+                                <button type="submit" class="quiet">Give up @game.Name</button>
+                            </form>
+                        </details>
                     </li>
                 }
             </ul>
@@ -125,6 +174,25 @@ else
 
     private IList<UserPasskeyInfo> Keys { get; set; } = [];
 
+    /// <summary>Every verified claim on each of this account's games, so co-owners can be named.</summary>
+    private Dictionary<Guid, IReadOnlyList<GameClaim>> Owners { get; } = [];
+
+    /// <summary>Each of this account's claims' audit log (spec §8.5).</summary>
+    private Dictionary<Guid, IReadOnlyList<ClaimEvent>> Events { get; } = [];
+
+    /// <summary>Display names for the accounts that co-own something here.</summary>
+    private Dictionary<Guid, string> Names { get; } = [];
+
+    [SupplyParameterFromQuery(Name = "resigned")]
+    private string? ResignedFlag { get; set; }
+
+    [SupplyParameterFromQuery(Name = "resign")]
+    private string? ResignFlag { get; set; }
+
+    private bool Resigned => ResignedFlag is not null;
+
+    private Guid? Confirming => Guid.TryParse(ResignFlag, out var id) ? id : null;
+
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }
 
@@ -163,6 +231,23 @@ else
             if (claim.IsVerified)
             {
                 Verified.Add((claim, game));
+
+                if (Services.GetService<ClaimService>() is { } service)
+                {
+                    Owners[claim.Id] = await service.OwnersAsync(game.Id);
+                    Events[claim.Id] = await service.HistoryAsync(claim.Id);
+
+                    foreach (var owner in Owners[claim.Id].Where(o => o.UserId != User.Id))
+                    {
+                        // A co-owner's display name, which they chose and which appears only to the
+                        // people they share a game with. Never an address and never an identity
+                        // claim (§8.2).
+                        Names.TryAdd(
+                            owner.UserId,
+                            (await Users.FindByIdAsync(owner.UserId.ToString()))?.DisplayName
+                                ?? "another account");
+                    }
+                }
             }
             else if (claim.IsPending(now))
             {
@@ -180,6 +265,39 @@ else
     /// do with the owner, and alarming them about it would be the interface arguing for a rule the
     /// system does not have.
     /// </remarks>
+    private IReadOnlyList<GameClaim> CoOwners(GameClaim mine) =>
+        Owners.TryGetValue(mine.Id, out var all)
+            ? [.. all.Where(other => other.UserId != mine.UserId)]
+            : [];
+
+    private IReadOnlyList<ClaimEvent> History(GameClaim mine) =>
+        Events.TryGetValue(mine.Id, out var events) ? events : [];
+
+    private string Name(GameClaim claim) =>
+        Names.TryGetValue(claim.UserId, out var name) ? name : "another account";
+
+    /// <summary>
+    /// One audit entry in words. The vocabulary is the enum's, spelled for a person.
+    /// </summary>
+    /// <remarks>
+    /// <c>BeaconMissing</c> reads as an observation and not as a warning: a probe not reading the
+    /// token happens for reasons that have nothing to do with the owner, and absence never revokes
+    /// (§8.4). Alarming somebody about it would be the interface arguing for a rule the system does
+    /// not have.
+    /// </remarks>
+    private static string Word(ClaimEventKind kind) => kind switch
+    {
+        ClaimEventKind.Issued => "token issued",
+        ClaimEventKind.Reissued => "token issued again",
+        ClaimEventKind.Verified => "verified — we read your token",
+        ClaimEventKind.BeaconSeen => "token still published",
+        ClaimEventKind.BeaconMissing => "token not read this time",
+        ClaimEventKind.Revoked => "claim given up",
+        ClaimEventKind.Expired => "token expired unused",
+        ClaimEventKind.CounterClaimed => "another account proved control and took the game over",
+        _ => "check requested",
+    };
+
     private static string BeaconNote(GameClaim claim) =>
         claim.BeaconLastSeenAt is { } seen
             ? $", token last seen {seen:d MMM yyyy}"

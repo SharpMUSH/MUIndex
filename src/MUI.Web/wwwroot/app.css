@@ -1025,3 +1025,23 @@ table.client-matrix td a { color: var(--faint); }
 .prose pre code { font-size: 13px; }
 .prose ul, .prose ol { padding-left: 1.4em; }
 .prose li { margin-bottom: 4px; }
+
+/* ── ownership: co-owners, the audit log, and giving up a claim ────────────
+   §8.5's several owners and §8.4's explicit revocation. The history is a
+   details block because it is the sort of thing somebody reads once, when
+   something has happened that they want explained.
+
+   The resign form is deliberately unstyled as a danger: no red, no warning
+   triangle. Giving up a claim is recoverable — publish a fresh token — and
+   dressing it as destruction would overstate what it does. The typed
+   confirmation is the guard, not the colour. */
+
+details.history, details.resign { margin-top: 6px; }
+details.history > summary, details.resign > summary { cursor: pointer; font-size: 12px; }
+
+ol.events { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12px; }
+ol.events li { padding: 2px 0; color: var(--dim); }
+ol.events .faint { margin-right: 8px; }
+
+details.resign form { margin-top: 6px; }
+details.resign input[type="text"] { display: block; margin: 6px 0; max-width: 16ch; }
