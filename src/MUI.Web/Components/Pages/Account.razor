@@ -95,6 +95,26 @@ else
                                 Name="game.Name"
                                 Declared="DeclaredFor(game.Id)"
                                 Now="Now" />
+
+                    @*
+                        §8.5's owner-published outputs. Shown here because this is where the person
+                        who would paste it is, and shown as the exact line to copy — the same reason
+                        the claim page prints the MSSP variable in full. In the block's body rather
+                        than its summary: a <details> inside a <summary> is interactive content
+                        nested in a control, which no browser owes anybody a sane answer for.
+                    *@
+                    <details class="publish">
+                        <summary class="faint">put your player count on your own site</summary>
+                        <pre class="mono">&lt;a href="/g/@game.Slug"&gt;&lt;img src="/g/@game.Slug/badge.svg" alt="@game.Name on mu*index"&gt;&lt;/a&gt;</pre>
+                        <p class="faint">
+                            The badge carries the count <em>and</em> when we measured it, because a
+                            number with no age is the thing this site exists to replace. It says
+                            <em>players unknown</em> rather than nought when we could not count, and
+                            <em>archived</em> if the game stops answering. There is
+                            <a href="/g/@game.Slug/badge.json">JSON</a> too, if you would rather draw
+                            your own.
+                        </p>
+                    </details>
                 </details>
             }
         }

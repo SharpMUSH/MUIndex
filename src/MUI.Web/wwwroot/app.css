@@ -1100,3 +1100,20 @@ p.refused { border-left: 2px solid var(--amber); padding-left: 10px; }
 dl.lint dt { font-size: 13px; margin-top: var(--cpad); }
 dl.lint dd { margin: 2px 0 0; color: var(--dim); }
 dl.lint dd .kicker { display: block; margin-bottom: 2px; }
+
+/* ── owner-published outputs ───────────────────────────────────────────────
+   §8.5's badge snippet, shown where the person who pastes it already is. The
+   pre wraps rather than scrolls: a line somebody has to copy should be visible
+   in one piece. */
+
+details.publish { margin-top: 6px; }
+details.publish > summary { cursor: pointer; font-size: 12px; }
+details.publish pre {
+    background: var(--recessed);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 8px 10px;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
