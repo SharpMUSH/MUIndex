@@ -954,6 +954,22 @@ including screen-reader accessibility. Orientation content — MUSH vs MUD vs MU
 collaborative RP → these codebases → these clients → these games" — is curated, single-author, and
 versioned in git. **Not a wiki**; this is how wiki value is obtained without wiki governance.
 
+**The head is a surface.** A game page is shared far more often than it is browsed to, and every one
+of those shares is rendered by somebody else's program out of the metadata rather than out of the
+page. So the preview text is subject to the rules the body is: a count carries how it was obtained
+and how old it is or it does not appear, an unreadable `WHO` is omitted rather than rounded to zero,
+and a number a game declared about itself is never described as one we took. Canonical URLs drop the
+query string, because `?plain=1` is the same document and the facet panel is a GET form — left alone
+that is an unbounded supply of near-duplicate URLs for one listing.
+
+**Two things follow from the reader being a machine.** It never sees the demo banner, which is body
+copy: over the fixture the confession moves into the metadata itself, and **structured data and the
+sitemap's game URLs are not emitted at all**, because neither format has a field meaning *none of
+this was measured* and absence is then the only honest answer. And structured data publishes
+measurements only, each beside the instant it was taken — `userInteractionCount` is a bare integer
+with nowhere to put an age, so it appears with `endTime` or not at all, and a declared count stays on
+the page where it is labelled rather than entering a graph where it could not be.
+
 ## 10. API and open data
 
 Read-only JSON with stable IDs and ETags. Bulk dumps under an open licence. Time-series endpoints
