@@ -184,7 +184,8 @@ public sealed class IdentityMatcher(
             MsspReading.Meaningful(result.Mssp, IdentityMsspVariables.Created),
             MsspReading.Meaningful(result.Mssp, IdentityMsspVariables.Website),
             MsspReading.Meaningful(result.Mssp, IdentityMsspVariables.Contact),
-            MsspReading.Meaningful(result.Mssp, IdentityMsspVariables.Codebase),
+            MsspReading.Meaningful(result.Mssp, IdentityMsspVariables.Codebase)
+                ?? LoginCommandReading.MeaningfulCodebase(result.Info, result.Version),
             FingerprintOf(result.Banner),
             ClaimTokenBeacon.Read(result));
 

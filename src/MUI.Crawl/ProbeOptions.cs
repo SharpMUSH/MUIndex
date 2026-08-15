@@ -129,57 +129,20 @@ public sealed record ProbeOptions
     /// reason.
     /// </para>
     /// <para>
-    /// <b>It does not reach the wire yet, and neither does <see cref="InfoUrl"/>.</b>
-    /// TelnetNegotiationCore's <c>TerminalTypeProtocol</c> hardcodes a client's terminal types to
-    /// <c>TNC</c>, <c>XTERM</c>, <c>MTTS 3853</c> in a private field with no setter, and its
-    /// <c>NewEnvironProtocol</c> answers a server's NEW-ENVIRON request with the crawler host's own
-    /// <c>USER</c> and a fixed <c>LANG</c> — so what an admin actually sees is the library's default
-    /// and a local account name, not us. The library is first-party: the fix is a PR there making
-    /// both settable, never a reflection hack or a hand-rolled plugin here.
-    /// </para>
-    /// <para>
-    /// Until then nothing may claim otherwise. <c>/about</c> reads this field and says plainly that
-    /// the crawler is <em>configured</em> to call itself this and does not manage to, because
-    /// "the crawler identifies itself" is a claim about our own behaviour and that one would be
-    /// false in exactly the way <c>ContactedMaintainer</c>'s default was.
+    /// The list is passed verbatim to <c>TerminalTypeProtocol.WithTerminalTypes</c>, which controls
+    /// the sequence of TTYPE responses. Per MTTS convention the first entry is the client name, the
+    /// second is the terminal type, and the third is the MTTS bitvector. The first entry is also
+    /// passed to <c>WithClientIdentity</c>, which feeds the MNES <c>CLIENT_NAME</c> variable that
+    /// <c>NewEnvironProtocol</c> answers when a server asks.
     /// </para>
     /// </remarks>
     public IReadOnlyList<string> TerminalTypes { get; init; } =
         ["MUINDEX-CRAWLER", "MUINDEX", "MTTS 9"];
 
-    /// <summary>
-    /// Telnet options to request outright with <c>IAC DO</c> rather than waiting to be offered.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Waiting is not enough.</b> The MSSP specification says a server "should send
-    /// <c>IAC WILL MSSP</c>" on connect, so a listen-only crawler assumes it will hear one. Many
-    /// servers that support MSSP never volunteer anything and answer only when asked, which is why
-    /// the protocol's own reference client (TinTin++'s <c>#session mssp</c>) asks rather than listens.
-    /// </para>
-    /// <para>
-    /// Asking also makes a negative answer meaningful. Aardwolf, measured directly, offers MCCP1/2,
-    /// ATCP, GMCP and its own option 102, and requests TTYPE and NAWS — but does not answer
-    /// <c>IAC DO MSSP</c> at all. Because we asked, "no MSSP" there is a measurement rather than an
-    /// assumption we never tested.
-    /// </para>
-    /// <para>
-    /// This is negotiation, not traffic: <c>IAC DO</c> is the client half of the option handshake and
-    /// is the only category of byte this probe puts on the wire beyond the pre-login <c>WHO</c>. Only
-    /// MSSP is requested, because MSSP is the one option that exists specifically to be asked for by
-    /// crawlers — the rest are observed if a server offers them and left alone if it does not.
-    /// </para>
-    /// </remarks>
-    public IReadOnlyList<byte> RequestOptions { get; init; } = [MsspOption];
-
-    /// <summary>The MSSP telnet option, 70.</summary>
-    public const byte MsspOption = 70;
-
     /// <summary>Where an admin can read what we do and ask us to stop.</summary>
     /// <remarks>
     /// A placeholder domain, because the domain is an open question (spec §15.1) and inventing one
-    /// here would settle it by accident. It is also not yet sent to anybody — see
-    /// <see cref="TerminalTypes"/> — so a deployment that leaves this alone is publishing an address
+    /// here would settle it by accident. A deployment that leaves this alone is publishing an address
     /// that answers nobody. <c>/about</c> compares against this default and says so when it matches.
     /// </remarks>
     public string InfoUrl { get; init; } = "https://muindex.example/crawler";

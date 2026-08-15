@@ -1,4 +1,5 @@
 using MUI.Catalog;
+using MUI.Crawler;
 using MUI.Web.Accounts;
 using MUI.Web.Api;
 using MUI.Web.Components;
@@ -27,6 +28,12 @@ var connectionString = PostgresData.ResolveConnectionString(builder.Configuratio
 if (connectionString is not null)
 {
     builder.Services.AddPostgresCatalogue(connectionString);
+    builder.Services.AddMuiCrawler(connectionString, configure =>
+    {
+        // MUI.Web already applies migrations during startup; the hosted crawler should not repeat
+        // them when it takes the lease.
+        configure.ApplyMigrations = false;
+    });
 }
 else
 {

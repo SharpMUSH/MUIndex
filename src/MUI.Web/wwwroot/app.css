@@ -189,13 +189,6 @@ figure.ansi figcaption {
     background: var(--surface);
 }
 
-/* ── listing ───────────────────────────────────────────────────────────── */
-
-ul.games { list-style: none; margin: 0; padding: 0; }
-ul.games li { border-bottom: 1px solid var(--line); padding: var(--cpad) 0; }
-ul.games .name { font-size: 16px; font-weight: 600; text-decoration: none; }
-ul.games .meta { font-family: var(--mono); font-size: 12px; color: var(--faint); }
-
 /*
   Amber means declared, unverified or ageing, and nothing else — so the archived pill is not amber.
   Archived is a lifecycle state derived from measurement, and colouring it as staleness would put
@@ -207,9 +200,6 @@ ul.games .meta { font-family: var(--mono); font-size: 12px; color: var(--faint);
     padding: 3px 8px; white-space: nowrap;
 }
 .badge.archived { color: var(--faint); }
-
-fieldset.facets { border: 1px solid var(--line); padding: var(--cpad); margin: 0 0 var(--cpad); }
-fieldset.facets legend { font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
 
 /* ── things a reader cannot see but a reader still gets ────────────────────
    Text present for a screen reader and absent from the picture. Never display:none — that removes
@@ -243,7 +233,9 @@ fieldset.facets legend { font: 10px/1 var(--kick); letter-spacing: 0.16em; text-
 
 /* ── chrome ────────────────────────────────────────────────────────────── */
 
-header.site nav { display: flex; gap: var(--cpad); }
+/* Wrapping, because seven catalogue links do not fit a 390px phone on one line and the alternative
+   is a page that scrolls sideways — which the whole layout is otherwise careful never to do. */
+header.site nav { display: flex; gap: var(--cpad); flex-wrap: wrap; }
 header.site nav a { color: var(--dim); text-decoration: none; }
 header.site nav a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 header.site .kicker { margin-left: auto; }
@@ -467,26 +459,148 @@ pre.plain-screen { background: var(--recessed); padding: var(--cpad); overflow-x
 }
 .ansi-plate p { margin: 0; }
 
-/* ── listing and archive rows ──────────────────────────────────────────── */
+/* ══ listing and archive rows ═══════════════════════════════════════════════
+   Two columns and four lines of type. What the game is on the left, what we
+   last measured of it on the right, and the eye runs down one edge or the other
+   rather than across every row.
 
-.row-main { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--cpad); align-items: start; }
-ul.games .count { font-size: 12px; white-space: nowrap; }
+   Density is deliberate and is the reason the row is a grid rather than a stack:
+   this list is 700 games long and growing, so the name, the count and the age
+   each have a column of their own and land in the same place on every row. The
+   hairline is the only separator — the design's own rule is that separation
+   comes from surface steps, not from rules, and a rule per row at this density
+   would be the loudest thing on the page.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-ul.archive { list-style: none; margin: 0; padding: 0; }
-ul.archive li { border-bottom: 1px solid var(--line); padding: var(--cpad) 0; }
-ul.archive .name { font-size: 16px; font-weight: 600; text-decoration: none; color: var(--dim); }
-ul.archive .meta { font-size: 12px; color: var(--faint); margin-top: 4px; }
+ul.games, ul.archive { list-style: none; margin: 0; padding: 0; }
+
+ul.games > li, ul.archive > li {
+    border-bottom: 1px solid var(--line);
+    padding: var(--row-pad) var(--cpad);
+
+    /* Negative margin so the hover plane runs to the reading measure's own edge and the text does
+       not shift when it appears — a row that moves under the pointer is a row you mis-click. */
+    margin: 0 calc(var(--cpad) * -1);
+}
+
+ul.games > li.game-row:hover { background: var(--surface); }
+
+.row-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px var(--cpad);
+    align-items: baseline;
+}
+
+.row-text { min-width: 0; }
+.row-head { margin: 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+
+ul.games .name, ul.archive .name { font-size: 15px; font-weight: 600; text-decoration: none; }
+ul.games .name:hover { text-decoration: underline; text-underline-offset: 3px; }
+ul.archive .name { color: var(--dim); }
+
+/* The majority state of the catalogue, so it is the quiet word rather than the third pill. A badge
+   every row wears distinguishes no row from any other, and at 700 rows it is chrome. */
+ul.games .unclaimed { font: 10px/1 var(--kick); letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+
+.row-text .tagline {
+    margin: 2px 0 0;
+    color: var(--dim);
+    font-size: 13px;
+
+    /* One line. A game's own description is a paragraph on its page; here it is a hint at what the
+       game is, and a listing whose rows are different heights cannot be scanned at all. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+ul.games .meta, ul.archive .meta { margin: 3px 0 0; font-size: 11.5px; color: var(--faint); }
+ul.games .meta .protocol { white-space: nowrap; }
+
+/* The measured column. Tabular figures so the counts line up down the page without a table. */
+.row-figure {
+    margin: 0;
+    text-align: right;
+    font-size: 12px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    display: grid;
+    gap: 2px;
+    justify-items: end;
+}
+
+.row-figure .players { color: var(--text); }
+.row-figure .players .unit { color: var(--faint); }
+.row-figure .players.unknown { color: var(--faint); }
+.row-figure .seen { color: var(--faint); font-size: 11.5px; }
+
+/* Archived: dimmed one step, and that is the whole treatment. No red, no strikethrough, no "dead" —
+   the entry is a library record for a periodical that ceased publication. */
+ul.games > li.archived { opacity: 0.72; }
+
+/*
+  Where a sort ran out of things it could rank. Not a row and not styled as one: it is a rule with a
+  sentence on it, so the reader can see that the list below it is a different kind of thing from the
+  list above. The words are the carrier; the rule only says where the change happened.
+*/
+li.unranked-break {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--dim);
+    font-size: 12px;
+    margin-top: var(--cpad);
+}
+
+li.unranked-break:hover { background: var(--surface); }
+
 dl.archive-facts { margin: 0; font-size: 12px; min-width: 220px; }
 dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
 
-fieldset.facets { display: flex; gap: var(--cpad); align-items: center; flex-wrap: wrap; }
-fieldset.facets .check { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--dim); }
+/* ── the listing's own header ────────────────────────────────────────────── */
+
+.listing-head { margin-bottom: var(--cpad); }
+.listing-head p { margin: 0; max-width: 62ch; }
+
+.listing-bar {
+    display: flex;
+    align-items: baseline;
+    gap: var(--cpad);
+    flex-wrap: wrap;
+    margin: calc(var(--cpad) * 1.5) 0 4px;
+}
+
+.listing-bar .result-count { margin: 0; font-size: 13px; }
+.listing-bar .result-count strong { font-size: 19px; font-weight: 600; }
+.listing-bar .listing-order { margin: 0; }
+.listing-bar .listing-order a { color: var(--faint); }
+
+/*
+  Nothing matched. A plate rather than a paragraph, because an empty listing is a state and not an
+  aside — and it says the same thing the archive section says, since a name that once worked here
+  still resolves.
+*/
+.empty-state {
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    background: var(--recessed);
+    padding: calc(var(--cpad) * 1.5);
+    margin: var(--cpad) 0;
+    max-width: 60ch;
+}
+
+.empty-state .empty-head { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+.empty-state .kicker { margin: 8px 0 0; }
 
 /* ── one column below 900px; no horizontal scroll except inside the frame ── */
 
 @media (max-width: 900px) {
     .two-up, .feeds { grid-template-columns: minmax(0, 1fr); }
-    .row-main { grid-template-columns: minmax(0, 1fr); }
     .game-head { flex-direction: column; }
     header.site { flex-wrap: wrap; }
     header.site .kicker { margin-left: 0; }
@@ -596,50 +710,236 @@ table.ranking tbody th { font-weight: 400; }
 @media (max-width: 900px) {
     /* The label stops competing with the bar for a width neither of them has. */
     ul.shares li { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+}
+
 /* ══ faceted search ═════════════════════════════════════════════════════════
    The panel on /games. It is a plain GET form with no script, so everything
    here dresses controls the browser already knows how to operate — no rule
-   below is load-bearing for the filter working.
+   below is load-bearing for the filter working, and every one of them survives
+   being switched off.
 
-   Two things are deliberate rather than decorative. The evidence chip beside
-   each facet's name takes the site's own accent/amber split for measured
+   It reads as one card with three registers stacked in it: the bar a reader
+   touches on every visit, the facets they touch on some, and a key they read
+   once. That shape is the point. The panel used to be a column of full-width
+   label-and-select rows with a paragraph of prose under it — a database form,
+   and one that explained itself at more length than it took to operate.
+
+   Two things here are deliberate rather than decorative. The evidence chip
+   beside each facet's name takes the site's own accent/amber split for measured
    versus declared, because a reader has to be able to see which half of the
-   panel is evidence — and it says the words too, since colour is not a fact.
-   And a count is never hidden at a narrow width: a facet whose numbers
-   disappear has stopped saying what a click will produce, which is the only
-   reason they are there.
+   panel is evidence — and it says the word too, since colour is not a fact and
+   the glyph is aria-hidden. And a count is never hidden at any width: a facet
+   whose numbers disappear has stopped saying what a click will produce, which
+   is the only reason they are there.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-form.facet-form { margin-bottom: var(--gap); }
+form.facet-form {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: var(--cpad);
+    margin: 0 0 var(--cpad);
+}
 
+/* ── the bar ─────────────────────────────────────────────────────────────── */
+
+/*
+  The archive's own search box is the same control with a legend on it, so it is styled here rather
+  than growing a second look for one question asked on two pages.
+*/
+.filter-bar, fieldset.facets {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+fieldset.facets {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: var(--cpad);
+    margin: 0 0 var(--cpad);
+}
+
+fieldset.facets legend {
+    font: 10px/1 var(--kick);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
+}
+
+.filter-bar input[type="search"], fieldset.facets input[type="search"] { flex: 1 1 16rem; min-width: 0; }
+
+.bar-field { display: inline-flex; align-items: center; gap: 6px; }
+.bar-label { font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
+
+.filter-bar button { flex: none; }
+
+/* ── one facet ───────────────────────────────────────────────────────────── */
+
+/*
+  auto-fit at a narrow floor, so eight facets pack four to a row on a laptop, two on a tablet and one
+  on a phone without a breakpoint being written for any of them.
+*/
 .facet-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-    gap: var(--cpad);
+    grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
+    gap: 10px var(--cpad);
     margin-top: var(--cpad);
 }
 
-.facet { min-width: 0; }
-.facet > label, .facet > legend { display: block; font-size: 12px; color: var(--dim); margin-bottom: 4px; }
-.facet select { width: 100%; max-width: 100%; padding: 4px 6px; }
+/* The control sits at the bottom of its cell, so a label that wraps grows upward and every select in
+   the row stays on one line. Left to itself the grid aligns the tops, and one long facet name puts
+   one control half a row below its neighbours. */
+.facet {
+    min-width: 0;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    align-content: end;
+}
 
-fieldset.facet.presence {
+.facet > label, .facet > legend {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+    flex-wrap: wrap;
+    margin-bottom: 3px;
+    padding: 0;
+}
+
+.facet .facet-name {
+    font: 10px/1.4 var(--kick);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--dim);
+}
+
+select {
+    background: var(--recessed);
     border: 1px solid var(--line);
-    border-radius: 4px;
-    padding: 6px 8px 8px;
+    color: var(--text);
+    font: 13px var(--sans);
+    padding: 5px 7px;
+    border-radius: 6px;
+}
+
+.facet select { width: 100%; max-width: 100%; }
+
+/* A facet that is doing something says so at rest, and not only in colour — the chip row above the
+   results names it in words, and the select's own text is the value it is set to. */
+.facet select.chosen { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+
+/* ── the presence facet ──────────────────────────────────────────────────── */
+
+/*
+  Real checkboxes in pill-shaped labels. The box stays visible rather than being replaced by a tinted
+  chip: the tick is what a screen reader reads and what the keyboard operates, and a chip that
+  carried the state in a background alone would carry it in colour alone.
+*/
+fieldset.facet.presence {
+    border: 0;
+    padding: 0;
+    margin: var(--cpad) 0 0;
     min-width: 0;
 }
 
-fieldset.facet.presence .check { display: flex; gap: 6px; align-items: baseline; font-size: 13px; }
-fieldset.facet.presence .check .count { margin-left: auto; color: var(--dim); font-variant-numeric: tabular-nums; }
+fieldset.facet.presence .checks { display: flex; flex-wrap: wrap; gap: 6px; }
+
+fieldset.facet.presence .check {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 12.5px;
+    border: 1px solid var(--line);
+    border-radius: 99px;
+    padding: 3px 10px 3px 7px;
+    background: var(--recessed);
+    cursor: pointer;
+}
+
+fieldset.facet.presence .check:hover { border-color: var(--dim); }
+fieldset.facet.presence .check:has(:checked) { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+fieldset.facet.presence .check .count { color: var(--faint); font-variant-numeric: tabular-nums; }
+
+/* Where the unticked-is-not-a-no sentence lives: inside the fieldset it is about, at the moment of
+   ticking, rather than in a key at the bottom of the panel. */
+fieldset.facet.presence .hint { margin: 6px 0 0; font-size: 11.5px; color: var(--faint); max-width: 62ch; }
 
 /* Measured and declared, in the site's own two registers. Never the only carrier of the
    difference — the chip spells it out in words as well, because colour is not a fact. */
-.evidence { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; margin-left: 6px; }
+.evidence {
+    font: 10px/1.4 var(--kick);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
 .evidence.measured { color: var(--accent); }
 .evidence.declared { color: var(--amber); }
 
-.facet-note { margin: var(--cpad) 0 0; font-size: 12px; color: var(--dim); max-width: 68ch; }
+/* ── the key ─────────────────────────────────────────────────────────────── */
+
+/*
+  What the panel used to say in a paragraph. Three short statements on one line, and one disclosure
+  holding the readings a reader would otherwise have to guess at. Deliberately not a tooltip and not
+  a title attribute: this is the difference the whole site exists to publish, and it stays in the
+  document whether or not a pointer ever hovers anything.
+*/
+.facet-key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 18px;
+    align-items: baseline;
+    margin-top: var(--cpad);
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    font-size: 11.5px;
+    color: var(--faint);
+}
+
+.facet-key .key-item { display: inline-flex; gap: 5px; align-items: baseline; }
+.facet-key .facet-more { margin-left: auto; }
+.facet-key summary { cursor: pointer; color: var(--dim); }
+
+.facet-key .facet-more[open] { flex: 1 0 100%; margin-left: 0; margin-top: 6px; }
+.facet-key .facet-more ul { margin: 6px 0 0; padding-left: 1.2em; max-width: 72ch; }
+.facet-key .facet-more li { margin-bottom: 5px; color: var(--dim); }
+
+/* ── what the query is currently asking for ──────────────────────────────── */
+
+/*
+  One chip per selection, each a link that removes itself. This is the only place the third state is
+  legible at rest: a <select> sitting on an option inside its "anything but" optgroup looks like any
+  other select until it is opened, and "codebase · anything but Evennia" does not.
+*/
+.active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    align-items: center;
+    margin: 0 0 var(--cpad);
+}
+
+.filter-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line));
+    border-radius: 99px;
+    padding: 3px 9px;
+    font-size: 12px;
+    text-decoration: none;
+    background: var(--recessed);
+}
+
+.filter-chip:hover { border-color: var(--accent); background: var(--raised); }
+.filter-chip .chip-facet { font: 10px/1.4 var(--kick); letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+.filter-chip .chip-value { color: var(--text); }
+.filter-chip .chip-x { color: var(--faint); font-size: 10px; }
+.filter-chip:hover .chip-x { color: var(--text); }
+
+.active-filters .clear-all { font-size: 12px; color: var(--dim); }
 
 /* A filter we could not read is refused out loud rather than dropped, so it needs somewhere loud
    to be said. Amber, like every other "we are not showing you a measurement" state here. */
@@ -647,6 +947,19 @@ fieldset.facet.presence .check .count { margin-left: auto; color: var(--dim); fo
     padding: var(--cpad);
     border-left: 3px solid var(--amber);
     background: color-mix(in srgb, var(--amber) 10%, transparent);
+}
+
+/* ── the panel and the rows, narrow ──────────────────────────────────────── */
+
+@media (max-width: 620px) {
+    /* The bar stacks: a search box sharing a row with a sort and a toggle has room for none of them. */
+    .filter-bar input[type="search"] { flex: 1 0 100%; }
+    .filter-bar button { margin-left: auto; }
+
+    /* The measured column goes under the name rather than fighting it for a width neither has. */
+    .row-main { grid-template-columns: minmax(0, 1fr); }
+    .row-figure { text-align: left; justify-items: start; margin-top: 4px; }
+    .row-figure { display: flex; gap: 12px; flex-wrap: wrap; }
 }
 /* ── reference and orientation pages ───────────────────────────────────────
    The hand-written section (spec §9). Two things it has to communicate that no

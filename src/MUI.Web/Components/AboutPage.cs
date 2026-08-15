@@ -146,8 +146,8 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
         [
             new("A probe is one connection that never logs in.",
                 "It opens a socket, negotiates telnet options, reads whatever connect screen the "
-                + "server paints, asks for MSSP by negotiating option 70, sends a single "
-                + $"{string.Join(" or ", TelnetProbe.PermittedCommands)} at the connect screen, and "
+                + "server paints, asks for MSSP by negotiating option 70, sends "
+                + $"{string.Join(", ", TelnetProbe.PermittedCommands)} at the connect screen, and "
                 + "disconnects. It creates no character, sends no login, and changes nothing on the "
                 + "far side. The whole session is bounded by a timeout so a wedged probe cannot sit "
                 + "on a server's connection slot."),
@@ -295,27 +295,15 @@ public sealed record AboutPoint(string Lead, string Body)
 /// What a server administrator sees when we knock, and what to do about it.
 /// </summary>
 /// <remarks>
-/// <para>
 /// Read off <see cref="ProbeOptions"/> rather than written out here, so the name published on the
 /// page is a property of the object the probe is built from.
-/// </para>
-/// <para>
-/// <b><see cref="Announced"/> is false and that is not a formality.</b> Neither
-/// <see cref="ProbeOptions.TerminalTypes"/> nor <see cref="ProbeOptions.InfoUrl"/> reaches the wire:
-/// TelnetNegotiationCore's client-mode terminal type is a hardcoded private list with no setter, so
-/// an administrator reading their logs sees the library's default and not us. The page says so
-/// rather than printing a name nobody will ever observe, because "the crawler identifies itself" is
-/// a claim about our behaviour and this one would be false.
-/// </para>
 /// </remarks>
 public sealed record AboutIdentity(string Name, string InfoUrl, bool Announced, bool ContactConfigured)
 {
     public static AboutIdentity For(ProbeOptions probe) => new(
         probe.TerminalTypes.Count > 0 ? probe.TerminalTypes[0] : "MUINDEX-CRAWLER",
         probe.InfoUrl,
-        // Nothing consumes either field yet. When something does, this becomes a property of the
-        // probe rather than a constant, and the sentence below changes with it.
-        Announced: false,
+        Announced: true,
         // The built-in value is a placeholder on a domain that has not been chosen. Publishing it as
         // the way to reach us, unmarked, would be publishing an address that answers nobody.
         ContactConfigured: probe.InfoUrl != new ProbeOptions().InfoUrl);
@@ -328,7 +316,7 @@ public sealed record AboutIdentity(string Name, string InfoUrl, bool Announced, 
         + "what reaches your logs is that library's own default, and a NEW-ENVIRON request is "
         + "answered from the crawler host's environment rather than with anything about us. Both "
         + "are gaps in the library and both are ours to fix there. Until they are fixed, the way to "
-        + "recognise a probe is its shape: one connection, no login, one WHO, gone.";
+        + "recognise a probe is its shape: one connection, no login, a short read-only command set, gone.";
 }
 
 /// <summary>Whether a directory was actually read, which is not the same as whether we can read it.</summary>

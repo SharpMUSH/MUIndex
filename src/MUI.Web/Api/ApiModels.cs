@@ -195,7 +195,8 @@ public sealed record FilterView(
     string? Family,
     string? Genre,
     string? Language,
-    string? CodebaseFamily)
+    string? CodebaseFamily,
+    GameSort Sort)
 {
     public static FilterView Of(GameFilter filter)
     {
@@ -213,7 +214,8 @@ public sealed record FilterView(
             filter.Family?.Token,
             filter.Genre?.Token,
             filter.Language?.Token,
-            filter.CodebaseFamily?.Token);
+            filter.CodebaseFamily?.Token,
+            filter.Sort);
     }
 }
 

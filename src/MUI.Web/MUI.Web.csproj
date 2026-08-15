@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MUI.Catalog\MUI.Catalog.csproj" />
+    <ProjectReference Include="..\MUI.Crawler\MUI.Crawler.csproj" />
     <ProjectReference Include="..\MUI.Crawl\MUI.Crawl.csproj" />
     <ProjectReference Include="..\MUI.Discovery\MUI.Discovery.csproj" />
   </ItemGroup>

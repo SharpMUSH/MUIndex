@@ -229,6 +229,12 @@ public static class PlainText
             + (string.IsNullOrWhiteSpace(filter.Text) ? string.Empty : $" matching \"{filter.Text}\"")
             + (filter.IncludeArchived ? ", archived included" : ", archived excluded"));
 
+        // The order, stated. A sorted list that does not say what it is sorted by is one a reader has
+        // to reverse-engineer from the first few rows — and that is exactly how a tail of games
+        // showing no number gets read as a tail of games with no players.
+        b.AppendLine($"Sorted by {FacetWords.Sort(filter.Sort)}"
+            + $"  (?{FacetKeys.Sort}={string.Join('/', FacetTokens.Sorts)})");
+
         AppendFacets(b, listing.Facets);
         b.AppendLine();
 
@@ -239,8 +245,20 @@ public static class PlainText
             return b.ToString();
         }
 
+        var broken = false;
+
         foreach (var g in games)
         {
+            // The same break the rendered listing draws, in the same place and for the same reason:
+            // where the sort runs out of things it can rank, the list says so rather than letting the
+            // rows that follow read as the bottom of the ranking.
+            if (!broken && GameSorting.IsUnranked(g, filter.Sort))
+            {
+                broken = true;
+                b.AppendLine($"-- from here: {FacetWords.Unranked(filter.Sort)}");
+                b.AppendLine();
+            }
+
             var mark = g.State is LifecycleState.Archived ? "[archived]" : g.IsClaimed ? "[claimed]" : "[unclaimed]";
             b.AppendLine($"{g.Name}  {mark}");
             b.AppendLine($"  /g/{g.Slug}");
@@ -261,7 +279,7 @@ public static class PlainText
             // the oldest bucket, because a game we have never got an answer from has no date and
             // inventing one from our first sighting would read as its outage.
             b.AppendLine(g.LastReachableAt is { } seen
-                ? $"  Last reached: {Relative.Format(now - seen)} ago"
+                ? $"  Last reached: {Relative.Ago(now - seen)}"
                 : "  Last reached: never — we have not once got an answer from it");
 
             if (g.Tagline is { } tagline)
@@ -292,10 +310,16 @@ public static class PlainText
         }
 
         Heading(b, "FILTERS");
+        Wrap(b, $"Each facet is marked {FacetWords.Evidence(FacetEvidence.Measured)} "
+            + $"({FacetWords.EvidenceMeaning(FacetEvidence.Measured)}) or "
+            + $"{FacetWords.Evidence(FacetEvidence.Declared)} "
+            + $"({FacetWords.EvidenceMeaning(FacetEvidence.Declared)}).");
+        b.AppendLine();
         Wrap(b, "Each count is what choosing that value returns, from the same query as the list "
             + "below. A protocol is listed when we saw a game offer it, so a game missing from one "
             + "may simply never have been measured for it and is never a \"no\". Where a facet has "
-            + "no value for a game it says so in its own words, and that is not a no either.");
+            + "no value for a game it says so in its own words, and that is not a no either. A "
+            + "measured zero is a count; an unknown count is not a zero and never sorts as one.");
 
         foreach (var group in facets)
         {

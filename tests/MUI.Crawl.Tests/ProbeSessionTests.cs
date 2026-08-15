@@ -116,6 +116,25 @@ public class ProbeSessionTests
     }
 
     [Test]
+    public async Task InfoAndVersionRepliesAreCapturedSeparately()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "Welcome to Nowhere\r\n",
+            WhoReply = "There are 5 players connected.\r\n",
+            InfoReply = "Codebase: CorvidMUSH\r\n",
+            VersionReply = "Version 1.2.3\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Who.Count).IsEqualTo(5);
+        await Assert.That(result.Info).IsEqualTo("Codebase: CorvidMUSH");
+        await Assert.That(result.Version).IsEqualTo("Version 1.2.3");
+        await Assert.That(result.Banner).DoesNotContain("Codebase: CorvidMUSH");
+    }
+
+    [Test]
     public async Task AServerThatBuffersOurNegotiationAsTextStillAnswersWho()
     {
         // chaos.caile.org:4444 (TinyMUSH) exactly: it does not parse telnet at its login screen, so
@@ -136,7 +155,7 @@ public class ProbeSessionTests
     }
 
     [Test]
-    public async Task TheProbeNeverSendsAnythingButItsOnePermittedCommand()
+    public async Task TheProbeNeverSendsAnythingButItsPermittedCommands()
     {
         // The restraint test with a wire under it. Everything the probe types must be the permitted
         // command or an empty line; nothing that logs in, creates or changes anything — and, since
@@ -146,16 +165,24 @@ public class ProbeSessionTests
         {
             Banner = "Welcome to Nowhere\r\n",
             WhoReply = "There are 2 players connected.\r\n",
+            SwallowsNegotiationAsText = true,
         };
 
         await new TelnetProbe(Fast()).ProbeAsync(game.Target);
 
         await Assert.That(game.Received).DoesNotContain("MSSP-REQUEST");
+        await Assert.That(game.Received.Any(line => line.Contains("\u00ff\u00fdF", StringComparison.Ordinal)))
+            .IsFalse();
 
         foreach (var line in game.Received)
         {
             var spoken = line.Trim();
             if (spoken.Length == 0)
+            {
+                continue;
+            }
+
+            if (!spoken.All(c => c is >= ' ' and <= '~'))
             {
                 continue;
             }
@@ -265,6 +292,8 @@ public class ProbeSessionTests
         public string? BannerTail { get; init; }
 
         public string WhoReply { get; init; } = string.Empty;
+        public string? InfoReply { get; init; }
+        public string? VersionReply { get; init; }
 
         /// <summary>The tail of the WHO reply, unterminated.</summary>
         public string? WhoTail { get; init; }
@@ -393,6 +422,26 @@ public class ProbeSessionTests
                 if (WhoTail is not null)
                 {
                     await SendAsync(stream, WhoTail);
+                }
+
+                return;
+            }
+
+            if (command.Equals("INFO", StringComparison.OrdinalIgnoreCase))
+            {
+                if (InfoReply is not null)
+                {
+                    await SendAsync(stream, InfoReply);
+                }
+
+                return;
+            }
+
+            if (command.Equals("VERSION", StringComparison.OrdinalIgnoreCase))
+            {
+                if (VersionReply is not null)
+                {
+                    await SendAsync(stream, VersionReply);
                 }
             }
         }
