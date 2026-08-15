@@ -6,7 +6,7 @@ using MUI.Catalog.Persistence;
 namespace MUI.Web.Accounts;
 
 /// <summary>
-/// The two things a verified owner may change, as two form posts (spec §8.5, §11).
+/// The three things a verified owner may change, as three form posts (spec §8.5, §11).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -50,6 +50,10 @@ public static class OwnerWrites
         public const string ScreenHidden = "screen-hidden";
 
         public const string ScreenShown = "screen-shown";
+
+        public const string Stopped = "crawl-stopped";
+
+        public const string Resumed = "crawl-resumed";
     }
 
     /// <summary>
@@ -117,6 +121,47 @@ public static class OwnerWrites
                 await enrichment.SetConnectScreenSuppressedAsync(gameId, user.Id, suppress),
                 gameId,
                 suppress ? Saved.ScreenHidden : Saved.ScreenShown);
+        });
+
+        // §11's third route, for the one person who does not have to be taken on trust. MSSP and DNS
+        // are answered by the game itself; a recorded request was reachable only from the crawler
+        // CLI, so the operator who had already proved they run the game was the one person who could
+        // not ask through the interface built for them.
+        games.MapPost("/crawl", async (
+            HttpContext context,
+            UserManager<MuiUser> users,
+            OwnerOptOut optOut,
+            Guid gameId,
+            IFormCollection form) =>
+        {
+            if (await users.GetUserAsync(context.User) is not { } user)
+            {
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            }
+
+            var stop = string.Equals(form["stop"], "true", StringComparison.Ordinal);
+
+            // Who asked, named from the account rather than from the form: the form is the request
+            // and the identity is ours to state. §11's Request route requires a claim somebody can
+            // stand behind, and one typed into a posted field would not be one.
+            var outcome = await optOut.SetAsync(
+                gameId,
+                user.Id,
+                stop,
+                await users.GetUserNameAsync(user) ?? user.Id.ToString(),
+                context.RequestAborted);
+
+            return outcome.Verdict switch
+            {
+                OwnerOptOutVerdict.Applied => Results.Redirect(
+                    $"{Dashboard}?saved={gameId}&did={(stop ? Saved.Stopped : Saved.Resumed)}"),
+                OwnerOptOutVerdict.NotAnOwner => Results.StatusCode(StatusCodes.Status403Forbidden),
+
+                // Out loud, because the failure mode of saying nothing here is an owner who believes
+                // we have stopped crawling them and has not been told we never had an address to stop.
+                _ => Results.Redirect(
+                    $"{Dashboard}?refused=crawl&because={OwnerOptOutVerdict.NoAddresses}"),
+            };
         });
     }
 
