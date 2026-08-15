@@ -7,6 +7,7 @@ using MUI.Discovery;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 using Npgsql;
 
@@ -75,6 +76,13 @@ public static class CrawlerServiceCollectionExtensions
         services.AddSingleton(options);
         services.AddSingleton(options.Discovery);
         services.AddSingleton(options.Probe);
+        services.AddSingleton(options.Maintenance);
+        services.AddSingleton(options.Maintenance.Retention);
+        services.AddSingleton(options.Salt);
+
+        // §11's rotating salt. A singleton because an epoch that differed between two callers in one
+        // process would make two names hash differently for no reason anybody could see.
+        services.TryAddSingleton<ISaltProvider>(s => new RotatingSaltProvider(s.GetRequiredService<SaltRotationOptions>()));
 
         // The catalogue's own stores. NpgsqlAvailabilityStore is both the store and the reachable
         // history the archive sweep reads, so it is registered once and exposed twice — two instances
@@ -82,7 +90,14 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<IGameStore>(s => new NpgsqlGameStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IEndpointStore>(s => new NpgsqlEndpointStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IGameFieldStore>(s => new NpgsqlGameFieldStore(s.GetRequiredService<NpgsqlDataSource>()));
-        services.TryAddSingleton<IPresenceStore>(s => new NpgsqlPresenceStore(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton(s => new NpgsqlPresenceStore(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IPresenceStore>(s => s.GetRequiredService<NpgsqlPresenceStore>());
+        services.TryAddSingleton(s => new NpgsqlPresenceRollupStore(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton(s => new PresenceMaintenance(
+            s.GetRequiredService<NpgsqlPresenceStore>(),
+            s.GetRequiredService<NpgsqlPresenceRollupStore>(),
+            s.GetRequiredService<PresenceRetentionOptions>(),
+            s.GetService<ILogger<PresenceMaintenance>>()));
         services.TryAddSingleton(s => new NpgsqlAvailabilityStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IAvailabilityStore>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());
         services.TryAddSingleton<IReachableHistory>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());
@@ -132,6 +147,14 @@ public static class CrawlerServiceCollectionExtensions
             services.AddHostedService<CrawlerService>();
         }
 
+        // Deliberately not gated on options.Enabled: a pure web replica still wants next month's
+        // partitions to exist and this month's samples rolled up, and the maintenance pass takes its
+        // own advisory lock, so however many replicas register it, one runs it.
+        if (options.Maintenance.Enabled)
+        {
+            services.AddHostedService<PresenceMaintenanceService>();
+        }
+
         return services;
     }
 }
@@ -156,13 +179,22 @@ public sealed class CrawlerOptionsBuilder
     public bool ApplyMigrations { get; set; } = true;
 
     /// <summary>Which advisory lock this deployment competes for (spec §12).</summary>
-    public long AdvisoryLockKey { get; set; } = CrawlLease.DefaultKey;
+    public long AdvisoryLockKey { get; set; } = AdvisoryLease.CrawlKey;
 
     /// <summary>Per-cycle bounds.</summary>
     public DiscoveryOptions Discovery { get; set; } = new();
 
     /// <summary>Per-probe bounds.</summary>
     public ProbeOptions Probe { get; set; } = new();
+
+    /// <summary>
+    /// Rollups, partitions ahead of need, and how long each grain of presence is kept (§5.2, §15.4).
+    /// Keeps everything until a deployment says otherwise.
+    /// </summary>
+    public PresenceMaintenanceOptions Maintenance { get; set; } = new();
+
+    /// <summary>How often §11's hashing salt rotates, and what it is derived from.</summary>
+    public SaltRotationOptions Salt { get; set; } = new();
 
     /// <summary>
     /// Adds an address the crawler knows on day one.
@@ -187,6 +219,8 @@ public sealed class CrawlerOptionsBuilder
         AdvisoryLockKey = AdvisoryLockKey,
         Discovery = Discovery,
         Probe = Probe,
+        Maintenance = Maintenance,
+        Salt = Salt,
         Seeds = _seeds,
     };
 }

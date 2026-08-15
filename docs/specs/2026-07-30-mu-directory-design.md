@@ -210,10 +210,24 @@ called, by whatever assembles the probe's reading. It cannot be applied afterwar
 and choosing later, because there is nowhere to keep both. This is a constraint on the ingestor, not
 a limitation of the store.
 
-**Rollups are not built and have no owner.** §5.2 states the retention shape — raw 90 days, hourly
-two years, daily forever — and nothing implements it. Until it does, the heatmap reads raw samples
-over an eight-week window. Monthly range-partitioning is in place, which is what makes a rollup a
-cheap addition rather than a rewrite.
+**Rollups are built; the retention beside them is configuration.** `PresenceMaintenance` runs on a
+Postgres advisory lock of its own — the same gate §12 puts on the crawl loop, a different key — and
+does three things per pass: makes the monthly partitions ahead of need, aggregates every complete
+hour into `presence_rollup_hour` and `presence_rollup_day`, and then applies whatever retention a
+deployment configured. **The three states survive the aggregation**: each bucket carries a tally of
+counted and of uncountable samples rather than a conclusion, min/max/mean are over counted samples
+alone and are null when there were none, and an hour nobody measured produces no row — which is
+§5.4's empty cell, unchanged in shape. The `CHECK` constraints refuse a bucket that claims a count it
+did not measure and one that claims to be a measurement of nothing at all.
+
+Retention is `PresenceRetentionOptions` and defaults to **keeping everything at every grain**, for
+the reason in §15.4. The shape above — raw 90 days, hourly two years, daily forever — is available as
+`PresenceRetentionOptions.AsDesigned` and is one setting away. Raw samples go by whole partitions and
+never row by row, and never before both rollups have consumed them: retention is clamped to the
+watermark, so a pass whose rollup failed cannot drop what the rollup was going to read.
+
+The heatmap still reads raw samples over its eight-week window, which is why the shortest raw
+retention this accepts is that window. Pointing it at the hourly rollup is the remaining work.
 
 **Activity band**, the facet §9 exposes, is derived here and defined once: `players now` (a non-null
 count above zero in the most recent hourly rollup), `active this week` (any such count in 7 days),
@@ -954,7 +968,21 @@ webhooks beyond RSS; non-English UI (listings carry `LANGUAGE` from day one).
    decision and need not match.
 3. **Hosting and cost envelope**, which bounds probe frequency and retention.
 4. **Retention policy** for `PresenceSample` before rollup, and the salt rotation period for §11
-   aggregates.
+   aggregates — both unsettled, and both now **shipped conservative to be tuned**, because the
+   machinery could not wait for the answer and neither question has data behind it yet. §5.2's
+   rollups and partition maintenance are built; what is deliberately not compiled in is how long
+   anything is kept. `PresenceRetentionOptions` therefore **keeps everything by default** at all three
+   grains, with §5.2's own figures available as a named preset. §5.2 does authorise dropping raw
+   samples once they have been aggregated — it is the only data in the system that is ever deleted —
+   but the period it names has never been checked against a real deployment's storage, and §15.3, the
+   cost envelope that would bound it, is open too. Between an unvalidated number and a deletion, the
+   default is not to delete: turning retention on later costs one setting, and turning it on too early
+   costs measurements that cannot be taken again. The salt period defaults to **seven days** on the
+   same reasoning read the other way round — the two errors are not symmetrical. An epoch that proves
+   too short costs precision in an estimate and can be lengthened from the next epoch onwards; an
+   epoch that proves too long has already linked a season of observations together, and no later
+   setting un-links them. Tune both once there is a year of data and a hosting bill to read them
+   against.
 5. **Auto-merge threshold** in §7.3 — needs calibration against real data, so ship conservative and
    tune.
 6. **The archive grace factor** in §7.5 — the quarter, the 60-day floor and the 365-day ceiling are
