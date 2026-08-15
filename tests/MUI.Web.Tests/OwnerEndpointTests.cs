@@ -51,7 +51,8 @@ public class OwnerEndpointTests
             new() { [OwnerWrites.FieldPrefix + "FANDOM"] = "Exalted" });
 
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Found);
-        await Assert.That(response.Headers.Location!.ToString()).IsEqualTo($"/account?saved={Game}");
+        await Assert.That(response.Headers.Location!.ToString())
+            .IsEqualTo($"/account?saved={Game}&did=fields");
 
         var stored = (await host.Fields.ForGameAsync(Game)).Single();
 
@@ -75,6 +76,36 @@ public class OwnerEndpointTests
 
         await Assert.That(stored.Field).IsEqualTo(InternalFields.ConnectScreenSuppressed);
         await Assert.That(stored.Value).IsEqualTo("true");
+    }
+
+    /// <summary>
+    /// The two writes are two different things, and the dashboard is told which one happened.
+    /// </summary>
+    /// <remarks>
+    /// Both endpoints redirected with <c>?saved=</c> and nothing else, so hiding a connect screen
+    /// came back as the enrichment sentence — "your page now shows it as owner-declared" — about an
+    /// action nobody took. On the surface whose whole job is to say what happened.
+    /// </remarks>
+    [Test]
+    public async Task HidingAScreenAndSavingAFieldDoNotReportTheSameThing()
+    {
+        await using var host = await Harness.StartAsync();
+
+        var fields = await host.PostAsync(
+            $"/account/games/{Game}/enrichment",
+            new() { [OwnerWrites.FieldPrefix + "FANDOM"] = "Exalted" });
+
+        var hidden = await host.PostAsync(
+            $"/account/games/{Game}/connect-screen",
+            new() { ["suppress"] = "true" });
+
+        var shown = await host.PostAsync(
+            $"/account/games/{Game}/connect-screen",
+            new() { ["suppress"] = "false" });
+
+        await Assert.That(fields.Headers.Location!.ToString()).EndsWith("did=fields");
+        await Assert.That(hidden.Headers.Location!.ToString()).EndsWith("did=screen-hidden");
+        await Assert.That(shown.Headers.Location!.ToString()).EndsWith("did=screen-shown");
     }
 
     /// <summary>
@@ -330,6 +361,13 @@ public class OwnerEndpointTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<GameField>>(
                 _rows.Values.Where(row => row.GameId == gameId).ToList());
+
+    public Task<IReadOnlyList<GameField>> ForGameAsync(
+        Guid gameId,
+        FieldSource only,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<GameField>>(
+            [.. _rows.Values.Where(f => f.GameId == gameId && f.Source == only)]);
 
         public Task UpsertAsync(GameField field, CancellationToken cancellationToken = default)
         {

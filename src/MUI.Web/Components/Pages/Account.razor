@@ -54,12 +54,7 @@ else
 
         @if (Saved is not null)
         {
-            <p class="verified">
-                <strong>Saved.</strong>
-                @(SavedName is { } saved
-                    ? $"{saved}'s page now shows it as owner-declared."
-                    : "Your page shows it as owner-declared.")
-            </p>
+            <p class="verified"><strong>Saved.</strong> @Outcome</p>
         }
         else if (RefusedField is { Length: > 0 })
         {
@@ -184,6 +179,10 @@ else
     [SupplyParameterFromQuery(Name = "saved")]
     private string? Saved { get; set; }
 
+    /// <summary>Which of the three writes just landed (see <see cref="OwnerWrites"/>).</summary>
+    [SupplyParameterFromQuery(Name = "did")]
+    private string? Did { get; set; }
+
     [SupplyParameterFromQuery(Name = "refused")]
     private string? Refused { get; set; }
 
@@ -199,6 +198,30 @@ else
     private string? SavedName => Guid.TryParse(Saved, out var id)
         ? Verified.FirstOrDefault(held => held.Game.Id == id).Game?.Name
         : null;
+
+    /// <summary>
+    /// What the last write actually did, in a sentence about that write.
+    /// </summary>
+    /// <remarks>
+    /// Three outcomes and not one, because hiding a connect screen used to report "now shows it as
+    /// owner-declared" — the enrichment sentence, on a page whose whole job is to say what happened.
+    /// </remarks>
+    private string Outcome
+    {
+        get
+        {
+            var game = SavedName ?? "That game";
+
+            return Did switch
+            {
+                "screen-hidden" =>
+                    $"We have stopped republishing {game}'s connect screen. The page says so plainly "
+                    + "rather than leaving a hole.",
+                "screen-shown" => $"{game}'s connect screen is on its page again.",
+                _ => $"{game}'s page now shows it as owner-declared.",
+            };
+        }
+    }
 
     /// <summary>
     /// The refused field name, bounded.

@@ -736,13 +736,22 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
         foreach (var group in fields
             .Where(f => !f.Field.StartsWith(CapabilityFields.Prefix, StringComparison.Ordinal)
-                && !InternalFields.IsInternal(f.Field))
+                && !InternalFields.IsInternal(f.Field)
+
+                // A cleared field is a row with an empty value, not a missing row (see
+                // OwnerEnrichment) — so it is filtered HERE, before the ladder, because an empty
+                // row is an absence and an absence does not get to win.
+                //
+                // Filtering after the winner was chosen silenced whatever was underneath: `owner`
+                // outranks `mssp` for enrichment fields, so a cleared owner row won its group and
+                // then dropped the group for being empty. A game publishing its own unofficial
+                // FANDOM could have had it removed from the page, the plain surface and the API by
+                // its owner typing a space into a box — an owner editing a measurement by the back
+                // door, which §8.5 forbids outright.
+                && f.Value.Length > 0)
             .GroupBy(f => f.Field, StringComparer.Ordinal))
         {
-            // A cleared field is a row with an empty value, not a missing row (see OwnerEnrichment),
-            // and there is nothing to show for it. The row survives, the change feed carries the
-            // clearing, and the panel simply has one fewer line.
-            if (FieldPrecedence.Winner(group) is not { Value.Length: > 0 } winner)
+            if (FieldPrecedence.Winner(group) is not { } winner)
             {
                 continue;
             }

@@ -155,6 +155,13 @@ public sealed class FakeGameFieldStore : IGameFieldStore
     public Task<IReadOnlyList<GameField>> ForGameAsync(Guid gameId, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<GameField>>(_fields.Values.Where(f => f.GameId == gameId).ToList());
 
+    public Task<IReadOnlyList<GameField>> ForGameAsync(
+        Guid gameId,
+        FieldSource only,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<GameField>>(
+            [.. _fields.Values.Where(f => f.GameId == gameId && f.Source == only)]);
+
     public Task UpsertAsync(GameField field, CancellationToken cancellationToken = default)
     {
         _fields[(field.GameId, field.Field, field.Source)] = field;

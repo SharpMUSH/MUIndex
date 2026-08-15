@@ -111,6 +111,26 @@ public class OwnerSurfaceTests
     }
 
     /// <summary>
+    /// A withdrawn field is an empty box with nothing claimed beside it.
+    /// </summary>
+    /// <remarks>
+    /// Clearing keeps the row (nothing is ever deleted), and the panel read the row's presence as a
+    /// declaration — so a field an owner had emptied printed "declared 5w ago" next to an empty box.
+    /// An age on a value nobody can see is an age on nothing.
+    /// </remarks>
+    [Test]
+    public async Task AWithdrawnFieldDoesNotClaimToHaveBeenDeclared()
+    {
+        var markup = await PanelAsync(new Dictionary<string, GameField>(StringComparer.Ordinal)
+        {
+            ["FANDOM"] = new(Game, "FANDOM", FieldSource.Owner, string.Empty, Now.AddDays(-40), Now.AddDays(-40)),
+        });
+
+        await Assert.That(markup).Contains($"name=\"{OwnerWrites.FieldPrefix}FANDOM\"");
+        await Assert.That(Render.Words(markup)).DoesNotContain("declared 5w ago");
+    }
+
+    /// <summary>
     /// A form key names the field, so the gate can be on the name.
     /// </summary>
     /// <remarks>

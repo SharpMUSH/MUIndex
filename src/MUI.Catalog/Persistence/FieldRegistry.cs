@@ -149,6 +149,18 @@ public static class InternalFields
     /// </summary>
     public static bool IsInternal(string field) =>
         Names.Contains(field) || field.StartsWith(ConnectScreen, StringComparison.Ordinal);
+
+    /// <summary>
+    /// The exact names, for a caller that has to apply this rule somewhere other than in C#.
+    /// </summary>
+    /// <remarks>
+    /// The change feed is filtered in SQL rather than after the read, because the query is limited
+    /// and a filter applied afterwards would spend that limit on rows nobody may see — a game whose
+    /// owner toggled their connect screen twenty times would have shown an empty feed. Exposed
+    /// rather than restated so the two halves of <see cref="IsInternal"/> keep one spelling; the
+    /// other half is a prefix on <see cref="ConnectScreen"/>.
+    /// </remarks>
+    public static IReadOnlyList<string> ExactNames { get; } = [.. Names];
 }
 
 /// <summary>

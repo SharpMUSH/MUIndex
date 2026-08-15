@@ -205,6 +205,48 @@ public class OwnerEnrichmentPostgresTests
         await Assert.That(page.Changes.Single().Summary).Contains("from Exalted to nothing");
     }
 
+    /// <summary>
+    /// Clearing an owner value reveals what is under it, and never silences it.
+    /// </summary>
+    /// <remarks>
+    /// The one way an owner could still edit a measurement, and it took a form nobody would think to
+    /// look at. <c>owner</c> outranks <c>mssp</c> in §5.1's ladder for enrichment fields, so a
+    /// <em>cleared</em> owner row — empty value, still the precedence winner — was chosen as the
+    /// winner and then dropped for being empty, taking the whole field with it. A game that publishes
+    /// an unofficial <c>FANDOM</c> in its own MSSP could have had it removed from the page, the plain
+    /// surface and the API by the owner typing a space into a box.
+    ///
+    /// Emptiness is absence, so it is filtered before the ladder runs rather than after.
+    /// </remarks>
+    [Test]
+    public async Task ClearingAnOwnerValueUncoversTheMeasurementRatherThanHidingIt()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var world = await World.BuildAsync(db);
+
+        // A game whose own MSSP report carries the same unofficial variable the owner may enrich.
+        await world.Fields.UpsertAsync(new GameField(
+            world.Game, "FANDOM", FieldSource.Mssp, "Ars Magica", Now.AddYears(-1), Now));
+
+        await world.Enrichment.ApplyAsync(world.Game, world.Owner, [new OwnerEdit("FANDOM", "Exalted")]);
+
+        await Assert.That((await world.Queries.FindAsync("corvid"))!.Declared["fandom"].Value)
+            .IsEqualTo("Exalted");
+
+        await world.Enrichment.ApplyAsync(world.Game, world.Owner, [new OwnerEdit("FANDOM", "")]);
+
+        var page = await world.Queries.FindAsync("corvid");
+
+        // The game's own declaration is back, not gone.
+        await Assert.That(page!.Declared["fandom"].Value).IsEqualTo("Ars Magica");
+        await Assert.That(page.Declared["fandom"].Source).IsEqualTo(FieldSource.Mssp);
+
+        // And the owner's withdrawal is still on the record.
+        await Assert.That((await world.Fields.ForGameAsync(world.Game))
+            .Single(f => f.Field == "FANDOM" && f.Source is FieldSource.Owner).Value)
+            .IsEqualTo(string.Empty);
+    }
+
     /// <summary>An empty box for a field nobody ever set is not a withdrawal of anything.</summary>
     [Test]
     public async Task AnEmptyBoxForAFieldThatWasNeverSetWritesNothing()
@@ -219,6 +261,67 @@ public class OwnerEnrichmentPostgresTests
 
         await Assert.That(outcome.IsApplied).IsTrue();
         await Assert.That((await world.Fields.ForGameAsync(world.Game)).Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    /// Re-saving a form whose box is already empty touches nothing at all.
+    /// </summary>
+    /// <remarks>
+    /// A withdrawn field keeps its row, and every subsequent save was reconciling that row and
+    /// confirming it — walking <c>last_confirmed_at</c> forward, so a field withdrawn a year ago
+    /// read on the dashboard as touched this morning. There is nothing to confirm: nobody declared
+    /// anything.
+    /// </remarks>
+    [Test]
+    public async Task ResavingAnAlreadyWithdrawnFieldDoesNotWalkItsAgeForward()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var world = await World.BuildAsync(db);
+
+        await world.Enrichment.ApplyAsync(world.Game, world.Owner, [new OwnerEdit("FANDOM", "Exalted")]);
+        await world.Enrichment.ApplyAsync(world.Game, world.Owner, [new OwnerEdit("FANDOM", "")]);
+
+        var withdrawn = (await world.Fields.ForGameAsync(world.Game, FieldSource.Owner))
+            .Single(f => f.Field == "FANDOM");
+
+        var outcome = await world.Enrichment.ApplyAsync(
+            world.Game, world.Owner, [new OwnerEdit("FANDOM", "  ")]);
+
+        await Assert.That(outcome.Applied).IsEqualTo(FieldReconciliation.Nothing);
+
+        var after = (await world.Fields.ForGameAsync(world.Game, FieldSource.Owner))
+            .Single(f => f.Field == "FANDOM");
+
+        await Assert.That(after.LastConfirmedAt).IsEqualTo(withdrawn.LastConfirmedAt);
+    }
+
+    /// <summary>
+    /// The dashboard's read asks for owner rows, and does not drag a connect screen back to get them.
+    /// </summary>
+    /// <remarks>
+    /// It read every row of the game and filtered in memory, so one claimed game cost a connect
+    /// screen — thousands of characters, 9,376 at the longest here — across the wire per page load,
+    /// to be discarded.
+    /// </remarks>
+    [Test]
+    public async Task TheDashboardReadsOnlyWhatItEdits()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var world = await World.BuildAsync(db);
+
+        await world.Fields.UpsertAsync(new GameField(
+            world.Game,
+            InternalFields.ConnectScreen,
+            FieldSource.Banner,
+            new string('x', 9376),
+            Now,
+            Now));
+        await world.Enrichment.ApplyAsync(world.Game, world.Owner, [new OwnerEdit("FANDOM", "Exalted")]);
+
+        var declared = await world.Enrichment.DeclaredAsync(world.Game);
+
+        await Assert.That(declared.Keys).IsEquivalentTo(new[] { "FANDOM" });
+        await Assert.That(declared.Values.Sum(f => f.Value.Length)).IsLessThan(100);
     }
 
     /// <summary>
@@ -271,8 +374,50 @@ public class OwnerEnrichmentPostgresTests
 
         await Assert.That((await world.Queries.FindAsync("corvid"))!.ConnectScreenSuppressed).IsFalse();
 
-        // Both decisions are events, and neither deleted the other.
-        await Assert.That((await world.Fields.ChangesAsync(world.Game, 20)).Count).IsEqualTo(1);
+        // Both decisions are recorded — and neither is a public event about the game, so the page's
+        // feed stays empty while the ledger holds the reversal.
+        await Assert.That((await world.Queries.FindAsync("corvid"))!.Changes).IsEmpty();
+        await Assert.That(await LedgerCountAsync(db, world.Game, InternalFields.ConnectScreenSuppressed))
+            .IsEqualTo(1);
+    }
+
+    /// <summary>
+    /// A privacy decision is not an event on the game's public page.
+    /// </summary>
+    /// <remarks>
+    /// <c>connect_screen_suppressed</c> is machinery — a decision of ours about what to display —
+    /// and <c>InternalFields</c> exists to keep exactly these off the surfaces. The declared panel
+    /// already filtered them; the change feed filtered nothing, so reversing suppression published
+    /// "connect_screen_suppressed changed from true to false (owner)" on the game page, in plain
+    /// text and in the API. It would have been the first internal field ever to reach those
+    /// surfaces, and what it announces is a choice §11 grants with no questions asked.
+    /// </remarks>
+    [Test]
+    public async Task TogglingSuppressionIsNotPublishedInTheChangeFeed()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var world = await World.BuildAsync(db);
+
+        await world.Enrichment.SetConnectScreenSuppressedAsync(world.Game, world.Owner, suppressed: true);
+        await world.Enrichment.SetConnectScreenSuppressedAsync(world.Game, world.Owner, suppressed: false);
+        await world.Enrichment.ApplyAsync(world.Game, world.Owner, [new OwnerEdit("FANDOM", "Exalted")]);
+        await world.Enrichment.ApplyAsync(world.Game, world.Owner, [new OwnerEdit("FANDOM", "Ars Magica")]);
+
+        var page = await world.Queries.FindAsync("corvid");
+
+        // The enrichment change is an event about the game and belongs there; the suppression is not.
+        await Assert.That(page!.Changes.Count).IsEqualTo(1);
+        await Assert.That(page.Changes.Single().Summary).Contains("FANDOM");
+
+        foreach (var change in page.Changes)
+        {
+            await Assert.That(change.Summary).DoesNotContain("connect_screen");
+        }
+
+        // Nothing is deleted: the row is still in field_change, it is simply not a public event.
+        // Read straight from the table, because ChangesAsync is the surface being filtered.
+        await Assert.That(await LedgerCountAsync(db, world.Game, InternalFields.ConnectScreenSuppressed))
+            .IsEqualTo(1);
     }
 
     /// <summary>Nobody else may speak for a game's connect screen.</summary>
@@ -324,6 +469,22 @@ public class OwnerEnrichmentPostgresTests
     }
 
     /// <summary>A game, an owner who proved it, and the services that let them write.</summary>
+    /// <summary>
+    /// How many transitions the ledger holds for one field, read past every surface.
+    /// </summary>
+    /// <remarks>
+    /// Raw SQL on purpose: <c>ChangesAsync</c> is the game page's feed and filters machinery out of
+    /// it, so asking it whether a row survives would be asking the thing under test.
+    /// </remarks>
+    private static async Task<int> LedgerCountAsync(TestDatabase db, Guid game, string field)
+    {
+        await using var connection = await db.DataSource.OpenConnectionAsync();
+
+        return await connection.ExecuteScalarAsync<int>(
+            "SELECT count(*)::int FROM field_change WHERE game_id = @game AND field = @field",
+            new { game, field });
+    }
+
     private sealed record World(
         TestDatabase Db,
         Guid Game,

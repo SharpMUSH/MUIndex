@@ -110,14 +110,17 @@ public sealed class OwnerEnrichment(
     /// What this game's owners have already declared, so a form can be filled in with it.
     /// </summary>
     /// <remarks>
-    /// Owner rows only. The dashboard edits what owners wrote and must not offer a measurement back
-    /// as though it were an editable draft of one.
+    /// Owner rows only, and asked for as owner rows rather than filtered after the fact: reading
+    /// every row of a game to keep at most four of them drags the connect screen across the wire
+    /// once per claimed game per page load, to throw it away.
+    ///
+    /// The dashboard edits what owners wrote and must not offer a measurement back as though it
+    /// were an editable draft of one.
     /// </remarks>
     public async Task<IReadOnlyDictionary<string, GameField>> DeclaredAsync(
         Guid gameId,
         CancellationToken cancellationToken = default) =>
-        (await fields.ForGameAsync(gameId, cancellationToken))
-            .Where(field => field.Source is FieldSource.Owner)
+        (await fields.ForGameAsync(gameId, FieldSource.Owner, cancellationToken))
             .ToDictionary(field => field.Field, StringComparer.Ordinal);
 
     /// <summary>
@@ -164,9 +167,13 @@ public sealed class OwnerEnrichment(
                     EnrichmentVerdict.TooLong, edit.Field, FieldReconciliation.Nothing);
             }
 
-            // Clearing a field that was never set is not a clearing. An empty form box would
-            // otherwise mint a blank row for every field its owner left alone.
-            if (value.Length == 0 && !declared.ContainsKey(edit.Field))
+            // An empty box over an already-empty field is not a withdrawal of anything, so it is
+            // skipped: minting a blank row for a field nobody ever set, or re-confirming one that is
+            // already withdrawn, both record an event that did not happen. The second also walked
+            // the row's age forward on every save, so a field withdrawn last year read as touched
+            // this morning.
+            if (value.Length == 0
+                && (!declared.TryGetValue(edit.Field, out var withdrawn) || withdrawn.Value.Length == 0))
             {
                 continue;
             }

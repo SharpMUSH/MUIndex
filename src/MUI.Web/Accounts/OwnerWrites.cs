@@ -36,6 +36,23 @@ public static class OwnerWrites
     private const string Dashboard = Passkeys.DashboardPath;
 
     /// <summary>
+    /// Which of the three things just happened, so the dashboard can say the right one.
+    /// </summary>
+    /// <remarks>
+    /// Both endpoints reported <c>saved</c> and nothing else to begin with, so hiding a connect
+    /// screen came back as "your page now shows it as owner-declared" — a sentence about a different
+    /// action, on the surface whose whole job is to say what actually happened.
+    /// </remarks>
+    private static class Saved
+    {
+        public const string Fields = "fields";
+
+        public const string ScreenHidden = "screen-hidden";
+
+        public const string ScreenShown = "screen-shown";
+    }
+
+    /// <summary>
     /// The edits a posted form is asking for, in the order it asked for them.
     /// </summary>
     /// <remarks>
@@ -77,7 +94,7 @@ public static class OwnerWrites
                 return Results.StatusCode(StatusCodes.Status403Forbidden);
             }
 
-            return Landing(await enrichment.ApplyAsync(gameId, user.Id, EditsIn(form)), gameId);
+            return Landing(await enrichment.ApplyAsync(gameId, user.Id, EditsIn(form)), gameId, Saved.Fields);
         });
 
         // §11: suppressed on owner request, no questions asked. One button, no reason field, and no
@@ -98,7 +115,8 @@ public static class OwnerWrites
 
             return Landing(
                 await enrichment.SetConnectScreenSuppressedAsync(gameId, user.Id, suppress),
-                gameId);
+                gameId,
+                suppress ? Saved.ScreenHidden : Saved.ScreenShown);
         });
     }
 
@@ -111,9 +129,9 @@ public static class OwnerWrites
     /// correct arrives back on the dashboard naming the field, which is §8.5's out-loud refusal: a
     /// silent no-op teaches an owner that the site is broken.
     /// </remarks>
-    private static IResult Landing(EnrichmentOutcome outcome, Guid gameId) => outcome.Verdict switch
+    private static IResult Landing(EnrichmentOutcome outcome, Guid gameId, string what) => outcome.Verdict switch
     {
-        EnrichmentVerdict.Applied => Results.Redirect($"{Dashboard}?saved={gameId}"),
+        EnrichmentVerdict.Applied => Results.Redirect($"{Dashboard}?saved={gameId}&did={what}"),
         EnrichmentVerdict.NotAnOwner => Results.StatusCode(StatusCodes.Status403Forbidden),
         _ => Results.Redirect(
             $"{Dashboard}?refused={Uri.EscapeDataString(outcome.Field ?? string.Empty)}"
