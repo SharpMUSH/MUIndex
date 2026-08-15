@@ -92,13 +92,29 @@ public class PresenceStorePostgresTests
             At = At,
             Count = 12,
             Source = FieldSource.Who,
-            Aggregates = new PresenceAggregates([4, 3, 2, 1], DistinctEstimate: 9),
+            Aggregates = new PresenceAggregates([4, 3, 2, 1], distinctEstimate: 9, saltEpoch: "20260727T000000Z"),
         });
 
         var sample = (await store.ForGameAsync(game, At, At)).Single();
 
         await Assert.That(sample.Aggregates!.DistinctEstimate).IsEqualTo(9);
         await Assert.That(sample.Aggregates.IdleBuckets).IsEquivalentTo(new[] { 4, 3, 2, 1 });
+        // The epoch travels with the estimate, or the estimate cannot be read later without guessing
+        // which other estimates it may be compared with (§11).
+        await Assert.That(sample.Aggregates.SaltEpoch).IsEqualTo("20260727T000000Z");
+    }
+
+    [Test]
+    public async Task AnEstimateWithNoSaltEpochCannotBeConstructed()
+    {
+        // §11's promise is only keepable if every estimate says which salt it was taken under, so the
+        // record refuses one that does not — at the point of construction, rather than in whichever
+        // surface eventually tries to add two of them together.
+        await Assert.That(() => new PresenceAggregates([4, 3], distinctEstimate: 9))
+            .Throws<ArgumentException>();
+
+        // Buckets on their own are not derived from names at all, so they need no epoch.
+        await Assert.That(new PresenceAggregates([4, 3], distinctEstimate: null).SaltEpoch).IsNull();
     }
 
     [Test]

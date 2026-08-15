@@ -26,6 +26,33 @@ public interface IGameStore
     Task MarkReachableAsync(Guid id, DateTimeOffset at, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Re-mints a game's name and URL, retiring the slug it had (spec §5.7).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The retirement and the re-mint are one write.</b> The old URL stops being current and starts
+    /// redirecting at the same instant, so there is no moment in which a slug somebody is holding is
+    /// neither — and no way to leave a game renamed with nothing pointing at it, which is the failure
+    /// this whole table exists to prevent.
+    /// </para>
+    /// <para>
+    /// Renaming is a <em>measured</em> change and never a tidy-up: only something reading the winning
+    /// <c>NAME</c> field may call it, and only once that name has held for a grace period, or a game
+    /// that flips its name daily churns its URL — see <c>SlugMinter</c>, which is the only caller.
+    /// </para>
+    /// </remarks>
+    /// <returns>
+    /// The slug that was retired, or null when the slug did not move — a game may change its name
+    /// without changing the URL that name mints ("Corvid!" and "Corvid" are one slug).
+    /// </returns>
+    Task<string?> RenameAsync(
+        Guid id,
+        string name,
+        string slug,
+        DateTimeOffset at,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Sets whether any account has proved control of this game (spec §8).
     /// </summary>
     /// <remarks>

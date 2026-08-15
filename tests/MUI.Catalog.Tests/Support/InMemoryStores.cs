@@ -42,6 +42,16 @@ internal sealed class InMemoryGameFieldStore : IGameFieldStore
         Changes.Add(change);
         return Task.CompletedTask;
     }
+
+    /// <summary>Across every source, and folded on the field name, as the real query is.</summary>
+    public Task<DateTimeOffset?> LastChangedAtAsync(
+        Guid gameId, string field, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Changes
+            .Where(c => c.GameId == gameId
+                        && string.Equals(c.Field, field, StringComparison.OrdinalIgnoreCase))
+            .Select(c => (DateTimeOffset?)c.At)
+            .DefaultIfEmpty(null)
+            .Max());
 }
 
 internal sealed class InMemoryPresenceStore : IPresenceStore

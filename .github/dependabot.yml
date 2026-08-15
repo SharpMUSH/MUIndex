@@ -1,0 +1,22 @@
+# The other half of pinning actions to commit SHAs in .github/workflows/publish.yml. A pin with
+# nothing updating it is a security fix nobody takes, so this is what keeps the pins current —
+# Dependabot rewrites the SHA and the trailing version comment together.
+#
+# Actions only. NuGet versions are managed centrally in Directory.Packages.props and are a separate
+# decision from how this repository's CI is wired; a bot opening dependency PRs against the solution
+# is a policy question rather than a packaging one.
+
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # One PR rather than six. These move together and are reviewed together.
+      actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: ci

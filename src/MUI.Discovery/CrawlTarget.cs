@@ -61,6 +61,26 @@ public sealed record CrawlTarget
     /// it, and what they get by not thinking about it must be the guarded behaviour.
     /// </remarks>
     public bool IsOperatorSeed { get; init; }
+
+    /// <summary>
+    /// When somebody handed us this address through the public form, or null when we found it
+    /// ourselves (spec §7.6, migration 0010).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A submission creates no game — §7.1's promotion is unchanged, and a game exists when a host
+    /// answers for itself — so this is where the fact waits until <c>CatalogueBinder</c> mints one and
+    /// copies it across. It is what keeps a submitted game off every public surface until somebody
+    /// claims it (§8).
+    /// </para>
+    /// <para>
+    /// <b>Nothing sets this on a target that already exists</b>, and that is a security property
+    /// rather than an optimisation: <see cref="ICrawlTargetRepository.AddAsync"/> collapses onto the
+    /// existing row and changes nothing but depth, so submitting an address we already crawl is a
+    /// no-op. Otherwise the form would be a way to hide any listed game on the site by naming it.
+    /// </para>
+    /// </remarks>
+    public DateTimeOffset? SubmittedAt { get; init; }
 }
 
 /// <summary>

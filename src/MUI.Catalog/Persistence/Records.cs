@@ -9,6 +9,10 @@ namespace MUI.Catalog.Persistence;
 /// model. <see cref="LastReachableAt"/> is null when we have never once reached the game, which is a
 /// different fact from "reachable a long time ago" and is what §7.5's grace is measured from.
 /// </remarks>
+/// <param name="SubmittedAt">
+/// When somebody handed us this game's address through the public form, or null when the crawler
+/// found it for itself (migration 0010).
+/// </param>
 public sealed record GameRecord(
     Guid Id,
     string Slug,
@@ -18,7 +22,8 @@ public sealed record GameRecord(
     bool IsClaimed,
     DateTimeOffset FirstSeenAt,
     DateTimeOffset? LastReachableAt = null,
-    DateTimeOffset? ArchivedAt = null);
+    DateTimeOffset? ArchivedAt = null,
+    DateTimeOffset? SubmittedAt = null);
 
 /// <summary>What kind of socket an endpoint is (spec §5.5).</summary>
 public enum EndpointKind

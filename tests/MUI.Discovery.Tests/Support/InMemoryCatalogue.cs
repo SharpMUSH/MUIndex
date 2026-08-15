@@ -77,6 +77,16 @@ public sealed class InMemoryGameFieldStore : IGameFieldStore, IGameFieldIndex
         return Task.CompletedTask;
     }
 
+    /// <summary>Across every source, and folded on the field name, as the real query is.</summary>
+    public Task<DateTimeOffset?> LastChangedAtAsync(
+        Guid gameId, string field, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_changes
+            .Where(c => c.GameId == gameId
+                        && string.Equals(c.Field, field, StringComparison.OrdinalIgnoreCase))
+            .Select(c => (DateTimeOffset?)c.At)
+            .DefaultIfEmpty(null)
+            .Max());
+
     /// <summary>
     /// Case-insensitive on both field name and value, trimmed on both sides, distinct game ids — the
     /// comparison <see cref="IGameFieldIndex"/> states, so a database implementation and this one agree.

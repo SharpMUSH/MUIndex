@@ -32,8 +32,9 @@ namespace MUI.Web.Tests;
 /// every one of them ships broken silently.
 /// </para>
 /// <para>
-/// The pipeline below is <c>Program</c>'s, in <c>Program</c>'s order, and the order is the point. See
-/// <see cref="TheTokenIsCheckedAgainstTheSignedInOperatorSoTheOrderOfTheMiddlewareMatters"/>.
+/// The pipeline below is <c>Program</c>'s, through <c>Program</c>'s own
+/// <see cref="SiteComposition.UseMuiAntiforgeryAfterAuthentication"/>, and the order is the point.
+/// See <see cref="TheTokenIsCheckedAgainstTheSignedInOperatorSoTheOrderOfTheMiddlewareMatters"/>.
 /// </para>
 /// </remarks>
 public class OwnerEndpointTests
@@ -162,7 +163,8 @@ public class OwnerEndpointTests
     /// The token carries who it was issued to, so anti-forgery must run after authentication.
     /// </summary>
     /// <remarks>
-    /// This is the evidence for the ordering comment in <c>Program</c>, and it is asserted rather
+    /// This is the evidence for the ordering rule in <see cref="SiteComposition"/>, and it is
+    /// asserted rather
     /// than believed because the failure it prevents is total and silent: validated before the
     /// authentication middleware, every signed-in operator's form post is compared against an
     /// anonymous user and rejected as forged, while every public page — all of them GET — goes on
@@ -225,7 +227,11 @@ public class OwnerEndpointTests
 
             var app = builder.Build();
 
-            // Program's order, and the reason for it is asserted above.
+            // The site's own order, through the site's own call — not a copy of it. A harness that
+            // restated these three lines would assert its own ordering and go on passing through the
+            // edit that reordered the deployed one, which is precisely the failure the test below
+            // exists to prevent. Only the WRONG order is built by hand here, because there is no
+            // other way to build a thing that is not supposed to exist.
             if (antiforgeryBeforeAuthentication)
             {
                 app.UseAntiforgery();
@@ -234,9 +240,7 @@ public class OwnerEndpointTests
             }
             else
             {
-                app.UseAuthentication();
-                app.UseAuthorization();
-                app.UseAntiforgery();
+                app.UseMuiAntiforgeryAfterAuthentication(withAccounts: true);
             }
 
             // What <AntiforgeryToken /> does while a page renders, which is to say after the
@@ -377,6 +381,21 @@ public class OwnerEndpointTests
 
         public Task RecordChangeAsync(FieldChange change, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
+
+        /// <summary>
+        /// Never, because this store does not keep the changes §5.7's rename grace reads.
+        /// </summary>
+        /// <remarks>
+        /// Null is the honest answer and not a stub: <see cref="RecordChangeAsync"/> above already
+        /// discards what it is handed, so "no change has been recorded for this field" is exactly
+        /// true of this store. Nothing on the owner write path asks — the caller is
+        /// <c>SlugMinter</c>, which these tests do not exercise.
+        /// </remarks>
+        public Task<DateTimeOffset?> LastChangedAtAsync(
+            Guid gameId,
+            string field,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<DateTimeOffset?>(null);
     }
 
     /// <summary>One account, one game, and whether they ever proved anything.</summary>

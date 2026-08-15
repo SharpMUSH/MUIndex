@@ -172,14 +172,36 @@ public static class MsspReferrals
     private static bool IsPort(string token, out int port) =>
         int.TryParse(token, out port) && port is >= 1 and <= 65535;
 
-    /// <summary>
-    /// A host label has a dot or a colon in it, or parses as an address. A bare word does not: a
-    /// single-label name is not routable on the public internet, and accepting one would let
-    /// <c>REFERRAL "intranet 80"</c> aim the crawler at whatever the crawler's own search domain
-    /// resolves that to.
-    /// </summary>
-    private static bool IsPlausibleHost(string token) =>
-        token.Length > 0
-        && !token.StartsWith('-')
-        && (IPAddress.TryParse(token, out _) || token.Contains('.') || token.Contains(':'));
+    private static bool IsPlausibleHost(string token) => HostText.IsPlausible(token);
+}
+
+/// <summary>
+/// Whether a string is shaped like a host we could dial at all.
+/// </summary>
+/// <remarks>
+/// <para>
+/// A host label has a dot or a colon in it, or parses as an address. A bare word does not: a
+/// single-label name is not routable on the public internet, and accepting one would let
+/// <c>REFERRAL "intranet 80"</c> — or a submission form — aim the crawler at whatever the crawler's
+/// own search domain resolves that to. That is the SSRF shape §7.2 exists to prevent, arriving
+/// without anybody needing to own a domain.
+/// </para>
+/// <para>
+/// <b>This is a shape check and never the gate.</b> It classifies a string, so every real DNS name
+/// passes it — correctly, because nothing can be known about a name until DNS answers.
+/// <see cref="HostScopeGuard"/> is the check that holds, and it runs on the resolved address.
+/// </para>
+/// </remarks>
+public static class HostText
+{
+    public static bool IsPlausible(string token)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+
+        return token.Length > 0
+            && !token.StartsWith('-')
+            && !token.Any(char.IsWhiteSpace)
+            && !token.Any(char.IsControl)
+            && (IPAddress.TryParse(token, out _) || token.Contains('.') || token.Contains(':'));
+    }
 }

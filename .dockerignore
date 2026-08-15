@@ -1,0 +1,20 @@
+# Everything, then back what the build actually needs. A deny list eventually lets a stale bin/ or a
+# local secrets file into a layer; an allow list cannot.
+*
+
+!Directory.Build.props
+!Directory.Packages.props
+!src/
+!content/
+# MUI.Catalog embeds these, so leaving them out builds an assembly whose migration set is empty and
+# a site that starts against a database with no schema. MUI.Catalog.csproj now refuses to compile
+# without them; this is the other half of that.
+!migrations/
+
+# Restored packages and previous outputs from a build on the host. Copying them in would let a
+# locally built assembly outrank the one this image compiles, which is the failure that produces an
+# image nobody can reproduce.
+**/bin/
+**/obj/
+**/*.user
+**/appsettings.*.local.json

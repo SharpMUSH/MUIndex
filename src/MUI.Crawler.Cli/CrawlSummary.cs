@@ -28,6 +28,10 @@ public static class CrawlSummary
         ("presence · uncountable", "SELECT count(*) FROM presence_sample WHERE count IS NULL"),
         ("availability intervals", "SELECT count(*) FROM availability_interval"),
         ("referral edges", "SELECT count(*) FROM referral_edge"),
+        // §11's "and recorded", where an operator will actually look for it: how many addresses we
+        // are declining to dial, and how many asks we hold in total including the withdrawn ones.
+        ("opt-outs standing", "SELECT count(*) FROM crawl_opt_out WHERE withdrawn_at IS NULL"),
+        ("opt-outs recorded", "SELECT count(*) FROM crawl_opt_out"),
         ("duplicate reviews open", "SELECT count(*) FROM duplicate_review WHERE resolved_at IS NULL"),
     ];
 

@@ -16,6 +16,16 @@ internal sealed class InMemoryGameStore : IGameStore
 {
     private readonly Dictionary<Guid, GameRecord> _games = [];
 
+    /// <summary>
+    /// The slugs this store has retired. Held here because <see cref="RenameAsync"/> writes both in
+    /// one act, exactly as the real statement does — a fake that renamed a game without retiring its
+    /// URL would be more lenient than the thing it stands in for, in precisely the way §5.7 forbids.
+    /// </summary>
+    public InMemorySlugHistory Slugs { get; }
+
+    public InMemoryGameStore() =>
+        Slugs = new InMemorySlugHistory(id => _games.GetValueOrDefault(id)?.Slug);
+
     public void Seed(GameRecord game) => _games[game.Id] = game;
 
     public Task<GameRecord?> ByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
@@ -73,9 +83,72 @@ internal sealed class InMemoryGameStore : IGameStore
         return Task.CompletedTask;
     }
 
+    public Task<string?> RenameAsync(
+        Guid id,
+        string name,
+        string slug,
+        DateTimeOffset at,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_games.TryGetValue(id, out var game))
+        {
+            return Task.FromResult<string?>(null);
+        }
+
+        var retired = string.Equals(game.Slug, slug, StringComparison.Ordinal) ? null : game.Slug;
+
+        if (retired is not null)
+        {
+            Slugs.Retire(retired, id, at);
+        }
+
+        _games[id] = game with { Name = name, Slug = slug };
+
+        return Task.FromResult(retired);
+    }
+
     public Task<IReadOnlyList<GameRecord>> UnarchivedAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<GameRecord>>(
             _games.Values.Where(g => g.State is not LifecycleState.Archived).ToList());
+}
+
+/// <summary>
+/// The former-slug table in memory (spec §5.7), keyed the way the real one is: on the slug, because
+/// one URL can only ever have belonged to one game.
+/// </summary>
+internal sealed class InMemorySlugHistory(Func<Guid, string?> currentSlug) : ISlugHistoryStore
+{
+    private readonly Dictionary<string, SlugRetirement> _retired = new(StringComparer.Ordinal);
+
+    /// <summary>Records a retirement, keeping the earliest as <c>ON CONFLICT DO NOTHING</c> does.</summary>
+    public void Retire(string slug, Guid gameId, DateTimeOffset at) =>
+        _retired.TryAdd(slug, new SlugRetirement(slug, gameId, at));
+
+    public Task<string?> CurrentSlugAsync(
+        string formerSlug, CancellationToken cancellationToken = default)
+    {
+        if (!_retired.TryGetValue(formerSlug, out var row)
+            || currentSlug(row.GameId) is not { } current
+            || string.Equals(current, formerSlug, StringComparison.Ordinal))
+        {
+            // The last arm is the real query's `g.slug <> h.slug`: a game that took back a name it
+            // used to have leaves a row pointing at a slug that is current again, and answering with
+            // it would send a reader round a redirect loop.
+            return Task.FromResult<string?>(null);
+        }
+
+        return Task.FromResult<string?>(current);
+    }
+
+    public Task<Guid?> RetiredByAsync(string slug, CancellationToken cancellationToken = default) =>
+        Task.FromResult<Guid?>(_retired.TryGetValue(slug, out var row) ? row.GameId : null);
+
+    public Task<IReadOnlyList<SlugRetirement>> ForGameAsync(
+        Guid gameId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<SlugRetirement>>(_retired.Values
+            .Where(row => row.GameId == gameId)
+            .OrderByDescending(row => row.RetiredAt)
+            .ToList());
 }
 
 internal sealed class InMemoryReachableHistory : IReachableHistory

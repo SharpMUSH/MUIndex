@@ -41,10 +41,11 @@ public static class PlainText
         b.AppendLine();
 
         // Every state spelled as a word. "Unknown" is written out rather than left blank, because a
-        // blank reads as zero to a human exactly as it does to a parser.
-        b.AppendLine(s.PlayersNow is { } n
-            ? $"Players now: {n}"
-            : "Players now: unknown (no count could be measured)");
+        // blank reads as zero to a human exactly as it does to a parser — and the count says how it
+        // was obtained here as it does on the listing, or this page is the less honest of the two.
+        b.AppendLine((s.PlayersNow is { } n
+            ? $"Players now: {n}  {Label(s.PlayersNowProvenance, now)}"
+            : "Players now: unknown (no count could be measured)").TrimEnd());
 
         if (page.ReachableFraction is { } r)
         {
@@ -148,21 +149,41 @@ public static class PlainText
 
         foreach (var (name, chip) in page.Declared)
         {
-            var age = Relative.Format(now - chip.LastConfirmedAt);
-
-            // An owner's enrichment says so here as well as in the chip's title, because plain mode
-            // is the surface with no hover: "declared" alone would put what a game's operator typed
-            // and what its config file emits under one word.
-            var how = chip switch
-            {
-                { IsMeasured: true } => "measured",
-                { Source: FieldSource.Owner } => "owner-declared",
-                _ => "declared",
-            };
-
-            b.AppendLine($"  {name,-10} {chip.Value}  ({how}, {age}{(chip.IsStale ? ", stale" : string.Empty)})");
+            b.AppendLine($"  {name,-10} {chip.Value}  {Label(chip, now)}");
         }
     }
+
+    /// <summary>
+    /// A provenance chip in words: how we know it, how old it is, and whether it has aged out.
+    /// </summary>
+    /// <remarks>
+    /// The whole of what the rendered chip carries — glyph, relative age, amber — spelled out. One
+    /// function because four surfaces print it: the listing's counts and codebases, the game page's
+    /// count and its self-description, and the archive. Four spellings of "declared six years ago"
+    /// would be four chances to say it four ways, and this comment claimed the archive before the
+    /// archive did — which is how <c>/games</c> and <c>/archive</c> came to describe the same value
+    /// two ways for a while. An absent chip prints nothing rather than inventing a source for a
+    /// value nobody has labelled.
+    /// <para>
+    /// <b>Three words and not two.</b> Plain mode is the surface with no hover, so "declared" alone
+    /// would put what a game's operator typed into our form and what its own config file emits under
+    /// one word. The distinction is made here rather than at one call site because it is a fact about
+    /// the chip: an owner's answer is owner-declared on the listing, on the game page and in the
+    /// archive alike, and a rule spelled at one of four call sites is a rule the other three break.
+    /// </para>
+    /// </remarks>
+    internal static string Label(ProvenanceChip? chip, DateTimeOffset now) => chip is null
+        ? string.Empty
+        : $"({How(chip)}, {Relative.Format(now - chip.LastConfirmedAt)}"
+            + (chip.IsStale ? ", stale)" : ")");
+
+    /// <summary>How we know it, in the one word plain mode has room for.</summary>
+    private static string How(ProvenanceChip chip) => chip switch
+    {
+        { IsMeasured: true } => "measured",
+        { Source: FieldSource.Owner } => "owner-declared",
+        _ => "declared",
+    };
 
     /// <summary>
     /// The connect screen with its SGR stripped. Colour codes are never announced, and the three
@@ -272,14 +293,19 @@ public static class PlainText
             var mark = g.State is LifecycleState.Archived ? "[archived]" : g.IsClaimed ? "[claimed]" : "[unclaimed]";
             b.AppendLine($"{g.Name}  {mark}");
             b.AppendLine($"  /g/{g.Slug}");
-            b.AppendLine(g.PlayersNow is { } n
-                ? $"  Players now: {n}   (measured)"
-                : "  Players now: unknown (no count could be measured)");
+
+            // How we know, and how old it is — the same two words and the same relative age the game
+            // page uses, because two surfaces of one fact must not have two vocabularies. The word
+            // was hard-coded here and said "(measured)" over every count including the ones a game
+            // asserted about itself, which is rule 5 broken by a format string.
+            b.AppendLine((g.PlayersNow is { } n
+                ? $"  Players now: {n}   {Label(g.PlayersNowProvenance, now)}"
+                : "  Players now: unknown (no count could be measured)").TrimEnd());
 
             // Never blank. "We could not identify it" is a measurement and a missing line is not.
-            b.AppendLine(g.Codebase is { } codebase
-                ? $"  Codebase:    {codebase}"
-                : "  Codebase:    not identified");
+            b.AppendLine((g.Codebase is { } codebase
+                ? $"  Codebase:    {codebase}  {Label(g.CodebaseProvenance, now)}"
+                : "  Codebase:    not identified").TrimEnd());
 
             b.AppendLine(g.MeasuredProtocols.Count > 0
                 ? $"  Measured:    {string.Join(", ", g.MeasuredProtocols)}"
@@ -430,9 +456,15 @@ public static class PlainText
                 b.AppendLine($"  Run:             {run}");
             }
 
+            // Labelled here above all. This is where a value is oldest — nobody has confirmed an
+            // archived game's codebase since the day it stopped answering — and the archive read
+            // "Codebase: PennMUSH 1.8.5" flat while the listing said the same value was three years
+            // unconfirmed. Same fact, same words, whichever page a reader is on.
             if (entry.Summary.Codebase is { } codebase)
             {
-                b.AppendLine($"  Codebase:        {codebase}");
+                b.AppendLine(
+                    $"  Codebase:        {codebase}  {Label(entry.Summary.CodebaseProvenance, now)}"
+                        .TrimEnd());
             }
 
             b.AppendLine();
@@ -588,6 +620,53 @@ public static class PlainText
         Wrap(b, EcosystemCopy.NoCurve);
         b.AppendLine();
         Wrap(b, EcosystemCopy.Transitions(dashboard.CapabilityTransitions));
+
+        return b.ToString();
+    }
+
+    /// <summary>
+    /// The submission form's prose, and whatever it last answered.
+    /// </summary>
+    /// <remarks>
+    /// <b>The form itself is not rendered here, and it is not missing either.</b> Two text boxes and
+    /// a button already are plain text: a text browser posts them perfectly well, so the page keeps
+    /// the real form beneath this block rather than describing one. What this renders is everything
+    /// around it — what happens to an address, and what happened to the last one — which is the part
+    /// that could otherwise have been carried by layout.
+    /// </remarks>
+    public static string RenderSubmit(SubmitAnswer? answer, bool hasCatalogue)
+    {
+        var b = new StringBuilder();
+
+        b.AppendLine(SubmitCopy.Title.ToUpperInvariant());
+        b.AppendLine();
+        Wrap(b, SubmitCopy.Lede);
+
+        if (answer is not null)
+        {
+            Heading(b, answer.Heading);
+            Wrap(b, answer.Sentence);
+
+            if (answer.Link is { } link)
+            {
+                b.AppendLine($"  {link.Label}: {link.Href}");
+            }
+        }
+
+        if (!hasCatalogue)
+        {
+            Heading(b, "NOT HERE");
+            Wrap(b, SubmitCopy.NoCatalogue);
+            return b.ToString();
+        }
+
+        Heading(b, "WHAT HAPPENS TO AN ADDRESS");
+
+        foreach (var point in SubmitCopy.Points)
+        {
+            b.AppendLine();
+            Wrap(b, point, "  ");
+        }
 
         return b.ToString();
     }
