@@ -312,6 +312,12 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         "midnight-sun" => FixtureScreens.MidnightSun,
         "batmud" => FixtureScreens.Enormous,
 
+        // Ashen Court's owner asked us not to republish theirs, and we hold it all the same — the
+        // crawler goes on reading it as an identity signal (§7.3). Held-and-withheld is the state
+        // suppression actually produces, and a fixture whose suppressed game had no screen at all
+        // could not tell it apart from a game we never captured one from.
+        "ashen-court" => FixtureScreens.Mush,
+
         // An archived game's last screen is preserved and labelled, not withdrawn.
         "gaslight-row" => FixtureScreens.Mush,
         _ => null,

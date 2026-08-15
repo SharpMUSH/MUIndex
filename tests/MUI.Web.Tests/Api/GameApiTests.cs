@@ -145,6 +145,35 @@ public class GameApiTests
         await Assert.That(game.GetProperty("availability").GetArrayLength()).IsGreaterThan(0);
     }
 
+    /// <summary>
+    /// A suppressed screen is withheld here as well as on the page (spec §11).
+    /// </summary>
+    /// <remarks>
+    /// It shipped the other way: <c>suppressed</c> was published beside the full text, so the one
+    /// surface most likely to be republished by somebody else was the only surface that ignored the
+    /// owner's request. The flag stays — a consumer is told there is a screen and that we do not
+    /// republish it, which is a different fact from never having captured one.
+    /// </remarks>
+    [Test]
+    public async Task AScreenItsOwnerAskedUsNotToRepublishIsNotRepublishedByTheApiEither()
+    {
+        await using var host = await ApiHost.StartAsync();
+
+        var suppressed = await Json.ElementAsync(
+            await host.Client.GetAsync($"{ApiRoutes.Games}/ashen-court"));
+        var screen = suppressed.GetProperty("connectScreen");
+
+        await Assert.That(screen.GetProperty("suppressed").GetBoolean()).IsTrue();
+        await Assert.That(screen.GetProperty("text").ValueKind).IsEqualTo(JsonValueKind.Null);
+
+        // And a game whose owner asked for nothing still ships its screen.
+        var ordinary = await Json.ElementAsync(
+            await host.Client.GetAsync($"{ApiRoutes.Games}/m-u-s-h"));
+
+        await Assert.That(ordinary.GetProperty("connectScreen").GetProperty("text").GetString())
+            .IsNotNull();
+    }
+
     [Test]
     public async Task EveryDeclaredValueCarriesWhereItCameFromAndHowOldItIs()
     {

@@ -85,7 +85,13 @@ public static class ApiMapper
             Label(game.CodebaseProvenance, now),
             game.MeasuredProtocols,
             [.. page.Endpoints.Select(Endpoint)],
-            new ConnectScreenView(page.ConnectScreenSuppressed, page.ConnectScreen),
+            // Suppression withholds the screen here exactly as it does on the page (§11). It shipped
+            // the other way: the flag was published beside the full text, so the one surface most
+            // likely to be re-published by somebody else was the one surface that ignored the
+            // owner's request. A consumer is told there is a screen and that we do not republish it.
+            new ConnectScreenView(
+                page.ConnectScreenSuppressed,
+                page.ConnectScreenSuppressed ? null : page.ConnectScreen),
             new ReachabilityView(
                 ReachableWindowDays,
                 page.ReachableFraction,

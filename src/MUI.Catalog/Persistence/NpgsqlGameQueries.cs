@@ -391,9 +391,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 .Select(e => new GameEndpointView(
                     e.Host, e.Port, SqlEnums.ToDb(e.Kind), TlsMeasured: e.Kind is EndpointKind.Tls))
                 .ToList(),
-            ConnectScreen: Winner(fields, "connect_screen")?.Value,
+            ConnectScreen: Winner(fields, InternalFields.ConnectScreen)?.Value,
             ConnectScreenSuppressed: string.Equals(
-                Winner(fields, "connect_screen_suppressed")?.Value, "true", StringComparison.Ordinal),
+                Winner(fields, InternalFields.ConnectScreenSuppressed)?.Value,
+                "true",
+                StringComparison.Ordinal),
             ReachableFraction: Reachability.FractionReachable(intervals, RecentlyReachable * 3, now),
             LongestOutage: Reachability.LongestOutage(intervals, RecentlyReachable * 3, now),
             Capabilities: CapabilitiesOf(fields),
@@ -739,11 +741,23 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             .ToList();
     }
 
+    /// <summary>
+    /// One change as a sentence. An emptied value is <em>cleared</em>, and still an event.
+    /// </summary>
+    /// <remarks>
+    /// A field an owner clears keeps its row and gains a change entry — nothing is ever deleted, and
+    /// the withdrawal of a fact is as much a thing that happened as its arrival. Rendering the empty
+    /// string as itself would print "FANDOM changed from Exalted to" and lose the event in the
+    /// punctuation.
+    /// </remarks>
     private static ChangeEntry Describe(FieldChange change) => new(
         change.At,
         change.OldValue is null
-            ? $"{change.Field} recorded as {change.NewValue} ({SqlEnums.ToDb(change.Source)})"
-            : $"{change.Field} changed from {change.OldValue} to {change.NewValue} ({SqlEnums.ToDb(change.Source)})");
+            ? $"{change.Field} recorded as {Spell(change.NewValue)} ({SqlEnums.ToDb(change.Source)})"
+            : $"{change.Field} changed from {Spell(change.OldValue)} to {Spell(change.NewValue)} "
+                + $"({SqlEnums.ToDb(change.Source)})");
+
+    private static string Spell(string value) => value.Length == 0 ? "nothing" : value;
 
     private static GameField? Winner(IReadOnlyList<GameField> fields, string name) =>
         FieldPrecedence.Winner(fields.Where(f => string.Equals(f.Field, name, StringComparison.Ordinal)));
@@ -806,7 +820,19 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
         foreach (var group in fields
             .Where(f => !f.Field.StartsWith(CapabilityFields.Prefix, StringComparison.Ordinal)
-                && !InternalFields.IsInternal(f.Field))
+                && !InternalFields.IsInternal(f.Field)
+
+                // A cleared field is a row with an empty value, not a missing row (see
+                // OwnerEnrichment) — so it is filtered HERE, before the ladder, because an empty
+                // row is an absence and an absence does not get to win.
+                //
+                // Filtering after the winner was chosen silenced whatever was underneath: `owner`
+                // outranks `mssp` for enrichment fields, so a cleared owner row won its group and
+                // then dropped the group for being empty. A game publishing its own unofficial
+                // FANDOM could have had it removed from the page, the plain surface and the API by
+                // its owner typing a space into a box — an owner editing a measurement by the back
+                // door, which §8.5 forbids outright.
+                && f.Value.Length > 0)
             .GroupBy(f => f.Field, StringComparer.Ordinal))
         {
             if (FieldPrecedence.Winner(group) is not { } winner)

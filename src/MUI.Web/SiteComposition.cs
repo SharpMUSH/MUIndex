@@ -120,16 +120,10 @@ public static class SiteComposition
 
         app.UseStaticFiles();
 
-        // The site has exactly two POST forms — the on-demand claim check and the submission form —
-        // and both carry a token. The facet panel is a GET form deliberately, because a filter is a
-        // bookmarkable question rather than a state change, so nothing about the catalogue is
-        // token-protected.
-        app.UseAntiforgery();
+        app.UseMuiAntiforgeryAfterAuthentication(withAccounts: connectionString is not null);
 
         if (connectionString is not null)
         {
-            app.UseAuthentication();
-            app.UseAuthorization();
             app.MapMuiAccounts();
 
             // Submitting needs a crawl registry to write an address into, and the registry is
@@ -146,6 +140,52 @@ public static class SiteComposition
 
         app.MapRazorComponents<App>();
         app.MapMuiApi();
+
+        return app;
+    }
+
+    /// <summary>
+    /// Authentication, then authorisation, then anti-forgery — three lines whose <b>order is the
+    /// whole point</b>.
+    /// </summary>
+    /// <param name="app">The pipeline.</param>
+    /// <param name="withAccounts">
+    /// Whether this deployment has a database behind it. With none there are no accounts to
+    /// authenticate, and the anti-forgery middleware still has to be present because Razor Components
+    /// puts anti-forgery metadata on every endpoint.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// An anti-forgery token issued to a signed-in operator carries their identity, and the
+    /// middleware compares it against <c>HttpContext.User</c> — so validating <em>before</em> the
+    /// authentication middleware has run compares a token minted for somebody against nobody, and
+    /// every owner's form post is rejected as forged. The public surfaces never notice: a filter is a
+    /// GET form deliberately, because a bookmarkable question is not a state change, and the
+    /// submission form and the on-demand claim check post with no signed-in identity to disagree
+    /// with. So the failure is total for the one surface that writes and invisible everywhere else.
+    /// </para>
+    /// <para>
+    /// <b>It is a method rather than three lines inline because the test that proves it matters used
+    /// to build its own copy of them.</b> A harness that restates an ordering asserts its own
+    /// ordering and stops describing the site's the moment the site's moves — and it did move, twice,
+    /// while the pipeline was being pulled out of <c>Program</c>. <c>OwnerEndpointTests</c> calls this
+    /// for its correct-order pipeline and hand-builds only the wrong one, so reordering these three
+    /// lines fails an owner's form post in a test rather than in production.
+    /// </para>
+    /// </remarks>
+    public static WebApplication UseMuiAntiforgeryAfterAuthentication(
+        this WebApplication app,
+        bool withAccounts)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+
+        if (withAccounts)
+        {
+            app.UseAuthentication();
+            app.UseAuthorization();
+        }
+
+        app.UseAntiforgery();
 
         return app;
     }

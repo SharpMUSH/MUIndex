@@ -1,0 +1,119 @@
+@using MUI.Catalog.Persistence
+@using MUI.Web.Accounts
+
+@*
+    What a claim actually grants, as two forms (spec §8.5, §11).
+
+    Everything here is enrichment: the fields MSSP has no room for, and the owner's decision about
+    their own connect screen. Nothing on this panel can reach a player count, a capability or a
+    reachability history — the writable set is the field registry's own OwnerEnrichable flag, read
+    below rather than listed here, and the endpoint refuses anything outside it out loud.
+
+    An owner's answer is DECLARED. It is stored under its own field source beside whatever the
+    crawler measured, shown with its age like every other fact, and it never replaces, hides or
+    silences a measurement. The panel says so, because an operator typing into a box on a site whose
+    whole claim is that its data is measured deserves to know which of the two they are producing.
+*@
+
+<section class="owner-panel">
+    <h3>What only you can tell us about @Name</h3>
+
+    <p class="faint">
+        These are the things MSSP has no field for. They appear on your game's page as
+        <em>owner-declared</em>, with the date you last confirmed them, beside what we measured —
+        never instead of it. Nothing measured can be edited from here, by you or by us.
+    </p>
+
+    <form method="post" action="/account/games/@GameId/enrichment" class="enrichment">
+        <AntiforgeryToken />
+
+        @foreach (var definition in FieldRegistry.OwnerEnrichable)
+        {
+            <label>
+                <span class="kicker">@definition.Name.ToLowerInvariant()</span>
+                <input type="text"
+                       name="@(OwnerWrites.FieldPrefix + definition.Name)"
+                       value="@(Current(definition.Name)?.Value)"
+                       maxlength="@OwnerEnrichment.MaxValueLength" />
+                @if (Current(definition.Name) is { Value.Length: > 0 } row)
+                {
+                    <span class="faint">
+                        declared @Relative.Format(Now - row.LastConfirmedAt) ago. Empty this box to
+                        withdraw it — the record of what it said is kept either way.
+                    </span>
+                }
+            </label>
+        }
+
+        <button type="submit">Save what you declared</button>
+    </form>
+
+    <h3>Your connect screen</h3>
+
+    @if (Suppressed)
+    {
+        <p>
+            We are not republishing it. The page says so plainly rather than leaving a hole, and the
+            crawler goes on reading it — it is how we recognise your game if it moves.
+        </p>
+        <form method="post" action="/account/games/@GameId/connect-screen">
+            <AntiforgeryToken />
+            <input type="hidden" name="suppress" value="false" />
+            <button type="submit">Show it again</button>
+        </form>
+    }
+    else
+    {
+        <p>
+            We show it because your server sends it to every anonymous connection. If you would
+            rather we did not, say so and we stop. We will not ask why.
+        </p>
+        <form method="post" action="/account/games/@GameId/connect-screen">
+            <AntiforgeryToken />
+            <input type="hidden" name="suppress" value="true" />
+            <button type="submit">Stop showing our connect screen</button>
+        </form>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public Guid GameId { get; set; }
+
+    [Parameter, EditorRequired] public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// What this game's owners have already declared, keyed by field.
+    /// </summary>
+    /// <remarks>
+    /// Owner rows only, and passed in rather than fetched here so that one page load reads the
+    /// catalogue once. A measurement is deliberately not offered back as a draft of itself: an
+    /// editable box pre-filled with something we measured is an invitation to overwrite it.
+    /// </remarks>
+    [Parameter] public IReadOnlyDictionary<string, GameField> Declared { get; set; } =
+        new Dictionary<string, GameField>(StringComparer.Ordinal);
+
+    [Parameter] public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// The owner's own decision, read from the field they set rather than from the rendered page.
+    /// </summary>
+    /// <remarks>
+    /// The surfaces resolve suppression through the §5.1 precedence ladder, which is right for a
+    /// reader and wrong for this form: the control has to reflect what <em>this owner</em> asked for
+    /// and offer the opposite of it, and a ladder that ever put another source above theirs would
+    /// otherwise show them a button that does nothing.
+    /// </remarks>
+    private bool Suppressed => string.Equals(
+        Current(InternalFields.ConnectScreenSuppressed)?.Value, "true", StringComparison.Ordinal);
+
+    /// <summary>
+    /// The owner's row for a field, withdrawn or not.
+    /// </summary>
+    /// <remarks>
+    /// A withdrawn field keeps an empty row (nothing is ever deleted), and the box beside it must
+    /// not then claim it was "declared 5w ago" — an age on a value nobody can see is an age on
+    /// nothing. Callers that render a declaration check the value as well as the row.
+    /// </remarks>
+    private GameField? Current(string field) =>
+        Declared.TryGetValue(field, out var row) ? row : null;
+}

@@ -74,6 +74,22 @@ public static class Passkeys
             s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<ClaimService>();
 
+        // The write half of a claim (§8.5). It goes through the same reconciler the crawler's
+        // observations do, so an owner's value confirms, changes and reaches the change feed by the
+        // same code path as a measured one — and lands in a row of its own, which is what keeps the
+        // two from ever contending.
+        services.AddScoped<OwnerEnrichment>(s =>
+        {
+            var store = new NpgsqlGameFieldStore(s.GetRequiredService<NpgsqlDataSource>());
+
+            return new OwnerEnrichment(
+                new NpgsqlClaimStore(s.GetRequiredService<NpgsqlDataSource>()),
+                store,
+                new FieldReconciler(store),
+                s.GetRequiredService<IFieldRegistry>(),
+                s.GetRequiredService<TimeProvider>());
+        });
+
         services.Configure<IdentityPasskeyOptions>(options =>
         {
             // Set explicitly rather than inferred from the host header, which the ASP.NET Core docs
@@ -258,6 +274,9 @@ public static class Passkeys
 
             return Results.Redirect("/");
         });
+
+        // §8.5's enrichment and §11's suppression, which are the only writes a claim grants.
+        app.MapMuiOwnerWrites();
     }
 
     /// <summary>What the page posts back after the authenticator has answered.</summary>
