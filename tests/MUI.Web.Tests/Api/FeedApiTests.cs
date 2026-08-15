@@ -47,6 +47,59 @@ public class FeedApiTests
     }
 
     [Test]
+    public async Task TheFeedKnowsEachGamesIdWithoutReadingTheWholeListingToFindIt()
+    {
+        // §10.1's second gap. FeedEntry carried a slug and no id, so answering /api/feeds meant
+        // reading the entire catalogue to join identifiers onto ten rows. The id belongs to the
+        // query that already had the game in hand — and a listing this endpoint never asks for
+        // cannot be the thing it is answering from.
+        var expected = (await new FixtureGameQueries().ListAsync(new GameFilter { IncludeArchived = true }))
+            .ToDictionary(g => g.Slug, g => g.Id, StringComparer.Ordinal);
+
+        await using var host = await ApiHost.StartAsync(queries: new NoListing(new FixtureGameQueries()));
+
+        var feeds = await Json.ElementAsync(await host.Client.GetAsync(ApiRoutes.Feeds));
+
+        foreach (var register in new[] { "newlyDiscovered", "wentDark", "cameBack" })
+        {
+            foreach (var entry in feeds.GetProperty(register).EnumerateArray())
+            {
+                var slug = entry.GetProperty("slug").GetString()!;
+                await Assert.That(entry.GetProperty("id").GetGuid()).IsEqualTo(expected[slug]);
+                await Assert.That(entry.GetProperty("apiUrl").GetString())
+                    .IsEqualTo(ApiRoutes.Game(expected[slug]));
+            }
+        }
+    }
+
+    /// <summary>
+    /// A catalogue that answers the feeds and refuses the listing. The refusal is the assertion.
+    /// </summary>
+    private sealed class NoListing(IGameQueries inner) : IGameQueries
+    {
+        public Task<GameListing> SearchAsync(GameFilter filter, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("The feed must not read the listing.");
+
+        public Task<IReadOnlyList<GameSummary>> ListAsync(GameFilter filter, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("The feed must not read the listing.");
+
+        public Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default) =>
+            inner.FindAsync(slug, cancellationToken);
+
+        public Task<GameSummary?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+            inner.FindByIdAsync(id, cancellationToken);
+
+        public Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default) =>
+            inner.FeedsAsync(cancellationToken);
+
+        public Task<EcosystemDashboard> EcosystemAsync(CancellationToken cancellationToken = default) =>
+            inner.EcosystemAsync(cancellationToken);
+
+        public Task<Rankings> RankingsAsync(CancellationToken cancellationToken = default) =>
+            inner.RankingsAsync(cancellationToken);
+    }
+
+    [Test]
     public async Task EachRegisterIsAlsoRssAndItsItemGuidsAreStable()
     {
         await using var host = await ApiHost.StartAsync();

@@ -33,11 +33,19 @@ public static class GameEndpoints
         // building a filter UI over this endpoint gets counts that describe the page it was handed
         // — the same guarantee the site's own panel has, for the same reason.
         var matched = await queries.SearchAsync(query.Filter, http.RequestAborted);
-        var page = matched.Games.Skip(query.Offset).Take(query.Limit).Select(ApiMapper.Summary).ToList();
+
+        // One instant for the whole response: every age on a row is measured from the same moment
+        // the body is stamped with, so a listing cannot disagree with its own generatedAt.
+        var now = ApiClock.Now(clock);
+        var page = matched.Games
+            .Skip(query.Offset)
+            .Take(query.Limit)
+            .Select(game => ApiMapper.Summary(game, now))
+            .ToList();
 
         await ApiResponse.WriteJsonAsync(http, new GameListView(
             ApiVersion.Current,
-            ApiClock.Now(clock),
+            now,
             query.Echo,
             [.. matched.Facets.Select(ApiMapper.Facet)],
             Total: matched.Games.Count,

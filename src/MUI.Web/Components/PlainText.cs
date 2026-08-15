@@ -148,11 +148,23 @@ public static class PlainText
 
         foreach (var (name, chip) in page.Declared)
         {
-            var age = Relative.Format(now - chip.LastConfirmedAt);
-            var how = chip.IsMeasured ? "measured" : "declared";
-            b.AppendLine($"  {name,-10} {chip.Value}  ({how}, {age}{(chip.IsStale ? ", stale" : string.Empty)})");
+            b.AppendLine($"  {name,-10} {chip.Value}  {Label(chip, now)}");
         }
     }
+
+    /// <summary>
+    /// A provenance chip in words: how we know it, how old it is, and whether it has aged out.
+    /// </summary>
+    /// <remarks>
+    /// The whole of what the rendered chip carries — glyph, relative age, amber — spelled out. It
+    /// is one function because the listing, the game page and the archive all print it, and three
+    /// spellings of "declared six years ago" would be three chances to say it three ways. An absent
+    /// chip prints nothing rather than inventing a source for a value nobody has labelled.
+    /// </remarks>
+    internal static string Label(ProvenanceChip? chip, DateTimeOffset now) => chip is null
+        ? string.Empty
+        : $"({(chip.IsMeasured ? "measured" : "declared")}, {Relative.Format(now - chip.LastConfirmedAt)}"
+            + (chip.IsStale ? ", stale)" : ")");
 
     /// <summary>
     /// The connect screen with its SGR stripped. Colour codes are never announced, and the three
@@ -262,14 +274,19 @@ public static class PlainText
             var mark = g.State is LifecycleState.Archived ? "[archived]" : g.IsClaimed ? "[claimed]" : "[unclaimed]";
             b.AppendLine($"{g.Name}  {mark}");
             b.AppendLine($"  /g/{g.Slug}");
-            b.AppendLine(g.PlayersNow is { } n
-                ? $"  Players now: {n}   (measured)"
-                : "  Players now: unknown (no count could be measured)");
+
+            // How we know, and how old it is — the same two words and the same relative age the game
+            // page uses, because two surfaces of one fact must not have two vocabularies. The word
+            // was hard-coded here and said "(measured)" over every count including the ones a game
+            // asserted about itself, which is rule 5 broken by a format string.
+            b.AppendLine((g.PlayersNow is { } n
+                ? $"  Players now: {n}   {Label(g.PlayersNowProvenance, now)}"
+                : "  Players now: unknown (no count could be measured)").TrimEnd());
 
             // Never blank. "We could not identify it" is a measurement and a missing line is not.
-            b.AppendLine(g.Codebase is { } codebase
-                ? $"  Codebase:    {codebase}"
-                : "  Codebase:    not identified");
+            b.AppendLine((g.Codebase is { } codebase
+                ? $"  Codebase:    {codebase}  {Label(g.CodebaseProvenance, now)}"
+                : "  Codebase:    not identified").TrimEnd());
 
             b.AppendLine(g.MeasuredProtocols.Count > 0
                 ? $"  Measured:    {string.Join(", ", g.MeasuredProtocols)}"

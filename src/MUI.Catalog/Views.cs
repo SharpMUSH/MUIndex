@@ -79,10 +79,22 @@ public sealed record ActivityCell(int DayOfWeek, int Hour, int? Count, bool Prob
 
 /// <summary>A game as the listing shows it.</summary>
 /// <remarks>
+/// <para>
 /// <see cref="LastReachableAt"/> is carried because the last-seen facet (spec §9) filters on it, and
 /// a facet whose value cannot be read off the rows it returned is one a reader has to take on trust.
 /// Null means we have never once reached the game, which is a different fact from "reachable a long
 /// time ago" and is never rendered as the older of the two.
+/// </para>
+/// <para>
+/// <b><see cref="PlayersNowProvenance"/> and <see cref="CodebaseProvenance"/> are the labels for the
+/// two bare values above them</b>, and they are on the summary rather than only on the page because
+/// the listing is a surface in its own right — spec §10.1 called an unlabelled listing "the one
+/// place the API contradicts the rule the whole project exists to serve". A count somebody read out
+/// of a <c>WHO</c> four minutes ago and one a game asserted about itself six years ago are different
+/// facts, and a reader of the listing alone could not tell them apart while this type had nowhere to
+/// put the difference. Null where — and only where — the value beside it is null: a chip over
+/// nothing would be a label attesting to a measurement nobody took.
+/// </para>
 /// </remarks>
 public sealed record GameSummary(
     Guid Id,
@@ -94,7 +106,9 @@ public sealed record GameSummary(
     int? PlayersNow,
     string? Codebase,
     IReadOnlyList<string> MeasuredProtocols,
-    DateTimeOffset? LastReachableAt = null);
+    DateTimeOffset? LastReachableAt = null,
+    ProvenanceChip? PlayersNowProvenance = null,
+    ProvenanceChip? CodebaseProvenance = null);
 
 /// <summary>A game as its own page shows it.</summary>
 /// <remarks>
@@ -287,4 +301,14 @@ public sealed record LivenessFeeds(
     IReadOnlyList<FeedEntry> WentDark,
     IReadOnlyList<FeedEntry> CameBack);
 
-public sealed record FeedEntry(string Slug, string Name, DateTimeOffset At, string Detail);
+/// <summary>
+/// One event in a liveness register: which game, when, and what happened.
+/// </summary>
+/// <remarks>
+/// <see cref="Id"/> leads because it is the identifier that survives (spec §5.7) — the slug moves
+/// when a game renames itself. It is here rather than joined on afterwards because the query that
+/// built this entry already had the game in hand: without it, every request for ten feed rows read
+/// the entire catalogue to put an id beside each slug, and the API published the durable key as
+/// though it were optional.
+/// </remarks>
+public sealed record FeedEntry(Guid Id, string Slug, string Name, DateTimeOffset At, string Detail);

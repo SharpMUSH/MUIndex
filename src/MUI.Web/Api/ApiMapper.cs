@@ -16,7 +16,15 @@ public static class ApiMapper
     /// <summary>The window the reachability figures on <see cref="GamePage"/> were computed over.</summary>
     public const int ReachableWindowDays = 90;
 
-    public static GameSummaryView Summary(GameSummary game) => new(
+    /// <summary>
+    /// A listing row, with the label the catalogue put on each of its two bare values (spec §10.1).
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="now"/> is taken rather than read off a clock, because every age in one
+    /// response is measured from the instant that response is stamped with — a listing whose rows
+    /// each aged from their own <c>UtcNow</c> would disagree with its own <c>generatedAt</c>.
+    /// </remarks>
+    public static GameSummaryView Summary(GameSummary game, DateTimeOffset now) => new(
         game.Id,
         game.Slug,
         game.Name,
@@ -26,7 +34,9 @@ public static class ApiMapper
         Claimed: game.IsClaimed,
         game.PlayersNow,
         Counted(game.PlayersNow),
+        Label(game.PlayersNowProvenance, now),
         game.Codebase,
+        Label(game.CodebaseProvenance, now),
         game.MeasuredProtocols,
         game.LastReachableAt,
         ApiRoutes.Page(game.Slug),
@@ -70,7 +80,9 @@ public static class ApiMapper
             Claimed: game.IsClaimed,
             game.PlayersNow,
             Counted(game.PlayersNow),
+            Label(game.PlayersNowProvenance, now),
             game.Codebase,
+            Label(game.CodebaseProvenance, now),
             game.MeasuredProtocols,
             [.. page.Endpoints.Select(Endpoint)],
             new ConnectScreenView(page.ConnectScreenSuppressed, page.ConnectScreen),
@@ -88,6 +100,16 @@ public static class ApiMapper
             ApiRoutes.Page(game.Slug),
             ApiRoutes.Game(game.Id));
     }
+
+    /// <summary>
+    /// The label for a value we hold, or nothing where there is no value to label.
+    /// </summary>
+    /// <remarks>
+    /// The null is a fact — we did not measure this — and it ships as one rather than as an empty
+    /// object, which a consumer would have to inspect to discover said nothing.
+    /// </remarks>
+    public static ProvenanceView? Label(ProvenanceChip? chip, DateTimeOffset now) =>
+        chip is null ? null : Provenance(chip, now);
 
     public static ProvenanceView Provenance(ProvenanceChip chip, DateTimeOffset now)
     {
@@ -142,14 +164,14 @@ public static class ApiMapper
     public static EndpointView Endpoint(GameEndpointView endpoint) =>
         new(endpoint.Host, endpoint.Port, endpoint.Kind, endpoint.TlsMeasured);
 
-    public static FeedEntryView Feed(FeedEntry entry, Guid? id) => new(
-        id,
+    public static FeedEntryView Feed(FeedEntry entry) => new(
+        entry.Id,
         entry.Slug,
         entry.Name,
         entry.At,
         entry.Detail,
         ApiRoutes.Page(entry.Slug),
-        id is { } known ? ApiRoutes.Game(known) : $"{ApiRoutes.Games}/{Uri.EscapeDataString(entry.Slug)}");
+        ApiRoutes.Game(entry.Id));
 
     /// <summary>
     /// Null is "we did not measure a count", and it is a different fact from zero (rule 4). It ships

@@ -1,5 +1,6 @@
 using MUI.Catalog;
 using MUI.Web.Components;
+using MUI.Web.Components.Pages;
 using MUI.Web.Fixtures;
 
 namespace MUI.Web.Tests;
@@ -182,6 +183,45 @@ public class PlainParityTests
         var text = PlainText.RenderListing(await Queries.SearchAsync(new GameFilter()), new GameFilter(), Now);
 
         await Assert.That(text).Contains("Codebase:    not identified");
+    }
+
+    [Test]
+    public async Task TheListingSaysHowEachCountAndCodebaseWasObtainedAndHowOldItIs()
+    {
+        // §9's test of the whole system, applied to the listing: if provenance cannot survive in
+        // plain text then the chip on the rendered row is decoration. Same two words the game page
+        // uses — measured or declared — and the same relative age, so there is one vocabulary.
+        var text = PlainText.RenderListing(
+            await Queries.SearchAsync(new GameFilter { IncludeArchived = true }),
+            new GameFilter { IncludeArchived = true },
+            Now);
+
+        // M*U*S*H: fifteen on, read out of a WHO four minutes ago.
+        await Assert.That(text).Contains("Players now: 15   (measured, 4m)");
+
+        // Aardwolf publishes its number on the connect screen and nowhere a machine can ask.
+        await Assert.That(text).Contains("Players now: 219   (declared, 40m)");
+
+        // And a value nobody has confirmed in years says so in the word, not in an amber colour.
+        await Assert.That(text).Contains("PennMUSH 1.8.5  (declared, 3y, stale)");
+    }
+
+    [Test]
+    public async Task TheRenderedListingRowCarriesTheSameLabelThePlainOneSpells()
+    {
+        // The rendered row and the plain row have to be two renderings of one fact. The chip is the
+        // vocabulary the game page already uses — glyph, relative age, amber when it has aged out —
+        // and the row reuses it rather than inventing a second way of saying "we read this off a
+        // banner forty minutes ago".
+        var html = await Render.PageAsync<Games>([]);
+
+        await Assert.That(html).Contains("class=\"chip measured");
+        await Assert.That(html).Contains("class=\"chip declared");
+
+        // Never colour or glyph alone: the word is in the accessibility tree either as the chip's
+        // own title or as text only a screen reader reads.
+        await Assert.That(Render.Words(html)).Contains("declared");
+        await Assert.That(Render.Words(html)).Contains("measured");
     }
 
     [Test]

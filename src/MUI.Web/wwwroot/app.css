@@ -518,6 +518,12 @@ ul.games .unclaimed { font: 10px/1 var(--kick); letter-spacing: 0.14em; text-tra
 ul.games .meta, ul.archive .meta { margin: 3px 0 0; font-size: 11.5px; color: var(--faint); }
 ul.games .meta .protocol { white-space: nowrap; }
 
+/* A provenance chip on a listing row. The chip's own age size is set for body copy, and these two
+   contexts are already smaller than that — so the age rides the row's size rather than growing
+   larger than the text it qualifies. Everything else about the chip is unchanged, deliberately:
+   the row and the game page have to be one vocabulary and not two that resemble each other. */
+ul.games .meta .chip .age, .row-figure .chip .age { font-size: inherit; }
+
 /* The measured column. Tabular figures so the counts line up down the page without a table. */
 .row-figure {
     margin: 0;
@@ -531,6 +537,10 @@ ul.games .meta .protocol { white-space: nowrap; }
 }
 
 .row-figure .players { color: var(--text); }
+
+/* The count's own chip rides beside the figure. Spaced in CSS and not by a space in the markup,
+   because the renderer trims whitespace around a conditional and "219 on" ran into its own glyph. */
+.row-figure .players .chip { margin-left: 6px; }
 .row-figure .players .unit { color: var(--faint); }
 .row-figure .players.unknown { color: var(--faint); }
 .row-figure .seen { color: var(--faint); font-size: 11.5px; }

@@ -86,8 +86,14 @@ public static class MuiApi
                 + "place in the dump; state says what it is.",
                 "Every value carries provenance and age. measured means somebody observed it; "
                 + "declared means a game asserted it. Where they disagree, both are published.",
+                "Every bare value has its label beside it or in fields: playersNow is labelled by "
+                + "playersNowProvenance, codebase by codebaseProvenance, on the listing as well as "
+                + "on a game. A null label means we hold no such value, never that we lost track "
+                + "of where one came from.",
                 "A player count of null means we did not measure one. It is never a zero, and "
-                + "playersNowState says which it is.",
+                + "playersNowState says which it is. A count can be declared rather than measured "
+                + "— a game publishing PLAYERS in MSSP has asserted a number — and its provenance "
+                + "says which.",
                 // The word this sentence is careful not to use is the whole point of it, and the
                 // rule binds published copy as much as it binds field names.
                 "reachable describes a socket we opened from one vantage point at intervals. It "

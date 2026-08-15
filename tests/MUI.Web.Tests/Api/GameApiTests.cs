@@ -92,8 +92,17 @@ public class GameApiTests
         // banner is not, and nothing on this surface gets to hold a second opinion.
         await Assert.That(fields.GetProperty("created").GetProperty("stale").GetBoolean()).IsTrue();
         await Assert.That(fields.GetProperty("codebase").GetProperty("stale").GetBoolean()).IsFalse();
+
+        // MSSP and not the banner. M*U*S*H disagrees with itself — its MSSP says 1.8.8p0 and its
+        // banner says 1.8.7 — and 1.8.8p0 is the value on the page, which is what the precedence
+        // ladder returns (§5.1). Labelling it `banner` credited one source with another's value,
+        // which is the single thing a provenance chip exists not to do.
         await Assert.That(fields.GetProperty("codebase").GetProperty("source").GetString())
-            .IsEqualTo("banner");
+            .IsEqualTo("mssp");
+        await Assert.That(game.GetProperty("codebaseProvenance").GetProperty("source").GetString())
+            .IsEqualTo("mssp");
+        await Assert.That(game.GetProperty("codebaseProvenance").GetProperty("value").GetString())
+            .IsEqualTo(game.GetProperty("codebase").GetString());
     }
 
     [Test]
