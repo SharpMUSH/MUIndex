@@ -27,7 +27,8 @@ public class CrawlCyclePostgresTests
         IProbe probe,
         TimeProvider time,
         IHostResolver? resolver = null,
-        DiscoveryOptions? options = null)
+        DiscoveryOptions? options = null,
+        IDnsTxtResolver? dns = null)
     {
         var discovery = options ?? new DiscoveryOptions
         {
@@ -46,6 +47,9 @@ public class CrawlCyclePostgresTests
         return new CrawlCycle(
             targets,
             probe,
+            // §11's gate, against the real register in the real database — "an opt-out wrote no
+            // availability row" is a claim about storage and only Postgres can answer it.
+            new OptOutGate(new NpgsqlCrawlOptOutRepository(source), dns ?? new ScriptedDns(), time),
             new HostScopeGuard(resolver ?? new FakeHostResolver()),
             new ProbeIngestor(
                 new PresenceWriter(new NpgsqlPresenceStore(source)),

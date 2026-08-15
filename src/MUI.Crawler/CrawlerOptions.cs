@@ -30,6 +30,9 @@ public sealed record CrawlerOptions
     /// <summary>Per-probe bounds: session timeout, settle periods, subnegotiation ceiling.</summary>
     public ProbeOptions Probe { get; init; } = new();
 
+    /// <summary>What one source may put through the public submission form (spec §9).</summary>
+    public SubmissionOptions Submissions { get; init; } = new();
+
     /// <summary>
     /// When presence is rolled up, how far ahead its partitions are made, and how long each grain is
     /// kept (spec §5.2, §15.4). Runs on its own advisory lock and its own schedule.
@@ -68,6 +71,7 @@ public sealed record CrawlerOptions
         Discovery.Validate();
         Maintenance.Validate();
         Salt.Validate();
+        Submissions.Validate();
 
         foreach (var seed in Seeds)
         {

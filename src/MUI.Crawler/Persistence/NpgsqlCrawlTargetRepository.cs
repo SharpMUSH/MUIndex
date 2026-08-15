@@ -31,7 +31,7 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
         next_probe_at AS NextProbeAt, consecutive_failures AS ConsecutiveFailures,
         crawl_delay AS CrawlDelay, first_seen_at AS FirstSeenAt, last_probed_at AS LastProbedAt,
         discovered_from_game_id AS DiscoveredFromGameId, depth AS Depth,
-        is_operator_seed AS IsOperatorSeed
+        is_operator_seed AS IsOperatorSeed, submitted_at AS SubmittedAt
         """;
 
     public async Task<CrawlTarget?> ByAddressAsync(string host, int port, CancellationToken ct)
@@ -51,10 +51,12 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
     /// </summary>
     /// <remarks>
     /// <b>A repeat sighting may lower the recorded depth and may change nothing else.</b> Not the
-    /// schedule, not the failure count, not the operator-seed exemption — a second referral naming an
-    /// address we already crawl must not drag it forward, which is exactly the coupling §7.1 removes
-    /// by giving every target its own <c>next_probe_at</c>. One statement, so two workers racing the
-    /// same referral cannot both insert.
+    /// schedule, not the failure count, not the operator-seed exemption, <b>and not the submission
+    /// marker</b> — a second referral naming an address we already crawl must not drag it forward,
+    /// which is exactly the coupling §7.1 removes by giving every target its own
+    /// <c>next_probe_at</c>, and a submission naming an address we already crawl must not be able to
+    /// mark a listed game as somebody's assertion and hide it. One statement, so two workers racing
+    /// the same referral cannot both insert.
     /// </remarks>
     public async Task<Guid> AddAsync(CrawlTarget target, CancellationToken ct)
     {
@@ -66,10 +68,12 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
             """
             INSERT INTO crawl_target (
                 id, game_id, host, port, use_tls, next_probe_at, consecutive_failures, crawl_delay,
-                first_seen_at, last_probed_at, discovered_from_game_id, depth, is_operator_seed)
+                first_seen_at, last_probed_at, discovered_from_game_id, depth, is_operator_seed,
+                submitted_at)
             VALUES (
                 @id, @gameId, @host, @port, @useTls, @nextProbeAt, @consecutiveFailures, @crawlDelay,
-                @firstSeenAt, @lastProbedAt, @discoveredFromGameId, @depth, @isOperatorSeed)
+                @firstSeenAt, @lastProbedAt, @discoveredFromGameId, @depth, @isOperatorSeed,
+                @submittedAt)
             ON CONFLICT (host, port) DO UPDATE
                SET depth = LEAST(crawl_target.depth, EXCLUDED.depth)
             RETURNING id
@@ -89,6 +93,7 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
                 discoveredFromGameId = target.DiscoveredFromGameId,
                 depth = target.Depth,
                 isOperatorSeed = target.IsOperatorSeed,
+                submittedAt = target.SubmittedAt?.ToUniversalTime(),
             },
             cancellationToken: ct));
     }
@@ -198,6 +203,8 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
 
         public bool IsOperatorSeed { get; init; }
 
+        public DateTimeOffset? SubmittedAt { get; init; }
+
         public CrawlTarget ToRecord() => new()
         {
             Id = Id,
@@ -213,6 +220,7 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
             DiscoveredFromGameId = DiscoveredFromGameId,
             Depth = Depth,
             IsOperatorSeed = IsOperatorSeed,
+            SubmittedAt = SubmittedAt,
         };
     }
 }

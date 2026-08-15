@@ -109,6 +109,21 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<IAvailabilityStore>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());
         services.TryAddSingleton<IReachableHistory>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());
 
+        // §8's claim settling. Every probe of a game whose owner has published a token completes the
+        // claim, and every probe of a claimed game refreshes beacon_last_seen_at — both on the
+        // ordinary schedule, which is why this belongs to the crawl graph rather than to the web
+        // tier that mints the tokens.
+        //
+        // The consumer is the in-process CrawlCycle of the one deployable (§4.11) — this method has
+        // exactly one caller, MUI.Web's Program, and mui-crawl builds its own graph by hand. It was
+        // missing here, and CrawlCycle takes its ClaimService as an OPTIONAL parameter, so the site
+        // settled beacons only insofar as some other registration happened to supply one. That is
+        // the shape of the bug rather than an argument for a deployment nobody builds.
+        services.TryAddSingleton<IClaimStore>(s => new NpgsqlClaimStore(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IOnDemandProbes>(
+            s => new NpgsqlOnDemandProbes(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<ClaimService>();
+
         // The three writers of §6.5, plus the field registry they judge staleness against.
         services.TryAddSingleton<IFieldRegistry>(FieldRegistry.Instance);
         services.TryAddSingleton<IPresenceWriter, PresenceWriter>();
@@ -133,6 +148,19 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<IGameFieldIndex>(
             s => new NpgsqlGameFieldIndex(s.GetRequiredService<NpgsqlDataSource>()));
 
+        // The public submission form (spec §7.6, §9). It writes into the registry above and nowhere
+        // else, and it is registered here rather than in the web project because everything it needs
+        // is already assembled here — the registry, the endpoint directory and §7.2's gate.
+        services.TryAddSingleton(options.Submissions);
+        services.TryAddSingleton<ISubmissionSalt>(s => new NpgsqlSubmissionSalt(
+            s.GetRequiredService<NpgsqlDataSource>(),
+            s.GetRequiredService<SubmissionOptions>(),
+            s.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<SubmissionSource>();
+        services.TryAddSingleton<ISubmissionLog>(
+            s => new NpgsqlSubmissionLog(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<SubmissionService>();
+
         services.TryAddSingleton<IdentityMatcher>();
         services.TryAddSingleton<ReferralGraphWriter>();
         services.TryAddSingleton<HostGate>();
@@ -142,6 +170,17 @@ public static class CrawlerServiceCollectionExtensions
         // only place live DNS is reached from, and it is injected so no test performs a lookup.
         services.TryAddSingleton<IHostResolver, SystemHostResolver>();
         services.TryAddSingleton<HostScopeGuard>();
+
+        // The same instance behind the interface. Two registrations would be two guards, and a
+        // caller reaching the one with no resolver behind it is not a failure anybody would notice.
+        services.TryAddSingleton<IHostScopeGuard>(s => s.GetRequiredService<HostScopeGuard>());
+
+        // §11's opt-out: the register, the TXT lookup that lets an operator withdraw one without
+        // asking us, and the gate the crawl loop consults before every dial.
+        services.TryAddSingleton<ICrawlOptOutRepository>(
+            s => new NpgsqlCrawlOptOutRepository(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IDnsTxtResolver, DnsTxtResolver>();
+        services.TryAddSingleton<OptOutGate>();
 
         services.TryAddSingleton<IProbe>(s => new TelnetProbe(s.GetRequiredService<ProbeOptions>()));
 
@@ -194,6 +233,9 @@ public sealed class CrawlerOptionsBuilder
     /// <summary>Per-probe bounds.</summary>
     public ProbeOptions Probe { get; set; } = new();
 
+    /// <summary>What one source may put through the public submission form.</summary>
+    public SubmissionOptions Submissions { get; set; } = new();
+
     /// <summary>
     /// Rollups, partitions ahead of need, and how long each grain of presence is kept (§5.2, §15.4).
     /// Keeps everything until a deployment says otherwise.
@@ -228,6 +270,7 @@ public sealed class CrawlerOptionsBuilder
         Probe = Probe,
         Maintenance = Maintenance,
         Salt = Salt,
+        Submissions = Submissions,
         Seeds = _seeds,
     };
 }
