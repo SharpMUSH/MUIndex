@@ -56,6 +56,8 @@ else
                         <span class="faint">
                             verified @claim.ClaimedAt!.Value.ToString("d MMM yyyy")@(BeaconNote(claim))
                         </span>
+                        @* §8.5's scorecard. Owner-only, so it is reachable from here and nowhere. *@
+                        <a class="faint" href="/g/@game.Slug/mssp">check your MSSP</a>
                     </li>
                 }
             </ul>
