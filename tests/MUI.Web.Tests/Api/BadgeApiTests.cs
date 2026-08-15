@@ -185,6 +185,23 @@ public class BadgeApiTests
         await Assert.That((await second.Content.ReadAsByteArrayAsync()).Length).IsEqualTo(0);
     }
 
+    /// <summary>The JSON route gets the same five minutes, and used to get sixty seconds.</summary>
+    /// <remarks>
+    /// The override was assigned after <c>WriteJsonAsync</c> had already started the response, so it
+    /// was dropped and the route shipped the API default. Only the SVG route was asserted on, which
+    /// is exactly why nothing caught it: the two routes are one decision and are now tested as one.
+    /// </remarks>
+    [Test]
+    public async Task TheJsonBadgeIsCachedForAsLongAsTheImage()
+    {
+        await using var host = await ApiHost.StartAsync();
+
+        var response = await host.Client.GetAsync("/g/m-u-s-h/badge.json");
+
+        await Assert.That(response.Headers.CacheControl!.ToString()).IsEqualTo("public, max-age=300");
+        await Assert.That(response.Headers.ETag).IsNotNull();
+    }
+
     /// <summary>It is embedded cross-origin by definition, and served as an image.</summary>
     [Test]
     public async Task ABadgeIsServedAsAnImageAnybodyMayEmbed()

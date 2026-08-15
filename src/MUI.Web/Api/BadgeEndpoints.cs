@@ -60,16 +60,8 @@ public static class BadgeEndpoints
         var reading = PlayerBadge.Read(game, clock.GetUtcNow());
         var body = System.Text.Encoding.UTF8.GetBytes(PlayerBadge.Svg(reading, game.Name));
 
-        ApiResponse.Prepare(http, "image/svg+xml; charset=utf-8", ETag.Of(body));
-        http.Response.Headers[HeaderNames.CacheControl] = PlayerBadge.CacheControl;
-
-        if (ApiResponse.NotModified(http, ETag.Of(body)))
-        {
-            return;
-        }
-
-        http.Response.ContentLength = body.Length;
-        await http.Response.Body.WriteAsync(body, http.RequestAborted);
+        await ApiResponse.WriteAsync(
+            http, body, "image/svg+xml; charset=utf-8", ETag.Of(body), PlayerBadge.CacheControl);
     }
 
     /// <summary>The same reading, for a page that would rather draw its own.</summary>
@@ -116,9 +108,8 @@ public static class BadgeEndpoints
                 : null,
             game.LastReachableAt,
             ApiRoutes.Page(game.Slug),
-            $"{ApiRoutes.Page(game.Slug)}/badge.svg"));
-
-        http.Response.Headers[HeaderNames.CacheControl] = PlayerBadge.CacheControl;
+            $"{ApiRoutes.Page(game.Slug)}/badge.svg"),
+            PlayerBadge.CacheControl);
     }
 
     /// <summary>

@@ -23,22 +23,29 @@ public static class ApiResponse
     /// </summary>
     public const string CacheControl = "public, max-age=60";
 
-    public static Task WriteJsonAsync<T>(HttpContext http, T payload)
+    /// <param name="cacheControl">
+    /// A lifetime other than the default minute, for a route that can justify one. It is passed in
+    /// rather than assigned by the caller afterwards because <see cref="WriteAsync"/> starts the
+    /// response, and a header set after that is either discarded or throws — which is exactly how
+    /// the badge's five minutes were being silently dropped back to sixty seconds.
+    /// </param>
+    public static Task WriteJsonAsync<T>(HttpContext http, T payload, string? cacheControl = null)
     {
         var body = JsonSerializer.SerializeToUtf8Bytes(payload, ApiJson.Options);
-        return WriteAsync(http, body, "application/json; charset=utf-8", ETag.Of(body));
+        return WriteAsync(http, body, "application/json; charset=utf-8", ETag.Of(body), cacheControl);
     }
 
-    public static Task WriteTextAsync(HttpContext http, string text, string contentType)
+    public static Task WriteTextAsync(
+        HttpContext http, string text, string contentType, string? cacheControl = null)
     {
         var body = Encoding.UTF8.GetBytes(text);
-        return WriteAsync(http, body, contentType, ETag.Of(body));
+        return WriteAsync(http, body, contentType, ETag.Of(body), cacheControl);
     }
 
     public static async Task WriteAsync(
-        HttpContext http, byte[] body, string contentType, string etag)
+        HttpContext http, byte[] body, string contentType, string etag, string? cacheControl = null)
     {
-        Prepare(http, contentType, etag);
+        Prepare(http, contentType, etag, cacheControl);
 
         if (NotModified(http, etag))
         {
@@ -50,11 +57,12 @@ public static class ApiResponse
     }
 
     /// <summary>Sets the headers every API response carries, before anything is written.</summary>
-    public static void Prepare(HttpContext http, string contentType, string etag)
+    public static void Prepare(
+        HttpContext http, string contentType, string etag, string? cacheControl = null)
     {
         var headers = http.Response.Headers;
         headers[HeaderNames.ETag] = etag;
-        headers[HeaderNames.CacheControl] = CacheControl;
+        headers[HeaderNames.CacheControl] = cacheControl ?? CacheControl;
 
         // The JSON is served relaxed-escaped, so a browser must not be allowed to guess it is a
         // document. See ApiJson.

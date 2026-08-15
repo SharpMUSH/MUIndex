@@ -104,6 +104,27 @@ public class MsspLintTests
         await Assert.That(finding.Detail).Contains("number");
     }
 
+    /// <summary>A number MSSP calls a count may not be negative, or culture-shaped.</summary>
+    /// <remarks>
+    /// A bare <c>int.TryParse</c> accepted both: “-3” parses perfectly well and means nothing MSSP
+    /// can express, and a current-culture parse makes the grouped “1,024” a pass or a fault
+    /// depending on which machine the deployment happens to be running on — a scorecard that
+    /// disagrees with itself across hosts is worse than one that is merely strict.
+    /// </remarks>
+    [Test]
+    public async Task ACountIsReadTheSameEverywhereAndCannotBeNegative()
+    {
+        var negative = MsspLint.Inspect([Required(), Field("PLAYERS", "-3")]);
+        var grouped = MsspLint.Inspect([Required(), Field("PLAYERS", "1,024")]);
+        var plain = MsspLint.Inspect([Required(), Field("PLAYERS", "1024")]);
+
+        await Assert.That(negative.Findings.Single(f => f.Field == "PLAYERS").Kind)
+            .IsEqualTo(MsspFindingKind.WrongType);
+        await Assert.That(grouped.Findings.Single(f => f.Field == "PLAYERS").Kind)
+            .IsEqualTo(MsspFindingKind.WrongType);
+        await Assert.That(plain.Findings.Any(f => f.Field == "PLAYERS")).IsFalse();
+    }
+
     /// <summary>A year that is not a year, and a year that is.</summary>
     [Test]
     public async Task CreatedIsCheckedForBeingAYear()

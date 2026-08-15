@@ -147,7 +147,13 @@ else
                             @if (g.PlayersNow is { } n)
                             {
                                 <span class="players">
-                                    <span class="state-present" aria-hidden="true">●</span> @n <span class="unit">on</span>
+                                    @*
+                                        The glyph follows the provenance, the same way the game page's
+                                        does. This row shipped a hard-coded measured dot beside the
+                                        declared chip below it — a green ● and a ◇ chip describing one
+                                        number, which is the disagreement the chip was added to end.
+                                    *@
+                                    <span class="@(g.PlayersNowProvenance?.IsMeasured is false ? "state-declared" : "state-present")" aria-hidden="true">@(g.PlayersNowProvenance?.IsMeasured is false ? "◇" : "●")</span> @n <span class="unit">on</span>
 
                                     @*
                                         And how we know it. A number somebody read out of a WHO nine

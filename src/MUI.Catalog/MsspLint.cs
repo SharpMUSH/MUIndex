@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace MUI.Catalog;
 
 /// <summary>What is wrong with one MSSP variable, in the operator's terms.</summary>
@@ -181,7 +183,13 @@ public static class MsspLint
                 continue;
             }
 
-            if (Integers.Contains(field) && !int.TryParse(row.Value, out _))
+            // Invariant, and non-negative. A wire value is not written in the host's culture, so a
+            // current-culture parse would let a grouped “1,024” through on one deployment and flag
+            // it on another — and none of the counts MSSP calls a number has a meaning below zero,
+            // so a bare TryParse was reading “-3” as a well-formed answer.
+            if (Integers.Contains(field)
+                && !(int.TryParse(row.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var number)
+                     && number >= 0))
             {
                 findings.Add(new MsspFinding(
                     field,
@@ -193,7 +201,8 @@ public static class MsspLint
             }
 
             if (string.Equals(field, "CREATED", StringComparison.Ordinal)
-                && !(int.TryParse(row.Value, out var year) && year is >= 1975 and <= 2100))
+                && !(int.TryParse(row.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var year)
+                     && year is >= 1975 and <= 2100))
             {
                 findings.Add(new MsspFinding(
                     field,
