@@ -587,4 +587,36 @@ public sealed class OptOutGate(
 
         return recorded.OptOut;
     }
+
+    /// <summary>
+    /// Takes back a recorded request, on the say-so of somebody who can make it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The counterpart to <see cref="RecordRequestAsync"/> and deliberately narrower than it looks:
+    /// it withdraws the <see cref="OptOutSource.Request"/> route alone. An MSSP field or a TXT record
+    /// is the game still saying stop on every probe, and a caller here cannot answer for that — the
+    /// way to take one of those back is to stop publishing it. Withdrawing them from this side would
+    /// be the worst version of the mistake, because we would have stopped connecting and so could
+    /// never hear the retraction we had assumed.
+    /// </para>
+    /// <para>
+    /// The row is kept, withdrawn. "They asked us to stop, and later asked us back" is a thing the
+    /// register has to be able to say.
+    /// </para>
+    /// </remarks>
+    public Task WithdrawRequestAsync(
+        string host,
+        int? port,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(host);
+
+        return optOuts.WithdrawAsync(
+            CanonicalHost.Normalize(host),
+            port,
+            OptOutSource.Request,
+            time.GetUtcNow(),
+            cancellationToken);
+    }
 }

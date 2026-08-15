@@ -90,6 +90,10 @@ public static class Passkeys
                 s.GetRequiredService<TimeProvider>());
         });
 
+        // §11's third route, wired to the dashboard rather than only to the CLI. Scoped alongside
+        // OwnerEnrichment because it asks the same question about ownership before it writes.
+        services.AddScoped<OwnerOptOut>();
+
         services.Configure<IdentityPasskeyOptions>(options =>
         {
             // Set explicitly rather than inferred from the host header, which the ASP.NET Core docs
