@@ -5,7 +5,7 @@ using Npgsql;
 namespace MUI.Crawler;
 
 /// <summary>
-/// The one-crawler-per-database gate (spec §12).
+/// The one-worker-per-database gate (spec §12).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -14,6 +14,11 @@ namespace MUI.Crawler;
 /// racing for one <c>(game_id, at)</c> key, and a politeness contract broken N ways. A PostgreSQL
 /// <b>session-level advisory lock</b> makes the worker conditionally active instead — every replica
 /// asks, one gets it, and the rest sit in a retry loop doing nothing.
+/// </para>
+/// <para>
+/// <b>One mechanism, a key per worker.</b> Presence maintenance (§5.2) has the same problem and a
+/// worse failure — two passes racing are two <c>DROP TABLE</c>s for one partition — and takes its own
+/// key rather than sharing the crawl's, so neither worker's cycle length can delay the other's.
 /// </para>
 /// <para>
 /// <b>Session-level, which is why the lease owns a connection and holds it open.</b> The lock lives
@@ -29,35 +34,39 @@ namespace MUI.Crawler;
 /// loop asks every cycle.
 /// </para>
 /// </remarks>
-public sealed class CrawlLease : IAsyncDisposable
+public sealed class AdvisoryLease : IAsyncDisposable
 {
     private readonly NpgsqlConnection _connection;
     private readonly long _key;
 
     private int _released;
 
-    private CrawlLease(NpgsqlConnection connection, long key)
+    private AdvisoryLease(NpgsqlConnection connection, long key)
     {
         _connection = connection;
         _key = key;
     }
 
     /// <summary>
-    /// The advisory lock key, chosen once and never derived from anything that could change.
+    /// The crawl loop's key, chosen once and never derived from anything that could change.
     /// </summary>
     /// <remarks>
     /// Advisory locks share one namespace per database, so the number matters only in that nothing
     /// else in this database may pick it. It is a literal rather than a hash of a string precisely
-    /// because a hash invites someone to change the string.
+    /// because a hash invites someone to change the string. Spelled <c>MUI_CRAW</c> in ASCII, which is
+    /// a courtesy to whoever finds it in <c>pg_locks</c> at four in the morning.
     /// </remarks>
-    public const long DefaultKey = 0x4D55495F4352_4157L;
+    public const long CrawlKey = 0x4D55495F4352_4157L;
+
+    /// <summary>The presence rollup, partition and retention pass's key (§5.2). <c>MUI_ROLL</c>.</summary>
+    public const long PresenceMaintenanceKey = 0x4D55495F524F_4C4CL;
 
     /// <summary>
     /// Takes the lock if it is free, or returns null. Never waits: a replica that cannot have the
     /// lock has nothing to wait for, and <c>pg_advisory_lock</c> would block a hosted service's
     /// startup indefinitely.
     /// </summary>
-    public static async Task<CrawlLease?> TryAcquireAsync(
+    public static async Task<AdvisoryLease?> TryAcquireAsync(
         NpgsqlDataSource source,
         long key,
         CancellationToken cancellationToken = default)
@@ -75,7 +84,7 @@ public sealed class CrawlLease : IAsyncDisposable
 
             if (taken)
             {
-                return new CrawlLease(connection, key);
+                return new AdvisoryLease(connection, key);
             }
         }
         catch

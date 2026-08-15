@@ -265,4 +265,76 @@ public class ProbeIngestorTests
         await Assert.That(uncountable.Activity).IsEqualTo(MUI.Discovery.ActivityBand.Unknown);
         await Assert.That(empty.Activity).IsEqualTo(MUI.Discovery.ActivityBand.Quiet);
     }
+
+    [Test]
+    public async Task AProbeThatConfirmsASettledNewNameMovesTheUrlAndKeepsTheOldOne()
+    {
+        // §5.7's re-mint is a consequence of the reconciliation this type has just performed, so it
+        // happens here and strictly after it: the minter reads the winning NAME this probe confirmed.
+        // The grace is a fortnight, and the two probes are a month apart.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed();
+        var ingestor = catalogue.Ingestor(grace: TimeSpan.FromDays(14));
+
+        await ingestor.IngestAsync(game, Probes.Answered(mssp: Probes.Mssp(("NAME", "Harbourlight"))));
+
+        var settled = await ingestor.IngestAsync(
+            game,
+            Probes.Answered(
+                mssp: Probes.Mssp(("NAME", "Harbourlight")), at: Probes.Observed.AddDays(30)));
+
+        await Assert.That(settled.Renamed!.Slug).IsEqualTo("harbourlight");
+        await Assert.That(settled.Renamed.FormerSlug).IsEqualTo("corvid");
+        await Assert.That(await catalogue.Slugs.CurrentSlugAsync("corvid")).IsEqualTo("harbourlight");
+    }
+
+    [Test]
+    public async Task ARenameThatCannotBeAppliedNeverCostsTheMeasurement()
+    {
+        // The mint asks whether a slug is taken and the write happens a moment later, so two games
+        // settling on one name in the same cycle can lose that race — RenameAsync raises, and the
+        // probe's reachability, its un-archiving and its schedule all went down with it. §7.5 then
+        // archives a game that answers every probe, because the precondition persists and the same
+        // target fails the same way for ever. A URL that could not be re-minted is cosmetic; a
+        // measurement dropped is not.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed(LifecycleState.Archived);
+        var ingestor = catalogue.Ingestor(grace: TimeSpan.FromDays(14), renamesFail: true);
+
+        await ingestor.IngestAsync(game, Probes.Answered(mssp: Probes.Mssp(("NAME", "Harbourlight"))));
+
+        // Dark again by the time the name has settled, so the probe that trips the rename is also
+        // the one that has to un-archive it.
+        await catalogue.Games.SetStateAsync(game, LifecycleState.Archived, Probes.Observed.AddDays(2));
+
+        var settled = await ingestor.IngestAsync(
+            game,
+            Probes.Answered(
+                mssp: Probes.Mssp(("NAME", "Harbourlight")), at: Probes.Observed.AddDays(30)));
+
+        await Assert.That(settled.Renamed).IsNull();
+        await Assert.That(settled.Restored).IsTrue();
+        await Assert.That((await catalogue.Games.ByIdAsync(game))!.LastReachableAt)
+            .IsEqualTo(Probes.Observed.AddDays(30));
+        await Assert.That((await catalogue.Games.ByIdAsync(game))!.State)
+            .IsEqualTo(LifecycleState.Active);
+    }
+
+    [Test]
+    public async Task AFailedProbeRenamesNothing()
+    {
+        // A dial that never got in confirmed nothing, so it has no opinion about what a game is
+        // called — and re-minting a URL off a name nobody just observed would be our crawler's
+        // schedule recorded as the game's own history.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed();
+        var ingestor = catalogue.Ingestor(grace: TimeSpan.FromDays(14));
+
+        await ingestor.IngestAsync(game, Probes.Answered(mssp: Probes.Mssp(("NAME", "Harbourlight"))));
+
+        var failed = await ingestor.IngestAsync(game, Probes.Failed(at: Probes.Observed.AddDays(30)));
+
+        await Assert.That(failed.Renamed).IsNull();
+        await Assert.That((await catalogue.Games.ByIdAsync(game))!.Slug).IsEqualTo("corvid");
+    }
 }

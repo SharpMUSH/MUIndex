@@ -5,14 +5,21 @@
 @using MUI.Web.Accounts
 @inject IGameQueries Queries
 @inject IServiceProvider Services
+@inject TimeProvider Clock
 
 @*
     An operator's own page: the games they have claimed, the ones still waiting on a token, and the
     passkeys that reach the account.
 
-    Deliberately thin. Everything editable from here is enrichment (spec §8.5) — an owner may add
-    what MSSP has no field for and may never touch a measurement, so there is nothing on this page
-    that could change a player count, a capability or a reachability history.
+    Everything editable from here is enrichment (spec §8.5) — an owner may add what MSSP has no
+    field for, and their connect screen is theirs to withdraw (§11) — so there is nothing on this
+    page that could change a player count, a capability or a reachability history. The writable set
+    is the field registry's own OwnerEnrichable flag and is never repeated here; OwnerEnrichment
+    refuses anything outside it, out loud, however the request was assembled.
+
+    A claimed game is a collapsed block rather than a line, because an operator holds a handful of
+    games and a page of five open forms is a page nobody reads. Details/summary, so it works with
+    scripting off along with the rest of the write path.
 *@
 
 <PageTitle>Your games — mu*index</PageTitle>
@@ -45,22 +52,51 @@ else
             </p>
         }
 
+        @if (Saved is not null)
+        {
+            <p class="verified"><strong>Saved.</strong> @Outcome</p>
+        }
+        else if (RefusedField is { Length: > 0 })
+        {
+            @*
+                Refused out loud (§8.5). A silent no-op teaches an owner that the site is broken, and
+                a successful write to a measured field would make the whole site a self-report with
+                extra steps — so the field is named and the reason is given.
+            *@
+            <p class="refused">
+                <strong>@RefusedField was not changed.</strong>
+                @if (string.Equals(Because, nameof(EnrichmentVerdict.TooLong), StringComparison.Ordinal))
+                {
+                    @($"These are one-line answers; {OwnerEnrichment.MaxValueLength} characters is the most we store.")
+                }
+                else
+                {
+                    @("That field is measured. A claim lets you add what MSSP has no room for; "
+                        + "it never lets anybody edit what we observed, and that includes us.")
+                }
+            </p>
+        }
+
         @if (Verified.Count > 0)
         {
             <h2>Claimed</h2>
-            <ul class="claims">
-                @foreach (var (claim, game) in Verified)
-                {
-                    <li>
+            @foreach (var (claim, game) in Verified)
+            {
+                <details class="claim" open="@(Verified.Count == 1)">
+                    <summary>
                         <a href="/g/@game.Slug">@game.Name</a>
                         <span class="faint">
                             verified @claim.ClaimedAt!.Value.ToString("d MMM yyyy")@(BeaconNote(claim))
                         </span>
                         @* §8.5's scorecard. Owner-only, so it is reachable from here and nowhere. *@
                         <a class="faint" href="/g/@game.Slug/mssp">check your MSSP</a>
-                    </li>
-                }
-            </ul>
+                    </summary>
+                    <OwnerPanel GameId="game.Id"
+                                Name="game.Name"
+                                Declared="DeclaredFor(game.Id)"
+                                Now="Now" />
+                </details>
+            }
         }
 
         @if (Pending.Count > 0)
@@ -127,8 +163,85 @@ else
 
     private IList<UserPasskeyInfo> Keys { get; set; } = [];
 
+    /// <summary>What each claimed game's owners have already declared, keyed by game.</summary>
+    /// <remarks>
+    /// Owner rows only, read once here and handed to the panels. The dashboard edits what owners
+    /// wrote; a measurement has no editable form on this site at all.
+    /// </remarks>
+    private Dictionary<Guid, IReadOnlyDictionary<string, GameField>> Owned { get; } = [];
+
+    /// <summary>
+    /// What the last write did, carried back through a redirect (see <see cref="OwnerWrites"/>).
+    /// </summary>
+    /// <remarks>
+    /// The querystring, because that is what survives a plain form post and a redirect — the whole
+    /// write path works with scripting off, which §8.2 requires of everything but the WebAuthn
+    /// ceremony itself.
+    /// </remarks>
+    [SupplyParameterFromQuery(Name = "saved")]
+    private string? Saved { get; set; }
+
+    /// <summary>Which of the three writes just landed (see <see cref="OwnerWrites"/>).</summary>
+    [SupplyParameterFromQuery(Name = "did")]
+    private string? Did { get; set; }
+
+    [SupplyParameterFromQuery(Name = "refused")]
+    private string? Refused { get; set; }
+
+    [SupplyParameterFromQuery(Name = "because")]
+    private string? Because { get; set; }
+
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }
+
+    private DateTimeOffset Now => Clock.GetUtcNow();
+
+    /// <summary>The game a save landed on, if it is one this account holds.</summary>
+    private string? SavedName => Guid.TryParse(Saved, out var id)
+        ? Verified.FirstOrDefault(held => held.Game.Id == id).Game?.Name
+        : null;
+
+    /// <summary>
+    /// What the last write actually did, in a sentence about that write.
+    /// </summary>
+    /// <remarks>
+    /// Three outcomes and not one, because hiding a connect screen used to report "now shows it as
+    /// owner-declared" — the enrichment sentence, on a page whose whole job is to say what happened.
+    /// </remarks>
+    private string Outcome
+    {
+        get
+        {
+            var game = SavedName ?? "That game";
+
+            return Did switch
+            {
+                "screen-hidden" =>
+                    $"We have stopped republishing {game}'s connect screen. The page says so plainly "
+                    + "rather than leaving a hole.",
+                "screen-shown" => $"{game}'s connect screen is on its page again.",
+                _ => $"{game}'s page now shows it as owner-declared.",
+            };
+        }
+    }
+
+    /// <summary>
+    /// The refused field name, bounded.
+    /// </summary>
+    /// <remarks>
+    /// It is echoed from the querystring, because that is the only thing that survives the redirect,
+    /// and a field name is short — so the length is capped here rather than trusted. A page that
+    /// printed whatever a crafted link put in front of it would be a billboard on somebody's own
+    /// dashboard, escaped or not.
+    /// </remarks>
+    private string? RefusedField => Refused is { Length: > 0 } named
+        ? named.Length <= 60 ? named : named[..60]
+        : null;
+
+    private IReadOnlyDictionary<string, GameField> DeclaredFor(Guid gameId) =>
+        Owned.TryGetValue(gameId, out var declared)
+            ? declared
+            : new Dictionary<string, GameField>(StringComparer.Ordinal);
 
     protected override async Task OnInitializedAsync()
     {
@@ -165,6 +278,11 @@ else
             if (claim.IsVerified)
             {
                 Verified.Add((claim, game));
+
+                if (Services.GetService<OwnerEnrichment>() is { } enrichment)
+                {
+                    Owned[game.Id] = await enrichment.DeclaredAsync(game.Id);
+                }
             }
             else if (claim.IsPending(now))
             {

@@ -1,4 +1,7 @@
+using System.Globalization;
+
 using MUI.Catalog;
+using MUI.Catalog.Persistence;
 using MUI.Web.Data;
 
 namespace MUI.Web.Fixtures;
@@ -93,7 +96,58 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         LastReachableAt: Now.AddDays(-700));
 
     private static readonly GameSummary[] All =
-        [Mush, Eldertale, Aardwolf, MidnightSun, Enormous, Ashen, Gaslight, Verdigris];
+    [
+        .. new[] { Mush, Eldertale, Aardwolf, MidnightSun, Enormous, Ashen, Gaslight, Verdigris }
+            .Select(Labelled),
+    ];
+
+    /// <summary>
+    /// The two bare values on a listing row, given the label the rest of the site puts on everything.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Both are dated from the probe that produced them — a game's last reachable moment — because a
+    /// fixture that stamped every fact with the current instant would render a listing on which
+    /// nothing is ever old, and the state worth showing here is exactly the old one. Gaslight Row
+    /// last answered in 2023, so its codebase is three years unconfirmed and says so.
+    /// </para>
+    /// <para>
+    /// The sources are not decoration either. Aardwolf's number exists only because its connect
+    /// screen states it, which is a reading of ours off a banner and not a count anybody handed us;
+    /// Ashen Court publishes <c>PLAYERS</c> in MSSP and answers no pre-login <c>WHO</c>, which is the
+    /// commonest way a directory ends up quoting a game's own assertion as a measurement. Those two
+    /// rows are the whole argument for labelling the listing.
+    /// </para>
+    /// </remarks>
+    private static GameSummary Labelled(GameSummary g)
+    {
+        var at = g.LastReachableAt ?? Now;
+
+        return g with
+        {
+            PlayersNowProvenance = g.PlayersNow is { } count
+                ? Chip("PLAYERS", count.ToString(CultureInfo.InvariantCulture), CountSource(g), at)
+                : null,
+            CodebaseProvenance = g.Codebase is { } codebase
+                ? Chip("CODEBASE", codebase, FieldSource.Mssp, at)
+                : null,
+        };
+    }
+
+    private static FieldSource CountSource(GameSummary g) => g.Slug switch
+    {
+        "aardwolf" => FieldSource.Banner,
+        "ashen-court" => FieldSource.Mssp,
+        _ => FieldSource.Who,
+    };
+
+    /// <summary>
+    /// A labelled fact, aged against the field's own expected-refresh window (spec §5.6) rather than
+    /// against a judgement made here — the registry is the one place that says how old is old.
+    /// </summary>
+    private static ProvenanceChip Chip(
+        string field, string value, FieldSource source, DateTimeOffset at) =>
+        new(value, source, at, FieldRegistry.Instance.IsStale(field, at, Now));
 
     /// <summary>
     /// The listing and its facets, through the same <see cref="FacetedSearch"/> the database uses.
@@ -186,6 +240,12 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     public Task<GameSummary?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         Task.FromResult(All.FirstOrDefault(g => g.Id == id));
 
+    /// <summary>The same page by the identifier that does not move (spec §5.7).</summary>
+    public Task<GamePage?> FindAsync(Guid id, CancellationToken cancellationToken = default) =>
+        All.FirstOrDefault(g => g.Id == id) is { } game
+            ? FindAsync(game.Slug, cancellationToken)
+            : Task.FromResult<GamePage?>(null);
+
     public Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default)
     {
         var summary = All.FirstOrDefault(g => g.Slug == slug);
@@ -250,6 +310,12 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         "aardwolf" => FixtureScreens.Aardwolf,
         "midnight-sun" => FixtureScreens.MidnightSun,
         "batmud" => FixtureScreens.Enormous,
+
+        // Ashen Court's owner asked us not to republish theirs, and we hold it all the same — the
+        // crawler goes on reading it as an identity signal (§7.3). Held-and-withheld is the state
+        // suppression actually produces, and a fixture whose suppressed game had no screen at all
+        // could not tell it apart from a game we never captured one from.
+        "ashen-court" => FixtureScreens.Mush,
 
         // An archived game's last screen is preserved and labelled, not withdrawn.
         "gaslight-row" => FixtureScreens.Mush,
@@ -342,10 +408,19 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         return [.. cells];
     }
 
+    /// <summary>
+    /// What the game says about itself, as the page shows it.
+    /// </summary>
+    /// <remarks>
+    /// The codebase entry is the summary's own chip rather than a second one written here. A page
+    /// and a listing that disagreed about when the same value was last confirmed would be two
+    /// answers to one question, and this file had exactly that: every game's codebase was dated four
+    /// minutes ago, including one that has not answered the door since 2023.
+    /// </remarks>
     private static Dictionary<string, ProvenanceChip> Declared(GameSummary g) => new()
     {
-        ["codebase"] = new ProvenanceChip(
-            g.Codebase ?? "not identified", FieldSource.Banner, Now.AddMinutes(-4), IsStale: false),
+        ["codebase"] = g.CodebaseProvenance
+            ?? Chip("CODEBASE", "not identified", FieldSource.Banner, g.LastReachableAt ?? Now),
         ["genre"] = new ProvenanceChip("Modern Supernatural", FieldSource.Mssp, Now.AddDays(-14), IsStale: false),
         ["created"] = new ProvenanceChip("2009", FieldSource.Mssp, Now.AddYears(-6), IsStale: true),
         ["language"] = new ProvenanceChip("English", FieldSource.Mssp, Now.AddYears(-6), IsStale: true),
@@ -539,19 +614,33 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         Task.FromResult(new LivenessFeeds(
             NewlyDiscovered:
             [
-                new FeedEntry("eldertale", "Eldertale Online", Now.AddHours(-2),
+                Event("eldertale", Now.AddHours(-2),
                     "found via REFERRAL from M*U*S*H · answered MSSP on first probe · PennMUSH 1.8.8p0"),
-                new FeedEntry("batmud", "BatMUD", Now.AddDays(-1),
+                Event("batmud", Now.AddDays(-1),
                     "found in the TinTin mudlist · answered MSSP · 214-row intro screen"),
             ],
             WentDark:
             [
-                new FeedEntry("verdigris", "Verdigris", Now.AddDays(-6),
+                Event("verdigris", Now.AddDays(-6),
                     "unreachable since 24 July · connection refused · page stays, we keep knocking weekly"),
             ],
             CameBack:
             [
-                new FeedEntry("aardwolf", "Aardwolf MUD", Now.AddMinutes(-40),
+                Event("aardwolf", Now.AddMinutes(-40),
                     "Answered again after 26 months dark. Two hundred and nineteen players on within the hour."),
             ]));
+
+    /// <summary>
+    /// One feed event, taking its id and name from the game it is about.
+    /// </summary>
+    /// <remarks>
+    /// Named from the catalogue rather than retyped, because a feed entry whose name or id drifted
+    /// from the game's would send a reader to a page about something else — and the id is the whole
+    /// point of the entry carrying one (spec §5.7).
+    /// </remarks>
+    private static FeedEntry Event(string slug, DateTimeOffset at, string detail)
+    {
+        var game = All.Single(g => g.Slug == slug);
+        return new FeedEntry(game.Id, game.Slug, game.Name, at, detail);
+    }
 }

@@ -3,8 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
+  # No branch filter: PRs are frequently stacked, so a branch's PR is often based on the branch
+  # below it rather than on main. Filtering to `branches: [main]` gave every stacked PR an empty
+  # checks tab — the one place the build signal is actually needed before a merge.
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 jobs:

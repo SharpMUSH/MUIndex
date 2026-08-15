@@ -57,9 +57,55 @@ public sealed record PresenceSample
 /// Derived distributions that never contain a player name (spec §11). Names are hashed with a
 /// rotating salt in memory and discarded; only these survive.
 /// </summary>
-public sealed record PresenceAggregates(
-    IReadOnlyList<int> IdleBuckets,
-    int? DistinctEstimate);
+/// <remarks>
+/// <para>
+/// <b>An estimate must name its epoch, and the type refuses one that does not.</b> §11 promises that
+/// a unique-player estimate stays possible while re-identification across salt epochs does not, and
+/// that promise is only keepable if every consumer downstream can tell which numbers may be compared
+/// with which. An estimate with no epoch is one nothing can safely do anything with, and the place to
+/// catch it is here rather than in whichever surface eventually adds two of them together.
+/// </para>
+/// <para>
+/// Written out rather than positional so that the check runs on every way of making one — including
+/// the constructor JSON deserialisation uses, so a hand-edited <c>aggregates</c> column cannot
+/// reintroduce an unlabelled estimate on the way back in.
+/// </para>
+/// </remarks>
+public sealed record PresenceAggregates
+{
+    public PresenceAggregates(
+        IReadOnlyList<int> idleBuckets,
+        int? distinctEstimate,
+        string? saltEpoch = null)
+    {
+        ArgumentNullException.ThrowIfNull(idleBuckets);
+
+        if (distinctEstimate is not null && string.IsNullOrWhiteSpace(saltEpoch))
+        {
+            throw new ArgumentException(
+                "A unique-player estimate must name the salt epoch it was computed under (spec §11): "
+                + "without it, nothing downstream can tell which estimates may be compared and which "
+                + "span a rotation.",
+                nameof(saltEpoch));
+        }
+
+        IdleBuckets = idleBuckets;
+        DistinctEstimate = distinctEstimate;
+        SaltEpoch = saltEpoch;
+    }
+
+    /// <summary>Idle-time histogram buckets. Derived from times, not from names.</summary>
+    public IReadOnlyList<int> IdleBuckets { get; }
+
+    /// <summary>
+    /// How many distinct players one sample's hashes came to. Meaningful only within
+    /// <see cref="SaltEpoch"/>.
+    /// </summary>
+    public int? DistinctEstimate { get; }
+
+    /// <summary>Which salt the hashes behind <see cref="DistinctEstimate"/> were taken under.</summary>
+    public string? SaltEpoch { get; }
+}
 
 public interface IPresenceStore
 {

@@ -1,0 +1,53 @@
+# The one deployable (spec §4.11): the public site, the owner dashboard, the read API and the
+# crawler, in a single ASP.NET Core process. There is deliberately no second image for the crawler —
+# it is a BackgroundService in this one, and the Postgres advisory lock is what keeps N replicas of
+# this image to exactly one crawler (spec §12).
+#
+# mui-crawl is not in here. It is the one-shot tool a person runs against a database on purpose, and
+# an image that shipped it would invite it into a container's entrypoint.
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+
+WORKDIR /src
+
+# The manifests first, so the restore layer survives every change that is not a dependency change.
+# Only the site's own graph is restored — the CLI and the five test projects are not in this image
+# and pulling their packages would slow every build to no end.
+COPY Directory.Build.props Directory.Packages.props ./
+COPY src/MUI.Catalog/MUI.Catalog.csproj      src/MUI.Catalog/
+COPY src/MUI.Crawl/MUI.Crawl.csproj          src/MUI.Crawl/
+COPY src/MUI.Crawler/MUI.Crawler.csproj      src/MUI.Crawler/
+COPY src/MUI.Discovery/MUI.Discovery.csproj  src/MUI.Discovery/
+COPY src/MUI.Web/MUI.Web.csproj              src/MUI.Web/
+RUN dotnet restore src/MUI.Web/MUI.Web.csproj
+
+# migrations/ and content/ are not incidental: MUI.Catalog embeds the .sql files and MUI.Web embeds
+# the reference pages, so the published assemblies carry both and the runtime image resolves no
+# content root and no SQL directory. A page or a migration cannot be present in one deployment and
+# missing in another — and an image built without migrations/ would start, apply no schema and
+# report nothing wrong, which is why MUI.Catalog.csproj now fails the build instead.
+COPY migrations/ migrations/
+COPY src/ src/
+COPY content/ content/
+
+RUN dotnet publish src/MUI.Web/MUI.Web.csproj -c Release --no-restore -o /app
+
+# No SDK past this line. The runtime image has the ASP.NET shared framework and nothing that can
+# compile, restore or reach a package feed.
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+
+WORKDIR /app
+
+COPY --from=build /app ./
+
+# InvariantGlobalization is on solution-wide, so no ICU is needed here.
+ENV ASPNETCORE_HTTP_PORTS=8080 \
+    DOTNET_TieredPGO=1
+
+EXPOSE 8080
+
+# The `app` user the base image already provides (UID 1654). The process writes nothing to disk —
+# every write goes to Postgres — so a read-only root filesystem is a reasonable thing to ask of it.
+USER $APP_UID
+
+ENTRYPOINT ["dotnet", "MUI.Web.dll"]
