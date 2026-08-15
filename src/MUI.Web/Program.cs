@@ -75,15 +75,22 @@ else
 
 app.UseStaticFiles();
 
-// Razor Components register anti-forgery metadata on every endpoint, so the middleware has to be
-// present even though this site has no POST form yet. The facet panel is a GET form deliberately —
-// a filter is a bookmarkable question, not a state change — so nothing here is token-protected.
-app.UseAntiforgery();
-
 if (connectionString is not null)
 {
     app.UseAuthentication();
     app.UseAuthorization();
+}
+
+// After authentication, and that ordering is load-bearing rather than tidy. An anti-forgery token
+// issued to a signed-in operator carries their identity, and the middleware compares it against
+// HttpContext.User — so validating before the authentication middleware has run compares a token
+// minted for somebody against nobody, and every owner's form post is rejected as forged. The
+// public surfaces never noticed: a filter is a GET form deliberately, because a bookmarkable
+// question is not a state change, so until §8.5's dashboard there was no token to check.
+app.UseAntiforgery();
+
+if (connectionString is not null)
+{
     app.MapMuiAccounts();
 }
 

@@ -312,9 +312,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 .Select(e => new GameEndpointView(
                     e.Host, e.Port, SqlEnums.ToDb(e.Kind), TlsMeasured: e.Kind is EndpointKind.Tls))
                 .ToList(),
-            ConnectScreen: Winner(fields, "connect_screen")?.Value,
+            ConnectScreen: Winner(fields, InternalFields.ConnectScreen)?.Value,
             ConnectScreenSuppressed: string.Equals(
-                Winner(fields, "connect_screen_suppressed")?.Value, "true", StringComparison.Ordinal),
+                Winner(fields, InternalFields.ConnectScreenSuppressed)?.Value,
+                "true",
+                StringComparison.Ordinal),
             ReachableFraction: Reachability.FractionReachable(intervals, RecentlyReachable * 3, now),
             LongestOutage: Reachability.LongestOutage(intervals, RecentlyReachable * 3, now),
             Capabilities: CapabilitiesOf(fields),
@@ -655,11 +657,23 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             .ToList();
     }
 
+    /// <summary>
+    /// One change as a sentence. An emptied value is <em>cleared</em>, and still an event.
+    /// </summary>
+    /// <remarks>
+    /// A field an owner clears keeps its row and gains a change entry — nothing is ever deleted, and
+    /// the withdrawal of a fact is as much a thing that happened as its arrival. Rendering the empty
+    /// string as itself would print "FANDOM changed from Exalted to" and lose the event in the
+    /// punctuation.
+    /// </remarks>
     private static ChangeEntry Describe(FieldChange change) => new(
         change.At,
         change.OldValue is null
-            ? $"{change.Field} recorded as {change.NewValue} ({SqlEnums.ToDb(change.Source)})"
-            : $"{change.Field} changed from {change.OldValue} to {change.NewValue} ({SqlEnums.ToDb(change.Source)})");
+            ? $"{change.Field} recorded as {Spell(change.NewValue)} ({SqlEnums.ToDb(change.Source)})"
+            : $"{change.Field} changed from {Spell(change.OldValue)} to {Spell(change.NewValue)} "
+                + $"({SqlEnums.ToDb(change.Source)})");
+
+    private static string Spell(string value) => value.Length == 0 ? "nothing" : value;
 
     private static GameField? Winner(IReadOnlyList<GameField> fields, string name) =>
         FieldPrecedence.Winner(fields.Where(f => string.Equals(f.Field, name, StringComparison.Ordinal)));
@@ -725,7 +739,10 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 && !InternalFields.IsInternal(f.Field))
             .GroupBy(f => f.Field, StringComparer.Ordinal))
         {
-            if (FieldPrecedence.Winner(group) is not { } winner)
+            // A cleared field is a row with an empty value, not a missing row (see OwnerEnrichment),
+            // and there is nothing to show for it. The row survives, the change feed carries the
+            // clearing, and the panel simply has one fewer line.
+            if (FieldPrecedence.Winner(group) is not { Value.Length: > 0 } winner)
             {
                 continue;
             }

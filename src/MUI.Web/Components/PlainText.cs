@@ -149,7 +149,17 @@ public static class PlainText
         foreach (var (name, chip) in page.Declared)
         {
             var age = Relative.Format(now - chip.LastConfirmedAt);
-            var how = chip.IsMeasured ? "measured" : "declared";
+
+            // An owner's enrichment says so here as well as in the chip's title, because plain mode
+            // is the surface with no hover: "declared" alone would put what a game's operator typed
+            // and what its config file emits under one word.
+            var how = chip switch
+            {
+                { IsMeasured: true } => "measured",
+                { Source: FieldSource.Owner } => "owner-declared",
+                _ => "declared",
+            };
+
             b.AppendLine($"  {name,-10} {chip.Value}  ({how}, {age}{(chip.IsStale ? ", stale" : string.Empty)})");
         }
     }

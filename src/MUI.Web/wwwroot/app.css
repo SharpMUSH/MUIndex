@@ -1025,3 +1025,34 @@ table.client-matrix td a { color: var(--faint); }
 .prose pre code { font-size: 13px; }
 .prose ul, .prose ol { padding-left: 1.4em; }
 .prose li { margin-bottom: 4px; }
+
+/* ── the owner dashboard ───────────────────────────────────────────────────
+   The one place on this site with a writable field, and it is styled to look
+   like what it is. No accent anywhere: the accent means "measured" everywhere
+   else here, and an owner's answer is declared — putting it on the one form
+   that produces declared values would spend the site's only provenance colour
+   on the opposite of what it signals.
+
+   A claimed game is a details block rather than a row, because an operator
+   holds a handful of games and five open forms is a page nobody reads. It is
+   details/summary rather than script for the same reason the rest of the write
+   path is a plain POST: §8.2 draws the JavaScript boundary around the WebAuthn
+   ceremony and nowhere else. */
+
+details.claim { border-bottom: 1px solid var(--line); padding: var(--row-pad) 0; }
+details.claim > summary { cursor: pointer; }
+details.claim > summary .faint { margin-left: 8px; font-size: 13px; }
+
+.owner-panel { margin: var(--cpad) 0 calc(var(--cpad) * 2); max-width: 62ch; }
+.owner-panel h3 { margin-top: var(--cpad); }
+.owner-panel p { color: var(--dim); }
+
+form.enrichment label { display: block; margin-bottom: var(--cpad); }
+form.enrichment label .kicker { display: block; margin-bottom: 4px; }
+form.enrichment input[type="text"] { display: block; width: 100%; }
+form.enrichment label .faint { display: block; font-size: 12px; margin-top: 4px; }
+
+/* Saved and refused both say so on the page an owner is already looking at: a
+   write that reported nothing would teach them the site is broken (§8.5). */
+p.verified strong { color: var(--text); }
+p.refused { border-left: 2px solid var(--amber); padding-left: 10px; }
