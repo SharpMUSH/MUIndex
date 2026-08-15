@@ -118,9 +118,42 @@ public enum PlayerCountState
     Unknown,
 }
 
-public sealed record EndpointView(string Host, int Port, string Kind, bool TlsMeasured);
+/// <summary>
+/// An address, and how long it has answered there (spec §9).
+/// </summary>
+/// <remarks>
+/// A consumer holding an address that stopped working is the one this is for. <c>state</c> is the
+/// catalogue's own word — <c>active</c>, <c>stale</c>, <c>gone</c> — rather than a threshold applied
+/// here, so this cannot disagree with the page about when an address has been left.
+/// </remarks>
+public sealed record EndpointView(
+    string Host,
+    int Port,
+    string Kind,
+    bool TlsMeasured,
+    DateTimeOffset FirstSeenAt,
+    DateTimeOffset LastSeenAt,
+    string State);
 
 public sealed record ChangeView(DateTimeOffset At, string Summary);
+
+/// <summary>
+/// One referral edge, resolved to a game (spec §9).
+/// </summary>
+/// <remarks>
+/// <c>direction</c> is <c>lists</c> or <c>listed-by</c> and is not decoration: the two are different
+/// people's claims, and a consumer merging them would attribute each game's referral list to the
+/// other. <c>present</c> false means the list stopped naming it, never that the edge was deleted.
+/// </remarks>
+public sealed record NeighbourView(
+    string Slug,
+    string Name,
+    string Host,
+    int Port,
+    string Direction,
+    DateTimeOffset FirstSeenAt,
+    DateTimeOffset LastSeenAt,
+    bool Present);
 
 /// <summary>
 /// An availability span with its cause (spec §5.3). Intervals rather than samples: a hundred
@@ -221,6 +254,9 @@ public sealed record GameView(
     PresenceView Presence,
     IReadOnlyList<AvailabilitySpanView> Availability,
     IReadOnlyList<ChangeView> Changes,
+
+    /// <summary>§9's referral neighbours, both arrows, each labelled with which way it runs.</summary>
+    IReadOnlyList<NeighbourView> Referrals,
     string Url,
     string ApiUrl);
 
@@ -348,3 +384,66 @@ public sealed record ApiIndexView(
     IReadOnlyList<string> Notes);
 
 public sealed record RouteView(string Method, string Path, string Returns);
+
+/// <summary>
+/// One bucket of measured presence (spec §10, §5.2).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <see cref="CountedSamples"/> and <see cref="UncountableSamples"/> are counts of <em>probes</em>
+/// and never of players. They are separate because a bucket probed three times and uncountable every
+/// time is a different fact from one in which nobody was logged in, and a consumer that added them
+/// together would erase §5.4's middle state.
+/// </para>
+/// <para>
+/// <see cref="Min"/>, <see cref="Max"/> and <see cref="Mean"/> are over the counted probes alone and
+/// are null when there were none. <b>Null is not zero</b>: this series never answers "how many
+/// players" with a number it inferred.
+/// </para>
+/// </remarks>
+public sealed record PresenceBucketView(
+    DateTimeOffset At,
+    int CountedSamples,
+    int UncountableSamples,
+    int? Min,
+    int? Max,
+    decimal? Mean);
+
+/// <summary>
+/// A game's presence over time (spec §10).
+/// </summary>
+/// <remarks>
+/// <b>A bucket nobody measured is absent from <see cref="Buckets"/>, never present as a zero.</b>
+/// The gaps are the third state of §5.4 and they mean "not measured" — they do not mean the game was
+/// empty and they do not mean it was unreachable, which is what <c>/availability</c> answers. Filling
+/// them in would publish our crawl schedule as though it were somebody's quiet hours.
+/// </remarks>
+public sealed record PresenceSeriesView(
+    string ApiVersion,
+    DateTimeOffset GeneratedAt,
+    Guid GameId,
+    string Slug,
+    string Grain,
+    DateTimeOffset From,
+    DateTimeOffset To,
+    int Count,
+    IReadOnlyList<PresenceBucketView> Buckets,
+    string Notice);
+
+/// <summary>
+/// A game's reachability over time (spec §10), as spans rather than samples.
+/// </summary>
+/// <remarks>
+/// The spans are <see cref="AvailabilitySpanView"/> — the same shape the game route already
+/// publishes, not a second one meaning the same thing, so a consumer that can read one can read both.
+/// </remarks>
+public sealed record AvailabilitySeriesView(
+    string ApiVersion,
+    DateTimeOffset GeneratedAt,
+    Guid GameId,
+    string Slug,
+    DateTimeOffset From,
+    DateTimeOffset To,
+    int Count,
+    IReadOnlyList<AvailabilitySpanView> Spans,
+    string Notice);

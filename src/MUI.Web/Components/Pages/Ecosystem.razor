@@ -1,6 +1,8 @@
 @page "/ecosystem"
+@using MUI.Catalog.Persistence
 @inject IGameQueries Queries
 @inject TimeProvider Clock
+@inject IServiceProvider Services
 
 @*
     The ecosystem dashboard (spec §9): what the measured catalogue runs, and what it offers.
@@ -123,8 +125,44 @@ else
     </section>
 
     <section aria-labelledby="curve">
-        <h2 id="curve">Why this is a snapshot and not a curve</h2>
-        <p class="dim">@EcosystemCopy.NoCurve</p>
+        @*
+            Drawn only where there are two points to draw between. One snapshot rendered as a trend
+            would be this site inventing a direction it has not measured — the same fault as an
+            invented zero, wearing a different hat — so the honest paragraph stays until the record
+            has caught up with the word "curve".
+        *@
+        @if (Curves.Any(c => c.IsCurve))
+        {
+            <h2 id="curve">Adoption over time</h2>
+            <p class="dim">@EcosystemCopy.CurveCaveat</p>
+
+            <table class="curve">
+                <caption class="sr-only">Measured share of each protocol, oldest reading first</caption>
+                <thead>
+                    <tr><th scope="col">protocol</th><th scope="col">then</th><th scope="col">now</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var curve in Curves.Where(c => c.IsCurve))
+                    {
+                        var (first, last) = curve.Ends;
+                        <tr>
+                            <th scope="row" class="mono">@curve.Protocol</th>
+                            <td class="mono">
+                                @Share(first)
+                                <span class="faint">@curve.Points[0].At.ToString("MMM yyyy")</span>
+                            </td>
+                            <td class="mono">@Share(last)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <h2 id="curve">Why this is a snapshot and not a curve</h2>
+            <p class="dim">@EcosystemCopy.NoCurve</p>
+        }
+
         <p class="mono">@EcosystemCopy.Transitions(Dashboard.CapabilityTransitions)</p>
     </section>
 
@@ -144,7 +182,49 @@ else
 
     private EcosystemDashboard Dashboard = EcosystemDashboard.Empty(default);
 
-    protected override async Task OnParametersSetAsync() => Dashboard = await Queries.EcosystemAsync();
+    /// <summary>
+    /// §9's adoption curves, empty where there is no record to read — the demo fixture, and any
+    /// deployment whose first maintenance pass has not run.
+    /// </summary>
+    private IReadOnlyList<AdoptionCurve> Curves { get; set; } = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Dashboard = await Queries.EcosystemAsync();
+        Curves = await CurvesAsync();
+    }
+
+    /// <summary>
+    /// One curve per headline protocol, over the last two years.
+    /// </summary>
+    /// <remarks>
+    /// The same four protocols §9 names, read from <see cref="EcosystemProtocols.Headline"/> rather
+    /// than listed here, so the table and the curves beneath it cannot come to disagree about which
+    /// protocols this page is about.
+    /// </remarks>
+    private async Task<IReadOnlyList<AdoptionCurve>> CurvesAsync()
+    {
+        if (Services.GetService<IEcosystemSnapshots>() is not { } snapshots)
+        {
+            return [];
+        }
+
+        var now = Now;
+        List<AdoptionCurve> curves = [];
+
+        foreach (var protocol in EcosystemProtocols.Headline)
+        {
+            curves.Add(new AdoptionCurve(
+                protocol,
+                await snapshots.CurveAsync(protocol, now.AddYears(-2), now)));
+        }
+
+        return curves;
+    }
+
+    /// <summary>A share, or the honest absence of one.</summary>
+    private static string Share(MeasuredShare? share) =>
+        share?.Fraction is { } fraction ? Percent(fraction) : "not measured";
 
     /// <summary>
     /// A bar width, formatted by hand and under the invariant culture.

@@ -1,0 +1,34 @@
+# TLS and nothing else. Every routing decision the site makes is the site's; this file terminates
+# HTTPS, hands the request on, and stays out of the way.
+{
+	# Only for the one name below that actually uses ACME. The proxied names present a certificate
+	# from a file.
+	email {$ACME_EMAIL}
+}
+
+# The public site. Behind the Cloudflare proxy, so the certificate is the Origin CA one: it is
+# presented only to Cloudflare, which is the only thing that reaches port 443 for this name, and it
+# is what "Full (strict)" checks. Automatic ACME is not used here because the challenge would have
+# to come back through the proxy for a name whose edge already terminates TLS.
+{$SITE_DOMAIN}, www.{$SITE_DOMAIN} {
+	tls /etc/caddy/tls/origin.pem /etc/caddy/tls/origin.key
+
+	# One canonical origin. Passkeys are bound to the registrable domain so both names work for
+	# sign-in, but a URL people share should have one spelling.
+	@www host www.{$SITE_DOMAIN}
+	redir @www https://{$SITE_DOMAIN}{uri} permanent
+
+	encode zstd gzip
+
+	reverse_proxy web:8080
+}
+
+# The name in the crawler's reverse record. It is DNS-only — it has to be, or the PTR would not
+# forward-confirm — so port 80 reaches this box directly and an ordinary Let's Encrypt certificate
+# can be issued for it over HTTP-01.
+#
+# It exists because somebody who has just been dialled types it into a browser, having read it out
+# of `dig -x`. Landing them on the part of /about that answers them is the whole job.
+{$CRAWLER_DOMAIN} {
+	redir https://{$SITE_DOMAIN}/crawler
+}

@@ -122,6 +122,7 @@ else
                     <OwnerPanel GameId="game.Id"
                                 Name="@game.Name"
                                 Declared="DeclaredFor(game.Id)"
+                                OptOut="CrawlFor(game.Id)"
                                 Now="Now" />
 
                     @*
@@ -251,6 +252,9 @@ else
     /// </remarks>
     private Dictionary<Guid, IReadOnlyDictionary<string, GameField>> Owned { get; } = [];
 
+    /// <summary>§11's answer per game: which of its addresses we are still dialling.</summary>
+    private Dictionary<Guid, OwnerOptOutState> Crawling { get; } = [];
+
     /// <summary>
     /// What the last write did, carried back through a redirect (see <see cref="OwnerWrites"/>).
     /// </summary>
@@ -343,6 +347,16 @@ else
             ? declared
             : new Dictionary<string, GameField>(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Whether we are dialling this game, per address — or null where there is no register to ask.
+    /// </summary>
+    /// <remarks>
+    /// Null and not an empty state. "We are crawling you" and "there is nowhere here that records
+    /// whether we are" are different answers, and the panel offers the button only for the first.
+    /// </remarks>
+    private OwnerOptOutState? CrawlFor(Guid gameId) =>
+        Crawling.TryGetValue(gameId, out var state) ? state : null;
+
     protected override async Task OnInitializedAsync()
     {
         Users = Services.GetService<UserManager<MuiUser>>();
@@ -382,6 +396,13 @@ else
                 if (Services.GetService<OwnerEnrichment>() is { } enrichment)
                 {
                     Owned[game.Id] = await enrichment.DeclaredAsync(game.Id);
+                }
+
+                // §11, per address. Read here with everything else this page needs so the panel
+                // renders from one pass rather than asking the register itself.
+                if (Services.GetService<OwnerOptOut>() is { } optOut)
+                {
+                    Crawling[game.Id] = await optOut.StateAsync(game.Id);
                 }
 
                 if (Services.GetService<ClaimService>() is { } service)

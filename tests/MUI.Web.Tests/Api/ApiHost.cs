@@ -76,6 +76,11 @@ public sealed class ApiHost : IAsyncDisposable
             s => queries ?? s.GetRequiredService<FixtureGameQueries>());
         builder.Services.AddSingleton<IAvailabilityHistory>(
             s => s.GetRequiredService<FixtureGameQueries>());
+
+        // The fixture measured nothing, so §10's series is empty here unless a test supplies one.
+        // Registered before the caller's own hook so that a test's registration is the later one and
+        // therefore the one that resolves.
+        builder.Services.AddSingleton<IPresenceSeries, FixturePresenceSeries>();
         builder.Services.AddSingleton<TimeProvider>(new FixedClock(Now));
         services?.Invoke(builder.Services);
         builder.Services.AddMuiApi(builder.Configuration);

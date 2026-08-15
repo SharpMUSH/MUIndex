@@ -123,9 +123,20 @@ if (arguments.OptOut is { } request)
 var planted = await CrawlSeeds.PlantAsync(targets, arguments.Seeds, time);
 Console.WriteLine($"seeds         {arguments.Seeds.Count} configured, {planted} new in the registry");
 
+// §11. A dry run dials nobody, so it owes nobody an address; a real one about to open sockets under
+// the placeholder is telling every server it reaches to complain to a domain that does not exist.
+if (!arguments.DryRun && arguments.InfoUrl == new ProbeOptions().InfoUrl)
+{
+    Console.WriteLine(
+        "contact       PLACEHOLDER — every server dialled is told to write to an address that "
+        + "answers nobody. Set MUI_CRAWL_INFO_URL, or pass --info-url.");
+}
+
 var cycle = new CrawlCycle(
     targets,
-    new TelnetProbe(new ProbeOptions(), loggerFactory.CreateLogger<TelnetProbe>()),
+    new TelnetProbe(
+        new ProbeOptions { InfoUrl = arguments.InfoUrl },
+        loggerFactory.CreateLogger<TelnetProbe>()),
     optOut,
     new HostScopeGuard(new SystemHostResolver()),
     new ProbeIngestor(

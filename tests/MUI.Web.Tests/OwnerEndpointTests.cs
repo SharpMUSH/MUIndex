@@ -16,7 +16,9 @@ using Microsoft.Extensions.Options;
 
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
+using MUI.Discovery;
 using MUI.Web.Accounts;
+using MUI.Web.Fixtures;
 
 namespace MUI.Web.Tests;
 
@@ -40,6 +42,9 @@ namespace MUI.Web.Tests;
 public class OwnerEndpointTests
 {
     private static readonly Guid Game = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000007");
+
+    /// <summary>The fixture game with two listeners, which is what makes the scoping assertable.</summary>
+    private static readonly Guid Mush = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
 
     /// <summary>An owner's form post lands, and sends them back to the dashboard saying so.</summary>
     [Test]
@@ -185,27 +190,189 @@ public class OwnerEndpointTests
     /// <summary>
     /// The two endpoints on a loopback port, behind the pipeline <c>Program</c> builds.
     /// </summary>
+    /// <summary>
+    /// An owner's stop covers exactly the addresses their game answers on — and no more.
+    /// </summary>
+    /// <remarks>
+    /// The one thing worth getting right here. A record with a null port means <em>every port on
+    /// this host</em>, and a shared machine — a hosting provider, somebody running four games on one
+    /// box — would then have three other people's games delisted by one owner's button. So the rows
+    /// name ports, and the game with two of them gets two rows.
+    /// </remarks>
+    [Test]
+    public async Task StoppingCoversTheGamesOwnPortsAndNeverTheWholeHost()
+    {
+        await using var host = await Harness.StartAsync(game: Mush);
+
+        var response = await host.PostAsync($"/account/games/{Mush}/crawl", new() { ["stop"] = "true" });
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Found);
+        await Assert.That(response.Headers.Location!.ToString())
+            .IsEqualTo($"/account?saved={Mush}&did=crawl-stopped");
+
+        var recorded = host.OptOuts.All;
+
+        await Assert.That(recorded).Count().IsEqualTo(2);
+        await Assert.That(recorded.Select(o => o.Port).ToList()).IsEquivalentTo(new int?[] { 4201, 4202 });
+
+        // Never the whole host, however convenient that would have been to write.
+        await Assert.That(recorded.Any(o => o.Port is null)).IsFalse();
+        await Assert.That(recorded.All(o => o.Source is OptOutSource.Request)).IsTrue();
+
+        // §11 requires the request route to say who asked, and the account is the one that can.
+        await Assert.That(recorded[0].Detail).Contains("owner");
+    }
+
+    /// <summary>Taken back, with the row kept — nothing is ever deleted.</summary>
+    [Test]
+    public async Task AnOwnerCanStartUsAgainAndTheRecordSurvives()
+    {
+        await using var host = await Harness.StartAsync(game: Mush);
+
+        await host.PostAsync($"/account/games/{Mush}/crawl", new() { ["stop"] = "true" });
+        var response = await host.PostAsync($"/account/games/{Mush}/crawl", new() { ["stop"] = "false" });
+
+        await Assert.That(response.Headers.Location!.ToString())
+            .IsEqualTo($"/account?saved={Mush}&did=crawl-resumed");
+
+        // Withdrawn, not gone: "they asked us to stop, and later asked us back" is a thing the
+        // register has to be able to say.
+        await Assert.That(host.OptOuts.All).Count().IsEqualTo(2);
+        await Assert.That(host.OptOuts.All.All(o => o.Standing)).IsFalse();
+    }
+
+    /// <summary>Somebody without a verified claim is refused, and writes nothing.</summary>
+    [Test]
+    public async Task AnUnverifiedClaimCannotStopTheCrawl()
+    {
+        await using var host = await Harness.StartAsync(verified: false, game: Mush);
+
+        var response = await host.PostAsync($"/account/games/{Mush}/crawl", new() { ["stop"] = "true" });
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Forbidden);
+        await Assert.That(host.OptOuts.All).IsEmpty();
+    }
+
+    /// <summary>
+    /// A game we hold no address for is told so, rather than told we stopped.
+    /// </summary>
+    /// <remarks>
+    /// The failure mode of a quiet success here is an owner who believes we have stopped dialling
+    /// them and has not been told we never had an address to stop dialling.
+    /// </remarks>
+    [Test]
+    public async Task AGameWithNoAddressIsRefusedOutLoud()
+    {
+        var unlisted = Guid.Parse("bbbbbbbb-0000-0000-0000-00000000000f");
+        await using var host = await Harness.StartAsync(game: unlisted);
+
+        var response = await host.PostAsync(
+            $"/account/games/{unlisted}/crawl", new() { ["stop"] = "true" });
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Found);
+        await Assert.That(response.Headers.Location!.ToString()).Contains("refused=crawl");
+        await Assert.That(host.OptOuts.All).IsEmpty();
+    }
+
+    /// <summary>§11's register, in memory. Keeps rows and withdraws them, exactly as the real one.</summary>
+    private sealed class InMemoryOptOuts : ICrawlOptOutRepository
+    {
+        private readonly List<CrawlOptOut> _rows = [];
+
+        public IReadOnlyList<CrawlOptOut> All => _rows;
+
+        public Task<CrawlOptOut?> StandingAsync(string host, int port, CancellationToken ct) =>
+            Task.FromResult(_rows.FirstOrDefault(r => r.Standing && r.Covers(host, port)));
+
+        public Task<OptOutRecording> RecordAsync(CrawlOptOut optOut, CancellationToken ct)
+        {
+            var existing = _rows.FindIndex(
+                r => r.Host == optOut.Host && r.Port == optOut.Port && r.Source == optOut.Source);
+
+            if (existing >= 0)
+            {
+                // A repeat ask confirms and un-withdraws, and leaves the first date alone.
+                _rows[existing] = _rows[existing] with
+                {
+                    LastConfirmedAt = optOut.LastConfirmedAt,
+                    WithdrawnAt = null,
+                };
+
+                return Task.FromResult(new OptOutRecording(_rows[existing], IsFirstAsk: false));
+            }
+
+            _rows.Add(optOut);
+
+            return Task.FromResult(new OptOutRecording(optOut, IsFirstAsk: true));
+        }
+
+        public Task WithdrawAsync(
+            string host, int? port, OptOutSource route, DateTimeOffset at, CancellationToken ct)
+        {
+            for (var i = 0; i < _rows.Count; i++)
+            {
+                if (_rows[i].Host == host && _rows[i].Port == port && _rows[i].Source == route)
+                {
+                    _rows[i] = _rows[i] with { WithdrawnAt = at };
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<CrawlOptOut>> AllAsync(CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<CrawlOptOut>>(_rows);
+    }
+
+    /// <summary>
+    /// No zone to read.
+    /// </summary>
+    /// <remarks>
+    /// Answers <see cref="DnsTxtAnswer.NoRecord"/> rather than <see cref="DnsTxtAnswer.NoAnswer"/>:
+    /// DNS replying "no such record" is a fact, and a lookup that failed is not one. The owner route
+    /// asks DNS nothing either way, and this says so honestly rather than by silence.
+    /// </remarks>
+    private sealed class NoDns : IDnsTxtResolver
+    {
+        public Task<DnsTxtAnswer> LookupAsync(
+            string name, CancellationToken cancellationToken = default) =>
+            Task.FromResult(DnsTxtAnswer.NoRecord);
+    }
+
     private sealed class Harness : IAsyncDisposable
     {
         private readonly WebApplication _app;
         private readonly HttpClient _client;
 
-        private Harness(WebApplication app, HttpClient client, InMemoryFieldStore fields)
+        private Harness(
+            WebApplication app,
+            HttpClient client,
+            InMemoryFieldStore fields,
+            InMemoryOptOuts optOuts)
         {
             _app = app;
             _client = client;
             Fields = fields;
+            OptOuts = optOuts;
         }
 
         public InMemoryFieldStore Fields { get; }
 
+        public InMemoryOptOuts OptOuts { get; }
+
+        /// <param name="game">
+        /// Which game the claim is on. Defaults to the one the enrichment tests use; the opt-out
+        /// tests name the fixture game with two listeners, because one address cannot demonstrate
+        /// that a stop is scoped to ports rather than to a whole host.
+        /// </param>
         public static async Task<Harness> StartAsync(
             bool verified = true,
-            bool antiforgeryBeforeAuthentication = false)
+            bool antiforgeryBeforeAuthentication = false,
+            Guid? game = null)
         {
             var user = new MuiUser { DisplayName = "owner", CreatedAt = DateTimeOffset.UtcNow };
             var fields = new InMemoryFieldStore();
-            var claims = new InMemoryClaimStore(Game, user.Id, verified);
+            var claims = new InMemoryClaimStore(game ?? Game, user.Id, verified);
 
             var builder = WebApplication.CreateSlimBuilder();
 
@@ -224,6 +391,17 @@ public class OwnerEndpointTests
 
             builder.Services.AddSingleton<OwnerEnrichment>(_ => new OwnerEnrichment(
                 claims, fields, new FieldReconciler(fields), FieldRegistry.Instance, TimeProvider.System));
+
+            // §11's register, in memory, behind the real OptOutGate — the recording path under test
+            // is the deployed one rather than a second implementation of it written here.
+            var optOuts = new InMemoryOptOuts();
+
+            builder.Services.AddSingleton(optOuts);
+            builder.Services.AddSingleton<ICrawlOptOutRepository>(optOuts);
+            builder.Services.AddSingleton<IGameQueries, FixtureGameQueries>();
+            builder.Services.AddSingleton(s => new OptOutGate(
+                optOuts, new NoDns(), TimeProvider.System));
+            builder.Services.AddSingleton<OwnerOptOut>();
 
             var app = builder.Build();
 
@@ -265,7 +443,8 @@ public class OwnerEndpointTests
             return new Harness(
                 app,
                 new HttpClient(handler) { BaseAddress = new Uri(address) },
-                fields);
+                fields,
+                optOuts);
         }
 
         public async Task<HttpResponseMessage> PostAsync(

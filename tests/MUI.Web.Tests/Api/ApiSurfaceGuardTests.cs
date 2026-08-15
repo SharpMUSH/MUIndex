@@ -21,6 +21,8 @@ public class ApiSurfaceGuardTests
         ApiRoutes.Base,
         ApiRoutes.Games,
         ApiRoutes.Games + "/m-u-s-h",
+        ApiRoutes.Games + "/m-u-s-h" + ApiRoutes.PresenceSuffix,
+        ApiRoutes.Games + "/m-u-s-h" + ApiRoutes.AvailabilitySuffix,
         ApiRoutes.Feeds,
         ApiRoutes.Dump,
     ];

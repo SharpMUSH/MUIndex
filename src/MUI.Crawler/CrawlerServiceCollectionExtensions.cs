@@ -78,18 +78,16 @@ public static class CrawlerServiceCollectionExtensions
         services.AddSingleton(options.Probe);
         services.AddSingleton(options.Maintenance);
         services.AddSingleton(options.Maintenance.Retention);
-        services.AddSingleton(options.Salt);
 
-        // §11's rotating salt. A singleton because an epoch that differed between two callers in one
-        // process would make two names hash differently for no reason anybody could see.
+        // There is no salt here any more, and nothing to hash. §11's unique-player estimate is gone —
+        // a player who renames is counted twice inside one epoch, and correcting that needs the
+        // cross-name linkage the salt existed to prevent — so the machinery that served it went with
+        // it. Nothing regressed: no probe ever produced an estimate, because the WHO parser counts
+        // rows and never extracts a name.
         //
-        // Registered and, as of today, resolved by nothing: the WHO parser counts rows and never
-        // extracts a name, so no probe produces aggregates and nothing constructs PresenceAggregates.
-        // The salt is here because the rule it serves is about what may be persisted, and having the
-        // one function that turns a name into a hash exist before anything hands it a name is how the
-        // rule stays enforceable. Whatever teaches the parser to read a name column takes this from
-        // here and hashes through it; it does not grow its own.
-        services.TryAddSingleton<ISaltProvider>(s => new RotatingSaltProvider(s.GetRequiredService<SaltRotationOptions>()));
+        // The rule that outlived it is simpler and unchanged: a player name is never persisted. Any
+        // future work that teaches the parser to read a name column has to make that case from
+        // scratch rather than inheriting a hashing helper that presumes the answer.
 
         // The catalogue's own stores. NpgsqlAvailabilityStore is both the store and the reachable
         // history the archive sweep reads, so it is registered once and exposed twice — two instances
@@ -202,6 +200,11 @@ public static class CrawlerServiceCollectionExtensions
 
         services.TryAddSingleton<ProbeIngestor>();
         services.TryAddSingleton<CatalogueBinder>();
+        // §9's adoption curves. Registered here rather than with the web tier because the pass that
+        // writes them runs beside the crawler, and the read side resolves the same one.
+        services.TryAddSingleton<IEcosystemSnapshots>(s => new NpgsqlEcosystemSnapshots(
+            s.GetRequiredService<NpgsqlDataSource>()));
+
         services.TryAddSingleton<CrawlCycle>();
 
         // Registered even when the crawl is off, so that CrawlerService says so once in the log and
@@ -259,9 +262,6 @@ public sealed class CrawlerOptionsBuilder
     /// </summary>
     public PresenceMaintenanceOptions Maintenance { get; set; } = new();
 
-    /// <summary>How often §11's hashing salt rotates, and what it is derived from.</summary>
-    public SaltRotationOptions Salt { get; set; } = new();
-
     /// <summary>
     /// Adds an address the crawler knows on day one.
     /// </summary>
@@ -286,7 +286,6 @@ public sealed class CrawlerOptionsBuilder
         Discovery = Discovery,
         Probe = Probe,
         Maintenance = Maintenance,
-        Salt = Salt,
         Submissions = Submissions,
         Seeds = _seeds,
     };

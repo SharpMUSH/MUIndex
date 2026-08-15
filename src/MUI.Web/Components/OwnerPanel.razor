@@ -1,4 +1,5 @@
 @using MUI.Catalog.Persistence
+@using MUI.Discovery
 @using MUI.Web.Accounts
 
 @*
@@ -74,6 +75,76 @@
             <button type="submit">Stop showing our connect screen</button>
         </form>
     }
+
+    @*
+        §11's third route. The other two — the MSSP variable and the DNS TXT record — are answered by
+        the game itself and need no account, which is why they are named here beside the button
+        rather than hidden behind it: an owner who would rather not depend on us having their claim
+        on file can say it in their own config and we will honour it on the next cycle.
+    *@
+    <h3>Being crawled</h3>
+
+    @if (OptOut is { AllStopped: true })
+    {
+        <p>
+            We have stopped. Nothing on @Name is dialled, and the page keeps everything measured
+            before you asked — the empty hours name no cause, because <em>you asked us to stop</em>
+            is our fact and not a measurement of your game.
+        </p>
+
+        @if (OptOut.WithdrawableHere)
+        {
+            <form method="post" action="/account/games/@GameId/crawl">
+                <AntiforgeryToken />
+                <input type="hidden" name="stop" value="false" />
+                <button type="submit">Start crawling us again</button>
+            </form>
+        }
+        else
+        {
+            @* The game is still saying stop on every probe, and this side may not overrule it. *@
+            <p class="faint">
+                This one came from your own server rather than from here — @Routes. To be crawled
+                again, stop publishing it; we will hear that on the next cycle.
+            </p>
+        }
+    }
+    else if (OptOut is { Partial: true })
+    {
+        @*
+            Neither state, and shown as neither. Rounding this to "stopped" would tell an owner we
+            had left them alone while we went on dialling the port that is still open.
+        *@
+        <p class="warn">
+            We have stopped on @string.Join(", ", OptOut.Stopped) and are still dialling
+            @string.Join(", ", OptOut.Dialling). That is usually a port added after the opt-out.
+        </p>
+        <form method="post" action="/account/games/@GameId/crawl">
+            <AntiforgeryToken />
+            <input type="hidden" name="stop" value="true" />
+            <button type="submit">Stop on every address too</button>
+        </form>
+    }
+    else
+    {
+        <p>
+            We dial @Name on a schedule and read what any anonymous connection is shown. If you would
+            rather we did not, say so and we stop — within one cycle, on every address we have for
+            you, and we will not ask why.
+        </p>
+        <p class="faint">
+            Nothing already measured is deleted: your page keeps its history and its URL, and one
+            probe after you take this back starts it again. You can also say it without us, in your
+            own config — <code>@OptOutVocabulary.MsspVariable</code> in MSSP, or a
+            <code>@OptOutVocabulary.DnsLabel</code> TXT record — and we honour those whether or not
+            anybody has ever claimed the game here.
+        </p>
+        <form method="post" action="/account/games/@GameId/crawl">
+            <AntiforgeryToken />
+            <input type="hidden" name="stop" value="true" />
+            <button type="submit">Stop crawling us</button>
+        </form>
+    }
 </section>
 
 @code {
@@ -93,6 +164,22 @@
         new Dictionary<string, GameField>(StringComparer.Ordinal);
 
     [Parameter] public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// Which of this game's addresses we are honouring an opt-out for, or null where there is no
+    /// register to ask — the demo fixture, which dials nothing.
+    /// </summary>
+    [Parameter] public OwnerOptOutState? OptOut { get; set; }
+
+    /// <summary>The routes the standing rules came in by, for the case this side cannot undo.</summary>
+    private string Routes => string.Join(", ", (OptOut?.Standing ?? [])
+        .Select(rule => rule.Source switch
+        {
+            OptOutSource.Mssp => $"your MSSP report publishes {OptOutVocabulary.MsspVariable}",
+            OptOutSource.DnsTxt => $"a {OptOutVocabulary.DnsLabel} TXT record asks us to stop",
+            _ => "a request we recorded",
+        })
+        .Distinct());
 
     /// <summary>
     /// The owner's own decision, read from the field they set rather than from the rendered page.

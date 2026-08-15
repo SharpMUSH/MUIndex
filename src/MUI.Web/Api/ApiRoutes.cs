@@ -27,8 +27,20 @@ public static class ApiRoutes
 
     public const string CameBackRss = Feeds + "/came-back.rss";
 
+    /// <summary>§10's presence time series, for one game.</summary>
+    public const string PresenceSuffix = "/presence";
+
+    /// <summary>§10's availability time series, for one game.</summary>
+    public const string AvailabilitySuffix = "/availability";
+
     /// <summary>The page a reader sees. The API never links to a page it does not serve.</summary>
     public static string Page(string slug) => $"/g/{Uri.EscapeDataString(slug)}";
+
+    /// <summary>One game's presence series, keyed the durable way.</summary>
+    public static string Presence(Guid id) => $"{Game(id)}{PresenceSuffix}";
+
+    /// <summary>One game's availability series, keyed the durable way.</summary>
+    public static string Availability(Guid id) => $"{Game(id)}{AvailabilitySuffix}";
 
     /// <summary>
     /// The durable link to a game. Keyed on the GUID and not the slug, because the slug is mutable

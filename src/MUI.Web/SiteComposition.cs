@@ -87,6 +87,7 @@ public static class SiteComposition
             services.AddSingleton<FixtureGameQueries>();
             services.AddSingleton<IGameQueries>(s => s.GetRequiredService<FixtureGameQueries>());
             services.AddSingleton<IAvailabilityHistory>(s => s.GetRequiredService<FixtureGameQueries>());
+            services.AddSingleton<IPresenceSeries, FixturePresenceSeries>();
         }
 
         services.AddSingleton(new CatalogueSource(connectionString is not null));
@@ -137,6 +138,11 @@ public static class SiteComposition
         // have is a URL somebody is still holding, and it redirects to the page it has now —
         // permanently, and for an archived game exactly as for a live one.
         app.UseFormerSlugRedirects();
+
+        // §11's contact address, and it is mapped before the pages because the crawler has already
+        // published it: whatever else moves on this site, the URL a dialled admin was handed has to
+        // keep landing on the part of /about that tells them how to make us stop.
+        app.MapMuiCrawlerContact();
 
         app.MapRazorComponents<App>();
         app.MapMuiApi();

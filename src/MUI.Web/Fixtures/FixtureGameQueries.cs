@@ -289,21 +289,42 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         _ => null,
     };
 
+    /// <summary>
+    /// The addresses, with the history the real table keeps.
+    /// </summary>
+    /// <remarks>
+    /// m-u-s-h carries a <c>gone</c> row on purpose. §7.5 promises that nothing is deleted, and a
+    /// fixture in which every address is current cannot show what that promise looks like — the
+    /// departed row rendered as departed, beside the one that replaced it, for the benefit of
+    /// somebody holding the old address.
+    /// </remarks>
     private static GameEndpointView[] Endpoints(GameSummary g) => g.Slug switch
     {
         "m-u-s-h" =>
         [
-            new GameEndpointView("mush.pennmush.org", 4201, "telnet", TlsMeasured: false),
-            new GameEndpointView("mush.pennmush.org", 4202, "tls", TlsMeasured: true),
+            Endpoint("mush.pennmush.org", 4201, "telnet", tls: false, sinceDays: 2200),
+            Endpoint("mush.pennmush.org", 4202, "tls", tls: true, sinceDays: 900),
+            Endpoint("mush.example.net", 4201, "telnet", tls: false, sinceDays: 2900, goneDays: 2200),
         ],
-        "aardwolf" => [new GameEndpointView("aardmud.org", 4000, "telnet", TlsMeasured: false)],
-        "midnight-sun" => [new GameEndpointView("midnightsun2.org", 3000, "telnet", TlsMeasured: false)],
-        "batmud" => [new GameEndpointView("bat.org", 23, "telnet", TlsMeasured: false)],
-        "ashen-court" => [new GameEndpointView("ashen.example", 4000, "tls", TlsMeasured: true)],
-        "gaslight-row" => [new GameEndpointView("gaslight.example", 4201, "telnet", TlsMeasured: false)],
-        "verdigris" => [new GameEndpointView("verdigris.example", 6250, "telnet", TlsMeasured: false)],
-        _ => [new GameEndpointView("eldertale.example", 4000, "telnet", TlsMeasured: false)],
+        "aardwolf" => [Endpoint("aardmud.org", 4000, "telnet", tls: false, sinceDays: 4000)],
+        "midnight-sun" => [Endpoint("midnightsun2.org", 3000, "telnet", tls: false, sinceDays: 1500)],
+        "batmud" => [Endpoint("bat.org", 23, "telnet", tls: false, sinceDays: 5000)],
+        "ashen-court" => [Endpoint("ashen.example", 4000, "tls", tls: true, sinceDays: 600)],
+        "gaslight-row" => [Endpoint("gaslight.example", 4201, "telnet", tls: false, sinceDays: 3000)],
+        "verdigris" => [Endpoint("verdigris.example", 6250, "telnet", tls: false, sinceDays: 800)],
+        _ => [Endpoint("eldertale.example", 4000, "telnet", tls: false, sinceDays: 1200)],
     };
+
+    /// <param name="goneDays">How long ago we last reached it, for an address the game has left.</param>
+    private static GameEndpointView Endpoint(
+        string host, int port, string kind, bool tls, int sinceDays, int? goneDays = null) => new(
+        host,
+        port,
+        kind,
+        TlsMeasured: tls,
+        Now.AddDays(-sinceDays),
+        goneDays is { } left ? Now.AddDays(-left) : Now,
+        goneDays is null ? "active" : "gone");
 
     private static string? Screen(GameSummary g) => g.Slug switch
     {

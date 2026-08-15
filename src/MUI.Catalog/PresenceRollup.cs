@@ -54,23 +54,37 @@ public sealed record PresenceRollup
     /// </summary>
     public decimal? MeanCount { get; init; }
 
-    /// <summary>
-    /// The salt epoch every aggregate in this bucket was computed under (spec §11), or <c>null</c>
-    /// where the bucket spanned a rotation and the two sets cannot be compared.
-    /// </summary>
-    public string? SaltEpoch { get; init; }
-
-    /// <summary>
-    /// The largest single-sample unique-player estimate inside <see cref="SaltEpoch"/>, and
-    /// deliberately not a union: a union needs the hashes, and the hashes never leave the probe.
-    /// </summary>
-    public int? PeakDistinctEstimate { get; init; }
-
     /// <summary>A filled cell — something in this bucket was counted, a measured zero included.</summary>
     public bool IsCounted => CountedSamples > 0;
 
     /// <summary>A hatched cell — probed, and not countable, for every probe in the bucket.</summary>
     public bool IsUncountable => CountedSamples == 0 && UnmeasurableSamples > 0;
+}
+
+/// <summary>
+/// Rolled-up presence over a window, for the read side (spec §10's time series).
+/// </summary>
+/// <remarks>
+/// <para>
+/// A read port rather than the whole store, because publishing a series needs one method and the
+/// store also writes, rolls up, sets watermarks and drops partitions — none of which an API route
+/// should be one mistaken injection away from.
+/// </para>
+/// <para>
+/// <b>A bucket nobody measured is absent, never a zero.</b> That is the same rule
+/// <see cref="PresenceRollup"/> keeps and the same one §5.4's third state keeps: a series that
+/// filled its gaps in would be publishing our crawl schedule as though it were their quiet hours.
+/// </para>
+/// </remarks>
+public interface IPresenceSeries
+{
+    /// <summary>One game's buckets at one grain, inclusive of both ends, oldest first.</summary>
+    Task<IReadOnlyList<PresenceRollup>> ForGameAsync(
+        Guid gameId,
+        PresenceGrain grain,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -96,10 +110,25 @@ public sealed record PresenceRollup
 public sealed record PresenceRetentionOptions
 {
     /// <summary>
-    /// §5.2's heatmap window, which is the floor under any raw retention: the site still reads raw
-    /// samples for the day × hour graphic, so a retention shorter than the window it draws would blank
-    /// the left-hand end of every heatmap on the site.
+    /// §5.2's heatmap window, and the floor under any raw retention.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The floor no longer exists because the graphic needs the raw rows. The heatmap reads the
+    /// hourly rollup below the rollup watermark and raw samples above it, so dropping a raw month
+    /// the rollup has already consumed now costs the grid nothing — which is what §5.2 promised and
+    /// what this floor was standing in for until the reader existed.
+    /// </para>
+    /// <para>
+    /// It is kept because <b>the rollup is the only copy left once raw goes</b>, and a rollup pass
+    /// that has been failing quietly is discovered late. Keeping the window's worth of raw means the
+    /// grid can be rebuilt from source after such a fault rather than being whatever the last good
+    /// pass wrote. A deployment that wants to go lower is choosing to trust its rollup, and the
+    /// short-window readers beside the graphic — the seven-day rankings median, which needs the
+    /// distribution the rollup does not keep, and the digest's this-week tallies — set the real
+    /// hard floor well below this one.
+    /// </para>
+    /// </remarks>
     public static readonly TimeSpan HeatmapWindow = TimeSpan.FromDays(56);
 
     /// <summary>How long raw <c>presence_sample</c> rows are kept. <c>null</c> is for ever.</summary>

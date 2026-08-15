@@ -58,8 +58,12 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// <summary>The same rule where the table is aliased.</summary>
     private const string PublicG = "(g.submitted_at IS NULL OR g.is_claimed)";
 
-    /// <summary>The heatmap's window (spec §5.2).</summary>
-    public static readonly TimeSpan ActivityWindow = TimeSpan.FromDays(56);
+    /// <summary>
+    /// The heatmap's window (spec §5.2), which is the same 56 days retention floors itself at —
+    /// one constant, because a window drawn wider than the retention protecting it would read off
+    /// the end of what is kept.
+    /// </summary>
+    public static readonly TimeSpan ActivityWindow = PresenceRetentionOptions.HeatmapWindow;
 
     /// <summary>§5.2's "reachable recently", which separates <c>quiet</c> from <c>dark</c>.</summary>
     public static readonly TimeSpan RecentlyReachable = TimeSpan.FromDays(30);
@@ -257,6 +261,69 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     }
 
     /// <summary>
+    /// §9's referral neighbours, in both directions, resolved to games we can name.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The reverse index migration 0006 created for exactly this question had no reader until now.
+    /// Both arrows come back in one pass with a <c>direction</c> column rather than as two queries,
+    /// because they are the same join read from the two ends and two statements would drift.
+    /// </para>
+    /// <para>
+    /// <b><see cref="PublicG"/> applies here as everywhere.</b> An unclaimed submission is off every
+    /// public surface, and a neighbour list is a public surface — being named by somebody else's
+    /// referral must not be a way onto a page that the listing itself refuses.
+    /// </para>
+    /// <para>
+    /// Deduplicated by game and direction, because a game answering on two ports would otherwise be
+    /// named twice for one relationship — the edge is about the game rather than about which of its
+    /// addresses somebody wrote down. Done here rather than with <c>DISTINCT ON</c>, which cannot
+    /// see an output alias and would tie the query to an <c>ORDER BY</c> the presentation owns.
+    /// </para>
+    /// </remarks>
+    private static async Task<IReadOnlyList<ReferralNeighbour>> NeighboursAsync(
+        NpgsqlConnection connection,
+        Guid gameId,
+        CancellationToken cancellationToken)
+    {
+        var rows = await connection.QueryAsync<NeighbourRow>(new CommandDefinition(
+            $"""
+            SELECT g.slug AS Slug, g.name AS Name, e.to_host AS Host, e.to_port AS Port,
+                   'lists' AS Direction, e.first_seen_at AS FirstSeenAt,
+                   e.last_seen_at AS LastSeenAt, e.present AS Present
+              FROM referral_edge e
+              JOIN game_endpoint ep ON ep.host = e.to_host AND ep.port = e.to_port
+              JOIN game g ON g.id = ep.game_id
+             WHERE e.from_game_id = @gameId AND g.id <> @gameId AND {PublicG}
+
+            UNION ALL
+
+            SELECT g.slug, g.name, e.to_host, e.to_port,
+                   'listed-by', e.first_seen_at, e.last_seen_at, e.present
+              FROM game_endpoint ep
+              JOIN referral_edge e ON e.to_host = ep.host AND e.to_port = ep.port
+              JOIN game g ON g.id = e.from_game_id
+             WHERE ep.game_id = @gameId AND g.id <> @gameId AND {PublicG}
+            """,
+            new { gameId },
+            cancellationToken: cancellationToken));
+
+        return [.. rows
+            .DistinctBy(r => (r.Direction, r.Slug))
+            .Select(r => new ReferralNeighbour(
+                r.Slug,
+                r.Name,
+                r.Host,
+                r.Port,
+                r.Direction == "lists" ? ReferralDirection.Lists : ReferralDirection.ListedBy,
+                new DateTimeOffset(DateTime.SpecifyKind(r.FirstSeenAt, DateTimeKind.Utc)),
+                new DateTimeOffset(DateTime.SpecifyKind(r.LastSeenAt, DateTimeKind.Utc)),
+                r.Present))
+            .OrderByDescending(n => n.Present)
+            .ThenBy(n => n.Name, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    /// <summary>
     /// The one projection of <c>game</c> every read of a single game starts from.
     /// </summary>
     /// <remarks>
@@ -365,6 +432,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
         var intervals = await new NpgsqlAvailabilityStore(source).ForGameAsync(row.Id, cancellationToken);
         var endpoints = await new NpgsqlEndpointStore(source).ForGameAsync(row.Id, cancellationToken);
+        var neighbours = await NeighboursAsync(connection, row.Id, cancellationToken);
         var changes = await new NpgsqlGameFieldStore(source).ChangesAsync(row.Id, ChangeLimit, cancellationToken);
         var activity = await ActivityAsync(connection, row.Id, now, cancellationToken);
 
@@ -389,7 +457,13 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             Description: Winner(fields, "DESCRIPTION")?.Value,
             Endpoints: endpoints
                 .Select(e => new GameEndpointView(
-                    e.Host, e.Port, SqlEnums.ToDb(e.Kind), TlsMeasured: e.Kind is EndpointKind.Tls))
+                    e.Host,
+                    e.Port,
+                    SqlEnums.ToDb(e.Kind),
+                    TlsMeasured: e.Kind is EndpointKind.Tls,
+                    e.FirstSeenAt,
+                    e.LastSeenAt,
+                    SqlEnums.ToDb(e.State)))
                 .ToList(),
             ConnectScreen: Winner(fields, InternalFields.ConnectScreen)?.Value,
             ConnectScreenSuppressed: string.Equals(
@@ -401,7 +475,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             Capabilities: CapabilitiesOf(fields),
             Activity: activity,
             Declared: DeclaredOf(fields, now),
-            Changes: changes.Select(Describe).ToList());
+            Changes: changes.Select(Describe).ToList(),
+            Neighbours: neighbours);
     }
 
     public async Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default)
@@ -959,13 +1034,56 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     {
         var rows = await connection.QueryAsync<ActivityRow>(new CommandDefinition(
             """
-            SELECT extract(dow FROM at AT TIME ZONE 'UTC')::int AS Day,
-                   extract(hour FROM at AT TIME ZONE 'UTC')::int AS Hour,
-                   count(*)::int AS Samples,
-                   count(count)::int AS Counted,
-                   avg(count)::float8 AS Mean
-              FROM presence_sample
-             WHERE game_id = @gameId AND at >= @from
+            WITH boundary AS (
+                -- Where the raw table stops being the copy that answers. The hourly rollup has
+                -- consumed everything below its watermark, and §5.2 lets retention drop those raw
+                -- partitions afterwards — so reading raw alone loses the far end of the grid the
+                -- moment a deployment configures any retention at all. Above the watermark only the
+                -- raw rows exist: the rollup consumes whole elapsed hours, so the newest hours are
+                -- always ahead of it, and reading the rollup alone would render the probe we took
+                -- ten minutes ago as an hour nobody measured.
+                --
+                -- No watermark means nothing has ever been rolled up, and -infinity makes that the
+                -- read it used to be: raw for the whole window, rollup for none of it.
+                SELECT coalesce(
+                    (SELECT rolled_up_through FROM presence_rollup_state WHERE scope = 'hour'),
+                    '-infinity'::timestamptz) AS at
+            ),
+            parts AS (
+                SELECT extract(dow FROM at AT TIME ZONE 'UTC')::int AS day,
+                       extract(hour FROM at AT TIME ZONE 'UTC')::int AS hour,
+                       count(*)::bigint AS samples,
+                       count(count)::bigint AS counted,
+                       sum(count)::bigint AS total
+                  FROM presence_sample
+                 WHERE game_id = @gameId
+                   AND at >= @from
+                   AND at >= (SELECT at FROM boundary)
+                 GROUP BY 1, 2
+
+                UNION ALL
+
+                -- The tally is summed, never averaged: a mean of hourly means would weight an hour
+                -- probed once the same as an hour probed twelve times.
+                SELECT extract(dow FROM r.hour AT TIME ZONE 'UTC')::int,
+                       extract(hour FROM r.hour AT TIME ZONE 'UTC')::int,
+                       sum(r.counted_samples + r.unmeasurable_samples)::bigint,
+                       sum(r.counted_samples)::bigint,
+                       sum(r.sum_count)::bigint
+                  FROM presence_rollup_hour r
+                 WHERE r.game_id = @gameId
+                   AND r.hour >= @from
+                   AND r.hour < (SELECT at FROM boundary)
+                 GROUP BY 1, 2
+            )
+            SELECT day AS Day,
+                   hour AS Hour,
+                   sum(samples)::int AS Samples,
+                   sum(counted)::int AS Counted,
+                   CASE WHEN sum(counted) > 0
+                        THEN sum(total)::float8 / sum(counted)
+                   END AS Mean
+              FROM parts
              GROUP BY 1, 2
             """,
             new { gameId, from = (now - ActivityWindow).ToUniversalTime() },
@@ -1076,6 +1194,20 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
         public long NonZeroThisWeek { get; init; }
     }
+
+    /// <summary>A referral edge with the game at its far end, as the query returns it.</summary>
+    private sealed record NeighbourRow(
+        string Slug,
+        string Name,
+        string Host,
+        int Port,
+        string Direction,
+
+        // DateTime rather than DateTimeOffset: Npgsql hands a timestamptz back as a UTC DateTime,
+        // and Dapper matches a record's constructor by exact parameter type.
+        DateTime FirstSeenAt,
+        DateTime LastSeenAt,
+        bool Present);
 
     private sealed class ActivityRow
     {

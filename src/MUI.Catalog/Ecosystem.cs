@@ -93,6 +93,52 @@ public sealed record ProtocolAdoption(
 }
 
 /// <summary>
+/// One protocol's adoption on one day (spec §9).
+/// </summary>
+/// <remarks>
+/// The share is not stored, it is divided out of the same <see cref="ProtocolAdoption"/> the live
+/// dashboard divides. A snapshot holding a percentage would be a number whose denominator had been
+/// thrown away — uncheckable afterwards, and impossible to recompute if a share is ever defined
+/// differently.
+/// </remarks>
+public sealed record AdoptionPoint(DateTimeOffset At, ProtocolAdoption Adoption);
+
+/// <summary>
+/// One protocol's history, and whether there is enough of it to call a curve.
+/// </summary>
+/// <remarks>
+/// <see cref="IsCurve"/> exists so a surface can refuse to draw a line through one point. A single
+/// snapshot rendered as a trend would be this site inventing a direction it has not measured, which
+/// is the same fault as an invented zero wearing a different hat.
+/// </remarks>
+public sealed record AdoptionCurve(string Protocol, IReadOnlyList<AdoptionPoint> Points)
+{
+    public bool IsCurve => Points.Count > 1;
+
+    /// <summary>The measured share at each end, or null where either end never measured it.</summary>
+    public (MeasuredShare? First, MeasuredShare? Last) Ends =>
+        Points.Count == 0
+            ? (null, null)
+            : (Points[0].Adoption.Measured, Points[^1].Adoption.Measured);
+}
+
+/// <summary>Where §9's adoption curves are kept.</summary>
+public interface IEcosystemSnapshots
+{
+    /// <summary>Records today's figures, replacing today's if a pass has already run.</summary>
+    Task<int> RecordAsync(
+        DateTimeOffset asOf,
+        IReadOnlyList<ProtocolAdoption> protocols,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<AdoptionPoint>> CurveAsync(
+        string protocol,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
 /// The ecosystem dashboard: codebase share and protocol adoption over the measured set (spec §9).
 /// </summary>
 /// <remarks>

@@ -210,9 +210,10 @@ yield a number — WHO unparseable and no MSSP `PLAYERS` — writes a row with `
 `unmeasurable_reason`. Writing nothing at all would be indistinguishable from not having probed,
 which renders identically to downtime.
 
-`aggregates` is a JSON column holding what §11 permits: idle-time histogram buckets, session-length
-estimates, and a unique-player estimate derived from salted rotating hashes. It is populated only
-when the WHO parser reaches per-player confidence (§6.3); otherwise null.
+`aggregates` is a JSON column holding what §11 permits: idle-time histogram buckets and
+session-length estimates — quantities derived from times rather than from identities. It is populated
+only when the WHO parser reaches per-player confidence (§6.3); otherwise null. It holds no
+unique-player estimate: §11 records why one cannot be measured.
 
 **Rollups.** Raw samples are retained for 90 days, then dropped. An hourly rollup — count min/max/mean
 and the three-state tally from §5.4 — is retained for two years; a daily rollup is retained forever. The
@@ -250,12 +251,12 @@ retention this accepts is that window. Pointing it at the hourly rollup is the r
 **§11's salt machinery is in place and nothing feeds it yet, which is worth saying plainly.**
 `RotatingSaltProvider` derives a per-epoch salt from a deployment secret, `PresenceAggregates`
 refuses an estimate that does not name its epoch, the rollup carries an estimate only where a
-bucket's samples share one, and the reader and the aggregation agree that an unlabelled estimate is
-not readable. But no probe produces aggregates: the `WHO` parser counts rows and never extracts a
-name, so `PresenceAggregates` is constructed nowhere in `src/`, and the `aggregates` column, the
-`salt_epoch` columns and the constraints around them are unreached in the shipped pipeline. That is
-the safe half to have built first — the rule that names are never persisted is kept by there being
-no path that handles one — but the unique-player estimate is designed, not delivered.
+bucket's samples share one. That machinery is **gone** rather than pending: no probe ever produced
+aggregates — the `WHO` parser counts rows and never extracts a name — so the salt, the epoch labels
+and the `salt_epoch` columns were never reached in the shipped pipeline, and §11 now records that the
+estimate they served cannot be measured at all while players can rename themselves. The half worth
+keeping was always the other one, and it survives without any of it: the rule that names are never
+persisted is kept by there being no path that handles one.
 
 **Activity band**, the facet §9 exposes, is derived here and defined once: `players now` (a non-null
 count above zero in the most recent hourly rollup), `active this week` (any such count in 7 days),
@@ -1073,9 +1074,22 @@ probe can know about is still doing something legitimate.
     carried the field is stored like any other measurement; an opted-out game's page keeps everything
     measured before the ask and gains nothing after it, with the grid's empty hours naming no cause
     (§5.4); and a withdrawn opt-out keeps its row and gains a `withdrawn_at`.
-- **Player names are never persisted.** WHO responses are parsed in memory. Aggregates use salted
-  hashes with a rotating salt, so a unique-player estimate is possible while re-identification
-  across salt epochs is not.
+- **Player names are never persisted.** WHO responses are parsed in memory and discarded. What may
+  be derived from them is derived from *times* — idle-time buckets, session lengths — and never from
+  identities.
+  - **A unique-player estimate is not possible and is not attempted — closed.** This section promised
+    one, on salted hashes with a rotating salt: an estimate inside an epoch, no re-identification
+    across two. The second half held and the first did not. **Players rename themselves**, on every
+    platform this site indexes and as a matter of MU\* culture rather than as an edge case, so one
+    player who changes name inside a single epoch hashes to two values and is counted twice. The
+    overcount is unbounded, and it is uncorrectable *in principle*: correcting it requires exactly
+    the link between one person's two names that the rotating salt exists to prevent. Publishing it
+    as a count of players would be rule 5 — our parser's limitation recorded as a fact about
+    somebody's playerbase.
+  - Nothing measured was lost when it went. No probe ever produced one, because the `WHO` parser
+    counts rows and never extracts a name. The salt, the epoch labels and the columns that carried
+    them are removed (migration 0014); what remains is the plain rule above, which needs no
+    machinery to state and no epoch to qualify it.
 - Probe **shapes** are retained on a short TTL, keyed to the address and instant the `GameField` and
   `FieldChange` writes carry, so that parser improvements can be replayed over a recent window.
   - **This asked for two things that cannot both be had — closed.** It said *raw payloads, redacted
@@ -1083,15 +1097,19 @@ probe can know about is still doing something legitimate.
     it is also the only place a player name appears. Redacting names out of it means locating them,
     which means parsing it correctly, which is exactly what failed: **the payloads most worth
     keeping are the ones a name-finding redactor cannot clean.**
-  - So no payload text is stored. `PayloadRedaction.Structural` keeps the *shape* — every column
-    position, every run of whitespace, every digit and every punctuation mark where it was, each run
-    of letters masked to the same length unless it is a word the parser itself reads. The parser is
-    structural, so structure is the whole of what a replay needs, and the redaction happens inside
-    the probe: the raw response is a local in one method and is never a member of anything.
-  - Digits survive verbatim, because "there are 16 players connected" is the sentence a replay most
-    wants and a number of players is not a person. The honest limit is that a player calling
-    themselves `Connected` keeps their name — one dictionary word in a column, attributable to
-    nobody, and the alternative costs every summary sentence the parser exists to read.
+  - So no payload text is stored. `PayloadRedaction` keeps the *shape* — every column position, every
+    run of whitespace and every punctuation mark where it was, each run of letters masked to the same
+    length unless it is a word the parser itself reads. The parser is structural, so structure is the
+    whole of what a replay needs, and the redaction happens inside the probe: the raw response is a
+    local in one method and is never a member of anything. A shape is kept only if it re-parses to
+    the same answer as the payload it came from.
+  - **A digit is not automatically a count.** `4815162342` is an ordinary MU\* name and `A1ice` is a
+    name with a digit in it, so a run containing any letter is masked whole and a bare digit run
+    survives only on a line that also carries a word the parser reads — a summary sentence has one, a
+    row of players does not. That keeps "there are 16 players connected", which is the sentence a
+    replay most wants. The honest limit is that a player calling themselves `Connected` keeps their
+    name: one dictionary word in a column, attributable to nobody, and the alternative costs every
+    summary sentence the parser exists to read.
   - The TTL defaults to a fortnight and **defaults to deleting**, which no other retention here
     does. A shape is not a measurement; it is the evidence a measurement was read out of, and its
     value is gone within a release cycle.

@@ -1,0 +1,35 @@
+# Bring the stack up at boot, and give it a name to say `systemctl status` about.
+#
+# The containers already carry `restart: unless-stopped`, so Docker alone would start them again
+# after a reboot. This unit is what makes that *deterministic*: it applies the compose files as they
+# are on disk, so a change to them takes effect on a reboot rather than a stopped container coming
+# back as whatever it was when it was created, and it gives a stop that means the whole stack rather
+# than a container the next boot resurrects.
+#
+#   install to /etc/systemd/system/muindex.service
+#   systemctl daemon-reload && systemctl enable --now muindex
+
+[Unit]
+Description=MUIndex
+Documentation=https://github.com/SharpMUSH/MUIndex/blob/main/docs/deploy.md
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/muindex
+
+# Not EnvironmentFile: compose reads .env from the working directory itself, including COMPOSE_FILE,
+# and putting the same file through systemd's parser as well is a second set of quoting rules over
+# one database password.
+ExecStart=/usr/bin/docker compose up -d --remove-orphans
+ExecStop=/usr/bin/docker compose down
+ExecReload=/usr/bin/docker compose up -d --remove-orphans
+
+# The first start pulls images; a timeout here would report a failure for a slow network.
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
