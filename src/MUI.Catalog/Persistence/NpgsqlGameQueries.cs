@@ -230,17 +230,27 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         return [.. rows];
     }
 
+    /// <summary>
+    /// The one projection of <c>game</c> every read of a single game starts from.
+    /// </summary>
+    /// <remarks>
+    /// Written once so the two keys a game answers to (spec §5.7) cannot come back as two different
+    /// rows — the predicate is the only thing that differs between them, and it is a literal at each
+    /// call site rather than a string this class assembles.
+    /// </remarks>
+    private const string GameSelect =
+        """
+        SELECT id AS Id, slug AS Slug, name AS Name, tagline AS Tagline, state AS State,
+               is_claimed AS IsClaimed, last_reachable_at AS LastReachableAt
+          FROM game
+        """;
+
     public async Task<GameSummary?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
         var row = await connection.QuerySingleOrDefaultAsync<GameRow>(new CommandDefinition(
-            """
-            SELECT id AS Id, slug AS Slug, name AS Name, tagline AS Tagline, state AS State,
-                   is_claimed AS IsClaimed, last_reachable_at AS LastReachableAt
-              FROM game
-             WHERE id = @id
-            """,
+            GameSelect + " WHERE id = @id",
             new { id },
             cancellationToken: cancellationToken));
 
@@ -275,24 +285,43 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
     public async Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default)
     {
-        var now = Clock();
-
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
         var row = await connection.QuerySingleOrDefaultAsync<GameRow>(new CommandDefinition(
-            """
-            SELECT id AS Id, slug AS Slug, name AS Name, tagline AS Tagline, state AS State,
-                   is_claimed AS IsClaimed, last_reachable_at AS LastReachableAt
-              FROM game
-             WHERE slug = @slug
-            """,
+            GameSelect + " WHERE slug = @slug",
             new { slug },
             cancellationToken: cancellationToken));
 
-        if (row is null)
-        {
-            return null;
-        }
+        return row is null ? null : await PageAsync(connection, row, cancellationToken);
+    }
+
+    /// <summary>
+    /// The same page, found by the identifier that never moves.
+    /// </summary>
+    /// <remarks>
+    /// One read of <c>game</c> and then the page, exactly as the slug route does — the two differ in
+    /// their <c>WHERE</c> clause and in nothing else. Both columns are unique-indexed, so neither
+    /// key is the expensive one, which is the property the API's advice to store the id depends on.
+    /// </remarks>
+    public async Task<GamePage?> FindAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        var row = await connection.QuerySingleOrDefaultAsync<GameRow>(new CommandDefinition(
+            GameSelect + " WHERE id = @id",
+            new { id },
+            cancellationToken: cancellationToken));
+
+        return row is null ? null : await PageAsync(connection, row, cancellationToken);
+    }
+
+    /// <summary>Everything a game page is, assembled from a row whoever found it already has.</summary>
+    private async Task<GamePage> PageAsync(
+        NpgsqlConnection connection,
+        GameRow row,
+        CancellationToken cancellationToken)
+    {
+        var now = Clock();
 
         Guid[] ids = [row.Id];
         var fields = (await FieldsForAsync(connection, ids, cancellationToken))

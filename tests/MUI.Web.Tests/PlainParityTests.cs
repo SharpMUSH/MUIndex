@@ -18,6 +18,19 @@ public class PlainParityTests
     private static readonly DateTimeOffset Now = FixtureGameQueries.Now;
     private static readonly FixtureGameQueries Queries = new();
 
+    /// <summary>The archive as its page assembles it, so a test reads what a reader would.</summary>
+    private static async Task<IReadOnlyList<ArchiveEntry>> ArchiveAsync()
+    {
+        var entries = new List<ArchiveEntry>();
+
+        foreach (var game in await Queries.ListAsync(new GameFilter { Band = ActivityBand.Archived }))
+        {
+            entries.Add(ArchiveEntry.For(game, await Queries.ForGameAsync(game.Id), Now));
+        }
+
+        return entries;
+    }
+
     private static async Task<string> GameAsync(string slug)
     {
         var page = await Queries.FindAsync(slug);
@@ -167,6 +180,10 @@ public class PlainParityTests
             await GameAsync("midnight-sun"),
             PlainText.RenderFeeds(await Queries.FeedsAsync(), Now),
             PlainText.RenderListing(await Queries.SearchAsync(new GameFilter()), new GameFilter(), Now),
+
+            // The archive too, because its lines are the ones a label lengthens most: an archived
+            // game's codebase carries the oldest age on the site.
+            PlainText.RenderArchive(await ArchiveAsync(), query: null, Now),
         };
 
         foreach (var line in surfaces.SelectMany(s => s.Split('\n')))
@@ -222,6 +239,40 @@ public class PlainParityTests
         // own title or as text only a screen reader reads.
         await Assert.That(Render.Words(html)).Contains("declared");
         await Assert.That(Render.Words(html)).Contains("measured");
+    }
+
+    [Test]
+    public async Task TheGamePagesLiveCountWearsTheSameChipTheListingRowDoes()
+    {
+        // The rendered game page printed the measured glyph over every count it had, whoever
+        // produced the number — so a reader arriving from a listing row that said "declared" met a
+        // green dot saying otherwise. One vocabulary, and the same one.
+        var declared = await Render.PageAsync<Game>(new() { ["Slug"] = "ashen-court" });
+        var measured = await Render.PageAsync<Game>(new() { ["Slug"] = "m-u-s-h" });
+
+        await Assert.That(declared).Contains("class=\"chip declared");
+        await Assert.That(Render.Words(declared)).Contains("declared");
+        await Assert.That(measured).Contains("class=\"chip measured");
+
+        // A count nobody could take gets no chip, because there is nothing to label.
+        var none = await Render.PageAsync<Game>(new() { ["Slug"] = "midnight-sun" });
+        await Assert.That(none).Contains("count unknown");
+    }
+
+    [Test]
+    public async Task TheArchiveLabelsACodebaseExactlyAsTheListingDoes()
+    {
+        // Gaslight Row read "PennMUSH 1.8.5 (declared, 3y, stale)" on /games and a bare
+        // "Codebase: PennMUSH 1.8.5" on /archive — the same value, one surface saying nobody has
+        // confirmed it since 2023 and the other not. The archive is where a value is oldest and
+        // where the label matters most.
+        var text = PlainText.RenderArchive(await ArchiveAsync(), query: null, Now);
+
+        await Assert.That(text).Contains("PennMUSH 1.8.5  (declared, 3y, stale)");
+
+        // And the rendered page wears the same chip the listing row does.
+        var html = await Render.PageAsync<Archive>([]);
+        await Assert.That(html).Contains("class=\"chip declared");
     }
 
     [Test]

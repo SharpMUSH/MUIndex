@@ -67,9 +67,12 @@ public static class GameEndpoints
         ISlugHistory slugs,
         TimeProvider clock)
     {
+        // Two keys, one read each (spec §5.7). The id used to cost the whole catalogue: it listed
+        // every game to turn a GUID into a slug and then read the page anyway, so the identifier
+        // this API tells consumers to store was the expensive way to ask for a game.
         var isId = Guid.TryParse(key, out var id);
         var page = isId
-            ? await ByIdAsync(queries, id, http.RequestAborted)
+            ? await queries.FindAsync(id, http.RequestAborted)
             : await queries.FindAsync(key, http.RequestAborted);
 
         if (page is null)
@@ -102,28 +105,4 @@ public static class GameEndpoints
             http, ApiMapper.Game(page, intervals, ApiClock.Now(clock)));
     }
 
-    /// <summary>
-    /// A game by its immutable id: look it up, then read its page.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Two indexed lookups. It used to list the whole catalogue, archived games included, and pick
-    /// one row out of the result — so the identifier this API tells consumers to store (§5.7) was
-    /// the most expensive way to ask for a game, and got slower with every game added.
-    /// <see cref="IGameQueries.FindByIdAsync"/> was already there for the owner surfaces and answers
-    /// this exactly, which is why closing it needs no new method on the interface.
-    /// </para>
-    /// <para>
-    /// The GUID is served directly rather than redirected to the slug: the slug is the mutable one,
-    /// and sending a caller from the permanent identifier to the temporary one is backwards. And a
-    /// miss is a miss — an id is minted once and never reused, so unlike a slug there is no former
-    /// one to redirect to.
-    /// </para>
-    /// </remarks>
-    private static async Task<GamePage?> ByIdAsync(
-        IGameQueries queries, Guid id, CancellationToken cancellationToken)
-    {
-        var match = await queries.FindByIdAsync(id, cancellationToken);
-        return match is null ? null : await queries.FindAsync(match.Slug, cancellationToken);
-    }
 }

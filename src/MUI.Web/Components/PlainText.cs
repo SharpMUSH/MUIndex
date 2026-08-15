@@ -41,10 +41,11 @@ public static class PlainText
         b.AppendLine();
 
         // Every state spelled as a word. "Unknown" is written out rather than left blank, because a
-        // blank reads as zero to a human exactly as it does to a parser.
-        b.AppendLine(s.PlayersNow is { } n
-            ? $"Players now: {n}"
-            : "Players now: unknown (no count could be measured)");
+        // blank reads as zero to a human exactly as it does to a parser — and the count says how it
+        // was obtained here as it does on the listing, or this page is the less honest of the two.
+        b.AppendLine((s.PlayersNow is { } n
+            ? $"Players now: {n}  {Label(s.PlayersNowProvenance, now)}"
+            : "Players now: unknown (no count could be measured)").TrimEnd());
 
         if (page.ReachableFraction is { } r)
         {
@@ -156,10 +157,13 @@ public static class PlainText
     /// A provenance chip in words: how we know it, how old it is, and whether it has aged out.
     /// </summary>
     /// <remarks>
-    /// The whole of what the rendered chip carries — glyph, relative age, amber — spelled out. It
-    /// is one function because the listing, the game page and the archive all print it, and three
-    /// spellings of "declared six years ago" would be three chances to say it three ways. An absent
-    /// chip prints nothing rather than inventing a source for a value nobody has labelled.
+    /// The whole of what the rendered chip carries — glyph, relative age, amber — spelled out. One
+    /// function because four surfaces print it: the listing's counts and codebases, the game page's
+    /// count and its self-description, and the archive. Four spellings of "declared six years ago"
+    /// would be four chances to say it four ways, and this comment claimed the archive before the
+    /// archive did — which is how <c>/games</c> and <c>/archive</c> came to describe the same value
+    /// two ways for a while. An absent chip prints nothing rather than inventing a source for a
+    /// value nobody has labelled.
     /// </remarks>
     internal static string Label(ProvenanceChip? chip, DateTimeOffset now) => chip is null
         ? string.Empty
@@ -437,9 +441,15 @@ public static class PlainText
                 b.AppendLine($"  Run:             {run}");
             }
 
+            // Labelled here above all. This is where a value is oldest — nobody has confirmed an
+            // archived game's codebase since the day it stopped answering — and the archive read
+            // "Codebase: PennMUSH 1.8.5" flat while the listing said the same value was three years
+            // unconfirmed. Same fact, same words, whichever page a reader is on.
             if (entry.Summary.Codebase is { } codebase)
             {
-                b.AppendLine($"  Codebase:        {codebase}");
+                b.AppendLine(
+                    $"  Codebase:        {codebase}  {Label(entry.Summary.CodebaseProvenance, now)}"
+                        .TrimEnd());
             }
 
             b.AppendLine();

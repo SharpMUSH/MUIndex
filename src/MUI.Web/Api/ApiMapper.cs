@@ -33,7 +33,7 @@ public static class ApiMapper
         Archived: game.State is LifecycleState.Archived,
         Claimed: game.IsClaimed,
         game.PlayersNow,
-        Counted(game.PlayersNow),
+        Counted(game.PlayersNowProvenance),
         Label(game.PlayersNowProvenance, now),
         game.Codebase,
         Label(game.CodebaseProvenance, now),
@@ -79,7 +79,7 @@ public static class ApiMapper
             Archived: game.State is LifecycleState.Archived,
             Claimed: game.IsClaimed,
             game.PlayersNow,
-            Counted(game.PlayersNow),
+            Counted(game.PlayersNowProvenance),
             Label(game.PlayersNowProvenance, now),
             game.Codebase,
             Label(game.CodebaseProvenance, now),
@@ -174,12 +174,21 @@ public static class ApiMapper
         ApiRoutes.Game(entry.Id));
 
     /// <summary>
+    /// The named state of a count, read off the same label the count carries.
+    /// </summary>
+    /// <remarks>
     /// Null is "we did not measure a count", and it is a different fact from zero (rule 4). It ships
     /// as a null <em>and</em> as a named state, because a consumer that coerces null to zero would
-    /// otherwise publish a claim we never made.
-    /// </summary>
-    private static PlayerCountState Counted(int? players) =>
-        players is null ? PlayerCountState.Unknown : PlayerCountState.Measured;
+    /// otherwise publish a claim we never made. It is derived from the chip rather than from the
+    /// count's nullness so the two cannot disagree — which they did, with every count that existed
+    /// at all named <c>measured</c> beside a label saying the game had asserted it.
+    /// </remarks>
+    private static PlayerCountState Counted(ProvenanceChip? count) => count switch
+    {
+        { IsMeasured: true } => PlayerCountState.Measured,
+        not null => PlayerCountState.Declared,
+        null => PlayerCountState.Unknown,
+    };
 
     /// <summary>
     /// Ages never go negative. A field confirmed in the same minute the response is stamped for is

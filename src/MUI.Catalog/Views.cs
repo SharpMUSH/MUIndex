@@ -274,6 +274,18 @@ public interface IGameQueries
     Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// The same page, addressed by the identifier that does not move (spec §5.7).
+    /// </summary>
+    /// <remarks>
+    /// Both keys reach one page in one read. Without this the API's own advice — store the id, the
+    /// slug is mutable — cost a caller the whole catalogue: the id route listed every game to find a
+    /// slug, and then read the page anyway. Answering it by way of <see cref="FindByIdAsync"/>
+    /// instead is cheaper and still wrong in the same direction, because that assembles a summary,
+    /// its fields and its presence digest to hand back one string.
+    /// </remarks>
+    Task<GamePage?> FindAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// The listing entry for a game known by id, or null.
     /// </summary>
     /// <remarks>

@@ -240,6 +240,12 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     public Task<GameSummary?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         Task.FromResult(All.FirstOrDefault(g => g.Id == id));
 
+    /// <summary>The same page by the identifier that does not move (spec §5.7).</summary>
+    public Task<GamePage?> FindAsync(Guid id, CancellationToken cancellationToken = default) =>
+        All.FirstOrDefault(g => g.Id == id) is { } game
+            ? FindAsync(game.Slug, cancellationToken)
+            : Task.FromResult<GamePage?>(null);
+
     public Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default)
     {
         var summary = All.FirstOrDefault(g => g.Slug == slug);

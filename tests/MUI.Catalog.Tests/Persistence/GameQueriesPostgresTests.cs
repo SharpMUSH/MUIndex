@@ -263,6 +263,50 @@ public class GameQueriesPostgresTests
     }
 
     [Test]
+    public async Task APageAskedForByIdIsTheSamePageAskedForBySlug()
+    {
+        // Two keys for one game (§5.7), and one read either way. The id route used to get its page
+        // by assembling a whole summary — fields, presence digest, chips, on its own connection —
+        // and then throwing all of it away but the slug, which the slug route promptly re-read.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, lastReachableAt: Now);
+
+        await new NpgsqlPresenceStore(db.DataSource)
+            .AppendAsync(PresenceSample.Counted(game, Now.AddMinutes(-5), 7, FieldSource.Who));
+        await new NpgsqlGameFieldStore(db.DataSource).UpsertAsync(new GameField(
+            game, "CODEBASE", FieldSource.Mssp, "PennMUSH 1.8.8p0", Now, Now));
+
+        var bySlug = await QueriesOn(db).FindAsync("corvid");
+        var byId = await QueriesOn(db).FindAsync(game);
+
+        await Assert.That(byId!.Summary.Slug).IsEqualTo(bySlug!.Summary.Slug);
+        await Assert.That(byId.Summary.PlayersNowProvenance)
+            .IsEqualTo(bySlug.Summary.PlayersNowProvenance);
+        await Assert.That(byId.Summary.CodebaseProvenance)
+            .IsEqualTo(bySlug.Summary.CodebaseProvenance);
+        await Assert.That(byId.Declared["codebase"]).IsEqualTo(bySlug.Declared["codebase"]);
+        await Assert.That(byId.Activity).Count().IsEqualTo(bySlug.Activity.Count);
+
+        // An id is minted once and never reused, so a miss is a miss and has nowhere else to look.
+        await Assert.That(await QueriesOn(db).FindAsync(Guid.NewGuid())).IsNull();
+    }
+
+    [Test]
+    public async Task AnArchivedGameStillAnswersToItsId()
+    {
+        // Archiving takes a game out of the default listing and out of nothing else (§7.5). The
+        // scan this replaced asked for archived games explicitly; a lookup that quietly dropped
+        // them would take away a URL that used to work.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, "gaslight-row", "Gaslight Row", LifecycleState.Archived);
+
+        var page = await QueriesOn(db).FindAsync(game);
+
+        await Assert.That(page).IsNotNull();
+        await Assert.That(page!.Summary.State).IsEqualTo(LifecycleState.Archived);
+    }
+
+    [Test]
     public async Task AGameLookedUpByIdIsTheSameSummaryTheListingReturned()
     {
         // The owner surfaces address a game by id (§5.7) and were handed a summary with neither its

@@ -900,18 +900,38 @@ That a count can be *declared* at all is the point — a game publishing `PLAYER
 a number, and quoting it as a measurement of ours is rule 5 broken by a format string, which is
 exactly what the plain listing's hard-coded `(measured)` was doing to every row.
 
+**A labelling rule applied to one surface makes a liar of the others,** and fixing the listing first
+proved it three times over. `PlayerCountState` had two members, so `playersNowState` answered
+`measured` for any count that existed at all and shipped in the same object as a
+`playersNowProvenance.measured` of `false`; it has three now and is derived from the chip, so the
+two cannot disagree. The game page — the surface a reader trusts most — kept printing the measured
+glyph over every number it had, and its plain rendering kept saying `Players now: 9` flat, while the
+listing pointing at it said the game had asserted that number. The archive printed a bare codebase
+where the listing printed the same value labelled three years unconfirmed, which is precisely the
+page where the age matters most. All three now render the one chip: `Chip` grew a `ValueShown`
+switch so a count can wear the same component as a field without printing its number twice, and
+`PlainText.Label` is the single spelling every plain surface prints.
+
 `FeedEntry` now carries its `Id` from the query layer, so a feed request no longer reads the whole
 listing to join identifiers onto slugs and `FeedEntryView.Id` is no longer nullable — the durable
 identifier (§5.7) is not something a reader should have to handle the absence of.
 
-A lookup by GUID is two indexed reads rather than a scan. It listed the whole catalogue, archived
-games included, and picked one row out of the result — so the identifier this document tells
-consumers to store was the most expensive way to ask for a game, and got slower with every game
-added. It needed no `FindAsync(Guid)` in the end: `IGameQueries.FindByIdAsync` already existed for
-the owner surfaces and answers exactly this, and the slug it returns fetches the page. Both routes
-are held to it by a test that hands the endpoint a catalogue which **throws** on `ListAsync` — a
-counter would pass a version that read the catalogue once and cached it, which is the same scan with
-a lifetime bolted on.
+A lookup by GUID is one read of `game` and then the page, exactly as the slug route does. It listed
+the whole catalogue, archived games included, and picked one row out of the result — so the
+identifier this document tells consumers to store was the most expensive way to ask for a game, and
+got slower with every game added.
+
+**`IGameQueries.FindAsync(Guid)` after all.** It was first closed by routing through
+`FindByIdAsync`, on the argument that the method already existed and no interface change was
+needed. That is cheaper than a scan and still the wrong shape: `FindByIdAsync` assembles a whole
+summary — a `game` row, every field, the presence digest, both chips, on a connection of its own —
+to hand back one string, which `FindAsync(slug)` then throws away and re-reads. Roughly five round
+trips presented as two. The overload the gap description originally asked for is the honest fix, and
+it costs one predicate: both keys share the page assembly and differ only in their `WHERE` clause.
+
+Both routes are held there by a test catalogue that **throws** on `ListAsync` and on
+`FindByIdAsync` — a counter would pass a version that read the catalogue once and cached it, which
+is the same scan with a lifetime bolted on.
 
 One smaller gap remains, worked around inside `src/MUI.Web/Api/`: §5.7's forever-redirect has no
 former-slug table, so aliases live in configuration rather than beside the games.

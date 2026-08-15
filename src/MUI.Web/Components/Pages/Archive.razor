@@ -54,9 +54,16 @@ else
                             <div class="dim">@tagline</div>
                         }
                         <div class="meta mono">
-                            @if (entry.Summary.Codebase is { } codebase)
+                            @* The same chip the listing row wears. An archived game's codebase is
+                               the oldest value on the site and the one most in need of saying so. *@
+                            @if (entry.Summary.CodebaseProvenance is { } codebase)
                             {
-                                <text>@codebase · </text>
+                                <Chip Fact="codebase" Now="Now" />
+                                <text> · </text>
+                            }
+                            else if (entry.Summary.Codebase is { } bare)
+                            {
+                                <text>@bare · </text>
                             }
                             @entry.Run
                         </div>

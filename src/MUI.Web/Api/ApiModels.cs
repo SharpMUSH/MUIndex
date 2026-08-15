@@ -88,10 +88,28 @@ public sealed record PresenceView(
     string Timezone,
     IReadOnlyList<PresenceCellView> Cells);
 
-/// <summary>Whether a player count is a measurement or an absence of one. Never inferred from 0.</summary>
+/// <summary>
+/// How a player count was obtained, or that it was not. Never inferred from 0.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Three members, because there were two and the missing one was being answered with
+/// <see cref="Measured"/>. A game that publishes <c>PLAYERS</c> in MSSP, or states a number on its
+/// connect screen, has told us something about itself; calling that a measurement of ours is rule 5,
+/// and it shipped in the same object as a <c>playersNowProvenance.measured</c> of <c>false</c>
+/// saying the opposite.
+/// </para>
+/// <para>
+/// <see cref="Unknown"/> is "we cannot say it was measured", which covers the ordinary case of no
+/// count at all — a null <c>playersNow</c> beside it, which is how absence is detected — and would
+/// also cover a count that arrived without a label. Neither implementation can produce the second,
+/// and guessing at one would be the fabrication this member exists to avoid.
+/// </para>
+/// </remarks>
 public enum PlayerCountState
 {
     Measured,
+    Declared,
     Unknown,
 }
 

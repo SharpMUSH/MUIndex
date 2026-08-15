@@ -159,11 +159,7 @@ else
                                     *@
                                     @if (g.PlayersNowProvenance is { } counted)
                                     {
-                                        <span class="@CountClass(counted)">
-                                            <span class="glyph" aria-hidden="true">@(counted.IsMeasured ? "●" : "◇")</span>
-                                            <span class="sr-only">@(counted.IsMeasured ? "measured" : "declared")</span>
-                                            <span class="age">@Relative.Format(Now - counted.LastConfirmedAt)</span>
-                                        </span>
+                                        <Chip Fact="counted" Now="Now" ValueShown="false" />
                                     }
                                 </span>
                             }
@@ -256,17 +252,6 @@ else
         .FirstOrDefault(g => GameSorting.IsUnranked(g, Filter.Sort));
 
     private bool BreakBefore(GameSummary game) => ReferenceEquals(game, FirstUnranked);
-
-    /// <summary>
-    /// The count's chip, classed exactly as <c>Chip</c> classes every other one on the site.
-    /// </summary>
-    /// <remarks>
-    /// Assembled here rather than interpolated into the attribute so an unstale chip does not carry
-    /// a trailing space where the word would be — the class list is read by tests and by anyone
-    /// styling this, and one that changes shape with the value is one nobody can match on.
-    /// </remarks>
-    private static string CountClass(ProvenanceChip chip) =>
-        "chip " + (chip.IsMeasured ? "measured" : "declared") + (chip.IsStale ? " stale" : string.Empty);
 
     protected override async Task OnParametersSetAsync()
     {

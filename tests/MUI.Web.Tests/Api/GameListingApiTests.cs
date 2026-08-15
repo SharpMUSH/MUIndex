@@ -195,6 +195,51 @@ public class GameListingApiTests
     }
 
     [Test]
+    public async Task TheNamedStateOfACountNeverContradictsTheLabelBesideIt()
+    {
+        // playersNowState answered "measured" for any count that existed at all, so a game that
+        // asserts its own number in MSSP shipped playersNowState: measured next to
+        // playersNowProvenance.measured: false — the two halves of one object disagreeing about the
+        // one thing this site is for. The state names how the count was obtained, or says it cannot.
+        await using var host = await ApiHost.StartAsync();
+
+        var listing = await Json.ElementAsync(await host.Client.GetAsync(ApiRoutes.Games));
+        var byslug = listing.GetProperty("games").EnumerateArray()
+            .ToDictionary(g => g.GetProperty("slug").GetString()!, g => g);
+
+        await Assert.That(byslug["m-u-s-h"].GetProperty("playersNowState").GetString())
+            .IsEqualTo("measured");
+
+        // Read off a connect screen, and published in MSSP: both are the game's word, not ours.
+        await Assert.That(byslug["aardwolf"].GetProperty("playersNowState").GetString())
+            .IsEqualTo("declared");
+        await Assert.That(byslug["ashen-court"].GetProperty("playersNowState").GetString())
+            .IsEqualTo("declared");
+
+        // No count at all is still its own state, and a measured zero is still a measurement.
+        await Assert.That(byslug["midnight-sun"].GetProperty("playersNowState").GetString())
+            .IsEqualTo("unknown");
+        await Assert.That(byslug["eldertale"].GetProperty("playersNowState").GetString())
+            .IsEqualTo("measured");
+
+        // The invariant, on every row: the state and the label are two spellings of one fact.
+        foreach (var game in listing.GetProperty("games").EnumerateArray())
+        {
+            var state = game.GetProperty("playersNowState").GetString();
+            var label = game.GetProperty("playersNowProvenance");
+
+            if (label.ValueKind is JsonValueKind.Null)
+            {
+                await Assert.That(state).IsEqualTo("unknown");
+                continue;
+            }
+
+            await Assert.That(state)
+                .IsEqualTo(label.GetProperty("measured").GetBoolean() ? "measured" : "declared");
+        }
+    }
+
+    [Test]
     public async Task ACodebaseNobodyHasConfirmedInYearsSaysSoOnTheListingItself()
     {
         // Gaslight Row stopped answering in 2023 and its codebase has not been confirmed since. The
