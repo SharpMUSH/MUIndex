@@ -99,6 +99,16 @@ public static class PostgresFixture
             {
                 _container = new PostgreSqlBuilder("postgres:17-alpine")
                     .WithCleanUp(true)
+
+                    // A database per test, and tests in parallel, means one live connection pool per
+                    // test against one server. Postgres allows a hundred clients by default and this
+                    // suite reached that ceiling the moment the opt-out, on-demand-probe and
+                    // submission tests were in it together — as "sorry, too many clients already",
+                    // which fails whichever tests happened to be starting and so reports itself as a
+                    // flake in half a dozen unrelated places. MUI.Catalog.Tests' copy of this fixture
+                    // hit it first and lifted the ceiling there; this is the same lift, and the two
+                    // fixtures are meant to be kept in step.
+                    .WithCommand("-c", "max_connections=500")
                     .Build();
 
                 await _container.StartAsync();

@@ -12,7 +12,8 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
     private const string Columns = """
         id AS Id, slug AS Slug, name AS Name, tagline AS Tagline, state AS State,
         is_claimed AS IsClaimed, first_seen_at AS FirstSeenAt,
-        last_reachable_at AS LastReachableAt, archived_at AS ArchivedAt
+        last_reachable_at AS LastReachableAt, archived_at AS ArchivedAt,
+        submitted_at AS SubmittedAt
         """;
 
     public async Task<GameRecord?> ByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -48,9 +49,9 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
         await connection.ExecuteAsync(new CommandDefinition(
             """
             INSERT INTO game (id, slug, name, tagline, state, is_claimed, first_seen_at,
-                              last_reachable_at, archived_at)
+                              last_reachable_at, archived_at, submitted_at)
             VALUES (@id, @slug, @name, @tagline, @state, @isClaimed, @firstSeenAt,
-                    @lastReachableAt, @archivedAt)
+                    @lastReachableAt, @archivedAt, @submittedAt)
             """,
             new
             {
@@ -63,6 +64,7 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
                 firstSeenAt = game.FirstSeenAt.ToUniversalTime(),
                 lastReachableAt = game.LastReachableAt?.ToUniversalTime(),
                 archivedAt = game.ArchivedAt?.ToUniversalTime(),
+                submittedAt = game.SubmittedAt?.ToUniversalTime(),
             },
             cancellationToken: cancellationToken));
     }
@@ -148,8 +150,10 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
 
         public DateTimeOffset? ArchivedAt { get; init; }
 
+        public DateTimeOffset? SubmittedAt { get; init; }
+
         public GameRecord ToRecord() => new(
             Id, Slug, Name, Tagline, SqlEnums.ToLifecycleState(State), IsClaimed,
-            FirstSeenAt, LastReachableAt, ArchivedAt);
+            FirstSeenAt, LastReachableAt, ArchivedAt, SubmittedAt);
     }
 }

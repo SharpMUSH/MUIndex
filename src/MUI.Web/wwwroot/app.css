@@ -1041,3 +1041,22 @@ table.client-matrix td a { color: var(--faint); }
 .prose pre code { font-size: 13px; }
 .prose ul, .prose ol { padding-left: 1.4em; }
 .prose li { margin-bottom: 4px; }
+
+/* ── submit a game ─────────────────────────────────────────────────────────
+   Two boxes and a button, laid out as a stack rather than a row: the host is
+   long and the port is three characters, and a flex row makes that pairing
+   read as one field somebody has been asked to split. The hint sits under the
+   box it belongs to, where the mistake it prevents is about to be made. */
+form.submit-address { display: grid; gap: 6px; max-width: 44ch; margin: var(--cpad) 0; }
+form.submit-address label { font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
+form.submit-address label + input { margin-bottom: 2px; }
+form.submit-address input[type="text"] { width: 100%; }
+form.submit-address .faint { font-size: 12px; margin-bottom: 8px; }
+form.submit-address button { justify-self: start; margin-top: 4px; }
+
+/* The answer. A left rule and nothing else — no colour carries the difference
+   between "we took it" and "we will not dial that", because the sentence does,
+   and a red panel would read as an error the submitter had made rather than a
+   policy of ours. */
+.submission-answer { border-left: 2px solid var(--line); padding-left: var(--cpad); }
+.submission-answer h2 { margin-top: 0; }

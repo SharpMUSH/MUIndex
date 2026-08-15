@@ -1,7 +1,9 @@
 using MUI.Catalog;
+using MUI.Catalog.Persistence;
 using MUI.Web.Data;
 using MUI.Web.Fixtures;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -45,7 +47,9 @@ public static class Render
     /// </remarks>
     public static Task<string> PageAsync<TComponent>(
         Dictionary<string, object?> parameters,
-        string query)
+        string query,
+        bool measured = false,
+        IReadOnlyList<GameRecord>? games = null)
         where TComponent : IComponent =>
         ComponentAsync<TComponent>(parameters, services =>
         {
@@ -54,9 +58,66 @@ public static class Render
             services.AddSingleton<IGameQueries>(fixture);
             services.AddSingleton<IAvailabilityHistory>(fixture);
             services.AddSingleton(TimeProvider.System);
-            services.AddSingleton(new CatalogueSource(IsMeasured: false));
+
+            // The stored rows, for the surfaces that read a game rather than a game page — claiming,
+            // and the submission form's link. Registered only when a caller supplies them, because
+            // its absence is what the demo fixture looks like and several pages switch on that.
+            if (games is not null)
+            {
+                services.AddSingleton<IGameStore>(new StubGameStore(games));
+            }
+
+            // Whether a database is configured, which several surfaces switch on: claiming and
+            // submitting are absent over the fixture rather than present and unable to do anything.
+            // The queries behind them stay the fixture's either way — this asks what the page renders
+            // when a catalogue exists, not what a real one holds.
+            services.AddSingleton(new CatalogueSource(measured));
             services.AddSingleton<NavigationManager>(new StubNavigation(query));
+            services.AddSingleton<AntiforgeryStateProvider, StubAntiforgery>();
         });
+
+    /// <summary>
+    /// The two lookups a page makes against stored rows. Everything else throws rather than
+    /// pretending, because a surface reaching for a writer here is a surface in the wrong layer.
+    /// </summary>
+    private sealed class StubGameStore(IReadOnlyList<GameRecord> games) : IGameStore
+    {
+        public Task<GameRecord?> ByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(games.FirstOrDefault(g => g.Id == id));
+
+        public Task<GameRecord?> BySlugAsync(string slug, CancellationToken cancellationToken = default) =>
+            Task.FromResult(games.FirstOrDefault(g => g.Slug == slug));
+
+        public Task InsertAsync(GameRecord game, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task SetStateAsync(Guid id, LifecycleState state, DateTimeOffset at, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task MarkReachableAsync(Guid id, DateTimeOffset at, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task SetClaimedAsync(Guid id, bool isClaimed, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<GameRecord>> UnarchivedAsync(CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// Enough of an antiforgery provider for <c>&lt;AntiforgeryToken /&gt;</c> to render.
+    /// </summary>
+    /// <remarks>
+    /// The framework's own provider is internal and wants a request behind it. Without one the
+    /// component renders nothing at all, silently — so a test asking "is this form token-protected"
+    /// would pass on a page that had never had a token, and fail on one that did. This is what makes
+    /// the absence of a hidden field mean something.
+    /// </remarks>
+    private sealed class StubAntiforgery : AntiforgeryStateProvider
+    {
+        public override AntiforgeryRequestToken GetAntiforgeryToken() =>
+            new("a-token", "__RequestVerificationToken");
+    }
 
     /// <summary>A navigation manager with nothing to do but answer "which URL am I on".</summary>
     private sealed class StubNavigation : NavigationManager

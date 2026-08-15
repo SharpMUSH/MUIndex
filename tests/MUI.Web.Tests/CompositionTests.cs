@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -243,6 +244,47 @@ public class CompositionTests
 
         await Assert.That(site.Services.GetService<IOnDemandProbes>()).IsNotNull();
         await Assert.That(ProbesOf(site.Services.GetRequiredService<ClaimService>())).IsNotNull();
+    }
+
+    /// <summary>
+    /// The pipeline half of the composition maps the routes the site's two POST forms submit to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="SiteComposition.UseMuiSite"/> is the other half of this file's argument and had no
+    /// test at all: the graph was asserted and the routes were not, so a <c>Map…</c> call could be
+    /// dropped and every service it needs would still resolve. That is not hypothetical — the
+    /// submission route was registered in <c>Program</c>'s top-level statements on one branch while
+    /// the pipeline moved into <see cref="SiteComposition"/> on another, and merging the two is
+    /// exactly the edit that loses a line like this one.
+    /// </para>
+    /// <para>
+    /// A form that posts to a route nobody mapped is a 404 on submit, with the page, the service and
+    /// every unit test around them perfectly correct.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ThePipelineMapsTheRoutesTheFormsPostTo()
+    {
+        await using var site = Site();
+        site.UseMuiSite(ConnectionString);
+
+        // The builder's own data sources rather than the container's EndpointDataSource, which is not
+        // composed until the host starts and nothing here starts a server.
+        //
+        // Matched on the display name and not on the route pattern, because a Razor page is also an
+        // endpoint at "/submit" and static server-side rendering makes it answer POST as well — so
+        // asserting the path, or even the path and the verb, passes with MapMuiSubmissions deleted.
+        // Both weaker forms were written first and both went green with the line removed.
+        var mapped = ((IEndpointRouteBuilder)site).DataSources
+            .SelectMany(source => source.Endpoints)
+            .Select(endpoint => endpoint.DisplayName)
+            .ToHashSet(StringComparer.Ordinal);
+
+        await Assert.That(mapped).Contains("HTTP: POST /submit")
+            .Because("the submission form posts there, and a form posting to nothing is a 404");
+        await Assert.That(mapped).Contains("HTTP: POST /g/{slug}/claim/check")
+            .Because("the on-demand check is the site's other POST form");
     }
 
     /// <summary>

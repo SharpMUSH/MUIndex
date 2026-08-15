@@ -74,6 +74,11 @@
       A real PostgreSQL 17 for the repository tests. A writer asserted against an in-memory fake and
       never against a database has not been tested against the CHECK constraints that carry half the
       design, so the storage suite talks to a container or honestly skips.
+
+      4.14.0 rather than 4.13.0 because the older one drags in SSH.NET 2025.1.0, which carries
+      GHSA-q939-rpr3-3284 — and NuGet's audit is a build error here, so main stopped restoring the
+      day the advisory was published. Nothing in this repository opens an SSH connection; the
+      dependency exists so Testcontainers can reach a remote Docker host.
     -->
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.14.0" />
   </ItemGroup>
