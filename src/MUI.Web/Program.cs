@@ -1,5 +1,6 @@
 using MUI.Catalog;
 using MUI.Crawler;
+using MUI.Web;
 using MUI.Web.Accounts;
 using MUI.Web.Api;
 using MUI.Web.Components;
@@ -73,6 +74,14 @@ else
         PostgresData.EnvironmentVariable, PostgresData.ConfigurationKey);
 }
 
+// A reader who mistyped a URL, and a crawler indexing one, both got a 404 with an empty body: the
+// <NotFound> fragment inside <Router> is never rendered under static server rendering, so the site's
+// own "no game here" paragraph was dead copy. This re-executes the request against /not-found, which
+// is the page the router now names — one answer whether the route did not match or a page decided
+// there was nothing at it. It fires only for an error response nobody has written a body for, so the
+// API's own problem documents (§10) pass through untouched.
+app.UseStatusCodePagesWithReExecute("/not-found");
+
 app.UseStaticFiles();
 
 // Razor Components register anti-forgery metadata on every endpoint, so the middleware has to be
@@ -86,6 +95,11 @@ if (connectionString is not null)
     app.UseAuthorization();
     app.MapMuiAccounts();
 }
+
+// §5.7, and before the route that would answer with "not found": a slug this game used to have is a
+// URL somebody is still holding, and it redirects to the page it has now — permanently, and for an
+// archived game exactly as for a live one.
+app.UseFormerSlugRedirects();
 
 app.MapRazorComponents<App>();
 app.MapMuiApi();

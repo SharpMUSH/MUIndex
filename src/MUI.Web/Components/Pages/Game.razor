@@ -4,9 +4,13 @@
 @inject IAvailabilityHistory History
 @inject TimeProvider Clock
 @inject IServiceProvider Services
+@inject NavigationManager Navigation
 
 @if (Page is null)
 {
+    @* Not reached over HTTP: OnParametersSetAsync signals not-found, and the framework answers with
+       the site's own page and a 404 rather than with this. It is what a headless render of this
+       component produces, where there is no response to give a status line to. *@
     <h1>Not found</h1>
     <p class="dim">
         No game here. Nothing is ever deleted, so a game that once lived at this address still
@@ -172,6 +176,8 @@ else
     /// </remarks>
     private bool Claimable => Services.GetService<MUI.Catalog.Persistence.ClaimService>() is not null;
 
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
     [Parameter] public string Slug { get; set; } = string.Empty;
 
     [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
@@ -202,6 +208,13 @@ else
         Page = await Queries.FindAsync(Slug);
         if (Page is null)
         {
+            // Said in the status line and not only in the sentence. A slug a game used to have is
+            // redirected before this page is reached (§5.7), so arriving here means no game ever
+            // answered to this URL — and a 200 tells a crawler to index a page about a game that
+            // does not exist. Under a request this hands the reader the site's not-found page with
+            // a 404; under the headless renderer the tests use it does nothing, which is what the
+            // block at the top of this file is still for.
+            Navigation.NotFound();
             return;
         }
 
