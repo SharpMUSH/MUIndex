@@ -39,12 +39,38 @@ own.** A returning game should re-list itself with no human involved, and here i
 Three design decisions, one per failure:
 
 - **Auto-listing with opt-out.** Anything reachable that answers gets a page immediately, marked
-  *discovered, unclaimed*. No queue to rot.
+  *discovered, unclaimed*. No queue to rot — and one line stops the crawler for good, see
+  [below](#opting-out).
 - **Rankings computed only from measured data.** There is no voting affordance anywhere on the
   site, and there never will be.
 - **A permanent probe floor.** Failures lengthen the probe interval exponentially but never past a
   floor — a game dark for two years is still checked weekly, forever, *including after it has been
   archived*. Nothing is ever deleted.
+
+### Opting out
+
+Auto-listing without an exit would be a queue by another name, so there is one and it takes a single
+line. Any of three routes stops the crawler, each honoured before the next connection — inside one
+crawl cycle — and each recorded with its date and with what we read:
+
+| Route | What to publish | What it covers |
+|---|---|---|
+| **MSSP** | `MUINDEX OPT-OUT 1` (also accepted: `MUINDEX_OPT_OUT`, `MUINDEX OPTOUT`, `CRAWL_OPT_OUT`) | The listener that published it. A hostname is not a game, and one game may not silence the one next door on the same domain. |
+| **DNS** | `_muindex.your.host. IN TXT "opt-out"`, or `"opt-out=4201"` for one port | Every port on that host, unless it names one. A qualifier we cannot read as a list of ports — `opt-out=all`, `opt-out=*` — covers the host, because the only safe reading of an instruction we half-understand is the one that stops. |
+| **A request** | Write to a person, who records it with who asked | Whatever was asked for. Never defaulted, never inferred. |
+
+**The DNS route is the one an operator can undo alone**, because a TXT record is readable without
+connecting to a server that asked us not to: it is re-read before every dial, so deleting it brings
+the crawler back the next time that address comes up — at most a week, since an opted-out address is
+still looked at on the permanent floor. An MSSP field cannot be re-read without doing the thing you
+asked us to stop doing, so that route and a recorded request stand until you say otherwise.
+
+**Stopping is not deleting and is not downtime.** An opted-out game keeps its page, its address and
+everything measured before it asked, including the probe that carried the request. Nothing new
+arrives, and the activity grid names no cause for the gap — our decision to stop knocking is a fact
+about us, and colouring it as a fact about somebody's server is the one thing this whole project
+exists not to do. It is recorded where our decisions belong: on the crawl that did not happen, and
+in the register of who asked.
 
 ### The archive
 
@@ -173,6 +199,9 @@ of whether a fact is being communicated at all, rather than decorated.
   — the system design. Authoritative; read this first.
 - **[`docs/design-brief.md`](docs/design-brief.md)** — input to the site-design session: the
   constraints design may not violate, and the areas it must decide.
+- **[`docs/deploy.md`](docs/deploy.md)** — how to run it: the image, the compose file, every
+  environment variable, what the advisory lock guarantees across replicas, and which levers the two
+  open questions — the domain and the hosting envelope — will turn once they are answered.
 - **[`docs/design-handoff.html`](docs/design-handoff.html)** — the delivered visual design. Open it
   in a browser; it is a self-contained interactive document covering identity, type, colour, the
   ANSI quotation frame, all seven signature components, page layouts, the nine-state matrix,
@@ -193,9 +222,22 @@ waiting on stdin:
 ```bash
 dotnet run -c Release --no-build --project tests/MUI.Catalog.Tests   </dev/null
 dotnet run -c Release --no-build --project tests/MUI.Crawl.Tests     </dev/null
+dotnet run -c Release --no-build --project tests/MUI.Crawler.Tests   </dev/null
 dotnet run -c Release --no-build --project tests/MUI.Discovery.Tests </dev/null
 dotnet run -c Release --no-build --project tests/MUI.Web.Tests       </dev/null
 ```
+
+## Running
+
+One deployable — site, dashboard, read API and crawler in one process — and a PostgreSQL beside it.
+
+```bash
+docker compose up --build      # http://localhost:8080
+```
+
+With no database it still starts, on a fixture, saying so on every page.
+[`docs/deploy.md`](docs/deploy.md) is the whole of it: the image, the environment, migrations at
+startup, and the advisory lock that keeps N replicas to one crawler.
 
 ## Licence
 

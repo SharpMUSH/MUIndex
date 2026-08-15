@@ -107,7 +107,13 @@ public static class BadgeEndpoints
             reading.Word,
             reading.Description,
             reading.Age?.TotalSeconds,
-            game.PlayersNowAt,
+
+            // Null unless we measured it, and gated on the same chip the reading is: a
+            // measuredAt beside a count of null would be an instant attached to nothing, and one
+            // beside a game's own MSSP assertion would name a measurement nobody took.
+            game.PlayersNowProvenance is { IsMeasured: true } measured
+                ? measured.LastConfirmedAt
+                : null,
             game.LastReachableAt,
             ApiRoutes.Page(game.Slug),
             $"{ApiRoutes.Page(game.Slug)}/badge.svg"));

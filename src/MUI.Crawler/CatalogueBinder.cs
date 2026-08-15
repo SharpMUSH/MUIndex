@@ -27,6 +27,7 @@ public sealed class CatalogueBinder(
     IGameStore games,
     IEndpointStore endpoints,
     IGameFieldStore fields,
+    ISlugHistoryStore slugs,
     IdentityMatcher matcher,
     IDuplicateReviewRepository reviews,
     TimeProvider time,
@@ -86,7 +87,7 @@ public sealed class CatalogueBinder(
                 // Middling. Both games get a live page and a reciprocal link, because a wrongly
                 // hidden game is worse than a visible duplicate — so the new one is created exactly
                 // as a Fresh verdict would create it, and the pair is opened beside it.
-                var created = await CreateAsync(result, cancellationToken);
+                var created = await CreateAsync(target, result, cancellationToken);
                 await AttachAsync(created, result, cancellationToken);
 
                 await reviews.OpenAsync(
@@ -102,7 +103,7 @@ public sealed class CatalogueBinder(
 
             default:
             {
-                var created = await CreateAsync(result, cancellationToken);
+                var created = await CreateAsync(target, result, cancellationToken);
                 await AttachAsync(created, result, cancellationToken);
 
                 logger?.LogInformation("{Host}:{Port} is a new listing", result.Host, result.Port);
@@ -118,29 +119,85 @@ public sealed class CatalogueBinder(
     /// </summary>
     /// <remarks>
     /// <para>
-    /// It applies to referrals and to nothing else. A target a human configured, or one an import
-    /// seeded, was not proposed by a stranger, so answering at all is enough for it — which is what
-    /// keeps a game like Aardwolf, with no MSSP whatsoever, listable.
+    /// <b>The gate is on "a stranger proposed this", and a referral is one of two ways that
+    /// happens.</b> The other is the public submission form. A target a human operator configured,
+    /// or one the backfill seeded, was not proposed by a stranger, so answering at all is enough for
+    /// it — which is what keeps a game like Aardwolf, with no MSSP whatsoever, listable by an
+    /// operator. Reading the gate as "referrals only" left the form outside it, and a form is a
+    /// stranger's proposal with a lower barrier than editing your own MSSP.
+    /// </para>
+    /// <para>
+    /// <b>What that let through was not a hidden listing, it was the identity matcher.</b> This runs
+    /// <em>before</em> <c>IdentityMatcher.ResolveAsync</c>, so an ungated target is scored against
+    /// the whole catalogue on whatever it cared to publish — a VPS answering <c>NAME "Aardwolf"</c>
+    /// and a plausible <c>CREATED</c> is a merge candidate for the real one, and short of that it
+    /// mints a game and takes the <c>aardwolf</c> slug, because <c>GameSlug.UniqueAsync</c> asks the
+    /// <em>store</em> whether a slug is free and the store does not know that a submitted game is
+    /// hidden. The real Aardwolf then arrives and is listed at <c>aardwolf-2</c>, for ever, by
+    /// somebody who filled in a form.
+    /// </para>
+    /// <para>
+    /// <b>The cost is §7.2's own, stated there and accepted:</b> a real, reachable game whose
+    /// operator never edited one line of MSSP stays unlisted, and submitting it does not change
+    /// that. The address is kept and re-probed for ever, so it lists itself the moment a name is
+    /// published, with nobody involved.
     /// </para>
     /// <para>
     /// <c>MeaningfulName</c> rather than any <c>NAME</c>: an unedited codebase publishing its own name
-    /// has not identified itself, and admitting one would let a referral list mint a listing per
-    /// unedited PennMUSH it can point at.
+    /// has not identified itself, and admitting one would let a referral list — or a submitter with a
+    /// default install — mint a listing per unedited PennMUSH it can point at.
     /// </para>
     /// </remarks>
     private static bool MayBeListed(CrawlTarget target, ProbeResult result) =>
-        target.DiscoveredFromGameId is null
+        !ProposedByAStranger(target)
         || (result.MsspOutcome is MsspOutcome.Received
             && (MsspReading.MeaningfulName(result.Mssp) is not null
                 || MsspReading.Meaningful(result.Mssp, "HOSTNAME") is not null));
 
-    private async Task<Guid> CreateAsync(ProbeResult result, CancellationToken cancellationToken)
+    /// <summary>
+    /// Whether this address reached us from somebody with no standing to vouch for it.
+    /// </summary>
+    /// <remarks>
+    /// The two ways that happens, named in one place so a third one cannot be added without meeting
+    /// this. Operator seeds and the backfill are the complement, and both are somebody at our end
+    /// choosing an address on purpose.
+    /// </remarks>
+    private static bool ProposedByAStranger(CrawlTarget target) =>
+        target.DiscoveredFromGameId is not null || target.SubmittedAt is not null;
+
+    /// <summary>
+    /// Mints the game, carrying <see cref="CrawlTarget.SubmittedAt"/> across.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A submitted address answering is still a game and still gets a row, a slug and a permanent
+    /// place in the registry — what the marker changes is that <c>NpgsqlGameQueries</c> keeps it off
+    /// every public surface until somebody claims it (§8, migration 0010). It is copied at creation
+    /// rather than joined on read because the listing asks the question once per row.
+    /// </para>
+    /// <para>
+    /// <b>The merge arm above does not come through here, and that is the interesting case.</b> A
+    /// submitted address that turns out to be a second port of a game we already list attaches to
+    /// that game and leaves it exactly as public as it was. Anything else would make the form a way
+    /// to hide a listed game by naming one of its addresses.
+    /// </para>
+    /// </remarks>
+    private async Task<Guid> CreateAsync(
+        CrawlTarget target,
+        ProbeResult result,
+        CancellationToken cancellationToken)
     {
         var now = time.GetUtcNow();
         var name = NameOf(result);
+        // Taken means taken by anybody, ever (§5.7). A slug a game gave up in a rename still redirects
+        // and is still in somebody's bookmarks, so handing it to a new listing would silently point an
+        // old URL at a game that never wore it — which is worse than the 404 the table exists to
+        // prevent.
         var slug = await GameSlug.UniqueAsync(
             name,
-            async (candidate, ct) => await games.BySlugAsync(candidate, ct) is not null,
+            async (candidate, ct) =>
+                await games.BySlugAsync(candidate, ct) is not null
+                || await slugs.RetiredByAsync(candidate, ct) is not null,
             cancellationToken);
 
         var game = new GameRecord(
@@ -150,7 +207,8 @@ public sealed class CatalogueBinder(
             Tagline: null,
             LifecycleState.Active,
             IsClaimed: false,
-            FirstSeenAt: now);
+            FirstSeenAt: now,
+            SubmittedAt: target.SubmittedAt);
 
         await games.InsertAsync(game, cancellationToken);
 

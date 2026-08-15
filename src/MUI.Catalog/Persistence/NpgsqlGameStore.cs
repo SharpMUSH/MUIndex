@@ -12,7 +12,8 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
     private const string Columns = """
         id AS Id, slug AS Slug, name AS Name, tagline AS Tagline, state AS State,
         is_claimed AS IsClaimed, first_seen_at AS FirstSeenAt,
-        last_reachable_at AS LastReachableAt, archived_at AS ArchivedAt
+        last_reachable_at AS LastReachableAt, archived_at AS ArchivedAt,
+        submitted_at AS SubmittedAt
         """;
 
     public async Task<GameRecord?> ByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -48,9 +49,9 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
         await connection.ExecuteAsync(new CommandDefinition(
             """
             INSERT INTO game (id, slug, name, tagline, state, is_claimed, first_seen_at,
-                              last_reachable_at, archived_at)
+                              last_reachable_at, archived_at, submitted_at)
             VALUES (@id, @slug, @name, @tagline, @state, @isClaimed, @firstSeenAt,
-                    @lastReachableAt, @archivedAt)
+                    @lastReachableAt, @archivedAt, @submittedAt)
             """,
             new
             {
@@ -63,6 +64,7 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
                 firstSeenAt = game.FirstSeenAt.ToUniversalTime(),
                 lastReachableAt = game.LastReachableAt?.ToUniversalTime(),
                 archivedAt = game.ArchivedAt?.ToUniversalTime(),
+                submittedAt = game.SubmittedAt?.ToUniversalTime(),
             },
             cancellationToken: cancellationToken));
     }
@@ -117,6 +119,53 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
             cancellationToken: cancellationToken));
     }
 
+    public async Task<string?> RenameAsync(
+        Guid id,
+        string name,
+        string slug,
+        DateTimeOffset at,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(slug);
+
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        // One statement, so the retirement and the re-mint are one atomic act (see IGameStore). The
+        // data-modifying CTEs all read the same snapshot, so `previous` sees the slug as it was
+        // however Postgres orders them, and a CTE nobody selects from still runs exactly once.
+        //
+        // ON CONFLICT DO NOTHING keeps the earliest retirement of a slug a game has worn twice: the
+        // row exists to say "this URL is spoken for and here is whose", and re-stamping it would
+        // rewrite when a URL somebody bookmarked started redirecting.
+        //
+        // The answer is read from `previous` and NOT from the insert. A game that goes A -> B -> A -> B
+        // retires a slug already in the table, so the insert is suppressed and RETURNING yields
+        // nothing — which reported "the slug did not move" while it moved. What the caller asked is
+        // what this game was at a moment ago; the row it already has is the record, not the write.
+        //
+        // The unique index on game.slug is the guard against re-minting a URL another game holds; it
+        // raises here rather than letting two games answer to one address.
+        return await connection.QuerySingleOrDefaultAsync<string?>(new CommandDefinition(
+            """
+            WITH previous AS (
+                SELECT id, slug FROM game WHERE id = @id
+            ), retired AS (
+                INSERT INTO game_slug_history (slug, game_id, retired_at)
+                SELECT slug, id, @at FROM previous WHERE slug <> @slug
+                ON CONFLICT (slug) DO NOTHING
+                RETURNING slug
+            ), renamed AS (
+                UPDATE game SET slug = @slug, name = @name
+                 WHERE id = @id AND EXISTS (SELECT 1 FROM previous)
+                RETURNING id
+            )
+            SELECT slug FROM previous WHERE slug <> @slug
+            """,
+            new { id, name, slug, at = at.ToUniversalTime() },
+            cancellationToken: cancellationToken));
+    }
+
     public async Task<IReadOnlyList<GameRecord>> UnarchivedAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
@@ -148,8 +197,10 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
 
         public DateTimeOffset? ArchivedAt { get; init; }
 
+        public DateTimeOffset? SubmittedAt { get; init; }
+
         public GameRecord ToRecord() => new(
             Id, Slug, Name, Tagline, SqlEnums.ToLifecycleState(State), IsClaimed,
-            FirstSeenAt, LastReachableAt, ArchivedAt);
+            FirstSeenAt, LastReachableAt, ArchivedAt, SubmittedAt);
     }
 }

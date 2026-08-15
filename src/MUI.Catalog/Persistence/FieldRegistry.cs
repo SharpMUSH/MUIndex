@@ -125,10 +125,22 @@ public static class InternalFields
     /// <summary>The connect screen itself. Rendered in its own frame, not as a self-report.</summary>
     public const string ConnectScreen = "connect_screen";
 
+    /// <summary>
+    /// Whether the owner asked us to stop republishing the screen (spec §11).
+    /// </summary>
+    /// <remarks>
+    /// Machinery, and emphatically not something the game said: it is a decision of <em>ours</em>
+    /// about what to display, taken on request and with no questions asked. It is written by
+    /// <see cref="OwnerEnrichment"/> and read by every surface that would otherwise render the
+    /// screen.
+    /// </remarks>
+    public const string ConnectScreenSuppressed = "connect_screen_suppressed";
+
     private static readonly HashSet<string> Names = new(StringComparer.Ordinal)
     {
         BannerHash,
         ConnectScreen,
+        ConnectScreenSuppressed,
     };
 
     /// <summary>
@@ -137,6 +149,18 @@ public static class InternalFields
     /// </summary>
     public static bool IsInternal(string field) =>
         Names.Contains(field) || field.StartsWith(ConnectScreen, StringComparison.Ordinal);
+
+    /// <summary>
+    /// The exact names, for a caller that has to apply this rule somewhere other than in C#.
+    /// </summary>
+    /// <remarks>
+    /// The change feed is filtered in SQL rather than after the read, because the query is limited
+    /// and a filter applied afterwards would spend that limit on rows nobody may see — a game whose
+    /// owner toggled their connect screen twenty times would have shown an empty feed. Exposed
+    /// rather than restated so the two halves of <see cref="IsInternal"/> keep one spelling; the
+    /// other half is a prefix on <see cref="ConnectScreen"/>.
+    /// </remarks>
+    public static IReadOnlyList<string> ExactNames { get; } = [.. Names];
 }
 
 /// <summary>
@@ -180,6 +204,18 @@ public sealed class FieldRegistry : IFieldRegistry
     public static FieldRegistry Instance { get; } = new();
 
     public static IReadOnlyList<FieldDefinition> All { get; } = Build();
+
+    /// <summary>
+    /// The fields a verified owner may write (spec §8.5), in the order the dashboard offers them.
+    /// </summary>
+    /// <remarks>
+    /// Derived from the flag rather than listed again, so the form an owner sees and the gate
+    /// <see cref="OwnerEnrichment"/> applies are the same set by construction. A field added below
+    /// with <c>ownerEnrichable: true</c> appears on the dashboard and becomes writable in one edit;
+    /// there is nowhere for the two to disagree.
+    /// </remarks>
+    public static IReadOnlyList<FieldDefinition> OwnerEnrichable { get; } =
+        [.. All.Where(definition => definition.OwnerEnrichable)];
 
     private static readonly Dictionary<string, FieldDefinition> Index =
         All.ToDictionary(definition => definition.Name, StringComparer.Ordinal);
@@ -244,8 +280,8 @@ public sealed class FieldRegistry : IFieldRegistry
 
         // Our own non-MSSP fields are lower-case and namespaced, so an MSSP variable and one of ours
         // can never collide however unofficial the variable.
-        Add("connect_screen", Automatic);
-        Add("connect_screen_suppressed", Automatic);
+        Add(InternalFields.ConnectScreen, Automatic);
+        Add(InternalFields.ConnectScreenSuppressed, Automatic);
 
         // Capabilities, both sides. Measured is re-observed on every probe; declared is hand-typed.
         foreach (var capability in CapabilityFields.Names)

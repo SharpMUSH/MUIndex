@@ -47,6 +47,33 @@ public class FeedApiTests
     }
 
     [Test]
+    public async Task TheFeedKnowsEachGamesIdWithoutReadingTheWholeListingToFindIt()
+    {
+        // §10.1's second gap. FeedEntry carried a slug and no id, so answering /api/feeds meant
+        // reading the entire catalogue to join identifiers onto ten rows. The id belongs to the
+        // query that already had the game in hand — and a listing this endpoint never asks for
+        // cannot be the thing it is answering from.
+        var expected = (await new FixtureGameQueries().ListAsync(new GameFilter { IncludeArchived = true }))
+            .ToDictionary(g => g.Slug, g => g.Id, StringComparer.Ordinal);
+
+        await using var host = await ApiHost.StartAsync(
+            queries: new ListingRefusingQueries(new FixtureGameQueries()));
+
+        var feeds = await Json.ElementAsync(await host.Client.GetAsync(ApiRoutes.Feeds));
+
+        foreach (var register in new[] { "newlyDiscovered", "wentDark", "cameBack" })
+        {
+            foreach (var entry in feeds.GetProperty(register).EnumerateArray())
+            {
+                var slug = entry.GetProperty("slug").GetString()!;
+                await Assert.That(entry.GetProperty("id").GetGuid()).IsEqualTo(expected[slug]);
+                await Assert.That(entry.GetProperty("apiUrl").GetString())
+                    .IsEqualTo(ApiRoutes.Game(expected[slug]));
+            }
+        }
+    }
+
+    [Test]
     public async Task EachRegisterIsAlsoRssAndItsItemGuidsAreStable()
     {
         await using var host = await ApiHost.StartAsync();

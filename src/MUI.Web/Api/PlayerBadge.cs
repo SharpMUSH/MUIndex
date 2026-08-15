@@ -88,10 +88,21 @@ public static class PlayerBadge
             return new BadgeReading(BadgeState.Archived, null, null, game.LastReachableAt);
         }
 
-        // The two halves of a measurement travel together or not at all: a count with no age is a
-        // number we cannot label, and an age with no count labels nothing.
-        return game is { PlayersNow: { } count, PlayersNowAt: { } at }
-            ? new BadgeReading(BadgeState.Counted, count, now - at, game.LastReachableAt)
+        // The two halves of a measurement travel together or not at all: a count with no label is a
+        // number we cannot age, and a label with no count labels nothing.
+        //
+        // AND THE LABEL HAS TO SAY WE MEASURED IT. This badge writes "N players measured 4m ago" and
+        // paints it in the accent that means measured everywhere on this site, on a page we do not
+        // control — so a count the game asserted about itself in MSSP may not reach it. Read off the
+        // same ProvenanceChip.IsMeasured that ApiMapper reads, because the badge and
+        // /api/games/{slug}'s playersNowState answer the same question about the same game and two
+        // surfaces disagreeing is the failure the labelling exists to prevent.
+        //
+        // Declared therefore renders as unknown, which is the honest thing for a badge that can only
+        // say three things: we have not counted. What the game says about itself is on its page,
+        // labelled as theirs, where there is room to attribute it.
+        return game is { PlayersNow: { } count, PlayersNowProvenance: { IsMeasured: true } chip }
+            ? new BadgeReading(BadgeState.Counted, count, now - chip.LastConfirmedAt, game.LastReachableAt)
             : new BadgeReading(BadgeState.Unknown, null, null, game.LastReachableAt);
     }
 

@@ -16,7 +16,7 @@ namespace MUI.Crawler;
 /// <para>
 /// One ASP.NET Core deployable serves the site and runs the crawler, which is the whole shape of §4.11
 /// — and the thing that makes it safe is that N replicas still run exactly one crawler.
-/// <see cref="CrawlLease"/> is that gate: every replica asks on every retry, one holds it for as long
+/// <see cref="AdvisoryLease"/> is that gate: every replica asks on every retry, one holds it for as long
 /// as its session lives, and the others do nothing but ask again.
 /// </para>
 /// <para>
@@ -45,7 +45,7 @@ public sealed class CrawlerService(
 
         options.Validate();
 
-        CrawlLease? lease = null;
+        AdvisoryLease? lease = null;
         var migrated = false;
         var announced = false;
 
@@ -65,7 +65,7 @@ public sealed class CrawlerService(
                         migrated = false;
                     }
 
-                    lease ??= await CrawlLease.TryAcquireAsync(
+                    lease ??= await AdvisoryLease.TryAcquireAsync(
                         source, options.AdvisoryLockKey, stoppingToken);
 
                     if (lease is null)

@@ -58,6 +58,13 @@ public sealed class InMemoryGameFieldStore : IGameFieldStore, IGameFieldIndex
     public Task<IReadOnlyList<GameField>> ForGameAsync(Guid gameId, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<GameField>>(_fields.Values.Where(f => f.GameId == gameId).ToList());
 
+    public Task<IReadOnlyList<GameField>> ForGameAsync(
+        Guid gameId,
+        FieldSource only,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<GameField>>(
+            [.. _fields.Values.Where(f => f.GameId == gameId && f.Source == only)]);
+
     public Task UpsertAsync(GameField field, CancellationToken cancellationToken = default)
     {
         _fields[(field.GameId, field.Field, field.Source)] = field;
@@ -69,6 +76,16 @@ public sealed class InMemoryGameFieldStore : IGameFieldStore, IGameFieldIndex
         _changes.Add(change);
         return Task.CompletedTask;
     }
+
+    /// <summary>Across every source, and folded on the field name, as the real query is.</summary>
+    public Task<DateTimeOffset?> LastChangedAtAsync(
+        Guid gameId, string field, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_changes
+            .Where(c => c.GameId == gameId
+                        && string.Equals(c.Field, field, StringComparison.OrdinalIgnoreCase))
+            .Select(c => (DateTimeOffset?)c.At)
+            .DefaultIfEmpty(null)
+            .Max());
 
     /// <summary>
     /// Case-insensitive on both field name and value, trimmed on both sides, distinct game ids — the

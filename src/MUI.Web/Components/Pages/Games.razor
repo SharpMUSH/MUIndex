@@ -111,7 +111,18 @@ else
                             }
 
                             <p class="meta mono">
-                                @if (g.Codebase is { } cb)
+                                @*
+                                    The codebase wears the same chip the game page puts on it — value,
+                                    glyph, age — rather than a bare string. A row that showed
+                                    "PennMUSH 1.8.5" with nothing beside it cannot tell a reader that
+                                    nobody has confirmed it since 2023, and a directory that reads the
+                                    same either way is the one this project exists to replace.
+                                *@
+                                @if (g.CodebaseProvenance is { } codebase)
+                                {
+                                    <Chip Fact="codebase" Now="Now" />
+                                }
+                                else if (g.Codebase is { } cb)
                                 {
                                     <text>@cb</text>
                                 }
@@ -135,7 +146,22 @@ else
                             *@
                             @if (g.PlayersNow is { } n)
                             {
-                                <span class="players"><span class="state-present" aria-hidden="true">●</span> @n <span class="unit">on</span></span>
+                                <span class="players">
+                                    <span class="state-present" aria-hidden="true">●</span> @n <span class="unit">on</span>
+
+                                    @*
+                                        And how we know it. A number somebody read out of a WHO nine
+                                        minutes ago and a number a game asserts about itself are
+                                        different facts, and this row said the same thing for both.
+                                        The glyph and the age are the difference, in the vocabulary
+                                        the game page already uses — and the word is spelled out for
+                                        a screen reader, because a glyph is not a fact.
+                                    *@
+                                    @if (g.PlayersNowProvenance is { } counted)
+                                    {
+                                        <Chip Fact="counted" Now="Now" ValueShown="false" />
+                                    }
+                                </span>
                             }
                             else
                             {

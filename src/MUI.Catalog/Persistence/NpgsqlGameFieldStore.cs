@@ -34,6 +34,27 @@ public sealed class NpgsqlGameFieldStore(NpgsqlDataSource source) : IGameFieldSt
         return rows.Select(row => row.ToRecord()).ToList();
     }
 
+    public async Task<IReadOnlyList<GameField>> ForGameAsync(
+        Guid gameId,
+        FieldSource only,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<Row>(new CommandDefinition(
+            """
+            SELECT game_id AS GameId, field AS Field, source AS Source, value AS Value,
+                   first_seen_at AS FirstSeenAt, last_confirmed_at AS LastConfirmedAt
+              FROM game_field
+             WHERE game_id = @gameId AND source = @source
+             ORDER BY field
+            """,
+            new { gameId, source = SqlEnums.ToDb(only) },
+            cancellationToken: cancellationToken));
+
+        return rows.Select(row => row.ToRecord()).ToList();
+    }
+
     public async Task UpsertAsync(GameField field, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(field);
@@ -86,11 +107,56 @@ public sealed class NpgsqlGameFieldStore(NpgsqlDataSource source) : IGameFieldSt
             cancellationToken: cancellationToken));
     }
 
+    public async Task<DateTimeOffset?> LastChangedAtAsync(
+        Guid gameId, string field, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(field);
+
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        // lower(field), because MSSP spells NAME upper-case and IdentityFields spells it lower — the
+        // same fold IGameFieldIndex's contract states, for the same reason: a comparison that missed
+        // would report a name that has moved as one that never has, and re-mint a URL on the spot.
+        //
+        // Read as DateTime and not DateTimeOffset: Npgsql hands a bare timestamptz back as a UTC
+        // DateTime, and Dapper's scalar path converts rather than mapping — asking for the offset
+        // type here throws InvalidCastException at runtime, which the crawl loop would swallow as one
+        // errored target. Measured, not assumed.
+        var at = await connection.QuerySingleOrDefaultAsync<DateTime?>(new CommandDefinition(
+            """
+            SELECT max(at) FROM field_change
+             WHERE game_id = @gameId AND lower(field) = lower(@field)
+            """,
+            new { gameId, field },
+            cancellationToken: cancellationToken));
+
+        return at is { } moved
+            ? new DateTimeOffset(DateTime.SpecifyKind(moved, DateTimeKind.Utc))
+            : null;
+    }
+
     /// <summary>
-    /// The per-game change feed (spec §9), newest first. Not on <see cref="IGameFieldStore"/> because
-    /// nothing on the write path reads it; it is the game page's, and the page reads it through
-    /// <see cref="IGameQueries"/>.
+    /// The per-game change feed (spec §9), newest first — public events only.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Not on <see cref="IGameFieldStore"/> because nothing on the write path reads it; it is the
+    /// game page's, and the page reads it through <see cref="IGameQueries"/>.
+    /// </para>
+    /// <para>
+    /// <b><see cref="InternalFields"/> are excluded here, in the query.</b> They are machinery — a
+    /// digest we computed, the screen we render in its own frame, the owner's decision about whether
+    /// we render it at all — and the declared panel has always filtered them. The feed did not, so
+    /// an owner reversing §11's suppression published "connect_screen_suppressed changed from true
+    /// to false" on their game's public page, in plain text and in the API: the first internal field
+    /// ever to reach those surfaces, announcing a choice §11 grants with no questions asked.
+    /// </para>
+    /// <para>
+    /// Filtered in SQL rather than afterwards because the query is limited, and a filter applied
+    /// after the limit would spend it on rows nobody may see. Nothing is deleted: the rows stay in
+    /// <c>field_change</c> and are simply not events about the game.
+    /// </para>
+    /// </remarks>
     public async Task<IReadOnlyList<FieldChange>> ChangesAsync(
         Guid gameId,
         int limit,
@@ -104,10 +170,17 @@ public sealed class NpgsqlGameFieldStore(NpgsqlDataSource source) : IGameFieldSt
                    old_value AS OldValue, new_value AS NewValue, at AS At
               FROM field_change
              WHERE game_id = @gameId
+               AND NOT (field = ANY(@internal) OR field LIKE @internalPrefix)
              ORDER BY at DESC, id DESC
              LIMIT @limit
             """,
-            new { gameId, limit },
+            new
+            {
+                gameId,
+                limit,
+                @internal = InternalFields.ExactNames.ToArray(),
+                internalPrefix = InternalFields.ConnectScreen + "%",
+            },
             cancellationToken: cancellationToken));
 
         return rows.Select(row => row.ToRecord()).ToList();

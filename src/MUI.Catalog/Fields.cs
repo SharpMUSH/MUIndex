@@ -58,11 +58,37 @@ public interface IGameFieldStore
 {
     Task<IReadOnlyList<GameField>> ForGameAsync(Guid gameId, CancellationToken cancellationToken = default);
 
+    /// <summary>One source's rows for one game.</summary>
+    /// <remarks>
+    /// Narrow on purpose. The owner dashboard wants at most four <see cref="FieldSource.Owner"/>
+    /// rows per claimed game, and reading every row to keep them means dragging the connect screen
+    /// — routinely thousands of characters, and 9,376 at the longest in this catalogue — across the
+    /// wire once per game per page load, to discard it.
+    /// </remarks>
+    Task<IReadOnlyList<GameField>> ForGameAsync(
+        Guid gameId,
+        FieldSource source,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Replaces the row for <c>(game, field, source)</c>, or inserts it.</summary>
     Task UpsertAsync(GameField field, CancellationToken cancellationToken = default);
 
     /// <summary>Appends a transition. Never called when a value merely repeats.</summary>
     Task RecordChangeAsync(FieldChange change, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// When this field last moved, across every source, or null if it never has.
+    /// </summary>
+    /// <remarks>
+    /// <b>How long a value has been what it is cannot be read off the row.</b>
+    /// <see cref="GameField.FirstSeenAt"/> means "when this (game, field, source) was first seen" and
+    /// survives a change deliberately, so the age a provenance chip shows is the age of the row.
+    /// §5.7's "the name has been stable for one grace period" is a different question and the change
+    /// feed is the only thing that answers it. Matched case-insensitively on the field name, as MSSP
+    /// variables are everywhere else: <c>NAME</c> and <c>name</c> are one field.
+    /// </remarks>
+    Task<DateTimeOffset?> LastChangedAtAsync(
+        Guid gameId, string field, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

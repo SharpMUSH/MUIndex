@@ -15,20 +15,36 @@ namespace MUI.Crawler;
 public sealed record CrawlerOptions
 {
     /// <summary>
-    /// Off makes the deployable a pure web tier. Useful for a replica set that wants the crawl to run
-    /// somewhere specific, and honest about it: the advisory lock already guarantees one crawler, so
-    /// this is a deliberate choice rather than a safety net.
+    /// Off makes the deployable a pure web tier — the hosted service still starts, says so once and
+    /// stands down, because a replica that was meant to crawl and is not looks exactly like one that
+    /// was told not to. The advisory lock already guarantees one crawler, so this is a deliberate
+    /// choice about where the crawl runs rather than a safety net.
     /// </summary>
     public bool Enabled { get; init; } = true;
 
     /// <summary>Which advisory lock this deployment's crawler competes for (spec §12).</summary>
-    public long AdvisoryLockKey { get; init; } = CrawlLease.DefaultKey;
+    public long AdvisoryLockKey { get; init; } = AdvisoryLease.CrawlKey;
 
     /// <summary>Per-cycle bounds: concurrency, batch size, rate floors, the probe timeout.</summary>
     public DiscoveryOptions Discovery { get; init; } = new();
 
     /// <summary>Per-probe bounds: session timeout, settle periods, subnegotiation ceiling.</summary>
     public ProbeOptions Probe { get; init; } = new();
+
+    /// <summary>What one source may put through the public submission form (spec §9).</summary>
+    public SubmissionOptions Submissions { get; init; } = new();
+
+    /// <summary>
+    /// When presence is rolled up, how far ahead its partitions are made, and how long each grain is
+    /// kept (spec §5.2, §15.4). Runs on its own advisory lock and its own schedule.
+    /// </summary>
+    public PresenceMaintenanceOptions Maintenance { get; init; } = new();
+
+    /// <summary>
+    /// How often the hashing salt behind §11's aggregates rotates. Never persisted, never logged, and
+    /// the reason a unique-player estimate is possible inside an epoch and not across two.
+    /// </summary>
+    public SaltRotationOptions Salt { get; init; } = new();
 
     /// <summary>
     /// Addresses the crawler knows before it has followed anything.
@@ -54,6 +70,9 @@ public sealed record CrawlerOptions
     public void Validate()
     {
         Discovery.Validate();
+        Maintenance.Validate();
+        Salt.Validate();
+        Submissions.Validate();
 
         foreach (var seed in Seeds)
         {
@@ -74,6 +93,83 @@ public sealed record CrawlerOptions
 /// </param>
 public sealed record CrawlSeed(string Host, int Port, bool IsOperatorSeed = false)
 {
+    /// <summary>
+    /// Reads the <c>host:port</c> a person writes — and the bracketed IPv6 form, because a seed list
+    /// is exactly where somebody writes one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Lives here rather than in whichever surface reads a seed list, because <c>mui-crawl</c>'s
+    /// <c>--seed</c> and a deployment's seed environment variable have to agree about what an address
+    /// is; two parsers would eventually disagree about a bracketed address and only one of them would
+    /// be tested. Anything that is not host:port throws rather than being skipped: a seed silently
+    /// dropped is a crawl that quietly never dialled what it was pointed at.
+    /// </para>
+    /// <para>
+    /// <b>An ambiguous address is refused rather than guessed at.</b> The first version fell back to
+    /// the last colon whenever the brackets did not match, so <c>[2001:db8::1:4201</c> was accepted
+    /// as <c>2001:db8::1</c> port 4201 and a bare <c>2001:db8::1:4201</c> was split the same way —
+    /// a parser inventing the writer's intent from a typo. It could not reach a private address that
+    /// way (every target is resolved and ruled on by <see cref="HostScopeGuard"/> before it is
+    /// dialled, and the string the parser produced is the string that gets gated), but it could dial
+    /// a host nobody wrote down, which rule 4 says a parser does not get to do.
+    /// </para>
+    /// </remarks>
+    public static CrawlSeed Parse(string value, bool isOperatorSeed = false)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        var text = value.Trim();
+        string host;
+        int colon;
+
+        if (text.StartsWith('['))
+        {
+            // Brackets are the only unambiguous way to write an IPv6 literal with a port, so they
+            // have to close, close once, and be followed immediately by the colon.
+            var close = text.IndexOf(']', StringComparison.Ordinal);
+
+            if (close < 0 || close + 1 >= text.Length || text[close + 1] != ':')
+            {
+                throw new ArgumentException(
+                    $"'{value}' opens a bracket it does not close with ']:'; a bracketed address is "
+                    + "written [host]:port.");
+            }
+
+            host = text[1..close];
+            colon = close + 1;
+
+            if (host.AsSpan().ContainsAny('[', ']'))
+            {
+                throw new ArgumentException($"'{value}' is not [host]:port.");
+            }
+        }
+        else
+        {
+            colon = text.LastIndexOf(':');
+            host = colon > 0 ? text[..colon] : string.Empty;
+
+            if (host.Contains(':', StringComparison.Ordinal))
+            {
+                // The last colon of a bare IPv6 literal is part of the address as often as it is a
+                // port separator, and nothing in the string says which. Refusing beats choosing.
+                throw new ArgumentException(
+                    $"'{value}' has more than one colon and no brackets, so there is no telling the "
+                    + "port from the address; write it as [host]:port.");
+            }
+        }
+
+        if (colon <= 0 || !int.TryParse(text[(colon + 1)..], out var port))
+        {
+            throw new ArgumentException($"'{value}' is not host:port.");
+        }
+
+        var seed = new CrawlSeed(host, port, isOperatorSeed);
+        seed.Validate();
+
+        return seed;
+    }
+
     public void Validate()
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(Host);

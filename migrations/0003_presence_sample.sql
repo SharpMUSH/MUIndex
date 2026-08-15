@@ -1,6 +1,8 @@
 -- spec §5.2 — the only table in this schema that grows linearly with games × time, which is why it is
--- the only partitioned one. RANGE on `at`, monthly, so §5.2's retention and rollups can later work on
--- whole partitions rather than row-by-row deletes over hundreds of millions of rows.
+-- the only partitioned one. RANGE on `at`, monthly, so §5.2's retention and rollups work on whole
+-- partitions rather than row-by-row deletes over hundreds of millions of rows. Migration 0011 is what
+-- reads that promise back: it adds the two rollup tables and the watermark that retention checks
+-- before it drops a month.
 --
 -- There is no DEFAULT partition, deliberately: rows landing in one would block the later creation of
 -- the partition that should have held them. NpgsqlPresenceStore creates the month's partition before

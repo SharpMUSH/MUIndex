@@ -35,6 +35,45 @@ public class BadgeApiTests
     }
 
     /// <summary>
+    /// A count the game asserted about itself never goes out as a measurement of ours.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Ashen Court publishes <c>PLAYERS</c> in MSSP and answers no pre-login <c>WHO</c>, which is
+    /// the commonest way a directory ends up quoting a game's own number as though it had counted
+    /// it. This badge writes "N players measured 4m ago" and paints it in the accent that means
+    /// measured on every other surface here — on a page we do not control and cannot correct — so
+    /// the one thing it must never carry is somebody else's assertion.
+    /// </para>
+    /// <para>
+    /// The badge and <c>/api/games/{slug}</c> are held to the same predicate rather than to two
+    /// judgements that agree today: the JSON below says <c>unknown</c> where the API says
+    /// <c>declared</c>, and both come from <c>ProvenanceChip.IsMeasured</c>. M*U*S*H is the control
+    /// — a <c>WHO</c> count, and it still goes out as a number.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ADeclaredCountIsNotPublishedAsAMeasuredOne()
+    {
+        await using var host = await ApiHost.StartAsync();
+
+        var declared = await host.Client.GetStringAsync("/g/ashen-court/badge.svg");
+        var json = await Json.ElementAsync(await host.Client.GetAsync("/g/ashen-court/badge.json"));
+        var measured = await host.Client.GetStringAsync("/g/m-u-s-h/badge.svg");
+
+        await Assert.That(declared).Contains("players unknown");
+        await Assert.That(declared).DoesNotContain("9 now")
+            .Because("nine is what the game says about itself, not what we counted");
+
+        await Assert.That(json.GetProperty("state").GetString()).IsEqualTo("unknown");
+        await Assert.That(json.GetProperty("count").ValueKind).IsEqualTo(JsonValueKind.Null);
+        await Assert.That(json.GetProperty("measuredAt").ValueKind).IsEqualTo(JsonValueKind.Null)
+            .Because("an instant beside no count of ours would name a measurement nobody took");
+
+        await Assert.That(measured).Contains("15 now");
+    }
+
+    /// <summary>
     /// A measured zero is a measurement and says so; an unmeasured count never borrows its shape.
     /// </summary>
     /// <remarks>
@@ -231,7 +270,7 @@ public class BadgeApiTests
     /// </summary>
     /// <remarks>
     /// A number we cannot label is a number this site may not publish, so a summary carrying a count
-    /// with no measurement time reads as unknown rather than as a bare figure. That combination
+    /// with no provenance chip reads as unknown rather than as a bare figure. That combination
     /// should not occur — the query fills both from one row — and the badge does not rely on it not
     /// occurring.
     /// </remarks>
@@ -249,7 +288,7 @@ public class BadgeApiTests
             Codebase: null,
             MeasuredProtocols: [],
             LastReachableAt: DateTimeOffset.UtcNow,
-            PlayersNowAt: null);
+            PlayersNowProvenance: null);
 
         var reading = PlayerBadge.Read(unlabelled, DateTimeOffset.UtcNow);
 

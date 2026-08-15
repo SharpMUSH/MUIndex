@@ -1,4 +1,5 @@
 using MUI.Crawl;
+using MUI.Discovery;
 using MUI.Web.Api;
 
 namespace MUI.Web.Components;
@@ -20,11 +21,17 @@ namespace MUI.Web.Components;
 /// renderers differ in markup and in nothing else, and the parity test reads words rather than tags.
 /// </para>
 /// <para>
-/// <b>Nothing here is written from the design document alone.</b> The spec describes an opt-out over
-/// an MSSP field and a DNS TXT record, and a crawler that names itself in TTYPE — none of which is
-/// implemented today (see <see cref="Crawler"/>). Writing the design's intentions here as though
-/// they were the deployment's behaviour is the exact shape of the <c>ContactedMaintainer</c> defect
-/// this repository already has a record of: a claim about the world compiled in by whoever typed it.
+/// <b>Nothing here is written from the design document alone.</b> Writing the design's intentions
+/// here as though they were the deployment's behaviour is the exact shape of the
+/// <c>ContactedMaintainer</c> defect this repository already has a record of: a claim about the world
+/// compiled in by whoever typed it. The page said for several releases that there was no automated
+/// opt-out, which was true and which is the reason that sentence was there.
+/// </para>
+/// <para>
+/// <b>So the opt-out's spellings are read off <see cref="OptOutVocabulary"/> rather than typed into
+/// this file.</b> The variable and the record named here are the ones
+/// <see cref="MUI.Discovery.OptOutGate"/> actually reads, and a page that advertised a switch wired to
+/// nothing would be worse than a page admitting there was none.
 /// </para>
 /// </remarks>
 public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections)
@@ -168,12 +175,39 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
                 "A server paints its connect screen, unauthenticated, to every anonymous connection "
                 + "that arrives. We display it as evidence and label it as what it is. If you would "
                 + "rather we did not, say so and it comes down — no questions and no argument."),
-            new("Ask, and we stop.",
-                "There is no automated opt-out yet. The design calls for one over an MSSP field and "
-                + "a DNS TXT record; neither is implemented, and advertising a switch that is not "
-                + "wired to anything would be worse than saying so. Until they exist the route is "
-                + "to ask a person, and a request is honoured whether or not the machinery for it "
-                + "is tidy."),
+            new("Say stop, and we stop — in one line, three ways.",
+                $"Publish {OptOutVocabulary.MsspVariable} 1 in your MSSP report and the probe that "
+                + $"reads it is the last one. Or publish a TXT record at "
+                + $"{OptOutVocabulary.DnsLabel}.your.host reading \"{OptOutVocabulary.DnsValue}\", "
+                + "which needs no MSSP support and no account here. Or write to a person and say so, "
+                + "and it is recorded with who asked. All three are honoured before the next "
+                + "connection is made — inside one crawl cycle — and each is written down with the "
+                + "date and with what we read."),
+            new("The MSSP field stops that listener; the record stops the host.",
+                "A game's MSSP report is published by the port that answered us, so it speaks for "
+                + "that port: MU* hosting routinely runs unrelated games on one domain separated "
+                + "only by a port, and one of them must not be able to silence its neighbour. A TXT "
+                + $"record is the domain's own operator speaking about a machine they run, so it "
+                + $"covers every port — unless it names one, as \"{OptOutVocabulary.DnsValue}=4201\". "
+                + "Anything in that position we cannot read as a list of ports is taken as the whole "
+                + $"host, so \"{OptOutVocabulary.DnsValue}=all\" does what it looks like it does."),
+            new("The DNS route is the one you can undo without asking us.",
+                "It is also the only one that can be, and the reason is the same in both directions: "
+                + "a TXT record is readable without connecting to a server that has told us not to, "
+                + "so we re-read it before every dial. Delete it and we dial again the next time that "
+                + "address comes up, which is at most a week. An MSSP field cannot be re-read "
+                + "without doing the thing you asked us to stop "
+                + "doing, so an MSSP opt-out and a recorded request stand until you tell us "
+                + "otherwise. The one thing an opted-out address still gets from us is that single "
+                + "TXT lookup, which touches your nameserver and never your game."),
+            new("Stopping is not deleting, and it is not downtime.",
+                "A game that opts out keeps its page, its address and everything we measured before "
+                + "it asked, because nothing here is ever deleted — including the last probe, which "
+                + "is the one that carried the request. What changes is that nothing new arrives: "
+                + "the activity grid stops gaining hours and names no cause for it, because our "
+                + "decision to stop knocking is a fact about us and would be a lie about your "
+                + "server. It is recorded where our decisions belong — on the crawl that did not "
+                + "happen, and in the register of who asked."),
         ])
     {
         Identity = AboutIdentity.For(probe),

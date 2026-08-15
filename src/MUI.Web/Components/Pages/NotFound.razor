@@ -1,0 +1,25 @@
+@page "/not-found"
+@layout MUI.Web.Components.Layout.MainLayout
+
+@*
+    The site's one not-found page, and the status line says so as well as the sentence.
+
+    It is a page rather than the <NotFound> fragment inside <Router> because that fragment renders
+    nothing under static server rendering — which is how a reader who mistyped a URL came to be
+    handed an empty 404 with this paragraph nowhere in it. The layout is named rather than inherited
+    for the same class of reason: the router applies DefaultLayout to a page it routed to, and this
+    one is also rendered when nothing was routed at all, so without it the two ways of arriving here
+    would hand a reader two different-looking sites.
+
+    A slug a game used to have never reaches here — it is redirected before the route is matched
+    (spec §5.7). Arriving here means no game ever answered to this URL.
+*@
+
+<PageTitle>Not found — mu*index</PageTitle>
+
+<h1>Not found</h1>
+<p class="dim">
+    No game here. Nothing is ever deleted, so a game that once lived at this address still does —
+    check the spelling.
+</p>
+<p class="faint"><a href="/games">Browse the directory</a></p>
