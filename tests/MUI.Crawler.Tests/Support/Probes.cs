@@ -42,7 +42,9 @@ public static class Probes
         IReadOnlySet<string>? offered = null,
         Negotiation? negotiation = null,
         DateTimeOffset? at = null,
-        MsspOutcome? msspOutcome = null) => new()
+        MsspOutcome? msspOutcome = null,
+        string? info = null,
+        string? version = null) => new()
     {
         Host = host,
         Port = port,
@@ -56,6 +58,8 @@ public static class Probes
         Banner = banner,
         BannerPlayerCount = banner is null ? null : BannerCount.Find(banner),
         Who = who ?? WhoReading.NotAsked,
+        Info = info,
+        Version = version,
     };
 
     public static ProbeResult Failed(

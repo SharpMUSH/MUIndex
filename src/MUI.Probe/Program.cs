@@ -38,6 +38,45 @@ if (result.BannerPlayerCount is { } fromBanner)
 
 Console.WriteLine($"charset       {result.Negotiation.Charset ?? "(unset)"}{(result.Negotiation.CharsetNegotiated ? " (negotiated)" : " (default)")}");
 
+// §6.2 — the pre-login command replies, and what this is prepared to conclude from them.
+//
+// Both halves are printed, and the reading is printed even when it is nothing, because the gap
+// between them is the whole diagnostic: a game whose INFO plainly names its engine on line eleven
+// and whose reading is empty is a parser to improve, and a reading that names a codebase the text
+// does not is the bug this line was added to catch. It caught one on darcness.net:4201.
+Console.WriteLine($"codebase      {LoginCommandReading.MeaningfulCodebase(result.Info, result.Version)
+    ?? "— nothing the reader would stand behind"}");
+
+Reply("info", result.Info);
+Reply("version", result.Version);
+
+static void Reply(string label, string? text)
+{
+    var lines = (text ?? string.Empty)
+        .Split('\n')
+        .Select(line => line.TrimEnd())
+        .Where(line => line.Trim().Length > 0)
+        .ToList();
+
+    if (lines.Count == 0)
+    {
+        Console.WriteLine($"{label,-13} (no reply)");
+        return;
+    }
+
+    Console.WriteLine($"{label,-13} {lines.Count} lines");
+
+    foreach (var line in lines.Take(24))
+    {
+        Console.WriteLine($"  | {line}");
+    }
+
+    if (lines.Count > 24)
+    {
+        Console.WriteLine($"  … {lines.Count - 24} more");
+    }
+}
+
 if (result.Negotiation.EnvironmentRequested.Count > 0)
 {
     Console.WriteLine($"mnes asked    {string.Join(", ", result.Negotiation.EnvironmentRequested)}");
