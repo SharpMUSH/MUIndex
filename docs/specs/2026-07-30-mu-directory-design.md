@@ -210,10 +210,36 @@ called, by whatever assembles the probe's reading. It cannot be applied afterwar
 and choosing later, because there is nowhere to keep both. This is a constraint on the ingestor, not
 a limitation of the store.
 
-**Rollups are not built and have no owner.** §5.2 states the retention shape — raw 90 days, hourly
-two years, daily forever — and nothing implements it. Until it does, the heatmap reads raw samples
-over an eight-week window. Monthly range-partitioning is in place, which is what makes a rollup a
-cheap addition rather than a rewrite.
+**Rollups are built; the retention beside them is configuration.** `PresenceMaintenance` runs on a
+Postgres advisory lock of its own — the same gate §12 puts on the crawl loop, a different key — and
+does three things per pass: makes the monthly partitions ahead of need, aggregates every complete
+hour into `presence_rollup_hour` and `presence_rollup_day`, and then applies whatever retention a
+deployment configured. **The three states survive the aggregation**: each bucket carries a tally of
+counted and of uncountable samples rather than a conclusion, min/max/mean are over counted samples
+alone and are null when there were none, and an hour nobody measured produces no row — which is
+§5.4's empty cell, unchanged in shape. The `CHECK` constraints refuse a bucket that claims a count it
+did not measure and one that claims to be a measurement of nothing at all.
+
+Retention is `PresenceRetentionOptions` and defaults to **keeping everything at every grain**, for
+the reason in §15.4. The shape above — raw 90 days, hourly two years, daily forever — is available as
+`PresenceRetentionOptions.AsDesigned` and is one setting away. Raw samples go by whole partitions and
+never row by row, and never before both rollups have consumed them: **each grain resumes from its own
+watermark** and writes that watermark only after its own aggregation, and retention is clamped to the
+older of the two. A pass that rolled the hours and then died cannot leave the daily grain believing
+it had read a year it never saw, and cannot drop the raw months that are then the only copy.
+
+The heatmap still reads raw samples over its eight-week window, which is why the shortest raw
+retention this accepts is that window. Pointing it at the hourly rollup is the remaining work.
+
+**§11's salt machinery is in place and nothing feeds it yet, which is worth saying plainly.**
+`RotatingSaltProvider` derives a per-epoch salt from a deployment secret, `PresenceAggregates`
+refuses an estimate that does not name its epoch, the rollup carries an estimate only where a
+bucket's samples share one, and the reader and the aggregation agree that an unlabelled estimate is
+not readable. But no probe produces aggregates: the `WHO` parser counts rows and never extracts a
+name, so `PresenceAggregates` is constructed nowhere in `src/`, and the `aggregates` column, the
+`salt_epoch` columns and the constraints around them are unreached in the shipped pipeline. That is
+the safe half to have built first — the rule that names are never persisted is kept by there being
+no path that handles one — but the unique-player estimate is designed, not delivered.
 
 **Activity band**, the facet §9 exposes, is derived here and defined once: `players now` (a non-null
 count above zero in the most recent hourly rollup), `active this week` (any such count in 7 days),
@@ -818,10 +844,42 @@ a self-report with extra steps.
 
 Owner-published outputs: a live player-count SVG badge and a JSON endpoint for the game's own site.
 
-**Claiming lights up two paths that are currently unreachable**, and that is worth knowing when
-testing it: nothing sets `game.is_claimed` today, so the `claimed` badge in the listing and
-`ArchivePolicy`'s ceiling-grace-for-claimed-games (§7.5) have never once been exercised against real
-data.
+**Claiming is wired end to end, and it was not for a while after it shipped.** A verified probe now
+sets `game.is_claimed`, so the `claimed` badge in the listing and `ArchivePolicy`'s
+ceiling-grace-for-claimed-games (§7.5) are both reachable. What kept them dark was not the claim
+logic, which was complete and tested, but the **composition** — and the two are worth telling apart,
+because the second has no compiler and no unit test looking at it:
+
+- The site has two compositions of the same objects. `mui-crawl` builds the crawl loop by hand and
+  passes every collaborator explicitly; the deployed site assembles it through DI. `CrawlCycle` takes
+  its `ClaimService` as an *optional* parameter — a crawl with no database behind it should do
+  slightly less rather than refuse to run — so a composition that omits it settles no beacons and
+  says nothing about it. The crawl graph omitted it, and the site only had one because the accounts
+  module happened to register the same type for the dashboard.
+- `ClaimService` was registered scoped while the crawl loop that needs it is a singleton
+  `BackgroundService`. With scope validation on, which is what `dotnet run` does, **the container
+  refused to build**: the site would not start with a connection string set. Production leaves
+  validation off, so there it worked — by accident, and only there.
+- `IClaimStore` was registered nowhere at all. The dashboard service-locates it and reads a null as
+  "this site has no database", so every operator's list of claimed games was empty on a site that
+  had them, and the on-demand check endpoint threw on request.
+
+The lesson generalises past claiming: **an optional dependency and a service-located one both fail
+silently when the composition is wrong**, and this codebase has one of each on the claim path.
+`CompositionTests` resolves the graph `Program` builds — literally, by calling the same
+`AddMuiSite` the deployable calls, because a harness that restated the registrations would be a
+second copy that agrees with the first only until somebody edits one of them — under scope
+validation, in both environments, and asserts the services these paths need are really there. A
+wiring test, because the wiring is what was broken while every part it joined was correct.
+
+**The on-demand check was the same shape of gap and is fixed with it.** §8.1 offers a claimant one
+requested probe per few minutes; `RequestCheckAsync` wrote `last_checked_at` and a `check_requested`
+event, and due-ness comes only from `crawl_target.next_probe_at`, so nothing was ever probed and the
+page said the button dialled a real server. A rate limiter on an action that does not happen is the
+most convincing possible no-op. `IOnDemandProbes` brings the game's targets forward instead —
+`LEAST`, so an ask can only make a probe sooner — and the crawl loop still does the dialling under
+`CRAWL DELAY` and §7.2's address gate, which is what keeps a button on a page from becoming a way to
+make us connect to a stranger's server.
 
 ## 9. Site surface, v1
 
@@ -878,28 +936,68 @@ for presence and availability. RSS on status change in v1; webhooks are deferred
 
 Consume Grapevine and the TinTin mudlist as seed sources; republish rather than silo.
 
-### 10.1 Known gap — the listing endpoint is less honest than the listing page
+### 10.1 The listing is labelled — closed
 
-`GameSummary` carries no provenance, so `/api/games` publishes `playersNow` and `codebase` as bare
-values while `/api/games/{slug}` labels every field with its source, age and staleness. **That is the
-one place the API contradicts the rule the whole project exists to serve**, and it is a view-model
-gap rather than a mapping choice — the summary type has nowhere to put the label.
+`GameSummary` carried no provenance, so `/api/games` published `playersNow` and `codebase` as bare
+values while `/api/games/{slug}` labelled every field with its source, age and staleness. That was
+**the one place the API contradicted the rule the whole project exists to serve**, and it was a
+view-model gap rather than a mapping choice — the summary type had nowhere to put the label.
 
-Fixing it means putting `ProvenanceChip` on `GameSummary` for at least the count and the codebase.
-Until then, a consumer reading only the listing cannot tell a count measured four minutes ago from
-one asserted six years ago, which is exactly the confusion the incumbents' directories thrive on.
+`GameSummary` now carries a `ProvenanceChip` for the count and for the codebase, filled by both
+implementations of `IGameQueries` from the rows the value itself came from: the presence sample's own
+instant and source for a count, the winning `GameField` for a codebase, with staleness asked of the
+registry (§5.6) rather than judged at the surface. They travel out as `playersNowProvenance` and
+`codebaseProvenance` beside the bare values on both `/api/games` and `/api/games/{slug}`, so the rule
+a consumer needs is one sentence: **every bare value in this API has a `*Provenance` sibling or lives
+in `fields`**, and null means we hold no such value rather than that we mislaid its label.
 
-Two smaller gaps found the same way, both currently worked around inside `src/MUI.Web/Api/`:
-`IGameQueries` has no `FindAsync(Guid)`, so a GUID lookup scans the whole listing; and `FeedEntry`
-has no `Id`, so every feed request reads the listing to join identifiers onto slugs.
+The same fact reaches the reader, because an API-only fix would have left the listing page telling
+the same half-truth: a row wears the chip the game page already uses, and the plain listing spells
+`(measured, 4m)` or `(declared, 3y, stale)` in the words §9's plain surface uses everywhere else.
+That a count can be *declared* at all is the point — a game publishing `PLAYERS` in MSSP has asserted
+a number, and quoting it as a measurement of ours is rule 5 broken by a format string, which is
+exactly what the plain listing's hard-coded `(measured)` was doing to every row.
 
-A third is closed. §5.7's forever-redirect now has `game_slug_history` beside the games, written by
-the only thing that re-mints a slug: `SlugMinter`, when the winning `NAME` has held for a grace
-period. A row there names a **game** rather than another slug, so a game renamed twice redirects from
-its oldest URL in one hop, a cycle cannot be expressed, and an archived game's former URLs work
-exactly as its page does. `ConfiguredSlugHistory` survives behind it and is not a leftover: the site
-starts on the demo fixture with no database at all, and an operator carrying a rename no probe can
-know about is still doing something legitimate.
+**A labelling rule applied to one surface makes a liar of the others,** and fixing the listing first
+proved it three times over. `PlayerCountState` had two members, so `playersNowState` answered
+`measured` for any count that existed at all and shipped in the same object as a
+`playersNowProvenance.measured` of `false`; it has three now and is derived from the chip, so the
+two cannot disagree. The game page — the surface a reader trusts most — kept printing the measured
+glyph over every number it had, and its plain rendering kept saying `Players now: 9` flat, while the
+listing pointing at it said the game had asserted that number. The archive printed a bare codebase
+where the listing printed the same value labelled three years unconfirmed, which is precisely the
+page where the age matters most. All three now render the one chip: `Chip` grew a `ValueShown`
+switch so a count can wear the same component as a field without printing its number twice, and
+`PlainText.Label` is the single spelling every plain surface prints.
+
+`FeedEntry` now carries its `Id` from the query layer, so a feed request no longer reads the whole
+listing to join identifiers onto slugs and `FeedEntryView.Id` is no longer nullable — the durable
+identifier (§5.7) is not something a reader should have to handle the absence of.
+
+A lookup by GUID is one read of `game` and then the page, exactly as the slug route does. It listed
+the whole catalogue, archived games included, and picked one row out of the result — so the
+identifier this document tells consumers to store was the most expensive way to ask for a game, and
+got slower with every game added.
+
+**`IGameQueries.FindAsync(Guid)` after all.** It was first closed by routing through
+`FindByIdAsync`, on the argument that the method already existed and no interface change was
+needed. That is cheaper than a scan and still the wrong shape: `FindByIdAsync` assembles a whole
+summary — a `game` row, every field, the presence digest, both chips, on a connection of its own —
+to hand back one string, which `FindAsync(slug)` then throws away and re-reads. Roughly five round
+trips presented as two. The overload the gap description originally asked for is the honest fix, and
+it costs one predicate: both keys share the page assembly and differ only in their `WHERE` clause.
+
+Both routes are held there by a test catalogue that **throws** on `ListAsync` and on
+`FindByIdAsync` — a counter would pass a version that read the catalogue once and cached it, which
+is the same scan with a lifetime bolted on.
+
+The last of the three is closed too. §5.7's forever-redirect now has `game_slug_history` beside the
+games, written by the only thing that re-mints a slug: `SlugMinter`, when the winning `NAME` has held
+for a grace period. A row there names a **game** rather than another slug, so a game renamed twice
+redirects from its oldest URL in one hop, a cycle cannot be expressed, and an archived game's former
+URLs work exactly as its page does. `ConfiguredSlugHistory` survives behind it and is not a leftover:
+the site starts on the demo fixture with no database at all, and an operator carrying a rename no
+probe can know about is still doing something legitimate.
 
 ## 11. Politeness, consent, privacy
 
@@ -907,6 +1005,47 @@ know about is still doing something legitimate.
 - Crawler self-identifies in TTYPE/MTTS and MNES `CLIENT_NAME`, with an info URL, so an admin
   reading their logs can discover who we are and how to opt out.
 - Documented opt-out — MSSP field, DNS TXT, or request — honoured within one cycle and recorded.
+  **Built, and these are the spellings** (`OptOutVocabulary`, published on the about page and read by
+  the gate, so the two cannot drift):
+
+  | Route | Published as | Scope |
+  |---|---|---|
+  | MSSP | `MUINDEX OPT-OUT 1`, also accepting `MUINDEX_OPT_OUT`, `MUINDEX OPTOUT`, `CRAWL_OPT_OUT` | The listener that published it |
+  | DNS | `_muindex.<host>. IN TXT "opt-out"`, optionally `"opt-out=4201"` | Every port on the host, unless one is named |
+
+  Both readers fail towards consent, and that is the same rule twice: an MSSP value that is not one of
+  the enumerated negatives is an opt-out, a spelling saying stop is not overruled by another spelling
+  saying nothing, and a TXT qualifier that is not a readable port list (`opt-out=all`, `opt-out=*`)
+  covers the whole host. Of the two ways to misread an instruction somebody typed to make us go away,
+  only one of them keeps connecting to them.
+  | Request | Recorded by an operator, with who asked | Whatever was asked for |
+
+  Four consequences, each of them load-bearing:
+
+  - **The scoping asymmetry is §8.3's, read forwards.** An MSSP field is published by the listener
+    that answered, so it speaks for that listener and no further — MU\* hosting puts unrelated games
+    on one domain separated only by a port, and one of them must never be able to silence another. A
+    TXT record is the domain operator speaking about a machine they run, so it covers the host. That
+    asymmetry is exactly why DNS is deferred for *claiming* and kept for *opting out*: the failure
+    mode of a hostname-scoped claim is somebody taking a game that is not theirs, and the failure
+    mode of a hostname-scoped opt-out is us not dialling a machine whose owner told us not to.
+  - **Only DNS can withdraw itself**, and it is re-read before every dial, so an operator can take the
+    opt-out back alone and be crawled again at that address's next check — at most a week, since a
+    refused address is still scheduled at §7.4's permanent floor. An MSSP field cannot be re-read
+    without doing the thing they asked us to stop, so that route and a recorded request stand until
+    somebody says otherwise. Both halves are on the about page: an opt-out with an undocumented exit
+    is a trap.
+  - **A refusal here is §7.2's refusal, not a probe.** It happens before a `ProbeResult` exists, so it
+    writes no availability transition, no presence row and no field, and it may never appear in a
+    game's public reachability history. It is counted on the cycle — separately from a scope refusal,
+    because "we would not dial there" and "they asked us not to" are different facts — and recorded in
+    `crawl_opt_out`, which is a table beside the registry rather than a column in it. §7.1's registry
+    stays monotonic: nothing retires, and the day they ask us back it is one timestamp and the
+    schedule that address always had.
+  - **Nothing is deleted, including the last probe and including the opt-out itself.** The probe that
+    carried the field is stored like any other measurement; an opted-out game's page keeps everything
+    measured before the ask and gains nothing after it, with the grid's empty hours naming no cause
+    (§5.4); and a withdrawn opt-out keeps its row and gains a `withdrawn_at`.
 - **Player names are never persisted.** WHO responses are parsed in memory. Aggregates use salted
   hashes with a rotating salt, so a unique-player estimate is possible while re-identification
   across salt epochs is not.
@@ -960,7 +1099,21 @@ webhooks beyond RSS; non-English UI (listings carry `LANGUAGE` from day one).
    decision and need not match.
 3. **Hosting and cost envelope**, which bounds probe frequency and retention.
 4. **Retention policy** for `PresenceSample` before rollup, and the salt rotation period for §11
-   aggregates.
+   aggregates — both unsettled, and both now **shipped conservative to be tuned**, because the
+   machinery could not wait for the answer and neither question has data behind it yet. §5.2's
+   rollups and partition maintenance are built; what is deliberately not compiled in is how long
+   anything is kept. `PresenceRetentionOptions` therefore **keeps everything by default** at all three
+   grains, with §5.2's own figures available as a named preset. §5.2 does authorise dropping raw
+   samples once they have been aggregated — it is the only data in the system that is ever deleted —
+   but the period it names has never been checked against a real deployment's storage, and §15.3, the
+   cost envelope that would bound it, is open too. Between an unvalidated number and a deletion, the
+   default is not to delete: turning retention on later costs one setting, and turning it on too early
+   costs measurements that cannot be taken again. The salt period defaults to **seven days** on the
+   same reasoning read the other way round — the two errors are not symmetrical. An epoch that proves
+   too short costs precision in an estimate and can be lengthened from the next epoch onwards; an
+   epoch that proves too long has already linked a season of observations together, and no later
+   setting un-links them. Tune both once there is a year of data and a hosting bill to read them
+   against.
 5. **Auto-merge threshold** in §7.3 — needs calibration against real data, so ship conservative and
    tune.
 6. **The archive grace factor** in §7.5 — the quarter, the 60-day floor and the 365-day ceiling are

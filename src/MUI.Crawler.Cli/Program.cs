@@ -26,6 +26,43 @@ if (arguments.Help)
     return 0;
 }
 
+// §11, and deliberately before the connection string is required: "has this host asked us to stop"
+// is a question about DNS and about nothing else, and an operator who wants to check that their
+// record took effect should not need our database to do it.
+if (arguments.OptOutCheck is { } check)
+{
+    var name = OptOutVocabulary.DnsNameFor(check.Host);
+    var answer = await new DnsTxtResolver().LookupAsync(name);
+
+    Console.WriteLine($"asked         {name} IN TXT");
+
+    if (!answer.Answered)
+    {
+        Console.WriteLine("answer        none — the resolver did not reply. Nothing may be concluded from that.");
+        return 1;
+    }
+
+    foreach (var record in answer.Records)
+    {
+        Console.WriteLine($"record        \"{record}\"");
+    }
+
+    if (answer.Records.Count == 0)
+    {
+        Console.WriteLine("answer        no such record");
+    }
+
+    // A host with no port named is checked at the port an opt-out record would have to cover to stop
+    // everything, which is any of them; 4201 stands in for "some listener".
+    var reading = OptOutVocabulary.ReadDns(answer.Records, check.Port ?? 4201);
+
+    Console.WriteLine(reading is null
+        ? $"verdict       nothing here asks us to stop dialling {check}"
+        : $"verdict       {check} would not be dialled — {reading.Detail}");
+
+    return 0;
+}
+
 if (arguments.Connection is not { Length: > 0 } connectionString)
 {
     Console.Error.WriteLine(
@@ -65,12 +102,31 @@ var fields = new NpgsqlGameFieldStore(source);
 var availability = new NpgsqlAvailabilityStore(source);
 var slugs = new NpgsqlSlugHistoryStore(source);
 
+var optOut = new OptOutGate(
+    new NpgsqlCrawlOptOutRepository(source),
+    new DnsTxtResolver(),
+    time,
+    loggerFactory.CreateLogger<OptOutGate>());
+
+// §11 — recording a request somebody made off the wire. It writes one row and stops: an operator
+// recording an opt-out is not asking for a crawl, and the next cycle honours it before it dials.
+if (arguments.OptOut is { } request)
+{
+    var recorded = await optOut.RecordRequestAsync(
+        request.Host, request.Port, arguments.Because!, CancellationToken.None);
+
+    Console.WriteLine($"opt-out       {recorded.Wording}");
+
+    return 0;
+}
+
 var planted = await CrawlSeeds.PlantAsync(targets, arguments.Seeds, time);
 Console.WriteLine($"seeds         {arguments.Seeds.Count} configured, {planted} new in the registry");
 
 var cycle = new CrawlCycle(
     targets,
     new TelnetProbe(new ProbeOptions(), loggerFactory.CreateLogger<TelnetProbe>()),
+    optOut,
     new HostScopeGuard(new SystemHostResolver()),
     new ProbeIngestor(
         new PresenceWriter(new NpgsqlPresenceStore(source)),

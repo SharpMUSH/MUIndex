@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 using MUI.Crawl;
+using MUI.Discovery;
 using MUI.Web.Api;
 using MUI.Web.Components;
 
@@ -139,14 +140,41 @@ public class AboutPageTests
     }
 
     [Test]
-    public async Task TheOptOutIsNotAdvertisedAsAutomatedWhileItIsNot()
+    public async Task TheOptOutIsPublishedWithTheExactWordsThatWork()
     {
-        // Neither the MSSP field nor the DNS TXT record the design describes exists in code. A page
-        // offering a switch that is wired to nothing is worse than a page admitting there is none.
+        // The page used to say there was no automated opt-out, which was true and was the honest
+        // thing to print. Now that one exists, the page has to name the two spellings an operator
+        // would type — and name them off the reader that consumes them, so an edit on either side
+        // cannot leave this page advertising a switch wired to something else.
         var text = Render.Words(Plain);
 
-        await Assert.That(text).Contains("no automated opt-out yet");
-        await Assert.That(text).Contains("Ask, and we stop.");
+        await Assert.That(text).DoesNotContain("no automated opt-out");
+        await Assert.That(text).Contains(OptOutVocabulary.MsspVariable);
+        await Assert.That(text).Contains(OptOutVocabulary.DnsLabel);
+        await Assert.That(text).Contains(OptOutVocabulary.DnsValue);
+
+        // All three of §11's routes, named as routes rather than implied.
+        await Assert.That(text).Contains("MSSP report");
+        await Assert.That(text).Contains("TXT record");
+        await Assert.That(text).Contains("write to a person");
+
+        // Honoured within one cycle, and the way back out is on the page — an opt-out whose exit is
+        // undocumented is a trap.
+        await Assert.That(text).Contains("inside one crawl cycle");
+        await Assert.That(text).Contains("undo without asking us");
+    }
+
+    [Test]
+    public async Task ThePageSaysWhatAnOptedOutGamesPageStillShows()
+    {
+        // Nothing is ever deleted, and the third state of an hour names no cause. A reader who opted
+        // out has to be able to find out what happens to what we already measured, and the answer is
+        // "it stays, and nothing new arrives".
+        var text = Render.Words(Plain);
+
+        await Assert.That(text).Contains("Stopping is not deleting");
+        await Assert.That(text).Contains("everything we measured before");
+        await Assert.That(text).Contains("names no cause");
     }
 
     [Test]

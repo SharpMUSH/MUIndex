@@ -78,7 +78,19 @@ else
                 <p class="live mono">
                     @if (Page.Summary.PlayersNow is { } n)
                     {
-                        <span class="state-present">● @n players on now</span>
+                        @*
+                            The count, and how we came by it. This page is the surface a reader
+                            trusts most, and it was the one printing the measured glyph over every
+                            number it had — including the ones a game states about itself, which the
+                            listing that points here already labels as such. One vocabulary.
+                        *@
+                        <span class="@(Counted?.IsMeasured is false ? "state-declared" : "state-present")">
+                            @(Counted?.IsMeasured is false ? "◇" : "●") @n players on now
+                        </span>
+                        @if (Counted is { } counted)
+                        {
+                            <Chip Fact="counted" Now="Now" ValueShown="false" />
+                        }
                     }
                     else
                     {
@@ -194,6 +206,9 @@ else
     private DateTimeOffset? Captured => Archived ? Entry.LastReachableAt : Now.AddMinutes(-4);
 
     private int StaleCount => Page?.Declared.Count(d => d.Value.IsStale) ?? 0;
+
+    /// <summary>The label on the live count, or null where there is no count to label.</summary>
+    private ProvenanceChip? Counted => Page?.Summary.PlayersNowProvenance;
 
     private string Initials => string.Concat(
         (Page?.Summary.Name ?? "?")

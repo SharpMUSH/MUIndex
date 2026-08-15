@@ -31,6 +31,14 @@
     -->
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+
+    <!--
+      §11's opt-out reads a TXT record, which the BCL cannot ask for. The interface lives in
+      MUI.Discovery beside the gate that consults it and the implementation lives here, exactly as
+      IHostResolver and its live counterpart do — so the projects that hold the rules stay free of a
+      resolver, and no test anywhere depends on somebody else's zone file.
+    -->
+    <PackageReference Include="DnsClient" />
   </ItemGroup>
 
 </Project>

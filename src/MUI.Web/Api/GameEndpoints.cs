@@ -33,11 +33,19 @@ public static class GameEndpoints
         // building a filter UI over this endpoint gets counts that describe the page it was handed
         // — the same guarantee the site's own panel has, for the same reason.
         var matched = await queries.SearchAsync(query.Filter, http.RequestAborted);
-        var page = matched.Games.Skip(query.Offset).Take(query.Limit).Select(ApiMapper.Summary).ToList();
+
+        // One instant for the whole response: every age on a row is measured from the same moment
+        // the body is stamped with, so a listing cannot disagree with its own generatedAt.
+        var now = ApiClock.Now(clock);
+        var page = matched.Games
+            .Skip(query.Offset)
+            .Take(query.Limit)
+            .Select(game => ApiMapper.Summary(game, now))
+            .ToList();
 
         await ApiResponse.WriteJsonAsync(http, new GameListView(
             ApiVersion.Current,
-            ApiClock.Now(clock),
+            now,
             query.Echo,
             [.. matched.Facets.Select(ApiMapper.Facet)],
             Total: matched.Games.Count,
@@ -59,9 +67,12 @@ public static class GameEndpoints
         ISlugHistory slugs,
         TimeProvider clock)
     {
+        // Two keys, one read each (spec §5.7). The id used to cost the whole catalogue: it listed
+        // every game to turn a GUID into a slug and then read the page anyway, so the identifier
+        // this API tells consumers to store was the expensive way to ask for a game.
         var isId = Guid.TryParse(key, out var id);
         var page = isId
-            ? await ByIdAsync(queries, id, http.RequestAborted)
+            ? await queries.FindAsync(id, http.RequestAborted)
             : await queries.FindAsync(key, http.RequestAborted);
 
         if (page is null)
@@ -94,21 +105,4 @@ public static class GameEndpoints
             http, ApiMapper.Game(page, intervals, ApiClock.Now(clock)));
     }
 
-    /// <summary>
-    /// A game by its immutable id.
-    /// </summary>
-    /// <remarks>
-    /// It goes the long way round — list everything, including archived, and match — because
-    /// <see cref="IGameQueries"/> exposes no lookup by id. A <c>FindAsync(Guid)</c> beside the
-    /// existing <c>FindAsync(string)</c> would make this one query; see this task's report.
-    /// The GUID is served directly rather than redirected to the slug: the slug is the mutable one,
-    /// and sending a caller from the permanent identifier to the temporary one is backwards.
-    /// </remarks>
-    private static async Task<GamePage?> ByIdAsync(
-        IGameQueries queries, Guid id, CancellationToken cancellationToken)
-    {
-        var all = await queries.ListAsync(new GameFilter { IncludeArchived = true }, cancellationToken);
-        var match = all.FirstOrDefault(g => g.Id == id);
-        return match is null ? null : await queries.FindAsync(match.Slug, cancellationToken);
-    }
 }

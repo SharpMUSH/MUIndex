@@ -46,6 +46,23 @@ public class PlainSurfaceTests
     }
 
     [Test]
+    public async Task TheGamePagesOwnCountSaysHowItWasObtainedJustAsTheListingDoes()
+    {
+        // The game page is the surface a reader trusts most, and it was the one left saying
+        // "Players now: 9" flat while the listing beside it said the game had asserted that number.
+        // A page cannot be less labelled than the index that points at it.
+        var declared = await RenderAsync("ashen-court");
+        var measured = await RenderAsync("m-u-s-h");
+
+        await Assert.That(declared).Contains("Players now: 9  (declared, 9m)");
+        await Assert.That(measured).Contains("Players now: 15  (measured, 4m)");
+
+        // A count nobody could take keeps its sentence and gains no label.
+        await Assert.That(await RenderAsync("midnight-sun"))
+            .Contains("Players now: unknown (no count could be measured)");
+    }
+
+    [Test]
     public async Task ADisagreementIsFlaggedInWordsNotByColour()
     {
         var text = await RenderAsync("m-u-s-h");

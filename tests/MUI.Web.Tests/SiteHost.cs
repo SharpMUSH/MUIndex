@@ -7,11 +7,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-using MUI.Catalog;
-using MUI.Web.Api;
-using MUI.Web.Components;
-using MUI.Web.Data;
-using MUI.Web.Fixtures;
 
 namespace MUI.Web.Tests;
 
@@ -28,9 +23,19 @@ namespace MUI.Web.Tests;
 /// what a browser is handed and no tool at all for a claim about a status line.
 /// </para>
 /// <para>
-/// It composes the same way <c>Program</c> does rather than booting it, so a test can vary what a
-/// deployment would have decided — the catalogue behind it, the configured aliases — without an
-/// environment variable and without the solution taking a test-hosting package for one file.
+/// It calls <see cref="SiteComposition.AddMuiSite"/> and <see cref="SiteComposition.UseMuiSite"/>
+/// rather than booting <c>Program</c>, so a test can vary what a deployment would have decided — the
+/// catalogue behind it, the configured aliases — without an environment variable and without the
+/// solution taking a test-hosting package for one file. <b>It calls them rather than restating
+/// them</b>: this host assembled the graph and the pipeline by hand until <c>SiteComposition</c>
+/// existed, and a harness that reassembles a pipeline is a harness that can quietly stop describing
+/// the site. Every assertion here about a status line is worth something only if the middleware
+/// order under it is the deployed one.
+/// </para>
+/// <para>
+/// Composed with a null connection string, which is the demo-fixture half: no database, so no
+/// accounts and no submission endpoint, and the page says what it is showing was not measured —
+/// exactly what a reader of the real site with no <c>MUI_POSTGRES</c> sees.
 /// </para>
 /// </remarks>
 public sealed class SiteHost : IAsyncDisposable
@@ -63,42 +68,30 @@ public sealed class SiteHost : IAsyncDisposable
             builder.Configuration.AddInMemoryCollection(settings);
         }
 
-        builder.Services.AddRazorComponents();
-
-        var fixture = new FixtureGameQueries();
-        builder.Services.AddSingleton<IGameQueries>(fixture);
-        builder.Services.AddSingleton<IAvailabilityHistory>(fixture);
-        builder.Services.AddSingleton(TimeProvider.System);
-
-        // The demo fixture, and the page says so — which is what a reader of this host sees, exactly
-        // as a reader of the site with no database does.
-        builder.Services.AddSingleton(new CatalogueSource(IsMeasured: false));
-
+        // Before AddMuiSite, because that is the order a real host composes in: whatever a database
+        // would have registered is chosen first, and the site's own graph fills in the rest.
         services?.Invoke(builder.Services);
-        builder.Services.AddMuiApi(builder.Configuration);
+
+        // The site's own registrations — the fixture catalogue, the clock, the demo marker and the
+        // read API — through the one call Program makes.
+        builder.Services.AddMuiSite(builder.Configuration, connectionString: null);
 
         builder.WebHost.UseUrls("http://127.0.0.1:0");
 
         var app = builder.Build();
 
-        // The same pipeline Program builds, in the same order, through the same calls — a harness
-        // that reassembled it by hand is a harness that can quietly stop describing the site.
-        app.UseMuiNotFoundPage();
-        app.UseAntiforgery();
-        app.UseFormerSlugRedirects();
-        app.MapRazorComponents<App>();
+        // The pipeline and the routes, through the one call Program makes. That includes the read
+        // API, because the deployable is one process and a rule about how *pages* answer must not
+        // reach the endpoints beside them: an unmatched route under /api is a 404 nobody wrote a
+        // body for, which is exactly the shape a not-found page would have swallowed.
+        app.UseMuiSite(connectionString: null);
 
-        // The read API, because the deployable is one process and a rule about how *pages* answer
-        // must not reach the endpoints beside them. An unmatched route under /api is a 404 nobody
-        // wrote a body for, which is exactly the shape a not-found page would have swallowed.
-        app.MapMuiApi();
-
-        // Standing in for MUI.Web.Accounts, which cannot be mapped here: passkeys need a database
-        // and this host has none. The status line is what matters — Passkeys.cs answers a bad
-        // sign-in with Results.Unauthorized(), a bodiless 401, and passkey.js renders
-        // `throw new Error(await response.text())` straight into the sign-in status line. If
-        // anything in the pipeline fills that body with HTML, a reader who mistyped their passkey
-        // is shown a page of markup.
+        // Standing in for MUI.Web.Accounts, which UseMuiSite leaves unmapped with no connection
+        // string: passkeys need a database and this host has none. The status line is what matters —
+        // Passkeys.cs answers a bad sign-in with Results.Unauthorized(), a bodiless 401, and
+        // passkey.js renders `throw new Error(await response.text())` straight into the sign-in
+        // status line. If anything in the pipeline fills that body with HTML, a reader who mistyped
+        // their passkey is shown a page of markup.
         app.MapPost(SignInPath, () => Results.Unauthorized()).DisableAntiforgery();
 
         await app.StartAsync();

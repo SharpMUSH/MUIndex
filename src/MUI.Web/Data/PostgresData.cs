@@ -1,5 +1,8 @@
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
+
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
 using Npgsql;
 
 namespace MUI.Web.Data;
@@ -49,19 +52,34 @@ public static class PostgresData
     /// </remarks>
     public static void AddPostgresCatalogue(this IServiceCollection services, string connectionString)
     {
-        services.AddSingleton(_ => NpgsqlDataSource.Create(connectionString));
+        ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<IFieldRegistry, FieldRegistry>();
-        services.AddSingleton<IAvailabilityStore>(s =>
-            new NpgsqlAvailabilityStore(s.GetRequiredService<NpgsqlDataSource>()));
-        services.AddSingleton<IAvailabilityHistory, StoredAvailabilityHistory>();
+        // TryAdd throughout, and the availability store registered once and exposed through its
+        // interfaces rather than newed per interface. Both matter because AddMuiCrawler registers
+        // the same objects for the crawl loop and one deployable calls both (§4.11): with AddSingleton
+        // this method won the IAvailabilityStore registration while the crawler's TryAdd was skipped,
+        // leaving the concrete type and IReachableHistory pointing at a SECOND instance. Harmless on
+        // one pool, and a direct contradiction of the comment in the crawler that says the store is
+        // registered once because two would be two connection paths answering one question.
+        services.TryAddSingleton(_ => NpgsqlDataSource.Create(connectionString));
+
+        // The registry is a lookup table with no state, so the shared instance rather than a second
+        // one — which is also what the crawler registers.
+        services.TryAddSingleton<IFieldRegistry>(FieldRegistry.Instance);
+
+        services.TryAddSingleton(s => new NpgsqlAvailabilityStore(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IAvailabilityStore>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());
+        services.TryAddSingleton<IReachableHistory>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());
+        services.TryAddSingleton<IAvailabilityHistory, StoredAvailabilityHistory>();
 
         // §5.7's former-slug table. Registered here rather than only with the crawler because a
         // read-only replica serves the redirects too — the promise is about URLs, not about which
-        // process happens to be writing.
-        services.AddSingleton<ISlugHistoryStore>(s =>
+        // process happens to be writing. TryAdd for the same reason as everything above it: the
+        // crawler registers this one too, and two of them would be two pools answering one question.
+        services.TryAddSingleton<ISlugHistoryStore>(s =>
             new NpgsqlSlugHistoryStore(s.GetRequiredService<NpgsqlDataSource>()));
-        services.AddSingleton<IGameQueries>(s => new NpgsqlGameQueries(
+
+        services.TryAddSingleton<IGameQueries>(s => new NpgsqlGameQueries(
             s.GetRequiredService<NpgsqlDataSource>(),
             s.GetRequiredService<IFieldRegistry>()));
     }

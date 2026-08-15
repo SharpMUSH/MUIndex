@@ -36,7 +36,7 @@ public class SlugRedirectTests
     {
         await using var host = await ApiHost.StartAsync(
             new Dictionary<string, string?> { ["SlugAliases:gaslight-lane"] = "gaslight-row" },
-            services => services.AddSingleton<ISlugHistoryStore>(new FakeSlugHistory()));
+            services: services => services.AddSingleton<ISlugHistoryStore>(new FakeSlugHistory()));
 
         var response = await host.Client.GetAsync($"{ApiRoutes.Games}/gaslight-lane");
 
@@ -52,7 +52,7 @@ public class SlugRedirectTests
         // memory of it. Where they disagree, the measured record wins.
         await using var host = await ApiHost.StartAsync(
             new Dictionary<string, string?> { ["SlugAliases:tidewater-nights"] = "gaslight-row" },
-            services => services
+            services: services => services
                 .AddSingleton<ISlugHistoryStore>(new FakeSlugHistory { ["tidewater-nights"] = "m-u-s-h" }));
 
         var response = await host.Client.GetAsync($"{ApiRoutes.Games}/tidewater-nights");

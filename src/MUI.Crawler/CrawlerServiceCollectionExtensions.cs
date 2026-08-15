@@ -76,6 +76,20 @@ public static class CrawlerServiceCollectionExtensions
         services.AddSingleton(options);
         services.AddSingleton(options.Discovery);
         services.AddSingleton(options.Probe);
+        services.AddSingleton(options.Maintenance);
+        services.AddSingleton(options.Maintenance.Retention);
+        services.AddSingleton(options.Salt);
+
+        // §11's rotating salt. A singleton because an epoch that differed between two callers in one
+        // process would make two names hash differently for no reason anybody could see.
+        //
+        // Registered and, as of today, resolved by nothing: the WHO parser counts rows and never
+        // extracts a name, so no probe produces aggregates and nothing constructs PresenceAggregates.
+        // The salt is here because the rule it serves is about what may be persisted, and having the
+        // one function that turns a name into a hash exist before anything hands it a name is how the
+        // rule stays enforceable. Whatever teaches the parser to read a name column takes this from
+        // here and hashes through it; it does not grow its own.
+        services.TryAddSingleton<ISaltProvider>(s => new RotatingSaltProvider(s.GetRequiredService<SaltRotationOptions>()));
 
         // The catalogue's own stores. NpgsqlAvailabilityStore is both the store and the reachable
         // history the archive sweep reads, so it is registered once and exposed twice — two instances
@@ -84,10 +98,32 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<IEndpointStore>(s => new NpgsqlEndpointStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IGameFieldStore>(s => new NpgsqlGameFieldStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<ISlugHistoryStore>(s => new NpgsqlSlugHistoryStore(s.GetRequiredService<NpgsqlDataSource>()));
-        services.TryAddSingleton<IPresenceStore>(s => new NpgsqlPresenceStore(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton(s => new NpgsqlPresenceStore(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IPresenceStore>(s => s.GetRequiredService<NpgsqlPresenceStore>());
+        services.TryAddSingleton(s => new NpgsqlPresenceRollupStore(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton(s => new PresenceMaintenance(
+            s.GetRequiredService<NpgsqlPresenceStore>(),
+            s.GetRequiredService<NpgsqlPresenceRollupStore>(),
+            s.GetRequiredService<PresenceRetentionOptions>(),
+            s.GetService<ILogger<PresenceMaintenance>>()));
         services.TryAddSingleton(s => new NpgsqlAvailabilityStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IAvailabilityStore>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());
         services.TryAddSingleton<IReachableHistory>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());
+
+        // §8's claim settling. Every probe of a game whose owner has published a token completes the
+        // claim, and every probe of a claimed game refreshes beacon_last_seen_at — both on the
+        // ordinary schedule, which is why this belongs to the crawl graph rather than to the web
+        // tier that mints the tokens.
+        //
+        // The consumer is the in-process CrawlCycle of the one deployable (§4.11) — this method has
+        // exactly one caller, MUI.Web's Program, and mui-crawl builds its own graph by hand. It was
+        // missing here, and CrawlCycle takes its ClaimService as an OPTIONAL parameter, so the site
+        // settled beacons only insofar as some other registration happened to supply one. That is
+        // the shape of the bug rather than an argument for a deployment nobody builds.
+        services.TryAddSingleton<IClaimStore>(s => new NpgsqlClaimStore(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IOnDemandProbes>(
+            s => new NpgsqlOnDemandProbes(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<ClaimService>();
 
         // The three writers of §6.5, plus the field registry they judge staleness against.
         services.TryAddSingleton<IFieldRegistry>(FieldRegistry.Instance);
@@ -113,6 +149,19 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<IGameFieldIndex>(
             s => new NpgsqlGameFieldIndex(s.GetRequiredService<NpgsqlDataSource>()));
 
+        // The public submission form (spec §7.6, §9). It writes into the registry above and nowhere
+        // else, and it is registered here rather than in the web project because everything it needs
+        // is already assembled here — the registry, the endpoint directory and §7.2's gate.
+        services.TryAddSingleton(options.Submissions);
+        services.TryAddSingleton<ISubmissionSalt>(s => new NpgsqlSubmissionSalt(
+            s.GetRequiredService<NpgsqlDataSource>(),
+            s.GetRequiredService<SubmissionOptions>(),
+            s.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<SubmissionSource>();
+        services.TryAddSingleton<ISubmissionLog>(
+            s => new NpgsqlSubmissionLog(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<SubmissionService>();
+
         services.TryAddSingleton<IdentityMatcher>();
         services.TryAddSingleton<ReferralGraphWriter>();
         services.TryAddSingleton<HostGate>();
@@ -122,6 +171,17 @@ public static class CrawlerServiceCollectionExtensions
         // only place live DNS is reached from, and it is injected so no test performs a lookup.
         services.TryAddSingleton<IHostResolver, SystemHostResolver>();
         services.TryAddSingleton<HostScopeGuard>();
+
+        // The same instance behind the interface. Two registrations would be two guards, and a
+        // caller reaching the one with no resolver behind it is not a failure anybody would notice.
+        services.TryAddSingleton<IHostScopeGuard>(s => s.GetRequiredService<HostScopeGuard>());
+
+        // §11's opt-out: the register, the TXT lookup that lets an operator withdraw one without
+        // asking us, and the gate the crawl loop consults before every dial.
+        services.TryAddSingleton<ICrawlOptOutRepository>(
+            s => new NpgsqlCrawlOptOutRepository(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IDnsTxtResolver, DnsTxtResolver>();
+        services.TryAddSingleton<OptOutGate>();
 
         services.TryAddSingleton<IProbe>(s => new TelnetProbe(s.GetRequiredService<ProbeOptions>()));
 
@@ -141,6 +201,14 @@ public static class CrawlerServiceCollectionExtensions
         if (options.Enabled)
         {
             services.AddHostedService<CrawlerService>();
+        }
+
+        // Deliberately not gated on options.Enabled: a pure web replica still wants next month's
+        // partitions to exist and this month's samples rolled up, and the maintenance pass takes its
+        // own advisory lock, so however many replicas register it, one runs it.
+        if (options.Maintenance.Enabled)
+        {
+            services.AddHostedService<PresenceMaintenanceService>();
         }
 
         return services;
@@ -167,13 +235,25 @@ public sealed class CrawlerOptionsBuilder
     public bool ApplyMigrations { get; set; } = true;
 
     /// <summary>Which advisory lock this deployment competes for (spec §12).</summary>
-    public long AdvisoryLockKey { get; set; } = CrawlLease.DefaultKey;
+    public long AdvisoryLockKey { get; set; } = AdvisoryLease.CrawlKey;
 
     /// <summary>Per-cycle bounds.</summary>
     public DiscoveryOptions Discovery { get; set; } = new();
 
     /// <summary>Per-probe bounds.</summary>
     public ProbeOptions Probe { get; set; } = new();
+
+    /// <summary>What one source may put through the public submission form.</summary>
+    public SubmissionOptions Submissions { get; set; } = new();
+
+    /// <summary>
+    /// Rollups, partitions ahead of need, and how long each grain of presence is kept (§5.2, §15.4).
+    /// Keeps everything until a deployment says otherwise.
+    /// </summary>
+    public PresenceMaintenanceOptions Maintenance { get; set; } = new();
+
+    /// <summary>How often §11's hashing salt rotates, and what it is derived from.</summary>
+    public SaltRotationOptions Salt { get; set; } = new();
 
     /// <summary>
     /// Adds an address the crawler knows on day one.
@@ -198,6 +278,9 @@ public sealed class CrawlerOptionsBuilder
         AdvisoryLockKey = AdvisoryLockKey,
         Discovery = Discovery,
         Probe = Probe,
+        Maintenance = Maintenance,
+        Salt = Salt,
+        Submissions = Submissions,
         Seeds = _seeds,
     };
 }
