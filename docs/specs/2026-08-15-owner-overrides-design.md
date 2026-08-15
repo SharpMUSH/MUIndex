@@ -156,10 +156,18 @@ stored fields and must not start reading owner rows.
 auto-merges above a threshold. An owner could type their way into another game's fingerprint, or out
 of a merge with a second address of their own.
 
-**`IdentityMatcher` reads `FieldSource.Mssp` rows explicitly.** De-duplication asks which host is
-which game by comparing what servers said to each other; a person's typing is not evidence in that
-question, however true it is. This is the same rule as §5.4's, one layer down: our record of somebody
-else's decision may not be laundered into a measurement of theirs.
+**`IdentityMatcher` drops `FieldSource.Owner` rows and keeps the ladder for the rest.**
+De-duplication asks which host is which game by comparing what servers said to each other; a person's
+typing is not evidence in that question, however true it is. This is the same rule as §5.4's, one
+layer down: our record of somebody else's decision may not be laundered into a measurement of theirs.
+
+**`FieldSource.Staff` stays in, and this was a correction.** The first draft of this section excluded
+it alongside `Owner` on the grounds that it is also a person typing — but `IdentityMatcherTests`
+already asserts, deliberately, that a staff row is what identity compares against. That test is
+right. A staff row is the curator's correction; it exists to fix a catalogue that has merged two
+games or split one, which makes it precisely the value identity should be steered by, and there is no
+surface through which anybody but us can write one. The difference is not that we trust ourselves
+more — it is that an owner writes about their own game and a curator writes about the catalogue.
 
 ### 3.2 The MSSP scorecard
 
