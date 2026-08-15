@@ -136,6 +136,13 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<IHostResolver, SystemHostResolver>();
         services.TryAddSingleton<HostScopeGuard>();
 
+        // §11's opt-out: the register, the TXT lookup that lets an operator withdraw one without
+        // asking us, and the gate the crawl loop consults before every dial.
+        services.TryAddSingleton<ICrawlOptOutRepository>(
+            s => new NpgsqlCrawlOptOutRepository(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IDnsTxtResolver, DnsTxtResolver>();
+        services.TryAddSingleton<OptOutGate>();
+
         services.TryAddSingleton<IProbe>(s => new TelnetProbe(s.GetRequiredService<ProbeOptions>()));
 
         services.TryAddSingleton<ProbeIngestor>();
