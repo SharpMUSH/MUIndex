@@ -11,6 +11,35 @@
     <meta name="color-scheme" content="dark light" />
     <base href="/" />
     <link rel="stylesheet" href="app.css" />
+
+    @*
+        The SVG is the real icon and the .ico is the fallback for the browsers that still want one;
+        anything that understands both takes the SVG, which is the one that stays sharp on a display
+        the .ico has no size for.
+
+        The mark is the asterisk out of the wordmark, drawn as strokes rather than typed — the site
+        loads no font from anywhere, so a glyph here would be whatever the reader's browser fell
+        back to. It carries its own plate and does not follow the reader's theme; favicon.svg says
+        why, and the reason is the same 4.5:1 rule that makes the accent change value in app.css.
+    *@
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    @*
+        The manifest is here for the name, the icon set and the colour a phone paints its chrome —
+        and it declares display: browser, which means it does not ask to be installed. That is not a
+        gap. These pages are static documents with no offline story; an installed shell that showed
+        a blank frame on a train would be a small version of the thing this site exists not to do.
+    *@
+    <link rel="manifest" href="site.webmanifest" />
+
+    @*
+        Both, because neither theme is the real one. A single theme-color hands mobile Safari one of
+        them as the truth and puts a dark bar above a light page for half the readers.
+    *@
+    <meta name="theme-color" content="#0f1113" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f7f8f9" media="(prefers-color-scheme: light)" />
+
     <HeadOutlet />
 </head>
 <body>

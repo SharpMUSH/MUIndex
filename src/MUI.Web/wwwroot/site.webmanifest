@@ -1,0 +1,34 @@
+{
+  "name": "MUIndex — the MU* directory",
+  "short_name": "mu*index",
+  "description": "An information site for the MU* hobby whose data is measured rather than asserted. Every fact carries how it was obtained and how old it is.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "background_color": "#0f1113",
+  "theme_color": "#0f1113",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    },
+    {
+      "src": "/icon-512-maskable.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ]
+}

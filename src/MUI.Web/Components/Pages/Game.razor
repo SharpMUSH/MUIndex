@@ -6,6 +6,19 @@
 @inject IServiceProvider Services
 @inject NavigationManager Navigation
 
+@if (Page is not null)
+{
+    @*
+        Above the plain switch and outside it, because ?plain=1 is the same document rendered for a
+        text browser and gets the same metadata — its canonical URL is this page without the query,
+        which is what stops one game being indexed as two.
+    *@
+    <SitePreview Title="@Page.Summary.Name"
+                 Description="@PreviewCopy.ForGame(Page, Now)"
+                 Card="PreviewCard.Game"
+                 Graph="GraphFor" />
+}
+
 @if (Page is null)
 {
     @* Not reached over HTTP: OnParametersSetAsync signals not-found, and the framework answers with
@@ -26,8 +39,6 @@ else if (Plain)
 }
 else
 {
-    <PageTitle>@Page.Summary.Name — mu*index</PageTitle>
-
     @* The game is the hero; the connect screen follows as evidence. Leading with the art would hand
        the top of every page to whatever a stranger's server happens to send. *@
     <article class="game @(Archived ? "archived" : null)">
@@ -260,6 +271,17 @@ else
     private AnsiScreen ConnectScreen = default!;
 
     private DateTimeOffset Now => Clock.GetUtcNow();
+
+    /// <summary>
+    /// The schema.org graph for this game, built once the origin is known.
+    /// </summary>
+    /// <remarks>
+    /// Handed to <c>SitePreview</c> as a function rather than a string because only that component
+    /// knows the two things this needs: the absolute origin the request came in on, and whether a
+    /// catalogue exists at all. Over the demo fixture it is never called, which is the point —
+    /// nothing that reads a graph would ever see the banner saying the games are invented.
+    /// </remarks>
+    private string GraphFor(Uri origin) => GameStructuredData.For(Page!, origin);
 
     private bool Archived => Page?.Summary.State is LifecycleState.Archived;
 

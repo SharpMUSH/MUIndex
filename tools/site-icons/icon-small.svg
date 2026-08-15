@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="mu*index">
+  <!--
+    The 16px and 32px frames of favicon.ico, which are not the shipped SVG scaled down.
+
+    Optical sizing, and it is not optional here: at sixteen pixels the ordinary mark's 3.6-unit
+    strokes land 1.8px wide with 4.5px arms, so the six arms fuse into a green blob with a bite out
+    of each corner. Thinner strokes and longer arms give the gaps somewhere to be, and the plate's
+    corner radius comes down because a 3px radius on a 16px square eats the corner entirely.
+
+    This is the whole reason the .ico is generated from its own source rather than from favicon.svg.
+  -->
+  <rect width="32" height="32" rx="5" fill="#0f1113"/>
+  <g stroke="#35d29a" stroke-width="2.8" stroke-linecap="round">
+    <line x1="16" y1="5.5" x2="16" y2="26.5"/>
+    <line x1="6.91" y1="10.75" x2="25.09" y2="21.25"/>
+    <line x1="6.91" y1="21.25" x2="25.09" y2="10.75"/>
+  </g>
+</svg>

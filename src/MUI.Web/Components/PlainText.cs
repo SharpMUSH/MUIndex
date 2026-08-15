@@ -165,25 +165,15 @@ public static class PlainText
     /// two ways for a while. An absent chip prints nothing rather than inventing a source for a
     /// value nobody has labelled.
     /// <para>
-    /// <b>Three words and not two.</b> Plain mode is the surface with no hover, so "declared" alone
-    /// would put what a game's operator typed into our form and what its own config file emits under
-    /// one word. The distinction is made here rather than at one call site because it is a fact about
-    /// the chip: an owner's answer is owner-declared on the listing, on the game page and in the
-    /// archive alike, and a rule spelled at one of four call sites is a rule the other three break.
+    /// The word itself is <see cref="Provenance.How"/>'s, which is where it moved once the preview
+    /// metadata needed it too — a rule spelled at one of five call sites is a rule the other four
+    /// break, and a private spelling is one the fifth surface cannot reach even to obey.
     /// </para>
     /// </remarks>
     internal static string Label(ProvenanceChip? chip, DateTimeOffset now) => chip is null
         ? string.Empty
-        : $"({How(chip)}, {Relative.Format(now - chip.LastConfirmedAt)}"
+        : $"({Provenance.How(chip)}, {Relative.Format(now - chip.LastConfirmedAt)}"
             + (chip.IsStale ? ", stale)" : ")");
-
-    /// <summary>How we know it, in the one word plain mode has room for.</summary>
-    private static string How(ProvenanceChip chip) => chip switch
-    {
-        { IsMeasured: true } => "measured",
-        { Source: FieldSource.Owner } => "owner-declared",
-        _ => "declared",
-    };
 
     /// <summary>
     /// The connect screen with its SGR stripped. Colour codes are never announced, and the three
