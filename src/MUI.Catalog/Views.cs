@@ -135,12 +135,87 @@ public sealed record GamePage(
     IReadOnlyList<CapabilityRow> Capabilities,
     IReadOnlyList<ActivityCell> Activity,
     IReadOnlyDictionary<string, ProvenanceChip> Declared,
-    IReadOnlyList<ChangeEntry> Changes)
+    IReadOnlyList<ChangeEntry> Changes,
+
+    // §9's referral neighbours. Defaulted because the fixture and the tests build a page without
+    // them, and a game with no neighbours is the ordinary case rather than a missing read.
+    IReadOnlyList<ReferralNeighbour>? Neighbours = null)
 {
     public int DisagreementCount => Capabilities.Count(c => c.Disagrees);
+
+    /// <summary>Games this one points at, and games that point at it — measured, not curated.</summary>
+    public IReadOnlyList<ReferralNeighbour> Referrals => Neighbours ?? [];
 }
 
-public sealed record GameEndpointView(string Host, int Port, string Kind, bool TlsMeasured);
+/// <summary>Which way a referral runs.</summary>
+public enum ReferralDirection
+{
+    /// <summary>This game's own list names them. A fact about what this game published.</summary>
+    Lists,
+
+    /// <summary>Their list names this game. A fact about what they published.</summary>
+    ListedBy,
+}
+
+/// <summary>
+/// One end of a referral edge, resolved to a game we know (spec §9).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>This is a measurement, and of the referrer rather than of the referred.</b> A game publishing
+/// a <c>REFERRAL</c> list is asserting something, and what we measured is that they published it —
+/// so an edge says "this list named that address on this date" and never "these games are related".
+/// The direction is kept because the two are different claims by different people, and merging them
+/// into one "neighbours" bag would attribute each game's list to the other.
+/// </para>
+/// <para>
+/// Only edges whose address we have identified as a game appear. A referral to a host we have never
+/// listed is a real edge and an unnameable neighbour, and inventing a name for it would be worse
+/// than the omission.
+/// </para>
+/// </remarks>
+public sealed record ReferralNeighbour(
+    string Slug,
+    string Name,
+    string Host,
+    int Port,
+    ReferralDirection Direction,
+    DateTimeOffset FirstSeenAt,
+    DateTimeOffset LastSeenAt,
+
+    // False means the list stopped naming it, never that the edge was deleted.
+    bool Present);
+
+/// <summary>
+/// One address a game answers on, with the history the table has always kept (spec §9).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <see cref="FirstSeenAt"/>, <see cref="LastSeenAt"/> and <see cref="State"/> are stored per
+/// endpoint (migration 0005) and were dropped in this projection, so a game that had moved could
+/// never render the move. That matters more here than the missing dates suggest: an address a game
+/// has left is the single most useful thing to show somebody holding an old one, and §7.5's promise
+/// that nothing is deleted is only visible if the departed row is rendered as departed rather than
+/// omitted.
+/// </para>
+/// <para>
+/// <see cref="State"/> is the table's own vocabulary — <c>active</c>, <c>stale</c>, <c>gone</c> —
+/// carried through rather than re-derived from the dates, so a surface cannot invent a threshold the
+/// writer does not share.
+/// </para>
+/// </remarks>
+public sealed record GameEndpointView(
+    string Host,
+    int Port,
+    string Kind,
+    bool TlsMeasured,
+    DateTimeOffset FirstSeenAt,
+    DateTimeOffset LastSeenAt,
+    string State)
+{
+    /// <summary>Whether we still reach the game here.</summary>
+    public bool IsCurrent => string.Equals(State, "active", StringComparison.Ordinal);
+}
 
 public sealed record ChangeEntry(DateTimeOffset At, string Summary);
 

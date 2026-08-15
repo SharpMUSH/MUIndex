@@ -99,13 +99,30 @@ else
                         <span class="state-unknown">– count unknown</span>
                     }
                 </p>
-                @foreach (var e in Page.Endpoints)
+                @*
+                    Current addresses first, then the ones the game has left. A departed address is
+                    rendered rather than dropped, because the reader most in need of this page is the
+                    one holding an address that stopped answering — and §7.5's promise that nothing is
+                    deleted is invisible if the row is simply not shown.
+                *@
+                @foreach (var e in Page.Endpoints.OrderByDescending(e => e.IsCurrent).ThenBy(e => e.Port))
                 {
-                    <p class="endpoint mono">
+                    <p class="endpoint mono @(e.IsCurrent ? null : "former")">
                         @e.Host @e.Port
                         @if (e.TlsMeasured)
                         {
                             <span class="state-present">● tls</span>
+                        }
+                        @if (e.IsCurrent)
+                        {
+                            <span class="faint">answering here since @e.FirstSeenAt.ToString("MMM yyyy")</span>
+                        }
+                        else
+                        {
+                            @* Named as ours to have stopped reaching, never as theirs to have gone. *@
+                            <span class="faint">
+                                @e.State — last answered @Relative.Ago(Now - e.LastSeenAt)
+                            </span>
                         }
                     </p>
                 }
@@ -139,6 +156,49 @@ else
 
                 <h2>Reachable</h2>
                 <AvailabilityStrip Summary="Reach" />
+
+                @*
+                    §9's referral neighbours, off edges the crawler has been storing since migration
+                    0006 and nothing has read. Split by direction on purpose: "we list them" is a
+                    fact about what THIS game published, and "they list us" is a fact about what
+                    somebody else published. One combined list would attribute each to the other,
+                    and neither is a claim that the two games are related.
+                *@
+                @if (Page.Referrals.Count > 0)
+                {
+                    <h2>Referrals</h2>
+
+                    @foreach (var group in Page.Referrals.GroupBy(n => n.Direction))
+                    {
+                        <p class="faint">
+                            @(group.Key is ReferralDirection.Lists
+                                ? "This game's own referral list names:"
+                                : "Named by the referral list of:")
+                        </p>
+                        <ul class="neighbours">
+                            @foreach (var neighbour in group)
+                            {
+                                <li class="@(neighbour.Present ? null : "former")">
+                                    <a href="/g/@neighbour.Slug">@neighbour.Name</a>
+                                    @if (neighbour.Present)
+                                    {
+                                        <span class="faint">
+                                            since @neighbour.FirstSeenAt.ToString("MMM yyyy")
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        @* Dropped from the list, not deleted — the edge is kept. *@
+                                        <span class="faint">
+                                            no longer listed, last seen
+                                            @Relative.Ago(Now - neighbour.LastSeenAt)
+                                        </span>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+                }
 
                 @if (Page.Changes.Count > 0)
                 {

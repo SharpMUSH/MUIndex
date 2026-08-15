@@ -103,6 +103,15 @@ public static class ApiMapper
             new PresenceView("dayOfWeekHour", "UTC", [.. page.Activity.Select(Presence)]),
             [.. availability.Select(i => Span(i, now))],
             [.. page.Changes.Select(c => new ChangeView(c.At, c.Summary))],
+            [.. page.Referrals.Select(n => new NeighbourView(
+                n.Slug,
+                n.Name,
+                n.Host,
+                n.Port,
+                n.Direction is ReferralDirection.Lists ? "lists" : "listed-by",
+                n.FirstSeenAt,
+                n.LastSeenAt,
+                n.Present))],
             ApiRoutes.Page(game.Slug),
             ApiRoutes.Game(game.Id));
     }
@@ -167,8 +176,14 @@ public static class ApiMapper
         interval.IsOpen,
         interval.DurationAt(now).TotalSeconds);
 
-    public static EndpointView Endpoint(GameEndpointView endpoint) =>
-        new(endpoint.Host, endpoint.Port, endpoint.Kind, endpoint.TlsMeasured);
+    public static EndpointView Endpoint(GameEndpointView endpoint) => new(
+        endpoint.Host,
+        endpoint.Port,
+        endpoint.Kind,
+        endpoint.TlsMeasured,
+        endpoint.FirstSeenAt,
+        endpoint.LastSeenAt,
+        endpoint.State);
 
     public static FeedEntryView Feed(FeedEntry entry) => new(
         entry.Id,

@@ -118,9 +118,42 @@ public enum PlayerCountState
     Unknown,
 }
 
-public sealed record EndpointView(string Host, int Port, string Kind, bool TlsMeasured);
+/// <summary>
+/// An address, and how long it has answered there (spec §9).
+/// </summary>
+/// <remarks>
+/// A consumer holding an address that stopped working is the one this is for. <c>state</c> is the
+/// catalogue's own word — <c>active</c>, <c>stale</c>, <c>gone</c> — rather than a threshold applied
+/// here, so this cannot disagree with the page about when an address has been left.
+/// </remarks>
+public sealed record EndpointView(
+    string Host,
+    int Port,
+    string Kind,
+    bool TlsMeasured,
+    DateTimeOffset FirstSeenAt,
+    DateTimeOffset LastSeenAt,
+    string State);
 
 public sealed record ChangeView(DateTimeOffset At, string Summary);
+
+/// <summary>
+/// One referral edge, resolved to a game (spec §9).
+/// </summary>
+/// <remarks>
+/// <c>direction</c> is <c>lists</c> or <c>listed-by</c> and is not decoration: the two are different
+/// people's claims, and a consumer merging them would attribute each game's referral list to the
+/// other. <c>present</c> false means the list stopped naming it, never that the edge was deleted.
+/// </remarks>
+public sealed record NeighbourView(
+    string Slug,
+    string Name,
+    string Host,
+    int Port,
+    string Direction,
+    DateTimeOffset FirstSeenAt,
+    DateTimeOffset LastSeenAt,
+    bool Present);
 
 /// <summary>
 /// An availability span with its cause (spec §5.3). Intervals rather than samples: a hundred
@@ -221,6 +254,9 @@ public sealed record GameView(
     PresenceView Presence,
     IReadOnlyList<AvailabilitySpanView> Availability,
     IReadOnlyList<ChangeView> Changes,
+
+    /// <summary>§9's referral neighbours, both arrows, each labelled with which way it runs.</summary>
+    IReadOnlyList<NeighbourView> Referrals,
     string Url,
     string ApiUrl);
 
