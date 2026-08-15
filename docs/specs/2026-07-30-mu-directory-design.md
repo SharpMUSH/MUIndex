@@ -223,11 +223,23 @@ did not measure and one that claims to be a measurement of nothing at all.
 Retention is `PresenceRetentionOptions` and defaults to **keeping everything at every grain**, for
 the reason in §15.4. The shape above — raw 90 days, hourly two years, daily forever — is available as
 `PresenceRetentionOptions.AsDesigned` and is one setting away. Raw samples go by whole partitions and
-never row by row, and never before both rollups have consumed them: retention is clamped to the
-watermark, so a pass whose rollup failed cannot drop what the rollup was going to read.
+never row by row, and never before both rollups have consumed them: **each grain resumes from its own
+watermark** and writes that watermark only after its own aggregation, and retention is clamped to the
+older of the two. A pass that rolled the hours and then died cannot leave the daily grain believing
+it had read a year it never saw, and cannot drop the raw months that are then the only copy.
 
 The heatmap still reads raw samples over its eight-week window, which is why the shortest raw
 retention this accepts is that window. Pointing it at the hourly rollup is the remaining work.
+
+**§11's salt machinery is in place and nothing feeds it yet, which is worth saying plainly.**
+`RotatingSaltProvider` derives a per-epoch salt from a deployment secret, `PresenceAggregates`
+refuses an estimate that does not name its epoch, the rollup carries an estimate only where a
+bucket's samples share one, and the reader and the aggregation agree that an unlabelled estimate is
+not readable. But no probe produces aggregates: the `WHO` parser counts rows and never extracts a
+name, so `PresenceAggregates` is constructed nowhere in `src/`, and the `aggregates` column, the
+`salt_epoch` columns and the constraints around them are unreached in the shipped pipeline. That is
+the safe half to have built first — the rule that names are never persisted is kept by there being
+no path that handles one — but the unique-player estimate is designed, not delivered.
 
 **Activity band**, the facet §9 exposes, is derived here and defined once: `players now` (a non-null
 count above zero in the most recent hourly rollup), `active this week` (any such count in 7 days),

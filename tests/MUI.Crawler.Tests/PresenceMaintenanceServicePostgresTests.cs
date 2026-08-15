@@ -29,7 +29,7 @@ public class PresenceMaintenanceServicePostgresTests
 
         await new PresenceWriter(samples).WriteAsync(game, PresenceReading.Counted(4, FieldSource.Who), at);
 
-        using var service = Service(database, out _);
+        using var service = Service(database);
         await service.StartAsync(CancellationToken.None);
 
         var rolled = await UntilAsync(async () =>
@@ -57,7 +57,7 @@ public class PresenceMaintenanceServicePostgresTests
         await using var held = await AdvisoryLease.TryAcquireAsync(other, AdvisoryLease.PresenceMaintenanceKey);
         await Assert.That(held).IsNotNull();
 
-        using var service = Service(database, out _);
+        using var service = Service(database);
         await service.StartAsync(CancellationToken.None);
 
         await Task.Delay(TimeSpan.FromSeconds(1));
@@ -66,6 +66,36 @@ public class PresenceMaintenanceServicePostgresTests
         await Assert.That(await rollups.WatermarkAsync(PresenceGrain.Hour)).IsNull();
         await Assert.That(await rollups.ForGameAsync(game, PresenceGrain.Hour, at.AddHours(-1), at.AddHours(1)))
             .IsEmpty();
+    }
+
+    [Test]
+    public async Task AServiceThatStartsBeforeTheMigrationsWaitsForThemRatherThanFailing()
+    {
+        // AddMuiCrawler starts this beside CrawlerService, which applies the migrations under its own
+        // lease — so on a fresh database the first pass would otherwise hit 42P01, log an error that
+        // reads like a fault and stand down for the whole retry interval.
+        await using var database = await PostgresFixture.FreshDatabaseAsync();
+
+        using var service = Service(database);
+        await service.StartAsync(CancellationToken.None);
+
+        await Task.Delay(TimeSpan.FromMilliseconds(600));
+
+        // Still running, and nothing has faulted: it is waiting for a schema, not failing on one.
+        await new MigrationRunner(database.DataSource).ApplyAsync();
+
+        var game = await SeedGameAsync(database);
+        var at = DateTimeOffset.UtcNow.AddHours(-2);
+        await new PresenceWriter(new NpgsqlPresenceStore(database.DataSource))
+            .WriteAsync(game, PresenceReading.Counted(4, FieldSource.Who), at);
+
+        var rollups = new NpgsqlPresenceRollupStore(database.DataSource);
+        var rolled = await UntilAsync(async () =>
+            (await rollups.ForGameAsync(game, PresenceGrain.Hour, at.AddHours(-1), at.AddHours(1))).Count > 0);
+
+        await service.StopAsync(CancellationToken.None);
+
+        await Assert.That(rolled).IsTrue();
     }
 
     [Test]
@@ -84,12 +114,13 @@ public class PresenceMaintenanceServicePostgresTests
         await Assert.That(maintenance).IsNotNull();
     }
 
-    private static PresenceMaintenanceService Service(TestDatabase database, out PresenceMaintenanceOptions options)
+    private static PresenceMaintenanceService Service(TestDatabase database)
     {
-        options = new PresenceMaintenanceOptions
+        var options = new PresenceMaintenanceOptions
         {
             Interval = TimeSpan.FromMilliseconds(200),
             LeaseRetryInterval = TimeSpan.FromMilliseconds(200),
+            SchemaWait = TimeSpan.FromMilliseconds(200),
         };
 
         return new PresenceMaintenanceService(

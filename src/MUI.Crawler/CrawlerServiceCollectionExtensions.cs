@@ -82,6 +82,13 @@ public static class CrawlerServiceCollectionExtensions
 
         // §11's rotating salt. A singleton because an epoch that differed between two callers in one
         // process would make two names hash differently for no reason anybody could see.
+        //
+        // Registered and, as of today, resolved by nothing: the WHO parser counts rows and never
+        // extracts a name, so no probe produces aggregates and nothing constructs PresenceAggregates.
+        // The salt is here because the rule it serves is about what may be persisted, and having the
+        // one function that turns a name into a hash exist before anything hands it a name is how the
+        // rule stays enforceable. Whatever teaches the parser to read a name column takes this from
+        // here and hashes through it; it does not grow its own.
         services.TryAddSingleton<ISaltProvider>(s => new RotatingSaltProvider(s.GetRequiredService<SaltRotationOptions>()));
 
         // The catalogue's own stores. NpgsqlAvailabilityStore is both the store and the reachable

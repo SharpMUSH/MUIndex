@@ -40,12 +40,24 @@ public sealed record PresenceMaintenanceOptions
     /// <summary>How long a replica that could not take the lock waits before asking again.</summary>
     public TimeSpan LeaseRetryInterval { get; init; } = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// How long to wait when the schema is not there yet.
+    /// </summary>
+    /// <remarks>
+    /// Short, and separate from <see cref="LeaseRetryInterval"/>, because the two are different
+    /// situations. A replica that lost the lease has nothing to do for minutes; a replica whose
+    /// database is being migrated by another replica right now is seconds from being able to work,
+    /// and waiting out a lease interval would leave the first hour after every fresh deployment
+    /// unrolled for no reason.
+    /// </remarks>
+    public TimeSpan SchemaWait { get; init; } = TimeSpan.FromSeconds(5);
+
     /// <summary>How long presence is kept, at each grain. Keeps everything by default (§15.4).</summary>
     public PresenceRetentionOptions Retention { get; init; } = new();
 
     public void Validate()
     {
-        if (Interval <= TimeSpan.Zero || LeaseRetryInterval <= TimeSpan.Zero)
+        if (Interval <= TimeSpan.Zero || LeaseRetryInterval <= TimeSpan.Zero || SchemaWait <= TimeSpan.Zero)
         {
             throw new ArgumentException("Maintenance intervals have to be positive.");
         }
@@ -91,6 +103,7 @@ public sealed class PresenceMaintenanceService(
 
         AdvisoryLease? lease = null;
         var announced = false;
+        var waiting = false;
 
         try
         {
@@ -122,6 +135,25 @@ public sealed class PresenceMaintenanceService(
                     }
 
                     announced = false;
+
+                    // The migrations may be being applied right now by whichever replica holds the
+                    // crawl lease — this service starts beside that, not after it. Asking is one
+                    // catalogue lookup; not asking would mean a 42P01 in the log on every fresh
+                    // deployment and the first hour going unrolled while this backed off.
+                    if (!await maintenance.SchemaReadyAsync(stoppingToken))
+                    {
+                        if (!waiting)
+                        {
+                            logger.LogInformation(
+                                "The presence schema is not applied yet; waiting for the migration run");
+                            waiting = true;
+                        }
+
+                        await Task.Delay(options.SchemaWait, time, stoppingToken);
+                        continue;
+                    }
+
+                    waiting = false;
 
                     await maintenance.RunAsync(time.GetUtcNow(), stoppingToken);
 

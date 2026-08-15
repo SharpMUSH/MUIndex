@@ -55,6 +55,10 @@ public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source)
         // counted samples alone and come back NULL when there were none, and a group is only produced
         // for a bucket some probe actually wrote a row in — so an hour nobody measured stays absent
         // rather than arriving as a zero.
+        //
+        // The third FILTER is §11's: an estimate that does not name its epoch is not one anything may
+        // compare with another, so it is not one this may quietly take the max of either. The reader
+        // in NpgsqlPresenceStore drops the same case, and the two have to agree about what is legible.
         var sql = $"""
             INSERT INTO {table} (
                 game_id, {bucket}, counted_samples, unmeasurable_samples,
@@ -69,7 +73,8 @@ public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source)
                    CASE WHEN count(DISTINCT s.aggregates ->> 'saltEpoch') = 1
                         THEN min(s.aggregates ->> 'saltEpoch') END,
                    CASE WHEN count(DISTINCT s.aggregates ->> 'saltEpoch') = 1
-                        THEN max((s.aggregates ->> 'distinctEstimate')::integer) END
+                        THEN max((s.aggregates ->> 'distinctEstimate')::integer)
+                             FILTER (WHERE s.aggregates ->> 'saltEpoch' IS NOT NULL) END
               FROM presence_sample s
              WHERE s.at >= @from AND s.at < @to
              GROUP BY 1, 2
@@ -159,6 +164,30 @@ public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source)
                     updated_at = now()
             """,
             new { scope = Scope(grain), through = through.ToUniversalTime() },
+            cancellationToken: cancellationToken));
+    }
+
+    /// <summary>
+    /// Whether the tables a pass reads and writes exist yet.
+    /// </summary>
+    /// <remarks>
+    /// The maintenance service starts with the web tier, and on a fresh database the migrations are
+    /// being applied by whichever replica holds the crawl lease at the same moment. Asking is one
+    /// catalogue lookup; not asking means every replica's first pass throws <c>42P01</c> and stands
+    /// down for the whole retry interval, which turns "the schema arrived a second later" into five
+    /// minutes of no maintenance and an error in the log that looks like a real fault.
+    /// </remarks>
+    public async Task<bool> IsInstalledAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+            """
+            SELECT to_regclass('presence_sample') IS NOT NULL
+               AND to_regclass('presence_rollup_hour') IS NOT NULL
+               AND to_regclass('presence_rollup_day') IS NOT NULL
+               AND to_regclass('presence_rollup_state') IS NOT NULL
+            """,
             cancellationToken: cancellationToken));
     }
 

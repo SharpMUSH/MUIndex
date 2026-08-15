@@ -27,6 +27,16 @@ public sealed class PresenceMaintenance(
     PresenceRetentionOptions retention,
     ILogger? logger = null)
 {
+    /// <summary>
+    /// Whether the schema this pass works on has been applied yet.
+    /// </summary>
+    /// <remarks>
+    /// A hosted service that starts beside the migration run asks this rather than discovering the
+    /// answer as an exception. Cheap enough to ask every pass, so nothing has to remember it.
+    /// </remarks>
+    public Task<bool> SchemaReadyAsync(CancellationToken cancellationToken = default) =>
+        rollups.IsInstalledAsync(cancellationToken);
+
     /// <summary>One whole pass: partitions, then rollups, then retention.</summary>
     public async Task<PresenceMaintenanceReport> RunAsync(
         DateTimeOffset now,
@@ -53,11 +63,23 @@ public sealed class PresenceMaintenance(
     }
 
     /// <summary>
-    /// Aggregates everything measured up to the last hour that is over.
+    /// Aggregates everything measured up to the last hour that is over, at both grains.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The hour still running is left alone: a min and a max published halfway through an hour would
     /// be contradicted by the rest of it, and the raw rows are still there to be read next pass.
+    /// </para>
+    /// <para>
+    /// <b>Each grain resumes from its own watermark, and this is the part that deletes data if it is
+    /// wrong.</b> The two aggregations are separate statements, so a restart, a cancellation or a
+    /// transient error between them leaves the hours rolled and the days not. A daily pass that then
+    /// resumed from the <em>hourly</em> watermark would skip everything older than the overlap, write
+    /// its own watermark as though it had read it, and let retention drop the raw months behind it —
+    /// and the grain §5.2 keeps for ever would be permanently missing, with the only other copy gone.
+    /// Measured, by <c>EachGrainResumesFromItsOwnWatermarkAndNotFromTheHourly</c>, which produced six
+    /// hours of history and one day of it before this read its own mark.
+    /// </para>
     /// </remarks>
     public async Task<PresenceMaintenanceReport> RollUpAsync(
         DateTimeOffset now,
@@ -65,34 +87,49 @@ public sealed class PresenceMaintenance(
     {
         var toExclusive = FloorHour(now);
 
-        var resume = await rollups.WatermarkAsync(PresenceGrain.Hour, cancellationToken)
-            ?? await rollups.EarliestSampleAtAsync(cancellationToken);
+        // Only consulted for a grain that has never run. Read once, because it is a scan of the
+        // oldest partition and both grains would otherwise ask for the same answer.
+        var earliest = new Lazy<Task<DateTimeOffset?>>(() => rollups.EarliestSampleAtAsync(cancellationToken));
+
+        var hours = await RollGrainAsync(PresenceGrain.Hour, toExclusive, earliest, cancellationToken);
+        var days = await RollGrainAsync(PresenceGrain.Day, toExclusive, earliest, cancellationToken);
+
+        return new PresenceMaintenanceReport(0, hours, days, 0, 0, 0);
+    }
+
+    /// <summary>
+    /// Rolls one grain from where that grain got to, and moves that grain's watermark after — never
+    /// before, so an interrupted pass resumes rather than skips.
+    /// </summary>
+    private async Task<int> RollGrainAsync(
+        PresenceGrain grain,
+        DateTimeOffset toExclusive,
+        Lazy<Task<DateTimeOffset?>> earliest,
+        CancellationToken cancellationToken)
+    {
+        var resume = await rollups.WatermarkAsync(grain, cancellationToken) ?? await earliest.Value;
 
         if (resume is not { } start)
         {
             // Nothing has ever been measured, so there is nothing to aggregate and — importantly —
             // no watermark to write, which would otherwise let retention believe an unread past had
             // been consumed.
-            return PresenceMaintenanceReport.Nothing;
+            return 0;
         }
 
-        var from = FloorHour(start) - retention.RollupOverlap;
+        // Floored to the grain's own boundary, so a bucket is never rewritten from the fragment of
+        // itself that happened to fall after the watermark.
+        var from = Floor(grain, start - retention.RollupOverlap);
 
         if (from >= toExclusive)
         {
-            return PresenceMaintenanceReport.Nothing;
+            return 0;
         }
 
-        var hours = await rollups.RollUpAsync(PresenceGrain.Hour, from, toExclusive, cancellationToken);
-        await rollups.SetWatermarkAsync(PresenceGrain.Hour, toExclusive, cancellationToken);
+        var rolled = await rollups.RollUpAsync(grain, from, toExclusive, cancellationToken);
+        await rollups.SetWatermarkAsync(grain, toExclusive, cancellationToken);
 
-        // From the start of the first day the hourly pass touched, so a day is never rewritten from
-        // the fragment of itself that happened to fall after the watermark.
-        var days = await rollups.RollUpAsync(
-            PresenceGrain.Day, FloorDay(from), toExclusive, cancellationToken);
-        await rollups.SetWatermarkAsync(PresenceGrain.Day, toExclusive, cancellationToken);
-
-        return new PresenceMaintenanceReport(0, hours, days, 0, 0, 0);
+        return rolled;
     }
 
     /// <summary>
@@ -152,6 +189,13 @@ public sealed class PresenceMaintenance(
 
         return new PresenceMaintenanceReport(0, 0, 0, dropped, hoursDeleted, daysDeleted);
     }
+
+    private static DateTimeOffset Floor(PresenceGrain grain, DateTimeOffset at) => grain switch
+    {
+        PresenceGrain.Hour => FloorHour(at),
+        PresenceGrain.Day => FloorDay(at),
+        _ => throw new ArgumentOutOfRangeException(nameof(grain), grain, "No bucket has that grain."),
+    };
 
     private static DateTimeOffset FloorHour(DateTimeOffset at)
     {

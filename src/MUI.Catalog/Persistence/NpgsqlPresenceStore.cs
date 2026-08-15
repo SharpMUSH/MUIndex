@@ -238,9 +238,55 @@ public sealed class NpgsqlPresenceStore(NpgsqlDataSource source) : IPresenceStor
             Count = Count,
             Source = SqlEnums.ToFieldSource(Source),
             Reason = Reason is null ? null : SqlEnums.ToUnmeasurableReason(Reason),
-            Aggregates = Aggregates is null
-                ? null
-                : JsonSerializer.Deserialize<PresenceAggregates>(Aggregates, Json),
+            Aggregates = ReadAggregates(Aggregates),
         };
+
+        /// <summary>
+        /// Reads the <c>aggregates</c> column, dropping an estimate that does not name its epoch.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>One unreadable row may not cost the window it is in.</b> <see cref="PresenceAggregates"/>
+        /// refuses to be constructed with an estimate and no salt epoch (§11), and deserialising
+        /// straight into it made that refusal throw out of the middle of a read — so a single row
+        /// written before the rule existed, or edited by hand, took every other measurement in the
+        /// window with it. Reading through a shape with no invariant and then applying the rule keeps
+        /// the refusal and confines it to the row it is about.
+        /// </para>
+        /// <para>
+        /// Dropping the estimate rather than the row is what the rule actually says: an estimate with
+        /// no epoch is not a number anything may compare with another, and the idle buckets beside it
+        /// were never derived from a name at all. The aggregation in
+        /// <see cref="NpgsqlPresenceRollupStore"/> filters the same case in SQL, so the two paths
+        /// agree about what is readable.
+        /// </para>
+        /// </remarks>
+        private static PresenceAggregates? ReadAggregates(string? json)
+        {
+            if (json is null)
+            {
+                return null;
+            }
+
+            var stored = JsonSerializer.Deserialize<StoredAggregates>(json, Json);
+
+            if (stored is null)
+            {
+                return null;
+            }
+
+            var labelled = !string.IsNullOrWhiteSpace(stored.SaltEpoch);
+
+            return new PresenceAggregates(
+                stored.IdleBuckets ?? [],
+                labelled ? stored.DistinctEstimate : null,
+                labelled ? stored.SaltEpoch : null);
+        }
     }
+
+    /// <summary>The <c>aggregates</c> column as it is on disk, with no invariant of its own.</summary>
+    private sealed record StoredAggregates(
+        IReadOnlyList<int>? IdleBuckets,
+        int? DistinctEstimate,
+        string? SaltEpoch);
 }

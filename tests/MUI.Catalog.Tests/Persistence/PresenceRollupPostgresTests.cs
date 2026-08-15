@@ -225,12 +225,24 @@ public class PresenceRollupPostgresTests
         await writer.WriteAsync(game, PresenceReading.Counted(3, FieldSource.Who), Hour);
 
         var maintenance = Maintenance(db);
-        await maintenance.RunAsync(After(1));
+        var first = await maintenance.RunAsync(After(1));
         var second = await maintenance.RunAsync(After(1));
 
         var afterTwoRuns = (await Rollups(db).ForGameAsync(game, PresenceGrain.Hour, Hour, Hour)).Single();
+
+        // The rollup is a projection of the raw table and not an accumulation, so the second pass
+        // rewrites the same hour to the same numbers rather than adding to them.
         await Assert.That(afterTwoRuns.CountedSamples).IsEqualTo(1);
-        await Assert.That(second.HoursRolled).IsGreaterThanOrEqualTo(0);
+        await Assert.That(afterTwoRuns.MinCount).IsEqualTo(3);
+        await Assert.That(afterTwoRuns.MaxCount).IsEqualTo(3);
+        await Assert.That(second.HoursRolled).IsEqualTo(first.HoursRolled);
+        await Assert.That(second.DaysRolled).IsEqualTo(first.DaysRolled);
+
+        // And it is still one hour and one day, not two of each.
+        await Assert.That(await Rollups(db).ForGameAsync(game, PresenceGrain.Hour, Hour, After(1)))
+            .Count().IsEqualTo(1);
+        await Assert.That(await Rollups(db).ForGameAsync(game, PresenceGrain.Day, Midnight(Hour), After(1)))
+            .Count().IsEqualTo(1);
 
         // A sample that lands after its own hour was rolled up — a probe that finished slowly, or a
         // replica whose clock was behind — is picked up by the overlap the next pass re-reads.
@@ -240,6 +252,129 @@ public class PresenceRollupPostgresTests
         var corrected = (await Rollups(db).ForGameAsync(game, PresenceGrain.Hour, Hour, Hour)).Single();
         await Assert.That(corrected.CountedSamples).IsEqualTo(2);
         await Assert.That(corrected.MaxCount).IsEqualTo(9);
+    }
+
+    [Test]
+    public async Task EachGrainResumesFromItsOwnWatermarkAndNotFromTheHourly()
+    {
+        // The failure this guards against deletes data. The hourly watermark is committed before the
+        // daily aggregation runs, so a restart, a cancellation or a transient error in between leaves
+        // the hours rolled and the days not — and if the daily pass then resumed from the *hourly*
+        // watermark it would skip everything older than the overlap, mark itself caught up, and let
+        // retention drop the raw months behind it. The grain §5.2 keeps for ever would be permanently
+        // missing and the only other copy gone.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
+        var start = new DateTimeOffset(2026, 6, 1, 9, 0, 0, TimeSpan.Zero);
+        var now = start.AddDays(6);
+
+        for (var day = 0; day < 6; day++)
+        {
+            await writer.WriteAsync(game, PresenceReading.Counted(day, FieldSource.Who), start.AddDays(day));
+        }
+
+        // The interrupted pass: hours aggregated and their watermark committed, then nothing.
+        var rollups = Rollups(db);
+        await rollups.RollUpAsync(PresenceGrain.Hour, start, now);
+        await rollups.SetWatermarkAsync(PresenceGrain.Hour, now);
+
+        await Maintenance(db).RunAsync(now);
+
+        var days = await rollups.ForGameAsync(game, PresenceGrain.Day, Midnight(start), now);
+
+        await Assert.That(days).Count().IsEqualTo(6);
+        await Assert.That(days.Sum(d => d.CountedSamples)).IsEqualTo(6);
+    }
+
+    [Test]
+    public async Task RetentionWaitsForTheGrainThatIsBehind()
+    {
+        // The same failure seen from the other end: while the daily grain has not consumed a month,
+        // that month's raw rows are the only copy of it there is.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
+        var old = new DateTimeOffset(2026, 1, 15, 6, 0, 0, TimeSpan.Zero);
+        var now = new DateTimeOffset(2026, 7, 30, 12, 0, 0, TimeSpan.Zero);
+
+        await writer.WriteAsync(game, PresenceReading.Counted(11, FieldSource.Who), old);
+
+        var rollups = Rollups(db);
+        await rollups.RollUpAsync(PresenceGrain.Hour, old, now);
+        await rollups.SetWatermarkAsync(PresenceGrain.Hour, now);
+
+        var swept = await Maintenance(db, PresenceRetentionOptions.AsDesigned).SweepRetentionAsync(now);
+
+        await Assert.That(swept.PartitionsDropped).IsEqualTo(0);
+        await Assert.That(await SampleCount(db)).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task AnEstimateWithNoEpochIsUnreadableRatherThanFatal()
+    {
+        // A row carrying an estimate and no salt epoch is one nothing may compare with anything — but
+        // it is one row, and a window that throws on it takes every other measurement in the window
+        // with it. The reader drops the estimate and keeps what is still legible; the aggregation
+        // agrees with the reader rather than quietly counting it.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlPresenceStore(db.DataSource);
+
+        await store.AppendAsync(new PresenceSample
+        {
+            GameId = game,
+            At = Hour,
+            Count = 9,
+            Source = FieldSource.Who,
+            Aggregates = new PresenceAggregates([4, 3], distinctEstimate: 3, saltEpoch: "20260727T000000Z"),
+        });
+
+        // Written the way the record used to serialise, before an estimate had to name its epoch.
+        await using (var connection = await db.DataSource.OpenConnectionAsync())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO presence_sample (game_id, at, count, source, aggregates)
+                VALUES (@game, @at, 9, 'who', @aggregates::jsonb)
+                """,
+                new
+                {
+                    game,
+                    at = Hour.AddMinutes(30),
+                    aggregates = """{"idleBuckets":[2,1],"distinctEstimate":9}""",
+                });
+        }
+
+        var samples = await store.ForGameAsync(game, Hour, Hour.AddHours(1));
+
+        await Assert.That(samples).Count().IsEqualTo(2);
+
+        var legacy = samples.Single(s => s.At == Hour.AddMinutes(30));
+        await Assert.That(legacy.Aggregates!.IdleBuckets).IsEquivalentTo(new[] { 2, 1 });
+        await Assert.That(legacy.Aggregates.DistinctEstimate).IsNull();
+        await Assert.That(legacy.Aggregates.SaltEpoch).IsNull();
+
+        await Maintenance(db).RunAsync(After(2));
+
+        var rolled = (await Rollups(db).ForGameAsync(game, PresenceGrain.Hour, Hour, Hour)).Single();
+
+        await Assert.That(rolled.SaltEpoch).IsEqualTo("20260727T000000Z");
+        // 3, from the sample that named its epoch — not 9 from the one that did not.
+        await Assert.That(rolled.PeakDistinctEstimate).IsEqualTo(3);
+    }
+
+    [Test]
+    public async Task TheSchemaHasToBeThereBeforeAPassMeansAnything()
+    {
+        // The maintenance pass starts with the web tier, and on a fresh database the migrations may
+        // not have run yet. Asking is cheaper than throwing 42P01 and standing down for the whole
+        // retry interval on every replica's first pass.
+        await using var fresh = await PostgresFixture.FreshDatabaseAsync();
+        await Assert.That(await Maintenance(fresh).SchemaReadyAsync()).IsFalse();
+
+        await using var migrated = await PostgresFixture.MigratedAsync();
+        await Assert.That(await Maintenance(migrated).SchemaReadyAsync()).IsTrue();
     }
 
     [Test]
