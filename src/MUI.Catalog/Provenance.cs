@@ -26,6 +26,42 @@ public enum FieldSource
 }
 
 /// <summary>
+/// Which sources are observations of ours and which are a game's report of itself.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The one spelling of the measured/declared line.</b> It decides the word on every chip, the
+/// state the API names beside every count, and whether a badge on somebody else's site shows a
+/// number or says the count is unknown — and it lived in two records that each wrote it out for
+/// themselves, so a decision about one source had to be remembered in two files.
+/// </para>
+/// <para>
+/// <b>The line is who read the value, not who authored it.</b> A telnet handshake and a pre-login
+/// <c>WHO</c> are ours to have observed. So is <see cref="FieldSource.Banner"/>: several games
+/// publish their player count only on the connect screen, and we open a socket and parse that text
+/// ourselves on every probe — its freshness is ours even where its arithmetic is theirs. Migration
+/// 0003 has said exactly that since the presence table was written.
+/// </para>
+/// <para>
+/// <see cref="FieldSource.Mssp"/> stays on the declared side, and the pairing is not a contradiction:
+/// a game filling in a structured self-description is reporting rather than being read, and its
+/// <c>PLAYERS</c> may be whatever the codebase last cached. <see cref="FieldSource.Owner"/> and
+/// <see cref="FieldSource.Staff"/> are people typing, one of them us.
+/// </para>
+/// <para>
+/// This is a different axis from precedence and the two disagree on purpose. <c>banner</c> is the
+/// <em>lowest</em> rung of both ladders — a number in a stranger's ASCII art may be a high score or
+/// last week's figure, so it is picked last (see <c>PresenceChoice</c>) — and it is still an
+/// observation when it is what we have. Least trusted to be the right number, still measured.
+/// </para>
+/// </remarks>
+public static class FieldSources
+{
+    public static bool IsMeasured(FieldSource source) =>
+        source is FieldSource.Handshake or FieldSource.Who or FieldSource.Banner;
+}
+
+/// <summary>
 /// A value together with where it came from and how old it is. There is no unlabelled data on this
 /// site, so there is no way to carry a value without one of these.
 /// </summary>
@@ -35,7 +71,7 @@ public sealed record Provenance(
     DateTimeOffset LastConfirmedAt)
 {
     /// <summary>Whether this was observed by somebody rather than asserted by the game itself.</summary>
-    public bool IsMeasured => Source is FieldSource.Handshake or FieldSource.Who;
+    public bool IsMeasured => FieldSources.IsMeasured(Source);
 
     public TimeSpan AgeAt(DateTimeOffset now) => now - LastConfirmedAt;
 }

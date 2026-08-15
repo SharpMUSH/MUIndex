@@ -230,13 +230,20 @@ public class GameQueriesPostgresTests
         // Rule 5, at the point it is most tempting to break: an MSSP PLAYERS line is the game's own
         // claim, and a listing that dressed it as a reading of ours would be the exact confusion the
         // incumbents' directories run on. Same number, different fact.
+        //
+        // Three sources reach this column and they are three different facts, so all three are here.
+        // `banner` is on the measured side — we parse that number off the connect screen ourselves,
+        // on every probe, which is what migration 0003 has said since the table was written — and it
+        // stays distinguishable from `who` by its source rather than by its verdict.
         await using var db = await PostgresFixture.MigratedAsync();
         var measured = await Seed.GameAsync(db, "measured", "Measured");
         var asserted = await Seed.GameAsync(db, "asserted", "Asserted");
+        var read = await Seed.GameAsync(db, "read", "Read off the screen");
         var presence = new NpgsqlPresenceStore(db.DataSource);
 
         await presence.AppendAsync(PresenceSample.Counted(measured, Now.AddMinutes(-4), 12, FieldSource.Who));
         await presence.AppendAsync(PresenceSample.Counted(asserted, Now.AddMinutes(-4), 12, FieldSource.Mssp));
+        await presence.AppendAsync(PresenceSample.Counted(read, Now.AddMinutes(-4), 12, FieldSource.Banner));
 
         var listed = (await QueriesOn(db).ListAsync(new GameFilter())).ToDictionary(g => g.Slug);
 
@@ -244,6 +251,9 @@ public class GameQueriesPostgresTests
         await Assert.That(listed["measured"].PlayersNowProvenance!.IsMeasured).IsTrue();
         await Assert.That(listed["asserted"].PlayersNowProvenance!.IsMeasured).IsFalse();
         await Assert.That(listed["asserted"].PlayersNowProvenance!.Source).IsEqualTo(FieldSource.Mssp);
+
+        await Assert.That(listed["read"].PlayersNowProvenance!.IsMeasured).IsTrue();
+        await Assert.That(listed["read"].PlayersNowProvenance!.Source).IsEqualTo(FieldSource.Banner);
     }
 
     [Test]
