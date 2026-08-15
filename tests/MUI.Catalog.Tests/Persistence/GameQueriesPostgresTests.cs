@@ -1,3 +1,5 @@
+using Dapper;
+
 using MUI.Catalog.Persistence;
 using MUI.Catalog.Tests.Persistence.Support;
 
@@ -397,6 +399,114 @@ public class GameQueriesPostgresTests
         await Assert.That(Cell(cells, counted).IsCounted).IsTrue();
         await Assert.That(Cell(cells, hatched).IsUnmeasurable).IsTrue();
         await Assert.That(Cell(cells, Now.AddDays(-3)).IsGap).IsTrue();
+    }
+
+    /// <summary>
+    /// §9's referral neighbours, both arrows, off the reverse index that had no reader.
+    /// </summary>
+    /// <remarks>
+    /// The direction is kept apart because the two are different people's claims: "our list names
+    /// them" is a fact about what this game published, and "their list names us" is a fact about
+    /// what somebody else did. Merged into one bag, each game's list would be attributed to the
+    /// other.
+    /// </remarks>
+    [Test]
+    public async Task AGamePageNamesWhoItListsAndWhoListsIt()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var corvid = await Seed.GameAsync(db);
+        var listed = await Seed.GameAsync(db, "eldertale", "Eldertale Online");
+        var lister = await Seed.GameAsync(db, "aardwolf", "Aardwolf MUD");
+
+        var endpoints = new NpgsqlEndpointStore(db.DataSource);
+
+        await endpoints.UpsertAsync(new GameEndpoint(
+            corvid, "corvid.example", 4201, EndpointKind.Telnet, Now, Now, EndpointState.Active));
+        await endpoints.UpsertAsync(new GameEndpoint(
+            listed, "eldertale.example", 4000, EndpointKind.Telnet, Now, Now, EndpointState.Active));
+
+        await EdgeAsync(db, corvid, "eldertale.example", 4000);
+        await EdgeAsync(db, lister, "corvid.example", 4201);
+
+        var page = await QueriesOn(db).FindAsync("corvid");
+        var referrals = page!.Referrals;
+
+        await Assert.That(referrals).Count().IsEqualTo(2);
+        await Assert.That(referrals.Single(n => n.Direction is ReferralDirection.Lists).Slug)
+            .IsEqualTo("eldertale");
+        await Assert.That(referrals.Single(n => n.Direction is ReferralDirection.ListedBy).Slug)
+            .IsEqualTo("aardwolf");
+    }
+
+    /// <summary>
+    /// Being named by somebody's referral is not a way onto a public surface.
+    /// </summary>
+    /// <remarks>
+    /// The rule that keeps an unclaimed submission off every public page applies to a neighbour list
+    /// exactly as it applies to the listing. Without it, anyone could put a game they submitted onto
+    /// a stranger's page by publishing a REFERRAL to it.
+    /// </remarks>
+    [Test]
+    public async Task AnUnclaimedSubmissionIsNotANeighbour()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var corvid = await Seed.GameAsync(db);
+        var submitted = await Seed.GameAsync(db, "hearsay", "Hearsay");
+
+        await using (var connection = await db.DataSource.OpenConnectionAsync())
+        {
+            await connection.ExecuteAsync(
+                "UPDATE game SET submitted_at = @now, is_claimed = false WHERE id = @submitted",
+                new { now = Now, submitted });
+        }
+
+        var endpoints = new NpgsqlEndpointStore(db.DataSource);
+
+        await endpoints.UpsertAsync(new GameEndpoint(
+            corvid, "corvid.example", 4201, EndpointKind.Telnet, Now, Now, EndpointState.Active));
+        await endpoints.UpsertAsync(new GameEndpoint(
+            submitted, "hearsay.example", 4000, EndpointKind.Telnet, Now, Now, EndpointState.Active));
+
+        await EdgeAsync(db, corvid, "hearsay.example", 4000);
+        await EdgeAsync(db, submitted, "corvid.example", 4201);
+
+        await Assert.That((await QueriesOn(db).FindAsync("corvid"))!.Referrals).IsEmpty();
+    }
+
+    /// <summary>An address the game has left is rendered as left, not dropped (spec §7.5).</summary>
+    [Test]
+    public async Task AnEndpointCarriesTheHistoryTheTableAlwaysKept()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+
+        await new NpgsqlEndpointStore(db.DataSource).UpsertAsync(new GameEndpoint(
+            game,
+            "corvid.example",
+            4201,
+            EndpointKind.Telnet,
+            Now.AddYears(-3),
+            Now.AddMonths(-8),
+            EndpointState.Gone));
+
+        var endpoint = (await QueriesOn(db).FindAsync("corvid"))!.Endpoints.Single();
+
+        await Assert.That(endpoint.State).IsEqualTo("gone");
+        await Assert.That(endpoint.IsCurrent).IsFalse();
+        await Assert.That(endpoint.FirstSeenAt).IsEqualTo(Now.AddYears(-3));
+        await Assert.That(endpoint.LastSeenAt).IsEqualTo(Now.AddMonths(-8));
+    }
+
+    private static async Task EdgeAsync(TestDatabase db, Guid from, string host, int port)
+    {
+        await using var connection = await db.DataSource.OpenConnectionAsync();
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO referral_edge (from_game_id, to_host, to_port, first_seen_at, last_seen_at)
+            VALUES (@from, @host, @port, @now, @now)
+            """,
+            new { from, host, port, now = Now });
     }
 
     [Test]
