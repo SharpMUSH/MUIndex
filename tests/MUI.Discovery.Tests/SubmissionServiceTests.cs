@@ -26,6 +26,8 @@ public class SubmissionServiceTests
         InMemoryEndpointDirectory Endpoints,
         InMemorySubmissionLog Log,
         FakeHostResolver Dns,
+        FakeDnsTxtResolver Txt,
+        InMemoryCrawlOptOutRepository OptOuts,
         ManualTimeProvider Clock);
 
     private static World Build(SubmissionOptions? options = null)
@@ -41,14 +43,24 @@ public class SubmissionServiceTests
             .Resolving("b.example.org", "203.0.113.12")
             .Resolving("c.example.org", "203.0.113.13");
         var clock = new ManualTimeProvider();
+        var txt = new FakeDnsTxtResolver();
+        var optOuts = new InMemoryCrawlOptOutRepository();
 
         return new World(
             new SubmissionService(
-                targets, endpoints, new HostScopeGuard(dns), log, options ?? new SubmissionOptions(), clock),
+                targets,
+                endpoints,
+                new HostScopeGuard(dns),
+                new OptOutGate(optOuts, txt, clock),
+                log,
+                options ?? new SubmissionOptions(),
+                clock),
             targets,
             endpoints,
             log,
             dns,
+            txt,
+            optOuts,
             clock);
     }
 
@@ -227,6 +239,177 @@ public class SubmissionServiceTests
         await Assert.That(after!.SubmittedAt).IsNull();
         await Assert.That(after.NextProbeAt).IsEqualTo(found.NextProbeAt);
         await Assert.That(after.Id).IsEqualTo(found.Id);
+    }
+
+    /// <summary>
+    /// An address whose operator has asked us to stop is refused at the door (spec §11).
+    /// </summary>
+    /// <remarks>
+    /// <b>The crawl loop's own gate already held, and that is what made this worth fixing rather
+    /// than urgent.</b> A target with a standing opt-out is never dialled, so nothing leaked and no
+    /// game was ever minted — the form simply told somebody "accepted" for an address we had already
+    /// promised never to touch, and then did nothing about it for ever. A refusal we know at the
+    /// door belongs at the door.
+    /// </remarks>
+    [Test]
+    [Arguments(OptOutSource.Request)]
+    [Arguments(OptOutSource.Mssp)]
+    public async Task AnAddressWithARecordedOptOutIsRefusedAndWritesNothing(OptOutSource source)
+    {
+        var world = Build();
+        var now = world.Clock.GetUtcNow();
+
+        await world.OptOuts.RecordAsync(
+            new CrawlOptOut
+            {
+                Host = "mud.example.org",
+                Port = 4201,
+                Source = source,
+                RecordedAt = now,
+                LastConfirmedAt = now,
+                Detail = "asked by mail",
+            },
+            None);
+
+        var receipt = await world.Service.SubmitAsync("mud.example.org", "4201", Source, None);
+
+        await Assert.That(receipt.Outcome).IsEqualTo(SubmissionOutcome.RefusedOptOut);
+        await Assert.That(world.Targets.All).IsEmpty();
+
+        // The cheap register answered, so no TXT lookup was spent — and neither route may be
+        // re-read without doing the thing they asked us to stop doing, so no answer could act on it.
+        await Assert.That(world.Txt.Asked).IsEmpty();
+    }
+
+    /// <summary>A TXT record at the host asks for us just as well, and is read here.</summary>
+    [Test]
+    public async Task AnAddressWhoseHostPublishesADnsOptOutIsRefused()
+    {
+        var world = Build();
+        world.Txt.Publishing(OptOutVocabulary.DnsNameFor("mud.example.org"), OptOutVocabulary.DnsValue);
+
+        var receipt = await world.Service.SubmitAsync("mud.example.org", "4201", Source, None);
+
+        await Assert.That(receipt.Outcome).IsEqualTo(SubmissionOutcome.RefusedOptOut);
+        await Assert.That(world.Targets.All).IsEmpty();
+        await Assert.That(world.Txt.Asked).Contains("_muindex.mud.example.org");
+    }
+
+    /// <summary>
+    /// A TXT opt-out naming a port speaks about that port and not about its neighbours.
+    /// </summary>
+    /// <remarks>
+    /// §11 scopes a DNS opt-out to a port when the record names one, because MU* hosting routinely
+    /// runs unrelated games on one domain separated only by a port. <c>opt-out=4201</c> and a bare
+    /// <c>opt-out</c> are therefore different answers for a submission naming 4000, and a form that
+    /// read them alike would either refuse an address nobody objected to or take one somebody did.
+    /// </remarks>
+    [Test]
+    public async Task APortQualifiedOptOutOnlyAnswersForThatPort()
+    {
+        var world = Build();
+        world.Dns.Resolving("shared.example.org", "203.0.113.20");
+        world.Txt.Publishing(OptOutVocabulary.DnsNameFor("shared.example.org"), "opt-out=4201");
+
+        await Assert.That((await world.Service.SubmitAsync("shared.example.org", "4201", Source, None)).Outcome)
+            .IsEqualTo(SubmissionOutcome.RefusedOptOut);
+
+        // The neighbour on 4000 said nothing, and is taken.
+        await Assert.That((await world.Service.SubmitAsync("shared.example.org", "4000", Source, None)).Outcome)
+            .IsEqualTo(SubmissionOutcome.Accepted);
+    }
+
+    /// <summary>And an unqualified record covers the host, neighbours included.</summary>
+    [Test]
+    public async Task AHostWideOptOutAnswersForEveryPort()
+    {
+        var world = Build();
+        world.Dns.Resolving("shared.example.org", "203.0.113.20");
+        world.Txt.Publishing(OptOutVocabulary.DnsNameFor("shared.example.org"), OptOutVocabulary.DnsValue);
+
+        await Assert.That((await world.Service.SubmitAsync("shared.example.org", "4201", Source, None)).Outcome)
+            .IsEqualTo(SubmissionOutcome.RefusedOptOut);
+        await Assert.That((await world.Service.SubmitAsync("shared.example.org", "4000", Source, None)).Outcome)
+            .IsEqualTo(SubmissionOutcome.RefusedOptOut);
+    }
+
+    /// <summary>
+    /// Nothing is spent on an address §7.2 has already refused.
+    /// </summary>
+    /// <remarks>
+    /// A form that resolved, refused, and then went on to ask DNS a second question about the same
+    /// name would be paying twice to reach the answer it already had.
+    /// </remarks>
+    [Test]
+    public async Task AScopeRefusalCostsNoOptOutLookup()
+    {
+        var world = Build();
+        world.Dns.Resolving("internal.example.org", "10.0.0.5");
+
+        var receipt = await world.Service.SubmitAsync("internal.example.org", "4201", Source, None);
+
+        await Assert.That(receipt.Outcome).IsEqualTo(SubmissionOutcome.RefusedNotRoutable);
+        await Assert.That(world.Txt.Asked).IsEmpty();
+    }
+
+    /// <summary>
+    /// The rate-limit reservation is what bounds the TXT lookups this form can cause.
+    /// </summary>
+    /// <remarks>
+    /// An unauthenticated form that triggers a DNS query is a request amplifier, and the bound has
+    /// to be the one that is taken <em>before</em> any of the work — which is why the reservation is
+    /// first. The resolver behind it is the crawler's own, un-retried and caching failures, so the
+    /// worst case is one bounded lookup per slot.
+    /// </remarks>
+    [Test]
+    public async Task ASourceAtItsBoundCausesNoLookupsAtAll()
+    {
+        var world = Build(new SubmissionOptions { PerSource = 2, Window = TimeSpan.FromHours(1) });
+
+        await world.Service.SubmitAsync("a.example.org", "4201", Source, None);
+        await world.Service.SubmitAsync("b.example.org", "4201", Source, None);
+
+        var spentByNow = world.Txt.Asked.Count;
+
+        for (var i = 0; i < 20; i++)
+        {
+            await Assert.That((await world.Service.SubmitAsync($"c{i}.example.org", "4201", Source, None)).Outcome)
+                .IsEqualTo(SubmissionOutcome.TooMany);
+        }
+
+        await Assert.That(world.Txt.Asked.Count).IsEqualTo(spentByNow);
+        await Assert.That(spentByNow).IsLessThanOrEqualTo(2);
+    }
+
+    /// <summary>An ordinary address is still taken, and the register is asked about it.</summary>
+    [Test]
+    public async Task AnAddressNobodyObjectedToIsStillAccepted()
+    {
+        var world = Build();
+
+        var receipt = await world.Service.SubmitAsync("mud.example.org", "4201", Source, None);
+
+        await Assert.That(receipt.Outcome).IsEqualTo(SubmissionOutcome.Accepted);
+        await Assert.That(world.Txt.Asked).Contains("_muindex.mud.example.org");
+        await Assert.That(world.Targets.All.Count).IsEqualTo(1);
+    }
+
+    /// <summary>
+    /// A resolver that did not answer concludes nothing, and the address is taken.
+    /// </summary>
+    /// <remarks>
+    /// §11's own shape: "no such record" is an answer and "the resolver did not reply" is not. A
+    /// nameserver having a bad minute must not become a refusal a submitter cannot understand — and
+    /// the crawl loop asks again before every dial, so nothing is lost by proceeding.
+    /// </remarks>
+    [Test]
+    public async Task ASilentResolverDoesNotRefuseTheSubmission()
+    {
+        var world = Build();
+        world.Txt.Silent(OptOutVocabulary.DnsNameFor("mud.example.org"));
+
+        await Assert.That((await world.Service.SubmitAsync("mud.example.org", "4201", Source, None)).Outcome)
+            .IsEqualTo(SubmissionOutcome.Accepted);
     }
 
     [Test]
@@ -439,6 +622,6 @@ public class SubmissionServiceTests
             .Where(o => o is not SubmissionOutcome.TooMany)
             .ToList();
 
-        await Assert.That(recordable.Count).IsEqualTo(6);
+        await Assert.That(recordable.Count).IsEqualTo(7);
     }
 }

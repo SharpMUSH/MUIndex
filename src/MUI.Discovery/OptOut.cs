@@ -400,12 +400,44 @@ public sealed class OptOutGate(
     /// <summary>
     /// The standing opt-out that forbids this dial, or null to go ahead.
     /// </summary>
-    public async Task<CrawlOptOut?> RuleOnAsync(CrawlTarget target, CancellationToken cancellationToken = default)
+    public Task<CrawlOptOut?> RuleOnAsync(CrawlTarget target, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(target);
 
-        var host = CanonicalHost.Normalize(target.Host);
-        var standing = await optOuts.StandingAsync(host, target.Port, cancellationToken);
+        return RuleOnAsync(target.Host, target.Port, cancellationToken);
+    }
+
+    /// <summary>
+    /// The same ruling on a bare address, for a caller that has no target and must not invent one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The gate has always been about an address — it is keyed on one, it reads a TXT record at one,
+    /// and nothing in it touches a schedule, a depth or a game. The overload above is a convenience
+    /// for the crawl loop, which happens to hold a target.
+    /// </para>
+    /// <para>
+    /// <b>The public submission form is the other caller</b> (spec §9). It has a host and a port that
+    /// somebody typed and nothing else, and fabricating a <see cref="CrawlTarget"/> to ask this
+    /// question would put a value into the world that is not a target and will never be one — the
+    /// kind of thing that reads as a registry row to whoever finds it next.
+    /// </para>
+    /// <para>
+    /// <b>Ordering is the same on both paths and it is deliberate</b>: the stored register first,
+    /// because it is one indexed read of our own database, and DNS only if that says nothing. An
+    /// unauthenticated form reaching this must not be able to spend a lookup per request, so it is
+    /// also the caller's job to have bounded how often it gets here at all.
+    /// </para>
+    /// </remarks>
+    public async Task<CrawlOptOut?> RuleOnAsync(
+        string host,
+        int port,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(host);
+
+        host = CanonicalHost.Normalize(host);
+        var standing = await optOuts.StandingAsync(host, port, cancellationToken);
 
         // A standing MSSP or requested opt-out is final here: DNS cannot withdraw a request made
         // through another channel, and asking would be a lookup that no answer could act on.
@@ -422,7 +454,7 @@ public sealed class OptOutGate(
             return standing;
         }
 
-        if (OptOutVocabulary.ReadDns(answer.Records, target.Port) is { } asked)
+        if (OptOutVocabulary.ReadDns(answer.Records, port) is { } asked)
         {
             var now = time.GetUtcNow();
 
@@ -442,7 +474,7 @@ public sealed class OptOutGate(
             {
                 logger?.LogInformation(
                     "{Host}:{Port} published {Name} IN TXT \"{Record}\"; we stop dialling it",
-                    host, target.Port, OptOutVocabulary.DnsNameFor(host), asked.Record);
+                    host, port, OptOutVocabulary.DnsNameFor(host), asked.Record);
             }
 
             return recorded.OptOut;
@@ -459,11 +491,11 @@ public sealed class OptOutGate(
 
         logger?.LogInformation(
             "{Name} no longer asks us to stop; {Host}:{Port} is dialled again",
-            OptOutVocabulary.DnsNameFor(host), host, target.Port);
+            OptOutVocabulary.DnsNameFor(host), host, port);
 
         // Another route may still be standing for this address — withdrawing one never speaks for
         // the others.
-        return await optOuts.StandingAsync(host, target.Port, cancellationToken);
+        return await optOuts.StandingAsync(host, port, cancellationToken);
     }
 
     /// <summary>

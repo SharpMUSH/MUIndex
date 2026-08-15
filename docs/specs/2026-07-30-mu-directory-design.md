@@ -148,6 +148,22 @@ GameField(game_id, field, source, value, first_seen_at, last_confirmed_at)
 or a person here produced. There is no imported source, because the backfill contributes addresses
 and no values (§7.6).
 
+**Measured or declared is decided by who read the value, not by who authored it.** `handshake`,
+`who` and `banner` are observations: we open a socket and parse what came back, on every probe, so
+the freshness is ours even where the arithmetic is theirs. `mssp` is a report — a game filling in a
+structured self-description it maintains, which may be whatever the codebase last cached — and
+`owner` and `staff` are people typing, one of them us. The predicate lives once, in
+`FieldSources.IsMeasured`, because it decides the word on every chip, the state the API names beside
+every count, and whether a badge on somebody else's site shows a number at all; drawn twice it moves
+once.
+
+**This is a different axis from precedence, and the two disagree about `banner` on purpose.**
+`banner` is the lowest rung of both ladders — a number in a stranger's ASCII art may be a high
+score, an uptime or last week's figure in a static file, so it is picked last (§5.2, `PresenceChoice`)
+— and it is still an observation of ours when it is what we have. Least trusted to be the right
+number, and still measured. Anything that reads "declared" off the connect screen is reading the
+precedence ladder as if it were this one.
+
 **Keyed by source, not just by field** — the first cut of this spec said one row per `(game, field)`
 and *also* asked the page to show the losing sources, which cannot both be true. The capability
 matrix's two columns are a design requirement, not an edge case: `GMCP ✕ measured / ◇ declared` needs
@@ -379,6 +395,14 @@ also benefit SharpMUTerm and SharpMUSH, and the fix path is ours.
 
 Display asset and fingerprint both. Version banners identify the codebase when `CODEBASE` is unset
 or wrong, and a banner hash is a strong identity signal (§7.3).
+
+**What we read here is measured** (§5.1). A version string, and the player count some games publish
+only on their connect screen, are text this crawler parsed off the socket on this probe — not a
+field the game reported. That the parse is the least reliable of the three counts is a question of
+precedence and is answered separately, by putting `banner` last on the ladder; it is not a reason to
+label the result as the game's assertion. Migration `0003_presence_sample.sql` has carried the same
+sentence since the presence table was written: several games publish their count only on the connect
+screen, "and that is still a measurement of ours".
 
 ### 6.3 Layer 3 — `WHO` / `DOING` at the connect screen
 
@@ -956,7 +980,10 @@ the same half-truth: a row wears the chip the game page already uses, and the pl
 `(measured, 4m)` or `(declared, 3y, stale)` in the words §9's plain surface uses everywhere else.
 That a count can be *declared* at all is the point — a game publishing `PLAYERS` in MSSP has asserted
 a number, and quoting it as a measurement of ours is rule 5 broken by a format string, which is
-exactly what the plain listing's hard-coded `(measured)` was doing to every row.
+exactly what the plain listing's hard-coded `(measured)` was doing to every row. Which counts are
+declared is §5.1's line and not this section's: a count read off a connect screen is *measured*,
+because we parsed it off the socket ourselves. `playersNowProvenance.source` keeps all three apart
+regardless, for a consumer who cares which.
 
 **A labelling rule applied to one surface makes a liar of the others,** and fixing the listing first
 proved it three times over. `PlayerCountState` had two members, so `playersNowState` answered

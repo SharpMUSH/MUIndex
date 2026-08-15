@@ -22,6 +22,14 @@ namespace MUI.Crawler;
 /// having, and worth having last.
 /// </para>
 /// <para>
+/// <b>Last on this ladder and still measured</b> (§5.1, <c>FieldSources</c>). The two rankings are
+/// different questions: which count to keep when several are available, and whether the one we kept
+/// was read by us or reported to us. A banner count is the least trustworthy <em>choice</em> and is
+/// nonetheless text we parsed off the socket this probe, so it is labelled as the observation it is
+/// — while <c>mssp</c>, which outranks it here, is the game's own report and is labelled declared.
+/// Nothing about that ordering is an argument for relabelling either one.
+/// </para>
+/// <para>
 /// <b>Nothing here ever returns zero for a source that failed.</b> Every exit that could not obtain a
 /// number returns an unmeasurable reading with a reason, which is §5.4's hatched cell. A measured zero
 /// — we got in and nobody was there — is a filled cell and reaches this code only because a parser
