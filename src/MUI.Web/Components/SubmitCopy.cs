@@ -69,7 +69,7 @@ public static class SubmitCopy
         + "present and quietly doing nothing.";
 
     /// <summary>The answer to one submission, or null when nothing has been submitted yet.</summary>
-    public static SubmitAnswer? Answer(SubmissionOutcome? outcome, string? address, string? slug) =>
+    public static SubmitAnswer? Answer(SubmissionOutcome? outcome, string? address, SubmitLink? link = null) =>
         outcome switch
         {
             null => null,
@@ -77,22 +77,29 @@ public static class SubmitCopy
             SubmissionOutcome.Accepted => new SubmitAnswer(
                 "In the registry.",
                 $"{Named(address)} will be dialled on the next crawl cycle, and on its own schedule "
-                + "for ever after that. Nothing about it will appear on this site until somebody "
-                + "claims it."),
+                + "for ever after that. If it publishes a name of its own we will list it here as "
+                + "soon as somebody proves they run it — come back to this form with the same "
+                + "address and it will hand you the link."),
 
-            // Two arms, because the slug is present exactly when the game is public. A submitted
-            // game nobody has claimed is not linkable, and inventing a link to its page would be
-            // this filter leaking the thing it exists to hide.
-            SubmissionOutcome.AlreadyListed when slug is not null => new SubmitAnswer(
+            // Two arms, and the link is what differs. A game we list gets its page; a submitted one
+            // nobody has claimed gets its claim page, because that is the only exit from hidden and
+            // a person who has just told us the address is exactly who should be offered it.
+            SubmissionOutcome.AlreadyListed when link?.IsClaim is true => new SubmitAnswer(
+                "We have that address, and nobody has claimed it.",
+                $"{Named(address)} is one we already measure, and none of it is on this site "
+                + "because nobody has proved they run it. If that is you, this is the way in.",
+                link),
+
+            SubmissionOutcome.AlreadyListed when link is not null => new SubmitAnswer(
                 "We already have that one.",
                 $"{Named(address)} is a game we already measure. Nothing was created and nothing "
                 + "was changed.",
-                slug),
+                link),
 
             SubmissionOutcome.AlreadyListed => new SubmitAnswer(
                 "We already have that address.",
-                $"{Named(address)} is already known to us, and is not listed because nobody has "
-                + "claimed it yet."),
+                $"{Named(address)} is already known to us. Nothing was created and nothing was "
+                + "changed."),
 
             SubmissionOutcome.AlreadyQueued => new SubmitAnswer(
                 "Already waiting.",
@@ -106,17 +113,20 @@ public static class SubmitCopy
                 + "Either fill in both boxes, or paste the whole thing — mud.example.org:4201 — "
                 + "into the first."),
 
-            SubmissionOutcome.RefusedNotRoutable => new SubmitAnswer(
-                "We will not dial that.",
-                $"{Named(address)} resolves somewhere that is not the public internet, so the "
-                + "answer is no — and it is no for the whole name rather than for the part we "
-                + "objected to. This is our policy about our own socket. It says nothing about "
-                + "whatever is at that address, and it is recorded nowhere as though it did."),
-
-            SubmissionOutcome.Unresolvable => new SubmitAnswer(
-                "That name does not resolve.",
-                $"DNS has no answer for {Named(address)}, which is a fact about the world rather "
-                + "than a decision of ours. Check the spelling and try it again."),
+            // ONE SENTENCE FOR BOTH, AND THE VAGUENESS IS THE POINT. §7.2 keeps "did not resolve"
+            // and "resolved somewhere we will not go" apart because they are two facts and our own
+            // record has to hold them apart — but telling a *stranger* which of the two happened
+            // turns this form into a scanner of whatever the crawler's resolver can see. Submit
+            // internal.corp.example: one answer means it exists on our side of a split horizon and
+            // the other means it does not, and a few hundred guesses is a map of somebody's network
+            // drawn from outside it. The log knows which; the page does not say.
+            SubmissionOutcome.RefusedNotRoutable or SubmissionOutcome.Unresolvable => new SubmitAnswer(
+                "We cannot dial that.",
+                $"Either {Named(address)} does not resolve, or it resolves somewhere that is not "
+                + "the public internet — and we deliberately do not say which, because answering "
+                + "that question for a stranger is a way to map a private network from outside it. "
+                + "Nothing has been recorded about whatever is at that address; the decision was "
+                + "ours and it is filed as ours."),
 
             SubmissionOutcome.TooMany => new SubmitAnswer(
                 "That is enough for now.",
@@ -131,10 +141,19 @@ public static class SubmitCopy
 }
 
 /// <summary>One answer, as both surfaces render it.</summary>
-/// <param name="GameSlug">
-/// Set only where a public game exists to link to, which is never the case for a refusal.
+public sealed record SubmitAnswer(string Heading, string Sentence, SubmitLink? Link = null);
+
+/// <summary>Where an answer points, when it points anywhere.</summary>
+/// <param name="IsClaim">
+/// Whether this is the way into a game the site is holding back — which reads differently, and is
+/// the only exit hidden-until-claimed has.
 /// </param>
-public sealed record SubmitAnswer(string Heading, string Sentence, string? GameSlug = null);
+public sealed record SubmitLink(string Href, string Label, bool IsClaim = false)
+{
+    public static SubmitLink Game(string slug) => new($"/g/{slug}", $"/g/{slug}");
+
+    public static SubmitLink Claim(string slug) => new($"/g/{slug}/claim", "claim this game", IsClaim: true);
+}
 
 /// <summary>
 /// The querystring the form's answer travels in.
@@ -189,14 +208,22 @@ public static class SubmitLinks
             ? $"{address.Host} {address.Port.ToString(CultureInfo.InvariantCulture)}"
             : null;
 
+    /// <summary>
+    /// The word an outcome travels under.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both scope outcomes share one token, and that is not a shortcut.</b> Collapsing the two
+    /// sentences and then putting the distinction back in the URL would leave the same oracle in a
+    /// place easier to read — a script would never look at the prose. §7.2's two facts live in
+    /// <c>game_submission.outcome</c>, which is ours.
+    /// </remarks>
     public static string Token(SubmissionOutcome outcome) => outcome switch
     {
         SubmissionOutcome.Accepted => "accepted",
         SubmissionOutcome.AlreadyListed => "already-listed",
         SubmissionOutcome.AlreadyQueued => "already-queued",
         SubmissionOutcome.Malformed => "malformed",
-        SubmissionOutcome.RefusedNotRoutable => "refused",
-        SubmissionOutcome.Unresolvable => "unresolvable",
+        SubmissionOutcome.RefusedNotRoutable or SubmissionOutcome.Unresolvable => "undialable",
         SubmissionOutcome.TooMany => "too-many",
         _ => "unknown",
     };
@@ -208,8 +235,10 @@ public static class SubmitLinks
         "already-listed" => SubmissionOutcome.AlreadyListed,
         "already-queued" => SubmissionOutcome.AlreadyQueued,
         "malformed" => SubmissionOutcome.Malformed,
-        "refused" => SubmissionOutcome.RefusedNotRoutable,
-        "unresolvable" => SubmissionOutcome.Unresolvable,
+
+        // Reads back as one of the two arbitrarily, because the surface treats them identically and
+        // a reader of this URL is owed no more than that.
+        "undialable" => SubmissionOutcome.RefusedNotRoutable,
         "too-many" => SubmissionOutcome.TooMany,
         _ => null,
     };

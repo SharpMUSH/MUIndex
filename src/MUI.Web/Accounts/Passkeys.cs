@@ -201,23 +201,26 @@ public static class Passkeys
         // apart is what stops a button on a public page becoming a way to make us connect to a
         // stranger's server on demand: the rate limit is per claim, and a claim cannot exist for a
         // game nobody has been offered.
+        // IGameStore rather than IGameQueries, for the reason Claim.razor is: a submitted game is
+        // hidden from every public read until it is claimed (migration 0010), and asking the public
+        // read here would make the on-demand check the second thing a hidden game could not do.
         app.MapPost("/g/{slug}/claim/check", async (
             HttpContext context,
             UserManager<MuiUser> users,
-            IGameQueries queries,
+            IGameStore games,
             IClaimStore claims,
             ClaimService service,
             string slug) =>
         {
             var user = await users.GetUserAsync(context.User);
 
-            if (user is null || await queries.FindAsync(slug) is not { } page)
+            if (user is null || await games.BySlugAsync(slug) is not { } game)
             {
                 return Results.Redirect($"/g/{slug}/claim");
             }
 
             var mine = (await claims.ForUserAsync(user.Id))
-                .FirstOrDefault(c => c.GameId == page.Summary.Id && c.RevokedAt is null);
+                .FirstOrDefault(c => c.GameId == game.Id && c.RevokedAt is null);
 
             if (mine is not null)
             {

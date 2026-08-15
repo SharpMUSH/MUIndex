@@ -4,7 +4,6 @@
 @using MUI.Catalog.Persistence
 @using MUI.Discovery
 @using MUI.Web.Accounts
-@inject IGameQueries Queries
 @inject IServiceProvider Services
 @inject TimeProvider Clock
 
@@ -21,23 +20,23 @@
     access to that server published it, and the account this claim is bound to answers who asked.
 *@
 
-<PageTitle>Claim @(Page?.Summary.Name ?? Slug) — mu*index</PageTitle>
+<PageTitle>Claim @(Game?.Name ?? Slug) — mu*index</PageTitle>
 
-@if (Page is null)
+@if (Game is null)
 {
     <section class="prose"><h1>No such game</h1></section>
 }
 else if (Claims is null)
 {
     <section class="prose">
-        <h1>Claim @Page.Summary.Name</h1>
+        <h1>Claim @Game.Name</h1>
         <p>Claiming needs a database behind it, and this site is running on the demo fixture.</p>
     </section>
 }
 else if (User is null)
 {
     <section class="prose">
-        <h1>Claim @Page.Summary.Name</h1>
+        <h1>Claim @Game.Name</h1>
         <p>
             You need an account first, so that the claim has somewhere to belong. It takes a passkey
             and a name, and nothing else.
@@ -48,7 +47,7 @@ else if (User is null)
 else
 {
     <section class="prose">
-        <h1>Claim @Page.Summary.Name</h1>
+        <h1>Claim @Game.Name</h1>
 
         @if (Pending!.IsVerified)
         {
@@ -117,7 +116,7 @@ else
     [Parameter]
     public string Slug { get; set; } = string.Empty;
 
-    private GamePage? Page { get; set; }
+    private GameRecord? Game { get; set; }
 
     private ClaimService? Claims { get; set; }
 
@@ -138,10 +137,17 @@ else
     /// </remarks>
     protected override async Task OnInitializedAsync()
     {
-        Page = await Queries.FindAsync(Slug);
+        // The GAME RECORD, not the public page view model, and this is load-bearing. A submitted
+        // game is hidden from IGameQueries until it is claimed (migration 0010) — so looking it up
+        // through the same read the listing uses made claiming the one thing a hidden game could
+        // never do, and hidden-until-claimed a state with no exit. Claiming operates on the row.
+        Game = Services.GetService<IGameStore>() is { } store
+            ? await store.BySlugAsync(Slug)
+            : null;
+
         Claims = Services.GetService<ClaimService>();
 
-        if (Page is null || Claims is null)
+        if (Game is null || Claims is null)
         {
             return;
         }
@@ -154,7 +160,7 @@ else
 
         if (User is not null)
         {
-            Pending = await Claims.IssueAsync(Page.Summary.Id, User.Id);
+            Pending = await Claims.IssueAsync(Game.Id, User.Id);
         }
     }
 

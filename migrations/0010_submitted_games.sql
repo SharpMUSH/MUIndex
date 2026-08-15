@@ -69,17 +69,22 @@ CREATE TABLE game_submission (
 
     submitted_at   timestamptz NOT NULL,
 
-    -- What we did. Refusals are here and in no game's record.
+    -- What we did, or 'pending' while we are still deciding.
+    --
+    -- PENDING IS THE RATE LIMIT'S RESERVATION, AND IT IS WHY THE BOUND IS A BOUND. Counting rows and
+    -- then inserting one is two statements, and a burst of concurrent requests passes a check that
+    -- nobody has written the answer to yet — the classic check-then-act, and on an unauthenticated
+    -- form it is the whole limit. So a request takes its slot first, under an advisory lock on the
+    -- source, and fills in what happened afterwards. A row left pending by a process that died still
+    -- counts against the bound, which is the direction to fail in.
     outcome        text NOT NULL,
 
     -- The registry row this became, when it became one. NULL for every other outcome.
     crawl_target_id uuid REFERENCES crawl_target (id),
 
-    -- §11 — WE DO NOT STORE THE SUBMITTER'S ADDRESS. This is a salted hash of it, with the salt
-    -- generated per process and never written down, exactly as §11's player aggregates work: the
-    -- rate limit needs to know that two submissions came from one place within the hour, and needs
-    -- nothing else, ever. The salt rotating on every restart is the point — it is more often than the
-    -- window is long, so these stop being comparable well before they stop being rows.
+    -- §11 — WE DO NOT STORE THE SUBMITTER'S ADDRESS. This is a salted digest of it, and the salt is
+    -- the shared, rotating one below rather than anything this process invented: the rate limit needs
+    -- to know that two submissions came from one place within the hour, and needs nothing else, ever.
     source         text NOT NULL,
 
     CONSTRAINT game_submission_address_is_whole CHECK ((host IS NULL) = (port IS NULL)),
@@ -87,6 +92,7 @@ CREATE TABLE game_submission (
     CONSTRAINT game_submission_host_is_bounded CHECK (host IS NULL OR length(host) <= 253),
     CONSTRAINT game_submission_source_is_a_digest CHECK (source ~ '^[0-9a-f]{64}$'),
     CONSTRAINT game_submission_outcome_vocabulary CHECK (outcome IN (
+        'pending',
         'accepted', 'already_listed', 'already_queued',
         'malformed', 'refused_not_routable', 'unresolvable')),
 
@@ -99,6 +105,29 @@ CREATE TABLE game_submission (
 
 -- The rate limit's one hot query: how many submissions from this source since a moment.
 CREATE INDEX game_submission_source_idx ON game_submission (source, submitted_at DESC);
+
+-- §11's rotating salt, shared, because a per-process one is not a salt for this purpose.
+--
+-- THE FIRST VERSION GENERATED THIS AT STARTUP AND NEVER WROTE IT DOWN, WHICH SOUNDED LIKE THE
+-- STRONGER PRIVACY PROPERTY AND QUIETLY REMOVED THE BOUND. Two web replicas derive two different
+-- digests for one address, so the limit becomes five per replica per hour; a restart resets it
+-- outright. §11's own construction for player aggregates is a *rotating* salt, and a salt that
+-- rotates is by definition one that is stored for the length of an epoch — otherwise there is no
+-- epoch, only a process lifetime.
+--
+-- What the property actually buys is re-identification across epochs, and that survives: rows written
+-- under a retired salt cannot be compared with rows written under the current one, by anybody,
+-- including us. The window the limit reads is an hour and the epoch is a week, so a rotation costs
+-- one hour of bound and nothing else.
+CREATE TABLE submission_salt (
+    -- Weeks since the Unix epoch, so every replica computes the same current epoch from the clock
+    -- without asking anybody which one is current.
+    epoch      bigint PRIMARY KEY,
+    salt       bytea NOT NULL,
+    created_at timestamptz NOT NULL,
+
+    CONSTRAINT submission_salt_is_long_enough CHECK (length(salt) >= 32)
+);
 
 -- "Who has been submitting this address, and how often?" — the question a burst raises.
 CREATE INDEX game_submission_address_idx ON game_submission (host, port, submitted_at DESC)

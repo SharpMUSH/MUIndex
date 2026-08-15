@@ -1,3 +1,5 @@
+using System.Net;
+
 using MUI.Crawl;
 using MUI.Discovery.Tests.Support;
 
@@ -137,16 +139,20 @@ public class SubmissionServiceTests
 
         await world.Service.SubmitAsync("internal.example.org", "4201", Source, None);
 
-        var recorded = world.Log.Records.Single();
+        var recorded = world.Log.Rows.Single();
 
         await Assert.That(recorded.Outcome).IsEqualTo(SubmissionOutcome.RefusedNotRoutable);
         await Assert.That(recorded.CrawlTargetId).IsNull();
 
         // Held by reflection, because the argument is about the shape rather than about this row: a
-        // submission that could name a game is a submission somebody will eventually attach to one.
-        var fields = typeof(SubmissionRecord).GetProperties().Select(p => p.Name).ToList();
+        // log that *could* name a game is a log somebody will eventually attach one to. Neither
+        // method on the interface takes a game id, and the table has no column for one.
+        var parameters = typeof(ISubmissionLog).GetMethods()
+            .SelectMany(m => m.GetParameters())
+            .Select(p => p.Name!)
+            .ToList();
 
-        await Assert.That(fields).DoesNotContain("GameId");
+        await Assert.That(parameters).DoesNotContain("gameId");
     }
 
     /// <summary>
@@ -272,7 +278,7 @@ public class SubmissionServiceTests
         await world.Service.SubmitAsync("MUD.Example.ORG.", "4201", Source, None);
 
         await Assert.That(world.Targets.All.Single().Host).IsEqualTo("mud.example.org");
-        await Assert.That(world.Log.Records.Single().Host).IsEqualTo("mud.example.org");
+        await Assert.That(world.Log.Rows.Single().Host).IsEqualTo("mud.example.org");
     }
 
     [Test]
@@ -289,7 +295,7 @@ public class SubmissionServiceTests
 
         // Nothing was parsed, resolved or written — a source at its bound must not be able to make us
         // do work, which is why the check is first.
-        await Assert.That(world.Log.Records.Count).IsEqualTo(2);
+        await Assert.That(world.Log.Rows.Count).IsEqualTo(2);
         await Assert.That(world.Targets.All.Any(t => t.Host == "mud.example.org")).IsFalse();
     }
 
@@ -329,7 +335,7 @@ public class SubmissionServiceTests
         await world.Service.SubmitAsync("b.example.org", "4201", Source, None);
         await world.Service.SubmitAsync("c.example.org", "4201", Source, None);
 
-        await Assert.That(world.Log.Records.Count).IsEqualTo(1);
+        await Assert.That(world.Log.Rows.Count).IsEqualTo(1);
     }
 
     /// <summary>
@@ -338,21 +344,88 @@ public class SubmissionServiceTests
     [Test]
     public async Task ASourceIsSaltedRatherThanHashed()
     {
-        var first = new SubmissionSource();
-        var second = new SubmissionSource();
+        var epoch = new SubmissionSource(new FixedSubmissionSalt(1));
+        var next = new SubmissionSource(new FixedSubmissionSalt(2));
 
-        var one = first.Of(System.Net.IPAddress.Parse("203.0.113.10"));
+        var one = await epoch.OfAsync(IPAddress.Parse("203.0.113.10"));
 
-        await Assert.That(one).IsEqualTo(first.Of(System.Net.IPAddress.Parse("203.0.113.10")));
-        await Assert.That(one).IsNotEqualTo(first.Of(System.Net.IPAddress.Parse("203.0.113.11")));
+        await Assert.That(one).IsEqualTo(await epoch.OfAsync(IPAddress.Parse("203.0.113.10")));
+        await Assert.That(one).IsNotEqualTo(await epoch.OfAsync(IPAddress.Parse("203.0.113.11")));
 
-        // A different process is a different salt, so a row written before a restart is not
-        // comparable to one written after it. Four billion IPv4 guesses is an afternoon; this is
-        // what makes "we do not store the address" true rather than nearly true.
-        await Assert.That(one).IsNotEqualTo(second.Of(System.Net.IPAddress.Parse("203.0.113.10")));
+        // A retired epoch's rows cannot be lined up against a current one's, by anybody, including
+        // us. Four billion IPv4 guesses is an afternoon, so the salt is what makes "we do not store
+        // the address" true rather than nearly true, and the rotation is what bounds what one salt
+        // can ever link together.
+        await Assert.That(one).IsNotEqualTo(await next.OfAsync(IPAddress.Parse("203.0.113.10")));
 
         // A request with no address at all still falls into one bucket, so it is still bounded.
-        await Assert.That(first.Of((System.Net.IPAddress?)null)).IsEqualTo(first.Of(SubmissionSource.Unknown));
+        await Assert.That(await epoch.OfAsync(null)).IsEqualTo(
+            SubmissionSource.Digest(Enumerable.Repeat((byte)1, 32).ToArray(), SubmissionSource.Unknown));
+    }
+
+    /// <summary>
+    /// Every replica derives the same digest for one address, which is what makes the bound a bound.
+    /// </summary>
+    /// <remarks>
+    /// The first version generated a random salt per process. It read as the stronger privacy
+    /// property and quietly removed the limit: two replicas hash one address two ways, so five per
+    /// hour becomes five per replica per hour, and a restart clears it outright. The salt is shared
+    /// and rotates on an epoch instead — which is what §11 actually describes.
+    /// </remarks>
+    [Test]
+    public async Task TwoReplicasSharingASaltAgreeAboutOneAddress()
+    {
+        var salt = new FixedSubmissionSalt(9);
+        var replicaA = new SubmissionSource(salt);
+        var replicaB = new SubmissionSource(salt);
+
+        await Assert.That(await replicaA.OfAsync(IPAddress.Parse("203.0.113.10")))
+            .IsEqualTo(await replicaB.OfAsync(IPAddress.Parse("203.0.113.10")));
+    }
+
+    /// <summary>
+    /// An IPv6 submitter is bounded by their /64, not by an address they have unlimited supply of.
+    /// </summary>
+    /// <remarks>
+    /// The smallest block anybody is assigned is a /64, and home connections routinely get a /48 or
+    /// a /56. Keyed on the full address, one attacker holds eighteen quintillion buckets and a limit
+    /// of five per hour is decorative.
+    /// </remarks>
+    [Test]
+    public async Task EveryAddressInOneIPv6PrefixIsOneSource()
+    {
+        await Assert.That(SubmissionSource.Bucket(IPAddress.Parse("2001:db8:1:2::1")))
+            .IsEqualTo(SubmissionSource.Bucket(IPAddress.Parse("2001:db8:1:2:ffff:ffff:ffff:ffff")));
+
+        // A neighbouring /64 is somebody else, and had to be obtained.
+        await Assert.That(SubmissionSource.Bucket(IPAddress.Parse("2001:db8:1:2::1")))
+            .IsNotEqualTo(SubmissionSource.Bucket(IPAddress.Parse("2001:db8:1:3::1")));
+
+        // IPv4 is kept whole — there a single address is already scarce — including the mapped form,
+        // which would otherwise be a free second bucket for every IPv4 client.
+        await Assert.That(SubmissionSource.Bucket(IPAddress.Parse("203.0.113.10"))).IsEqualTo("203.0.113.10");
+        await Assert.That(SubmissionSource.Bucket(IPAddress.Parse("::ffff:203.0.113.10")))
+            .IsEqualTo("203.0.113.10");
+    }
+
+    /// <summary>
+    /// A concurrent burst does not walk through the bound.
+    /// </summary>
+    /// <remarks>
+    /// The reason the limit is a reservation rather than a count. Counting rows and then inserting
+    /// one is check-then-act: every request in a burst reads a count none of them has written to,
+    /// and every one of them passes. On an unauthenticated form that check is the whole limit.
+    /// </remarks>
+    [Test]
+    public async Task ABurstFromOneSourceStillOnlyGetsItsShare()
+    {
+        var world = Build(new SubmissionOptions { PerSource = 3, Window = TimeSpan.FromHours(1) });
+
+        var attempts = await Task.WhenAll(Enumerable.Range(0, 40).Select(_ =>
+            world.Service.SubmitAsync("mud.example.org", "4201", Source, None)));
+
+        await Assert.That(attempts.Count(r => r.Outcome is not SubmissionOutcome.TooMany)).IsEqualTo(3);
+        await Assert.That(world.Log.Rows.Count).IsEqualTo(3);
     }
 
     /// <summary>Every recordable outcome is one the storage vocabulary accepts.</summary>

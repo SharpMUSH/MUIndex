@@ -36,7 +36,11 @@ public class SubmissionPostgresTests
             options ?? new SubmissionOptions(),
             TimeProvider.System);
 
-    private static CrawlCycle Cycle(NpgsqlDataSource source, IProbe probe, IHostResolver resolver)
+    private static CrawlCycle Cycle(
+        NpgsqlDataSource source,
+        IProbe probe,
+        IHostResolver resolver,
+        ClaimService? claims = null)
     {
         var discovery = new DiscoveryOptions
         {
@@ -77,7 +81,8 @@ public class SubmissionPostgresTests
             new CrawlRateLimiter(discovery, time),
             new HostGate(),
             discovery,
-            time);
+            time,
+            claims);
     }
 
     /// <summary>
@@ -123,10 +128,131 @@ public class SubmissionPostgresTests
         await Assert.That((await queries.ListAsync(new GameFilter { IncludeArchived = true })).Count)
             .IsEqualTo(0);
 
-        // Until somebody proves they run it.
-        await new NpgsqlGameStore(source).SetClaimedAsync(game.Id, true);
+        // Until somebody proves they run it — through the real claiming path, which is the whole of
+        // the exit and the thing the first version of this test faked.
+        //
+        // THE FAKE WAS THE BUG. Flipping is_claimed with SetClaimedAsync proved the query filter
+        // opens, and proved nothing about whether anybody could ever make it open: FindAsync is what
+        // the claim page looks a game up with, and it had just been taught to hide this game. So the
+        // page said "no such game", IssueAsync was unreachable, and hidden-until-claimed was a state
+        // with no exit — under a green test.
+        var user = await AccountAsync(source);
+        var claims = new ClaimService(
+            new NpgsqlClaimStore(source), new NpgsqlGameStore(source), TimeProvider.System);
+
+        var claim = await claims.IssueAsync(
+            (await new NpgsqlGameStore(source).BySlugAsync("tidewater-nights"))!.Id, user);
+
+        // The operator publishes the token where an anonymous connection reads it, and the next
+        // ordinary crawl settles it. Nothing here writes is_claimed.
+        var published = new ScriptedProbe(target => Probes.Answered(
+            host: target.Host,
+            port: target.Port,
+            mssp: Probes.Mssp(
+                ("NAME", "Tidewater Nights"),
+                (ClaimTokenBeacon.MsspVariable, claim.Token)),
+            banner: "Welcome to Tidewater Nights"));
+
+        // Waiting out the schedule, without waiting. The first cycle pushed next_probe_at forward,
+        // which is §7.7 working; a claimant in production either waits for it or presses "check now".
+        await connection.ExecuteAsync("UPDATE crawl_target SET next_probe_at = now()");
+
+        await Cycle(source, published, resolver, claims).RunAsync();
 
         await Assert.That(await queries.FindAsync("tidewater-nights")).IsNotNull();
+        await Assert.That((await queries.ListAsync(new GameFilter())).Count).IsEqualTo(1);
+    }
+
+    /// <summary>An account with nothing on it, which is all a claim needs to bind to (§8.1).</summary>
+    private static async Task<Guid> AccountAsync(NpgsqlDataSource source)
+    {
+        var id = Guid.CreateVersion7();
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO app_user (id, display_name, normalised_name, security_stamp,
+                                  concurrency_stamp, created_at)
+            VALUES (@id, 'operator', 'OPERATOR', @stamp, @stamp, now())
+            """,
+            new { id, stamp = Guid.NewGuid().ToString() });
+
+        return id;
+    }
+
+    /// <summary>
+    /// A submitted address that publishes no name of its own is not listed at all (spec §7.2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The gate is on "a stranger proposed this", and the form is the second way that happens.</b>
+    /// Reading it as "referrals only" left submissions outside it, and what that let through was not
+    /// a hidden listing — it was <see cref="IdentityMatcher"/>, which runs afterwards. A VPS
+    /// answering <c>NAME "Aardwolf"</c> is then scored against the whole catalogue, and short of a
+    /// merge it mints a game and takes the <c>aardwolf</c> slug, because slug uniqueness asks the
+    /// store and the store does not know a submitted game is hidden. The real one arrives later and
+    /// is listed at <c>aardwolf-2</c>, for ever.
+    /// </para>
+    /// <para>
+    /// The cost is §7.2's own and is accepted there: a real game whose operator never edited one
+    /// line of MSSP stays unlisted. The target is kept and re-probed for ever, so it lists itself
+    /// the moment a name is published.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ASubmittedAddressThatPublishesNoNameOfItsOwnIsNotListed()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+        var resolver = new FakeHostResolver().Resolving("squatter.example.org", "203.0.113.10");
+
+        await Submissions(source, resolver).SubmitAsync("squatter.example.org", "4201", Source(7), None);
+
+        // Answers, and says nothing about itself that is its own.
+        var probe = new ScriptedProbe(target => Probes.Answered(target.Host, target.Port));
+
+        var report = await Cycle(source, probe, resolver).RunAsync();
+
+        await Assert.That(report.Answered).IsEqualTo(1);
+        await Assert.That(report.Listed).IsEqualTo(0);
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<int>("SELECT count(*)::int FROM game"))
+            .IsEqualTo(0);
+
+        // And is still a target, so it lists itself the moment it publishes a name.
+        await Assert.That(await connection.ExecuteScalarAsync<int>(
+            "SELECT count(*)::int FROM crawl_target")).IsEqualTo(1);
+    }
+
+    /// <summary>
+    /// A submitted address publishing a codebase's own name does not get to be that codebase.
+    /// </summary>
+    /// <remarks>
+    /// §7.3's placeholder rule, reached through the form: <c>NAME "PennMUSH"</c> is what every
+    /// unedited PennMUSH on the internet publishes, so it identifies nobody. Admitting it would let
+    /// a submitter mint a listing per default install they can point at, and take the slug.
+    /// </remarks>
+    [Test]
+    public async Task ASubmittedAddressPublishingItsCodebasesNameIsNotListed()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+        var resolver = new FakeHostResolver().Resolving("default.example.org", "203.0.113.10");
+
+        await Submissions(source, resolver).SubmitAsync("default.example.org", "4201", Source(8), None);
+
+        var probe = new ScriptedProbe(target => Probes.Answered(
+            target.Host, target.Port, mssp: Probes.Mssp(("NAME", "PennMUSH"))));
+
+        await Cycle(source, probe, resolver).RunAsync();
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<int>("SELECT count(*)::int FROM game"))
+            .IsEqualTo(0);
     }
 
     /// <summary>
@@ -283,28 +409,107 @@ public class SubmissionPostgresTests
     {
         await using var database = await PostgresFixture.MigratedAsync();
         var log = new NpgsqlSubmissionLog(database.DataSource);
+        var recordable = Enum.GetValues<SubmissionOutcome>()
+            .Where(o => o is not SubmissionOutcome.TooMany)
+            .ToList();
 
-        foreach (var outcome in Enum.GetValues<SubmissionOutcome>()
-            .Where(o => o is not SubmissionOutcome.TooMany))
+        foreach (var outcome in recordable)
         {
-            await log.RecordAsync(
-                new SubmissionRecord(
-                    Guid.CreateVersion7(),
-                    outcome is SubmissionOutcome.Malformed ? null : "mud.example.org",
-                    outcome is SubmissionOutcome.Malformed ? null : 4201,
-                    DateTimeOffset.UtcNow,
-                    outcome,
-                    // The table refuses an accepted row that names no target, and refuses a target on
-                    // any other outcome — so this is not decoration, it is the constraint.
-                    outcome is SubmissionOutcome.Accepted ? await TargetAsync(database.DataSource) : null,
-                    Source(5)),
+            var id = Guid.CreateVersion7();
+
+            await Assert.That(await log.TryBeginAsync(
+                id, Source(5), DateTimeOffset.UtcNow, recordable.Count, DateTimeOffset.UtcNow.AddHours(-1), None))
+                .IsTrue();
+
+            await log.CompleteAsync(
+                id,
+                outcome is SubmissionOutcome.Malformed ? null : new SubmittedAddress("mud.example.org", 4201),
+                outcome,
+                // The table refuses an accepted row that names no target, and refuses a target on
+                // any other outcome — so this is not decoration, it is the constraint.
+                outcome is SubmissionOutcome.Accepted ? await TargetAsync(database.DataSource) : null,
                 None);
         }
 
         await using var connection = await database.DataSource.OpenConnectionAsync();
 
         await Assert.That(await connection.ExecuteScalarAsync<int>(
-            "SELECT count(*)::int FROM game_submission")).IsEqualTo(6);
+            "SELECT count(*)::int FROM game_submission WHERE outcome <> 'pending'")).IsEqualTo(6);
+    }
+
+    /// <summary>
+    /// A concurrent burst from one source does not walk through the bound.
+    /// </summary>
+    /// <remarks>
+    /// Against the real database, because this is where it matters: <c>READ COMMITTED</c> lets two
+    /// transactions both read a count neither has written to, so counting and then inserting is
+    /// check-then-act and a burst passes it entirely. The advisory lock on the source is what makes
+    /// the count and the insert one step, and nothing but a real Postgres can be asked whether it
+    /// worked.
+    /// </remarks>
+    [Test]
+    public async Task AConcurrentBurstDoesNotWalkThroughTheBound()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+        var resolver = new FakeHostResolver();
+        var options = new SubmissionOptions { PerSource = 3, Window = TimeSpan.FromHours(1) };
+        var mine = Source(6);
+
+        // Forty requests at once, each with its own service, as forty concurrent requests across a
+        // replica set would be.
+        var attempts = await Task.WhenAll(Enumerable.Range(0, 40).Select(i =>
+            Submissions(source, resolver, options)
+                .SubmitAsync($"burst{i}.example.org", "4201", mine, None)));
+
+        await Assert.That(attempts.Count(r => r.Outcome is not SubmissionOutcome.TooMany)).IsEqualTo(3);
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<int>(
+            "SELECT count(*)::int FROM game_submission")).IsEqualTo(3);
+    }
+
+    /// <summary>
+    /// The salt is one row every replica reads, not a value each process invented.
+    /// </summary>
+    /// <remarks>
+    /// A per-process salt reads as the stronger privacy property and removes the bound: two replicas
+    /// derive two digests for one address, so five per hour becomes five per replica per hour and a
+    /// restart clears it. What §11 asks for is a <em>rotating</em> salt, and a salt that rotates is
+    /// one that is stored for the length of an epoch.
+    /// </remarks>
+    [Test]
+    public async Task TheSaltIsSharedAndRotates()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var options = new SubmissionOptions { SaltEpoch = TimeSpan.FromDays(7) };
+        var clock = new SettableClock(new DateTimeOffset(2026, 8, 15, 0, 0, 0, TimeSpan.Zero));
+
+        var replicaA = new NpgsqlSubmissionSalt(database.DataSource, options, clock);
+        var replicaB = new NpgsqlSubmissionSalt(database.DataSource, options, clock);
+
+        var a = await replicaA.CurrentAsync(None);
+        var b = await replicaB.CurrentAsync(None);
+
+        await Assert.That(a).IsEquivalentTo(b);
+        await Assert.That(a.Length).IsGreaterThanOrEqualTo(32);
+
+        // One row, however many replicas asked for it.
+        await using var connection = await database.DataSource.OpenConnectionAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<int>(
+            "SELECT count(*)::int FROM submission_salt")).IsEqualTo(1);
+
+        // A new epoch is new bytes, so nothing written under the old one can be lined up against
+        // anything written under this one.
+        clock.Advance(TimeSpan.FromDays(8));
+
+        var rotated = await replicaA.CurrentAsync(None);
+
+        await Assert.That(rotated).IsNotEquivalentTo(a);
+        await Assert.That(await connection.ExecuteScalarAsync<int>(
+            "SELECT count(*)::int FROM submission_salt")).IsEqualTo(2);
     }
 
     private static async Task<Guid> TargetAsync(NpgsqlDataSource source) =>

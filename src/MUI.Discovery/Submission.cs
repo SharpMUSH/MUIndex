@@ -67,28 +67,59 @@ public sealed record SubmissionReceipt(
     string? Detail = null);
 
 /// <summary>
-/// One submission, as the <c>game_submission</c> table holds it (migration 0010).
+/// The submissions we have taken, and the bound on how many one source may make.
 /// </summary>
 /// <remarks>
-/// There is no game id here and there must never be one. A submission is a thing somebody did to us,
-/// and attaching it to a game would put our own handling of a stranger's form into that game's record.
+/// <para>
+/// <b>Two calls because the bound has to be atomic.</b> Counting rows and then inserting one is
+/// check-then-act: a burst of concurrent requests all read a count that none of them has yet
+/// written to, and every one of them passes. On an unauthenticated form that check <em>is</em> the
+/// limit, so <see cref="TryBeginAsync"/> takes the slot and writes the row in one serialised step,
+/// and <see cref="CompleteAsync"/> fills in what happened once we know.
+/// </para>
+/// <para>
+/// A row left pending by a process that died still counts against the bound. That is the direction
+/// to fail in: an hour of a slightly tighter limit costs a submitter one wait, and the other way
+/// round costs us the limit.
+/// </para>
 /// </remarks>
-public sealed record SubmissionRecord(
-    Guid Id,
-    string? Host,
-    int? Port,
-    DateTimeOffset SubmittedAt,
-    SubmissionOutcome Outcome,
-    Guid? CrawlTargetId,
-    string Source);
-
-/// <summary>The submissions we have taken, and how many one source has made lately.</summary>
 public interface ISubmissionLog
 {
-    Task RecordAsync(SubmissionRecord record, CancellationToken ct);
+    /// <summary>
+    /// Takes one of this source's slots and writes a pending row, or returns false if it has none
+    /// left. Serialised per source against every other caller, in this process or another.
+    /// </summary>
+    Task<bool> TryBeginAsync(
+        Guid id,
+        string source,
+        DateTimeOffset now,
+        int perSource,
+        DateTimeOffset since,
+        CancellationToken ct);
 
-    /// <summary>How many submissions this source has made since a moment. The rate limit's whole read.</summary>
-    Task<int> CountSinceAsync(string source, DateTimeOffset since, CancellationToken ct);
+    /// <summary>Fills in what became of a reservation.</summary>
+    Task CompleteAsync(
+        Guid id,
+        SubmittedAddress? address,
+        SubmissionOutcome outcome,
+        Guid? crawlTargetId,
+        CancellationToken ct);
+}
+
+/// <summary>
+/// §11's rotating salt, shared by every replica.
+/// </summary>
+/// <remarks>
+/// <b>Not a per-process random value, and the difference is the whole bound.</b> Two web replicas
+/// with two salts derive two digests for one address, so a limit of five per hour becomes five per
+/// replica per hour and a restart clears it. §11's construction is a <em>rotating</em> salt, and a
+/// salt that rotates is one that is stored for the length of an epoch. What that buys — that rows
+/// written under a retired salt can never be lined up against rows written under the current one —
+/// survives being shared, and is the property worth having.
+/// </remarks>
+public interface ISubmissionSalt
+{
+    Task<byte[]> CurrentAsync(CancellationToken ct);
 }
 
 /// <summary>The bounds on an unauthenticated form.</summary>
@@ -107,10 +138,20 @@ public sealed record SubmissionOptions
 
     public TimeSpan Window { get; init; } = TimeSpan.FromHours(1);
 
+    /// <summary>
+    /// How long one salt epoch lasts (spec §11).
+    /// </summary>
+    /// <remarks>
+    /// Far longer than <see cref="Window"/>, so a rotation costs at most one window's worth of bound
+    /// — and short enough that the set of rows any one salt can link together stays small.
+    /// </remarks>
+    public TimeSpan SaltEpoch { get; init; } = TimeSpan.FromDays(7);
+
     public void Validate()
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(PerSource, 1, nameof(PerSource));
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(Window, TimeSpan.Zero, nameof(Window));
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(SaltEpoch, Window, nameof(SaltEpoch));
     }
 }
 
@@ -121,32 +162,59 @@ public sealed record SubmissionOptions
 /// <para>
 /// <b>The submitter's address is never stored.</b> What the rate limit needs is whether two
 /// submissions came from one place inside the hour, and it needs nothing else, ever — so what is
-/// stored is a salted digest and the salt is a random value this process generated at startup and
-/// never wrote down. Restarting rotates it, which is more often than the window is long, so a row
-/// stops being comparable to anything well before it stops being a row.
+/// stored is a digest under <see cref="ISubmissionSalt"/>'s shared, rotating salt. A plain hash of
+/// an IPv4 address would be reversible by anybody with an afternoon and four billion guesses, which
+/// is what the salt is for; the rotation is what stops one epoch's rows being lined up against the
+/// next one's.
 /// </para>
 /// <para>
-/// This is §11's rule for player names applied to a form: hash with a rotating salt, keep the
-/// aggregate, lose the identity. A plain hash of an IPv4 address would be reversible by anybody with
-/// an afternoon and four billion guesses, so the salt is what makes the sentence above true.
+/// <b>An IPv6 address is bucketed to its /64, and that is a bound rather than a nicety.</b> The
+/// smallest block anybody is assigned is a /64 and a great many home connections get a /48 or /56,
+/// so an attacker keyed on the full address holds eighteen quintillion buckets and the limit is
+/// decorative. The /64 is the unit that costs something to obtain, so it is the unit the bound is
+/// counted in. IPv4 is kept whole, because there a single address is already scarce.
 /// </para>
 /// </remarks>
-public sealed class SubmissionSource
+public sealed class SubmissionSource(ISubmissionSalt salt)
 {
-    private readonly byte[] _salt = RandomNumberGenerator.GetBytes(32);
-
     /// <summary>What a request with no address at all counts as. One bucket, so it is still bounded.</summary>
     public const string Unknown = "unknown";
 
-    public string Of(IPAddress? address) => Of(address?.ToString() ?? Unknown);
+    public async Task<string> OfAsync(IPAddress? address, CancellationToken ct = default) =>
+        Digest(await salt.CurrentAsync(ct).ConfigureAwait(false), Bucket(address));
 
-    public string Of(string address)
+    /// <summary>
+    /// The unit the bound is counted in: an IPv4 address whole, an IPv6 address's /64 prefix.
+    /// </summary>
+    public static string Bucket(IPAddress? address)
     {
-        ArgumentNullException.ThrowIfNull(address);
+        if (address is null)
+        {
+            return Unknown;
+        }
 
-        var digest = HMACSHA256.HashData(_salt, Encoding.UTF8.GetBytes(address));
+        if (address.IsIPv4MappedToIPv6)
+        {
+            address = address.MapToIPv4();
+        }
 
-        return Convert.ToHexStringLower(digest);
+        if (address.AddressFamily is not System.Net.Sockets.AddressFamily.InterNetworkV6)
+        {
+            return address.ToString();
+        }
+
+        var octets = address.GetAddressBytes();
+        Array.Clear(octets, 8, 8);
+
+        return $"{new IPAddress(octets)}/64";
+    }
+
+    /// <summary>Exposed so a test can prove two salts do not agree about one address.</summary>
+    public static string Digest(ReadOnlySpan<byte> salt, string bucket)
+    {
+        ArgumentNullException.ThrowIfNull(bucket);
+
+        return Convert.ToHexStringLower(HMACSHA256.HashData(salt, Encoding.UTF8.GetBytes(bucket)));
     }
 }
 
@@ -215,11 +283,12 @@ public static class SubmittedAddressReader
 /// applied to the one-at-a-time case.
 /// </para>
 /// <para>
-/// <b>The order of the checks is the design.</b> The rate limit first, because it is the only one
-/// that costs nothing and it must not be bypassable by sending rubbish. Then the address, then our
-/// own catalogue, and only then DNS — so the form cannot be used as a free resolver. §7.2's gate runs
-/// on the resolved address, before the target is written, so a refused name never reaches the
-/// registry and is never dialled by anything.
+/// <b>The order of the checks is the design.</b> The rate limit first — as a reservation rather than
+/// a count, so that a burst cannot walk through a check none of it has written to yet — because it
+/// must not be bypassable by sending rubbish and a source at its bound must not be able to make us
+/// do work. Then the address, then our own catalogue, and only then DNS, so the form cannot be used
+/// as a free resolver. §7.2's gate runs on the resolved address, before the target is written, so a
+/// refused name never reaches the registry and is never dialled by anything.
 /// </para>
 /// <para>
 /// <b>A refusal creates nothing and measures nothing.</b> No game, no target, no availability sample,
@@ -253,32 +322,32 @@ public sealed class SubmissionService(
         ArgumentException.ThrowIfNullOrWhiteSpace(source);
 
         var now = time.GetUtcNow();
+        var reservation = Guid.CreateVersion7();
 
-        var recent = await log.CountSinceAsync(source, now - options.Window, ct);
-
-        if (recent >= options.PerSource)
+        // One serialised step: count this source's slots and take one, or take none. Deliberately
+        // before anything else — a source at its limit must not be able to make us parse, read or
+        // resolve anything — and deliberately the only place the bound is consulted, because a
+        // separate count would be a check somebody could walk through while it was still true.
+        if (!await log.TryBeginAsync(reservation, source, now, options.PerSource, now - options.Window, ct))
         {
-            // Deliberately before anything else, and deliberately unlogged. A source at its limit
-            // must not be able to make us parse, read or resolve anything, and a row per refusal
-            // would slide the window forward for as long as somebody kept knocking.
             return new SubmissionReceipt(SubmissionOutcome.TooMany);
         }
 
         if (!SubmittedAddressReader.TryRead(host, port, out var address))
         {
-            await RecordAsync(null, SubmissionOutcome.Malformed, null, source, now, ct);
+            await log.CompleteAsync(reservation, null, SubmissionOutcome.Malformed, null, ct);
             return new SubmissionReceipt(SubmissionOutcome.Malformed);
         }
 
         if (await endpoints.ByAddressAsync(address.Host, address.Port, ct) is { } known)
         {
-            await RecordAsync(address, SubmissionOutcome.AlreadyListed, null, source, now, ct);
+            await log.CompleteAsync(reservation, address, SubmissionOutcome.AlreadyListed, null, ct);
             return new SubmissionReceipt(SubmissionOutcome.AlreadyListed, address, known.GameId);
         }
 
         if (await targets.ByAddressAsync(address.Host, address.Port, ct) is not null)
         {
-            await RecordAsync(address, SubmissionOutcome.AlreadyQueued, null, source, now, ct);
+            await log.CompleteAsync(reservation, address, SubmissionOutcome.AlreadyQueued, null, ct);
             return new SubmissionReceipt(SubmissionOutcome.AlreadyQueued, address);
         }
 
@@ -286,11 +355,15 @@ public sealed class SubmissionService(
 
         if (decision.Ruling is not HostScopeRuling.Allowed)
         {
+            // Two outcomes, because §7.2 says they are two facts and the record has to keep them
+            // apart. What the *submitter* is told collapses them into one sentence — see
+            // SubmitCopy — because telling a stranger which of the two happened is an oracle over
+            // our own resolver's view of names they cannot otherwise see.
             var outcome = decision.Ruling is HostScopeRuling.RefusedNonGlobal
                 ? SubmissionOutcome.RefusedNotRoutable
                 : SubmissionOutcome.Unresolvable;
 
-            await RecordAsync(address, outcome, null, source, now, ct);
+            await log.CompleteAsync(reservation, address, outcome, null, ct);
             return new SubmissionReceipt(outcome, address, Detail: decision.Detail);
         }
 
@@ -309,26 +382,8 @@ public sealed class SubmissionService(
 
         var id = await targets.AddAsync(target, ct);
 
-        await RecordAsync(address, SubmissionOutcome.Accepted, id, source, now, ct);
+        await log.CompleteAsync(reservation, address, SubmissionOutcome.Accepted, id, ct);
 
         return new SubmissionReceipt(SubmissionOutcome.Accepted, address);
     }
-
-    private Task RecordAsync(
-        SubmittedAddress? address,
-        SubmissionOutcome outcome,
-        Guid? crawlTargetId,
-        string source,
-        DateTimeOffset now,
-        CancellationToken ct) =>
-        log.RecordAsync(
-            new SubmissionRecord(
-                Guid.CreateVersion7(),
-                address?.Host,
-                address?.Port,
-                now,
-                outcome,
-                crawlTargetId,
-                source),
-            ct);
 }

@@ -1,9 +1,10 @@
 @page "/submit"
 @using Microsoft.AspNetCore.WebUtilities
 @using MUI.Catalog
+@using MUI.Catalog.Persistence
 @using MUI.Discovery
 @using MUI.Web.Data
-@inject IGameQueries Queries
+@inject IServiceProvider Services
 @inject CatalogueSource Catalogue
 @inject NavigationManager Nav
 
@@ -40,9 +41,9 @@ else
         <section class="prose submission-answer" role="status">
             <h2>@answer.Heading</h2>
             <p>@answer.Sentence</p>
-            @if (answer.GameSlug is { } slug)
+            @if (answer.Link is { } link)
             {
-                <p><a href="/g/@slug">/g/@slug</a></p>
+                <p><a href="@link.Href">@link.Label</a></p>
             }
         </section>
     }
@@ -108,22 +109,40 @@ else
     /// Reads the answer back out of the URL, trusting none of it.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The outcome has to be one of a fixed set of words, and the slug is looked up again here — so a
-    /// hand-made link cannot make this page link to a game that is not public, which would be the
-    /// hidden-until-claimed filter leaking through the one page that talks about it.
+    /// hand-made link cannot make this page point at a game that does not exist, and the row decides
+    /// whether the link is the game's page or its claim page rather than the URL doing so.
+    /// </para>
+    /// <para>
+    /// <b>One row, through <see cref="IGameStore"/>, not <c>IGameQueries.FindAsync</c>.</b> That call
+    /// assembles a whole game page — fields, presence digest, availability intervals, endpoints, the
+    /// change feed and a 7×24 activity grid — which is six extra round trips to decide whether a
+    /// string names a game. On an unauthenticated GET with an attacker-supplied slug that is a
+    /// request amplifier, and it is the wrong question besides.
+    /// </para>
     /// </remarks>
     protected override async Task OnParametersSetAsync()
     {
         Query = QueryHelpers.ParseQuery(new Uri(Nav.Uri).Query);
 
         var outcome = SubmitLinks.Outcome(Value(SubmitLinks.ResultKey));
-        var game = Value(SubmitLinks.GameKey);
+        var slug = Value(SubmitLinks.GameKey);
 
-        var slug = outcome is SubmissionOutcome.AlreadyListed && game is { Length: > 0 }
-            && await Queries.FindAsync(game) is not null
-                ? game
-                : null;
+        SubmitLink? link = null;
 
-        Answer = SubmitCopy.Answer(outcome, SubmitLinks.Address(Host, Port), slug);
+        if (outcome is SubmissionOutcome.AlreadyListed
+            && slug is { Length: > 0 }
+            && Services.GetService<IGameStore>() is { } games
+            && await games.BySlugAsync(slug) is { } game)
+        {
+            // Hidden means submitted and unclaimed — the state whose only exit is a claim, so that
+            // is what the link offers. Everything else gets its public page.
+            link = game.SubmittedAt is not null && !game.IsClaimed
+                ? SubmitLink.Claim(game.Slug)
+                : SubmitLink.Game(game.Slug);
+        }
+
+        Answer = SubmitCopy.Answer(outcome, SubmitLinks.Address(Host, Port), link);
     }
 }

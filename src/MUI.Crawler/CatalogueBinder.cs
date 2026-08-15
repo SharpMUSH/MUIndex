@@ -118,21 +118,51 @@ public sealed class CatalogueBinder(
     /// </summary>
     /// <remarks>
     /// <para>
-    /// It applies to referrals and to nothing else. A target a human configured, or one an import
-    /// seeded, was not proposed by a stranger, so answering at all is enough for it — which is what
-    /// keeps a game like Aardwolf, with no MSSP whatsoever, listable.
+    /// <b>The gate is on "a stranger proposed this", and a referral is one of two ways that
+    /// happens.</b> The other is the public submission form. A target a human operator configured,
+    /// or one the backfill seeded, was not proposed by a stranger, so answering at all is enough for
+    /// it — which is what keeps a game like Aardwolf, with no MSSP whatsoever, listable by an
+    /// operator. Reading the gate as "referrals only" left the form outside it, and a form is a
+    /// stranger's proposal with a lower barrier than editing your own MSSP.
+    /// </para>
+    /// <para>
+    /// <b>What that let through was not a hidden listing, it was the identity matcher.</b> This runs
+    /// <em>before</em> <c>IdentityMatcher.ResolveAsync</c>, so an ungated target is scored against
+    /// the whole catalogue on whatever it cared to publish — a VPS answering <c>NAME "Aardwolf"</c>
+    /// and a plausible <c>CREATED</c> is a merge candidate for the real one, and short of that it
+    /// mints a game and takes the <c>aardwolf</c> slug, because <c>GameSlug.UniqueAsync</c> asks the
+    /// <em>store</em> whether a slug is free and the store does not know that a submitted game is
+    /// hidden. The real Aardwolf then arrives and is listed at <c>aardwolf-2</c>, for ever, by
+    /// somebody who filled in a form.
+    /// </para>
+    /// <para>
+    /// <b>The cost is §7.2's own, stated there and accepted:</b> a real, reachable game whose
+    /// operator never edited one line of MSSP stays unlisted, and submitting it does not change
+    /// that. The address is kept and re-probed for ever, so it lists itself the moment a name is
+    /// published, with nobody involved.
     /// </para>
     /// <para>
     /// <c>MeaningfulName</c> rather than any <c>NAME</c>: an unedited codebase publishing its own name
-    /// has not identified itself, and admitting one would let a referral list mint a listing per
-    /// unedited PennMUSH it can point at.
+    /// has not identified itself, and admitting one would let a referral list — or a submitter with a
+    /// default install — mint a listing per unedited PennMUSH it can point at.
     /// </para>
     /// </remarks>
     private static bool MayBeListed(CrawlTarget target, ProbeResult result) =>
-        target.DiscoveredFromGameId is null
+        !ProposedByAStranger(target)
         || (result.MsspOutcome is MsspOutcome.Received
             && (MsspReading.MeaningfulName(result.Mssp) is not null
                 || MsspReading.Meaningful(result.Mssp, "HOSTNAME") is not null));
+
+    /// <summary>
+    /// Whether this address reached us from somebody with no standing to vouch for it.
+    /// </summary>
+    /// <remarks>
+    /// The two ways that happens, named in one place so a third one cannot be added without meeting
+    /// this. Operator seeds and the backfill are the complement, and both are somebody at our end
+    /// choosing an address on purpose.
+    /// </remarks>
+    private static bool ProposedByAStranger(CrawlTarget target) =>
+        target.DiscoveredFromGameId is not null || target.SubmittedAt is not null;
 
     /// <summary>
     /// Mints the game, carrying <see cref="CrawlTarget.SubmittedAt"/> across.

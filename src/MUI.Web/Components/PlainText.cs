@@ -605,9 +605,9 @@ public static class PlainText
             Heading(b, answer.Heading);
             Wrap(b, answer.Sentence);
 
-            if (answer.GameSlug is { } slug)
+            if (answer.Link is { } link)
             {
-                b.AppendLine($"  /g/{slug}");
+                b.AppendLine($"  {link.Label}: {link.Href}");
             }
         }
 

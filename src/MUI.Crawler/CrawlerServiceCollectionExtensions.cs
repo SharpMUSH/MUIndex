@@ -115,6 +115,10 @@ public static class CrawlerServiceCollectionExtensions
         // else, and it is registered here rather than in the web project because everything it needs
         // is already assembled here — the registry, the endpoint directory and §7.2's gate.
         services.TryAddSingleton(options.Submissions);
+        services.TryAddSingleton<ISubmissionSalt>(s => new NpgsqlSubmissionSalt(
+            s.GetRequiredService<NpgsqlDataSource>(),
+            s.GetRequiredService<SubmissionOptions>(),
+            s.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<SubmissionSource>();
         services.TryAddSingleton<ISubmissionLog>(
             s => new NpgsqlSubmissionLog(s.GetRequiredService<NpgsqlDataSource>()));

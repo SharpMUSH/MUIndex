@@ -1,3 +1,5 @@
+using MUI.Catalog;
+using MUI.Catalog.Persistence;
 using MUI.Discovery;
 using MUI.Web.Components;
 using MUI.Web.Components.Pages;
@@ -14,8 +16,19 @@ namespace MUI.Web.Tests;
 /// </remarks>
 public class SubmitSurfaceTests
 {
+    private static readonly DateTimeOffset Now = new(2026, 8, 15, 12, 0, 0, TimeSpan.Zero);
+
+    /// <summary>A game the site publishes.</summary>
+    private static readonly GameRecord Listed = new(
+        Guid.CreateVersion7(), "m-u-s-h", "M*U*S*H", null, LifecycleState.Active, false, Now);
+
+    /// <summary>A game somebody submitted and nobody has claimed — the hidden state.</summary>
+    private static readonly GameRecord Hidden = new(
+        Guid.CreateVersion7(), "tidewater-nights", "Tidewater Nights", null, LifecycleState.Active,
+        false, Now, SubmittedAt: Now);
+
     private static Task<string> PageAsync(string query = "", bool measured = true) =>
-        Render.PageAsync<Submit>([], query, measured);
+        Render.PageAsync<Submit>([], query, measured, [Listed, Hidden]);
 
     /// <summary>
     /// A host, a port, and nothing a submitter could assert.
@@ -85,14 +98,12 @@ public class SubmitSurfaceTests
     [Test]
     public async Task ARefusalIsOursAndSaysSo()
     {
-        var words = Render.Words(await PageAsync("?result=refused&host=internal.example.org&port=4201"));
+        var words = Render.Words(await PageAsync("?result=undialable&host=internal.example.org&port=4201"));
 
-        await Assert.That(words).Contains("We will not dial that");
-        await Assert.That(words).Contains("This is our policy about our own socket");
-        await Assert.That(words).Contains("recorded nowhere as though it did");
+        await Assert.That(words).Contains("We cannot dial that");
+        await Assert.That(words).Contains("the decision was ours and it is filed as ours");
 
-        // Never the word people reach for, and never a claim about the far end.
-        await Assert.That(words).DoesNotContain("down");
+        // Never a claim about the far end.
         await Assert.That(words).DoesNotContain("offline");
     }
 
@@ -107,7 +118,7 @@ public class SubmitSurfaceTests
     [Test]
     public async Task ARefusalNeverNamesTheAddressItResolvedTo()
     {
-        var answer = SubmitCopy.Answer(SubmissionOutcome.RefusedNotRoutable, "internal.example.org 4201", null);
+        var answer = SubmitCopy.Answer(SubmissionOutcome.RefusedNotRoutable, "internal.example.org 4201");
 
         await Assert.That(answer!.Sentence).DoesNotContain("169.254");
         await Assert.That(answer.Sentence).DoesNotContain("10.0.0");
@@ -115,18 +126,42 @@ public class SubmitSurfaceTests
         // And the receipt's detail, which does name it, is not a thing the copy can reach: it takes
         // an outcome and an address string and has nowhere to put one.
         await Assert.That(typeof(SubmitAnswer).GetProperties().Select(p => p.Name))
-            .IsEquivalentTo(new[] { "Heading", "Sentence", "GameSlug" });
+            .IsEquivalentTo(new[] { "Heading", "Sentence", "Link" });
     }
 
-    /// <summary>"Could not resolve" and "will not dial" read as two different things.</summary>
+    /// <summary>
+    /// A stranger is never told which of the two scope answers happened.
+    /// </summary>
+    /// <remarks>
+    /// <b>The two sentences were an internal-DNS oracle.</b> §7.2 keeps "did not resolve" and
+    /// "resolved somewhere we will not go" apart because they are two facts, and our own record has
+    /// to hold them apart — but handing the distinction to whoever asked turns a public form into a
+    /// scanner. Submit <c>internal.corp.example</c>: one answer means it exists on our side of a
+    /// split horizon and the other means it does not, and a few hundred guesses is a map of somebody
+    /// else's network drawn from outside it.
+    /// </remarks>
     [Test]
-    public async Task DnsFailureAndRefusalAreTwoDifferentSentences()
+    public async Task TheTwoScopeAnswersAreIndistinguishableToASubmitter()
     {
-        var refused = Render.Words(await PageAsync("?result=refused&host=a.example.org&port=4201"));
-        var missing = Render.Words(await PageAsync("?result=unresolvable&host=a.example.org&port=4201"));
+        var refused = SubmitCopy.Answer(SubmissionOutcome.RefusedNotRoutable, "internal.example.org 4201");
+        var missing = SubmitCopy.Answer(SubmissionOutcome.Unresolvable, "internal.example.org 4201");
 
-        await Assert.That(missing).Contains("a fact about the world rather than a decision of ours");
-        await Assert.That(refused).DoesNotContain("a fact about the world");
+        await Assert.That(refused).IsEqualTo(missing);
+
+        // Including in the URL, which is where a script would look rather than at the prose.
+        await Assert.That(SubmitLinks.Token(SubmissionOutcome.RefusedNotRoutable))
+            .IsEqualTo(SubmitLinks.Token(SubmissionOutcome.Unresolvable));
+
+        // And the page says out loud that it is refusing to say, rather than seeming vague.
+        var words = Render.Words(await PageAsync("?result=undialable&host=internal.example.org&port=4201"));
+
+        await Assert.That(words).Contains("we deliberately do not say which");
+
+        // The two facts still exist, and are still two, where they belong: in our own record. The
+        // enum keeps both members and the table keeps both words; only the surface collapses them.
+        await Assert.That(Enum.GetNames<SubmissionOutcome>())
+            .Contains(nameof(SubmissionOutcome.RefusedNotRoutable))
+            .And.Contains(nameof(SubmissionOutcome.Unresolvable));
     }
 
     /// <summary>An accepted submission says what will happen and what will not.</summary>
@@ -137,7 +172,10 @@ public class SubmitSurfaceTests
 
         await Assert.That(words).Contains("mud.example.org 4201");
         await Assert.That(words).Contains("will be dialled on the next crawl cycle");
-        await Assert.That(words).Contains("until somebody claims it");
+
+        // And how to get it listed, which is the question the answer raises.
+        await Assert.That(words).Contains("as soon as somebody proves they run it");
+        await Assert.That(words).Contains("come back to this form with the same address");
     }
 
     /// <summary>
@@ -146,10 +184,31 @@ public class SubmitSurfaceTests
     [Test]
     public async Task ADuplicateLinksToTheGameItCollapsedOnto()
     {
-        var words = await PageAsync("?result=already-listed&host=mud.example.org&port=4201&g=m-u-s-h");
+        var page = await PageAsync("?result=already-listed&host=mud.example.org&port=4201&g=m-u-s-h");
 
-        await Assert.That(words).Contains("/g/m-u-s-h");
-        await Assert.That(Render.Words(words)).Contains("We already have that one");
+        await Assert.That(page).Contains("href=\"/g/m-u-s-h\"");
+        await Assert.That(Render.Words(page)).Contains("We already have that one");
+    }
+
+    /// <summary>
+    /// A hidden game's answer offers the claim page, which is the only exit it has.
+    /// </summary>
+    /// <remarks>
+    /// Hidden-until-claimed is only a state and not a trap because there is a way out of it, and a
+    /// person who has just told us the address is exactly who should be handed it. Before this the
+    /// answer said "we have it, nobody has claimed it" and stopped — true, and a dead end.
+    /// </remarks>
+    [Test]
+    public async Task ASubmissionOfAHeldBackGameOffersTheWayToClaimIt()
+    {
+        var page = await PageAsync(
+            "?result=already-listed&host=mud.example.org&port=4201&g=tidewater-nights");
+
+        await Assert.That(page).Contains("href=\"/g/tidewater-nights/claim\"");
+        await Assert.That(Render.Words(page)).Contains("If that is you, this is the way in");
+
+        // And not its listing, which does not exist.
+        await Assert.That(page).DoesNotContain("href=\"/g/tidewater-nights\"");
     }
 
     /// <summary>
@@ -162,12 +221,12 @@ public class SubmitSurfaceTests
     /// it.
     /// </remarks>
     [Test]
-    public async Task ASlugThatIsNotPublicIsNotLinked()
+    public async Task ASlugThatNamesNoGameIsNotLinked()
     {
         var page = await PageAsync("?result=already-listed&host=mud.example.org&port=4201&g=not-a-game");
 
         await Assert.That(page).DoesNotContain("/g/not-a-game");
-        await Assert.That(Render.Words(page)).Contains("is already known to us");
+        await Assert.That(Render.Words(page)).Contains("Nothing was created and nothing was changed");
     }
 
     /// <summary>Anything that is not one of the outcome words says nothing at all.</summary>
@@ -194,7 +253,7 @@ public class SubmitSurfaceTests
     {
         foreach (var outcome in Enum.GetValues<SubmissionOutcome>())
         {
-            var expected = SubmitCopy.Answer(outcome, "mud.example.org 4201", null)!;
+            var expected = SubmitCopy.Answer(outcome, "mud.example.org 4201")!;
             var page = await PageAsync(
                 $"?plain=1&result={SubmitLinks.Token(outcome)}&host=mud.example.org&port=4201");
 
@@ -213,7 +272,8 @@ public class SubmitSurfaceTests
         foreach (var outcome in Enum.GetValues<SubmissionOutcome>())
         {
             var text = PlainText.RenderSubmit(
-                SubmitCopy.Answer(outcome, "mud.example.org 4201", "m-u-s-h"), hasCatalogue: true);
+                SubmitCopy.Answer(outcome, "mud.example.org 4201", SubmitLink.Claim("tidewater-nights")),
+                hasCatalogue: true);
 
             foreach (var line in text.Split('\n'))
             {
@@ -222,14 +282,27 @@ public class SubmitSurfaceTests
         }
     }
 
-    /// <summary>Every outcome has words, and every token round-trips.</summary>
+    /// <summary>
+    /// Every outcome has words, and every token reads back as something the surface treats alike.
+    /// </summary>
+    /// <remarks>
+    /// Not a strict round trip, and deliberately: the two scope outcomes share one token, so one of
+    /// them reads back as the other. What has to hold is that the answer is unchanged either way —
+    /// which is the property the shared token exists for.
+    /// </remarks>
     [Test]
     public async Task EveryOutcomeHasSomethingToSayAndAWordToSayItWith()
     {
         foreach (var outcome in Enum.GetValues<SubmissionOutcome>())
         {
-            await Assert.That(SubmitCopy.Answer(outcome, "mud.example.org 4201", null)).IsNotNull();
-            await Assert.That(SubmitLinks.Outcome(SubmitLinks.Token(outcome))).IsEqualTo(outcome);
+            var answer = SubmitCopy.Answer(outcome, "mud.example.org 4201");
+
+            await Assert.That(answer).IsNotNull();
+
+            var roundTripped = SubmitLinks.Outcome(SubmitLinks.Token(outcome));
+
+            await Assert.That(roundTripped).IsNotNull();
+            await Assert.That(SubmitCopy.Answer(roundTripped, "mud.example.org 4201")).IsEqualTo(answer);
         }
     }
 
@@ -240,5 +313,35 @@ public class SubmitSurfaceTests
         var home = await Render.PageAsync<Home>([]);
 
         await Assert.That(home).Contains("/submit");
+    }
+
+    /// <summary>
+    /// The claim page finds a game the listing is holding back.
+    /// </summary>
+    /// <remarks>
+    /// <b>The exit, at the surface.</b> Claiming looked its game up with
+    /// <c>IGameQueries.FindAsync</c> — the same read that had just been taught to hide submitted
+    /// games — so the one page that could end the hidden state answered "No such game" for exactly
+    /// the games that needed it. Claiming reads the stored row instead, because a claim is about a
+    /// game and not about whether we publish it yet.
+    /// </remarks>
+    [Test]
+    public async Task TheClaimPageFindsAGameTheListingIsHoldingBack()
+    {
+        var page = await Render.PageAsync<Claim>(
+            new() { ["Slug"] = "tidewater-nights" }, string.Empty, measured: true, games: [Listed, Hidden]);
+
+        await Assert.That(page).DoesNotContain("No such game");
+        await Assert.That(Render.Words(page)).Contains("Claim Tidewater Nights");
+    }
+
+    /// <summary>And still refuses a slug that names nothing.</summary>
+    [Test]
+    public async Task TheClaimPageStillRefusesASlugThatNamesNothing()
+    {
+        var page = await Render.PageAsync<Claim>(
+            new() { ["Slug"] = "not-a-game" }, string.Empty, measured: true, games: [Listed, Hidden]);
+
+        await Assert.That(page).Contains("No such game");
     }
 }

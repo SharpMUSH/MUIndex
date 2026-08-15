@@ -74,6 +74,11 @@ else
         PostgresData.EnvironmentVariable, PostgresData.ConfigurationKey);
 }
 
+// Before anything reads a client address. Off unless a deployment says how many proxies are in front
+// of it (Submissions:TrustedProxyHops), because a forwarded header nobody counted is a header
+// anybody may write — and the one thing that reads a client address here is a rate limit.
+app.UseSubmitterAddress();
+
 app.UseStaticFiles();
 
 // The site has exactly two POST forms — the on-demand claim check and the submission form — and both

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 
-using MUI.Catalog;
+using MUI.Catalog.Persistence;
 using MUI.Discovery;
 using MUI.Web.Components;
 
@@ -39,22 +39,21 @@ public static class SubmissionEndpoint
             HttpContext context,
             SubmissionService submissions,
             SubmissionSource sources,
-            IGameQueries queries,
+            IGameStore games,
             [FromForm] string? host,
             [FromForm] string? port) =>
         {
             var receipt = await submissions.SubmitAsync(
                 host,
                 port,
-                sources.Of(context.Connection.RemoteIpAddress),
+                await sources.OfAsync(SubmitterAddress.Of(context), context.RequestAborted),
                 context.RequestAborted);
 
-            // Resolved here rather than in the service, because "is this game public" is a question
-            // about the site's own read filter and the service knows only the registry. A game that
-            // is hidden until claimed comes back null, and the answer then says we have the address
-            // without linking to a page nobody may see.
-            var slug = receipt.GameId is { } id && await queries.FindByIdAsync(id) is { } summary
-                ? summary.Slug
+            // The slug of whatever already answers there, so the page can offer the right link — its
+            // listing if we publish it, its claim page if we are holding it back. The row decides,
+            // not this handler: the page looks it up again and reads the same two columns.
+            var slug = receipt.GameId is { } id && await games.ByIdAsync(id, context.RequestAborted) is { } game
+                ? game.Slug
                 : null;
 
             return Results.Redirect(SubmitLinks.For(receipt.Outcome, receipt.Address, slug));
