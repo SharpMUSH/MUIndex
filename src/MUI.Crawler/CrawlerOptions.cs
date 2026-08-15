@@ -80,27 +80,73 @@ public sealed record CrawlSeed(string Host, int Port, bool IsOperatorSeed = fals
     /// is exactly where somebody writes one.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Lives here rather than in whichever surface reads a seed list, because <c>mui-crawl</c>'s
     /// <c>--seed</c> and a deployment's seed environment variable have to agree about what an address
     /// is; two parsers would eventually disagree about a bracketed address and only one of them would
     /// be tested. Anything that is not host:port throws rather than being skipped: a seed silently
     /// dropped is a crawl that quietly never dialled what it was pointed at.
+    /// </para>
+    /// <para>
+    /// <b>An ambiguous address is refused rather than guessed at.</b> The first version fell back to
+    /// the last colon whenever the brackets did not match, so <c>[2001:db8::1:4201</c> was accepted
+    /// as <c>2001:db8::1</c> port 4201 and a bare <c>2001:db8::1:4201</c> was split the same way —
+    /// a parser inventing the writer's intent from a typo. It could not reach a private address that
+    /// way (every target is resolved and ruled on by <see cref="HostScopeGuard"/> before it is
+    /// dialled, and the string the parser produced is the string that gets gated), but it could dial
+    /// a host nobody wrote down, which rule 4 says a parser does not get to do.
+    /// </para>
     /// </remarks>
     public static CrawlSeed Parse(string value, bool isOperatorSeed = false)
     {
         ArgumentNullException.ThrowIfNull(value);
 
         var text = value.Trim();
-        var colon = text.StartsWith('[') && text.Contains("]:", StringComparison.Ordinal)
-            ? text.IndexOf("]:", StringComparison.Ordinal) + 1
-            : text.LastIndexOf(':');
+        string host;
+        int colon;
+
+        if (text.StartsWith('['))
+        {
+            // Brackets are the only unambiguous way to write an IPv6 literal with a port, so they
+            // have to close, close once, and be followed immediately by the colon.
+            var close = text.IndexOf(']', StringComparison.Ordinal);
+
+            if (close < 0 || close + 1 >= text.Length || text[close + 1] != ':')
+            {
+                throw new ArgumentException(
+                    $"'{value}' opens a bracket it does not close with ']:'; a bracketed address is "
+                    + "written [host]:port.");
+            }
+
+            host = text[1..close];
+            colon = close + 1;
+
+            if (host.AsSpan().ContainsAny('[', ']'))
+            {
+                throw new ArgumentException($"'{value}' is not [host]:port.");
+            }
+        }
+        else
+        {
+            colon = text.LastIndexOf(':');
+            host = colon > 0 ? text[..colon] : string.Empty;
+
+            if (host.Contains(':', StringComparison.Ordinal))
+            {
+                // The last colon of a bare IPv6 literal is part of the address as often as it is a
+                // port separator, and nothing in the string says which. Refusing beats choosing.
+                throw new ArgumentException(
+                    $"'{value}' has more than one colon and no brackets, so there is no telling the "
+                    + "port from the address; write it as [host]:port.");
+            }
+        }
 
         if (colon <= 0 || !int.TryParse(text[(colon + 1)..], out var port))
         {
             throw new ArgumentException($"'{value}' is not host:port.");
         }
 
-        var seed = new CrawlSeed(text[..colon].Trim('[', ']'), port, isOperatorSeed);
+        var seed = new CrawlSeed(host, port, isOperatorSeed);
         seed.Validate();
 
         return seed;

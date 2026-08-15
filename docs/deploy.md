@@ -56,7 +56,7 @@ which is why the check exists.
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `MUI_POSTGRES` | *(unset)* | The connection string. **Unset means demo data.** Read before `ConnectionStrings:MUIndex`, which is the same setting through configuration. |
-| `MUI_CRAWL_SEEDS` | *(empty)* | `host:port` addresses the crawler knows on day one, separated by commas or whitespace. Bracketed IPv6 (`[2001:db8::1]:4201`) is understood. Also `Crawler:Seeds`. |
+| `MUI_CRAWL_SEEDS` | *(empty)* | `host:port` addresses the crawler knows on day one, separated by commas or whitespace. An IPv6 literal must be bracketed — `[2001:db8::1]:4201` — because `2001:db8::1:4201` does not say which colon is the port, and an address that could mean two things is refused at startup rather than guessed at. Also `Crawler:Seeds`. |
 | `MUI_CRAWL_ENABLED` | `true` | `false` makes this replica a pure web tier. Anything that is not `true` or `false` is refused at startup. Also `Crawler:Enabled`. |
 | `Passkeys__ServerDomain` | *(unset)* | The WebAuthn relying-party ID. **Tied to §15.1** — see below. Only affects sign-in and claiming. |
 | `Dataset__LicenceId`, `Dataset__LicenceName`, `Dataset__LicenceUrl`, `Dataset__Attribution`, `Dataset__Notice` | `CC-BY-4.0`, … | The terms the published data goes out under. Configuration rather than a literal because §15.2 is open and the code's licence is not the dataset's. |
@@ -83,7 +83,7 @@ recording each in the `mui_migration` ledger, and DDL is transactional in Postgr
 that fails halfway leaves nothing behind. It is idempotent: it runs in every replica on every start,
 for ever, and a second run applies nothing.
 
-```
+```text
 info: MUIndex[0] Applied migration 0001_game.sql
 …
 info: MUIndex[0] Applied 8 migration(s): 0001_game.sql, …
@@ -103,7 +103,7 @@ Run as many as you like. **They will not multiply the crawler.** The crawl loop 
 PostgreSQL session-level advisory lock (spec §12): every replica asks, one gets it, and the rest sit
 in a retry loop serving the site and nothing else.
 
-```
+```text
 replica 1: info: MUI.Crawler.CrawlerService[0] Holding the crawl lease. 1 of 1 configured seeds were new
 replica 2: info: MUI.Crawler.CrawlerService[0] Another replica holds the crawl lease; this one will keep asking
 ```
@@ -150,7 +150,7 @@ page carries a demo banner**. This is a correctness property of the packaging, n
 directory whose whole claim is that its data is measured must never present invented data as though
 it were real.
 
-```
+```text
 warn: MUIndex[0] No MUI_POSTGRES and no ConnectionStrings:MUIndex: serving DEMO data.
                  Nothing on this site was measured.
 ```

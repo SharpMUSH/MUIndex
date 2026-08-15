@@ -12,7 +12,9 @@ public sealed record Arguments
         mui-crawl — run crawl cycles against a real database and print what landed.
 
           --connection <string>   PostgreSQL connection string. Defaults to $MUI_CRAWL_POSTGRES.
-          --seed <host:port>      An address to add to the registry. Repeatable.
+          --seed <host:port>      An address to add to the registry. Repeatable. An IPv6 literal
+                                  is bracketed — [2001:db8::1]:4201 — because a bare one does not
+                                  say which colon is the port.
           --seed-exempt <h:p>     The same, exempt from the resolved-address gate (§7.2). Say this
                                   only about an address you chose on purpose — it is what lets the
                                   crawler dial a private address, and nothing else may.
