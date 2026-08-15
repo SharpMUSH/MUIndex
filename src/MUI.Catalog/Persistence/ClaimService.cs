@@ -236,15 +236,6 @@ public sealed class ClaimService(
     }
 
     /// <summary>
-    /// Withdraws a claim, explicitly.
-    /// </summary>
-    /// <remarks>
-    /// The only way a verified claim ends, along with a counter-claim. <b>Never called because a
-    /// beacon went missing</b> — see <see cref="OfferBeaconAsync"/> and §8.4. The game stops being
-    /// claimed only when no verified claim is left, because §8.5 allows several owners and one
-    /// walking away does not unclaim the game for the others.
-    /// </remarks>
-    /// <summary>
     /// An owner giving up a game they hold.
     /// </summary>
     /// <remarks>
@@ -282,6 +273,15 @@ public sealed class ClaimService(
         CancellationToken cancellationToken = default) =>
         claims.EventsAsync(claimId, cancellationToken);
 
+    /// <summary>
+    /// Withdraws a claim, explicitly.
+    /// </summary>
+    /// <remarks>
+    /// The only way a verified claim ends, along with a counter-claim. <b>Never called because a
+    /// beacon went missing</b> — see <see cref="OfferBeaconAsync"/> and §8.4. The game stops being
+    /// claimed only when no verified claim is left, because §8.5 allows several owners and one
+    /// walking away does not unclaim the game for the others.
+    /// </remarks>
     public async Task RevokeAsync(Guid claimId, string reason, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);

@@ -247,6 +247,20 @@ public class PlainParityTests
     }
 
     [Test]
+    public async Task TheRowsGlyphAgreesWithTheChipBesideIt()
+    {
+        // The chip was added to the row and the glyph in front of it was left hard-coded measured,
+        // so a declared count rendered a green ● beside a ◇ chip — one number described two ways in
+        // the same breath, which is the disagreement the chip exists to end. The game page was fixed
+        // and the listing that points at it was not.
+        var html = await Render.PageAsync<Games>([]);
+
+        // Razor encodes both glyphs, so the assertion reads them as the markup carries them.
+        await Assert.That(html).Contains("class=\"state-declared\" aria-hidden=\"true\">&#x25C7;");
+        await Assert.That(html).Contains("class=\"state-present\" aria-hidden=\"true\">&#x25CF;");
+    }
+
+    [Test]
     public async Task TheGamePagesLiveCountWearsTheSameChipTheListingRowDoes()
     {
         // The rendered game page printed the measured glyph over every count it had, whoever
