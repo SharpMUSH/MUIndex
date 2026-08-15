@@ -24,7 +24,7 @@ namespace MUI.Catalog.Persistence;
 /// raw rows are still there when it matters, because retention never runs ahead of the rollup.
 /// </para>
 /// </remarks>
-public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source)
+public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source) : IPresenceSeries
 {
     /// <summary>
     /// Aggregates every raw sample in <c>[from, toExclusive)</c> into the given grain, and returns how

@@ -72,6 +72,13 @@ public static class PostgresData
         services.TryAddSingleton<IReachableHistory>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());
         services.TryAddSingleton<IAvailabilityHistory, StoredAvailabilityHistory>();
 
+        // §10's presence series, read off the rollup rather than the raw table: §5.2 lets retention
+        // drop the raw partitions once they have been aggregated, so a series read from raw would
+        // quietly shorten as a deployment aged. The crawler registers the same store — TryAdd, so
+        // one deployable running both has one of it.
+        services.TryAddSingleton(s => new NpgsqlPresenceRollupStore(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IPresenceSeries>(s => s.GetRequiredService<NpgsqlPresenceRollupStore>());
+
         // §5.7's former-slug table. Registered here rather than only with the crawler because a
         // read-only replica serves the redirects too — the promise is about URLs, not about which
         // process happens to be writing. TryAdd for the same reason as everything above it: the

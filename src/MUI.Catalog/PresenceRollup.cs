@@ -74,6 +74,32 @@ public sealed record PresenceRollup
 }
 
 /// <summary>
+/// Rolled-up presence over a window, for the read side (spec §10's time series).
+/// </summary>
+/// <remarks>
+/// <para>
+/// A read port rather than the whole store, because publishing a series needs one method and the
+/// store also writes, rolls up, sets watermarks and drops partitions — none of which an API route
+/// should be one mistaken injection away from.
+/// </para>
+/// <para>
+/// <b>A bucket nobody measured is absent, never a zero.</b> That is the same rule
+/// <see cref="PresenceRollup"/> keeps and the same one §5.4's third state keeps: a series that
+/// filled its gaps in would be publishing our crawl schedule as though it were their quiet hours.
+/// </para>
+/// </remarks>
+public interface IPresenceSeries
+{
+    /// <summary>One game's buckets at one grain, inclusive of both ends, oldest first.</summary>
+    Task<IReadOnlyList<PresenceRollup>> ForGameAsync(
+        Guid gameId,
+        PresenceGrain grain,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
 /// How long measured presence is kept, at each of the three grains (spec §5.2, §15.4).
 /// </summary>
 /// <remarks>

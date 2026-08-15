@@ -58,6 +58,7 @@ public static class MuiApi
         GameEndpoints.Map(endpoints);
         FeedEndpoints.Map(endpoints);
         DumpEndpoints.Map(endpoints);
+        SeriesEndpoints.Map(endpoints);
 
         // §8.5's owner-published outputs. Off /g/ rather than /api/, because these are pasted into
         // somebody else's template by hand and the shortest honest URL is the one that survives
@@ -87,6 +88,13 @@ public static class MuiApi
                 new RouteView("GET", ApiRoutes.Games + "/{id-or-slug}",
                     "One game, by its immutable id or its current slug. A slug the game used to "
                     + "have redirects here permanently."),
+                new RouteView("GET", ApiRoutes.Games + "/{id-or-slug}" + ApiRoutes.PresenceSuffix,
+                    "Measured presence over time. Takes grain=hour|day (default day), from and to "
+                    + "as ISO 8601. A bucket nobody measured is absent rather than zero."),
+                new RouteView("GET", ApiRoutes.Games + "/{id-or-slug}" + ApiRoutes.AvailabilitySuffix,
+                    "Reachability over time, as spans rather than samples. Takes from and to. "
+                    + "Measured from one vantage point: a game we cannot route to may be running "
+                    + "perfectly well."),
                 new RouteView("GET", ApiRoutes.Feeds,
                     "The three liveness registers: newly discovered, went dark, came back."),
                 new RouteView("GET", ApiRoutes.DiscoveredRss, "Newly discovered, as RSS 2.0."),

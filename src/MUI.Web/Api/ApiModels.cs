@@ -348,3 +348,66 @@ public sealed record ApiIndexView(
     IReadOnlyList<string> Notes);
 
 public sealed record RouteView(string Method, string Path, string Returns);
+
+/// <summary>
+/// One bucket of measured presence (spec §10, §5.2).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <see cref="CountedSamples"/> and <see cref="UncountableSamples"/> are counts of <em>probes</em>
+/// and never of players. They are separate because a bucket probed three times and uncountable every
+/// time is a different fact from one in which nobody was logged in, and a consumer that added them
+/// together would erase §5.4's middle state.
+/// </para>
+/// <para>
+/// <see cref="Min"/>, <see cref="Max"/> and <see cref="Mean"/> are over the counted probes alone and
+/// are null when there were none. <b>Null is not zero</b>: this series never answers "how many
+/// players" with a number it inferred.
+/// </para>
+/// </remarks>
+public sealed record PresenceBucketView(
+    DateTimeOffset At,
+    int CountedSamples,
+    int UncountableSamples,
+    int? Min,
+    int? Max,
+    decimal? Mean);
+
+/// <summary>
+/// A game's presence over time (spec §10).
+/// </summary>
+/// <remarks>
+/// <b>A bucket nobody measured is absent from <see cref="Buckets"/>, never present as a zero.</b>
+/// The gaps are the third state of §5.4 and they mean "not measured" — they do not mean the game was
+/// empty and they do not mean it was unreachable, which is what <c>/availability</c> answers. Filling
+/// them in would publish our crawl schedule as though it were somebody's quiet hours.
+/// </remarks>
+public sealed record PresenceSeriesView(
+    string ApiVersion,
+    DateTimeOffset GeneratedAt,
+    Guid GameId,
+    string Slug,
+    string Grain,
+    DateTimeOffset From,
+    DateTimeOffset To,
+    int Count,
+    IReadOnlyList<PresenceBucketView> Buckets,
+    string Notice);
+
+/// <summary>
+/// A game's reachability over time (spec §10), as spans rather than samples.
+/// </summary>
+/// <remarks>
+/// The spans are <see cref="AvailabilitySpanView"/> — the same shape the game route already
+/// publishes, not a second one meaning the same thing, so a consumer that can read one can read both.
+/// </remarks>
+public sealed record AvailabilitySeriesView(
+    string ApiVersion,
+    DateTimeOffset GeneratedAt,
+    Guid GameId,
+    string Slug,
+    DateTimeOffset From,
+    DateTimeOffset To,
+    int Count,
+    IReadOnlyList<AvailabilitySpanView> Spans,
+    string Notice);
