@@ -58,8 +58,12 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// <summary>The same rule where the table is aliased.</summary>
     private const string PublicG = "(g.submitted_at IS NULL OR g.is_claimed)";
 
-    /// <summary>The heatmap's window (spec §5.2).</summary>
-    public static readonly TimeSpan ActivityWindow = TimeSpan.FromDays(56);
+    /// <summary>
+    /// The heatmap's window (spec §5.2), which is the same 56 days retention floors itself at —
+    /// one constant, because a window drawn wider than the retention protecting it would read off
+    /// the end of what is kept.
+    /// </summary>
+    public static readonly TimeSpan ActivityWindow = PresenceRetentionOptions.HeatmapWindow;
 
     /// <summary>§5.2's "reachable recently", which separates <c>quiet</c> from <c>dark</c>.</summary>
     public static readonly TimeSpan RecentlyReachable = TimeSpan.FromDays(30);
@@ -959,13 +963,56 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     {
         var rows = await connection.QueryAsync<ActivityRow>(new CommandDefinition(
             """
-            SELECT extract(dow FROM at AT TIME ZONE 'UTC')::int AS Day,
-                   extract(hour FROM at AT TIME ZONE 'UTC')::int AS Hour,
-                   count(*)::int AS Samples,
-                   count(count)::int AS Counted,
-                   avg(count)::float8 AS Mean
-              FROM presence_sample
-             WHERE game_id = @gameId AND at >= @from
+            WITH boundary AS (
+                -- Where the raw table stops being the copy that answers. The hourly rollup has
+                -- consumed everything below its watermark, and §5.2 lets retention drop those raw
+                -- partitions afterwards — so reading raw alone loses the far end of the grid the
+                -- moment a deployment configures any retention at all. Above the watermark only the
+                -- raw rows exist: the rollup consumes whole elapsed hours, so the newest hours are
+                -- always ahead of it, and reading the rollup alone would render the probe we took
+                -- ten minutes ago as an hour nobody measured.
+                --
+                -- No watermark means nothing has ever been rolled up, and -infinity makes that the
+                -- read it used to be: raw for the whole window, rollup for none of it.
+                SELECT coalesce(
+                    (SELECT rolled_up_through FROM presence_rollup_state WHERE scope = 'hour'),
+                    '-infinity'::timestamptz) AS at
+            ),
+            parts AS (
+                SELECT extract(dow FROM at AT TIME ZONE 'UTC')::int AS day,
+                       extract(hour FROM at AT TIME ZONE 'UTC')::int AS hour,
+                       count(*)::bigint AS samples,
+                       count(count)::bigint AS counted,
+                       sum(count)::bigint AS total
+                  FROM presence_sample
+                 WHERE game_id = @gameId
+                   AND at >= @from
+                   AND at >= (SELECT at FROM boundary)
+                 GROUP BY 1, 2
+
+                UNION ALL
+
+                -- The tally is summed, never averaged: a mean of hourly means would weight an hour
+                -- probed once the same as an hour probed twelve times.
+                SELECT extract(dow FROM r.hour AT TIME ZONE 'UTC')::int,
+                       extract(hour FROM r.hour AT TIME ZONE 'UTC')::int,
+                       sum(r.counted_samples + r.unmeasurable_samples)::bigint,
+                       sum(r.counted_samples)::bigint,
+                       sum(r.sum_count)::bigint
+                  FROM presence_rollup_hour r
+                 WHERE r.game_id = @gameId
+                   AND r.hour >= @from
+                   AND r.hour < (SELECT at FROM boundary)
+                 GROUP BY 1, 2
+            )
+            SELECT day AS Day,
+                   hour AS Hour,
+                   sum(samples)::int AS Samples,
+                   sum(counted)::int AS Counted,
+                   CASE WHEN sum(counted) > 0
+                        THEN sum(total)::float8 / sum(counted)
+                   END AS Mean
+              FROM parts
              GROUP BY 1, 2
             """,
             new { gameId, from = (now - ActivityWindow).ToUniversalTime() },

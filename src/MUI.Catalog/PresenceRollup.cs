@@ -96,10 +96,25 @@ public sealed record PresenceRollup
 public sealed record PresenceRetentionOptions
 {
     /// <summary>
-    /// §5.2's heatmap window, which is the floor under any raw retention: the site still reads raw
-    /// samples for the day × hour graphic, so a retention shorter than the window it draws would blank
-    /// the left-hand end of every heatmap on the site.
+    /// §5.2's heatmap window, and the floor under any raw retention.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The floor no longer exists because the graphic needs the raw rows. The heatmap reads the
+    /// hourly rollup below the rollup watermark and raw samples above it, so dropping a raw month
+    /// the rollup has already consumed now costs the grid nothing — which is what §5.2 promised and
+    /// what this floor was standing in for until the reader existed.
+    /// </para>
+    /// <para>
+    /// It is kept because <b>the rollup is the only copy left once raw goes</b>, and a rollup pass
+    /// that has been failing quietly is discovered late. Keeping the window's worth of raw means the
+    /// grid can be rebuilt from source after such a fault rather than being whatever the last good
+    /// pass wrote. A deployment that wants to go lower is choosing to trust its rollup, and the
+    /// short-window readers beside the graphic — the seven-day rankings median, which needs the
+    /// distribution the rollup does not keep, and the digest's this-week tallies — set the real
+    /// hard floor well below this one.
+    /// </para>
+    /// </remarks>
     public static readonly TimeSpan HeatmapWindow = TimeSpan.FromDays(56);
 
     /// <summary>How long raw <c>presence_sample</c> rows are kept. <c>null</c> is for ever.</summary>

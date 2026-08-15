@@ -400,6 +400,68 @@ public class GameQueriesPostgresTests
     }
 
     [Test]
+    public async Task TheGridSurvivesTheRawSamplesBeingDroppedBehindTheRollup()
+    {
+        // §5.2's whole point. The rollup is the copy raw samples are allowed to be dropped in favour
+        // of, so a cell whose only surviving evidence is a rolled-up bucket must still render as what
+        // it was — and both of the states the tally keeps apart must come back, because a hatched
+        // hour re-read as a gap is §5.4's worst collapse arriving by way of retention.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var presence = new NpgsqlPresenceStore(db.DataSource);
+        var counted = Now.AddDays(-30);
+        var hatched = Now.AddDays(-31);
+
+        await presence.AppendAsync(PresenceSample.Counted(game, counted, 9, FieldSource.Who));
+        await presence.AppendAsync(
+            PresenceSample.Unmeasurable(game, hatched, UnmeasurableReason.WhoUnparseable));
+
+        var rollups = new NpgsqlPresenceRollupStore(db.DataSource);
+        await rollups.RollUpAsync(PresenceGrain.Hour, Now.AddDays(-56), Now, default);
+        await rollups.SetWatermarkAsync(PresenceGrain.Hour, Now, default);
+
+        // What retention does, at the only moment it is allowed to: after the rollup has consumed it.
+        await using (var command = db.DataSource.CreateCommand("DELETE FROM presence_sample"))
+        {
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var cells = (await QueriesOn(db).FindAsync("corvid"))!.Activity;
+
+        await Assert.That(Cell(cells, counted).IsCounted).IsTrue();
+        await Assert.That(Cell(cells, counted).Count).IsEqualTo(9);
+        await Assert.That(Cell(cells, hatched).IsUnmeasurable).IsTrue();
+    }
+
+    [Test]
+    public async Task AnHourProbedSinceTheLastRollupIsStillOnTheGrid()
+    {
+        // The rollup only ever consumes whole elapsed hours, so the newest hours on the grid are
+        // always ahead of the watermark. Reading the rollup alone would render the probe we took ten
+        // minutes ago as an hour nobody measured — the same collapse from the other end, and on the
+        // part of the grid a reader looks at first.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var presence = new NpgsqlPresenceStore(db.DataSource);
+        var rolled = Now.AddDays(-10);
+        var fresh = Now.AddMinutes(-10);
+
+        await presence.AppendAsync(PresenceSample.Counted(game, rolled, 4, FieldSource.Who));
+        await presence.AppendAsync(PresenceSample.Counted(game, fresh, 7, FieldSource.Who));
+
+        var rollups = new NpgsqlPresenceRollupStore(db.DataSource);
+        var boundary = Now.AddDays(-1);
+
+        await rollups.RollUpAsync(PresenceGrain.Hour, Now.AddDays(-56), boundary, default);
+        await rollups.SetWatermarkAsync(PresenceGrain.Hour, boundary, default);
+
+        var cells = (await QueriesOn(db).FindAsync("corvid"))!.Activity;
+
+        await Assert.That(Cell(cells, rolled).Count).IsEqualTo(4);
+        await Assert.That(Cell(cells, fresh).Count).IsEqualTo(7);
+    }
+
+    [Test]
     public async Task TheFeedsSayWhatWasFoundWhatWentDarkAndWhatCameBack()
     {
         // §9's three liveness feeds — the differentiator no incumbent can publish, because none of
