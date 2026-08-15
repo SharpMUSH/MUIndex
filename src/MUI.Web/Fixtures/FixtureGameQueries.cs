@@ -112,11 +112,12 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// last answered in 2023, so its codebase is three years unconfirmed and says so.
     /// </para>
     /// <para>
-    /// The sources are not decoration either. Aardwolf's number exists only because its connect
-    /// screen states it, which is a reading of ours off a banner and not a count anybody handed us;
-    /// Ashen Court publishes <c>PLAYERS</c> in MSSP and answers no pre-login <c>WHO</c>, which is the
-    /// commonest way a directory ends up quoting a game's own assertion as a measurement. Those two
-    /// rows are the whole argument for labelling the listing.
+    /// The sources are not decoration either, and all three a count can have are here. M*U*S*H
+    /// answers a pre-login <c>WHO</c>. Aardwolf's number exists only because its connect screen
+    /// states it, which we parse off the screen ourselves — <em>measured</em>, like the <c>WHO</c>,
+    /// and still its own source. Ashen Court publishes <c>PLAYERS</c> in MSSP and answers no
+    /// pre-login <c>WHO</c>, which is the commonest way a directory ends up quoting a game's own
+    /// report as a measurement — <em>declared</em>, and the row that makes the labelling visible.
     /// </para>
     /// </remarks>
     private static GameSummary Labelled(GameSummary g)
