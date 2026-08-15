@@ -1,0 +1,74 @@
+# A local or single-box run: one Postgres, one MUIndex. `docker compose up --build`, or
+# `podman compose up --build`, and the site is on http://localhost:8080.
+#
+# This file is not a hosting decision. Spec §15.3 — hosting and the cost envelope, which is what
+# bounds probe frequency and retention — is open, and nothing here presumes an answer to it. It is
+# the smallest arrangement that makes the deployable serve measured data, and it is what a reader
+# should be able to run before choosing anything.
+
+name: muindex
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: muindex
+      POSTGRES_USER: muindex
+      # Local only. A real deployment passes a secret it did not read out of a file in git.
+      POSTGRES_PASSWORD: ${MUI_POSTGRES_PASSWORD:-muindex}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      # The site applies migrations before it serves a request, so it must not start against a
+      # Postgres that is still initialising.
+      test: ["CMD-SHELL", "pg_isready -U muindex -d muindex"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+    image: ghcr.io/sharpmush/muindex:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # The one variable that decides whether this deployment shows measurements or a fixture.
+      # Unset it and the site still starts — on the demo fixture, saying so on every page.
+      MUI_POSTGRES: Host=postgres;Port=5432;Database=muindex;Username=muindex;Password=${MUI_POSTGRES_PASSWORD:-muindex}
+
+      # Day one only: §7.1's effective seed set is every game ever found, and seeding is idempotent,
+      # so leaving this set across restarts does not drag anything forward. Whitespace or commas.
+      MUI_CRAWL_SEEDS: ${MUI_CRAWL_SEEDS:-}
+
+      # false makes a replica a pure web tier. The advisory lock already guarantees one crawler
+      # across N replicas, so this is a choice about *where* the crawl runs, not a safety net.
+      MUI_CRAWL_ENABLED: ${MUI_CRAWL_ENABLED:-true}
+
+      # Passkeys are bound to this name and every credential registered under one value has to be
+      # registered again if it moves — which is why §15.1's open domain question has a deadline.
+      # Leave it unset locally: sign-in is the only surface it affects.
+      Passkeys__ServerDomain: ${MUI_PASSKEY_DOMAIN:-}
+
+      ASPNETCORE_ENVIRONMENT: Production
+    ports:
+      - "${MUI_PORT:-8080}:8080"
+    # Nothing is written to the container filesystem; every write this process makes goes to
+    # Postgres. Saying so here means a write that appears later fails loudly instead of landing
+    # somewhere a restart discards.
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      # ASP.NET Core's data protection key ring, which holds sign-in cookies and antiforgery tokens.
+      # HOME is /home/app in the image, so the ring lands in here. Without it the keys are ephemeral
+      # and an operator is signed out by every restart — and, with a second replica, by every other
+      # request.
+      - keys:/home/app/.aspnet
+    restart: unless-stopped
+
+volumes:
+  postgres:
+  keys:

@@ -35,6 +35,17 @@ public sealed class MigrationRunner(NpgsqlDataSource source, ILogger? logger = n
     /// <summary>Applies whatever has not been applied yet, and returns the names of what it ran.</summary>
     public async Task<IReadOnlyList<string>> ApplyAsync(CancellationToken cancellationToken = default)
     {
+        // An empty set is never "nothing to do": this assembly is built with the migrations embedded
+        // in it, so no scripts means the binary was assembled without them, and applying nothing
+        // would leave a site running against a database with no schema and no complaint. Refusing to
+        // start is the smaller failure.
+        if (Scripts.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "This build of MUI.Catalog carries no embedded migrations, so it cannot say what "
+                + "schema it expects. It was assembled without the migrations/ directory.");
+        }
+
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
         await connection.ExecuteAsync(new CommandDefinition(LedgerDdl, cancellationToken: cancellationToken));

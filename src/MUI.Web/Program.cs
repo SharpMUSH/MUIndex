@@ -33,6 +33,11 @@ if (connectionString is not null)
         // MUI.Web already applies migrations during startup; the hosted crawler should not repeat
         // them when it takes the lease.
         configure.ApplyMigrations = false;
+
+        // Whether this replica crawls at all, and what it knows on day one. The advisory lock
+        // already guarantees one crawler across N replicas, so MUI_CRAWL_ENABLED=false is a
+        // deliberate choice about where the crawl runs rather than a safety net.
+        configure.Apply(builder.Configuration);
     });
 }
 else

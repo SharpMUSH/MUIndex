@@ -1,0 +1,103 @@
+# Publishes the container image. Separate from ci.yml on purpose: that workflow's job is to say
+# whether the code is correct, on two operating systems, against a real PostgreSQL, and adding a
+# packaging step to it would make a broken registry credential look like a failing test.
+#
+# This does not deploy anything. Where the image runs is spec §15.3, which is open.
+
+name: Publish image
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # main moves faster than a multi-architecture build; only the newest commit needs an image.
+  group: publish-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  # Written out rather than taken from github.repository, which is `SharpMUSH/MUIndex`: a GHCR path
+  # is lowercase, and the half of this workflow that does not run through docker/metadata-action
+  # would not lowercase it for us.
+  IMAGE: sharpmush/muindex
+
+jobs:
+  image:
+    name: build & push to GHCR
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+      # For the build provenance attestation below, which is what lets somebody verify that this
+      # image came from this workflow in this repository rather than from a laptop.
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Sign in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `latest` and the commit SHA. A tag that names a commit is the one a rollback needs: `latest`
+      # cannot say which build it is, and a deployment that can only name `latest` cannot go back.
+      - name: Tags
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long
+          labels: |
+            org.opencontainers.image.title=MUIndex
+            org.opencontainers.image.description=A directory of MU* servers whose data is measured rather than asserted.
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Attest provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      # The property CLAUDE.md calls a correctness property of the packaging, checked on the image
+      # that was actually pushed rather than on one built locally: a deployment with no database
+      # still starts, and then says on every page that nothing on it was measured. An image that
+      # served invented data silently would be the exact failure this project exists to replace.
+      - name: The demo path still confesses
+        run: |
+          set -euo pipefail
+          image="${{ env.REGISTRY }}/${{ env.IMAGE }}@${{ steps.push.outputs.digest }}"
+          docker run --rm -d --name mui-demo -p 8080:8080 "$image"
+          for _ in $(seq 1 30); do
+            curl -fsS http://localhost:8080/ > /tmp/demo.html && break
+            sleep 1
+          done
+          docker logs mui-demo
+          docker rm -f mui-demo
+          grep -q 'demo-banner' /tmp/demo.html
+          grep -qi 'Demo data' /tmp/demo.html

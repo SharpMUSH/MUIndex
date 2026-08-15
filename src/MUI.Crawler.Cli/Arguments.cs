@@ -78,11 +78,11 @@ public sealed record Arguments
                     break;
 
                 case "--seed":
-                    seeds.Add(ParseSeed(Next(args, ref i, "--seed"), isOperatorSeed: false));
+                    seeds.Add(CrawlSeed.Parse(Next(args, ref i, "--seed"), isOperatorSeed: false));
                     break;
 
                 case "--seed-exempt":
-                    seeds.Add(ParseSeed(Next(args, ref i, "--seed-exempt"), isOperatorSeed: true));
+                    seeds.Add(CrawlSeed.Parse(Next(args, ref i, "--seed-exempt"), isOperatorSeed: true));
                     break;
 
                 case "--cycles":
@@ -103,29 +103,6 @@ public sealed record Arguments
         }
 
         return parsed with { Seeds = seeds };
-    }
-
-    /// <summary>
-    /// <c>host:port</c>, and the bracketed IPv6 form, because a seed list is exactly where somebody
-    /// writes one.
-    /// </summary>
-    private static CrawlSeed ParseSeed(string value, bool isOperatorSeed)
-    {
-        var text = value.Trim();
-        var colon = text.StartsWith('[') && text.Contains("]:", StringComparison.Ordinal)
-            ? text.IndexOf("]:", StringComparison.Ordinal) + 1
-            : text.LastIndexOf(':');
-
-        if (colon <= 0 || !int.TryParse(text[(colon + 1)..], out var port))
-        {
-            throw new ArgumentException($"'{value}' is not host:port.");
-        }
-
-        var host = text[..colon].Trim('[', ']');
-        var seed = new CrawlSeed(host, port, isOperatorSeed);
-        seed.Validate();
-
-        return seed;
     }
 
     private static string Next(string[] args, ref int i, string name) =>

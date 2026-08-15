@@ -15,9 +15,10 @@ namespace MUI.Crawler;
 public sealed record CrawlerOptions
 {
     /// <summary>
-    /// Off makes the deployable a pure web tier. Useful for a replica set that wants the crawl to run
-    /// somewhere specific, and honest about it: the advisory lock already guarantees one crawler, so
-    /// this is a deliberate choice rather than a safety net.
+    /// Off makes the deployable a pure web tier — the hosted service still starts, says so once and
+    /// stands down, because a replica that was meant to crawl and is not looks exactly like one that
+    /// was told not to. The advisory lock already guarantees one crawler, so this is a deliberate
+    /// choice about where the crawl runs rather than a safety net.
     /// </summary>
     public bool Enabled { get; init; } = true;
 
@@ -74,6 +75,37 @@ public sealed record CrawlerOptions
 /// </param>
 public sealed record CrawlSeed(string Host, int Port, bool IsOperatorSeed = false)
 {
+    /// <summary>
+    /// Reads the <c>host:port</c> a person writes — and the bracketed IPv6 form, because a seed list
+    /// is exactly where somebody writes one.
+    /// </summary>
+    /// <remarks>
+    /// Lives here rather than in whichever surface reads a seed list, because <c>mui-crawl</c>'s
+    /// <c>--seed</c> and a deployment's seed environment variable have to agree about what an address
+    /// is; two parsers would eventually disagree about a bracketed address and only one of them would
+    /// be tested. Anything that is not host:port throws rather than being skipped: a seed silently
+    /// dropped is a crawl that quietly never dialled what it was pointed at.
+    /// </remarks>
+    public static CrawlSeed Parse(string value, bool isOperatorSeed = false)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        var text = value.Trim();
+        var colon = text.StartsWith('[') && text.Contains("]:", StringComparison.Ordinal)
+            ? text.IndexOf("]:", StringComparison.Ordinal) + 1
+            : text.LastIndexOf(':');
+
+        if (colon <= 0 || !int.TryParse(text[(colon + 1)..], out var port))
+        {
+            throw new ArgumentException($"'{value}' is not host:port.");
+        }
+
+        var seed = new CrawlSeed(text[..colon].Trim('[', ']'), port, isOperatorSeed);
+        seed.Validate();
+
+        return seed;
+    }
+
     public void Validate()
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(Host);
