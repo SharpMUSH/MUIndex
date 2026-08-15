@@ -14,6 +14,94 @@ public class WhoParserTests
     private static readonly WhoParser Parser = new();
 
     /// <summary>
+    /// A header rewritten past every structural rule — no "Name", no "Idle", no "On For".
+    /// </summary>
+    /// <remarks>
+    /// The case §8.5's override exists for, and the one rule 2 calls the worst bug this codebase can
+    /// ship: a game running perfectly well, rendered as never measured, because its operator
+    /// decorated a column heading.
+    /// </remarks>
+    private const string InscrutableResponse = """
+        ~~~ the court is in session ~~~
+        Xperta               9m 21s     9m  Stuck in my Own Prison
+        Thoran              11m 48s    11m
+        gelatin          7h 46m 19s     7h  wibble
+        """;
+
+    [Test]
+    public async Task AnInscrutableHeaderIsUnreadableUntilItsOwnerNamesIt()
+    {
+        // Unreadable is the honest answer without the hint — never a zero, which would render a
+        // busy game as dead.
+        await Assert.That(Parser.Parse(InscrutableResponse).Confidence).IsEqualTo(WhoConfidence.Unknown);
+
+        var told = new WhoParser("the court is in session").Parse(InscrutableResponse);
+
+        await Assert.That(told.Count).IsEqualTo(3);
+        await Assert.That(told.Confidence).IsEqualTo(WhoConfidence.PerPlayer);
+    }
+
+    /// <summary>Any part of the line does, and case does not matter.</summary>
+    [Test]
+    public async Task ThePartOfTheHeaderTheOwnerGaveUsIsEnough()
+    {
+        var told = new WhoParser("COURT IS IN").Parse(InscrutableResponse);
+
+        await Assert.That(told.Count).IsEqualTo(3);
+    }
+
+    /// <summary>
+    /// The hint adds a way to find the header and never removes one.
+    /// </summary>
+    /// <remarks>
+    /// An override goes stale the moment its author rewrites their DOING again. When it does, the
+    /// game degrades to the reading it had before rather than to silence — which is the difference
+    /// between a feature that helps and one that quietly takes a working measurement away.
+    /// </remarks>
+    [Test]
+    public async Task AStaleOverrideDoesNotCostAGameTheReadingItAlreadyHad()
+    {
+        var stale = new WhoParser("a header this game stopped printing years ago");
+
+        await Assert.That(stale.Parse(MushResponse).Count).IsEqualTo(Parser.Parse(MushResponse).Count);
+    }
+
+    /// <summary>
+    /// An owner may say where to count and may not talk us out of the server's own total.
+    /// </summary>
+    /// <remarks>
+    /// The summary a server prints for itself is the one statement in a WHO response it makes
+    /// deliberately, so it is still consulted first. Otherwise this box would be a way to make a
+    /// count disagree with the sentence printed above it — an owner editing a measurement by
+    /// indirection, which is exactly the line §8.5 draws.
+    /// </remarks>
+    [Test]
+    public async Task TheServersOwnSummaryStillWins()
+    {
+        const string Response = """
+            ~~~ the court is in session ~~~
+            Xperta               9m 21s     9m
+            Thoran              11m 48s    11m
+            There are 47 players connected.
+            """;
+
+        var told = new WhoParser("the court is in session").Parse(Response);
+
+        await Assert.That(told.Count).IsEqualTo(47);
+    }
+
+    /// <summary>An empty or blank override is no override, not a header matching every line.</summary>
+    [Test]
+    public async Task AnEmptyOverrideChangesNothing()
+    {
+        await Assert.That(new WhoParser("   ").Parse(InscrutableResponse).Confidence)
+            .IsEqualTo(WhoConfidence.Unknown);
+        await Assert.That(new WhoParser(null).Parse(MushResponse).Count)
+            .IsEqualTo(Parser.Parse(MushResponse).Count);
+    }
+
+
+    /// <summary>
     /// mush.pennmush.org:4201, captured 2026-07-30. Note the last column header: the operator
     /// renamed <c>DOING</c> in softcode, so no dialect table would find it.
     /// </summary>

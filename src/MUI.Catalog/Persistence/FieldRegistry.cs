@@ -136,11 +136,34 @@ public static class InternalFields
     /// </remarks>
     public const string ConnectScreenSuppressed = "connect_screen_suppressed";
 
+    /// <summary>
+    /// The line an owner told us begins their <c>WHO</c> table (spec §8.5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Machinery for the same reason <see cref="ConnectScreenSuppressed"/> is, and the distinction
+    /// matters more here than anywhere else on the panel: this is <b>not a fact about the game</b>
+    /// and it is emphatically <b>not a player count</b>. It says where our parser should start
+    /// counting rows in text their server prints; the counting is still ours, the number is still
+    /// measured, and an owner who typed one here would have changed nothing about what we publish.
+    /// That is the line §8.5 draws — an owner may never edit a measurement — and a hint about how to
+    /// read is the one thing on the right side of it.
+    /// </para>
+    /// <para>
+    /// It exists because rule 2's worst case is reached by an ordinary act of decoration: Penn, MUX,
+    /// Rhost and the TinyMUD family all let an operator rewrite the <c>DOING</c> header in softcode,
+    /// and a header rewritten past our structural parser renders a busy game as permanently
+    /// unmeasured. The operator is the one person who knows what their header says.
+    /// </para>
+    /// </remarks>
+    public const string WhoHeader = "who_header";
+
     private static readonly HashSet<string> Names = new(StringComparer.Ordinal)
     {
         BannerHash,
         ConnectScreen,
         ConnectScreenSuppressed,
+        WhoHeader,
     };
 
     /// <summary>
@@ -282,6 +305,7 @@ public sealed class FieldRegistry : IFieldRegistry
         // can never collide however unofficial the variable.
         Add(InternalFields.ConnectScreen, Automatic);
         Add(InternalFields.ConnectScreenSuppressed, Automatic);
+        Add(InternalFields.WhoHeader, Automatic);
 
         // Capabilities, both sides. Measured is re-observed on every probe; declared is hand-typed.
         foreach (var capability in CapabilityFields.Names)

@@ -224,6 +224,56 @@ public sealed class OwnerEnrichment(
     }
 
     /// <summary>
+    /// Records the line an owner says begins their <c>WHO</c> table (spec §8.5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The one owner-supplied value this codebase acts on rather than publishes.</b> Everything
+    /// else on the panel is a fact about the game, stored beside what we measured and rendered with
+    /// its age. This is an instruction to our parser, so it is an <see cref="InternalFields"/> name:
+    /// it never appears in the panel of what a game says about itself, because the game did not say
+    /// it about itself.
+    /// </para>
+    /// <para>
+    /// It stays on the right side of §8.5's line — an owner may never edit a measurement — because
+    /// what it changes is <em>whether we can count at all</em>, never what the count is. The rows
+    /// are still counted by us out of text their server printed, and an owner who wanted to publish
+    /// a number of their own has no way to do it from here.
+    /// </para>
+    /// <para>
+    /// Emptying the box withdraws it, exactly as emptying an enrichment box does, and the row is
+    /// kept. Nothing is ever deleted, and a reader of the change feed should be able to see an
+    /// override arrive and go.
+    /// </para>
+    /// </remarks>
+    public async Task<EnrichmentOutcome> SetWhoHeaderAsync(
+        Guid gameId,
+        Guid userId,
+        string? header,
+        CancellationToken cancellationToken = default)
+    {
+        if (!await OwnsAsync(gameId, userId, cancellationToken))
+        {
+            return EnrichmentOutcome.NotAnOwner;
+        }
+
+        var value = OneLine(header);
+
+        if (value.Length > MaxValueLength)
+        {
+            return new EnrichmentOutcome(
+                EnrichmentVerdict.TooLong, InternalFields.WhoHeader, FieldReconciliation.Nothing);
+        }
+
+        FieldObservation[] observation = [new(InternalFields.WhoHeader, FieldSource.Owner, value)];
+
+        return new EnrichmentOutcome(
+            EnrichmentVerdict.Applied,
+            null,
+            await reconciler.ApplyAsync(gameId, observation, time.GetUtcNow(), cancellationToken));
+    }
+
+    /// <summary>
     /// Trimmed, with every run of whitespace — newlines included — collapsed to one space.
     /// </summary>
     /// <remarks>

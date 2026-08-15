@@ -196,6 +196,10 @@ public static class CrawlerServiceCollectionExtensions
 
         services.TryAddSingleton<ProbeIngestor>();
         services.TryAddSingleton<CatalogueBinder>();
+        // §8.5's WHO-format override, read per dial for a game that has one.
+        services.TryAddSingleton<IWhoFormatHints>(s => new StoredWhoFormatHints(
+            s.GetRequiredService<IGameFieldStore>()));
+
         services.TryAddSingleton<CrawlCycle>();
 
         // Registered even when the crawl is off, so that CrawlerService says so once in the log and
