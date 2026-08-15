@@ -283,6 +283,90 @@ public class FacetedSearchTests
         await Assert.That(band).IsEqualTo(ActivityBand.ActiveThisWeek);
     }
 
+    /// <summary>
+    /// The codebase facet counts families, so one codebase is one value however many patchlevels of
+    /// it are running.
+    /// </summary>
+    /// <remarks>
+    /// This shipped counting the raw <c>CODEBASE</c> string and was only visible against a real
+    /// crawl, where the panel offered <c>PennMUSH 1.8.8p0</c>, <c>PennMUSH 1.8.7p0</c> and
+    /// <c>PennMUSH 1.8.6p1</c> as three unrelated choices and spent a quarter of its twelve slots
+    /// doing it.
+    /// </remarks>
+    [Test]
+    public async Task OneCodebaseIsOneValueWhateverItsPatchlevel()
+    {
+        GameFacetRow[] rows =
+        [
+            Row("a", codebase: "PennMUSH 1.8.8p0"),
+            Row("b", codebase: "PennMUSH 1.8.7p0"),
+            Row("c", codebase: "PennMUSH 1.8.6p1"),
+            Row("d", codebase: "Evennia"),
+        ];
+
+        var listing = FacetedSearch.Search(rows, new GameFilter());
+
+        await Assert.That(Value(listing, FacetKeys.Codebase, "PennMUSH").Count).IsEqualTo(3);
+        await Assert.That(Group(listing, FacetKeys.Codebase).Values.Select(v => v.Token))
+            .IsEquivalentTo(new[] { "PennMUSH", "Evennia" });
+
+        // And the exact strings are still all there, one facet down.
+        await Assert.That(Group(listing, FacetKeys.CodebaseVersion).Values.Select(v => v.Token))
+            .IsEquivalentTo(new[] { "PennMUSH 1.8.8p0", "PennMUSH 1.8.7p0", "PennMUSH 1.8.6p1", "Evennia" });
+    }
+
+    /// <summary>The lineage facet gathers codebases that share no name and no MSSP.</summary>
+    /// <remarks>
+    /// The question this whole facet exists for: the MUSH codebases are five separate answers to
+    /// <c>CODEBASE</c>, all but one of them publish no MSSP at all, and MSSP's <c>FAMILY</c> has no
+    /// <c>MUSH</c> in it even for the one that does. Nothing a game says can group them.
+    /// </remarks>
+    [Test]
+    public async Task TheLineageFacetGathersWhatNoDeclarationCould()
+    {
+        GameFacetRow[] rows =
+        [
+            Row("a", codebase: "PennMUSH 1.8.8p0"),
+            Row("b", codebase: "TinyMUX 2.12"),
+            Row("c", codebase: "RhostMUSH"),
+            Row("d", codebase: "AresMUSH"),
+            Row("e", codebase: "ROM 2.4"),
+            Row("f", codebase: null),
+        ];
+
+        var listing = FacetedSearch.Search(rows, new GameFilter());
+
+        await Assert.That(Value(listing, FacetKeys.Lineage, CodebaseLineage.Mush).Count).IsEqualTo(4);
+        await Assert.That(Value(listing, FacetKeys.Lineage, CodebaseLineage.Diku).Count).IsEqualTo(1);
+
+        // Its evidence is neither of the other two words, and the panel has to be able to say so.
+        await Assert.That(Group(listing, FacetKeys.Lineage).Evidence).IsEqualTo(FacetEvidence.Derived);
+    }
+
+    /// <summary>A value's label is the commonest spelling, not whichever row was read first.</summary>
+    /// <remarks>
+    /// Values group case-insensitively, so the label is a choice rather than a given. Taking the
+    /// first one seen makes it a function of the sort order — the same catalogue could name a facet
+    /// two different things on two renders — and it lets one game's stray capitalisation put a
+    /// codebase on a public page under a spelling nobody uses.
+    /// </remarks>
+    [Test]
+    public async Task OneGamesCapitalisationDoesNotNameAValue()
+    {
+        GameFacetRow[] rows =
+        [
+            Row("a", codebase: "pennmush 1.8.8p0"),
+            Row("b", codebase: "PennMUSH 1.8.7p0"),
+            Row("c", codebase: "PennMUSH 1.8.6p1"),
+        ];
+
+        var listing = FacetedSearch.Search(rows, new GameFilter());
+        var codebase = Group(listing, FacetKeys.Codebase).Values.Single();
+
+        await Assert.That(codebase.Token).IsEqualTo("PennMUSH");
+        await Assert.That(codebase.Count).IsEqualTo(3);
+    }
+
     private static GameFilter Choose(string key, string token) => key switch
     {
         FacetKeys.Band => new GameFilter { Band = Band(token) },
@@ -291,9 +375,15 @@ public class FacetedSearchTests
         FacetKeys.Tls => new GameFilter { Tls = true },
         FacetKeys.Charset => new GameFilter { Charset = FacetChoice.Parse(token) },
         FacetKeys.Codebase => new GameFilter { Codebase = FacetChoice.Parse(token) },
+        FacetKeys.CodebaseVersion => new GameFilter { CodebaseVersion = FacetChoice.Parse(token) },
+        FacetKeys.Lineage => new GameFilter { Lineage = FacetChoice.Parse(token) },
         FacetKeys.Family => new GameFilter { Family = FacetChoice.Parse(token) },
         FacetKeys.Genre => new GameFilter { Genre = FacetChoice.Parse(token) },
-        _ => new GameFilter { Language = FacetChoice.Parse(token) },
+        FacetKeys.Language => new GameFilter { Language = FacetChoice.Parse(token) },
+
+        // Never a catch-all: a facet added to the panel and not to this switch would arrive here as
+        // a language filter and quietly assert the wrong thing about the wrong key.
+        _ => throw new ArgumentOutOfRangeException(nameof(key), key, "no filter for this facet"),
     };
 
     private static ActivityBand Band(string token)

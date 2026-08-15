@@ -730,12 +730,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             .Where(family => family.Length > 0)
             .GroupBy(family => family, StringComparer.OrdinalIgnoreCase)
             .Select(group => new MeasuredShare(
-                // The spelling the most games used, so one game's stray capitalisation does not name
-                // the family. Ordinal breaks the tie, so the label is the same on every render.
-                group.GroupBy(spelling => spelling, StringComparer.Ordinal)
-                    .OrderByDescending(spellings => spellings.Count())
-                    .ThenBy(spellings => spellings.Key, StringComparer.Ordinal)
-                    .First().Key,
+                // The same rule the facet panel labels its values with, so the dashboard and the
+                // listing cannot end up calling one family two things.
+                Spellings.Commonest(group),
                 group.Count(),
                 values.Count))
             .OrderByDescending(share => share.Count)

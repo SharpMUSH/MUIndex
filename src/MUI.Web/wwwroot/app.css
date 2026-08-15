@@ -27,6 +27,7 @@
 
     --accent: #35d29a;         /* measured */
     --amber: #d8a13a;          /* declared / ageing */
+    --derived: #a394f0;        /* our own classification, and nobody else's */
 
     --sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
     --mono: "Cascadia Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
@@ -54,6 +55,7 @@
 
         --accent: #04795b;     /* same hue, dropped in value to clear 4.5:1 on white */
         --amber: #8a5d00;
+        --derived: #5b46c4;
     }
 }
 
@@ -70,6 +72,7 @@
 
     --accent: #04795b;
     --amber: #8a5d00;
+    --derived: #5b46c4;
 }
 
 :root[data-theme="dark"] {
@@ -85,6 +88,7 @@
 
     --accent: #35d29a;
     --amber: #d8a13a;
+    --derived: #a394f0;
 }
 
 :root[data-density="compact"] {
@@ -882,8 +886,10 @@ fieldset.facet.presence .check .count { color: var(--faint); font-variant-numeri
    ticking, rather than in a key at the bottom of the panel. */
 fieldset.facet.presence .hint { margin: 6px 0 0; font-size: 11.5px; color: var(--faint); max-width: 62ch; }
 
-/* Measured and declared, in the site's own two registers. Never the only carrier of the
-   difference — the chip spells it out in words as well, because colour is not a fact. */
+/* Measured, declared, and the one thing we concluded ourselves — three registers, never the only
+   carrier of the difference, because the chip spells each out in words as well and colour is not a
+   fact. Derived is the odd hue on purpose: it is the only ink on the site that marks something no
+   game said and no socket showed, so it may not be mistaken for either at a glance. */
 .evidence {
     font: 10px/1.4 var(--kick);
     letter-spacing: 0.1em;
@@ -893,6 +899,7 @@ fieldset.facet.presence .hint { margin: 6px 0 0; font-size: 11.5px; color: var(-
 
 .evidence.measured { color: var(--accent); }
 .evidence.declared { color: var(--amber); }
+.evidence.derived  { color: var(--derived); }
 
 /* ── the key ─────────────────────────────────────────────────────────────── */
 

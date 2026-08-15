@@ -139,6 +139,10 @@
             <span class="evidence declared"><span aria-hidden="true">◇</span> @FacetWords.Evidence(FacetEvidence.Declared)</span>
             @FacetWords.EvidenceMeaning(FacetEvidence.Declared)
         </span>
+        <span class="key-item">
+            <span class="evidence derived"><span aria-hidden="true">◆</span> @FacetWords.Evidence(FacetEvidence.Derived)</span>
+            @FacetWords.EvidenceMeaning(FacetEvidence.Derived)
+        </span>
         <span class="key-item">every count is what that choice returns</span>
 
         <details class="facet-more">
@@ -228,15 +232,28 @@
     /// </summary>
     /// <remarks>
     /// The glyphs are the site's own state vocabulary — ● for something we watched, ◇ for something
-    /// only claimed — and they are <c>aria-hidden</c>, because the word beside them is the same fact
-    /// and a screen reader announcing "black circle measured" is worse than announcing "measured".
-    /// Colour is never the carrier: the word is legible with no ink at all.
+    /// only claimed, ◆ for a claim we grouped ourselves — and they are <c>aria-hidden</c>, because
+    /// the word beside them is the same fact and a screen reader announcing "black circle measured"
+    /// is worse than announcing "measured". Colour is never the carrier: the word is legible with no
+    /// ink at all, which is also why the third glyph is the second one filled in rather than a shape
+    /// nobody has seen before — derived is a declaration with our hand on it, and reads as one.
     /// </remarks>
     private static RenderFragment Evidence(FacetGroup group) => @<span class="evidence @Kind(group)">
-        <span aria-hidden="true">@(group.Evidence is FacetEvidence.Measured ? "●" : "◇")</span>
+        <span aria-hidden="true">@Glyph(group.Evidence)</span>
         @FacetWords.Evidence(group.Evidence)
     </span>;
 
-    private static string Kind(FacetGroup group) =>
-        group.Evidence is FacetEvidence.Measured ? "measured" : "declared";
+    private static string Glyph(FacetEvidence evidence) => evidence switch
+    {
+        FacetEvidence.Measured => "●",
+        FacetEvidence.Derived => "◆",
+        _ => "◇",
+    };
+
+    private static string Kind(FacetGroup group) => group.Evidence switch
+    {
+        FacetEvidence.Measured => "measured",
+        FacetEvidence.Derived => "derived",
+        _ => "declared",
+    };
 }

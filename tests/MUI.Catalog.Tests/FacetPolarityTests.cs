@@ -70,16 +70,33 @@ public class FacetPolarityTests
             .IsEquivalentTo(new[] { "penn", "evennia", "rom" });
     }
 
-    /// <summary>The family filter is a bounded prefix, and it inverts the same way.</summary>
+    /// <summary>The codebase facet is the family, and it inverts the same way.</summary>
     [Test]
-    public async Task ExcludingACodebaseFamilyTakesEveryPatchlevelWithIt()
+    public async Task ExcludingACodebaseTakesEveryPatchlevelWithIt()
     {
-        var listing = Search(new GameFilter { CodebaseFamily = FacetChoice.Not("PennMUSH") });
+        var listing = Search(new GameFilter { Codebase = FacetChoice.Not("PennMUSH") });
 
-        // PennMUSH 1.8.8p0 goes with the family it belongs to; ROM stays, and is not caught by a
-        // prefix that would have gathered ROMulus.
+        // PennMUSH 1.8.8p0 goes with the family it belongs to, without the exclusion having to name
+        // a patchlevel; ROM stays, because it is a different family and not a longer spelling of one.
         await Assert.That(listing.Games.Select(g => g.Slug))
             .IsEquivalentTo(new[] { "evennia", "rom", "nameless" });
+    }
+
+    /// <summary>The version facet still reaches the exact string, which is the point of keeping it.</summary>
+    [Test]
+    public async Task TheVersionFacetIsStillTheWholeString()
+    {
+        var byFamily = Search(new GameFilter { Codebase = FacetChoice.Of("PennMUSH") });
+        var byVersion = Search(new GameFilter { CodebaseVersion = FacetChoice.Of("PennMUSH 1.8.8p0") });
+
+        await Assert.That(byFamily.Games.Select(g => g.Slug)).IsEquivalentTo(new[] { "penn" });
+        await Assert.That(byVersion.Games.Select(g => g.Slug)).IsEquivalentTo(new[] { "penn" });
+
+        // And the family name is not a version anybody runs, so asking for it as one finds nothing
+        // rather than quietly widening back out to the family.
+        await Assert.That(
+            Search(new GameFilter { CodebaseVersion = FacetChoice.Of("PennMUSH") }).Games)
+            .IsEmpty();
     }
 
     /// <summary>A token round-trips through the URL with its polarity intact.</summary>

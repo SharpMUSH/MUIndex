@@ -1,31 +1,28 @@
 namespace MUI.Catalog;
 
 /// <summary>
-/// Matching a game's identified codebase against the <em>family</em> a reference page is about.
+/// Folding a game's identified codebase to the <em>family</em> it belongs to — <c>PennMUSH</c> from
+/// <c>PennMUSH 1.8.8p0</c>.
 /// </summary>
 /// <remarks>
 /// <para>
 /// A game's <c>CODEBASE</c> carries a version — <c>PennMUSH 1.8.8p0</c>, <c>TinyMUX 2.12</c> — and
 /// the question a reader asks is never version-shaped. "How many games run PennMUSH" has to gather
-/// every patchlevel, so the facet is a family name matched as a prefix rather than an equality.
+/// every patchlevel, so the facet counts the family and the exact string is a facet of its own.
 /// </para>
 /// <para>
-/// The prefix is bounded on the right, which is not fussiness: <c>MOO</c> against <c>LambdaMOO</c>
-/// is already handled by anchoring at the start, but <c>ROM</c> against <c>ROMulus</c> is not, and
-/// a facet that silently absorbs a neighbouring family produces a count that is wrong in the
-/// direction nobody checks. A match therefore ends at the string's end or at a character that is
-/// not a letter or a digit.
+/// <b>The fold is the whole of the matching rule, and that is deliberate.</b> This class used to
+/// carry a second method — a bounded-prefix <c>Matches</c> — so that a page could ask "is this game
+/// in the PennMUSH family" without folding first. Two definitions of one word is exactly the shape
+/// the class docs warned about: the panel counts what <see cref="Of"/> returns, so a looser test
+/// could admit a game no count included, and a facet that returns games it did not promise is the
+/// one thing the panel may not do. Fold, then compare for equality. Nothing else.
 /// </para>
 /// <para>
-/// It lives here rather than in the web tier because two implementations of
-/// <see cref="IGameQueries"/> and the reference pages all have to agree about it, and the count a
-/// page prints has to be the count the listing behind its link contains.
-/// </para>
-/// <para>
-/// <b>Two methods because two surfaces need this, and they must agree.</b> The ecosystem
-/// dashboard groups by <see cref="Of"/> and a reference page filters by
-/// <see cref="Matches"/>; if those were separate implementations, a codebase page's own
-/// count and the listing it links to would be free to disagree about what a family is.
+/// The fold is conservative in the direction that matters. <c>ROM 2.4</c> folds to <c>ROM</c> and
+/// <c>ROMulus 3</c> to <c>ROMulus</c>, so a neighbouring family is not absorbed; a trailing token
+/// that does not look like a version is left alone, because truncating <c>Rhost 4.0.4 (patchlevel
+/// 1)</c> mid-phrase would put a codebase on a public page under a name nobody uses.
 /// </para>
 /// </remarks>
 public static class CodebaseFamily
@@ -47,6 +44,17 @@ public static class CodebaseFamily
             : trimmed;
     }
 
+    /// <summary>
+    /// The family a game belongs to, or null when we have not identified its codebase.
+    /// </summary>
+    /// <remarks>
+    /// Null rather than an empty string, because the facets spell an absence as its own value: "we
+    /// could not identify this game's codebase" is a measurement of our own reach and a real thing to
+    /// filter on, and it is not the same question as any family's name.
+    /// </remarks>
+    public static string? For(string? codebase) =>
+        string.IsNullOrWhiteSpace(codebase) ? null : Of(codebase) is { Length: > 0 } family ? family : null;
+
     private static bool LooksLikeAVersion(string token)
     {
         if (token.Length == 0)
@@ -58,33 +66,5 @@ public static class CodebaseFamily
             || (token[0] is 'v' or 'V' && token.Length > 1 && char.IsAsciiDigit(token[1]));
 
         return starts && token.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_');
-    }
-
-    /// <summary>
-    /// Whether <paramref name="codebase"/> — a game's identified codebase, version and all — belongs
-    /// to the family named by <paramref name="family"/>. A game with no identified codebase belongs
-    /// to no family: not identifying it is a measurement, and it is not a measurement of this.
-    /// </summary>
-    public static bool Matches(string? codebase, string? family)
-    {
-        if (string.IsNullOrWhiteSpace(family))
-        {
-            return true;
-        }
-
-        if (string.IsNullOrWhiteSpace(codebase))
-        {
-            return false;
-        }
-
-        var name = codebase.AsSpan().Trim();
-        var wanted = family.AsSpan().Trim();
-
-        if (!name.StartsWith(wanted, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return name.Length == wanted.Length || !char.IsLetterOrDigit(name[wanted.Length]);
     }
 }

@@ -29,15 +29,49 @@ public static class FacetKeys
 
     public const string Language = "language";
 
+    /// <summary>
+    /// The codebase family — <c>PennMUSH</c>, never <c>PennMUSH 1.8.8p0</c>.
+    /// </summary>
+    /// <remarks>
+    /// This counted the raw <c>CODEBASE</c> string until the panel was seen against a real crawl,
+    /// where it offered <c>PennMUSH 1.8.8p0 (9)</c>, <c>PennMUSH 1.8.7p0 (4)</c> and
+    /// <c>PennMUSH 1.8.6p1 (2)</c> as three unrelated choices. Nobody asks a version-shaped
+    /// question, and splitting one codebase across its patchlevels also spent three of the twelve
+    /// values the panel has room for (<see cref="FacetedSearch.MaxValues"/>) saying the same word.
+    /// The exact string is still filterable — it is <see cref="CodebaseVersion"/>.
+    /// </remarks>
     public const string Codebase = "codebase";
 
     /// <summary>
-    /// The codebase with its version taken off. Its own key, because <see cref="Codebase"/> is the
-    /// counted facet over raw values and the two answer different questions (see
-    /// <c>GameFilter.CodebaseFamily</c>).
+    /// The codebase exactly as the game reports it, version and all.
     /// </summary>
+    /// <remarks>
+    /// Worth a facet of its own rather than being folded away entirely: "which patchlevels of
+    /// PennMUSH are actually running" is a real question, and it is the one a codebase reference page
+    /// leaves a reader holding. It sits under <see cref="Codebase"/> in the panel because that is the
+    /// order the questions come in.
+    /// </remarks>
+    public const string CodebaseVersion = "version";
+
+    /// <summary>
+    /// The old spelling of <see cref="Codebase"/>, still accepted in a querystring.
+    /// </summary>
+    /// <remarks>
+    /// It named a filter that narrowed the listing while <c>codebase</c> counted raw strings; now
+    /// that <c>codebase</c> <em>is</em> the family, the two are one question and one key. This
+    /// survives as an alias rather than being deleted because every codebase reference page has been
+    /// linking here with it, and a link that used to work and now silently returns the unfiltered
+    /// catalogue is worse than one that errors.
+    /// </remarks>
     public const string CodebaseFamily = "codebase-family";
 
+    /// <summary>
+    /// The lineage we place a codebase in — <c>MUSH</c>, <c>DikuMUD</c> (see
+    /// <see cref="CodebaseLineage"/>). Ours, and labelled as ours.
+    /// </summary>
+    public const string Lineage = "lineage";
+
+    /// <summary>MSSP's own <c>FAMILY</c> variable, as the game published it. See <see cref="Lineage"/>.</summary>
     public const string Family = "family";
 
     public const string Genre = "genre";
@@ -151,9 +185,55 @@ public static class GameSorting
 /// </remarks>
 public enum FacetEvidence
 {
+    /// <summary>We watched it happen.</summary>
     Measured,
 
+    /// <summary>The game published it and we did not check.</summary>
     Declared,
+
+    /// <summary>
+    /// Neither: our own classification of something a game published.
+    /// </summary>
+    /// <remarks>
+    /// A third word rather than borrowing one of the other two, because both would be false in a way
+    /// a reader cannot see through. <c>codebase = MUSH</c> is not a measurement — nothing on the wire
+    /// says it — and it is not a declaration either, because the game never said it; we grouped
+    /// PennMUSH, TinyMUX and RhostMUSH under one heading and that grouping is an editorial act. This
+    /// site's whole claim is that a reader can tell where a fact came from, and the one kind of fact
+    /// that comes from <em>us</em> is the one it would be least excusable to leave unlabelled.
+    /// </remarks>
+    Derived,
+}
+
+/// <summary>
+/// Which spelling names a group of values that differ only in case.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Every open-ended facet groups case-insensitively, because <c>russian</c> and <c>Russian</c> are
+/// one language and a panel offering both is splitting a count on somebody's shift key. That leaves
+/// the question of what the group is <em>called</em>, and "whichever row was read first" is an answer
+/// that changes with the sort order — the same catalogue could label a facet differently on two
+/// renders, which is a wobble a reader would read as data changing.
+/// </para>
+/// <para>
+/// The commonest spelling wins, ordinal breaking the tie. One game's stray capitalisation therefore
+/// cannot name a codebase family on a public page, and the label is a function of the set rather than
+/// of the order it arrived in.
+/// </para>
+/// </remarks>
+public static class Spellings
+{
+    public static string Commonest(IEnumerable<string> spellings)
+    {
+        ArgumentNullException.ThrowIfNull(spellings);
+
+        return spellings
+            .GroupBy(spelling => spelling, StringComparer.Ordinal)
+            .OrderByDescending(group => group.Count())
+            .ThenBy(group => group.Key, StringComparer.Ordinal)
+            .First().Key;
+    }
 }
 
 /// <summary>How a facet combines with itself.</summary>
@@ -443,14 +523,9 @@ public static class FacetedSearch
         // database and the demo fixture disagreed about that until this became one function.
         var wantsArchived = filter.IncludeArchived || filter.Band is ActivityBand.Archived;
 
-        // The codebase family narrows the base set rather than being offered as a counted facet,
-        // which is deliberate: a reference page links here to say "the games running PennMUSH", and
-        // the facet counts on the page it lands on should be counts *within* that codebase. It sits
-        // beside the text search for the same reason — both are the question, not an answer to it.
         var baseRows = rows
             .Where(r => (wantsArchived || r.Band is not ActivityBand.Archived)
-                && MatchesText(r, filter.Text)
-                && AdmitsFamily(r, filter.CodebaseFamily))
+                && MatchesText(r, filter.Text))
             .ToList();
 
         var results = baseRows.Where(r => Chosen(r, filter, null) && Present(r, filter)).ToList();
@@ -519,18 +594,6 @@ public static class FacetedSearch
             || (row.Summary.Tagline?.Contains(needle, StringComparison.OrdinalIgnoreCase) ?? false)
             || (row.Codebase?.Contains(needle, StringComparison.OrdinalIgnoreCase) ?? false);
     }
-
-    /// <summary>
-    /// Whether a row survives the codebase-family filter, polarity included.
-    /// </summary>
-    /// <remarks>
-    /// Separate from the choice facets because the test is a bounded prefix rather than an equality,
-    /// and because this is a filter rather than a counted facet — it narrows the set the panel's
-    /// counts are taken over, which is what makes a codebase page's facet counts counts within that
-    /// codebase.
-    /// </remarks>
-    private static bool AdmitsFamily(GameFacetRow row, FacetChoice? family) =>
-        family is null || family.Admits(CodebaseFamily.Matches(row.Codebase, family.Value));
 
     private static bool Chosen(GameFacetRow row, GameFilter filter, string? except)
     {
@@ -624,7 +687,7 @@ public static class FacetedSearch
             .. vocabulary
                 .Select(token => new FacetValue(
                     token,
-                    counts.GetValueOrDefault(token),
+                    counts.GetValueOrDefault(token)?.Count ?? 0,
                     selection?.Covers(token) ?? false,
                     IsUnknown: false,
                     IsExcluded: (selection?.Covers(token) ?? false) && selection!.Exclude))
@@ -652,8 +715,8 @@ public static class FacetedSearch
         var named = counts
             .Where(c => !string.Equals(c.Key, FacetChoice.UnknownToken, StringComparison.Ordinal))
             .Select(c => new FacetValue(
-                c.Key,
-                c.Value,
+                Spellings.Commonest(c.Value),
+                c.Value.Count,
                 selection?.Covers(c.Key) ?? false,
                 IsUnknown: false,
                 IsExcluded: (selection?.Covers(c.Key) ?? false) && selection!.Exclude))
@@ -665,7 +728,7 @@ public static class FacetedSearch
             .ThenBy(v => v.Token, StringComparer.Ordinal)
             .ToList();
 
-        var unknown = counts.GetValueOrDefault(FacetChoice.UnknownToken);
+        var unknown = counts.GetValueOrDefault(FacetChoice.UnknownToken)?.Count ?? 0;
         var unknownSelected = selection?.IsUnknown ?? false;
 
         if (unknown > 0 || unknownSelected)
@@ -681,16 +744,33 @@ public static class FacetedSearch
         return named;
     }
 
-    private static Dictionary<string, int> Counts(IReadOnlyList<GameFacetRow> domain, ChoiceFacet facet)
+    /// <summary>
+    /// How many games each value covers, and every spelling they used for it.
+    /// </summary>
+    /// <remarks>
+    /// The spellings are kept rather than the first one being taken as the name, so
+    /// <see cref="Spellings.Commonest"/> can label the group. A bare count keyed
+    /// <see cref="StringComparer.OrdinalIgnoreCase"/> silently promotes whichever row was read first
+    /// to naming the value, which put <c>russian</c> beside <c>English</c> on the live panel.
+    /// </remarks>
+    private static Dictionary<string, List<string>> Counts(
+        IReadOnlyList<GameFacetRow> domain,
+        ChoiceFacet facet)
     {
-        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var counts = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var row in domain)
         {
             foreach (var token in facet.TokensOf(row))
             {
                 var key = token ?? FacetChoice.UnknownToken;
-                counts[key] = counts.GetValueOrDefault(key) + 1;
+
+                if (!counts.TryGetValue(key, out var spellings))
+                {
+                    counts[key] = spellings = [];
+                }
+
+                spellings.Add(key);
             }
         }
 
@@ -714,10 +794,17 @@ public static class FacetedSearch
         IReadOnlyList<string>? Bounded = null);
 
     /// <summary>
-    /// Every choice facet, in the order the panel shows them: what we measured first, then what the
-    /// game says about itself. The order is editorial and the labelling is not — a reader has to be
-    /// able to see which half of the panel is evidence.
+    /// Every choice facet, in the order the panel shows them: what we measured, then the one thing we
+    /// concluded, then what the game says about itself. The order is editorial and the labelling is
+    /// not — a reader has to be able to see which part of the panel is evidence.
     /// </summary>
+    /// <remarks>
+    /// <see cref="FacetKeys.Lineage"/> sits at the head of the declared half rather than the foot of
+    /// the measured one because it is a conclusion drawn from a declaration, and the whole of its
+    /// evidence is the codebase string immediately below it. <see cref="FacetKeys.CodebaseVersion"/>
+    /// follows <see cref="FacetKeys.Codebase"/> for the same reason: the three read as one column,
+    /// widening to narrowing, and every step of it is labelled with where it came from.
+    /// </remarks>
     private static readonly ChoiceFacet[] Choices =
     [
         new(
@@ -733,7 +820,22 @@ public static class FacetedSearch
             f => f.LastSeen is { } seen ? FacetChoice.Of(FacetTokens.Of(seen)) : null,
             FacetTokens.LastSeenBands),
         new(FacetKeys.Charset, FacetEvidence.Measured, r => [r.Charset], f => f.Charset),
-        new(FacetKeys.Codebase, FacetEvidence.Declared, r => [r.Codebase], f => f.Codebase),
+        new(
+            FacetKeys.Lineage,
+            FacetEvidence.Derived,
+            r => [CodebaseLineage.Of(r.Codebase)],
+            f => f.Lineage,
+            CodebaseLineage.All),
+        new(
+            FacetKeys.Codebase,
+            FacetEvidence.Declared,
+            r => [CodebaseFamily.For(r.Codebase)],
+            f => f.Codebase),
+        new(
+            FacetKeys.CodebaseVersion,
+            FacetEvidence.Declared,
+            r => [r.Codebase],
+            f => f.CodebaseVersion),
         new(FacetKeys.Family, FacetEvidence.Declared, r => [r.Family], f => f.Family),
         new(FacetKeys.Genre, FacetEvidence.Declared, r => [r.Genre], f => f.Genre),
         new(FacetKeys.Language, FacetEvidence.Declared, r => [r.Language], f => f.Language),

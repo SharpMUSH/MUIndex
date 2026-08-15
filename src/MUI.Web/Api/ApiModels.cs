@@ -278,10 +278,11 @@ public sealed record FilterView(
     LastSeenBand? Seen,
     string? Charset,
     string? Codebase,
+    string? Version,
+    string? Lineage,
     string? Family,
     string? Genre,
     string? Language,
-    string? CodebaseFamily,
     GameSort Sort)
 {
     public static FilterView Of(GameFilter filter)
@@ -297,10 +298,11 @@ public sealed record FilterView(
             filter.LastSeen,
             filter.Charset?.Token,
             filter.Codebase?.Token,
+            filter.CodebaseVersion?.Token,
+            filter.Lineage?.Token,
             filter.Family?.Token,
             filter.Genre?.Token,
             filter.Language?.Token,
-            filter.CodebaseFamily?.Token,
             filter.Sort);
     }
 }

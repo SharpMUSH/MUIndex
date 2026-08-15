@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.WebUtilities;
+using MUI.Catalog;
 
 namespace MUI.Web.Components;
 
@@ -22,10 +23,16 @@ namespace MUI.Web.Components;
 public static class ListingLinks
 {
     /// <summary>The same query with one parameter set, replaced, or — on a null value — removed.</summary>
+    /// <remarks>
+    /// A parameter's aliases go with it. <c>codebase-family</c> is the old spelling of
+    /// <c>codebase</c> and both bind to one filter, so rewriting the one and leaving the other would
+    /// make a chip's remove-link a no-op for exactly the readers who arrived from a codebase
+    /// reference page — the query would still carry the value the chip said it had dropped.
+    /// </remarks>
     public static string With(string? query, string name, string? value)
     {
         var parts = Pairs(query)
-            .Where(p => !string.Equals(p.Key, name, StringComparison.OrdinalIgnoreCase))
+            .Where(p => !Names(name).Contains(p.Key, StringComparer.OrdinalIgnoreCase))
             .Select(Encode)
             .ToList();
 
@@ -77,6 +84,12 @@ public static class ListingLinks
 
         return Join(parts);
     }
+
+    /// <summary>Every spelling of one parameter, so setting or clearing it clears them all.</summary>
+    private static IReadOnlyList<string> Names(string name) =>
+        string.Equals(name, FacetKeys.Codebase, StringComparison.OrdinalIgnoreCase)
+            ? [FacetKeys.Codebase, FacetKeys.CodebaseFamily]
+            : [name];
 
     private static IEnumerable<KeyValuePair<string, string>> Pairs(string? query) =>
         QueryHelpers.ParseQuery(query ?? string.Empty)

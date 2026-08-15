@@ -137,7 +137,7 @@ public sealed record ReferenceDocument
 
     /// <summary>The listing of games running this codebase — the same filter the count is taken over.</summary>
     public string? GamesPath => Codebase is { } family
-        ? $"/games?codebase-family={Uri.EscapeDataString(family)}"
+        ? $"/games?{FacetKeys.Codebase}={Uri.EscapeDataString(family)}"
         : Protocol is { } protocol
             ? $"/games?protocol={Uri.EscapeDataString(protocol)}"
             : null;

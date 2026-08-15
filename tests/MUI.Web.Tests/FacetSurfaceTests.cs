@@ -124,6 +124,49 @@ public class FacetSurfaceTests
         await Assert.That(none.Filter.Codebase!.IsUnknown).IsTrue();
     }
 
+    /// <summary>The old spelling of the codebase question still asks it.</summary>
+    /// <remarks>
+    /// <c>codebase-family</c> named a filter that ran beside a <c>codebase</c> facet over raw
+    /// versioned strings; the two are now one question under one key. Every codebase reference page
+    /// has been linking here with the old spelling and readers have bookmarked those links, and a URL
+    /// that used to filter and now silently returns the whole catalogue is worse than one that
+    /// errors — it looks like an answer.
+    /// </remarks>
+    [Test]
+    public async Task TheOldCodebaseFamilyKeyStillFilters()
+    {
+        await Assert.That(
+            GameFilterBinding.TryRead("?codebase-family=PennMUSH", out var legacy, out _)).IsTrue();
+        await Assert.That(legacy.Filter.Codebase).IsEqualTo(FacetChoice.Of("PennMUSH"));
+
+        // Polarity travels with it, because the old key carried tokens rather than bare values.
+        await Assert.That(
+            GameFilterBinding.TryRead("?codebase-family=!PennMUSH", out var not, out _)).IsTrue();
+        await Assert.That(not.Filter.Codebase).IsEqualTo(FacetChoice.Not("PennMUSH"));
+
+        // And a caller who names the current key means it.
+        await Assert.That(GameFilterBinding.TryRead(
+            "?codebase=Evennia&codebase-family=PennMUSH", out var both, out _)).IsTrue();
+        await Assert.That(both.Filter.Codebase).IsEqualTo(FacetChoice.Of("Evennia"));
+    }
+
+    /// <summary>Clearing the codebase clears it under either spelling.</summary>
+    /// <remarks>
+    /// The chip the panel draws for a selected codebase removes <c>codebase</c>. A reader who
+    /// arrived from a reference page has <c>codebase-family</c> in their URL instead, so a removal
+    /// that only knew the new key would leave the filter in place — the one gesture on the page whose
+    /// whole job is to undo something, doing nothing, for exactly the readers who did not choose it.
+    /// </remarks>
+    [Test]
+    public async Task RemovingTheCodebaseChipDropsTheOldKeyToo()
+    {
+        await Assert.That(ListingLinks.With("?codebase-family=PennMUSH&genre=Fantasy", FacetKeys.Codebase, null))
+            .IsEqualTo("?genre=Fantasy");
+
+        await Assert.That(ListingLinks.With("?codebase-family=PennMUSH", FacetKeys.Codebase, "Evennia"))
+            .IsEqualTo("?codebase=Evennia");
+    }
+
     [Test]
     public async Task AnUnreadableFacetIsRefusedRatherThanQuietlyDropped()
     {
@@ -230,15 +273,21 @@ public class FacetSurfaceTests
         // the word is a legend nobody was given).
         var words = Render.Words(await PanelAsync(new GameFilter()));
 
-        await Assert.That(words).Contains("measured");
-        await Assert.That(words).Contains("declared");
-        await Assert.That(words).Contains(FacetWords.EvidenceMeaning(FacetEvidence.Measured));
-        await Assert.That(words).Contains(FacetWords.EvidenceMeaning(FacetEvidence.Declared));
+        // Every register, not the two that were here first: "derived" is the one a reader is least
+        // likely to guess at and the one it would matter most to leave unexplained.
+        foreach (var evidence in Enum.GetValues<FacetEvidence>())
+        {
+            await Assert.That(words).Contains(FacetWords.Evidence(evidence));
+            await Assert.That(words).Contains(FacetWords.EvidenceMeaning(evidence));
+        }
 
-        await Assert.That(FacetWords.Evidence(FacetEvidence.Measured))
-            .IsNotEqualTo(FacetWords.Evidence(FacetEvidence.Declared));
-        await Assert.That(FacetWords.EvidenceMeaning(FacetEvidence.Measured))
-            .IsNotEqualTo(FacetWords.EvidenceMeaning(FacetEvidence.Declared));
+        // And no two of them say the same thing, or the panel has a distinction it cannot draw.
+        var registers = Enum.GetValues<FacetEvidence>().Length;
+        await Assert.That(Enum.GetValues<FacetEvidence>().Select(FacetWords.Evidence).Distinct().Count())
+            .IsEqualTo(registers);
+        await Assert.That(
+            Enum.GetValues<FacetEvidence>().Select(FacetWords.EvidenceMeaning).Distinct().Count())
+            .IsEqualTo(registers);
     }
 
     [Test]
@@ -267,13 +316,12 @@ public class FacetSurfaceTests
                 rest.IndexOf("</legend>", StringComparison.Ordinal),
             }.Where(i => i >= 0).Min()];
 
-            await Assert.That(label).Contains($"evidence {Word(group.Evidence)}")
+            // The class and the word are the same string on purpose: a second copy of the mapping
+            // here is a place for the test and the panel to drift apart, and it did — a register
+            // added to the enum arrived in this helper as "declared".
+            await Assert.That(label).Contains($"evidence {FacetWords.Evidence(group.Evidence)}")
                 .Because($"{group.Key} has no evidence chip beside its own name");
-            await Assert.That(label).Contains(FacetWords.Evidence(group.Evidence));
         }
-
-        static string Word(FacetEvidence evidence) =>
-            evidence is FacetEvidence.Measured ? "measured" : "declared";
     }
 
     [Test]
@@ -418,10 +466,11 @@ public class FacetSurfaceTests
         f.LastSeen,
         f.Charset?.Token,
         f.Codebase?.Token,
+        f.CodebaseVersion?.Token,
+        f.Lineage?.Token,
         f.Family?.Token,
         f.Genre?.Token,
         f.Language?.Token,
-        f.CodebaseFamily,
         f.Sort,
         string.Join(',', f.MeasuredProtocols));
 }

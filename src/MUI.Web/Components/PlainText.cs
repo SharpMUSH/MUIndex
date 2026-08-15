@@ -346,10 +346,13 @@ public static class PlainText
         }
 
         Heading(b, "FILTERS");
-        Wrap(b, $"Each facet is marked {FacetWords.Evidence(FacetEvidence.Measured)} "
-            + $"({FacetWords.EvidenceMeaning(FacetEvidence.Measured)}) or "
-            + $"{FacetWords.Evidence(FacetEvidence.Declared)} "
-            + $"({FacetWords.EvidenceMeaning(FacetEvidence.Declared)}).");
+        // Enumerated rather than spelled out, so a register added to the vocabulary cannot be
+        // introduced on the rendered panel and quietly left out of the plain one — which is the
+        // surface where the key is the only place the distinction is ever made.
+        Wrap(b, "Each facet is marked "
+            + string.Join(", ", Enum.GetValues<FacetEvidence>()
+                .Select(e => $"{FacetWords.Evidence(e)} ({FacetWords.EvidenceMeaning(e)})"))
+            + ".");
         b.AppendLine();
         Wrap(b, "Each count is what choosing that value returns, from the same query as the list "
             + "below. A protocol is listed when we saw a game offer it, so a game missing from one "

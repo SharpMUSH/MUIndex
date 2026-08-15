@@ -231,9 +231,16 @@ public class FacetQueriesPostgresTests
         FacetKeys.Tls => new GameFilter { Tls = true },
         FacetKeys.Charset => new GameFilter { Charset = FacetChoice.Parse(token) },
         FacetKeys.Codebase => new GameFilter { Codebase = FacetChoice.Parse(token) },
+        FacetKeys.CodebaseVersion => new GameFilter { CodebaseVersion = FacetChoice.Parse(token) },
+        FacetKeys.Lineage => new GameFilter { Lineage = FacetChoice.Parse(token) },
         FacetKeys.Family => new GameFilter { Family = FacetChoice.Parse(token) },
         FacetKeys.Genre => new GameFilter { Genre = FacetChoice.Parse(token) },
-        _ => new GameFilter { Language = FacetChoice.Parse(token) },
+        FacetKeys.Language => new GameFilter { Language = FacetChoice.Parse(token) },
+
+        // Never a catch-all. A facet added to the panel and not to this switch used to arrive here
+        // as a language filter, which does not narrow on a codebase token — so the test failed
+        // saying the count was wrong when the count was right and the test was.
+        _ => throw new ArgumentOutOfRangeException(nameof(key), key, "no filter for this facet"),
     };
 
     private static ActivityBand Band(string token)
