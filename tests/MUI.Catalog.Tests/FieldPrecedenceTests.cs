@@ -103,4 +103,44 @@ public class FieldPrecedenceTests
         await Assert.That(handshake.IsMeasured).IsTrue();
         await Assert.That(mssp.IsMeasured).IsFalse();
     }
+
+    [Test]
+    public async Task WhatWeReadOffTheWireIsMeasuredAndWhatAGameReportsIsDeclared()
+    {
+        // The line is who read the value, not who authored it. `banner` is on the measured side
+        // because we open a socket and parse that text ourselves on every probe — migration 0003
+        // has said so in as many words since the presence table was written: several games publish
+        // their count only on the connect screen, "and that is still a measurement of ours". Its
+        // freshness is ours even where its arithmetic is theirs.
+        //
+        // `mssp` stays declared, and that is not a contradiction: a game filling in a structured
+        // self-description is reporting, and PLAYERS there may be whatever the codebase last cached.
+        // `owner` and `staff` are people typing, one of them us.
+        foreach (var source in new[] { FieldSource.Handshake, FieldSource.Who, FieldSource.Banner })
+        {
+            await Assert.That(FieldSources.IsMeasured(source)).IsTrue();
+        }
+
+        foreach (var source in new[] { FieldSource.Mssp, FieldSource.Owner, FieldSource.Staff })
+        {
+            await Assert.That(FieldSources.IsMeasured(source)).IsFalse();
+        }
+    }
+
+    [Test]
+    public async Task EverySourceGetsTheSameVerdictWhicheverTypeCarriesIt()
+    {
+        // Two records carry provenance and both once spelled the predicate out for themselves, so a
+        // decision about one source had to be remembered in two files. It is one function now, and
+        // this is what stops a second copy growing back: the badge on somebody else's site, the chip
+        // on the listing and the state in the API all resolve through here.
+        foreach (var source in Enum.GetValues<FieldSource>())
+        {
+            var provenance = new Provenance(source, Now, Now).IsMeasured;
+            var chip = new ProvenanceChip("v", source, Now, IsStale: false).IsMeasured;
+
+            await Assert.That(provenance).IsEqualTo(FieldSources.IsMeasured(source));
+            await Assert.That(chip).IsEqualTo(FieldSources.IsMeasured(source));
+        }
+    }
 }
