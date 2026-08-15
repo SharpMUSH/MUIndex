@@ -284,15 +284,31 @@ Unrotated JSON logs are the ordinary way a 40 GB volume fills.
 
 ### Bringing it up
 
+**Start with `MUI_CRAWL_ENABLED=false`, and turn the crawl on as a separate, deliberate step.** It is
+the first line of `.env` to get right rather than a caveat further down, because the moment the site
+starts it opens sockets to other people's machines — and everything that is easy to get wrong on a
+first deployment is wrong *at* that moment: an unset `MUI_CRAWL_INFO_URL`, an image that predates the
+setting, a restored catalogue whose targets are all overdue and therefore all dialled at once. The
+site serves its whole catalogue with the crawl off, so every check below is available before a single
+connection leaves the box. Turning it on afterwards costs one restart; turning it off afterwards
+costs somebody else's logs.
+
 Three files in `deploy/` and one `.env`. The repository is cloned to `/opt/muindex` for its compose
 files rather than as a build tree — the image is pulled, never built here.
 
 ```bash
 git clone https://github.com/SharpMUSH/MUIndex.git /opt/muindex && cd /opt/muindex
-cp .env.example .env && $EDITOR .env        # uncomment the server block, set the password
+cp .env.example .env && $EDITOR .env        # server block, password, MUI_CRAWL_ENABLED=false
 mkdir -p deploy/tls                          # origin.pem and origin.key go here, from Cloudflare
 install -m 644 deploy/muindex.service /etc/systemd/system/muindex.service
 systemctl daemon-reload && systemctl enable --now muindex
+```
+
+Then, once `/about` shows a contact address rather than the placeholder and the checks below pass:
+
+```bash
+sed -i 's/^MUI_CRAWL_ENABLED=false/MUI_CRAWL_ENABLED=true/' .env
+docker compose up -d web                     # recreates it with the new environment
 ```
 
 `COMPOSE_FILE` in `.env` is what makes a bare `docker compose` command read
@@ -397,9 +413,11 @@ Two things about an old catalogue, both of which have already been true once:
   vantage-independent, and `--exclude-table=presence_sample --exclude-table=availability_interval`
   takes it without the part that is not.
 
-Every target restored is due immediately, its last probe being however old the dump is, so the first
-cycles after the site comes up are a burst bounded by `GlobalInterval` and `MaxConcurrency` — 709
-targets at the defaults is a few minutes of dialling, and `CRAWL DELAY` still wins per host.
+**Every target restored is due immediately**, its last probe being however old the dump is. The first
+cycle after the site comes up is therefore a burst — bounded by `GlobalInterval` and `MaxConcurrency`,
+and `CRAWL DELAY` still wins per host, but several hundred connections leave in the first few minutes
+rather than spread over a day. That is the reason the crawl is off for the first start: a restored
+catalogue turns every mistake in `.env` into a mistake made at once, to everybody in it.
 
 ## What is still open
 
