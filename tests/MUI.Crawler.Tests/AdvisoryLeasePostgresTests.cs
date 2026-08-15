@@ -12,7 +12,7 @@ namespace MUI.Crawler.Tests;
 /// against a real PostgreSQL because an advisory lock is a database behaviour and there is nothing to
 /// fake about it that would still be a test.
 /// </remarks>
-public class CrawlLeasePostgresTests
+public class AdvisoryLeasePostgresTests
 {
     [Test]
     public async Task OnlyOneReplicaCanHoldTheLease()
@@ -20,8 +20,8 @@ public class CrawlLeasePostgresTests
         await using var database = await PostgresFixture.MigratedAsync();
         await using var second = database.SecondPool();
 
-        await using var first = await CrawlLease.TryAcquireAsync(database.DataSource, CrawlLease.DefaultKey);
-        var loser = await CrawlLease.TryAcquireAsync(second, CrawlLease.DefaultKey);
+        await using var first = await AdvisoryLease.TryAcquireAsync(database.DataSource, AdvisoryLease.CrawlKey);
+        var loser = await AdvisoryLease.TryAcquireAsync(second, AdvisoryLease.CrawlKey);
 
         await Assert.That(first).IsNotNull();
         await Assert.That(loser).IsNull();
@@ -35,11 +35,11 @@ public class CrawlLeasePostgresTests
         await using var database = await PostgresFixture.MigratedAsync();
         await using var second = database.SecondPool();
 
-        var first = await CrawlLease.TryAcquireAsync(database.DataSource, CrawlLease.DefaultKey);
+        var first = await AdvisoryLease.TryAcquireAsync(database.DataSource, AdvisoryLease.CrawlKey);
         await Assert.That(first).IsNotNull();
         await first!.DisposeAsync();
 
-        await using var next = await CrawlLease.TryAcquireAsync(second, CrawlLease.DefaultKey);
+        await using var next = await AdvisoryLease.TryAcquireAsync(second, AdvisoryLease.CrawlKey);
 
         await Assert.That(next).IsNotNull();
     }
@@ -51,7 +51,7 @@ public class CrawlLeasePostgresTests
         // that believes it holds a lock it lost is a second crawler.
         await using var database = await PostgresFixture.MigratedAsync();
 
-        var lease = await CrawlLease.TryAcquireAsync(database.DataSource, CrawlLease.DefaultKey);
+        var lease = await AdvisoryLease.TryAcquireAsync(database.DataSource, AdvisoryLease.CrawlKey);
         await Assert.That(lease).IsNotNull();
         await Assert.That(await lease!.IsHeldAsync()).IsTrue();
 
@@ -66,8 +66,8 @@ public class CrawlLeasePostgresTests
         await using var database = await PostgresFixture.MigratedAsync();
         await using var second = database.SecondPool();
 
-        await using var mine = await CrawlLease.TryAcquireAsync(database.DataSource, CrawlLease.DefaultKey);
-        await using var theirs = await CrawlLease.TryAcquireAsync(second, CrawlLease.DefaultKey + 1);
+        await using var mine = await AdvisoryLease.TryAcquireAsync(database.DataSource, AdvisoryLease.CrawlKey);
+        await using var theirs = await AdvisoryLease.TryAcquireAsync(second, AdvisoryLease.CrawlKey + 1);
 
         await Assert.That(mine).IsNotNull();
         await Assert.That(theirs).IsNotNull();

@@ -86,6 +86,34 @@ public sealed class NpgsqlGameFieldStore(NpgsqlDataSource source) : IGameFieldSt
             cancellationToken: cancellationToken));
     }
 
+    public async Task<DateTimeOffset?> LastChangedAtAsync(
+        Guid gameId, string field, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(field);
+
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        // lower(field), because MSSP spells NAME upper-case and IdentityFields spells it lower — the
+        // same fold IGameFieldIndex's contract states, for the same reason: a comparison that missed
+        // would report a name that has moved as one that never has, and re-mint a URL on the spot.
+        //
+        // Read as DateTime and not DateTimeOffset: Npgsql hands a bare timestamptz back as a UTC
+        // DateTime, and Dapper's scalar path converts rather than mapping — asking for the offset
+        // type here throws InvalidCastException at runtime, which the crawl loop would swallow as one
+        // errored target. Measured, not assumed.
+        var at = await connection.QuerySingleOrDefaultAsync<DateTime?>(new CommandDefinition(
+            """
+            SELECT max(at) FROM field_change
+             WHERE game_id = @gameId AND lower(field) = lower(@field)
+            """,
+            new { gameId, field },
+            cancellationToken: cancellationToken));
+
+        return at is { } moved
+            ? new DateTimeOffset(DateTime.SpecifyKind(moved, DateTimeKind.Utc))
+            : null;
+    }
+
     /// <summary>
     /// The per-game change feed (spec §9), newest first. Not on <see cref="IGameFieldStore"/> because
     /// nothing on the write path reads it; it is the game page's, and the page reads it through

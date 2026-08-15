@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 
 using MUI.Web.Api;
+using MUI.Web.Fixtures;
 
 namespace MUI.Web.Tests.Api;
 
@@ -30,6 +31,86 @@ public class GameApiTests
         // handing it a link that stops working the next time the game renames itself.
         await Assert.That(bySlug.GetProperty("apiUrl").GetString())
             .IsEqualTo($"{ApiRoutes.Games}/{Mush}");
+    }
+
+    [Test]
+    public async Task AGuidIsResolvedByLookingTheGameUpAndNeverByScanningTheCatalogue()
+    {
+        // §10.1's third small gap. Addressing a game by its immutable id — the identifier the API
+        // tells consumers to store — read the entire catalogue and picked one row out of it, so the
+        // durable key was the most expensive way to ask for a game and got slower with every game
+        // added. FindByIdAsync answers it in one indexed lookup, and the slug it returns fetches the
+        // page in another.
+        await using var host = await ApiHost.StartAsync(
+            queries: new ListingRefusingQueries(new FixtureGameQueries()));
+
+        var response = await host.Client.GetAsync($"{ApiRoutes.Games}/{Mush}");
+        var game = await Json.ElementAsync(response);
+
+        await Assert.That((int)response.StatusCode).IsEqualTo(200);
+        await Assert.That(game.GetProperty("slug").GetString()).IsEqualTo("m-u-s-h");
+        await Assert.That(game.GetProperty("id").GetString()).IsEqualTo(Mush);
+
+        // Nothing is ever deleted and the archive is addressable like everything else, so an
+        // archived game answers to its GUID too — the scan asked for archived games explicitly, and
+        // a replacement that quietly dropped them would take a URL away that used to work.
+        var archived = await Json.ElementAsync(
+            await host.Client.GetAsync($"{ApiRoutes.Games}/aaaaaaaa-0000-0000-0000-000000000005"));
+        await Assert.That(archived.GetProperty("slug").GetString()).IsEqualTo("gaslight-row");
+        await Assert.That(archived.GetProperty("state").GetString()).IsEqualTo("archived");
+    }
+
+    [Test]
+    public async Task AGuidNobodyMintedIs404AndTheAnswerIsIdenticalToASlugNobodyMinted()
+    {
+        // The route that changed is the one that answers by id, so the shape of its refusal is part
+        // of what changed. A GUID that names nothing gets the same problem document a slug does —
+        // and emphatically not a redirect, because there is no former GUID: an id is minted once and
+        // never reused (§5.7), so a lookup that misses has nowhere else to look.
+        await using var host = await ApiHost.StartAsync(
+            queries: new ListingRefusingQueries(new FixtureGameQueries()));
+
+        var missing = await host.Client.GetAsync(
+            $"{ApiRoutes.Games}/ffffffff-0000-0000-0000-000000000000");
+        var problem = await Json.ElementAsync(missing);
+
+        await Assert.That((int)missing.StatusCode).IsEqualTo(404);
+        await Assert.That(problem.GetProperty("title").GetString()).IsEqualTo("No such game");
+        await Assert.That(problem.GetProperty("detail").GetString()).Contains("archived=true");
+
+        // The same body a missing slug produces, bar the key it quotes back.
+        await using var plain = await ApiHost.StartAsync();
+        var bySlug = await Json.ElementAsync(
+            await plain.Client.GetAsync($"{ApiRoutes.Games}/nothing-here"));
+        await Assert.That(problem.GetProperty("status").GetInt32())
+            .IsEqualTo(bySlug.GetProperty("status").GetInt32());
+        await Assert.That(problem.GetProperty("title").GetString())
+            .IsEqualTo(bySlug.GetProperty("title").GetString());
+    }
+
+    [Test]
+    public async Task AGameFetchedByGuidIsByteForByteTheOneFetchedBySlug()
+    {
+        // One route, two keys, one representation — so the ETag over the exact bytes is the same
+        // validator either way. A consumer holding the id must not be handed a body that differs
+        // from the one it would have got by slug, or a cache keyed on the entity re-fetches for ever.
+        await using var host = await ApiHost.StartAsync();
+
+        var byId = await host.Client.GetAsync($"{ApiRoutes.Games}/{Mush}");
+        var bySlug = await host.Client.GetAsync($"{ApiRoutes.Games}/m-u-s-h");
+
+        await Assert.That(await byId.Content.ReadAsByteArrayAsync())
+            .IsEquivalentTo(await bySlug.Content.ReadAsByteArrayAsync());
+        await Assert.That(byId.Headers.ETag!.ToString())
+            .IsEqualTo(bySlug.Headers.ETag!.ToString());
+
+        // And it is still a conditional request away from a 304.
+        using var conditional = new HttpRequestMessage(HttpMethod.Get, $"{ApiRoutes.Games}/{Mush}");
+        conditional.Headers.TryAddWithoutValidation("If-None-Match", byId.Headers.ETag!.ToString());
+        var second = await host.Client.SendAsync(conditional);
+
+        await Assert.That(second.StatusCode).IsEqualTo(HttpStatusCode.NotModified);
+        await Assert.That((await second.Content.ReadAsByteArrayAsync()).Length).IsEqualTo(0);
     }
 
     [Test]
@@ -92,8 +173,17 @@ public class GameApiTests
         // banner is not, and nothing on this surface gets to hold a second opinion.
         await Assert.That(fields.GetProperty("created").GetProperty("stale").GetBoolean()).IsTrue();
         await Assert.That(fields.GetProperty("codebase").GetProperty("stale").GetBoolean()).IsFalse();
+
+        // MSSP and not the banner. M*U*S*H disagrees with itself — its MSSP says 1.8.8p0 and its
+        // banner says 1.8.7 — and 1.8.8p0 is the value on the page, which is what the precedence
+        // ladder returns (§5.1). Labelling it `banner` credited one source with another's value,
+        // which is the single thing a provenance chip exists not to do.
         await Assert.That(fields.GetProperty("codebase").GetProperty("source").GetString())
-            .IsEqualTo("banner");
+            .IsEqualTo("mssp");
+        await Assert.That(game.GetProperty("codebaseProvenance").GetProperty("source").GetString())
+            .IsEqualTo("mssp");
+        await Assert.That(game.GetProperty("codebaseProvenance").GetProperty("value").GetString())
+            .IsEqualTo(game.GetProperty("codebase").GetString());
     }
 
     [Test]

@@ -23,13 +23,28 @@ public sealed record CrawlerOptions
     public bool Enabled { get; init; } = true;
 
     /// <summary>Which advisory lock this deployment's crawler competes for (spec §12).</summary>
-    public long AdvisoryLockKey { get; init; } = CrawlLease.DefaultKey;
+    public long AdvisoryLockKey { get; init; } = AdvisoryLease.CrawlKey;
 
     /// <summary>Per-cycle bounds: concurrency, batch size, rate floors, the probe timeout.</summary>
     public DiscoveryOptions Discovery { get; init; } = new();
 
     /// <summary>Per-probe bounds: session timeout, settle periods, subnegotiation ceiling.</summary>
     public ProbeOptions Probe { get; init; } = new();
+
+    /// <summary>What one source may put through the public submission form (spec §9).</summary>
+    public SubmissionOptions Submissions { get; init; } = new();
+
+    /// <summary>
+    /// When presence is rolled up, how far ahead its partitions are made, and how long each grain is
+    /// kept (spec §5.2, §15.4). Runs on its own advisory lock and its own schedule.
+    /// </summary>
+    public PresenceMaintenanceOptions Maintenance { get; init; } = new();
+
+    /// <summary>
+    /// How often the hashing salt behind §11's aggregates rotates. Never persisted, never logged, and
+    /// the reason a unique-player estimate is possible inside an epoch and not across two.
+    /// </summary>
+    public SaltRotationOptions Salt { get; init; } = new();
 
     /// <summary>
     /// Addresses the crawler knows before it has followed anything.
@@ -55,6 +70,9 @@ public sealed record CrawlerOptions
     public void Validate()
     {
         Discovery.Validate();
+        Maintenance.Validate();
+        Salt.Validate();
+        Submissions.Validate();
 
         foreach (var seed in Seeds)
         {

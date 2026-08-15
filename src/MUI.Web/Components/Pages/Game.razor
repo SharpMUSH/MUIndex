@@ -4,9 +4,13 @@
 @inject IAvailabilityHistory History
 @inject TimeProvider Clock
 @inject IServiceProvider Services
+@inject NavigationManager Navigation
 
 @if (Page is null)
 {
+    @* Not reached over HTTP: OnParametersSetAsync signals not-found, and the framework answers with
+       the site's own page and a 404 rather than with this. It is what a headless render of this
+       component produces, where there is no response to give a status line to. *@
     <h1>Not found</h1>
     <p class="dim">
         No game here. Nothing is ever deleted, so a game that once lived at this address still
@@ -74,7 +78,19 @@ else
                 <p class="live mono">
                     @if (Page.Summary.PlayersNow is { } n)
                     {
-                        <span class="state-present">● @n players on now</span>
+                        @*
+                            The count, and how we came by it. This page is the surface a reader
+                            trusts most, and it was the one printing the measured glyph over every
+                            number it had — including the ones a game states about itself, which the
+                            listing that points here already labels as such. One vocabulary.
+                        *@
+                        <span class="@(Counted?.IsMeasured is false ? "state-declared" : "state-present")">
+                            @(Counted?.IsMeasured is false ? "◇" : "●") @n players on now
+                        </span>
+                        @if (Counted is { } counted)
+                        {
+                            <Chip Fact="counted" Now="Now" ValueShown="false" />
+                        }
                     }
                     else
                     {
@@ -191,6 +207,9 @@ else
 
     private int StaleCount => Page?.Declared.Count(d => d.Value.IsStale) ?? 0;
 
+    /// <summary>The label on the live count, or null where there is no count to label.</summary>
+    private ProvenanceChip? Counted => Page?.Summary.PlayersNowProvenance;
+
     private string Initials => string.Concat(
         (Page?.Summary.Name ?? "?")
             .Split([' ', '*', '-'], StringSplitOptions.RemoveEmptyEntries)
@@ -202,6 +221,13 @@ else
         Page = await Queries.FindAsync(Slug);
         if (Page is null)
         {
+            // Said in the status line and not only in the sentence. A slug a game used to have is
+            // redirected before this page is reached (§5.7), so arriving here means no game ever
+            // answered to this URL — and a 200 tells a crawler to index a page about a game that
+            // does not exist. Under a request this hands the reader the site's not-found page with
+            // a 404; under the headless renderer the tests use it does nothing, which is what the
+            // block at the top of this file is still for.
+            Navigation.NotFound();
             return;
         }
 

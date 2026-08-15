@@ -151,6 +151,9 @@ public class ReferenceFiguresTests
         public Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default) =>
             Task.FromResult<GamePage?>(null);
 
+        public Task<GamePage?> FindAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult<GamePage?>(null);
+
         public Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new LivenessFeeds([], [], []));
 
