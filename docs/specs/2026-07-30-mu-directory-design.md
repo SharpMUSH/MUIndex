@@ -1018,8 +1018,13 @@ Both routes are held there by a test catalogue that **throws** on `ListAsync` an
 `FindByIdAsync` — a counter would pass a version that read the catalogue once and cached it, which
 is the same scan with a lifetime bolted on.
 
-One smaller gap remains, worked around inside `src/MUI.Web/Api/`: §5.7's forever-redirect has no
-former-slug table, so aliases live in configuration rather than beside the games.
+The last of the three is closed too. §5.7's forever-redirect now has `game_slug_history` beside the
+games, written by the only thing that re-mints a slug: `SlugMinter`, when the winning `NAME` has held
+for a grace period. A row there names a **game** rather than another slug, so a game renamed twice
+redirects from its oldest URL in one hop, a cycle cannot be expressed, and an archived game's former
+URLs work exactly as its page does. `ConfiguredSlugHistory` survives behind it and is not a leftover:
+the site starts on the demo fixture with no database at all, and an operator carrying a rename no
+probe can know about is still doing something legitimate.
 
 ## 11. Politeness, consent, privacy
 

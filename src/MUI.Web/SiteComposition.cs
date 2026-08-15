@@ -106,6 +106,13 @@ public static class SiteComposition
         // limit.
         app.UseSubmitterAddress();
 
+        // A reader who mistyped a URL, and a crawler indexing one, both got a 404 with an empty body:
+        // the <NotFound> fragment inside <Router> is never rendered under static server rendering, so
+        // the site's own "no game here" paragraph was dead copy. This answers those with the page —
+        // and only those. The scoping is NotFoundPage's own, because a rule about how a page says
+        // "there is nothing here" must not reach the API or the account endpoints beside it.
+        app.UseMuiNotFoundPage();
+
         app.UseStaticFiles();
 
         // The site has exactly two POST forms — the on-demand claim check and the submission form —
@@ -126,6 +133,11 @@ public static class SiteComposition
             // makes.
             app.MapMuiSubmissions();
         }
+
+        // §5.7, and before the route that would answer with "not found": a slug this game used to
+        // have is a URL somebody is still holding, and it redirects to the page it has now —
+        // permanently, and for an archived game exactly as for a live one.
+        app.UseFormerSlugRedirects();
 
         app.MapRazorComponents<App>();
         app.MapMuiApi();

@@ -43,6 +43,7 @@ public class OptOutPostgresTests
         var fields = new NpgsqlGameFieldStore(source);
         var availability = new NpgsqlAvailabilityStore(source);
         var targets = new NpgsqlCrawlTargetRepository(source);
+        var slugs = new NpgsqlSlugHistoryStore(source);
 
         return new CrawlCycle(
             targets,
@@ -54,11 +55,13 @@ public class OptOutPostgresTests
                 new AvailabilityWriter(availability),
                 new FieldReconciler(fields),
                 games,
-                new ArchiveSweeper(games, availability, availability)),
+                new ArchiveSweeper(games, availability, availability),
+                new SlugMinter(games, fields, slugs)),
             new CatalogueBinder(
                 games,
                 endpoints,
                 fields,
+                slugs,
                 new IdentityMatcher(
                     new CatalogueGameDirectory(games),
                     new CatalogueEndpointDirectory(endpoints),
@@ -214,6 +217,7 @@ public class OptOutPostgresTests
         var games = new NpgsqlGameStore(source);
         var availability = new NpgsqlAvailabilityStore(source);
         var targets = new NpgsqlCrawlTargetRepository(source);
+        var slugs = new NpgsqlSlugHistoryStore(source);
         var fields = new NpgsqlGameFieldStore(source);
         var endpoints = new NpgsqlEndpointStore(source);
         var options = new DiscoveryOptions { GlobalInterval = TimeSpan.Zero, PerHostInterval = TimeSpan.Zero };
@@ -229,11 +233,13 @@ public class OptOutPostgresTests
                 new AvailabilityWriter(availability),
                 new FieldReconciler(fields),
                 games,
-                new ArchiveSweeper(games, availability, availability)),
+                new ArchiveSweeper(games, availability, availability),
+                new SlugMinter(games, fields, slugs)),
             new CatalogueBinder(
                 games,
                 endpoints,
                 fields,
+                slugs,
                 new IdentityMatcher(
                     new CatalogueGameDirectory(games),
                     new CatalogueEndpointDirectory(endpoints),

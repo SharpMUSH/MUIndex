@@ -100,6 +100,7 @@ var games = new NpgsqlGameStore(source);
 var endpoints = new NpgsqlEndpointStore(source);
 var fields = new NpgsqlGameFieldStore(source);
 var availability = new NpgsqlAvailabilityStore(source);
+var slugs = new NpgsqlSlugHistoryStore(source);
 
 var optOut = new OptOutGate(
     new NpgsqlCrawlOptOutRepository(source),
@@ -133,11 +134,13 @@ var cycle = new CrawlCycle(
         new FieldReconciler(fields),
         games,
         new ArchiveSweeper(games, availability, availability),
+        new SlugMinter(games, fields, slugs, grace: null, loggerFactory.CreateLogger<SlugMinter>()),
         loggerFactory.CreateLogger<ProbeIngestor>()),
     new CatalogueBinder(
         games,
         endpoints,
         fields,
+        slugs,
         new IdentityMatcher(
             new CatalogueGameDirectory(games),
             new CatalogueEndpointDirectory(endpoints),

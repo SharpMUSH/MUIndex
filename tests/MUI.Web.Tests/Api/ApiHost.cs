@@ -43,14 +43,25 @@ public sealed class ApiHost : IAsyncDisposable
     /// <summary>The instant every age in a response is measured from. Fixed, so ages are assertable.</summary>
     public static DateTimeOffset Now => FixtureGameQueries.Now;
 
-    /// <summary>
-    /// The API on a loopback port. <paramref name="queries"/> replaces the fixture's read side —
-    /// which is how a test asserts what an endpoint <em>does not</em> ask for, by handing it a
-    /// catalogue that refuses the question.
-    /// </summary>
+    /// <summary>A host with a catalogue's services and no configuration of its own.</summary>
+    public static Task<ApiHost> StartAsync(Action<IServiceCollection> services) =>
+        StartAsync(null, null, services);
+
+    /// <summary>The API on a loopback port.</summary>
+    /// <param name="settings">Configuration this host is to read, as a deployment would supply it.</param>
+    /// <param name="queries">
+    /// Replaces the fixture's read side — which is how a test asserts what an endpoint <em>does
+    /// not</em> ask for, by handing it a catalogue that refuses the question.
+    /// </param>
+    /// <param name="services">
+    /// Anything a database would have registered — the former-slug store, above all. Applied before
+    /// <c>AddMuiApi</c>, because that is the order a real host composes in: the catalogue is chosen
+    /// first and the API asks what it found.
+    /// </param>
     public static async Task<ApiHost> StartAsync(
         Dictionary<string, string?>? settings = null,
-        IGameQueries? queries = null)
+        IGameQueries? queries = null,
+        Action<IServiceCollection>? services = null)
     {
         var builder = WebApplication.CreateSlimBuilder();
 
@@ -66,6 +77,7 @@ public sealed class ApiHost : IAsyncDisposable
         builder.Services.AddSingleton<IAvailabilityHistory>(
             s => s.GetRequiredService<FixtureGameQueries>());
         builder.Services.AddSingleton<TimeProvider>(new FixedClock(Now));
+        services?.Invoke(builder.Services);
         builder.Services.AddMuiApi(builder.Configuration);
 
         // Port zero: the suite runs in parallel and a fixed port would make two tests fight.

@@ -97,6 +97,7 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<IGameStore>(s => new NpgsqlGameStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IEndpointStore>(s => new NpgsqlEndpointStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IGameFieldStore>(s => new NpgsqlGameFieldStore(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<ISlugHistoryStore>(s => new NpgsqlSlugHistoryStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton(s => new NpgsqlPresenceStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IPresenceStore>(s => s.GetRequiredService<NpgsqlPresenceStore>());
         services.TryAddSingleton(s => new NpgsqlPresenceRollupStore(s.GetRequiredService<NpgsqlDataSource>()));
@@ -183,6 +184,15 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<OptOutGate>();
 
         services.TryAddSingleton<IProbe>(s => new TelnetProbe(s.GetRequiredService<ProbeOptions>()));
+
+        // §5.7's re-mint. The default grace, because how long a name must hold before it earns a new
+        // URL is a property of the promise rather than something a deployment tunes.
+        services.TryAddSingleton(s => new SlugMinter(
+            s.GetRequiredService<IGameStore>(),
+            s.GetRequiredService<IGameFieldStore>(),
+            s.GetRequiredService<ISlugHistoryStore>(),
+            grace: null,
+            s.GetService<ILogger<SlugMinter>>()));
 
         services.TryAddSingleton<ProbeIngestor>();
         services.TryAddSingleton<CatalogueBinder>();

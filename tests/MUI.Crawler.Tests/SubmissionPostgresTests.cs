@@ -58,6 +58,7 @@ public class SubmissionPostgresTests
         var fields = new NpgsqlGameFieldStore(source);
         var availability = new NpgsqlAvailabilityStore(source);
         var targets = new NpgsqlCrawlTargetRepository(source);
+        var slugs = new NpgsqlSlugHistoryStore(source);
         var time = TimeProvider.System;
 
         return new CrawlCycle(
@@ -72,11 +73,13 @@ public class SubmissionPostgresTests
                 new AvailabilityWriter(availability),
                 new FieldReconciler(fields),
                 games,
-                new ArchiveSweeper(games, availability, availability)),
+                new ArchiveSweeper(games, availability, availability),
+                new SlugMinter(games, fields, slugs)),
             new CatalogueBinder(
                 games,
                 endpoints,
                 fields,
+                slugs,
                 new IdentityMatcher(
                     new CatalogueGameDirectory(games),
                     new CatalogueEndpointDirectory(endpoints),

@@ -72,6 +72,13 @@ public static class PostgresData
         services.TryAddSingleton<IReachableHistory>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());
         services.TryAddSingleton<IAvailabilityHistory, StoredAvailabilityHistory>();
 
+        // §5.7's former-slug table. Registered here rather than only with the crawler because a
+        // read-only replica serves the redirects too — the promise is about URLs, not about which
+        // process happens to be writing. TryAdd for the same reason as everything above it: the
+        // crawler registers this one too, and two of them would be two pools answering one question.
+        services.TryAddSingleton<ISlugHistoryStore>(s =>
+            new NpgsqlSlugHistoryStore(s.GetRequiredService<NpgsqlDataSource>()));
+
         services.TryAddSingleton<IGameQueries>(s => new NpgsqlGameQueries(
             s.GetRequiredService<NpgsqlDataSource>(),
             s.GetRequiredService<IFieldRegistry>()));

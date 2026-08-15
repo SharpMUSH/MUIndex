@@ -97,6 +97,14 @@ public static class Render
         public Task MarkReachableAsync(Guid id, DateTimeOffset at, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
+        public Task<string?> RenameAsync(
+            Guid id,
+            string name,
+            string slug,
+            DateTimeOffset at,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task SetClaimedAsync(Guid id, bool isClaimed, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 

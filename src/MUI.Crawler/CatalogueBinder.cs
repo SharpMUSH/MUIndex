@@ -27,6 +27,7 @@ public sealed class CatalogueBinder(
     IGameStore games,
     IEndpointStore endpoints,
     IGameFieldStore fields,
+    ISlugHistoryStore slugs,
     IdentityMatcher matcher,
     IDuplicateReviewRepository reviews,
     TimeProvider time,
@@ -188,9 +189,15 @@ public sealed class CatalogueBinder(
     {
         var now = time.GetUtcNow();
         var name = NameOf(result);
+        // Taken means taken by anybody, ever (§5.7). A slug a game gave up in a rename still redirects
+        // and is still in somebody's bookmarks, so handing it to a new listing would silently point an
+        // old URL at a game that never wore it — which is worse than the 404 the table exists to
+        // prevent.
         var slug = await GameSlug.UniqueAsync(
             name,
-            async (candidate, ct) => await games.BySlugAsync(candidate, ct) is not null,
+            async (candidate, ct) =>
+                await games.BySlugAsync(candidate, ct) is not null
+                || await slugs.RetiredByAsync(candidate, ct) is not null,
             cancellationToken);
 
         var game = new GameRecord(

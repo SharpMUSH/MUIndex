@@ -28,6 +28,7 @@ public class CrawlCyclePostgresTests
         TimeProvider time,
         IHostResolver? resolver = null,
         DiscoveryOptions? options = null,
+        TimeSpan? grace = null,
         IDnsTxtResolver? dns = null)
     {
         var discovery = options ?? new DiscoveryOptions
@@ -43,6 +44,7 @@ public class CrawlCyclePostgresTests
         var fields = new NpgsqlGameFieldStore(source);
         var availability = new NpgsqlAvailabilityStore(source);
         var targets = new NpgsqlCrawlTargetRepository(source);
+        var slugs = new NpgsqlSlugHistoryStore(source);
 
         return new CrawlCycle(
             targets,
@@ -56,11 +58,13 @@ public class CrawlCyclePostgresTests
                 new AvailabilityWriter(availability),
                 new FieldReconciler(fields),
                 games,
-                new ArchiveSweeper(games, availability, availability)),
+                new ArchiveSweeper(games, availability, availability),
+                new SlugMinter(games, fields, slugs, grace)),
             new CatalogueBinder(
                 games,
                 endpoints,
                 fields,
+                slugs,
                 new IdentityMatcher(
                     new CatalogueGameDirectory(games),
                     new CatalogueEndpointDirectory(endpoints),
@@ -157,6 +161,69 @@ public class CrawlCyclePostgresTests
             new { id = game.Id });
 
         await Assert.That(screen).IsEqualTo("Welcome to Tidewater Nights");
+    }
+
+    [Test]
+    public async Task AGameThatRenamesItselfTakesANewUrlAndKeepsTheOldOneWorking()
+    {
+        // §5.7 end to end, through the real graph and against the real schema: a game renames itself,
+        // nothing moves while the new name is fresh, and once it has held for the grace period the URL
+        // follows — with the old one recorded beside the game rather than in somebody's config file.
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+
+        await SeedAsync(source, new CrawlSeed("mush.example.org", 4201));
+
+        var name = "Tidewater Nights";
+        var observed = Probes.Observed;
+
+        var probe = new ScriptedProbe(target => Probes.Answered(
+            host: target.Host,
+            port: target.Port,
+            mssp: Probes.Mssp(("NAME", name), ("CODEBASE", "PennMUSH 1.8.8p0")),
+            at: observed));
+
+        var cycle = Build(source, probe, new StepClock(), grace: TimeSpan.FromDays(14));
+
+        await cycle.RunAsync();
+
+        // It renames itself. The change is measured immediately; the URL is not.
+        name = "Harbourlight";
+        observed = Probes.Observed.AddDays(1);
+        await MakeDueAsync(source);
+        await cycle.RunAsync();
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<string>("SELECT slug FROM game"))
+            .IsEqualTo("tidewater-nights");
+        await Assert.That(await connection.ExecuteScalarAsync<long>("SELECT count(*) FROM game_slug_history"))
+            .IsEqualTo(0L);
+        await Assert.That(await connection.ExecuteScalarAsync<string>(
+                "SELECT value FROM game_field WHERE field = 'NAME'"))
+            .IsEqualTo("Harbourlight");
+
+        // A fortnight on, still Harbourlight.
+        observed = Probes.Observed.AddDays(20);
+        await MakeDueAsync(source);
+        await cycle.RunAsync();
+
+        var game = await connection.QuerySingleAsync<(Guid Id, string Slug, string Name)>(
+            "SELECT id, slug, name FROM game");
+
+        await Assert.That(game.Slug).IsEqualTo("harbourlight");
+        await Assert.That(game.Name).IsEqualTo("Harbourlight");
+
+        var retired = await connection.QuerySingleAsync<(string Slug, Guid GameId)>(
+            "SELECT slug, game_id FROM game_slug_history");
+
+        await Assert.That(retired.Slug).IsEqualTo("tidewater-nights");
+        await Assert.That(retired.GameId).IsEqualTo(game.Id);
+
+        // And the rename is an event in its own right, which is what the change feed is for.
+        await Assert.That(await connection.ExecuteScalarAsync<long>(
+                "SELECT count(*) FROM field_change WHERE field = 'NAME'"))
+            .IsEqualTo(1L);
     }
 
     [Test]

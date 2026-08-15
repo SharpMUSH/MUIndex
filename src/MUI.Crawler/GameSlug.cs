@@ -13,10 +13,11 @@ namespace MUI.Crawler;
 /// promise §7.5 makes about pages.
 /// </para>
 /// <para>
-/// <b>Minting is not re-minting.</b> This is only ever called when a game is first listed. A rename
-/// does not re-mint automatically — a game that flips its name daily would otherwise churn its URL —
-/// and the re-mint-after-stability half of §5.7, together with the redirect table it needs, belongs
-/// with whatever owns renaming. Nothing here does it by accident.
+/// <b>Minting is not re-minting.</b> This is the arithmetic and never the decision: a rename does not
+/// re-mint automatically — a game that flips its name daily would otherwise churn its URL — so
+/// <see cref="CatalogueBinder"/> calls it when a game is first listed, and <see cref="SlugMinter"/>
+/// calls it again only once a new name has held for a grace period, retiring the old slug into
+/// <c>game_slug_history</c> in the same act. Nothing here does either by accident.
 /// </para>
 /// </remarks>
 public static class GameSlug
@@ -106,7 +107,9 @@ public static class GameSlug
     /// The numeric suffix is §5.7's own answer to a collision. Two unedited PennMUSHes really do want
     /// the same slug, which is the same observation that makes a codebase default the absence of an
     /// identity signal rather than a weak one — except that here they are two games and both are
-    /// entitled to a URL.
+    /// entitled to a URL. <b>Taken means taken by anybody, ever</b>: every caller asks the former-slug
+    /// table as well as <c>game.slug</c>, because a URL a game gave up is still one somebody is
+    /// holding and pointing it at a different game is worse than the 404 it replaces.
     /// </remarks>
     public static async Task<string> UniqueAsync(
         string name,
@@ -139,6 +142,12 @@ public static class GameSlug
 
         // Ten thousand games sharing one name is not a collision, it is a bug somewhere upstream —
         // but a listing refused outright is worse than an ugly URL, so this always terminates.
-        return $"{stem}-{Guid.CreateVersion7():N}"[..MaxLength];
+        //
+        // Truncated only when there is something to truncate: the range operator throws for a string
+        // shorter than MaxLength, so the line that claimed to always terminate ended the listing with
+        // an ArgumentOutOfRangeException for every stem under 31 characters — which is most of them.
+        var last = $"{stem}-{Guid.CreateVersion7():N}";
+
+        return last.Length > MaxLength ? last[..MaxLength] : last;
     }
 }
