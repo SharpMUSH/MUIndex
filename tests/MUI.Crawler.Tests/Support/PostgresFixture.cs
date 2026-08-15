@@ -47,8 +47,14 @@ public static class PostgresFixture
 
     private static int _sequence;
 
-    /// <summary>A fresh database with the whole schema already applied.</summary>
-    public static async Task<TestDatabase> MigratedAsync()
+    /// <summary>
+    /// A fresh, empty database on the shared server — no schema at all.
+    /// </summary>
+    /// <remarks>
+    /// What a deployment's first seconds look like, which is a state the hosted services have to
+    /// survive: they start beside the migration run rather than after it.
+    /// </remarks>
+    public static async Task<TestDatabase> FreshDatabaseAsync()
     {
         var admin = await AdminAsync();
         var name = $"mui_crawler_{Interlocked.Increment(ref _sequence)}_{Guid.NewGuid():N}"[..40];
@@ -59,7 +65,14 @@ public static class PostgresFixture
         }
 
         var builder = new NpgsqlConnectionStringBuilder(_template) { Database = name };
-        var database = new TestDatabase(name, builder.ConnectionString, admin);
+
+        return new TestDatabase(name, builder.ConnectionString, admin);
+    }
+
+    /// <summary>A fresh database with the whole schema already applied.</summary>
+    public static async Task<TestDatabase> MigratedAsync()
+    {
+        var database = await FreshDatabaseAsync();
 
         await new MigrationRunner(database.DataSource).ApplyAsync();
 
