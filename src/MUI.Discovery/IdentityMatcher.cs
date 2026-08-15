@@ -139,13 +139,28 @@ public sealed class IdentityMatcher(
     /// <summary>
     /// One value per field: the source that wins under <see cref="FieldPrecedence"/>, because
     /// <c>(game, field, source)</c> means several rows can answer one field and only the winner is what
-    /// the site says this game's name is.
+    /// the site says this game's name is — with <see cref="FieldSource.Owner"/> left out of the
+    /// question entirely.
     /// </summary>
+    /// <remarks>
+    /// <b>An owner's answer is the one to show and the wrong one to match on.</b> <c>Owner</c> outranks
+    /// <c>Mssp</c> in <see cref="FieldPrecedence"/>, correctly, for a page: §8.5 lets a verified owner
+    /// override anything MSSP could declare about their own game. Scored here that would let them type
+    /// <c>NAME</c> and <c>CREATED</c> to match a game they have nothing to do with — and §7.3 merges
+    /// above threshold, which is not a thing anybody undoes. De-duplication asks which host is which
+    /// game, and it answers by comparing what servers said to each other.
+    ///
+    /// <see cref="FieldSource.Staff"/> stays in, and the difference is not that we trust ourselves more.
+    /// A staff row is the curator's correction — it exists to fix a catalogue that has merged two games
+    /// or split one — so it is exactly the value identity should be steered by, and there is no surface
+    /// through which anybody else can write one.
+    /// </remarks>
     private async Task<IReadOnlyDictionary<string, string>> StoredAsync(Guid gameId, CancellationToken ct)
     {
         var rows = await fields.ForGameAsync(gameId, ct);
 
         return rows
+            .Where(row => row.Source is not FieldSource.Owner)
             .GroupBy(row => row.Field, StringComparer.OrdinalIgnoreCase)
             .Select(group => FieldPrecedence.Winner(group))
             .Where(winner => winner is not null)

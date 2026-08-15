@@ -159,11 +159,22 @@ else
         _ => "Optional",
     };
 
+    /// <summary>
+    /// The kicker beside a finding, in the operator's terms.
+    /// </summary>
+    /// <remarks>
+    /// Every member spelled out rather than three and a discard. The discard read "unlisted value",
+    /// so <see cref="MsspFindingKind.Overridden"/> — added later, and not a defect at all — arrived
+    /// on the page describing itself as a malformed one. A catch-all arm over an enum somebody else
+    /// will extend is a label waiting to be wrong.
+    /// </remarks>
     private static string Word(MsspFindingKind kind) => kind switch
     {
         MsspFindingKind.Missing => "not in your report",
         MsspFindingKind.Unanswered => "still the default",
         MsspFindingKind.WrongType => "unreadable",
-        _ => "unlisted value",
+        MsspFindingKind.NonStandard => "unlisted value",
+        MsspFindingKind.Overridden => "you answered this here",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 }

@@ -206,16 +206,27 @@ public sealed class FieldRegistry : IFieldRegistry
     public static IReadOnlyList<FieldDefinition> All { get; } = Build();
 
     /// <summary>
-    /// The fields a verified owner may write (spec §8.5), in the order the dashboard offers them.
+    /// The fields only an owner could answer (spec §3.2, §8.5), in the order the dashboard offers them.
     /// </summary>
     /// <remarks>
-    /// Derived from the flag rather than listed again, so the form an owner sees and the gate
-    /// <see cref="OwnerEnrichment"/> applies are the same set by construction. A field added below
-    /// with <c>ownerEnrichable: true</c> appears on the dashboard and becomes writable in one edit;
-    /// there is nowhere for the two to disagree.
+    /// Derived from the definition rather than listed again, so the form an owner sees and the gate
+    /// <see cref="OwnerEnrichment"/> applies are the same set by construction. A field marked below
+    /// appears on the dashboard and becomes writable in one edit; there is nowhere for the two to
+    /// disagree.
     /// </remarks>
     public static IReadOnlyList<FieldDefinition> OwnerEnrichable { get; } =
-        [.. All.Where(definition => definition.OwnerEnrichable)];
+        [.. All.Where(definition => definition.OwnerWritable is OwnerWritable.Enrichment)];
+
+    /// <summary>
+    /// The fields an owner may answer over their game's own MSSP report (spec §8.5).
+    /// </summary>
+    /// <remarks>
+    /// Kept apart from <see cref="OwnerEnrichable"/> for the dashboard's sake and for no other:
+    /// these have a value to show beside the box and those do not. Both are writable, and
+    /// <see cref="OwnerEnrichment"/> asks the definition rather than either list.
+    /// </remarks>
+    public static IReadOnlyList<FieldDefinition> OwnerOverridable { get; } =
+        [.. All.Where(definition => definition.OwnerWritable is OwnerWritable.Override)];
 
     private static readonly Dictionary<string, FieldDefinition> Index =
         All.ToDictionary(definition => definition.Name, StringComparer.Ordinal);
@@ -239,13 +250,25 @@ public sealed class FieldRegistry : IFieldRegistry
     {
         var fields = new List<FieldDefinition>();
 
-        void Add(string name, TimeSpan window, bool ownerEnrichable = false) =>
-            fields.Add(new FieldDefinition(name, window, ownerEnrichable));
+        void Add(string name, TimeSpan window, OwnerWritable writable = OwnerWritable.No) =>
+            fields.Add(new FieldDefinition(name, window, writable));
+
+        // ── What a verified owner may answer, and the line it does not cross ──────────────────────
+        //
+        // §8.5's rule is that an owner may never edit a MEASUREMENT, and the ceiling now sits where
+        // that argument puts it rather than four fields short of it. An MSSP report is not a
+        // measurement: §5.1 calls `mssp` a game filling in a structured self-description it
+        // maintains, and `owner` a person typing. Same kind of fact, same person, different road —
+        // so the same person may take the shorter road, and both rows go on existing side by side.
+        //
+        // The half marked Override is what a person types into mush.cnf. The half left alone is what
+        // the codebase fills in about the connection: a hand-typed HOSTNAME and a measured one would
+        // mean genuinely different things under one name, and nothing good comes of that.
 
         // The required MSSP trio. PLAYERS is declared here because it is the staleness anchor §5.6
         // argues from — but it is NEVER stored as a GameField: the count lives in §5.2's presence
         // series, where `who` outranks `mssp`. FieldReconciler skips it, and skips UPTIME with it.
-        Add("NAME", Automatic);
+        Add("NAME", Automatic, OwnerWritable.Override);
         Add("PLAYERS", Volatile);
         Add("UPTIME", Volatile);
 
@@ -257,26 +280,27 @@ public sealed class FieldRegistry : IFieldRegistry
         Add("IP", Automatic);
         Add("IPV6", Automatic);
         Add("CHARSET", Automatic);
-        Add("CONTACT", Contactable);
-        Add("WEBSITE", Contactable);
-        Add("DISCORD", Contactable);
-        Add("ICON", HandTyped);
-        Add("CREATED", HandTyped);
-        Add("LANGUAGE", HandTyped);
-        Add("LOCATION", HandTyped);
-        Add("MINIMUM AGE", HandTyped);
+        Add("CONTACT", Contactable, OwnerWritable.Override);
+        Add("WEBSITE", Contactable, OwnerWritable.Override);
+        Add("DISCORD", Contactable, OwnerWritable.Override);
+        Add("ICON", HandTyped, OwnerWritable.Override);
+        Add("CREATED", HandTyped, OwnerWritable.Override);
+        Add("LANGUAGE", HandTyped, OwnerWritable.Override);
+        Add("LOCATION", HandTyped, OwnerWritable.Override);
+        Add("MINIMUM AGE", HandTyped, OwnerWritable.Override);
 
         // The categorisation set — hand-typed once, at install, and then left alone. This is the set
         // §3.1 warns about: a crawler presenting these with the same confidence as the handshake is
-        // publishing a 2017 answer as a live one.
+        // publishing a 2017 answer as a live one. It is also the set an owner is most likely to want
+        // to correct, and FAMILY is the one exception: the codebase derives it, nobody types it.
         Add("FAMILY", Automatic);
-        Add("GENRE", HandTyped);
-        Add("GAMEPLAY", HandTyped);
-        Add("GAMESYSTEM", HandTyped);
-        Add("SUBGENRE", HandTyped);
-        Add("STATUS", HandTyped);
-        Add("INTERMUD", HandTyped);
-        Add("DESCRIPTION", HandTyped);
+        Add("GENRE", HandTyped, OwnerWritable.Override);
+        Add("GAMEPLAY", HandTyped, OwnerWritable.Override);
+        Add("GAMESYSTEM", HandTyped, OwnerWritable.Override);
+        Add("SUBGENRE", HandTyped, OwnerWritable.Override);
+        Add("STATUS", HandTyped, OwnerWritable.Override);
+        Add("INTERMUD", HandTyped, OwnerWritable.Override);
+        Add("DESCRIPTION", HandTyped, OwnerWritable.Override);
 
         // Our own non-MSSP fields are lower-case and namespaced, so an MSSP variable and one of ours
         // can never collide however unofficial the variable.
@@ -284,6 +308,12 @@ public sealed class FieldRegistry : IFieldRegistry
         Add(InternalFields.ConnectScreenSuppressed, Automatic);
 
         // Capabilities, both sides. Measured is re-observed on every probe; declared is hand-typed.
+        //
+        // Neither side is writable, and the declared side is the interesting refusal: it is
+        // hand-typed, so it would otherwise qualify. The matrix's whole job is to show what a game
+        // claims beside what its handshake offered — "declared GMCP, not offered in 214 handshakes"
+        // — and an owner editing the claimed column is editing one half of a comparison about
+        // themselves.
         foreach (var capability in CapabilityFields.Names)
         {
             Add(CapabilityFields.Measured(capability), Measured);
@@ -293,10 +323,10 @@ public sealed class FieldRegistry : IFieldRegistry
         // Owner enrichment — spec §3.2 names exactly these as genuinely absent from MSSP. SUBGENRE
         // cannot say "Marvel" or "Exalted", and nothing in the taxonomy expresses how a character
         // application works, how RP is enforced, or what consent tooling exists.
-        Add("FANDOM", HandTyped, ownerEnrichable: true);
-        Add("APPLICATION PROCESS", HandTyped, ownerEnrichable: true);
-        Add("RP ENFORCEMENT", HandTyped, ownerEnrichable: true);
-        Add("CONSENT TOOLS", HandTyped, ownerEnrichable: true);
+        Add("FANDOM", HandTyped, OwnerWritable.Enrichment);
+        Add("APPLICATION PROCESS", HandTyped, OwnerWritable.Enrichment);
+        Add("RP ENFORCEMENT", HandTyped, OwnerWritable.Enrichment);
+        Add("CONSENT TOOLS", HandTyped, OwnerWritable.Enrichment);
 
         return fields;
     }

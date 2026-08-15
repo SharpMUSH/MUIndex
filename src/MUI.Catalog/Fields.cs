@@ -38,7 +38,45 @@ public sealed record FieldObservation(string Field, FieldSource Source, string V
 public sealed record FieldDefinition(
     string Name,
     TimeSpan ExpectedRefresh,
-    bool OwnerEnrichable = false);
+    OwnerWritable OwnerWritable = OwnerWritable.No);
+
+/// <summary>
+/// Whether a verified owner may write a field, and on what grounds (spec §8.5).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Three states rather than a flag, because the two writable ones are different offers.</b>
+/// <see cref="Enrichment"/> is a field MSSP has no variable for, so the dashboard asks an open
+/// question and the owner is the only possible source. <see cref="Override"/> is one MSSP does have,
+/// so the dashboard shows what the game already reports and asks whether the owner would rather we
+/// showed something else. Collapsed into one state the form offers an empty box beside a field we
+/// already have an answer for, which reads as an invitation to retype it.
+/// </para>
+/// <para>
+/// <b>The distinction is presentational; the authorisation is not.</b> Everything that is not
+/// <see cref="No"/> is writable, and that predicate lives in <c>OwnerEnrichment</c> alone — a second
+/// spelling of it is a second thing to keep in step with this enum.
+/// </para>
+/// </remarks>
+public enum OwnerWritable
+{
+    /// <summary>A measurement, or machinery. Refused out loud, and the whole submission with it.</summary>
+    No,
+
+    /// <summary>MSSP has no such variable, so the owner is the only source there could be.</summary>
+    Enrichment,
+
+    /// <summary>
+    /// MSSP has this variable and the owner's answer outranks their game's report of it.
+    /// </summary>
+    /// <remarks>
+    /// An MSSP report is <em>not</em> a measurement. §5.1: <c>mssp</c> is a game filling in a
+    /// structured self-description it maintains, and <c>owner</c> is a person typing — the same kind
+    /// of fact, from the same person, arriving by a different road. Both rows go on existing, both
+    /// carry their age, and the page shows the owner's with the report beside it.
+    /// </remarks>
+    Override,
+}
 
 /// <summary>The catalogue's field vocabulary and their staleness windows.</summary>
 public interface IFieldRegistry

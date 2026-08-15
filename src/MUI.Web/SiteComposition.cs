@@ -5,6 +5,7 @@ using MUI.Web.Api;
 using MUI.Web.Components;
 using MUI.Web.Data;
 using MUI.Web.Fixtures;
+using MUI.Web.Icons;
 using MUI.Web.Submissions;
 
 namespace MUI.Web;
@@ -78,6 +79,11 @@ public static class SiteComposition
 
             // Claiming needs a database: an account, a passkey and a claim are all rows (spec §8).
             services.AddMuiAccounts(configuration);
+
+            // Icons: the cache, the one HTTP client this codebase has, and the service that keeps it
+            // current. After AddMuiCrawler, which owns §7.2's address gate and the contact address
+            // the client announces — both of which this reuses rather than restating.
+            services.AddMuiIcons();
         }
         else
         {
@@ -132,6 +138,11 @@ public static class SiteComposition
             // than present and silently doing nothing, which is the same choice the claim surface
             // makes.
             app.MapMuiSubmissions();
+
+            // The icon we hold, served from this origin so a reader's address is never spent on a
+            // third-party host. Inside the guard because there is nothing to serve without a
+            // database — the demo fixture has no icons and renders no element for them.
+            app.MapMuiIcons();
         }
 
         // §5.7, and before the route that would answer with "not found": a slug this game used to

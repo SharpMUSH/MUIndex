@@ -13,8 +13,11 @@ namespace MUI.Web.Accounts;
 /// </para>
 /// <para>
 /// It follows that this is a poor thing to steal, and that is the design working. Taking somebody's
-/// account gets you the ability to edit four enrichment fields on games whose real owner can take
-/// back in one probe by publishing a fresh token.
+/// account gets you the ability to answer some hand-typed descriptions on games whose real owner
+/// takes them back in one probe by publishing a fresh token — <b>and no measurement whatever</b>.
+/// Not a player count, not a capability, not an hour of reachability: there is no form on this site
+/// that reaches one, so there is nothing here an attacker could use to make a game look busier,
+/// better connected or more reliable than it was measured to be.
 /// </para>
 /// </remarks>
 public sealed class MuiUser

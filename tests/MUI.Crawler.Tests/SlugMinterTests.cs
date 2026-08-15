@@ -260,6 +260,106 @@ public class SlugMinterTests
     }
 
     /// <summary>
+    /// An owner's name takes effect at once, because the grace answers a question they have already
+    /// answered.
+    /// </summary>
+    /// <remarks>
+    /// §5.7's fourteen days exist because <em>MSSP flaps</em>: a name published while a config was
+    /// half-edited should not churn a URL, and the only way to tell a settled name from a passing one
+    /// is to wait. An owner pressing save on a form is not a flap, and making them wait a fortnight
+    /// to see their game's name change — while the site showed the new one on the page and the old
+    /// one in the URL — would be the interface disbelieving somebody it has already verified.
+    /// </remarks>
+    [Test]
+    public async Task AnOwnersNameTakesEffectWithoutWaitingOutTheGrace()
+    {
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed();
+
+        var rename = await catalogue.Minter(Grace).ApplyAsync(game, "Harbourlight");
+
+        await Assert.That(rename!.Slug).IsEqualTo("harbourlight");
+        await Assert.That(rename.FormerSlug).IsEqualTo("corvid");
+        await Assert.That((await catalogue.Games.ByIdAsync(game))!.Name).IsEqualTo("Harbourlight");
+        await Assert.That(await catalogue.Slugs.CurrentSlugAsync("corvid")).IsEqualTo("harbourlight");
+    }
+
+    /// <summary>
+    /// An owner may name their game after its codebase; an unedited server may not.
+    /// </summary>
+    /// <remarks>
+    /// <c>MsspDefaults.IsPlaceholder</c> exists because every unedited PennMUSH on the internet
+    /// publishes <c>NAME "PennMUSH"</c>, and admitting one would drag a dozen unrelated games towards
+    /// <c>/g/pennmush-4</c>. That is a rule about <em>defaults</em>. A name a verified owner typed on
+    /// purpose is edited by definition, and the operator of the PennMUSH development server is
+    /// entitled to call it PennMUSH.
+    /// </remarks>
+    [Test]
+    public async Task AnOwnerMayNameTheirGameAfterItsCodebase()
+    {
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed();
+
+        var rename = await catalogue.Minter(Grace).ApplyAsync(game, "PennMUSH");
+
+        await Assert.That(rename!.Name).IsEqualTo("PennMUSH");
+        await Assert.That((await catalogue.Games.ByIdAsync(game))!.Name).IsEqualTo("PennMUSH");
+    }
+
+    /// <summary>
+    /// Once an owner has said what a game is called, the crawler stops arguing with them.
+    /// </summary>
+    /// <remarks>
+    /// The override wins on every surface (§5.1), so a minter still re-minting from MSSP would spend
+    /// every cycle renaming the game back to what its config says — the owner's name on the page and
+    /// the report's in the URL, for ever, with a change-feed entry each time.
+    /// </remarks>
+    [Test]
+    public async Task TheCrawlerDoesNotRenameAGameBackToWhatItsConfigSays()
+    {
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed();
+        await OwnerDeclaredAsync(catalogue, game, "Harbourlight");
+        await catalogue.Minter(Grace).ApplyAsync(game, "Harbourlight");
+        await DeclaredAsync(catalogue, game, "Corvid Reborn", changedAt: Now.AddDays(-60));
+
+        var rename = await catalogue.Minter(Grace).ConsiderAsync(game, Now);
+
+        await Assert.That(rename).IsNull();
+        await Assert.That((await catalogue.Games.ByIdAsync(game))!.Name).IsEqualTo("Harbourlight");
+    }
+
+    /// <summary>
+    /// Withdrawing the override hands the name back to the report, under the ordinary grace.
+    /// </summary>
+    /// <remarks>
+    /// Nothing is deleted: the empty row goes on existing and the withdrawal is in the change feed.
+    /// What it stops doing is outranking anything, so the crawler's own rule applies again — which is
+    /// the difference between an override and a permanent claim on a URL.
+    /// </remarks>
+    [Test]
+    public async Task WithdrawingTheOverrideLetsTheReportHaveTheNameBack()
+    {
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed();
+        await OwnerDeclaredAsync(catalogue, game, "Harbourlight");
+        await catalogue.Minter(Grace).ApplyAsync(game, "Harbourlight");
+        await DeclaredAsync(catalogue, game, "Corvid Reborn", changedAt: Now.AddDays(-60));
+
+        // Withdrawn, which is an empty value on a row that goes on existing — nothing is deleted.
+        await OwnerDeclaredAsync(catalogue, game, string.Empty);
+
+        var rename = await catalogue.Minter(Grace).ConsiderAsync(game, Now);
+
+        await Assert.That(rename!.Name).IsEqualTo("Corvid Reborn");
+    }
+
+    /// <summary>The row <c>OwnerEnrichment</c> stores when an owner answers <c>NAME</c>.</summary>
+    private static Task OwnerDeclaredAsync(Catalogue catalogue, Guid game, string name) =>
+        catalogue.Fields.UpsertAsync(new GameField(
+            game, IdentityMsspVariables.Name, FieldSource.Owner, name, Now.AddDays(-1), Now));
+
+    /// <summary>
     /// A game declaring a name it did not declare before: the row, and the change-feed entry that
     /// says when it started saying it. Both, because they are what the reconciler writes.
     /// </summary>

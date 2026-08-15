@@ -49,25 +49,60 @@ public sealed record EnrichmentOutcome(
 }
 
 /// <summary>
+/// Applies a name a verified owner chose to the game's listing and its URL (spec §5.7, §8.5).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b><c>NAME</c> is the one writable field that is not only a row.</b> Every other value an owner
+/// sets is read back through the precedence ladder wherever it is rendered; the listed name is a
+/// denormalised column, and the URL minted from it is a promise to everyone holding the old one. So a
+/// write to <c>NAME</c> has a second half, and this is the seam it goes through.
+/// </para>
+/// <para>
+/// An interface, and optional on <see cref="OwnerEnrichment"/>, for two reasons that both matter.
+/// The writer that keeps §5.7's promise lives in <c>MUI.Crawler</c> and <c>MUI.Catalog</c> may not
+/// know it exists — that arrow points one way and this is the shape that respects it. And a
+/// deployment with no minter behind it should store the name and do less, rather than refuse the
+/// write: the row is the fact, and the URL is a convenience built on it.
+/// </para>
+/// </remarks>
+public interface IOwnerRenames
+{
+    /// <summary>
+    /// Renames the game and re-mints its URL, retiring the old slug into the redirect table.
+    /// </summary>
+    Task RenameAsync(Guid gameId, string name, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
 /// What a verified owner may write, and the line it may not cross (spec §8.5, §11).
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>An owner may never edit a measurement.</b> They can add <c>FANDOM</c>; they cannot touch a
-/// player count, a capability or a reachability history. The writable set <em>is</em> the field
-/// registry's <see cref="FieldDefinition.OwnerEnrichable"/> flag — not a list repeated here, which
-/// would be a second spelling of the same rule and would drift the first time a field was added — and
-/// a write to any other field is refused out loud rather than dropped. A successful one would make
-/// the whole site a self-report with extra steps.
+/// <b>An owner may never edit a measurement.</b> They can add <c>FANDOM</c> and they can answer
+/// <c>GENRE</c> over their game's own MSSP; they cannot touch a player count, a capability or a
+/// reachability history. The writable set <em>is</em> the field registry's
+/// <see cref="FieldDefinition.OwnerWritable"/> property — not a list repeated here, which would be a
+/// second spelling of the same rule and would drift the first time a field was added — and a write
+/// to any other field is refused out loud rather than dropped. A successful one would make the whole
+/// site a self-report with extra steps.
 /// </para>
 /// <para>
-/// <b>Every value written here is declared, and it never displaces a measurement.</b> It is stored
-/// under <see cref="FieldSource.Owner"/>, which is a row of its own: <c>GameField</c> is keyed
-/// <c>(game, field, source)</c> precisely so both sides can coexist, so an owner's <c>GENRE</c> could
-/// not overwrite MSSP's even if one were writable. It ages like every other fact, it carries its
-/// source onto every surface that renders it, and the fields it may reach are ones no probe produces
-/// — which is what makes §5.1's ladder put <c>owner</c> above <c>mssp</c> for "enrichment-only
-/// fields" without that ranking ever silencing anything.
+/// <b>An MSSP report is not a measurement, which is why the overridable half exists.</b> §5.1 draws
+/// the line at who read the value: <c>handshake</c>, <c>who</c> and <c>banner</c> are things we
+/// observed on a socket, <c>mssp</c> is a game filling in a self-description it maintains, and
+/// <c>owner</c> is a person typing. The last two are the same kind of fact from the same person by a
+/// different road, so the same person may take the shorter one.
+/// </para>
+/// <para>
+/// <b>Every value written here is declared, and it never displaces anything.</b> It is stored under
+/// <see cref="FieldSource.Owner"/>, which is a row of its own: <c>GameField</c> is keyed
+/// <c>(game, field, source)</c> precisely so both sides can coexist, so an owner's <c>GENRE</c> sits
+/// beside MSSP's rather than over it and the page shows both with their ages. It carries its source
+/// onto every surface that renders it, and <see cref="FieldSources.IsMeasured"/> is untouched by any
+/// of this — an override is <em>declared</em> on every chip, in the API and in the plain-text
+/// surface. §5.1's ladder putting <c>owner</c> above <c>mssp</c> decides which one is shown first
+/// and silences neither.
 /// </para>
 /// <para>
 /// <b>Nothing is deleted here either.</b> Clearing a field writes an empty value, and restoring a
@@ -81,8 +116,16 @@ public sealed class OwnerEnrichment(
     IGameFieldStore fields,
     IFieldReconciler reconciler,
     IFieldRegistry registry,
-    TimeProvider time)
+    TimeProvider time,
+    IOwnerRenames? renames = null)
 {
+    /// <summary>The field whose write has a second half. See <see cref="IOwnerRenames"/>.</summary>
+    /// <remarks>
+    /// Spelled as MSSP spells it, because that is the row it shares a name with and the two are
+    /// matched case-insensitively everywhere they meet.
+    /// </remarks>
+    private const string NameField = "NAME";
+
     /// <summary>
     /// How much of a hand-typed enrichment value we will store.
     /// </summary>
@@ -124,6 +167,24 @@ public sealed class OwnerEnrichment(
             .ToDictionary(field => field.Field, StringComparer.Ordinal);
 
     /// <summary>
+    /// What this game reports about itself, so the form can show it beside the box that overrides it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Shown, never offered as a draft.</b> The boxes are filled from
+    /// <see cref="DeclaredAsync"/> — what this owner wrote — and these appear beside them as text.
+    /// Pre-filling an editable field with a game's own report would invite somebody to retype it into
+    /// an override that says exactly the same thing, which is a second row, a second age and a second
+    /// thing to keep current, in exchange for nothing.
+    ///
+    /// MSSP rows only. The handshake's answers are measurements and have no box to sit beside.
+    /// </remarks>
+    public async Task<IReadOnlyDictionary<string, GameField>> ReportedAsync(
+        Guid gameId,
+        CancellationToken cancellationToken = default) =>
+        (await fields.ForGameAsync(gameId, FieldSource.Mssp, cancellationToken))
+            .ToDictionary(field => field.Field, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Applies a set of edits, or refuses the whole set and says which field did it.
     /// </summary>
     /// <remarks>
@@ -150,7 +211,7 @@ public sealed class OwnerEnrichment(
 
         foreach (var edit in edits)
         {
-            if (registry.Find(edit.Field) is not { OwnerEnrichable: true })
+            if (registry.Find(edit.Field) is not { OwnerWritable: not OwnerWritable.No })
             {
                 // Refused out loud, and the rest of the submission with it. This is the line §8.5
                 // draws: a player count, a capability and a reachability history are measurements,
@@ -181,11 +242,26 @@ public sealed class OwnerEnrichment(
             observations.Add(new FieldObservation(edit.Field, FieldSource.Owner, value));
         }
 
-        return new EnrichmentOutcome(
-            EnrichmentVerdict.Applied,
-            null,
-            await reconciler.ApplyAsync(gameId, observations, time.GetUtcNow(), cancellationToken));
+        var applied = await reconciler.ApplyAsync(
+            gameId, observations, time.GetUtcNow(), cancellationToken);
+
+        // The second half of a NAME write. It runs after the row is stored rather than before, so a
+        // rename that cannot be minted — two games settling on one slug in the same moment — leaves
+        // the name stored and the URL to be re-minted later, never the reverse.
+        //
+        // A withdrawal renames nothing. The empty row stops outranking the report, and the crawler's
+        // own grace decides what the game is called from the next cycle: an owner giving up a name is
+        // not an owner asking for a different one.
+        if (observations.FirstOrDefault(o => IsName(o.Field)) is { Value.Length: > 0 } named)
+        {
+            await (renames?.RenameAsync(gameId, named.Value, cancellationToken) ?? Task.CompletedTask);
+        }
+
+        return new EnrichmentOutcome(EnrichmentVerdict.Applied, null, applied);
     }
+
+    private static bool IsName(string field) =>
+        string.Equals(field, NameField, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Stops — or resumes — republishing this game's connect screen (spec §11).

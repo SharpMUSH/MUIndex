@@ -33,5 +33,38 @@
         <a href="/about">about</a>
     </nav>
     <span class="kicker">every game here was checked by a machine, and every fact says when</span>
+    @*
+        The account, in a slot of its own rather than as a tenth entry above — that list names places
+        to browse and an operator's own page is not one of them. Last, so it sits at the far end of
+        the bar where a reader looks for it.
+
+        It was missing entirely, and everything §8.5 grants was behind it: the enrichment fields, the
+        connect-screen decision, the opt-out. All of them rendered, tested and reachable only by
+        somebody who remembered to type /account.
+    *@
+    <nav class="account" aria-label="Your account">
+        @if (HttpContext?.User is { Identity.IsAuthenticated: true })
+        {
+            <a href="/account">your games</a>
+        }
+        else
+        {
+            <a href="/account/sign-in">sign in</a>
+        }
+    </nav>
 </header>
 <main id="content">@Body</main>
+
+@code {
+    /// <summary>
+    /// The request, for the one question this layout asks it: is anybody signed in.
+    /// </summary>
+    /// <remarks>
+    /// Every page on the site renders this header, so anything read here is read once per page view
+    /// for ever. The operator's display name would be pleasant and would cost a query against the
+    /// user store on the listing, the rankings and every game page to render four words — so the
+    /// link says where it goes rather than who is holding it, and the dashboard does the greeting.
+    /// </remarks>
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+}
