@@ -175,11 +175,18 @@ public class GameListingApiTests
         await Assert.That(measured.GetProperty("ageSeconds").GetDouble()).IsEqualTo(240d).Within(1d);
         await Assert.That(measured.GetProperty("stale").GetBoolean()).IsFalse();
 
-        // Aardwolf states its number on the connect screen and nowhere a machine can ask for it.
-        // That is a reading of ours off their banner, and it is not the same kind of fact.
+        // Aardwolf states its number on the connect screen and nowhere a machine can ask for it, so
+        // we parse it off the screen ourselves on every probe. Measured — the freshness is ours even
+        // where the arithmetic is theirs — and still its own source, because which of the three
+        // columns a count came out of is a fact a consumer may want.
         var read = byslug["aardwolf"].GetProperty("playersNowProvenance");
         await Assert.That(read.GetProperty("source").GetString()).IsEqualTo("banner");
-        await Assert.That(read.GetProperty("measured").GetBoolean()).IsFalse();
+        await Assert.That(read.GetProperty("measured").GetBoolean()).IsTrue();
+
+        // The count a game reports in a structured field it maintains is the one that is declared.
+        var asserted = byslug["ashen-court"].GetProperty("playersNowProvenance");
+        await Assert.That(asserted.GetProperty("source").GetString()).IsEqualTo("mssp");
+        await Assert.That(asserted.GetProperty("measured").GetBoolean()).IsFalse();
 
         // The label describes the value beside it, on every row, or it is labelling nothing.
         foreach (var game in listing.GetProperty("games").EnumerateArray())
@@ -207,12 +214,13 @@ public class GameListingApiTests
         var byslug = listing.GetProperty("games").EnumerateArray()
             .ToDictionary(g => g.GetProperty("slug").GetString()!, g => g);
 
+        // Three sources, two verdicts, and the verdict turns on who read the number rather than on
+        // who authored it: a WHO answer and a connect screen are both text we parsed off the wire
+        // this probe, and MSSP PLAYERS is a field the game maintains and reports.
         await Assert.That(byslug["m-u-s-h"].GetProperty("playersNowState").GetString())
             .IsEqualTo("measured");
-
-        // Read off a connect screen, and published in MSSP: both are the game's word, not ours.
         await Assert.That(byslug["aardwolf"].GetProperty("playersNowState").GetString())
-            .IsEqualTo("declared");
+            .IsEqualTo("measured");
         await Assert.That(byslug["ashen-court"].GetProperty("playersNowState").GetString())
             .IsEqualTo("declared");
 

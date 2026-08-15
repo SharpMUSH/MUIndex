@@ -41,6 +41,11 @@ public static class SubmitCopy
         + "somewhere other than the public internet. That is a decision about where our own socket "
         + "may go, and it is never written into anything as a fact about a game.",
 
+        "If whoever runs that host has asked us not to crawl it, we will not take the address "
+        + "either — however it was asked, and whoever is asking us to. Somebody else cannot put "
+        + "your game back on this site by filling in a form after you have told us to leave it "
+        + "alone.",
+
         "If it answers, we read what the server says for itself — its name, what it runs, who is on "
         + "— and keep reading it on its own schedule, for ever. Nothing is ever deleted here, so an "
         + "address only has to be given once.",
@@ -113,20 +118,28 @@ public static class SubmitCopy
                 + "Either fill in both boxes, or paste the whole thing — mud.example.org:4201 — "
                 + "into the first."),
 
-            // ONE SENTENCE FOR BOTH, AND THE VAGUENESS IS THE POINT. §7.2 keeps "did not resolve"
-            // and "resolved somewhere we will not go" apart because they are two facts and our own
-            // record has to hold them apart — but telling a *stranger* which of the two happened
-            // turns this form into a scanner of whatever the crawler's resolver can see. Submit
-            // internal.corp.example: one answer means it exists on our side of a split horizon and
-            // the other means it does not, and a few hundred guesses is a map of somebody's network
-            // drawn from outside it. The log knows which; the page does not say.
-            SubmissionOutcome.RefusedNotRoutable or SubmissionOutcome.Unresolvable => new SubmitAnswer(
+            // ONE SENTENCE FOR ALL THREE, AND THE VAGUENESS IS THE POINT. §7.2 keeps "did not
+            // resolve" and "resolved somewhere we will not go" apart because they are two facts and
+            // our own record has to hold them apart, and §11's opt-out is a third — but telling a
+            // *stranger* which of them happened turns this form into a scanner of whatever the
+            // crawler can see. Submit internal.corp.example: one answer means it exists on our side
+            // of a split horizon and another means it does not, and a few hundred guesses is a map
+            // of somebody's network drawn from outside it. The same enumeration works on the opt-out
+            // register with a list of hostnames. The log knows which; the page does not say.
+            //
+            // THE REASONS ARE LISTED AND THE ANSWER IS NOT, WHICH IS NOT A CONTRADICTION. Knowing
+            // that three things can produce this sentence tells a reader nothing about which one
+            // did, and leaving them unlisted would make an honest refusal look like a malfunction.
+            SubmissionOutcome.RefusedNotRoutable
+                or SubmissionOutcome.Unresolvable
+                or SubmissionOutcome.RefusedOptOut => new SubmitAnswer(
                 "We cannot dial that.",
-                $"Either {Named(address)} does not resolve, or it resolves somewhere that is not "
-                + "the public internet — and we deliberately do not say which, because answering "
-                + "that question for a stranger is a way to map a private network from outside it. "
-                + "Nothing has been recorded about whatever is at that address; the decision was "
-                + "ours and it is filed as ours."),
+                $"A few things produce that answer for {Named(address)} — the name may not resolve, "
+                + "it may resolve somewhere that is not the public internet, or whoever runs that "
+                + "host may have asked us to stay away — and we deliberately do not say which, "
+                + "because answering that for a stranger is a way to learn about a network from "
+                + "outside it. Nothing has been recorded about whatever is at that address; the "
+                + "decision was ours and it is filed as ours."),
 
             SubmissionOutcome.TooMany => new SubmitAnswer(
                 "That is enough for now.",
@@ -223,7 +236,9 @@ public static class SubmitLinks
         SubmissionOutcome.AlreadyListed => "already-listed",
         SubmissionOutcome.AlreadyQueued => "already-queued",
         SubmissionOutcome.Malformed => "malformed",
-        SubmissionOutcome.RefusedNotRoutable or SubmissionOutcome.Unresolvable => "undialable",
+        SubmissionOutcome.RefusedNotRoutable
+            or SubmissionOutcome.Unresolvable
+            or SubmissionOutcome.RefusedOptOut => "undialable",
         SubmissionOutcome.TooMany => "too-many",
         _ => "unknown",
     };
