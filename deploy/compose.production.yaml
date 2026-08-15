@@ -1,0 +1,99 @@
+# The one deployment, as an overlay on compose.yaml rather than a second copy of it.
+#
+# `COMPOSE_FILE=compose.yaml:deploy/compose.production.yaml` in .env makes plain `docker compose`
+# commands pick both up, so nothing on the box has to remember a -f flag — including the systemd
+# unit, which is the caller that would forget it at three in the morning.
+#
+# What this adds is only what a public host needs and a laptop does not: TLS in front, an updater
+# behind, and no published port at all. What the application IS stays in compose.yaml, which is the
+# file to read.
+
+services:
+  web:
+    # The image comes from GHCR, built by .github/workflows/publish.yml from main. `!reset` drops
+    # the base file's build stanza: a server that can compile the site is a server that can serve a
+    # binary nobody attested, and the repository is cloned here for its compose files rather than as
+    # a build tree.
+    build: !reset null
+    pull_policy: always
+
+    # NOTHING IS PUBLISHED. Caddy reaches this over the compose network, and the base file's
+    # 8080 mapping is dropped rather than narrowed, because Docker writes its port rules ahead of
+    # ufw: a published port is reachable from the internet whatever the host firewall was told, and
+    # the safest number of ports to argue about is none. `docker compose exec web` is the way in.
+    ports: !override []
+
+    environment:
+      # Cloudflare, then Caddy. Both append to X-Forwarded-For, so the middleware walks exactly two
+      # hops and takes the address Cloudflare actually saw — a client that forges the header has its
+      # value pushed out of reach rather than believed. Getting this number wrong in either direction
+      # is a rate limit that either buckets the whole internet together or hands out a bucket per
+      # forged header.
+      Submissions__TrustedProxyHops: "2"
+
+    # The only container Watchtower is allowed to touch. See below.
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+
+  postgres:
+    # Deliberately unlabelled, and this is the load-bearing half of the label scheme. An automatic
+    # update here would one day pull a new major version, which refuses to start against an existing
+    # data directory — the catalogue is the asset (rule 3) and it does not get surprise surgery.
+    # Postgres is upgraded by hand, with a dump taken first.
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on: [web]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # The Cloudflare Origin CA certificate for the proxied names. Not publicly trusted and not
+      # meant to be: it is presented to Cloudflare, which is the only thing that reaches this port
+      # for those names, and it is what makes Full (strict) an honest setting rather than a label.
+      - ./deploy/tls:/etc/caddy/tls:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      # Only for the ACME account behind crawler.mu-index.com, which is DNS-only and therefore gets
+      # an ordinary Let's Encrypt certificate over HTTP-01.
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+      SITE_DOMAIN: ${SITE_DOMAIN:?set SITE_DOMAIN in .env}
+      CRAWLER_DOMAIN: ${CRAWLER_DOMAIN:?set CRAWLER_DOMAIN in .env}
+    restart: unless-stopped
+
+  watchtower:
+    # Pinned rather than :latest. The thing that updates everything else is the one container whose
+    # own version should change when somebody decides it does.
+    image: containrrr/watchtower:1.7.1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Registry credentials, if the image is private. Empty is fine: an anonymous pull of a public
+      # package needs nothing here, and `docker login ghcr.io` on the host fills it in.
+      - /root/.docker:/config:ro
+    environment:
+      DOCKER_CONFIG: /config
+
+      # Only labelled containers, which is exactly one of them. Without this, Watchtower updates
+      # everything it can see, including the database.
+      WATCHTOWER_LABEL_ENABLE: "true"
+
+      # Five minutes. The interval is a poll against GHCR for a changed digest, not a pull, so it is
+      # cheap; what it costs is that a merge to main reaches the public site within five minutes with
+      # no human in between. That is a deliberate choice and the reason the SHA tags exist.
+      WATCHTOWER_POLL_INTERVAL: "300"
+
+      # The old image after a successful swap. Without it a long-lived host slowly fills with
+      # untagged layers, which is a disk-full at an hour nobody chose.
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_NO_STARTUP_MESSAGE: "true"
+      TZ: ${TZ:-Etc/UTC}
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:

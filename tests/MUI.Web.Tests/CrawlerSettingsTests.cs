@@ -1,12 +1,13 @@
 using Microsoft.Extensions.Configuration;
 
+using MUI.Crawl;
 using MUI.Crawler;
 using MUI.Web.Data;
 
 namespace MUI.Web.Tests;
 
 /// <summary>
-/// The two knobs a deployment turns on the in-process crawler, and the one it deliberately cannot.
+/// The three knobs a deployment turns on the in-process crawler, and the one it deliberately cannot.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -28,15 +29,18 @@ public class CrawlerSettingsTests
 {
     private string? _seeds;
     private string? _enabled;
+    private string? _infoUrl;
 
     [Before(HookType.Test)]
     public void ClearTheAmbientEnvironment()
     {
         _seeds = Environment.GetEnvironmentVariable(CrawlerSettings.SeedsEnvironmentVariable);
         _enabled = Environment.GetEnvironmentVariable(CrawlerSettings.EnabledEnvironmentVariable);
+        _infoUrl = Environment.GetEnvironmentVariable(CrawlerSettings.InfoUrlEnvironmentVariable);
 
         Environment.SetEnvironmentVariable(CrawlerSettings.SeedsEnvironmentVariable, null);
         Environment.SetEnvironmentVariable(CrawlerSettings.EnabledEnvironmentVariable, null);
+        Environment.SetEnvironmentVariable(CrawlerSettings.InfoUrlEnvironmentVariable, null);
     }
 
     [After(HookType.Test)]
@@ -44,6 +48,7 @@ public class CrawlerSettingsTests
     {
         Environment.SetEnvironmentVariable(CrawlerSettings.SeedsEnvironmentVariable, _seeds);
         Environment.SetEnvironmentVariable(CrawlerSettings.EnabledEnvironmentVariable, _enabled);
+        Environment.SetEnvironmentVariable(CrawlerSettings.InfoUrlEnvironmentVariable, _infoUrl);
     }
 
     private static IConfiguration Config(params (string Key, string Value)[] settings) =>
@@ -156,6 +161,43 @@ public class CrawlerSettingsTests
         // the crawler off and is still dialling.
         await Assert.That(() => new CrawlerOptionsBuilder()
             .Apply(Config((CrawlerSettings.EnabledConfigurationKey, "no")))).Throws<ArgumentException>();
+    }
+
+    [Test]
+    public async Task WithNoContactAddressConfiguredTheCrawlerHoldsThePlaceholder()
+    {
+        // And says so: /about renders "placeholder; this deployment set no contact address" off
+        // exactly this comparison, so a deployment that forgot is visible on the page rather than
+        // only in somebody else's log.
+        await Assert.That(new CrawlerOptionsBuilder().Apply(Config()).Probe.InfoUrl)
+            .IsEqualTo(new ProbeOptions().InfoUrl);
+    }
+
+    [Test]
+    public async Task TheContactAddressIsWhatThisDeploymentSaysItIs()
+    {
+        var probe = new CrawlerOptionsBuilder()
+            .Apply(Config((CrawlerSettings.InfoUrlConfigurationKey, "https://mu-index.com/crawler")))
+            .Probe;
+
+        await Assert.That(probe.InfoUrl).IsEqualTo("https://mu-index.com/crawler");
+
+        Environment.SetEnvironmentVariable(
+            CrawlerSettings.InfoUrlEnvironmentVariable, "https://from.environment/crawler");
+
+        await Assert.That(new CrawlerOptionsBuilder()
+            .Apply(Config((CrawlerSettings.InfoUrlConfigurationKey, "https://from.configuration/crawler")))
+            .Probe.InfoUrl).IsEqualTo("https://from.environment/crawler");
+    }
+
+    [Test]
+    public async Task AContactAddressNobodyCouldOpenIsRefusedAtTheSettingRatherThanAnnounced()
+    {
+        // The failure this prevents is silent from here: the site starts, the crawl runs, and every
+        // server it dials is told to write to something that is not an address.
+        await Assert.That(() => new CrawlerOptionsBuilder()
+                .Apply(Config((CrawlerSettings.InfoUrlConfigurationKey, "mu-index.com/crawler"))))
+            .Throws<ArgumentException>();
     }
 
     [Test]

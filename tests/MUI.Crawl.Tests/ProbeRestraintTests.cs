@@ -61,4 +61,33 @@ public class ProbeRestraintTests
         await Assert.That(string.Join(" ", options.TerminalTypes)).Contains("MUINDEX");
         await Assert.That(options.InfoUrl).StartsWith("https://");
     }
+
+    [Test]
+    public async Task TheContactAddressStaysAPlaceholderEvenThoughTheDomainIsDecided()
+    {
+        // mu-index.com is settled (§15.1) and this default is still example-domain, on purpose.
+        // Compiling one deployment's contact page in would have every fork and every laptop run
+        // announce it to the servers THEY dial — a claim about somebody else's crawl, in the shape
+        // of the ContactedMaintainer defect. The real address is configuration.
+        await Assert.That(new ProbeOptions().InfoUrl).DoesNotContain("mu-index.com");
+    }
+
+    [Test]
+    public async Task AContactAddressNobodyCouldOpenIsRefused()
+    {
+        // Not a degraded crawl: a crawl that cannot be complained to. It fails while somebody is
+        // still watching the terminal rather than being announced to strangers for six months.
+        await Assert.That(() => new ProbeOptions { InfoUrl = "mu-index.com/crawler" }.Validate())
+            .Throws<ArgumentException>();
+        await Assert.That(() => new ProbeOptions { InfoUrl = string.Empty }.Validate())
+            .Throws<ArgumentException>();
+
+        // http included, because we hand this address to a reader with no way to check what they
+        // are opening.
+        await Assert.That(() => new ProbeOptions { InfoUrl = "http://mu-index.com/crawler" }.Validate())
+            .Throws<ArgumentException>();
+
+        await Assert.That(() => new ProbeOptions { InfoUrl = "https://mu-index.com/crawler" }.Validate())
+            .ThrowsNothing();
+    }
 }
