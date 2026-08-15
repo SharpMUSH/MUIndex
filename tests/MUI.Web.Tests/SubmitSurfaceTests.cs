@@ -141,27 +141,84 @@ public class SubmitSurfaceTests
     /// else's network drawn from outside it.
     /// </remarks>
     [Test]
-    public async Task TheTwoScopeAnswersAreIndistinguishableToASubmitter()
+    public async Task TheRefusalsAreIndistinguishableToASubmitter()
     {
-        var refused = SubmitCopy.Answer(SubmissionOutcome.RefusedNotRoutable, "internal.example.org 4201");
-        var missing = SubmitCopy.Answer(SubmissionOutcome.Unresolvable, "internal.example.org 4201");
+        // Every refusal a submitter can be given, whatever produced it: §7.2's scope gate, an
+        // ordinary DNS failure, and §11's opt-out.
+        SubmissionOutcome[] refusals =
+        [
+            SubmissionOutcome.RefusedNotRoutable,
+            SubmissionOutcome.Unresolvable,
+            SubmissionOutcome.RefusedOptOut,
+        ];
 
-        await Assert.That(refused).IsEqualTo(missing);
+        var answers = refusals
+            .Select(o => SubmitCopy.Answer(o, "internal.example.org 4201"))
+            .ToList();
+
+        await Assert.That(answers.Distinct().Count()).IsEqualTo(1);
 
         // Including in the URL, which is where a script would look rather than at the prose.
-        await Assert.That(SubmitLinks.Token(SubmissionOutcome.RefusedNotRoutable))
-            .IsEqualTo(SubmitLinks.Token(SubmissionOutcome.Unresolvable));
+        await Assert.That(refusals.Select(SubmitLinks.Token).Distinct().Count()).IsEqualTo(1);
 
         // And the page says out loud that it is refusing to say, rather than seeming vague.
         var words = Render.Words(await PageAsync("?result=undialable&host=internal.example.org&port=4201"));
 
         await Assert.That(words).Contains("we deliberately do not say which");
 
-        // The two facts still exist, and are still two, where they belong: in our own record. The
-        // enum keeps both members and the table keeps both words; only the surface collapses them.
+        // The facts still exist, and are still three, where they belong: in our own record. The enum
+        // keeps every member and the table keeps every word; only the surface collapses them.
         await Assert.That(Enum.GetNames<SubmissionOutcome>())
             .Contains(nameof(SubmissionOutcome.RefusedNotRoutable))
-            .And.Contains(nameof(SubmissionOutcome.Unresolvable));
+            .And.Contains(nameof(SubmissionOutcome.Unresolvable))
+            .And.Contains(nameof(SubmissionOutcome.RefusedOptOut));
+    }
+
+    /// <summary>
+    /// An opt-out refusal is byte-identical to a scope refusal, as a whole rendered page.
+    /// </summary>
+    /// <remarks>
+    /// The copy being equal is the assertion above; this is the one that would catch a difference
+    /// arriving anywhere else — a class on the panel, an extra link, a hidden field. An opt-out is
+    /// published publicly and there is nothing to conceal about it, but a second word for a second
+    /// fact is a second thing a stranger can enumerate the crawler's view with, and that vocabulary
+    /// was collapsed once already to close exactly that.
+    /// </remarks>
+    [Test]
+    public async Task AnOptOutRefusalRendersByteIdenticallyToAScopeRefusal()
+    {
+        var query = "?result={0}&host=quiet.example.org&port=4201";
+
+        var viaScope = await PageAsync(string.Format(query, SubmitLinks.Token(SubmissionOutcome.RefusedNotRoutable)));
+        var viaDns = await PageAsync(string.Format(query, SubmitLinks.Token(SubmissionOutcome.Unresolvable)));
+        var viaOptOut = await PageAsync(string.Format(query, SubmitLinks.Token(SubmissionOutcome.RefusedOptOut)));
+
+        await Assert.That(viaOptOut).IsEqualTo(viaScope);
+        await Assert.That(viaOptOut).IsEqualTo(viaDns);
+
+        // Equality is the whole assertion — three identical pages cannot tell anybody apart. This is
+        // the separate worry: the published record itself, which the gate has in hand and which no
+        // amount of equality would stop appearing on all three.
+        await Assert.That(viaOptOut).DoesNotContain("opt-out=");
+        await Assert.That(viaOptOut).DoesNotContain(OptOutVocabulary.DnsLabel);
+    }
+
+    /// <summary>
+    /// The form says an opt-out stops a submission, because an operator needs to know that.
+    /// </summary>
+    /// <remarks>
+    /// Saying the three refusals exist tells nobody which one they got, and leaving them unlisted
+    /// would make an honest refusal read as a malfunction. This is also the sentence that answers
+    /// "can somebody else put my game back on your site" — which is the question §11 exists for.
+    /// </remarks>
+    [Test]
+    public async Task TheFormSaysAnOptOutStopsASubmission()
+    {
+        var words = Render.Words(await PageAsync());
+
+        await Assert.That(words).Contains(
+            "Somebody else cannot put your game back on this site by filling in a form after you "
+            + "have told us to leave it alone");
     }
 
     /// <summary>An accepted submission says what will happen and what will not.</summary>

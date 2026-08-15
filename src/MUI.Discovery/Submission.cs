@@ -40,6 +40,18 @@ public enum SubmissionOutcome
     Unresolvable,
 
     /// <summary>
+    /// §11 — the address has a standing opt-out, so we will not dial it whoever asks.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own member here and the generic refusal on the surface.</b> The record is ours and has
+    /// to say what actually happened; the page must not, because a second refusal word is a second
+    /// thing a stranger can enumerate the crawler's view with. That vocabulary was collapsed once
+    /// already to close a split-horizon DNS oracle, and splitting it again for a different fact
+    /// re-opens the same surface.
+    /// </remarks>
+    RefusedOptOut,
+
+    /// <summary>
     /// The bound on how much one source may submit. Recorded nowhere: the source is already at its
     /// limit, and logging refusals would make the window slide forward on every retry.
     /// </summary>
@@ -291,6 +303,15 @@ public static class SubmittedAddressReader
 /// refused name never reaches the registry and is never dialled by anything.
 /// </para>
 /// <para>
+/// <b>§11's opt-out is asked last, and that ordering is what it costs us.</b> It goes after the
+/// scope gate because an address we will not dial anyway is not worth a register read or a TXT
+/// lookup, and the gate itself asks the stored register before it asks DNS. Every lookup this path
+/// can cause is behind the reservation, so one source buys at most
+/// <see cref="SubmissionOptions.PerSource"/> of them an hour — and the resolver behind it is the
+/// crawler's own, un-retried, bounded and caching failures, rather than a fresh one this class
+/// configured for itself.
+/// </para>
+/// <para>
 /// <b>A refusal creates nothing and measures nothing.</b> No game, no target, no availability sample,
 /// no presence row. <see cref="SubmissionOutcome.RefusedNotRoutable"/> is counted on the submission
 /// and nowhere else, which is where a decision of ours belongs — and it is emphatically not a
@@ -309,6 +330,7 @@ public sealed class SubmissionService(
     ICrawlTargetRepository targets,
     IEndpointDirectory endpoints,
     IHostScopeGuard scope,
+    OptOutGate optOut,
     ISubmissionLog log,
     SubmissionOptions options,
     TimeProvider time)
@@ -365,6 +387,17 @@ public sealed class SubmissionService(
 
             await log.CompleteAsync(reservation, address, outcome, null, ct);
             return new SubmissionReceipt(outcome, address, Detail: decision.Detail);
+        }
+
+        // §11, and the reason it is here rather than left to the crawl loop's own gate: that gate
+        // does hold — a target with a standing opt-out is never dialled — so nothing leaked and no
+        // game was ever minted. What the form did was tell somebody "accepted" for an address we had
+        // already promised never to touch, and then do nothing about it for ever. A refusal we know
+        // at the door belongs at the door.
+        if (await optOut.RuleOnAsync(address.Host, address.Port, ct) is not null)
+        {
+            await log.CompleteAsync(reservation, address, SubmissionOutcome.RefusedOptOut, null, ct);
+            return new SubmissionReceipt(SubmissionOutcome.RefusedOptOut, address);
         }
 
         // Due now: an address somebody just typed is the one case where waiting has a person behind

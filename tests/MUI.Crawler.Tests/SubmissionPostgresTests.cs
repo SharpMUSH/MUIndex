@@ -27,11 +27,16 @@ public class SubmissionPostgresTests
     private static SubmissionService Submissions(
         NpgsqlDataSource source,
         IHostResolver resolver,
-        SubmissionOptions? options = null) =>
+        SubmissionOptions? options = null,
+        IDnsTxtResolver? txt = null) =>
         new(
             new NpgsqlCrawlTargetRepository(source),
             new CatalogueEndpointDirectory(new NpgsqlEndpointStore(source)),
             new HostScopeGuard(resolver),
+            new OptOutGate(
+                new NpgsqlCrawlOptOutRepository(source),
+                txt ?? new ScriptedDns(),
+                TimeProvider.System),
             new NpgsqlSubmissionLog(source),
             options ?? new SubmissionOptions(),
             TimeProvider.System);
@@ -344,6 +349,90 @@ public class SubmissionPostgresTests
     }
 
     /// <summary>
+    /// An address whose operator asked us to stop is refused at the door (spec §11).
+    /// </summary>
+    /// <remarks>
+    /// Against the register the crawl loop itself reads, so the form and the loop cannot disagree
+    /// about who has asked. Both channels are covered: a recorded request, which is one indexed read
+    /// and no DNS at all, and a TXT record, which is the route an operator can use without an
+    /// account here or MSSP support in their codebase.
+    /// </remarks>
+    [Test]
+    public async Task AnAddressThatAskedUsToStopIsRefusedAtTheDoor()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+        var resolver = new FakeHostResolver();
+        var txt = new ScriptedDns();
+
+        var gate = new OptOutGate(
+            new NpgsqlCrawlOptOutRepository(source), txt, TimeProvider.System);
+
+        await gate.RecordRequestAsync("quiet.example.org", null, "asked by mail on 2026-08-14");
+
+        var recorded = await Submissions(source, resolver, txt: txt)
+            .SubmitAsync("quiet.example.org", "4201", Source(9), None);
+
+        await Assert.That(recorded.Outcome).IsEqualTo(SubmissionOutcome.RefusedOptOut);
+
+        // The other channel, on a different host, read out of DNS.
+        txt.Publishing("txt.example.org", OptOutVocabulary.DnsValue);
+
+        var published = await Submissions(source, resolver, txt: txt)
+            .SubmitAsync("txt.example.org", "4201", Source(10), None);
+
+        await Assert.That(published.Outcome).IsEqualTo(SubmissionOutcome.RefusedOptOut);
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        // Nothing to dial, ever: no target, no game, and no measurement of anybody.
+        await Assert.That(await connection.ExecuteScalarAsync<int>(
+            "SELECT count(*)::int FROM crawl_target")).IsEqualTo(0);
+        await Assert.That(await connection.ExecuteScalarAsync<int>(
+            "SELECT count(*)::int FROM game")).IsEqualTo(0);
+        await Assert.That(await connection.ExecuteScalarAsync<int>(
+            "SELECT count(*)::int FROM availability_interval")).IsEqualTo(0);
+
+        // What was written is two submissions saying what we decided, which is where a decision of
+        // ours belongs.
+        await Assert.That(await connection.QueryAsync<string>(
+            "SELECT outcome FROM game_submission ORDER BY submitted_at"))
+            .IsEquivalentTo(new[] { "refused_opt_out", "refused_opt_out" });
+    }
+
+    /// <summary>
+    /// A port-qualified TXT opt-out answers for that port and not for its neighbour.
+    /// </summary>
+    /// <remarks>
+    /// §11 scopes a DNS opt-out to a port when the record names one, because MU* hosting routinely
+    /// runs unrelated games on one domain separated only by a port. A form that read
+    /// <c>opt-out=4201</c> as covering the host would refuse an address nobody objected to.
+    /// </remarks>
+    [Test]
+    public async Task APortQualifiedOptOutLeavesTheNeighbouringPortSubmittable()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+        var resolver = new FakeHostResolver();
+        var txt = new ScriptedDns().Publishing("shared.example.org", "v=muindex1; opt-out=4201");
+
+        await Assert.That((await Submissions(source, resolver, txt: txt)
+            .SubmitAsync("shared.example.org", "4201", Source(11), None)).Outcome)
+            .IsEqualTo(SubmissionOutcome.RefusedOptOut);
+
+        await Assert.That((await Submissions(source, resolver, txt: txt)
+            .SubmitAsync("shared.example.org", "4000", Source(12), None)).Outcome)
+            .IsEqualTo(SubmissionOutcome.Accepted);
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<int>(
+            "SELECT count(*)::int FROM crawl_target WHERE port = 4000")).IsEqualTo(1);
+        await Assert.That(await connection.ExecuteScalarAsync<int>(
+            "SELECT count(*)::int FROM crawl_target WHERE port = 4201")).IsEqualTo(0);
+    }
+
+    /// <summary>
     /// A refusal writes a submission row and touches nothing else in the schema.
     /// </summary>
     [Test]
@@ -437,7 +526,7 @@ public class SubmissionPostgresTests
         await using var connection = await database.DataSource.OpenConnectionAsync();
 
         await Assert.That(await connection.ExecuteScalarAsync<int>(
-            "SELECT count(*)::int FROM game_submission WHERE outcome <> 'pending'")).IsEqualTo(6);
+            "SELECT count(*)::int FROM game_submission WHERE outcome <> 'pending'")).IsEqualTo(7);
     }
 
     /// <summary>
