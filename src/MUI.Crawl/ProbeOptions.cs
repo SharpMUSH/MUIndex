@@ -141,9 +141,37 @@ public sealed record ProbeOptions
 
     /// <summary>Where an admin can read what we do and ask us to stop.</summary>
     /// <remarks>
-    /// A placeholder domain, because the domain is an open question (spec §15.1) and inventing one
-    /// here would settle it by accident. A deployment that leaves this alone is publishing an address
-    /// that answers nobody. <c>/about</c> compares against this default and says so when it matches.
+    /// <para>
+    /// A placeholder domain, and it <b>stays</b> one now that §15.1 is settled. Compiling this
+    /// deployment's address in would make every fork and every local run announce our contact page to
+    /// the servers it dials, which is a claim about somebody else's crawl in exactly the shape of the
+    /// <c>ContactedMaintainer</c> defect: the real address is a thing a deployment says
+    /// (<c>MUI_CRAWL_INFO_URL</c>), never a default it inherits.
+    /// </para>
+    /// <para>
+    /// A deployment that leaves this alone is publishing an address that answers nobody, and
+    /// <c>/about</c> compares against this default and says so on the page rather than letting it
+    /// pass.
+    /// </para>
     /// </remarks>
     public string InfoUrl { get; init; } = "https://muindex.example/crawler";
+
+    /// <summary>Throws on a setting that could only have come from a typo or a hand-edited file.</summary>
+    /// <remarks>
+    /// <see cref="InfoUrl"/> is the one setting here that <em>somebody else</em> reads — an admin who
+    /// has just been dialled and wants to know by whom. A malformed one is not a degraded crawl but a
+    /// crawl that cannot be complained to, so it is refused while a person is still watching the
+    /// terminal rather than announced to a stranger's server for the next six months. The scheme is
+    /// pinned because we hand this address to a reader who has no way to check what they are opening.
+    /// </remarks>
+    public void Validate()
+    {
+        if (!Uri.TryCreate(InfoUrl, UriKind.Absolute, out var url) || url.Scheme != Uri.UriSchemeHttps)
+        {
+            throw new ArgumentException(
+                $"The crawler's contact address is '{InfoUrl}', which is not an absolute https URL. "
+                + "It is announced to every server this crawler dials, so it has to be an address "
+                + "somebody reading their logs can open.");
+        }
+    }
 }

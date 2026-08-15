@@ -1,3 +1,7 @@
+# What compose reads beside compose.yaml. .env.example is the committed half; this one holds the
+# database password of whoever cloned this.
+.env
+
 bin/
 obj/
 .vs/

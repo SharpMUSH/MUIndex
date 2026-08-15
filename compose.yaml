@@ -47,13 +47,26 @@ services:
       # across N replicas, so this is a choice about *where* the crawl runs, not a safety net.
       MUI_CRAWL_ENABLED: ${MUI_CRAWL_ENABLED:-true}
 
+      # §11: where an admin who has just been dialled can read what we do and ask us to stop. The
+      # compiled default is a placeholder that answers nobody — deliberately, because a default
+      # naming one deployment's contact page would make every other deployment announce it — so a
+      # container that crawls for real sets this. /about says which of the two it is holding.
+      MUI_CRAWL_INFO_URL: ${MUI_CRAWL_INFO_URL:-}
+
       # Passkeys are bound to this name and every credential registered under one value has to be
-      # registered again if it moves — which is why §15.1's open domain question has a deadline.
-      # Leave it unset locally: sign-in is the only surface it affects.
+      # registered again if it moves. §15.1 is settled — mu-index.com — but this stays a setting:
+      # the registrable domain is the deployment's, not the code's. Leave it unset locally, where
+      # sign-in is the only surface it affects.
       Passkeys__ServerDomain: ${MUI_PASSKEY_DOMAIN:-}
 
       ASPNETCORE_ENVIRONMENT: Production
     ports:
+      # An interface may be written into this value — MUI_PORT=127.0.0.1:8080 publishes to loopback
+      # only — and on a host with a reverse proxy in front, it must be. Docker writes its own
+      # iptables rules ahead of a host firewall, so a published port is reachable from the internet
+      # whatever ufw was told, and the site would answer on 8080 beside the proxy that terminates
+      # its TLS. See docs/deploy.md; the default stays whole-host so that `compose up` on a laptop
+      # is reachable from the phone next to it.
       - "${MUI_PORT:-8080}:8080"
     # Nothing is written to the container filesystem; every write this process makes goes to
     # Postgres. Saying so here means a write that appears later fails loudly instead of landing

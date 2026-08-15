@@ -1,3 +1,5 @@
+using MUI.Crawl;
+
 namespace MUI.Crawler.Cli;
 
 /// <summary>What <c>mui-crawl</c> was asked to do.</summary>
@@ -21,6 +23,9 @@ public sealed record Arguments
           --cycles <n>            How many passes to run. Default 1.
           --batch <n>             How many due targets one pass claims. Default 50.
           --concurrency <n>       How many probes may be in flight at once. Default 8.
+          --info-url <https url>  The contact address announced to every server dialled (§11).
+                                  Defaults to $MUI_CRAWL_INFO_URL, and to a placeholder that
+                                  answers nobody if that is unset too.
           --no-referrals          Do not follow MSSP REFERRAL. Makes this a status checker.
           --dry-run               Print what is due and write nothing.
           --opt-out <host[:port]> Record that somebody asked us to stop crawling them (§11), and
@@ -40,6 +45,20 @@ public sealed record Arguments
     public string? Connection { get; init; } = Environment.GetEnvironmentVariable("MUI_CRAWL_POSTGRES");
 
     public IReadOnlyList<CrawlSeed> Seeds { get; init; } = [];
+
+    /// <summary>
+    /// What this crawl tells the servers it dials about who is dialling them (spec §11).
+    /// </summary>
+    /// <remarks>
+    /// Read from the same variable the deployable reads, because <c>mui-crawl</c> opens sockets to
+    /// other people's machines exactly as the site does and an admin cannot tell the two apart from
+    /// their logs. It is a placeholder when nothing is set, which is honest for a dry run on a
+    /// laptop and would be rude against a real crawl — <c>Program</c> says so on the way past.
+    /// </remarks>
+    public string InfoUrl { get; init; } =
+        Environment.GetEnvironmentVariable("MUI_CRAWL_INFO_URL") is { Length: > 0 } url
+            ? url
+            : new ProbeOptions().InfoUrl;
 
     public int Cycles { get; init; } = 1;
 
@@ -102,6 +121,10 @@ public sealed record Arguments
                     parsed = parsed with { Connection = Next(args, ref i, "--connection") };
                     break;
 
+                case "--info-url":
+                    parsed = parsed with { InfoUrl = Next(args, ref i, "--info-url") };
+                    break;
+
                 case "--seed":
                     seeds.Add(CrawlSeed.Parse(Next(args, ref i, "--seed"), isOperatorSeed: false));
                     break;
@@ -144,6 +167,10 @@ public sealed record Arguments
             throw new ArgumentException(
                 $"--opt-out needs --because: say who asked and how.{Environment.NewLine}{Usage}");
         }
+
+        // Before a socket rather than after one: an address nobody can open is worth catching while
+        // the person who typed it is still looking at the terminal.
+        new ProbeOptions { InfoUrl = parsed.InfoUrl }.Validate();
 
         return parsed with { Seeds = seeds };
     }

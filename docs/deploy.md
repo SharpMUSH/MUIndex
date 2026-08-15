@@ -3,10 +3,10 @@
 There is one deployable. The public site, the owner dashboard, the read API and the crawler are a
 single ASP.NET Core process (spec §4.11), and the only thing it needs beside it is a PostgreSQL.
 
-**This document does not choose a host or a domain.** Spec §15.1 (the domain) and §15.3 (hosting and
-the cost envelope) are open decisions, and the packaging here is deliberately neutral about both — a
-container image, a compose file and a workflow that publishes the image. [What is still
-open](#what-is-still-open) lists the levers each decision turns.
+**The domain is `mu-index.com` and the host is one small VM** — §15.1 and §15.3, closed, and written
+down in [The domain](#the-domain) and [The host](#the-host) with the arithmetic behind the second.
+The packaging itself stays neutral: a container image, a compose file and a workflow that publishes
+the image, none of which name either. What a deployment decides, it decides in the environment.
 
 ## The shortest path
 
@@ -58,7 +58,8 @@ which is why the check exists.
 | `MUI_POSTGRES` | *(unset)* | The connection string. **Unset means demo data.** Read before `ConnectionStrings:MUIndex`, which is the same setting through configuration. |
 | `MUI_CRAWL_SEEDS` | *(empty)* | `host:port` addresses the crawler knows on day one, separated by commas or whitespace. An IPv6 literal must be bracketed — `[2001:db8::1]:4201` — because `2001:db8::1:4201` does not say which colon is the port, and an address that could mean two things is refused at startup rather than guessed at. Also `Crawler:Seeds`. |
 | `MUI_CRAWL_ENABLED` | `true` | `false` makes this replica a pure web tier. Anything that is not `true` or `false` is refused at startup. Also `Crawler:Enabled`. |
-| `Passkeys__ServerDomain` | *(unset)* | The WebAuthn relying-party ID. **Tied to §15.1** — see below. Only affects sign-in and claiming. |
+| `MUI_CRAWL_INFO_URL` | *(a placeholder)* | Where an admin who has just been dialled reads what we do and asks us to stop (§11), announced over TTYPE and MNES to every server the crawler reaches. Must be an absolute **https** URL or startup refuses it. Also `Crawler:Probe:InfoUrl`. |
+| `Passkeys__ServerDomain` | *(unset)* | The WebAuthn relying-party ID — the **registrable** domain, `mu-index.com`. Only affects sign-in and claiming. |
 | `Dataset__LicenceId`, `Dataset__LicenceName`, `Dataset__LicenceUrl`, `Dataset__Attribution`, `Dataset__Notice` | `CC-BY-4.0`, … | The terms the published data goes out under. Configuration rather than a literal because §15.2 is open and the code's licence is not the dataset's. |
 | `ASPNETCORE_HTTP_PORTS` | `8080` | Set in the image. |
 | `ASPNETCORE_ENVIRONMENT` | `Production` | |
@@ -67,6 +68,13 @@ which is why the check exists.
 Everything with a `Key:Path` name can equally be given as `Key__Path` in the environment; the two
 `MUI_*` variables above are read from the environment first so a container is pointed at a database
 and given a seed list the same way, with no config file shipped beside it.
+
+**The contact address is a setting and not a default, on purpose.** The compiled-in value is
+`https://muindex.example/crawler`, which answers nobody, and it stays that way now that the domain is
+settled: a default naming this deployment's contact page would have every fork and every laptop run
+announce *our* address to the servers *they* dial, which is a claim about somebody else's crawl.
+`/about` compares what it holds against that default and marks the page when they match, so a
+deployment that forgot is visible to a reader rather than only to whoever it dialled.
 
 **No environment variable can exempt a seed from the resolved-address gate.** §7.2's exemption — the
 one that lets the crawler dial a private address — is a claim a person makes about one address they
@@ -170,53 +178,156 @@ The SHA tag is the one a rollback needs — `latest` cannot say which build it i
 
 Nothing deploys the image. There is nowhere to deploy it to yet.
 
+## The domain
+
+`mu-index.com`, registered through Cloudflare, which is therefore also the DNS.
+
+| Record | Points at | Proxy |
+| --- | --- | --- |
+| `mu-index.com`, `www` | the VM | either; see below |
+| `crawler.mu-index.com` | the crawl egress address | **DNS-only, and this one is not a preference** |
+
+`crawler` has to be grey-clouded because the reverse record depends on it. An admin who finds an
+unfamiliar connection runs `dig -x` on the address, and the PTR — set at the VM provider, which is
+the only place that can set it, not at Cloudflare — answers `crawler.mu-index.com`. That is worth
+something only if resolving the name *forward* lands back on the same address. Proxied, it resolves
+to Cloudflare's anycast addresses, the two do not agree, and the identification we owe under §11
+fails at the one step somebody actually takes.
+
+**Proxying the site buys no origin secrecy here, and it is not supposed to.** This deployment opens
+connections to thousands of strangers' machines and its address is in all their logs; being
+identifiable is the obligation, not a leak. Proxy the site for TLS, for absorbing a flood, or for
+serving `wwwroot` — not to hide, which this design cannot do and does not want.
+
+Three things must be off, or the site stops being what it says it is:
+
+- **"Cache Everything", and anything that caches HTML.** Every page states how old the measurement on
+  it is. A CDN answering from a copy makes that sentence a lie, with no way for the reader to tell.
+  Cache rules for `wwwroot` and nothing else.
+- **Bot Fight Mode and the interstitial challenges.** `?plain=1`, `curl` and `/api/games` are surfaces
+  meant to be read by programs (§9, §10). A JavaScript challenge in front of them defeats the point
+  of having them.
+- **Rocket Loader and anything that injects script.** The site ships no required JavaScript, which is
+  a property somebody checks by turning scripting off. A CDN adding some undoes it.
+
+Behind a proxy, have whatever terminates TLS overwrite `X-Forwarded-For` from `CF-Connecting-IP`, and
+count the hops in `Submissions:TrustedProxyHops`. A forwarded header nobody counted is a header
+anybody may write, and the thing reading it is a rate limit.
+
+### The two names that outlive the host
+
+`Passkeys__ServerDomain` is `mu-index.com` — the registrable domain, not `www.mu-index.com`, which
+would not cover the apex. Every credential registered under one value has to be registered again if
+it changes, so it is set explicitly rather than inferred from the `Host` header, and it must never be
+a hostname the hosting provider gave us.
+
+`MUI_CRAWL_INFO_URL` is `https://mu-index.com/crawler`, which redirects to the part of `/about` that
+explains what a probe does and the three ways to stop it. It is short because it is retyped by hand
+off a log line by somebody who is already mildly annoyed.
+
+Both of these are reasons the domain had to be decided before the host and not after: they are what a
+stranger holds, and moving them costs other people something.
+
+## The host
+
+One VM: the app, Postgres and a reverse proxy on it, dual-stack, with a dedicated IPv4 whose reverse
+record we control. What picks it is not CPU.
+
+- **Arbitrary outbound TCP** to thousands of hosts on ports between 23 and 9999, held open for
+  seconds. That alone rules out every serverless and edge runtime.
+- **An always-on process.** The crawl loop polls on a timer and holds a session-level advisory lock;
+  scale-to-zero has nothing to hold it.
+- **A stable egress address.** This is a *data* requirement rather than an operational one. §7.4's
+  reachability series measures a socket from one vantage point, and moving the vantage point changes
+  what the series means without changing anything the schema records. See
+  [what is still open](#what-is-still-open).
+- **Somewhere that tolerates the traffic and answers mail about it.**
+
+The arithmetic, so that nobody has to guess later: at ~3,000 registry entries and §7.7's intervals —
+two hours for a game with players on it, six for a quiet one, a week for one long dark — the crawl
+makes roughly 6–7k probes a day. That is 0.08 connections a second against the four a second
+`DiscoveryOptions.GlobalInterval` already permits: about two per cent of our own politeness ceiling,
+eight sockets at a time, and something like 5–10 GB of traffic a month. `presence_sample` grows by a
+couple of million rows a year, monthly-partitioned. **The envelope is not what bounds probe frequency
+here; politeness is** — which is the useful half of closing §15.3, because it means no number in
+`DiscoveryOptions` or `ProbeSchedule` should be re-tuned to fit a bill.
+
+### Docker publishes past the host firewall
+
+The compose file publishes `${MUI_PORT:-8080}:8080`, and Docker implements that by writing iptables
+rules **ahead of** `ufw`. A host firewall that denies 8080 does not close it: the site answers the
+internet directly on 8080, beside the proxy holding its certificate. Both halves of the fix:
+
+```bash
+MUI_PORT=127.0.0.1:8080          # in .env — an interface may be written into this value
+```
+
+and a firewall the container runtime cannot edit, outside the VM — on Hetzner, a Cloud Firewall:
+inbound 80 and 443, SSH from somewhere known, everything else denied; **outbound unrestricted**,
+which the crawl needs. Postgres publishes no port at all and wants none; it is reachable on the
+compose network and nowhere else.
+
+While there: give Docker a log rotation (`max-size`, `max-file` in `/etc/docker/daemon.json`).
+Unrotated JSON logs are the ordinary way a 40 GB volume fills.
+
+### Before committing to an address
+
+Boot the box and probe about twenty games from `docs/codebase-survey-2026-07-30.md` from it, then run
+the same list from somewhere else and compare. Cheap hosting ranges are filtered by a fair number of
+operators, and a filtered range does not look like a filtered range from here — it looks like other
+people's games being unreachable, which is our decision appearing in their public record as a fact
+about them (rule 5). If the two lists disagree, the range is the reason; an address is a few euro and
+a PTR update, and a catalogue of quietly wrong reachability is not recoverable.
+
+```bash
+MUI_CRAWL_INFO_URL=https://mu-index.com/crawler \
+  dotnet run -c Release --project src/MUI.Probe -- mush.pennmush.org 4201
+```
+
+### Backups leave the provider
+
+Nothing is ever deleted (rule 3), so the database is the whole asset — every measurement is a moment
+that cannot be re-observed. Snapshots at the provider are worth having and are not a backup: they are
+crash-consistent images inside the same account that an abuse ticket suspends. A nightly `pg_dump`
+belongs somewhere with a different login, and it is a backup only once it has been restored once.
+
 ## What is still open
 
-Two of the spec's open questions bear directly on running this, and neither is answered here.
+§15.1 and §15.3 are answered above. Three things this document now touches are not.
 
-### §15.1 — the domain
+**The vantage point is not recorded anywhere, and this document has just named it.** §7.4's
+reachability series is a socket measured from one address; nothing in the schema says which. Move the
+crawl to another host and the intervals either side of the move describe two different measurements
+under one heading, with nothing to tell them apart. The same gap has a sharper edge: a game whose
+firewall drops our range is recorded as unreachable, which is our decision appearing in their public
+record as a fact about them — the thing rule 5 exists to prevent. Naming the host here and on the
+methodology page is the floor. A column is a schema decision and wants its own review, and it is the
+prerequisite for a second vantage point ever being sensible.
 
-Undecided. It is not cosmetic, because **a passkey is bound to `Passkeys:ServerDomain` and every
-credential registered under one value has to be registered again if it moves.** The levers, once it
-is decided:
+**Retention is implemented and unset (§15.4).** `PresenceRetentionOptions` drops whole partitions and
+never rows, and every window on it — `RawSamples`, `HourlyRollups`, `DailyRollups` — defaults to
+`null`, which means for ever. That is the right default for a catalogue whose whole claim is that
+nothing is deleted, and it is also the number that decides what a disk costs, so it should be set
+deliberately rather than discovered. The floor under raw is `HeatmapWindow`: the site reads raw
+samples for the day × hour graphic, so a shorter retention blanks the left-hand end of every heatmap.
 
-- `Passkeys__ServerDomain` — the registrable domain, set explicitly rather than inferred from the
-  `Host` header, which the ASP.NET Core documentation calls a credential-scoping risk.
-- `Dataset__Attribution` and the info URL the crawler self-identifies with (spec §11), so an admin
-  reading their logs can find out who we are.
-- Whatever terminates TLS, plus `ASPNETCORE_FORWARDEDHEADERS_ENABLED=true` if it is a reverse proxy.
-
-Until it is decided, deploy without `Passkeys__ServerDomain` and accept that claiming is not usable —
-that is honest, and re-registering every credential later is not.
-
-### §15.3 — hosting and the cost envelope
-
-Undecided, and it is the envelope that **bounds probe frequency and retention**. The levers it turns,
-all of which are code today because a number chosen before the envelope is a number chosen at
-random:
-
-- **`DiscoveryOptions`** (`src/MUI.Discovery`) — `MaxConcurrency`, `BatchSize`, `PollInterval`,
-  `GlobalInterval` and `PerHostInterval`. These set how much crawl a replica does per unit time and
-  are the direct translation of a CPU and bandwidth budget.
-- **`ProbeOptions`** (`src/MUI.Crawl`) — `Timeout`, `QuietPeriod`, `SilenceGrace`. Per-probe cost.
-- **The revisit trigger, spec §4.13.** How often a *game* is re-probed, as distinct from how fast the
-  loop turns. It is reasoned in the spec and is not to be reopened without a reason.
-- **Retention** for `PresenceSample` before rollup (§15.4, also open) — the table that grows without
-  bound, and therefore the one that decides what a disk costs. Nothing here deletes anything today;
-  §7.5's archiving removes a game from a listing and from nothing else.
-- The database itself: a managed Postgres, a container on the same box, or one you run. Everything
-  above talks to it through `MUI_POSTGRES` and nothing here cares which.
-
-`CRAWL DELAY` is honoured as a floor regardless of any of this, and no envelope decision may raise a
-frequency past it.
+**§15.2 — the licence for the published data** is still open. `Dataset__LicenceId` and the four
+settings beside it ship as CC-BY-4.0 because a deployment has to send *something* with the API, not
+because the question is answered.
 
 ## Checking a deployment
 
 ```bash
 curl -fsS http://localhost:8080/api/games | head -c 200      # the read API, same reads as the pages
 curl -fsS http://localhost:8080/ | grep -c demo-banner       # 0 with a database, 1 without
+curl -fsS http://localhost:8080/about | grep -c placeholder  # 0 once a contact address is set
+curl -isS http://localhost:8080/crawler | head -2            # 302 to /about#about-crawler
 psql "$MUI_POSTGRES" -c 'SELECT name FROM mui_migration ORDER BY name'
 ```
+
+The third and fourth lines are the two halves of §11: an address to reach us at, and an address that
+answers. Both are checkable from outside, which is the point — they are the only settings here whose
+failure is visible to a stranger before it is visible to us.
 
 There is no `/health` endpoint. `GET /` is the health check, because it exercises the reads the site
 actually serves.
@@ -228,9 +339,14 @@ when a deployment's crawl is not doing what you expected. It is not in the image
 person runs on purpose, and an image that shipped it would invite it into an entrypoint.
 
 ```bash
-MUI_CRAWL_POSTGRES=… dotnet run -c Release --project src/MUI.Crawler.Cli -- \
+MUI_CRAWL_POSTGRES=… MUI_CRAWL_INFO_URL=https://mu-index.com/crawler \
+  dotnet run -c Release --project src/MUI.Crawler.Cli -- \
   --seed mush.pennmush.org:4201 --dry-run
 ```
+
+It reads `MUI_CRAWL_INFO_URL` for the same reason the deployable does: an admin cannot tell a hand-run
+cycle from the site's own, and both are connections to their machine. A real cycle started without one
+says so on its way past — a dry run dials nobody and owes nobody an address.
 
 `--seed-exempt` is the only way to point the crawler at an address that is not globally routable, and
 it exists so somebody can dial their own `127.0.0.1` and mean it.

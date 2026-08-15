@@ -3,8 +3,8 @@ using MUI.Crawler;
 namespace MUI.Web.Data;
 
 /// <summary>
-/// The two things a deployment owns about the in-process crawler: whether it runs here, and the
-/// addresses it knows before it has followed anything.
+/// The three things a deployment owns about the in-process crawler: whether it runs here, the
+/// addresses it knows before it has followed anything, and the address it gives out when it dials.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -36,6 +36,18 @@ public static class CrawlerSettings
 
     public const string EnabledConfigurationKey = "Crawler:Enabled";
 
+    /// <summary>
+    /// Where an admin who has just been dialled can read what we do and ask us to stop (spec §11).
+    /// </summary>
+    /// <remarks>
+    /// It is a setting rather than a constant because the address belongs to the deployment doing the
+    /// dialling: the compiled default is a placeholder that answers nobody, and a fork inheriting our
+    /// contact page would point the servers <em>it</em> probed at us.
+    /// </remarks>
+    public const string InfoUrlEnvironmentVariable = "MUI_CRAWL_INFO_URL";
+
+    public const string InfoUrlConfigurationKey = "Crawler:Probe:InfoUrl";
+
     private static readonly char[] Separators = [',', ' ', '\t', '\r', '\n'];
 
     /// <summary>Applies what the environment said, and throws rather than shrugging at a typo.</summary>
@@ -55,6 +67,15 @@ public static class CrawlerSettings
                 ? value
                 : throw new ArgumentException(
                     $"{EnabledEnvironmentVariable} is '{enabled}', which is neither true nor false.");
+        }
+
+        if (Read(configuration, InfoUrlEnvironmentVariable, InfoUrlConfigurationKey) is { } contact)
+        {
+            builder.Probe = builder.Probe with { InfoUrl = contact };
+
+            // Here rather than only at CrawlerOptions.Validate, so a typo fails beside the setting it
+            // came from instead of after the rest of the graph has been assembled around it.
+            builder.Probe.Validate();
         }
 
         foreach (var address in Seeds(configuration))

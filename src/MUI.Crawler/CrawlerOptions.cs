@@ -70,6 +70,7 @@ public sealed record CrawlerOptions
     public void Validate()
     {
         Discovery.Validate();
+        Probe.Validate();
         Maintenance.Validate();
         Salt.Validate();
         Submissions.Validate();

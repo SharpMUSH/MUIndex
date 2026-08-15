@@ -6,7 +6,16 @@ using MUI.Crawl;
 var host = args.Length > 0 ? args[0] : "mush.pennmush.org";
 var port = args.Length > 1 && int.TryParse(args[1], out var p) ? p : 4201;
 
-var result = await new TelnetProbe().ProbeAsync(new ProbeTarget(host, port));
+// §11: the same contact address the deployable announces, when the environment has one to give. A
+// probe run by hand is still a connection to somebody else's machine, and docs/deploy.md sends an
+// operator here to dial twenty of them before choosing a host.
+var options = Environment.GetEnvironmentVariable("MUI_CRAWL_INFO_URL") is { Length: > 0 } contact
+    ? new ProbeOptions { InfoUrl = contact }
+    : new ProbeOptions();
+
+options.Validate();
+
+var result = await new TelnetProbe(options).ProbeAsync(new ProbeTarget(host, port));
 
 Console.WriteLine($"target        {result.Host}:{result.Port}");
 Console.WriteLine($"outcome       {result.Outcome}");
