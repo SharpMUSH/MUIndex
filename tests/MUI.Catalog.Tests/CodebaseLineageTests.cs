@@ -48,6 +48,41 @@ public class CodebaseLineageTests
     public async Task TheOtherLineagesGatherTheirOwn(string codebase, string lineage) =>
         await Assert.That(CodebaseLineage.Of(codebase)).IsEqualTo(lineage);
 
+    /// <summary>A codebase that spells its version oddly is still placed, by the words it wrote.</summary>
+    /// <remarks>
+    /// Both of these are live values, re-probed 2026-08-15, and both publish an ancestry the map
+    /// knows: <c>CD</c> answers <c>FAMILY LPMud</c> and <c>Epiphany</c> answers <c>FAMILY LPMud</c>
+    /// with "LPmud version : FluffOS v2.26" on its connect screen. The fold only removes a trailing
+    /// version token, so neither reaches the map by its key.
+    /// </remarks>
+    [Test]
+    public async Task AVersionTheFoldCannotRemoveDoesNotCostTheLineage()
+    {
+        await Assert.That(CodebaseLineage.Of("CD.06.06")).IsEqualTo(CodebaseLineage.Lp);
+        await Assert.That(CodebaseLineage.Of("Epiphany v1.2.15 [development]"))
+            .IsEqualTo(CodebaseLineage.Lp);
+        await Assert.That(CodebaseLineage.Of("Rhost 4.0.4 (patchlevel 1)"))
+            .IsEqualTo(CodebaseLineage.Mush);
+    }
+
+    /// <summary>A string that recites its own descent is read as the recital it is.</summary>
+    [Test]
+    public async Task ACodebaseThatNamesItsAncestryIsPlacedByIt()
+    {
+        // A real catalogue value. Diku, Merc and Rom are three names for one lineage, so the string
+        // is unanimous and there is nothing to choose between.
+        await Assert.That(CodebaseLineage.Of("Diku Merc Rom RoT AoD")).IsEqualTo(CodebaseLineage.Diku);
+    }
+
+    /// <summary>Two lineages in one string is a question we decline rather than answer.</summary>
+    [Test]
+    public async Task ACodebaseNamingTwoLineagesIsPlacedInNeither()
+    {
+        // Picking one would be choosing on the reader's behalf and then recording the choice as a
+        // fact about somebody's game.
+        await Assert.That(CodebaseLineage.Of("PennMUSH/Diku bridge")).IsNull();
+    }
+
     [Test]
     public async Task ACodebaseWithNoUncontestedParentIsNotGivenOne()
     {
@@ -57,6 +92,12 @@ public class CodebaseLineageTests
         await Assert.That(CodebaseLineage.Of("Evennia 1.0")).IsNull();
         await Assert.That(CodebaseLineage.Of("CoffeeMud v5.11.0.4")).IsNull();
         await Assert.That(CodebaseLineage.Of("Custom")).IsNull();
+
+        // Re-probed 2026-08-15, and these two say so themselves: Evennia and Riftforge both publish
+        // FAMILY Custom, CoffeeMUD publishes FAMILY CoffeeMUD. The abstention is corroborated.
+        await Assert.That(CodebaseLineage.Of("Riftforge")).IsNull();
+        await Assert.That(CodebaseLineage.Of("Enrym (custom Node.js)")).IsNull();
+        await Assert.That(CodebaseLineage.Of("LoFP (Go)")).IsNull();
     }
 
     [Test]

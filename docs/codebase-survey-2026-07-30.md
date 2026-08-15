@@ -66,6 +66,45 @@ MUSH family, which is precisely this project's audience.
 
 † Re-measured after the negotiation-residue fix below; it read `Unknown` in the original run.
 
+## What a codebase says about its own ancestry — re-probed 15 August 2026
+
+`CodebaseLineage` groups codebases into the traditions they descend from, and the map is compiled in
+rather than read at runtime, so every row in it has to be somebody's decision. This is the evidence
+for the rows that are not common knowledge.
+
+The nineteen codebases above that the map did not place were re-probed. **Seven answer the question
+themselves.**
+
+| Codebase | `CODEBASE` | `FAMILY` | Also on the wire |
+|---|---|---|---|
+| Emlen | `EmlenMud` | **DikuMUD** | |
+| NarutoMUD Engine | `NarutoMUD Engine` | **DikuMUD** | |
+| LastOutpost | `LastOutpost 4.59` | **DikuMUD** | connect screen: "Last Outpost DikuMUD" |
+| Midnight Sun | `Midnight Sun` | **LPMud** | |
+| CD | `CD.06.06` | **LPMud** | |
+| Epiphany | `Epiphany v1.2.15 [development]` | **LPMud** | "LPmud version : FluffOS v2.26 (MeekOS version)" |
+| Ew | — | — | connect screen: "Based on EW-Too by S. Marsh" |
+
+**Six more declare their independence, which is the same answer the map was already giving them.**
+Evennia, Riftforge, Enrym (`Enrym (custom Node.js)`), EternityMUD, IME and LoFP all publish
+`FAMILY Custom`; CoffeeMUD publishes `FAMILY CoffeeMUD`. That is worth recording precisely because
+it is a null result: the abstention on Evennia and CoffeeMUD was made on the hobby's history, and
+the servers agree with it in their own words.
+
+**Six offer no MSSP at all and stay unplaced**: Ew, GWM, Nightmare III, NakedMud, Dark City,
+Mindcloud3. Ew's connect screen names EW-Too, which is a codebase rather than a lineage, so it is
+not enough on its own.
+
+Two consequences for the code, both of which the map now handles:
+
+- **`CD.06.06` and `Epiphany v1.2.15 [development]` do not fold.** `CodebaseFamily.Of` removes a
+  trailing version *token*; a version behind a dot or followed by a bracketed qualifier survives into
+  the key and misses the map. Two of nineteen is not a rare shape.
+- **A declared `FAMILY` is evidence for writing a row and never a way to fill the facet.** Read at
+  runtime it would place a game wherever its own config file said and mix our classification with
+  their assertion in one column, with no way to tell which a given row was. It is read here, once,
+  by a person.
+
 ## What this survey changed
 
 - **Spelled-out counts are read.** `resort.org:2323` says "There are seven people connected." and a

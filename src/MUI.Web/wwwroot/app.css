@@ -704,6 +704,10 @@ ul.shares .share-figure { color: var(--dim); white-space: nowrap; }
 .share-track.narrow { height: 6px; margin-bottom: 5px; max-width: 14rem; }
 .share-fill { display: block; height: 100%; background: var(--accent); }
 
+/* A lineage bar is our own reading rather than a measurement, and the panel says so in words. The
+   ink agrees with the words, so the two halves of the page cannot be read as one kind of fact. */
+.share-fill.derived { background: var(--derived); }
+
 /* Wide content scrolls inside its own box; the page body never scrolls sideways. */
 .table-wrap { overflow-x: auto; margin: var(--cpad) 0; }
 

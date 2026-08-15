@@ -24,17 +24,74 @@ public sealed record MeasuredShare(string Label, int Count, int Denominator)
 }
 
 /// <summary>
-/// Which codebases the listed games run, as shares of the games that told us (spec §9).
+/// Which codebases the listed games run, as shares of the games that told us — by family, and by
+/// the lineage those families descend from (spec §9).
 /// </summary>
 /// <remarks>
+/// <para>
 /// <see cref="NotIdentified"/> is carried beside the shares rather than folded into them. A game
 /// whose codebase we could not read is not a game running "Other" — it is a game we have no answer
 /// for, and rolling those into a residual bar would publish our own gap as somebody's market share.
+/// </para>
+/// <para>
+/// <b><see cref="Lineages"/> is measured against the same denominator as <see cref="Families"/>,
+/// and <see cref="NotClassified"/> is the price of that.</b> The tempting denominator is the games
+/// we <em>did</em> place, which would make the bars add to 100% and every one of them wrong in the
+/// same direction: a codebase we decline to classify would silently inflate the share of every
+/// codebase we do. Our own abstention is not evidence about anybody's lineage, so it stays visible
+/// as its own number and out of everyone else's — the same rule as <see cref="NotIdentified"/>,
+/// one step further in.
+/// </para>
+/// <para>
+/// Both are built by <see cref="Of"/> rather than by each <c>IGameQueries</c>, because the fixture
+/// and the database had already drifted: one labelled a family with the commonest spelling and the
+/// other with whichever row it read first, so the demo could name a codebase something the real
+/// dashboard never would.
+/// </para>
 /// </remarks>
 public sealed record CodebaseUsage(
     IReadOnlyList<MeasuredShare> Families,
+    IReadOnlyList<MeasuredShare> Lineages,
     int Identified,
-    int NotIdentified);
+    int NotIdentified,
+    int NotClassified)
+{
+    public static readonly CodebaseUsage None = new([], [], 0, 0, 0);
+
+    /// <summary>
+    /// The dashboard's codebase panel, from the <c>CODEBASE</c> value of every game that gave us one.
+    /// </summary>
+    /// <param name="values">One entry per game that told us its codebase, as it spelled it.</param>
+    /// <param name="listed">Every listed game, so the games that told us nothing can be counted.</param>
+    public static CodebaseUsage Of(IReadOnlyList<string> values, int listed)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+
+        var families = Shares(values.Select(CodebaseFamily.For), values.Count);
+        var lineages = Shares(values.Select(CodebaseLineage.Of), values.Count);
+
+        return new CodebaseUsage(
+            families,
+            lineages,
+            values.Count,
+            listed - values.Count,
+            values.Count - lineages.Sum(share => share.Count));
+    }
+
+    private static List<MeasuredShare> Shares(IEnumerable<string?> labels, int denominator) =>
+    [
+        .. labels
+            .OfType<string>()
+            .Where(label => label.Length > 0)
+            .GroupBy(label => label, StringComparer.OrdinalIgnoreCase)
+
+            // The same rule the facet panel labels its values with, so the dashboard and the listing
+            // cannot end up calling one family two things.
+            .Select(group => new MeasuredShare(Spellings.Commonest(group), group.Count(), denominator))
+            .OrderByDescending(share => share.Count)
+            .ThenBy(share => share.Label, StringComparer.Ordinal),
+    ];
+}
 
 /// <summary>
 /// One protocol, measured beside declared, each with its own denominator (spec §9).
@@ -169,7 +226,7 @@ public sealed record EcosystemDashboard(
     IReadOnlyList<ProtocolAdoption> Protocols)
 {
     public static EcosystemDashboard Empty(DateTimeOffset asOf) => new(
-        asOf, 0, 0, 0, null, 0, new CodebaseUsage([], 0, 0), []);
+        asOf, 0, 0, 0, null, 0, CodebaseUsage.None, []);
 }
 
 /// <summary>

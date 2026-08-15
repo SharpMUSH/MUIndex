@@ -24,6 +24,12 @@ public class MsspDefaultsTests
     [Arguments("Evennia")]
     [Arguments("TinyMUX")]
     [Arguments("RhostMUSH")]
+
+    // The two that were missing. AresMUSH and CobraMUSH ship the same unedited NAME line every
+    // other MUSH codebase here does, and every one of their siblings was already refused.
+    [Arguments("AresMUSH")]
+    [Arguments("aresmush")]
+    [Arguments("CobraMUSH")]
     [Arguments("Unknown")]
     [Arguments("Change Me")]
     [Arguments("Your MUD Name")]
@@ -38,6 +44,13 @@ public class MsspDefaultsTests
     [Arguments("M*U*S*H")]
     [Arguments("Tidewater Nights")]
     [Arguments("Eldertale")]
+
+    // A codebase name that is also a game's name stays off the list, because this refusal erases a
+    // name and the cost of erasing a real one is higher than the cost of keeping a default. All
+    // three are live games as well as codebases.
+    [Arguments("Last Outpost")]
+    [Arguments("LuminariMUD")]
+    [Arguments("GodWars")]
     public async Task ARealNameSurvives(string value)
     {
         await Assert.That(MsspDefaults.IsPlaceholder(value)).IsFalse();

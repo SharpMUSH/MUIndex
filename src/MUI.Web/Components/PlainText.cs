@@ -603,6 +603,32 @@ public static class PlainText
             b.AppendLine($"  {dashboard.Codebases.NotIdentified} listed game(s) have not told us one.");
         }
 
+        Heading(b, "LINEAGES");
+        Wrap(b, "The same games, grouped by the tradition their server descends from. This is "
+            + $"{FacetWords.Evidence(FacetEvidence.Derived)} — "
+            + $"{FacetWords.EvidenceMeaning(FacetEvidence.Derived)} — and not anything a game "
+            + "published: no game reports \"MUSH\", because MSSP has no such value and most of the "
+            + "MUSH world publishes no MSSP at all.");
+        b.AppendLine();
+
+        foreach (var lineage in dashboard.Codebases.Lineages)
+        {
+            b.AppendLine($"  {lineage.Label,-24} {EcosystemCopy.Share(lineage)}");
+        }
+
+        if (dashboard.Codebases.Lineages.Count == 0)
+        {
+            b.AppendLine("  No listed game runs a codebase we place in a lineage yet.");
+        }
+
+        if (dashboard.Codebases.NotClassified > 0)
+        {
+            b.AppendLine();
+            Wrap(b, $"{dashboard.Codebases.NotClassified} of those game(s) run a codebase we do not "
+                + "place in any lineage — several publish FAMILY Custom, saying so themselves. They "
+                + "are inside the denominator above and in nobody's share.", "  ");
+        }
+
         Heading(b, "PROTOCOLS");
         Wrap(b, EcosystemCopy.Floor);
         b.AppendLine();

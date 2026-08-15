@@ -536,14 +536,9 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
             .Where(g => Intervals(g).Any(i => i.State is AvailabilityState.Reachable))
             .ToList();
 
+        // Built by the catalogue rather than here: the fixture used to fold and label codebases with
+        // its own copy of the rule, and its copy named a family after whichever row it read first.
         var codebases = listed.Select(g => g.Codebase).OfType<string>().ToList();
-        var families = codebases
-            .Select(CodebaseFamily.Of)
-            .GroupBy(family => family, StringComparer.OrdinalIgnoreCase)
-            .Select(group => new MeasuredShare(group.First(), group.Count(), codebases.Count))
-            .OrderByDescending(share => share.Count)
-            .ThenBy(share => share.Label, StringComparer.Ordinal)
-            .ToList();
 
         var offeredAnywhere = handshaked
             .SelectMany(g => g.MeasuredProtocols)
@@ -585,7 +580,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
             // young crawl is really in: the page has to say the curve is not drawable yet, and a
             // fixture that faked one would be teaching the page to lie.
             CapabilityTransitions: 0,
-            new CodebaseUsage(families, codebases.Count, listed.Count - codebases.Count),
+            CodebaseUsage.Of(codebases, listed.Count),
             protocols));
     }
 
