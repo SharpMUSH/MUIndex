@@ -119,6 +119,15 @@ public class CompositionTests
 
         await Assert.That(scope.ServiceProvider.GetService<IGameFieldStore>()).IsNotNull();
         await Assert.That(scope.ServiceProvider.GetService<IFieldReconciler>()).IsNotNull();
+
+        // Resolving OwnerEnrichment itself, because the interesting half of it is a constructor
+        // argument rather than a registration: the minter that applies an owner's NAME (§5.7) is
+        // optional on the type and required from this composition. Asked for softly it would come
+        // back null on a broken graph and owners would rename their games while every URL stayed
+        // where it was, silently — which is §8.5's lesson about optional dependencies, restated by
+        // the one path that acquired a new one.
+        await Assert.That(scope.ServiceProvider.GetRequiredService<OwnerEnrichment>()).IsNotNull();
+        await Assert.That(scope.ServiceProvider.GetRequiredService<SlugMinter>()).IsNotNull();
     }
 
     /// <summary>

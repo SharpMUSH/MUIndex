@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
+using MUI.Crawler;
 
 using Npgsql;
 
@@ -87,7 +88,21 @@ public static class Passkeys
                 store,
                 new FieldReconciler(store),
                 s.GetRequiredService<IFieldRegistry>(),
-                s.GetRequiredService<TimeProvider>());
+                s.GetRequiredService<TimeProvider>(),
+
+                // The second half of a NAME write (§5.7): the listed name is a denormalised column
+                // and the URL minted from it is a promise to everybody holding the old one, so an
+                // owner's name is stored by the line above and applied by this one.
+                //
+                // GetRequiredService, not GetService, and this is the §8.5 lesson rather than a
+                // preference. OwnerEnrichment takes this optional because a deployment without a
+                // minter should store the name and do less — but *this* deployment has one:
+                // AddMuiCrawler registers SlugMinter and runs immediately before this method, under
+                // the same connection-string guard. Asking softly here would mean a composition
+                // mistake showed up as owners renaming their games and the URLs never moving, with
+                // nothing in any log. An optional dependency and a service-located one both fail
+                // silently when the composition is wrong, and this path already has one of each.
+                s.GetRequiredService<SlugMinter>());
         });
 
         // §11's third route, wired to the dashboard rather than only to the CLI. Scoped alongside

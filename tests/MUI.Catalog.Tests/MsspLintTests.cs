@@ -251,6 +251,132 @@ public class MsspLintTests
 
     private static GameField Required() => Field("NAME", "Corvid");
 
+    /// <summary>
+    /// Where an owner has answered over the report, the scorecard says so — and says who else reads
+    /// which.
+    /// </summary>
+    /// <remarks>
+    /// The failure this exists to prevent is quiet: an owner fixes their genre here, the site shows
+    /// the right one, and nobody ever tells them that every other crawler on the internet still
+    /// reads the wrong one out of their config. MUIndex becoming the only place a game is described
+    /// correctly is a worse outcome for the hobby than the wrong description.
+    /// </remarks>
+    [Test]
+    public async Task WhereAnOwnerHasAnsweredOverTheReportTheScorecardSaysWhichIsWhich()
+    {
+        var card = MsspLint.Inspect(
+        [
+            Field("NAME", "Corvid"),
+            Field("PLAYERS", "14"),
+            Field("UPTIME", "1753876000"),
+            Field("GENRE", "Fantasy"),
+            Field("GENRE", "Horror", FieldSource.Owner),
+        ]);
+
+        var finding = card.Findings.Single(f => f.Kind is MsspFindingKind.Overridden);
+
+        await Assert.That(finding.Field).IsEqualTo("GENRE");
+        await Assert.That(finding.Value).IsEqualTo("Fantasy");
+        await Assert.That(finding.Detail).Contains("Horror");
+        await Assert.That(finding.Detail).Contains("Every other crawler still reads your report");
+    }
+
+    /// <summary>
+    /// A field can be both malformed and overridden, and an operator hears about both.
+    /// </summary>
+    /// <remarks>
+    /// The defect ladder reports one finding per variable because its findings are competing
+    /// descriptions of the same fault — a value cannot usefully be called both malformed and
+    /// non-standard. An override does not compete with a defect: a <c>GENRE</c> outside MSSP's
+    /// listed values <em>and</em> answered here gives an operator two separate things to do, one in
+    /// their config and one about what this site shows. Written inside the ladder, the second was
+    /// silently swallowed by the first — which is what this test caught.
+    /// </remarks>
+    [Test]
+    public async Task AMalformedValueAndAnOverrideAreBothWorthSaying()
+    {
+        var card = MsspLint.Inspect(
+        [
+            Field("NAME", "Corvid"),
+            Field("PLAYERS", "14"),
+            Field("UPTIME", "1753876000"),
+            Field("GENRE", "Adventure"),
+            Field("GENRE", "Horror", FieldSource.Owner),
+        ]);
+
+        var genre = card.Findings.Where(f => f.Field == "GENRE").ToList();
+
+        await Assert.That(genre.Select(f => f.Kind))
+            .IsEquivalentTo(new[] { MsspFindingKind.NonStandard, MsspFindingKind.Overridden });
+    }
+
+    /// <summary>
+    /// An override is not a defect in the report, and may not stop one meeting the standard.
+    /// </summary>
+    /// <remarks>
+    /// <c>NAME</c> is one of MSSP's three required variables, so an owner answering it over a
+    /// perfectly good report would otherwise flip <c>MeetsTheStandard</c> to false — the scorecard
+    /// telling an operator their config is broken because of something they did on our site.
+    /// </remarks>
+    [Test]
+    public async Task AnOverrideIsNotAFaultInTheReportItOverrides()
+    {
+        var card = MsspLint.Inspect(
+        [
+            Field("NAME", "Corvid"),
+            Field("PLAYERS", "14"),
+            Field("UPTIME", "1753876000"),
+            Field("NAME", "Corvid Court", FieldSource.Owner),
+        ]);
+
+        await Assert.That(card.Findings.Any(f => f.Kind is MsspFindingKind.Overridden)).IsTrue();
+        await Assert.That(card.RequiredFindings).IsEqualTo(0);
+        await Assert.That(card.MeetsTheStandard).IsTrue();
+    }
+
+    /// <summary>
+    /// An owner who typed exactly what their report says has not overridden anything.
+    /// </summary>
+    /// <remarks>
+    /// It is the same value, so there is nothing to tell them and nothing to fix in their config.
+    /// A finding here would be the scorecard inventing a disagreement to report.
+    /// </remarks>
+    [Test]
+    public async Task AnOverrideThatAgreesWithTheReportIsNotADisagreement()
+    {
+        var card = MsspLint.Inspect(
+        [
+            Field("NAME", "Corvid"),
+            Field("PLAYERS", "14"),
+            Field("UPTIME", "1753876000"),
+            Field("NAME", "Corvid", FieldSource.Owner),
+        ]);
+
+        await Assert.That(card.Findings.Any(f => f.Kind is MsspFindingKind.Overridden)).IsFalse();
+    }
+
+    /// <summary>
+    /// A withdrawn override is not an override, because withdrawing writes an empty value.
+    /// </summary>
+    /// <remarks>
+    /// Nothing is ever deleted, so the row survives the withdrawal and the linter has to read the
+    /// value rather than the row's existence. Otherwise a field somebody once answered and then gave
+    /// up would go on being reported as overridden for ever.
+    /// </remarks>
+    [Test]
+    public async Task AWithdrawnOverrideIsNotReportedAsOne()
+    {
+        var card = MsspLint.Inspect(
+        [
+            Field("NAME", "Corvid"),
+            Field("PLAYERS", "14"),
+            Field("UPTIME", "1753876000"),
+            Field("NAME", string.Empty, FieldSource.Owner),
+        ]);
+
+        await Assert.That(card.Findings.Any(f => f.Kind is MsspFindingKind.Overridden)).IsFalse();
+    }
+
     private static GameField Field(string field, string value, FieldSource source = FieldSource.Mssp) =>
         new(Game, field, source, value, Now.AddYears(-1), Now);
 }

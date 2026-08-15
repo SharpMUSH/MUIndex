@@ -16,6 +16,18 @@ public enum MsspFindingKind
 
     /// <summary>Carried and readable, but not one of the values MSSP lists for it.</summary>
     NonStandard,
+
+    /// <summary>
+    /// Carried, well-formed, and answered differently by an owner here (spec §8.5).
+    /// </summary>
+    /// <remarks>
+    /// <b>Not a defect, and counted as none.</b> The other four say something is wrong with the
+    /// report; this one says the report is fine and we are showing something else, which an operator
+    /// is entitled to know because <em>every other crawler still reads the report</em>. Saying it
+    /// once is what keeps this site from quietly becoming the only place a game's genre is right —
+    /// a worse outcome for the hobby than the wrong genre.
+    /// </remarks>
+    Overridden,
 }
 
 /// <summary>How much an operator should care.</summary>
@@ -147,6 +159,14 @@ public static class MsspLint
             .Where(field => field.Source is FieldSource.Mssp)
             .ToDictionary(field => field.Field, StringComparer.Ordinal);
 
+        // What an owner has answered over the report (§8.5). Read here so the scorecard can say
+        // where the two disagree — and kept strictly apart from `declared`, because this scores the
+        // REPORT. An override is not a variable their mush.cnf carries, and folding it in would tell
+        // an operator their config was fine when it is the thing they came here to check.
+        var overridden = fields
+            .Where(field => field.Source is FieldSource.Owner)
+            .ToDictionary(field => field.Field, StringComparer.Ordinal);
+
         // No report, no findings. We did not measure an absence of variables — we have not read an
         // MSSP report, which is a fact about our crawl and not about their server.
         if (declared.Count == 0)
@@ -227,6 +247,41 @@ public static class MsspLint
             }
         }
 
+        // A second pass, and separate from the ladder above on purpose.
+        //
+        // That loop reports at most one finding per variable, most important first, because its
+        // findings are competing descriptions of the same defect — a value cannot usefully be called
+        // both malformed and non-standard. An override is not a defect and does not compete with
+        // one: a GENRE that is both outside MSSP's listed values *and* answered here is a field an
+        // operator has two separate things to know about. Folded into the ladder the second one was
+        // silently swallowed by the first, which is how this was found.
+        foreach (var (field, importance) in Vocabulary())
+        {
+            if (!declared.TryGetValue(field, out var reported)
+                || !overridden.TryGetValue(field, out var owner))
+            {
+                continue;
+            }
+
+            // An empty owner row is a withdrawal, not an answer — nothing is deleted, so the row
+            // outlives the override and must stop counting when the value goes. And an owner who
+            // typed exactly what their report says has not disagreed with anything.
+            if (owner.Value.Length == 0
+                || string.Equals(owner.Value, reported.Value, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            findings.Add(new MsspFinding(
+                field,
+                MsspFindingKind.Overridden,
+                importance,
+                reported.Value,
+                $"Your report says “{reported.Value}” and you have told us “{owner.Value}” here, so "
+                + "that is what this site shows. Every other crawler still reads your report — "
+                + "putting it in your config fixes it everywhere."));
+        }
+
         return new MsspScorecard(
             HasReport: true,
             Answered: declared.Count(row => !unanswered(row.Value.Value)),
@@ -285,8 +340,17 @@ public sealed record MsspScorecard(
 {
     public static readonly MsspScorecard NoReport = new(false, 0, 0, []);
 
-    /// <summary>Findings against the three variables MSSP requires.</summary>
-    public int RequiredFindings => Findings.Count(f => f.Importance is MsspImportance.Required);
+    /// <summary>
+    /// Findings against the three variables MSSP requires — defects only.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="MsspFindingKind.Overridden"/> is excluded, and the exclusion is the point rather
+    /// than a tidiness: an owner answering <c>NAME</c> here would otherwise make a perfectly
+    /// well-formed report stop meeting the standard, which is this scorecard telling an operator
+    /// their config is broken because of something they did on our site.
+    /// </remarks>
+    public int RequiredFindings => Findings.Count(f =>
+        f.Importance is MsspImportance.Required && f.Kind is not MsspFindingKind.Overridden);
 
     /// <summary>Whether the report carries all three required variables, answered and well-formed.</summary>
     public bool MeetsTheStandard => HasReport && RequiredFindings == 0;

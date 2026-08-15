@@ -186,9 +186,18 @@ existing tone holds: it reads an operator their own MSSP back and never calls it
 
 `CatalogueBinder.MayBeListed` admits a stranger-proposed address only when the live probe carried a
 meaningful `NAME` or a `HOSTNAME`. It reads `result.Mssp` — the probe, not the store — so it is
-already unreachable from an owner row, and it stays that way. Worth writing down because the failure
-mode is a listing minted from a claim on a game that was never listed, and the only thing preventing
-it is which object that method reads.
+already unreachable from an owner row, and it stays that way.
+
+**This needs no new test, and the reason is structural rather than a judgement about how much
+coverage is enough.** An owner row cannot exist without a verified claim; a claim cannot exist
+without a game; and `ASubmittedAddressThatPublishesNoNameOfItsOwnIsNotListed` already proves no game
+is minted at all until the *probe* carries a name. There is no state in which an owner row exists for
+a game the gate has not already admitted, so a test of "an owner row does not list a game" would
+assert a tautology and read for ever as though it were guarding something.
+
+What remains true and is not a hazard: a *submitted* game is hidden from every public surface until
+somebody claims it (migration 0010), so claiming does make a listing appear. That is the design —
+the form's whole purpose — and not this section's concern.
 
 ## 4. The icon
 
