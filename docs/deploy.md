@@ -291,6 +291,39 @@ that cannot be re-observed. Snapshots at the provider are worth having and are n
 crash-consistent images inside the same account that an abuse ticket suspends. A nightly `pg_dump`
 belongs somewhere with a different login, and it is a backup only once it has been restored once.
 
+## Starting from an existing catalogue
+
+A deployment can be brought up on a database somebody already crawled. Restore **before** the site
+has ever run, not after: `MigrationRunner` applies what is missing from the ledger, so an older
+catalogue is carried forward by starting the site on it, and a restore into an already-migrated
+database collides with tables it just made.
+
+```bash
+docker compose up -d postgres                                  # postgres alone; no site yet
+docker compose exec -T postgres \
+  pg_restore -U muindex -d muindex --no-owner --no-acl < muindex-YYYY-MM-DD.dump
+docker compose exec postgres \
+  psql -U muindex -d muindex -c "DELETE FROM mui_migration WHERE name LIKE '0100_%'"
+docker compose up -d web                                       # applies 0009+ on the way up
+```
+
+Two things about an old catalogue, both of which have already been true once:
+
+- **`import_provenance` and its `0100_` migration must not come across.** The table and everything
+  around it are deleted from this project (§7.6) and a database predating that still has both. Dump
+  with `--exclude-table=import_provenance`, and delete the ledger row, which names a file the tree no
+  longer contains.
+- **Its measurements were taken from wherever it was crawled.** Presence and availability rows carry
+  no vantage point (see [what is still open](#what-is-still-open)), so a catalogue crawled from a
+  laptop and one crawled from this host are indistinguishable once merged. That is a decision to make
+  deliberately: the registry — games, endpoints, crawl targets, fields — is the part that is
+  vantage-independent, and `--exclude-table=presence_sample --exclude-table=availability_interval`
+  takes it without the part that is not.
+
+Every target restored is due immediately, its last probe being however old the dump is, so the first
+cycles after the site comes up are a burst bounded by `GlobalInterval` and `MaxConcurrency` — 709
+targets at the defaults is a few minutes of dialling, and `CRAWL DELAY` still wins per host.
+
 ## What is still open
 
 §15.1 and §15.3 are answered above. Three things this document now touches are not.
