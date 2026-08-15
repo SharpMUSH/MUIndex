@@ -56,11 +56,13 @@ namespace MUI.Crawler;
 /// </item>
 /// </list>
 /// <para>
-/// Two writes sit alongside the three writers because they are the same event seen from the game row
-/// rather than from the series: <c>last_reachable_at</c>, which is what §7.5's grace and §5.2's
-/// <c>quiet</c>-versus-<c>dark</c> band are both measured from, and §7.5's automatic un-archiving —
+/// Three writes sit alongside the three writers because they are the same event seen from the game
+/// row rather than from the series: <c>last_reachable_at</c>, which is what §7.5's grace and §5.2's
+/// <c>quiet</c>-versus-<c>dark</c> band are both measured from; §7.5's automatic un-archiving —
 /// "one successful probe restores the game to the default listing", with no human on either side of
-/// the transition.
+/// the transition; and §5.7's re-mint, because a game renaming itself is a measured change like any
+/// other and the name it is listed under has just been reconciled. The re-mint runs <em>after</em>
+/// the reconciler and never before it: it reads the winning <c>NAME</c> this probe just confirmed.
 /// </para>
 /// </remarks>
 public sealed class ProbeIngestor(
@@ -69,6 +71,7 @@ public sealed class ProbeIngestor(
     IFieldReconciler fields,
     IGameStore games,
     ArchiveSweeper archive,
+    SlugMinter slugs,
     ILogger<ProbeIngestor>? logger = null)
 {
     /// <summary>Applies everything one probe of one game means.</summary>
@@ -108,6 +111,11 @@ public sealed class ProbeIngestor(
         var reconciliation = await fields.ApplyAsync(
             gameId, FieldObservations.From(result), at, cancellationToken);
 
+        // §5.7, and strictly after the reconciliation above: the minter reads the winning NAME field,
+        // which this probe has just confirmed or moved. It re-mints nothing until that name has held
+        // for a grace period, so the common case is a read and no write.
+        var renamed = await slugs.ConsiderAsync(gameId, at, cancellationToken);
+
         // The two game-row facts. MarkReachableAsync only ever moves forward, so a slow probe landing
         // out of order cannot walk it backwards.
         await games.MarkReachableAsync(gameId, at, cancellationToken);
@@ -122,7 +130,8 @@ public sealed class ProbeIngestor(
                 "{Host}:{Port} answered again and is out of the archive", result.Host, result.Port);
         }
 
-        return new Ingestion(reachability, written, reading.Source, reading.Count, reconciliation, restored);
+        return new Ingestion(
+            reachability, written, reading.Source, reading.Count, reconciliation, restored, renamed);
     }
 
     private async Task<Ingestion> FailedAsync(
@@ -154,7 +163,8 @@ public sealed record Ingestion(
     FieldSource? Source,
     int? Count,
     FieldReconciliation Fields,
-    bool Restored)
+    bool Restored,
+    Rename? Renamed = null)
 {
     /// <summary>Whether a count was stored. False for a hatched cell and for a failed probe alike.</summary>
     public bool Counted => Presence is PresenceOutcome.Counted;

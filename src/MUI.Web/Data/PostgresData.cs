@@ -55,6 +55,12 @@ public static class PostgresData
         services.AddSingleton<IAvailabilityStore>(s =>
             new NpgsqlAvailabilityStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.AddSingleton<IAvailabilityHistory, StoredAvailabilityHistory>();
+
+        // §5.7's former-slug table. Registered here rather than only with the crawler because a
+        // read-only replica serves the redirects too — the promise is about URLs, not about which
+        // process happens to be writing.
+        services.AddSingleton<ISlugHistoryStore>(s =>
+            new NpgsqlSlugHistoryStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.AddSingleton<IGameQueries>(s => new NpgsqlGameQueries(
             s.GetRequiredService<NpgsqlDataSource>(),
             s.GetRequiredService<IFieldRegistry>()));

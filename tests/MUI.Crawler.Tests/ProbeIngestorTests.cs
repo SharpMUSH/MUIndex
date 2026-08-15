@@ -265,4 +265,44 @@ public class ProbeIngestorTests
         await Assert.That(uncountable.Activity).IsEqualTo(MUI.Discovery.ActivityBand.Unknown);
         await Assert.That(empty.Activity).IsEqualTo(MUI.Discovery.ActivityBand.Quiet);
     }
+
+    [Test]
+    public async Task AProbeThatConfirmsASettledNewNameMovesTheUrlAndKeepsTheOldOne()
+    {
+        // §5.7's re-mint is a consequence of the reconciliation this type has just performed, so it
+        // happens here and strictly after it: the minter reads the winning NAME this probe confirmed.
+        // The grace is a fortnight, and the two probes are a month apart.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed();
+        var ingestor = catalogue.Ingestor(grace: TimeSpan.FromDays(14));
+
+        await ingestor.IngestAsync(game, Probes.Answered(mssp: Probes.Mssp(("NAME", "Harbourlight"))));
+
+        var settled = await ingestor.IngestAsync(
+            game,
+            Probes.Answered(
+                mssp: Probes.Mssp(("NAME", "Harbourlight")), at: Probes.Observed.AddDays(30)));
+
+        await Assert.That(settled.Renamed!.Slug).IsEqualTo("harbourlight");
+        await Assert.That(settled.Renamed.FormerSlug).IsEqualTo("corvid");
+        await Assert.That(await catalogue.Slugs.CurrentSlugAsync("corvid")).IsEqualTo("harbourlight");
+    }
+
+    [Test]
+    public async Task AFailedProbeRenamesNothing()
+    {
+        // A dial that never got in confirmed nothing, so it has no opinion about what a game is
+        // called — and re-minting a URL off a name nobody just observed would be our crawler's
+        // schedule recorded as the game's own history.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed();
+        var ingestor = catalogue.Ingestor(grace: TimeSpan.FromDays(14));
+
+        await ingestor.IngestAsync(game, Probes.Answered(mssp: Probes.Mssp(("NAME", "Harbourlight"))));
+
+        var failed = await ingestor.IngestAsync(game, Probes.Failed(at: Probes.Observed.AddDays(30)));
+
+        await Assert.That(failed.Renamed).IsNull();
+        await Assert.That((await catalogue.Games.ByIdAsync(game))!.Slug).IsEqualTo("corvid");
+    }
 }

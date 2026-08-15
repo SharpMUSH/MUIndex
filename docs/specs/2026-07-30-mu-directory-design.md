@@ -889,11 +889,17 @@ Fixing it means putting `ProvenanceChip` on `GameSummary` for at least the count
 Until then, a consumer reading only the listing cannot tell a count measured four minutes ago from
 one asserted six years ago, which is exactly the confusion the incumbents' directories thrive on.
 
-Three smaller gaps found the same way, all currently worked around inside `src/MUI.Web/Api/`:
-`IGameQueries` has no `FindAsync(Guid)`, so a GUID lookup scans the whole listing; `FeedEntry` has no
-`Id`, so every feed request reads the listing to join identifiers onto slugs; and §5.7's
-forever-redirect has no former-slug table, so aliases live in configuration rather than beside the
-games.
+Two smaller gaps found the same way, both currently worked around inside `src/MUI.Web/Api/`:
+`IGameQueries` has no `FindAsync(Guid)`, so a GUID lookup scans the whole listing; and `FeedEntry`
+has no `Id`, so every feed request reads the listing to join identifiers onto slugs.
+
+A third is closed. §5.7's forever-redirect now has `game_slug_history` beside the games, written by
+the only thing that re-mints a slug: `SlugMinter`, when the winning `NAME` has held for a grace
+period. A row there names a **game** rather than another slug, so a game renamed twice redirects from
+its oldest URL in one hop, a cycle cannot be expressed, and an archived game's former URLs work
+exactly as its page does. `ConfiguredSlugHistory` survives behind it and is not a leftover: the site
+starts on the demo fixture with no database at all, and an operator carrying a rename no probe can
+know about is still doing something legitimate.
 
 ## 11. Politeness, consent, privacy
 

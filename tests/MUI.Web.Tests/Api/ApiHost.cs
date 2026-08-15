@@ -43,7 +43,19 @@ public sealed class ApiHost : IAsyncDisposable
     /// <summary>The instant every age in a response is measured from. Fixed, so ages are assertable.</summary>
     public static DateTimeOffset Now => FixtureGameQueries.Now;
 
-    public static async Task<ApiHost> StartAsync(Dictionary<string, string?>? settings = null)
+    /// <summary>A host with a catalogue's services and no configuration of its own.</summary>
+    public static Task<ApiHost> StartAsync(Action<IServiceCollection> services) =>
+        StartAsync(null, services);
+
+    /// <param name="settings">Configuration this host is to read, as a deployment would supply it.</param>
+    /// <param name="services">
+    /// Anything a database would have registered — the former-slug store, above all. Applied before
+    /// <c>AddMuiApi</c>, because that is the order a real host composes in: the catalogue is chosen
+    /// first and the API asks what it found.
+    /// </param>
+    public static async Task<ApiHost> StartAsync(
+        Dictionary<string, string?>? settings = null,
+        Action<IServiceCollection>? services = null)
     {
         var builder = WebApplication.CreateSlimBuilder();
 
@@ -58,6 +70,7 @@ public sealed class ApiHost : IAsyncDisposable
         builder.Services.AddSingleton<IAvailabilityHistory>(
             s => s.GetRequiredService<FixtureGameQueries>());
         builder.Services.AddSingleton<TimeProvider>(new FixedClock(Now));
+        services?.Invoke(builder.Services);
         builder.Services.AddMuiApi(builder.Configuration);
 
         // Port zero: the suite runs in parallel and a fixed port would make two tests fight.

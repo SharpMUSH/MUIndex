@@ -1,3 +1,5 @@
+using MUI.Catalog.Persistence;
+
 using Microsoft.Extensions.Options;
 
 namespace MUI.Web.Api;
@@ -32,7 +34,19 @@ public static class MuiApi
             options => configuration.GetSection(SlugAliasOptions.Section).Bind(options.Aliases));
 
         services.AddSingleton<IAttributionSource, ConfiguredAttributionSource>();
-        services.AddSingleton<ISlugHistory, ConfiguredSlugHistory>();
+
+        // The table where there is a database and the configuration where there is not, decided when
+        // the graph is built rather than by registration order — this call happens before a host has
+        // said whether it has a catalogue behind it, and on the fixture there is nothing to ask.
+        services.AddSingleton<ISlugHistory>(s =>
+        {
+            var configured = new ConfiguredSlugHistory(
+                s.GetRequiredService<IOptions<SlugAliasOptions>>());
+
+            return s.GetService<ISlugHistoryStore>() is { } store
+                ? new StoredSlugHistory(store, configured)
+                : configured;
+        });
 
         return services;
     }

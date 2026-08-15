@@ -7,6 +7,7 @@ using MUI.Discovery;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 using Npgsql;
 
@@ -82,6 +83,7 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<IGameStore>(s => new NpgsqlGameStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IEndpointStore>(s => new NpgsqlEndpointStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IGameFieldStore>(s => new NpgsqlGameFieldStore(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<ISlugHistoryStore>(s => new NpgsqlSlugHistoryStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IPresenceStore>(s => new NpgsqlPresenceStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton(s => new NpgsqlAvailabilityStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IAvailabilityStore>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());
@@ -122,6 +124,15 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<HostScopeGuard>();
 
         services.TryAddSingleton<IProbe>(s => new TelnetProbe(s.GetRequiredService<ProbeOptions>()));
+
+        // §5.7's re-mint. The default grace, because how long a name must hold before it earns a new
+        // URL is a property of the promise rather than something a deployment tunes.
+        services.TryAddSingleton(s => new SlugMinter(
+            s.GetRequiredService<IGameStore>(),
+            s.GetRequiredService<IGameFieldStore>(),
+            s.GetRequiredService<ISlugHistoryStore>(),
+            grace: null,
+            s.GetService<ILogger<SlugMinter>>()));
 
         services.TryAddSingleton<ProbeIngestor>();
         services.TryAddSingleton<CatalogueBinder>();
