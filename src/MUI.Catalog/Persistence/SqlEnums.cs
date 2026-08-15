@@ -52,6 +52,22 @@ public static class SqlEnums
     /// The channel a claim token was read from (spec §8.3). DNS is absent from the enum, not merely
     /// unmapped here — a TXT record proves control of a hostname, and a hostname is not a game.
     /// </summary>
+    public static string ToDb(ProbePayloadKind kind) => kind switch
+    {
+        ProbePayloadKind.Who => "who",
+        ProbePayloadKind.Mssp => "mssp",
+        ProbePayloadKind.Banner => "banner",
+        _ => throw Unmapped(kind),
+    };
+
+    public static ProbePayloadKind ToProbePayloadKind(string value) => value switch
+    {
+        "who" => ProbePayloadKind.Who,
+        "mssp" => ProbePayloadKind.Mssp,
+        "banner" => ProbePayloadKind.Banner,
+        _ => throw Unread(value, nameof(ProbePayloadKind)),
+    };
+
     public static string ToDb(ClaimChannel channel) => channel switch
     {
         ClaimChannel.Mssp => "mssp",

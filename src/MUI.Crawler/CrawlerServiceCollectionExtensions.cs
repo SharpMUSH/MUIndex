@@ -196,6 +196,10 @@ public static class CrawlerServiceCollectionExtensions
 
         services.TryAddSingleton<ProbeIngestor>();
         services.TryAddSingleton<CatalogueBinder>();
+        // §11's replay window, written by the crawl loop and swept by the maintenance pass.
+        services.TryAddSingleton<IProbePayloads>(s => new NpgsqlProbePayloads(
+            s.GetRequiredService<NpgsqlDataSource>()));
+
         services.TryAddSingleton<CrawlCycle>();
 
         // Registered even when the crawl is off, so that CrawlerService says so once in the log and

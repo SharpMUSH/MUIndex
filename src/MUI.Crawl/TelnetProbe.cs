@@ -161,6 +161,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Negotiation = seen.ToNegotiation(),
                 Banner = banner,
                 Who = new WhoParser().Parse(whoText),
+                WhoShape = PayloadRedaction.Structural(whoText),
                 Info = infoText.Length == 0 ? null : infoText,
                 Version = versionText.Length == 0 ? null : versionText,
                 BannerPlayerCount = BannerCount.Find(banner),

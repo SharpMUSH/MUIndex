@@ -158,6 +158,8 @@ var cycle = new CrawlCycle(
     // §8 — a probe of a claimed game refreshes what we last saw, and a probe of a game whose owner
     // has just published their token settles the claim. Both happen on the ordinary schedule.
     new ClaimService(new NpgsqlClaimStore(source), games, time),
+    // §11 — a CLI crawl fills the same replay window an in-process one does.
+    new NpgsqlProbePayloads(source),
     loggerFactory.CreateLogger<CrawlCycle>());
 
 if (arguments.DryRun)

@@ -1076,9 +1076,25 @@ probe can know about is still doing something legitimate.
 - **Player names are never persisted.** WHO responses are parsed in memory. Aggregates use salted
   hashes with a rotating salt, so a unique-player estimate is possible while re-identification
   across salt epochs is not.
-- Raw probe payloads are retained on a short TTL, redacted of names before touching disk, keyed to
-  the `GameField` and `FieldChange` writes they produced so that parser improvements can be
-  replayed over a recent window.
+- Probe **shapes** are retained on a short TTL, keyed to the address and instant the `GameField` and
+  `FieldChange` writes carry, so that parser improvements can be replayed over a recent window.
+  - **This asked for two things that cannot both be had — closed.** It said *raw payloads, redacted
+    of names*. The payload worth replaying is the `WHO`, because that is where the parser fails, and
+    it is also the only place a player name appears. Redacting names out of it means locating them,
+    which means parsing it correctly, which is exactly what failed: **the payloads most worth
+    keeping are the ones a name-finding redactor cannot clean.**
+  - So no payload text is stored. `PayloadRedaction.Structural` keeps the *shape* — every column
+    position, every run of whitespace, every digit and every punctuation mark where it was, each run
+    of letters masked to the same length unless it is a word the parser itself reads. The parser is
+    structural, so structure is the whole of what a replay needs, and the redaction happens inside
+    the probe: the raw response is a local in one method and is never a member of anything.
+  - Digits survive verbatim, because "there are 16 players connected" is the sentence a replay most
+    wants and a number of players is not a person. The honest limit is that a player calling
+    themselves `Connected` keeps their name — one dictionary word in a column, attributable to
+    nobody, and the alternative costs every summary sentence the parser exists to read.
+  - The TTL defaults to a fortnight and **defaults to deleting**, which no other retention here
+    does. A shape is not a measurement; it is the evidence a measurement was read out of, and its
+    value is gone within a release cycle.
 - Connect screens are displayed on the grounds that the server sends them unauthenticated to every
   anonymous connection. Suppressed on owner request, no questions asked.
 

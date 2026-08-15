@@ -25,7 +25,10 @@ public sealed class PresenceMaintenance(
     NpgsqlPresenceStore samples,
     NpgsqlPresenceRollupStore rollups,
     PresenceRetentionOptions retention,
-    ILogger? logger = null)
+    ILogger? logger = null,
+    // §11's redacted probe shapes, swept by the same pass. Optional so a deployment that predates
+    // the table keeps rolling presence up rather than failing on a missing relation.
+    IProbePayloads? payloads = null)
 {
     /// <summary>
     /// Whether the schema this pass works on has been applied yet.
@@ -144,6 +147,20 @@ public sealed class PresenceMaintenance(
         DateTimeOffset now,
         CancellationToken cancellationToken = default)
     {
+        // §11's shapes go first and unconditionally. They are clamped to nothing — no rollup reads
+        // them and nothing is derived from them — so the ordering that protects presence has no
+        // bearing here, and a TTL that waited on a watermark would keep a payload alive because a
+        // rollup was late.
+        if (payloads is not null && retention.ProbePayloads is { } keepShapes)
+        {
+            var gone = await payloads.SweepAsync(now - keepShapes, cancellationToken);
+
+            if (gone > 0)
+            {
+                logger?.LogInformation("Dropped {Count} probe shapes past their TTL", gone);
+            }
+        }
+
         var hourly = await rollups.WatermarkAsync(PresenceGrain.Hour, cancellationToken);
         var daily = await rollups.WatermarkAsync(PresenceGrain.Day, cancellationToken);
 

@@ -57,6 +57,9 @@ public sealed class CrawlCycle(
     // Optional, and null on every path that has no database behind it. A crawl that cannot settle
     // claims is a crawl doing slightly less, not a crawl that should refuse to run.
     ClaimService? claims = null,
+    // §11's replay window. Optional for the same reason claims are — a crawl that cannot record a
+    // shape is a crawl doing slightly less, not one that should refuse to dial.
+    IProbePayloads? payloads = null,
     ILogger<CrawlCycle>? logger = null)
 {
     /// <summary>Probes everything that is due, and returns what the pass did.</summary>
@@ -186,6 +189,8 @@ public sealed class CrawlCycle(
         budget.CancelAfter(options.ProbeTimeout);
 
         var result = await probe.ProbeAsync(new ProbeTarget(target.Host, target.Port), budget.Token);
+
+        await RecordShapeAsync(target, result, cancellationToken);
 
         // Read before anything is stored, so that a game which used this reply to ask us to stop is
         // never dialled again — including by the rest of this same cycle (§11's "within one cycle").
@@ -375,6 +380,44 @@ public sealed class CrawlCycle(
     }
 
     /// <summary>Mutable running total for one cycle. Written from every worker, so it locks.</summary>
+    /// <summary>
+    /// Records the shape of what this probe read, for §11's replay window.
+    /// </summary>
+    /// <remarks>
+    /// Failure here is swallowed to a warning. A shape is evidence about our parser and nothing on
+    /// the site is derived from one, so a write that fails must not cost the measurement the probe
+    /// just took — which is stored after this and is what the crawl exists for.
+    /// </remarks>
+    private async Task RecordShapeAsync(
+        CrawlTarget target,
+        ProbeResult result,
+        CancellationToken cancellationToken)
+    {
+        if (payloads is null || result.WhoShape is not { Length: > 0 } shape)
+        {
+            return;
+        }
+
+        try
+        {
+            await payloads.RecordAsync(
+                [
+                    new ProbePayload(
+                        target.GameId,
+                        target.Host,
+                        target.Port,
+                        time.GetUtcNow(),
+                        ProbePayloadKind.Who,
+                        shape),
+                ],
+                cancellationToken);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            logger?.LogWarning(error, "The probe shape for {Target} was not recorded", target);
+        }
+    }
+
     private sealed class Tally
     {
         private readonly Lock _gate = new();
