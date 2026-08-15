@@ -20,7 +20,8 @@
     access to that server published it, and the account this claim is bound to answers who asked.
 *@
 
-<PageTitle>Claim @(Game?.Name ?? Slug) — mu*index</PageTitle>
+<SitePreview Title="@($"Claim {Game?.Name ?? Slug}")" Data="false"
+             Description="Prove you run this game by publishing a token where only its operator could put it." />
 
 @if (Game is null)
 {

@@ -56,11 +56,40 @@ public sealed class SiteHost : IAsyncDisposable
     public static Task<SiteHost> StartAsync(Action<IServiceCollection> services) =>
         StartAsync(null, services);
 
+    /// <param name="measured">
+    /// Whether the site should believe a catalogue is configured. <see cref="Fixtures.FixtureGameQueries"/>
+    /// still answers every read — this asks what the site renders when the numbers are real, not
+    /// what a real database holds, which is the same knob <c>Render.PageAsync</c> already has and
+    /// exists for the same reason: several surfaces are deliberately different over the demo
+    /// fixture, and a suite that can only start one of the two worlds can only test one of them.
+    /// It goes on after <see cref="SiteComposition.AddMuiSite"/> because that call registers the
+    /// marker itself, from the connection string it was handed.
+    /// </param>
+    /// <param name="clock">
+    /// What the site should believe the time is. The fixture stamps its facts at a fixed instant on
+    /// purpose — a demo on which nothing is ever old would not show the state worth showing — so
+    /// every age it renders is measured against the wall clock and grows by a day each day. A test
+    /// asserting on "4m ago" has to pin the other end of that subtraction or it is asserting on the
+    /// date it was written.
+    /// </param>
     public static async Task<SiteHost> StartAsync(
         Dictionary<string, string?>? settings = null,
-        Action<IServiceCollection>? services = null)
+        Action<IServiceCollection>? services = null,
+        bool measured = false,
+        TimeProvider? clock = null)
     {
-        var builder = WebApplication.CreateSlimBuilder();
+        // Named for the web project, so UseStaticWebAssets below finds the manifest that project
+        // wrote into this one's output — see the call for why that matters.
+        var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
+        {
+            ApplicationName = typeof(SiteComposition).Assembly.GetName().Name,
+        });
+
+        // wwwroot. Without this the site's own stylesheet, its icons and its manifest are 404s here
+        // and nowhere else, because the content root of a test host is the test project's output
+        // directory — so the one thing that would notice a renamed or unshipped asset could not see
+        // any of them. CreateSlimBuilder does not wire it up; that is what makes it slim.
+        builder.WebHost.UseStaticWebAssets();
 
         builder.Logging.ClearProviders();
         if (settings is { Count: > 0 })
@@ -75,6 +104,16 @@ public sealed class SiteHost : IAsyncDisposable
         // The site's own registrations — the fixture catalogue, the clock, the demo marker and the
         // read API — through the one call Program makes.
         builder.Services.AddMuiSite(builder.Configuration, connectionString: null);
+
+        if (measured)
+        {
+            builder.Services.AddSingleton(new MUI.Web.Data.CatalogueSource(IsMeasured: true));
+        }
+
+        if (clock is not null)
+        {
+            builder.Services.AddSingleton(clock);
+        }
 
         builder.WebHost.UseUrls("http://127.0.0.1:0");
 

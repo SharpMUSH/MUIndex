@@ -158,6 +158,11 @@ public static class SiteComposition
         app.MapRazorComponents<App>();
         app.MapMuiApi();
 
+        // robots.txt and sitemap.xml. After the pages, because they are about the pages — and the
+        // sitemap reads the catalogue through the same IGameQueries every surface reads, so it
+        // cannot advertise a game the site would not render.
+        app.MapMuiSiteIndex();
+
         return app;
     }
 

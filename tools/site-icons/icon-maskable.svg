@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="mu*index">
+  <!--
+    The same mark, laid out for Android's maskable rule: the platform crops to a shape inscribed in
+    the middle 80% of the canvas, so the plate is full bleed with square corners and the arms are
+    shortened to sit inside the safe circle. Handing it the ordinary icon instead gets the rounded
+    corners cropped off and the arms clipped at the edge of whatever shape the launcher chose.
+  -->
+  <rect width="32" height="32" fill="#0f1113"/>
+  <g stroke="#35d29a" stroke-width="3" stroke-linecap="round">
+    <line x1="16" y1="9.5" x2="16" y2="22.5"/>
+    <line x1="10.37" y1="12.75" x2="21.63" y2="19.25"/>
+    <line x1="10.37" y1="19.25" x2="21.63" y2="12.75"/>
+  </g>
+</svg>

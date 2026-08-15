@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="mu*index">
+  <!--
+    The asterisk out of the wordmark, drawn as three strokes rather than typed as a character.
+
+    The site sets its mark in a mono face it deliberately loads from nowhere — a rendered page here
+    may fetch from no external host — so an icon built from a glyph would be whatever the reader's
+    browser fell back to, which at sixteen pixels is the difference between a mark and a smudge.
+
+    The plate is the page background and the arms are the accent, in their dark-theme values, in
+    both themes. That is not an oversight: the accent means *measured* and changes value with the
+    theme so it can clear 4.5:1 against the surface it is on — and here that surface is this plate,
+    which travels with the icon into a browser chrome the stylesheet knows nothing about. Following
+    the reader's theme would flip the plate to #f7f8f9 and hide the icon's own edge against a light
+    tab strip, having solved a contrast problem that the plate had already solved.
+  -->
+  <rect width="32" height="32" rx="6.5" fill="#0f1113"/>
+  <g stroke="#35d29a" stroke-width="3.6" stroke-linecap="round">
+    <line x1="16" y1="7" x2="16" y2="25"/>
+    <line x1="8.21" y1="11.5" x2="23.79" y2="20.5"/>
+    <line x1="8.21" y1="20.5" x2="23.79" y2="11.5"/>
+  </g>
+</svg>

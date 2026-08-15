@@ -5,7 +5,8 @@ using Microsoft.AspNetCore.HttpOverrides;
 namespace MUI.Web.Submissions;
 
 /// <summary>
-/// Where a request came from, when the answer decides a rate limit (spec §11).
+/// Where a request came from, and over what — when the answer decides a rate limit (spec §11) or
+/// an absolute URL.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,6 +21,15 @@ namespace MUI.Web.Submissions;
 /// exists for. So this is off unless a deployment says how many proxies are in front of it, and the
 /// framework's own <c>ForwardedHeaders</c> middleware — which walks exactly that many hops and no
 /// more — is what does the walking. Nothing is inferred from the presence of a header.
+/// </para>
+/// <para>
+/// <b>The scheme travels the same way, under the same gate.</b> That same proxy is what terminates
+/// TLS, so <c>Request.Scheme</c> behind it is <c>http</c> — and every absolute URL the deployment
+/// generates then names a scheme no reader used. <see cref="SiteUrls"/> is the reason this became
+/// visible, but it was already wrong: the RSS feed's own self-link is built from the request, so a
+/// deployed feed has been advertising <c>http://</c> URLs for itself. <c>X-Forwarded-Host</c> is
+/// deliberately <em>not</em> taken — a forwarded host rewrites which site we claim to be, nothing
+/// here needs it, and it is the header host-spoofing attacks are written against.
 /// </para>
 /// </remarks>
 public static class SubmitterAddress
@@ -70,7 +80,7 @@ public static class SubmitterAddress
 
         var options = new ForwardedHeadersOptions
         {
-            ForwardedHeaders = ForwardedHeaders.XForwardedFor,
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
             ForwardLimit = hops,
         };
 

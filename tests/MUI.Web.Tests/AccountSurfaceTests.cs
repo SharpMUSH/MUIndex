@@ -418,6 +418,11 @@ public class AccountSurfaceTests
 
                 services.AddLogging();
                 services.AddSingleton<IGameQueries>(fixture);
+
+                // What the page's preview metadata switches on. These are owner surfaces, so the
+                // marker changes nothing they render — but the component asks for it, and a graph
+                // that cannot answer is a page that cannot render at all.
+                services.AddSingleton(new MUI.Web.Data.CatalogueSource(IsMeasured: true));
                 services.AddSingleton<TimeProvider>(new Frozen(Now));
                 services.AddSingleton<NavigationManager>(new At(query));
 

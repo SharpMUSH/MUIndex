@@ -323,6 +323,11 @@ public class AboutPageTests
         services.AddSingleton<IOptions<DatasetLicenceOptions>>(
             Options.Create(new DatasetLicenceOptions()));
 
+        // Whether a catalogue is configured, which the page's preview metadata switches on: over a
+        // fixture the description says so, because no unfurler renders the banner that says it in
+        // the body. Not measured, matching the rest of this harness.
+        services.AddSingleton(new MUI.Web.Data.CatalogueSource(IsMeasured: false));
+
         await using var provider = services.BuildServiceProvider();
         await using var renderer = new HtmlRenderer(provider, NullLoggerFactory.Instance);
 
