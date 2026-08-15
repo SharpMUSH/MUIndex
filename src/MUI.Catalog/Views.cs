@@ -15,8 +15,16 @@ public sealed record ProvenanceChip(
     DateTimeOffset LastConfirmedAt,
     bool IsStale)
 {
-    /// <summary>Whether somebody observed this, as opposed to a game asserting it.</summary>
-    public bool IsMeasured => Source is FieldSource.Handshake or FieldSource.Who;
+    /// <summary>
+    /// Whether somebody observed this, as opposed to a game reporting it.
+    /// </summary>
+    /// <remarks>
+    /// Answered by <see cref="FieldSources"/> and not spelled out here. Every surface that says
+    /// "measured" or "declared" — this chip, the API's <c>playersNowState</c>, the badge a game
+    /// embeds on its own site — resolves through that one predicate, because a line drawn twice is
+    /// a line that moves once.
+    /// </remarks>
+    public bool IsMeasured => FieldSources.IsMeasured(Source);
 }
 
 /// <summary>

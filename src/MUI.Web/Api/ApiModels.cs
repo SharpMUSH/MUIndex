@@ -94,10 +94,15 @@ public sealed record PresenceView(
 /// <remarks>
 /// <para>
 /// Three members, because there were two and the missing one was being answered with
-/// <see cref="Measured"/>. A game that publishes <c>PLAYERS</c> in MSSP, or states a number on its
-/// connect screen, has told us something about itself; calling that a measurement of ours is rule 5,
-/// and it shipped in the same object as a <c>playersNowProvenance.measured</c> of <c>false</c>
-/// saying the opposite.
+/// <see cref="Measured"/>. A game that publishes <c>PLAYERS</c> in MSSP has reported a number about
+/// itself; calling that a measurement of ours is rule 5, and it shipped in the same object as a
+/// <c>playersNowProvenance.measured</c> of <c>false</c> saying the opposite.
+/// </para>
+/// <para>
+/// A count read off a connect screen is <see cref="Measured"/>, not <see cref="Declared"/> — we open
+/// a socket and parse that text ourselves on every probe. <c>playersNowProvenance.source</c> still
+/// tells the three apart (<c>who</c>, <c>banner</c>, <c>mssp</c>) for a consumer who cares which,
+/// and <c>MUI.Catalog.FieldSources</c> is the one place the line is drawn.
 /// </para>
 /// <para>
 /// <see cref="Unknown"/> is "we cannot say it was measured", which covers the ordinary case of no

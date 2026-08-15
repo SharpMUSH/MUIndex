@@ -135,6 +135,7 @@ public sealed class NpgsqlSubmissionLog(NpgsqlDataSource dataSource) : ISubmissi
         SubmissionOutcome.Malformed => "malformed",
         SubmissionOutcome.RefusedNotRoutable => "refused_not_routable",
         SubmissionOutcome.Unresolvable => "unresolvable",
+        SubmissionOutcome.RefusedOptOut => "refused_opt_out",
         _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "Not a recordable outcome."),
     };
 }
