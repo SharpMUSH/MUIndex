@@ -275,7 +275,9 @@ TUnit, in the suites these already live in.
 
 ## 7. Order of work
 
-Four PRs, in this order, because each is useful shipped alone and the dependencies run one way.
+One PR, in four commits in this order. The sequence is not a delivery decision — it is a
+correctness one, and (2) before (3) especially: the identity fix is a no-behaviour-change refactor
+today and a live de-duplication hole the moment the writable set widens.
 
 1. **§1 — reaching your account.** Independent of everything else, and it is the door the rest is
    behind. Header slot, persistent cookie, conditional mediation.
