@@ -217,6 +217,10 @@ public class OwnerEndpointTests
 
         // Never the whole host, however convenient that would have been to write.
         await Assert.That(recorded.Any(o => o.Port is null)).IsFalse();
+
+        // And never an address the game has left. The fixture's m-u-s-h has a third, departed
+        // endpoint; somebody else may be answering there now, and this owner does not speak for it.
+        await Assert.That(recorded.Any(o => o.Host == "mush.example.net")).IsFalse();
         await Assert.That(recorded.All(o => o.Source is OptOutSource.Request)).IsTrue();
 
         // §11 requires the request route to say who asked, and the account is the one that can.

@@ -155,7 +155,14 @@ public sealed class OwnerOptOut(
             return [];
         }
 
+        // Current addresses only. An address a game has LEFT may already be answering for somebody
+        // else — that is what a host with a spare port is for — and opting out on this owner's
+        // say-so would then stop us dialling a game they have nothing to do with. It is the same
+        // harm the whole-host shortcut would have caused, arriving by way of a stale row instead.
+        // The departed endpoint stays on the page, where it belongs (§7.5); it is simply not
+        // something this owner still speaks for.
         return [.. page.Endpoints
+            .Where(e => e.IsCurrent)
             .Select(e => (e.Host, e.Port))
             .Distinct()];
     }
