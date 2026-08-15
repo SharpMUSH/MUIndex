@@ -137,6 +137,11 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
         // row exists to say "this URL is spoken for and here is whose", and re-stamping it would
         // rewrite when a URL somebody bookmarked started redirecting.
         //
+        // The answer is read from `previous` and NOT from the insert. A game that goes A -> B -> A -> B
+        // retires a slug already in the table, so the insert is suppressed and RETURNING yields
+        // nothing — which reported "the slug did not move" while it moved. What the caller asked is
+        // what this game was at a moment ago; the row it already has is the record, not the write.
+        //
         // The unique index on game.slug is the guard against re-minting a URL another game holds; it
         // raises here rather than letting two games answer to one address.
         return await connection.QuerySingleOrDefaultAsync<string?>(new CommandDefinition(
@@ -153,7 +158,7 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
                  WHERE id = @id AND EXISTS (SELECT 1 FROM previous)
                 RETURNING id
             )
-            SELECT slug FROM retired
+            SELECT slug FROM previous WHERE slug <> @slug
             """,
             new { id, name, slug, at = at.ToUniversalTime() },
             cancellationToken: cancellationToken));

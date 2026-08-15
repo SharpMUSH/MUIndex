@@ -111,11 +111,6 @@ public sealed class ProbeIngestor(
         var reconciliation = await fields.ApplyAsync(
             gameId, FieldObservations.From(result), at, cancellationToken);
 
-        // §5.7, and strictly after the reconciliation above: the minter reads the winning NAME field,
-        // which this probe has just confirmed or moved. It re-mints nothing until that name has held
-        // for a grace period, so the common case is a read and no write.
-        var renamed = await slugs.ConsiderAsync(gameId, at, cancellationToken);
-
         // The two game-row facts. MarkReachableAsync only ever moves forward, so a slow probe landing
         // out of order cannot walk it backwards.
         await games.MarkReachableAsync(gameId, at, cancellationToken);
@@ -129,6 +124,14 @@ public sealed class ProbeIngestor(
             logger?.LogInformation(
                 "{Host}:{Port} answered again and is out of the archive", result.Host, result.Port);
         }
+
+        // §5.7, and last of everything this probe does. After the reconciliation because it reads the
+        // winning NAME that reconciliation just confirmed; after the two writes above because it is
+        // the only step here that can fail on a precondition rather than on the database being gone —
+        // two games settling on one name race at the unique index — and a URL that could not be
+        // re-minted this cycle must never cost a measurement that was already made. It re-mints
+        // nothing until a name has held for a grace period, so the common case is a read and no write.
+        var renamed = await slugs.ConsiderAsync(gameId, at, cancellationToken);
 
         return new Ingestion(
             reachability, written, reading.Source, reading.Count, reconciliation, restored, renamed);

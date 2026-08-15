@@ -176,8 +176,6 @@ else
     /// </remarks>
     private bool Claimable => Services.GetService<MUI.Catalog.Persistence.ClaimService>() is not null;
 
-    [CascadingParameter] private HttpContext? Http { get; set; }
-
     [Parameter] public string Slug { get; set; } = string.Empty;
 
     [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }

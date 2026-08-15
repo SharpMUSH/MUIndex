@@ -16,20 +16,24 @@ namespace MUI.Web;
 /// promise <see cref="ISlugHistory"/> keeps for the API, kept for the site.
 /// </para>
 /// <para>
-/// <b>Middleware ahead of the Blazor route rather than a branch inside the page</b>, for two reasons.
-/// The page is a component with no honest way to send a 301 — <c>NavigationManager.NavigateTo</c>
-/// under static SSR produces a temporary redirect, and §5.7's promise is permanent. And a redirect is
-/// a fact about a URL rather than about a game, so it belongs where URLs are decided; the page is
-/// then reached only by slugs that are current, and renders "not found" only for slugs nobody ever
-/// held.
+/// <b>Middleware rather than a branch inside the page</b>, because a component has no honest way to
+/// send a 301: <c>NavigationManager.NavigateTo</c> under static server rendering produces a
+/// temporary redirect, and §5.7's promise is permanent.
 /// </para>
 /// <para>
-/// <b>One indexed lookup, and only ever the history's.</b> Asking whether the game exists first would
-/// double the reads on every page view for the sake of a case that is rare by construction — and it
-/// would answer a question this does not need: a hit here means the slug asked for is *not* the
-/// current one for the game that wore it, because the store's own query refuses to answer with the
-/// slug it was given. A game that took back a name it used to have therefore resolves to itself and
-/// does not bounce.
+/// <b>A slug some game still wears is never a former slug, whatever the record says</b> — and that is
+/// checked here rather than assumed of the record. <see cref="ISlugHistoryStore"/>'s own query knows
+/// which slugs are live (<c>g.slug &lt;&gt; h.slug</c>) and <see cref="ConfiguredSlugHistory"/>
+/// cannot, so trusting the answer would let one stale hand-written alias permanently redirect
+/// readers off a working game's page — a mistake a browser caches and a reader cannot undo. The
+/// guard costs a lookup only when an alias actually matches, which is rare by construction: the
+/// table answers for a slug that has been retired, and configuration for the handful an operator
+/// wrote down.
+/// </para>
+/// <para>
+/// It cannot be done the other way round — letting the route answer and rewriting its 404 — because
+/// the response has already started by the time a Razor Components endpoint returns one. Measured,
+/// not assumed.
 /// </para>
 /// </remarks>
 public static class FormerSlugRedirects
@@ -43,21 +47,20 @@ public static class FormerSlugRedirects
 
         return app.Use(async (context, next) =>
         {
-            if (SlugOf(context.Request) is { } slug
-                && await MovedToAsync(context, slug) is { } current)
+            if (SlugOf(context.Request) is not { } slug
+                || await MovedToAsync(context, slug) is not { } current)
             {
-                context.Response.StatusCode = StatusCodes.Status301MovedPermanently;
-
-                // The query string travels with it. Plain mode is a real second surface (§9), and
-                // sending a reader who asked for ?plain=1 to the graphical page would be answering a
-                // question they did not ask.
-                context.Response.Headers[HeaderNames.Location] =
-                    $"{GamePrefix}{Uri.EscapeDataString(current)}{context.Request.QueryString}";
-
+                await next(context);
                 return;
             }
 
-            await next(context);
+            context.Response.StatusCode = StatusCodes.Status301MovedPermanently;
+
+            // The query string travels with it. Plain mode is a real second surface (§9), and
+            // sending a reader who asked for ?plain=1 to the graphical page would be answering a
+            // question they did not ask.
+            context.Response.Headers[HeaderNames.Location] =
+                $"{GamePrefix}{Uri.EscapeDataString(current)}{context.Request.QueryString}";
         });
     }
 
@@ -84,8 +87,8 @@ public static class FormerSlugRedirects
 
         var segment = request.Path.Value[GamePrefix.Length..].TrimEnd('/');
 
-        // One segment only. /g/corvid/history is somebody else's route, present or future, and a
-        // redirect that swallowed it would be this middleware deciding what the site's URLs mean.
+        // One segment only. /g/corvid/claim/check is somebody else's route (§8.1), and a redirect
+        // that swallowed it would be this middleware deciding what the site's URLs mean.
         return segment.Length > 0 && !segment.Contains('/', StringComparison.Ordinal) ? segment : null;
     }
 
@@ -94,23 +97,28 @@ public static class FormerSlugRedirects
     /// there.
     /// </summary>
     /// <remarks>
-    /// The last case is only reachable through <see cref="ConfiguredSlugHistory"/> — the table's own
-    /// answer comes from a join and cannot name a game that does not exist. An operator's typo should
-    /// leave the reader on a page that says "no game here", rather than on a permanent redirect their
-    /// browser will cache to a page that says the same thing.
+    /// Both refusals matter and both are only reachable through <see cref="ConfiguredSlugHistory"/>,
+    /// because the table's answer comes from a join that already excludes a live slug and cannot name
+    /// a game that does not exist. A hand-written alias can do either, and the reader pays for it in
+    /// a permanent redirect their browser caches: off a page that works in the first case, onto a
+    /// page that says "no game here" in the second.
     /// </remarks>
     private static async Task<string?> MovedToAsync(HttpContext context, string slug)
     {
         var history = context.RequestServices.GetService<ISlugHistory>();
 
         if (history is null
-            || await history.CurrentSlugAsync(slug, context.RequestAborted) is not { } current)
+            || await history.CurrentSlugAsync(slug, context.RequestAborted) is not { } current
+            || string.Equals(current, slug, StringComparison.Ordinal))
         {
             return null;
         }
 
         var games = context.RequestServices.GetRequiredService<IGameQueries>();
 
-        return await games.FindAsync(current, context.RequestAborted) is null ? null : current;
+        return await games.FindAsync(slug, context.RequestAborted) is not null
+            || await games.FindAsync(current, context.RequestAborted) is null
+            ? null
+            : current;
     }
 }

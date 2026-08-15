@@ -76,11 +76,10 @@ else
 
 // A reader who mistyped a URL, and a crawler indexing one, both got a 404 with an empty body: the
 // <NotFound> fragment inside <Router> is never rendered under static server rendering, so the site's
-// own "no game here" paragraph was dead copy. This re-executes the request against /not-found, which
-// is the page the router now names — one answer whether the route did not match or a page decided
-// there was nothing at it. It fires only for an error response nobody has written a body for, so the
-// API's own problem documents (§10) pass through untouched.
-app.UseStatusCodePagesWithReExecute("/not-found");
+// own "no game here" paragraph was dead copy. This answers those with the page — and only those.
+// The scoping is NotFoundPage's own, because a rule about how a page says "there is nothing here"
+// must not reach the API or the account endpoints beside it.
+app.UseMuiNotFoundPage();
 
 app.UseStaticFiles();
 

@@ -92,6 +92,23 @@ public class FormerSlugPageTests
     }
 
     [Test]
+    public async Task AnAliasForASlugAGameStillWearsNeverTakesAReaderOffItsPage()
+    {
+        // A stale or mistyped SlugAliases entry naming a *live* slug. The game is resolved first, so
+        // the alias never fires — a permanent redirect off a working page is the one mistake in this
+        // area a reader cannot recover from and a browser will cache for ever.
+        await using var site = await SiteHost.StartAsync(new Dictionary<string, string?>
+        {
+            ["SlugAliases:m-u-s-h"] = "gaslight-row",
+        });
+
+        var response = await site.Client.GetAsync("/g/m-u-s-h");
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
+        await Assert.That(response.Headers.Location).IsNull();
+    }
+
+    [Test]
     public async Task TheQueryStringTravelsWithTheRedirect()
     {
         // Plain mode is a real second surface (§9). A reader who asked for it must not be answered

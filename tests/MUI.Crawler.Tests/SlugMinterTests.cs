@@ -187,6 +187,38 @@ public class SlugMinterTests
     }
 
     [Test]
+    public async Task AUrlGivenUpTwiceIsReportedAsGivenUpBothTimes()
+    {
+        // A -> B -> A -> B, and the fourth rename retires a slug the history already holds. The
+        // store keeps the first retirement and still reports the move; this pins the fake to the
+        // same answer, which is where the real one diverged — it read the answer off an insert that
+        // ON CONFLICT had suppressed. The same sequence is asserted against Postgres in
+        // AGameThatGivesUpAUrlItHasGivenUpBeforeStillReportsTheMove.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed();
+        var minter = catalogue.Minter(Grace);
+
+        await DeclaredAsync(catalogue, game, "Harbourlight", changedAt: Now.AddDays(-15));
+        await minter.ConsiderAsync(game, Now);
+
+        await DeclaredAsync(catalogue, game, "Corvid", changedAt: Now.AddDays(1));
+        await minter.ConsiderAsync(game, Now.AddDays(16));
+
+        await DeclaredAsync(catalogue, game, "Harbourlight", changedAt: Now.AddDays(17));
+        var again = await minter.ConsiderAsync(game, Now.AddDays(32));
+
+        await Assert.That(again!.Slug).IsEqualTo("harbourlight");
+        await Assert.That(again.FormerSlug).IsEqualTo("corvid");
+
+        // "corvid" was retired the first time round and is retired again here; the earlier date
+        // stands, because it is when the URL somebody bookmarked started redirecting.
+        await Assert.That(catalogue.Slugs.All.Single(row => row.Slug == "corvid").RetiredAt)
+            .IsEqualTo(Now);
+        await Assert.That(catalogue.Slugs.All.Single(row => row.Slug == "harbourlight").RetiredAt)
+            .IsEqualTo(Now.AddDays(16));
+    }
+
+    [Test]
     public async Task ANameThatMintsTheSameSlugStillFollowsTheGame()
     {
         // The listing shows the game's name, and it has genuinely changed. The URL has not, so there

@@ -108,4 +108,25 @@ public class GameSlugTests
 
         await Assert.That(slug.Length).IsEqualTo(GameSlug.MaxLength);
     }
+
+    [Test]
+    public async Task TheLastResortReallyDoesTerminate()
+    {
+        // The comment above it said "this always terminates" and it threw: the fallback appends a
+        // 32-character GUID and then took a fixed-length slice of the result, which is out of range
+        // for any stem shorter than 31 characters. Ten thousand collisions is a bug upstream, and a
+        // listing that dies with ArgumentOutOfRangeException is a worse answer to it than an ugly URL.
+        var slug = await GameSlug.UniqueAsync("Corvid", (_, _) => Task.FromResult(true));
+
+        await Assert.That(slug).StartsWith("corvid-");
+        await Assert.That(slug.Length).IsLessThanOrEqualTo(GameSlug.MaxLength);
+    }
+
+    [Test]
+    public async Task TheLastResortIsStillBoundedForALongName()
+    {
+        var slug = await GameSlug.UniqueAsync(new string('a', 500), (_, _) => Task.FromResult(true));
+
+        await Assert.That(slug.Length).IsEqualTo(GameSlug.MaxLength);
+    }
 }

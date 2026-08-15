@@ -104,7 +104,28 @@ public sealed class SlugMinter(
             (candidate, ct) => IsTakenAsync(game.Id, candidate, ct),
             cancellationToken);
 
-        var retired = await games.RenameAsync(game.Id, name, slug, now, cancellationToken);
+        string? retired;
+
+        try
+        {
+            retired = await games.RenameAsync(game.Id, name, slug, now, cancellationToken);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            // The mint asked whether the slug was taken and the write happens a moment later, so two
+            // games settling on one name in the same cycle lose that race at the unique index. The
+            // name is measured and stored either way; only the URL is postponed, and the next probe
+            // of this game tries again against a catalogue that has moved on. Deliberately broad and
+            // deliberately not rethrown: the caller has already written this probe's reachability,
+            // and a rename is the one step here whose failure must not reach it.
+            logger?.LogWarning(
+                error,
+                "{Name} could not take {Slug}; it keeps {Current} and the re-mint is retried on the "
+                + "next probe",
+                name, slug, game.Slug);
+
+            return null;
+        }
 
         logger?.LogInformation(
             "{Old} is now called {Name}; {Slug} is its URL and {Retired} redirects to it for ever",

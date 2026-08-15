@@ -20,6 +20,13 @@ public sealed class FakeGameStore : IGameStore
 
     public FakeGameStore() => Slugs = new FakeSlugHistory(id => _games.GetValueOrDefault(id)?.Slug);
 
+    /// <summary>
+    /// Makes every rename raise, standing in for the race the mint cannot close: the check asks
+    /// whether a slug is taken and the write happens a moment later, so two games settling on one
+    /// name in the same cycle collide at the unique index.
+    /// </summary>
+    public bool RenamesFail { get; set; }
+
     public IReadOnlyCollection<GameRecord> All => _games.Values.ToList();
 
     /// <summary>
@@ -97,7 +104,8 @@ public sealed class FakeGameStore : IGameStore
             return Task.FromResult<string?>(null);
         }
 
-        if (_games.Values.Any(g => g.Id != id && string.Equals(g.Slug, slug, StringComparison.Ordinal)))
+        if (RenamesFail
+            || _games.Values.Any(g => g.Id != id && string.Equals(g.Slug, slug, StringComparison.Ordinal)))
         {
             // The real table's unique index on game.slug, which is what stops two games answering to
             // one URL. A fake without it would let a caller mint a collision and never hear about it.
@@ -277,15 +285,19 @@ public sealed class Catalogue
     public FakeSlugHistory Slugs => Games.Slugs;
 
     /// <summary>§5.7's re-mint, at whatever grace the test wants to reason about.</summary>
-    public SlugMinter Minter(TimeSpan? grace = null) => new(Games, Fields, Slugs, grace);
+    public SlugMinter Minter(TimeSpan? grace = null, bool renamesFail = false)
+    {
+        Games.RenamesFail = renamesFail;
+        return new SlugMinter(Games, Fields, Slugs, grace);
+    }
 
-    public ProbeIngestor Ingestor(TimeSpan? grace = null) => new(
+    public ProbeIngestor Ingestor(TimeSpan? grace = null, bool renamesFail = false) => new(
         new PresenceWriter(Presence),
         new AvailabilityWriter(Availability),
         new FieldReconciler(Fields),
         Games,
         new ArchiveSweeper(Games, Availability, Availability),
-        Minter(grace));
+        Minter(grace, renamesFail));
 
     /// <summary>A game that already exists, so a probe has something to be attributed to.</summary>
     public Guid Listed(LifecycleState state = LifecycleState.Active)

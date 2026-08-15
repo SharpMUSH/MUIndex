@@ -108,6 +108,31 @@ public class SlugHistoryPostgresTests
     }
 
     [Test]
+    public async Task AGameThatGivesUpAUrlItHasGivenUpBeforeStillReportsTheMove()
+    {
+        // A -> B -> A -> B. The fourth rename retires a slug already in the table, so the insert is
+        // suppressed — and reading the answer off the insert reported "the slug did not move" while
+        // the URL moved underneath it. What the caller asked was what this game used to be at, and
+        // the row it already has is the record, not the write.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var games = new NpgsqlGameStore(db.DataSource);
+        var history = new NpgsqlSlugHistoryStore(db.DataSource);
+        var id = await Seed.GameAsync(db);
+
+        await games.RenameAsync(id, "Harbourlight", "harbourlight", Now);
+        await games.RenameAsync(id, "Corvid", "corvid", Now.AddDays(1));
+        var again = await games.RenameAsync(id, "Harbourlight", "harbourlight", Now.AddDays(2));
+
+        await Assert.That(again).IsEqualTo("corvid");
+        await Assert.That(await history.CurrentSlugAsync("corvid")).IsEqualTo("harbourlight");
+
+        // And the first retirement is the one kept: a row says when a URL somebody bookmarked
+        // started redirecting, and taking a name back for a day does not rewrite that.
+        var corvid = (await history.ForGameAsync(id)).Single(row => row.Slug == "corvid");
+        await Assert.That(corvid.RetiredAt).IsEqualTo(Now);
+    }
+
+    [Test]
     public async Task ASlugSomebodyIsStillHoldingIsNotFreeForAnotherGame()
     {
         // The half of the uniqueness question game.slug cannot answer: no game currently wears

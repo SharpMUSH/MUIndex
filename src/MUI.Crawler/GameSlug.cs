@@ -142,6 +142,12 @@ public static class GameSlug
 
         // Ten thousand games sharing one name is not a collision, it is a bug somewhere upstream —
         // but a listing refused outright is worse than an ugly URL, so this always terminates.
-        return $"{stem}-{Guid.CreateVersion7():N}"[..MaxLength];
+        //
+        // Truncated only when there is something to truncate: the range operator throws for a string
+        // shorter than MaxLength, so the line that claimed to always terminate ended the listing with
+        // an ArgumentOutOfRangeException for every stem under 31 characters — which is most of them.
+        var last = $"{stem}-{Guid.CreateVersion7():N}";
+
+        return last.Length > MaxLength ? last[..MaxLength] : last;
     }
 }
