@@ -17,11 +17,12 @@ namespace MUI.Catalog.Persistence;
 /// </para>
 /// <para>
 /// <b>Both grains are aggregated from the raw table, and the day is not aggregated from the hour.</b>
-/// It would be cheaper and it would be wrong about one thing: an hour that spanned a salt rotation
-/// records no epoch at all (§11), and a day built from that hour could no longer tell "this hour had
-/// no aggregates" from "this hour had two epochs and refused to combine them" — and would then
-/// publish an estimate over a rotation, which is the one thing the rotation exists to prevent. The
-/// raw rows are still there when it matters, because retention never runs ahead of the rollup.
+/// It would be cheaper, and it would make the day depend on the hour surviving: the two grains have
+/// different retentions by design (§5.2 keeps the day for ever and the hour for two years), so a day
+/// built from hours would be a permanent copy derived from an impermanent one, and re-running it
+/// after the hours had been dropped would silently produce a different answer from the first run.
+/// Reading raw for both means each grain is a projection of the same source, and retention never runs
+/// ahead of the rollup, so that source is there when it matters.
 /// </para>
 /// </remarks>
 public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source)
@@ -55,37 +56,26 @@ public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source)
         // counted samples alone and come back NULL when there were none, and a group is only produced
         // for a bucket some probe actually wrote a row in — so an hour nobody measured stays absent
         // rather than arriving as a zero.
-        //
-        // The third FILTER is §11's: an estimate that does not name its epoch is not one anything may
-        // compare with another, so it is not one this may quietly take the max of either. The reader
-        // in NpgsqlPresenceStore drops the same case, and the two have to agree about what is legible.
         var sql = $"""
             INSERT INTO {table} (
                 game_id, {bucket}, counted_samples, unmeasurable_samples,
-                min_count, max_count, sum_count, salt_epoch, peak_distinct_estimate)
+                min_count, max_count, sum_count)
             SELECT s.game_id,
                    date_trunc('{unit}', s.at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC',
                    count(*) FILTER (WHERE s.count IS NOT NULL),
                    count(*) FILTER (WHERE s.count IS NULL),
                    min(s.count),
                    max(s.count),
-                   sum(s.count),
-                   CASE WHEN count(DISTINCT s.aggregates ->> 'saltEpoch') = 1
-                        THEN min(s.aggregates ->> 'saltEpoch') END,
-                   CASE WHEN count(DISTINCT s.aggregates ->> 'saltEpoch') = 1
-                        THEN max((s.aggregates ->> 'distinctEstimate')::integer)
-                             FILTER (WHERE s.aggregates ->> 'saltEpoch' IS NOT NULL) END
+                   sum(s.count)
               FROM presence_sample s
              WHERE s.at >= @from AND s.at < @to
              GROUP BY 1, 2
             ON CONFLICT (game_id, {bucket}) DO UPDATE SET
-                counted_samples        = EXCLUDED.counted_samples,
-                unmeasurable_samples   = EXCLUDED.unmeasurable_samples,
-                min_count              = EXCLUDED.min_count,
-                max_count              = EXCLUDED.max_count,
-                sum_count              = EXCLUDED.sum_count,
-                salt_epoch             = EXCLUDED.salt_epoch,
-                peak_distinct_estimate = EXCLUDED.peak_distinct_estimate
+                counted_samples      = EXCLUDED.counted_samples,
+                unmeasurable_samples = EXCLUDED.unmeasurable_samples,
+                min_count            = EXCLUDED.min_count,
+                max_count            = EXCLUDED.max_count,
+                sum_count            = EXCLUDED.sum_count
             """;
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
@@ -112,8 +102,7 @@ public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source)
             $"""
             SELECT game_id AS GameId, {bucket} AS Bucket, counted_samples AS CountedSamples,
                    unmeasurable_samples AS UnmeasurableSamples, min_count AS MinCount,
-                   max_count AS MaxCount, sum_count AS SumCount, mean_count AS MeanCount,
-                   salt_epoch AS SaltEpoch, peak_distinct_estimate AS PeakDistinctEstimate
+                   max_count AS MaxCount, sum_count AS SumCount, mean_count AS MeanCount
               FROM {table}
              WHERE game_id = @gameId AND {bucket} >= @from AND {bucket} <= @to
              ORDER BY {bucket}
@@ -278,10 +267,6 @@ public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source)
 
         public decimal? MeanCount { get; init; }
 
-        public string? SaltEpoch { get; init; }
-
-        public int? PeakDistinctEstimate { get; init; }
-
         public PresenceRollup ToRecord(PresenceGrain grain) => new()
         {
             GameId = GameId,
@@ -293,8 +278,6 @@ public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source)
             MaxCount = MaxCount,
             SumCount = SumCount,
             MeanCount = MeanCount,
-            SaltEpoch = SaltEpoch,
-            PeakDistinctEstimate = PeakDistinctEstimate,
         };
     }
 }

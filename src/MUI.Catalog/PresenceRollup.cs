@@ -54,18 +54,6 @@ public sealed record PresenceRollup
     /// </summary>
     public decimal? MeanCount { get; init; }
 
-    /// <summary>
-    /// The salt epoch every aggregate in this bucket was computed under (spec §11), or <c>null</c>
-    /// where the bucket spanned a rotation and the two sets cannot be compared.
-    /// </summary>
-    public string? SaltEpoch { get; init; }
-
-    /// <summary>
-    /// The largest single-sample unique-player estimate inside <see cref="SaltEpoch"/>, and
-    /// deliberately not a union: a union needs the hashes, and the hashes never leave the probe.
-    /// </summary>
-    public int? PeakDistinctEstimate { get; init; }
-
     /// <summary>A filled cell — something in this bucket was counted, a measured zero included.</summary>
     public bool IsCounted => CountedSamples > 0;
 

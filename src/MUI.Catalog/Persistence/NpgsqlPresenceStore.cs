@@ -275,18 +275,18 @@ public sealed class NpgsqlPresenceStore(NpgsqlDataSource source) : IPresenceStor
                 return null;
             }
 
-            var labelled = !string.IsNullOrWhiteSpace(stored.SaltEpoch);
-
-            return new PresenceAggregates(
-                stored.IdleBuckets ?? [],
-                labelled ? stored.DistinctEstimate : null,
-                labelled ? stored.SaltEpoch : null);
+            return new PresenceAggregates(stored.IdleBuckets ?? []);
         }
     }
 
-    /// <summary>The <c>aggregates</c> column as it is on disk, with no invariant of its own.</summary>
-    private sealed record StoredAggregates(
-        IReadOnlyList<int>? IdleBuckets,
-        int? DistinctEstimate,
-        string? SaltEpoch);
+    /// <summary>
+    /// The <c>aggregates</c> column as it is on disk, with no invariant of its own.
+    /// </summary>
+    /// <remarks>
+    /// A row written before the unique-player estimate was removed may still carry
+    /// <c>distinctEstimate</c> and <c>saltEpoch</c> keys. They are not members here, so they are
+    /// ignored on the way back in — which is the outcome wanted: an estimate that miscounted every
+    /// renamed player does not come back to life because an old row still holds one.
+    /// </remarks>
+    private sealed record StoredAggregates(IReadOnlyList<int>? IdleBuckets);
 }

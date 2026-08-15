@@ -41,12 +41,6 @@ public sealed record CrawlerOptions
     public PresenceMaintenanceOptions Maintenance { get; init; } = new();
 
     /// <summary>
-    /// How often the hashing salt behind §11's aggregates rotates. Never persisted, never logged, and
-    /// the reason a unique-player estimate is possible inside an epoch and not across two.
-    /// </summary>
-    public SaltRotationOptions Salt { get; init; } = new();
-
-    /// <summary>
     /// Addresses the crawler knows before it has followed anything.
     /// </summary>
     /// <remarks>
@@ -71,7 +65,6 @@ public sealed record CrawlerOptions
     {
         Discovery.Validate();
         Maintenance.Validate();
-        Salt.Validate();
         Submissions.Validate();
 
         foreach (var seed in Seeds)

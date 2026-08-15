@@ -152,69 +152,6 @@ public class PresenceRollupPostgresTests
     }
 
     [Test]
-    public async Task AUniquePlayerEstimateIsNeverCombinedAcrossSaltEpochs()
-    {
-        // §11. Within one epoch the estimate means something; across a rotation the hashes it was
-        // derived from cannot be compared, and they are not kept anyway. The honest answer is no
-        // number rather than a bigger one.
-        await using var db = await PostgresFixture.MigratedAsync();
-        var game = await Seed.GameAsync(db);
-        var samples = new NpgsqlPresenceStore(db.DataSource);
-
-        await samples.AppendAsync(new PresenceSample
-        {
-            GameId = game,
-            At = Hour,
-            Count = 9,
-            Source = FieldSource.Who,
-            Aggregates = new PresenceAggregates([4, 3, 2], distinctEstimate: 7, saltEpoch: "20260727T000000Z"),
-        });
-        await samples.AppendAsync(new PresenceSample
-        {
-            GameId = game,
-            At = Hour.AddMinutes(30),
-            Count = 9,
-            Source = FieldSource.Who,
-            Aggregates = new PresenceAggregates([4, 3, 2], distinctEstimate: 5, saltEpoch: "20260727T000000Z"),
-        });
-
-        // The next hour straddles a rotation.
-        await samples.AppendAsync(new PresenceSample
-        {
-            GameId = game,
-            At = After(1),
-            Count = 9,
-            Source = FieldSource.Who,
-            Aggregates = new PresenceAggregates([4, 3, 2], distinctEstimate: 7, saltEpoch: "20260727T000000Z"),
-        });
-        await samples.AppendAsync(new PresenceSample
-        {
-            GameId = game,
-            At = After(1).AddMinutes(30),
-            Count = 9,
-            Source = FieldSource.Who,
-            Aggregates = new PresenceAggregates([4, 3, 2], distinctEstimate: 6, saltEpoch: "20260803T000000Z"),
-        });
-
-        await Maintenance(db).RunAsync(After(2));
-
-        var rollups = await Rollups(db).ForGameAsync(game, PresenceGrain.Hour, Hour, After(1));
-
-        var oneEpoch = rollups.Single(r => r.Bucket == Hour);
-        await Assert.That(oneEpoch.SaltEpoch).IsEqualTo("20260727T000000Z");
-        await Assert.That(oneEpoch.PeakDistinctEstimate).IsEqualTo(7);
-
-        var straddling = rollups.Single(r => r.Bucket == After(1));
-        await Assert.That(straddling.SaltEpoch).IsNull();
-        await Assert.That(straddling.PeakDistinctEstimate).IsNull();
-
-        // And the day, which contains both, inherits the refusal rather than the larger number.
-        var day = (await Rollups(db).ForGameAsync(game, PresenceGrain.Day, Midnight(Hour), After(2))).Single();
-        await Assert.That(day.SaltEpoch).IsNull();
-        await Assert.That(day.PeakDistinctEstimate).IsNull();
-    }
-
-    [Test]
     public async Task RunningTwiceChangesNothingAndALateSampleIsStillPickedUp()
     {
         await using var db = await PostgresFixture.MigratedAsync();
@@ -311,12 +248,38 @@ public class PresenceRollupPostgresTests
     }
 
     [Test]
-    public async Task AnEstimateWithNoEpochIsUnreadableRatherThanFatal()
+    public async Task TheEstimateColumnsAreGoneFromTheSchema()
     {
-        // A row carrying an estimate and no salt epoch is one nothing may compare with anything — but
-        // it is one row, and a window that throws on it takes every other measurement in the window
-        // with it. The reader drops the estimate and keeps what is still legible; the aggregation
-        // agrees with the reader rather than quietly counting it.
+        // Migration 0014, proved rather than assumed. Every other test here would pass whether or not
+        // it ran, because nothing selects those columns any more — so the one thing that actually
+        // demonstrates the drop is asking the catalogue what the table is made of.
+        await using var db = await PostgresFixture.MigratedAsync();
+
+        await using var connection = await db.DataSource.OpenConnectionAsync();
+        var columns = (await connection.QueryAsync<string>(
+            """
+            SELECT column_name
+              FROM information_schema.columns
+             WHERE table_name IN ('presence_rollup_hour', 'presence_rollup_day')
+            """)).ToList();
+
+        await Assert.That(columns).DoesNotContain("peak_distinct_estimate");
+        await Assert.That(columns).DoesNotContain("salt_epoch");
+
+        // And the tally either side of them is untouched, so this is a drop and not a rebuild.
+        await Assert.That(columns).Contains("counted_samples");
+        await Assert.That(columns).Contains("unmeasurable_samples");
+    }
+
+    [Test]
+    public async Task AnOldRowsEstimateKeysAreIgnoredRatherThanFatal()
+    {
+        // Rows written before §11's unique-player estimate was removed still carry distinctEstimate
+        // and saltEpoch in their aggregates JSON. They are not members of the record any more, so
+        // they are ignored on the way back in — which is the outcome wanted, twice over: a window
+        // that threw on an unknown key would take every other measurement in it along, and an
+        // estimate that miscounted every renamed player must not come back to life because an old
+        // row still holds one.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var store = new NpgsqlPresenceStore(db.DataSource);
@@ -327,10 +290,10 @@ public class PresenceRollupPostgresTests
             At = Hour,
             Count = 9,
             Source = FieldSource.Who,
-            Aggregates = new PresenceAggregates([4, 3], distinctEstimate: 3, saltEpoch: "20260727T000000Z"),
+            Aggregates = new PresenceAggregates([4, 3]),
         });
 
-        // Written the way the record used to serialise, before an estimate had to name its epoch.
+        // Written the way the record serialised when an estimate was still a thing it held.
         await using (var connection = await db.DataSource.OpenConnectionAsync())
         {
             await connection.ExecuteAsync(
@@ -342,7 +305,8 @@ public class PresenceRollupPostgresTests
                 {
                     game,
                     at = Hour.AddMinutes(30),
-                    aggregates = """{"idleBuckets":[2,1],"distinctEstimate":9}""",
+                    aggregates =
+                        """{"idleBuckets":[2,1],"distinctEstimate":9,"saltEpoch":"20260727T000000Z"}""",
                 });
         }
 
@@ -350,18 +314,17 @@ public class PresenceRollupPostgresTests
 
         await Assert.That(samples).Count().IsEqualTo(2);
 
+        // What was derived from times survives; what was derived from names is simply not read.
         var legacy = samples.Single(s => s.At == Hour.AddMinutes(30));
         await Assert.That(legacy.Aggregates!.IdleBuckets).IsEquivalentTo(new[] { 2, 1 });
-        await Assert.That(legacy.Aggregates.DistinctEstimate).IsNull();
-        await Assert.That(legacy.Aggregates.SaltEpoch).IsNull();
 
+        // And the rollup over it is an ordinary rollup, with nowhere for an estimate to land.
         await Maintenance(db).RunAsync(After(2));
 
         var rolled = (await Rollups(db).ForGameAsync(game, PresenceGrain.Hour, Hour, Hour)).Single();
 
-        await Assert.That(rolled.SaltEpoch).IsEqualTo("20260727T000000Z");
-        // 3, from the sample that named its epoch — not 9 from the one that did not.
-        await Assert.That(rolled.PeakDistinctEstimate).IsEqualTo(3);
+        await Assert.That(rolled.CountedSamples).IsEqualTo(2);
+        await Assert.That(rolled.MaxCount).IsEqualTo(9);
     }
 
     [Test]
