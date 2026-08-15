@@ -41,6 +41,17 @@ public sealed record ProbeResult
     /// </remarks>
     public WhoReading Who { get; init; } = WhoReading.NotAsked;
 
+    /// <summary>
+    /// The shape of the <c>WHO</c> response, for §11's replay window. Never its text.
+    /// </summary>
+    /// <remarks>
+    /// Redacted inside the probe rather than downstream, so "redacted before it touches disk"
+    /// is the stronger "redacted before it leaves the socket": the raw response exists as a local
+    /// in one method and is never a member of anything. See <see cref="PayloadRedaction"/> for why
+    /// a shape is what a replay needs and a name-finding redactor could not have produced one.
+    /// </remarks>
+    public string? WhoShape { get; init; }
+
     /// <summary>The reply to <c>INFO</c> at the login screen, when one arrived.</summary>
     public string? Info { get; init; }
 

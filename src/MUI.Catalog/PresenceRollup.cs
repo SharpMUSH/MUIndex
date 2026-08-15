@@ -171,6 +171,20 @@ public sealed record PresenceRetentionOptions
     /// </remarks>
     public TimeSpan RollupOverlap { get; init; } = TimeSpan.FromHours(3);
 
+    /// <summary>
+    /// How long §11's redacted probe shapes are kept. <c>null</c> is for ever, and nothing should
+    /// set it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The one default here that deletes rather than keeps.</b> Every other retention on this
+    /// record defaults to keeping everything, because a measurement not taken cannot be taken again.
+    /// A probe shape is not a measurement — it is the evidence a measurement was read out of, its
+    /// value is entirely "can the new parser still read last fortnight's replies", and that value is
+    /// gone within a release cycle. Between an unsettled number and a deletion the conservative
+    /// choice for a measurement is to keep and for this is to drop.
+    /// </remarks>
+    public TimeSpan? ProbePayloads { get; init; } = TimeSpan.FromDays(14);
+
     /// <summary>The retention §5.2 designed: raw ninety days, hourly two years, daily for ever.</summary>
     /// <remarks>
     /// Available as a preset rather than as the default, because §15.4 is open and the shape being
@@ -197,6 +211,16 @@ public sealed record PresenceRetentionOptions
         if (RollupOverlap < TimeSpan.Zero)
         {
             throw new ArgumentException("The rollup overlap reaches backwards and cannot be negative.");
+        }
+
+        // A negative TTL puts the sweep's cutoff in the future, which would delete the shapes taken
+        // moments ago and leave the old ones. The failure of every other setting here is keeping too
+        // much; this one's is deleting the newest evidence there is.
+        if (ProbePayloads < TimeSpan.Zero)
+        {
+            throw new ArgumentException(
+                "The probe-shape TTL cannot be negative: a cutoff in the future sweeps what was just "
+                + "recorded and keeps what should have gone.");
         }
 
         Floor(RawSamples, HeatmapWindow, nameof(RawSamples));

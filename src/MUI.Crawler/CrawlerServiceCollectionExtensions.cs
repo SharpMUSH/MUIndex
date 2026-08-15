@@ -99,11 +99,17 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton(s => new NpgsqlPresenceStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IPresenceStore>(s => s.GetRequiredService<NpgsqlPresenceStore>());
         services.TryAddSingleton(s => new NpgsqlPresenceRollupStore(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IProbePayloads>(s => new NpgsqlProbePayloads(
+            s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton(s => new PresenceMaintenance(
             s.GetRequiredService<NpgsqlPresenceStore>(),
             s.GetRequiredService<NpgsqlPresenceRollupStore>(),
             s.GetRequiredService<PresenceRetentionOptions>(),
-            s.GetService<ILogger<PresenceMaintenance>>()));
+            s.GetService<ILogger<PresenceMaintenance>>(),
+
+            // §11's shapes are swept by this pass, so the pass has to be handed them. Registered
+            // without it, the optional argument stays null and the TTL silently never runs.
+            s.GetRequiredService<IProbePayloads>()));
         services.TryAddSingleton(s => new NpgsqlAvailabilityStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IAvailabilityStore>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());
         services.TryAddSingleton<IReachableHistory>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());

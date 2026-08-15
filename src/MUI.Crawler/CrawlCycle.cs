@@ -57,6 +57,9 @@ public sealed class CrawlCycle(
     // Optional, and null on every path that has no database behind it. A crawl that cannot settle
     // claims is a crawl doing slightly less, not a crawl that should refuse to run.
     ClaimService? claims = null,
+    // §11's replay window. Optional for the same reason claims are — a crawl that cannot record a
+    // shape is a crawl doing slightly less, not one that should refuse to dial.
+    IProbePayloads? payloads = null,
     ILogger<CrawlCycle>? logger = null)
 {
     /// <summary>Probes everything that is due, and returns what the pass did.</summary>
@@ -326,6 +329,12 @@ public sealed class CrawlCycle(
         var answered = result.Outcome is ProbeOutcome.Answered;
         var binding = await binder.BindAsync(target, result, cancellationToken);
 
+        // §11's shape, recorded once the game is known rather than before. The binder is what turns
+        // an address into a game, so recording ahead of it wrote a null game_id for the FIRST
+        // successful probe of every game — the one probe whose shape a replay most wants, filtered
+        // out of the window by the very query that reads it.
+        await RecordShapeAsync(target, binding?.GameId ?? target.GameId, result, cancellationToken);
+
         var activity = SchedulerBand.Unknown;
 
         if (binding is not null)
@@ -375,6 +384,45 @@ public sealed class CrawlCycle(
     }
 
     /// <summary>Mutable running total for one cycle. Written from every worker, so it locks.</summary>
+    /// <summary>
+    /// Records the shape of what this probe read, for §11's replay window.
+    /// </summary>
+    /// <remarks>
+    /// Failure here is swallowed to a warning. A shape is evidence about our parser and nothing on
+    /// the site is derived from one, so a write that fails must not cost the measurement the probe
+    /// just took — which is stored after this and is what the crawl exists for.
+    /// </remarks>
+    private async Task RecordShapeAsync(
+        CrawlTarget target,
+        Guid? gameId,
+        ProbeResult result,
+        CancellationToken cancellationToken)
+    {
+        if (payloads is null || result.WhoShape is not { Length: > 0 } shape)
+        {
+            return;
+        }
+
+        try
+        {
+            await payloads.RecordAsync(
+                [
+                    new ProbePayload(
+                        gameId,
+                        target.Host,
+                        target.Port,
+                        time.GetUtcNow(),
+                        ProbePayloadKind.Who,
+                        shape),
+                ],
+                cancellationToken);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            logger?.LogWarning(error, "The probe shape for {Target} was not recorded", target);
+        }
+    }
+
     private sealed class Tally
     {
         private readonly Lock _gate = new();

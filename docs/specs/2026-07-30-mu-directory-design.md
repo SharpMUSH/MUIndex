@@ -1090,9 +1090,29 @@ probe can know about is still doing something legitimate.
     counts rows and never extracts a name. The salt, the epoch labels and the columns that carried
     them are removed (migration 0014); what remains is the plain rule above, which needs no
     machinery to state and no epoch to qualify it.
-- Raw probe payloads are retained on a short TTL, redacted of names before touching disk, keyed to
-  the `GameField` and `FieldChange` writes they produced so that parser improvements can be
-  replayed over a recent window.
+- Probe **shapes** are retained on a short TTL, keyed to the address and instant the `GameField` and
+  `FieldChange` writes carry, so that parser improvements can be replayed over a recent window.
+  - **This asked for two things that cannot both be had — closed.** It said *raw payloads, redacted
+    of names*. The payload worth replaying is the `WHO`, because that is where the parser fails, and
+    it is also the only place a player name appears. Redacting names out of it means locating them,
+    which means parsing it correctly, which is exactly what failed: **the payloads most worth
+    keeping are the ones a name-finding redactor cannot clean.**
+  - So no payload text is stored. `PayloadRedaction` keeps the *shape* — every column position, every
+    run of whitespace and every punctuation mark where it was, each run of letters masked to the same
+    length unless it is a word the parser itself reads. The parser is structural, so structure is the
+    whole of what a replay needs, and the redaction happens inside the probe: the raw response is a
+    local in one method and is never a member of anything. A shape is kept only if it re-parses to
+    the same answer as the payload it came from.
+  - **A digit is not automatically a count.** `4815162342` is an ordinary MU\* name and `A1ice` is a
+    name with a digit in it, so a run containing any letter is masked whole and a bare digit run
+    survives only on a line that also carries a word the parser reads — a summary sentence has one, a
+    row of players does not. That keeps "there are 16 players connected", which is the sentence a
+    replay most wants. The honest limit is that a player calling themselves `Connected` keeps their
+    name: one dictionary word in a column, attributable to nobody, and the alternative costs every
+    summary sentence the parser exists to read.
+  - The TTL defaults to a fortnight and **defaults to deleting**, which no other retention here
+    does. A shape is not a measurement; it is the evidence a measurement was read out of, and its
+    value is gone within a release cycle.
 - Connect screens are displayed on the grounds that the server sends them unauthenticated to every
   anonymous connection. Suppressed on owner request, no questions asked.
 
