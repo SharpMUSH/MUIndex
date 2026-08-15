@@ -6,7 +6,7 @@ using MUI.Catalog.Persistence;
 namespace MUI.Web.Accounts;
 
 /// <summary>
-/// The three things a verified owner may change, as three form posts (spec §8.5, §11).
+/// The four things a verified owner may change, as four form posts (spec §8.5, §11).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -54,6 +54,8 @@ public static class OwnerWrites
         public const string Stopped = "crawl-stopped";
 
         public const string Resumed = "crawl-resumed";
+
+        public const string WhoHeader = "who-header";
     }
 
     /// <summary>
@@ -121,6 +123,27 @@ public static class OwnerWrites
                 await enrichment.SetConnectScreenSuppressedAsync(gameId, user.Id, suppress),
                 gameId,
                 suppress ? Saved.ScreenHidden : Saved.ScreenShown);
+        });
+
+        // §8.5's WHO-format override. A separate post from the enrichment form because it is a
+        // different kind of thing: everything in that form is a fact we publish about the game, and
+        // this is an instruction our parser acts on.
+        games.MapPost("/who-header", async (
+            HttpContext context,
+            UserManager<MuiUser> users,
+            OwnerEnrichment enrichment,
+            Guid gameId,
+            IFormCollection form) =>
+        {
+            if (await users.GetUserAsync(context.User) is not { } user)
+            {
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            }
+
+            return Landing(
+                await enrichment.SetWhoHeaderAsync(gameId, user.Id, form["header"], context.RequestAborted),
+                gameId,
+                Saved.WhoHeader);
         });
 
         // §11's third route, for the one person who does not have to be taken on trust. MSSP and DNS

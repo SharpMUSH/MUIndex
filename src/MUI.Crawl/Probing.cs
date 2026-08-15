@@ -1,7 +1,12 @@
 namespace MUI.Crawl;
 
 /// <summary>What the crawler was asked to dial.</summary>
-public sealed record ProbeTarget(string Host, int Port)
+/// <param name="WhoHeader">
+/// The line this game's verified owner told us begins their <c>WHO</c> table (spec §8.5), or null.
+/// A hint about where to start counting rows and never a count: what it can change is whether we
+/// measure at all, not what we measure.
+/// </param>
+public sealed record ProbeTarget(string Host, int Port, string? WhoHeader = null)
 {
     public override string ToString() => Host.Contains(':') ? $"[{Host}]:{Port}" : $"{Host}:{Port}";
 }

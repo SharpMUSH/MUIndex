@@ -77,6 +77,43 @@
     }
 
     @*
+        §8.5's WHO-format override. Placed after the enrichment form and visibly apart from it,
+        because it is the one box on this panel that is not a fact about the game: everything above
+        is published beside what we measured, and this is an instruction our parser acts on.
+    *@
+    <h3>How to read your WHO</h3>
+
+    <p>
+        We read your pre-login <code>WHO</code> structurally rather than by codebase, because Penn,
+        MUX, Rhost and the TinyMUD family all let you rewrite the <code>DOING</code> header in
+        softcode — and a header rewritten past our parser is why a busy game can show as never
+        measured. If that is happening to @Name, tell us the line your table starts with.
+    </p>
+
+    <form method="post" action="/account/games/@GameId/who-header" class="who-header">
+        <AntiforgeryToken />
+        <label>
+            <span class="kicker">header line</span>
+            <input type="text"
+                   name="header"
+                   value="@(Current(InternalFields.WhoHeader)?.Value)"
+                   maxlength="@OwnerEnrichment.MaxValueLength" />
+            <span class="faint">
+                Any part of it is enough, and it is matched literally rather than as a pattern.
+                Empty the box to withdraw it.
+            </span>
+        </label>
+        <button type="submit">Save how to read it</button>
+    </form>
+
+    <p class="faint">
+        <strong>This cannot change a number.</strong> It says where to start counting rows in text
+        your server printed; the counting stays ours and the count stays measured. There is no box
+        here for telling us how many people are online, and there will not be one — a site whose
+        claim is that its data is measured cannot take the number from the person it is about.
+    </p>
+
+    @*
         §11's third route. The other two — the MSSP variable and the DNS TXT record — are answered by
         the game itself and need no account, which is why they are named here beside the button
         rather than hidden behind it: an owner who would rather not depend on us having their claim

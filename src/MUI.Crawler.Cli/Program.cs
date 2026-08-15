@@ -158,6 +158,9 @@ var cycle = new CrawlCycle(
     // §8 — a probe of a claimed game refreshes what we last saw, and a probe of a game whose owner
     // has just published their token settles the claim. Both happen on the ordinary schedule.
     new ClaimService(new NpgsqlClaimStore(source), games, time),
+    // §8.5 — an owner who told us how to read their WHO is told it here too, so a CLI crawl and the
+    // in-process one measure the same games the same way.
+    new StoredWhoFormatHints(fields),
     loggerFactory.CreateLogger<CrawlCycle>());
 
 if (arguments.DryRun)

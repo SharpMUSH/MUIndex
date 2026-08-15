@@ -191,6 +191,53 @@ public class OwnerEndpointTests
     /// The two endpoints on a loopback port, behind the pipeline <c>Program</c> builds.
     /// </summary>
     /// <summary>
+    /// §8.5's override is stored as machinery, not as something the game said about itself.
+    /// </summary>
+    /// <remarks>
+    /// The field name is the assertion. An owner-enrichable name would put "how to read our WHO" in
+    /// the panel of what a game says about itself, beside its fandom and its application process —
+    /// and it is not that kind of thing. It is an instruction to our parser, so it lives under an
+    /// internal name with no public rendering.
+    /// </remarks>
+    [Test]
+    public async Task TheWhoHeaderOverrideIsStoredAsMachineryRatherThanAsSomethingTheGameSaid()
+    {
+        await using var host = await Harness.StartAsync();
+
+        var response = await host.PostAsync(
+            $"/account/games/{Game}/who-header",
+            new() { ["header"] = "~~~ the court is in session ~~~" });
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Found);
+        await Assert.That(response.Headers.Location!.ToString())
+            .IsEqualTo($"/account?saved={Game}&did=who-header");
+
+        var stored = (await host.Fields.ForGameAsync(Game)).Single();
+
+        await Assert.That(stored.Field).IsEqualTo(InternalFields.WhoHeader);
+        await Assert.That(InternalFields.IsInternal(stored.Field)).IsTrue();
+        await Assert.That(stored.Source).IsEqualTo(FieldSource.Owner);
+        await Assert.That(stored.Value).IsEqualTo("~~~ the court is in session ~~~");
+
+        // And it is not offered through the form that publishes facts about the game.
+        await Assert.That(FieldRegistry.OwnerEnrichable.Any(d => d.Name == InternalFields.WhoHeader))
+            .IsFalse();
+    }
+
+    /// <summary>Somebody without a verified claim cannot tell our parser anything.</summary>
+    [Test]
+    public async Task AnUnverifiedClaimCannotSetTheWhoHeader()
+    {
+        await using var host = await Harness.StartAsync(verified: false);
+
+        var response = await host.PostAsync(
+            $"/account/games/{Game}/who-header", new() { ["header"] = "anything at all" });
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Forbidden);
+        await Assert.That(await host.Fields.ForGameAsync(Game)).IsEmpty();
+    }
+
+    /// <summary>
     /// An owner's stop covers exactly the addresses their game answers on — and no more.
     /// </summary>
     /// <remarks>

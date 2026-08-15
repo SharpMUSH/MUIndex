@@ -20,6 +20,33 @@ namespace MUI.Crawl;
 /// </remarks>
 public sealed partial class WhoParser : IWhoParser
 {
+    private readonly string? _ownerHeader;
+
+    /// <summary>A parser reading whatever it is handed, with no help from anybody.</summary>
+    public WhoParser()
+    {
+    }
+
+    /// <summary>
+    /// A parser told, by the game's verified owner, which line begins their table (spec §8.5).
+    /// </summary>
+    /// <param name="ownerHeader">
+    /// A literal substring of the header line, matched case-insensitively. <b>Deliberately not a
+    /// pattern.</b> A regex from an operator would be a regex this process runs on every probe, and
+    /// the cost of getting that wrong is a crawler that hangs on somebody's backtracking header
+    /// rather than a count read slightly wrong. A substring can only ever move where counting starts.
+    /// </param>
+    /// <remarks>
+    /// The hint <b>adds</b> a way to find the header; it never removes one. A game whose header this
+    /// parser could already read goes on being read the same way, so an override that has gone stale
+    /// — the owner rewrote their <c>DOING</c> again — degrades to the behaviour it had before rather
+    /// than to silence. And it is consulted only after the server's own printed summary, which is the
+    /// one statement in a WHO response the server makes deliberately: an owner may tell us where to
+    /// count, and may not talk us out of a total their own server printed.
+    /// </remarks>
+    public WhoParser(string? ownerHeader) =>
+        _ownerHeader = string.IsNullOrWhiteSpace(ownerHeader) ? null : ownerHeader.Trim();
+
     /// <summary>
     /// Reads a <c>WHO</c> response. Every unreadable outcome is
     /// <see cref="WhoReading.Unreadable"/> and never <see cref="WhoReading.NotAsked"/>: this method
@@ -67,8 +94,9 @@ public sealed partial class WhoParser : IWhoParser
             }
         }
 
-        // 2. Failing that, count the rows between the header and whatever ends them.
-        var headerIndex = meaningful.FindIndex(IsColumnHeader);
+        // 2. Failing that, count the rows between the header and whatever ends them. An owner's
+        //    hint widens what counts as a header and never narrows it (spec §8.5).
+        var headerIndex = meaningful.FindIndex(IsHeader);
         if (headerIndex >= 0)
         {
             var rows = meaningful
@@ -124,6 +152,11 @@ public sealed partial class WhoParser : IWhoParser
         var labelled = LabelledPattern().Match(line);
         return labelled.Success && int.TryParse(labelled.Groups["n"].Value, out count);
     }
+
+    /// <summary>The structural header, or the line this game's owner said theirs is.</summary>
+    private bool IsHeader(string line) =>
+        IsColumnHeader(line)
+        || (_ownerHeader is { } hint && line.Contains(hint, StringComparison.OrdinalIgnoreCase));
 
     private static bool IsColumnHeader(string line) =>
         line.Contains("Player Name", StringComparison.OrdinalIgnoreCase)

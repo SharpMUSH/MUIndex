@@ -57,6 +57,9 @@ public sealed class CrawlCycle(
     // Optional, and null on every path that has no database behind it. A crawl that cannot settle
     // claims is a crawl doing slightly less, not a crawl that should refuse to run.
     ClaimService? claims = null,
+    // §8.5's WHO-format override. Optional for the same reason claims are: a crawl with no database
+    // behind it is a crawl doing slightly less, not one that should refuse to dial.
+    IWhoFormatHints? whoHints = null,
     ILogger<CrawlCycle>? logger = null)
 {
     /// <summary>Probes everything that is due, and returns what the pass did.</summary>
@@ -185,7 +188,15 @@ public sealed class CrawlCycle(
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(options.ProbeTimeout);
 
-        var result = await probe.ProbeAsync(new ProbeTarget(target.Host, target.Port), budget.Token);
+        // §8.5's override, asked for only where a game is already identified: the hint belongs to a
+        // game and this target may still be an address nobody has claimed. A game with no owner and
+        // an unreadable header is the case this feature cannot help, and it is honest about that.
+        var whoHeader = target.GameId is { } identified && whoHints is not null
+            ? await whoHints.ForGameAsync(identified, budget.Token)
+            : null;
+
+        var result = await probe.ProbeAsync(
+            new ProbeTarget(target.Host, target.Port, whoHeader), budget.Token);
 
         // Read before anything is stored, so that a game which used this reply to ask us to stop is
         // never dialled again — including by the rest of this same cycle (§11's "within one cycle").
