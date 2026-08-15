@@ -80,8 +80,8 @@ public class PresenceStorePostgresTests
     [Test]
     public async Task AggregatesRoundTripAndCarryNoNames()
     {
-        // §11: names are hashed in memory with a rotating salt and discarded. Only distributions
-        // survive, and this is the shape of what survives.
+        // §11: WHO responses are parsed in memory and discarded. What survives is derived from times
+        // and not from identities, and this is the shape of what survives.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var store = new NpgsqlPresenceStore(db.DataSource);
@@ -92,29 +92,31 @@ public class PresenceStorePostgresTests
             At = At,
             Count = 12,
             Source = FieldSource.Who,
-            Aggregates = new PresenceAggregates([4, 3, 2, 1], distinctEstimate: 9, saltEpoch: "20260727T000000Z"),
+            Aggregates = new PresenceAggregates([4, 3, 2, 1]),
         });
 
         var sample = (await store.ForGameAsync(game, At, At)).Single();
 
-        await Assert.That(sample.Aggregates!.DistinctEstimate).IsEqualTo(9);
-        await Assert.That(sample.Aggregates.IdleBuckets).IsEquivalentTo(new[] { 4, 3, 2, 1 });
-        // The epoch travels with the estimate, or the estimate cannot be read later without guessing
-        // which other estimates it may be compared with (§11).
-        await Assert.That(sample.Aggregates.SaltEpoch).IsEqualTo("20260727T000000Z");
+        await Assert.That(sample.Aggregates!.IdleBuckets).IsEquivalentTo(new[] { 4, 3, 2, 1 });
     }
 
     [Test]
-    public async Task AnEstimateWithNoSaltEpochCannotBeConstructed()
+    public async Task NothingHereIsDerivedFromAPlayersIdentity()
     {
-        // §11's promise is only keepable if every estimate says which salt it was taken under, so the
-        // record refuses one that does not — at the point of construction, rather than in whichever
-        // surface eventually tries to add two of them together.
-        await Assert.That(() => new PresenceAggregates([4, 3], distinctEstimate: 9))
-            .Throws<ArgumentException>();
+        // The guard that replaced §11's unique-player estimate. The estimate was removed because a
+        // player who renames hashes to two values inside one epoch and is counted twice, and no salt
+        // rotation can fix that — correcting it needs the very link between one person's two names
+        // the rotation existed to prevent. So the type holds one thing, derived from times.
+        //
+        // A member added here that came from a name would be re-opening that, which is why this reads
+        // the shape rather than a value: it fails when somebody adds the field, not later when
+        // somebody publishes it.
+        var members = typeof(PresenceAggregates)
+            .GetProperties()
+            .Select(p => p.Name)
+            .ToList();
 
-        // Buckets on their own are not derived from names at all, so they need no epoch.
-        await Assert.That(new PresenceAggregates([4, 3], distinctEstimate: null).SaltEpoch).IsNull();
+        await Assert.That(members).IsEquivalentTo(new[] { nameof(PresenceAggregates.IdleBuckets) });
     }
 
     [Test]
