@@ -359,8 +359,9 @@ public class OptOutPostgresTests
             },
             None);
 
-        await Assert.That(confirmed.RecordedAt).IsEqualTo(first);
-        await Assert.That(confirmed.LastConfirmedAt).IsEqualTo(first.AddDays(30));
+        await Assert.That(confirmed.IsFirstAsk).IsFalse();
+        await Assert.That(confirmed.OptOut.RecordedAt).IsEqualTo(first);
+        await Assert.That(confirmed.OptOut.LastConfirmedAt).IsEqualTo(first.AddDays(30));
         await Assert.That((await register.AllAsync(None))).Count().IsEqualTo(1);
 
         // One route withdrawing never speaks for another, and neither leaves the table.
@@ -384,6 +385,107 @@ public class OptOutPostgresTests
         await Assert.That(standing!.Source).IsEqualTo(OptOutSource.Request);
         await Assert.That(await register.StandingAsync("corvid.example.org", 4202, None)).IsNull();
         await Assert.That(await register.AllAsync(None)).Count().IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task TheRegisterSaysWhetherItHeardThisBeforeRatherThanLeavingItToTheClock()
+    {
+        // timestamptz keeps microseconds and DateTimeOffset counts 100ns ticks, so a date written
+        // here comes back a different value and "is this the first ask" cannot be a comparison
+        // against the clock. The register knows, because it is the thing that inserted or did not.
+        await using var database = await PostgresFixture.MigratedAsync();
+        var register = new NpgsqlCrawlOptOutRepository(database.DataSource);
+
+        var asked = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero).AddTicks(1234567);
+
+        var first = await register.RecordAsync(
+            new CrawlOptOut
+            {
+                Host = "corvid.example.org",
+                Source = OptOutSource.DnsTxt,
+                RecordedAt = asked,
+                LastConfirmedAt = asked,
+                Detail = "TXT opt-out",
+            },
+            None);
+
+        await Assert.That(first.IsFirstAsk).IsTrue();
+
+        // The round trip that made the old check unreliable, asserted rather than assumed.
+        await Assert.That(first.OptOut.RecordedAt).IsNotEqualTo(asked);
+
+        var again = await register.RecordAsync(
+            new CrawlOptOut
+            {
+                Host = "corvid.example.org",
+                Source = OptOutSource.DnsTxt,
+                RecordedAt = asked.AddDays(1).AddTicks(4321),
+                LastConfirmedAt = asked.AddDays(1).AddTicks(4321),
+                Detail = "TXT opt-out",
+            },
+            None);
+
+        await Assert.That(again.IsFirstAsk).IsFalse();
+        await Assert.That(again.OptOut.RecordedAt).IsEqualTo(first.OptOut.RecordedAt);
+    }
+
+    [Test]
+    public async Task AHostDnsCannotBeAskedAboutIsProbedAndRescheduledRatherThanStuck()
+    {
+        // A REFERRAL naming a 64-byte label passes ReferralCandidate's plausibility check, and the
+        // opt-out lookup is now the first thing that touches it. If the lookup throws, the crawl
+        // loop's catch-all counts an error and never records the attempt — so the target stays due
+        // and burns a batch slot every cycle, for ever, on a name a stranger chose.
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+
+        var host = new string('a', 64) + ".example.org";
+
+        await SeedAsync(source, new CrawlSeed(host, 4201));
+
+        var probe = new ScriptedProbe(target => Probes.Answered(
+            host: target.Host, port: target.Port, mssp: Probes.Mssp(("NAME", "Long Name Hall"))));
+
+        // The real resolver, because the point is what DnsClient does with a name it will not send.
+        var report = await Build(source, probe, TimeProvider.System, new DnsTxtResolver()).RunAsync();
+
+        await Assert.That(report.Errored).IsEqualTo(0);
+        await Assert.That(report.OptedOut).IsEqualTo(0);
+        await Assert.That(report.Answered).IsEqualTo(1);
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<long>(
+                "SELECT count(*) FROM crawl_target WHERE next_probe_at > now()"))
+            .IsEqualTo(1L);
+    }
+
+    [Test]
+    public async Task ATargetThatThrewIsBackedOffRatherThanLeftDueForEver()
+    {
+        // Defence in depth for the same failure: whatever throws, a target that is not rescheduled is
+        // re-selected by DueAsync every cycle and crowds out the ones that would have been probed.
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+
+        await SeedAsync(source, new CrawlSeed("explosive.example.org", 4201));
+
+        var probe = new ScriptedProbe(_ => throw new InvalidOperationException("the probe exploded"));
+
+        var report = await Build(source, probe, TimeProvider.System).RunAsync();
+
+        await Assert.That(report.Errored).IsEqualTo(1);
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<long>(
+                "SELECT count(*) FROM crawl_target WHERE next_probe_at > now()"))
+            .IsEqualTo(1L);
+
+        // Backed off as a failure, because that is what an attempt that did not complete is.
+        await Assert.That(await connection.ExecuteScalarAsync<int>(
+                "SELECT consecutive_failures FROM crawl_target"))
+            .IsEqualTo(1);
     }
 
     [Test]

@@ -111,6 +111,81 @@ public class DnsTxtResolverTests
     }
 
     [Test]
+    [Arguments("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.example.org")]
+    [Arguments("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb."
+        + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb."
+        + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb."
+        + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb."
+        + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.example.org")]
+    public async Task ANameDnsCannotEvenBeAskedAboutIsNoAnswerRatherThanAThrow(string host)
+    {
+        // Both of these come off the wire: a REFERRAL naming a 64-byte label, and a name that is
+        // legal at 243 bytes until our own "_muindex." prefix pushes it over 255. DnsClient rejects
+        // them with ArgumentException before any packet is sent, and this gate now runs before the
+        // scope guard — so an escape lands in the crawl loop's catch-all, which counts an error and
+        // never reaches RecordAttemptAsync. The target would then be due for ever and burn a batch
+        // slot every cycle, on a name an attacker chose. Failing to ask is "we heard nothing".
+        using var server = new StubNameServer();
+
+        var answer = await Against(server).LookupAsync(OptOutVocabulary.DnsNameFor(host));
+
+        await Assert.That(answer.Answered).IsFalse();
+        await Assert.That(answer.Records).IsEmpty();
+    }
+
+    [Test]
+    public async Task AResolverThatReceivesAndNeverAnswersIsBoundedByUsRatherThanWaitedOut()
+    {
+        // §12: the crawler shares a process with the web tier, so a bound on I/O is a correctness
+        // requirement rather than hygiene — and the loop does not get to trust a collaborator for it.
+        // The client here is given thirty seconds on purpose; the resolver's own budget is what has
+        // to end this.
+        using var server = new StubNameServer { Silent = true };
+
+        var resolver = new DnsTxtResolver(
+            new LookupClient(new LookupClientOptions(new NameServer(IPAddress.Loopback, server.Port))
+            {
+                UseCache = false,
+                Retries = 3,
+                Timeout = TimeSpan.FromSeconds(30),
+                ThrowDnsErrors = false,
+            }),
+            bound: TimeSpan.FromMilliseconds(300));
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var answer = await resolver.LookupAsync(Name);
+        clock.Stop();
+
+        await Assert.That(answer.Answered).IsFalse();
+        await Assert.That(clock.Elapsed).IsLessThan(TimeSpan.FromSeconds(10));
+        await Assert.That(server.Asked).IsNotEmpty();
+    }
+
+    [Test]
+    public async Task TheCallersOwnCancellationIsNotSwallowedAsAnAnswer()
+    {
+        // A stopping host must stop this, and must not have its cancellation reported as a resolver
+        // that stayed quiet — the two are told apart by which token fired.
+        using var server = new StubNameServer { Silent = true };
+        using var stopping = new CancellationTokenSource();
+
+        var resolver = new DnsTxtResolver(
+            new LookupClient(new LookupClientOptions(new NameServer(IPAddress.Loopback, server.Port))
+            {
+                UseCache = false,
+                Retries = 0,
+                Timeout = TimeSpan.FromSeconds(30),
+                ThrowDnsErrors = false,
+            }),
+            bound: TimeSpan.FromSeconds(30));
+
+        await stopping.CancelAsync();
+
+        await Assert.That(async () => await resolver.LookupAsync(Name, stopping.Token))
+            .Throws<OperationCanceledException>();
+    }
+
+    [Test]
     public async Task TheNameAskedForIsTheNameWeTellOperatorsToPublish()
     {
         using var server = new StubNameServer();

@@ -908,6 +908,12 @@ games.
   |---|---|---|
   | MSSP | `MUINDEX OPT-OUT 1`, also accepting `MUINDEX_OPT_OUT`, `MUINDEX OPTOUT`, `CRAWL_OPT_OUT` | The listener that published it |
   | DNS | `_muindex.<host>. IN TXT "opt-out"`, optionally `"opt-out=4201"` | Every port on the host, unless one is named |
+
+  Both readers fail towards consent, and that is the same rule twice: an MSSP value that is not one of
+  the enumerated negatives is an opt-out, a spelling saying stop is not overruled by another spelling
+  saying nothing, and a TXT qualifier that is not a readable port list (`opt-out=all`, `opt-out=*`)
+  covers the whole host. Of the two ways to misread an instruction somebody typed to make us go away,
+  only one of them keeps connecting to them.
   | Request | Recorded by an operator, with who asked | Whatever was asked for |
 
   Four consequences, each of them load-bearing:

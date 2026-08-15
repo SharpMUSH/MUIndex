@@ -107,10 +107,46 @@ public sealed class CrawlCycle(
             // keeping every other game's data fresh.
             tally.Errored();
             logger?.LogError(error, "Probing {Host}:{Port} threw", target.Host, target.Port);
+
+            // And it must not go on costing a batch slot either. A target that threw is a target
+            // nothing rescheduled, so DueAsync selects it again next cycle and for ever — and the
+            // batch it crowds out is other games' freshness. Backed off as a failure, which is what
+            // an attempt that did not complete is, and the backoff is ProbeSchedule's own.
+            await BackOffAsync(target, cancellationToken);
         }
         finally
         {
             slots.Release();
+        }
+    }
+
+    /// <summary>
+    /// Pushes a target that threw out to its ordinary failure backoff.
+    /// </summary>
+    /// <remarks>
+    /// Its own try, because this runs in a catch block: if the registry is what threw, a second throw
+    /// here would escape <see cref="VisitAsync"/> and take down the pass that is keeping every other
+    /// game's data fresh — which is the thing the catch exists to prevent.
+    /// </remarks>
+    private async Task BackOffAsync(CrawlTarget target, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var now = time.GetUtcNow();
+
+            await targets.RecordAttemptAsync(
+                target.Id,
+                now,
+                succeeded: false,
+                crawlDelay: null,
+                ProbeSchedule.NextProbeAt(
+                    now, target.ConsecutiveFailures + 1, target.CrawlDelay, SchedulerBand.Unknown),
+                cancellationToken);
+        }
+        catch (Exception error) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger?.LogError(
+                error, "Could not reschedule {Host}:{Port} after an error", target.Host, target.Port);
         }
     }
 

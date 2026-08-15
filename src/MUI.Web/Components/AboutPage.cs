@@ -188,7 +188,9 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
                 + "that port: MU* hosting routinely runs unrelated games on one domain separated "
                 + "only by a port, and one of them must not be able to silence its neighbour. A TXT "
                 + $"record is the domain's own operator speaking about a machine they run, so it "
-                + $"covers every port — unless it names one, as \"{OptOutVocabulary.DnsValue}=4201\"."),
+                + $"covers every port — unless it names one, as \"{OptOutVocabulary.DnsValue}=4201\". "
+                + "Anything in that position we cannot read as a list of ports is taken as the whole "
+                + $"host, so \"{OptOutVocabulary.DnsValue}=all\" does what it looks like it does."),
             new("The DNS route is the one you can undo without asking us.",
                 "It is also the only one that can be, and the reason is the same in both directions: "
                 + "a TXT record is readable without connecting to a server that has told us not to, "

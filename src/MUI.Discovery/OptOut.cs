@@ -64,12 +64,21 @@ public static class OptOutVocabulary
     /// The opt-out this MSSP report carries, or null.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Any value that is not one of <see cref="Negatives"/> is an opt-out, and that is the safe
     /// direction rather than the sloppy one.</b> An operator who typed the variable at all meant
     /// something by it, and of the two ways to misread <c>MUINDEX OPT-OUT stop please</c>, only one
     /// of them keeps connecting to somebody who asked us not to. The negatives are enumerated so that
     /// leaving the line in place set to <c>0</c> works, which is what an operator who has changed
     /// their mind will do.
+    /// </para>
+    /// <para>
+    /// <b>Every spelling is read, and one saying stop is the report saying stop.</b> A negative does
+    /// not end the search: a codebase or a hosting template that ships
+    /// <c>MUINDEX OPT-OUT 0</c> would otherwise silently overrule the <c>CRAWL_OPT_OUT 1</c> the
+    /// operator added themselves, and the whole reason several spellings are accepted is that we do
+    /// not know which one they will reach for.
+    /// </para>
     /// </remarks>
     public static MsspOptOut? ReadMssp(IReadOnlyDictionary<string, IReadOnlyList<string>> mssp)
     {
@@ -86,7 +95,7 @@ public static class OptOutVocabulary
 
             if (value.Length == 0 || Negatives.Contains(value, StringComparer.OrdinalIgnoreCase))
             {
-                return null;
+                continue;
             }
 
             return new MsspOptOut(variable, value);
@@ -167,7 +176,19 @@ public static class OptOutVocabulary
                 return true;
             }
 
-            foreach (var part in qualifier.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            var parts = qualifier.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+            // A qualifier is a port list or it is not readable as one, and the only safe reading of
+            // the second is the whole host — the same reading an unqualified record gets, and the
+            // same direction ReadMssp takes with a value nobody anticipated. Otherwise "opt-out=all"
+            // and "opt-out=*", which are the plausible things to type, would be read as saying
+            // nothing and the crawler would carry on. That is the one failure this must not have.
+            if (parts.Any(part => !int.TryParse(part.Trim(), out _)))
+            {
+                return true;
+            }
+
+            foreach (var part in parts)
             {
                 if (int.TryParse(part.Trim(), out var named) && named == port)
                 {
@@ -287,11 +308,14 @@ public interface ICrawlOptOutRepository
     /// </summary>
     /// <remarks>
     /// A repeat sighting moves <c>last_confirmed_at</c> and un-withdraws, and <b>leaves the date they
-    /// first asked alone</b>: when they asked and when we last heard it are two facts. The stored row
-    /// comes back so that a caller can tell a first sighting from a confirmation without asking
-    /// twice.
+    /// first asked alone</b>: when they asked and when we last heard it are two facts.
+    /// <b><see cref="OptOutRecording.IsFirstAsk"/> is reported by the store rather than worked out by
+    /// the caller</b>, because the obvious way to work it out — compare the stored date against the
+    /// clock — is wrong against a real database: <c>timestamptz</c> keeps microseconds and a
+    /// <see cref="DateTimeOffset"/> counts 100ns ticks, so the value that comes back is not the value
+    /// that went in and the comparison is false nearly always.
     /// </remarks>
-    Task<CrawlOptOut> RecordAsync(CrawlOptOut optOut, CancellationToken ct);
+    Task<OptOutRecording> RecordAsync(CrawlOptOut optOut, CancellationToken ct);
 
     /// <summary>Marks one route's opt-out as taken back, keeping the row.</summary>
     Task WithdrawAsync(string host, int? port, OptOutSource route, DateTimeOffset at, CancellationToken ct);
@@ -299,6 +323,14 @@ public interface ICrawlOptOutRepository
     /// <summary>Everything ever recorded, withdrawn included — the "and recorded" half of §11.</summary>
     Task<IReadOnlyList<CrawlOptOut>> AllAsync(CancellationToken ct);
 }
+
+/// <summary>What one write to the register did.</summary>
+/// <param name="OptOut">The row as it now stands, with the date they first asked.</param>
+/// <param name="IsFirstAsk">
+/// Whether this call is the one that recorded it. The store answers this because it is the thing that
+/// inserted or did not; a caller comparing timestamps would be reading a value the database rounded.
+/// </param>
+public sealed record OptOutRecording(CrawlOptOut OptOut, bool IsFirstAsk);
 
 /// <summary>A TXT lookup's answer, which has three outcomes and not two.</summary>
 /// <param name="Answered">
@@ -406,14 +438,14 @@ public sealed class OptOutGate(
                 },
                 cancellationToken);
 
-            if (recorded.RecordedAt == now)
+            if (recorded.IsFirstAsk)
             {
                 logger?.LogInformation(
                     "{Host}:{Port} published {Name} IN TXT \"{Record}\"; we stop dialling it",
                     host, target.Port, OptOutVocabulary.DnsNameFor(host), asked.Record);
             }
 
-            return recorded;
+            return recorded.OptOut;
         }
 
         if (standing is null)
@@ -478,14 +510,14 @@ public sealed class OptOutGate(
             },
             cancellationToken);
 
-        if (recorded.RecordedAt == now)
+        if (recorded.IsFirstAsk)
         {
             logger?.LogInformation(
                 "{Host}:{Port} publishes {Variable}; that was the last probe of it",
                 host, target.Port, asked.Variable);
         }
 
-        return recorded;
+        return recorded.OptOut;
     }
 
     /// <summary>
@@ -509,7 +541,7 @@ public sealed class OptOutGate(
 
         var now = time.GetUtcNow();
 
-        return await optOuts.RecordAsync(
+        var recorded = await optOuts.RecordAsync(
             new CrawlOptOut
             {
                 Host = CanonicalHost.Normalize(host),
@@ -520,5 +552,7 @@ public sealed class OptOutGate(
                 Detail = detail.Trim(),
             },
             cancellationToken);
+
+        return recorded.OptOut;
     }
 }

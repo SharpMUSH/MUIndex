@@ -200,6 +200,84 @@ public class OptOutTests
     }
 
     [Test]
+    [Arguments("opt-out=all")]
+    [Arguments("opt-out=*")]
+    [Arguments("opt-out=yes")]
+    [Arguments("opt-out=any")]
+    [Arguments("opt-out=everything")]
+    public async Task AQualifierWeCannotReadAsPortsCoversTheWholeHost(string record)
+    {
+        // The plausible thing to type, and the one failure this feature cannot have: an admin who
+        // wrote "opt-out=all" and went away must not still be crawled. A qualifier is a port list or
+        // it is not readable as one, and the only safe reading of the second is the whole host —
+        // which is what the unqualified record already means and what ReadMssp does with a value it
+        // did not anticipate.
+        var dns = new FakeDnsTxtResolver()
+            .Publishing(OptOutVocabulary.DnsNameFor("corvid.example.org"), record);
+
+        var (gate, _, _, _) = World(dns);
+
+        var ruling = await gate.RuleOnAsync(Target(port: 4201), None);
+
+        await Assert.That(ruling).IsNotNull();
+        await Assert.That(ruling!.Port).IsNull();
+        await Assert.That(await gate.RuleOnAsync(Target(port: 9999), None)).IsNotNull();
+    }
+
+    [Test]
+    public async Task AnOffFlagInOneSpellingDoesNotSilenceAnOnFlagInAnother()
+    {
+        // A stock config shipping MUINDEX OPT-OUT 0 must not overrule the operator's own
+        // CRAWL_OPT_OUT 1. Any spelling saying stop is the report saying stop, whatever the others
+        // say, because that is the reading that fails towards consent.
+        var (gate, _, _, _) = World();
+
+        await gate.HearAsync(
+            Target(),
+            ProbeResults.Answered(mssp: ProbeResults.Mssp(
+                (OptOutVocabulary.MsspVariable, "0"), ("CRAWL_OPT_OUT", "1"))),
+            None);
+
+        await Assert.That(await gate.RuleOnAsync(Target(), None)).IsNotNull();
+    }
+
+    [Test]
+    public async Task EveryVariableSetToOffIsStillNotAnOptOut()
+    {
+        var (gate, rows, _, _) = World();
+
+        await gate.HearAsync(
+            Target(),
+            ProbeResults.Answered(mssp: ProbeResults.Mssp(
+                (OptOutVocabulary.MsspVariable, "0"), ("CRAWL_OPT_OUT", "no"))),
+            None);
+
+        await Assert.That(await rows.AllAsync(None)).IsEmpty();
+    }
+
+    [Test]
+    public async Task TheFirstAskIsLoggedOnceAndConfirmationsAreNot()
+    {
+        // The log line is how an operator finds out that a game asked us to stop, so "did we hear
+        // this before" cannot be decided by comparing timestamps: the register rounds them to the
+        // microsecond a timestamptz column stores, and 100ns ticks never survive that. The register
+        // says whether it inserted; nothing here recomputes it.
+        var dns = new FakeDnsTxtResolver()
+            .Publishing(OptOutVocabulary.DnsNameFor("corvid.example.org"), OptOutVocabulary.DnsValue);
+
+        var rows = new InMemoryCrawlOptOutRepository();
+        var time = new ManualTimeProvider(Start.AddTicks(1234567));
+        var logger = new RecordingLogger<OptOutGate>();
+        var gate = new OptOutGate(rows, dns, time, logger);
+
+        await gate.RuleOnAsync(Target(), None);
+        time.Advance(TimeSpan.FromDays(1).Add(TimeSpan.FromTicks(4321)));
+        await gate.RuleOnAsync(Target(), None);
+
+        await Assert.That(logger.Lines.Count(line => line.Contains("we stop dialling it"))).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task ARecordNamingAnotherPortSaysNothingAboutThisOne()
     {
         var dns = new FakeDnsTxtResolver()

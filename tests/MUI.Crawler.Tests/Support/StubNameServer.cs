@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -38,8 +39,17 @@ public sealed class StubNameServer : IDisposable
     /// <summary>The ephemeral port it is listening on.</summary>
     public int Port => ((IPEndPoint)_socket.Client.LocalEndPoint!).Port;
 
-    /// <summary>Every name it was asked about, so "we asked for the documented name" is assertable.</summary>
-    public List<string> Asked { get; } = [];
+    /// <summary>
+    /// Every name it was asked about, so "we asked for the documented name" is assertable. Concurrent
+    /// because it is written from the serving loop and read from the test's thread.
+    /// </summary>
+    public ConcurrentQueue<string> Asked { get; } = [];
+
+    /// <summary>
+    /// Receives and never answers, which is what a sick resolver does and is not the same as saying
+    /// no. Nothing a client can do about it but stop waiting.
+    /// </summary>
+    public bool Silent { get; init; }
 
     /// <summary>Publishes one TXT record. Called before the lookup; a zone edit mid-flight is not a thing here.</summary>
     public void Publish(string name, params string[] records)
@@ -82,9 +92,11 @@ public sealed class StubNameServer : IDisposable
                 return;
             }
 
+            // Parsed even when silent, so that "it was asked and said nothing" is distinguishable
+            // from "it never heard the question".
             var response = Answer(query.Buffer);
 
-            if (response.Length > 0)
+            if (!Silent && response.Length > 0)
             {
                 await _socket.SendAsync(response, response.Length, query.RemoteEndPoint);
             }
@@ -105,10 +117,7 @@ public sealed class StubNameServer : IDisposable
             return [];
         }
 
-        lock (_gate)
-        {
-            Asked.Add(name);
-        }
+        Asked.Enqueue(name);
 
         List<string> records;
 

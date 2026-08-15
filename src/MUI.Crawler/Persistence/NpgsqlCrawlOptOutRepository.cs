@@ -65,8 +65,16 @@ public sealed class NpgsqlCrawlOptOutRepository(NpgsqlDataSource source) : ICraw
     /// when we last heard it are two facts; a confirmation may move the second only. Clearing
     /// <c>withdrawn_at</c> is the same event read forwards: a record that came back is somebody asking
     /// again. One statement, so two workers meeting the same TXT record cannot both insert.
+    /// <para>
+    /// <b><c>xmax = 0</c> is how the statement says which arm it took</b> — the system column is zero
+    /// on a freshly inserted tuple and holds the updating transaction on the conflict arm. The obvious
+    /// alternative, comparing the returned <c>recorded_at</c> against the clock the caller passed, is
+    /// wrong: <c>timestamptz</c> keeps microseconds and <c>DateTimeOffset</c> counts 100ns ticks, so
+    /// the value that comes back is not the value that went in and every write would read as a
+    /// confirmation.
+    /// </para>
     /// </remarks>
-    public async Task<CrawlOptOut> RecordAsync(CrawlOptOut optOut, CancellationToken ct)
+    public async Task<OptOutRecording> RecordAsync(CrawlOptOut optOut, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(optOut);
 
@@ -81,7 +89,7 @@ public sealed class NpgsqlCrawlOptOutRepository(NpgsqlDataSource source) : ICraw
                SET last_confirmed_at = GREATEST(crawl_opt_out.last_confirmed_at, EXCLUDED.last_confirmed_at),
                    detail = EXCLUDED.detail,
                    withdrawn_at = NULL
-            RETURNING {Columns}
+            RETURNING {Columns}, (xmax = 0) AS IsFirstAsk
             """,
             new
             {
@@ -95,7 +103,7 @@ public sealed class NpgsqlCrawlOptOutRepository(NpgsqlDataSource source) : ICraw
             },
             cancellationToken: ct));
 
-        return row.ToRecord();
+        return new OptOutRecording(row.ToRecord(), row.IsFirstAsk);
     }
 
     public async Task WithdrawAsync(
@@ -176,6 +184,9 @@ public sealed class NpgsqlCrawlOptOutRepository(NpgsqlDataSource source) : ICraw
         public string Detail { get; init; } = string.Empty;
 
         public DateTimeOffset? WithdrawnAt { get; init; }
+
+        /// <summary>Only ever set by the write path; a read leaves it false and nothing reads it.</summary>
+        public bool IsFirstAsk { get; init; }
 
         public CrawlOptOut ToRecord() => new()
         {

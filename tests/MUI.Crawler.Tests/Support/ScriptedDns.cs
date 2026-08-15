@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 using MUI.Discovery;
 
 namespace MUI.Crawler.Tests.Support;
@@ -14,7 +16,12 @@ public sealed class ScriptedDns : IDnsTxtResolver
 {
     private readonly Dictionary<string, DnsTxtAnswer> _answers = new(StringComparer.OrdinalIgnoreCase);
 
-    public List<string> Asked { get; } = [];
+    /// <summary>
+    /// Every name asked about. Concurrent because a crawl cycle asks from its worker pool, and the
+    /// sibling <see cref="ScriptedProbe"/> is a queue for exactly the same reason: a plain list
+    /// written from several threads is a flake waiting for a busy machine.
+    /// </summary>
+    public ConcurrentQueue<string> Asked { get; } = [];
 
     public ScriptedDns Publishing(string host, params string[] records)
     {
@@ -24,7 +31,7 @@ public sealed class ScriptedDns : IDnsTxtResolver
 
     public Task<DnsTxtAnswer> LookupAsync(string name, CancellationToken cancellationToken = default)
     {
-        Asked.Add(name);
+        Asked.Enqueue(name);
 
         return Task.FromResult(_answers.TryGetValue(name, out var scripted) ? scripted : DnsTxtAnswer.NoRecord);
     }

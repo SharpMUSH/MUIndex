@@ -56,7 +56,7 @@ crawl cycle — and each recorded with its date and with what we read:
 | Route | What to publish | What it covers |
 |---|---|---|
 | **MSSP** | `MUINDEX OPT-OUT 1` (also accepted: `MUINDEX_OPT_OUT`, `MUINDEX OPTOUT`, `CRAWL_OPT_OUT`) | The listener that published it. A hostname is not a game, and one game may not silence the one next door on the same domain. |
-| **DNS** | `_muindex.your.host. IN TXT "opt-out"`, or `"opt-out=4201"` for one port | Every port on that host, unless it names one. |
+| **DNS** | `_muindex.your.host. IN TXT "opt-out"`, or `"opt-out=4201"` for one port | Every port on that host, unless it names one. A qualifier we cannot read as a list of ports — `opt-out=all`, `opt-out=*` — covers the host, because the only safe reading of an instruction we half-understand is the one that stops. |
 | **A request** | Write to a person, who records it with who asked | Whatever was asked for. Never defaulted, never inferred. |
 
 **The DNS route is the one an operator can undo alone**, because a TXT record is readable without
