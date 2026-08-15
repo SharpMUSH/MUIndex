@@ -48,8 +48,13 @@ public class BadgeApiTests
     /// <para>
     /// The badge and <c>/api/games/{slug}</c> are held to the same predicate rather than to two
     /// judgements that agree today: the JSON below says <c>unknown</c> where the API says
-    /// <c>declared</c>, and both come from <c>ProvenanceChip.IsMeasured</c>. M*U*S*H is the control
-    /// — a <c>WHO</c> count, and it still goes out as a number.
+    /// <c>declared</c>, and both reach <c>FieldSources.IsMeasured</c> through
+    /// <c>ProvenanceChip</c>. Two controls, one on each side of that line — M*U*S*H's <c>WHO</c>
+    /// count, and Aardwolf's, which exists only because we read it off the connect screen. The
+    /// second is the whole point of the line being drawn on the <em>source</em> and not on who
+    /// authored the number: we open the socket and parse that text ourselves on every probe, so
+    /// its freshness is ours, and a badge that refused to show it would be withholding a
+    /// measurement we took.
     /// </para>
     /// </remarks>
     [Test]
@@ -60,6 +65,7 @@ public class BadgeApiTests
         var declared = await host.Client.GetStringAsync("/g/ashen-court/badge.svg");
         var json = await Json.ElementAsync(await host.Client.GetAsync("/g/ashen-court/badge.json"));
         var measured = await host.Client.GetStringAsync("/g/m-u-s-h/badge.svg");
+        var banner = await host.Client.GetStringAsync("/g/aardwolf/badge.svg");
 
         await Assert.That(declared).Contains("players unknown");
         await Assert.That(declared).DoesNotContain("9 now")
@@ -71,6 +77,9 @@ public class BadgeApiTests
             .Because("an instant beside no count of ours would name a measurement nobody took");
 
         await Assert.That(measured).Contains("15 now");
+
+        await Assert.That(banner).Contains("219 now")
+            .Because("we read that number off the connect screen ourselves, which is a measurement");
     }
 
     /// <summary>
