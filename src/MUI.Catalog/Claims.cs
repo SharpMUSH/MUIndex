@@ -245,3 +245,30 @@ public enum ClaimVerdict
     /// </summary>
     Assumed,
 }
+
+/// <summary>
+/// Brings a game's next probe forward, for §8.1's on-demand check.
+/// </summary>
+/// <remarks>
+/// <para>
+/// An interface here and an implementation over <c>crawl_target</c> in <c>MUI.Crawler</c>, because
+/// due-ness is the crawl registry's business and <c>MUI.Catalog</c> may not know a socket exists.
+/// <see cref="ClaimService"/> decides <em>whether</em> a claimant may ask; this decides nothing and
+/// only moves the schedule.
+/// </para>
+/// <para>
+/// <b>It brings a probe forward; it does not dial.</b> The crawler's own loop still does the
+/// dialling, still honours <c>CRAWL DELAY</c> and still refuses a target outside scope — so a button
+/// on a page cannot become a way to make us connect to a stranger's server on demand. What §8.1 asks
+/// for is that an operator who has just edited <c>mush.cnf</c> is not left waiting on the scheduler,
+/// and that is exactly this and no more.
+/// </para>
+/// </remarks>
+public interface IOnDemandProbes
+{
+    /// <summary>
+    /// Asks for <paramref name="gameId"/> to be probed no later than <paramref name="at"/>.
+    /// </summary>
+    /// <returns>Whether any target was brought forward.</returns>
+    Task<bool> BringForwardAsync(Guid gameId, DateTimeOffset at, CancellationToken cancellationToken = default);
+}
