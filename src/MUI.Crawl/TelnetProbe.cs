@@ -126,9 +126,16 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
             // Phases 3 to 5 — the questions we are allowed to ask, in order. SendAsync appends the
             // line ending itself, so each command is handed over bare.
-            async Task<int> AskAsync(string command, int baseline)
+            //
+            // `sent` fires between the write and the wait, which is the only place it can be honest:
+            // a question is asked when its bytes have gone, not when we decided to ask it. Live()
+            // above narrows the window rather than closing it — the peer can still go in the moment
+            // between the check and the write — and a flag set before the send would survive that as
+            // a claim to have asked something that never left.
+            async Task<int> AskAsync(string command, int baseline, Action? sent = null)
             {
                 await telnet.SendAsync(Encoding.ASCII.GetBytes(command));
+                sent?.Invoke();
                 await SettleAsync(telnet, Arrived, baseline, _options.SilenceGrace, budget.Token);
                 return Arrived();
             }
@@ -149,8 +156,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 // were being spent waiting on a connection that had already gone.
                 if (Live(client))
                 {
-                    asked = true;
-                    whoLines = infoLines = versionLines = await AskAsync(WhoCommand, flushLines);
+                    whoLines = infoLines = versionLines =
+                        await AskAsync(WhoCommand, flushLines, () => asked = true);
                 }
 
                 if (Live(client))

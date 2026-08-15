@@ -87,6 +87,30 @@ public class ProbeSessionTests
     }
 
     [Test]
+    public async Task AnAnswerAlreadyGivenSurvivesTheServerClosingRightAfterIt()
+    {
+        // A count is the most expensive thing a probe collects, so the phase boundary that delimits
+        // it must be recorded before anything that can throw. It is: SettleAsync only awaits a
+        // timer, and the flush feeds the interpreter a local byte, so a peer that goes away is not
+        // heard from until the *next* send — by which point whoLines is already committed and
+        // Live() declines to make that send at all.
+        await using var game = new FakeGame
+        {
+            Banner = "Welcome to Nowhere\r\n",
+            BannerTail = "Please enter a name: ",
+            WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
+            HangsUpAfterWho = true,
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Count);
+        await Assert.That(result.Who.Count).IsEqualTo(7);
+        await Assert.That(result.Banner).Contains("Welcome to Nowhere");
+    }
+
+    [Test]
     public async Task AServerThatCloseBeforeSayingAnythingIsStillAFailure()
     {
         // The other side of the line above: no banner, no negotiation, nothing measured. Carrying
@@ -352,6 +376,9 @@ public class ProbeSessionTests
         /// <summary>Whether the server accepts the connection and drops it without a word.</summary>
         public bool ClosesImmediately { get; init; }
 
+        /// <summary>Whether the server answers <c>WHO</c> and then closes on us.</summary>
+        public bool HangsUpAfterWho { get; init; }
+
         /// <summary>
         /// Whether this server fails to strip telnet negotiation at its login screen, so our IAC
         /// bytes end up prefixed to the next command we type. TinyMUSH does exactly this.
@@ -495,7 +522,7 @@ public class ProbeSessionTests
                     await SendAsync(stream, WhoTail);
                 }
 
-                return true;
+                return !HangsUpAfterWho;
             }
 
             if (command.Equals("INFO", StringComparison.OrdinalIgnoreCase))
