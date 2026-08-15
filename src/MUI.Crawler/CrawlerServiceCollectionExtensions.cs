@@ -198,10 +198,11 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<CatalogueBinder>();
         services.TryAddSingleton<CrawlCycle>();
 
-        if (options.Enabled)
-        {
-            services.AddHostedService<CrawlerService>();
-        }
+        // Registered even when the crawl is off, so that CrawlerService says so once in the log and
+        // then returns. A replica that was meant to crawl and is silently not crawling looks exactly
+        // like a replica that was configured not to, and an operator reading a log should not have to
+        // tell them apart by their silence.
+        services.AddHostedService<CrawlerService>();
 
         // Deliberately not gated on options.Enabled: a pure web replica still wants next month's
         // partitions to exist and this month's samples rolled up, and the maintenance pass takes its

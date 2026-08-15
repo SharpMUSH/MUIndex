@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -288,6 +289,49 @@ public class CompositionTests
     }
 
     /// <summary>
+    /// What a deployment says about the crawler reaches the crawler.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>CrawlerSettings.Apply</c> has thorough tests and every one of them calls it on a builder it
+    /// constructed itself, so all of them pass on a site that never calls it. The call is one line
+    /// inside <see cref="SiteComposition.AddMuiSite"/> and it has already moved once — it was written
+    /// in <c>Program</c>'s top-level statements and the pipeline moved out from under it during a
+    /// restack.
+    /// </para>
+    /// <para>
+    /// Losing it is silent and expensive in both directions: <c>MUI_CRAWL_ENABLED=false</c> is a
+    /// deployment that believes it is a pure web tier and is still dialling other people's servers,
+    /// and <c>MUI_CRAWL_SEEDS</c> is the only thing a first deployment knows about.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task TheDeploymentsCrawlerSettingsReachTheCrawler()
+    {
+        await using var off = Site(settings: new Dictionary<string, string?>
+        {
+            [CrawlerSettings.EnabledConfigurationKey] = "false",
+            [CrawlerSettings.SeedsConfigurationKey] = "mush.example.org:4201",
+        });
+
+        var options = off.Services.GetRequiredService<CrawlerOptions>();
+
+        await Assert.That(options.Enabled).IsFalse()
+            .Because("a replica told not to crawl must not be given a hosted crawler");
+        await Assert.That(options.Seeds.Select(seed => $"{seed.Host}:{seed.Port}"))
+            .Contains("mush.example.org:4201");
+
+        // And the exemption is not something configuration can hand out (§7.2): the seed above went
+        // through the same parser mui-crawl uses, and it is not an operator seed.
+        await Assert.That(options.Seeds.Any(seed => seed.IsOperatorSeed)).IsFalse();
+
+        await using var on = Site();
+
+        await Assert.That(on.Services.GetRequiredService<CrawlerOptions>().Enabled).IsTrue()
+            .Because("saying nothing leaves the crawler on, which is what the deployed site does");
+    }
+
+    /// <summary>
     /// <c>Program</c>'s graph, built by calling <c>Program</c>'s own registration.
     /// </summary>
     /// <remarks>
@@ -316,7 +360,10 @@ public class CompositionTests
     /// <c>NpgsqlDataSource</c> is lazy.
     /// </para>
     /// </remarks>
-    private static WebApplication Site(string? environment = null, string? connectionString = ConnectionString)
+    private static WebApplication Site(
+        string? environment = null,
+        string? connectionString = ConnectionString,
+        Dictionary<string, string?>? settings = null)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -324,6 +371,12 @@ public class CompositionTests
         });
 
         builder.Logging.ClearProviders();
+
+        if (settings is { Count: > 0 })
+        {
+            builder.Configuration.AddInMemoryCollection(settings);
+        }
+
         builder.Services.AddMuiSite(builder.Configuration, connectionString);
 
         return builder.Build();

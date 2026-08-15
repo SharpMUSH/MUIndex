@@ -12,7 +12,9 @@ public sealed record Arguments
         mui-crawl — run crawl cycles against a real database and print what landed.
 
           --connection <string>   PostgreSQL connection string. Defaults to $MUI_CRAWL_POSTGRES.
-          --seed <host:port>      An address to add to the registry. Repeatable.
+          --seed <host:port>      An address to add to the registry. Repeatable. An IPv6 literal
+                                  is bracketed — [2001:db8::1]:4201 — because a bare one does not
+                                  say which colon is the port.
           --seed-exempt <h:p>     The same, exempt from the resolved-address gate (§7.2). Say this
                                   only about an address you chose on purpose — it is what lets the
                                   crawler dial a private address, and nothing else may.
@@ -101,11 +103,11 @@ public sealed record Arguments
                     break;
 
                 case "--seed":
-                    seeds.Add(ParseSeed(Next(args, ref i, "--seed"), isOperatorSeed: false));
+                    seeds.Add(CrawlSeed.Parse(Next(args, ref i, "--seed"), isOperatorSeed: false));
                     break;
 
                 case "--seed-exempt":
-                    seeds.Add(ParseSeed(Next(args, ref i, "--seed-exempt"), isOperatorSeed: true));
+                    seeds.Add(CrawlSeed.Parse(Next(args, ref i, "--seed-exempt"), isOperatorSeed: true));
                     break;
 
                 case "--cycles":
@@ -144,29 +146,6 @@ public sealed record Arguments
         }
 
         return parsed with { Seeds = seeds };
-    }
-
-    /// <summary>
-    /// <c>host:port</c>, and the bracketed IPv6 form, because a seed list is exactly where somebody
-    /// writes one.
-    /// </summary>
-    private static CrawlSeed ParseSeed(string value, bool isOperatorSeed)
-    {
-        var text = value.Trim();
-        var colon = text.StartsWith('[') && text.Contains("]:", StringComparison.Ordinal)
-            ? text.IndexOf("]:", StringComparison.Ordinal) + 1
-            : text.LastIndexOf(':');
-
-        if (colon <= 0 || !int.TryParse(text[(colon + 1)..], out var port))
-        {
-            throw new ArgumentException($"'{value}' is not host:port.");
-        }
-
-        var host = text[..colon].Trim('[', ']');
-        var seed = new CrawlSeed(host, port, isOperatorSeed);
-        seed.Validate();
-
-        return seed;
     }
 
     /// <summary>

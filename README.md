@@ -199,6 +199,9 @@ of whether a fact is being communicated at all, rather than decorated.
   — the system design. Authoritative; read this first.
 - **[`docs/design-brief.md`](docs/design-brief.md)** — input to the site-design session: the
   constraints design may not violate, and the areas it must decide.
+- **[`docs/deploy.md`](docs/deploy.md)** — how to run it: the image, the compose file, every
+  environment variable, what the advisory lock guarantees across replicas, and which levers the two
+  open questions — the domain and the hosting envelope — will turn once they are answered.
 - **[`docs/design-handoff.html`](docs/design-handoff.html)** — the delivered visual design. Open it
   in a browser; it is a self-contained interactive document covering identity, type, colour, the
   ANSI quotation frame, all seven signature components, page layouts, the nine-state matrix,
@@ -223,6 +226,18 @@ dotnet run -c Release --no-build --project tests/MUI.Crawler.Tests   </dev/null
 dotnet run -c Release --no-build --project tests/MUI.Discovery.Tests </dev/null
 dotnet run -c Release --no-build --project tests/MUI.Web.Tests       </dev/null
 ```
+
+## Running
+
+One deployable — site, dashboard, read API and crawler in one process — and a PostgreSQL beside it.
+
+```bash
+docker compose up --build      # http://localhost:8080
+```
+
+With no database it still starts, on a fixture, saying so on every page.
+[`docs/deploy.md`](docs/deploy.md) is the whole of it: the image, the environment, migrations at
+startup, and the advisory lock that keeps N replicas to one crawler.
 
 ## Licence
 

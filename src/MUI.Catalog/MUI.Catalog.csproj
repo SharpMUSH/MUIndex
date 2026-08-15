@@ -26,9 +26,22 @@
     schema it expects and MigrationRunner needs nothing on disk.
   -->
   <ItemGroup>
-    <EmbeddedResource Include="$(MSBuildThisFileDirectory)..\..\migrations\*.sql">
+    <MigrationScript Include="$(MSBuildThisFileDirectory)..\..\migrations\*.sql" />
+    <EmbeddedResource Include="@(MigrationScript)">
       <LogicalName>MUI.Catalog.Migrations.%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
+
+  <!--
+    A glob that matches nothing is not an error to MSBuild, and this one lives outside the project
+    directory — so a build context that did not copy migrations/ produces an assembly with an empty
+    migration set, a MigrationRunner that applies nothing without complaint, and a site that starts
+    against a database with no schema. Measured: the first container build here excluded migrations/
+    and the image came up reading a catalogue whose tables did not exist.
+  -->
+  <Target Name="EnsureTheMigrationsWereFound" BeforeTargets="CoreCompile">
+    <Error Condition="'@(MigrationScript)' == ''"
+           Text="No .sql files were found in $(MSBuildThisFileDirectory)..\..\migrations. MUI.Catalog embeds them and MigrationRunner has nothing else to apply, so this build would produce a binary that silently applies no schema." />
+  </Target>
 
 </Project>
