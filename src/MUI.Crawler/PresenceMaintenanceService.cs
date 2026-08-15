@@ -89,8 +89,42 @@ public sealed class PresenceMaintenanceService(
     PresenceMaintenance maintenance,
     PresenceMaintenanceOptions options,
     TimeProvider time,
-    ILogger<PresenceMaintenanceService> logger) : BackgroundService
+    ILogger<PresenceMaintenanceService> logger,
+    // §9's adoption curves ride this pass rather than a hosted service of their own, because the
+    // scarce thing is the advisory lease and not the work: a second nightly job would need a second
+    // lock, and two locks for one pass is a worse arrangement than one pass doing two things.
+    // Optional, so a deployment without the ecosystem read side still keeps its presence rollups.
+    IEcosystemSnapshots? snapshots = null,
+    IGameQueries? ecosystem = null) : BackgroundService
 {
+    /// <summary>
+    /// Records today's protocol adoption, and never lets that failure cost the rollups.
+    /// </summary>
+    /// <remarks>
+    /// Caught separately and logged as a warning rather than allowed to reach the pass's own
+    /// handler. The rollups are the copy retention is clamped to and are the reason this service
+    /// exists; a curve is a nice graph. If the dashboard read throws, the right outcome is a missing
+    /// point on a chart, not a retried maintenance pass and an hour of presence left unrolled.
+    /// </remarks>
+    private async Task SnapshotAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (snapshots is null || ecosystem is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var dashboard = await ecosystem.EcosystemAsync(cancellationToken);
+
+            await snapshots.RecordAsync(now, dashboard.Protocols, cancellationToken);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            logger.LogWarning(error, "Today's ecosystem snapshot was not recorded");
+        }
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!options.Enabled)
@@ -155,7 +189,10 @@ public sealed class PresenceMaintenanceService(
 
                     waiting = false;
 
-                    await maintenance.RunAsync(time.GetUtcNow(), stoppingToken);
+                    var now = time.GetUtcNow();
+
+                    await maintenance.RunAsync(now, stoppingToken);
+                    await SnapshotAsync(now, stoppingToken);
 
                     await Task.Delay(options.Interval, time, stoppingToken);
                 }

@@ -106,6 +106,22 @@ public static class EcosystemCopy
         + "not before. Plotting when we first reached each game instead would draw a rising line "
         + "measuring the crawl rather than the hobby.";
 
+    /// <summary>
+    /// What a drawn curve does and does not measure, said beside the curve rather than under it.
+    /// </summary>
+    /// <remarks>
+    /// The same care <see cref="NoCurve"/> takes, applied to the thing that replaced it. A share over
+    /// the measured set moves for two reasons — a game changing its mind, and the set changing
+    /// composition — and only the first is adoption. A month in which the crawler found four hundred
+    /// DikuMUDs would move every share on this page without one game having changed anything, and a
+    /// reader deserves to be told that before they read a slope as a trend.
+    /// </remarks>
+    public const string CurveCaveat =
+        "Each point is a share over the games we had measured that day, so this line moves for two "
+        + "reasons: a game changing what it offers, and the set of games we can measure changing "
+        + "around it. Only the first is adoption. The transition count below is the part that is "
+        + "purely games changing their minds.";
+
     /// <summary>Why there is no headline population figure, said where somebody might look for one.</summary>
     public const string NoTotals =
         "Shares, never totals. How many people play MU* is a number this site deliberately does not "

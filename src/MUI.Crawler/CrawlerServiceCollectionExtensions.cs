@@ -194,6 +194,11 @@ public static class CrawlerServiceCollectionExtensions
 
         services.TryAddSingleton<ProbeIngestor>();
         services.TryAddSingleton<CatalogueBinder>();
+        // §9's adoption curves. Registered here rather than with the web tier because the pass that
+        // writes them runs beside the crawler, and the read side resolves the same one.
+        services.TryAddSingleton<IEcosystemSnapshots>(s => new NpgsqlEcosystemSnapshots(
+            s.GetRequiredService<NpgsqlDataSource>()));
+
         services.TryAddSingleton<CrawlCycle>();
 
         // Registered even when the crawl is off, so that CrawlerService says so once in the log and
