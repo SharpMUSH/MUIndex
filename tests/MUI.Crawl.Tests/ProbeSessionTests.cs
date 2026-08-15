@@ -57,6 +57,49 @@ public class ProbeSessionTests
     }
 
     [Test]
+    public async Task AServerThatHangsUpOnTheFlushLineStillCountsAsHavingAnswered()
+    {
+        // Measured on game.mortalrealms.com:4321 (MrMud 1.4), and on five of fourteen live servers
+        // sampled beside it — alteraeon, tbamud, ageofinsanity, addictmud and avatar.outland. Every
+        // DIKU descendant reads an empty line at "Who art thou:" as a goodbye and closes, so the
+        // probe's own flush line ends the session and the WHO after it writes into a dead socket.
+        //
+        // The banner is already in hand when that happens. Reporting the whole probe as Failed threw
+        // it away and wrote the game down as unreachable, which is our flush line recorded as a fact
+        // about their server — the thing CLAUDE.md's fifth rule forbids. The server answered.
+        await using var game = new FakeGame
+        {
+            Banner = "Welcome to Mortal Realms\r\nMrMud 1.4\r\n",
+            BannerTail = "Who art thou: ",
+            HangsUpOnBlankLine = true,
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Banner).Contains("Mortal Realms");
+        await Assert.That(result.Banner).Contains("Who art thou:");
+
+        // Nothing was asked, so nothing may claim to have been asked and found unreadable (rule 4).
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.NotAsked);
+        await Assert.That(result.Info).IsNull();
+        await Assert.That(result.Version).IsNull();
+    }
+
+    [Test]
+    public async Task AServerThatCloseBeforeSayingAnythingIsStillAFailure()
+    {
+        // The other side of the line above: no banner, no negotiation, nothing measured. Carrying
+        // evidence forward must not turn an empty session into an answered one.
+        await using var game = new FakeGame { ClosesImmediately = true };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Failed);
+        await Assert.That(result.Banner).IsNull();
+    }
+
+    [Test]
     public async Task AnUnterminatedWhoReplyIsReadRatherThanLost()
     {
         // chaos.caile.org:4444's shape, with the summary line left hanging. A count that only
@@ -301,6 +344,15 @@ public class ProbeSessionTests
         public string? BlankLineReply { get; init; }
 
         /// <summary>
+        /// Whether an empty line at the name prompt is a goodbye. Every DIKU descendant reads one
+        /// that way, which is what makes the probe's own flush line fatal to them.
+        /// </summary>
+        public bool HangsUpOnBlankLine { get; init; }
+
+        /// <summary>Whether the server accepts the connection and drops it without a word.</summary>
+        public bool ClosesImmediately { get; init; }
+
+        /// <summary>
         /// Whether this server fails to strip telnet negotiation at its login screen, so our IAC
         /// bytes end up prefixed to the next command we type. TinyMUSH does exactly this.
         /// </summary>
@@ -327,6 +379,12 @@ public class ProbeSessionTests
             {
                 using var client = await _listener.AcceptTcpClientAsync(_stopping.Token);
                 await using var stream = client.GetStream();
+
+                if (ClosesImmediately)
+                {
+                    client.Client.Shutdown(SocketShutdown.Both);
+                    return;
+                }
 
                 if (Preamble is not null)
                 {
@@ -361,7 +419,8 @@ public class ProbeSessionTests
 
                     pending.Append(text);
 
-                    while (true)
+                    var farewell = false;
+                    while (!farewell)
                     {
                         var whole = pending.ToString();
                         var breakAt = whole.IndexOf('\n');
@@ -372,7 +431,13 @@ public class ProbeSessionTests
 
                         var line = whole[..breakAt].TrimEnd('\r');
                         pending.Remove(0, breakAt + 1);
-                        await HandleAsync(stream, line);
+                        farewell = !await HandleAsync(stream, line);
+                    }
+
+                    if (farewell)
+                    {
+                        client.Client.Shutdown(SocketShutdown.Both);
+                        break;
                     }
                 }
             }
@@ -387,7 +452,8 @@ public class ProbeSessionTests
             }
         }
 
-        private async Task HandleAsync(NetworkStream stream, string line)
+        /// <summary>Handles one line, and says whether the connection survives it.</summary>
+        private async Task<bool> HandleAsync(NetworkStream stream, string line)
         {
             lock (_received)
             {
@@ -401,19 +467,24 @@ public class ProbeSessionTests
 
             if (command.Length == 0)
             {
+                if (HangsUpOnBlankLine)
+                {
+                    return false;
+                }
+
                 if (BlankLineReply is not null)
                 {
                     await SendAsync(stream, BlankLineReply);
                 }
 
-                return;
+                return true;
             }
 
             if (!clean)
             {
                 // What TinyMUSH does: redisplay the connect screen and answer nothing.
                 await SendAsync(stream, Banner);
-                return;
+                return true;
             }
 
             if (command.Equals("WHO", StringComparison.OrdinalIgnoreCase))
@@ -424,7 +495,7 @@ public class ProbeSessionTests
                     await SendAsync(stream, WhoTail);
                 }
 
-                return;
+                return true;
             }
 
             if (command.Equals("INFO", StringComparison.OrdinalIgnoreCase))
@@ -434,7 +505,7 @@ public class ProbeSessionTests
                     await SendAsync(stream, InfoReply);
                 }
 
-                return;
+                return true;
             }
 
             if (command.Equals("VERSION", StringComparison.OrdinalIgnoreCase))
@@ -444,6 +515,8 @@ public class ProbeSessionTests
                     await SendAsync(stream, VersionReply);
                 }
             }
+
+            return true;
         }
 
         private async Task SendAsync(NetworkStream stream, string text)
