@@ -87,6 +87,7 @@ public static class SiteComposition
             services.AddSingleton<FixtureGameQueries>();
             services.AddSingleton<IGameQueries>(s => s.GetRequiredService<FixtureGameQueries>());
             services.AddSingleton<IAvailabilityHistory>(s => s.GetRequiredService<FixtureGameQueries>());
+            services.AddSingleton<IPresenceSeries, FixturePresenceSeries>();
         }
 
         services.AddSingleton(new CatalogueSource(connectionString is not null));
