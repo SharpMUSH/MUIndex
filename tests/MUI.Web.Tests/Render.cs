@@ -2,6 +2,7 @@ using MUI.Catalog;
 using MUI.Web.Data;
 using MUI.Web.Fixtures;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -45,7 +46,8 @@ public static class Render
     /// </remarks>
     public static Task<string> PageAsync<TComponent>(
         Dictionary<string, object?> parameters,
-        string query)
+        string query,
+        bool measured = false)
         where TComponent : IComponent =>
         ComponentAsync<TComponent>(parameters, services =>
         {
@@ -54,9 +56,30 @@ public static class Render
             services.AddSingleton<IGameQueries>(fixture);
             services.AddSingleton<IAvailabilityHistory>(fixture);
             services.AddSingleton(TimeProvider.System);
-            services.AddSingleton(new CatalogueSource(IsMeasured: false));
+
+            // Whether a database is configured, which several surfaces switch on: claiming and
+            // submitting are absent over the fixture rather than present and unable to do anything.
+            // The queries behind them stay the fixture's either way — this asks what the page renders
+            // when a catalogue exists, not what a real one holds.
+            services.AddSingleton(new CatalogueSource(measured));
             services.AddSingleton<NavigationManager>(new StubNavigation(query));
+            services.AddSingleton<AntiforgeryStateProvider, StubAntiforgery>();
         });
+
+    /// <summary>
+    /// Enough of an antiforgery provider for <c>&lt;AntiforgeryToken /&gt;</c> to render.
+    /// </summary>
+    /// <remarks>
+    /// The framework's own provider is internal and wants a request behind it. Without one the
+    /// component renders nothing at all, silently — so a test asking "is this form token-protected"
+    /// would pass on a page that had never had a token, and fail on one that did. This is what makes
+    /// the absence of a hidden field mean something.
+    /// </remarks>
+    private sealed class StubAntiforgery : AntiforgeryStateProvider
+    {
+        public override AntiforgeryRequestToken GetAntiforgeryToken() =>
+            new("a-token", "__RequestVerificationToken");
+    }
 
     /// <summary>A navigation manager with nothing to do but answer "which URL am I on".</summary>
     private sealed class StubNavigation : NavigationManager

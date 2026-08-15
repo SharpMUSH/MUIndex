@@ -5,6 +5,7 @@ using MUI.Web.Api;
 using MUI.Web.Components;
 using MUI.Web.Data;
 using MUI.Web.Fixtures;
+using MUI.Web.Submissions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -75,9 +76,9 @@ else
 
 app.UseStaticFiles();
 
-// Razor Components register anti-forgery metadata on every endpoint, so the middleware has to be
-// present even though this site has no POST form yet. The facet panel is a GET form deliberately —
-// a filter is a bookmarkable question, not a state change — so nothing here is token-protected.
+// The site has exactly two POST forms — the on-demand claim check and the submission form — and both
+// carry a token. The facet panel is a GET form deliberately, because a filter is a bookmarkable
+// question rather than a state change, so nothing about the catalogue is token-protected.
 app.UseAntiforgery();
 
 if (connectionString is not null)
@@ -85,6 +86,11 @@ if (connectionString is not null)
     app.UseAuthentication();
     app.UseAuthorization();
     app.MapMuiAccounts();
+
+    // Submitting needs a crawl registry to write an address into, and the registry is registered
+    // alongside the database. Against the demo fixture the form is absent rather than present and
+    // silently doing nothing, which is the same choice the claim surface makes.
+    app.MapMuiSubmissions();
 }
 
 app.MapRazorComponents<App>();

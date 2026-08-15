@@ -37,22 +37,24 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// <remarks>
     /// <para>
     /// <b>A game is public if nobody submitted it, or if it has been claimed.</b> Anything the
-    /// crawler found for itself is listed on sight exactly as §7.1 says; a stranger's assertion that
-    /// some address is a game waits until that stranger proves they run it.
+    /// crawler found for itself is listed on sight exactly as §7.1 says; an address a stranger handed
+    /// us waits until somebody proves they run it.
     /// </para>
     /// <para>
-    /// It is one constant because it has to hold on <em>every</em> read — the listing, the search,
-    /// the three feeds, the ecosystem shares, the rankings, and both lookups. A predicate written
-    /// out per query is a predicate that will be forgotten on the next query somebody adds, and the
-    /// failure mode is a game on a public page that nobody vouched for. The test that enumerates
-    /// <c>IGameQueries</c> and asserts an unclaimed submission appears in none of it is the real
-    /// guard; this constant is what makes passing it easy.
+    /// It is one constant because it has to hold on <em>every</em> read, and the count of reads is
+    /// larger than it looks: the listing, the faceted search, all three liveness feeds, both halves of
+    /// the rankings, six separate subqueries behind the ecosystem dashboard, and both lookups. The
+    /// first cut of this filter covered the six queries that name <c>game</c> directly and missed
+    /// every one that reaches it through <c>JOIN game g</c> — so an unclaimed submission stayed off
+    /// the listing and turned up in the rankings. A predicate written out per query is a predicate
+    /// that will be forgotten on the next query somebody adds, and the failure mode is a game on a
+    /// public page that nobody vouched for.
     /// </para>
     /// </remarks>
-    private const string Public = "(submitted_by IS NULL OR is_claimed)";
+    private const string Public = "(submitted_at IS NULL OR is_claimed)";
 
     /// <summary>The same rule where the table is aliased.</summary>
-    private const string PublicG = "(g.submitted_by IS NULL OR g.is_claimed)";
+    private const string PublicG = "(g.submitted_at IS NULL OR g.is_claimed)";
 
     /// <summary>The heatmap's window (spec §5.2).</summary>
     public static readonly TimeSpan ActivityWindow = TimeSpan.FromDays(56);
@@ -368,11 +370,12 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             cancellationToken: cancellationToken));
 
         var wentDark = await connection.QueryAsync<FeedRow>(new CommandDefinition(
-            """
+            $"""
             SELECT g.slug AS Slug, g.name AS Name, a.from_at AS At, a.cause AS Cause
               FROM availability_interval a
               JOIN game g ON g.id = a.game_id
              WHERE a.to_at IS NULL AND a.state = 'unreachable' AND a.from_at >= @since
+               AND {PublicG}
              ORDER BY a.from_at DESC
              LIMIT @limit
             """,
@@ -383,13 +386,14 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         // That join is the whole reason availability is stored as intervals: on a sample series this
         // would be a scan for a transition that nothing recorded.
         var cameBack = await connection.QueryAsync<FeedRow>(new CommandDefinition(
-            """
+            $"""
             SELECT g.slug AS Slug, g.name AS Name, a.from_at AS At, prev.cause AS Cause
               FROM availability_interval a
               JOIN game g ON g.id = a.game_id
               JOIN availability_interval prev
                 ON prev.game_id = a.game_id AND prev.to_at = a.from_at AND prev.state <> 'reachable'
              WHERE a.state = 'reachable' AND a.from_at >= @since
+               AND {PublicG}
              ORDER BY a.from_at DESC
              LIMIT @limit
             """,
@@ -443,50 +447,50 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
               (SELECT count(DISTINCT a.game_id)::int
                  FROM availability_interval a
                  JOIN game g ON g.id = a.game_id
-                WHERE g.state <> 'archived' AND a.state = 'reachable') AS Handshakes,
+                WHERE {PublicG} AND g.state <> 'archived' AND a.state = 'reachable') AS Handshakes,
 
               -- Games whose MSSP report we hold. A different set from the one above, and the whole
               -- reason the declared column carries its own denominator.
               (SELECT count(DISTINCT f.game_id)::int
                  FROM game_field f
                  JOIN game g ON g.id = f.game_id
-                WHERE g.state <> 'archived' AND f.source = 'mssp') AS MsspReports,
+                WHERE {PublicG} AND g.state <> 'archived' AND f.source = 'mssp') AS MsspReports,
 
               -- How stale the stalest handshake in this snapshot is, so the page can say how old the
               -- picture is rather than implying it is of this minute.
               (SELECT min(f.last_confirmed_at)
                  FROM game_field f
                  JOIN game g ON g.id = f.game_id
-                WHERE g.state <> 'archived' AND f.source = 'handshake'
+                WHERE {PublicG} AND g.state <> 'archived' AND f.source = 'handshake'
                   AND f.field LIKE 'capability.%.measured') AS OldestHandshake,
 
               -- The raw material of the curve this page cannot yet draw (§5.1's change ledger).
               (SELECT count(*)::int
                  FROM field_change c
                  JOIN game g ON g.id = c.game_id
-                WHERE g.state <> 'archived'
+                WHERE {PublicG} AND g.state <> 'archived'
                   AND c.field LIKE 'capability.%.measured') AS CapabilityTransitions
             """,
             cancellationToken: cancellationToken));
 
         var codebases = (await connection.QueryAsync<string>(new CommandDefinition(
-            """
+            $"""
             SELECT DISTINCT ON (f.game_id) f.value
               FROM game_field f
               JOIN game g ON g.id = f.game_id
-             WHERE g.state <> 'archived' AND f.field = 'CODEBASE' AND f.value <> ''
+             WHERE {PublicG} AND g.state <> 'archived' AND f.field = 'CODEBASE' AND f.value <> ''
              ORDER BY f.game_id, array_position(@ladder::text[], f.source), f.last_confirmed_at DESC
             """,
             new { ladder = SourceLadder },
             cancellationToken: cancellationToken))).ToList();
 
         var capabilities = (await connection.QueryAsync<CapabilityTallyRow>(new CommandDefinition(
-            """
+            $"""
             SELECT winner.field AS Field, winner.value AS Value, count(*)::int AS Games
               FROM (SELECT DISTINCT ON (f.game_id, f.field) f.field, f.value
                       FROM game_field f
                       JOIN game g ON g.id = f.game_id
-                     WHERE g.state <> 'archived' AND f.field LIKE 'capability.%'
+                     WHERE {PublicG} AND g.state <> 'archived' AND f.field LIKE 'capability.%'
                      ORDER BY f.game_id, f.field,
                               array_position(@ladder::text[], f.source), f.last_confirmed_at DESC) winner
              GROUP BY winner.field, winner.value
@@ -535,7 +539,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             cancellationToken: cancellationToken));
 
         var busiest = (await connection.QueryAsync<BusiestRow>(new CommandDefinition(
-            """
+            $"""
             WITH counted AS (
                 SELECT g.slug, g.name,
                        percentile_disc(0.5) WITHIN GROUP (ORDER BY p.count) AS median,
@@ -544,6 +548,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                   FROM presence_sample p
                   JOIN game g ON g.id = p.game_id
                  WHERE p.at >= @from AND p.count IS NOT NULL AND g.state <> 'archived'
+                   AND {PublicG}
                  GROUP BY g.slug, g.name
                 HAVING count(*) >= @minimum)
             SELECT slug AS Slug, name AS Name, median AS Median, peak AS Peak, samples AS Samples,
@@ -561,11 +566,12 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             cancellationToken: cancellationToken))).ToList();
 
         var spells = (await connection.QueryAsync<SpellRow>(new CommandDefinition(
-            """
+            $"""
             SELECT g.slug AS Slug, g.name AS Name, a.from_at AS Since
               FROM availability_interval a
               JOIN game g ON g.id = a.game_id
              WHERE a.to_at IS NULL AND a.state = 'reachable' AND g.state <> 'archived'
+               AND {PublicG}
              ORDER BY a.from_at
              LIMIT @limit
             """,

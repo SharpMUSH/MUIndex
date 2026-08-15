@@ -582,6 +582,53 @@ public static class PlainText
         return b.ToString();
     }
 
+    /// <summary>
+    /// The submission form's prose, and whatever it last answered.
+    /// </summary>
+    /// <remarks>
+    /// <b>The form itself is not rendered here, and it is not missing either.</b> Two text boxes and
+    /// a button already are plain text: a text browser posts them perfectly well, so the page keeps
+    /// the real form beneath this block rather than describing one. What this renders is everything
+    /// around it — what happens to an address, and what happened to the last one — which is the part
+    /// that could otherwise have been carried by layout.
+    /// </remarks>
+    public static string RenderSubmit(SubmitAnswer? answer, bool hasCatalogue)
+    {
+        var b = new StringBuilder();
+
+        b.AppendLine(SubmitCopy.Title.ToUpperInvariant());
+        b.AppendLine();
+        Wrap(b, SubmitCopy.Lede);
+
+        if (answer is not null)
+        {
+            Heading(b, answer.Heading);
+            Wrap(b, answer.Sentence);
+
+            if (answer.GameSlug is { } slug)
+            {
+                b.AppendLine($"  /g/{slug}");
+            }
+        }
+
+        if (!hasCatalogue)
+        {
+            Heading(b, "NOT HERE");
+            Wrap(b, SubmitCopy.NoCatalogue);
+            return b.ToString();
+        }
+
+        Heading(b, "WHAT HAPPENS TO AN ADDRESS");
+
+        foreach (var point in SubmitCopy.Points)
+        {
+            b.AppendLine();
+            Wrap(b, point, "  ");
+        }
+
+        return b.ToString();
+    }
+
     /// <summary>The rankings, with every basis in the same words the rendered page uses.</summary>
     public static string RenderRankings(Rankings rankings, DateTimeOffset now)
     {

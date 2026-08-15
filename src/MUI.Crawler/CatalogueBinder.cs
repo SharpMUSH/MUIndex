@@ -86,7 +86,7 @@ public sealed class CatalogueBinder(
                 // Middling. Both games get a live page and a reciprocal link, because a wrongly
                 // hidden game is worse than a visible duplicate — so the new one is created exactly
                 // as a Fresh verdict would create it, and the pair is opened beside it.
-                var created = await CreateAsync(result, cancellationToken);
+                var created = await CreateAsync(target, result, cancellationToken);
                 await AttachAsync(created, result, cancellationToken);
 
                 await reviews.OpenAsync(
@@ -102,7 +102,7 @@ public sealed class CatalogueBinder(
 
             default:
             {
-                var created = await CreateAsync(result, cancellationToken);
+                var created = await CreateAsync(target, result, cancellationToken);
                 await AttachAsync(created, result, cancellationToken);
 
                 logger?.LogInformation("{Host}:{Port} is a new listing", result.Host, result.Port);
@@ -134,7 +134,27 @@ public sealed class CatalogueBinder(
             && (MsspReading.MeaningfulName(result.Mssp) is not null
                 || MsspReading.Meaningful(result.Mssp, "HOSTNAME") is not null));
 
-    private async Task<Guid> CreateAsync(ProbeResult result, CancellationToken cancellationToken)
+    /// <summary>
+    /// Mints the game, carrying <see cref="CrawlTarget.SubmittedAt"/> across.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A submitted address answering is still a game and still gets a row, a slug and a permanent
+    /// place in the registry — what the marker changes is that <c>NpgsqlGameQueries</c> keeps it off
+    /// every public surface until somebody claims it (§8, migration 0010). It is copied at creation
+    /// rather than joined on read because the listing asks the question once per row.
+    /// </para>
+    /// <para>
+    /// <b>The merge arm above does not come through here, and that is the interesting case.</b> A
+    /// submitted address that turns out to be a second port of a game we already list attaches to
+    /// that game and leaves it exactly as public as it was. Anything else would make the form a way
+    /// to hide a listed game by naming one of its addresses.
+    /// </para>
+    /// </remarks>
+    private async Task<Guid> CreateAsync(
+        CrawlTarget target,
+        ProbeResult result,
+        CancellationToken cancellationToken)
     {
         var now = time.GetUtcNow();
         var name = NameOf(result);
@@ -150,7 +170,8 @@ public sealed class CatalogueBinder(
             Tagline: null,
             LifecycleState.Active,
             IsClaimed: false,
-            FirstSeenAt: now);
+            FirstSeenAt: now,
+            SubmittedAt: target.SubmittedAt);
 
         await games.InsertAsync(game, cancellationToken);
 

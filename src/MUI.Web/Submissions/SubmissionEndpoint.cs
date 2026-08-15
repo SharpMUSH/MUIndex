@@ -1,0 +1,63 @@
+using Microsoft.AspNetCore.Mvc;
+
+using MUI.Catalog;
+using MUI.Discovery;
+using MUI.Web.Components;
+
+namespace MUI.Web.Submissions;
+
+/// <summary>
+/// The one POST behind <c>/submit</c> (spec §7.6, §9).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>It takes two form fields and decides nothing.</b> <see cref="SubmissionService"/> owns the
+/// order of the checks — the bound, then the address, then our own catalogue, then §7.2's gate on
+/// the resolved address — and this maps what came back onto a URL. Keeping the decision out of the
+/// handler is what lets it be tested without a socket, a browser or a database.
+/// </para>
+/// <para>
+/// <b>Unauthenticated, and bounded rather than gated.</b> There is nothing to sign in for: the form
+/// takes an address and an address is public information. What stops it being a firehose is the
+/// per-source bound inside the service, and what stops it being a way to reach anything private is
+/// the resolved-address gate — neither of which an account would have improved. Requiring a passkey
+/// to tell us a MUD exists would mostly stop people telling us MUDs exist.
+/// </para>
+/// <para>
+/// Antiforgery is enforced by the framework because the handler binds form fields, and the page
+/// renders <c>&lt;AntiforgeryToken /&gt;</c> inside the form. That is not a security boundary here so
+/// much as hygiene — the worst a cross-site post could achieve is telling us about a game.
+/// </para>
+/// </remarks>
+public static class SubmissionEndpoint
+{
+    public static void MapMuiSubmissions(this WebApplication app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+
+        app.MapPost(SubmitLinks.Path, async (
+            HttpContext context,
+            SubmissionService submissions,
+            SubmissionSource sources,
+            IGameQueries queries,
+            [FromForm] string? host,
+            [FromForm] string? port) =>
+        {
+            var receipt = await submissions.SubmitAsync(
+                host,
+                port,
+                sources.Of(context.Connection.RemoteIpAddress),
+                context.RequestAborted);
+
+            // Resolved here rather than in the service, because "is this game public" is a question
+            // about the site's own read filter and the service knows only the registry. A game that
+            // is hidden until claimed comes back null, and the answer then says we have the address
+            // without linking to a page nobody may see.
+            var slug = receipt.GameId is { } id && await queries.FindByIdAsync(id) is { } summary
+                ? summary.Slug
+                : null;
+
+            return Results.Redirect(SubmitLinks.For(receipt.Outcome, receipt.Address, slug));
+        });
+    }
+}

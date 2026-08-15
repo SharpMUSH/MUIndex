@@ -30,6 +30,9 @@ public sealed record CrawlerOptions
     /// <summary>Per-probe bounds: session timeout, settle periods, subnegotiation ceiling.</summary>
     public ProbeOptions Probe { get; init; } = new();
 
+    /// <summary>What one source may put through the public submission form (spec §9).</summary>
+    public SubmissionOptions Submissions { get; init; } = new();
+
     /// <summary>
     /// Addresses the crawler knows before it has followed anything.
     /// </summary>
@@ -54,6 +57,7 @@ public sealed record CrawlerOptions
     public void Validate()
     {
         Discovery.Validate();
+        Submissions.Validate();
 
         foreach (var seed in Seeds)
         {

@@ -111,6 +111,15 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<IGameFieldIndex>(
             s => new NpgsqlGameFieldIndex(s.GetRequiredService<NpgsqlDataSource>()));
 
+        // The public submission form (spec §7.6, §9). It writes into the registry above and nowhere
+        // else, and it is registered here rather than in the web project because everything it needs
+        // is already assembled here — the registry, the endpoint directory and §7.2's gate.
+        services.TryAddSingleton(options.Submissions);
+        services.TryAddSingleton<SubmissionSource>();
+        services.TryAddSingleton<ISubmissionLog>(
+            s => new NpgsqlSubmissionLog(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<SubmissionService>();
+
         services.TryAddSingleton<IdentityMatcher>();
         services.TryAddSingleton<ReferralGraphWriter>();
         services.TryAddSingleton<HostGate>();
@@ -120,6 +129,10 @@ public static class CrawlerServiceCollectionExtensions
         // only place live DNS is reached from, and it is injected so no test performs a lookup.
         services.TryAddSingleton<IHostResolver, SystemHostResolver>();
         services.TryAddSingleton<HostScopeGuard>();
+
+        // The same instance behind the interface. Two registrations would be two guards, and a
+        // caller reaching the one with no resolver behind it is not a failure anybody would notice.
+        services.TryAddSingleton<IHostScopeGuard>(s => s.GetRequiredService<HostScopeGuard>());
 
         services.TryAddSingleton<IProbe>(s => new TelnetProbe(s.GetRequiredService<ProbeOptions>()));
 
@@ -164,6 +177,9 @@ public sealed class CrawlerOptionsBuilder
     /// <summary>Per-probe bounds.</summary>
     public ProbeOptions Probe { get; set; } = new();
 
+    /// <summary>What one source may put through the public submission form.</summary>
+    public SubmissionOptions Submissions { get; set; } = new();
+
     /// <summary>
     /// Adds an address the crawler knows on day one.
     /// </summary>
@@ -187,6 +203,7 @@ public sealed class CrawlerOptionsBuilder
         AdvisoryLockKey = AdvisoryLockKey,
         Discovery = Discovery,
         Probe = Probe,
+        Submissions = Submissions,
         Seeds = _seeds,
     };
 }
