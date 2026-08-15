@@ -2,6 +2,9 @@
 # database password of whoever cloned this.
 .env
 
+# The Cloudflare Origin CA certificate and its key, pasted onto the server. The key is a key.
+deploy/tls/
+
 bin/
 obj/
 .vs/

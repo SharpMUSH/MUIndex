@@ -210,9 +210,21 @@ Three things must be off, or the site stops being what it says it is:
 - **Rocket Loader and anything that injects script.** The site ships no required JavaScript, which is
   a property somebody checks by turning scripting off. A CDN adding some undoes it.
 
-Behind a proxy, have whatever terminates TLS overwrite `X-Forwarded-For` from `CF-Connecting-IP`, and
-count the hops in `Submissions:TrustedProxyHops`. A forwarded header nobody counted is a header
-anybody may write, and the thing reading it is a rate limit.
+The rest of the zone, once:
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| SSL/TLS mode | **Full (strict)** | With the Origin CA certificate in place it verifies something. `Flexible` would send plaintext to the origin over the public internet. |
+| Always Use HTTPS | on | |
+| Minimum TLS | 1.2 | |
+| DNSSEC | on | One click at the registrar half, which is the same account. |
+| HSTS | **later** | It is a promise browsers cache for as long as it says. Turn it on once the certificate path has been stable for a while, not on the first day. |
+| Email Routing | `crawler@`, `abuse@` | "Ask us to stop" has to reach a person. It is the address `/about` publishes. |
+| Cache rules | static assets only | See above. Never "Cache Everything". |
+
+Behind the proxy, `Submissions__TrustedProxyHops` is **2** — Cloudflare, then Caddy — because both
+append to `X-Forwarded-For` and the middleware walks exactly that many hops. A forwarded header
+nobody counted is a header anybody may write, and the thing reading it is a rate limit.
 
 ### The two names that outlive the host
 
@@ -269,6 +281,71 @@ compose network and nowhere else.
 
 While there: give Docker a log rotation (`max-size`, `max-file` in `/etc/docker/daemon.json`).
 Unrotated JSON logs are the ordinary way a 40 GB volume fills.
+
+### Bringing it up
+
+Three files in `deploy/` and one `.env`. The repository is cloned to `/opt/muindex` for its compose
+files rather than as a build tree — the image is pulled, never built here.
+
+```bash
+git clone https://github.com/SharpMUSH/MUIndex.git /opt/muindex && cd /opt/muindex
+cp .env.example .env && $EDITOR .env        # uncomment the server block, set the password
+mkdir -p deploy/tls                          # origin.pem and origin.key go here, from Cloudflare
+install -m 644 deploy/muindex.service /etc/systemd/system/muindex.service
+systemctl daemon-reload && systemctl enable --now muindex
+```
+
+`COMPOSE_FILE` in `.env` is what makes a bare `docker compose` command read
+`deploy/compose.production.yaml` as well, so neither the unit nor a person at three in the morning
+has to remember a `-f` flag. What the overlay changes:
+
+- **Nothing is published.** The base file's `8080` mapping is dropped rather than narrowed. Caddy
+  reaches the site over the compose network, and the safest number of host ports to argue about with
+  Docker's iptables rules is none.
+- **Caddy** terminates TLS for `mu-index.com` and `www`, redirects `www` to the apex, and answers
+  `crawler.mu-index.com` with a redirect to `/crawler`.
+- **Watchtower** updates the site container and nothing else.
+- **`Submissions__TrustedProxyHops=2`** — Cloudflare, then Caddy. Both append to `X-Forwarded-For`,
+  so the middleware walks two hops and lands on the address Cloudflare actually saw; a client that
+  forges the header has its value pushed out of reach rather than believed.
+
+The containers carry `restart: unless-stopped`, so Docker alone brings them back after a reboot. The
+unit is what makes that deterministic: it applies the compose files *as they are on disk*, so an edit
+takes effect on the next boot instead of a container returning as whatever it was when it was
+created, and `systemctl stop muindex` means the stack rather than a container the next boot
+resurrects.
+
+### Certificates, and why they come from a file
+
+The apex is proxied, so Cloudflare terminates TLS at the edge and the origin certificate is only ever
+presented to Cloudflare. That is what a **Cloudflare Origin CA** certificate is for: issued in the
+dashboard, valid for years, not publicly trusted and not needing to be. Paste the pair into
+`deploy/tls/origin.pem` and `deploy/tls/origin.key` (gitignored), and set SSL/TLS to **Full
+(strict)** — which then checks something real instead of accepting whatever the origin presents.
+
+`crawler.mu-index.com` is the exception and gets an ordinary Let's Encrypt certificate, because it is
+DNS-only: port 80 reaches this box directly, so HTTP-01 works and no challenge has to be routed
+through a proxy. That is the same property the PTR depends on, doing a second job.
+
+### Updating, and what it costs
+
+Watchtower polls GHCR for a changed digest every five minutes and swaps the site container when
+`.github/workflows/publish.yml` publishes a new `latest` from `main`.
+
+**`WATCHTOWER_LABEL_ENABLE` is the load-bearing setting.** Only containers carrying
+`com.centurylinklabs.watchtower.enable=true` are updated, and only `web` carries it. Postgres is
+labelled `false` on purpose: an automatic major-version bump refuses to start against an existing
+data directory, and the catalogue is the asset. It gets upgraded by hand, after a dump.
+
+The cost of this arrangement, stated rather than discovered: **a merge to `main` is on the public site
+within five minutes, with no human between the two.** That is a deliberate trade for a project of
+this size, and the SHA tags are what make it survivable — `docker compose down web` and a `docker run`
+against `ghcr.io/sharpmush/muindex:sha-<commit>` is the rollback, and `latest` cannot name a build.
+If that trade stops being worth it, point the overlay at a `:release` tag that a person moves.
+
+If the GHCR package is private, Watchtower needs credentials: `docker login ghcr.io` on the host with
+a token that has `read:packages`, which lands in `/root/.docker/config.json` — already mounted. Making
+the package public is one setting and removes the credential entirely.
 
 ### Before committing to an address
 
