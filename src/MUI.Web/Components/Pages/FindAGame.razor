@@ -1,0 +1,167 @@
+@page "/find"
+@using MUI.Catalog
+@inject IGameQueries Queries
+
+@*
+    §9's find-a-game facet wizard.
+
+    The listing's own facet panel is exhaustive and assumes you already know the MSSP taxonomy — it
+    is the right surface for somebody narrowing a result set and the wrong one for somebody who has
+    never played a MU* and does not know whether they want a MUSH or a MUD. This asks in a reader's
+    language and answers in facets.
+
+    THE FORM IS A GET STRAIGHT AT THE LISTING, and every control's name is a FacetKeys constant. So
+    there is no translation step between this page and the query it produces: the browser composes
+    the querystring and the listing's own binding parses it. A wizard that built its own filter
+    object would be a second implementation of the facet vocabulary, kept in step by hand, and the
+    first thing to drift would be a wizard offering a choice the listing cannot apply.
+
+    Every option is read from the live facet counts rather than written down here, which is the same
+    rule from the other end: this page cannot offer a genre no game has, and it cannot claim a count
+    the listing would not produce.
+*@
+
+<PageTitle>Find a game — mu*index</PageTitle>
+
+<h1>Find a game</h1>
+
+<p class="dim">
+    Six questions, none of them required. Every answer narrows the listing — and every number beside
+    an answer is how many games we have measured that way, not an estimate.
+    <a href="/games">Skip to the whole listing</a> if you would rather browse.
+</p>
+
+@if (Listing is null)
+{
+    <p class="dim">The catalogue is not answering, so there is nothing to choose between.</p>
+}
+else
+{
+    <form method="get" action="/games" class="wizard">
+        @*
+            Free text first, because somebody arriving with a name in mind should not have to read
+            past five taxonomies to type it.
+        *@
+        <label>
+            <span class="kicker">a name, if you have one</span>
+            <input type="search" name="@FacetKeys.Text" placeholder="part of a game's name" />
+        </label>
+
+        <fieldset>
+            <legend>Is anyone playing right now?</legend>
+            @*
+                The band facet, in the words §5.2 defines it with. "Quiet" is a real answer and not
+                a euphemism — a game we can reach and cannot count is quiet, and a reader deciding
+                between games deserves to know that is different from dark.
+            *@
+            <label><input type="radio" name="@FacetKeys.Band" value="" checked /> doesn't matter</label>
+            @foreach (var band in Bands)
+            {
+                <label>
+                    <input type="radio" name="@FacetKeys.Band" value="@FacetTokens.Of(band)" />
+                    @BandWording(band)
+                </label>
+            }
+        </fieldset>
+
+        @Choose(FacetKeys.Genre, "What do you want to play?", "any genre")
+        @Choose(FacetKeys.Family, "What kind of game?", "any kind")
+        @Choose(FacetKeys.Language, "In which language?", "any language")
+
+        <fieldset>
+            <legend>Anything your client needs?</legend>
+            @*
+                Measured support only. capability.*.measured and capability.*.declared are two fields
+                precisely so a facet can read the first, and a wizard that quietly read the second
+                would be recommending games on the strength of what they claim about themselves.
+            *@
+            <label>
+                <input type="checkbox" name="@FacetKeys.Tls" value="true" />
+                an encrypted connection, which we completed ourselves
+            </label>
+            @foreach (var protocol in Protocols)
+            {
+                <label>
+                    <input type="checkbox" name="@FacetKeys.Protocol" value="@protocol.Token" />
+                    @protocol.Token.ToUpperInvariant()
+                    <span class="faint">@protocol.Count games</span>
+                </label>
+            }
+        </fieldset>
+
+        <fieldset>
+            <legend>Include games that have gone dark?</legend>
+            @*
+                Offered rather than assumed. The archive is a first-class section here (§9) and the
+                historical record the incumbents threw away, so "no" is a default and not a
+                judgement.
+            *@
+            <label><input type="radio" name="@FacetKeys.Archived" value="" checked /> no, only live games</label>
+            <label><input type="radio" name="@FacetKeys.Archived" value="true" /> yes, show me those too</label>
+        </fieldset>
+
+        <button type="submit">Show me the games</button>
+    </form>
+
+    <p class="faint">
+        This does not choose for you. Every answer above filters on something we measured, and what
+        comes back is the listing in the listing's own order.
+    </p>
+}
+
+@code {
+    private GameListing? Listing { get; set; }
+
+    /// <summary>
+    /// The bands worth offering here, spelled by <see cref="FacetTokens"/> rather than by this page.
+    /// </summary>
+    /// <remarks>
+    /// Archived is excluded because the archive has its own question below, and dark is excluded
+    /// because "show me games nobody can reach" is not a thing somebody looking for a game to play
+    /// is asking — both remain reachable from the listing's own panel, which is exhaustive by design.
+    /// The spelling comes from the enum either way, so this cannot offer a band the binding refuses.
+    /// </remarks>
+    private static readonly ActivityBand[] Bands =
+        [ActivityBand.PlayersNow, ActivityBand.ActiveThisWeek, ActivityBand.Quiet];
+
+    private static string BandWording(ActivityBand band) => band switch
+    {
+        ActivityBand.PlayersNow => "somebody is on now",
+        ActivityBand.ActiveThisWeek => "somebody was on this week",
+        _ => "quiet is fine — we can reach it, and could not count",
+    };
+
+    /// <summary>The measured-protocol facet, which is a checkbox set rather than a choice.</summary>
+    private IReadOnlyList<FacetValue> Protocols =>
+        Group(FacetKeys.Protocol)?.Values.OrderByDescending(v => v.Count).Take(6).ToList() ?? [];
+
+    protected override async Task OnInitializedAsync() =>
+        Listing = await Queries.SearchAsync(new GameFilter());
+
+    private FacetGroup? Group(string key) =>
+        Listing?.Facets.FirstOrDefault(f => string.Equals(f.Key, key, StringComparison.Ordinal));
+
+    /// <summary>
+    /// One facet as a select, built from the values the catalogue actually holds.
+    /// </summary>
+    /// <remarks>
+    /// A select rather than a radio set because these are open vocabularies — a genre list is as
+    /// long as the games are varied — and the empty option is first so that not answering is the
+    /// default rather than something to undo.
+    /// </remarks>
+    private RenderFragment? Choose(string key, string question, string anyLabel) =>
+        Group(key) is { Values.Count: > 0 } group
+            ? @<fieldset>
+                <legend>@question</legend>
+                <label>
+                    <select name="@key">
+                        <option value="">@anyLabel</option>
+                        @foreach (var value in group.Values.Where(v => !v.IsUnknown).OrderByDescending(v => v.Count))
+                        {
+                            <option value="@value.Token">@value.Token (@value.Count)</option>
+                        }
+                    </select>
+                </label>
+            </fieldset>
+            : null;
+}
