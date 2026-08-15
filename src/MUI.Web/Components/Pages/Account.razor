@@ -113,8 +113,14 @@ else
                         </p>
                     }
 
+                    @*
+                        Name is prefixed, and that is not decoration: a component parameter of type
+                        string written as Name="game.Name" is a LITERAL, so every owner was shown
+                        "What only you can tell us about game.Name". Non-string parameters beside it
+                        are parsed as expressions either way, which is what hid it.
+                    *@
                     <OwnerPanel GameId="game.Id"
-                                Name="game.Name"
+                                Name="@game.Name"
                                 Declared="DeclaredFor(game.Id)"
                                 Now="Now" />
 
