@@ -94,7 +94,7 @@ CREATE TABLE game_submission (
     CONSTRAINT game_submission_outcome_vocabulary CHECK (outcome IN (
         'pending',
         'accepted', 'already_listed', 'already_queued',
-        'malformed', 'refused_not_routable', 'unresolvable')),
+        'malformed', 'refused_not_routable', 'unresolvable', 'refused_opt_out')),
 
     -- An accepted submission is the only one that has a registry row to point at, and it always has
     -- one. Stated here so a handler that forgot to record which target it created fails at the

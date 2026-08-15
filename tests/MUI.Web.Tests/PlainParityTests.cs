@@ -216,8 +216,13 @@ public class PlainParityTests
         // M*U*S*H: fifteen on, read out of a WHO four minutes ago.
         await Assert.That(text).Contains("Players now: 15   (measured, 4m)");
 
-        // Aardwolf publishes its number on the connect screen and nowhere a machine can ask.
-        await Assert.That(text).Contains("Players now: 219   (declared, 40m)");
+        // Aardwolf publishes its number on the connect screen and nowhere a machine can ask, so we
+        // read it off the screen — ours to have measured, whoever did the counting.
+        await Assert.That(text).Contains("Players now: 219   (measured, 40m)");
+
+        // Ashen Court reports its count in MSSP, which is the game telling us rather than us
+        // reading. Both words have to appear over counts here, or the plain surface proves nothing.
+        await Assert.That(text).Contains("Players now: 9   (declared, 9m)");
 
         // And a value nobody has confirmed in years says so in the word, not in an amber colour.
         await Assert.That(text).Contains("PennMUSH 1.8.5  (declared, 3y, stale)");
