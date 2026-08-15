@@ -1091,3 +1091,12 @@ form.enrichment label .faint { display: block; font-size: 12px; margin-top: 4px;
    write that reported nothing would teach them the site is broken (§8.5). */
 p.verified strong { color: var(--text); }
 p.refused { border-left: 2px solid var(--amber); padding-left: 10px; }
+
+/* ── the MSSP scorecard ────────────────────────────────────────────────────
+   §8.5's linter. No colour coding by severity: a red row would read as a
+   fault, and most of what this page says is that a value is unlisted rather
+   than wrong. The kicker carries the kind and the prose carries the reason. */
+
+dl.lint dt { font-size: 13px; margin-top: var(--cpad); }
+dl.lint dd { margin: 2px 0 0; color: var(--dim); }
+dl.lint dd .kicker { display: block; margin-bottom: 2px; }

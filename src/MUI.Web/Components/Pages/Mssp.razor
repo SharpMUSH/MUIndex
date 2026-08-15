@@ -1,0 +1,169 @@
+@page "/g/{Slug}/mssp"
+@using Microsoft.AspNetCore.Identity
+@using MUI.Catalog.Persistence
+@using MUI.Crawl
+@using MUI.Web.Accounts
+@inject IGameQueries Queries
+@inject IServiceProvider Services
+
+@*
+    The MSSP linter of spec §8.5 — continuous rather than one-shot, because it is derived on read
+    from the report the crawler already holds. There is no button, no queue and no stored score: fix
+    mush.cnf and this page is clean on the next probe, with nothing to press.
+
+    Owner-only, and that is a judgement about what the thing IS rather than about secrecy. Every
+    value on it is already public on the game's own page. A scorecard is advice about somebody's
+    configuration, and publishing one per game would make a league table of how well operators fill
+    in a config file — a rating affordance with extra steps, and §2 does not allow ratings by any
+    route. So it is shown to the person who can act on it.
+*@
+
+<PageTitle>MSSP — @(Page?.Summary.Name ?? Slug) — mu*index</PageTitle>
+
+@if (Page is null)
+{
+    <section class="prose"><h1>No such game</h1></section>
+}
+else if (!MayRead)
+{
+    @*
+        Not found rather than forbidden: whether a given account holds a claim is not a fact this
+        page needs to confirm to somebody who does not.
+    *@
+    <section class="prose">
+        <h1>Not found</h1>
+        <p>
+            This page belongs to whoever has claimed <a href="/g/@Slug">@Page.Summary.Name</a>.
+            If you run it, <a href="/g/@Slug/claim">claim it</a> and it is yours.
+        </p>
+    </section>
+}
+else
+{
+    <section class="prose">
+        <h1>MSSP for @Page.Summary.Name</h1>
+
+        @if (!Card.HasReport)
+        {
+            @*
+                The one branch that must never be rendered as a list of faults. We have not read a
+                report; that is a statement about our crawl, and it is worded as one.
+            *@
+            <p>
+                <strong>We have not read an MSSP report from this game.</strong> That is a fact about
+                our crawl rather than about your server — we may not have reached it yet, or your
+                server may not offer MSSP at all. Everything on your listing was measured some other
+                way.
+            </p>
+            <p class="faint">
+                If you expected one, the <a href="/g/@Slug">game page</a> shows when we last got in.
+            </p>
+        }
+        else
+        {
+            <p>
+                Your report carries <strong>@Card.Carried</strong> variables and answers
+                <strong>@Card.Answered</strong> of them. This is our reading of it against the MSSP
+                specification — it is advice, not a measurement, and nothing here is published
+                anywhere else.
+            </p>
+
+            @if (Card.MeetsTheStandard && Card.Findings.Count == 0)
+            {
+                <p class="verified"><strong>Nothing to report.</strong></p>
+            }
+            else if (Card.MeetsTheStandard)
+            {
+                <p class="verified">
+                    <strong>The three MSSP requires are all answered.</strong> The rest is optional.
+                </p>
+            }
+
+            @foreach (var group in Card.Findings.GroupBy(f => f.Importance))
+            {
+                <h2>@Heading(group.Key)</h2>
+                <dl class="lint">
+                    @foreach (var finding in group)
+                    {
+                        <dt class="mono">@finding.Field</dt>
+                        <dd>
+                            <span class="kicker">@Word(finding.Kind)</span>
+                            @finding.Detail
+                        </dd>
+                    }
+                </dl>
+            }
+        }
+
+        <p class="faint"><a href="/account">Your games</a></p>
+    </section>
+}
+
+@code {
+    [Parameter]
+    public string Slug { get; set; } = string.Empty;
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private GamePage? Page { get; set; }
+
+    private bool MayRead { get; set; }
+
+    private MsspScorecard Card { get; set; } = MsspScorecard.NoReport;
+
+    /// <summary>
+    /// Loads the game, decides whether the reader owns it, and lints what we hold.
+    /// </summary>
+    /// <remarks>
+    /// The fields are read once and linted in memory. Nothing is written, and there is nothing here
+    /// to write with — <see cref="MsspLint.Inspect"/> takes a list and a predicate and has no store
+    /// in reach, which is what makes "continuous rather than one-shot" a property of the code rather
+    /// than a discipline.
+    /// </remarks>
+    protected override async Task OnInitializedAsync()
+    {
+        Page = await Queries.FindAsync(Slug);
+
+        if (Page is null
+            || Services.GetService<IClaimStore>() is not { } claims
+            || Services.GetService<IGameFieldStore>() is not { } fields
+            || Services.GetService<UserManager<MuiUser>>() is not { } users
+            || HttpContext?.User is not { Identity.IsAuthenticated: true } principal
+            || await users.GetUserAsync(principal) is not { } user)
+        {
+            return;
+        }
+
+        // A verified claim on this game, held by this account. Pending is an account that asked,
+        // and asking is not proving (§8.1).
+        MayRead = (await claims.ForUserAsync(user.Id))
+            .Any(claim => claim.GameId == Page.Summary.Id && claim.IsVerified);
+
+        if (!MayRead)
+        {
+            return;
+        }
+
+        // MsspDefaults lives in MUI.Crawl, which MUI.Catalog may never reference — so the knowledge
+        // that NAME "PennMUSH" means nobody filled it in is injected here rather than copied there.
+        Card = MsspLint.Inspect(
+            await fields.ForGameAsync(Page.Summary.Id),
+            MsspDefaults.IsPlaceholder);
+    }
+
+    private static string Heading(MsspImportance importance) => importance switch
+    {
+        MsspImportance.Required => "MSSP requires these",
+        MsspImportance.Recommended => "These are what a directory shows a reader",
+        _ => "Optional",
+    };
+
+    private static string Word(MsspFindingKind kind) => kind switch
+    {
+        MsspFindingKind.Missing => "not in your report",
+        MsspFindingKind.Unanswered => "still the default",
+        MsspFindingKind.WrongType => "unreadable",
+        _ => "unlisted value",
+    };
+}
