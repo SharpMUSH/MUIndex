@@ -148,6 +148,13 @@ public class FacetSurfaceTests
         await Assert.That(GameFilterBinding.TryRead(
             "?codebase=Evennia&codebase-family=PennMUSH", out var both, out _)).IsTrue();
         await Assert.That(both.Filter.Codebase).IsEqualTo(FacetChoice.Of("Evennia"));
+
+        // The echo answers in both spellings. A consumer on API version 1 that reads
+        // `codebaseFamily` off the response has working code, and a field that vanished from a
+        // version that did not change reads to it as "the filter was not applied".
+        await Assert.That(legacy.Echo.CodebaseFamily).IsEqualTo("PennMUSH");
+        await Assert.That(legacy.Echo.Codebase).IsEqualTo("PennMUSH");
+        await Assert.That(both.Echo.CodebaseFamily).IsEqualTo(both.Echo.Codebase);
     }
 
     /// <summary>Clearing the codebase clears it under either spelling.</summary>

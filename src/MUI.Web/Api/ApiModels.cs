@@ -264,10 +264,21 @@ public sealed record GameView(
 /// What the listing was asked for, echoed so a cached response says what it answers.
 /// </summary>
 /// <remarks>
+/// <para>
 /// One property per facet, named for the querystring parameter that sets it, built by
 /// <see cref="Of"/> from the filter itself rather than from the raw query — so an echo cannot claim
 /// a filter the query did not apply, and a facet added to <see cref="GameFilter"/> and forgotten
 /// here fails to compile rather than silently vanishing from the answer.
+/// </para>
+/// <para>
+/// <see cref="CodebaseFamily"/> is the exception and is deliberately not one facet. It is the old
+/// name for <see cref="Codebase"/>, carried at the same value, because this record is a published
+/// contract on API version <c>1</c> that a client or a rival directory has already written code
+/// against — and a field that disappears from a version that did not change reads to that code as
+/// "the filter was not applied" rather than as "the filter was renamed". The querystring accepts
+/// both spellings for the same reason; the echo has to answer in both or the round trip is a lie
+/// for exactly the callers who used the older one.
+/// </para>
 /// </remarks>
 public sealed record FilterView(
     string? Q,
@@ -283,7 +294,10 @@ public sealed record FilterView(
     string? Family,
     string? Genre,
     string? Language,
-    GameSort Sort)
+    GameSort Sort,
+
+    /// <summary>The old name for <see cref="Codebase"/>, at the same value. Prefer the new one.</summary>
+    string? CodebaseFamily = null)
 {
     public static FilterView Of(GameFilter filter)
     {
@@ -303,7 +317,8 @@ public sealed record FilterView(
             filter.Family?.Token,
             filter.Genre?.Token,
             filter.Language?.Token,
-            filter.Sort);
+            filter.Sort,
+            filter.Codebase?.Token);
     }
 }
 
