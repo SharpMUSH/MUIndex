@@ -901,6 +901,41 @@ games.
 - Crawler self-identifies in TTYPE/MTTS and MNES `CLIENT_NAME`, with an info URL, so an admin
   reading their logs can discover who we are and how to opt out.
 - Documented opt-out — MSSP field, DNS TXT, or request — honoured within one cycle and recorded.
+  **Built, and these are the spellings** (`OptOutVocabulary`, published on the about page and read by
+  the gate, so the two cannot drift):
+
+  | Route | Published as | Scope |
+  |---|---|---|
+  | MSSP | `MUINDEX OPT-OUT 1`, also accepting `MUINDEX_OPT_OUT`, `MUINDEX OPTOUT`, `CRAWL_OPT_OUT` | The listener that published it |
+  | DNS | `_muindex.<host>. IN TXT "opt-out"`, optionally `"opt-out=4201"` | Every port on the host, unless one is named |
+  | Request | Recorded by an operator, with who asked | Whatever was asked for |
+
+  Four consequences, each of them load-bearing:
+
+  - **The scoping asymmetry is §8.3's, read forwards.** An MSSP field is published by the listener
+    that answered, so it speaks for that listener and no further — MU\* hosting puts unrelated games
+    on one domain separated only by a port, and one of them must never be able to silence another. A
+    TXT record is the domain operator speaking about a machine they run, so it covers the host. That
+    asymmetry is exactly why DNS is deferred for *claiming* and kept for *opting out*: the failure
+    mode of a hostname-scoped claim is somebody taking a game that is not theirs, and the failure
+    mode of a hostname-scoped opt-out is us not dialling a machine whose owner told us not to.
+  - **Only DNS can withdraw itself**, and it is re-read before every dial, so an operator can take the
+    opt-out back alone and be crawled again at that address's next check — at most a week, since a
+    refused address is still scheduled at §7.4's permanent floor. An MSSP field cannot be re-read
+    without doing the thing they asked us to stop, so that route and a recorded request stand until
+    somebody says otherwise. Both halves are on the about page: an opt-out with an undocumented exit
+    is a trap.
+  - **A refusal here is §7.2's refusal, not a probe.** It happens before a `ProbeResult` exists, so it
+    writes no availability transition, no presence row and no field, and it may never appear in a
+    game's public reachability history. It is counted on the cycle — separately from a scope refusal,
+    because "we would not dial there" and "they asked us not to" are different facts — and recorded in
+    `crawl_opt_out`, which is a table beside the registry rather than a column in it. §7.1's registry
+    stays monotonic: nothing retires, and the day they ask us back it is one timestamp and the
+    schedule that address always had.
+  - **Nothing is deleted, including the last probe and including the opt-out itself.** The probe that
+    carried the field is stored like any other measurement; an opted-out game's page keeps everything
+    measured before the ask and gains nothing after it, with the grid's empty hours naming no cause
+    (§5.4); and a withdrawn opt-out keeps its row and gains a `withdrawn_at`.
 - **Player names are never persisted.** WHO responses are parsed in memory. Aggregates use salted
   hashes with a rotating salt, so a unique-player estimate is possible while re-identification
   across salt epochs is not.

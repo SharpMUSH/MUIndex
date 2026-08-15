@@ -26,16 +26,22 @@ namespace MUI.Crawler;
 /// to trust a collaborator for the one bound that keeps the site up.
 /// </para>
 /// <para>
-/// <b>The order of operations per target is itself the design.</b> Scope first, because the gate is
-/// what stops a stranger's <c>REFERRAL</c> pointing a socket inside our own network; then the rate
-/// limit; then the dial; then attribution; then storage; then referrals; then the schedule. Storage
-/// happens before referrals so that a game exists to hang an edge on, and the schedule happens last
-/// so that it can be computed from what the probe actually found.
+/// <b>The order of operations per target is itself the design.</b> Consent first, because a game that
+/// has asked us to stop is owed nothing further and the cheapest way to honour that is not to look it
+/// up at all (§11); then scope, because the gate is what stops a stranger's <c>REFERRAL</c> pointing a
+/// socket inside our own network; then the rate limit; then the dial; then attribution; then storage;
+/// then referrals; then the schedule. Storage happens before referrals so that a game exists to hang
+/// an edge on, and the schedule happens last so that it can be computed from what the probe actually
+/// found.
 /// </para>
 /// </remarks>
 public sealed class CrawlCycle(
     ICrawlTargetRepository targets,
     IProbe probe,
+    // §11's opt-out, asked before every dial. Not optional and not nullable: a gate that a caller can
+    // leave out is a gate that a composition root forgets, and the thing it would forget is somebody
+    // else's stated wishes.
+    OptOutGate optOut,
     // The concrete guard rather than IHostScopeGuard: only the class has RuleOnAsync, which is the
     // arm that honours CrawlTarget.IsOperatorSeed — and it cannot be on the interface, because
     // MUI.Crawl (where the interface lives) does not know what a CrawlTarget is. The resolver behind
@@ -110,12 +116,25 @@ public sealed class CrawlCycle(
 
     private async Task ProbeOneAsync(CrawlTarget target, Tally tally, CancellationToken cancellationToken)
     {
+        // §11, and before the scope gate on purpose: somebody who has asked us to stop should not
+        // have their name resolved either.
+        if (await optOut.RuleOnAsync(target, cancellationToken) is { } asked)
+        {
+            await RefuseAsync(target, DialRefusal.OptedOut, asked.Wording, tally, cancellationToken);
+            return;
+        }
+
         var decision = await scope.RuleOnAsync(target, cancellationToken);
 
         switch (decision.Ruling)
         {
             case HostScopeRuling.RefusedNonGlobal:
-                await RefuseAsync(target, decision, tally, cancellationToken);
+                await RefuseAsync(
+                    target,
+                    DialRefusal.OutOfScope,
+                    decision.Detail ?? "resolved somewhere we will not dial",
+                    tally,
+                    cancellationToken);
                 return;
 
             case HostScopeRuling.Unresolvable:
@@ -132,19 +151,28 @@ public sealed class CrawlCycle(
 
         var result = await probe.ProbeAsync(new ProbeTarget(target.Host, target.Port), budget.Token);
 
+        // Read before anything is stored, so that a game which used this reply to ask us to stop is
+        // never dialled again — including by the rest of this same cycle (§11's "within one cycle").
+        // What this probe measured is still stored: the reply was sent to a connection already made,
+        // nothing here is ever deleted, and the about page says as much.
+        await optOut.HearAsync(target, result, cancellationToken);
+
         await StoreAsync(target, result, tally, cancellationToken);
     }
 
     /// <summary>
-    /// A dial we declined to make (spec §7.2).
+    /// A dial we declined to make — because of where the name resolved (spec §7.2) or because the game
+    /// asked us not to (§11).
     /// </summary>
     /// <remarks>
     /// <para>
     /// <b>Nothing is written to the game's record.</b> No availability sample, no presence row, no
-    /// field. We declined to dial; we did not measure. Recording it as downtime would put our own
-    /// security policy into a game's public reachability history, which is the same class of lie as
-    /// recording an unparseable <c>WHO</c> as zero players. It is counted on the cycle instead, which
-    /// is where a decision of ours belongs.
+    /// field. We declined to dial; we did not measure. Recording either as downtime would put our own
+    /// security policy or our own politeness into a game's public reachability history, which is the
+    /// same class of lie as recording an unparseable <c>WHO</c> as zero players. Both are counted on
+    /// the cycle instead, which is where decisions of ours belong — and counted <em>separately</em>,
+    /// because "we would not go there" and "they asked us not to" are different facts and an operator
+    /// reading one number could not tell them apart.
     /// </para>
     /// <para>
     /// <b>The schedule is the one thing that must move</b>, or the target is due for ever and re-burns
@@ -158,14 +186,24 @@ public sealed class CrawlCycle(
     /// </remarks>
     private async Task RefuseAsync(
         CrawlTarget target,
-        HostScopeDecision decision,
+        DialRefusal reason,
+        string detail,
         Tally tally,
         CancellationToken cancellationToken)
     {
-        tally.Refused();
+        tally.Refused(reason);
 
-        logger?.LogWarning(
-            "Refusing {Host}:{Port} — {Detail}", target.Host, target.Port, decision.Detail);
+        // An opt-out is not a warning. Somebody exercised a documented choice and the crawler did what
+        // it was told; logging it as though something had gone wrong would eventually train an
+        // operator to go looking for the fix.
+        if (reason is DialRefusal.OptedOut)
+        {
+            logger?.LogInformation("Not dialling {Host}:{Port} — {Detail}", target.Host, target.Port, detail);
+        }
+        else
+        {
+            logger?.LogWarning("Refusing {Host}:{Port} — {Detail}", target.Host, target.Port, detail);
+        }
 
         await targets.RecordAttemptAsync(
             target.Id,
@@ -309,6 +347,7 @@ public sealed class CrawlCycle(
         private int _answered;
         private int _failed;
         private int _refused;
+        private int _optedOut;
         private int _errored;
         private int _listed;
         private int _reviews;
@@ -335,11 +374,18 @@ public sealed class CrawlCycle(
             }
         }
 
-        public void Refused()
+        public void Refused(DialRefusal reason)
         {
             lock (_gate)
             {
-                _refused++;
+                if (reason is DialRefusal.OptedOut)
+                {
+                    _optedOut++;
+                }
+                else
+                {
+                    _refused++;
+                }
             }
         }
 
@@ -395,7 +441,7 @@ public sealed class CrawlCycle(
             lock (_gate)
             {
                 return new CycleReport(
-                    considered, _probed, _answered, _failed, _refused, _errored,
+                    considered, _probed, _answered, _failed, _refused, _optedOut, _errored,
                     _listed, _reviews, _counted, _unmeasurable, _transitions, _referralsAdded);
             }
         }
@@ -406,8 +452,11 @@ public sealed class CrawlCycle(
 /// What one pass did. Enough for an operator to tell a quiet night from a broken crawler.
 /// </summary>
 /// <remarks>
-/// <see cref="Refused"/> is on this report and in no game's record, which is §7.2's rule expressed as
-/// a place: a decision of ours is counted where decisions of ours are counted.
+/// <see cref="Refused"/> and <see cref="OptedOut"/> are on this report and in no game's record, which
+/// is §7.2's and §11's rule expressed as a place: a decision of ours is counted where decisions of
+/// ours are counted. They are two figures rather than one because they are two different decisions —
+/// "we would not dial there" is a security policy and "they asked us not to" is somebody else's
+/// wishes, and a single "refused" column would hide the second inside the first.
 /// </remarks>
 public sealed record CycleReport(
     int Considered,
@@ -415,6 +464,7 @@ public sealed record CycleReport(
     int Answered,
     int Failed,
     int Refused,
+    int OptedOut,
     int Errored,
     int Listed,
     int ReviewsOpened,
@@ -423,11 +473,11 @@ public sealed record CycleReport(
     int Transitions,
     int ReferralsAdded)
 {
-    public static readonly CycleReport Empty = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    public static readonly CycleReport Empty = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
     public override string ToString() =>
         $"{Considered} due · {Answered} answered · {Failed} failed · {Refused} refused · "
-        + $"{Errored} errored · {Listed} newly listed · {ReviewsOpened} reviews · "
+        + $"{OptedOut} opted out · {Errored} errored · {Listed} newly listed · {ReviewsOpened} reviews · "
         + $"{Counted} counted · {Unmeasurable} uncountable · {Transitions} transitions · "
         + $"{ReferralsAdded} referrals added";
 }
