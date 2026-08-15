@@ -508,9 +508,16 @@ public sealed record GameFacetRow(
 public static class FacetedSearch
 {
     /// <summary>
-    /// How many values an open-ended facet offers. Codebases are versioned strings and there are
-    /// hundreds of them; the tail is reachable by search and by URL, and the panel says as much.
+    /// How many values an open-ended facet offers. The tail is reachable by search and by URL, and
+    /// the panel says as much.
     /// </summary>
+    /// <remarks>
+    /// The cap was written for the codebase facet, which no longer needs it much: folding the
+    /// version off collapsed a catalogue of hundreds of strings to a few dozen families. It is
+    /// <see cref="FacetKeys.CodebaseVersion"/> that carries the long tail now, and it is the right
+    /// facet to be capped — a reader scanning for a codebase wants the families, and a reader who
+    /// wants one patchlevel of one of them arrives already knowing its name.
+    /// </remarks>
     public const int MaxValues = 12;
 
     public static GameListing Search(IReadOnlyList<GameFacetRow> rows, GameFilter filter)

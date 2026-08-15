@@ -909,7 +909,19 @@ make us connect to a stranger's server.
 ## 9. Site surface, v1
 
 **Game listing.** Faceted search over the MSSP taxonomy plus derived facets: activity band,
-*measured* protocol support, TLS, charset, language, last-seen. Archived games are excluded by
+*measured* protocol support, TLS, charset, language, last-seen.
+
+The codebase is faceted **twice** — as a family (`PennMUSH`) and as the exact string the game
+reports (`PennMUSH 1.8.8p0`) — because no reader's question is version-shaped and one codebase split
+across its patchlevels is three answers to nobody's question. Beside them sits **codebase lineage**
+(`MUSH`, `DikuMUD`, `LPMud`, `MOO`, `MUCK`, `AberMUD`), which is *ours*: MSSP's own `FAMILY` variable
+has no `MUSH` in it — PennMUSH answers `TinyMUD` — and the rest of the MUSH world publishes no MSSP
+at all, so no declaration can group them and nothing but a classification of our own will do. It
+therefore carries a **third evidence register, `derived`**, beside `measured` and `declared`,
+everywhere a facet says where it came from. Declared `FAMILY` keeps its own facet unchanged beside
+it: when a game says `TinyMUD` and we say `MUSH`, both are shown, per §3.1.
+
+A codebase with no uncontested parent is left unclassified rather than placed on a resemblance. Archived games are excluded by
 default and reachable via an *include archived* toggle. Random game. A find-a-game facet wizard.
 
 **The archive.** A first-class section, not a hidden flag — browsable and searchable over games
