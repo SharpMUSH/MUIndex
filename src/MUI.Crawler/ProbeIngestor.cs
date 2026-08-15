@@ -201,10 +201,13 @@ public sealed record Ingestion(
 /// <b>The evidence for it is that a telnet option was negotiated before the budget ran out.</b> An
 /// option only fires when the far end spoke telnet back, so a timeout with options observed is a
 /// session that started and did not end; a timeout with none is a host that never got that far.
-/// <b>The known limitation:</b> <c>TelnetProbe</c> carries no banner on its failure path, so a server
-/// that sends forty lines of connect screen and never negotiates anything reads as unreachable rather
-/// than degraded. Closing that means the probe surfacing what it had when the budget expired, which
-/// is a change to <c>MUI.Crawl</c> and not something to paper over here by guessing.
+/// <b>The known limitation, and what is left of it:</b> <c>TelnetProbe</c> carries no banner on its
+/// failure path, so a server that sends forty lines of connect screen and never negotiates anything
+/// reads as unreachable rather than degraded. The half of that which was doing real damage is closed
+/// — a server that <em>hangs up</em> mid-session now finishes as <see cref="ProbeOutcome.Answered"/>
+/// carrying what it said, which is every DIKU descendant meeting the probe's own flush line. What
+/// remains is the budget-expiry case, and closing it means the probe surfacing what it had when the
+/// budget expired; it is still not something to paper over here by guessing.
 /// </para>
 /// </remarks>
 public static class FailureReading
