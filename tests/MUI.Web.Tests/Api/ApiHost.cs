@@ -43,7 +43,14 @@ public sealed class ApiHost : IAsyncDisposable
     /// <summary>The instant every age in a response is measured from. Fixed, so ages are assertable.</summary>
     public static DateTimeOffset Now => FixtureGameQueries.Now;
 
-    public static async Task<ApiHost> StartAsync(Dictionary<string, string?>? settings = null)
+    /// <summary>
+    /// The API on a loopback port. <paramref name="queries"/> replaces the fixture's read side —
+    /// which is how a test asserts what an endpoint <em>does not</em> ask for, by handing it a
+    /// catalogue that refuses the question.
+    /// </summary>
+    public static async Task<ApiHost> StartAsync(
+        Dictionary<string, string?>? settings = null,
+        IGameQueries? queries = null)
     {
         var builder = WebApplication.CreateSlimBuilder();
 
@@ -54,7 +61,8 @@ public sealed class ApiHost : IAsyncDisposable
         }
 
         builder.Services.AddSingleton<FixtureGameQueries>();
-        builder.Services.AddSingleton<IGameQueries>(s => s.GetRequiredService<FixtureGameQueries>());
+        builder.Services.AddSingleton<IGameQueries>(
+            s => queries ?? s.GetRequiredService<FixtureGameQueries>());
         builder.Services.AddSingleton<IAvailabilityHistory>(
             s => s.GetRequiredService<FixtureGameQueries>());
         builder.Services.AddSingleton<TimeProvider>(new FixedClock(Now));

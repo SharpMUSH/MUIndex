@@ -23,7 +23,7 @@ public class FeedAndArchiveTests
     [Test]
     public async Task TheThreeRegistersAreOneShapeWithThreeHeadings()
     {
-        var entry = new FeedEntry("x", "Somewhere", Now.AddHours(-3), "detail");
+        var entry = new FeedEntry(Guid.NewGuid(), "x", "Somewhere", Now.AddHours(-3), "detail");
 
         var discovered = await CardAsync(entry, FeedKind.NewlyDiscovered);
         var dark = await CardAsync(entry, FeedKind.WentDark);
@@ -45,7 +45,7 @@ public class FeedAndArchiveTests
     {
         // The one place the site raises its voice, and it earns it: a game dark for two years
         // answering is the thing nobody else can tell you.
-        var entry = new FeedEntry("x", "The Long Sleep", Now, "Answered again after 26 months dark.");
+        var entry = new FeedEntry(Guid.NewGuid(), "x", "The Long Sleep", Now, "Answered again after 26 months dark.");
 
         var back = await CardAsync(entry, FeedKind.CameBack);
         var dark = await CardAsync(entry, FeedKind.WentDark);
@@ -60,7 +60,7 @@ public class FeedAndArchiveTests
     public async Task TheRegisterCanBeSuppressedWhereTheColumnAlreadyNamesIt()
     {
         // Otherwise the front page reads "newly discovered newly discovered".
-        var entry = new FeedEntry("x", "Somewhere", Now, "detail");
+        var entry = new FeedEntry(Guid.NewGuid(), "x", "Somewhere", Now, "detail");
 
         var html = await Render.ComponentAsync<FeedCard>(new()
         {

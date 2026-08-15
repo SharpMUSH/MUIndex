@@ -88,10 +88,33 @@ public sealed record PresenceView(
     string Timezone,
     IReadOnlyList<PresenceCellView> Cells);
 
-/// <summary>Whether a player count is a measurement or an absence of one. Never inferred from 0.</summary>
+/// <summary>
+/// How a player count was obtained, or that it was not. Never inferred from 0.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Three members, because there were two and the missing one was being answered with
+/// <see cref="Measured"/>. A game that publishes <c>PLAYERS</c> in MSSP has reported a number about
+/// itself; calling that a measurement of ours is rule 5, and it shipped in the same object as a
+/// <c>playersNowProvenance.measured</c> of <c>false</c> saying the opposite.
+/// </para>
+/// <para>
+/// A count read off a connect screen is <see cref="Measured"/>, not <see cref="Declared"/> — we open
+/// a socket and parse that text ourselves on every probe. <c>playersNowProvenance.source</c> still
+/// tells the three apart (<c>who</c>, <c>banner</c>, <c>mssp</c>) for a consumer who cares which,
+/// and <c>MUI.Catalog.FieldSources</c> is the one place the line is drawn.
+/// </para>
+/// <para>
+/// <see cref="Unknown"/> is "we cannot say it was measured", which covers the ordinary case of no
+/// count at all — a null <c>playersNow</c> beside it, which is how absence is detected — and would
+/// also cover a count that arrived without a label. Neither implementation can produce the second,
+/// and guessing at one would be the fabrication this member exists to avoid.
+/// </para>
+/// </remarks>
 public enum PlayerCountState
 {
     Measured,
+    Declared,
     Unknown,
 }
 
@@ -130,6 +153,24 @@ public sealed record ReachabilityView(
 /// </summary>
 public sealed record ConnectScreenView(bool Suppressed, string? Text);
 
+/// <summary>
+/// A game as the listing publishes it — and, for the two facts a row leads with, how we know them.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <see cref="PlayersNowProvenance"/> and <see cref="CodebaseProvenance"/> label the bare values
+/// they sit beside. Spec §10.1 recorded their absence as <em>the one place the API contradicts the
+/// rule the whole project exists to serve</em>: the game route labelled every field with a source,
+/// an age and a staleness while <c>/api/games</c> shipped a count and a codebase as
+/// though a number were a number. A consumer republishing this listing could not tell a count read
+/// out of a <c>WHO</c> four minutes ago from one a game asserted about itself six years ago, which is
+/// precisely the confusion the incumbents' directories thrive on.
+/// </para>
+/// <para>
+/// Null exactly where the value beside it is null. A chip over an absent count would attest to a
+/// measurement nobody took, and "we did not measure this" is the label in that case.
+/// </para>
+/// </remarks>
 public sealed record GameSummaryView(
     Guid Id,
     string Slug,
@@ -140,7 +181,9 @@ public sealed record GameSummaryView(
     bool Claimed,
     int? PlayersNow,
     PlayerCountState PlayersNowState,
+    ProvenanceView? PlayersNowProvenance,
     string? Codebase,
+    ProvenanceView? CodebaseProvenance,
     IReadOnlyList<string> MeasuredProtocols,
 
     // Null means never once reached, which is not "reached a long time ago" — the last-seen facet
@@ -160,7 +203,14 @@ public sealed record GameView(
     bool Claimed,
     int? PlayersNow,
     PlayerCountState PlayersNowState,
+
+    // The same two labels the listing carries, so a consumer that moved from one route to the other
+    // does not have to learn a second way of asking how a fact was obtained. The codebase's label is
+    // also in Fields, where every registry field's is; these two are lifted out because they are the
+    // two values this API publishes bare.
+    ProvenanceView? PlayersNowProvenance,
     string? Codebase,
+    ProvenanceView? CodebaseProvenance,
     IReadOnlyList<string> MeasuredProtocols,
     IReadOnlyList<EndpointView> Endpoints,
     ConnectScreenView ConnectScreen,
@@ -249,8 +299,16 @@ public sealed record GameListView(
     int Count,
     IReadOnlyList<GameSummaryView> Games);
 
+/// <summary>
+/// One event in a liveness register. <see cref="Id"/> is the durable key and is never absent.
+/// </summary>
+/// <remarks>
+/// It was nullable while <c>FeedEntry</c> carried only a slug and the endpoint joined ids on out of
+/// the listing — an identifier that went missing whenever the join did. The query supplies it now,
+/// so a reader may store it (spec §5.7) without a fallback path for the times we could not say.
+/// </remarks>
 public sealed record FeedEntryView(
-    Guid? Id,
+    Guid Id,
     string Slug,
     string Name,
     DateTimeOffset At,
