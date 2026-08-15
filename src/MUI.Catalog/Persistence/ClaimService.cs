@@ -17,7 +17,11 @@ namespace MUI.Catalog.Persistence;
 /// hands this a string and a channel.
 /// </para>
 /// </remarks>
-public sealed class ClaimService(IClaimStore claims, IGameStore games, TimeProvider time)
+public sealed class ClaimService(
+    IClaimStore claims,
+    IGameStore games,
+    TimeProvider time,
+    IOnDemandProbes? probes = null)
 {
     /// <summary>
     /// How often a claimant may ask us to look again (spec §8.1).
@@ -153,7 +157,24 @@ public sealed class ClaimService(IClaimStore claims, IGameStore games, TimeProvi
         return claim.LastCheckedAt is not { } last || time.GetUtcNow() - last >= RecheckInterval;
     }
 
-    /// <summary>Records that a check was asked for. The dialling itself belongs to the crawler.</summary>
+    /// <summary>
+    /// Brings the game's next probe forward, and records that the claimant asked.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It moves the schedule; the crawler still does the dialling.</b> Keeping the two apart is
+    /// what stops a button on a page becoming a way to make us connect to a stranger's server on
+    /// demand: the rate limit is per claim, a claim cannot exist for a game nobody has been offered,
+    /// and <c>CRAWL DELAY</c> and the address gate both still bind when the loop gets there.
+    /// </para>
+    /// <para>
+    /// This recorded the ask and moved nothing for as long as it existed. Due-ness comes only from
+    /// <c>crawl_target.next_probe_at</c>, so <c>last_checked_at</c> and the <c>check_requested</c>
+    /// event went into the database and no probe ever came of it, while the page told the operator
+    /// the button dialled a real server. A rate limiter on an action that does not happen is the
+    /// most convincing possible no-op.
+    /// </para>
+    /// </remarks>
     public async Task<bool> RequestCheckAsync(Guid claimId, CancellationToken cancellationToken = default)
     {
         if (await claims.FindAsync(claimId, cancellationToken) is not { } claim || !MayRecheck(claim))
@@ -163,10 +184,18 @@ public sealed class ClaimService(IClaimStore claims, IGameStore games, TimeProvi
 
         var now = time.GetUtcNow();
 
+        // Recorded whether or not a target moved. An ask is a thing that happened, and a claim on a
+        // game the registry has no target for — merged away, or added by hand — is not the
+        // claimant's mistake to be told about in an audit log.
         await claims.UpdateAsync(claim with { LastCheckedAt = now }, cancellationToken);
         await claims.RecordEventAsync(
             new ClaimEvent(claim.Id, now, ClaimEventKind.CheckRequested),
             cancellationToken);
+
+        if (probes is not null)
+        {
+            await probes.BringForwardAsync(claim.GameId, now, cancellationToken);
+        }
 
         return true;
     }

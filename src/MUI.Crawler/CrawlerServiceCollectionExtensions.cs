@@ -87,6 +87,21 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<IAvailabilityStore>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());
         services.TryAddSingleton<IReachableHistory>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());
 
+        // §8's claim settling. Every probe of a game whose owner has published a token completes the
+        // claim, and every probe of a claimed game refreshes beacon_last_seen_at — both on the
+        // ordinary schedule, which is why this belongs to the crawl graph rather than to the web
+        // tier that mints the tokens.
+        //
+        // The consumer is the in-process CrawlCycle of the one deployable (§4.11) — this method has
+        // exactly one caller, MUI.Web's Program, and mui-crawl builds its own graph by hand. It was
+        // missing here, and CrawlCycle takes its ClaimService as an OPTIONAL parameter, so the site
+        // settled beacons only insofar as some other registration happened to supply one. That is
+        // the shape of the bug rather than an argument for a deployment nobody builds.
+        services.TryAddSingleton<IClaimStore>(s => new NpgsqlClaimStore(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IOnDemandProbes>(
+            s => new NpgsqlOnDemandProbes(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<ClaimService>();
+
         // The three writers of §6.5, plus the field registry they judge staleness against.
         services.TryAddSingleton<IFieldRegistry>(FieldRegistry.Instance);
         services.TryAddSingleton<IPresenceWriter, PresenceWriter>();

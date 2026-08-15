@@ -100,14 +100,25 @@ else
 
             <form method="post" action="/g/@Slug/claim/check">
                 <AntiforgeryToken />
-                <button type="submit" disabled="@(!CanCheck)">Check now</button>
-                @if (!CanCheck)
-                {
-                    <span class="faint">
-                        Just looked. You can ask again in a few minutes — the button dials a real
-                        server, so it is rationed.
-                    </span>
-                }
+                <button type="submit" disabled="@(!CanCheck)">Look sooner</button>
+                @*
+                    It moves your game to the front of the crawl queue; the crawler still does the
+                    dialling, on its own schedule and under CRAWL DELAY. Saying it "dials a real
+                    server" was both an overstatement and — for as long as nothing moved the
+                    schedule — a description of something that did not happen at all.
+                *@
+                <span class="faint">
+                    @if (CanCheck)
+                    {
+                        @("Brings your game to the front of the queue. We dial on our own schedule, "
+                            + "so this is sooner rather than now.")
+                    }
+                    else
+                    {
+                        @("Just asked. You can ask again in a few minutes — it is rationed because it "
+                            + "makes us connect to a real server sooner than we would have.")
+                    }
+                </span>
             </form>
         }
     </section>
