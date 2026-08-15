@@ -34,6 +34,17 @@
 
   <ItemGroup>
     <!--
+      TXT lookups, for spec §11's opt-out and nothing else. The BCL resolves names to addresses and
+      cannot ask a resolver anything else: System.Net.Dns has no TXT query, and the portable ways to
+      get one are P/Invoking res_query or writing a DNS client, which is a wire format this project
+      has no business owning. A record an operator publishes to make us stop is a thing we have to be
+      able to read reliably on every host this runs on, so the dependency is the honest answer.
+    -->
+    <PackageVersion Include="DnsClient" Version="1.8.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
       Persistence: PostgreSQL 17 with Npgsql and Dapper, and plain numbered .sql migrations applied
       by our own runner. No EF Core, ever — the schema is legible to anyone with psql, which is the
       property that matters when something has gone wrong in production at four in the morning.

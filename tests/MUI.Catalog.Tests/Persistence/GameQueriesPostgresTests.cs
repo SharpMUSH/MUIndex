@@ -183,6 +183,154 @@ public class GameQueriesPostgresTests
     }
 
     [Test]
+    public async Task TheListingLabelsItsCountAndItsCodebaseWithHowWeKnowThem()
+    {
+        // Spec §10.1: the listing shipped a count and a codebase as bare values while the page
+        // labelled every field. A row has to carry the label, because the listing is a surface a
+        // consumer may read on its own.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, lastReachableAt: Now);
+        var counted = Now.AddMinutes(-10);
+
+        await new NpgsqlPresenceStore(db.DataSource)
+            .AppendAsync(PresenceSample.Counted(game, counted, 15, FieldSource.Who));
+
+        // A codebase last confirmed forty days ago, against a thirty-day window. Old, not wrong.
+        await new NpgsqlGameFieldStore(db.DataSource).UpsertAsync(new GameField(
+            game, "CODEBASE", FieldSource.Mssp, "PennMUSH 1.8.8p0",
+            Now.AddYears(-2), Now.AddDays(-40)));
+
+        var summary = (await QueriesOn(db).ListAsync(new GameFilter())).Single();
+
+        var players = summary.PlayersNowProvenance!;
+        await Assert.That(players.Value).IsEqualTo("15");
+        await Assert.That(players.Source).IsEqualTo(FieldSource.Who);
+        await Assert.That(players.IsMeasured).IsTrue();
+        await Assert.That(players.LastConfirmedAt).IsEqualTo(counted);
+        await Assert.That(players.IsStale).IsFalse();
+
+        var codebase = summary.CodebaseProvenance!;
+        await Assert.That(codebase.Value).IsEqualTo(summary.Codebase);
+        await Assert.That(codebase.Source).IsEqualTo(FieldSource.Mssp);
+        await Assert.That(codebase.IsMeasured).IsFalse();
+        await Assert.That(codebase.LastConfirmedAt).IsEqualTo(Now.AddDays(-40));
+
+        // Staleness is the registry's answer about CODEBASE's own window, not a judgement made here.
+        await Assert.That(codebase.IsStale).IsTrue();
+
+        // And the page reads the same fact the same way, from the same rows.
+        var page = await QueriesOn(db).FindAsync("corvid");
+        await Assert.That(page!.Summary.CodebaseProvenance).IsEqualTo(codebase);
+        await Assert.That(page.Declared["codebase"]).IsEqualTo(codebase);
+    }
+
+    [Test]
+    public async Task ACountAGameAssertedAboutItselfIsNeverLabelledAsOneWeMeasured()
+    {
+        // Rule 5, at the point it is most tempting to break: an MSSP PLAYERS line is the game's own
+        // claim, and a listing that dressed it as a reading of ours would be the exact confusion the
+        // incumbents' directories run on. Same number, different fact.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var measured = await Seed.GameAsync(db, "measured", "Measured");
+        var asserted = await Seed.GameAsync(db, "asserted", "Asserted");
+        var presence = new NpgsqlPresenceStore(db.DataSource);
+
+        await presence.AppendAsync(PresenceSample.Counted(measured, Now.AddMinutes(-4), 12, FieldSource.Who));
+        await presence.AppendAsync(PresenceSample.Counted(asserted, Now.AddMinutes(-4), 12, FieldSource.Mssp));
+
+        var listed = (await QueriesOn(db).ListAsync(new GameFilter())).ToDictionary(g => g.Slug);
+
+        await Assert.That(listed["measured"].PlayersNow).IsEqualTo(listed["asserted"].PlayersNow);
+        await Assert.That(listed["measured"].PlayersNowProvenance!.IsMeasured).IsTrue();
+        await Assert.That(listed["asserted"].PlayersNowProvenance!.IsMeasured).IsFalse();
+        await Assert.That(listed["asserted"].PlayersNowProvenance!.Source).IsEqualTo(FieldSource.Mssp);
+    }
+
+    [Test]
+    public async Task AValueWeDoNotHaveCarriesNoLabelAtAll()
+    {
+        // A chip over an absent count would attest to a measurement nobody took, which is worse than
+        // the bare value it replaced.
+        await using var db = await PostgresFixture.MigratedAsync();
+        await Seed.GameAsync(db, lastReachableAt: Now);
+
+        var summary = (await QueriesOn(db).ListAsync(new GameFilter())).Single();
+
+        await Assert.That(summary.PlayersNow).IsNull();
+        await Assert.That(summary.PlayersNowProvenance).IsNull();
+        await Assert.That(summary.Codebase).IsNull();
+        await Assert.That(summary.CodebaseProvenance).IsNull();
+    }
+
+    [Test]
+    public async Task APageAskedForByIdIsTheSamePageAskedForBySlug()
+    {
+        // Two keys for one game (§5.7), and one read either way. The id route used to get its page
+        // by assembling a whole summary — fields, presence digest, chips, on its own connection —
+        // and then throwing all of it away but the slug, which the slug route promptly re-read.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, lastReachableAt: Now);
+
+        await new NpgsqlPresenceStore(db.DataSource)
+            .AppendAsync(PresenceSample.Counted(game, Now.AddMinutes(-5), 7, FieldSource.Who));
+        await new NpgsqlGameFieldStore(db.DataSource).UpsertAsync(new GameField(
+            game, "CODEBASE", FieldSource.Mssp, "PennMUSH 1.8.8p0", Now, Now));
+
+        var bySlug = await QueriesOn(db).FindAsync("corvid");
+        var byId = await QueriesOn(db).FindAsync(game);
+
+        await Assert.That(byId!.Summary.Slug).IsEqualTo(bySlug!.Summary.Slug);
+        await Assert.That(byId.Summary.PlayersNowProvenance)
+            .IsEqualTo(bySlug.Summary.PlayersNowProvenance);
+        await Assert.That(byId.Summary.CodebaseProvenance)
+            .IsEqualTo(bySlug.Summary.CodebaseProvenance);
+        await Assert.That(byId.Declared["codebase"]).IsEqualTo(bySlug.Declared["codebase"]);
+        await Assert.That(byId.Activity).Count().IsEqualTo(bySlug.Activity.Count);
+
+        // An id is minted once and never reused, so a miss is a miss and has nowhere else to look.
+        await Assert.That(await QueriesOn(db).FindAsync(Guid.NewGuid())).IsNull();
+    }
+
+    [Test]
+    public async Task AnArchivedGameStillAnswersToItsId()
+    {
+        // Archiving takes a game out of the default listing and out of nothing else (§7.5). The
+        // scan this replaced asked for archived games explicitly; a lookup that quietly dropped
+        // them would take away a URL that used to work.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, "gaslight-row", "Gaslight Row", LifecycleState.Archived);
+
+        var page = await QueriesOn(db).FindAsync(game);
+
+        await Assert.That(page).IsNotNull();
+        await Assert.That(page!.Summary.State).IsEqualTo(LifecycleState.Archived);
+    }
+
+    [Test]
+    public async Task AGameLookedUpByIdIsTheSameSummaryTheListingReturned()
+    {
+        // The owner surfaces address a game by id (§5.7) and were handed a summary with neither its
+        // labels nor its last-reachable moment — so a claimed listing said "never reached" about a
+        // game the public listing showed as reachable minutes ago.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, lastReachableAt: Now.AddMinutes(-5));
+
+        await new NpgsqlPresenceStore(db.DataSource)
+            .AppendAsync(PresenceSample.Counted(game, Now.AddMinutes(-5), 3, FieldSource.Who));
+        await new NpgsqlGameFieldStore(db.DataSource).UpsertAsync(new GameField(
+            game, "CODEBASE", FieldSource.Mssp, "Evennia", Now, Now));
+
+        var listed = (await QueriesOn(db).ListAsync(new GameFilter())).Single();
+        var byId = await QueriesOn(db).FindByIdAsync(game);
+
+        await Assert.That(byId!.MeasuredProtocols).IsEquivalentTo(listed.MeasuredProtocols);
+
+        // Everything else compared in one go — the protocols swapped in because a record holding a
+        // list compares that list by reference, and two equal lists are the answer here.
+        await Assert.That(byId with { MeasuredProtocols = listed.MeasuredProtocols }).IsEqualTo(listed);
+    }
+
+    [Test]
     public async Task ThePrecedenceLadderPicksTheWinnerAndTheLoserIsStillStored()
     {
         await using var db = await PostgresFixture.MigratedAsync();
@@ -283,7 +431,13 @@ public class GameQueriesPostgresTests
         await Assert.That(feeds.WentDark[0].Detail).Contains("dns");
         await Assert.That(feeds.CameBack.Select(f => f.Slug).ToList())
             .IsEquivalentTo(new[] { "aardwolf" });
-        await Assert.That(found).IsNotEqualTo(Guid.Empty);
+
+        // Each entry names its game by the identifier that survives a rename (§5.7), from the query
+        // that already had the row. Nothing downstream has to read the catalogue to find out which
+        // game an event was about.
+        await Assert.That(feeds.NewlyDiscovered[0].Id).IsEqualTo(found);
+        await Assert.That(feeds.WentDark[0].Id).IsEqualTo(dark);
+        await Assert.That(feeds.CameBack[0].Id).IsEqualTo(back);
     }
 
     [Test]

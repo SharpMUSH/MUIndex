@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using Dapper;
 
 using Npgsql;
@@ -173,6 +175,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             var digest = presence.TryGetValue(row.Id, out var found) ? found : PresenceDigest.None;
             var state = SqlEnums.ToLifecycleState(row.State);
 
+            var codebase = Winner(forGame, "CODEBASE");
+
             var summary = new GameSummary(
                 row.Id,
                 row.Slug,
@@ -181,9 +185,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 state,
                 row.IsClaimed,
                 digest.CountNow,
-                Winner(forGame, "CODEBASE")?.Value,
+                codebase?.Value,
                 MeasuredProtocolsOf(forGame),
-                row.LastReachableAt);
+                row.LastReachableAt,
+                CountChip(digest, now),
+                Chip(codebase, now));
 
             facetRows.Add(new GameFacetRow(
                 summary,
@@ -250,17 +256,35 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         return [.. rows];
     }
 
+    /// <summary>
+    /// The one projection of <c>game</c> every read of a single game starts from.
+    /// </summary>
+    /// <remarks>
+    /// Written once so the three keys a game answers to (spec §5.7) cannot come back as three
+    /// different rows — the key is the only thing that differs between them, and it is a literal at
+    /// each call site rather than a string this class assembles.
+    /// <para>
+    /// <b><see cref="Public"/> is baked in rather than appended per call site</b>, so a lookup added
+    /// on top of this projection cannot forget it. That is not hypothetical: this constant and the
+    /// visibility rule arrived on separate branches, and the id lookup written against the constant
+    /// would have served an unclaimed submission to anyone who had its identifier while the slug
+    /// lookup beside it refused.
+    /// </para>
+    /// </remarks>
+    private const string GameSelect =
+        $"""
+        SELECT id AS Id, slug AS Slug, name AS Name, tagline AS Tagline, state AS State,
+               is_claimed AS IsClaimed, last_reachable_at AS LastReachableAt
+          FROM game
+         WHERE {Public}
+        """;
+
     public async Task<GameSummary?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
         var row = await connection.QuerySingleOrDefaultAsync<GameRow>(new CommandDefinition(
-            $"""
-            SELECT id AS Id, slug AS Slug, name AS Name, tagline AS Tagline, state AS State,
-                   is_claimed AS IsClaimed, last_reachable_at AS LastReachableAt
-              FROM game
-             WHERE id = @id AND {Public}
-            """,
+            GameSelect + " AND id = @id",
             new { id },
             cancellationToken: cancellationToken));
 
@@ -269,11 +293,14 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             return null;
         }
 
+        var now = Clock();
+
         Guid[] ids = [row.Id];
         var fields = (await FieldsForAsync(connection, ids, cancellationToken))
             .GetValueOrDefault(row.Id, []);
-        var digest = (await PresenceDigestAsync(connection, ids, Clock(), cancellationToken))
+        var digest = (await PresenceDigestAsync(connection, ids, now, cancellationToken))
             .GetValueOrDefault(row.Id, PresenceDigest.None);
+        var codebase = Winner(fields, "CODEBASE");
 
         return new GameSummary(
             row.Id,
@@ -283,30 +310,52 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             SqlEnums.ToLifecycleState(row.State),
             row.IsClaimed,
             digest.CountNow,
-            Winner(fields, "CODEBASE")?.Value,
-            MeasuredProtocolsOf(fields));
+            codebase?.Value,
+            MeasuredProtocolsOf(fields),
+            row.LastReachableAt,
+            CountChip(digest, now),
+            Chip(codebase, now));
     }
 
     public async Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default)
     {
-        var now = Clock();
-
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
         var row = await connection.QuerySingleOrDefaultAsync<GameRow>(new CommandDefinition(
-            $"""
-            SELECT id AS Id, slug AS Slug, name AS Name, tagline AS Tagline, state AS State,
-                   is_claimed AS IsClaimed, last_reachable_at AS LastReachableAt
-              FROM game
-             WHERE slug = @slug AND {Public}
-            """,
+            GameSelect + " AND slug = @slug",
             new { slug },
             cancellationToken: cancellationToken));
 
-        if (row is null)
-        {
-            return null;
-        }
+        return row is null ? null : await PageAsync(connection, row, cancellationToken);
+    }
+
+    /// <summary>
+    /// The same page, found by the identifier that never moves.
+    /// </summary>
+    /// <remarks>
+    /// One read of <c>game</c> and then the page, exactly as the slug route does — the two differ in
+    /// their <c>WHERE</c> clause and in nothing else. Both columns are unique-indexed, so neither
+    /// key is the expensive one, which is the property the API's advice to store the id depends on.
+    /// </remarks>
+    public async Task<GamePage?> FindAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        var row = await connection.QuerySingleOrDefaultAsync<GameRow>(new CommandDefinition(
+            GameSelect + " AND id = @id",
+            new { id },
+            cancellationToken: cancellationToken));
+
+        return row is null ? null : await PageAsync(connection, row, cancellationToken);
+    }
+
+    /// <summary>Everything a game page is, assembled from a row whoever found it already has.</summary>
+    private async Task<GamePage> PageAsync(
+        NpgsqlConnection connection,
+        GameRow row,
+        CancellationToken cancellationToken)
+    {
+        var now = Clock();
 
         Guid[] ids = [row.Id];
         var fields = (await FieldsForAsync(connection, ids, cancellationToken))
@@ -319,6 +368,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         var changes = await new NpgsqlGameFieldStore(source).ChangesAsync(row.Id, ChangeLimit, cancellationToken);
         var activity = await ActivityAsync(connection, row.Id, now, cancellationToken);
 
+        var codebase = Winner(fields, "CODEBASE");
+
         var summary = new GameSummary(
             row.Id,
             row.Slug,
@@ -327,9 +378,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             SqlEnums.ToLifecycleState(row.State),
             row.IsClaimed,
             digest.CountNow,
-            Winner(fields, "CODEBASE")?.Value,
+            codebase?.Value,
             MeasuredProtocolsOf(fields),
-            row.LastReachableAt);
+            row.LastReachableAt,
+            CountChip(digest, now),
+            Chip(codebase, now));
 
         return new GamePage(
             summary,
@@ -360,7 +413,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         // them measured continuously enough to know when a game came back.
         var discovered = await connection.QueryAsync<FeedRow>(new CommandDefinition(
             $"""
-            SELECT slug AS Slug, name AS Name, first_seen_at AS At, NULL AS Cause
+            SELECT id AS Id, slug AS Slug, name AS Name, first_seen_at AS At, NULL AS Cause
               FROM game
              WHERE first_seen_at >= @since AND {Public}
              ORDER BY first_seen_at DESC
@@ -371,7 +424,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
         var wentDark = await connection.QueryAsync<FeedRow>(new CommandDefinition(
             $"""
-            SELECT g.slug AS Slug, g.name AS Name, a.from_at AS At, a.cause AS Cause
+            SELECT g.id AS Id, g.slug AS Slug, g.name AS Name, a.from_at AS At, a.cause AS Cause
               FROM availability_interval a
               JOIN game g ON g.id = a.game_id
              WHERE a.to_at IS NULL AND a.state = 'unreachable' AND a.from_at >= @since
@@ -387,7 +440,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         // would be a scan for a transition that nothing recorded.
         var cameBack = await connection.QueryAsync<FeedRow>(new CommandDefinition(
             $"""
-            SELECT g.slug AS Slug, g.name AS Name, a.from_at AS At, prev.cause AS Cause
+            SELECT g.id AS Id, g.slug AS Slug, g.name AS Name, a.from_at AS At, prev.cause AS Cause
               FROM availability_interval a
               JOIN game g ON g.id = a.game_id
               JOIN availability_interval prev
@@ -401,10 +454,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             cancellationToken: cancellationToken));
 
         return new LivenessFeeds(
-            discovered.Select(r => new FeedEntry(r.Slug, r.Name, r.At, "first seen")).ToList(),
+            discovered.Select(r => new FeedEntry(r.Id, r.Slug, r.Name, r.At, "first seen")).ToList(),
             wentDark.Select(r => new FeedEntry(
-                r.Slug, r.Name, r.At, $"unreachable · {r.Cause ?? "unknown"} · we keep knocking")).ToList(),
-            cameBack.Select(r => new FeedEntry(r.Slug, r.Name, r.At, "answered again")).ToList());
+                r.Id, r.Slug, r.Name, r.At,
+                $"unreachable · {r.Cause ?? "unknown"} · we keep knocking")).ToList(),
+            cameBack.Select(r => new FeedEntry(r.Id, r.Slug, r.Name, r.At, "answered again")).ToList());
     }
 
     /// <summary>
@@ -760,11 +814,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 continue;
             }
 
-            chips[winner.Field.ToLowerInvariant()] = new ProvenanceChip(
-                winner.Value,
-                winner.Source,
-                winner.LastConfirmedAt,
-                _registry.IsStale(winner.Field, winner.LastConfirmedAt, now));
+            chips[winner.Field.ToLowerInvariant()] = Chip(winner, now)!;
         }
 
         return chips;
@@ -806,12 +856,17 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         // the API age out at the same moment and neither invents its own idea of fresh.
         var nowWindow = _registry.Find("PLAYERS")?.ExpectedRefresh ?? TimeSpan.FromHours(2);
 
+        // The sample's own instant and source come back with the count, because a count is published
+        // with a label on it (§10.1) and the label has to describe the row the number came from —
+        // `who` is a reading of ours, `mssp` is the game's own claim about itself, and re-deriving
+        // either from anything else here would be inventing it.
         var rows = await connection.QueryAsync<DigestRow>(new CommandDefinition(
             """
-            SELECT g.id AS GameId, recent.count AS CountNow, coalesce(week.n, 0) AS NonZeroThisWeek
+            SELECT g.id AS GameId, recent.count AS CountNow, recent.at AS CountedAt,
+                   recent.source AS CountSource, coalesce(week.n, 0) AS NonZeroThisWeek
               FROM unnest(@ids::uuid[]) AS g(id)
               LEFT JOIN LATERAL (
-                   SELECT p.count
+                   SELECT p.count, p.at, p.source
                      FROM presence_sample p
                     WHERE p.game_id = g.id AND p.at >= @nowFrom AND p.count IS NOT NULL
                     ORDER BY p.at DESC
@@ -829,8 +884,41 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             },
             cancellationToken: cancellationToken));
 
-        return rows.ToDictionary(r => r.GameId, r => new PresenceDigest(r.CountNow, r.NonZeroThisWeek > 0));
+        return rows.ToDictionary(
+            r => r.GameId,
+            r => new PresenceDigest(
+                r.CountNow,
+                r.NonZeroThisWeek > 0,
+                r.CountedAt,
+                r.CountSource is { } source ? SqlEnums.ToFieldSource(source) : null));
     }
+
+    /// <summary>
+    /// The count as a labelled fact, or null where there is no count to label.
+    /// </summary>
+    /// <remarks>
+    /// Staleness is asked of the registry under <c>PLAYERS</c> rather than assumed, even though the
+    /// digest only returns a sample inside that same window and so cannot presently produce a stale
+    /// one. The window is declared in exactly one place (spec §5.6); a <c>false</c> compiled in here
+    /// would be a second opinion about it, and would be wrong the day the window moves.
+    /// </remarks>
+    private ProvenanceChip? CountChip(PresenceDigest digest, DateTimeOffset now) =>
+        digest is { CountNow: { } count, CountedAt: { } at, CountSource: { } source }
+            ? new ProvenanceChip(
+                count.ToString(CultureInfo.InvariantCulture),
+                source,
+                at,
+                _registry.IsStale("PLAYERS", at, now))
+            : null;
+
+    /// <summary>A field as a labelled fact, or null where nothing has ever set it.</summary>
+    private ProvenanceChip? Chip(GameField? field, DateTimeOffset now) => field is null
+        ? null
+        : new ProvenanceChip(
+            field.Value,
+            field.Source,
+            field.LastConfirmedAt,
+            _registry.IsStale(field.Field, field.LastConfirmedAt, now));
 
     /// <summary>
     /// The day-of-week × hour grid, in the three states an hour can be in (spec §5.4). A cell with
@@ -909,7 +997,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             : ActivityBand.Dark;
     }
 
-    private sealed record PresenceDigest(int? CountNow, bool NonZeroThisWeek)
+    private sealed record PresenceDigest(
+        int? CountNow,
+        bool NonZeroThisWeek,
+        DateTimeOffset? CountedAt = null,
+        FieldSource? CountSource = null)
     {
         public static readonly PresenceDigest None = new(null, false);
     }
@@ -951,6 +1043,10 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         public Guid GameId { get; init; }
 
         public int? CountNow { get; init; }
+
+        public DateTimeOffset? CountedAt { get; init; }
+
+        public string? CountSource { get; init; }
 
         public long NonZeroThisWeek { get; init; }
     }
@@ -1016,6 +1112,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
     private sealed class FeedRow
     {
+        public Guid Id { get; init; }
+
         public string Slug { get; init; } = string.Empty;
 
         public string Name { get; init; } = string.Empty;

@@ -32,10 +32,9 @@ public static class FeedEndpoints
     public static async Task FeedsAsync(HttpContext http, IGameQueries queries, TimeProvider clock)
     {
         var feeds = await queries.FeedsAsync(http.RequestAborted);
-        var ids = await IdsBySlugAsync(queries, http.RequestAborted);
 
-        FeedEntryView[] View(IReadOnlyList<FeedEntry> entries) =>
-            [.. entries.Select(e => ApiMapper.Feed(e, ids.TryGetValue(e.Slug, out var id) ? id : null))];
+        static FeedEntryView[] View(IReadOnlyList<FeedEntry> entries) =>
+            [.. entries.Select(ApiMapper.Feed)];
 
         await ApiResponse.WriteJsonAsync(http, new FeedsView(
             ApiVersion.Current,
@@ -63,18 +62,6 @@ public static class FeedEndpoints
             licence.Value.View());
 
         await ApiResponse.WriteTextAsync(http, xml, "application/rss+xml; charset=utf-8");
-    }
-
-    /// <summary>
-    /// <see cref="FeedEntry"/> carries a slug and no id, and the API's stable identifier is the id
-    /// (spec §5.7) — so the listing is read once and the ids are joined on here rather than the
-    /// feed's consumers being handed the mutable key alone.
-    /// </summary>
-    private static async Task<Dictionary<string, Guid>> IdsBySlugAsync(
-        IGameQueries queries, CancellationToken cancellationToken)
-    {
-        var all = await queries.ListAsync(new GameFilter { IncludeArchived = true }, cancellationToken);
-        return all.ToDictionary(g => g.Slug, g => g.Id, StringComparer.Ordinal);
     }
 
     /// <summary>

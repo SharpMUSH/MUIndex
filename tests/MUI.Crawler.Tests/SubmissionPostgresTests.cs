@@ -58,6 +58,9 @@ public class SubmissionPostgresTests
         return new CrawlCycle(
             targets,
             probe,
+            // §11's gate, against the real register: a submitted address is still an address whose
+            // operator may have asked us to stop, and the form does not get to override that.
+            new OptOutGate(new NpgsqlCrawlOptOutRepository(source), new ScriptedDns(), time),
             new HostScopeGuard(resolver),
             new ProbeIngestor(
                 new PresenceWriter(new NpgsqlPresenceStore(source)),

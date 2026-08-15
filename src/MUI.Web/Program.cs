@@ -1,61 +1,17 @@
-using MUI.Catalog;
-using MUI.Crawler;
-using MUI.Web.Accounts;
-using MUI.Web.Api;
-using MUI.Web.Components;
+using MUI.Web;
 using MUI.Web.Data;
-using MUI.Web.Fixtures;
-using MUI.Web.Submissions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddRazorComponents();
-
-// The read API (spec §10) reads through the same IGameQueries the pages do, so the two surfaces
-// cannot disagree about a fact. What it adds of its own — the dataset licence, the slug aliases and
-// the attribution list — is configuration, because none of it is a measurement.
-builder.Services.AddMuiApi(builder.Configuration);
-
-// The site reads through IGameQueries and nothing else, and it prefers a real database to a
-// fixture. Point MUI_POSTGRES (or ConnectionStrings:MUIndex) at the catalogue the crawler writes and
-// every page renders measurements; without one the site still starts, but it says loudly and on
-// every page that what it is showing was not measured.
-//
-// The fixture is not a fallback so much as a confession. A directory whose whole claim is that its
-// data is measured must never quietly present invented data as though it were real — so the demo
-// path is opt-in by absence, announced in the log, and marked in the page itself.
+// The site reads through IGameQueries and nothing else, and it prefers a real database to a fixture.
+// Point MUI_POSTGRES (or ConnectionStrings:MUIndex) at the catalogue the crawler writes and every
+// page renders measurements; without one the site still starts, but it says loudly and on every page
+// that what it is showing was not measured.
 var connectionString = PostgresData.ResolveConnectionString(builder.Configuration);
 
-if (connectionString is not null)
-{
-    builder.Services.AddPostgresCatalogue(connectionString);
-    builder.Services.AddMuiCrawler(connectionString, configure =>
-    {
-        // MUI.Web already applies migrations during startup; the hosted crawler should not repeat
-        // them when it takes the lease.
-        configure.ApplyMigrations = false;
-    });
-}
-else
-{
-    builder.Services.AddSingleton<FixtureGameQueries>();
-    builder.Services.AddSingleton<IGameQueries>(s => s.GetRequiredService<FixtureGameQueries>());
-    builder.Services.AddSingleton<IAvailabilityHistory>(s => s.GetRequiredService<FixtureGameQueries>());
-}
-
-builder.Services.AddSingleton(new CatalogueSource(connectionString is not null));
-
-// Claiming needs a database: an account, a passkey and a claim are all rows (spec §8). Against the
-// demo fixture the sign-in and claim surfaces are simply absent rather than present and broken —
-// half a claim flow over invented games would be a worse answer than none.
-if (connectionString is not null)
-{
-    builder.Services.AddMuiAccounts(builder.Configuration);
-}
-
-// Ages are relative to a clock, and a clock is a dependency like any other — the plain surface and
-// the rendered page must not each reach for DateTimeOffset.UtcNow and disagree by a tick.
-builder.Services.AddSingleton(TimeProvider.System);
+// The graph itself lives in SiteComposition, so that CompositionTests can resolve THE SAME
+// registrations rather than a copy of them that agrees until somebody edits one of the two.
+builder.Services.AddMuiSite(builder.Configuration, connectionString);
 
 var app = builder.Build();
 
@@ -74,32 +30,7 @@ else
         PostgresData.EnvironmentVariable, PostgresData.ConfigurationKey);
 }
 
-// Before anything reads a client address. Off unless a deployment says how many proxies are in front
-// of it (Submissions:TrustedProxyHops), because a forwarded header nobody counted is a header
-// anybody may write — and the one thing that reads a client address here is a rate limit.
-app.UseSubmitterAddress();
-
-app.UseStaticFiles();
-
-// The site has exactly two POST forms — the on-demand claim check and the submission form — and both
-// carry a token. The facet panel is a GET form deliberately, because a filter is a bookmarkable
-// question rather than a state change, so nothing about the catalogue is token-protected.
-app.UseAntiforgery();
-
-if (connectionString is not null)
-{
-    app.UseAuthentication();
-    app.UseAuthorization();
-    app.MapMuiAccounts();
-
-    // Submitting needs a crawl registry to write an address into, and the registry is registered
-    // alongside the database. Against the demo fixture the form is absent rather than present and
-    // silently doing nothing, which is the same choice the claim surface makes.
-    app.MapMuiSubmissions();
-}
-
-app.MapRazorComponents<App>();
-app.MapMuiApi();
+app.UseMuiSite(connectionString);
 
 app.Run();
 
