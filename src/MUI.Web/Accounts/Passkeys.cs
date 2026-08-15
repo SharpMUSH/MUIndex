@@ -65,8 +65,9 @@ public static class Passkeys
         // all, so the site did not start with a connection string set. Both are stateless over a
         // pooled NpgsqlDataSource, so a singleton is what they should always have been.
         //
-        // TryAdd, because AddMuiCrawler registers the same pair for a crawler-only deployment and
-        // the two compositions overlap in the one that runs both.
+        // TryAdd, because AddMuiCrawler registers the same pair for the crawl loop and this method
+        // registers it for the dashboard — one deployable calls both (§4.11), and neither may end up
+        // with a second instance or a second lifetime.
         services.TryAddSingleton<IClaimStore>(s => new NpgsqlClaimStore(
             s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IGameStore>(s => new NpgsqlGameStore(
@@ -212,11 +213,15 @@ public static class Passkeys
                 : Results.Unauthorized();
         });
 
-        // §8.1's on-demand check. It does not dial anything itself — it records that the claimant
-        // asked, and the crawler's own scheduler is what brings the probe forward. Keeping the two
-        // apart is what stops a button on a public page becoming a way to make us connect to a
-        // stranger's server on demand: the rate limit is per claim, and a claim cannot exist for a
-        // game nobody has been offered.
+        // §8.1's on-demand check. It does not dial anything itself — it brings the game's crawl
+        // targets forward and the crawler's own loop does the dialling, under CRAWL DELAY and §7.2's
+        // address gate. Keeping the two apart is what stops a button on a public page becoming a way
+        // to make us connect to a stranger's server on demand: the rate limit is per claim, and a
+        // claim cannot exist for a game nobody has been offered.
+        //
+        // For as long as this existed it moved nothing at all — due-ness comes only from
+        // crawl_target.next_probe_at, and this wrote last_checked_at and an audit event. See
+        // ClaimService.RequestCheckAsync and IOnDemandProbes.
         app.MapPost("/g/{slug}/claim/check", async (
             HttpContext context,
             UserManager<MuiUser> users,

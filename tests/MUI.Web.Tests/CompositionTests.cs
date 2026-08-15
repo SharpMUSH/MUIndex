@@ -6,9 +6,9 @@ using Microsoft.Extensions.Logging;
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
 using MUI.Crawler;
-using MUI.Web.Accounts;
-using MUI.Web.Api;
+using MUI.Web;
 using MUI.Web.Data;
+using MUI.Web.Fixtures;
 
 namespace MUI.Web.Tests;
 
@@ -123,12 +123,18 @@ public class CompositionTests
     /// The same graph in Production, where nothing validates it for us.
     /// </summary>
     /// <remarks>
-    /// Asserted separately because the two environments fail differently and only one of them fails
-    /// loudly. Development builds with <c>ValidateOnBuild</c> and refuses to start; Production starts
-    /// happily and throws the first time the hosted crawler reaches for the cycle, which is inside a
-    /// <c>BackgroundService</c> — so the site serves pages while the thing that gathers every fact on
-    /// it is dead. A reviewer reading only the test above could reasonably conclude this was a
-    /// development-only annoyance.
+    /// <para>
+    /// Asserted separately because the two environments behaved differently, and this one is the
+    /// control rather than the finding: it <b>passed on the parent commit</b>. Production leaves
+    /// scope validation off, so the container resolved the scoped <c>ClaimService</c> from the root
+    /// and handed <c>CrawlCycle</c> a working one — a captive dependency, harmless for a stateless
+    /// service over a pooled data source, and the reason claims verified in production while
+    /// Development would not start at all.
+    /// </para>
+    /// <para>
+    /// It is kept because it is what stops the fix regressing in the other direction: Production
+    /// must go on resolving the cycle once the lifetime changes.
+    /// </para>
     /// </remarks>
     [Test]
     public async Task TheHostedCrawlerCanBeResolvedInProductionToo()
@@ -173,9 +179,84 @@ public class CompositionTests
     }
 
     /// <summary>
-    /// <c>Program</c>'s service registrations, on <c>Program</c>'s host, with a database configured.
+    /// The demo composition, which is a different graph and not a smaller one.
     /// </summary>
     /// <remarks>
+    /// With no connection string there are no accounts, no crawler and no claims — the sign-in and
+    /// claim surfaces are absent rather than present and broken (§8), and half a claim flow over
+    /// invented games would be a worse answer than none. The assertion that matters is the last one:
+    /// the fixture composition must still say on every page that nothing on it was measured.
+    /// </remarks>
+    [Test]
+    public async Task TheDemoCompositionStandsUpAndAdmitsWhatItIs()
+    {
+        await using var site = Site(connectionString: null);
+        var provider = site.Services;
+
+        await Assert.That(provider.GetService<IGameQueries>()).IsTypeOf<FixtureGameQueries>();
+        await Assert.That(provider.GetService<IAvailabilityHistory>()).IsNotNull();
+
+        // Absent, not broken. A page asks the container whether claiming exists at all.
+        await Assert.That(provider.GetService<ClaimService>()).IsNull();
+        await Assert.That(provider.GetService<IClaimStore>()).IsNull();
+        await Assert.That(provider.GetService<CrawlCycle>()).IsNull();
+
+        await Assert.That(provider.GetRequiredService<CatalogueSource>().IsMeasured).IsFalse();
+    }
+
+    /// <summary>
+    /// One availability store, however many names it answers to.
+    /// </summary>
+    /// <remarks>
+    /// The crawler registers it once and exposes it through two interfaces, saying in a comment that
+    /// two instances would be two connection paths answering one question. The web tier then
+    /// registered its own with <c>AddSingleton</c>, so the crawler's <c>TryAdd</c> for
+    /// <c>IAvailabilityStore</c> was skipped and the concrete type and <c>IReachableHistory</c>
+    /// pointed at a second one. Harmless on a shared pool, and a comment that had stopped being true.
+    /// </remarks>
+    [Test]
+    public async Task TheAvailabilityStoreIsOneObjectUnderEveryNameItHas()
+    {
+        await using var site = Site();
+        var provider = site.Services;
+
+        var concrete = provider.GetRequiredService<NpgsqlAvailabilityStore>();
+
+        await Assert.That(provider.GetRequiredService<IAvailabilityStore>()).IsSameReferenceAs(concrete);
+        await Assert.That(provider.GetRequiredService<IReachableHistory>()).IsSameReferenceAs(concrete);
+    }
+
+    /// <summary>
+    /// §8.1's on-demand check can reach the schedule it claims to move.
+    /// </summary>
+    /// <remarks>
+    /// The same shape as the bug this file exists for: <c>ClaimService</c> takes
+    /// <see cref="IOnDemandProbes"/> optionally, because it is constructible without a crawl registry
+    /// and <c>mui-crawl</c> constructs it that way — so nothing but the composition can say whether
+    /// the deployed site has one. Without it the button records an ask, moves no probe, and tells the
+    /// operator it dialled their server.
+    /// </remarks>
+    [Test]
+    public async Task TheOnDemandCheckIsGivenSomethingToBringForward()
+    {
+        await using var site = Site();
+
+        await Assert.That(site.Services.GetService<IOnDemandProbes>()).IsNotNull();
+        await Assert.That(ProbesOf(site.Services.GetRequiredService<ClaimService>())).IsNotNull();
+    }
+
+    /// <summary>
+    /// <c>Program</c>'s graph, built by calling <c>Program</c>'s own registration.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b><see cref="SiteComposition.AddMuiSite"/> and not a copy of it.</b> This restated the
+    /// registrations to begin with, which is a second copy that agrees with the first only until
+    /// somebody edits one of them — and the edit that breaks it is precisely the one these tests
+    /// exist to catch: a scoped service consumed by a singleton, or <c>AddMuiAccounts</c> moving.
+    /// The graph therefore moved out of <c>Program</c>'s top-level statements so that the site and
+    /// this can call the same thing.
+    /// </para>
     /// <para>
     /// A real <see cref="WebApplicationBuilder"/> rather than a bare <see cref="ServiceCollection"/>,
     /// because half the framework's own registrations want <c>IConfiguration</c> and
@@ -183,16 +264,17 @@ public class CompositionTests
     /// anything about ours. What is left after the host supplies them is our graph, and only ours.
     /// </para>
     /// <para>
-    /// Scope validation on, which is what <c>WebApplication.CreateBuilder</c> does by itself in
-    /// Development — so this is the check a developer already gets on <c>dotnet run</c> and a
-    /// production deployment does not.
+    /// Development by default, where <see cref="WebApplication.CreateBuilder(WebApplicationOptions)"/>
+    /// switches scope validation on by itself — so this is the check a developer already gets on
+    /// <c>dotnet run</c> and a production deployment does not.
     /// </para>
     /// <para>
-    /// Nothing is started and no migration runs: <c>Program</c> applies those after
-    /// <see cref="WebApplicationBuilder.Build"/>, and this stops at the graph.
+    /// Nothing is started and no migration runs: <c>Program</c> does both after the graph is built,
+    /// and this stops at the graph. <see cref="ConnectionString"/> is never connected to —
+    /// <c>NpgsqlDataSource</c> is lazy.
     /// </para>
     /// </remarks>
-    private static WebApplication Site(string? environment = null)
+    private static WebApplication Site(string? environment = null, string? connectionString = ConnectionString)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -200,14 +282,7 @@ public class CompositionTests
         });
 
         builder.Logging.ClearProviders();
-
-        builder.Services.AddRazorComponents();
-        builder.Services.AddMuiApi(builder.Configuration);
-        builder.Services.AddPostgresCatalogue(ConnectionString);
-        builder.Services.AddMuiCrawler(ConnectionString, configure => configure.ApplyMigrations = false);
-        builder.Services.AddSingleton(new CatalogueSource(IsMeasured: true));
-        builder.Services.AddMuiAccounts(builder.Configuration);
-        builder.Services.AddSingleton(TimeProvider.System);
+        builder.Services.AddMuiSite(builder.Configuration, connectionString);
 
         return builder.Build();
     }
@@ -221,9 +296,22 @@ public class CompositionTests
     /// default stand. Exposing it publicly to be asserted on would widen the type for the test's
     /// convenience; a wiring test is allowed to look at the wiring.
     /// </remarks>
-    private static object? ClaimsOf(CrawlCycle cycle) =>
-        typeof(CrawlCycle)
+    private static object? ClaimsOf(CrawlCycle cycle) => Collaborator<ClaimService>(cycle);
+
+    private static object? ProbesOf(ClaimService claims) => Collaborator<IOnDemandProbes>(claims);
+
+    /// <summary>
+    /// One privately-held collaborator, read off an instance.
+    /// </summary>
+    /// <remarks>
+    /// Reflection, because both of these are private primary-constructor parameters and the property
+    /// under test is precisely that the container supplied one rather than letting the default stand.
+    /// Exposing them publicly to be asserted on would widen two types for a test's convenience; a
+    /// wiring test is allowed to look at the wiring.
+    /// </remarks>
+    private static object? Collaborator<T>(object instance) =>
+        instance.GetType()
             .GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-            .Single(field => field.FieldType == typeof(ClaimService))
-            .GetValue(cycle);
+            .Single(field => field.FieldType == typeof(T))
+            .GetValue(instance);
 }

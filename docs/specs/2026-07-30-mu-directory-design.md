@@ -828,7 +828,8 @@ because the second has no compiler and no unit test looking at it:
   passes every collaborator explicitly; the deployed site assembles it through DI. `CrawlCycle` takes
   its `ClaimService` as an *optional* parameter — a crawl with no database behind it should do
   slightly less rather than refuse to run — so a composition that omits it settles no beacons and
-  says nothing about it. A crawler-only deployment did exactly that.
+  says nothing about it. The crawl graph omitted it, and the site only had one because the accounts
+  module happened to register the same type for the dashboard.
 - `ClaimService` was registered scoped while the crawl loop that needs it is a singleton
   `BackgroundService`. With scope validation on, which is what `dotnet run` does, **the container
   refused to build**: the site would not start with a connection string set. Production leaves
@@ -839,9 +840,20 @@ because the second has no compiler and no unit test looking at it:
 
 The lesson generalises past claiming: **an optional dependency and a service-located one both fail
 silently when the composition is wrong**, and this codebase has one of each on the claim path.
-`CompositionTests` resolves the graph `Program` builds, under scope validation, and asserts the
-services these paths need are really there — a wiring test, because the wiring is what was broken
-while every part it joined was correct.
+`CompositionTests` resolves the graph `Program` builds — literally, by calling the same
+`AddMuiSite` the deployable calls, because a harness that restated the registrations would be a
+second copy that agrees with the first only until somebody edits one of them — under scope
+validation, in both environments, and asserts the services these paths need are really there. A
+wiring test, because the wiring is what was broken while every part it joined was correct.
+
+**The on-demand check was the same shape of gap and is fixed with it.** §8.1 offers a claimant one
+requested probe per few minutes; `RequestCheckAsync` wrote `last_checked_at` and a `check_requested`
+event, and due-ness comes only from `crawl_target.next_probe_at`, so nothing was ever probed and the
+page said the button dialled a real server. A rate limiter on an action that does not happen is the
+most convincing possible no-op. `IOnDemandProbes` brings the game's targets forward instead —
+`LEAST`, so an ask can only make a probe sooner — and the crawl loop still does the dialling under
+`CRAWL DELAY` and §7.2's address gate, which is what keeps a button on a page from becoming a way to
+make us connect to a stranger's server.
 
 ## 9. Site surface, v1
 

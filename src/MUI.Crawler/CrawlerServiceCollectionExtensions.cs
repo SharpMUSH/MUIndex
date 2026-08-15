@@ -92,10 +92,14 @@ public static class CrawlerServiceCollectionExtensions
         // ordinary schedule, which is why this belongs to the crawl graph rather than to the web
         // tier that mints the tokens.
         //
-        // It was missing, and CrawlCycle takes its ClaimService as an optional parameter, so a
-        // crawler-only deployment settled nothing at all and said nothing about it. mui-crawl passes
-        // one by hand, which is why its tests never noticed.
+        // The consumer is the in-process CrawlCycle of the one deployable (§4.11) — this method has
+        // exactly one caller, MUI.Web's Program, and mui-crawl builds its own graph by hand. It was
+        // missing here, and CrawlCycle takes its ClaimService as an OPTIONAL parameter, so the site
+        // settled beacons only insofar as some other registration happened to supply one. That is
+        // the shape of the bug rather than an argument for a deployment nobody builds.
         services.TryAddSingleton<IClaimStore>(s => new NpgsqlClaimStore(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IOnDemandProbes>(
+            s => new NpgsqlOnDemandProbes(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<ClaimService>();
 
         // The three writers of §6.5, plus the field registry they judge staleness against.
