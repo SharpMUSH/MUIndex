@@ -157,7 +157,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 digest.CountNow,
                 Winner(forGame, "CODEBASE")?.Value,
                 MeasuredProtocolsOf(forGame),
-                row.LastReachableAt);
+                row.LastReachableAt,
+                digest.CountAt);
 
             facetRows.Add(new GameFacetRow(
                 summary,
@@ -258,7 +259,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             row.IsClaimed,
             digest.CountNow,
             Winner(fields, "CODEBASE")?.Value,
-            MeasuredProtocolsOf(fields));
+            MeasuredProtocolsOf(fields),
+            row.LastReachableAt,
+            digest.CountAt);
     }
 
     public async Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default)
@@ -303,7 +306,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             digest.CountNow,
             Winner(fields, "CODEBASE")?.Value,
             MeasuredProtocolsOf(fields),
-            row.LastReachableAt);
+            row.LastReachableAt,
+            digest.CountAt);
 
         return new GamePage(
             summary,
@@ -778,10 +782,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
         var rows = await connection.QueryAsync<DigestRow>(new CommandDefinition(
             """
-            SELECT g.id AS GameId, recent.count AS CountNow, coalesce(week.n, 0) AS NonZeroThisWeek
+            SELECT g.id AS GameId, recent.count AS CountNow, recent.at AS CountAt,
+                   coalesce(week.n, 0) AS NonZeroThisWeek
               FROM unnest(@ids::uuid[]) AS g(id)
               LEFT JOIN LATERAL (
-                   SELECT p.count
+                   SELECT p.count, p.at
                      FROM presence_sample p
                     WHERE p.game_id = g.id AND p.at >= @nowFrom AND p.count IS NOT NULL
                     ORDER BY p.at DESC
@@ -799,7 +804,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             },
             cancellationToken: cancellationToken));
 
-        return rows.ToDictionary(r => r.GameId, r => new PresenceDigest(r.CountNow, r.NonZeroThisWeek > 0));
+        return rows.ToDictionary(
+            r => r.GameId,
+            r => new PresenceDigest(r.CountNow, r.CountAt, r.NonZeroThisWeek > 0));
     }
 
     /// <summary>
@@ -879,9 +886,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             : ActivityBand.Dark;
     }
 
-    private sealed record PresenceDigest(int? CountNow, bool NonZeroThisWeek)
+    private sealed record PresenceDigest(int? CountNow, DateTimeOffset? CountAt, bool NonZeroThisWeek)
     {
-        public static readonly PresenceDigest None = new(null, false);
+        public static readonly PresenceDigest None = new(null, null, false);
     }
 
     private sealed class GameRow
@@ -921,6 +928,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         public Guid GameId { get; init; }
 
         public int? CountNow { get; init; }
+
+        public DateTimeOffset? CountAt { get; init; }
 
         public long NonZeroThisWeek { get; init; }
     }

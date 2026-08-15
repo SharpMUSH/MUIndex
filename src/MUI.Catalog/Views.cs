@@ -79,10 +79,21 @@ public sealed record ActivityCell(int DayOfWeek, int Hour, int? Count, bool Prob
 
 /// <summary>A game as the listing shows it.</summary>
 /// <remarks>
+/// <para>
 /// <see cref="LastReachableAt"/> is carried because the last-seen facet (spec §9) filters on it, and
 /// a facet whose value cannot be read off the rows it returned is one a reader has to take on trust.
 /// Null means we have never once reached the game, which is a different fact from "reachable a long
 /// time ago" and is never rendered as the older of the two.
+/// </para>
+/// <para>
+/// <see cref="PlayersNowAt"/> is when the count in <see cref="PlayersNow"/> was measured, and it is
+/// here because §10.1 names its absence as the one place this project contradicts itself: a summary
+/// that carries a number and no age publishes a measurement as a bare value, which is the confusion
+/// the incumbents' directories run on. It is not the whole of §10.1's fix — the codebase still has
+/// no chip — but the count is the field a surface is most likely to republish on its own, and the
+/// owner badge (§8.5) is exactly that surface. Null whenever <see cref="PlayersNow"/> is null, and
+/// the two are never read apart.
+/// </para>
 /// </remarks>
 public sealed record GameSummary(
     Guid Id,
@@ -94,7 +105,8 @@ public sealed record GameSummary(
     int? PlayersNow,
     string? Codebase,
     IReadOnlyList<string> MeasuredProtocols,
-    DateTimeOffset? LastReachableAt = null);
+    DateTimeOffset? LastReachableAt = null,
+    DateTimeOffset? PlayersNowAt = null);
 
 /// <summary>A game as its own page shows it.</summary>
 /// <remarks>

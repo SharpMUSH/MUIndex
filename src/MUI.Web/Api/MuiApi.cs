@@ -45,6 +45,11 @@ public static class MuiApi
         FeedEndpoints.Map(endpoints);
         DumpEndpoints.Map(endpoints);
 
+        // §8.5's owner-published outputs. Off /g/ rather than /api/, because these are pasted into
+        // somebody else's template by hand and the shortest honest URL is the one that survives
+        // being retyped.
+        BadgeEndpoints.Map(endpoints);
+
         return endpoints;
     }
 

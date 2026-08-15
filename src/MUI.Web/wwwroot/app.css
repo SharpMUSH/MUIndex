@@ -1025,3 +1025,20 @@ table.client-matrix td a { color: var(--faint); }
 .prose pre code { font-size: 13px; }
 .prose ul, .prose ol { padding-left: 1.4em; }
 .prose li { margin-bottom: 4px; }
+
+/* ── owner-published outputs ───────────────────────────────────────────────
+   §8.5's badge snippet, shown where the person who pastes it already is. The
+   pre wraps rather than scrolls: a line somebody has to copy should be visible
+   in one piece. */
+
+details.publish { margin-top: 6px; }
+details.publish > summary { cursor: pointer; font-size: 12px; }
+details.publish pre {
+    background: var(--recessed);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 8px 10px;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}

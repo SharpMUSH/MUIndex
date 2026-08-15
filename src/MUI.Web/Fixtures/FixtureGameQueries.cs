@@ -41,13 +41,13 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), "m-u-s-h", "M*U*S*H",
         "The PennMUSH development server.", LifecycleState.Active, IsClaimed: false,
         PlayersNow: 15, Codebase: "PennMUSH 1.8.8p0", MeasuredProtocols: ["MSSP", "CHARSET"],
-        LastReachableAt: Now.AddMinutes(-4));
+        LastReachableAt: Now.AddMinutes(-4), PlayersNowAt: Now.AddMinutes(-4));
 
     private static readonly GameSummary Eldertale = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000002"), "eldertale", "Eldertale Online",
         null, LifecycleState.Active, IsClaimed: false,
         PlayersNow: 0, Codebase: "PennMUSH 1.8.8p0", MeasuredProtocols: ["MSSP", "CHARSET"],
-        LastReachableAt: Now.AddHours(-3));
+        LastReachableAt: Now.AddHours(-3), PlayersNowAt: Now.AddHours(-3));
 
     // No MSSP PLAYERS, no pre-login WHO. Its count exists only because the connect screen states it.
     private static readonly GameSummary Aardwolf = new(
@@ -55,7 +55,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         "Counted from the connect screen, which is the only place this game publishes a number.",
         LifecycleState.Active, IsClaimed: false,
         PlayersNow: 219, Codebase: null, MeasuredProtocols: ["MSSP", "GMCP", "MCCP2", "MSDP"],
-        LastReachableAt: Now.AddMinutes(-40));
+        LastReachableAt: Now.AddMinutes(-40), PlayersNowAt: Now.AddMinutes(-40));
 
     // Answers, but nothing we can count. Renders "count unknown" — never a zero.
     private static readonly GameSummary MidnightSun = new(
@@ -69,14 +69,14 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         "An intro screen long enough that the frame has to explain why it stopped.",
         LifecycleState.Active, IsClaimed: false,
         PlayersNow: 71, Codebase: null, MeasuredProtocols: ["MSSP", "MCCP2"],
-        LastReachableAt: Now.AddDays(-2));
+        LastReachableAt: Now.AddDays(-2), PlayersNowAt: Now.AddDays(-2));
 
     // Claimed, and the owner turned republication off. Stated without editorial (spec §8).
     private static readonly GameSummary Ashen = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000007"), "ashen-court", "Ashen Court",
         "Courtly intrigue, low fantasy. Application required.", LifecycleState.Active,
         IsClaimed: true, PlayersNow: 9, Codebase: "Evennia", MeasuredProtocols: ["MSSP", "GMCP", "TLS"],
-        LastReachableAt: Now.AddMinutes(-9));
+        LastReachableAt: Now.AddMinutes(-9), PlayersNowAt: Now.AddMinutes(-9));
 
     private static readonly GameSummary Gaslight = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000005"), "gaslight-row", "Gaslight Row",
