@@ -1,5 +1,7 @@
 @page "/g/{Slug}"
 @using MUI.Web.Data
+@using MUI.Catalog.Persistence
+@using MUI.Web.Icons
 @inject IGameQueries Queries
 @inject IAvailabilityHistory History
 @inject TimeProvider Clock
@@ -32,7 +34,27 @@ else
        the top of every page to whatever a stranger's server happens to send. *@
     <article class="game @(Archived ? "archived" : null)">
         <header class="game-head">
-            <div class="plate mono" aria-hidden="true">@Initials</div>
+            @*
+                The icon a game publishes, where we hold one, and the monogram otherwise.
+
+                Served from this origin rather than the game's — hot-linking would hand every reader's
+                address, user-agent and referring URL to a third-party server for a decoration, which
+                §11 exists to prevent. And no element rather than a broken one where a fetch failed:
+                that we could not reach somebody's web server is our afternoon, not their game.
+
+                aria-hidden with the monogram, and alt="" here, for one reason: the game's name is the
+                <h1> immediately beside it, so a screen reader announcing the picture as well would
+                read the same thing twice.
+            *@
+            @if (Icon is not null)
+            {
+                <img class="plate icon" alt="" src="@IconEndpoint.For(Page.Summary.Slug)"
+                     width="@Icon.Width" height="@Icon.Height" loading="lazy" decoding="async" />
+            }
+            else
+            {
+                <div class="plate mono" aria-hidden="true">@Initials</div>
+            }
             <div class="game-title">
                 <h1>@Page.Summary.Name</h1>
                 <p class="badges">
@@ -255,6 +277,19 @@ else
     private bool Plain => Truthy.Is(PlainFlag);
 
     private GamePage? Page;
+
+    /// <summary>
+    /// The icon we hold for this game, or null — which covers "the field names none", "we could not
+    /// fetch it" and "no database behind this site" alike.
+    /// </summary>
+    /// <remarks>
+    /// Service-located rather than injected, like <see cref="Claimable"/> above and for the same
+    /// reason: the store is registered only when a connection string is, so the demo fixture renders
+    /// the monogram exactly as a game with no icon does. Nothing here says which of the reasons it
+    /// was — a failed fetch is our afternoon and not a fact about the game (rule 5), so it gets no
+    /// sentence, no placeholder and no broken image.
+    /// </remarks>
+    private GameIcon? Icon;
     private ReachSummary Reach = default!;
     private ArchiveEntry Entry = default!;
     private AnsiScreen ConnectScreen = default!;
@@ -279,6 +314,11 @@ else
     protected override async Task OnParametersSetAsync()
     {
         Page = await Queries.FindAsync(Slug);
+
+        Icon = Page is not null && Services.GetService<IIconStore>() is { } icons
+            ? await icons.ForGameAsync(Page.Summary.Id)
+            : null;
+
         if (Page is null)
         {
             // Said in the status line and not only in the sentence. A slug a game used to have is

@@ -332,6 +332,12 @@ ul.counts strong { color: var(--text); font-weight: 400; }
     background: var(--recessed); color: var(--dim);
     display: grid; place-items: center; font-size: 22px;
 }
+/* An icon sits in the monogram's place and at its size. `contain` rather than `cover`: a logo that
+   is not square is letterboxed rather than cropped, because cropping somebody's artwork to fit our
+   box is a small edit to a thing they published. The plate's own background shows through where the
+   image does not reach, so a transparent PNG lands on the same recessed square as the monogram. */
+.game-head img.plate { object-fit: contain; padding: 4px; }
+
 .game-head .connect { flex: none; min-width: 240px; }
 .game-head .lede { font-size: 15px; line-height: 1.65; max-width: 62ch; }
 .game-head .tagline { font-size: 16px; }

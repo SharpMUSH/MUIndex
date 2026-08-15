@@ -7,10 +7,12 @@ using Microsoft.Extensions.Logging;
 
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
+using MUI.Crawl;
 using MUI.Crawler;
 using MUI.Web;
 using MUI.Web.Data;
 using MUI.Web.Fixtures;
+using MUI.Web.Icons;
 
 namespace MUI.Web.Tests;
 
@@ -128,6 +130,33 @@ public class CompositionTests
         // the one path that acquired a new one.
         await Assert.That(scope.ServiceProvider.GetRequiredService<OwnerEnrichment>()).IsNotNull();
         await Assert.That(scope.ServiceProvider.GetRequiredService<SlugMinter>()).IsNotNull();
+    }
+
+    /// <summary>
+    /// The icon path, which reaches across three registrations that are made in three places.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="IconFetcher"/> is a typed client from <c>AddMuiIcons</c>, and it takes
+    /// <c>IHostScopeGuard</c> and <c>ProbeOptions</c> from <c>AddMuiCrawler</c> — which runs before
+    /// it, under the same connection-string guard, and would go on compiling if somebody reordered
+    /// them. Resolving it here is what makes that ordering a tested fact rather than a comment: the
+    /// gate is §7.2's, and a fetcher composed without one would reach a URL a stranger chose with
+    /// nothing standing in front of it.
+    /// </remarks>
+    [Test]
+    public async Task TheIconPathResolvesWithTheAddressGateBehindIt()
+    {
+        await using var site = Site();
+        var provider = site.Services;
+        await using var scope = provider.CreateAsyncScope();
+
+        await Assert.That(scope.ServiceProvider.GetRequiredService<IconFetcher>()).IsNotNull();
+        await Assert.That(scope.ServiceProvider.GetRequiredService<IIconStore>()).IsNotNull();
+        await Assert.That(provider.GetRequiredService<IHostScopeGuard>()).IsNotNull();
+
+        // And the refresher is actually hosted, rather than merely constructible. A fetcher nothing
+        // ever calls is a cache that stays empty and a page that renders a monogram for ever.
+        await Assert.That(provider.GetServices<IHostedService>().OfType<IconRefresher>()).IsNotEmpty();
     }
 
     /// <summary>
