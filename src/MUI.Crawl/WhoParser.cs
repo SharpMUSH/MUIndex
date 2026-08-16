@@ -125,6 +125,29 @@ public sealed partial class WhoParser : IWhoParser
     {
         count = 0;
 
+        // **"N of M" is answered first, because every pattern below it answers M.**
+        //
+        // retromud.org:3000 prints "There are currently 11 out of 200 users playing." — eleven people
+        // and a licence for two hundred — and a pattern looking for a number in front of a People
+        // noun finds "200 users playing" and records the ceiling as the population. That is not an
+        // unreadable line; it is a line read backwards, which is worse, because it arrives looking
+        // like a measurement and sat in the catalogue as one.
+        //
+        // Both spellings, because the MOO shape "one of three players are active" has the same
+        // trap in words.
+        var outOfWords = WordedOutOfPattern().Match(line);
+        if (outOfWords.Success
+            && Words.TryGetValue(outOfWords.Groups["w"].Value.ToLowerInvariant(), out count))
+        {
+            return true;
+        }
+
+        var outOf = NumberedOutOfPattern().Match(line);
+        if (outOf.Success && int.TryParse(outOf.Groups["n"].Value, out count))
+        {
+            return true;
+        }
+
         // Spelled-out counts are real. resort.org:2323 says "There are seven people connected." and
         // a MOO says "one of three players are active." — both would read as unparseable against a
         // digits-only pattern, losing a count we could have had. Bounded to twenty because past that
@@ -375,6 +398,45 @@ public sealed partial class WhoParser : IWhoParser
         + @"\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex WordedPattern();
+
+    /// <summary>
+    /// The words that mark the <em>second</em> number as a ceiling rather than a population.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A bare <c>of</c> is deliberately not enough, because the two readings are opposite and the
+    /// grammar is identical.</b> retromud prints "There are currently 11 out of 200 users playing",
+    /// where 200 is what the game is licensed for and 11 are on it. A MOO prints "one of three
+    /// players are active", where <em>three</em> are connected and one of them is doing something.
+    /// Both are "N ? M People Connectivity"; only the first is a ceiling.
+    /// </para>
+    /// <para>
+    /// So the marker has to be explicit: <c>out of</c>, or an <c>of</c> that names a maximum. That
+    /// splits the two observed sentences exactly and leaves the MOO reading — which this parser has
+    /// always had right — untouched. It will misread "1 out of 3 players are active" if a server
+    /// ever prints it; no server observed does, and the alternative is to keep misreading a server
+    /// that does.
+    /// </para>
+    /// </remarks>
+    private const string Ceiling =
+        @"\s+(?:out\s+of\s+(?:a\s+)?(?:max(?:imum)?\s+(?:of\s+)?)?|of\s+(?:a\s+)?max(?:imum)?\s+(?:of\s+)?)";
+
+    // "There are currently 11 out of 200 users playing." — the population, not the licence.
+    [GeneratedRegex(
+        @"\b(?<n>\d+)" + Ceiling + @"\d+\s+" + People + @"\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex NumberedOutOfPattern();
+
+    // "one out of twenty players are online." The bare "one of three players are active" is
+    // deliberately NOT this shape — see Ceiling.
+    [GeneratedRegex(
+        @"\b(?<w>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen"
+        + @"|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)" + Ceiling
+        + @"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen"
+        + @"|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\s+" + People
+        + @"\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex WordedOutOfPattern();
 
     // Login prompts that mean WHO was eaten as a character name. Roughly ninety of the 122 payloads
     // stored `who_unparseable` in the first months of real crawling are one of these, and the
