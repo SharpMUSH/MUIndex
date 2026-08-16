@@ -166,7 +166,11 @@ public static class LoginCommandReading
     private static string? Extract(string line)
     {
         var marker = FamilyNames
-            .Where(pair => line.Contains(pair.Key, StringComparison.OrdinalIgnoreCase))
+            // NamesFamily rather than Contains, or this reintroduces exactly what the boundary check
+            // was added to stop: "smooth 1.0" carries `moo`, "mucked about 2.1" carries `muck`, and
+            // a wrong codebase is worse than none on precisely the games with no MSSP to contradict
+            // it. The marker has to be a word here for the same reason it does one rung up.
+            .Where(pair => NamesFamily(line, pair.Key))
             .OrderByDescending(pair => pair.Key.Length)
             .Select(pair => (Key: pair.Key, Canonical: pair.Value))
             .FirstOrDefault();
@@ -183,8 +187,7 @@ public static class LoginCommandReading
         // answer to pay for the dishonest ones.
         var trimmed = line.Trim();
 
-        if (trimmed.Length <= LongestPlausibleCodebase
-            && trimmed.StartsWith(marker.Key, StringComparison.OrdinalIgnoreCase))
+        if (trimmed.Length <= LongestPlausibleCodebase && OpensWith(trimmed, marker.Key))
         {
             return MsspDefaults.IsPlaceholder(trimmed) ? null : trimmed;
         }
@@ -194,6 +197,19 @@ public static class LoginCommandReading
 
         return MsspDefaults.IsPlaceholder(named) ? null : named;
     }
+
+    /// <summary>
+    /// Whether the line opens with this codebase's name, give or take the punctuation around it.
+    /// </summary>
+    /// <remarks>
+    /// A game writes its version as <c>(CircleMUD 3.1)</c> and as <c>ROM24 b6</c>, and both are the
+    /// whole of what that line says. Requiring the very first character to be the name would send the
+    /// parenthesised form down the extraction path and quietly file its brackets off — a value the
+    /// game published, altered by us, for no reason a reader could see.
+    /// </remarks>
+    private static bool OpensWith(string line, string marker) =>
+        line.TrimStart('(', '[', '<', '{', '"', '\'', '*', ' ')
+            .StartsWith(marker, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// The version a line offers for the codebase it names, or null when it offers none we can pin.
