@@ -31,19 +31,71 @@ public class CodebaseFamilyTests
     public async Task ATwoWordNameKeepsBothWords(string reported) =>
         await Assert.That(CodebaseFamily.Of(reported)).IsEqualTo(reported);
 
+    /// <summary>Everything from the version onwards goes, not merely a trailing version token.</summary>
+    /// <remarks>
+    /// Every value here is live, off <c>mu-index.com/ecosystem</c>. Folding only a trailing token
+    /// left one codebase published as four — <c>MUX</c>, <c>MUX 2.12.0.3 Alpha</c>,
+    /// <c>MUX 2.13.0.0-MP MPARK-ST</c> and <c>MUX 2.13.0.0-MP MPARK-BB-ST</c> each had their own bar
+    /// on the dashboard — because what a game appends after its version is a build tag and never the
+    /// name of a different codebase.
+    /// </remarks>
     [Test]
-    public async Task ATrailingTokenThatIsNotAVersionIsLeftAlone()
+    [Arguments("MUX 2.13.0.0-MP MPARK-ST", "MUX")]
+    [Arguments("MUX 2.12.0.3 Alpha", "MUX")]
+    [Arguments("RhostMUSH Alpha 4.1.0RL(A).p2", "RhostMUSH")]
+    [Arguments("RhostMUSH 4.2.2-3RL(A)", "RhostMUSH")]
+    [Arguments("CobraMUSH v0.73p4 [fspace]", "CobraMUSH")]
+    [Arguments("LDMud 3.6.6 (3.6.6)", "LDMud")]
+    [Arguments("Smaug 1.4a (Heavily Modified)", "Smaug")]
+    [Arguments("TMI-2 1.3-pre2(modified)", "TMI-2")]
+    [Arguments("EmpireMUD 2.0 beta", "EmpireMUD")]
+    [Arguments("FluffOS v2021 Colony", "FluffOS")]
+    [Arguments("Discworld lib (current)", "Discworld lib")]
+    [Arguments("AresMUSH version", "AresMUSH")]
+    [Arguments("PennMUSH 1.7.1 pl3 with Elendor Mods", "PennMUSH")]
+    public async Task TheVersionAndEverythingAfterItIsFoldedAway(string reported, string family) =>
+        await Assert.That(CodebaseFamily.Of(reported)).IsEqualTo(family);
+
+    /// <summary>A real two-word name is not a name plus a qualifier, and survives whole.</summary>
+    /// <remarks>
+    /// The cost of the wider fold, paid for by a closed list rather than a heuristic. Every one of
+    /// these is a live catalogue value, and a rule clever enough to drop <c>Alpha</c> by its shape
+    /// would take <c>Aeon</c> or <c>Magica</c> with it.
+    /// </remarks>
+    [Test]
+    [Arguments("Alter Aeon")]
+    [Arguments("Dead Souls")]
+    [Arguments("Materia Magica")]
+    [Arguments("Moral Decay")]
+    [Arguments("Galaxy Engine")]
+    [Arguments("Midnight Sun")]
+    [Arguments("Diku Merc Rom RoT AoD")]
+    [Arguments("3Scapes mudlib")]
+    [Arguments("Heavily modified SMAUG")]
+    [Arguments("Original / Loosely Diku")]
+    public async Task ARealMultiWordNameKeepsEveryWord(string reported) =>
+        await Assert.That(CodebaseFamily.Of(reported)).IsEqualTo(reported);
+
+    [Test]
+    public async Task AFoldNeverTruncatesMidPhrase()
     {
-        // The failure this guards against is a truncation rather than a mis-grouping: folding on
-        // "starts with a digit" alone leaves "Rhost 4.0.4 (patchlevel", which is a name no game runs
-        // and no reader recognises.
-        await Assert.That(CodebaseFamily.Of("Rhost 4.0.4 (patchlevel 1)"))
-            .IsEqualTo("Rhost 4.0.4 (patchlevel 1)");
+        // The failure the fold has to avoid on the other side: cutting inside a parenthesis leaves
+        // "Rhost 4.0.4 (patchlevel", which is a name no game runs and no reader recognises. Cutting
+        // at the version is not that cut — it stops before the version begins.
+        await Assert.That(CodebaseFamily.Of("Rhost 4.0.4 (patchlevel 1)")).IsEqualTo("Rhost");
     }
 
     [Test]
-    public async Task AVersionOnItsOwnIsNotFoldedToNothing() =>
+    public async Task AVersionOnItsOwnIsNotFoldedToNothing()
+    {
+        // A game whose whole CODEBASE is a version has published no name, and folding it away would
+        // put an empty bar on the dashboard. The cut is never taken from the first word.
         await Assert.That(CodebaseFamily.Of("2.12")).IsEqualTo("2.12");
+
+        // The qualifier strip stops at the first word for the same reason, so this keeps a version
+        // where a name should be rather than keeping nothing at all.
+        await Assert.That(CodebaseFamily.Of("2.12 beta")).IsEqualTo("2.12");
+    }
 
     [Test]
     public async Task SurroundingWhitespaceIsNotPartOfTheName()

@@ -95,6 +95,34 @@ the servers agree with it in their own words.
 Mindcloud3. Ew's connect screen names EW-Too, which is a codebase rather than a lineage, so it is
 not enough on its own.
 
+### And nine of the eighty-two codebases on the live dashboard were sentences
+
+Read off `mu-index.com/ecosystem` the same day. `LoginCommandReading` returned a whole line whenever
+that line *mentioned* a codebase, and the line was stored as the game's `CODEBASE`:
+
+> `The MOO is currently running version 1.8.3+47 of the LambdaMOO server code.` — and three more like
+> it, one per LambdaMOO, each with a bar of its own on the chart
+> `Tapestries MUCK Copyright 1991-2020 by tapestries.fur.com. All rights reserved.`
+> `This MUCK is rated NC-17. If you are not 18 or are offended by this, type 'QUIT'`
+> `Welcome to Pegasus, Currently running TinyMUCK2.3b2! Maintained by`
+> `" ATT="src height width border=0 ismap=0" EMPTY> Welcome to The Original Tolkien Middle-earth
+> MUSH! …` — 697 characters of Pueblo-tagged connect screen from a PennMUSH
+
+The reader now keeps the codebase and discards the line: six of the nine resolve to a name and a
+version (`LambdaMOO 1.8.3+47`, `PennMUSH 1.7.1`, `TinyMUCK 2.3b2`) and three are refused outright,
+because "MUCK" alone is a placeholder and a copyright year is not a release. A line that *begins*
+with a codebase is still kept entire — `TinyMUX 2.14.0.4 #22` is one value, not a name with prose
+stuck to it.
+
+The LambdaMOO case had a second cause worth naming: `lambdamoo` was not in the reader's marker list,
+so extraction produced `MSSP`-placeholder `MOO` and the choice was the whole sentence or nothing.
+
+**The fold was too narrow as well**, which is a separate fault in the same chart. Taking only a
+trailing version token left `MUX` published four ways and `RhostMUSH` four; it now cuts at the first
+version-like word, so a build tag appended after a version (`MUX 2.13.0.0-MP MPARK-ST`) goes with it.
+Across the live catalogue that is **82 raw values to 63 families**, with `Alter Aeon`, `Dead Souls`,
+`Materia Magica` and `Midnight Sun` intact.
+
 Two consequences for the code, both of which the map now handles:
 
 - **`CD.06.06` and `Epiphany v1.2.15 [development]` do not fold.** `CodebaseFamily.Of` removes a

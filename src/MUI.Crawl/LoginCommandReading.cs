@@ -22,10 +22,20 @@ public static class LoginCommandReading
         ["cobramush"] = "CobraMUSH",
         ["muck"] = "MUCK",
         ["tinymuck"] = "TinyMUCK",
+        ["protomuck"] = "ProtoMUCK",
+        ["fuzzball"] = "Fuzzball",
         ["mudos"] = "MudOS",
         ["fluffos"] = "FluffOS",
         ["lpmud"] = "LPMud",
+        ["ldmud"] = "LDMud",
         ["moo"] = "MOO",
+
+        // The specific spellings matter more here than anywhere else in this map, because "MOO" is
+        // an MsspDefaults placeholder: a line naming LambdaMOO that we read as "MOO" is not merely
+        // vaguer, it is discarded. Four LambdaMOOs were being stored under a whole sentence each for
+        // exactly this reason — the sentence won because the only alternative was a non-answer.
+        ["lambdamoo"] = "LambdaMOO",
+        ["toaststunt"] = "ToastStunt",
         ["evennia"] = "Evennia",
         ["coffeemud"] = "CoffeeMUD",
         ["smaug"] = "SMAUG",
@@ -78,7 +88,7 @@ public static class LoginCommandReading
 
                 if (MentionsKnownFamily(release))
                 {
-                    return release;
+                    return Extract(release) ?? release;
                 }
 
                 if (family is not null && ContainsDigit(release))
@@ -106,14 +116,132 @@ public static class LoginCommandReading
                 continue;
             }
 
-            if (MentionsKnownFamily(value) && ContainsDigit(value))
+            if (MentionsKnownFamily(value) && Extract(value) is { } named)
             {
-                return value;
+                return named;
             }
         }
 
         return null;
     }
+
+    /// <summary>
+    /// The codebase named inside a line of prose, and nothing else from that line.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This exists because the whole line used to be the answer.</b> A line that merely
+    /// <em>mentions</em> a codebase was returned intact and stored as the game's <c>CODEBASE</c>,
+    /// which put nine sentences on the ecosystem dashboard's codebase chart as if they were
+    /// codebases — "The MOO is currently running version 1.8.3+47 of the LambdaMOO server code.",
+    /// "Tapestries MUCK Copyright 1991-2020 by tapestries.fur.com. All rights reserved.", "This MUCK
+    /// is rated NC-17…", and a 697-character Pueblo banner from a PennMUSH whose connect screen
+    /// begins with an <c>IMG</c> tag. Four separate LambdaMOOs each got a bar of their own, named
+    /// after a sentence.
+    /// </para>
+    /// <para>
+    /// A codebase is a name and at most a version. Everything else on the line is the game talking,
+    /// and a parser that cannot tell the difference should keep the part it recognises rather than
+    /// the part it does not — rule 4, one level up from a count.
+    /// </para>
+    /// <para>
+    /// <b>The longest marker wins.</b> "…of the LambdaMOO server code" contains both <c>MOO</c> and
+    /// <c>LambdaMOO</c>, and the shorter one is not merely less useful: <c>MOO</c> is an
+    /// <see cref="MsspDefaults"/> placeholder, so preferring it would throw away an identification we
+    /// actually made.
+    /// </para>
+    /// </remarks>
+    /// <summary>
+    /// How long a line can be and still be a codebase rather than prose about one.
+    /// </summary>
+    /// <remarks>
+    /// A bound rather than a judgement, and generous: the longest real value in the catalogue is
+    /// <c>RhostMUSH Alpha 4.1.0RL(A).p2</c> at twenty-nine characters, and the shortest sentence this
+    /// rule has to refuse is sixty-six. It exists so that a line beginning with a codebase name — a
+    /// connect screen whose first words are "PennMUSH 1.8.8p0 running at…" — cannot take the
+    /// whole-line path on the strength of its first word alone.
+    /// </remarks>
+    private const int LongestPlausibleCodebase = 48;
+
+    private static string? Extract(string line)
+    {
+        var marker = FamilyNames
+            .Where(pair => line.Contains(pair.Key, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(pair => pair.Key.Length)
+            .Select(pair => (Key: pair.Key, Canonical: pair.Value))
+            .FirstOrDefault();
+
+        if (marker.Key is null)
+        {
+            return null;
+        }
+
+        // A line that *begins* with the codebase is the codebase, and whatever follows is the game's
+        // own way of writing its build — `TinyMUX 2.14.0.4 #22` is one value and not a name with a
+        // sentence stuck to it. Extraction is for lines that merely mention a codebase somewhere
+        // inside them, and taking it here would quietly file the build number off every honest
+        // answer to pay for the dishonest ones.
+        var trimmed = line.Trim();
+
+        if (trimmed.Length <= LongestPlausibleCodebase
+            && trimmed.StartsWith(marker.Key, StringComparison.OrdinalIgnoreCase))
+        {
+            return MsspDefaults.IsPlaceholder(trimmed) ? null : trimmed;
+        }
+
+        var release = VersionBeside(line, marker.Key);
+        var named = release is null ? marker.Canonical : $"{marker.Canonical} {release}";
+
+        return MsspDefaults.IsPlaceholder(named) ? null : named;
+    }
+
+    /// <summary>
+    /// The version a line offers for the codebase it names, or null when it offers none we can pin.
+    /// </summary>
+    /// <remarks>
+    /// Two shapes and no more. Fused to the name — <c>Currently running TinyMUCK2.3b2!</c> — or
+    /// following the word <c>version</c> or <c>release</c>, which is how the MOOs write it. Anything
+    /// looser reads a copyright year as a release: "Tapestries MUCK Copyright 1991-2020" would
+    /// become <c>MUCK 1991-2020</c>, which is a worse answer than admitting we have only the name.
+    /// </remarks>
+    private static string? VersionBeside(string line, string marker)
+    {
+        var at = line.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+
+        // TrimStart because "PennMUSH 1.7.1" and "TinyMUCK2.3b2" are the same claim written two
+        // ways, and only one of them was being read. That cost the whole of a 697-character Pueblo
+        // banner: the version was one space past the name, the space stopped the scan, and with no
+        // version to pin the line was kept entire.
+        var fused = Token(line[(at + marker.Length)..].TrimStart());
+
+        if (fused.Length > 0 && char.IsAsciiDigit(fused[0]))
+        {
+            return fused;
+        }
+
+        foreach (var label in VersionLabels)
+        {
+            var said = line.IndexOf(label, StringComparison.OrdinalIgnoreCase);
+            if (said < 0)
+            {
+                continue;
+            }
+
+            var next = Token(line[(said + label.Length)..].TrimStart());
+            if (next.Length > 0 && char.IsAsciiDigit(next[0]))
+            {
+                return next;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool ContainsDigit(string value) => value.Any(char.IsDigit);
+
+    /// <summary>One run of version-shaped characters, stopped by anything a version cannot contain.</summary>
+    private static string Token(string rest) =>
+        new([.. rest.TakeWhile(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_' or '+' or '/')]);
 
     private static IEnumerable<string> Lines(string? text)
     {
@@ -161,8 +289,6 @@ public static class LoginCommandReading
         var trimmed = value.Trim();
         return MsspDefaults.IsPlaceholder(trimmed) ? null : trimmed;
     }
-
-    private static bool ContainsDigit(string value) => value.Any(char.IsDigit);
 
     private static bool MentionsKnownFamily(string value) =>
         FamilyNames.Keys.Any(marker => value.Contains(marker, StringComparison.OrdinalIgnoreCase));
