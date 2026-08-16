@@ -106,6 +106,43 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
             cancellationToken: cancellationToken));
     }
 
+    public async Task ExcludeAsync(
+        Guid id,
+        string reason,
+        DateTimeOffset at,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE game
+               SET state = 'excluded', archived_at = NULL,
+                   excluded_at = @at, excluded_reason = @reason
+             WHERE id = @id
+            """,
+            new { id, at = at.ToUniversalTime(), reason = reason.Trim() },
+            cancellationToken: cancellationToken));
+    }
+
+    public async Task IncludeAsync(Guid id, DateTimeOffset at, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        // Straight back to active rather than to whatever it was: the crawl decides the rest on the
+        // next probe, and guessing at a prior state would be inventing one.
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE game
+               SET state = 'active', excluded_at = NULL, excluded_reason = NULL
+             WHERE id = @id AND state = 'excluded'
+            """,
+            new { id },
+            cancellationToken: cancellationToken));
+    }
+
     public async Task SetStateAsync(
         Guid id,
         LifecycleState state,
@@ -114,6 +151,11 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
     {
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
+        // **`AND state <> 'excluded'` is the load-bearing clause.** The sweeper and the ingestor both
+        // call this, and both would otherwise walk an excluded game back into the listing — the
+        // sweeper by archiving it when it went dark, the ingestor by restoring it when it answered.
+        // Refusing here rather than at each caller means a third caller written later inherits it.
+        //
         // archived_at is set on the way in and cleared on the way out, because the schema's
         // game_archived_games_have_a_date constraint holds the two in step. Nothing else about the
         // row is touched: archiving changes presentation and never the record (§7.5).
@@ -121,8 +163,15 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
             """
             UPDATE game
                SET state = @state,
-                   archived_at = CASE WHEN @state = 'archived' THEN @at ELSE NULL END
-             WHERE id = @id
+                   archived_at = CASE WHEN @state = 'archived' THEN @at ELSE NULL END,
+
+                   -- Cleared on the way to any other state, because game_exclusion_is_explained
+                   -- holds the date and the state in step. An exclusion is undone by moving the
+                   -- game out of it, which is a person's act; nothing here can put one on, because
+                   -- there is nowhere in this signature to say why.
+                   excluded_at = NULL,
+                   excluded_reason = NULL
+             WHERE id = @id AND state <> 'excluded'
             """,
             new { id, state = SqlEnums.ToDb(state), at = at.ToUniversalTime() },
             cancellationToken: cancellationToken));

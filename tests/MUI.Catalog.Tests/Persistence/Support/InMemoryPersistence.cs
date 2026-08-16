@@ -44,6 +44,12 @@ internal sealed class InMemoryGameStore : IGameStore
         return Task.CompletedTask;
     }
 
+    public Task ExcludeAsync(Guid id, string reason, DateTimeOffset at, CancellationToken ct = default) =>
+        SetStateAsync(id, LifecycleState.Excluded, at, ct);
+
+    public Task IncludeAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
+        SetStateAsync(id, LifecycleState.Active, at, ct);
+
     public Task SetStateAsync(
         Guid id,
         LifecycleState state,
