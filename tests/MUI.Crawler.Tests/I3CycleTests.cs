@@ -86,6 +86,44 @@ public class I3CycleTests
     }
 
     /// <summary>
+    /// One game under several I3 names binds once and the pass carries on.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is a defect the end-to-end run found, not a hypothetical.</b> The live network lists
+    /// <c>The Zone</c>, <c>The Zone-dalet</c>, <c>The Zone-i4</c> and <c>The Zone-wpr</c> at one
+    /// address — one mud registered once per router — and the unique index that stops a game being
+    /// counted twice threw out of the cycle, so every pass died at the same mud on every retry.
+    /// </remarks>
+    [Test]
+    public async Task AGameWithSeveralI3NamesBindsOnceAndTheRestDoNotStopThePass()
+    {
+        var game = Guid.CreateVersion7();
+        var targets = new FakeTargets();
+        targets.Existing[("136.144.155.250", 8888)] = game;
+        var bindings = new FakeBindings();
+
+        var cycle = new I3Cycle(
+            new StubGateway([
+                Mud("The Zone", "136.144.155.250", 8888),
+                Mud("The Zone-dalet", "136.144.155.250", 8888),
+                Mud("The Zone-i4", "136.144.155.250", 8888),
+                Mud("The Zone-wpr", "136.144.155.250", 8888),
+            ]),
+            targets, bindings, new FakePresence(),
+            new I3Options { BetweenAsks = TimeSpan.Zero }, Clock());
+
+        var result = await cycle.RunAsync(CancellationToken.None);
+
+        await Assert.That(result.Listed).IsEqualTo(4);
+        await Assert.That(result.Bound).IsEqualTo(1);
+        await Assert.That(bindings.Rows.Values.Count(r => r.GameId is not null)).IsEqualTo(1);
+
+        // All four are still recorded: a name we cannot bind is still a name the network uses, and
+        // forgetting it would mean rediscovering it every pass.
+        await Assert.That(bindings.Rows.Count).IsEqualTo(4);
+    }
+
+    /// <summary>
     /// A mud publishing port 0 has said there is nothing to dial — the spec permits it for a private
     /// or closed mud, and MUIndex publishes exactly that about itself. Recording it is right; turning
     /// it into a crawl target is not.
@@ -283,14 +321,22 @@ public class I3CycleTests
             return Task.CompletedTask;
         }
 
-        public Task BindAsync(string mudName, Guid gameId, CancellationToken ct)
+        public Task<bool> BindAsync(string mudName, Guid gameId, CancellationToken ct)
         {
+            // One game, one mud — the unique index's rule, kept here so the double lives in the same
+            // world the database does.
+            if (Rows.Values.Any(r => r.GameId == gameId))
+            {
+                return Task.FromResult(false);
+            }
+
             if (Rows.TryGetValue(mudName, out var row) && row.GameId is null)
             {
                 Rows[mudName] = row with { GameId = gameId };
+                return Task.FromResult(true);
             }
 
-            return Task.CompletedTask;
+            return Task.FromResult(false);
         }
 
         public Task<IReadOnlyList<I3Binding>> AllAsync(CancellationToken ct) =>

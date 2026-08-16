@@ -109,9 +109,15 @@ public sealed class I3Cycle(
             }
 
             // Promoted by the ordinary crawl since we last looked, so we now know which game it is.
-            if (target.GameId is { } game)
+            //
+            // A refusal here is ordinary rather than exceptional: one game routinely holds several I3
+            // names — The Zone is also The Zone-dalet, The Zone-i4 and The Zone-wpr, one mud
+            // registered once per router — and whichever binds first is the one that counts it. The
+            // rest are duplicates of a fact we already have, and were once enough to tear down every
+            // pass for ever.
+            if (target.GameId is { } game
+                && await bindings.BindAsync(mud.Name, game, cancellationToken))
             {
-                await bindings.BindAsync(mud.Name, game, cancellationToken);
                 result.Bound++;
             }
         }

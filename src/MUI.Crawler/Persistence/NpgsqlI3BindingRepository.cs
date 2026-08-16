@@ -50,23 +50,41 @@ public sealed class NpgsqlI3BindingRepository(NpgsqlDataSource source) : II3Bind
     }
 
     /// <remarks>
+    /// <para>
     /// Idempotent, and it will not move a binding that already points somewhere. Two muds resolving
     /// onto one game is refused by <c>i3_mud_one_per_game_idx</c> rather than by a check here: a
     /// read-then-write would lose the race, and what it would produce is one game counted twice.
+    /// </para>
+    /// <para>
+    /// <b>That refusal is caught and turned into an answer</b>, because on this network it is
+    /// ordinary rather than exceptional — <c>The Zone</c> is also <c>The Zone-dalet</c>,
+    /// <c>The Zone-i4</c> and <c>The Zone-wpr</c>, one mud registered once per router. The index is
+    /// still the guarantee; what changes is that a caller learns "somebody else has it" instead of
+    /// having a pass torn down. Only this constraint is caught: any other integrity failure is a
+    /// surprise and stays one.
+    /// </para>
     /// </remarks>
-    public async Task BindAsync(string mudName, Guid gameId, CancellationToken ct)
+    public async Task<bool> BindAsync(string mudName, Guid gameId, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(mudName);
 
         await using var connection = await source.OpenConnectionAsync(ct);
 
-        await connection.ExecuteAsync(new CommandDefinition(
-            """
-            UPDATE i3_mud SET game_id = @gameId
-            WHERE mud_name = @mudName AND game_id IS NULL
-            """,
-            new { mudName, gameId },
-            cancellationToken: ct));
+        try
+        {
+            return await connection.ExecuteAsync(new CommandDefinition(
+                """
+                UPDATE i3_mud SET game_id = @gameId
+                WHERE mud_name = @mudName AND game_id IS NULL
+                """,
+                new { mudName, gameId },
+                cancellationToken: ct)) == 1;
+        }
+        catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
+            && e.ConstraintName == "i3_mud_one_per_game_idx")
+        {
+            return false;
+        }
     }
 
     public async Task<IReadOnlyList<I3Binding>> AllAsync(CancellationToken ct)

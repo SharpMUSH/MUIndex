@@ -56,23 +56,35 @@ public class I3BindingPostgresTests
     }
 
     /// <summary>
-    /// One game, one mud. Two muds claiming a game would double-count it, and the count is the whole
-    /// point — so the index refuses it rather than a read-then-write that loses the race.
+    /// One game, one mud — and the second name is turned away with an answer rather than an exception.
     /// </summary>
+    /// <remarks>
+    /// <b>Measured on the live network, not imagined.</b> One game routinely holds several I3 names:
+    /// <c>The Zone</c> is also <c>The Zone-dalet</c>, <c>The Zone-i4</c> and <c>The Zone-wpr</c> — one
+    /// mud registered once per router — and <c>Battlespace MUD</c> is also <c>Battlespace_MUD</c>.
+    /// Two names claiming one game would double-count it, so the index refuses; letting that refusal
+    /// throw meant every game with a second name tore down the whole pass, for ever, on every retry.
+    /// The index is still the guarantee. What changed is that a caller learns somebody else has it.
+    /// </remarks>
     [Test]
-    public async Task TwoMudsCannotClaimOneGame()
+    public async Task ASecondNameForOneGameIsTurnedAwayRatherThanThrowing()
     {
         await using var db = await PostgresFixture.MigratedAsync();
         var repository = new NpgsqlI3BindingRepository(db.DataSource);
         var game = await GameAsync(db);
 
-        await repository.UpsertAsync("Nightfall", "82.153.225.173", 4242, true, At, default);
-        await repository.UpsertAsync("Impostor", "198.51.100.7", 4242, true, At, default);
+        await repository.UpsertAsync("The Zone", "136.144.155.250", 8888, true, At, default);
+        await repository.UpsertAsync("The Zone-i4", "136.144.155.250", 8888, true, At, default);
 
-        await repository.BindAsync("Nightfall", game, default);
+        await Assert.That(await repository.BindAsync("The Zone", game, default)).IsTrue();
+        await Assert.That(await repository.BindAsync("The Zone-i4", game, default)).IsFalse();
 
-        await Assert.That(async () => await repository.BindAsync("Impostor", game, default))
-            .Throws<PostgresException>();
+        var bound = (await repository.AllAsync(default))
+            .Where(b => b.GameId is not null)
+            .Select(b => b.MudName)
+            .ToList();
+
+        await Assert.That(bound).IsEquivalentTo(new[] { "The Zone" });
     }
 
     /// <summary>Binding is establish-once: a second call cannot move it somewhere else.</summary>
@@ -85,8 +97,8 @@ public class I3BindingPostgresTests
         var second = await GameAsync(db);
 
         await repository.UpsertAsync("Nightfall", "82.153.225.173", 4242, true, At, default);
-        await repository.BindAsync("Nightfall", first, default);
-        await repository.BindAsync("Nightfall", second, default);
+        await Assert.That(await repository.BindAsync("Nightfall", first, default)).IsTrue();
+        await Assert.That(await repository.BindAsync("Nightfall", second, default)).IsFalse();
 
         await Assert.That((await repository.AllAsync(default)).Single().GameId).IsEqualTo(first);
     }
