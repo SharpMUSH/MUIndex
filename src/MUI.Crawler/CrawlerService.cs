@@ -1,3 +1,4 @@
+using MUI.Catalog;
 using MUI.Catalog.Persistence;
 using MUI.Discovery;
 
@@ -33,7 +34,10 @@ public sealed class CrawlerService(
     ICrawlTargetRepository targets,
     CrawlerOptions options,
     TimeProvider time,
-    ILogger<CrawlerService> logger) : BackgroundService
+    ILogger<CrawlerService> logger,
+    // Migration 0017. Optional so a deployment that predates the table keeps crawling rather than
+    // failing on a missing relation — the strip is a window on the work, never a condition of it.
+    ICrawlCycles? cycles = null) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -89,12 +93,15 @@ public sealed class CrawlerService(
                         migrated = true;
                     }
 
+                    var startedAt = time.GetUtcNow();
                     var report = await cycle.RunAsync(stoppingToken);
 
                     if (report.Considered > 0)
                     {
                         logger.LogInformation("Crawl cycle complete: {Report}", report);
                     }
+
+                    await RecordAsync(startedAt, report, stoppingToken);
 
                     await Task.Delay(options.Discovery.PollInterval, time, stoppingToken);
                 }
@@ -125,6 +132,60 @@ public sealed class CrawlerService(
             {
                 await lease.DisposeAsync();
             }
+        }
+    }
+
+    /// <summary>
+    /// Stores what the cycle just did, so the site can show its own instrument running.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Isolated, and it swallows everything.</b> This is telemetry about a crawl that has already
+    /// happened and whose measurements are already stored; a failure to describe the work must never
+    /// be able to stop the work. The failure mode it guards is the one that put this table here in
+    /// the first place — a peripheral concern throwing into a loop that then takes the host down.
+    /// </para>
+    /// <para>
+    /// Empty cycles are written too. "Nothing was due" is the answer to a reader asking whether the
+    /// crawler is alive, and skipping those rows would make a quiet registry indistinguishable from
+    /// a stopped loop — which is exactly the distinction the strip exists to draw.
+    /// </para>
+    /// </remarks>
+    private async Task RecordAsync(
+        DateTimeOffset startedAt,
+        CycleReport report,
+        CancellationToken cancellationToken)
+    {
+        if (cycles is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await cycles.RecordAsync(
+                new CrawlCycleRecord(
+                    startedAt,
+                    time.GetUtcNow(),
+                    report.Considered,
+                    report.Probed,
+                    report.Answered,
+                    report.Failed,
+                    report.Refused,
+                    report.OptedOut,
+                    report.Errored,
+                    report.Listed,
+                    report.ReviewsOpened,
+                    report.Counted,
+                    report.Unmeasurable,
+                    report.Transitions,
+                    report.ReferralsAdded),
+                cancellationToken);
+        }
+        catch (Exception error) when (error is not OperationCanceledException
+            || !cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning(error, "The crawl cycle ran but could not be recorded");
         }
     }
 

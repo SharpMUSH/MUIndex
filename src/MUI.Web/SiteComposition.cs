@@ -94,6 +94,11 @@ public static class SiteComposition
             services.AddSingleton<IGameQueries>(s => s.GetRequiredService<FixtureGameQueries>());
             services.AddSingleton<IAvailabilityHistory>(s => s.GetRequiredService<FixtureGameQueries>());
             services.AddSingleton<IPresenceSeries, FixturePresenceSeries>();
+
+            // No crawler, so no pulse — and no invented one. The strip renders nothing at all rather
+            // than a fabricated heartbeat, which on the one page whose whole argument is "this was
+            // measured" would be the worst possible thing to make up.
+            services.AddSingleton<ICrawlerPulse, NoCrawlerPulse>();
         }
 
         services.AddSingleton(new CatalogueSource(connectionString is not null));

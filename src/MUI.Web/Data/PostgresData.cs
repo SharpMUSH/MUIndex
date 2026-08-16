@@ -89,6 +89,15 @@ public static class PostgresData
         services.TryAddSingleton<IGameQueries>(s => new NpgsqlGameQueries(
             s.GetRequiredService<NpgsqlDataSource>(),
             s.GetRequiredService<IFieldRegistry>()));
+
+        // Migration 0017's cycle log. Registered on the web side as well as the crawl side, and
+        // TryAdd for the same reason as everything above: a replica that does no crawling still
+        // renders the strip, because the answer comes out of the database rather than out of this
+        // process. That is the whole point — an in-process flag would make the front page's answer
+        // depend on which replica served the request.
+        services.TryAddSingleton<ICrawlCycles>(s => new NpgsqlCrawlCycles(
+            s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<ICrawlerPulse, StoredCrawlerPulse>();
     }
 
     public static async Task ApplyMigrationsAsync(IServiceProvider services, ILogger logger)

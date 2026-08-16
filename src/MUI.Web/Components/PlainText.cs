@@ -403,8 +403,14 @@ public static class PlainText
     }
 
     /// <summary>The home page: what we know, then what changed.</summary>
-    public static string RenderHome(SiteCounts counts, LivenessFeeds feeds, DateTimeOffset now)
+    public static string RenderHome(
+        SiteCounts counts,
+        LivenessFeeds feeds,
+        CrawlerPulse pulse,
+        DateTimeOffset now)
     {
+        ArgumentNullException.ThrowIfNull(pulse);
+
         var b = new StringBuilder();
 
         b.AppendLine("MU*INDEX");
@@ -413,6 +419,23 @@ public static class PlainText
         b.AppendLine($"{counts.WithPlayersOn} with players on now (measured)");
         b.AppendLine($"{counts.CountUnknown} answering, count unknown");
         b.AppendLine($"{counts.Archived} archived, still probed");
+
+        // Same three facts as the rendered strip, in the same order and the same words, plus the
+        // registry line the narrow page has no room for. Omitted entirely when there is nothing
+        // measured to say, which is what the strip does and what the demo path yields.
+        if (pulse.State(now) is not CrawlState.NotYet)
+        {
+            b.AppendLine();
+            b.AppendLine(CrawlerCopy.State(pulse, now));
+
+            if (CrawlerCopy.LastCycle(pulse) is { } cycle)
+            {
+                b.AppendLine(cycle);
+            }
+
+            b.AppendLine(CrawlerCopy.Registry(pulse));
+        }
+
         b.AppendLine();
 
         b.Append(RenderFeeds(feeds, now));

@@ -1,0 +1,35 @@
+@using MUI.Catalog
+
+@*
+    The instrument, shown running.
+
+    Every number on this site is downstream of one loop on one host, and until now the only way to
+    know whether that loop was alive was to open an SSH session. It stopped for four hours and the
+    front page went on rendering measurements that had quietly stopped being taken — which is the
+    same failure this project exists to correct, turned inward: data presented without the one piece
+    of provenance that would let a reader discount it.
+
+    It says nothing when there is nothing measured to say (CrawlerPulse.Unknown, which is also the
+    demo path), because an empty strip is honest and an invented one is not.
+*@
+
+@if (Pulse.State(Now) is not CrawlState.NotYet)
+{
+    <p class="crawler mono faint">
+        <span class="@StateClass" aria-hidden="true">●</span>
+        @CrawlerCopy.State(Pulse, Now)@(LastCycle is null ? "" : " · ") @LastCycle
+    </p>
+}
+
+@code {
+    [Parameter, EditorRequired] public CrawlerPulse Pulse { get; set; } = CrawlerPulse.Unknown;
+
+    [Parameter, EditorRequired] public DateTimeOffset Now { get; set; }
+
+    private string? LastCycle => CrawlerCopy.LastCycle(Pulse);
+
+    // Working is the only state that gets the "present" colour the counts above use. Quiet is
+    // deliberately the faint one and not a red: we do not know that anything is wrong, and a strip
+    // that alarms on a lease held by another replica is a strip that trains its reader to ignore it.
+    private string StateClass => Pulse.State(Now) is CrawlState.Working ? "state-present" : "state-unknown";
+}

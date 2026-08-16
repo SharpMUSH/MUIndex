@@ -59,6 +59,10 @@ public static class Render
             services.AddSingleton<IAvailabilityHistory>(fixture);
             services.AddSingleton(TimeProvider.System);
 
+            // The same answer the demo path gives: there is no crawler behind a fixture, so the
+            // front page's strip renders nothing rather than a heartbeat nobody measured.
+            services.AddSingleton<ICrawlerPulse, NoCrawlerPulse>();
+
             // The stored rows, for the surfaces that read a game rather than a game page — claiming,
             // and the submission form's link. Registered only when a caller supplies them, because
             // its absence is what the demo fixture looks like and several pages switch on that.
