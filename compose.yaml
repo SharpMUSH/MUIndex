@@ -109,14 +109,23 @@ services:
       # re-registration rather than a reconnect.
       - i3state:/app/state
     environment:
-      MUD_NAME: ${MUI_I3_NAME:-MUIndex-wir-test}
+      MUD_NAME: ${MUI_I3_NAME:-MUIndex}
       MUD_PORT: "0"
+      # §11's obligation in the network's own vocabulary: an admin who finds MUIndex in their
+      # who-log reaches a person. **No default, and not in this file** — the same reason
+      # MUI_CRAWL_INFO_URL has none. A contact address compiled into the tree is one deployment's
+      # address announced by every fork, every laptop and every reader of the repository; this one
+      # belongs to whoever runs the deployment and it comes from their environment. Unlike the mud
+      # name, it is rewritten by every startup-req-3, so changing it costs a reconnect.
       MUD_ADMIN_EMAIL: ${MUI_I3_ADMIN_EMAIL:-}
       MUD_STATUS: "n/a"
       MUD_TYPE: "n/a"
-      I3_ROUTER_NAME: ${MUI_I3_ROUTER_NAME:-*wir}
-      I3_ROUTER_HOST: ${MUI_I3_ROUTER_HOST:-136.144.155.250}
-      I3_ROUTER_PORT: ${MUI_I3_ROUTER_PORT:-3004}
+      # *i4 rather than *dalet or *wpr: it is the router the gateway's own interoperability run was
+      # made against. The documented test router *wir (…:3004) is unreachable — *wpr answers on the
+      # same address at 8080 — so there was no rehearsal to be had.
+      I3_ROUTER_NAME: ${MUI_I3_ROUTER_NAME:-*i4}
+      I3_ROUTER_HOST: ${MUI_I3_ROUTER_HOST:-204.209.44.3}
+      I3_ROUTER_PORT: ${MUI_I3_ROUTER_PORT:-8080}
       I3_GATEWAY_SECRET: ${MUI_I3_SECRET:-}
       LOG_LEVEL: ${MUI_I3_LOG_LEVEL:-INFO}
     # Deliberately unpublished. The gateway's API has one shared secret and no per-caller

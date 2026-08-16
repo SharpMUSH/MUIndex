@@ -15,7 +15,7 @@ mud:
   # forever: the live mudlist still carries `probe-test-12345`, `probe-test-99999` and
   # `Daniel's Test Server` years after whoever made them stopped. There is no throwaway spike, so
   # the default here is the test-router name and the production value is set in the environment.
-  name: ${MUD_NAME:MUIndex-wir-test}
+  name: ${MUD_NAME:MUIndex}
 
   # 0, and the spec says so in as many words: "The player_port may be 0 if the mud is private/
   # closed." Nobody can connect to us because there is nothing to connect to. `Epitaph` on *dalet —
@@ -23,7 +23,10 @@ mud:
   port: ${MUD_PORT:0}
 
   # §11's address again. A mud admin who notices MUIndex in their who-log should be able to reach a
-  # person, which is the same obligation the telnet crawler already carries in MUI_CRAWL_INFO_URL.
+  # person, which is the same obligation the telnet crawler already carries in MUI_CRAWL_INFO_URL —
+  # and, like that one, it has **no default here on purpose**. A contact address written into the
+  # tree is one deployment's address announced by every fork and every clone. It comes from the
+  # environment, and it is not committed.
   admin_email: ${MUD_ADMIN_EMAIL:}
 
   mudlib: "MUIndex"
@@ -37,16 +40,23 @@ mud:
   # true thing, which is that the question does not apply to us.
   open_status: ${MUD_STATUS:n/a}
 
-  # Every service off. The services mapping advertises what we will *answer*, not what we may ask —
-  # the gateway's own `who` JSON-RPC method does not consult this mapping — so switching all of it
-  # off costs us nothing and makes us structurally unreachable. Nobody can tell us, finger us,
-  # locate us or put us on a channel. 59 of the 60 online muds sampled advertise `who: 1`; we are
-  # deliberately the exception.
+  # One service, and it is one rather than none because **the network will not have none.** This was
+  # measured, not assumed: with every flag at 0 the gateway serialises the mapping as `{}`, and *i4
+  # drops that startup-req-3 on the floor — no startup-reply, no error packet, no mudlist, nothing
+  # at all on the socket. Flip `who` to 1 and the same packet is accepted, the router issues a
+  # password and 179 mud records arrive. A mud that answers nothing is not a mud the router will
+  # carry.
+  #
+  # `who` is the honest one to keep. It is the service we use — and advertising it means others may
+  # ask it of us, which the gateway answers from local presence: an empty user list, because there
+  # is nobody here. That is a true statement about a directory, unlike a silent socket.
+  #
+  # Everything else stays off. Nobody can tell us, finger us, locate us or put us on a channel.
   services:
     tell: 0
     emoteto: 0
     channel: 0
-    who: 0
+    who: 1
     finger: 0
     locate: 0
     chanlist-req: 0
@@ -68,14 +78,14 @@ mud:
     smtp: 0
 
 router:
-  # **The default is the test router, on purpose.** wotf.org: "Please do not use the regular
-  # 'production' routers for testing new client code." *wir is where a new client belongs until it
-  # is known to work; production is *i4, which is where the gateway's own interoperability run
-  # happened and is what the environment points at once we are ready to spend the name.
+  # *i4, which is where the gateway's own interoperability run was made. wotf.org asks that new
+  # client code be tested against the test router rather than a production one — "Please do not use
+  # the regular 'production' routers for testing new client code" — but *wir at …:3004 does not
+  # answer, while *wpr on the same address at 8080 does, so there was no rehearsal to be had.
   primary:
-    name: ${I3_ROUTER_NAME:*wir}
-    host: ${I3_ROUTER_HOST:136.144.155.250}
-    port: ${I3_ROUTER_PORT:3004}
+    name: ${I3_ROUTER_NAME:*i4}
+    host: ${I3_ROUTER_HOST:204.209.44.3}
+    port: ${I3_ROUTER_PORT:8080}
     # 0 on the first connect only. The router assigns one and the gateway persists it to its state
     # directory — which is why that volume is not disposable; losing it re-registers us.
     password: ${I3_ROUTER_PASSWORD:0}
