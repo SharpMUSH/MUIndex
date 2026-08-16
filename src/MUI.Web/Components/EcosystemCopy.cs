@@ -39,6 +39,59 @@ public static class EcosystemCopy
             : $"{share.Count} of {share.Denominator} — nothing measured yet";
     }
 
+    /// <summary>
+    /// What the codebase shares are a fraction of, with the listing beside it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both numbers, because one of them read as the other.</b> This said "Share of the 144
+    /// listed games that told us what they run", which puts the identified count exactly where the
+    /// size of the catalogue belongs — and a reader with no reason to doubt it came away believing
+    /// the site lists 144 games rather than 418. That is the denominator rule failing in the one
+    /// direction it exists to catch, on the page that argues for it, so the denominator and the set
+    /// it was drawn from are now in the same sentence and neither can be mistaken for the other.
+    /// </remarks>
+    public static string CodebaseBasis(CodebaseUsage codebases)
+    {
+        ArgumentNullException.ThrowIfNull(codebases);
+
+        var listed = codebases.Identified + codebases.NotIdentified;
+
+        return $"Of the {Games(listed)} listed, {codebases.Identified} told us what they run, and "
+            + $"every share below is over those {codebases.Identified}. A codebase we could not "
+            + "read is left out of the denominator, never counted as something else.";
+    }
+
+    /// <summary>
+    /// Why MSSP has no row in the adoption table, and why two counts of it differ.
+    /// </summary>
+    /// <remarks>
+    /// The gap is the honest half of "nothing is ever deleted" showing through: a report we read
+    /// once is kept when the game stops publishing one, so the set we hold reports from is larger
+    /// than the set offering MSSP today. Two numbers a reader can subtract have to be reconciled on
+    /// the page — left alone they read as an arithmetic error, which is how this one was found.
+    /// </remarks>
+    public static string MsspBasis(ProtocolAdoption mssp, int reports)
+    {
+        ArgumentNullException.ThrowIfNull(mssp);
+
+        var opening = $"{EcosystemProtocols.Instrument} has no row below. We ask every server for "
+            + "it by name, so it is how the declared column exists at all, and its own share would "
+            + "be this page measuring its own reach.";
+
+        if (mssp.Offered is not { } offered)
+        {
+            return opening;
+        }
+
+        var gap = reports - offered;
+
+        return gap <= 0
+            ? $"{opening} {Games(offered)} offered it in the handshake we last completed."
+            : $"{opening} {Games(offered)} offered it in the handshake we last completed, and we "
+                + $"hold {reports} reports: the other {gap} stopped publishing one after we read "
+                + "it, and we do not throw a report away because it stopped being reissued.";
+    }
+
     /// <summary>What the measured column is a fraction of, spelled out wherever it is used.</summary>
     public static string Handshakes(int games) =>
         $"{Games(games)} whose handshake we completed";

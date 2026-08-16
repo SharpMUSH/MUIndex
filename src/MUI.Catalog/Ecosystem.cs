@@ -225,6 +225,31 @@ public sealed record EcosystemDashboard(
     CodebaseUsage Codebases,
     IReadOnlyList<ProtocolAdoption> Protocols)
 {
+    /// <summary>
+    /// The adoption table: every protocol except the one the table is measured with.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>MSSP is not adoption, it is the instrument.</b> Its measured side is how the declared
+    /// column exists at all — every probe asks for MSSP by name, and the answer is what fills the
+    /// right-hand denominator — so a row reading "MSSP 123 of 418" says only how far our own reach
+    /// extends, dressed as a finding about the hobby. Its declared side is worse: one game listed
+    /// MSSP inside its own MSSP report, and 1 of 131 was on the page as though that meant something.
+    /// </para>
+    /// <para>
+    /// It is filtered here rather than dropped upstream because the row is a real measurement and
+    /// goes on being recorded — <see cref="Mssp"/> reads it, the snapshot store keeps it, and a
+    /// game's own capability matrix still shows whether it offered MSSP, which on one game is a
+    /// fact about that game rather than about our instrument.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<ProtocolAdoption> Adoption =>
+        [.. Protocols.Where(protocol => !EcosystemProtocols.IsInstrument(protocol.Protocol))];
+
+    /// <summary>What asking every server for MSSP produced, or null before anything was measured.</summary>
+    public ProtocolAdoption? Mssp =>
+        Protocols.FirstOrDefault(protocol => EcosystemProtocols.IsInstrument(protocol.Protocol));
+
     public static EcosystemDashboard Empty(DateTimeOffset asOf) => new(
         asOf, 0, 0, 0, null, 0, CodebaseUsage.None, []);
 }
@@ -240,6 +265,18 @@ public sealed record EcosystemDashboard(
 public static class EcosystemProtocols
 {
     public static IReadOnlyList<string> Headline { get; } = ["TLS", "UTF-8", "GMCP", "MXP"];
+
+    /// <summary>
+    /// The protocol this page measures <em>with</em>, which is therefore not one it reports on.
+    /// </summary>
+    /// <remarks>
+    /// Named once here so the dashboard and the sentence that explains its absence cannot come to
+    /// disagree about which protocol is being held out.
+    /// </remarks>
+    public const string Instrument = "MSSP";
+
+    public static bool IsInstrument(string protocol) =>
+        string.Equals(protocol, Instrument, StringComparison.Ordinal);
 }
 
 

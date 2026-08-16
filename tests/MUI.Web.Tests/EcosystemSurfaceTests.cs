@@ -138,9 +138,42 @@ public class EcosystemSurfaceTests
         await Assert.That(dashboard.Codebases.NotIdentified).IsGreaterThan(0);
         await Assert.That(dashboard.Codebases.Families.Sum(f => f.Count))
             .IsEqualTo(dashboard.Codebases.Identified);
-        await Assert.That(text).Contains("excluded, never reassigned");
-        await Assert.That(text).Contains("outside the denominator")
-            .Or.Contains("have not told us one");
+        await Assert.That(text).Contains("left out of the denominator, never counted as something else");
+    }
+
+    [Test]
+    public async Task TheCodebasePanelNamesTheListingBesideTheGamesThatAnswered()
+    {
+        // The identified count sat alone in this sentence — "Share of the 144 listed games that told
+        // us what they run" — and read as the size of the catalogue, which was 418. A denominator
+        // that can be mistaken for the set it was drawn from is the failure this page exists to
+        // argue against, so both numbers are in the sentence and each is unambiguous.
+        var dashboard = await Queries.EcosystemAsync();
+        var text = Render.Words(await EcosystemAsync());
+
+        var listed = dashboard.Codebases.Identified + dashboard.Codebases.NotIdentified;
+
+        await Assert.That(listed).IsEqualTo(dashboard.ListedGames);
+        await Assert.That(dashboard.Codebases.Identified).IsNotEqualTo(listed);
+        await Assert.That(text).Contains($"Of the {listed} games listed, {dashboard.Codebases.Identified} told us what they run");
+        await Assert.That(text).Contains($"every share below is over those {dashboard.Codebases.Identified}");
+    }
+
+    [Test]
+    public async Task MsspIsExplainedRatherThanRankedAmongTheProtocolsItMeasures()
+    {
+        // Its measured side is how the declared column exists at all, and its declared side is a
+        // game listing MSSP inside its own MSSP report. Neither is adoption, and the two counts of
+        // it differ — we keep a report a game has stopped publishing — which reads as an arithmetic
+        // error unless the page reconciles it.
+        var dashboard = await Queries.EcosystemAsync();
+        var text = Render.Words(await EcosystemAsync());
+
+        await Assert.That(dashboard.Protocols.Select(p => p.Protocol)).Contains("MSSP");
+        await Assert.That(dashboard.Adoption.Select(p => p.Protocol)).DoesNotContain("MSSP");
+        await Assert.That(dashboard.Mssp).IsNotNull();
+        await Assert.That(text).Contains("MSSP has no row below");
+        await Assert.That(text).Contains("how the declared column exists at all");
     }
 
     [Test]

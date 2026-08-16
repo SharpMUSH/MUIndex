@@ -161,7 +161,9 @@ public static class FieldObservations
         foreach (var protocol in result.OfferedOptions.Order(StringComparer.Ordinal))
         {
             yield return new FieldObservation(
-                CapabilityFields.Measured(Canonical(protocol) ?? protocol), FieldSource.Handshake, "true");
+                CapabilityFields.Measured(CapabilityFields.Canonical(protocol) ?? protocol),
+                FieldSource.Handshake,
+                "true");
         }
 
         // The one honest negative. The server had a full connected session to send IAC WILL MSSP
@@ -238,7 +240,7 @@ public static class FieldObservations
             var name = variable.Trim();
             var value = values[^1].Trim();
 
-            if (Canonical(name) is { } capability)
+            if (CapabilityFields.Canonical(name) is { } capability)
             {
                 yield return new FieldObservation(
                     CapabilityFields.Declared(capability), FieldSource.Mssp, IsTrue(value) ? "true" : "false");
@@ -255,24 +257,6 @@ public static class FieldObservations
             }
         }
     }
-
-    /// <summary>
-    /// The <see cref="CapabilityFields.Names"/> entry a protocol or MSSP variable names, or null.
-    /// </summary>
-    /// <remarks>
-    /// Folded on case and on the separators the two vocabularies spell differently —
-    /// TelnetNegotiationCore's <c>NEW-ENVIRON</c> against MSSP's <c>XTERM 256 COLORS</c> — so one
-    /// capability is one field however it arrived.
-    /// </remarks>
-    private static string? Canonical(string name)
-    {
-        var folded = Fold(name);
-
-        return CapabilityFields.Names.FirstOrDefault(known => Fold(known) == folded);
-    }
-
-    private static string Fold(string name) =>
-        name.Trim().ToLowerInvariant().Replace('_', '-').Replace(' ', '-');
 
     /// <summary>MSSP's yes/no reading. Anything not an explicit no is a yes, including a port number.</summary>
     private static bool IsTrue(string value) => value.Length > 0 && !Falsehoods.Contains(value);
