@@ -121,4 +121,57 @@ public class LoginCommandReadingTests
 
         await Assert.That(read).IsNull();
     }
+    /// <summary>A line that merely mentions a codebase yields the codebase, not the line.</summary>
+    /// <remarks>
+    /// <para>
+    /// Every input here is a real value that reached production and was stored as a game's
+    /// <c>CODEBASE</c>, because a line mentioning a known codebase used to be returned intact. Nine
+    /// of the eighty-two bars on the ecosystem dashboard's codebase chart were sentences, and four
+    /// separate LambdaMOOs each had a bar named after one.
+    /// </para>
+    /// <para>
+    /// The LambdaMOO case is also why <c>lambdamoo</c> had to join the marker list. With only
+    /// <c>moo</c> in it the extraction produced <c>MOO</c>, which <see cref="MsspDefaults"/> refuses
+    /// as a placeholder — so the choice was the whole sentence or nothing, and the whole sentence won.
+    /// </para>
+    /// </remarks>
+    [Test]
+    [Arguments(
+        "The MOO is currently running version 1.8.3+47 of the LambdaMOO server code.",
+        "LambdaMOO 1.8.3+47")]
+    [Arguments(
+        "The MOO is currently running version 0.1.0beta8 of the LambdaMOO server code.",
+        "LambdaMOO 0.1.0beta8")]
+    [Arguments("Welcome to Pegasus, Currently running TinyMUCK2.3b2! Maintained by", "TinyMUCK 2.3b2")]
+    public async Task ACodebaseNamedInProseIsReadWithoutTheProse(string line, string expected) =>
+        await Assert.That(LoginCommandReading.MeaningfulCodebase(null, line)).IsEqualTo(expected);
+
+    [Test]
+    public async Task AWholeConnectScreenIsNotACodebase()
+    {
+        // Abridged from the 697-character value a Pueblo-enabled PennMUSH put on the dashboard. The
+        // version is one space past the name, which is precisely what the first cut of the scan
+        // could not step over — and with no version to pin, the line was kept entire.
+        const string Banner =
+            "\" ATT=\"src height width border=0 ismap=0\" EMPTY> Welcome to The Original Tolkien "
+            + "Middle-earth MUSH! http://www.elendor.net Founded October 1991 Running: PennMUSH "
+            + "1.7.1 pl3 with Elendor Mods Pueblo enhanced mode!";
+
+        await Assert.That(LoginCommandReading.MeaningfulCodebase(null, Banner))
+            .IsEqualTo("PennMUSH 1.7.1");
+    }
+
+    [Test]
+    public async Task ProseThatNamesOnlyACodebaseFamilyIsRefused()
+    {
+        // "MUCK" on its own is a placeholder, so these lines carry no identification at all — and a
+        // copyright year is not a release. Nothing is the right answer; the sentence never was.
+        await Assert.That(LoginCommandReading.MeaningfulCodebase(
+            null, "Tapestries MUCK Copyright 1991-2020 by tapestries.fur.com. All rights reserved."))
+            .IsNull();
+
+        await Assert.That(LoginCommandReading.MeaningfulCodebase(
+            null, "This MUCK is rated NC-17. If you are not 18 or are offended by this, type 'QUIT'"))
+            .IsNull();
+    }
 }

@@ -335,10 +335,13 @@ public static class PlainText
         }
 
         Heading(b, "FILTERS");
-        Wrap(b, $"Each facet is marked {FacetWords.Evidence(FacetEvidence.Measured)} "
-            + $"({FacetWords.EvidenceMeaning(FacetEvidence.Measured)}) or "
-            + $"{FacetWords.Evidence(FacetEvidence.Declared)} "
-            + $"({FacetWords.EvidenceMeaning(FacetEvidence.Declared)}).");
+        // Enumerated rather than spelled out, so a register added to the vocabulary cannot be
+        // introduced on the rendered panel and quietly left out of the plain one — which is the
+        // surface where the key is the only place the distinction is ever made.
+        Wrap(b, "Each facet is marked "
+            + string.Join(", ", Enum.GetValues<FacetEvidence>()
+                .Select(e => $"{FacetWords.Evidence(e)} ({FacetWords.EvidenceMeaning(e)})"))
+            + ".");
         b.AppendLine();
         Wrap(b, "Counts are exact, from the same query as the list below. A blank is a gap in our "
             + "measurement, never a \"no\": each facet spells its own. A measured zero is a count; "
@@ -582,6 +585,32 @@ public static class PlainText
         {
             b.AppendLine();
             b.AppendLine($"  {dashboard.Codebases.NotIdentified} listed game(s) have not told us one.");
+        }
+
+        Heading(b, "LINEAGES");
+        Wrap(b, "The same games, grouped by the tradition their server descends from. This is "
+            + $"{FacetWords.Evidence(FacetEvidence.Derived)} — "
+            + $"{FacetWords.EvidenceMeaning(FacetEvidence.Derived)} — and not anything a game "
+            + "published: no game reports \"MUSH\", because MSSP has no such value and most of the "
+            + "MUSH world publishes no MSSP at all.");
+        b.AppendLine();
+
+        foreach (var lineage in dashboard.Codebases.Lineages)
+        {
+            b.AppendLine($"  {lineage.Label,-24} {EcosystemCopy.Share(lineage)}");
+        }
+
+        if (dashboard.Codebases.Lineages.Count == 0)
+        {
+            b.AppendLine("  No listed game runs a codebase we place in a lineage yet.");
+        }
+
+        if (dashboard.Codebases.NotClassified > 0)
+        {
+            b.AppendLine();
+            Wrap(b, $"{dashboard.Codebases.NotClassified} of those game(s) run a codebase we do not "
+                + "place in any lineage — several publish FAMILY Custom, saying so themselves. They "
+                + "are inside the denominator above and in nobody's share.", "  ");
         }
 
         Heading(b, "PROTOCOLS");

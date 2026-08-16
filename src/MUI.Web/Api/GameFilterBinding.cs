@@ -73,10 +73,18 @@ public static class GameFilterBinding
         var protocols = Protocols(read);
         var text = read(FacetKeys.Text).ToString();
 
-        // A codebase *family*, matched as a prefix — PennMUSH, not PennMUSH 1.8.8p0. It has its own
-        // key because `codebase` is taken by the counted facet over raw values, and
-        // an API that invented a second name for the same question would let the two drift.
-        var codebaseFamily = read(FacetKeys.CodebaseFamily).ToString();
+        // `codebase` is the family — PennMUSH, not PennMUSH 1.8.8p0 — and `codebase-family` is what
+        // that question used to be called. Every codebase reference page links here with the old
+        // spelling, so it is read as an alias rather than dropped.
+        //
+        // PRESENT, NOT NON-EMPTY. The new key wins whenever a caller names it, and `?codebase=` names
+        // it: blank means "ask for anything", so `?codebase=&codebase-family=PennMUSH` is a caller
+        // clearing the filter with a stale alias still in the query. Falling back on a null selection
+        // instead would re-apply the value they just cleared and leave them no way to clear it at
+        // all — the old spelling would outrank the current one precisely when the two disagree.
+        var codebase = read(FacetKeys.Codebase).Count > 0
+            ? Choice(read, FacetKeys.Codebase)
+            : Choice(read, FacetKeys.CodebaseFamily);
 
         var filter = new GameFilter
         {
@@ -87,13 +95,12 @@ public static class GameFilterBinding
             Band = band,
             LastSeen = seen,
             Charset = Choice(read, FacetKeys.Charset),
-            Codebase = Choice(read, FacetKeys.Codebase),
+            Codebase = codebase,
+            CodebaseVersion = Choice(read, FacetKeys.CodebaseVersion),
+            Lineage = Choice(read, FacetKeys.Lineage),
             Family = Choice(read, FacetKeys.Family),
             Genre = Choice(read, FacetKeys.Genre),
             Language = Choice(read, FacetKeys.Language),
-            CodebaseFamily = string.IsNullOrWhiteSpace(codebaseFamily)
-                ? null
-                : FacetChoice.Parse(codebaseFamily.Trim()),
             Sort = sort,
         };
 

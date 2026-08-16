@@ -34,6 +34,12 @@ public static class FacetWords
         // is what this facet calls a game it has no answer for.
         FacetKeys.Charset => "encoding",
         FacetKeys.Codebase => "codebase",
+
+        // "version" alone, because it sits directly under the codebase it is a version of and the
+        // pair reads as one column. "codebase version" repeated the word the row above it already
+        // said and wrapped the label onto two lines for the sake of it.
+        FacetKeys.CodebaseVersion => "version",
+        FacetKeys.Lineage => "lineage",
         FacetKeys.Family => "family",
         FacetKeys.Genre => "genre",
         FacetKeys.Language => "language",
@@ -60,13 +66,21 @@ public static class FacetWords
     public static string Evidence(FacetEvidence evidence) => evidence switch
     {
         FacetEvidence.Measured => "measured",
+        FacetEvidence.Derived => "derived",
         _ => "declared",
     };
 
-    /// <summary>What each of those two words means, said once per surface rather than once per facet.</summary>
+    /// <summary>What each of those words means, said once per surface rather than once per facet.</summary>
+    /// <remarks>
+    /// <see cref="FacetEvidence.Derived"/> names us out loud — "we grouped", not "is grouped". The
+    /// other two sentences have somebody in them (we watched; the game says) and a passive third
+    /// would be the only fact on the site whose author had gone missing, which is precisely the one
+    /// where it matters.
+    /// </remarks>
     public static string EvidenceMeaning(FacetEvidence evidence) => evidence switch
     {
         FacetEvidence.Measured => "we watched this happen",
+        FacetEvidence.Derived => "we grouped what the game told us",
         _ => "the game says so, and we did not check",
     };
 

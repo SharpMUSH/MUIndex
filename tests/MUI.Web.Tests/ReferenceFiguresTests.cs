@@ -121,10 +121,10 @@ public class ReferenceFiguresTests
         var queries = new FixtureGameQueries();
 
         var figures = await CodebaseFigures.ReadAsync(queries, page.Codebase!);
-        var listing = await queries.ListAsync(new GameFilter { CodebaseFamily = FacetChoice.Of(page.Codebase!) });
+        var listing = await queries.ListAsync(new GameFilter { Codebase = FacetChoice.Of(page.Codebase!) });
 
         await Assert.That(figures.Listed).IsEqualTo(listing.Count);
-        await Assert.That(page.GamesPath).IsEqualTo("/games?codebase-family=Evennia");
+        await Assert.That(page.GamesPath).IsEqualTo("/games?codebase=Evennia");
     }
 
     private static GameSummary Game(string slug, string? codebase, params string[] protocols) => new(
@@ -144,8 +144,8 @@ public class ReferenceFiguresTests
             [
                 .. games
                     .Where(g => filter.IncludeArchived || g.State is not LifecycleState.Archived)
-                    .Where(g => filter.CodebaseFamily is not { } family
-                        || family.Admits(CodebaseFamily.Matches(g.Codebase, family.Value))),
+                    .Where(g => filter.Codebase is not { } family
+                        || family.Admits(family.Covers(CodebaseFamily.For(g.Codebase)))),
             ]);
 
         public Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default) =>

@@ -33,7 +33,7 @@ public sealed record CodebaseFigures(int Listed, int Archived, IReadOnlyList<str
         ArgumentNullException.ThrowIfNull(queries);
 
         var games = await queries.ListAsync(
-            new GameFilter { CodebaseFamily = FacetChoice.Of(family), IncludeArchived = true },
+            new GameFilter { Codebase = FacetChoice.Of(family), IncludeArchived = true },
             cancellationToken);
 
         return new CodebaseFigures(
@@ -100,7 +100,10 @@ public sealed record ProtocolFigures(int Offering, int Listed, IReadOnlyList<Pro
 
         foreach (var codebase in codebases.Where(c => c.Codebase is not null))
         {
-            var family = games.Where(g => CodebaseFamily.Matches(g.Codebase, codebase.Codebase)).ToList();
+            var family = games
+                .Where(g => string.Equals(
+                    CodebaseFamily.For(g.Codebase), codebase.Codebase, StringComparison.OrdinalIgnoreCase))
+                .ToList();
 
             rows.Add(new ProtocolByCodebase(
                 codebase.Title,

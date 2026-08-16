@@ -32,11 +32,12 @@ else
     {
         <FacetPanel Facets="Listing.Facets" Filter="Filter" Query="@Query" />
 
-        @if (Filter.CodebaseFamily is { Exclude: false, Value: { } family })
+        @if (Filter.Codebase is { Exclude: false, Value: { } family })
         {
-            @* The filter a reference page links in on. It is a filter and not a search, so it says
-               which family it is showing and offers the way back out — a reader who arrived from
-               /reference/codebases/pennmush should not have to guess why the listing is short. *@
+            @* The facet a reference page links in on. The panel above already shows it selected, and
+               this says it again in prose with the way back out and the way back to the page that
+               sent them — a reader who arrived from /reference/codebases/pennmush should not have to
+               guess why the listing is short. *@
             <p class="kicker">
                 codebase <span class="mono">@family</span> ·
                 <a href="/reference/codebases/@(family.ToLowerInvariant())">about @family</a> ·

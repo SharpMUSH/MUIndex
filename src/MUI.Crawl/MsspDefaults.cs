@@ -24,10 +24,18 @@ public static class MsspDefaults
     /// </summary>
     private static readonly HashSet<string> Placeholders = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Codebase names published as the game's name.
-        "PennMUSH", "TinyMUSH", "TinyMUX", "MUX", "RhostMUSH", "Rhost", "Evennia",
-        "CoffeeMud", "CircleMUD", "tbaMUD", "ROM", "SMAUG", "Diku", "DikuMUD",
-        "MudOS", "FluffOS", "LPMud", "MOO", "LambdaMOO", "TinyMUCK", "MUCK",
+        // Codebase names published as the game's name. AresMUSH and CobraMUSH were missing and are
+        // the reason this comment exists: both are MUSH codebases an operator can leave unedited,
+        // both are in the survey, and the list had every one of their siblings.
+        //
+        // ONLY NAMES NOBODY WOULD CALL A GAME. This list erases a name, so a codebase whose name is
+        // also a plausible game title stays off it however often it is left unedited — Last Outpost,
+        // Luminari and GodWars are games as well as codebases, and refusing them would delete a real
+        // answer to stop a default. MeaningfulName already catches those from the other side, by
+        // refusing a name that merely restates the game's own CODEBASE.
+        "PennMUSH", "TinyMUSH", "TinyMUX", "MUX", "RhostMUSH", "Rhost", "CobraMUSH", "AresMUSH",
+        "Evennia", "CoffeeMud", "CircleMUD", "tbaMUD", "ROM", "SMAUG", "Diku", "DikuMUD",
+        "MudOS", "FluffOS", "LPMud", "LDMud", "MOO", "LambdaMOO", "TinyMUCK", "MUCK", "Fuzzball",
 
         // Template text left in place.
         "Unknown", "Unnamed", "Untitled", "N/A", "None", "TBD", "Change Me", "ChangeMe",

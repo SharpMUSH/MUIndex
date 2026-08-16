@@ -80,6 +80,57 @@ else
         }
     </section>
 
+    <section aria-labelledby="lineages">
+        <h2 id="lineages">Lineages</h2>
+
+        @* The one panel on this page whose numbers we are the author of, and it says so in the
+           first clause rather than in a footnote. Everything else here is a count of what servers
+           did or published; this is a count of a judgement. *@
+        <p class="dim">
+            The same games, grouped by the tradition their server descends from — our reading of the
+            codebase, not anything a game published. No game reports "MUSH": MSSP has no such value,
+            and most of the MUSH world publishes no MSSP at all, so this is the only way the question
+            can be asked.
+            <span class="evidence derived">
+                <span aria-hidden="true">◆</span> @FacetWords.Evidence(FacetEvidence.Derived)
+            </span>
+        </p>
+
+        @if (Dashboard.Codebases.Lineages.Count == 0)
+        {
+            <p class="faint">No listed game runs a codebase we place in a lineage yet.</p>
+        }
+
+        <ul class="shares">
+            @foreach (var lineage in Dashboard.Codebases.Lineages)
+            {
+                <li>
+                    <span class="share-label">
+                        <a href="/games?@(FacetKeys.Lineage)=@Uri.EscapeDataString(lineage.Label)">@lineage.Label</a>
+                    </span>
+                    <span class="share-track" aria-hidden="true">
+                        <span class="share-fill derived" style="width: @Percent(lineage.Fraction)"></span>
+                    </span>
+                    <span class="share-figure mono">@EcosystemCopy.Share(lineage)</span>
+                </li>
+            }
+        </ul>
+
+        @if (Dashboard.Codebases.NotClassified > 0)
+        {
+            @* Our abstention, kept out of everyone else's bar. Counting only the games we placed
+               would make these add to 100% and inflate every one of them by exactly the amount we
+               did not know. *@
+            <p class="faint">
+                @Dashboard.Codebases.NotClassified of those
+                @(Dashboard.Codebases.NotClassified == 1 ? "games runs a codebase" : "games run codebases")
+                we do not place in any lineage — several say as much themselves, publishing
+                <span class="mono">FAMILY Custom</span>. They are inside the denominator above and
+                in nobody's share.
+            </p>
+        }
+    </section>
+
     <section aria-labelledby="protocols">
         <h2 id="protocols">Protocols</h2>
         <p class="dim">@EcosystemCopy.Floor</p>

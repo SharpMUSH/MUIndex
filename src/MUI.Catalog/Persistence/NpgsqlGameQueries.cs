@@ -636,7 +636,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             totals.MsspReports,
             totals.OldestHandshake,
             totals.CapabilityTransitions,
-            CodebasesOf(codebases, totals.Listed),
+            CodebaseUsage.Of(codebases, totals.Listed),
             ProtocolsOf(capabilities, totals.Handshakes, totals.MsspReports));
     }
 
@@ -717,32 +717,6 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             busiest.Count == 0 ? 0 : busiest[0].Eligible,
             busiest.Select(r => new BusiestGame(r.Slug, r.Name, r.Median, r.Peak, r.Samples)).ToList(),
             spells.Select(r => new ReachableSpell(r.Slug, r.Name, r.Since)).ToList());
-    }
-
-    /// <summary>
-    /// Codebase values folded to families and counted. The denominator is the games that told us,
-    /// never the listing — a game we could not identify is not a game running something else.
-    /// </summary>
-    private static CodebaseUsage CodebasesOf(IReadOnlyList<string> values, int listed)
-    {
-        var families = values
-            .Select(CodebaseFamily.Of)
-            .Where(family => family.Length > 0)
-            .GroupBy(family => family, StringComparer.OrdinalIgnoreCase)
-            .Select(group => new MeasuredShare(
-                // The spelling the most games used, so one game's stray capitalisation does not name
-                // the family. Ordinal breaks the tie, so the label is the same on every render.
-                group.GroupBy(spelling => spelling, StringComparer.Ordinal)
-                    .OrderByDescending(spellings => spellings.Count())
-                    .ThenBy(spellings => spellings.Key, StringComparer.Ordinal)
-                    .First().Key,
-                group.Count(),
-                values.Count))
-            .OrderByDescending(share => share.Count)
-            .ThenBy(share => share.Label, StringComparer.Ordinal)
-            .ToList();
-
-        return new CodebaseUsage(families, values.Count, listed - values.Count);
     }
 
     /// <summary>

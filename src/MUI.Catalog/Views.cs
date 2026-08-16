@@ -229,9 +229,15 @@ public sealed record ChangeEntry(DateTimeOffset At, string Summary);
 /// </para>
 /// <para>
 /// <see cref="MeasuredProtocols"/> and <see cref="Tls"/> read observations; <see cref="Codebase"/>,
-/// <see cref="Family"/>, <see cref="Genre"/> and <see cref="Language"/> read what a game says about
-/// itself. <see cref="Charset"/> is the odd one and is deliberately on the measured side: it is what
-/// CHARSET settled on in the handshake, never the game's MSSP claim about an encoding.
+/// <see cref="CodebaseVersion"/>, <see cref="Family"/>, <see cref="Genre"/> and
+/// <see cref="Language"/> read what a game says about itself. <see cref="Charset"/> is the odd one
+/// and is deliberately on the measured side: it is what CHARSET settled on in the handshake, never
+/// the game's MSSP claim about an encoding.
+/// </para>
+/// <para>
+/// <see cref="Lineage"/> is on neither side, and is the only member here that is not. It reads a
+/// classification of ours, which is why it is labelled <see cref="FacetEvidence.Derived"/> rather
+/// than being quietly filed with the things games told us.
 /// </para>
 /// </remarks>
 public sealed record GameFilter
@@ -257,43 +263,48 @@ public sealed record GameFilter
     public FacetChoice? Charset { get; init; }
 
     /// <summary>
+    /// A codebase <em>family</em> — <c>PennMUSH</c>, never <c>PennMUSH 1.8.8p0</c>. Every patchlevel
+    /// of one codebase is one facet value.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Matched by folding a game's codebase with <see cref="CodebaseFamily.Of"/> and comparing for
+    /// equality — the same fold the panel counts, which is what makes a count a promise about what
+    /// clicking it returns. There was briefly a second, looser rule for this (a bounded prefix) used
+    /// by a filter that ran beside the facet; two definitions of one word is how a facet ends up
+    /// returning a game no count included.
+    /// </para>
+    /// <para>
+    /// A codebase reference page links here to say "the games running PennMUSH", so this and the
+    /// page's own headline count are one query — see <c>CodebaseFigures</c>. The old
+    /// <c>?codebase-family=</c> spelling those links carry is still accepted and lands here.
+    /// </para>
+    /// </remarks>
+    public FacetChoice? Codebase { get; init; }
+
+    /// <summary>
     /// The codebase exactly as a game reports it, <c>PennMUSH 1.8.8p0</c> and all — a counted facet
     /// over the values actually present in the catalogue.
     /// </summary>
-    public FacetChoice? Codebase { get; init; }
+    public FacetChoice? CodebaseVersion { get; init; }
 
+    /// <summary>
+    /// The lineage we place a codebase in: <c>MUSH</c>, <c>DikuMUD</c>. Ours rather than anybody's
+    /// claim, and carried as <see cref="FacetEvidence.Derived"/> everywhere it is shown.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not <see cref="Family"/>, and it exists because <see cref="Family"/> cannot answer this.</b>
+    /// MSSP's <c>FAMILY</c> vocabulary has no <c>MUSH</c> in it — PennMUSH answers <c>TinyMUD</c> —
+    /// and the rest of the MUSH world publishes no MSSP at all. See <see cref="CodebaseLineage"/>.
+    /// </remarks>
+    public FacetChoice? Lineage { get; init; }
+
+    /// <summary>MSSP's own <c>FAMILY</c> variable, as the game published it. See <see cref="Lineage"/>.</summary>
     public FacetChoice? Family { get; init; }
 
     public FacetChoice? Genre { get; init; }
 
     public FacetChoice? Language { get; init; }
-
-    /// <summary>
-    /// A codebase <em>family</em> — <c>PennMUSH</c>, not <c>PennMUSH 1.8.8p0</c>. Matched by
-    /// <see cref="CodebaseFamily"/>, so every patchlevel of one codebase is one facet.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// This exists because a reference page for a codebase has to link to the games running it, and
-    /// a link is only honest if the page's own count and the listing it lands on are one query. Free
-    /// text will not do the job: <c>?q=PennMUSH</c> searches names against the database and would
-    /// find the games <em>called</em> PennMUSH rather than the games running it.
-    /// </para>
-    /// <para>
-    /// <b>Distinct from <see cref="Codebase"/> and from <see cref="Family"/>, and all three are real.</b>
-    /// <c>Codebase</c> is the raw string a game published; <c>Family</c> is MSSP's own <c>FAMILY</c>
-    /// variable, which answers <c>TinyMUD</c> or <c>DikuMUD</c>; this is the codebase with its
-    /// version taken off. A reference page for PennMUSH wants the third and neither of the others.
-    /// </para>
-    /// <para>
-    /// A <see cref="FacetChoice"/> for its polarity rather than its matching: the choice carries the
-    /// value and whether it is being filtered in or out, and the <em>test</em> is supplied by the
-    /// caller — <see cref="CodebaseFamily.Matches"/>, a bounded prefix, so <c>ROM</c> does not gather
-    /// <c>ROMulus</c>. It is not offered as a counted facet in the panel, so it never appears in the
-    /// vocabulary the choice facets are drawn from.
-    /// </para>
-    /// </remarks>
-    public FacetChoice? CodebaseFamily { get; init; }
 
     /// <summary>
     /// What order the answer comes back in.

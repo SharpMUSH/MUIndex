@@ -45,12 +45,6 @@ public static class ActiveFilters
                 "search", filter.Text.Trim(), Href(ListingLinks.With(query, FacetKeys.Text, null))));
         }
 
-        if (filter.CodebaseFamily is { Exclude: false, Value: { } family })
-        {
-            chips.Add(new ActiveFilter(
-                "codebase", family, Href(ListingLinks.With(query, FacetKeys.CodebaseFamily, null))));
-        }
-
         var drawn = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var group in facets)
@@ -125,6 +119,7 @@ public static class ActiveFilters
     [
         (FacetKeys.Charset, filter.Charset),
         (FacetKeys.Codebase, filter.Codebase),
+        (FacetKeys.CodebaseVersion, filter.CodebaseVersion),
         (FacetKeys.Family, filter.Family),
         (FacetKeys.Genre, filter.Genre),
         (FacetKeys.Language, filter.Language),
