@@ -191,7 +191,7 @@ else
                 @if (Trend is not null)
                 {
                     <h2 id="trend-heading">How many, over time</h2>
-                    <PresenceTrend Series="Trend" />
+                    <PresenceTrend Series="Trend" Shape="Shape" />
 
                     @* The range is in the address, so seeking is links and needs no script. *@
                     <nav class="spans" aria-label="Trend range">
@@ -205,6 +205,20 @@ else
                         @if (Range.Next(Today) is { } next)
                         {
                             <a class="span" href="@RangeHref(next)" rel="next">later →</a>
+                        }
+                    </nav>
+
+                    @*
+                        And the shape, for the same reason and in the same way. Neither drawing is
+                        right for every game on the site — see TrendShape — so it is a link rather
+                        than a preference, and a reader who found the one they wanted can send it.
+                    *@
+                    <nav class="spans shapes" aria-label="Trend shape">
+                        @foreach (var shape in new[] { TrendShape.Line, TrendShape.Bar })
+                        {
+                            <a href="@ShapeHref(shape)"
+                               class="@(Shape == shape ? "span on" : "span")"
+                               aria-current="@(Shape == shape ? "page" : null)">@shape.Label()</a>
                         }
                     </nav>
                 }
@@ -315,6 +329,13 @@ else
 
     [SupplyParameterFromQuery(Name = "to")] private string? RangeTo { get; set; }
 
+    /// <summary>Which drawing of the trend: <c>line</c> or <c>bar</c>.</summary>
+    /// <remarks>
+    /// Anything else falls back to the line rather than erroring, and the selector under the graphic
+    /// then shows which shape the reader actually got — the same choice the ranking window makes.
+    /// </remarks>
+    [SupplyParameterFromQuery(Name = TrendShapes.Query)] private string? ChartShape { get; set; }
+
     private bool Plain => Truthy.Is(PlainFlag);
 
     /// <summary>The widths the presets offer, ending today.</summary>
@@ -328,9 +349,33 @@ else
 
     private TrendRange Range => TrendRange.Parse(RangeFrom, RangeTo, Today);
 
-    /// <summary>The address of one range, carrying plain mode through if that is how we arrived.</summary>
-    private string RangeHref(TrendRange range) =>
-        Plain ? $"?{range.Query}&plain=1" : $"?{range.Query}";
+    private TrendShape Shape => TrendShapes.Parse(ChartShape);
+
+    /// <summary>
+    /// The address of one range, keeping whatever else the reader is already looking at.
+    /// </summary>
+    /// <remarks>
+    /// A query with no path in front of it, which means <em>this page, asked differently</em> — and
+    /// meant it only once <c>&lt;base href="/"&gt;</c> was gone from <c>App.razor</c>, since a base
+    /// resolves a query-only href against itself and sent all five of these to the home page.
+    /// </remarks>
+    private string RangeHref(TrendRange range) => Href(range, Shape);
+
+    /// <summary>The address of one shape, over the range the reader is already looking at.</summary>
+    private string ShapeHref(TrendShape shape) => Href(Range, shape);
+
+    private string Href(TrendRange range, TrendShape shape)
+    {
+        var query = $"?{range.Query}";
+
+        // The default is left out, so the address a reader copies says only what they chose.
+        if (shape is not TrendShape.Line)
+        {
+            query += $"&{TrendShapes.Query}={shape.Slug()}";
+        }
+
+        return Plain ? $"{query}&plain=1" : query;
+    }
 
     /// <summary>
     /// The icon we hold for this game, or null — which covers "the field names none", "we could not
