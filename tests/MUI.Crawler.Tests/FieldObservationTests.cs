@@ -234,6 +234,75 @@ public class FieldObservationTests
     }
 
     [Test]
+    public async Task AGameThatCallsItselfAMuckIsAssumedToBeOne()
+    {
+        // Fuzzball offers no MSSP, answers no INFO and prints no labelled version, so every reading
+        // above this one comes back empty and the page could name nothing at all. What it does have
+        // is the word, on the screen it paints to anyone who connects.
+        var observed = FieldObservations.From(Probes.Answered(
+            host: "furry.muck.example.org",
+            banner: "\e[1;35mWelcome to Tapestries MUCK!\e[0m"));
+
+        await Assert.That(Value(observed, FieldObservations.CodebaseField, FieldSource.Banner))
+            .IsEqualTo("MUCK");
+    }
+
+    [Test]
+    public async Task ADeclaredCodebaseIsNeverGuessedOver()
+    {
+        // KitsuMUCK declares ProtoMUCK, and a game that answered the question is not asked it again:
+        // our guess would lose to their report on the ladder anyway, and all it could do on the way
+        // is publish a disagreement that only ever existed between them and us.
+        var declared = FieldObservations.From(Probes.Answered(
+            mssp: Probes.Mssp(("NAME", "KitsuMUCK"), ("CODEBASE", "ProtoMUCK")),
+            banner: "kitsumuck.com : 8888"));
+
+        // FAMILY is the same answer coarsened, and closes the same door.
+        var family = FieldObservations.From(Probes.Answered(
+            mssp: Probes.Mssp(("NAME", "Somewhere"), ("FAMILY", "TinyMUSH")),
+            banner: "Welcome to Somewhere MUCK"));
+
+        await Assert.That(Value(declared, FieldObservations.CodebaseField, FieldSource.Mssp))
+            .IsEqualTo("ProtoMUCK");
+        await Assert.That(Value(declared, FieldObservations.CodebaseField, FieldSource.Banner))
+            .IsNull();
+        await Assert.That(Value(family, FieldObservations.CodebaseField, FieldSource.Banner))
+            .IsNull();
+    }
+
+    [Test]
+    public async Task AReadableVersionOutranksTheAssumption()
+    {
+        // Pegasus prints "Currently running TinyMUCK2.3b2!" — which the reader can name in full.
+        // The assumption is a floor under that, never a competitor for the same row.
+        var observed = FieldObservations.From(Probes.Answered(
+            banner: "Welcome to Pegasus, a MUCK",
+            version: "TinyMUCK 2.3b2"));
+
+        await Assert.That(Value(observed, FieldObservations.CodebaseField, FieldSource.Banner))
+            .IsEqualTo("TinyMUCK 2.3b2");
+        await Assert.That(observed.Count(o => o.Field == FieldObservations.CodebaseField))
+            .IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task AMudWhoseArtSaysMuckIsStillAMud()
+    {
+        // mud.stick.org:9000. The whole guard, at the layer that stores the value: the same screen
+        // that jokes about muck credits DikuMUD, MERC and ROM, and a codebase we invented for it
+        // would be a fact about somebody else's game that nobody at either end ever claimed.
+        var observed = FieldObservations.From(Probes.Answered(
+            host: "mud.stick.org",
+            banner: """
+                "Don't get Stuck...  in da Muck"
+                Original DikuMUD by Hans Staerfeldt, Katja Nyboe, Tom Madsen.
+                """));
+
+        await Assert.That(Value(observed, FieldObservations.CodebaseField, FieldSource.Banner))
+            .IsNull();
+    }
+
+    [Test]
     public async Task TheVolatileFieldsAreDroppedByTheReconcilerRatherThanHere()
     {
         // One home for that rule. PLAYERS is presence and UPTIME is a counter, and reconciling either

@@ -431,21 +431,25 @@ public static partial class LoginCommandReading
     private static bool MentionsKnownFamily(string value) =>
         FamilyNames.Keys.Any(marker => NamesFamily(value, marker));
 
-    private static string? FamilyFrom(IEnumerable<string> lines)
-    {
-        foreach (var line in lines)
-        {
-            foreach (var (marker, canonical) in FamilyNames)
-            {
-                if (NamesFamily(line, marker))
-                {
-                    return canonical;
-                }
-            }
-        }
+    /// <summary>
+    /// Every known family the text names as a word, in canonical spelling and without repeats.
+    /// </summary>
+    /// <remarks>
+    /// The reader's own vocabulary, exposed because <see cref="MuckNaming"/>'s entire safety is the
+    /// question "does this text say anything else" — and asking it against a second list of family
+    /// names would let the two drift, so that a family added here would quietly stop withdrawing an
+    /// assumption there. <see cref="NamesFamily"/>'s word rule comes with it, which is the part that
+    /// matters: a second implementation is what put <c>ROM</c> inside <c>RetroMUX</c>.
+    /// </remarks>
+    public static IReadOnlyList<string> FamiliesNamedIn(string? text) =>
+        [.. FamiliesIn(Lines(text)).Distinct(StringComparer.OrdinalIgnoreCase)];
 
-        return null;
-    }
+    private static string? FamilyFrom(IEnumerable<string> lines) => FamiliesIn(lines).FirstOrDefault();
+
+    private static IEnumerable<string> FamiliesIn(IEnumerable<string> lines) =>
+        lines.SelectMany(line => FamilyNames
+            .Where(family => NamesFamily(line, family.Key))
+            .Select(family => family.Value));
 
     /// <summary>
     /// Whether the text names this family as a word, rather than containing it as a fragment of one.
