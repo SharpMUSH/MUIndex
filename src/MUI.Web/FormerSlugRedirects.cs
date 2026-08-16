@@ -1,4 +1,5 @@
 using MUI.Catalog;
+using MUI.Catalog.Persistence;
 using MUI.Web.Api;
 
 using Microsoft.Net.Http.Headers;
@@ -105,6 +106,17 @@ public static class FormerSlugRedirects
     /// </remarks>
     private static async Task<string?> MovedToAsync(HttpContext context, string slug)
     {
+        // §7.3's merge, asked first and asked separately. A merged-away game still holds its own slug
+        // — a merge is not a rename and nothing goes into the former-slug table — so the history below
+        // has no answer for it and never will. The guard the history needs (is some game still wearing
+        // this slug?) is exactly wrong here: this game is wearing it, and that is the case we redirect.
+        if (context.RequestServices.GetService<IMergeRedirects>() is { } merges
+            && await merges.AbsorbedIntoAsync(slug, context.RequestAborted) is { } survivor
+            && !string.Equals(survivor, slug, StringComparison.Ordinal))
+        {
+            return survivor;
+        }
+
         var history = context.RequestServices.GetService<ISlugHistory>();
 
         if (history is null

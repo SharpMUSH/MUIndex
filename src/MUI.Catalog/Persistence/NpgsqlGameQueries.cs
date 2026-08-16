@@ -34,7 +34,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     : IGameQueries
 {
     /// <summary>
-    /// The rule that keeps an unclaimed submission off every public surface (spec §8, migration 0010).
+    /// Whether a game is offered as a game of its own on a public surface — vouched for (spec §8,
+    /// migration 0010) and not absorbed by a merge (spec §7.3, migration 0018).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -43,20 +44,43 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// us waits until somebody proves they run it.
     /// </para>
     /// <para>
+    /// <b>And a game absorbed by a merge in force is not offered separately.</b> That is the whole
+    /// public effect of a merge: nothing moves between the two games, the absorbed one keeps every row
+    /// it ever had, and the reads stop presenting it as a second game. Reverting clears the pointer
+    /// and the listing has it back, with no rows to carry either way.
+    /// </para>
+    /// <para>
     /// It is one constant because it has to hold on <em>every</em> read, and the count of reads is
     /// larger than it looks: the listing, the faceted search, all three liveness feeds, both halves of
     /// the rankings, six separate subqueries behind the ecosystem dashboard, and both lookups. The
-    /// first cut of this filter covered the six queries that name <c>game</c> directly and missed
-    /// every one that reaches it through <c>JOIN game g</c> — so an unclaimed submission stayed off
-    /// the listing and turned up in the rankings. A predicate written out per query is a predicate
+    /// first cut of the submission half covered the six queries that name <c>game</c> directly and
+    /// missed every one that reaches it through <c>JOIN game g</c> — so an unclaimed submission stayed
+    /// off the listing and turned up in the rankings. A predicate written out per query is a predicate
     /// that will be forgotten on the next query somebody adds, and the failure mode is a game on a
-    /// public page that nobody vouched for.
+    /// public page that nobody vouched for. <b>The merge half is composed in here rather than added at
+    /// call sites for exactly that reason</b> — its failure mode is the same shape, a duplicate the
+    /// listing hides and the rankings show.
     /// </para>
     /// </remarks>
-    private const string Public = "(submitted_at IS NULL OR is_claimed)";
+    private const string Public = $"((submitted_at IS NULL OR is_claimed) AND {NotAbsorbed})";
 
     /// <summary>The same rule where the table is aliased.</summary>
-    private const string PublicG = "(g.submitted_at IS NULL OR g.is_claimed)";
+    private const string PublicG = $"((g.submitted_at IS NULL OR g.is_claimed) AND {NotAbsorbedG})";
+
+    /// <summary>
+    /// No merge is pointing this game at another one right now.
+    /// </summary>
+    /// <remarks>
+    /// <c>NOT EXISTS</c> rather than <c>NOT IN</c>: the partial index
+    /// <c>merge_log_absorbed_once_idx</c> is on <c>(from_game_id) WHERE reverted_at IS NULL</c>, which
+    /// is exactly this predicate's shape, and <c>NOT IN</c> against a subquery would not use it.
+    /// </remarks>
+    private const string NotAbsorbed =
+        "NOT EXISTS (SELECT 1 FROM merge_log m WHERE m.from_game_id = game.id AND m.reverted_at IS NULL)";
+
+    /// <summary>The same rule where the table is aliased.</summary>
+    private const string NotAbsorbedG =
+        "NOT EXISTS (SELECT 1 FROM merge_log m WHERE m.from_game_id = g.id AND m.reverted_at IS NULL)";
 
     /// <summary>
     /// The heatmap's window (spec §5.2), which is the same 56 days retention floors itself at —

@@ -86,6 +86,11 @@ public static class PostgresData
         services.TryAddSingleton<ISlugHistoryStore>(s =>
             new NpgsqlSlugHistoryStore(s.GetRequiredService<NpgsqlDataSource>()));
 
+        // §7.3's merge redirect. Beside the former-slug table and for the same reason: the promise is
+        // about a URL, and a replica that serves pages has to keep it whether or not it merges anything.
+        services.TryAddSingleton<IMergeRedirects>(s =>
+            new NpgsqlMergeRedirects(s.GetRequiredService<NpgsqlDataSource>()));
+
         services.TryAddSingleton<IGameQueries>(s => new NpgsqlGameQueries(
             s.GetRequiredService<NpgsqlDataSource>(),
             s.GetRequiredService<IFieldRegistry>()));
