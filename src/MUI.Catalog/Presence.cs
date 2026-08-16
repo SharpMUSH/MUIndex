@@ -15,6 +15,21 @@ public enum UnmeasurableReason
 
     /// <summary>MSSP declared PLAYERS but the value was not a number.</summary>
     PlayersNotNumeric,
+
+    /// <summary>
+    /// The game is on Intermud-3, is up, advertises <c>who</c>, was asked — and said nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Silence is not zero.</b> An empty <c>users</c> array is a mud answering that nobody is on,
+    /// which is a measured zero and a filled cell; no answer at all is the middle state of §5.4 and
+    /// has to say so. The two arrive down the same pipe and look alike in a debugger, which is
+    /// exactly why they are different values here.
+    ///
+    /// There is no sibling reason for a mud that does not advertise <c>who</c>, because we never ask
+    /// those and so write no row: not asking is a decision of ours about our manners, and §5.5 says a
+    /// decision of ours is never recorded as a measurement of theirs.
+    /// </remarks>
+    I3NoReply,
 }
 
 /// <summary>
@@ -51,6 +66,19 @@ public sealed record PresenceSample
 
     public static PresenceSample Unmeasurable(Guid gameId, DateTimeOffset at, UnmeasurableReason reason) =>
         new() { GameId = gameId, At = at, Count = null, Source = FieldSource.Who, Reason = reason };
+
+    /// <summary>An uncountable sample that names the pipe it failed on.</summary>
+    /// <remarks>
+    /// The overload above answers <see cref="FieldSource.Who"/> because for years there was one pipe
+    /// and an uncountable row came off it by definition. There are two now, and I3 silence stored as
+    /// <c>who</c> would say a game failed to answer a telnet command nobody sent it (§5.5).
+    /// </remarks>
+    public static PresenceSample Unmeasurable(
+        Guid gameId,
+        DateTimeOffset at,
+        UnmeasurableReason reason,
+        FieldSource source) =>
+        new() { GameId = gameId, At = at, Count = null, Source = source, Reason = reason };
 }
 
 /// <summary>
@@ -127,6 +155,18 @@ public sealed record PresenceReading(
 
     public static PresenceReading Unmeasurable(UnmeasurableReason reason) =>
         new(null, FieldSource.Who, reason);
+
+    /// <summary>
+    /// An unmeasurable reading that names the pipe it failed on.
+    /// </summary>
+    /// <remarks>
+    /// The parameterless overload above answers with <see cref="FieldSource.Who"/> because for years
+    /// there was one pipe and a row with no count came off it by definition. There are two now, and
+    /// an I3 silence stored as <c>who</c> would say a game did not answer a telnet command nobody
+    /// sent it — our own confusion, written into their record, which is exactly what §5.5 forbids.
+    /// </remarks>
+    public static PresenceReading Unmeasurable(UnmeasurableReason reason, FieldSource source) =>
+        new(null, source, reason);
 }
 
 public enum PresenceOutcome

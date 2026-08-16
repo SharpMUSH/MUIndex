@@ -41,6 +41,12 @@ public sealed record CrawlerOptions
     public PresenceMaintenanceOptions Maintenance { get; init; } = new();
 
     /// <summary>
+    /// The Intermud-3 pass: whether it runs, where the sidecar is, and how hard to lean on the
+    /// network. Runs on its own advisory lock and its own schedule, and is off by default.
+    /// </summary>
+    public I3ServiceOptions I3 { get; init; } = new();
+
+    /// <summary>
     /// Addresses the crawler knows before it has followed anything.
     /// </summary>
     /// <remarks>

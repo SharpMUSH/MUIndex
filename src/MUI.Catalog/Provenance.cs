@@ -15,6 +15,27 @@ public enum FieldSource
     Handshake,
     Owner,
     Who,
+
+    /// <summary>
+    /// An Intermud-3 <c>who-reply</c>: a mud on the I3 network enumerated its users for us and we
+    /// counted them (spec §5.2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Presence only, like <see cref="Info"/>, and it ranks beside <see cref="Who"/> because it is
+    /// the same kind of answer — a list of people rather than a figure. The remote mud stated no
+    /// number; the arithmetic is ours, on a list it built when we asked, which is what separates this
+    /// from an MSSP <c>PLAYERS</c> the codebase may have cached.
+    /// </para>
+    /// <para>
+    /// <b>The caveat, stated rather than buried:</b> the reply crosses a router we do not run, and it
+    /// contains whoever the remote mud's own visibility rules chose to list. So does a telnet
+    /// <c>WHO</c>, which is why this is not a reason to rank it lower — but it does mean an I3 count
+    /// and a telnet count for one game may legitimately differ, and a mismatch between them is not a
+    /// defect in either.
+    /// </para>
+    /// </remarks>
+    I3,
     Mssp,
 
     /// <summary>
@@ -77,7 +98,7 @@ public enum FieldSource
 public static class FieldSources
 {
     public static bool IsMeasured(FieldSource source) =>
-        source is FieldSource.Handshake or FieldSource.Who or FieldSource.Banner;
+        source is FieldSource.Handshake or FieldSource.Who or FieldSource.I3 or FieldSource.Banner;
 }
 
 /// <summary>

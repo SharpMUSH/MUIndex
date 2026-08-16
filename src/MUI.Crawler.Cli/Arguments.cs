@@ -28,6 +28,11 @@ public sealed record Arguments
                                   answers nobody if that is unset too.
           --no-referrals          Do not follow MSSP REFERRAL. Makes this a status checker.
           --dry-run               Print what is due and write nothing.
+          --i3                    Run one Intermud-3 pass instead of a crawl cycle: read the
+                                  sidecar's mudlist, seed addresses we do not have, bind muds whose
+                                  address has been promoted, and ask the bound ones for a count.
+          --i3-gateway <host:port> Where the sidecar's JSON-RPC surface is. Default 127.0.0.1:8081.
+          --i3-key <string>       The key the sidecar expects. Defaults to $MUI_I3_API_KEY.
           --opt-out <host[:port]> Record that somebody asked us to stop crawling them (§11), and
                                   exit. Needs --because. A bare host covers every port on it.
           --because <text>        Who asked and how. Required with --opt-out, and required because
@@ -70,6 +75,13 @@ public sealed record Arguments
 
     public bool DryRun { get; init; }
 
+    /// <summary>Run one Intermud-3 pass rather than a crawl cycle.</summary>
+    public bool I3 { get; init; }
+
+    public string I3Gateway { get; init; } = "127.0.0.1:8081";
+
+    public string? I3Key { get; init; } = Environment.GetEnvironmentVariable("MUI_I3_API_KEY");
+
     /// <summary>An address somebody has asked us to stop crawling (spec §11).</summary>
     public CrawlAddress? OptOut { get; init; }
 
@@ -111,6 +123,18 @@ public sealed record Arguments
 
                 case "--dry-run":
                     parsed = parsed with { DryRun = true };
+                    break;
+
+                case "--i3":
+                    parsed = parsed with { I3 = true };
+                    break;
+
+                case "--i3-gateway":
+                    parsed = parsed with { I3Gateway = Next(args, ref i, "--i3-gateway") };
+                    break;
+
+                case "--i3-key":
+                    parsed = parsed with { I3Key = Next(args, ref i, "--i3-key") };
                     break;
 
                 case "--no-referrals":

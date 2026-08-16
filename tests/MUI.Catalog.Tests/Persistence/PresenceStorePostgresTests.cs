@@ -77,8 +77,37 @@ public class PresenceStorePostgresTests
         await Assert.That(sample.Reason).IsEqualTo(UnmeasurableReason.WhoNotOffered);
     }
 
+    /// <summary>
+    /// The I3 pipe's silence, stored and read back under its own name and its own source.
+    /// </summary>
+    /// <remarks>
+    /// Two vocabularies widen together in migration 0020 and this is what proves both against a real
+    /// database: <c>i3</c> as a source, <c>i3_no_reply</c> as a reason. Filing this row under
+    /// <c>who</c> — which the parameterless <c>Unmeasurable</c> overload would have done — would
+    /// record a game as having failed to answer a telnet command nobody sent it.
+    /// </remarks>
+    [Test]
+    public async Task I3SilenceRoundTripsUnderTheSourceItFailedOn()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlPresenceStore(db.DataSource);
+
+        await new PresenceWriter(store).WriteAsync(
+            game,
+            PresenceReading.Unmeasurable(UnmeasurableReason.I3NoReply, FieldSource.I3),
+            At);
+
+        var sample = (await store.ForGameAsync(game, At.AddHours(-1), At.AddHours(1))).Single();
+
+        await Assert.That(sample.Count).IsNull();
+        await Assert.That(sample.Reason).IsEqualTo(UnmeasurableReason.I3NoReply);
+        await Assert.That(sample.Source).IsEqualTo(FieldSource.I3);
+    }
+
     [Test]
     [Arguments(FieldSource.Who)]
+    [Arguments(FieldSource.I3)]
     [Arguments(FieldSource.Mssp)]
     [Arguments(FieldSource.Info)]
     [Arguments(FieldSource.Banner)]

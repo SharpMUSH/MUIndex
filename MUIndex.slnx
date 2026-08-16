@@ -5,6 +5,7 @@
     <Project Path="src/MUI.Crawler/MUI.Crawler.csproj" />
     <Project Path="src/MUI.Crawler.Cli/MUI.Crawler.Cli.csproj" />
     <Project Path="src/MUI.Discovery/MUI.Discovery.csproj" />
+    <Project Path="src/MUI.I3/MUI.I3.csproj" />
     <Project Path="src/MUI.Probe/MUI.Probe.csproj" />
     <Project Path="src/MUI.Web/MUI.Web.csproj" />
   </Folder>
@@ -13,6 +14,7 @@
     <Project Path="tests/MUI.Crawl.Tests/MUI.Crawl.Tests.csproj" />
     <Project Path="tests/MUI.Crawler.Tests/MUI.Crawler.Tests.csproj" />
     <Project Path="tests/MUI.Discovery.Tests/MUI.Discovery.Tests.csproj" />
+    <Project Path="tests/MUI.I3.Tests/MUI.I3.Tests.csproj" />
     <Project Path="tests/MUI.Web.Tests/MUI.Web.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">

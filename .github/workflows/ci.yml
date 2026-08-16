@@ -56,6 +56,13 @@ jobs:
         shell: bash
         run: dotnet run -c Release --no-build --project tests/MUI.Discovery.Tests/MUI.Discovery.Tests.csproj
 
+      # The I3 suite opens loopback sockets — a fake gateway answering on 127.0.0.1 — and nothing
+      # else. No database, and nothing that leaves the machine: the Intermud-3 network is reached
+      # only by the sidecar, which CI never starts.
+      - name: Test — I3
+        shell: bash
+        run: dotnet run -c Release --no-build --project tests/MUI.I3.Tests/MUI.I3.Tests.csproj
+
       # The Crawler suite runs whole crawl cycles against a real PostgreSQL with the socket replaced,
       # so it wants a database for the same reason the Catalog suite does — and more so, because the
       # advisory lock that keeps N replicas to one crawler is a database behaviour with nothing about

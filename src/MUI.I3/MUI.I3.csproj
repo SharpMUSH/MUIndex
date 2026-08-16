@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MUI.I3</RootNamespace>
+    <AssemblyName>MUI.I3</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <!--
+    No reference to MUI.Catalog, for the same reason MUI.Crawl has none: what comes back off this
+    socket is raw observation, and turning it into catalogue state belongs to whatever assembles a
+    reading. The arrow stays one-way so every downstream writer is testable against a captured reply
+    with no gateway and no network in sight (spec §6.5, §13).
+
+    No reference to MUI.Crawl either, and that is not an oversight. An I3 count and a telnet probe
+    are two separate observations of the same game arriving at different moments down different
+    pipes; nothing here belongs inside a ProbeResult.
+  -->
+
+</Project>

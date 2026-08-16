@@ -7,6 +7,7 @@ using MUI.Crawler;
 using MUI.Crawler.Cli;
 using MUI.Crawler.Persistence;
 using MUI.Discovery;
+using MUI.I3;
 
 using Microsoft.Extensions.Logging;
 
@@ -101,6 +102,51 @@ var endpoints = new NpgsqlEndpointStore(source);
 var fields = new NpgsqlGameFieldStore(source);
 var availability = new NpgsqlAvailabilityStore(source);
 var slugs = new NpgsqlSlugHistoryStore(source);
+
+// One Intermud-3 pass, and then out. It shares the registry and the presence store with the crawl
+// above and touches nothing else — which is the point of running it here: what a person watches is
+// the same code the hosted service runs, against the same tables, with the graph built by hand.
+if (arguments.I3)
+{
+    var separator = arguments.I3Gateway.LastIndexOf(':');
+    if (separator <= 0 || !int.TryParse(arguments.I3Gateway[(separator + 1)..], out var gatewayPort))
+    {
+        Console.Error.WriteLine($"--i3-gateway is '{arguments.I3Gateway}', which is not host:port.");
+        return 1;
+    }
+
+    var i3Options = new I3ServiceOptions
+    {
+        Enabled = true,
+        Gateway = new GatewayOptions
+        {
+            Host = arguments.I3Gateway[..separator],
+            Port = gatewayPort,
+            ApiKey = arguments.I3Key ?? "",
+        },
+    };
+
+    i3Options.Validate();
+
+    await using var i3 = await new I3GatewayFactory(i3Options.Gateway, loggerFactory)
+        .ConnectAsync(CancellationToken.None);
+
+    var i3Result = await new I3Cycle(
+            i3,
+            targets,
+            new NpgsqlI3BindingRepository(source),
+            new NpgsqlPresenceStore(source),
+            i3Options.Pass,
+            time,
+            loggerFactory.CreateLogger<I3Cycle>())
+        .RunAsync(CancellationToken.None);
+
+    Console.WriteLine($"i3 pass       {i3Result}");
+
+    await I3Summary.PrintAsync(source);
+
+    return 0;
+}
 
 var optOut = new OptOutGate(
     new NpgsqlCrawlOptOutRepository(source),

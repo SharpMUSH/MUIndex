@@ -48,6 +48,27 @@ public static class CrawlerSettings
 
     public const string InfoUrlConfigurationKey = "Crawler:Probe:InfoUrl";
 
+    /// <summary>
+    /// <c>true</c> runs the Intermud-3 pass, which needs the <c>i3</c> sidecar to be running.
+    /// </summary>
+    /// <remarks>
+    /// Off unless said out loud, because turning it on connects a container to a public network and
+    /// registers a name there permanently. That is not a thing to acquire by upgrading an image.
+    /// </remarks>
+    public const string I3EnabledEnvironmentVariable = "MUI_I3_ENABLED";
+
+    public const string I3EnabledConfigurationKey = "Crawler:I3:Enabled";
+
+    /// <summary>Where the sidecar's newline-delimited JSON-RPC surface is, as <c>host:port</c>.</summary>
+    public const string I3GatewayEnvironmentVariable = "MUI_I3_GATEWAY";
+
+    public const string I3GatewayConfigurationKey = "Crawler:I3:Gateway";
+
+    /// <summary>The key the sidecar expects. No default: its shipped configuration has example keys.</summary>
+    public const string I3ApiKeyEnvironmentVariable = "MUI_I3_API_KEY";
+
+    public const string I3ApiKeyConfigurationKey = "Crawler:I3:ApiKey";
+
     private static readonly char[] Separators = [',', ' ', '\t', '\r', '\n'];
 
     /// <summary>Applies what the environment said, and throws rather than shrugging at a typo.</summary>
@@ -78,12 +99,59 @@ public static class CrawlerSettings
             builder.Probe.Validate();
         }
 
+        ApplyI3(builder, configuration);
+
         foreach (var address in Seeds(configuration))
         {
             builder.Seed(address.Host, address.Port);
         }
 
         return builder;
+    }
+
+    /// <summary>
+    /// Applies the Intermud-3 settings, and refuses a half-configured pass rather than starting one.
+    /// </summary>
+    /// <remarks>
+    /// The address is parsed here rather than left as a string so that <c>MUI_I3_GATEWAY=i3:notaport</c>
+    /// fails beside the setting that caused it. <see cref="I3ServiceOptions.Validate"/> catches the
+    /// missing key separately, at startup, for the same reason: the alternative is an authentication
+    /// failure on a five-minute loop that reads like the sidecar is broken.
+    /// </remarks>
+    private static void ApplyI3(CrawlerOptionsBuilder builder, IConfiguration configuration)
+    {
+        if (Read(configuration, I3EnabledEnvironmentVariable, I3EnabledConfigurationKey) is { } enabled)
+        {
+            builder.I3 = builder.I3 with
+            {
+                Enabled = bool.TryParse(enabled, out var value)
+                    ? value
+                    : throw new ArgumentException(
+                        $"{I3EnabledEnvironmentVariable} is '{enabled}', which is neither true nor false."),
+            };
+        }
+
+        if (Read(configuration, I3GatewayEnvironmentVariable, I3GatewayConfigurationKey) is { } address)
+        {
+            var separator = address.LastIndexOf(':');
+            if (separator <= 0 || !int.TryParse(address[(separator + 1)..], out var port))
+            {
+                throw new ArgumentException(
+                    $"{I3GatewayEnvironmentVariable} is '{address}', which is not host:port.");
+            }
+
+            builder.I3 = builder.I3 with
+            {
+                Gateway = builder.I3.Gateway with { Host = address[..separator], Port = port },
+            };
+        }
+
+        if (Read(configuration, I3ApiKeyEnvironmentVariable, I3ApiKeyConfigurationKey) is { } key)
+        {
+            builder.I3 = builder.I3 with { Gateway = builder.I3.Gateway with { ApiKey = key } };
+        }
+
+        builder.I3.Validate();
     }
 
     /// <summary>The configured seeds, parsed, in the order they were written.</summary>

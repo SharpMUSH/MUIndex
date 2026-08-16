@@ -57,6 +57,13 @@ services:
       # registered again if it moves. §15.1 is settled — mu-index.com — but this stays a setting:
       # the registrable domain is the deployment's, not the code's. Leave it unset locally, where
       # sign-in is the only surface it affects.
+      # The Intermud-3 pass, off unless said out loud — and it needs the `i3` sidecar, which is behind
+      # its own compose profile. Turning both on is two deliberate acts because between them they
+      # connect to a public network and register a name there permanently.
+      MUI_I3_ENABLED: ${MUI_I3_ENABLED:-false}
+      MUI_I3_GATEWAY: ${MUI_I3_GATEWAY:-i3:8081}
+      MUI_I3_API_KEY: ${MUI_I3_API_KEY:-}
+
       Passkeys__ServerDomain: ${MUI_PASSKEY_DOMAIN:-}
 
       ASPNETCORE_ENVIRONMENT: Production
@@ -82,6 +89,69 @@ services:
       - keys:/home/app/.aspnet
     restart: unless-stopped
 
+  # The Intermud-3 side door. Off unless a profile asks for it, because joining I3 registers a name
+  # on somebody else's network permanently and that must never happen as a side effect of
+  # `compose up`. Start it with `--profile i3`.
+  #
+  # It exists because 56% of the games we sample cannot be counted through the telnet probe: WHO is
+  # not a connect-screen command outside the TinyMUD lineage, and the LP family — which is most of
+  # what is dark — has no MSSP tradition either. I3's who-reply carries the user array itself, so the
+  # count is the length of a list rather than a pattern match on a stranger's ASCII art.
+  #
+  # This is a Python sidecar and not our code (github.com/LuminariMUD/Intermud3, v0.4.7-beta). It
+  # owns the mudmode framing, the I3v3 handshake, the router password and the mudlist cache, and
+  # hands us JSON-RPC. What it does not own is any of the integration: the mudlist rows and the
+  # counts are ours to put in Postgres.
+  i3:
+    profiles: ["i3"]
+    build:
+      context: https://github.com/LuminariMUD/Intermud3.git#main
+    image: i3-gateway:latest
+    volumes:
+      # Our identity, not theirs — see the header of that file for why it replaces rather than
+      # layers over the gateway's own config.
+      - ./deploy/i3/config.yaml:/app/config/config.yaml:ro
+      # **Not disposable.** The router assigns a password on first connect and the gateway persists
+      # it here. Lose this volume and the next startup-req-3 goes out with password 0, which is a
+      # re-registration rather than a reconnect.
+      - i3state:/app/state
+    environment:
+      MUD_NAME: ${MUI_I3_NAME:-MUIndex}
+      MUD_PORT: "0"
+      # §11's obligation in the network's own vocabulary: an admin who finds MUIndex in their
+      # who-log reaches a person. **No default, and not in this file** — the same reason
+      # MUI_CRAWL_INFO_URL has none. A contact address compiled into the tree is one deployment's
+      # address announced by every fork, every laptop and every reader of the repository; this one
+      # belongs to whoever runs the deployment and it comes from their environment. Unlike the mud
+      # name, it is rewritten by every startup-req-3, so changing it costs a reconnect.
+      MUD_ADMIN_EMAIL: ${MUI_I3_ADMIN_EMAIL:-}
+      MUD_STATUS: "n/a"
+      MUD_TYPE: "n/a"
+      # *i4 rather than *dalet or *wpr: it is the router the gateway's own interoperability run was
+      # made against. The documented test router *wir (…:3004) is unreachable — *wpr answers on the
+      # same address at 8080 — so there was no rehearsal to be had.
+      I3_ROUTER_NAME: ${MUI_I3_ROUTER_NAME:-*i4}
+      I3_ROUTER_HOST: ${MUI_I3_ROUTER_HOST:-204.209.44.3}
+      I3_ROUTER_PORT: ${MUI_I3_ROUTER_PORT:-8080}
+      I3_GATEWAY_SECRET: ${MUI_I3_SECRET:-}
+      LOG_LEVEL: ${MUI_I3_LOG_LEVEL:-INFO}
+    # Deliberately unpublished. The gateway's API has one shared secret and no per-caller
+    # authorisation worth the name, so the only thing that should be able to reach it is the web
+    # container on the compose network. Its 8080 is its own and does not collide with the site's.
+    expose:
+      - "8080"
+      - "8081"
+    healthcheck:
+      # /health/ready is router-authenticated readiness — it goes green when the handshake has
+      # completed, not merely when Python has started — which is the condition the crawler needs.
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
 volumes:
   postgres:
   keys:
+  i3state:
