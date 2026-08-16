@@ -150,6 +150,18 @@ services:
       # one is the caller's credential.
       MUI_I3_API_KEY: ${MUI_I3_API_KEY:-}
       LOG_LEVEL: ${MUI_I3_LOG_LEVEL:-INFO}
+
+    # **The gateway refuses to start without a .env file, even though it does not need one.** Its
+    # entrypoint declares `--env-file` as `click.Path(exists=True)` with a default of `.env`, so
+    # click validates the default before the code's own `if env_file.exists()` guard is ever
+    # reached; upstream's own compose mounts the file to satisfy it. Ours has nothing to put in one
+    # — every setting arrives in `environment:` above, where compose can interpolate it from .env on
+    # the host — so this points the flag at a file that exists and holds nothing.
+    #
+    # Not caught before production because the gateway was run by hand from a checkout that happened
+    # to contain a .env, which is a different program from the one the container runs.
+    command: ["python", "-m", "src", "--env-file", "/dev/null"]
+
     # Deliberately unpublished. The gateway's API has one shared secret and no per-caller
     # authorisation worth the name, so the only thing that should be able to reach it is the web
     # container on the compose network. Its 8080 is its own and does not collide with the site's.
