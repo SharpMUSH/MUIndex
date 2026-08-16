@@ -190,6 +190,13 @@ public sealed class CrawlCycle(
 
         var result = await probe.ProbeAsync(new ProbeTarget(target.Host, target.Port), budget.Token);
 
+        // Nothing measured while this host was being taken down is a fact about the far end, and the
+        // writes below are fast enough against a Postgres on the same network to land before Npgsql
+        // ever looks at the token. TelnetProbe already refuses to dress our cancellation as a
+        // timeout, so this is the second lock on the same door rather than the only one — and it is
+        // worth having, because the failure it prevents is silent, permanent (rule 3) and published.
+        cancellationToken.ThrowIfCancellationRequested();
+
         // Read before anything is stored, so that a game which used this reply to ask us to stop is
         // never dialled again — including by the rest of this same cycle (§11's "within one cycle").
         // What this probe measured is still stored: the reply was sent to a connection already made,

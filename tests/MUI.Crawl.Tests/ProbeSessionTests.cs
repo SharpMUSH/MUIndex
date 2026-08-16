@@ -330,6 +330,75 @@ public class ProbeSessionTests
         await Assert.That(elapsed).IsLessThan(TimeSpan.FromSeconds(4));
     }
 
+    /// <summary>
+    /// A host being taken down is not a measurement, and must not come back as one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This shipped, and it is the fifth rule's worst case: our own outage published as theirs.</b>
+    /// The caller's token is linked into this probe's budget, so by the time an exception reaches the
+    /// bottom of <c>ProbeAsync</c> a stopping host and an expired budget look identical — both are an
+    /// <see cref="OperationCanceledException"/>, and <c>Classify</c> read either as
+    /// <c>("timeout", "probe budget exhausted")</c>. Returning that as a <see cref="ProbeResult"/>
+    /// handed <c>CrawlCycle</c> something it had every reason to store.
+    /// </para>
+    /// <para>
+    /// On the one deployment, a crash loop in an unrelated background service stopped the host every
+    /// ninety seconds. One cycle's worth of in-flight probes — <b>twenty games in fifty-six
+    /// seconds</b> — were written down as unreachable with cause <c>timeout</c>, and the failure
+    /// backoff then held each of them at that verdict for six hours. Fourteen of fifteen spot-checked
+    /// afterwards answered a socket from that same host in under a second.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AStoppingHostIsNotRecordedAsTheGameTimingOut()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "Welcome to Nowhere\r\nA quiet little place.\r\n",
+            WhoReply = "0 Players logged in.\r\n",
+        };
+
+        using var stopping = new CancellationTokenSource();
+        await stopping.CancelAsync();
+
+        // Thrown, not returned. VisitAsync already knows what a cancelled cycle means and writes
+        // nothing for it; a ProbeResult is a measurement and there was none to make.
+        await Assert.That(async () => await new TelnetProbe(Fast()).ProbeAsync(game.Target, stopping.Token))
+            .Throws<OperationCanceledException>();
+    }
+
+    /// <summary>
+    /// And the probe's <em>own</em> budget expiring is still a timeout we measured, which is the
+    /// distinction the fix turns on rather than a case it suppresses.
+    /// </summary>
+    /// <remarks>
+    /// A game that accepts a connection and then says nothing until our ceiling runs out has been
+    /// measured: we dialled it, we waited, and it did not finish. That is a fact about the far end
+    /// and it belongs in the record — the bug was never that timeouts are recorded, it was that our
+    /// shutdown was dressed as one.
+    /// </remarks>
+    [Test]
+    public async Task TheProbesOwnBudgetExpiringIsStillATimeoutWeMeasured()
+    {
+        await using var game = new FakeGame
+        {
+            BannerDelay = TimeSpan.FromSeconds(30),
+            Banner = "A screen that arrives long after we have given up.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast() with
+        {
+            Timeout = TimeSpan.FromMilliseconds(400),
+            MaxPhase = TimeSpan.FromSeconds(30),
+            SilenceGrace = TimeSpan.FromSeconds(30),
+            BannerPatience = TimeSpan.FromSeconds(30),
+        }).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Failed);
+        await Assert.That(result.Failure!.Cause).IsEqualTo("timeout");
+    }
+
     private sealed class FakeGame : IAsyncDisposable
     {
         private readonly TcpListener _listener;
