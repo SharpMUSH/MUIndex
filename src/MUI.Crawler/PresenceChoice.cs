@@ -15,11 +15,22 @@ namespace MUI.Crawler;
 /// called, by whatever assembles the probe's reading". This is that.
 /// </para>
 /// <para>
-/// The ladder is <c>who</c> → <c>mssp</c> → <c>banner</c>, and the last rung is last for a reason the
-/// crawler measured: the banner count is pattern-matching a stranger's ASCII art, where a number may
-/// be a high score, an uptime or last week's figure left in a static file. It is also the only rung
-/// that reaches Aardwolf, which supports no MSSP and answers no pre-login <c>WHO</c> — so it is worth
-/// having, and worth having last.
+/// The ladder is <c>who</c> → <c>mssp</c> → <c>info</c> → <c>banner</c>, and the last rung is last
+/// for a reason the crawler measured: the banner count is pattern-matching a stranger's ASCII art,
+/// where a number may be a high score, an uptime or last week's figure left in a static file. It is
+/// also the only rung that reaches Aardwolf, which supports no MSSP and answers no pre-login
+/// <c>WHO</c> — so it is worth having, and worth having last.
+/// </para>
+/// <para>
+/// <b><c>info</c> is third, and it is third on purpose rather than on merit.</b> In PennMUSH the
+/// <c>Connected:</c> line of the <c>INFO</c> block and MSSP's <c>PLAYERS</c> come out of the same
+/// <c>count_players()</c> call, so the two are equal-trust and nothing about accuracy separates them.
+/// What separates them is that <c>mssp</c> is already recorded against live games: placing the new
+/// rung second would silently relabel the source of counts this site has been publishing, and a rung
+/// added below cannot change a single value that measures today. Its whole effect is on rows that
+/// would otherwise have been NULL — the MUSH-family games with no MSSP and a <c>DOING</c> header past
+/// our WHO parser, which were being recorded unmeasurable with their exact count sitting in the
+/// probe's own payload.
 /// </para>
 /// <para>
 /// <b>Last on this ladder and still measured</b> (§5.1, <c>FieldSources</c>). The two rankings are
@@ -27,7 +38,10 @@ namespace MUI.Crawler;
 /// was read by us or reported to us. A banner count is the least trustworthy <em>choice</em> and is
 /// nonetheless text we parsed off the socket this probe, so it is labelled as the observation it is
 /// — while <c>mssp</c>, which outranks it here, is the game's own report and is labelled declared.
-/// Nothing about that ordering is an argument for relabelling either one.
+/// <c>info</c> outranks <c>banner</c> and is labelled declared beside <c>mssp</c>, which is the same
+/// disagreement in the same direction: what arrives on a generated <c>Label: value</c> line is the
+/// game reporting itself, whoever opened the socket. Nothing about the ordering is an argument for
+/// relabelling any of them.
 /// </para>
 /// <para>
 /// <b>Nothing here ever returns zero for a source that failed.</b> Every exit that could not obtain a
@@ -73,7 +87,15 @@ public static class PresenceChoice
             return PresenceReading.Counted(stated, FieldSource.Mssp);
         }
 
-        // 3. The connect screen, if it stated a count about itself.
+        // 3. The INFO block's own Connected: line, which is the same kind of statement as MSSP
+        //    PLAYERS and is read only where MSSP offered none. Delimited-block only: see
+        //    LoginCommandReading.ConnectedPlayers for why the markers are the whole defence.
+        if (LoginCommandReading.ConnectedPlayers(result.Info) is { } fromInfo)
+        {
+            return PresenceReading.Counted(fromInfo, FieldSource.Info);
+        }
+
+        // 4. The connect screen, if it stated a count about itself.
         if (result.BannerPlayerCount is { } fromBanner)
         {
             return PresenceReading.Counted(fromBanner, FieldSource.Banner);
@@ -88,10 +110,24 @@ public static class PresenceChoice
     /// <c>PLAYERS</c> that was not a number.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The reason is what tells a maintainer which of our two problems a hatched cell is, so it is
     /// picked from the strongest evidence rather than defaulted. A non-numeric <c>PLAYERS</c> outranks
     /// the WHO reasons because it is a fact about the game's own report — the one place a server said
     /// something and we could not use it.
+    /// </para>
+    /// <para>
+    /// <b>The <c>info</c> rung adds no fourth reason, and that is a finding rather than an omission.</b>
+    /// The overwhelming case for a game that reached here is that it printed no <c>INFO</c> block at
+    /// all — every DIKU, LP and MOO on the crawl, which is most of it — and "this game published no
+    /// machine-readable INFO" is not a problem the way an unreadable <c>WHO</c> is. It is the ordinary
+    /// state of the hobby, and naming it would put a fourth word on the heatmap that separates no two
+    /// games a maintainer could act on. The three reasons still name the three things that went wrong:
+    /// we never asked, we asked and could not read the answer, and the game's own figure was not a
+    /// number. A block whose <c>Connected:</c> line is unreadable is rare enough that it has never been
+    /// observed, and inventing a schema vocabulary entry for it now would be guessing at what a
+    /// codebase does — which is what <c>docs/codebase-survey-2026-07-30.md</c> exists to stop.
+    /// </para>
     /// </remarks>
     private static UnmeasurableReason ReasonFor(ProbeResult result, string? declaredPlayers) =>
         declaredPlayers is not null ? UnmeasurableReason.PlayersNotNumeric

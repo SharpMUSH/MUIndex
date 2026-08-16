@@ -44,6 +44,119 @@ public class PresenceChoiceTests
         await Assert.That(reading.Source).IsEqualTo(FieldSource.Mssp);
     }
 
+    /// <summary>
+    /// PennMUSH's <c>dump_info()</c> in shape, for a game that offers no MSSP and whose <c>DOING</c>
+    /// header our WHO parser cannot read — which is the whole population this rung exists for.
+    /// </summary>
+    private const string PennInfo = """
+        ### Begin INFO 1.1
+        Name: Convergence MUSH
+        Address: game.convergencemush.org
+        Uptime: Tue Sep 16 23:39:43 2025
+        Connected: 60
+        Size: 1929
+        Version: RhostMUSH 4.27.3
+        ### End INFO
+        """;
+
+    [Test]
+    public async Task TheInfoBlockIsReadWhenNeitherWhoNorMsspCould()
+    {
+        // The defect this rung closes: the count was already on the probe result, parsed off the
+        // wire, and the ladder had nowhere to put it — so the game was written down unmeasurable.
+        var reading = PresenceChoice.From(Probes.Answered(info: PennInfo, who: WhoReading.Unreadable));
+
+        await Assert.That(reading.Count).IsEqualTo(60);
+        await Assert.That(reading.Source).IsEqualTo(FieldSource.Info);
+    }
+
+    [Test]
+    public async Task AnInfoCountIsDeclaredRatherThanMeasured()
+    {
+        // Same class as MSSP and against the same temptation. We open the socket, but what comes back
+        // is a labelled line the codebase generated about itself — a report, not a reading.
+        await Assert.That(FieldSources.IsMeasured(FieldSource.Info)).IsFalse();
+        await Assert.That(FieldSources.IsMeasured(FieldSource.Mssp)).IsFalse();
+        await Assert.That(FieldSources.IsMeasured(FieldSource.Banner)).IsTrue();
+    }
+
+    [Test]
+    public async Task MsspStillWinsSoNoGameThatMeasuresTodayChangesItsRecordedValue()
+    {
+        // The reason the rung is third rather than second. Both figures come out of PennMUSH's one
+        // count_players() call, so there is nothing to choose between them on accuracy — and a rung
+        // added *below* an existing one cannot restate the provenance of a count already published.
+        var reading = PresenceChoice.From(Probes.Answered(
+            mssp: Probes.Mssp(("PLAYERS", "48")), info: PennInfo, who: WhoReading.Unreadable));
+
+        await Assert.That(reading.Count).IsEqualTo(48);
+        await Assert.That(reading.Source).IsEqualTo(FieldSource.Mssp);
+    }
+
+    [Test]
+    public async Task AReadableWhoStillOutranksTheInfoBlock()
+    {
+        var reading = PresenceChoice.From(Probes.Answered(
+            info: PennInfo, who: new WhoReading(WhoConfidence.Count, 3)));
+
+        await Assert.That(reading.Count).IsEqualTo(3);
+        await Assert.That(reading.Source).IsEqualTo(FieldSource.Who);
+    }
+
+    [Test]
+    public async Task TheInfoBlockOutranksTheConnectScreen()
+    {
+        // A generated `Connected:` line beats a number found in ASCII art, which may be a high score
+        // or last week's figure in a static file.
+        var reading = PresenceChoice.From(Probes.Answered(
+            banner: "Players Currently Online: 215", info: PennInfo, who: WhoReading.Unreadable));
+
+        await Assert.That(reading.Count).IsEqualTo(60);
+        await Assert.That(reading.Source).IsEqualTo(FieldSource.Info);
+    }
+
+    [Test]
+    public async Task AConnectScreenSayingConnectedIsNotAnInfoBlock()
+    {
+        // The delimiters are the whole defence. Without them "Connected:" on a connect screen is a
+        // word about the reader, and the banner rung — which is bounded by its own rules — is where
+        // a connect screen belongs.
+        var reading = PresenceChoice.From(Probes.Answered(
+            info: "Connected: 41\nType 'connect <name> <password>' to play.",
+            who: WhoReading.Unreadable));
+
+        await Assert.That(reading.Count).IsNull();
+        await Assert.That(reading.Reason).IsEqualTo(UnmeasurableReason.WhoUnparseable);
+    }
+
+    [Test]
+    public async Task AnInfoBlockWeCouldNotReadStillNamesTheWhoProblem()
+    {
+        // There is no fourth unmeasurable reason and there should not be one: a game that printed no
+        // readable INFO has not done anything a maintainer can act on, while "we asked WHO and could
+        // not read the answer" is a fact about our parser meeting their dialect.
+        var reading = PresenceChoice.From(Probes.Answered(
+            info: "### Begin INFO 1.1\nName: Some MUSH\nSize: 1929\n### End INFO",
+            who: WhoReading.Unreadable));
+
+        await Assert.That(reading.Count).IsNull();
+        await Assert.That(reading.Reason).IsEqualTo(UnmeasurableReason.WhoUnparseable);
+    }
+
+    [Test]
+    public async Task AnInfoConnectedZeroIsAMeasuredZeroAndNotAFallThrough()
+    {
+        // The uncomfortable case one rung down. A stated zero is a filled cell, so it must not be
+        // allowed to look like "no reading" and let the connect screen answer instead.
+        var reading = PresenceChoice.From(Probes.Answered(
+            banner: "Players Currently Online: 215",
+            info: "### Begin INFO 1.1\nName: Quiet MUSH\nConnected: 0\n### End INFO",
+            who: WhoReading.Unreadable));
+
+        await Assert.That(reading.Count).IsEqualTo(0);
+        await Assert.That(reading.Source).IsEqualTo(FieldSource.Info);
+    }
+
     [Test]
     public async Task TheConnectScreenIsReadLastAndOnlyWhenBothOthersFailed()
     {

@@ -205,6 +205,26 @@ Partitioned by time; rolled up hourly and daily. `source` distinguishes a WHO pa
 `PLAYERS`. Feeds the day-of-week × hour heatmap and trend lines. The only table growing linearly
 with games × time.
 
+**The ladder is `who` → `mssp` → `info` → `banner`.** `info` is the `Connected:` line of the block a
+MUSH-family server prints in reply to the pre-login `INFO` command — PennMUSH's `dump_info()` writes
+`### Begin INFO <version>`, labelled lines, `### End INFO`; Evennia writes the same block with two
+hashes and an uppercase `BEGIN`/`END`, and both are read. The count is taken **only from inside a
+block that opened and closed**: outside those delimiters "Connected:" is a word on a connect screen,
+and the banner rung is where a connect screen belongs. It is **declared**, beside `mssp` and not
+beside `banner` — a labelled line the codebase generated about itself is a report however we came by
+it, and §5.1's two axes disagree here exactly as they do about `banner`.
+
+`info` sits *below* `mssp` on purpose rather than on merit: in PennMUSH both figures come out of one
+`count_players()` call, so they are equal-trust, and a rung added below cannot restate the provenance
+of a count already published. Its whole effect is on rows that would otherwise have been NULL — of
+428 games sampled over three days, 240 were unmeasurable, and the MUSH-family games among them with
+no MSSP and a softcoded `DOING` header were carrying their exact count in the probe's own payload.
+`presence_sample.source` is text under a `CHECK`, not a Postgres enum type, so the vocabulary moves
+by altering that constraint (`migrations/0019_info_presence_source.sql`). `game_field`'s vocabulary
+is not widened: nothing writes an `info` field row, and the name and codebase read out of the same
+block go in under `banner` because those are parsed out of free text rather than lifted off a
+generated line.
+
 **`count` is nullable, and that is load-bearing (§5.4).** A probe that *succeeded* but could not
 yield a number — WHO unparseable and no MSSP `PLAYERS` — writes a row with `count = NULL` and an
 `unmeasurable_reason`. Writing nothing at all would be indistinguishable from not having probed,

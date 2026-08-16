@@ -47,6 +47,11 @@ Console.WriteLine($"charset       {result.Negotiation.Charset ?? "(unset)"}{(res
 Console.WriteLine($"codebase      {LoginCommandReading.MeaningfulCodebase(result.Info, result.Version)
     ?? "— nothing the reader would stand behind"}");
 
+if (LoginCommandReading.ConnectedPlayers(result.Info) is { } fromInfo)
+{
+    Console.WriteLine($"info count    {fromInfo} (declared in the INFO block)");
+}
+
 Reply("info", result.Info);
 Reply("version", result.Version);
 

@@ -16,6 +16,20 @@ public enum FieldSource
     Owner,
     Who,
     Mssp,
+
+    /// <summary>
+    /// The <c>INFO</c> block a MUSH-family server prints at the login screen, which states its own
+    /// <c>Connected:</c> count (spec §5.2).
+    /// </summary>
+    /// <remarks>
+    /// Presence only. Nothing writes an <c>info</c> <c>GameField</c> — the name and codebase read out
+    /// of the same block go in under <see cref="Banner"/>, because they are parsed out of free text
+    /// rather than lifted off a labelled line the codebase generates — so <c>game_field</c>'s
+    /// vocabulary does not carry it, in the same way <c>presence_sample</c>'s does not carry
+    /// <see cref="Staff"/>. Its rank here is the one it would take if that ever changed: below the
+    /// game's structured self-description, above a number found in ASCII art.
+    /// </remarks>
+    Info,
     Banner,
 
     // There is deliberately no imported source here, and there was: ImportedMeasured for a directory
@@ -45,8 +59,13 @@ public enum FieldSource
 /// <para>
 /// <see cref="FieldSource.Mssp"/> stays on the declared side, and the pairing is not a contradiction:
 /// a game filling in a structured self-description is reporting rather than being read, and its
-/// <c>PLAYERS</c> may be whatever the codebase last cached. <see cref="FieldSource.Owner"/> and
-/// <see cref="FieldSource.Staff"/> are people typing, one of them us.
+/// <c>PLAYERS</c> may be whatever the codebase last cached. <see cref="FieldSource.Info"/> joins it
+/// there for the identical reason and against the identical temptation: we do open the socket and
+/// read the block ourselves, but what we read is a labelled line the codebase generated about itself
+/// — the same class of statement as an MSSP variable, arriving down a different pipe. The line is
+/// who read the value <em>where a value was read</em>; a game handing us its own figure has reported
+/// it however it was delivered. <see cref="FieldSource.Owner"/> and <see cref="FieldSource.Staff"/>
+/// are people typing, one of them us.
 /// </para>
 /// <para>
 /// This is a different axis from precedence and the two disagree on purpose. <c>banner</c> is the

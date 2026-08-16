@@ -78,6 +78,28 @@ public class PresenceStorePostgresTests
     }
 
     [Test]
+    [Arguments(FieldSource.Who)]
+    [Arguments(FieldSource.Mssp)]
+    [Arguments(FieldSource.Info)]
+    [Arguments(FieldSource.Banner)]
+    public async Task EverySourceTheLadderCanChooseIsOneTheTableAccepts(FieldSource source)
+    {
+        // The C# spelling and the CHECK constraint are two halves of one decision (SqlEnums), and a
+        // rung added to §5.2's ladder without a migration fails here rather than in production at the
+        // first MUSH that publishes an INFO block.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlPresenceStore(db.DataSource);
+
+        await store.AppendAsync(PresenceSample.Counted(game, At, 60, source));
+
+        var sample = (await store.ForGameAsync(game, At, At)).Single();
+
+        await Assert.That(sample.Source).IsEqualTo(source);
+        await Assert.That(sample.Count).IsEqualTo(60);
+    }
+
+    [Test]
     public async Task AggregatesRoundTripAndCarryNoNames()
     {
         // §11: WHO responses are parsed in memory and discarded. What survives is derived from times
