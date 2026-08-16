@@ -185,6 +185,19 @@ public sealed class CrawlCycle(
 
         // The loop's own bound, on top of ProbeOptions.Timeout. Linked, so a stopping host cancels a
         // probe in flight rather than waiting out its budget.
+        //
+        // NEITHER OF THE TWO WAYS THIS TOKEN CANCELS IS A MEASUREMENT, and they are not the same
+        // non-measurement. A stopping host is nobody's business but ours and leaves the target due
+        // (VisitAsync). This ceiling firing means the probe overran the twenty seconds it promised
+        // by another forty, which is a fault in our probe — so it lands in VisitAsync's generic
+        // handler, is counted as Errored on the cycle where failures of ours belong, and is backed
+        // off. What must never happen on either path is an availability row: a host we never
+        // finished dialling has not been measured, and "unreachable" would be our own limitation
+        // published as their downtime (rule 5). Pinned by
+        // CrawlCyclePostgresTests.TheCrawlLoopsOwnCeilingIsCountedOnTheCycleAndNotAgainstTheGame.
+        //
+        // The measurement ceiling is ProbeOptions.Timeout, inside the probe, and it still records
+        // cause "timeout" — that one is a fact about the far end and is unchanged.
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(options.ProbeTimeout);
 
