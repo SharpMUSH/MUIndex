@@ -62,7 +62,7 @@ public static class EcosystemCopy
     }
 
     /// <summary>
-    /// Why MSSP has no row in the adoption table, and why two counts of it differ.
+    /// How to read the MSSP row, whose two counts differ and whose declared cell is empty.
     /// </summary>
     /// <remarks>
     /// The gap is the honest half of "nothing is ever deleted" showing through: a report we read
@@ -74,9 +74,11 @@ public static class EcosystemCopy
     {
         ArgumentNullException.ThrowIfNull(mssp);
 
-        var opening = $"{EcosystemProtocols.Instrument} has no row below. We ask every server for "
-            + "it by name, so it is how the declared column exists at all, and its own share would "
-            + "be this page measuring its own reach.";
+        var opening = $"{EcosystemProtocols.Instrument} is the one row below that is not a floor: "
+            + "we ask every server for it by name, so the games that did not offer it were asked "
+            + "and declined. It is also the only one with no declared figure, because every game "
+            + "whose report we hold supports it by demonstration and a count of the ones that also "
+            + "listed it would measure a habit against that.";
 
         if (mssp.Offered is not { } offered)
         {
@@ -86,10 +88,10 @@ public static class EcosystemCopy
         var gap = reports - offered;
 
         return gap <= 0
-            ? $"{opening} {Games(offered)} offered it in the handshake we last completed."
-            : $"{opening} {Games(offered)} offered it in the handshake we last completed, and we "
-                + $"hold {reports} reports: the other {gap} stopped publishing one after we read "
-                + "it, and we do not throw a report away because it stopped being reissued.";
+            ? opening
+            : $"{opening} We hold {reports} reports and {Games(offered)} offer MSSP today: the "
+                + $"other {gap} stopped publishing one after we read it, and a report is not "
+                + "thrown away because it stopped being reissued.";
     }
 
     /// <summary>What the measured column is a fraction of, spelled out wherever it is used.</summary>
@@ -122,12 +124,22 @@ public static class EcosystemCopy
             : $"{Share(share)}{rest}";
     }
 
-    /// <summary>The declared side of one protocol. Always a share; a missing claim is not a claim.</summary>
+    /// <summary>
+    /// The declared side of one protocol. A share where there is one to state.
+    /// </summary>
+    /// <remarks>
+    /// A missing claim is not a claim, so a protocol nobody declared is 0% and not a blank. The
+    /// blank is reserved for the case where the denominator itself cannot carry the question, which
+    /// is MSSP and only MSSP: every game whose report we hold has proved it supports MSSP by
+    /// sending one, so there is no population left over to be a share of.
+    /// </remarks>
     public static string Declared(ProtocolAdoption protocol)
     {
         ArgumentNullException.ThrowIfNull(protocol);
 
-        return Share(protocol.DeclaredShare);
+        return protocol.DeclaredShare is { } share
+            ? Share(share)
+            : "not asked — every report here is the answer";
     }
 
     /// <summary>

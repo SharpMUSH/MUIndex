@@ -106,7 +106,7 @@ public class EcosystemQueriesPostgresTests
 
         // The declared side is unaffected, and carries its own, different denominator.
         await Assert.That(tls.Declared).IsEqualTo(1);
-        await Assert.That(tls.DeclaredShare.Denominator).IsEqualTo(dashboard.MsspReports);
+        await Assert.That(tls.DeclaredShare!.Denominator).IsEqualTo(dashboard.MsspReports);
     }
 
     [Test]
@@ -317,7 +317,7 @@ public class EcosystemQueriesPostgresTests
         await Assert.That(dashboard.CapabilityTransitions).IsEqualTo(0);
 
         // Nothing measured is not nought per cent, and the view model has to be able to say so.
-        await Assert.That(Protocol(dashboard, "UTF-8").DeclaredShare.Fraction).IsNull();
+        await Assert.That(Protocol(dashboard, "UTF-8").DeclaredShare!.Fraction).IsNull();
         await Assert.That(rankings.Eligible).IsEqualTo(0);
     }
 

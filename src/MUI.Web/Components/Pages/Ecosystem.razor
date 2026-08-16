@@ -143,7 +143,7 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var protocol in Dashboard.Adoption)
+                    @foreach (var protocol in Dashboard.Protocols)
                     {
                         <tr>
                             <th scope="row" class="mono">@protocol.Protocol</th>
@@ -158,7 +158,9 @@ else
                                     @EcosystemCopy.Measured(protocol)
                                 </span>
                             </td>
-                            <td class="mono declared">@EcosystemCopy.Declared(protocol)</td>
+                            <td class="declared @(protocol.DeclaredShare is null ? "faint" : "mono")">
+                                @EcosystemCopy.Declared(protocol)
+                            </td>
                         </tr>
                     }
                 </tbody>

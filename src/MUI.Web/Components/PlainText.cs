@@ -618,7 +618,7 @@ public static class PlainText
 
         b.AppendLine();
 
-        foreach (var protocol in dashboard.Adoption)
+        foreach (var protocol in dashboard.Protocols)
         {
             b.AppendLine($"  {protocol.Protocol}");
             Wrap(b, $"measured: {EcosystemCopy.Measured(protocol)}", "    ");

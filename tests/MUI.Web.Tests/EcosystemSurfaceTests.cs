@@ -160,20 +160,63 @@ public class EcosystemSurfaceTests
     }
 
     [Test]
-    public async Task MsspIsExplainedRatherThanRankedAmongTheProtocolsItMeasures()
+    public async Task TheMsspRowStaysBecauseItIsTheOnlyMeasurementThatIsNotAFloor()
     {
-        // Its measured side is how the declared column exists at all, and its declared side is a
-        // game listing MSSP inside its own MSSP report. Neither is adoption, and the two counts of
-        // it differ — we keep a report a game has stopped publishing — which reads as an arithmetic
-        // error unless the page reconciles it.
+        // Not all servers support MSSP, and which ones do is one of the more useful things this page
+        // knows — it bounds what anybody can learn about the rest. It is also the only row with a
+        // real negative beside it: we request MSSP by name and nothing else, so every other measured
+        // figure is an undercount and this one is an answer. Holding it out as "the instrument"
+        // deleted the strongest row on the table.
         var dashboard = await Queries.EcosystemAsync();
         var text = Render.Words(await EcosystemAsync());
 
-        await Assert.That(dashboard.Protocols.Select(p => p.Protocol)).Contains("MSSP");
-        await Assert.That(dashboard.Adoption.Select(p => p.Protocol)).DoesNotContain("MSSP");
+        var mssp = dashboard.Protocols.Single(p => p.Protocol == "MSSP");
+
+        await Assert.That(mssp.Measured).IsNotNull();
+        await Assert.That(mssp.Declined).IsGreaterThan(0);
+        await Assert.That(text).Contains("MSSP");
+        await Assert.That(text).Contains("is the one row below that is not a floor");
+    }
+
+    [Test]
+    public async Task OnlyMsspHasNoDeclaredFigureAndTheReasonIsItsDenominator()
+    {
+        // Every game whose report we hold has proved it supports MSSP by sending one, so there is no
+        // population left over for a share to be of: the 1 of 131 that rendered counted the games
+        // that also listed MSSP inside their own MSSP report, which measures a habit. A protocol
+        // nobody declared is still 0% — absence of a claim is a claim — so the blank is this case
+        // alone.
+        var dashboard = await Queries.EcosystemAsync();
+        var text = Render.Words(await EcosystemAsync());
+
+        var blank = dashboard.Protocols.Where(p => p.DeclaredShare is null).Select(p => p.Protocol);
+
+        await Assert.That(blank).IsEquivalentTo(new[] { "MSSP" });
+        await Assert.That(EcosystemCopy.Declared(dashboard.Protocols.Single(p => p.Protocol == "MSSP")))
+            .DoesNotContain("%");
+        await Assert.That(text).Contains("every report here is the answer");
+    }
+
+    [Test]
+    public async Task TwoCountsOfMsspAreReconciledRatherThanLeftToSubtract()
+    {
+        // We hold more reports than there are games offering MSSP today, because a report is not
+        // discarded when a game stops reissuing it. Left unexplained the two numbers read as an
+        // arithmetic error on a page whose whole argument is that its arithmetic can be checked.
+        var dashboard = await Queries.EcosystemAsync();
+
         await Assert.That(dashboard.Mssp).IsNotNull();
-        await Assert.That(text).Contains("MSSP has no row below");
-        await Assert.That(text).Contains("how the declared column exists at all");
+
+        var withGap = new ProtocolAdoption("MSSP", Offered: 123, Declined: 295, Handshakes: 418,
+            Declared: 1, MsspReports: 131);
+
+        await Assert.That(EcosystemCopy.MsspBasis(withGap, 131)).Contains("We hold 131 reports");
+        await Assert.That(EcosystemCopy.MsspBasis(withGap, 131)).Contains("the other 8");
+
+        // And no gap means no sentence about one, rather than "the other 0".
+        var level = withGap with { Offered = 131 };
+
+        await Assert.That(EcosystemCopy.MsspBasis(level, 131)).DoesNotContain("the other");
     }
 
     [Test]

@@ -36,7 +36,7 @@ public class EcosystemSnapshotPostgresTests
         await Assert.That(point.Adoption.Measured!.Fraction).IsEqualTo(0.41);
 
         // And the declared side stays a share of the reports, never of the handshakes.
-        await Assert.That(point.Adoption.DeclaredShare.Denominator).IsEqualTo(60);
+        await Assert.That(point.Adoption.DeclaredShare!.Denominator).IsEqualTo(60);
     }
 
     /// <summary>
