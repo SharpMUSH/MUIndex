@@ -175,16 +175,28 @@ public static class Passkeys
                     Name = user.DisplayName,
                     DisplayName = user.DisplayName,
                 }
-                : new PasskeyUserEntity
-                {
-                    Id = Guid.CreateVersion7().ToString(),
-                    Name = Naming.Clean(name),
-                    DisplayName = Naming.Clean(name),
-                };
+                : NewAccount(name);
 
             return TypedResults.Content(
                 await signIn.MakePasskeyCreationOptionsAsync(entity),
                 contentType: "application/json");
+
+            // Everything the account will be called and known by, decided here and nowhere else.
+            // `register` reads both back off the attestation rather than deciding either again: the
+            // id because the authenticator makes it permanent the moment it writes the credential,
+            // and the name because Naming.Clean invents one for a blank field — so a second call
+            // would name the account something the person registering it was never shown.
+            static PasskeyUserEntity NewAccount(string? name)
+            {
+                var chosen = Naming.Clean(name);
+
+                return new PasskeyUserEntity
+                {
+                    Id = Guid.CreateVersion7().ToString(),
+                    Name = chosen,
+                    DisplayName = chosen,
+                };
+            }
         });
 
         accounts.MapPost("/passkey/register", async (
@@ -208,9 +220,28 @@ public static class Passkeys
                 // The account is created here, at the moment a credential exists to reach it with.
                 // Creating it earlier would leave unreachable accounts behind every abandoned
                 // registration.
+                //
+                // Under the id from the attestation, and this is the whole of the bug that shipped.
+                // MuiUser mints its own v7 GUID, so the account was created under an identifier the
+                // authenticator had never been told, while the credential kept the one issued at
+                // registration-options. Registration still succeeded — it signs the operator in
+                // itself and never asks who the credential says they are — and sign-in could not,
+                // ever: a discoverable credential is resolved by FindByIdAsync(userHandle), and no
+                // row had that id. It read as "works until the server restarts", because a restart
+                // is the first thing that makes anybody use the door instead of the cookie.
+                //
+                // The value is ours: minted at registration-options, carried in Identity's
+                // data-protected attestation state, and never through the browser. TryParse rather
+                // than Parse only because it comes back as a string.
+                if (!Guid.TryParse(attestation.UserEntity.Id, out var handle))
+                {
+                    return Results.BadRequest("That passkey could not be registered.");
+                }
+
                 user = new MuiUser
                 {
-                    DisplayName = Naming.Clean(submission.Name),
+                    Id = handle,
+                    DisplayName = attestation.UserEntity.DisplayName,
                     CreatedAt = time.GetUtcNow(),
                 };
 
@@ -319,8 +350,16 @@ public static class Passkeys
         app.MapMuiOwnership();
     }
 
-    /// <summary>What the page posts back after the authenticator has answered.</summary>
-    public sealed record PasskeySubmission(string Credential, string? Name);
+    /// <summary>
+    /// What the page posts back after the authenticator has answered.
+    /// </summary>
+    /// <remarks>
+    /// The credential and nothing else. It carried the typed name as well, and that field was the
+    /// second half of the user-handle defect in miniature: a value the ceremony had already fixed,
+    /// offered again by the browser, and read in preference to the one the authenticator was shown.
+    /// The name belongs to <c>registration-options</c>, which is where the entity is built.
+    /// </remarks>
+    public sealed record PasskeySubmission(string Credential);
 
     /// <summary>
     /// A display name is a label, and this is the whole of what we do to one.

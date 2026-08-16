@@ -42,7 +42,7 @@ public class PasskeyEndpointTests
     /// <summary>What <c>passkey.js</c> posts: a JSON envelope with the credential as a string.</summary>
     private const string SignInBody =
         """
-        {"credential":"{\"id\":\"abc\",\"rawId\":\"abc\",\"type\":\"public-key\",\"response\":{\"clientDataJSON\":\"e30\",\"authenticatorData\":\"e30\",\"signature\":\"e30\",\"userHandle\":null}}","name":null}
+        {"credential":"{\"id\":\"abc\",\"rawId\":\"abc\",\"type\":\"public-key\",\"response\":{\"clientDataJSON\":\"e30\",\"authenticatorData\":\"e30\",\"signature\":\"e30\",\"userHandle\":null}}"}
         """;
 
     /// <summary>
