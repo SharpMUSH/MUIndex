@@ -93,9 +93,11 @@
           publicKey: PublicKeyCredential.parseRequestOptionsFromJSON(optionsJson),
         });
 
+    // The credential alone. The name went with the request that built the options, and the server
+    // keeps it there — posting it again would be offering a second answer to a settled question.
     const result = await post(
       registering ? '/account/passkey/register' : '/account/passkey/sign-in',
-      { credential: serialise(credential), name });
+      { credential: serialise(credential) });
 
     window.location.assign(result.redirect);
   };
