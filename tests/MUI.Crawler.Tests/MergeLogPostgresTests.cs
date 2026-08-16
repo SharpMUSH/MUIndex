@@ -224,6 +224,29 @@ public class MergeLogPostgresTests
     }
 
     [Test]
+    public async Task AMergeCannotBeRevertedBeforeItWasMade()
+    {
+        // The third constraint in 0018, and the only one no test reached. RevertAsync writes whatever
+        // instant the caller hands it — a clock skewed backwards, a replayed request, a fixture that
+        // moved on — and the database is what refuses an undo dated before the act.
+        await using var database = await PostgresFixture.MigratedAsync();
+        var log = new NpgsqlMergeLog(database.DataSource);
+
+        var survivor = await GameAsync(database.DataSource, "aardwolf-mud");
+        var absorbed = await GameAsync(database.DataSource, "aardwolf-mud-2");
+
+        var id = await log.RecordAsync(Merge(survivor, absorbed), None);
+
+        // The constraint by name, not merely "something threw": the trigger and the partial index can
+        // both raise from this table, and a test that accepted any of them would keep passing if this
+        // check were dropped.
+        var error = await Assert.That(async () => await log.RevertAsync(id, Then.AddDays(-1), None))
+            .Throws<PostgresException>();
+
+        await Assert.That(error!.ConstraintName).IsEqualTo("merge_log_reverted_after_merged");
+    }
+
+    [Test]
     public async Task AGameCannotAbsorbItself()
     {
         await using var database = await PostgresFixture.MigratedAsync();

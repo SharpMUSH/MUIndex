@@ -157,4 +157,21 @@ public class MergedGameVisibilityPostgresTests
 
         await Assert.That(await QueriesOn(db).FindAsync("aardwolf-mud")).IsNotNull();
     }
+
+    [Test]
+    public async Task AnAbsorbedGameIsNotFoundByItsOwnSlug()
+    {
+        // The lookup goes through the same predicate as the listing, so an absorbed game stops
+        // resolving — and that is precisely what makes the redirect load-bearing rather than a
+        // courtesy. Pinned here because MergedGamePageTests depends on it from the other side: if this
+        // ever started returning the game again, the 301 would become a redirect away from a page that
+        // works, and nothing in the web suite would notice.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var survivor = await Seed.GameAsync(db, "aardwolf-mud", "Aardwolf MUD");
+        var absorbed = await Seed.GameAsync(db, "aardwolf-mud-2", "Aardwolf MUD");
+
+        await MergeAsync(db, survivor, absorbed);
+
+        await Assert.That(await QueriesOn(db).FindAsync("aardwolf-mud-2")).IsNull();
+    }
 }
