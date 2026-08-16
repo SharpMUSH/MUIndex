@@ -27,8 +27,9 @@ public interface IMergeRedirects
     /// The slug of the game that absorbed <paramref name="slug"/>, or null when nothing did.
     /// </summary>
     /// <remarks>
-    /// Null when the merge has been reverted, and null when the survivor is itself absorbed by
-    /// something else — a chain is a redirect nobody can follow and a browser caches half of.
+    /// Null when the merge has been reverted, and null when the survivor is not a page a reader can
+    /// actually land on — an unclaimed submission, or (which the schema refuses, so this is the second
+    /// line rather than the first) a game itself absorbed by something else.
     /// </remarks>
     Task<string?> AbsorbedIntoAsync(string slug, CancellationToken cancellationToken = default);
 }
@@ -45,10 +46,18 @@ public sealed class NpgsqlMergeRedirects(NpgsqlDataSource source) : IMergeRedire
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
-        // The second NOT EXISTS is the chain guard, in SQL rather than in a loop: if the survivor has
-        // itself been absorbed, this answers nothing rather than sending a reader to a page that will
-        // send them somewhere else again. One hop or none — and a merge that would form a chain is a
-        // pair for a person to look at, not a redirect to follow.
+        // A 301 is cached by the reader's browser, so a redirect onto a page that answers 404 is a
+        // mistake they cannot undo by reloading. Two ways that could happen, and both are refused here:
+        //
+        // The survivor is not public. An unclaimed submission is a game the listing and the lookup both
+        // decline to show (§8), so redirecting onto it lands a reader on "no game here". Decided on
+        // read rather than refused at the merge, because claiming the survivor makes it a perfectly
+        // good destination and nothing should have to be re-merged for that.
+        // FormerSlugRedirects already holds this line for a renamed game; this is the same line.
+        //
+        // The survivor is itself absorbed. merge_log_no_chains refuses to record that, so this is a
+        // second line and not the guarantee — kept because the guarantee is a trigger somebody could
+        // drop, and because "one hop or none" should be legible where the hop is taken.
         return await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
             """
             SELECT into_game.slug
@@ -57,6 +66,7 @@ public sealed class NpgsqlMergeRedirects(NpgsqlDataSource source) : IMergeRedire
               JOIN game into_game ON into_game.id = m.into_game_id
              WHERE absorbed.slug = @slug
                AND m.reverted_at IS NULL
+               AND (into_game.submitted_at IS NULL OR into_game.is_claimed)
                AND NOT EXISTS (
                    SELECT 1 FROM merge_log onward
                     WHERE onward.from_game_id = m.into_game_id AND onward.reverted_at IS NULL)

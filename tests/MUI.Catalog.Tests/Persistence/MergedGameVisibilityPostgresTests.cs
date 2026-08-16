@@ -106,6 +106,47 @@ public class MergedGameVisibilityPostgresTests
     }
 
     [Test]
+    public async Task ThereIsNoRedirectOntoAPageThatIsNotPublic()
+    {
+        // A 301 is cached by the reader's browser, so sending them somewhere that answers 404 is a
+        // mistake they cannot undo by reloading. FormerSlugRedirects already refuses to do it for a
+        // renamed game — "onto a page that says 'no game here'" is written in its own doc comment —
+        // and the merge redirect has to hold the same line: an unclaimed submission is not a public
+        // page, so it is not a redirect target either.
+        //
+        // It becomes one the moment somebody claims the survivor, which is why this is decided on read
+        // rather than refused at the merge.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var survivor = await Seed.GameAsync(db, "aardwolf-mud", "Aardwolf MUD");
+        var absorbed = await Seed.GameAsync(db, "aardwolf-mud-2", "Aardwolf MUD");
+
+        await using (var connection = await db.DataSource.OpenConnectionAsync())
+        {
+            await connection.ExecuteAsync(
+                "UPDATE game SET submitted_at = @now, is_claimed = false WHERE id = @survivor",
+                new { now = Now, survivor });
+        }
+
+        await MergeAsync(db, survivor, absorbed);
+
+        await Assert.That(await new NpgsqlMergeRedirects(db.DataSource).AbsorbedIntoAsync("aardwolf-mud-2"))
+            .IsNull();
+    }
+
+    [Test]
+    public async Task AClaimedSurvivorIsARedirectTarget()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var survivor = await Seed.GameAsync(db, "aardwolf-mud", "Aardwolf MUD");
+        var absorbed = await Seed.GameAsync(db, "aardwolf-mud-2", "Aardwolf MUD");
+
+        await MergeAsync(db, survivor, absorbed);
+
+        await Assert.That(await new NpgsqlMergeRedirects(db.DataSource).AbsorbedIntoAsync("aardwolf-mud-2"))
+            .IsEqualTo("aardwolf-mud");
+    }
+
+    [Test]
     public async Task TheSurvivorIsUntouched()
     {
         await using var db = await PostgresFixture.MigratedAsync();

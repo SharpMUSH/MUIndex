@@ -149,6 +149,81 @@ public class MergeLogPostgresTests
     }
 
     [Test]
+    public async Task AChainIsRefusedWhereItWouldBeCreated()
+    {
+        // A -> B then B -> C. Both rows have distinct from_game_id, so merge_log_absorbed_once_idx
+        // accepts them — and A is then neither listed (the reads drop an absorbed game) nor redirected
+        // (one hop or none), which is a 404 for a game whose rows are all still there. §7.5 broken by
+        // two writes that were individually legal.
+        await using var database = await PostgresFixture.MigratedAsync();
+        var log = new NpgsqlMergeLog(database.DataSource);
+
+        var a = await GameAsync(database.DataSource, "a");
+        var b = await GameAsync(database.DataSource, "b");
+        var c = await GameAsync(database.DataSource, "c");
+
+        await log.RecordAsync(Merge(into: b, from: a), None);
+
+        await Assert.That(async () => await log.RecordAsync(Merge(into: c, from: b), None))
+            .Throws<PostgresException>();
+    }
+
+    [Test]
+    public async Task AnAbsorbedGameCannotBecomeSomebodyElsesSurvivor()
+    {
+        // The same hole approached from the other end. A is already absorbed by B; pointing C at A
+        // would send C's readers to a page that redirects again. The row that forms the chain is the
+        // one refused, whichever end it arrives from.
+        await using var database = await PostgresFixture.MigratedAsync();
+        var log = new NpgsqlMergeLog(database.DataSource);
+
+        var a = await GameAsync(database.DataSource, "a");
+        var b = await GameAsync(database.DataSource, "b");
+        var c = await GameAsync(database.DataSource, "c");
+
+        await log.RecordAsync(Merge(into: b, from: a), None);
+
+        await Assert.That(async () => await log.RecordAsync(Merge(into: a, from: c), None))
+            .Throws<PostgresException>();
+    }
+
+    [Test]
+    public async Task ACycleIsRefusedToo()
+    {
+        // A -> B, B -> A. Distinct from_game_id again, so nothing stopped it, and a read that followed
+        // the chain instead of stopping at one hop would not terminate.
+        await using var database = await PostgresFixture.MigratedAsync();
+        var log = new NpgsqlMergeLog(database.DataSource);
+
+        var a = await GameAsync(database.DataSource, "a");
+        var b = await GameAsync(database.DataSource, "b");
+
+        await log.RecordAsync(Merge(into: b, from: a), None);
+
+        await Assert.That(async () => await log.RecordAsync(Merge(into: a, from: b), None))
+            .Throws<PostgresException>();
+    }
+
+    [Test]
+    public async Task RevertingFreesThePairToBeMergedTheOtherWay()
+    {
+        // The guard is about merges in force, not about history. An operator who merged the wrong way
+        // round reverts and merges again, and nothing in the record stops them.
+        await using var database = await PostgresFixture.MigratedAsync();
+        var log = new NpgsqlMergeLog(database.DataSource);
+
+        var a = await GameAsync(database.DataSource, "a");
+        var b = await GameAsync(database.DataSource, "b");
+
+        var id = await log.RecordAsync(Merge(into: b, from: a), None);
+        await log.RevertAsync(id, Then.AddDays(1), None);
+
+        await log.RecordAsync(Merge(into: a, from: b, Then.AddDays(2)), None);
+
+        await Assert.That(await log.ForGameAsync(a, None)).Count().IsEqualTo(2);
+    }
+
+    [Test]
     public async Task AGameCannotAbsorbItself()
     {
         await using var database = await PostgresFixture.MigratedAsync();

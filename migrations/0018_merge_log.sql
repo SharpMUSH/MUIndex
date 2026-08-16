@@ -53,3 +53,45 @@ CREATE UNIQUE INDEX merge_log_absorbed_once_idx ON merge_log (from_game_id) WHER
 -- "Which games did this one absorb" — the survivor's side, asked by every public read to find out
 -- whether it is a survivor at all.
 CREATE INDEX merge_log_into_idx ON merge_log (into_game_id) WHERE reverted_at IS NULL;
+
+-- A CHAIN IS A GAME WITH NO PAGE, AND NEITHER INDEX ABOVE STOPS ONE BEING MADE. A -> B and then
+-- B -> C are two rows with distinct from_game_id, so merge_log_absorbed_once_idx accepts both — and A
+-- is then dropped from every public read (it is absorbed) and redirected nowhere (the redirect is one
+-- hop or none). Its rows are all still in the database and its URL answers 404, which is §7.5 broken
+-- by two writes that were individually legal. A cycle, A -> B and B -> A, is insertable for the same
+-- reason and would additionally make a chain-following read non-terminating.
+--
+-- So the shape is refused where it is created rather than papered over where it is read. This is the
+-- first trigger in the schema and it is not reached for lightly: the alternative is a check in the
+-- repository, which loses the race between two operators and is exactly the read-then-write this
+-- table avoids everywhere else. It also has to hold against a row inserted by hand at a psql prompt,
+-- which is how an operator merges a pair today.
+--
+-- DEFERRABLE INITIALLY DEFERRED so a transaction may revert and re-merge in either order and be
+-- judged on the state it commits, not on the order somebody wrote the statements.
+CREATE FUNCTION merge_log_refuses_chains() RETURNS trigger AS $$
+BEGIN
+    IF NEW.reverted_at IS NULL AND (
+        -- The survivor is itself absorbed: readers sent here would be sent on again.
+        EXISTS (SELECT 1 FROM merge_log m
+                 WHERE m.reverted_at IS NULL
+                   AND m.from_game_id = NEW.into_game_id
+                   AND m.id <> NEW.id)
+        -- The absorbed game is somebody's survivor: whatever it holds would be orphaned behind it.
+        OR EXISTS (SELECT 1 FROM merge_log m
+                    WHERE m.reverted_at IS NULL
+                      AND m.into_game_id = NEW.from_game_id
+                      AND m.id <> NEW.id))
+    THEN
+        RAISE EXCEPTION 'merge_log: % -> % would form a redirect chain', NEW.from_game_id, NEW.into_game_id
+            USING ERRCODE = 'integrity_constraint_violation';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE CONSTRAINT TRIGGER merge_log_no_chains
+    AFTER INSERT OR UPDATE ON merge_log
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW EXECUTE FUNCTION merge_log_refuses_chains();
