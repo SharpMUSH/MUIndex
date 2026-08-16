@@ -11,13 +11,21 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # The manifests first, so the restore layer survives every change that is not a dependency change.
-# Only the site's own graph is restored — the CLI and the five test projects are not in this image
-# and pulling their packages would slow every build to no end.
+# Only the site's own graph is restored — the CLI and the test projects are not in this image and
+# pulling their packages would slow every build to no end.
+#
+# This list is hand-written and was therefore wrong the first time somebody added a project: MUI.I3
+# arrived referenced by MUI.Crawler, CI restored the whole solution and went green, and the publish
+# below died on a missing assets file — after merge, so production sat on a stale image until
+# somebody read the workflow log. `tools/check-image-restore.py` runs in CI and resolves MUI.Web's
+# transitive project closure against this block, so the next one fails on the pull request with the
+# COPY line it needs in the message.
 COPY Directory.Build.props Directory.Packages.props ./
 COPY src/MUI.Catalog/MUI.Catalog.csproj      src/MUI.Catalog/
 COPY src/MUI.Crawl/MUI.Crawl.csproj          src/MUI.Crawl/
 COPY src/MUI.Crawler/MUI.Crawler.csproj      src/MUI.Crawler/
 COPY src/MUI.Discovery/MUI.Discovery.csproj  src/MUI.Discovery/
+COPY src/MUI.I3/MUI.I3.csproj                src/MUI.I3/
 COPY src/MUI.Web/MUI.Web.csproj              src/MUI.Web/
 RUN dotnet restore src/MUI.Web/MUI.Web.csproj
 
