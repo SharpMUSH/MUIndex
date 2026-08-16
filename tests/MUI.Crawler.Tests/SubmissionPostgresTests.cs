@@ -239,6 +239,88 @@ public class SubmissionPostgresTests
     }
 
     /// <summary>
+    /// A submitted game that names itself over <c>INFO</c> is listed, MSSP or no MSSP.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The real case.</b> <c>game.convergencemush.org:10000</c> was submitted, probed fourteen
+    /// seconds later, answered with sixty-four connected players and an <c>INFO</c> block naming
+    /// itself and its engine — and was refused a listing every six hours for a fortnight, because the
+    /// gate read MSSP and nothing else. RhostMUSH does not implement telnet option 70, so the gate
+    /// was in practice asking whether a game's codebase had a feature rather than whether the game
+    /// existed.
+    /// </para>
+    /// <para>
+    /// It is listed under the name it gave, not under its address and not under its engine.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ASubmittedGameThatNamesItselfOverInfoIsListed()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+        var resolver = new FakeHostResolver().Resolving("game.example.org", "203.0.113.10");
+
+        await Submissions(source, resolver).SubmitAsync("game.example.org", "10000", Source(11), None);
+
+        var probe = new ScriptedProbe(target => Probes.Answered(
+            target.Host,
+            target.Port,
+            who: new WhoReading(WhoConfidence.Count, 64),
+            info: """
+                ### Begin INFO 1
+                Name: Convergence MUSH
+                Connected: 64
+                Version: RhostMUSH 4.27.3
+                ### End INFO
+                """));
+
+        var report = await Cycle(source, probe, resolver).RunAsync();
+
+        await Assert.That(report.Listed).IsEqualTo(1);
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        var game = await connection.QuerySingleAsync<(string Slug, string Name)>(
+            "SELECT slug, name FROM game");
+
+        await Assert.That(game.Name).IsEqualTo("Convergence MUSH");
+        await Assert.That(game.Slug).IsEqualTo("convergence-mush");
+    }
+
+    /// <summary>
+    /// A submitted address that only prints text at us is still not listed.
+    /// </summary>
+    /// <remarks>
+    /// <b>The floor under the widened gate, and the reason a banner is not one of its signals.</b>
+    /// Every TCP service on earth can print a paragraph at a stranger, and a submitter chooses the
+    /// address — so admitting a banner would make the gate a formality and hand the identity matcher
+    /// an unvouched target scored on whatever somebody's web server happened to say. The signals that
+    /// do count are all the far end answering a MU\* command about itself.
+    /// </remarks>
+    [Test]
+    public async Task ASubmittedAddressThatOnlyPrintsABannerIsStillNotListed()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+        var resolver = new FakeHostResolver().Resolving("banner.example.org", "203.0.113.10");
+
+        await Submissions(source, resolver).SubmitAsync("banner.example.org", "4201", Source(12), None);
+
+        var probe = new ScriptedProbe(target => Probes.Answered(
+            target.Host, target.Port, banner: "Welcome to Aardwolf! Please enter your name:"));
+
+        var report = await Cycle(source, probe, resolver).RunAsync();
+
+        await Assert.That(report.Listed).IsEqualTo(0);
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<int>("SELECT count(*)::int FROM game"))
+            .IsEqualTo(0);
+    }
+
+    /// <summary>
     /// A submitted address publishing a codebase's own name does not get to be that codebase.
     /// </summary>
     /// <remarks>
