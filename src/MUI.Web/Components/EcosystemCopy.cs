@@ -39,6 +39,61 @@ public static class EcosystemCopy
             : $"{share.Count} of {share.Denominator} — nothing measured yet";
     }
 
+    /// <summary>
+    /// What the codebase shares are a fraction of, with the listing beside it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both numbers, because one of them read as the other.</b> This said "Share of the 144
+    /// listed games that told us what they run", which puts the identified count exactly where the
+    /// size of the catalogue belongs — and a reader with no reason to doubt it came away believing
+    /// the site lists 144 games rather than 418. That is the denominator rule failing in the one
+    /// direction it exists to catch, on the page that argues for it, so the denominator and the set
+    /// it was drawn from are now in the same sentence and neither can be mistaken for the other.
+    /// </remarks>
+    public static string CodebaseBasis(CodebaseUsage codebases)
+    {
+        ArgumentNullException.ThrowIfNull(codebases);
+
+        var listed = codebases.Identified + codebases.NotIdentified;
+
+        return $"Of the {Games(listed)} listed, {codebases.Identified} told us what they run, and "
+            + $"every share below is over those {codebases.Identified}. A codebase we could not "
+            + "read is left out of the denominator, never counted as something else.";
+    }
+
+    /// <summary>
+    /// How to read the MSSP row, whose two counts differ and whose declared cell is empty.
+    /// </summary>
+    /// <remarks>
+    /// The gap is the honest half of "nothing is ever deleted" showing through: a report we read
+    /// once is kept when the game stops publishing one, so the set we hold reports from is larger
+    /// than the set offering MSSP today. Two numbers a reader can subtract have to be reconciled on
+    /// the page — left alone they read as an arithmetic error, which is how this one was found.
+    /// </remarks>
+    public static string MsspBasis(ProtocolAdoption mssp, int reports)
+    {
+        ArgumentNullException.ThrowIfNull(mssp);
+
+        var opening = $"{EcosystemProtocols.Instrument} is the one row below that is not a floor: "
+            + "we ask every server for it by name, so the games that did not offer it were asked "
+            + "and declined. It is also the only one with no declared figure, because every game "
+            + "whose report we hold supports it by demonstration and a count of the ones that also "
+            + "listed it would measure a habit against that.";
+
+        if (mssp.Offered is not { } offered)
+        {
+            return opening;
+        }
+
+        var gap = reports - offered;
+
+        return gap <= 0
+            ? opening
+            : $"{opening} We hold {reports} reports and {Games(offered)} offer MSSP today: the "
+                + $"other {gap} stopped publishing one after we read it, and a report is not "
+                + "thrown away because it stopped being reissued.";
+    }
+
     /// <summary>What the measured column is a fraction of, spelled out wherever it is used.</summary>
     public static string Handshakes(int games) =>
         $"{Games(games)} whose handshake we completed";
@@ -69,12 +124,22 @@ public static class EcosystemCopy
             : $"{Share(share)}{rest}";
     }
 
-    /// <summary>The declared side of one protocol. Always a share; a missing claim is not a claim.</summary>
+    /// <summary>
+    /// The declared side of one protocol. A share where there is one to state.
+    /// </summary>
+    /// <remarks>
+    /// A missing claim is not a claim, so a protocol nobody declared is 0% and not a blank. The
+    /// blank is reserved for the case where the denominator itself cannot carry the question, which
+    /// is MSSP and only MSSP: every game whose report we hold has proved it supports MSSP by
+    /// sending one, so there is no population left over to be a share of.
+    /// </remarks>
     public static string Declared(ProtocolAdoption protocol)
     {
         ArgumentNullException.ThrowIfNull(protocol);
 
-        return Share(protocol.DeclaredShare);
+        return protocol.DeclaredShare is { } share
+            ? Share(share)
+            : "not asked — every report here is the answer";
     }
 
     /// <summary>

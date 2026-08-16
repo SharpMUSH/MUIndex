@@ -45,10 +45,7 @@ else
 
     <section aria-labelledby="codebases">
         <h2 id="codebases">Codebases</h2>
-        <p class="dim">
-            Share of the @Dashboard.Codebases.Identified listed games that told us what they run. A
-            codebase we could not read is excluded, never reassigned.
-        </p>
+        <p class="dim">@EcosystemCopy.CodebaseBasis(Dashboard.Codebases)</p>
 
         @if (Dashboard.Codebases.Families.Count == 0)
         {
@@ -70,14 +67,6 @@ else
             }
         </ul>
 
-        @if (Dashboard.Codebases.NotIdentified > 0)
-        {
-            <p class="faint">
-                @Dashboard.Codebases.NotIdentified listed
-                @(Dashboard.Codebases.NotIdentified == 1 ? "game has" : "games have") not told us one.
-                Excluded from the shares above.
-            </p>
-        }
     </section>
 
     <section aria-labelledby="lineages">
@@ -135,6 +124,11 @@ else
         <h2 id="protocols">Protocols</h2>
         <p class="dim">@EcosystemCopy.Floor</p>
 
+        @if (Dashboard.Mssp is { } mssp)
+        {
+            <p class="faint">@EcosystemCopy.MsspBasis(mssp, Dashboard.MsspReports)</p>
+        }
+
         <div class="table-wrap">
             <table class="protocols">
                 <caption class="sr-only">
@@ -164,7 +158,9 @@ else
                                     @EcosystemCopy.Measured(protocol)
                                 </span>
                             </td>
-                            <td class="mono declared">@EcosystemCopy.Declared(protocol)</td>
+                            <td class="declared @(protocol.DeclaredShare is null ? "faint" : "mono")">
+                                @EcosystemCopy.Declared(protocol)
+                            </td>
                         </tr>
                     }
                 </tbody>

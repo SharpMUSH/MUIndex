@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace MUI.Catalog;
 
 /// <summary>
@@ -47,6 +49,25 @@ namespace MUI.Catalog;
 /// LoFP — which is the same answer this class was already giving them, arrived at independently, and
 /// CoffeeMUD answers <c>FAMILY CoffeeMUD</c>. Six offer no MSSP at all and stay unplaced: Ew, GWM,
 /// Nightmare III, NakedMud, Dark City, Mindcloud3.
+/// </para>
+/// <para>
+/// <b>The mudlibs, and the rest of Diku.</b> A second pass on 2026-08-16 read the <c>FAMILY</c> we
+/// already hold for every codebase this map still did not place — the same citation as above, and
+/// it needed no new probe. Eleven publish <c>FAMILY LPMud</c>: TMI-2, Dead Souls, Discworld lib,
+/// UNIlib, 3Scapes mudlib, TD-MUDLIB, MorgenGrauen, Aldebaran, RoleMUD, Moral Decay and PD/NM III,
+/// which are mostly mudlibs rather than drivers — and a mudlib and the driver beneath it are
+/// different software in one lineage, which is the question this facet asks. Five publish
+/// <c>FAMILY DikuMUD</c>: PizzaMUD, Galaxy Engine, EmpireMUD, JediMUD and MUME.
+/// </para>
+/// <para>
+/// <b>What that pass deliberately left alone.</b> Legends of the Jedi, Materia Magica, Alter Aeon,
+/// Rapture, EternityMUD, IME and TeenyMUSH all publish <c>FAMILY Custom</c>, and an ancestry anyone
+/// could name from the outside does not outrank a game's own answer about itself; placing them
+/// would be resemblance overruling a declaration, which is the one move this map does not make.
+/// TinyBit and Haven publish no MSSP at all. Northern Crossroads publishes <c>FAMILY DikuMUD</c>
+/// and stays unplaced anyway, because its <c>CODEBASE</c> is <c>NC-7.0.278.89f11404</c> and the
+/// only key that reaches it is <c>NC</c> — two letters, short enough to turn up inside somebody
+/// else's name later. That is a limit of the key, not a doubt about the game.
 /// </para>
 /// <para>
 /// <b>That evidence is read once, by a person, and never at runtime.</b> A declaration is a fine
@@ -126,6 +147,14 @@ public static class CodebaseLineage
             ["NarutoMUD"] = Diku,
             ["LastOutpost"] = Diku,
 
+            // Placed by their own MSSP FAMILY, read 2026-08-16. See "The mudlibs and the rest of
+            // Diku" in the class remarks.
+            ["PizzaMUD"] = Diku,
+            ["Galaxy Engine"] = Diku,
+            ["EmpireMUD"] = Diku,
+            ["JediMUD"] = Diku,
+            ["MUME"] = Diku,
+
             ["LPMud"] = Lp,
             ["MudOS"] = Lp,
             ["FluffOS"] = Lp,
@@ -136,6 +165,20 @@ public static class CodebaseLineage
             ["Midnight Sun"] = Lp,
             ["CD"] = Lp,
             ["Epiphany"] = Lp,
+
+            // The mudlibs, each publishing FAMILY LPMud. A driver and the mudlib on top of it are
+            // different software and the same lineage, which is the question this facet asks.
+            ["TMI-2"] = Lp,
+            ["Dead Souls"] = Lp,
+            ["Discworld lib"] = Lp,
+            ["UNIlib"] = Lp,
+            ["3Scapes mudlib"] = Lp,
+            ["TD-MUDLIB"] = Lp,
+            ["MorgenGrauen"] = Lp,
+            ["Aldebaran"] = Lp,
+            ["RoleMUD"] = Lp,
+            ["Moral Decay"] = Lp,
+            ["PD/NM III"] = Lp,
 
             ["AberMUD"] = Aber,
         };
@@ -181,6 +224,17 @@ public static class CodebaseLineage
     /// naming two lineages is a game telling us something we cannot act on: picking either would be
     /// choosing on the reader's behalf and recording the choice as a fact about their game.
     /// </para>
+    /// <para>
+    /// <b>A word may end in its own version.</b> <c>ROM2.4/Haven</c> splits to <c>ROM2</c>, which no
+    /// key matches, so a game whose codebase string plainly recites <c>ROM</c> was going unplaced on
+    /// a space its author did not type. Trailing digits therefore come off before the lookup, which
+    /// is the boundary <c>LoginCommandReading.NamesFamily</c> already applies one rung up and for a
+    /// higher-stakes decision: <c>ROM24</c> and <c>CircleMUD3</c> are how these are written in the
+    /// wild, and a letter after the marker still disqualifies it. The cost is real and small — a
+    /// token like <c>ROT13</c> would be read as <c>ROT</c> — and it is bounded by everything else
+    /// here: only the family string is searched, the match has to be a whole token, and a second
+    /// lineage anywhere in the string discards both.
+    /// </para>
     /// </remarks>
     private static string? NamedIn(string codebase)
     {
@@ -188,7 +242,7 @@ public static class CodebaseLineage
 
         foreach (var word in codebase.Split(Separators, StringSplitOptions.RemoveEmptyEntries))
         {
-            if (!Lineages.TryGetValue(word, out var lineage))
+            if (!Named(word, out var lineage))
             {
                 continue;
             }
@@ -204,6 +258,19 @@ public static class CodebaseLineage
         return found;
     }
 
+    /// <summary>The lineage a single word names, with a version fused to its end allowed for.</summary>
+    private static bool Named(string word, [NotNullWhen(true)] out string? lineage)
+    {
+        if (Lineages.TryGetValue(word, out lineage))
+        {
+            return true;
+        }
+
+        var name = word.TrimEnd(Digits);
+
+        return name.Length > 0 && Lineages.TryGetValue(name, out lineage);
+    }
+
     /// <summary>
     /// What counts as a word boundary in a codebase string. Everything that is not a letter or a
     /// digit, because <c>CD.06.06</c>, <c>ROM-2.4</c> and <c>Epiphany v1.2.15 [development]</c> are
@@ -211,6 +278,8 @@ public static class CodebaseLineage
     /// </summary>
     private static readonly char[] Separators =
         [.. Enumerable.Range(0, 128).Select(c => (char)c).Where(c => !char.IsAsciiLetterOrDigit(c))];
+
+    private static readonly char[] Digits = [.. Enumerable.Range('0', 10).Select(c => (char)c)];
 
     /// <summary>Every lineage this classifies into, in the order the panel offers them.</summary>
     /// <remarks>

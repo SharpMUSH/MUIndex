@@ -138,9 +138,85 @@ public class EcosystemSurfaceTests
         await Assert.That(dashboard.Codebases.NotIdentified).IsGreaterThan(0);
         await Assert.That(dashboard.Codebases.Families.Sum(f => f.Count))
             .IsEqualTo(dashboard.Codebases.Identified);
-        await Assert.That(text).Contains("excluded, never reassigned");
-        await Assert.That(text).Contains("outside the denominator")
-            .Or.Contains("have not told us one");
+        await Assert.That(text).Contains("left out of the denominator, never counted as something else");
+    }
+
+    [Test]
+    public async Task TheCodebasePanelNamesTheListingBesideTheGamesThatAnswered()
+    {
+        // The identified count sat alone in this sentence — "Share of the 144 listed games that told
+        // us what they run" — and read as the size of the catalogue, which was 418. A denominator
+        // that can be mistaken for the set it was drawn from is the failure this page exists to
+        // argue against, so both numbers are in the sentence and each is unambiguous.
+        var dashboard = await Queries.EcosystemAsync();
+        var text = Render.Words(await EcosystemAsync());
+
+        var listed = dashboard.Codebases.Identified + dashboard.Codebases.NotIdentified;
+
+        await Assert.That(listed).IsEqualTo(dashboard.ListedGames);
+        await Assert.That(dashboard.Codebases.Identified).IsNotEqualTo(listed);
+        await Assert.That(text).Contains($"Of the {listed} games listed, {dashboard.Codebases.Identified} told us what they run");
+        await Assert.That(text).Contains($"every share below is over those {dashboard.Codebases.Identified}");
+    }
+
+    [Test]
+    public async Task TheMsspRowStaysBecauseItIsTheOnlyMeasurementThatIsNotAFloor()
+    {
+        // Not all servers support MSSP, and which ones do is one of the more useful things this page
+        // knows — it bounds what anybody can learn about the rest. It is also the only row with a
+        // real negative beside it: we request MSSP by name and nothing else, so every other measured
+        // figure is an undercount and this one is an answer. Holding it out as "the instrument"
+        // deleted the strongest row on the table.
+        var dashboard = await Queries.EcosystemAsync();
+        var text = Render.Words(await EcosystemAsync());
+
+        var mssp = dashboard.Protocols.Single(p => p.Protocol == "MSSP");
+
+        await Assert.That(mssp.Measured).IsNotNull();
+        await Assert.That(mssp.Declined).IsGreaterThan(0);
+        await Assert.That(text).Contains("MSSP");
+        await Assert.That(text).Contains("is the one row below that is not a floor");
+    }
+
+    [Test]
+    public async Task OnlyMsspHasNoDeclaredFigureAndTheReasonIsItsDenominator()
+    {
+        // Every game whose report we hold has proved it supports MSSP by sending one, so there is no
+        // population left over for a share to be of: the 1 of 131 that rendered counted the games
+        // that also listed MSSP inside their own MSSP report, which measures a habit. A protocol
+        // nobody declared is still 0% — absence of a claim is a claim — so the blank is this case
+        // alone.
+        var dashboard = await Queries.EcosystemAsync();
+        var text = Render.Words(await EcosystemAsync());
+
+        var blank = dashboard.Protocols.Where(p => p.DeclaredShare is null).Select(p => p.Protocol);
+
+        await Assert.That(blank).IsEquivalentTo(new[] { "MSSP" });
+        await Assert.That(EcosystemCopy.Declared(dashboard.Protocols.Single(p => p.Protocol == "MSSP")))
+            .DoesNotContain("%");
+        await Assert.That(text).Contains("every report here is the answer");
+    }
+
+    [Test]
+    public async Task TwoCountsOfMsspAreReconciledRatherThanLeftToSubtract()
+    {
+        // We hold more reports than there are games offering MSSP today, because a report is not
+        // discarded when a game stops reissuing it. Left unexplained the two numbers read as an
+        // arithmetic error on a page whose whole argument is that its arithmetic can be checked.
+        var dashboard = await Queries.EcosystemAsync();
+
+        await Assert.That(dashboard.Mssp).IsNotNull();
+
+        var withGap = new ProtocolAdoption("MSSP", Offered: 123, Declined: 295, Handshakes: 418,
+            Declared: 1, MsspReports: 131);
+
+        await Assert.That(EcosystemCopy.MsspBasis(withGap, 131)).Contains("We hold 131 reports");
+        await Assert.That(EcosystemCopy.MsspBasis(withGap, 131)).Contains("the other 8");
+
+        // And no gap means no sentence about one, rather than "the other 0".
+        var level = withGap with { Offered = 131 };
+
+        await Assert.That(EcosystemCopy.MsspBasis(level, 131)).DoesNotContain("the other");
     }
 
     [Test]

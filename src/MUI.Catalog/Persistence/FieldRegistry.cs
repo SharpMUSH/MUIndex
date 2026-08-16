@@ -20,9 +20,68 @@ public static class CapabilityFields
     public static IReadOnlyList<string> Names { get; } =
     [
         "ANSI", "ATCP", "CHARSET", "EOR", "GMCP", "MCCP", "MCP", "MSDP", "MSP", "MSSP", "MXP",
-        "NAWS", "NEW-ENVIRON", "PUEBLO", "SSL", "TLS", "TTYPE", "UTF-8", "VT100",
+        "NAWS", "NEW-ENVIRON", "PUEBLO", "TLS", "TTYPE", "UTF-8", "VT100",
         "XTERM 256 COLORS", "ZMP",
     ];
+
+    /// <summary>
+    /// Spellings that name a capability this list already carries under another name.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two vocabularies meet here, and without this they produced two half-empty rows.</b> The
+    /// handshake names what it negotiated — the telnet option is MCCP2 — and MSSP's variable is the
+    /// version-less <c>MCCP</c>. So the dashboard showed <c>MCCP2</c> measured by 87 games and
+    /// declared by none, above <c>MCCP</c> declared by 35 and never measured, which is one fact
+    /// about compression split into two rows that each look like a finding of absence. The whole
+    /// point of holding measured beside declared is the comparison, and a comparison cannot happen
+    /// across two rows.
+    /// </para>
+    /// <para>
+    /// <c>SSL</c> is the same shape between two MSSP variables rather than between two protocols:
+    /// the specification names <c>SSL</c>, games also write <c>TLS</c>, and both mean "there is an
+    /// encrypted port". 31 games said one and 6 said the other, in separate rows, and 6 said both.
+    /// The word each game used is not lost — a value carrying more than a yes still writes its own
+    /// descriptive row, so <c>SSL 4202</c> survives verbatim; it is only the boolean that merges.
+    /// </para>
+    /// <para>
+    /// <b>Only spellings actually observed are here.</b> MCCP3 is a distinct telnet option that no
+    /// game in this catalogue has offered, and adding it on the strength of the pattern would be
+    /// compiling in a guess. If one appears it gets a row of its own, which is visible and
+    /// correctable, rather than being folded somewhere by a rule nobody checked.
+    /// </para>
+    /// </remarks>
+    private static readonly IReadOnlyDictionary<string, string> Aliases =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["mccp2"] = "MCCP",
+            ["ssl"] = "TLS",
+        };
+
+    /// <summary>
+    /// The <see cref="Names"/> entry a protocol or MSSP variable names, or null for one we do not
+    /// carry a column for.
+    /// </summary>
+    /// <remarks>
+    /// Folded on case and on the separators the two vocabularies spell differently —
+    /// TelnetNegotiationCore's <c>NEW-ENVIRON</c> against MSSP's <c>XTERM 256 COLORS</c> — and then
+    /// through <see cref="Aliases"/>, so one capability is one field however it arrived. It lives
+    /// beside the names rather than in the crawler because the read path has to agree with the write
+    /// path about what a capability is, and only one of them observes a socket.
+    /// </remarks>
+    public static string? Canonical(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+
+        var folded = Fold(name);
+
+        return Aliases.TryGetValue(folded, out var alias)
+            ? alias
+            : Names.FirstOrDefault(known => Fold(known) == folded);
+    }
+
+    private static string Fold(string name) =>
+        name.Trim().ToLowerInvariant().Replace('_', '-').Replace(' ', '-');
 
     public static string Measured(string capability) => Prefix + Normalise(capability) + MeasuredSuffix;
 
@@ -56,7 +115,15 @@ public static class CapabilityFields
     /// still stored</em> — <c>FieldObservations</c> refuses to drop an observation because no column
     /// renders it — so a dashboard that knew only the declared set would silently discard real
     /// measurements. The name the server used is returned in that case, folded back out of the slug,
-    /// so <c>capability.mccp2.measured</c> reads as <c>MCCP2</c>.
+    /// so <c>capability.zmp3.measured</c> reads as <c>ZMP3</c>.
+    /// <para>
+    /// <b>It deliberately does not apply <see cref="Aliases"/>.</b> Aliasing happens once, on the
+    /// way in, and <c>0017_merge_capability_aliases.sql</c> moved the rows already written under an
+    /// alias — so every stored row is under its canonical name and folding again here would buy
+    /// nothing. It would also cost something: the dashboard tallies games per field name, so two
+    /// field names arriving at one capability would add rather than merge, and a game offering both
+    /// spellings would be counted twice in its own share.
+    /// </para>
     /// </remarks>
     public static string? NameOf(string field)
     {

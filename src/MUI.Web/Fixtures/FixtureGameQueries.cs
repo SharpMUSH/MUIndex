@@ -57,7 +57,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000003"), "aardwolf", "Aardwolf MUD",
         "Counted from the connect screen, which is the only place this game publishes a number.",
         LifecycleState.Active, IsClaimed: false,
-        PlayersNow: 219, Codebase: null, MeasuredProtocols: ["MSSP", "GMCP", "MCCP2", "MSDP"],
+        PlayersNow: 219, Codebase: null, MeasuredProtocols: ["MSSP", "GMCP", "MCCP", "MSDP"],
         LastReachableAt: Now.AddMinutes(-40));
 
     // Answers, but nothing we can count. Renders "count unknown" — never a zero.
@@ -71,7 +71,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000006"), "batmud", "BatMUD",
         "An intro screen long enough that the frame has to explain why it stopped.",
         LifecycleState.Active, IsClaimed: false,
-        PlayersNow: 71, Codebase: null, MeasuredProtocols: ["MSSP", "MCCP2"],
+        PlayersNow: 71, Codebase: null, MeasuredProtocols: ["MSSP", "MCCP"],
         LastReachableAt: Now.AddDays(-2));
 
     // Claimed, and the owner turned republication off. Stated without editorial (spec §8).
@@ -359,8 +359,8 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         [
             new("MSSP", State("MSSP"), CapabilityState.Unknown, Now.AddMinutes(-4)),
             new("CHARSET", State("CHARSET"), CapabilityState.Unknown, Now.AddMinutes(-4)),
-            new("MCCP2", State("MCCP2"),
-                Measured("MCCP2") ? CapabilityState.Present : CapabilityState.Unknown, Now.AddMinutes(-4)),
+            new("MCCP", State("MCCP"),
+                Measured("MCCP") ? CapabilityState.Present : CapabilityState.Unknown, Now.AddMinutes(-4)),
             new("TLS", State("TLS"), CapabilityState.Unknown, Now.AddMinutes(-4)),
             new("GMCP", State("GMCP"), CapabilityState.Present, Now.AddYears(-6)),
             new("MXP", CapabilityState.Unknown, CapabilityState.Unknown, null),

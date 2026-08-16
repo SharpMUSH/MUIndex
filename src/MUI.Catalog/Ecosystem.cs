@@ -145,8 +145,27 @@ public sealed record ProtocolAdoption(
     public MeasuredShare? Measured =>
         Offered is { } offered ? new MeasuredShare(Protocol, offered, Handshakes) : null;
 
-    /// <summary>The declared side. Always a share, because absence of a claim is not a claim.</summary>
-    public MeasuredShare DeclaredShare => new(Protocol, Declared, MsspReports);
+    /// <summary>
+    /// The declared side. A share for every protocol but the one the column is made of.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Absence of a claim is not a claim, so this is a share and not a null for every ordinary
+    /// protocol: a game that reported MSSP and did not mention GMCP has answered the question.
+    /// </para>
+    /// <para>
+    /// <b>MSSP is the exception, and its denominator is what breaks.</b> Every one of the
+    /// <see cref="MsspReports"/> games demonstrably supports MSSP — we are holding the report — so
+    /// the true figure is all of them, and the one that rendered was <c>1 of 131</c>: the count of
+    /// games that listed MSSP inside their own MSSP report. A share whose numerator counts a habit
+    /// and whose denominator counts the fact is not a weak measurement, it is not a measurement, and
+    /// the honest cell is empty. The measured side stays exactly as it is — see
+    /// <see cref="EcosystemProtocols.Instrument"/> for why it is the strongest figure on the table
+    /// rather than the weakest.
+    /// </para>
+    /// </remarks>
+    public MeasuredShare? DeclaredShare =>
+        EcosystemProtocols.IsInstrument(Protocol) ? null : new(Protocol, Declared, MsspReports);
 }
 
 /// <summary>
@@ -225,6 +244,15 @@ public sealed record EcosystemDashboard(
     CodebaseUsage Codebases,
     IReadOnlyList<ProtocolAdoption> Protocols)
 {
+    /// <summary>What asking every server for MSSP produced, or null before anything was measured.</summary>
+    /// <remarks>
+    /// Read beside <see cref="MsspReports"/> by the surfaces, which have two counts of one protocol
+    /// to reconcile: we hold more reports than there are games offering MSSP today, because a report
+    /// is not discarded when a game stops reissuing it.
+    /// </remarks>
+    public ProtocolAdoption? Mssp =>
+        Protocols.FirstOrDefault(protocol => EcosystemProtocols.IsInstrument(protocol.Protocol));
+
     public static EcosystemDashboard Empty(DateTimeOffset asOf) => new(
         asOf, 0, 0, 0, null, 0, CodebaseUsage.None, []);
 }
@@ -240,6 +268,31 @@ public sealed record EcosystemDashboard(
 public static class EcosystemProtocols
 {
     public static IReadOnlyList<string> Headline { get; } = ["TLS", "UTF-8", "GMCP", "MXP"];
+
+    /// <summary>
+    /// The protocol this page measures <em>with</em>, and the one row on it that is not a floor.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Being the instrument makes its measured column stronger, not weaker.</b> The tempting
+    /// move is to hold MSSP out of the adoption table on the grounds that its measured side is how
+    /// the declared column exists at all — and that gets the argument exactly backwards. We do not
+    /// request any other option, so every other measured figure is a floor and an unknown number of
+    /// servers support things they never offered us. MSSP is the one we ask for by name, which is
+    /// why it is the only row with a real negative beside it: 295 games were asked and declined.
+    /// How much of this hobby publishes MSSP at all is also the fact that bounds what anybody can
+    /// know about the rest of it, which makes it close to the most useful line on the page.
+    /// </para>
+    /// <para>
+    /// What being the instrument does break is the declared cell, and only that —
+    /// <see cref="ProtocolAdoption.DeclaredShare"/> is null here for a denominator that cannot be
+    /// fixed rather than a number that is merely small.
+    /// </para>
+    /// </remarks>
+    public const string Instrument = "MSSP";
+
+    public static bool IsInstrument(string protocol) =>
+        string.Equals(protocol, Instrument, StringComparison.Ordinal);
 }
 
 

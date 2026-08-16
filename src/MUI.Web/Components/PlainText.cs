@@ -567,8 +567,7 @@ public static class PlainText
         }
 
         Heading(b, "CODEBASES");
-        Wrap(b, $"Share of the {dashboard.Codebases.Identified} listed games that told us what they "
-            + "run. A codebase we could not read is excluded, never reassigned.");
+        Wrap(b, EcosystemCopy.CodebaseBasis(dashboard.Codebases));
         b.AppendLine();
 
         foreach (var family in dashboard.Codebases.Families)
@@ -581,11 +580,6 @@ public static class PlainText
             b.AppendLine("  No listed game has told us its codebase yet.");
         }
 
-        if (dashboard.Codebases.NotIdentified > 0)
-        {
-            b.AppendLine();
-            b.AppendLine($"  {dashboard.Codebases.NotIdentified} listed game(s) have not told us one.");
-        }
 
         Heading(b, "LINEAGES");
         Wrap(b, "The same games, grouped by the tradition their server descends from. This is "
@@ -615,6 +609,13 @@ public static class PlainText
 
         Heading(b, "PROTOCOLS");
         Wrap(b, EcosystemCopy.Floor);
+
+        if (dashboard.Mssp is { } mssp)
+        {
+            b.AppendLine();
+            Wrap(b, EcosystemCopy.MsspBasis(mssp, dashboard.MsspReports));
+        }
+
         b.AppendLine();
 
         foreach (var protocol in dashboard.Protocols)

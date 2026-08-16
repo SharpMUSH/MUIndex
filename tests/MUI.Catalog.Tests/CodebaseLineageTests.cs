@@ -108,6 +108,63 @@ public class CodebaseLineageTests
         await Assert.That(CodebaseLineage.Of("")).IsNull();
     }
 
+    /// <summary>The mudlibs, each placed by the FAMILY it publishes rather than by resemblance.</summary>
+    /// <remarks>
+    /// A mudlib and the driver beneath it are different software and one lineage, which is the
+    /// question this facet asks. Every value here is live and every placement is the game's own
+    /// answer, read 2026-08-16 from the <c>FAMILY</c> already in the store.
+    /// </remarks>
+    [Test]
+    [Arguments("TMI-2 1.5.1")]
+    [Arguments("Dead Souls 3.7a7")]
+    [Arguments("Discworld lib (current)")]
+    [Arguments("UNIlib")]
+    [Arguments("3Scapes mudlib")]
+    [Arguments("TD-MUDLIB 2.0")]
+    [Arguments("MorgenGrauen-3.3.5")]
+    [Arguments("Aldebaran")]
+    [Arguments("RoleMUD 2.2")]
+    [Arguments("Moral Decay v9.0")]
+    [Arguments("PD/NM III")]
+    public async Task AMudlibIsInTheLineageItPublishes(string codebase) =>
+        await Assert.That(CodebaseLineage.Of(codebase)).IsEqualTo(CodebaseLineage.Lp);
+
+    [Test]
+    [Arguments("PizzaMUD")]
+    [Arguments("Galaxy Engine 2.2")]
+    [Arguments("EmpireMUD 2.0 beta 5.213")]
+    [Arguments("JediMUD")]
+    [Arguments("MUME IX ad3e7206")]
+    public async Task ADikuDescendantThatSaysSoIsPlacedBySayingIt(string codebase) =>
+        await Assert.That(CodebaseLineage.Of(codebase)).IsEqualTo(CodebaseLineage.Diku);
+
+    [Test]
+    public async Task AGameSayingCustomIsNotOverruledByWhatWeCouldGuess()
+    {
+        // Every one of these publishes FAMILY Custom, and several have an ancestry anybody could
+        // name from the outside — Legends of the Jedi is a SMAUG descendant by any account but its
+        // own. A declaration a game made about itself outranks a resemblance we noticed, or this
+        // stops being a map of what games say and becomes a map of what we assumed.
+        await Assert.That(CodebaseLineage.Of("LotJ 4.3")).IsNull();
+        await Assert.That(CodebaseLineage.Of("Materia Magica 5.0.30")).IsNull();
+        await Assert.That(CodebaseLineage.Of("Alter Aeon v2.25")).IsNull();
+        await Assert.That(CodebaseLineage.Of("TeenyMUSH 0.91")).IsNull();
+    }
+
+    [Test]
+    public async Task AVersionFusedToTheNameDoesNotCostTheLineage()
+    {
+        // ROM2.4/Haven splits to "ROM2", which no key matches, so a string plainly reciting ROM was
+        // unplaced on a space its author did not type. The trailing digits come off, which is the
+        // boundary LoginCommandReading.NamesFamily already applies to a higher-stakes decision.
+        await Assert.That(CodebaseLineage.Of("ROM2.4/Haven")).IsEqualTo(CodebaseLineage.Diku);
+        await Assert.That(CodebaseLineage.Of("ROM24 b6")).IsEqualTo(CodebaseLineage.Diku);
+
+        // And a letter after the marker still disqualifies it, which is the edge the digit rule
+        // must not have widened.
+        await Assert.That(CodebaseLineage.Of("ROMulus2 3")).IsNull();
+    }
+
     [Test]
     public async Task ANeighbouringNameIsNotSweptIn()
     {

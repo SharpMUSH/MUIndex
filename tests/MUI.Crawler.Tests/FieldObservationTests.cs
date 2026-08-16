@@ -32,6 +32,35 @@ public class FieldObservationTests
     }
 
     [Test]
+    public async Task TheNegotiatedOptionAndTheDeclaredVariableLandOnOneField()
+    {
+        // A server offers the telnet option, which is MCCP2, and its MSSP names the feature, which
+        // is MCCP; MSSP's own variable is SSL where plenty of games write TLS. Stored under the
+        // spellings they arrived in, each pair rendered as two rows on the dashboard that were
+        // half-empty by construction — and the point of holding measured beside declared is that
+        // they can be compared, which they cannot be across two rows.
+        var observed = FieldObservations.From(Probes.Answered(
+            offered: Probes.Offered("MSSP", "MCCP2"),
+            mssp: Probes.Mssp(("MCCP", "1"), ("SSL", "4202"))));
+
+        await Assert.That(Value(observed, CapabilityFields.Measured("MCCP"), FieldSource.Handshake))
+            .IsEqualTo("true");
+        await Assert.That(Value(observed, CapabilityFields.Declared("MCCP"), FieldSource.Mssp))
+            .IsEqualTo("true");
+        await Assert.That(Value(observed, CapabilityFields.Declared("TLS"), FieldSource.Mssp))
+            .IsEqualTo("true");
+
+        await Assert.That(observed.Where(o => o.Field.Contains("mccp2", StringComparison.Ordinal)))
+            .IsEmpty();
+        await Assert.That(observed.Where(o => o.Field == CapabilityFields.Declared("SSL")))
+            .IsEmpty();
+
+        // And the word the game used is not lost with the boolean: a value carrying more than a yes
+        // still writes its own descriptive row, so the port they published survives verbatim.
+        await Assert.That(Value(observed, "SSL", FieldSource.Mssp)).IsEqualTo("4202");
+    }
+
+    [Test]
     public async Task ACapabilityWeNeverAskedAboutIsNotRecordedAsAbsent()
     {
         // Measured on alteraeon.com:23, which plainly implements MSDP, GMCP, MXP and MCCP and whose
@@ -101,7 +130,7 @@ public class FieldObservationTests
             mssp: Probes.Mssp(("SSL", "4202"), ("GMCP", "1"))));
 
         await Assert.That(Value(observed, "SSL", FieldSource.Mssp)).IsEqualTo("4202");
-        await Assert.That(Value(observed, CapabilityFields.Declared("SSL"), FieldSource.Mssp))
+        await Assert.That(Value(observed, CapabilityFields.Declared("TLS"), FieldSource.Mssp))
             .IsEqualTo("true");
         await Assert.That(Value(observed, "GMCP", FieldSource.Mssp)).IsNull();
     }

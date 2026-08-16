@@ -110,10 +110,11 @@ public class FacetQueriesPostgresTests
     [Test]
     public async Task TlsIsAnEndpointWeOpenedAndNeverAnSslLineInMssp()
     {
-        // capability.ssl.declared says somebody typed SSL 4202 into their configuration. An endpoint
-        // of kind tls says a socket was opened. Only the second is a measurement, and the facet
-        // reads only the second — which is also why it renders nothing today: the crawler dials
-        // plaintext, so nothing writes a TLS endpoint yet.
+        // capability.tls.declared says somebody typed SSL 4202 into their configuration — MSSP's own
+        // variable is SSL and CapabilityFields folds it onto TLS, because two names for an encrypted
+        // port are not two capabilities. An endpoint of kind tls says a socket was opened. Only the
+        // second is a measurement, and the facet reads only the second — which is also why it
+        // renders nothing today: the crawler dials plaintext, so nothing writes a TLS endpoint yet.
         await using var db = await PostgresFixture.MigratedAsync();
         var secure = await Seed.GameAsync(db, "secure", "Secure", lastReachableAt: Now);
         var boastful = await Seed.GameAsync(db, "boastful", "Boastful", lastReachableAt: Now);
@@ -121,7 +122,7 @@ public class FacetQueriesPostgresTests
         await new NpgsqlEndpointStore(db.DataSource).UpsertAsync(new GameEndpoint(
             secure, "secure.example", 4202, EndpointKind.Tls, Now, Now, EndpointState.Active));
         await new NpgsqlGameFieldStore(db.DataSource).UpsertAsync(new GameField(
-            boastful, CapabilityFields.Declared("SSL"), FieldSource.Mssp, "true", Now, Now));
+            boastful, CapabilityFields.Declared("TLS"), FieldSource.Mssp, "true", Now, Now));
 
         var listing = await QueriesOn(db).SearchAsync(new GameFilter());
 

@@ -169,4 +169,55 @@ public class FieldRegistryTests
         await Assert.That(CapabilityFields.CapabilityOf("CODEBASE")).IsNull();
         await Assert.That(CapabilityFields.IsMeasured("capability.gmcp.declared")).IsFalse();
     }
+
+    [Test]
+    public async Task TwoVocabulariesForOneCapabilityArriveAtOneField()
+    {
+        // The handshake names the telnet option it negotiated and MSSP names the feature: MCCP2
+        // against MCCP, and SSL against TLS. Left apart they produced two half-empty rows on the
+        // dashboard — 87 games measured under one name, 35 declared under the other, each reading
+        // as a finding of absence — and measured-beside-declared exists so the two can be compared.
+        await Assert.That(CapabilityFields.Canonical("MCCP2")).IsEqualTo("MCCP");
+        await Assert.That(CapabilityFields.Canonical("SSL")).IsEqualTo("TLS");
+        await Assert.That(CapabilityFields.Canonical("ssl")).IsEqualTo("TLS");
+
+        await Assert.That(CapabilityFields.Measured("MCCP2")).IsNotEqualTo(
+            CapabilityFields.Measured(CapabilityFields.Canonical("MCCP2")!));
+    }
+
+    [Test]
+    public async Task FoldingIsIdempotentAndNoNameIsAlsoAnAlias()
+    {
+        // A canonical name that is itself an alias, or an alias pointing at another alias, would
+        // make the field a capability lands in depend on how many times the fold ran — and the write
+        // path folds once while the read path does not fold at all.
+        foreach (var name in CapabilityFields.Names)
+        {
+            await Assert.That(CapabilityFields.Canonical(name)).IsEqualTo(name);
+        }
+    }
+
+    [Test]
+    public async Task AProtocolWeCarryNoColumnForFoldsToNothingRatherThanToSomethingNear()
+    {
+        // The registry is not a gate on ingestion — an unknown option is still stored, under its own
+        // name — so this has to answer null rather than reach for the closest entry.
+        await Assert.That(CapabilityFields.Canonical("MCCP3")).IsNull();
+        await Assert.That(CapabilityFields.Canonical("SOME UNOFFICIAL THING")).IsNull();
+    }
+
+    [Test]
+    public async Task EveryCanonicalNameStillHasAStalenessWindowOnBothSides()
+    {
+        // Names drives the registry, so a name removed in favour of an alias would leave the field
+        // the crawler now writes with no window and silently unjudgeable for age.
+        foreach (var capability in CapabilityFields.Names)
+        {
+            await Assert.That(Registry.Find(CapabilityFields.Measured(capability))).IsNotNull();
+            await Assert.That(Registry.Find(CapabilityFields.Declared(capability))).IsNotNull();
+        }
+
+        await Assert.That(Registry.Find(CapabilityFields.Measured("MCCP"))).IsNotNull();
+        await Assert.That(Registry.Find(CapabilityFields.Declared("TLS"))).IsNotNull();
+    }
 }
