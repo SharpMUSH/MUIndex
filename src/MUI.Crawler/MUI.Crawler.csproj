@@ -17,6 +17,13 @@
     <ProjectReference Include="..\MUI.Catalog\MUI.Catalog.csproj" />
     <ProjectReference Include="..\MUI.Crawl\MUI.Crawl.csproj" />
     <ProjectReference Include="..\MUI.Discovery\MUI.Discovery.csproj" />
+
+    <!--
+      The second pipe. MUI.I3 reads a sidecar the same way MUI.Crawl reads a socket, and neither can
+      see MUI.Catalog, so the arrows are unchanged: this is still the only assembly that knows both
+      what came back and what it means.
+    -->
+    <ProjectReference Include="..\MUI.I3\MUI.I3.csproj" />
   </ItemGroup>
 
   <ItemGroup>
