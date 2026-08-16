@@ -102,7 +102,10 @@ Peak activity hours are *derived from the crawl*, not asked for.
 3. **Taxonomy:** MSSP defaults, plus owner enrichment.
 4. **Auto-listing, opt-out.** Anything reachable that answers gets a page, marked *discovered,
    unclaimed*. Rationale: a game emitting MSSP is broadcasting for crawlers by design, and this is
-   the only ingestion policy that avoids the incumbents' empty-queue failure mode.
+   the only ingestion policy that avoids the incumbents' empty-queue failure mode. **A submitted
+   address is listed on the same terms** once a probe shows it to be a game (§7.8) — the form was
+   briefly the one discovery path whose games waited for a claim, and that was an accident rather
+   than a policy.
 5. **Referrals: verify, don't trust.** A referred host is a candidate hostname only.
 6. **WHO: count plus anonymised aggregates.** Never raw names at rest.
 7. **WHO parsing: structural, not per-codebase.**
@@ -530,6 +533,13 @@ density, which is what §7.6's backfill is for. And the rule has a cost worth re
 reachable game stays unlisted because its operator never edited one line — recoverable the moment it
 publishes a name, and the target is kept and re-probed for ever in the meantime.
 
+**This gate decides whether a stranger's address is listed; §7.8 decides whether a submitted one is
+public.** They are two questions and both are asked of every submission, in that order: a game that
+has not named itself never reaches the second.
+
+**Referred hosts are not hidden and never were.** Passing this gate is the whole of what a referral
+must do; the hidden-until-vouched-for rule applied to the submission form alone.
+
 #### The gate is on the resolved address, not the name
 
 **Checking the hostname is not enough, and treating it as enough is a server-side request forgery
@@ -771,6 +781,86 @@ exists to prevent, and it is stated in a *standard* rather than invented by us.
 The liveness guarantee survives this: a game asking for a month is still re-listed automatically when it
 returns, just up to a month later. A game that wants to be crawled less than that has effectively said
 so, and §11's opt-out is the honest way to say it entirely.
+
+### 7.8 A submitted address is published by the server, not by a claim
+
+**The public form is a discovery path, and it was the only one whose games were invisible.** Anything
+the crawler finds is listed on sight (§4.4). An address a stranger typed into a form is listed too —
+it gets a row, a slug and a permanent place in the registry — but until this rule it was kept off
+every public surface until somebody claimed it, which meant waiting for an operator who had no reason
+to know this site exists.
+
+**Measured, on 16 August 2026.** Of 432 unarchived games, exactly **one** was excluded by that rule:
+`convergence-mush`, submitted at 04:29, minted at 10:30, and answering every probe since with
+sixty-seven connected players and an `INFO` block naming RhostMUSH 4.27.3. Nothing about it was
+uncertain except who had typed its address. Meanwhile the hiding bought less than it looked: the row
+and its **slug are minted regardless of visibility**, so a hidden listing never protected the
+namespace, and referral-discovered games — the other way a stranger proposes an address — were never
+hidden at all.
+
+So: **a submitted game is published the moment a probe shows it to be a game.** A claim remains a way
+in, and is no longer the only one.
+
+#### The rubric, and what it cost to arrive at
+
+One signal is enough, from two tiers.
+
+**Protocol** — things no non-game produces:
+
+- MSSP answered at all, including a report dropped at our own ceiling (§6.4)
+- a MU\*-specific telnet option negotiated: GMCP, MSDP, MXP, MSP, MCCP, ATCP, ZMP, Pueblo
+- `WHO`/`DOING` parsed structurally into a count (§6.3)
+- an `INFO`/`VERSION` reply naming a known MU\* codebase family
+
+**Vocabulary** — an elicited reply that talks about *characters*: "no such player", "create a
+character", "who is online", "by what name". Never read from the connect screen, only from a reply to
+something we typed.
+
+**The first draft of this rule was two signals with one of them behavioural, and measurement killed
+it.** Run against the live catalogue it published 189 of 432 games and refused Achaea, BatMUD and
+ArcticMUD — because the Diku and LP families say almost nothing at a login screen. Requiring a second
+signal cost thirty games and bought nothing measurable.
+
+**The vocabulary tier is narrow for a measured reason.** `freechess.org:5000` — a chess server —
+answers `INFO` with `"who" is a registered name … password: … login:`, and `tirradyn.com:9010` — a
+real MUD — answers `No account by that name exists. Type 'new' to create a new account.` Those are
+the same sentence. Account, login and password idiom is what every multi-user telnet service shares,
+so a list wide enough to publish tirradyn publishes the chess server; tirradyn waits for the queue
+instead. **The list may only grow from a capture**, never from a phrase that sounds like something a
+MUD might say, or this becomes the per-codebase treadmill §6.3 refused for `WHO`.
+
+**A banner is not a signal, in either tier.** Every TCP service can print a paragraph at a stranger,
+and the submitter chooses the address. 126 of the games this rubric declines have a connect screen
+and nothing else, which is exactly the profile a forged host would present.
+
+#### What it does not change
+
+- **§7.2's gate stands in front of it.** A submitted address must still publish a meaningful name of
+  its own before it is listed at all. Publication therefore means *named itself* **and**
+  *corroborated*.
+- **Evaluated on every probe, not once at creation.** The address is kept and re-probed for ever
+  (§7.4), so a game that adds MSSP next year publishes itself that day with nobody involved — the
+  same self-healing §7.2 already claims for the name gate.
+- **Written once, and never revoked.** `corroborated_at` and `corroborated_by` record what was
+  measured at the moment of publication, because the audit question is *why was this published* and a
+  column rewritten every six hours cannot answer it. A game that stops answering goes quiet, dark and
+  archived like any other (§7.5); it does not go back into hiding. Presence establishes, absence never
+  revokes (§8.4).
+- **Opt-out still comes first** (§11), and a merge still leaves publicity exactly as it found it.
+
+#### The residue is a queue, not a silence
+
+Roughly half the catalogue shows nothing a probe can stand behind — Achaea included, whose `INFO`
+reply arrives as an undecodable binary stream. Those submissions stay hidden, and `mui-crawl
+--submissions` lists them so that a real game our instruments cannot read is a decision somebody makes
+rather than a row nobody ever sees. `--release <slug> --because "…"` publishes one, recorded as
+`staff` rather than as a signal: no probe measured it, a person judged it, and writing that judgement
+as a measurement is the failure rule 5 names.
+
+**Accepted cost, stated rather than implied:** a real game whose operator wants it unlisted, has not
+opted out, and whose address a stranger submits is published without being asked. That is already the
+policy for every game the crawler finds for itself (§4.4); what changes here is that the form stops
+being the one path that behaved differently.
 
 ## 8. Claiming and ownership
 

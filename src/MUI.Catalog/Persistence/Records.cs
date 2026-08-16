@@ -13,6 +13,16 @@ namespace MUI.Catalog.Persistence;
 /// When somebody handed us this game's address through the public form, or null when the crawler
 /// found it for itself (migration 0010).
 /// </param>
+/// <param name="CorroboratedAt">
+/// When a probe first showed this submitted address to be a game, which is what publishes it without
+/// a claim (spec §7.8, migration 0022). Null on every game the crawler found for itself, because
+/// there was never anything to corroborate.
+/// </param>
+/// <param name="CorroboratedBy">
+/// The signals that were true at that moment, and not a moment since. Written once with
+/// <see cref="CorroboratedAt"/> and never revised: it answers "why was this published", which a
+/// column kept current could not.
+/// </param>
 public sealed record GameRecord(
     Guid Id,
     string Slug,
@@ -23,7 +33,9 @@ public sealed record GameRecord(
     DateTimeOffset FirstSeenAt,
     DateTimeOffset? LastReachableAt = null,
     DateTimeOffset? ArchivedAt = null,
-    DateTimeOffset? SubmittedAt = null);
+    DateTimeOffset? SubmittedAt = null,
+    DateTimeOffset? CorroboratedAt = null,
+    IReadOnlyList<string>? CorroboratedBy = null);
 
 /// <summary>What kind of socket an endpoint is (spec §5.5).</summary>
 public enum EndpointKind

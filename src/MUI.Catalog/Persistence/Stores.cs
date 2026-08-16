@@ -22,6 +22,16 @@ public interface IGameStore
         DateTimeOffset at,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Publishes a submitted game because a probe showed it to be one (spec §7.8). Write-once: the
+    /// signals are what was true when it published, and a later probe does not revise them.
+    /// </summary>
+    Task CorroborateAsync(
+        Guid id,
+        DateTimeOffset at,
+        IReadOnlyList<string> signals,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Records that the game answered, which is what §7.5's grace is measured from.</summary>
     Task MarkReachableAsync(Guid id, DateTimeOffset at, CancellationToken cancellationToken = default);
 

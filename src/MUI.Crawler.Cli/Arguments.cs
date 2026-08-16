@@ -39,6 +39,11 @@ public sealed record Arguments
                                   this is a claim about somebody else's wishes.
           --opt-out-check <h[:p]> Ask DNS whether that address has published an opt-out record, print
                                   what we read, and exit. Touches no database and no game server.
+          --submissions           List the submitted games §7.8's rubric did not publish, and exit.
+                                  These answered and are listed; no probe of ours could show they
+                                  are games. Run mui-probe against one to see what it says now.
+          --release <slug>        Publish one of them by hand, recorded as staff rather than as a
+                                  measurement, and exit. Needs --because.
           -v, --verbose           Debug logging.
           -h, --help              This.
 
@@ -95,6 +100,12 @@ public sealed record Arguments
     /// the claim, never by a default.
     /// </remarks>
     public string? Because { get; init; }
+
+    /// <summary>Print the submissions awaiting a decision (spec §7.8) and exit.</summary>
+    public bool Submissions { get; init; }
+
+    /// <summary>The slug of a submission to publish by hand (spec §7.8), or null.</summary>
+    public string? Release { get; init; }
 
     /// <summary>An address to ask DNS about, without touching a database or a game server.</summary>
     public CrawlAddress? OptOutCheck { get; init; }
@@ -173,6 +184,14 @@ public sealed record Arguments
                     parsed = parsed with { OptOut = ParseAddress(Next(args, ref i, "--opt-out")) };
                     break;
 
+                case "--submissions":
+                    parsed = parsed with { Submissions = true };
+                    break;
+
+                case "--release":
+                    parsed = parsed with { Release = Next(args, ref i, "--release") };
+                    break;
+
                 case "--because":
                     parsed = parsed with { Because = Next(args, ref i, "--because") };
                     break;
@@ -190,6 +209,15 @@ public sealed record Arguments
         {
             throw new ArgumentException(
                 $"--opt-out needs --because: say who asked and how.{Environment.NewLine}{Usage}");
+        }
+
+        // The same rule as --opt-out's, for the same reason. A release publishes somebody's game on
+        // our judgement rather than on a measurement, and a judgement nobody wrote down beside the
+        // row is one nobody can review later.
+        if (parsed.Release is not null && string.IsNullOrWhiteSpace(parsed.Because))
+        {
+            throw new ArgumentException(
+                $"--release needs --because: say what convinced you.{Environment.NewLine}{Usage}");
         }
 
         // Before a socket rather than after one: an address nobody can open is worth catching while

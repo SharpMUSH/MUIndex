@@ -111,12 +111,18 @@ public class SubmissionPostgresTests
 
         await Assert.That(receipt.Outcome).IsEqualTo(SubmissionOutcome.Accepted);
 
+        // Named over INFO and nothing else. §7.2 lists it; §7.8 does not publish it, which is what
+        // leaves a claim as the only way out and keeps this test about claiming. A probe carrying
+        // MSSP or a readable WHO would now publish the game before the claim was ever issued.
         var probe = new ScriptedProbe(target => Probes.Answered(
             host: target.Host,
             port: target.Port,
-            mssp: Probes.Mssp(("NAME", "Tidewater Nights"), ("CODEBASE", "PennMUSH 1.8.8p0")),
             banner: "Welcome to Tidewater Nights",
-            who: new WhoReading(WhoConfidence.Count, 4)));
+            info: """
+                ### Begin INFO 1
+                Name: Tidewater Nights
+                ### End INFO
+                """));
 
         var report = await Cycle(source, probe, resolver).RunAsync();
 
@@ -156,13 +162,18 @@ public class SubmissionPostgresTests
 
         // The operator publishes the token where an anonymous connection reads it, and the next
         // ordinary crawl settles it. Nothing here writes is_claimed.
+        // Published on the connect screen rather than in MSSP — §8.3's second channel — so that the
+        // probe which settles the claim still carries no §7.8 signal and the game becomes visible
+        // because it was claimed, not because it was corroborated on the way past.
         var published = new ScriptedProbe(target => Probes.Answered(
             host: target.Host,
             port: target.Port,
-            mssp: Probes.Mssp(
-                ("NAME", "Tidewater Nights"),
-                (ClaimTokenBeacon.MsspVariable, claim.Token)),
-            banner: "Welcome to Tidewater Nights"));
+            banner: $"Welcome to Tidewater Nights\n{ClaimTokenBeacon.ConnectScreenPrefix} {claim.Token}",
+            info: """
+                ### Begin INFO 1
+                Name: Tidewater Nights
+                ### End INFO
+                """));
 
         // Waiting out the schedule, without waiting. The first cycle pushed next_probe_at forward,
         // which is §7.7 working; a claimant in production either waits for it or presses "check now".
@@ -286,6 +297,196 @@ public class SubmissionPostgresTests
 
         await Assert.That(game.Name).IsEqualTo("Convergence MUSH");
         await Assert.That(game.Slug).IsEqualTo("convergence-mush");
+    }
+
+    /// <summary>
+    /// A submitted game the probe shows to be a game is public on sight (spec §7.8).
+    /// </summary>
+    /// <remarks>
+    /// <b>The rule this feature exists for.</b> Convergence MUSH was submitted at 04:29 on 16 August
+    /// 2026, answered every probe from 10:30 onward with sixty-seven connected players and an
+    /// <c>INFO</c> block naming RhostMUSH, and was on no page of the site at all — the only game of
+    /// 432 that the visibility rule excluded, waiting for a claim from an operator who had no reason
+    /// to know the site existed. Nothing about it was uncertain except who had typed its address.
+    /// </remarks>
+    [Test]
+    public async Task ASubmittedGameThatLooksLikeOneIsPublicWithoutWaitingForAClaim()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+        var resolver = new FakeHostResolver().Resolving("game.example.org", "203.0.113.10");
+
+        await Submissions(source, resolver).SubmitAsync("game.example.org", "10000", Source(21), None);
+
+        var probe = new ScriptedProbe(target => Probes.Answered(
+            target.Host,
+            target.Port,
+            who: new WhoReading(WhoConfidence.Count, 67),
+            info: """
+                ### Begin INFO 1
+                Name: Convergence MUSH
+                Connected: 67
+                Version: RhostMUSH 4.27.3
+                ### End INFO
+                """));
+
+        await Cycle(source, probe, resolver).RunAsync();
+
+        var queries = new NpgsqlGameQueries(source);
+
+        // On the site, with no claim anywhere in the story.
+        await Assert.That(await queries.FindAsync("convergence-mush")).IsNotNull();
+        await Assert.That((await queries.ListAsync(new GameFilter())).Count).IsEqualTo(1);
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        // And why, kept: an audit that cannot see which signals published a game cannot review the
+        // rule that published it.
+        var record = await connection.QuerySingleAsync<(DateTime? At, string[]? By)>(
+            "SELECT corroborated_at, corroborated_by FROM game");
+
+        await Assert.That(record.At).IsNotNull();
+        await Assert.That(record.By).IsEquivalentTo(["who", "codebase"]);
+
+        // The marker itself is untouched. A stranger did hand us this address, and that stays true.
+        await Assert.That(await connection.ExecuteScalarAsync<DateTime?>(
+            "SELECT submitted_at FROM game")).IsNotNull();
+    }
+
+    /// <summary>
+    /// A submitted game that says only its own name is listed, hidden, and left for the queue.
+    /// </summary>
+    /// <remarks>
+    /// §7.2 admits it — the server named itself — and §7.8 does not publish it, because naming
+    /// yourself is not evidence of being a game: a host with one line of text can do it. This is the
+    /// residue <c>mui-crawl submissions</c> exists to show, and the only path out of it is a claim
+    /// or an operator's judgement.
+    /// </remarks>
+    [Test]
+    public async Task ASubmittedGameThatShowsNothingButItsNameStaysHidden()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+        var resolver = new FakeHostResolver().Resolving("quiet.example.org", "203.0.113.10");
+
+        await Submissions(source, resolver).SubmitAsync("quiet.example.org", "4201", Source(22), None);
+
+        var probe = new ScriptedProbe(target => Probes.Answered(
+            target.Host,
+            target.Port,
+            info: """
+                ### Begin INFO 1
+                Name: Quiet Hall
+                ### End INFO
+                """));
+
+        var report = await Cycle(source, probe, resolver).RunAsync();
+
+        await Assert.That(report.Listed).IsEqualTo(1);
+
+        var queries = new NpgsqlGameQueries(source);
+
+        await Assert.That(await queries.FindAsync("quiet-hall")).IsNull();
+        await Assert.That((await queries.ListAsync(new GameFilter { IncludeArchived = true })).Count)
+            .IsEqualTo(0);
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<DateTime?>(
+            "SELECT corroborated_at FROM game")).IsNull();
+    }
+
+    /// <summary>
+    /// A hidden submission publishes itself on the probe that shows what it is, with nobody involved.
+    /// </summary>
+    /// <remarks>
+    /// The same self-healing §7.2 already claims for the name gate: the address is kept and re-probed
+    /// for ever (§7.4), so the day an operator switches MSSP on is the day the game appears. Without
+    /// this the rule would only ever run once, at creation, and a game that grew a signal afterwards
+    /// would stay hidden on the strength of a probe taken before it had one.
+    /// </remarks>
+    [Test]
+    public async Task AHiddenSubmissionPublishesItselfOnTheProbeThatCorroboratesIt()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+        var resolver = new FakeHostResolver().Resolving("later.example.org", "203.0.113.10");
+
+        await Submissions(source, resolver).SubmitAsync("later.example.org", "4201", Source(23), None);
+
+        var quiet = new ScriptedProbe(target => Probes.Answered(
+            target.Host, target.Port, info: "### Begin INFO 1\nName: Late Bloomer\n### End INFO"));
+
+        await Cycle(source, quiet, resolver).RunAsync();
+
+        var queries = new NpgsqlGameQueries(source);
+
+        await Assert.That(await queries.FindAsync("late-bloomer")).IsNull();
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        // Waiting out §7.7's schedule without waiting, as the claim path above does.
+        await connection.ExecuteAsync("UPDATE crawl_target SET next_probe_at = now()");
+
+        var announced = new ScriptedProbe(target => Probes.Answered(
+            target.Host,
+            target.Port,
+            mssp: Probes.Mssp(("NAME", "Late Bloomer")),
+            info: "### Begin INFO 1\nName: Late Bloomer\n### End INFO"));
+
+        await Cycle(source, announced, resolver).RunAsync();
+
+        await Assert.That(await queries.FindAsync("late-bloomer")).IsNotNull();
+        await Assert.That(await connection.ExecuteScalarAsync<string[]>(
+            "SELECT corroborated_by FROM game")).IsEquivalentTo(["mssp"]);
+    }
+
+    /// <summary>
+    /// Corroboration is written once, and keeps the reasons it was written with.
+    /// </summary>
+    /// <remarks>
+    /// The record is what we measured at the moment it published, not a live view of what the game
+    /// currently does — rewriting it on every probe would turn an audit trail into a mirror of the
+    /// last six hours, and there would be no way to ask why a game was published in the first place.
+    /// Presence establishes and absence never revokes (§8.4), so nothing here un-publishes either.
+    /// </remarks>
+    [Test]
+    public async Task CorroborationIsWrittenOnceAndKeepsItsFirstReasons()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+        var resolver = new FakeHostResolver().Resolving("first.example.org", "203.0.113.10");
+
+        await Submissions(source, resolver).SubmitAsync("first.example.org", "4201", Source(24), None);
+
+        var first = new ScriptedProbe(target => Probes.Answered(
+            target.Host,
+            target.Port,
+            who: new WhoReading(WhoConfidence.Count, 3),
+            info: "### Begin INFO 1\nName: First Light\n### End INFO"));
+
+        await Cycle(source, first, resolver).RunAsync();
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        var written = await connection.ExecuteScalarAsync<DateTime>(
+            "SELECT corroborated_at FROM game");
+
+        await connection.ExecuteAsync("UPDATE crawl_target SET next_probe_at = now()");
+
+        var richer = new ScriptedProbe(target => Probes.Answered(
+            target.Host,
+            target.Port,
+            mssp: Probes.Mssp(("NAME", "First Light")),
+            who: new WhoReading(WhoConfidence.Count, 4),
+            info: "### Begin INFO 1\nName: First Light\n### End INFO"));
+
+        await Cycle(source, richer, resolver).RunAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<DateTime>(
+            "SELECT corroborated_at FROM game")).IsEqualTo(written);
+        await Assert.That(await connection.ExecuteScalarAsync<string[]>(
+            "SELECT corroborated_by FROM game")).IsEquivalentTo(["who"]);
     }
 
     /// <summary>

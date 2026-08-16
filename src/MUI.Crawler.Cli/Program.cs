@@ -166,6 +166,52 @@ if (arguments.OptOut is { } request)
     return 0;
 }
 
+// §7.8's residue, and the whole of the operator surface over it. A submission the rubric could not
+// publish is otherwise a row nobody sees, waiting on a claim from an operator with no reason to know
+// this site exists — which is the state one game was in for a fortnight before §7.8 was written.
+if (arguments.Submissions)
+{
+    var pending = await new NpgsqlSubmissionQueue(source).AwaitingAsync(CancellationToken.None);
+
+    Console.WriteLine($"submissions   {pending.Count} awaiting a decision");
+
+    foreach (var row in pending)
+    {
+        var reachable = row.LastReachableAt is { } seen
+            ? $"reachable {(time.GetUtcNow() - seen).TotalHours:F0}h ago"
+            : "never reached";
+
+        Console.WriteLine(
+            $"  {row.Slug,-32} {row.Address,-38} submitted "
+            + $"{(time.GetUtcNow() - row.SubmittedAt).TotalDays:F0}d ago, {reachable}");
+        Console.WriteLine($"  {row.Name}");
+    }
+
+    if (pending.Count > 0)
+    {
+        // Never a verdict of ours: the rubric's signals are read from a live probe and are not in
+        // the database, so the honest thing to print is where to go and look for them.
+        Console.WriteLine();
+        Console.WriteLine(
+            "  mui-probe <host> <port> shows what one says now. --release <slug> --because \"…\" "
+            + "publishes it as a decision of yours.");
+    }
+
+    return 0;
+}
+
+if (arguments.Release is { } slug)
+{
+    var released = await new NpgsqlSubmissionQueue(source)
+        .ReleaseAsync(slug, time.GetUtcNow(), CancellationToken.None);
+
+    Console.WriteLine(released
+        ? $"released      {slug} is listed, recorded as staff — {arguments.Because}"
+        : $"released      nothing to do: {slug} is not a submission awaiting a decision");
+
+    return released ? 0 : 1;
+}
+
 var planted = await CrawlSeeds.PlantAsync(targets, arguments.Seeds, time);
 Console.WriteLine($"seeds         {arguments.Seeds.Count} configured, {planted} new in the registry");
 

@@ -39,9 +39,16 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A game is public if nobody submitted it, or if it has been claimed.</b> Anything the
-    /// crawler found for itself is listed on sight exactly as §7.1 says; an address a stranger handed
-    /// us waits until somebody proves they run it.
+    /// <b>A game is public if nobody submitted it, if it has been claimed, or if a probe has shown
+    /// it to be a game.</b> Anything the crawler found for itself is listed on sight exactly as §7.1
+    /// says; an address a stranger handed us waits until the server itself corroborates it (§7.8,
+    /// migration 0022) or somebody proves they run it.
+    /// </para>
+    /// <para>
+    /// <b>The third clause is not a loosening of the second, it is the second one's missing half.</b>
+    /// Waiting for a claim meant waiting for an operator who had no reason to know this site exists,
+    /// and it was measured: of 432 games, exactly one was excluded by this rule, having answered
+    /// every probe for a fortnight with its engine's name and sixty-seven connected players.
     /// </para>
     /// <para>
     /// <b>And a game absorbed by a merge in force is not offered separately.</b> That is the whole
@@ -62,10 +69,12 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// listing hides and the rankings show.
     /// </para>
     /// </remarks>
-    private const string Public = $"((submitted_at IS NULL OR is_claimed) AND {NotAbsorbed})";
+    private const string Public =
+        $"((submitted_at IS NULL OR is_claimed OR corroborated_at IS NOT NULL) AND {NotAbsorbed})";
 
     /// <summary>The same rule where the table is aliased.</summary>
-    private const string PublicG = $"((g.submitted_at IS NULL OR g.is_claimed) AND {NotAbsorbedG})";
+    private const string PublicG =
+        $"((g.submitted_at IS NULL OR g.is_claimed OR g.corroborated_at IS NOT NULL) AND {NotAbsorbedG})";
 
     /// <summary>
     /// No merge is pointing this game at another one right now.

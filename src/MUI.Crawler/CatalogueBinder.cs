@@ -330,9 +330,64 @@ public sealed class CatalogueBinder(
     /// tests against a fixture that used its own spelling.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Publishes a submitted game the moment a probe shows it to be a game (spec §7.8).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Here rather than at creation, because a submission that shows nothing today may show
+    /// something next year.</b> Every arm of <see cref="BindAsync"/> reaches
+    /// <see cref="AttachAsync"/> — the new listing, the game we already knew, and the merge — so a
+    /// rule written once here cannot be the rule one path forgot. The address is kept and re-probed
+    /// for ever (§7.4), so an operator who switches MSSP on has published their own game by
+    /// teatime, with nobody at this end involved. That is the same self-healing property §7.2 claims
+    /// for the name gate, and it is the reason this is not a decision taken once at creation.
+    /// </para>
+    /// <para>
+    /// <b>Games nobody submitted are left alone.</b> They were never hidden, so corroborating them
+    /// would write a record of a decision that was never taken, and <c>corroborated_at</c> would
+    /// stop meaning what the queue reads it as.
+    /// </para>
+    /// <para>
+    /// <b>The merge arm reaches this too, and that is correct.</b> A hidden submission that turns out
+    /// to be a second port of a game we already list is absorbed and no longer offered separately —
+    /// but if it is instead the survivor, the probe that corroborates it publishes it like any
+    /// other. Nothing here can hide a game that was already visible: the write is one-way.
+    /// </para>
+    /// </remarks>
+    private async Task CorroborateAsync(
+        Guid gameId,
+        ProbeResult result,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        if (await games.ByIdAsync(gameId, cancellationToken)
+            is not { SubmittedAt: not null, CorroboratedAt: null })
+        {
+            return;
+        }
+
+        var signals = MuLikeness.Signals(result);
+
+        if (signals.Count == 0)
+        {
+            return;
+        }
+
+        await games.CorroborateAsync(gameId, now, signals, cancellationToken);
+
+        logger?.LogInformation(
+            "{Host}:{Port} was submitted rather than found, and answered as a game ({Signals}), so it "
+            + "is listed without waiting for a claim (§7.8)",
+            result.Host, result.Port, string.Join(", ", signals));
+    }
+
     private async Task AttachAsync(Guid gameId, ProbeResult result, CancellationToken cancellationToken)
     {
         var now = time.GetUtcNow();
+
+        await CorroborateAsync(gameId, result, now, cancellationToken);
+
         var existing = await endpoints.ByAddressAsync(result.Host, result.Port, cancellationToken);
 
         await endpoints.UpsertAsync(

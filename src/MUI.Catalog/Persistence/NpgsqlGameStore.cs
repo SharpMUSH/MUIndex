@@ -13,7 +13,8 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
         id AS Id, slug AS Slug, name AS Name, tagline AS Tagline, state AS State,
         is_claimed AS IsClaimed, first_seen_at AS FirstSeenAt,
         last_reachable_at AS LastReachableAt, archived_at AS ArchivedAt,
-        submitted_at AS SubmittedAt
+        submitted_at AS SubmittedAt, corroborated_at AS CorroboratedAt,
+        corroborated_by AS CorroboratedBy
         """;
 
     public async Task<GameRecord?> ByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -66,6 +67,42 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
                 archivedAt = game.ArchivedAt?.ToUniversalTime(),
                 submittedAt = game.SubmittedAt?.ToUniversalTime(),
             },
+            cancellationToken: cancellationToken));
+    }
+
+    /// <summary>
+    /// Publishes a submitted game on the strength of what a probe measured (spec §7.8).
+    /// </summary>
+    /// <remarks>
+    /// <b>Write-once at the database, not by convention.</b> The <c>WHERE corroborated_at IS NULL</c>
+    /// is what makes a second probe with richer signals leave the first record alone — a caller that
+    /// forgot to check would otherwise rewrite the answer to "why was this published" every six
+    /// hours, and two crawlers racing the same game would each think they were first.
+    /// </remarks>
+    public async Task CorroborateAsync(
+        Guid id,
+        DateTimeOffset at,
+        IReadOnlyList<string> signals,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(signals);
+
+        if (signals.Count == 0)
+        {
+            // Nothing measured it, so there is nothing to publish it on. The CHECK would refuse an
+            // empty array anyway; refusing here means the caller never has to have known that.
+            return;
+        }
+
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE game
+               SET corroborated_at = @at, corroborated_by = @signals
+             WHERE id = @id AND corroborated_at IS NULL
+            """,
+            new { id, at = at.ToUniversalTime(), signals = signals.ToArray() },
             cancellationToken: cancellationToken));
     }
 
@@ -199,8 +236,12 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
 
         public DateTimeOffset? SubmittedAt { get; init; }
 
+        public DateTimeOffset? CorroboratedAt { get; init; }
+
+        public string[]? CorroboratedBy { get; init; }
+
         public GameRecord ToRecord() => new(
             Id, Slug, Name, Tagline, SqlEnums.ToLifecycleState(State), IsClaimed,
-            FirstSeenAt, LastReachableAt, ArchivedAt, SubmittedAt);
+            FirstSeenAt, LastReachableAt, ArchivedAt, SubmittedAt, CorroboratedAt, CorroboratedBy);
     }
 }
