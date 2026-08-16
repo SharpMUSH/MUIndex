@@ -25,6 +25,14 @@ public static class BannerText
     {
         ArgumentNullException.ThrowIfNull(banner);
 
+        // MXP's own markup goes first, and it has to happen here rather than in a caller so that the
+        // probe's "is this a screen or a placeholder" judgement and the duplicate fingerprint agree.
+        // The escape sequences below already fall to SkipEscape — ESC[1z is a CSI like any other —
+        // but the tags between them are ordinary characters and survived: tirradyn.com opens with
+        // nothing but a version request, which was stored and hashed as the literal "<VERSION>" and
+        // put up as a duplicate of another game that answers the same way.
+        banner = MxpSignal.Strip(banner);
+
         var text = new StringBuilder(banner.Length);
         var pendingSpace = false;
 

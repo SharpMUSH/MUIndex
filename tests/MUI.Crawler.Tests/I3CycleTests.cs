@@ -45,7 +45,7 @@ public class I3CycleTests
 
         var cycle = new I3Cycle(
             new StubGateway([Mud("Nightfall", "82.153.225.173", 4242)]),
-            targets, bindings, presence, new I3Options(), Clock());
+            targets, bindings, presence, new FakeFields(), new I3Options(), Clock());
 
         var result = await cycle.RunAsync(CancellationToken.None);
 
@@ -76,7 +76,7 @@ public class I3CycleTests
 
         var cycle = new I3Cycle(
             new StubGateway([Mud("Nightfall", "82.153.225.173", 4242)]),
-            targets, bindings, new FakePresence(), new I3Options(), Clock());
+            targets, bindings, new FakePresence(), new FakeFields(), new I3Options(), Clock());
 
         var result = await cycle.RunAsync(CancellationToken.None);
 
@@ -109,7 +109,7 @@ public class I3CycleTests
                 Mud("The Zone-i4", "136.144.155.250", 8888),
                 Mud("The Zone-wpr", "136.144.155.250", 8888),
             ]),
-            targets, bindings, new FakePresence(),
+            targets, bindings, new FakePresence(), new FakeFields(),
             new I3Options { BetweenAsks = TimeSpan.Zero }, Clock());
 
         var result = await cycle.RunAsync(CancellationToken.None);
@@ -136,7 +136,7 @@ public class I3CycleTests
 
         var cycle = new I3Cycle(
             new StubGateway([Mud("Epitaph", "135.181.197.219", 0)]),
-            targets, bindings, new FakePresence(), new I3Options(), Clock());
+            targets, bindings, new FakePresence(), new FakeFields(), new I3Options(), Clock());
 
         var result = await cycle.RunAsync(CancellationToken.None);
 
@@ -163,7 +163,7 @@ public class I3CycleTests
         targets.Existing[("82.153.225.173", 4242)] = game;
 
         var cycle = new I3Cycle(
-            gateway, targets, bindings, presence,
+            gateway, targets, bindings, presence, new FakeFields(),
             new I3Options { BetweenAsks = TimeSpan.Zero }, Clock());
 
         await cycle.RunAsync(CancellationToken.None);
@@ -190,7 +190,7 @@ public class I3CycleTests
         // is disconnected, which is a different thing and correctly skips the ask entirely.
         var cycle = new I3Cycle(
             new StubGateway([Mud("Silent", "203.0.113.1", 4000)]), new FakeTargets(), bindings, presence,
-            new I3Options { BetweenAsks = TimeSpan.Zero }, Clock());
+            new FakeFields(), new I3Options { BetweenAsks = TimeSpan.Zero }, Clock());
 
         await cycle.RunAsync(CancellationToken.None);
 
@@ -212,7 +212,7 @@ public class I3CycleTests
 
         var cycle = new I3Cycle(
             new StubGateway([Mud("Silent", "203.0.113.1", 4000)]), new FakeTargets(), bindings,
-            new FakePresence(), new I3Options { BetweenAsks = TimeSpan.Zero }, Clock());
+            new FakePresence(), new FakeFields(), new I3Options { BetweenAsks = TimeSpan.Zero }, Clock());
 
         await cycle.RunAsync(CancellationToken.None);
 
@@ -230,7 +230,7 @@ public class I3CycleTests
         var presence = new FakePresence();
 
         var result = await new I3Cycle(
-            new StubGateway([]), targets, new FakeBindings(), presence, new I3Options(), Clock())
+            new StubGateway([]), targets, new FakeBindings(), presence, new FakeFields(), new I3Options(), Clock())
             .RunAsync(CancellationToken.None);
 
         await Assert.That(result.Listed).IsEqualTo(0);
@@ -359,6 +359,30 @@ public class I3CycleTests
 
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FakeFields : IGameFieldStore
+    {
+        public List<GameField> Written { get; } = [];
+
+        public Task UpsertAsync(GameField field, CancellationToken ct = default)
+        {
+            Written.Add(field);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<GameField>> ForGameAsync(Guid gameId, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<GameField>>([]);
+
+        public Task<IReadOnlyList<GameField>> ForGameAsync(
+            Guid gameId, FieldSource source, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<GameField>>([]);
+
+        public Task RecordChangeAsync(FieldChange change, CancellationToken ct = default) =>
+            Task.CompletedTask;
+
+        public Task<DateTimeOffset?> LastChangedAtAsync(Guid gameId, string field, CancellationToken ct = default) =>
+            Task.FromResult<DateTimeOffset?>(null);
     }
 
     private sealed class FakePresence : IPresenceStore

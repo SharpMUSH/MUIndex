@@ -123,6 +123,7 @@ public sealed class I3Service(
     ICrawlTargetRepository targets,
     II3BindingRepository bindings,
     IPresenceStore presence,
+    IGameFieldStore fields,
     I3ServiceOptions options,
     TimeProvider time,
     ILogger<I3Service> logger,
@@ -211,7 +212,7 @@ public sealed class I3Service(
         await using var gateway = await gateways.ConnectAsync(cancellationToken);
 
         var result = await new I3Cycle(
-                gateway, targets, bindings, presence, options.Pass, time,
+                gateway, targets, bindings, presence, fields, options.Pass, time,
                 loggers?.CreateLogger<I3Cycle>())
             .RunAsync(cancellationToken);
 

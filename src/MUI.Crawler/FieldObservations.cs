@@ -212,6 +212,21 @@ public static class FieldObservations
                 "true");
         }
 
+        // MXP read off the wire rather than out of a negotiation, and recorded under the source that
+        // produced it. A server may negotiate option 91 — in which case it is already in the loop
+        // above under `handshake` — or it may simply start emitting MXP, whose line-mode sequences
+        // are ANSI-legal and so cost it nothing to send at a client that cannot read them. The
+        // second case is common and the handshake sees none of it.
+        //
+        // `banner` and not `handshake`: this is text we parsed, which is the same class of
+        // observation as a count found on a connect screen, and calling it a negotiation would put
+        // our reading method into a game's record as something the server did.
+        if (result.MxpObserved)
+        {
+            yield return new FieldObservation(
+                CapabilityFields.Measured("MXP"), FieldSource.Banner, "true");
+        }
+
         // The one honest negative. The server had a full connected session to send IAC WILL MSSP
         // and did not — that absence is a measurement. See the Measured remarks for the caveat
         // about servers that only answer IAC DO MSSP rather than advertising it themselves.

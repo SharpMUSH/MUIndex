@@ -20,6 +20,7 @@ public static class SqlEnums
         FieldSource.I3 => "i3",
         FieldSource.Mssp => "mssp",
         FieldSource.Info => "info",
+        FieldSource.I3Mudlist => "i3_mudlist",
         FieldSource.Banner => "banner",
         _ => throw Unmapped(source),
     };
@@ -33,6 +34,7 @@ public static class SqlEnums
         "i3" => FieldSource.I3,
         "mssp" => FieldSource.Mssp,
         "info" => FieldSource.Info,
+        "i3_mudlist" => FieldSource.I3Mudlist,
         "banner" => FieldSource.Banner,
         _ => throw Unread(value, nameof(FieldSource)),
     };

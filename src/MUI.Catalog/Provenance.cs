@@ -51,6 +51,26 @@ public enum FieldSource
     /// game's structured self-description, above a number found in ASCII art.
     /// </remarks>
     Info,
+
+    /// <summary>
+    /// A value the Intermud-3 mudlist carried: the mud told a router, and the router told us.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Separate from <see cref="I3"/>, and the gap between them is the measured/declared line.</b>
+    /// A who-reply is a list the mud built when we asked and whose rows we counted ourselves; a
+    /// mudlist entry is a value handed to a third party at some past startup and repeated onward,
+    /// undated. Same network, two different kinds of claim.
+    /// </para>
+    /// <para>
+    /// It ranks here — below <see cref="Mssp"/>, above <see cref="Banner"/> — because a game filling
+    /// in its own MSSP is speaking to us directly and now, while a name lifted out of ASCII art is a
+    /// guess at where the title is and this is a field the mud filled in. It does not outrank
+    /// <see cref="Staff"/>: the network does not police what a mud calls itself, and the live list
+    /// carries <c>Your MUD Name</c> and <c>test</c> beside the real ones.
+    /// </para>
+    /// </remarks>
+    I3Mudlist,
     Banner,
 
     // There is deliberately no imported source here, and there was: ImportedMeasured for a directory
