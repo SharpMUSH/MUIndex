@@ -23,10 +23,10 @@ public class StylesheetAddressTests
         var head = await site.Client.GetStringAsync("/");
         var href = Regex.Match(head, """<link rel="stylesheet" href="([^"]+)""").Groups[1].Value;
 
-        await Assert.That(href).IsNotEqualTo("app.css")
+        await Assert.That(href).IsNotEqualTo("/app.css")
             .Because("a flat name is a name a cache cannot tell two builds apart by");
-        await Assert.That(Regex.IsMatch(href, @"^app\.[a-z0-9]+\.css$")).IsTrue()
-            .Because($"the link should carry a fingerprint, and it is '{href}'");
+        await Assert.That(Regex.IsMatch(href, @"^/app\.[a-z0-9]+\.css$")).IsTrue()
+            .Because($"the link should be absolute and fingerprinted, and it is '{href}'");
     }
 
     [Test]
@@ -39,7 +39,7 @@ public class StylesheetAddressTests
         var head = await site.Client.GetStringAsync("/");
         var href = Regex.Match(head, """<link rel="stylesheet" href="([^"]+)""").Groups[1].Value;
 
-        using var response = await site.Client.GetAsync("/" + href);
+        using var response = await site.Client.GetAsync(href);
         var css = await response.Content.ReadAsStringAsync();
 
         await Assert.That(response.IsSuccessStatusCode).IsTrue();

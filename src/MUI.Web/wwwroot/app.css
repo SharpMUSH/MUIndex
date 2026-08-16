@@ -361,6 +361,10 @@ p.crawler {
     background: var(--raised); border: 1px solid var(--line); border-radius: 6px;
     padding: 7px 10px; font-size: 12.5px; margin-bottom: 6px;
 }
+/* Same reason as the chip above, and it shipped as "penultimatemush.com 9500answering here since
+   Jul 2026": the renderer trims the whitespace between the port and a conditional span, so the gap
+   has to be a margin rather than a space in the markup. */
+.game-head .endpoint > span { margin-left: 8px; }
 
 .badges { margin: 4px 0 6px; }
 .badge.claimed { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 34%, transparent); }
@@ -447,6 +451,21 @@ svg.trend .mean { fill: var(--accent); }
    theme. It stays under that on white, where the relief is the legend, the per-day tooltip and the
    "read as text" lines — every number in the cap is reachable without seeing it. */
 svg.trend .peak { fill: color-mix(in srgb, var(--accent) 50%, var(--surface)); }
+
+/* The line shape. The band is the same fact as the columns' cap and wears the same hue, a step
+   lighter: a cap is a sliver above a bar and needs the weight, while a band is the largest area on
+   the chart and at the cap's value it buries the line it is the spread of. */
+svg.trend .band { fill: color-mix(in srgb, var(--accent) 24%, var(--surface)); }
+svg.trend .line {
+    fill: none; stroke: var(--accent); stroke-width: 2;
+    stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke;
+}
+/* Ringed in the surface colour, and bigger than a line's usual marker: on a game measured on three
+   days of ninety these dots are not an accent on the chart, they are the chart. */
+svg.trend .dot {
+    fill: var(--accent); stroke: var(--surface); stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+}
 /* The hatched state sits in its own gutter below the baseline. On the zero line it would read as a
    measured zero, which is §5.4's middle state collapsed into a filled one. */
 svg.trend .uncounted { fill: var(--dim); opacity: 0.55; }
@@ -461,6 +480,11 @@ svg.trend .hit { fill: transparent; }
 
 .swatch.mean { background: var(--accent); }
 .swatch.peak { background: color-mix(in srgb, var(--accent) 50%, var(--surface)); }
+.swatch.line { background: var(--accent); height: 3px; border-radius: 2px; }
+.swatch.band {
+    background: color-mix(in srgb, var(--accent) 24%, var(--surface));
+    outline: 1px solid color-mix(in srgb, var(--accent) 45%, var(--surface)); outline-offset: -1px;
+}
 .swatch.uncounted { background: var(--dim); opacity: 0.55; height: 6px; border-radius: 2px; }
 
 ul.weeks { list-style: none; margin: 8px 0 0; padding: 0; font-size: 12px; color: var(--dim); }
@@ -478,6 +502,9 @@ nav.spans .span {
 }
 nav.spans .span:hover { border-color: var(--dim); color: var(--text); }
 nav.spans .span.on { border-color: var(--accent); color: var(--accent); }
+/* The shape sits under the range and is the smaller question of the two, so it follows immediately
+   rather than being spaced as a second block. */
+nav.spans.shapes { margin-top: -4px; }
 
 details.read-as-text { margin: 8px 0 var(--cpad); font-size: 13px; }
 details.read-as-text summary { cursor: pointer; color: var(--dim); }

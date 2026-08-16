@@ -9,7 +9,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
-    <base href="/" />
+    @*
+        No <base href="/">. It came with the template, it is inert under static server rendering — the
+        Blazor router that wants it is not loaded here — and it silently broke every link written as a
+        bare query string: "?plain=1" resolves against the base rather than the current page, so the
+        plain-text link on every page and all five trend range links went to the home page. Removing it
+        is what makes a query-only href mean "this page, asked differently", which is what each of them
+        was written to mean. Everything in this head is absolute for the same reason.
+    *@
     @*
         Fingerprinted, and that is load-bearing rather than tidy. The stylesheet was linked as a bare
         "app.css", the proxy in front of this site caches wwwroot for four hours, and so a deploy that
@@ -18,7 +25,7 @@
         changes when the bytes change cannot be stale, which is a property of the address rather than
         a promise about somebody's cache configuration.
     *@
-    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Stylesheet" />
 
     @*
         The SVG is the real icon and the .ico is the fallback for the browsers that still want one;
@@ -30,16 +37,16 @@
         back to. It carries its own plate and does not follow the reader's theme; favicon.svg says
         why, and the reason is the same 4.5:1 rule that makes the accent change value in app.css.
     *@
-    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="icon" href="favicon.ico" sizes="32x32" />
-    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     @*
         The manifest is here for the name, the icon set and the colour a phone paints its chrome —
         and it declares display: browser, which means it does not ask to be installed. That is not a
         gap. These pages are static documents with no offline story; an installed shell that showed
         a blank frame on a train would be a small version of the thing this site exists not to do.
     *@
-    <link rel="manifest" href="site.webmanifest" />
+    <link rel="manifest" href="/site.webmanifest" />
 
     @*
         Both, because neither theme is the real one. A single theme-color hands mobile Safari one of
@@ -60,3 +67,15 @@
     *@
 </body>
 </html>
+
+@code {
+    /// <summary>
+    /// The stylesheet's address: absolute, and carrying the content fingerprint.
+    /// </summary>
+    /// <remarks>
+    /// Absolute because there is no &lt;base&gt; any more, so a relative name would resolve against
+    /// the current page and 404 on every URL with a segment in it. Composed here rather than inline
+    /// because the fingerprint is an indexer call and the attribute is already quoted.
+    /// </remarks>
+    private string Stylesheet => "/" + Assets["app.css"];
+}

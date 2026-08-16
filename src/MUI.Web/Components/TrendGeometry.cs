@@ -31,6 +31,9 @@ public sealed record TrendBar(double X, double Width, double PeakTop, double Mea
     public bool HasCap => CapBottom - PeakTop >= TrendGeometry.MinimumCap;
 }
 
+/// <summary>A day whose neighbours were not measured, drawn as a point because a line needs two.</summary>
+public sealed record TrendDot(double X, double Y, string Label);
+
 /// <summary>A day probed all through and never counted: §5.4's hatched state, below the baseline.</summary>
 public sealed record TrendTick(double X, double Width, string Label);
 
@@ -141,6 +144,63 @@ public static class TrendGeometry
             .ToList();
     }
 
+    /// <summary>
+    /// The mean line, as one path per unbroken run of measured days.
+    /// </summary>
+    /// <remarks>
+    /// A run of one day produces no path at all — a single point is not a line — and reaches the
+    /// reader through <see cref="Dots"/> instead. Returning a one-point path would render as
+    /// nothing at all in most engines, which is a measurement silently dropped.
+    /// </remarks>
+    public static IReadOnlyList<string> MeanPaths(TrendSeries series)
+    {
+        var ceiling = Ceiling(series);
+
+        return Runs(series)
+            .Where(run => run.Count > 1)
+            .Select(run => Path(run.Select(c => (X(c), Y(c.Day.Average ?? 0, ceiling)))))
+            .ToList();
+    }
+
+    /// <summary>
+    /// The min–max band, as one closed area per unbroken run.
+    /// </summary>
+    /// <remarks>
+    /// Out along the maxima and back along the minima, so the band shows the spread between a game's
+    /// quietest and busiest probe that day — the same fact the columns put in their cap, and drawn
+    /// in the same colour so a reader who switches shape is not shown two encodings of one number.
+    /// </remarks>
+    public static IReadOnlyList<string> BandPaths(TrendSeries series)
+    {
+        var ceiling = Ceiling(series);
+
+        return Runs(series)
+            .Where(run => run.Count > 1)
+            .Select(run =>
+            {
+                var top = run.Select(c => (X(c), Y(c.Day.Max ?? 0, ceiling)));
+                var bottom = run.AsEnumerable().Reverse()
+                    .Select(c => (X(c), Y(c.Day.Min ?? 0, ceiling)));
+
+                return Path(top.Concat(bottom)) + " Z";
+            })
+            .ToList();
+    }
+
+    /// <summary>Counted days with no counted neighbour, which no path can carry.</summary>
+    public static IReadOnlyList<TrendDot> Dots(TrendSeries series)
+    {
+        var ceiling = Ceiling(series);
+
+        return Runs(series)
+            .Where(run => run.Count == 1)
+            .Select(run => new TrendDot(
+                X(run[0]),
+                Y(run[0].Day.Average ?? 0, ceiling),
+                run[0].Day.Label))
+            .ToList();
+    }
+
     /// <summary>Days probed and never counted. Beneath the plot, never on the zero line.</summary>
     /// <remarks>
     /// Below the baseline rather than at it, because a mark <em>on</em> the zero line reads as a
@@ -245,6 +305,56 @@ public static class TrendGeometry
         ArgumentNullException.ThrowIfNull(series);
 
         return Math.Max(series.Ceiling, 1);
+    }
+
+    /// <summary>Unbroken runs of counted days. A day that was not counted ends the run it touches.</summary>
+    /// <remarks>
+    /// The line's half of the rule the columns keep by construction: the break is in the path data,
+    /// not in a style, because a CSS dash cannot express "no measurement" and a continuous line under
+    /// a faint stroke would still be our crawl schedule drawn as their quiet fortnight.
+    /// </remarks>
+    private static List<List<TrendColumn>> Runs(TrendSeries series)
+    {
+        var runs = new List<List<TrendColumn>>();
+        var current = new List<TrendColumn>();
+
+        foreach (var column in Columns(series))
+        {
+            if (column.Day.IsCounted)
+            {
+                current.Add(column);
+
+                continue;
+            }
+
+            if (current.Count > 0)
+            {
+                runs.Add(current);
+                current = [];
+            }
+        }
+
+        if (current.Count > 0)
+        {
+            runs.Add(current);
+        }
+
+        return runs;
+    }
+
+    /// <summary>The centre of a column, which is where its day is plotted.</summary>
+    private static double X(TrendColumn column) => column.X + (column.Width / 2);
+
+    private static string Path(IEnumerable<(double X, double Y)> points)
+    {
+        var b = new StringBuilder();
+
+        foreach (var (x, y) in points)
+        {
+            Move(b, b.Length == 0 ? 'M' : 'L', x, y);
+        }
+
+        return b.ToString().TrimEnd();
     }
 
     private static string Month(DateOnly date) =>

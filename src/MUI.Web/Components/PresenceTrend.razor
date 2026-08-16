@@ -5,13 +5,17 @@
     destroys "is this game growing". This is that second question, and it is the one a directory is
     usually read for.
 
-    A column per counted day, and nothing at all on the days nobody counted. That is the same rule a
-    broken line kept and it is kept better here: a bar makes no claim about its neighbours, so there
-    is no interpolation to get wrong, and a game counted on three days of ninety draws three bars
-    rather than one two-pixel dot in an empty rectangle — which is what this chart was before, and
-    what it looked like. A day probed without a readable count is still a mark in its own gutter
-    *below* the baseline, never a bar at zero: on the plot it would read as a measured empty game,
-    which is §5.4's middle state collapsed into a filled one.
+    Two drawings of the same numbers, chosen in the address and defaulting to the line. The line and
+    its min–max band read the direction of a game we probe most days; the columns say every counted
+    day plainly, which is the only one of the two that shows a game counted three times in a quarter.
+    TrendShape has the argument.
+
+    One rule outlives the choice: **nothing is drawn on a day nobody measured**. The line breaks in
+    its path data rather than by any style, the columns simply have no column, and neither shape ever
+    interpolates across the gap — a continuous line over one is our crawl schedule drawn as their
+    quiet fortnight. A day probed without a readable count is a mark in its own gutter *below* the
+    baseline in both, never a point or a bar at zero: on the plot it would read as a measured empty
+    game, which is §5.4's middle state collapsed into a filled one.
 
     Inert SVG, computed on the server. No script, so it works in the same places the rest of the
     page does, and the numbers reach a text browser through the same PerWeek() lines the disclosure
@@ -44,20 +48,45 @@
                       y1="@N(y)" y2="@N(y)"></line>
             }
 
-            @foreach (var bar in TrendGeometry.Bars(Series))
+            @if (Shape is TrendShape.Bar)
             {
-                @* The spread first, so the mean is drawn over it and nothing hides the measurement
-                   the bar is mostly about. *@
-                @if (bar.HasCap)
+                @foreach (var bar in TrendGeometry.Bars(Series))
                 {
-                    <path class="peak" d="@TrendGeometry.Column(bar.X, bar.Width, bar.PeakTop, bar.CapBottom)">
+                    @* The spread first, so the mean is drawn over it and nothing hides the
+                       measurement the bar is mostly about. *@
+                    @if (bar.HasCap)
+                    {
+                        <path class="peak" d="@TrendGeometry.Column(bar.X, bar.Width, bar.PeakTop, bar.CapBottom)">
+                            <title>@bar.Day.Label</title>
+                        </path>
+                    }
+
+                    <path class="mean" d="@TrendGeometry.Column(bar.X, bar.Width, bar.MeanTop, TrendGeometry.Zero)">
                         <title>@bar.Day.Label</title>
                     </path>
                 }
+            }
+            else
+            {
+                @foreach (var band in TrendGeometry.BandPaths(Series))
+                {
+                    <path class="band" d="@band"></path>
+                }
 
-                <path class="mean" d="@TrendGeometry.Column(bar.X, bar.Width, bar.MeanTop, TrendGeometry.Zero)">
-                    <title>@bar.Day.Label</title>
-                </path>
+                @foreach (var path in TrendGeometry.MeanPaths(Series))
+                {
+                    <path class="line" d="@path"></path>
+                }
+
+                @* A day with no measured neighbour, which no path can carry. Bigger than the mark a
+                   line would give it and ringed in the surface colour, because on a sparsely probed
+                   game these dots are the whole chart. *@
+                @foreach (var dot in TrendGeometry.Dots(Series))
+                {
+                    <circle class="dot" cx="@N(dot.X)" cy="@N(dot.Y)" r="3.5">
+                        <title>@dot.Label</title>
+                    </circle>
+                }
             }
 
             @* The hatched state, in its own gutter under the baseline. *@
@@ -97,10 +126,21 @@
     </div>
 
     <ul class="legend">
-        <li><span class="swatch mean" aria-hidden="true"></span>mean of the counts we read that day</li>
-        <li><span class="swatch peak" aria-hidden="true"></span>up to the busiest count that day</li>
+        @if (Shape is TrendShape.Bar)
+        {
+            <li><span class="swatch mean" aria-hidden="true"></span>mean of the counts we read that day</li>
+            <li><span class="swatch peak" aria-hidden="true"></span>up to the busiest count that day</li>
+        }
+        else
+        {
+            <li><span class="swatch line" aria-hidden="true"></span>mean of the counts we read that day</li>
+            <li><span class="swatch band" aria-hidden="true"></span>lowest to highest count that day</li>
+        }
         <li><span class="swatch uncounted" aria-hidden="true"></span>probed, no count could be read</li>
-        <li><span class="swatch gap" aria-hidden="true"></span>not measured — no bar at all</li>
+        <li>
+            <span class="swatch gap" aria-hidden="true"></span>
+            @(Shape is TrendShape.Bar ? "not measured — no bar at all" : "not measured — a break in the line")
+        </li>
     </ul>
 
     <details class="disclosure">
@@ -123,6 +163,9 @@ else
 
 @code {
     [Parameter, EditorRequired] public TrendSeries Series { get; set; } = default!;
+
+    /// <summary>Which drawing of the same numbers — see <see cref="TrendShape"/> for why there are two.</summary>
+    [Parameter] public TrendShape Shape { get; set; } = TrendShape.Line;
 
     private static string Box =>
         $"{N(TrendGeometry.Width)} {N(TrendGeometry.Height)}";
