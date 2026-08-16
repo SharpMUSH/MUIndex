@@ -32,12 +32,19 @@ public class PresenceMaintenanceServicePostgresTests
         using var service = Service(database);
         await service.StartAsync(CancellationToken.None);
 
+        // Both, in one wait. A pass rolls the buckets up and *then* moves the watermark — two awaits
+        // in PresenceMaintenance — so a poll that stops at the first can look at the second inside the
+        // gap between them and find nothing there. That is a hundred-millisecond window and it took
+        // until CI to be unlucky in it; the assertions below then blamed the code for the race the
+        // test brought.
         var rolled = await UntilAsync(async () =>
-            (await rollups.ForGameAsync(game, PresenceGrain.Hour, at.AddHours(-1), at.AddHours(1))).Count > 0);
+            (await rollups.ForGameAsync(game, PresenceGrain.Hour, at.AddHours(-1), at.AddHours(1))).Count > 0
+            && await rollups.WatermarkAsync(PresenceGrain.Hour) is not null);
 
         await service.StopAsync(CancellationToken.None);
 
-        await Assert.That(rolled).IsTrue();
+        await Assert.That(rolled).IsTrue()
+            .Because("the service should have rolled the hour up and moved the watermark past it");
         await Assert.That(await rollups.WatermarkAsync(PresenceGrain.Hour)).IsNotNull();
     }
 
