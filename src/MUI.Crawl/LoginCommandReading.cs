@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
+
 namespace MUI.Crawl;
 
 /// <summary>
@@ -8,7 +11,7 @@ namespace MUI.Crawl;
 /// reader only returns a value when the text explicitly labels one (for example <c>Version:</c> or
 /// <c>Codebase:</c>) or when a <c>VERSION</c> line clearly names a known family.
 /// </remarks>
-public static class LoginCommandReading
+public static partial class LoginCommandReading
 {
     private static readonly string[] CodebaseLabels = ["codebase", "server", "engine", "family"];
     private static readonly string[] VersionLabels = ["version", "release"];
@@ -99,6 +102,78 @@ public static class LoginCommandReading
             if (Clean(value) is { } named && MsspDefaults.MeaningfulName(named, codebase) is { } meaningful)
             {
                 return meaningful;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The player count an <c>INFO</c> block states about itself, or null when it stated none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The MUSH family answers <c>INFO</c> with a machine-readable block, and this crawler was
+    /// throwing the one number in it away.</b> PennMUSH's <c>dump_info()</c> prints
+    /// <c>### Begin INFO 1.1</c>, a run of <c>Label: value</c> lines including <c>Connected:</c>, and
+    /// <c>### End INFO</c>. Evennia reimplements the same idea deliberately differently — two hashes,
+    /// an uppercase <c>BEGIN</c>/<c>END</c>, no <c>Address</c> — and both are read here. A MUSH with
+    /// no MSSP and a <c>DOING</c> header past our parser was recorded unmeasurable while its exact
+    /// count sat in the payload.
+    /// </para>
+    /// <para>
+    /// <b>Only inside a block that opened and closed.</b> The delimiters are the entire defence: a
+    /// connect screen may say "Connected:" about the reader, about a countdown, or about the last
+    /// reboot, and a number lifted off one of those would be a fabrication with a colon in front of
+    /// it. An unterminated block is not a block — this reader is handed the whole <c>INFO</c> reply
+    /// window, so a missing <c>End</c> means the text is not the thing it looked like.
+    /// </para>
+    /// <para>
+    /// <b>The version on the <c>Begin</c> line is not part of the contract.</b> <c>INFO_VERSION</c> is
+    /// a string a codebase bumps when it likes, and keying on today's <c>1.1</c> would make this stop
+    /// measuring the day somebody ships <c>1.2</c> — silently, which is the worst way for a
+    /// measurement to stop.
+    /// </para>
+    /// <para>
+    /// Nothing else on the block is read numerically, and <c>Uptime:</c> is why that matters: Penn
+    /// writes it as a ctime string rather than a timestamp, so a reader that went looking for "the
+    /// number on the line" would find a year.
+    /// </para>
+    /// </remarks>
+    public static int? ConnectedPlayers(string? info)
+    {
+        if (string.IsNullOrWhiteSpace(info))
+        {
+            return null;
+        }
+
+        var inside = false;
+        int? connected = null;
+
+        foreach (var raw in info.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
+        {
+            var line = raw.Trim();
+
+            if (!inside)
+            {
+                inside = InfoBlockStart().IsMatch(line);
+                continue;
+            }
+
+            if (InfoBlockEnd().IsMatch(line))
+            {
+                return connected;
+            }
+
+            if (connected is null
+                && TrySplitLabelled(line, out var label, out var value)
+                && label.Equals(ConnectedLabel, StringComparison.OrdinalIgnoreCase)
+                // NumberStyles.None refuses a sign, a separator and surrounding space alike. A
+                // negative player count is not a small number, it is a value we did not understand,
+                // and the presence table's own CHECK would refuse it one layer down.
+                && int.TryParse(value.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var players))
+            {
+                connected = players;
             }
         }
 
@@ -322,9 +397,8 @@ public static class LoginCommandReading
                 continue;
             }
 
-            // Rhost-style wrappers.
-            if (line.StartsWith("### Begin ", StringComparison.OrdinalIgnoreCase)
-                || line.StartsWith("### End ", StringComparison.OrdinalIgnoreCase))
+            // Block wrappers, in both spellings the family uses.
+            if (BlockMarker().IsMatch(line))
             {
                 continue;
             }
@@ -410,4 +484,19 @@ public static class LoginCommandReading
 
         return false;
     }
+
+    /// <summary>The label a MUSH-family <c>INFO</c> block states its player count under.</summary>
+    private const string ConnectedLabel = "Connected";
+
+    // `### Begin INFO 1.1` (PennMUSH, RhostMUSH, TinyMUX) and `## BEGIN INFO 1.1` (Evennia). The
+    // version after the word is matched by nobody on purpose — see ConnectedPlayers.
+    [GeneratedRegex(@"^#{2,}\s*begin\s+info\b", RegexOptions.IgnoreCase)]
+    private static partial Regex InfoBlockStart();
+
+    [GeneratedRegex(@"^#{2,}\s*end\s+info\b", RegexOptions.IgnoreCase)]
+    private static partial Regex InfoBlockEnd();
+
+    /// <summary>Any block wrapper, whatever the block is called. Never a labelled value.</summary>
+    [GeneratedRegex(@"^#{2,}\s*(?:begin|end)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex BlockMarker();
 }

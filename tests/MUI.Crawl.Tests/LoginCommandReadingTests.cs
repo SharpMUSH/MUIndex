@@ -234,4 +234,95 @@ public class LoginCommandReadingTests
         await Assert.That(LoginCommandReading.MeaningfulName(string.Empty, "PennMUSH 1.8.8p0")).IsNull();
         await Assert.That(LoginCommandReading.MeaningfulName("Connected: 12\nSize: 900", null)).IsNull();
     }
+
+    /// <summary>
+    /// PennMUSH's <c>dump_info()</c>, verbatim in shape. <c>Uptime</c> is a ctime string and not a
+    /// timestamp, which is why nothing here may go looking for "the number on the line".
+    /// </summary>
+    private const string PennInfo = """
+        ### Begin INFO 1.1
+        Name: M*U*S*H
+        Address: mush.pennmush.org
+        Uptime: Tue Sep 16 23:39:43 2025
+        Connected: 60
+        Size: 1929
+        Version: PennMUSH 1.8.8p0
+        ### End INFO
+        """;
+
+    /// <summary>
+    /// Evennia's, which reimplements the same block deliberately differently: two hashes, an
+    /// uppercase BEGIN and END, and no <c>Address</c> line at all.
+    /// </summary>
+    private const string EvenniaInfo = """
+        ## BEGIN INFO 1.1
+        Name: Evennia Demo
+        Uptime: Mon Aug 11 02:14:07 2026
+        Connected: 7
+        Version: Evennia 5.0.1
+        ## END INFO
+        """;
+
+    [Test]
+    public async Task ThePennAndEvenniaInfoBlocksBothYieldTheirConnectedCount()
+    {
+        await Assert.That(LoginCommandReading.ConnectedPlayers(PennInfo)).IsEqualTo(60);
+        await Assert.That(LoginCommandReading.ConnectedPlayers(EvenniaInfo)).IsEqualTo(7);
+    }
+
+    [Test]
+    public async Task AConnectedZeroIsAMeasuredZeroAndNotAnAbsentReading()
+    {
+        var info = "### Begin INFO 1.1\nName: Quiet MUSH\nConnected: 0\n### End INFO";
+
+        await Assert.That(LoginCommandReading.ConnectedPlayers(info)).IsEqualTo(0);
+    }
+
+    [Test]
+    [Arguments("1.1")]
+    [Arguments("1")]
+    [Arguments("2.0")]
+    [Arguments("")]
+    public async Task TheBlockVersionIsNeverPartOfTheContract(string version)
+    {
+        // INFO_VERSION is a string a codebase bumps when it likes. Keying on today's value would
+        // make this reader silently stop measuring the day somebody ships 1.2.
+        var info = $"### Begin INFO {version}\nConnected: 4\n### End INFO";
+
+        await Assert.That(LoginCommandReading.ConnectedPlayers(info)).IsEqualTo(4);
+    }
+
+    [Test]
+    [Arguments("Connected: 41")]
+    [Arguments("Welcome!\nConnected: 41\nType 'connect <name> <password>'.")]
+    [Arguments("### Begin INFO 1.1\nConnected: 41")]
+    [Arguments("Connected: 41\n### End INFO")]
+    [Arguments("### Begin MSSP\nConnected: 41\n### End MSSP")]
+    public async Task ALooseConnectedLineIsNotAnInfoBlockAndIsNotRead(string info)
+    {
+        // The delimiters are the whole defence. Outside a block that opened and closed, "Connected:"
+        // is a word on a connect screen — a countdown, a last-reboot line, or the game telling you
+        // that you are — and reading a number out of it would be rule 4's fabrication with a colon
+        // in front of it.
+        await Assert.That(LoginCommandReading.ConnectedPlayers(info)).IsNull();
+    }
+
+    [Test]
+    [Arguments("Connected: lots")]
+    [Arguments("Connected: -3")]
+    [Arguments("Connected:")]
+    [Arguments("Size: 1929")]
+    public async Task ABlockWithNothingCountableInItYieldsNothing(string line)
+    {
+        var info = $"### Begin INFO 1.1\nName: Some MUSH\n{line}\n### End INFO";
+
+        await Assert.That(LoginCommandReading.ConnectedPlayers(info)).IsNull();
+    }
+
+    [Test]
+    public async Task NoInfoReplyAtAllYieldsNothing()
+    {
+        await Assert.That(LoginCommandReading.ConnectedPlayers(null)).IsNull();
+        await Assert.That(LoginCommandReading.ConnectedPlayers("   ")).IsNull();
+    }
 }

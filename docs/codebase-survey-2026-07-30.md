@@ -142,6 +142,46 @@ Two consequences for the code, both of which the map now handles:
 - **`people` and `folks` count as players.** "Players" is not the only noun a server reaches for.
 - **`active` joins the connectivity vocabulary**, which is what makes the MOO sentence legible.
 
+## The `INFO` block states a count, and we were binning it — measured 16 August 2026
+
+`mui-probe`, two live servers, unedited:
+
+```
+$ mui-probe mush.pennmush.org 4201        $ mui-probe game.convergencemush.org 10000
+mssp          Received via TelnetOption70 mssp          NotOffered via None
+who           Count → 20 players          who           Count → 70 players
+codebase      PennMUSH 1.8.8p0            codebase      RhostMUSH 4.27.3
+info count    20                          info count    70
+  | ### Begin INFO 1.1                      | ### Begin INFO 1
+  | Name: M*U*S*H                           | Name: Convergence MUSH
+  | Address: http://client.pennmush…        | Uptime: Tue Sep 16 23:39:43 2025
+  | Uptime: Thu Jan 05 02:26:36 2023        | Connected: 70
+  | Connected: 20                           | Size: 1944
+  | Size: 14088                             | Version: RhostMUSH 4.27.3
+  | Version: PennMUSH 1.8.8p0               | ### End INFO
+  | ### End INFO
+```
+
+Three things this measured that reasoning would have got wrong.
+
+**`INFO_VERSION` is already not `1.1` in the wild.** Convergence writes `### Begin INFO 1`. A reader
+keyed on today's version string would have measured M\*U\*S\*H and silently missed Convergence — which
+is the game the `INFO` name reader was written for in the first place.
+
+**`Connected:` agrees with the live `WHO`** on both servers, 20 and 70. In PennMUSH both that line and
+MSSP's `PLAYERS` come from one `count_players()` call, and the WHO agreement is the same claim seen
+from a third side. That is the evidence for placing `info` on §5.2's ladder as equal-trust with
+`mssp` — and therefore for putting it *below* `mssp`, where it cannot change a value already recorded
+against a game that measures today.
+
+**`Uptime:` is a ctime string, not a timestamp.** `Thu Jan 05 02:26:36 2023`. Anything here that went
+looking for "the number on the line" rather than for a named label would read a year as a count.
+
+Of 428 games sampled over three days in production, 240 were recorded unmeasurable — 122
+`who_unparseable`, 118 `who_not_offered`. The MUSH-family games among them with no MSSP and a
+`DOING` header softcoded past our parser were carrying their exact count in the probe's own payload
+the entire time.
+
 ## Known gaps, stated rather than fixed
 
 - **~~TinyMUSH is lost by the probe, not the parser~~ — fixed, and the guessed cause was wrong.**

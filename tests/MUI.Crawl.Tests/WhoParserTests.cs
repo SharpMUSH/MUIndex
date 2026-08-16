@@ -224,4 +224,135 @@ public class WhoParserTests
         await Assert.That(Parser.Parse("There are several people connected.").HasCount).IsFalse();
         await Assert.That(Parser.Parse("Many players are online.").HasCount).IsFalse();
     }
+
+    [Test]
+    [Arguments("There are currently 39 connected players.", 39)]
+    [Arguments("There are 4 online players.", 4)]
+    public async Task TheConnectivityWordMayStandBetweenTheNumberAndTheNoun(string footer, int expected)
+    {
+        // Real, from the stored payloads of the 122 games recorded `who_unparseable`. The pattern
+        // wanted the noun straight after the number, so an adjective in between — and the adjective
+        // here *is* the connectivity word — read as no count at all.
+        var reading = Parser.Parse(footer);
+
+        await Assert.That(reading.Count).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task ANounFollowedByABareOnIsACount()
+    {
+        // Real payload. "characters" is already a People noun; the sentence never reaches any of the
+        // connectivity words because it says "on" and stops.
+        var reading = Parser.Parse("There are 11 characters on, of which are visible to you.");
+
+        await Assert.That(reading.Count).IsEqualTo(11);
+    }
+
+    [Test]
+    [Arguments("No character by that name found.")]
+    [Arguments("There are 3 messages on the board.")]
+    [Arguments("There are 2 exits on this room's south wall.")]
+    public async Task ABareOnDoesNotTurnAnUnrelatedSentenceIntoACount(string line)
+    {
+        // The negative that pays for the widening above. Bare "on" is the loosest word this parser
+        // admits, so it counts only immediately after a noun that means people — never after a
+        // number in a sentence about anything else, and never on its own.
+        var reading = Parser.Parse(line);
+
+        await Assert.That(reading.HasCount).IsFalse();
+        await Assert.That(reading.Confidence).IsEqualTo(WhoConfidence.Unknown);
+    }
+
+    /// <summary>
+    /// A real payload, redacted to shapes. Fifteen names, no number anywhere in the reply.
+    /// </summary>
+    private const string NameListResponse =
+        "Connected players: Aaaaa, Aaaa, Aaa'aaa, Aaaaaaa, Aaa, Aaaaaa, Aaaaaaaa, Aaaa, Aaaaa, "
+        + "Aaa, Aaaaaaa, Aaaaa, Aaaa, Aaaaaa and Aaaaaa";
+
+    [Test]
+    public async Task AListOfWhoIsOnIsCountedWhenTheHeaderSaysWhatTheListIs()
+    {
+        // Several games answer WHO with names and no total. The header is what makes the list
+        // countable — People beside a connectivity word — and without one the same commas could be
+        // anything.
+        var reading = Parser.Parse(NameListResponse);
+
+        await Assert.That(reading.Count).IsEqualTo(15);
+    }
+
+    [Test]
+    public async Task TheSameListReadsUnderADifferentHeader()
+    {
+        var reading = Parser.Parse("The following people are logged on: Aaaa, Aaa, Aaaaaaa, Aaaa, Aaaaa.");
+
+        await Assert.That(reading.Count).IsEqualTo(5);
+    }
+
+    [Test]
+    public async Task AWrappedListIsFollowedOnlyWhileItIsPlainlyUnfinished()
+    {
+        // Servers wrap. A line ending in a comma has not finished its list; one that does not, has,
+        // and the next line is something else entirely.
+        var wrapped = "Connected players: Aaaa, Aaa, Aaaaaaa,\nAaaa, Aaaaa\nType WHO for more.";
+
+        await Assert.That(Parser.Parse(wrapped).Count).IsEqualTo(5);
+    }
+
+    [Test]
+    public async Task AListOfSomethingOtherThanNamesIsRefused()
+    {
+        // Rule 4 at the item level: every item has to look like a name, or the whole list is
+        // something else wearing a header we recognised.
+        var reading = Parser.Parse("Connected players: see the web site, or ask a wizard for help");
+
+        await Assert.That(reading.HasCount).IsFalse();
+    }
+
+    [Test]
+    public async Task ANoLoggedPlayersLineIsAMeasuredZero()
+    {
+        // Real payload, and the same argument as "There are no players connected.": reading this as
+        // unparseable throws away a genuine measured zero and hatches a cell that should be filled.
+        var reading = Parser.Parse("There are no logged players.");
+
+        await Assert.That(reading.HasCount).IsTrue();
+        await Assert.That(reading.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task LoggedOutIsNotAConnectivityWord()
+    {
+        // The price of admitting a bare "logged". "logged out" is the opposite claim and must not
+        // become a count of who is on.
+        await Assert.That(Parser.Parse("There are 6 players logged out today.").HasCount).IsFalse();
+        await Assert.That(Parser.Parse("There are no players logged off since noon.").HasCount).IsFalse();
+    }
+
+    [Test]
+    [Arguments("That name is reserved for a senior member of the mud.")]
+    [Arguments("There is no player by that name. Please enter your account name, or \"new\" to create a new account:")]
+    [Arguments("The MUD Administrator has found the name to be unacceptable. Name:")]
+    [Arguments("Password:")]
+    public async Task TheLoginPromptStillNeverProducesACount(string line)
+    {
+        // Roughly ninety of the 122 payloads recorded `who_unparseable` are one of these: the game
+        // ate the word WHO as a name. Every widening in this parser is checked against them, because
+        // a count read out of a login prompt is the fabrication rule 4 exists to forbid.
+        var reading = Parser.Parse(line);
+
+        await Assert.That(reading.HasCount).IsFalse();
+        await Assert.That(reading.Count).IsNull();
+        await Assert.That(reading.Confidence).IsEqualTo(WhoConfidence.Unknown);
+    }
+
+    [Test]
+    public async Task AFuzzyCountIsLeftUnmeasurable()
+    {
+        // LP muds phrase this on purpose. There is no number in the sentence, so there is nothing to
+        // read, and inventing one from "loads" would be exactly rule 4's fabrication.
+        var reading = Parser.Parse("Loads of people are on now.");
+
+        await Assert.That(reading.HasCount).IsFalse();
+    }
 }

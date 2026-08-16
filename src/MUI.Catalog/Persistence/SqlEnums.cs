@@ -18,6 +18,7 @@ public static class SqlEnums
         FieldSource.Owner => "owner",
         FieldSource.Who => "who",
         FieldSource.Mssp => "mssp",
+        FieldSource.Info => "info",
         FieldSource.Banner => "banner",
         _ => throw Unmapped(source),
     };
@@ -29,6 +30,7 @@ public static class SqlEnums
         "owner" => FieldSource.Owner,
         "who" => FieldSource.Who,
         "mssp" => FieldSource.Mssp,
+        "info" => FieldSource.Info,
         "banner" => FieldSource.Banner,
         _ => throw Unread(value, nameof(FieldSource)),
     };
