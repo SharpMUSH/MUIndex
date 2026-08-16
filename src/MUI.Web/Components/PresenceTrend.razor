@@ -1,0 +1,119 @@
+@*
+    The presence trend: measured players per day, over a calendar range the reader can move.
+
+    The heatmap beside it folds every week into one grid, which answers "when is anyone on" and
+    destroys "is this game growing". This is that second question, and it is the one a directory is
+    usually read for.
+
+    Two rules shape the drawing and neither is cosmetic. **The line breaks at every day nobody
+    measured** — a continuous polyline across a gap is our crawl schedule drawn as their quiet
+    fortnight, and every chart of this kind on every other site does exactly that. And a day probed
+    without a readable count is a mark in its own gutter *below* the baseline, never a point at
+    zero: on the line it would read as a measured empty game, which is §5.4's middle state collapsed
+    into a filled one.
+
+    Inert SVG, computed on the server. No script, so it works in the same places the rest of the
+    page does, and the numbers reach a text browser through the same PerWeek() lines the disclosure
+    under the graphic uses rather than through a second implementation that could disagree.
+*@
+
+<p class="summary">@Series.Sentence</p>
+<p class="faint mono">days in UTC · @Series.From.ToString("d MMM yyyy") – @Series.To.ToString("d MMM yyyy")</p>
+
+@if (Series.HasAnyCount)
+{
+    <div class="trend-wrap">
+        @* One image with one label. Every day is announced through the disclosure below rather than
+           as ninety focusable shapes, which is the same choice the availability strip makes. *@
+        <svg class="trend" viewBox="0 0 @Box" preserveAspectRatio="none"
+             role="img" aria-label="@Series.Sentence">
+            @foreach (var (value, y) in TrendGeometry.Gridlines(Series))
+            {
+                <line class="grid" x1="0" x2="@TrendGeometry.Width" y1="@N(y)" y2="@N(y)"></line>
+            }
+
+            @foreach (var band in TrendGeometry.BandPaths(Series))
+            {
+                <path class="band" d="@band"></path>
+            }
+
+            @foreach (var path in TrendGeometry.MeanPaths(Series))
+            {
+                <path class="mean" d="@path"></path>
+            }
+
+            @foreach (var dot in TrendGeometry.Dots(Series))
+            {
+                <circle class="dot" cx="@N(dot.X)" cy="@N(dot.Y)" r="2">
+                    <title>@dot.Label</title>
+                </circle>
+            }
+
+            @* The hatched state, in its own gutter under the baseline. *@
+            @foreach (var tick in TrendGeometry.Ticks(Series))
+            {
+                <rect class="uncounted" x="@N(tick.X)" y="@N(TrendGeometry.Zero + 4)"
+                      width="@N(Math.Max(tick.Width - 0.5, 0.5))" height="6">
+                    <title>@tick.Label</title>
+                </rect>
+            }
+
+            @* A transparent strip per day, so a mouse reader gets a label on every column —
+               including the ones with nothing drawn in them, which is where "not measured" is
+               said rather than merely left blank. *@
+            @foreach (var column in TrendGeometry.Columns(Series))
+            {
+                <rect class="hit" x="@N(column.X)" y="0"
+                      width="@N(column.Width)" height="@TrendGeometry.Height">
+                    <title>@column.Day.Label</title>
+                </rect>
+            }
+        </svg>
+
+        <div class="trend-scale mono faint">
+            <span>@Series.Ceiling at the top</span>
+            <span>@Series.CountedDays of @Series.Days.Count days counted</span>
+        </div>
+    </div>
+
+    <ul class="legend">
+        <li><span class="swatch mean" aria-hidden="true"></span>mean of the counts we read that day</li>
+        <li><span class="swatch band" aria-hidden="true"></span>lowest to highest count that day</li>
+        <li><span class="swatch uncounted" aria-hidden="true"></span>probed, no count could be read</li>
+        <li><span class="swatch gap" aria-hidden="true"></span>not measured — a break in the line</li>
+    </ul>
+
+    <details class="disclosure">
+        <summary>read as text</summary>
+        <ul class="weeks mono">
+            @foreach (var line in Series.PerWeek())
+            {
+                <li>@line</li>
+            }
+        </ul>
+    </details>
+}
+else
+{
+    @* No cause given, and none available: a failed probe writes no presence row at all, so an empty
+       range covers days we could not reach and days we never probed alike. Naming one of them would
+       be recording a decision of ours as a measurement of theirs. *@
+    <p class="faint">Nothing counted in this range.</p>
+}
+
+@code {
+    [Parameter, EditorRequired] public TrendSeries Series { get; set; } = default!;
+
+    private static string Box =>
+        $"{N(TrendGeometry.Width)} {N(TrendGeometry.Height)}";
+
+    /// <summary>
+    /// A number as SVG wants it.
+    /// </summary>
+    /// <remarks>
+    /// Invariant, always. Razor would otherwise render a coordinate under the request's culture, and
+    /// a machine that writes <c>0,5</c> emits path data every renderer reads as two numbers.
+    /// </remarks>
+    private static string N(double value) =>
+        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+}

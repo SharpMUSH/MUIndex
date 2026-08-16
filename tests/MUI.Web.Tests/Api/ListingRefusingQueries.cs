@@ -52,6 +52,8 @@ internal sealed class ListingRefusingQueries(IGameQueries inner) : IGameQueries
     public Task<EcosystemDashboard> EcosystemAsync(CancellationToken cancellationToken = default) =>
         inner.EcosystemAsync(cancellationToken);
 
-    public Task<Rankings> RankingsAsync(CancellationToken cancellationToken = default) =>
-        inner.RankingsAsync(cancellationToken);
+    public Task<Rankings> RankingsAsync(
+        RankingSpan span = RankingSpan.Week,
+        CancellationToken cancellationToken = default) =>
+        inner.RankingsAsync(span, cancellationToken);
 }

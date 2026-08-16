@@ -203,8 +203,30 @@ public static class EcosystemCopy
         return $"Median of the player counts we measured over the last "
             + $"{(int)rankings.Window.TotalDays} days. {rankings.Eligible} of "
             + $"{Games(rankings.ListedGames)} listed produced the {rankings.MinimumSamples} counted "
-            + "samples a median needs. A measured zero counts; an unreadable count does not.";
+            + $"samples a median needs, on at least {Days(rankings.MinimumDays)} of the window. "
+            + "A measured zero counts; an unreadable count does not.";
     }
+
+    /// <summary>
+    /// Why the window can be changed, said once beside the selector.
+    /// </summary>
+    /// <remarks>
+    /// Each window is a different claim rather than the same one at three resolutions, and the
+    /// sentence says so — a reader comparing the tabs is comparing "busy now" with "busy for
+    /// months", and two games can honestly swap places between them.
+    /// </remarks>
+    public const string SpanChoice =
+        "A week says who is busy now; a quarter says who has been busy. They are different questions "
+        + "and a game can lead one and not the other. Days are whole days, UTC.";
+
+    /// <summary>The window as it is offered in the selector.</summary>
+    public static string SpanLabel(RankingSpan span) => span switch
+    {
+        RankingSpan.Week => "7 days",
+        RankingSpan.Month => "30 days",
+        RankingSpan.Quarter => "90 days",
+        _ => $"{span.Days()} days",
+    };
 
     /// <summary>What the second table is, and the limit it cannot be read past.</summary>
     public const string SpellBasis =
@@ -219,6 +241,8 @@ public static class EcosystemCopy
         + "measured that and nobody can.";
 
     private static string Games(int n) => n == 1 ? "1 game" : $"{n} games";
+
+    private static string Days(int n) => n == 1 ? "1 day" : $"{n} days";
 
     private static string Recorded(int n) => n == 1 ? "1 capability change" : $"{n} capability changes";
 }

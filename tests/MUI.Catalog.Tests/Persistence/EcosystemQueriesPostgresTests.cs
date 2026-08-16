@@ -1,3 +1,5 @@
+using Dapper;
+
 using MUI.Catalog.Persistence;
 using MUI.Catalog.Tests.Persistence.Support;
 
@@ -21,6 +23,28 @@ public class EcosystemQueriesPostgresTests
 
     private static NpgsqlGameQueries QueriesOn(TestDatabase db) =>
         new(db.DataSource) { Clock = () => Now };
+
+    /// <summary>
+    /// The rankings, after the rollup that now feeds them has run.
+    /// </summary>
+    /// <remarks>
+    /// The busiest table reads <c>presence_rollup_day</c>'s distribution rather than
+    /// <c>presence_sample</c> (migration 0019), so that a median outlives §5.2's raw retention. The
+    /// consequence is real and belongs in the tests rather than only in the comments: a ranking is
+    /// as fresh as the last maintenance pass, which the deployment runs hourly. A test that writes
+    /// samples and asks for a ranking without rolling them up is asking about a window nothing has
+    /// been aggregated into yet, and correctly gets an empty table.
+    /// </remarks>
+    private static async Task<Rankings> RankAsync(TestDatabase db, RankingSpan span = RankingSpan.Week)
+    {
+        await new PresenceMaintenance(
+                new NpgsqlPresenceStore(db.DataSource),
+                new NpgsqlPresenceRollupStore(db.DataSource),
+                new PresenceRetentionOptions())
+            .RunAsync(Now);
+
+        return await QueriesOn(db).RankingsAsync(span);
+    }
 
     /// <summary>A game whose handshake completed, which is what a measured capability is measured in.</summary>
     private static async Task HandshakedAsync(TestDatabase db, Guid game, DateTimeOffset? at = null) =>
@@ -204,7 +228,7 @@ public class EcosystemQueriesPostgresTests
         }
 
         var dashboard = await QueriesOn(db).EcosystemAsync();
-        var rankings = await QueriesOn(db).RankingsAsync();
+        var rankings = await RankAsync(db);
 
         await Assert.That(dashboard.ListedGames).IsEqualTo(0);
         await Assert.That(dashboard.Handshakes).IsEqualTo(0);
@@ -224,16 +248,20 @@ public class EcosystemQueriesPostgresTests
         var spike = await Seed.GameAsync(db, "spike", "Spike");
         var presence = new NpgsqlPresenceStore(db.DataSource);
 
+        // Spread across six days rather than packed into thirty consecutive hours: the window is
+        // day-aligned and eligibility now has a coverage clause as well as a sample floor, so a
+        // game measured hard for one weekend is deliberately not rankable over a week. The multiset
+        // of counts is unchanged, so the median this asserts is unchanged.
         for (var hour = 1; hour <= 30; hour++)
         {
-            await presence.AppendAsync(
-                PresenceSample.Counted(steady, Now.AddHours(-hour), hour <= 15 ? 10 : 20, FieldSource.Who));
+            await presence.AppendAsync(PresenceSample.Counted(
+                steady, Now.AddDays(-(hour % 6)).AddHours(-(hour % 11)), hour <= 15 ? 10 : 20, FieldSource.Who));
         }
 
         // One enormous reading, and nothing else. Not enough to be ranked at all.
         await presence.AppendAsync(PresenceSample.Counted(spike, Now.AddHours(-1), 900, FieldSource.Who));
 
-        var rankings = await QueriesOn(db).RankingsAsync();
+        var rankings = await RankAsync(db);
 
         await Assert.That(rankings.MinimumSamples).IsEqualTo(NpgsqlGameQueries.MinimumRankingSamples);
         await Assert.That(rankings.ListedGames).IsEqualTo(2);
@@ -260,16 +288,140 @@ public class EcosystemQueriesPostgresTests
 
         for (var hour = 1; hour <= 30; hour++)
         {
-            await presence.AppendAsync(
-                PresenceSample.Counted(game, Now.AddHours(-hour), 12, FieldSource.Who));
+            var at = Now.AddDays(-(hour % 6)).AddHours(-(hour % 11));
+
+            await presence.AppendAsync(PresenceSample.Counted(game, at, 12, FieldSource.Who));
             await presence.AppendAsync(PresenceSample.Unmeasurable(
-                game, Now.AddHours(-hour).AddMinutes(30), UnmeasurableReason.WhoUnparseable));
+                game, at.AddMinutes(30), UnmeasurableReason.WhoUnparseable));
         }
 
-        var ranked = (await QueriesOn(db).RankingsAsync()).Busiest.Single();
+        var ranked = (await RankAsync(db)).Busiest.Single();
 
         await Assert.That(ranked.Samples).IsEqualTo(30);
         await Assert.That(ranked.Median).IsEqualTo(12);
+    }
+
+    [Test]
+    public async Task AWeekendOfHardProbingDoesNotRankInAQuarter()
+    {
+        // The clause the sample floor cannot express. Twenty-four samples is a day's worth of hourly
+        // probes, so a game measured intensively over two days clears the floor — and a table headed
+        // "last 90 days" that ranks it is describing a quarter out of a weekend.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var burst = await Seed.GameAsync(db, "burst", "Burst");
+        var spread = await Seed.GameAsync(db, "spread", "Spread");
+        var presence = new NpgsqlPresenceStore(db.DataSource);
+
+        // Forty samples, all inside two days.
+        for (var i = 0; i < 40; i++)
+        {
+            await presence.AppendAsync(PresenceSample.Counted(
+                burst, Now.AddDays(-(i % 2)).AddMinutes(-20 * i), 50, FieldSource.Who));
+        }
+
+        // Sixty samples across sixty consecutive days — fewer per day, and an honest quarter. Sixty
+        // clears the forty-five days of coverage a ninety-day window asks for; forty would not, and
+        // the first draft of this test failed on exactly that.
+        for (var i = 0; i < 60; i++)
+        {
+            await presence.AppendAsync(PresenceSample.Counted(
+                spread, Now.AddDays(-i - 1).AddMinutes(-(i % 7) * 5), 6, FieldSource.Who));
+        }
+
+        var quarter = await RankAsync(db, RankingSpan.Quarter);
+
+        await Assert.That(quarter.Span).IsEqualTo(RankingSpan.Quarter);
+        await Assert.That(quarter.Window).IsEqualTo(TimeSpan.FromDays(90));
+        await Assert.That(quarter.MinimumDays).IsEqualTo(45);
+        await Assert.That(quarter.Busiest.Select(g => g.Slug).ToList()).IsEquivalentTo(new[] { "spread" });
+
+        // And over a week neither qualifies, for two different reasons that both belong in the
+        // table's own terms: the burst covers two days of seven, and the spread has one probe a day
+        // and so cannot reach the sample floor inside a week. An empty table is the honest answer
+        // and is not the same as a table nobody computed.
+        var week = await RankAsync(db);
+
+        await Assert.That(week.MinimumDays).IsEqualTo(4);
+        await Assert.That(week.Busiest).IsEmpty();
+        await Assert.That(week.Eligible).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task EachWindowIsItsOwnQuestionAndTheyCanDisagree()
+    {
+        // Two games that swap places between the week and the quarter, which is the whole reason for
+        // offering both: one has been steady for months and the other has just arrived busy.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var veteran = await Seed.GameAsync(db, "veteran", "Veteran");
+        var newcomer = await Seed.GameAsync(db, "newcomer", "Newcomer");
+        var presence = new NpgsqlPresenceStore(db.DataSource);
+
+        for (var day = 0; day < 80; day++)
+        {
+            for (var probe = 0; probe < 4; probe++)
+            {
+                await presence.AppendAsync(PresenceSample.Counted(
+                    veteran, Now.AddDays(-day).AddHours(-probe * 5), 12, FieldSource.Who));
+            }
+        }
+
+        for (var day = 0; day < 6; day++)
+        {
+            for (var probe = 0; probe < 6; probe++)
+            {
+                await presence.AppendAsync(PresenceSample.Counted(
+                    newcomer, Now.AddDays(-day).AddHours(-probe * 3), 30, FieldSource.Who));
+            }
+        }
+
+        var week = await RankAsync(db);
+        var quarter = await RankAsync(db, RankingSpan.Quarter);
+
+        // Over a week the newcomer leads on the count it actually has.
+        await Assert.That(week.Busiest[0].Slug).IsEqualTo("newcomer");
+
+        // Over a quarter it has not been measured on enough of the window to be ranked at all, and
+        // the table is not silently the same one under a different heading.
+        await Assert.That(quarter.Busiest.Select(g => g.Slug).ToList()).IsEquivalentTo(new[] { "veteran" });
+        await Assert.That(quarter.Busiest[0].Days).IsGreaterThanOrEqualTo(45);
+    }
+
+    [Test]
+    public async Task ARankingReadsTheRollupAndNotTheRawSamples()
+    {
+        // The point of migration 0019: §5.2 lets retention drop raw partitions once they have been
+        // aggregated, and a ranking that read raw would quietly shorten its own window as a
+        // deployment aged. So the table must still stand with the samples gone.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, "enduring", "Enduring");
+        var presence = new NpgsqlPresenceStore(db.DataSource);
+
+        // Two things this spacing is avoiding, both of which the first draft hit. `Now` is midday, so
+        // a four-hour step walks the oldest day's last probe out of the day-aligned window. And the
+        // rollup consumes a half-open interval, so a sample written at exactly `Now` is not in this
+        // pass at all — it is rolled up by the next one, which is right, and would silently make the
+        // stated sample count one larger than the arithmetic used.
+        for (var day = 0; day < 7; day++)
+        {
+            for (var probe = 1; probe <= 5; probe++)
+            {
+                await presence.AppendAsync(PresenceSample.Counted(
+                    game, Now.AddDays(-day).AddHours(-probe * 2), 9, FieldSource.Who));
+            }
+        }
+
+        var before = await RankAsync(db);
+        await Assert.That(before.Busiest.Single().Median).IsEqualTo(9);
+
+        await using (var connection = await db.DataSource.OpenConnectionAsync())
+        {
+            await connection.ExecuteAsync("DELETE FROM presence_sample");
+        }
+
+        var after = await QueriesOn(db).RankingsAsync();
+
+        await Assert.That(after.Busiest.Single().Median).IsEqualTo(9);
+        await Assert.That(after.Busiest.Single().Samples).IsEqualTo(35);
     }
 
     [Test]
@@ -298,7 +450,7 @@ public class EcosystemQueriesPostgresTests
             Cause = FailureCause.Refused,
         });
 
-        var spells = (await QueriesOn(db).RankingsAsync()).LongestUnbroken;
+        var spells = (await RankAsync(db)).LongestUnbroken;
 
         await Assert.That(spells.Select(s => s.Slug).ToList()).IsEquivalentTo(new[] { "running" });
         await Assert.That(spells[0].LengthAt(Now)).IsEqualTo(TimeSpan.FromDays(100));
@@ -310,7 +462,7 @@ public class EcosystemQueriesPostgresTests
         await using var db = await PostgresFixture.MigratedAsync();
 
         var dashboard = await QueriesOn(db).EcosystemAsync();
-        var rankings = await QueriesOn(db).RankingsAsync();
+        var rankings = await RankAsync(db);
 
         await Assert.That(dashboard.Handshakes).IsEqualTo(0);
         await Assert.That(dashboard.OldestHandshake).IsNull();

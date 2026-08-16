@@ -109,9 +109,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// </summary>
     /// <remarks>
     /// A week, because a MU* has a weekly shape — §5.2's heatmap is a day × hour grid for exactly that
-    /// reason — and a ranking over anything shorter would rank Saturday's games above Tuesday's.
+    /// reason — and a ranking over anything shorter would rank Saturday's games above Tuesday's. It
+    /// is the floor and the default rather than the only window: <see cref="RankingSpan"/> offers a
+    /// month and a quarter beside it, which the day rollup's distribution made affordable.
     /// </remarks>
-    public static readonly TimeSpan RankingWindow = TimeSpan.FromDays(7);
+    public static readonly TimeSpan RankingWindow = RankingSpan.Week.Window();
 
     /// <summary>
     /// How many counted samples a game needs before it can be ranked.
@@ -679,12 +681,18 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The busiest table ranks on a <em>median of measured concurrent counts</em> over
-    /// <see cref="RankingWindow"/>. A NULL count is a probe that got in and could not read a number
-    /// (§5.4) and is excluded rather than read as a zero, which is rule 4 in the one place it would be
-    /// most tempting to break: a game whose <c>DOING</c> header we cannot parse would otherwise sink
-    /// to the bottom of a league table while running perfectly well. A measured zero is a count and
-    /// stays in.
+    /// The busiest table ranks on a <em>median of measured concurrent counts</em> over the
+    /// <paramref name="span"/> asked for. A NULL count is a probe that got in and could not read a
+    /// number (§5.4) and is excluded rather than read as a zero, which is rule 4 in the one place it
+    /// would be most tempting to break: a game whose <c>DOING</c> header we cannot parse would
+    /// otherwise sink to the bottom of a league table while running perfectly well. A measured zero
+    /// is a count and stays in.
+    /// </para>
+    /// <para>
+    /// Eligibility has two clauses and needs both. <see cref="MinimumRankingSamples"/> is a floor on
+    /// how many probes a median may be taken over; <see cref="RankingSpans.MinimumDays"/> is a floor
+    /// on how much of the window they came from. Without the second, a game probed hard for a
+    /// weekend clears the first and ranks in a table describing a quarter.
     /// </para>
     /// <para>
     /// The second table is the current unbroken run of reachability, which is one open interval per
@@ -692,7 +700,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// began rather than a duration, because a spell cannot be longer than we have been watching.
     /// </para>
     /// </remarks>
-    public async Task<Rankings> RankingsAsync(CancellationToken cancellationToken = default)
+    public async Task<Rankings> RankingsAsync(
+        RankingSpan span = RankingSpan.Week,
+        CancellationToken cancellationToken = default)
     {
         var now = Clock();
 
@@ -702,29 +712,73 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             $"SELECT count(*)::int FROM game WHERE state <> 'archived' AND {Public}",
             cancellationToken: cancellationToken));
 
+        // The median comes out of `presence_rollup_day`'s distribution (migration 0019) rather than
+        // out of `presence_sample`, because §5.2 lets retention drop raw partitions once they have
+        // been rolled up and a ranking read off raw would quietly shorten its own window as a
+        // deployment aged — silently, and worst at the widest span, which is the one whose whole
+        // point is depth. The rollup is the copy that outlives raw.
+        //
+        // It is the same number. `walked` reproduces `percentile_disc(0.5)` exactly: the summed
+        // frequencies are walked in ascending count order and the first value whose running total
+        // reaches ceil(n / 2) is taken — an observed count, and never the average of two.
+        //
+        // `ceil(n / 2.0)` and not `(n + 1) / 2`, which is the same arithmetic in every language this
+        // codebase is written in and not in this one: `sum()` over a bigint returns **numeric**, so
+        // the division is exact rather than integer and an even number of samples asks for element
+        // 15.5 — which no row satisfies until the one after the median. It shipped as a median one
+        // element too high on every game with an even sample count, and
+        // `PresenceHistogramPostgresTests` caught it by asserting equality with `percentile_disc`
+        // over distributions chosen for exactly this off-by-one.
+        //
+        // Buckets without a distribution are excluded by the JOIN rather than counted as empty. On a
+        // deployment that dropped raw before 0019 they are the buckets the migration could not
+        // rebuild, and `samples` and `days` are computed over the same set the median was taken
+        // from — so the basis printed on the page is always the basis of the arithmetic.
         var busiest = (await connection.QueryAsync<BusiestRow>(new CommandDefinition(
             $"""
-            WITH counted AS (
-                SELECT g.slug, g.name,
-                       percentile_disc(0.5) WITHIN GROUP (ORDER BY p.count) AS median,
-                       max(p.count) AS peak,
-                       count(*)::int AS samples
-                  FROM presence_sample p
-                  JOIN game g ON g.id = p.game_id
-                 WHERE p.at >= @from AND p.count IS NOT NULL AND g.state <> 'archived'
-                   AND {PublicG}
-                 GROUP BY g.slug, g.name
-                HAVING count(*) >= @minimum)
-            SELECT slug AS Slug, name AS Name, median AS Median, peak AS Peak, samples AS Samples,
+            WITH bucket AS (
+                SELECT r.game_id, g.slug, g.name, r.counted_samples, r.max_count, r.count_histogram
+                  FROM presence_rollup_day r
+                  JOIN game g ON g.id = r.game_id
+                 WHERE r.day >= @from AND r.count_histogram IS NOT NULL
+                   AND g.state <> 'archived' AND {PublicG}),
+            eligible AS (
+                SELECT game_id, slug, name,
+                       sum(counted_samples)::int AS samples,
+                       max(max_count) AS peak,
+                       count(*)::int AS days
+                  FROM bucket
+                 GROUP BY game_id, slug, name
+                HAVING sum(counted_samples) >= @minimum AND count(*) >= @minimumDays),
+            frequency AS (
+                SELECT b.game_id, e.key::int AS value, sum(e.value::bigint) AS times
+                  FROM bucket b
+                  JOIN eligible el ON el.game_id = b.game_id
+                  CROSS JOIN LATERAL jsonb_each_text(b.count_histogram) AS e(key, value)
+                 GROUP BY b.game_id, e.key::int),
+            walked AS (
+                SELECT game_id, value,
+                       sum(times) OVER (PARTITION BY game_id ORDER BY value) AS running,
+                       ceil(sum(times) OVER (PARTITION BY game_id) / 2.0) AS half
+                  FROM frequency),
+            median AS (
+                SELECT game_id, min(value)::int AS median
+                  FROM walked
+                 WHERE running >= half
+                 GROUP BY game_id)
+            SELECT e.slug AS Slug, e.name AS Name, m.median AS Median, e.peak AS Peak,
+                   e.samples AS Samples, e.days AS Days,
                    (count(*) OVER ())::int AS Eligible
-              FROM counted
-             ORDER BY median DESC, peak DESC, name
+              FROM eligible e
+              JOIN median m ON m.game_id = e.game_id
+             ORDER BY m.median DESC, e.peak DESC, e.name
              LIMIT @limit
             """,
             new
             {
-                from = (now - RankingWindow).ToUniversalTime(),
+                from = DayAlignedStart(now, span),
                 minimum = MinimumRankingSamples,
+                minimumDays = span.MinimumDays(),
                 limit = RankingLimit,
             },
             cancellationToken: cancellationToken))).ToList();
@@ -744,12 +798,35 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
         return new Rankings(
             now,
-            RankingWindow,
+            span.Window(),
             MinimumRankingSamples,
             listed,
             busiest.Count == 0 ? 0 : busiest[0].Eligible,
-            busiest.Select(r => new BusiestGame(r.Slug, r.Name, r.Median, r.Peak, r.Samples)).ToList(),
-            spells.Select(r => new ReachableSpell(r.Slug, r.Name, r.Since)).ToList());
+            busiest
+                .Select(r => new BusiestGame(r.Slug, r.Name, r.Median, r.Peak, r.Samples, r.Days))
+                .ToList(),
+            spells.Select(r => new ReachableSpell(r.Slug, r.Name, r.Since)).ToList())
+        {
+            Span = span,
+        };
+    }
+
+    /// <summary>
+    /// The first day bucket a span covers: midnight UTC, <c>days - 1</c> whole days before today.
+    /// </summary>
+    /// <remarks>
+    /// A span of seven therefore covers seven day buckets — six complete and today's, which is still
+    /// filling. Aligning to the bucket rather than rolling back from the instant is forced by the
+    /// grain the median is summed at: half of a day bucket cannot be read out of it, so a window
+    /// that asked for one would either drop the oldest day or take all of it and describe itself
+    /// wrongly. The page says "the last N days" and means N buckets.
+    /// </remarks>
+    internal static DateTimeOffset DayAlignedStart(DateTimeOffset now, RankingSpan span)
+    {
+        var utc = now.ToUniversalTime();
+        var today = new DateTimeOffset(utc.Year, utc.Month, utc.Day, 0, 0, 0, TimeSpan.Zero);
+
+        return today.AddDays(-(span.Days() - 1));
     }
 
     /// <summary>
@@ -1262,6 +1339,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         public int Peak { get; init; }
 
         public int Samples { get; init; }
+
+        /// <summary>Day buckets the samples came from — the coverage half of the eligibility rule.</summary>
+        public int Days { get; init; }
 
         public int Eligible { get; init; }
     }
