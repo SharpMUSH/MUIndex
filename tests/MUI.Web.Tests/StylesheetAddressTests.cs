@@ -50,5 +50,11 @@ public class StylesheetAddressTests
         using var flat = await site.Client.GetAsync("/app.css");
 
         await Assert.That(flat.IsSuccessStatusCode).IsTrue();
+
+        // The two addresses are the same bytes. Without this the fingerprint is only asserted to be
+        // *a* stylesheet: a build that fingerprinted one file and served another would pass every
+        // other line here, and would be exactly the failure the fingerprint exists to prevent —
+        // markup and stylesheet that do not belong to each other, with no way to tell from outside.
+        await Assert.That(await flat.Content.ReadAsStringAsync()).IsEqualTo(css);
     }
 }
