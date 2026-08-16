@@ -164,6 +164,7 @@ public static class SqlEnums
         LifecycleState.Quiet => "quiet",
         LifecycleState.Dark => "dark",
         LifecycleState.Archived => "archived",
+        LifecycleState.Excluded => "excluded",
         _ => throw Unmapped(state),
     };
 
@@ -173,6 +174,7 @@ public static class SqlEnums
         "quiet" => LifecycleState.Quiet,
         "dark" => LifecycleState.Dark,
         "archived" => LifecycleState.Archived,
+        "excluded" => LifecycleState.Excluded,
         _ => throw Unread(value, nameof(LifecycleState)),
     };
 

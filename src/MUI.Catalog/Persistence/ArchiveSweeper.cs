@@ -41,6 +41,15 @@ public sealed class ArchiveSweeper(
 
         foreach (var game in candidates)
         {
+            // An exclusion is a judgement a person made and only a person undoes. Without this, the
+            // first time an excluded dev instance went dark the sweeper would move it to `archived`
+            // and the next probe that answered would restore it to `active` — the decision discarded
+            // by two automatic steps, neither of which knew it existed.
+            if (game.State is LifecycleState.Excluded)
+            {
+                continue;
+            }
+
             if (await ShouldArchiveAsync(game, now, cancellationToken))
             {
                 await games.SetStateAsync(game.Id, LifecycleState.Archived, now, cancellationToken);

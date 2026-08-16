@@ -72,6 +72,19 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     private const string Public =
         $"((submitted_at IS NULL OR is_claimed OR corroborated_at IS NOT NULL) AND {NotAbsorbed})";
 
+    /// <summary>
+    /// The states a game is counted and listed in.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two states withhold a game from the listing and they are not the same statement.</b>
+    /// <c>archived</c> says it stopped answering and is reversed by the next probe that gets an
+    /// answer; <c>excluded</c> says we decided it is not a game for players and is reversed only by
+    /// a person. Both keep the page, the URL, the history and the crawl. Named once here so that a
+    /// count added later cannot quietly include one of them — the same reasoning as `Public` below,
+    /// which arrived after a lookup had already forgotten it once.
+    /// </remarks>
+    private const string ListedStates = "('archived', 'excluded')";
+
     /// <summary>The same rule where the table is aliased.</summary>
     private const string PublicG =
         $"((g.submitted_at IS NULL OR g.is_claimed OR g.corroborated_at IS NOT NULL) AND {NotAbsorbedG})";
@@ -189,7 +202,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             SELECT g.id AS Id, g.slug AS Slug, g.name AS Name, g.tagline AS Tagline,
                    g.state AS State, g.is_claimed AS IsClaimed, g.last_reachable_at AS LastReachableAt
               FROM game g
-             WHERE (@includeArchived OR g.state <> 'archived')
+             WHERE (@includeArchived OR g.state NOT IN ('archived', 'excluded'))
                AND {PublicG}
              ORDER BY g.name
             """,
@@ -607,34 +620,34 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         var totals = await connection.QuerySingleAsync<EcosystemTotalsRow>(new CommandDefinition(
             $"""
             SELECT
-              (SELECT count(*)::int FROM game WHERE state <> 'archived' AND {Public}) AS Listed,
+              (SELECT count(*)::int FROM game WHERE state NOT IN ('archived', 'excluded') AND {Public}) AS Listed,
 
               -- A completed session, which is what a measured capability is a capability of.
               (SELECT count(DISTINCT a.game_id)::int
                  FROM availability_interval a
                  JOIN game g ON g.id = a.game_id
-                WHERE {PublicG} AND g.state <> 'archived' AND a.state = 'reachable') AS Handshakes,
+                WHERE {PublicG} AND g.state NOT IN ('archived', 'excluded') AND a.state = 'reachable') AS Handshakes,
 
               -- Games whose MSSP report we hold. A different set from the one above, and the whole
               -- reason the declared column carries its own denominator.
               (SELECT count(DISTINCT f.game_id)::int
                  FROM game_field f
                  JOIN game g ON g.id = f.game_id
-                WHERE {PublicG} AND g.state <> 'archived' AND f.source = 'mssp') AS MsspReports,
+                WHERE {PublicG} AND g.state NOT IN ('archived', 'excluded') AND f.source = 'mssp') AS MsspReports,
 
               -- How stale the stalest handshake in this snapshot is, so the page can say how old the
               -- picture is rather than implying it is of this minute.
               (SELECT min(f.last_confirmed_at)
                  FROM game_field f
                  JOIN game g ON g.id = f.game_id
-                WHERE {PublicG} AND g.state <> 'archived' AND f.source = 'handshake'
+                WHERE {PublicG} AND g.state NOT IN ('archived', 'excluded') AND f.source = 'handshake'
                   AND f.field LIKE 'capability.%.measured') AS OldestHandshake,
 
               -- The raw material of the curve this page cannot yet draw (§5.1's change ledger).
               (SELECT count(*)::int
                  FROM field_change c
                  JOIN game g ON g.id = c.game_id
-                WHERE {PublicG} AND g.state <> 'archived'
+                WHERE {PublicG} AND g.state NOT IN ('archived', 'excluded')
                   AND c.field LIKE 'capability.%.measured') AS CapabilityTransitions
             """,
             cancellationToken: cancellationToken));
@@ -644,7 +657,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             SELECT DISTINCT ON (f.game_id) f.value
               FROM game_field f
               JOIN game g ON g.id = f.game_id
-             WHERE {PublicG} AND g.state <> 'archived' AND f.field = 'CODEBASE' AND f.value <> ''
+             WHERE {PublicG} AND g.state NOT IN ('archived', 'excluded') AND f.field = 'CODEBASE' AND f.value <> ''
              ORDER BY f.game_id, array_position(@ladder::text[], f.source), f.last_confirmed_at DESC
             """,
             new { ladder = SourceLadder },
@@ -656,7 +669,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
               FROM (SELECT DISTINCT ON (f.game_id, f.field) f.field, f.value
                       FROM game_field f
                       JOIN game g ON g.id = f.game_id
-                     WHERE {PublicG} AND g.state <> 'archived' AND f.field LIKE 'capability.%'
+                     WHERE {PublicG} AND g.state NOT IN ('archived', 'excluded') AND f.field LIKE 'capability.%'
                      ORDER BY f.game_id, f.field,
                               array_position(@ladder::text[], f.source), f.last_confirmed_at DESC) winner
              GROUP BY winner.field, winner.value
@@ -709,7 +722,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
         var listed = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
-            $"SELECT count(*)::int FROM game WHERE state <> 'archived' AND {Public}",
+            $"SELECT count(*)::int FROM game WHERE state NOT IN ('archived', 'excluded') AND {Public}",
             cancellationToken: cancellationToken));
 
         // The median comes out of `presence_rollup_day`'s distribution (migration 0019) rather than
@@ -741,7 +754,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                   FROM presence_rollup_day r
                   JOIN game g ON g.id = r.game_id
                  WHERE r.day >= @from AND r.count_histogram IS NOT NULL
-                   AND g.state <> 'archived' AND {PublicG}),
+                   AND g.state NOT IN ('archived', 'excluded') AND {PublicG}),
             eligible AS (
                 SELECT game_id, slug, name,
                        sum(counted_samples)::int AS samples,
@@ -788,7 +801,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             SELECT g.slug AS Slug, g.name AS Name, a.from_at AS Since
               FROM availability_interval a
               JOIN game g ON g.id = a.game_id
-             WHERE a.to_at IS NULL AND a.state = 'reachable' AND g.state <> 'archived'
+             WHERE a.to_at IS NULL AND a.state = 'reachable' AND g.state NOT IN ('archived', 'excluded')
                AND {PublicG}
              ORDER BY a.from_at
              LIMIT @limit

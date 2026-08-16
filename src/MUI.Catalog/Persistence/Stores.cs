@@ -16,6 +16,19 @@ public interface IGameStore
     /// Moves a game between lifecycle states. Archiving is a presentation change and never a deletion
     /// (§7.5): the row, its fields, its history and its slug all survive it untouched.
     /// </summary>
+    /// <summary>
+    /// Takes a game out of the listing because it is not a game for players, with the argument.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="SetStateAsync"/> because it is the only state change that carries a
+    /// reason, and because that one deliberately refuses to move a game that is already excluded —
+    /// an automatic sweep must not be able to discard a judgement a person made.
+    /// </remarks>
+    Task ExcludeAsync(Guid id, string reason, DateTimeOffset at, CancellationToken cancellationToken = default);
+
+    /// <summary>Puts an excluded game back in the listing. A person's act, like the exclusion.</summary>
+    Task IncludeAsync(Guid id, DateTimeOffset at, CancellationToken cancellationToken = default);
+
     Task SetStateAsync(
         Guid id,
         LifecycleState state,
