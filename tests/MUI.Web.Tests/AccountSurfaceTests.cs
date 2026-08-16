@@ -556,6 +556,12 @@ public class AccountSurfaceTests
 
         public Task SetClaimedAsync(Guid id, bool claimed, CancellationToken ct = default) => Task.CompletedTask;
 
+        public Task CorroborateAsync(
+            Guid id,
+            DateTimeOffset at,
+            IReadOnlyList<string> signals,
+            CancellationToken ct = default) => Task.CompletedTask;
+
         public Task MarkReachableAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
             Task.CompletedTask;
 

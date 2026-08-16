@@ -112,6 +112,13 @@ public static class Render
         public Task SetClaimedAsync(Guid id, bool isClaimed, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
+        public Task CorroborateAsync(
+            Guid id,
+            DateTimeOffset at,
+            IReadOnlyList<string> signals,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task<IReadOnlyList<GameRecord>> UnarchivedAsync(CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
     }

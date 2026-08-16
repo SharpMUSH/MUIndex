@@ -72,6 +72,24 @@ public sealed class FakeGameStore : IGameStore
         return Task.CompletedTask;
     }
 
+    public Task CorroborateAsync(
+        Guid id,
+        DateTimeOffset at,
+        IReadOnlyList<string> signals,
+        CancellationToken cancellationToken = default)
+    {
+        // Write-once, as the SQL is: the UPDATE carries `WHERE corroborated_at IS NULL`, and a fake
+        // that overwrote would let a test pass against behaviour the database refuses.
+        if (signals.Count > 0
+            && _games.TryGetValue(id, out var game)
+            && game.CorroboratedAt is null)
+        {
+            _games[id] = game with { CorroboratedAt = at, CorroboratedBy = [.. signals] };
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task SetClaimedAsync(Guid id, bool isClaimed, CancellationToken cancellationToken = default)
     {
         if (_games.TryGetValue(id, out var game))
