@@ -10,7 +10,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
     <base href="/" />
-    <link rel="stylesheet" href="app.css" />
+    @*
+        Fingerprinted, and that is load-bearing rather than tidy. The stylesheet was linked as a bare
+        "app.css", the proxy in front of this site caches wwwroot for four hours, and so a deploy that
+        changed the CSS served new markup against the old sheet to everybody whose cache had not
+        expired: the trend chart went out styled by a stylesheet written before it existed. A URL that
+        changes when the bytes change cannot be stale, which is a property of the address rather than
+        a promise about somebody's cache configuration.
+    *@
+    <link rel="stylesheet" href="@Assets["app.css"]" />
 
     @*
         The SVG is the real icon and the .ico is the fallback for the browsers that still want one;

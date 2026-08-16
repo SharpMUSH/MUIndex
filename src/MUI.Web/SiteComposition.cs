@@ -135,7 +135,15 @@ public static class SiteComposition
         // "there is nothing here" must not reach the API or the account endpoints beside it.
         app.UseMuiNotFoundPage();
 
-        app.UseStaticFiles();
+        // MapStaticAssets rather than UseStaticFiles: it is what publishes the fingerprinted address
+        // App.razor links the stylesheet by, and it serves that address as immutable while the plain
+        // one keeps revalidating. See the comment there for the deploy this is the fix for.
+        //
+        // The manifest is named rather than inferred, because the argumentless overload derives the
+        // name from the *entry* assembly — which is this site when it is the site, and the test host
+        // when a test builds this very pipeline to assert what it maps. Seven of those tests went
+        // from passing to throwing on a manifest the test project has no reason to have.
+        app.MapStaticAssets("MUI.Web.staticwebassets.endpoints.json");
 
         app.UseMuiAntiforgeryAfterAuthentication(withAccounts: connectionString is not null);
 

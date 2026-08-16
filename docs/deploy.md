@@ -204,6 +204,14 @@ Three things must be off, or the site stops being what it says it is:
 - **"Cache Everything", and anything that caches HTML.** Every page states how old the measurement on
   it is. A CDN answering from a copy makes that sentence a lie, with no way for the reader to tell.
   Cache rules for `wwwroot` and nothing else.
+
+  The corollary bit once and is worth writing down: **`wwwroot` is cached for four hours and a deploy
+  does not purge it**, so an asset linked by a flat name is served from before the deploy for as long
+  as the edge copy lives. The site shipped new markup against a stylesheet written before the graphic
+  in it existed, which reads as a broken page rather than as a stale one. The site now links its
+  stylesheet at a fingerprinted address (`app.<hash>.css`, from `MapStaticAssets`), so the URL changes
+  when the bytes do and no purge is needed — but **anything added to `wwwroot` and referenced by a
+  flat name inherits the original trap.**
 - **Bot Fight Mode and the interstitial challenges.** `?plain=1`, `curl` and `/api/games` are surfaces
   meant to be read by programs (§9, §10). A JavaScript challenge in front of them defeats the point
   of having them.
