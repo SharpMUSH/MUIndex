@@ -28,7 +28,9 @@ public sealed class PresenceMaintenance(
     ILogger? logger = null,
     // §11's redacted probe shapes, swept by the same pass. Optional so a deployment that predates
     // the table keeps rolling presence up rather than failing on a missing relation.
-    IProbePayloads? payloads = null)
+    IProbePayloads? payloads = null,
+    // Migration 0017's cycle log, on the same terms and for the same reason.
+    ICrawlCycles? cycles = null)
 {
     /// <summary>
     /// Whether the schema this pass works on has been applied yet.
@@ -168,6 +170,26 @@ public sealed class PresenceMaintenance(
             catch (Exception error) when (error is not OperationCanceledException)
             {
                 logger?.LogWarning(error, "The probe-shape sweep failed; retention continues");
+            }
+        }
+
+        // The cycle log, on the same terms: nothing is derived from it, so it goes first, alone, and
+        // a failure here costs a month of telemetry about our crawler rather than an hour of
+        // anybody's presence.
+        if (cycles is not null && retention.CrawlCycles is { } keepCycles)
+        {
+            try
+            {
+                var gone = await cycles.SweepAsync(now - keepCycles, cancellationToken);
+
+                if (gone > 0)
+                {
+                    logger?.LogInformation("Dropped {Count} crawl cycles past their TTL", gone);
+                }
+            }
+            catch (Exception error) when (error is not OperationCanceledException)
+            {
+                logger?.LogWarning(error, "The crawl-cycle sweep failed; retention continues");
             }
         }
 

@@ -185,6 +185,19 @@ public sealed record PresenceRetentionOptions
     /// </remarks>
     public TimeSpan? ProbePayloads { get; init; } = TimeSpan.FromDays(14);
 
+    /// <summary>
+    /// How long the crawl loop's record of its own cycles is kept (migration 0017). <c>null</c> is
+    /// for ever.
+    /// </summary>
+    /// <remarks>
+    /// The second default here that deletes, and for the same reason as the first: a cycle report is
+    /// a fact about <em>our</em> crawler and never a measurement of anybody's game, so the rule that
+    /// makes deletion unthinkable elsewhere does not reach it. Thirty days rather than a fortnight
+    /// because the question it answers — "has this instrument been running?" — is one somebody asks
+    /// about last month, and two cycles a minute is a row count Postgres does not notice.
+    /// </remarks>
+    public TimeSpan? CrawlCycles { get; init; } = TimeSpan.FromDays(30);
+
     /// <summary>The retention §5.2 designed: raw ninety days, hourly two years, daily for ever.</summary>
     /// <remarks>
     /// Available as a preset rather than as the default, because §15.4 is open and the shape being

@@ -298,7 +298,7 @@ public class PlainParityTests
     public async Task TheHomePageCountsOnlyWhatWasMeasured()
     {
         var counts = SiteCounts.From(await Queries.ListAsync(new GameFilter { IncludeArchived = true }));
-        var text = PlainText.RenderHome(counts, await Queries.FeedsAsync(), Now);
+        var text = PlainText.RenderHome(counts, await Queries.FeedsAsync(), CrawlerPulse.Unknown, Now);
 
         await Assert.That(text).Contains("games known");
         await Assert.That(text).Contains("with players on now (measured)");
@@ -314,7 +314,7 @@ public class PlainParityTests
         var surfaces = new[]
         {
             await GameAsync("m-u-s-h"),
-            PlainText.RenderHome(counts, await Queries.FeedsAsync(), Now),
+            PlainText.RenderHome(counts, await Queries.FeedsAsync(), CrawlerPulse.Unknown, Now),
             PlainText.RenderListing(await Queries.SearchAsync(new GameFilter()), new GameFilter(), Now),
         };
 

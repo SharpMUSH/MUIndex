@@ -1,5 +1,6 @@
 @page "/"
 @inject IGameQueries Queries
+@inject ICrawlerPulse Crawler
 @inject TimeProvider Clock
 
 @*
@@ -12,7 +13,7 @@
 
 @if (Plain)
 {
-    <pre class="mono plain">@PlainText.RenderHome(Counts, Feeds, Now)</pre>
+    <pre class="mono plain">@PlainText.RenderHome(Counts, Feeds, Pulse, Now)</pre>
 }
 else
 {
@@ -38,6 +39,10 @@ else
             <li><strong>@Counts.CountUnknown</strong> answering, count unknown</li>
             <li><a href="/archive">@Counts.Archived archived</a>, still probed</li>
         </ul>
+
+        @* Under the counts on purpose. Every figure above it is only as current as the loop this
+           line describes, so it reads as the provenance of the four numbers it sits beneath. *@
+        <CrawlerStrip Pulse="Pulse" Now="Now" />
     </section>
 
     <div class="feeds">
@@ -95,6 +100,7 @@ else
 
     private SiteCounts Counts = new(0, 0, 0, 0);
     private LivenessFeeds Feeds = new([], [], []);
+    private CrawlerPulse Pulse = CrawlerPulse.Unknown;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -102,5 +108,9 @@ else
         // "games known" counts them: they are still known, still probed and still addressable.
         Counts = SiteCounts.From(await Queries.ListAsync(new GameFilter { IncludeArchived = true }));
         Feeds = await Queries.FeedsAsync();
+
+        // Its own read, and it cannot throw: StoredCrawlerPulse answers Unknown for a missing table
+        // or a failed query alike, so the strip going quiet never costs a reader the front page.
+        Pulse = await Crawler.ReadAsync(Now);
     }
 }

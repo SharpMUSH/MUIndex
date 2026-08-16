@@ -286,6 +286,13 @@ ul.counts {
 }
 ul.counts strong { color: var(--text); font-weight: 400; }
 
+/* The crawler strip, under the counts it is the provenance of. A step smaller and dimmer than they
+   are, because it is about the instrument rather than about the hobby — a reader who never notices
+   it has lost nothing, and one who comes looking for it knows where to look. */
+p.crawler {
+    margin: 10px 0 0; font-size: 11px;
+}
+
 .feeds {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
