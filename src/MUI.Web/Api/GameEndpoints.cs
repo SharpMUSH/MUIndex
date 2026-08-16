@@ -1,4 +1,5 @@
 using MUI.Catalog;
+using MUI.Catalog.Persistence;
 using MUI.Web.Data;
 
 using Microsoft.Net.Http.Headers;
@@ -79,9 +80,18 @@ public static class GameEndpoints
         {
             // Not found *here* is not the end of the question: a slug this game used to wear is a
             // URL somebody is still holding, and it redirects rather than 404s. Forever.
+            //
+            // Through SlugDestination, which is what the page uses too. This asked the former-slug
+            // table alone and knew nothing about §7.3's merge, so /g/{slug} sent a reader on while
+            // this answered 404 for the same game — one promise with two answers, and a consumer
+            // following the API would have concluded the game was gone.
             if (!isId
-                && await slugs.CurrentSlugAsync(key, http.RequestAborted) is { } current
-                && await queries.FindAsync(current, http.RequestAborted) is not null)
+                && await SlugDestination.ForAsync(
+                    key,
+                    http.RequestServices.GetService<IMergeRedirects>(),
+                    slugs,
+                    queries,
+                    http.RequestAborted) is { } current)
             {
                 http.Response.StatusCode = StatusCodes.Status301MovedPermanently;
                 http.Response.Headers[HeaderNames.Location] =

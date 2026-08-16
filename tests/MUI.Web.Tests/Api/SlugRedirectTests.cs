@@ -32,6 +32,49 @@ public class SlugRedirectTests
     }
 
     [Test]
+    public async Task AnAbsorbedGameRedirectsHereJustAsItDoesOnThePage()
+    {
+        // §7.3's merge reached the page middleware and stopped there, so /g/{slug} sent a reader on
+        // and /api/games/{key} answered 404 for the same game. One promise, two surfaces, and a
+        // consumer following the API would have concluded the game was gone.
+        await using var host = await ApiHost.StartAsync(services => services
+            .AddSingleton<IMergeRedirects>(new FakeMergeRedirects { ["tidewater-nights"] = "m-u-s-h" }));
+
+        var response = await host.Client.GetAsync($"{ApiRoutes.Games}/tidewater-nights");
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.MovedPermanently);
+        await Assert.That(response.Headers.Location!.ToString())
+            .IsEqualTo($"{ApiRoutes.Games}/m-u-s-h");
+    }
+
+    [Test]
+    public async Task AFormerSlugOfAnAbsorbedGameFollowsThroughHereToo()
+    {
+        await using var host = await ApiHost.StartAsync(services => services
+            .AddSingleton<ISlugHistoryStore>(new FakeSlugHistory { ["aardmud-org-4000"] = "tidewater-nights" })
+            .AddSingleton<IMergeRedirects>(new FakeMergeRedirects { ["tidewater-nights"] = "m-u-s-h" }));
+
+        var response = await host.Client.GetAsync($"{ApiRoutes.Games}/aardmud-org-4000");
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.MovedPermanently);
+        await Assert.That(response.Headers.Location!.ToString())
+            .IsEqualTo($"{ApiRoutes.Games}/m-u-s-h");
+    }
+
+    private sealed class FakeMergeRedirects : IMergeRedirects
+    {
+        private readonly Dictionary<string, string> _rows = new(StringComparer.Ordinal);
+
+        public string this[string absorbedSlug]
+        {
+            set => _rows[absorbedSlug] = value;
+        }
+
+        public Task<string?> AbsorbedIntoAsync(string slug, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_rows.GetValueOrDefault(slug));
+    }
+
+    [Test]
     public async Task AConfiguredAliasStillAnswersWhenTheTableHasNothingToSay()
     {
         await using var host = await ApiHost.StartAsync(
