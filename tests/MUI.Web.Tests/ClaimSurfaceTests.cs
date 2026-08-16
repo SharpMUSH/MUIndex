@@ -30,8 +30,8 @@ public class ClaimSurfaceTests
     {
         var page = await Render.PageAsync<Game>(new() { ["Slug"] = "m-u-s-h" });
 
-        await Assert.That(page).Contains("Nobody has claimed this listing");
-        await Assert.That(page).DoesNotContain("Run this game?");
+        await Assert.That(page).Contains("Everything here was measured, not entered by an owner");
+        await Assert.That(page).DoesNotContain("Claim this game");
     }
 
     /// <summary>The sign-in page says why it cannot sign anybody in, rather than offering a button.</summary>

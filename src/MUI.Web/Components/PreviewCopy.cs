@@ -31,8 +31,8 @@ public static class PreviewCopy
 
     /// <summary>What the site is, in one sentence, for every page that has nothing better to say.</summary>
     public const string Site =
-        "An information site for the MU* hobby — MUSHes, MUDs, MUCKs, MOOs — whose data is measured "
-        + "rather than asserted. Every fact carries how it was obtained and how old it is.";
+        "A directory of the MU* hobby — MUSHes, MUDs, MUCKs, MOOs — where every fact was measured "
+        + "by a crawler and carries how it was obtained and how old it is.";
 
     /// <summary>Prefixed over the fixture, on every surface no banner reaches.</summary>
     public static string Demo(string description) =>
@@ -51,37 +51,32 @@ public static class PreviewCopy
     public static class Pages
     {
         public const string Games =
-            "Every MU* we have reached, faceted by what was measured rather than by what was "
-            + "claimed — codebase, the protocols a server actually offered in the handshake, TLS, "
-            + "charset, language, and when we last got in.";
+            "Every MU* we have reached, faceted on what we measured: codebase, the protocols a "
+            + "server offered in the handshake, TLS, charset, language, and when we last got in.";
 
         public const string Archive =
-            "The games that went dark, kept. Every one still has its page, its history and its "
-            + "URL, is still probed every week, and comes back to the listing on one successful "
-            + "connection. This is the record the incumbent directories threw away.";
+            "The games that went dark, kept. Each keeps its page, history and URL, is still "
+            + "probed weekly, and returns to the listing on one successful connection.";
 
         public const string Rankings =
-            "Busiest, most reachable, longest running — computed from measurements only. There is "
-            + "no vote, star or rating anywhere on this site, which is the thing that killed the "
-            + "directories that had them.";
+            "Busiest, most reachable, longest running — computed from measurements only. No "
+            + "votes, stars or ratings anywhere on this site.";
 
         public const string Ecosystem =
             "Codebase share and protocol adoption across the games we measure, with what servers "
-            + "offer set beside what they declare. Shares and never totals: an absolute population "
-            + "figure would not survive the biases in what a crawler can reach.";
+            + "offer set beside what they declare. Shares, never totals.";
 
         public const string Reference =
-            "Hand-written pages on the codebases, clients and protocols of the MU* hobby — curated, "
-            + "versioned in git, and cross-linked to counts taken from the crawl rather than typed "
-            + "in by hand.";
+            "Hand-written pages on the codebases, clients and protocols of the MU* hobby, "
+            + "cross-linked to counts taken from the crawl.";
 
         public const string About =
-            "How this catalogue is built: what the crawler does, what it refuses to do, how to make "
-            + "it stop, and why every fact on the site carries where it came from and how old it is.";
+            "How this catalogue is built: what the crawler does, what it refuses to do, and how "
+            + "to make it stop.";
 
         public const string NotFound =
-            "No game here. Nothing on this site is ever deleted, so a game that once lived at this "
-            + "address still does — check the spelling.";
+            "No game at this address. Nothing here is ever deleted, so a game that once lived at "
+            + "this URL still does — check the spelling.";
 
         public const string Random =
             "One game from the catalogue, chosen at random and never the same one twice.";

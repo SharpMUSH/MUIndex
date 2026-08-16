@@ -73,9 +73,9 @@ public class EcosystemSurfaceTests
         // talkative and calling the difference adoption.
         var text = Render.Words(await EcosystemAsync());
 
-        await Assert.That(text).Contains("whose handshake we have completed");
+        await Assert.That(text).Contains("whose handshake we completed");
         await Assert.That(text).Contains("whose MSSP report we hold");
-        await Assert.That(text).Contains("two different sets of games");
+        await Assert.That(text).Contains("Two sets of games, so two denominators");
     }
 
     [Test]
@@ -112,7 +112,7 @@ public class EcosystemSurfaceTests
         // saying so publishes our own instrumentation as a fact about somebody's game.
         var text = Render.Words(await EcosystemAsync());
 
-        await Assert.That(text).Contains("A protocol we did not see is not a protocol a game lacks");
+        await Assert.That(text).Contains("may support a protocol without ever offering it");
         await Assert.That(text).Contains("as a floor");
     }
 
@@ -124,8 +124,8 @@ public class EcosystemSurfaceTests
         // crawl reaching more games and nothing about anybody adopting anything.
         var text = Render.Words(await EcosystemAsync());
 
-        await Assert.That(text).Contains("not a trend");
-        await Assert.That(text).Contains("nothing to plot yet");
+        await Assert.That(text).Contains("A snapshot of what we can measure now");
+        await Assert.That(text).Contains("nothing to plot");
         await Assert.That(text).DoesNotContain("growth");
     }
 
@@ -138,7 +138,7 @@ public class EcosystemSurfaceTests
         await Assert.That(dashboard.Codebases.NotIdentified).IsGreaterThan(0);
         await Assert.That(dashboard.Codebases.Families.Sum(f => f.Count))
             .IsEqualTo(dashboard.Codebases.Identified);
-        await Assert.That(text).Contains("counted as nothing at all, and never as something else");
+        await Assert.That(text).Contains("excluded, never reassigned");
         await Assert.That(text).Contains("outside the denominator")
             .Or.Contains("have not told us one");
     }
@@ -148,9 +148,9 @@ public class EcosystemSurfaceTests
     {
         var text = Render.Words(await RankingsAsync());
 
-        await Assert.That(text).Contains("median of the player counts we measured over the last 7 days");
+        await Assert.That(text).Contains("Median of the player counts we measured over the last 7 days");
         await Assert.That(text).Contains("counted samples a median needs");
-        await Assert.That(text).Contains("is not a zero and is not among them");
+        await Assert.That(text).Contains("A measured zero counts; an unreadable count does not");
     }
 
     [Test]
@@ -159,7 +159,7 @@ public class EcosystemSurfaceTests
         // §2's permanent non-goal, said on the surface a reader would look for it on.
         var text = Render.Words(await RankingsAsync());
 
-        await Assert.That(text).Contains("There is no vote, star or rating anywhere on this site");
+        await Assert.That(text).Contains("No votes, stars or ratings, ever");
         await Assert.That(text.ToLowerInvariant()).DoesNotContain("rate this");
         await Assert.That(text.ToLowerInvariant()).DoesNotContain("top rated");
     }

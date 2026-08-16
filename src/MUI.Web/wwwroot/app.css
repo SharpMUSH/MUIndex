@@ -238,7 +238,6 @@ figure.ansi figcaption {
 header.site nav { display: flex; gap: var(--cpad); flex-wrap: wrap; }
 header.site nav a { color: var(--dim); text-decoration: none; }
 header.site nav a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
-header.site .kicker { margin-left: auto; }
 
 /* The one link in this bar that leads somewhere only you can go, so it is not dimmed like the
    catalogues beside it. */
@@ -629,7 +628,6 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
     .two-up, .feeds { grid-template-columns: minmax(0, 1fr); }
     .game-head { flex-direction: column; }
     header.site { flex-wrap: wrap; }
-    header.site .kicker { margin-left: 0; }
 
     /*
       All 168 cells at 12px rather than a scrolling grid — the whole week at a glance is the reason

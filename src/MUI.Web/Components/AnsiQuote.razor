@@ -28,15 +28,15 @@
         <p class="faint">
             @(Screen.State is AnsiScreenState.Absent
                 ? "No connect screen has been captured from this game."
-                : $"This game's connect screen is {Screen.RowCount} {(Screen.RowCount == 1 ? "row" : "rows")} — too little to be worth showing as a picture.")
+                : $"Only {Screen.RowCount} {(Screen.RowCount == 1 ? "row" : "rows")} came back — too little to show.")
         </p>
         break;
 
     default:
         <figure class="ansi" aria-labelledby="@($"{Id}-caption")">
             <p id="@($"{Id}-caption")" class="sr-only">
-                Connect screen, @Screen.RowCount @(Screen.RowCount == 1 ? "row" : "rows"), as sent by
-                the server. The text follows under "read as text"; colour codes are not announced.
+                Connect screen, @Screen.RowCount @(Screen.RowCount == 1 ? "row" : "rows"), as sent
+                by the server. The text follows under "read as text".
             </p>
             <div class="quote">
                 <pre>@Paint(Screen.Visible)</pre>
@@ -59,7 +59,7 @@
                 @if (Frozen)
                 {
                     <span aria-hidden="true">·</span>
-                    <span>frozen — this is the last screen we saw</span>
+                    <span>frozen — the last screen we saw</span>
                 }
             </figcaption>
         </figure>
@@ -67,8 +67,8 @@
         @if (Screen.IsOversized)
         {
             <p class="faint">
-                This screen is @Screen.RowCount rows, which is unusually long. The first
-                @Ansi.CropRows are shown; the rest is under "show all rows".
+                Unusually long at @Screen.RowCount rows. The first @Ansi.CropRows are shown; the
+                rest is under "show all rows".
             </p>
         }
 

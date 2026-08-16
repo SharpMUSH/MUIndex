@@ -48,10 +48,9 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
     /// </param>
     /// <param name="dataset">The licence terms this deployment serves its dumps under.</param>
     public static AboutPage Build(ProbeOptions probe, DatasetLicenceOptions dataset) => new(
-        "Every game listed here was measured by a machine that connected to it, and every value "
-        + "says where it came from and when. This page is what that does and does not amount to: "
-        + "what we can honestly tell you, what we know we get wrong, whose directories we read to "
-        + "find the games in the first place, and how to make the crawler stop.",
+        "Every game here was measured by a machine that connected to it, and every value says where "
+        + "it came from and when. This page covers what that proves, what we get wrong, whose "
+        + "directories we read, and how to make the crawler stop.",
         [
             Measures(),
             Limits(),
@@ -63,32 +62,27 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
 
     private static AboutSection Measures() => new(
         "measures",
-        "What a fact on this site is",
+        "What a fact here is",
         [
             new("Measured beats declared, and both are shown.",
-                "A game's MSSP report is the game describing itself. The telnet handshake is us "
-                + "watching what it actually does. Both appear on a game's page, each labelled with "
-                + "how it was obtained and how old it is — and where the two disagree, the "
-                + "disagreement is the interesting fact and is not hidden or averaged away."),
-            new("A player count comes from one of two places, and says which.",
-                "Either a WHO or DOING read at the connect screen before logging in, which is a "
-                + "number we counted, or the game's own MSSP PLAYERS field, which is a number the "
-                + "game published. They are different claims and are never merged into one figure."),
+                "A game's MSSP report is the game describing itself. The telnet handshake is what we "
+                + "watched it do. Both appear on its page, labelled with how and when. Where they "
+                + "disagree, we show the disagreement."),
+            new("A player count says where it came from.",
+                "Either a WHO or DOING read at the connect screen, which we counted, or the game's "
+                + "own MSSP PLAYERS field, which it published. Never merged."),
             new("An answer we cannot read is unknown, never zero.",
-                "MU* servers customise their WHO headers freely and past a point our parser cannot "
-                + "read one. That produces uncountable, which is its own state. A measured zero — "
-                + "we got in and nobody was there — is a count, and is printed as the zero it is."),
+                "Servers customise their WHO headers freely, and past a point our parser cannot read "
+                + "one. That is uncountable, its own state. A measured zero — we got in, nobody was "
+                + "there — is a count, and prints as one."),
             new("Reachable, never uptime.",
-                "We open a socket from one host at intervals. That measures whether we could reach "
-                + "a game from here, and it does not measure whether the game was up: a game with a "
-                + "routing problem to our vantage point is unreachable and perfectly alive. Nothing "
-                + "on this site claims to know a game's uptime, because nothing here measured it."),
+                "We open a socket from one host at intervals. A game we cannot route to is "
+                + "unreachable and perfectly alive. Nothing here claims a game's uptime, because "
+                + "nothing here measured it."),
             new("An hour is counted, uncountable, or not measured.",
-                "The activity grid has three states rather than two, and the third is empty and "
-                + "names no cause. An hour we could not reach and an hour we never probed look the "
-                + "same there, because they are the same absence of a measurement — and colouring "
-                + "either of them as downtime would record a decision of ours as a fact about "
-                + "somebody else's server."),
+                "The activity grid has three states. The third is empty and names no cause: an hour "
+                + "we could not reach and an hour we never probed are the same absence, and neither "
+                + "is that server's downtime."),
         ]);
 
     private static AboutSection Limits() => new(
@@ -96,55 +90,43 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
         "What we know we get wrong",
         [
             new("Archive grace is measured from the day we found you.",
-                "A game that stops answering leaves the default listing once it has been "
-                + "unreachable for longer than its grace period, and that period is a quarter of "
-                + "the reachable time we ourselves probed, floored at 60 days and capped at 365. "
-                + "So a game running continuously since 1995 starts at the 60-day floor on the day "
-                + "we discover it and accrues from there. It is a real limitation rather than a "
-                + "rounding error, and it is the accepted cost of every fact here being measured "
-                + "here: nothing is imported that would fill in the years before we arrived."),
+                "A game that stops answering leaves the default listing after its grace period: a "
+                + "quarter of the reachable time we probed, floored at 60 days and capped at 365. A "
+                + "game running since 1995 starts at the floor on the day we discover it. We import "
+                + "nothing to fill in the years before we arrived."),
             new("We do not credit MSSP CREATED toward that grace.",
-                "A game can declare it has existed since 1995 and probably has. It is also one "
-                + "hand-typed line in a configuration file that nothing verifies, and crediting it "
-                + "toward the archive threshold would make that threshold gameable by editing that "
-                + "line. It is shown as the declaration it is, and it buys nothing."),
+                "It is one hand-typed line in a config file, so crediting it would make the archive "
+                + "threshold gameable. It is shown as a declaration and buys nothing."),
             new("Claiming a game earns the ceiling.",
-                "Someone who can prove server access has demonstrably staked a claim, and that is "
-                + "worth the full year of grace regardless of how long we have been watching."),
+                "Proving server access is worth the full year of grace, however long we have been "
+                + "watching."),
             new("Everything here is one host, looking at intervals.",
-                "A percentage of reachable time is a fraction of the window we observed and never "
-                + "of a window we did not. A game we have measured once is a game we have measured "
-                + "once, and no graphic on this site will imply otherwise by filling in the rest."),
+                "A percentage of reachable time is a fraction of the window we observed, never of "
+                + "one we did not. No graphic here fills in the rest."),
             new("Nothing is ever deleted.",
                 "Archiving takes a game out of the default listing, the rankings and the "
-                + "active-today figure, and out of nothing else. Its page, its URL, its history and "
-                + "its address survive, it keeps being probed forever, and one successful probe "
-                + "puts it straight back."),
+                + "active-today figure, and nothing else. Its page, URL, history and address "
+                + "survive, it keeps being probed, and one successful probe puts it back."),
         ]);
 
     private static AboutSection Never() => new(
         "never",
         "What this site will not do",
         [
-            new("There are no votes, stars, ratings or recommendations.",
-                "Rankings are computed from measured data and from nothing else. This is not a "
-                + "feature we have not got round to: a directory ranked by who can mobilise the "
-                + "most clicks stops describing the hobby and starts describing the campaigning, "
-                + "and that is what killed the incumbents."),
-            new("There are no forums, reviews, wikis, comments or player profiles.",
-                "Orientation material — what a MUSH is, how it differs from a MUD, which codebase "
-                + "suits collaborative roleplay — is written and signed and versioned like the rest "
-                + "of the site, rather than opened to editing and then moderated."),
+            new("No votes, stars, ratings or recommendations.",
+                "Rankings are computed from measured data only. A directory ranked by who can "
+                + "mobilise the most clicks describes the campaigning, not the hobby, and that is "
+                + "what killed the incumbents."),
+            new("No forums, reviews, wikis, comments or player profiles.",
+                "Orientation material — what a MUSH is, which codebase suits collaborative "
+                + "roleplay — is written, signed and versioned like the rest of the site."),
             new("Player names are never persisted.",
-                "A WHO reply is parsed in memory to get a count and the shape of the header, and "
-                + "the names in it are not written down. Anything aggregated uses a salted hash "
-                + "with a rotating salt, so an estimate of distinct players is possible while "
-                + "re-identifying one across salt epochs is not."),
+                "A WHO reply is parsed in memory for a count and the shape of the header. The names "
+                + "are not written down; aggregates use a salted hash with a rotating salt."),
             new("No absolute population figure is published.",
-                "Per-codebase and per-protocol shares ship, because a ratio over the measured set "
-                + "survives the games we cannot count and the games we have not found. \"How many "
-                + "people play MU*\" does not ship, because that number would not survive being "
-                + "quoted."),
+                "Per-codebase and per-protocol shares ship: a ratio over the measured set survives "
+                + "the games we cannot count. \"How many people play MU*\" does not, because that "
+                + "number would not survive being quoted."),
         ]);
 
     private static AboutSection Crawler(ProbeOptions probe) => new(
@@ -152,66 +134,48 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
         "The crawler, and how to make it stop",
         [
             new("A probe is one connection that never logs in.",
-                "It opens a socket, negotiates telnet options, reads whatever connect screen the "
-                + "server paints, asks for MSSP by negotiating option 70, sends "
-                + $"{string.Join(", ", TelnetProbe.PermittedCommands)} at the connect screen, and "
-                + "disconnects. It creates no character, sends no login, and changes nothing on the "
-                + "far side. The whole session is bounded by a timeout so a wedged probe cannot sit "
-                + "on a server's connection slot."),
+                "It opens a socket, negotiates telnet options, reads the connect screen, asks for "
+                + "MSSP by negotiating option 70, sends "
+                + $"{string.Join(", ", TelnetProbe.PermittedCommands)}, and disconnects. No "
+                + "character, no login, nothing changed on the far side. A timeout bounds the "
+                + "session so a wedged probe cannot sit on a connection slot."),
             new("CRAWL DELAY wins.",
-                "A game that states a preferred minimum gap between crawls in its MSSP report gets "
-                + "it, and it beats our own schedule in both directions: a game asking for 720 "
-                + "hours is probed monthly, not weekly. A game that has gone dark is still tried "
-                + "forever at whichever of the two intervals is longer, which is how a game that "
-                + "comes back re-lists itself with nobody involved."),
+                "A game that states a preferred minimum gap in its MSSP report gets it, over our own "
+                + "schedule in both directions: 720 hours means monthly, not weekly. A dark game is "
+                + "still tried for ever at the longer interval, which is how it re-lists itself when "
+                + "it comes back."),
             new("A referred address is verified, never trusted.",
-                "MSSP lets a game name other games. Those names are candidates and not facts: every "
-                + "one is resolved before anything is dialled and refused unless every address it "
-                + "resolves to is globally routable, so a hostname pointed at a private or "
-                + "link-local address reaches nothing. A mixed answer refuses the whole target "
-                + "rather than picking the good address out of it. A refusal of ours is recorded as "
-                + "ours and never appears in a game's record as downtime."),
+                "MSSP lets a game name other games. Every name is resolved before anything is "
+                + "dialled, and refused unless every address it resolves to is globally routable. A "
+                + "mixed answer refuses the whole target. Our refusal is filed as ours and never "
+                + "appears in a game's record as downtime."),
             new("Connect screens are shown because they are sent to everybody.",
-                "A server paints its connect screen, unauthenticated, to every anonymous connection "
-                + "that arrives. We display it as evidence and label it as what it is. If you would "
-                + "rather we did not, say so and it comes down — no questions and no argument."),
-            new("Say stop, and we stop — in one line, three ways.",
-                $"Publish {OptOutVocabulary.MsspVariable} 1 in your MSSP report and the probe that "
-                + $"reads it is the last one. Or publish a TXT record at "
+                "A server paints its connect screen, unauthenticated, to every anonymous connection. "
+                + "We display it as evidence and label it. Ask and it comes down."),
+            new("Say stop, and we stop — three ways.",
+                $"Publish {OptOutVocabulary.MsspVariable} 1 in your MSSP report, and the probe that "
+                + "reads it is the last one. Or publish a TXT record at "
                 + $"{OptOutVocabulary.DnsLabel}.your.host reading \"{OptOutVocabulary.DnsValue}\", "
-                + "which needs no MSSP support and no account here. Or write to a person and say so, "
-                + "and it is recorded with who asked. All three are honoured before the next "
-                + "connection is made — inside one crawl cycle — and each is written down with the "
-                + "date and with what we read. They are also honoured by the form anybody can use "
-                + "to send us an address, so a stranger cannot put your game back on our list by "
-                + "typing it in after you have asked us to leave it alone."),
+                + "which needs no MSSP support and no account here. Or write to a person. All three "
+                + "are honoured within one crawl cycle, recorded with the date and what we read, and "
+                + "enforced on the submission form too."),
             new("The MSSP field stops that listener; the record stops the host.",
-                "A game's MSSP report is published by the port that answered us, so it speaks for "
-                + "that port: MU* hosting routinely runs unrelated games on one domain separated "
-                + "only by a port, and one of them must not be able to silence its neighbour. A TXT "
-                + $"record is the domain's own operator speaking about a machine they run, so it "
-                + $"covers every port — unless it names one, as \"{OptOutVocabulary.DnsValue}=4201\". "
-                + "Anything in that position we cannot read as a list of ports is taken as the whole "
-                + $"host, so \"{OptOutVocabulary.DnsValue}=all\" does what it looks like it does."),
+                "MSSP is published by the port that answered, so it speaks for that port — MU* "
+                + "hosting routinely runs unrelated games on one domain, and one must not silence "
+                + "its neighbour. A TXT record covers every port unless it names one, as "
+                + $"\"{OptOutVocabulary.DnsValue}=4201\". Anything there we cannot read as a port "
+                + $"list means the whole host, so \"{OptOutVocabulary.DnsValue}=all\" works."),
             new("The DNS route is the one you can undo without asking us.",
-                "It is also the only one that can be, and the reason is the same in both directions: "
-                + "a TXT record is readable without connecting to a server that has told us not to, "
-                + "so we re-read it before every dial. Delete it and we dial again the next time that "
-                + "address comes up, which is at most a week. An MSSP field cannot be re-read "
-                + "without doing the thing you asked us to stop "
-                + "doing, so an MSSP opt-out and a recorded request stand until you tell us "
-                + "otherwise. The one thing an opted-out address still gets from us is that TXT "
-                + "lookup, which touches your nameserver and never your game — once before each "
-                + "dial we then do not make, and once more if somebody sends us your address "
-                + "through the submission form, which is rationed per sender for that reason."),
+                "A TXT record is readable without connecting to a server that told us not to, so we "
+                + "re-read it before every dial. Delete it and we dial again within a week. An MSSP "
+                + "field cannot be re-read without doing the thing you asked us to stop, so MSSP "
+                + "opt-outs and written requests stand until you say otherwise. That TXT lookup is "
+                + "all an opted-out address gets: it touches your nameserver, never your game."),
             new("Stopping is not deleting, and it is not downtime.",
                 "A game that opts out keeps its page, its address and everything we measured before "
-                + "it asked, because nothing here is ever deleted — including the last probe, which "
-                + "is the one that carried the request. What changes is that nothing new arrives: "
-                + "the activity grid stops gaining hours and names no cause for it, because our "
-                + "decision to stop knocking is a fact about us and would be a lie about your "
-                + "server. It is recorded where our decisions belong — on the crawl that did not "
-                + "happen, and in the register of who asked."),
+                + "it asked. Only new data stops: the activity grid stops gaining hours and names no "
+                + "cause, because our decision to stop knocking is a fact about us. It is recorded "
+                + "on the crawl that did not happen, and in the register of who asked."),
         ])
     {
         Identity = AboutIdentity.For(probe),
@@ -222,56 +186,48 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
         "Where the list of games came from",
         [
             new("We take addresses. Nothing else.",
-                "A day-one directory needs games to probe, and the existing directories are the "
-                + "best seed there is. What a backfill takes from them is a host and a port — no "
-                + "player counts, no reachability history, no descriptions, no fields, and no note "
-                + "of which site an address was read on."),
-            new("This is deliberately less than those sites can give.",
-                "Several of them hold years of dated player counts. Importing that would fill the "
-                + "heatmaps of exactly the games somebody else was already watching, in a way no "
-                + "reader could tell from our own measurement without reading the fine print, and "
-                + "would leave this site's central claim resting on another party's prober."),
-            new("A game's origin is not one fact, and would be a misleading one.",
+                "A backfill takes a host and a port. No player counts, no reachability history, no "
+                + "descriptions, no fields, and no note of which site an address came from."),
+            new("Deliberately less than those sites can give.",
+                "Several hold years of dated player counts. Importing that would fill the heatmaps "
+                + "of the games somebody else was already watching, and rest this site's central "
+                + "claim on another party's prober."),
+            new("A game's origin is not one fact.",
                 "Any game worth listing appears in several of these directories, so \"imported "
-                + "from\" would name whichever fetch happened to run first rather than anything "
-                + "about the game. That a game exists is public information published by its "
-                + "operator to be dialled; where we happened to read it adds nothing a reader can "
-                + "use, and it is the part of somebody else's work with the least claim to be ours."),
+                + "from\" would name whichever fetch ran first. That a game exists is public "
+                + "information; where we read it adds nothing and is the part of somebody else's "
+                + "work with the least claim to be ours."),
             new("Reading somebody's site is still reading somebody's site.",
-                "Taking less data does not make a crawl less of a crawl. A bulk export or a "
-                + "documented endpoint is asked for in preference to scraping, robots.txt is read "
-                + "first, scrapes are rate-limited hard, and a source that needs its maintainer's "
-                + "say-so is not fetched until a person can state that they were asked."),
+                "We ask for a bulk export or a documented endpoint before scraping, read robots.txt "
+                + "first, and rate-limit scrapes hard. A source that needs its maintainer's say-so "
+                + "is not fetched until a person can state they were asked."),
         ])
     {
         Sources =
         [
             new("TinTin++ MSSP Mud Crawler", "https://tintin.mudhalla.net/protocols/mssp/",
                 ImportSourceState.Read,
-                "One page for one request, published by a crawler that connects to each game and "
+                "One page, one request. Published by a crawler that connects to each game and "
                 + "prints what it read."),
             new("TinTin++ MSDP Mud Crawler", "https://tintin.mudhalla.net/protocols/msdp/",
                 ImportSourceState.Read,
-                "The same crawler's MSDP listing. Very nearly a subset of its MSSP sibling, read "
-                + "for the handful of addresses it reaches that the other does not."),
+                "The same crawler's MSDP listing. Nearly a subset of its MSSP sibling, read for the "
+                + "few addresses it reaches that the other does not."),
             new("The Mud Connector", "https://www.mudconnect.com/",
                 ImportSourceState.Read,
-                "Publishes its whole catalogue on one page, so reading all of it costs a single "
-                + "request. It is the largest contributor of addresses here and contributes no "
-                + "measurement, which is the split working as intended."),
+                "Publishes its whole catalogue on one page, so reading it costs a single request. "
+                + "Our largest source of addresses, and of no measurements."),
             new("MudStats", "https://mudstats.com/",
                 ImportSourceState.Read,
-                "One index page and one page per world, which makes it a scrape rather than an "
-                + "export. On 30 July 2026 we fetched 143 of their pages — fifteen seconds apart "
-                + "and honouring their robots.txt, but before anyone had written to them. That "
-                + "should not have happened. The gate that would have stopped it can no longer be "
-                + "satisfied by a default in a source file; it now takes a person willing to state "
-                + "that the maintainer was asked."),
+                "One index page and one page per world, so a scrape rather than an export. On 30 "
+                + "July 2026 we fetched 143 of their pages, fifteen seconds apart and honouring "
+                + "robots.txt, but before anyone had written to them. That should not have "
+                + "happened. The gate now takes a person willing to state the maintainer was "
+                + "asked."),
             new("MudVerse", "https://www.mudverse.com/",
                 ImportSourceState.Withheld,
-                "Implemented, tested, and never run. It is the strongest source in this list on "
-                + "every axis except permission, and nothing will be fetched from it until somebody "
-                + "has written to them."),
+                "Implemented, tested, never run. The strongest source here on every axis except "
+                + "permission, and nothing will be fetched until somebody has written to them."),
         ],
     };
 
@@ -282,11 +238,10 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
             new("The code is MIT.",
                 "The site, the crawler and the parsers are open source under the MIT licence."),
             new("The licence for the data is an open question.",
-                "It is a separate decision from the code's and has not been taken. Anyone planning "
-                + "to build on the dataset should treat the terms below as this deployment's "
-                + "current answer rather than as the project's settled position — and a rival "
-                + "directory taking the whole catalogue is a success condition here, not a threat, "
-                + "so whatever is settled will not be written to stand in the way of one."),
+                "A separate decision from the code's, and not yet taken. Treat the terms below as "
+                + "this deployment's current answer, not the project's settled position. A rival "
+                + "directory taking the whole catalogue is a success condition here, so whatever is "
+                + "settled will not stand in the way of one."),
         ])
     {
         Licence = new AboutLicence(
@@ -349,12 +304,11 @@ public sealed record AboutIdentity(string Name, string InfoUrl, bool Announced, 
     /// <summary>The honest version of "who is this in my logs", in one sentence.</summary>
     public string Wording => Announced
         ? $"The crawler names itself {Name} when a server asks what it is."
-        : $"The crawler is configured to call itself {Name}, and does not yet manage to say so: "
-        + "the telnet library it uses gives a client no way to set the terminal type it reports, so "
-        + "what reaches your logs is that library's own default, and a NEW-ENVIRON request is "
-        + "answered from the crawler host's environment rather than with anything about us. Both "
-        + "are gaps in the library and both are ours to fix there. Until they are fixed, the way to "
-        + "recognise a probe is its shape: one connection, no login, a short read-only command set, gone.";
+        : $"The crawler is configured to call itself {Name} but cannot yet say so. Its telnet "
+        + "library gives a client no way to set the terminal type, so your logs see that library's "
+        + "default, and NEW-ENVIRON is answered from the crawler host's environment. Both are gaps "
+        + "in the library and ours to fix there. Until then, recognise a probe by its shape: one "
+        + "connection, no login, a short read-only command set, gone.";
 }
 
 /// <summary>Whether a directory was actually read, which is not the same as whether we can read it.</summary>
@@ -377,7 +331,7 @@ public sealed record ImportSource(string Name, string Url, ImportSourceState Sta
     public string StatusWording => State switch
     {
         ImportSourceState.Read => "read — addresses only",
-        _ => "not read — waiting on permission",
+        _ => "not read — awaiting permission",
     };
 }
 
