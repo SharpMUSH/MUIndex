@@ -1,0 +1,218 @@
+# What MUIndex tells the Intermud-3 network about itself.
+#
+# I3 has no observer class. A participant that speaks I3v3 to a router is in the mudlist, full stop —
+# the router broadcasts these fields to every other participant as a mudlist delta, and there is no
+# flag that says "list me privately". So the only honest thing to do is make the entry unmistakably
+# not a game, which is what every value below is for.
+#
+# This file replaces the gateway's own config.yaml rather than layering over it. Several of its
+# fields (mudlib, base_mudlib, driver, and eight of the twelve service flags) are hard-coded to the
+# author's own MUD and are not templated from the environment, so overriding by env alone would
+# announce us as a CircleMUD.
+
+mud:
+  # **Chosen once, and permanent.** The first startup-req-3 with password 0 registers this string
+  # forever: the live mudlist still carries `probe-test-12345`, `probe-test-99999` and
+  # `Daniel's Test Server` years after whoever made them stopped. There is no throwaway spike, so
+  # the default here is the test-router name and the production value is set in the environment.
+  name: ${MUD_NAME:MUIndex-wir-test}
+
+  # 0, and the spec says so in as many words: "The player_port may be 0 if the mud is private/
+  # closed." Nobody can connect to us because there is nothing to connect to. `Epitaph` on *dalet —
+  # an IMC2-to-I3 gateway, also not a game — has published 0 here since March.
+  port: ${MUD_PORT:0}
+
+  # §11's address again. A mud admin who notices MUIndex in their who-log should be able to reach a
+  # person, which is the same obligation the telnet crawler already carries in MUI_CRAWL_INFO_URL.
+  admin_email: ${MUD_ADMIN_EMAIL:}
+
+  mudlib: "MUIndex"
+  base_mudlib: "n/a"
+  driver: ${MUD_DRIVER:MUIndex}
+  mud_type: ${MUD_TYPE:n/a}
+
+  # open_status is nominally an enumeration — the spec "strongly encourages" one of four values —
+  # and is free text in practice: 60 online muds sampled off router.wotf.org produced 19 distinct
+  # spellings, from "Open since 1990" to " ". `n/a` is already in use on the network and says the
+  # true thing, which is that the question does not apply to us.
+  open_status: ${MUD_STATUS:n/a}
+
+  # Every service off. The services mapping advertises what we will *answer*, not what we may ask —
+  # the gateway's own `who` JSON-RPC method does not consult this mapping — so switching all of it
+  # off costs us nothing and makes us structurally unreachable. Nobody can tell us, finger us,
+  # locate us or put us on a channel. 59 of the 60 online muds sampled advertise `who: 1`; we are
+  # deliberately the exception.
+  services:
+    tell: 0
+    emoteto: 0
+    channel: 0
+    who: 0
+    finger: 0
+    locate: 0
+    chanlist-req: 0
+    chanlist-reply: 0
+    chan-who-req: 0
+    chan-who-reply: 0
+    auth: 0
+    ucache: 0
+
+  # The out-of-band services need ports we publish as 0 anyway, so declaring them would be a lie
+  # about a socket that does not exist.
+  oob_services:
+    mail: 0
+    news: 0
+    file: 0
+    http: 0
+    ftp: 0
+    nntp: 0
+    smtp: 0
+
+router:
+  # **The default is the test router, on purpose.** wotf.org: "Please do not use the regular
+  # 'production' routers for testing new client code." *wir is where a new client belongs until it
+  # is known to work; production is *i4, which is where the gateway's own interoperability run
+  # happened and is what the environment points at once we are ready to spend the name.
+  primary:
+    name: ${I3_ROUTER_NAME:*wir}
+    host: ${I3_ROUTER_HOST:136.144.155.250}
+    port: ${I3_ROUTER_PORT:3004}
+    # 0 on the first connect only. The router assigns one and the gateway persists it to its state
+    # directory — which is why that volume is not disposable; losing it re-registers us.
+    password: ${I3_ROUTER_PASSWORD:0}
+
+  fallback:
+    - host: ${I3_FALLBACK_ROUTER_HOST:}
+      port: ${I3_FALLBACK_ROUTER_PORT:8080}
+
+  connection:
+    timeout: ${CONNECTION_TIMEOUT:300}
+    keepalive_interval: ${KEEPALIVE_INTERVAL:60}
+    reconnect_delay: 30
+    max_reconnect_attempts: 10
+
+gateway:
+  # API server settings
+  host: ${GATEWAY_HOST:localhost}
+  port: ${GATEWAY_PORT:4001}
+  
+  # Protocol settings
+  max_packet_size: ${GATEWAY_MAX_PACKET_SIZE:65536}
+  timeout: ${GATEWAY_TIMEOUT:30}
+  retry_attempts: ${GATEWAY_RETRY_ATTEMPTS:3}
+  retry_delay: ${GATEWAY_RETRY_DELAY:5}
+  
+  # Performance settings
+  max_connections: ${MAX_CONNECTIONS:100}
+  queue_size: 1000
+  worker_threads: 4
+  
+  # Security
+  auth:
+    enabled: ${ENABLE_AUTH:true}
+    secret: ${I3_GATEWAY_SECRET:}
+    token_expiry: 3600
+
+# API Server Configuration
+api:
+  enabled: ${API_ENABLED:true}
+  host: ${API_HOST:0.0.0.0}
+  port: ${API_PORT:8080}
+  
+  # TCP socket configuration
+  tcp:
+    enabled: true
+    port: 8081
+    max_connections: 500
+    buffer_size: 4096
+    
+  # WebSocket configuration
+  websocket:
+    enabled: true
+    max_connections: 1000
+    ping_interval: 30
+    ping_timeout: 10
+    max_frame_size: 65536
+    compression: true
+    
+  # Authentication settings
+  auth:
+    enabled: ${API_AUTH_ENABLED:true}
+    require_tls: false
+    api_keys:
+      # One caller: the web container. Upstream ships three keys here, two of them with literal
+      # defaults — `demo-key-123` and `admin-key-456`, the second holding "*" — which are a way in
+      # for anyone who can reach the port. They are deleted rather than overridden because an
+      # override that silently stops working is worse than an absence.
+      - key: ${MUI_I3_API_KEY:}
+        mud_name: ${MUD_NAME:MUIndex}
+        permissions: ["*"]
+        rate_limit_override: 500
+        
+  # Rate limiting
+  rate_limits:
+    default:
+      per_minute: 100
+      burst: 20
+    by_method:
+      tell: 30
+      channel_send: 50
+      who: 10
+      mudlist: 5
+      
+  # Session management
+  session:
+    timeout: 3600
+    max_queue_size: 1000
+    queue_ttl: 300
+    cleanup_interval: 60
+    
+  # API metrics
+  metrics:
+    enabled: true
+    export_interval: 60
+    include_details: true
+    
+logging:
+  level: ${LOG_LEVEL:INFO}
+  format: ${LOG_FORMAT:json}
+  file: ${LOG_FILE:logs/i3-gateway.log}
+  max_size: 10485760  # 10MB
+  backup_count: 5
+  
+  # Component-specific log levels
+  components:
+    network: INFO
+    services: INFO
+    api: INFO
+    state: WARNING
+    
+# Channel configuration
+channels:
+  # None. Upstream joins `intermud`, `chat` and `dev` on connect, which for a MUD is the point of I3
+  # and for us would be a directory sitting silently in three rooms it will never speak in. We
+  # advertise `channel: 0`; joining anything would contradict it.
+  default_channels: []
+
+
+  # Channel settings
+  history_size: 100
+  max_message_length: 2048
+  
+# State management
+state:
+  directory: "state/"
+  save_interval: 300  # Save state every 5 minutes
+  backup_enabled: true
+  backup_count: 3
+  
+# Metrics and monitoring
+metrics:
+  enabled: true
+  port: 8080
+  path: "/metrics"
+  
+# Development settings
+development:
+  debug: ${DEBUG:false}
+  reload: ${RELOAD:false}
+  profile: ${PROFILE:false}
