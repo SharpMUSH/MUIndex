@@ -19,11 +19,14 @@ else
     <SitePreview Description="@PreviewCopy.Site" />
 
     <section class="hero">
-        <h1>Every game here was checked by a machine, and every fact says when.</h1>
+        @* The wordmark in the header is the same three words, so a visible h1 here would print the
+           site's name twice down the left edge. The search box is the hero; the heading names the
+           document for anything that cannot see one. /find owns "Find a game". *@
+        <h1 class="sr-only">mu*index</h1>
 
         <form class="search" method="get" action="/games" role="search">
             <label for="q" class="sr-only">Search games by name, theme, codebase or host</label>
-            <input id="q" type="search" name="q" placeholder="search @Counts.Known games — name, theme, codebase, host" />
+            <input id="q" type="search" name="q" placeholder="search @Counts.Known games" />
             <button type="submit">search</button>
         </form>
 
@@ -31,9 +34,9 @@ else
            cannot answer it yet, and an estimate on this page would undo the whole argument. *@
         <ul class="counts mono">
             <li><strong>@Counts.Known</strong> games known</li>
-            <li><span class="state-present">● @Counts.WithPlayersOn</span> with players on right now</li>
-            <li><strong>@Counts.CountUnknown</strong> answering with nothing we can count</li>
-            <li><a href="/archive">@Counts.Archived archived</a> — still probed, still addressable</li>
+            <li><span class="state-present">● @Counts.WithPlayersOn</span> with players on now</li>
+            <li><strong>@Counts.CountUnknown</strong> answering, count unknown</li>
+            <li><a href="/archive">@Counts.Archived archived</a>, still probed</li>
         </ul>
     </section>
 
@@ -42,7 +45,7 @@ else
             <h2 id="feed-new" class="kicker">newly discovered</h2>
             @if (Feeds.NewlyDiscovered.Count == 0)
             {
-                <p class="faint">Nothing new since we last looked.</p>
+                <p class="faint">Nothing new.</p>
             }
             @foreach (var entry in Feeds.NewlyDiscovered)
             {
@@ -54,7 +57,7 @@ else
             <h2 id="feed-dark" class="kicker">went dark</h2>
             @if (Feeds.WentDark.Count == 0)
             {
-                <p class="faint">Nothing has stopped answering.</p>
+                <p class="faint">Nothing went dark.</p>
             }
             @foreach (var entry in Feeds.WentDark)
             {
@@ -66,7 +69,7 @@ else
             <h2 id="feed-back" class="kicker">came back</h2>
             @if (Feeds.CameBack.Count == 0)
             {
-                <p class="faint">Nothing has come back yet. We keep knocking.</p>
+                <p class="faint">Nothing came back. We keep knocking.</p>
             }
             @foreach (var entry in Feeds.CameBack)
             {
@@ -76,10 +79,10 @@ else
     </div>
 
     <p class="faint">
-        <a href="/games">browse every game</a> ·
-        <a href="/archive">the archive</a> ·
-        <a href="/submit">tell us about a game we are missing</a> ·
-        <a href="?plain=1">read this page as plain text</a>
+        <a href="/games">all games</a> ·
+        <a href="/archive">archive</a> ·
+        <a href="/submit">submit a game</a> ·
+        <a href="?plain=1">plain text</a>
     </p>
 }
 

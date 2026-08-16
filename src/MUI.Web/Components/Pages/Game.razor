@@ -27,10 +27,7 @@
        the site's own page and a 404 rather than with this. It is what a headless render of this
        component produces, where there is no response to give a status line to. *@
     <h1>Not found</h1>
-    <p class="dim">
-        No game here. Nothing is ever deleted, so a game that once lived at this address still
-        does — check the spelling.
-    </p>
+    <p class="dim">No game at this address. Check the spelling.</p>
 }
 else if (Plain)
 {
@@ -79,7 +76,7 @@ else
                     }
                     else
                     {
-                        <span class="badge">discovered · unclaimed</span>
+                        <span class="badge">unclaimed</span>
                     }
                 </p>
                 @if (Page.Summary.Tagline is { } tagline)
@@ -99,10 +96,10 @@ else
                         nothing happens until they are signed in (spec §8.1).
                     *@
                     <p class="faint">
-                        Nobody has claimed this listing — everything here was measured.
+                        Everything here was measured, not entered by an owner.
                         @if (Claimable)
                         {
-                            <a href="/g/@Page.Summary.Slug/claim">Run this game?</a>
+                            <a href="/g/@Page.Summary.Slug/claim">Claim this game</a>
                         }
                     </p>
                 }
@@ -166,9 +163,8 @@ else
         {
             <div class="archive-plate">
                 <p>
-                    Last answered <strong>@Entry.LastAnswered</strong>, @Entry.DarkFor(Now) ago. We
-                    still try the door every week, and this page will update itself the day it
-                    opens. Everything below is preserved as it was.
+                    Last answered <strong>@Entry.LastAnswered</strong>, @Entry.DarkFor(Now) ago.
+                    Still probed weekly; this page updates the day it answers.
                 </p>
                 @if (Entry.Run is { } run)
                 {
@@ -178,7 +174,7 @@ else
         }
 
         <section aria-labelledby="screen-heading">
-            <h2 id="screen-heading">What you see when you connect</h2>
+            <h2 id="screen-heading">Connect screen</h2>
             <AnsiQuote Screen="ConnectScreen" CapturedAt="Captured" Now="Now" Frozen="Archived" />
         </section>
 
@@ -248,7 +244,7 @@ else
             <section aria-labelledby="capabilities">
                 <CapabilityMatrix Rows="Page.Capabilities" Now="Now" />
 
-                <h2>What the game says about itself</h2>
+                <h2>Declared by the game</h2>
                 <dl class="declared">
                     @foreach (var (name, chip) in Page.Declared)
                     {
@@ -259,15 +255,13 @@ else
                 @if (StaleCount > 0)
                 {
                     <p class="note faint">
-                        @StaleCount of these have not been confirmed inside their own refresh window.
-                        Nothing here is wrong — it is old, and the page says so rather than presenting
-                        it as current.
+                        @StaleCount are past their refresh window. Old, not wrong.
                     </p>
                 }
             </section>
         </div>
 
-        <p class="faint"><a href="?plain=1">read this page as plain text</a></p>
+        <p class="faint"><a href="?plain=1">plain text</a></p>
     </article>
 }
 

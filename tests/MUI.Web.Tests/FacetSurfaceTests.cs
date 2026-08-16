@@ -247,10 +247,10 @@ public class FacetSurfaceTests
         // is that they are all still in the document, which is what this asserts.
         var words = Render.Words(await PanelAsync(new GameFilter()));
 
-        await Assert.That(words).Contains("Unticked is never a no");
-        await Assert.That(words).Contains("leaving one unticked never means a game lacks it");
-        await Assert.That(words).Contains("none of those is a no");
-        await Assert.That(words).Contains("computed from the same query as the list below");
+        await Assert.That(words).Contains("Unticked is not a no");
+        await Assert.That(words).Contains("A blank is a gap in our measurement, not a no");
+        await Assert.That(words).Contains("not identified");
+        await Assert.That(words).Contains("from the same query as the list below");
         await Assert.That(words).Contains("An unknown count is not a zero");
     }
 
@@ -380,7 +380,7 @@ public class FacetSurfaceTests
 
         // Read off the collapsed text: the paragraph is wrapped to eighty columns, so asserting on
         // the raw bytes would be asserting on where the wrap happened to fall.
-        await Assert.That(Render.Words(text)).Contains("is never a \"no\"");
+        await Assert.That(Render.Words(text)).Contains("never a \"no\"");
     }
 
     [Test]

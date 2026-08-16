@@ -116,10 +116,7 @@
                     a key somewhere else, because a reader ticking boxes is exactly the person who
                     would otherwise read an unticked box as the game declining a protocol.
                 *@
-                <p class="hint">
-                    Unticked is never a no. We list what we watched happen, so a game we have not
-                    measured for one of these is missing from it too.
-                </p>
+                <p class="hint">Unticked is not a no — only measured, or not yet measured.</p>
             </fieldset>
         }
     }
@@ -143,30 +140,20 @@
             <span class="evidence derived"><span aria-hidden="true">◆</span> @FacetWords.Evidence(FacetEvidence.Derived)</span>
             @FacetWords.EvidenceMeaning(FacetEvidence.Derived)
         </span>
-        <span class="key-item">every count is what that choice returns</span>
+        <span class="key-item">counts are exact, from the same query as the list below</span>
 
         <details class="facet-more">
             <summary>what a blank means</summary>
             <ul>
                 <li>
-                    A protocol is listed against a game when we watched it offered, so leaving one
-                    unticked never means a game lacks it — we may simply never have measured it.
+                    A blank is a gap in our measurement, not a no. Each facet spells its own:
+                    <em>not identified</em>, <em>not declared</em>, <em>nothing negotiated</em>.
                 </li>
                 <li>
-                    Where a facet has no value for a game it says so in its own words
-                    (<em>not identified</em>, <em>not declared</em>, <em>nothing negotiated</em>);
-                    none of those is a no, and none is folded into another value.
+                    A measured zero is a count. An unknown count is not a zero and never sorts as one.
                 </li>
                 <li>
-                    Every count is what that choice returns, computed from the same query as the list
-                    below — never an estimate and never a count of the catalogue.
-                </li>
-                <li>
-                    A measured zero is a count: we got in and nobody was there. An unknown count is
-                    not a zero, is never drawn as one, and never sorts as one.
-                </li>
-                <li>
-                    Open-ended facets offer their @FacetedSearch.MaxValues commonest values; the rest
+                    Open-ended facets list their @FacetedSearch.MaxValues commonest values. The rest
                     are reachable by search and by URL.
                 </li>
             </ul>

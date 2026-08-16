@@ -15,7 +15,7 @@ else
 
     <header class="listing-head">
         <h1>Games</h1>
-        <p class="dim">Every fact below was measured. Nothing here was typed into a form by us.</p>
+        <p class="dim">Every fact below was measured.</p>
     </header>
 
     @if (Error is { } problem)
@@ -26,7 +26,7 @@ else
             somebody's question — the same rule that stops an unparseable WHO reading as zero.
         *@
         <p class="problem" role="alert">@problem</p>
-        <p><a href="/games">start again with no filter</a></p>
+        <p><a href="/games">clear filters</a></p>
     }
     else
     {
@@ -40,8 +40,8 @@ else
                guess why the listing is short. *@
             <p class="kicker">
                 codebase <span class="mono">@family</span> ·
-                <a href="/reference/codebases/@(family.ToLowerInvariant())">what this codebase is</a> ·
-                <a href="/games">every game</a>
+                <a href="/reference/codebases/@(family.ToLowerInvariant())">about @family</a> ·
+                <a href="/games">all games</a>
             </p>
         }
 
@@ -52,12 +52,12 @@ else
             </p>
             <p class="kicker listing-order">
                 @* The order is stated rather than left to be inferred from the first few rows. *@
-                by @FacetWords.Sort(Filter.Sort) · counts measured, never asserted
+                by @FacetWords.Sort(Filter.Sort)
                 @if (Listing.Games.Count > 0)
                 {
                     @* Only where there is something to be random among. An affordance that cannot do
                        what it offers is worse than one that is not there. *@
-                    <text> · </text><a href="@RandomHref">show me a random one</a>
+                    <text> · </text><a href="@RandomHref">random</a>
                 }
             </p>
         </div>
@@ -200,18 +200,15 @@ else
         {
             <div class="empty-state">
                 <p class="empty-head">Nothing matched.</p>
-                <p class="dim">
-                    Nothing is ever deleted here, so a name that once worked still does. Try fewer
-                    words, or drop a filter.
-                </p>
+                <p class="dim">Try fewer words, or drop a filter.</p>
                 <p class="kicker">
-                    <a href="/games">clear every filter</a> · <a href="/archive">look in the archive</a>
+                    <a href="/games">clear filters</a> · <a href="/archive">archive</a>
                 </p>
             </div>
         }
     }
 
-    <p class="faint"><a href="@PlainHref">read this page as plain text</a></p>
+    <p class="faint"><a href="@PlainHref">plain text</a></p>
 }
 
 @code {

@@ -39,8 +39,7 @@ else if (User is null)
     <section class="prose">
         <h1>Claim @Game.Name</h1>
         <p>
-            You need an account first, so that the claim has somewhere to belong. It takes a passkey
-            and a name, and nothing else.
+            You need an account first. It takes a passkey and a name.
         </p>
         <p><a class="button" href="/account/sign-in">Sign in or create an account</a></p>
     </section>
@@ -96,18 +95,16 @@ else
                 on @Pending.ClaimedAt!.Value.ToString("d MMMM yyyy").
             </p>
             <p>
-                Leave the token where it is. It doubles as a permanent identity signal, so this game
-                stays recognisably itself if it moves host or changes its name — and removing it
-                will never un-claim you.
+                Leave the token where it is. It doubles as an identity signal, so this game stays
+                recognisable if it moves host or changes name. Removing it will not un-claim you.
             </p>
             <p><a href="/account">Your games</a></p>
         }
         else
         {
             <p>
-                Publish this token anywhere the game shows it to an anonymous connection, and the
-                next probe will pick it up. It proves you can write to that server, which is the
-                whole test.
+                Publish this token anywhere the game shows it to an anonymous connection. The next
+                probe picks it up, which proves you can write to that server.
             </p>
 
             @if (Pending.Intent is ClaimIntent.Assume)
@@ -127,9 +124,7 @@ else
             <pre class="mono">@ClaimTokenBeacon.MsspVariable @Pending.Token</pre>
             <p class="faint">
                 In PennMUSH that is a line in <code>mush.cnf</code>; every codebase with MSSP has an
-                equivalent. <code>MUINDEX_CLAIM</code> and <code>CONTACT_TOKEN</code> are accepted
-                too — an MSSP variable name does not always survive a config file, and you should not
-                be told your claim failed for doing exactly what you were told.
+                equivalent. <code>MUINDEX_CLAIM</code> and <code>CONTACT_TOKEN</code> are accepted too.
             </p>
 
             <h3>A line on the connect screen</h3>
@@ -141,8 +136,8 @@ else
             <h2>Then</h2>
             <p>
                 We check on the ordinary crawl schedule. This token is good until
-                @Pending.ExpiresAt.ToString("d MMMM yyyy"), and you can come back to this page any time
-                — nothing needs writing down.
+                @Pending.ExpiresAt.ToString("d MMMM yyyy"). Come back any time; nothing needs
+                writing down.
             </p>
 
             <form method="post" action="/g/@Slug/claim/check">
@@ -162,8 +157,8 @@ else
                     }
                     else
                     {
-                        @("Just asked. You can ask again in a few minutes — it is rationed because it "
-                            + "makes us connect to a real server sooner than we would have.")
+                        @("Just asked. Try again in a few minutes — it is rationed because it dials a "
+                            + "real server sooner than we would have.")
                     }
                 </span>
             </form>

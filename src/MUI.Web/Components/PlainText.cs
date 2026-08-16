@@ -145,7 +145,7 @@ public static class PlainText
             return;
         }
 
-        Heading(b, "What the game says about itself");
+        Heading(b, "Declared by the game");
 
         foreach (var (name, chip) in page.Declared)
         {
@@ -184,7 +184,7 @@ public static class PlainText
     {
         var screen = Ansi.Parse(page.ConnectScreen, page.ConnectScreenSuppressed);
 
-        Heading(b, "What you see when you connect");
+        Heading(b, "Connect screen");
 
         switch (screen.State)
         {
@@ -261,8 +261,7 @@ public static class PlainText
 
         if (games.Count == 0)
         {
-            b.AppendLine("Nothing matched. Nothing is ever deleted here, so a name that once");
-            b.AppendLine("worked still does — try fewer words, or drop a filter.");
+            b.AppendLine("Nothing matched. Try fewer words, or drop a filter.");
             return b.ToString();
         }
 
@@ -306,7 +305,7 @@ public static class PlainText
             // inventing one from our first sighting would read as its outage.
             b.AppendLine(g.LastReachableAt is { } seen
                 ? $"  Last reached: {Relative.Ago(now - seen)}"
-                : "  Last reached: never — we have not once got an answer from it");
+                : "  Last reached: never — no answer yet");
 
             if (g.Tagline is { } tagline)
             {
@@ -344,11 +343,9 @@ public static class PlainText
                 .Select(e => $"{FacetWords.Evidence(e)} ({FacetWords.EvidenceMeaning(e)})"))
             + ".");
         b.AppendLine();
-        Wrap(b, "Each count is what choosing that value returns, from the same query as the list "
-            + "below. A protocol is listed when we saw a game offer it, so a game missing from one "
-            + "may simply never have been measured for it and is never a \"no\". Where a facet has "
-            + "no value for a game it says so in its own words, and that is not a no either. A "
-            + "measured zero is a count; an unknown count is not a zero and never sorts as one.");
+        Wrap(b, "Counts are exact, from the same query as the list below. A blank is a gap in our "
+            + "measurement, never a \"no\": each facet spells its own. A measured zero is a count; "
+            + "an unknown count is not a zero and never sorts as one.");
 
         foreach (var group in facets)
         {
@@ -378,9 +375,9 @@ public static class PlainText
     {
         var b = new StringBuilder();
 
-        Feed(b, "NEWLY DISCOVERED", feeds.NewlyDiscovered, "Nothing new since we last looked.", now);
-        Feed(b, "WENT DARK", feeds.WentDark, "Nothing has stopped answering.", now);
-        Feed(b, "CAME BACK", feeds.CameBack, "Nothing has come back yet. We keep knocking.", now);
+        Feed(b, "NEWLY DISCOVERED", feeds.NewlyDiscovered, "Nothing new.", now);
+        Feed(b, "WENT DARK", feeds.WentDark, "Nothing went dark.", now);
+        Feed(b, "CAME BACK", feeds.CameBack, "Nothing came back. We keep knocking.", now);
 
         return b.ToString();
 
@@ -411,12 +408,11 @@ public static class PlainText
         var b = new StringBuilder();
 
         b.AppendLine("MU*INDEX");
-        b.AppendLine("Every game here was checked by a machine, and every fact says when.");
         b.AppendLine();
         b.AppendLine($"{counts.Known} games known");
-        b.AppendLine($"{counts.WithPlayersOn} with players on right now (measured)");
-        b.AppendLine($"{counts.CountUnknown} answering with nothing we can count");
-        b.AppendLine($"{counts.Archived} archived — still probed, still addressable");
+        b.AppendLine($"{counts.WithPlayersOn} with players on now (measured)");
+        b.AppendLine($"{counts.CountUnknown} answering, count unknown");
+        b.AppendLine($"{counts.Archived} archived, still probed");
         b.AppendLine();
 
         b.Append(RenderFeeds(feeds, now));
@@ -429,9 +425,8 @@ public static class PlainText
         var b = new StringBuilder();
 
         b.AppendLine("THE ARCHIVE");
-        Wrap(b, "Games that have stopped answering. Nothing here was deleted: every page, URL and "
-            + "series survives, we still try the door every week, and one successful probe puts a "
-            + "game back in the listing.");
+        Wrap(b, "Games that have stopped answering. Nothing was deleted. Still probed weekly, and "
+            + "one successful probe puts a game back in the listing.");
         b.AppendLine();
         b.AppendLine($"{entries.Count} game(s)"
             + (string.IsNullOrWhiteSpace(query) ? string.Empty : $" matching \"{query}\""));
@@ -507,8 +502,8 @@ public static class PlainText
 
                 if (!identity.ContactConfigured)
                 {
-                    Wrap(b, "This deployment has not set a contact address, so the one above is "
-                        + "the built-in placeholder and answers nobody.", "  ");
+                    Wrap(b, "No contact address is configured, so the one above is a placeholder "
+                        + "and answers nobody.", "  ");
                 }
             }
 
@@ -573,8 +568,7 @@ public static class PlainText
 
         Heading(b, "CODEBASES");
         Wrap(b, $"Share of the {dashboard.Codebases.Identified} listed games that told us what they "
-            + "run. A game whose codebase we could not read is counted as nothing at all, and never "
-            + "as something else.");
+            + "run. A codebase we could not read is excluded, never reassigned.");
         b.AppendLine();
 
         foreach (var family in dashboard.Codebases.Families)
@@ -632,10 +626,10 @@ public static class PlainText
 
         b.AppendLine();
         Wrap(b, $"Measured is of {EcosystemCopy.Handshakes(dashboard.Handshakes)}; declared is of "
-            + $"{EcosystemCopy.MsspReports(dashboard.MsspReports)}. Two denominators, because they "
-            + "are two different sets of games.");
+            + $"{EcosystemCopy.MsspReports(dashboard.MsspReports)}. Two sets of games, so two "
+            + "denominators.");
 
-        Heading(b, "WHY THIS IS A SNAPSHOT AND NOT A CURVE");
+        Heading(b, "A SNAPSHOT, NOT A CURVE");
         Wrap(b, EcosystemCopy.NoCurve);
         b.AppendLine();
         Wrap(b, EcosystemCopy.Transitions(dashboard.CapabilityTransitions));
@@ -706,9 +700,8 @@ public static class PlainText
 
         if (rankings.Busiest.Count == 0)
         {
-            Wrap(b, "No listed game has produced enough counted samples to be ranked yet. That is a "
-                + "statement about how long we have been measuring and not about how busy anybody "
-                + "is.", "  ");
+            Wrap(b, "No listed game has enough counted samples to rank yet — a statement about how "
+                + "long we have been measuring, not about how busy anybody is.", "  ");
         }
 
         var place = 0;

@@ -41,7 +41,7 @@ public static class EcosystemCopy
 
     /// <summary>What the measured column is a fraction of, spelled out wherever it is used.</summary>
     public static string Handshakes(int games) =>
-        $"{Games(games)} whose handshake we have completed";
+        $"{Games(games)} whose handshake we completed";
 
     /// <summary>What the declared column is a fraction of. A different set, deliberately named apart.</summary>
     public static string MsspReports(int games) =>
@@ -57,15 +57,15 @@ public static class EcosystemCopy
             // Never "0%". Nothing has ever been observed to offer this, which is a statement about
             // our reach and not about the hobby — TLS is the standing case, because the crawler dials
             // plain telnet and TLS is not a telnet option.
-            return "not measured — nothing has been observed to offer it";
+            return "not measured — never observed";
         }
 
         var rest = protocol.Declined > 0
-            ? $" · {Games(protocol.Declined)} declined it when asked"
+            ? $" · {Games(protocol.Declined)} declined when asked"
             : string.Empty;
 
         return protocol.Unobserved > 0
-            ? $"{Share(share)}{rest} · {Games(protocol.Unobserved)} neither offered nor were asked"
+            ? $"{Share(share)}{rest} · {Games(protocol.Unobserved)} neither offered nor asked"
             : $"{Share(share)}{rest}";
     }
 
@@ -88,10 +88,9 @@ public static class EcosystemCopy
     /// publishes our own instrumentation as a fact about somebody's game.
     /// </remarks>
     public const string Floor =
-        "A protocol we did not see is not a protocol a game lacks. MSSP is asked for by name on "
-        + "every probe, so silence there is an answer and is counted as one; nothing else on this "
-        + "list is requested at all, and a server is free to support a protocol and never offer it. "
-        + "Read every measured figure below as a floor.";
+        "Read every measured figure below as a floor. We ask for MSSP by name, so silence there is "
+        + "an answer. Nothing else here is requested, and a server may support a protocol without "
+        + "ever offering it.";
 
     /// <summary>Why there is a snapshot here and not the curve §9 asks for.</summary>
     /// <remarks>
@@ -100,11 +99,10 @@ public static class EcosystemCopy
     /// measures our crawler reaching more games and nothing whatever about adoption.
     /// </remarks>
     public const string NoCurve =
-        "This is a snapshot of what we can measure now, not a trend. A protocol adoption curve is a "
-        + "plot of games changing their minds, and the catalogue records a change only when it "
-        + "happens — so the curve becomes drawable once enough transitions have been recorded, and "
-        + "not before. Plotting when we first reached each game instead would draw a rising line "
-        + "measuring the crawl rather than the hobby.";
+        "A snapshot of what we can measure now. An adoption curve plots games changing their minds, "
+        + "and we record a change when it happens, so the curve becomes drawable once enough have "
+        + "been recorded. Plotting when we first reached each game would measure the crawl, not the "
+        + "hobby.";
 
     /// <summary>
     /// What a drawn curve does and does not measure, said beside the curve rather than under it.
@@ -124,39 +122,35 @@ public static class EcosystemCopy
 
     /// <summary>Why there is no headline population figure, said where somebody might look for one.</summary>
     public const string NoTotals =
-        "Shares, never totals. How many people play MU* is a number this site deliberately does not "
-        + "publish: a ratio over the games we measured survives the ones we cannot reach and the ones "
-        + "nobody has claimed, and a headcount does not survive either.";
+        "Shares, never totals. We do not publish a figure for how many people play MU*: a ratio over "
+        + "the games we measured survives the ones we cannot reach, and a headcount does not.";
 
     /// <summary>How many capability transitions have been recorded, and what that means for the curve.</summary>
     public static string Transitions(int transitions) => transitions == 0
-        ? "No measured capability has changed since we started watching, so there is nothing to plot yet."
-        : $"{Recorded(transitions)} recorded so far. That is the material a curve is drawn from.";
+        ? "No measured capability has changed yet, so there is nothing to plot."
+        : $"{Recorded(transitions)} recorded so far — the material a curve is drawn from.";
 
     /// <summary>The basis of the busiest table, stated on the page rather than in a footnote.</summary>
     public static string BusiestBasis(Rankings rankings)
     {
         ArgumentNullException.ThrowIfNull(rankings);
 
-        return $"Ranked on the median of the player counts we measured over the last "
-            + $"{(int)rankings.Window.TotalDays} days — {rankings.Eligible} of the "
+        return $"Median of the player counts we measured over the last "
+            + $"{(int)rankings.Window.TotalDays} days. {rankings.Eligible} of "
             + $"{Games(rankings.ListedGames)} listed produced the {rankings.MinimumSamples} counted "
-            + "samples a median needs. A probe that got in and could not read a number is not a "
-            + "zero and is not among them; a measured zero is a count and is.";
+            + "samples a median needs. A measured zero counts; an unreadable count does not.";
     }
 
     /// <summary>What the second table is, and the limit it cannot be read past.</summary>
     public const string SpellBasis =
-        "Every probe since the date given found the game reachable. Reachable, not up — we measured "
-        + "a socket from one vantage point, and a game with a routing problem to our host is "
-        + "unreachable and perfectly alive. A spell cannot be longer than we have been watching, "
-        + "which is why the date is the fact and the duration is derived from it.";
+        "Every probe since the date given found the game reachable. Reachable, not up: we measure a "
+        + "socket from one host, and a game we cannot route to is perfectly alive. A spell cannot be "
+        + "longer than we have been watching, so the date is the fact and the duration follows.";
 
     /// <summary>Said on the rankings page, because §2 makes it permanent rather than pending.</summary>
     public const string NoVote =
-        "Computed from measured data only. There is no vote, star or rating anywhere on this site "
-        + "and there never will be: vote-gaming is what reduced the last directory that tried it to "
-        + "a link graveyard. Nothing here ranks games by better or best, because we have not "
+        "Computed from measured data only. No votes, stars or ratings, ever — vote-gaming is what "
+        + "emptied the last directory that tried it. Nothing here ranks games by best; we have not "
         + "measured that and nobody can.";
 
     private static string Games(int n) => n == 1 ? "1 game" : $"{n} games";

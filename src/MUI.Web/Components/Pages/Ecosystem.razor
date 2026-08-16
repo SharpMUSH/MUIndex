@@ -34,22 +34,20 @@ else
 
     <ul class="counts mono">
         <li><strong>@Dashboard.ListedGames</strong> games listed</li>
-        <li><strong>@Dashboard.Handshakes</strong> whose handshake we have completed</li>
+        <li><strong>@Dashboard.Handshakes</strong> whose handshake we completed</li>
         <li><strong>@Dashboard.MsspReports</strong> whose MSSP report we hold</li>
     </ul>
 
     @if (Dashboard.OldestHandshake is { } oldest)
     {
-        <p class="faint">The oldest handshake in this picture was last confirmed
-        @Relative.Format(Now - oldest) ago.</p>
+        <p class="faint">Oldest handshake here: confirmed @Relative.Format(Now - oldest) ago.</p>
     }
 
     <section aria-labelledby="codebases">
         <h2 id="codebases">Codebases</h2>
         <p class="dim">
             Share of the @Dashboard.Codebases.Identified listed games that told us what they run. A
-            game whose codebase we could not read is counted as nothing at all, and never as
-            something else.
+            codebase we could not read is excluded, never reassigned.
         </p>
 
         @if (Dashboard.Codebases.Families.Count == 0)
@@ -77,7 +75,7 @@ else
             <p class="faint">
                 @Dashboard.Codebases.NotIdentified listed
                 @(Dashboard.Codebases.NotIdentified == 1 ? "game has" : "games have") not told us one.
-                They are outside the denominator above, not a share of it.
+                Excluded from the shares above.
             </p>
         }
     </section>
@@ -140,9 +138,8 @@ else
         <div class="table-wrap">
             <table class="protocols">
                 <caption class="sr-only">
-                    Protocol adoption. Measured is what a server offered our crawler in a completed
-                    handshake; declared is what its MSSP claims. The two columns have different
-                    denominators because they are different sets of games.
+                    Protocol adoption. Measured is what a server offered in a completed handshake;
+                    declared is what its MSSP claims. Two sets of games, so two denominators.
                 </caption>
                 <thead>
                     <tr>
@@ -210,7 +207,7 @@ else
         }
         else
         {
-            <h2 id="curve">Why this is a snapshot and not a curve</h2>
+            <h2 id="curve">A snapshot, not a curve</h2>
             <p class="dim">@EcosystemCopy.NoCurve</p>
         }
 
@@ -218,9 +215,9 @@ else
     </section>
 
     <p class="faint">
-        <a href="/rankings">the rankings</a> ·
-        <a href="/games">browse every game</a> ·
-        <a href="?plain=1">read this page as plain text</a>
+        <a href="/rankings">rankings</a> ·
+        <a href="/games">all games</a> ·
+        <a href="?plain=1">plain text</a>
     </p>
 }
 

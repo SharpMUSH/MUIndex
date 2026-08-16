@@ -25,8 +25,8 @@
     <section class="prose">
         <h1>Sign in</h1>
         <p>
-            Claiming needs a database behind it, and this site is running on the demo fixture.
-            There is nothing here to sign in to.
+            Claiming needs a database, and this site is running on the demo fixture. There is
+            nothing to sign in to.
         </p>
     </section>
 }
@@ -36,24 +36,22 @@ else
         <h1>Sign in</h1>
 
         <p>
-            Sign-in is a <strong>passkey</strong> — your device or password manager holds a private
-            key and we hold only the public half. There is no password to forget and no email to
-            give us.
+            Sign-in is a <strong>passkey</strong>. Your device or password manager holds the
+            private key; we hold only the public half. No password, no email.
         </p>
 
         <form data-passkey="sign-in" method="post" action="/account/sign-in">
             <button type="submit" disabled>Sign in with a passkey</button>
             <p class="faint" data-passkey-status>
-                This is the one page here that needs JavaScript. Passkeys have no way to work
-                without it.
+                The one page here that needs JavaScript. Passkeys cannot work without it.
             </p>
         </form>
 
         <h2>No account yet?</h2>
 
         <p>
-            You need one only to claim a game you run. Pick a name to be known by — it is a label
-            beside your claim, not a real name, and we ask for nothing else.
+            You need one only to claim a game you run. Pick a name to be known by — a label
+            beside your claim, not a real name.
         </p>
 
         <form data-passkey="register" method="post" action="/account/register">
@@ -73,9 +71,9 @@ else
         </ul>
 
         <p class="faint">
-            No email address, no password, no IP log tied to your account. If you lose every passkey,
-            publish a fresh claim token on your game and start again — the game is the proof, not
-            the account.
+            No email address, no password, no IP log tied to your account. Lose every passkey and
+            you can publish a fresh claim token on your game and start again: the game is the proof,
+            not the account.
         </p>
     </section>
 
