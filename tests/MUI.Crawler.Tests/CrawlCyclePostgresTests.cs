@@ -163,6 +163,75 @@ public class CrawlCyclePostgresTests
         await Assert.That(screen).IsEqualTo("Welcome to Tidewater Nights");
     }
 
+    /// <summary>
+    /// The crawl loop's own ceiling firing is a fault in our probe, and is recorded against the
+    /// cycle rather than against the game.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two ceilings, and only one of them is a measurement.</b> <c>ProbeOptions.Timeout</c> is
+    /// what the probe promises the far end will get — twenty seconds of our patience — and it
+    /// expiring is a fact about that host, stored with cause <c>timeout</c>
+    /// (<c>ProbeSessionTests.TheProbesOwnBudgetExpiringIsStillATimeoutWeMeasured</c>).
+    /// <c>DiscoveryOptions.ProbeTimeout</c> is sixty seconds and is documented as something else
+    /// entirely: <em>"the crawl loop's own hard bound on one probe, applied on top of whatever the
+    /// probe promises … the loop does not get to trust a collaborator for that"</em>.
+    /// </para>
+    /// <para>
+    /// So a probe that reaches the outer bound has overrun its own promise by forty seconds. That is
+    /// a bug in our probe, and writing it into a game's public reachability history as though the
+    /// game had timed out is precisely rule 5 — our limitation published as their downtime. It is
+    /// counted on the cycle instead, which is where decisions and failures of ours belong, and the
+    /// target is backed off so it cannot re-burn a batch slot every cycle.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task TheCrawlLoopsOwnCeilingIsCountedOnTheCycleAndNotAgainstTheGame()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+
+        await SeedAsync(source, new CrawlSeed("mush.example.org", 4201));
+
+        // Longer than the ceiling below, so the loop gives up before this probe ever answers.
+        var probe = new ScriptedProbe(target => Probes.Answered(host: target.Host, port: target.Port))
+        {
+            Latency = TimeSpan.FromSeconds(30),
+        };
+
+        var report = await Build(
+            source,
+            probe,
+            TimeProvider.System,
+            options: new DiscoveryOptions
+            {
+                GlobalInterval = TimeSpan.Zero,
+                PerHostInterval = TimeSpan.Zero,
+                ProbeTimeout = TimeSpan.FromMilliseconds(200),
+            }).RunAsync();
+
+        await Assert.That(report.Errored).IsEqualTo(1);
+        await Assert.That(report.Answered).IsEqualTo(0);
+        await Assert.That(report.Failed).IsEqualTo(0);
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        // Nothing about the game: no listing minted from a probe that never landed, and above all no
+        // availability row saying a host we never finished dialling was unreachable.
+        await Assert.That(await connection.ExecuteScalarAsync<long>("SELECT count(*) FROM game"))
+            .IsEqualTo(0L);
+        await Assert.That(
+                await connection.ExecuteScalarAsync<long>("SELECT count(*) FROM availability_interval"))
+            .IsEqualTo(0L);
+
+        // The one thing that must move, or the target is due for ever and crowds out the batch.
+        var target = await connection.QuerySingleAsync<(int Failures, DateTimeOffset? Last)>(
+            "SELECT consecutive_failures, last_probed_at FROM crawl_target");
+
+        await Assert.That(target.Failures).IsEqualTo(1);
+        await Assert.That(target.Last).IsNotNull();
+    }
+
     [Test]
     public async Task AGameThatRenamesItselfTakesANewUrlAndKeepsTheOldOneWorking()
     {

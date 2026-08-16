@@ -224,6 +224,24 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Elapsed = Stopwatch.GetElapsedTime(started),
             };
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // OUR CALLER IS GOING AWAY, WHICH IS NOT A MEASUREMENT OF ANYTHING (rule 5).
+            //
+            // `budget` links the caller's token to this probe's own timeout, and by the time an
+            // exception arrives both look identical: an OperationCanceledException, which Classify
+            // reads as ("timeout", "probe budget exhausted"). That reading is right for the budget
+            // and a lie for the caller. Returning Failed here hands CrawlCycle a result it has every
+            // reason to store, so a host that was killed mid-cycle published a timeout against every
+            // game it happened to be dialling — twenty of them inside one minute, each perfectly
+            // reachable, each then held at that verdict for six hours by the failure backoff.
+            //
+            // Rethrowing puts it back on the path that already knows what it means: VisitAsync's
+            // `catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)`,
+            // which writes nothing and leaves the target due. Ask the token which one cancelled,
+            // never the exception.
+            throw;
+        }
         catch (Exception error)
         {
             return new ProbeResult

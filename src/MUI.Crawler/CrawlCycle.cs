@@ -185,10 +185,30 @@ public sealed class CrawlCycle(
 
         // The loop's own bound, on top of ProbeOptions.Timeout. Linked, so a stopping host cancels a
         // probe in flight rather than waiting out its budget.
+        //
+        // NEITHER OF THE TWO WAYS THIS TOKEN CANCELS IS A MEASUREMENT, and they are not the same
+        // non-measurement. A stopping host is nobody's business but ours and leaves the target due
+        // (VisitAsync). This ceiling firing means the probe overran the twenty seconds it promised
+        // by another forty, which is a fault in our probe — so it lands in VisitAsync's generic
+        // handler, is counted as Errored on the cycle where failures of ours belong, and is backed
+        // off. What must never happen on either path is an availability row: a host we never
+        // finished dialling has not been measured, and "unreachable" would be our own limitation
+        // published as their downtime (rule 5). Pinned by
+        // CrawlCyclePostgresTests.TheCrawlLoopsOwnCeilingIsCountedOnTheCycleAndNotAgainstTheGame.
+        //
+        // The measurement ceiling is ProbeOptions.Timeout, inside the probe, and it still records
+        // cause "timeout" — that one is a fact about the far end and is unchanged.
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(options.ProbeTimeout);
 
         var result = await probe.ProbeAsync(new ProbeTarget(target.Host, target.Port), budget.Token);
+
+        // Nothing measured while this host was being taken down is a fact about the far end, and the
+        // writes below are fast enough against a Postgres on the same network to land before Npgsql
+        // ever looks at the token. TelnetProbe already refuses to dress our cancellation as a
+        // timeout, so this is the second lock on the same door rather than the only one — and it is
+        // worth having, because the failure it prevents is silent, permanent (rule 3) and published.
+        cancellationToken.ThrowIfCancellationRequested();
 
         // Read before anything is stored, so that a game which used this reply to ask us to stop is
         // never dialled again — including by the rest of this same cycle (§11's "within one cycle").
