@@ -75,9 +75,16 @@ public static class GameFilterBinding
 
         // `codebase` is the family — PennMUSH, not PennMUSH 1.8.8p0 — and `codebase-family` is what
         // that question used to be called. Every codebase reference page links here with the old
-        // spelling, so it is read as an alias rather than dropped; the new key wins if both are
-        // given, because a caller who names a parameter that exists means it.
-        var codebase = Choice(read, FacetKeys.Codebase) ?? Choice(read, FacetKeys.CodebaseFamily);
+        // spelling, so it is read as an alias rather than dropped.
+        //
+        // PRESENT, NOT NON-EMPTY. The new key wins whenever a caller names it, and `?codebase=` names
+        // it: blank means "ask for anything", so `?codebase=&codebase-family=PennMUSH` is a caller
+        // clearing the filter with a stale alias still in the query. Falling back on a null selection
+        // instead would re-apply the value they just cleared and leave them no way to clear it at
+        // all — the old spelling would outrank the current one precisely when the two disagree.
+        var codebase = read(FacetKeys.Codebase).Count > 0
+            ? Choice(read, FacetKeys.Codebase)
+            : Choice(read, FacetKeys.CodebaseFamily);
 
         var filter = new GameFilter
         {

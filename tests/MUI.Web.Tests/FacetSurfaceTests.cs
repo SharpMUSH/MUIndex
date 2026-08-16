@@ -144,10 +144,17 @@ public class FacetSurfaceTests
             GameFilterBinding.TryRead("?codebase-family=!PennMUSH", out var not, out _)).IsTrue();
         await Assert.That(not.Filter.Codebase).IsEqualTo(FacetChoice.Not("PennMUSH"));
 
-        // And a caller who names the current key means it.
+        // And a caller who names the current key means it — including when what they name it is
+        // nothing. `?codebase=` is a caller clearing the filter, and a stale alias left in the query
+        // beside it must not put back the value they just cleared; the older spelling outranking the
+        // current one exactly where the two disagree would leave no way to clear it at all.
         await Assert.That(GameFilterBinding.TryRead(
             "?codebase=Evennia&codebase-family=PennMUSH", out var both, out _)).IsTrue();
         await Assert.That(both.Filter.Codebase).IsEqualTo(FacetChoice.Of("Evennia"));
+
+        await Assert.That(GameFilterBinding.TryRead(
+            "?codebase=&codebase-family=PennMUSH", out var cleared, out _)).IsTrue();
+        await Assert.That(cleared.Filter.Codebase).IsNull();
 
         // The echo answers in both spellings. A consumer on API version 1 that reads
         // `codebaseFamily` off the response has working code, and a field that vanished from a
@@ -172,6 +179,15 @@ public class FacetSurfaceTests
 
         await Assert.That(ListingLinks.With("?codebase-family=PennMUSH", FacetKeys.Codebase, "Evennia"))
             .IsEqualTo("?codebase=Evennia");
+
+        // Symmetric, because an alias that works in one direction is not an alias. Nothing calls this
+        // with the old spelling today — the panel only rewrites keys it draws a facet for — and the
+        // asymmetry stops being unreachable the moment something does.
+        await Assert.That(ListingLinks.With("?codebase=PennMUSH&genre=Fantasy", FacetKeys.CodebaseFamily, null))
+            .IsEqualTo("?genre=Fantasy");
+        await Assert.That(ListingLinks.With(
+            "?codebase=PennMUSH&codebase-family=TinyMUX", FacetKeys.CodebaseFamily, null))
+            .IsEqualTo("");
     }
 
     [Test]

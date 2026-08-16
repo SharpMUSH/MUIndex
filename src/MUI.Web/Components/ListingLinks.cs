@@ -86,8 +86,15 @@ public static class ListingLinks
     }
 
     /// <summary>Every spelling of one parameter, so setting or clearing it clears them all.</summary>
+    /// <remarks>
+    /// Symmetric, because an alias that only works in one direction is not an alias. Naming the old
+    /// spelling used to clear only the old spelling and leave the canonical one applied — unreachable
+    /// from the panel, which never rewrites a key it does not draw a facet for, and exactly the shape
+    /// that stops being unreachable the first time something else calls this.
+    /// </remarks>
     private static IReadOnlyList<string> Names(string name) =>
         string.Equals(name, FacetKeys.Codebase, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(name, FacetKeys.CodebaseFamily, StringComparison.OrdinalIgnoreCase)
             ? [FacetKeys.Codebase, FacetKeys.CodebaseFamily]
             : [name];
 
