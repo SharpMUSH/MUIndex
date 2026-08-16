@@ -386,6 +386,59 @@ belongs somewhere with a different login, and it is a backup only once it has be
 
 ## Starting from an existing catalogue
 
+## Turning on Intermud-3
+
+I3 reaches games the telnet probe cannot count: the LP family predates MSSP and never adopted it,
+and its login prompts take a character name rather than commands, so `WHO` at a connect screen is
+read as a name and there is nothing to parse. `who-req` answers with an array of users instead, and
+the count is its length.
+
+It is off, and it takes **two** switches in `.env`, because they do different things:
+
+```bash
+COMPOSE_PROFILES=i3        # starts the sidecar — this is the irreversible half
+MUI_I3_ENABLED=true        # makes the site talk to it
+MUI_I3_NAME=MUIndex
+MUI_I3_ADMIN_EMAIL=you@example.com
+MUI_I3_SECRET=$(openssl rand -hex 32)
+MUI_I3_API_KEY=$(openssl rand -hex 32)
+```
+
+`COMPOSE_PROFILES` is read out of `.env` by Compose itself, so no command has to remember a `--profile`
+flag — the same arrangement `COMPOSE_FILE` already uses, and for the same reason.
+
+**Starting the sidecar registers a mud name on a public network, permanently.** I3 mudlist entries
+are never removed, only marked down; the live list still carries `probe-test-12345` and
+`Daniel's Test Server` years after whoever made them stopped. Whatever `MUI_I3_NAME` says on the
+first connect is what the network remembers. The documented test router — `*wir` at
+`136.144.155.250:3004` — does not answer, while `*wpr` responds on the same address at 8080, so
+there is no rehearsal to be had and the first connection is a real one.
+
+What the network is told about us is `deploy/i3/config.yaml`: player port 0, `open_status: n/a`, and
+one service. Not none — `*i4` silently discards a startup packet that advertises no services at all,
+with no reply and no error packet, so `who` is on. The gateway answers it from local presence, which
+is an empty list, which is true.
+
+**The first pass seeds roughly 130 addresses**, all due immediately, which the ordinary crawler then
+dials at its usual batch size. That is a visible step up in outbound traffic for a cycle or two. It
+is the point of the feature, and it is worth watching the first time:
+
+```bash
+docker compose logs -f web | grep -i intermud
+```
+
+Two operational notes:
+
+- **The `i3state` volume is not disposable.** The router assigns a password on first connect and the
+  sidecar persists it there. Lose it and the next startup packet goes out with password 0, which is
+  a re-registration rather than a reconnect. It belongs in the same backup as the database.
+- **Watchtower does not update the sidecar**, and that is deliberate. It is unlabelled and
+  `WATCHTOWER_LABEL_ENABLE` is on, so nothing touches it but a person. Its build is pinned to a
+  commit rather than to `main`, because it is the one container holding our router credential and a
+  branch is whatever upstream merged that morning.
+
+## Starting from an existing catalogue
+
 A deployment can be brought up on a database somebody already crawled. Restore **before** the site
 has ever run, not after: `MigrationRunner` applies what is missing from the ledger, so an older
 catalogue is carried forward by starting the site on it, and a restore into an already-migrated

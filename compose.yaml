@@ -105,8 +105,16 @@ services:
   i3:
     profiles: ["i3"]
     build:
-      context: https://github.com/LuminariMUD/Intermud3.git#main
-    image: i3-gateway:latest
+      # **Pinned to a commit, not to a branch.** `#main` was a moving target on the one container
+      # that holds our router password and speaks to a public network: every rebuild would have
+      # taken whatever upstream had merged that morning, unreviewed, with no way to say afterwards
+      # which code had been running. This is the revision the interoperability run was made against.
+      #
+      # Moving it is a deliberate act — read the diff, run a pass against the test router if it is
+      # up, then change this line. Watchtower cannot do it: this container is unlabelled and
+      # WATCHTOWER_LABEL_ENABLE is on, so nothing updates it but a person.
+      context: https://github.com/LuminariMUD/Intermud3.git#e1f2800fa82e0c14878c3f8643d7b17d7498493b
+    image: i3-gateway:e1f2800
     volumes:
       # Our identity, not theirs — see the header of that file for why it replaces rather than
       # layers over the gateway's own config.
@@ -134,6 +142,13 @@ services:
       I3_ROUTER_HOST: ${MUI_I3_ROUTER_HOST:-204.209.44.3}
       I3_ROUTER_PORT: ${MUI_I3_ROUTER_PORT:-8080}
       I3_GATEWAY_SECRET: ${MUI_I3_SECRET:-}
+
+      # The same value the web container authenticates with, and it has to be passed in here too:
+      # deploy/i3/config.yaml substitutes ${MUI_I3_API_KEY} inside this container, so leaving it out
+      # resolved it to empty and the site could never have signed in. Two different secrets, and
+      # they must not be set to one value — I3_GATEWAY_SECRET signs the gateway's own tokens, this
+      # one is the caller's credential.
+      MUI_I3_API_KEY: ${MUI_I3_API_KEY:-}
       LOG_LEVEL: ${MUI_I3_LOG_LEVEL:-INFO}
     # Deliberately unpublished. The gateway's API has one shared secret and no per-caller
     # authorisation worth the name, so the only thing that should be able to reach it is the web
