@@ -429,28 +429,38 @@ ul.legend li { display: inline-flex; align-items: center; gap: 6px; }
    grid, which answers "when is anyone on" and destroys "is this game growing" — this is the second
    question, and the graphic has to keep the same three states the grid does.
 
-   The load-bearing rule is the one that is NOT expressed here: the line is broken at every day
-   nobody measured, and it is broken in the path data rather than by any style below. A CSS dash
-   cannot express "no measurement", and drawing a continuous line under a faint stroke would still
-   be publishing our crawl schedule as their quiet fortnight. See TrendGeometry.                 */
+   A column per counted day. It was a broken line with a min–max band, which is the right picture
+   for a game probed every day and an empty box for everybody else — three counted days of ninety
+   came out as one two-pixel dot on a dark rectangle. The load-bearing rule survives the change and
+   is the one NOT expressed here: a day nobody measured has no bar, and it has none because the
+   geometry emits none rather than because anything below hides it. See TrendGeometry.           */
 
 .trend-wrap { margin: var(--cpad) 0 8px; }
 svg.trend { width: 100%; height: 168px; display: block; overflow: visible; }
-svg.trend .grid { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
-svg.trend .band { fill: color-mix(in srgb, var(--accent) 16%, transparent); stroke: none; }
-svg.trend .mean {
-    fill: none; stroke: var(--accent); stroke-width: 2;
-    stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke;
-}
-svg.trend .dot { fill: var(--accent); }
+/* The plot is a surface, not a hole: ninety unmeasured days on the page's own background read as a
+   fault rather than as a question nobody has answered yet. */
+svg.trend .plot { fill: var(--surface); }
+svg.trend .grid, svg.trend .monthline { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+svg.trend .axis { stroke: var(--dim); stroke-width: 1; vector-effect: non-scaling-stroke; }
+svg.trend .mean { fill: var(--accent); }
+/* Half the accent over the plot's own surface, which is where it clears 3:1 against it in the dark
+   theme. It stays under that on white, where the relief is the legend, the per-day tooltip and the
+   "read as text" lines — every number in the cap is reachable without seeing it. */
+svg.trend .peak { fill: color-mix(in srgb, var(--accent) 50%, var(--surface)); }
 /* The hatched state sits in its own gutter below the baseline. On the zero line it would read as a
    measured zero, which is §5.4's middle state collapsed into a filled one. */
 svg.trend .uncounted { fill: var(--dim); opacity: 0.55; }
 svg.trend .hit { fill: transparent; }
-.trend-scale { display: flex; justify-content: space-between; font-size: 10.5px; margin: 6px 0 8px; }
 
-.swatch.mean { background: var(--accent); height: 3px; border-radius: 2px; }
-.swatch.band { background: color-mix(in srgb, var(--accent) 16%, transparent); outline: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); outline-offset: -1px; }
+/* Month names, positioned at the same fractions the rules inside the plot are drawn at. They live
+   out here because the canvas is stretched to the page width and text inside it stretches too. */
+.trend-axis { position: relative; height: 15px; font-size: 10.5px; }
+.trend-axis span { position: absolute; top: 0; white-space: nowrap; }
+
+.trend-scale { display: flex; justify-content: space-between; font-size: 10.5px; margin: 2px 0 8px; }
+
+.swatch.mean { background: var(--accent); }
+.swatch.peak { background: color-mix(in srgb, var(--accent) 50%, var(--surface)); }
 .swatch.uncounted { background: var(--dim); opacity: 0.55; height: 6px; border-radius: 2px; }
 
 ul.weeks { list-style: none; margin: 8px 0 0; padding: 0; font-size: 12px; color: var(--dim); }

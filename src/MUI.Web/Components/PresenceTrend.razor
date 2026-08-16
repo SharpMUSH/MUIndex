@@ -5,12 +5,13 @@
     destroys "is this game growing". This is that second question, and it is the one a directory is
     usually read for.
 
-    Two rules shape the drawing and neither is cosmetic. **The line breaks at every day nobody
-    measured** — a continuous polyline across a gap is our crawl schedule drawn as their quiet
-    fortnight, and every chart of this kind on every other site does exactly that. And a day probed
-    without a readable count is a mark in its own gutter *below* the baseline, never a point at
-    zero: on the line it would read as a measured empty game, which is §5.4's middle state collapsed
-    into a filled one.
+    A column per counted day, and nothing at all on the days nobody counted. That is the same rule a
+    broken line kept and it is kept better here: a bar makes no claim about its neighbours, so there
+    is no interpolation to get wrong, and a game counted on three days of ninety draws three bars
+    rather than one two-pixel dot in an empty rectangle — which is what this chart was before, and
+    what it looked like. A day probed without a readable count is still a mark in its own gutter
+    *below* the baseline, never a bar at zero: on the plot it would read as a measured empty game,
+    which is §5.4's middle state collapsed into a filled one.
 
     Inert SVG, computed on the server. No script, so it works in the same places the rest of the
     page does, and the numbers reach a text browser through the same PerWeek() lines the disclosure
@@ -27,26 +28,36 @@
            as ninety focusable shapes, which is the same choice the availability strip makes. *@
         <svg class="trend" viewBox="0 0 @Box" preserveAspectRatio="none"
              role="img" aria-label="@Series.Sentence">
+            @* The plot is a surface rather than a hole in the page. Without it ninety unmeasured
+               days are the page's own background, and the graphic reads as a fault. *@
+            <rect class="plot" x="0" y="0" width="@N(TrendGeometry.Width)" height="@N(TrendGeometry.Zero)"></rect>
+
+            @foreach (var month in TrendGeometry.Months(Series))
+            {
+                <line class="monthline" x1="@N(month.X)" x2="@N(month.X)"
+                      y1="0" y2="@N(TrendGeometry.Zero)"></line>
+            }
+
             @foreach (var (value, y) in TrendGeometry.Gridlines(Series))
             {
-                <line class="grid" x1="0" x2="@TrendGeometry.Width" y1="@N(y)" y2="@N(y)"></line>
+                <line class="@(value == 0 ? "axis" : "grid")" x1="0" x2="@TrendGeometry.Width"
+                      y1="@N(y)" y2="@N(y)"></line>
             }
 
-            @foreach (var band in TrendGeometry.BandPaths(Series))
+            @foreach (var bar in TrendGeometry.Bars(Series))
             {
-                <path class="band" d="@band"></path>
-            }
+                @* The spread first, so the mean is drawn over it and nothing hides the measurement
+                   the bar is mostly about. *@
+                @if (bar.HasCap)
+                {
+                    <path class="peak" d="@TrendGeometry.Column(bar.X, bar.Width, bar.PeakTop, bar.CapBottom)">
+                        <title>@bar.Day.Label</title>
+                    </path>
+                }
 
-            @foreach (var path in TrendGeometry.MeanPaths(Series))
-            {
-                <path class="mean" d="@path"></path>
-            }
-
-            @foreach (var dot in TrendGeometry.Dots(Series))
-            {
-                <circle class="dot" cx="@N(dot.X)" cy="@N(dot.Y)" r="2">
-                    <title>@dot.Label</title>
-                </circle>
+                <path class="mean" d="@TrendGeometry.Column(bar.X, bar.Width, bar.MeanTop, TrendGeometry.Zero)">
+                    <title>@bar.Day.Label</title>
+                </path>
             }
 
             @* The hatched state, in its own gutter under the baseline. *@
@@ -70,6 +81,15 @@
             }
         </svg>
 
+        @* Positioned by the same fractions the rules are drawn at, and outside the SVG because the
+           canvas is stretched to the page width — text inside it would be stretched with it. *@
+        <div class="trend-axis mono faint" aria-hidden="true">
+            @foreach (var month in TrendGeometry.Months(Series))
+            {
+                <span style="left: @N(month.Fraction * 100)%">@month.Label</span>
+            }
+        </div>
+
         <div class="trend-scale mono faint">
             <span>@Series.Ceiling at the top</span>
             <span>@Series.CountedDays of @Series.Days.Count days counted</span>
@@ -78,9 +98,9 @@
 
     <ul class="legend">
         <li><span class="swatch mean" aria-hidden="true"></span>mean of the counts we read that day</li>
-        <li><span class="swatch band" aria-hidden="true"></span>lowest to highest count that day</li>
+        <li><span class="swatch peak" aria-hidden="true"></span>up to the busiest count that day</li>
         <li><span class="swatch uncounted" aria-hidden="true"></span>probed, no count could be read</li>
-        <li><span class="swatch gap" aria-hidden="true"></span>not measured — a break in the line</li>
+        <li><span class="swatch gap" aria-hidden="true"></span>not measured — no bar at all</li>
     </ul>
 
     <details class="disclosure">
@@ -114,6 +134,5 @@ else
     /// Invariant, always. Razor would otherwise render a coordinate under the request's culture, and
     /// a machine that writes <c>0,5</c> emits path data every renderer reads as two numbers.
     /// </remarks>
-    private static string N(double value) =>
-        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    private static string N(double value) => TrendGeometry.Round(value);
 }

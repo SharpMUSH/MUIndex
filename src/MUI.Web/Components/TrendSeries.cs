@@ -29,8 +29,21 @@ public sealed record TrendDay(
     /// <summary>Not measured. Emphatically not an empty game.</summary>
     public bool IsGap => CountedSamples == 0 && UnmeasurableSamples == 0;
 
-    /// <summary>The mean to one decimal, or null where nothing was counted.</summary>
+    /// <summary>The mean to one decimal, or null where nothing was counted. What the bar is drawn to.</summary>
     public double? Average => Mean is { } m ? (double)Math.Round(m, 1) : null;
+
+    /// <summary>
+    /// The mean as a number of players — floored, never rounded up.
+    /// </summary>
+    /// <remarks>
+    /// Players are whole. "666.1 players were on" is arithmetic printed where a measurement was
+    /// asked for, and a tenth of a person is not a finer answer than 666, it is a sillier one. Down
+    /// rather than nearest for the same reason the badge's age is: a figure this site shows is one
+    /// it can stand behind, so where the true number is between two integers we say the one we are
+    /// sure of. The exact mean survives in <see cref="Average"/>, which is what the chart is drawn
+    /// from, so the bar is never shortened by the wording.
+    /// </remarks>
+    public int? Typical => Mean is { } m ? (int)Math.Floor(m) : null;
 
     public string Label => this switch
     {
@@ -38,7 +51,7 @@ public sealed record TrendDay(
         { IsUncountable: true } => $"{Date:d MMM yyyy} — probed, no count could be read",
         { Min: { } lo, Max: { } hi } when lo == hi =>
             $"{Date:d MMM yyyy} — {lo} players, every one of {Probes(CountedSamples)}",
-        _ => $"{Date:d MMM yyyy} — {Average} on average, {Min}–{Max} across {Probes(CountedSamples)}",
+        _ => $"{Date:d MMM yyyy} — {Typical} on average, {Min}–{Max} across {Probes(CountedSamples)}",
     };
 
     private static string Probes(int n) => n == 1 ? "1 probe" : $"{n} probes";
@@ -116,7 +129,7 @@ public sealed record TrendSeries(DateOnly From, DateOnly To, IReadOnlyList<Trend
             var peak = Ceiling;
 
             var start = $"Typically {Number(typical)} on, peaking at {peak}, "
-                + $"over {Measured(CountedDays)} of {Span(Days.Count)}.";
+                + $"over {CountedDays} of {Measured(Days.Count)}.";
 
             return Direction(counted) is { } direction ? $"{start} {direction}" : start;
         }
@@ -240,10 +253,9 @@ public sealed record TrendSeries(DateOnly From, DateOnly To, IReadOnlyList<Trend
         return sorted.Count == 0 ? 0 : sorted[sorted.Count / 2];
     }
 
+    /// <summary>A count of players, floored — see <see cref="TrendDay.Typical"/> for why down.</summary>
     private static string Number(double value) =>
-        value.ToString(value % 1 == 0 ? "0" : "0.0", CultureInfo.InvariantCulture);
+        Math.Floor(value).ToString("0", CultureInfo.InvariantCulture);
 
     private static string Measured(int n) => n == 1 ? "1 day" : $"{n} days";
-
-    private static string Span(int n) => n == 1 ? "1 day" : $"{n} days";
 }

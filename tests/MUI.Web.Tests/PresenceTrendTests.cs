@@ -10,7 +10,7 @@ namespace MUI.Web.Tests;
 /// Every chart of this kind on every other site draws one continuous polyline, which interpolates
 /// across the days nobody measured — and an interpolated gap is our crawl schedule drawn as their
 /// quiet fortnight. §5.4's third state is the absence of a measurement, so here it must be the
-/// absence of ink, and that is a property of the path data rather than of any style. It is asserted
+/// absence of ink, and that is a property of the geometry rather than of any style. It is asserted
 /// as arithmetic below, which is why the geometry is a plain type and not markup.
 /// </remarks>
 public class PresenceTrendTests
@@ -18,42 +18,46 @@ public class PresenceTrendTests
     private static readonly DateOnly Start = new(2026, 5, 1);
 
     [Test]
-    public async Task TheLineBreaksWhereNothingWasMeasured()
+    public async Task ADayNobodyMeasuredGetsNoInkAtAll()
     {
-        // Three measured days, a four-day hole, three more. One path would draw a slope across the
-        // hole and say a game emptied out over a week nobody looked at it.
+        // Three measured days, a four-day hole, three more. A line would draw a slope across the
+        // hole and say a game emptied out over a week nobody looked at it; a bar cannot, because a
+        // bar is a statement about its own day and says nothing about the day beside it.
         var series = Series(
             Counted(0, 10), Counted(1, 11), Counted(2, 12),
             Gap(3), Gap(4), Gap(5), Gap(6),
             Counted(7, 9), Counted(8, 8), Counted(9, 10));
 
-        var paths = TrendGeometry.MeanPaths(series);
+        var bars = TrendGeometry.Bars(series);
 
-        await Assert.That(paths).Count().IsEqualTo(2)
-            .Because("a run of measured days on each side of a gap is two lines, never one");
+        await Assert.That(bars.Select(b => b.Day.Date))
+            .IsEquivalentTo(series.Days.Where(d => d.IsCounted).Select(d => d.Date))
+            .Because("a bar exists for every counted day and for no other day");
 
-        // And neither path spans the hole: each has exactly its own three points.
-        foreach (var path in paths)
-        {
-            await Assert.That(path.Count(c => c is 'M' or 'L')).IsEqualTo(3);
-        }
+        // And nothing is drawn across the hole: the four gap columns own a stretch of canvas that
+        // no bar touches.
+        var columns = TrendGeometry.Columns(series);
+        var holeFrom = columns[3].X;
+        var holeTo = columns[6].X + columns[6].Width;
 
-        await Assert.That(TrendGeometry.BandPaths(series)).Count().IsEqualTo(2);
+        await Assert.That(bars.Any(b => b.X + b.Width > holeFrom && b.X < holeTo)).IsFalse();
     }
 
     [Test]
-    public async Task ASingleMeasuredDayIsDrawnAsAPointRatherThanDropped()
+    public async Task ASingleMeasuredDayIsAWholeBarRatherThanASpeck()
     {
-        // A one-point path renders as nothing in most engines, which would be a measurement silently
-        // lost — the failure mode of "just break the polyline" done carelessly.
+        // This is what the form is for. As a line, a run of one day is one point — no path at all —
+        // and the fallback was a two-pixel dot, which on a ninety-day range measured three times is
+        // a chart of nothing. A column does not need its neighbours to exist.
         var series = Series(Gap(0), Counted(1, 14), Gap(2));
 
-        await Assert.That(TrendGeometry.MeanPaths(series)).IsEmpty();
+        var bars = TrendGeometry.Bars(series);
 
-        var dots = TrendGeometry.Dots(series);
-
-        await Assert.That(dots).Count().IsEqualTo(1);
-        await Assert.That(dots[0].Label).Contains("14");
+        await Assert.That(bars).Count().IsEqualTo(1);
+        await Assert.That(bars[0].Day.Label).Contains("14");
+        await Assert.That(TrendGeometry.Zero - bars[0].MeanTop)
+            .IsGreaterThan(100d)
+            .Because("the only measurement in the range is also the ceiling, so its bar is the plot");
     }
 
     [Test]
@@ -61,7 +65,7 @@ public class PresenceTrendTests
     {
         // §5.4's middle state. A mark on the baseline reads as a measured empty game, which is the
         // collapse this codebase may never ship — so it sits in its own gutter beneath the plot and
-        // never contributes a point to the line.
+        // never gets a bar.
         var series = Series(
             Counted(0, 5), Counted(1, 6),
             Uncountable(2),
@@ -72,22 +76,43 @@ public class PresenceTrendTests
         await Assert.That(ticks).Count().IsEqualTo(1);
         await Assert.That(ticks[0].Label).Contains("no count could be read");
 
-        // And it breaks the line exactly as a gap does: it is not a day we counted, so the run on
-        // each side of it is its own path and nothing is drawn across the middle.
-        await Assert.That(TrendGeometry.MeanPaths(series)).Count().IsEqualTo(2);
-        await Assert.That(TrendGeometry.Dots(series)).IsEmpty();
+        await Assert.That(TrendGeometry.Bars(series)).Count().IsEqualTo(4);
+        await Assert.That(TrendGeometry.Bars(series).Any(b => b.Day.IsUncountable)).IsFalse();
     }
 
     [Test]
-    public async Task AMeasuredZeroIsAMeasurementAndStaysOnTheLine()
+    public async Task AMeasuredZeroIsAMeasurementAndKeepsItsInk()
     {
         // The other half of the same rule, and the easy one to get wrong in the opposite direction:
-        // we got in and nobody was there is a count, so it is drawn.
+        // we got in and nobody was there is a count, so it is drawn — and a bar of no height is
+        // indistinguishable from the day beside it that nobody looked at.
         var series = Series(Counted(0, 4), Counted(1, 0), Counted(2, 3));
 
-        await Assert.That(TrendGeometry.MeanPaths(series)).Count().IsEqualTo(1);
+        var zero = TrendGeometry.Bars(series).Single(b => b.Day.Date == Start.AddDays(1));
+
+        await Assert.That(TrendGeometry.Zero - zero.MeanTop)
+            .IsGreaterThanOrEqualTo(TrendGeometry.MinimumInk);
         await Assert.That(TrendGeometry.Ticks(series)).IsEmpty();
         await Assert.That(series.Days[1].Label).Contains("0 players");
+    }
+
+    [Test]
+    public async Task TheSpreadOfADayRidesAboveItsMeanAndOnlyWhenThereIsOne()
+    {
+        // The shape a mean alone hides: a game that peaks at forty and idles at two has the same
+        // mean as one that sat at twenty-one all evening, and they are not the same game.
+        var series = Series(Counted(0, 2, 40, 21), Counted(1, 21, 21, 21));
+
+        var bars = TrendGeometry.Bars(series);
+
+        await Assert.That(bars[0].PeakTop).IsLessThan(bars[0].MeanTop)
+            .Because("the busiest probe of the day is above the mean of them, and up is a smaller y");
+        await Assert.That(bars[0].HasCap).IsTrue();
+
+        await Assert.That(bars[1].HasCap).IsFalse()
+            .Because("every probe read the same number, so there is no spread to draw");
+        await Assert.That(bars[1].MeanTop).IsEqualTo(bars[0].MeanTop)
+            .Because("both days mean twenty-one and the bar is drawn to the mean");
     }
 
     [Test]
@@ -109,7 +134,8 @@ public class PresenceTrendTests
         {
             System.Globalization.CultureInfo.CurrentCulture = comma;
 
-            var path = TrendGeometry.MeanPaths(Series(Counted(0, 3), Counted(1, 7)))[0];
+            var bar = TrendGeometry.Bars(Series(Counted(0, 3), Counted(1, 7)))[0];
+            var path = TrendGeometry.Column(bar.X, bar.Width, bar.MeanTop, TrendGeometry.Zero);
 
             await Assert.That(path).DoesNotContain(",");
 
@@ -122,6 +148,27 @@ public class PresenceTrendTests
         {
             System.Globalization.CultureInfo.CurrentCulture = original;
         }
+    }
+
+    [Test]
+    public async Task TheCalendarIsLabelledWhereAMonthStartsAndIsNeverCrowded()
+    {
+        // Ninety columns with nothing under them are ninety columns of nothing in particular. But a
+        // five-year range has sixty month starts in it, and sixty labels is a grey smear rather than
+        // an axis, so they thin instead of overprinting.
+        var quarter = TrendSeries.Over(new DateOnly(2026, 5, 19), new DateOnly(2026, 8, 16), []);
+
+        await Assert.That(TrendGeometry.Months(quarter).Select(m => m.Label))
+            .IsEquivalentTo(new[] { "Jun", "Jul", "Aug" });
+
+        var years = TrendSeries.Over(new DateOnly(2021, 1, 1), new DateOnly(2025, 12, 31), []);
+        var months = TrendGeometry.Months(years);
+
+        await Assert.That(months.Count).IsLessThanOrEqualTo(9);
+        await Assert.That(months.Zip(months.Skip(1)).All(p => p.Second.X > p.First.X)).IsTrue();
+        await Assert.That(months[0].Label).IsEqualTo("Jan 2021")
+            .Because("a range that crosses a year has to say which January it is looking at");
+        await Assert.That(months.All(m => m.Fraction is >= 0 and <= 1)).IsTrue();
     }
 
     [Test]
@@ -140,6 +187,25 @@ public class PresenceTrendTests
         await Assert.That(series.Days).Count().IsEqualTo(10);
         await Assert.That(series.Days.Count(d => d.IsGap)).IsEqualTo(8);
         await Assert.That(series.CountedDays).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task APlayerCountIsNeverReportedWithADecimal()
+    {
+        // "Typically 666.1 on" is arithmetic printed where a measurement was asked for. Players are
+        // whole, and a tenth of one is not a finer answer than 666 — it is a sillier one. Down
+        // rather than nearest, so the figure is one we are sure of.
+        var series = Series(Counted(0, 601, 731, 666.1m), Counted(1, 590, 640, 620.4m));
+
+        await Assert.That(series.Sentence).Contains("Typically 666 on");
+        await Assert.That(series.Sentence).DoesNotContain("666.1");
+        await Assert.That(series.Days[0].Label).Contains("666 on average");
+        await Assert.That(series.Days[0].Label).DoesNotContain("666.1");
+        await Assert.That(series.PerWeek().Single()).Contains("typically 666");
+        await Assert.That(series.PerWeek().Single()).DoesNotContain("666.1");
+
+        // The wording is floored; the geometry is not, or the bar would be shortened by a sentence.
+        await Assert.That(series.Days[0].Average).IsEqualTo(666.1d);
     }
 
     [Test]
@@ -231,6 +297,9 @@ public class PresenceTrendTests
 
     private static TrendDay Counted(int offset, int players) =>
         new(Start.AddDays(offset), 4, 0, players, players, players);
+
+    private static TrendDay Counted(int offset, int low, int high, decimal mean) =>
+        new(Start.AddDays(offset), 4, 0, low, high, mean);
 
     private static TrendDay Uncountable(int offset) => new(Start.AddDays(offset), 0, 2, null, null, null);
 
