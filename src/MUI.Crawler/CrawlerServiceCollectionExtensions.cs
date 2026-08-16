@@ -226,6 +226,25 @@ public static class CrawlerServiceCollectionExtensions
             services.AddHostedService<PresenceMaintenanceService>();
         }
 
+        // Gated on Enabled, unlike the two above, because this one needs a container that is not part
+        // of the default deployment. Registering it regardless would have every deployment without
+        // the sidecar log a failed connection on a five-minute loop for a feature nobody turned on —
+        // the opposite of CrawlerService's case, where saying "off" once is the useful signal and the
+        // absence of a sidecar is not something an operator can be expected to infer from silence.
+        if (options.I3.Enabled)
+        {
+            services.AddSingleton(options.I3);
+
+            // A factory delegate rather than a constructed instance: building a provider here to
+            // resolve a logger would stand up a second container, and every singleton in it would be
+            // a second copy of something the host thinks it owns one of.
+            services.AddSingleton(s => new I3GatewayFactory(
+                options.I3.Gateway, s.GetService<ILoggerFactory>()));
+            services.TryAddSingleton<II3BindingRepository>(s => new NpgsqlI3BindingRepository(
+                s.GetRequiredService<NpgsqlDataSource>()));
+            services.AddHostedService<I3Service>();
+        }
+
         return services;
     }
 }
@@ -268,6 +287,12 @@ public sealed class CrawlerOptionsBuilder
     public PresenceMaintenanceOptions Maintenance { get; set; } = new();
 
     /// <summary>
+    /// The Intermud-3 pass. Off unless a deployment turns it on, because it needs a sidecar that is
+    /// not part of the default arrangement.
+    /// </summary>
+    public I3ServiceOptions I3 { get; set; } = new();
+
+    /// <summary>
     /// Adds an address the crawler knows on day one.
     /// </summary>
     /// <param name="host">The host name or literal address.</param>
@@ -292,6 +317,7 @@ public sealed class CrawlerOptionsBuilder
         Probe = Probe,
         Maintenance = Maintenance,
         Submissions = Submissions,
+        I3 = I3,
         Seeds = _seeds,
     };
 }

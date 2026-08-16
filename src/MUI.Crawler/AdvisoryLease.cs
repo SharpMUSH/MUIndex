@@ -62,6 +62,17 @@ public sealed class AdvisoryLease : IAsyncDisposable
     public const long PresenceMaintenanceKey = 0x4D55495F524F_4C4CL;
 
     /// <summary>
+    /// The Intermud-3 pass's key. <c>MUI_IMUD</c>.
+    /// </summary>
+    /// <remarks>
+    /// Its own rather than the crawl lease's, so a long crawl cycle cannot delay an I3 pass and an I3
+    /// pass cannot delay a crawl — and so a deployment running the site with the crawler off still
+    /// keeps its I3 bindings current. Two replicas passing at once would ask every mud on the network
+    /// twice as often as we told it we would.
+    /// </remarks>
+    public const long I3Key = 0x4D55495F494D_5544L;
+
+    /// <summary>
     /// Takes the lock if it is free, or returns null. Never waits: a replica that cannot have the
     /// lock has nothing to wait for, and <c>pg_advisory_lock</c> would block a hosted service's
     /// startup indefinitely.

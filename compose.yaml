@@ -57,6 +57,13 @@ services:
       # registered again if it moves. §15.1 is settled — mu-index.com — but this stays a setting:
       # the registrable domain is the deployment's, not the code's. Leave it unset locally, where
       # sign-in is the only surface it affects.
+      # The Intermud-3 pass, off unless said out loud — and it needs the `i3` sidecar, which is behind
+      # its own compose profile. Turning both on is two deliberate acts because between them they
+      # connect to a public network and register a name there permanently.
+      MUI_I3_ENABLED: ${MUI_I3_ENABLED:-false}
+      MUI_I3_GATEWAY: ${MUI_I3_GATEWAY:-i3:8081}
+      MUI_I3_API_KEY: ${MUI_I3_API_KEY:-}
+
       Passkeys__ServerDomain: ${MUI_PASSKEY_DOMAIN:-}
 
       ASPNETCORE_ENVIRONMENT: Production
