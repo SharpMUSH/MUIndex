@@ -10,6 +10,8 @@ public class IdentityMatcherTests
 {
     private static readonly CancellationToken None = CancellationToken.None;
 
+    private static readonly DateTimeOffset Then = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
     [Test]
     public async Task AnUnknownGameIsFresh()
     {
@@ -193,6 +195,33 @@ public class IdentityMatcherTests
 
         await Assert.That(verdict).IsTypeOf<IdentityVerdict.Fresh>();
         await Assert.That(((IdentityVerdict.Fresh)verdict).Best).IsNull();
+    }
+
+    [Test]
+    public async Task AnOwnerCannotTypeTheirGameIntoAnotherGamesFingerprint()
+    {
+        // The hazard §8.5's widened writable set introduces, and the reason this test exists before
+        // that set widens. Owner outranks Mssp in FieldPrecedence — correctly, for a page, where an
+        // owner's answer about their own game is the one to show. Scored here it would let anybody
+        // with a verified claim type NAME and CREATED to match a game they have nothing to do with,
+        // and §7.3 merges above threshold.
+        //
+        // De-duplication asks which host is which game. A person's typing is not evidence in that
+        // question, however true it happens to be.
+        var world = new IdentityWorld();
+        var impostor = await world.GameAsync((IdentityFields.Name, "Something Else"));
+
+        foreach (var (field, value) in new[] { (IdentityFields.Name, "Corvid"), (IdentityFields.Created, "2003") })
+        {
+            await world.Fields.UpsertAsync(new MUI.Catalog.GameField(
+                impostor, field, MUI.Catalog.FieldSource.Owner, value, Then, Then), None);
+        }
+
+        var verdict = await world.Matcher.ResolveAsync(ProbeResults.Answered(
+            host: "new.example.org",
+            mssp: ProbeResults.Mssp(("NAME", "Corvid"), ("CREATED", "2003"))), None);
+
+        await Assert.That(verdict).IsTypeOf<IdentityVerdict.Fresh>();
     }
 
     [Test]

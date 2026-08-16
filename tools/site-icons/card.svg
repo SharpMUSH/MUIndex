@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <!--
+    The template every preview card is rendered from. render.sh substitutes __LABEL__ and __LINE__;
+    everything else is the same on all five, which is the point — a link into this site should be
+    recognisable as one before the reader has read the title.
+
+    The palette is app.css's, unchanged: page background, primary text, the faint step for meta, and
+    the accent on exactly one character. The accent means *measured* and is never spent
+    decoratively, which is why there is no green rule, no green border and no green section label —
+    the asterisk in the wordmark is the site's one standing exception and it is the same exception
+    the header makes.
+
+    1200x630 because that is what every unfurler crops to. The safe area is generous on purpose:
+    several clients letterbox to 2:1 and one crops to a square from the centre.
+  -->
+  <rect width="1200" height="630" fill="#0f1113"/>
+
+  <text x="80" y="140"
+        font-family="JetBrains Mono, DejaVu Sans Mono, monospace"
+        font-size="22" letter-spacing="3.5" fill="#6b747c">__LABEL__</text>
+
+  <text x="80" y="360"
+        font-family="JetBrains Mono, DejaVu Sans Mono, monospace"
+        font-size="128" font-weight="600" fill="#e8eaec">mu<tspan fill="#35d29a">*</tspan>index</text>
+
+  <line x1="80" y1="430" x2="1120" y2="430" stroke="#262b30" stroke-width="2"/>
+
+  <text x="80" y="490"
+        font-family="JetBrains Mono, DejaVu Sans Mono, monospace"
+        font-size="24" letter-spacing="2" fill="#9aa2a9">__LINE__</text>
+</svg>

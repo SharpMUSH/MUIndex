@@ -68,6 +68,10 @@ public static class FeedEndpoints
     /// RSS items need absolute links, which is the one place this API cannot use a relative path.
     /// Taken from the request rather than configured, so a mirror serves its own links.
     /// </summary>
-    private static Uri Origin(HttpContext http) =>
-        new($"{http.Request.Scheme}://{http.Request.Host}{http.Request.PathBase}");
+    /// <remarks>
+    /// This was the first surface to need it and now shares the answer with the canonical link, the
+    /// preview metadata and the sitemap. Its own copy assembled the same three parts by hand, which
+    /// meant the scheme fix behind a TLS-terminating proxy had somewhere to not reach.
+    /// </remarks>
+    private static Uri Origin(HttpContext http) => SiteUrls.OriginOf(http);
 }

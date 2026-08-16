@@ -29,19 +29,64 @@ public class OwnerSurfaceTests
     /// codebase.
     /// </summary>
     [Test]
-    public async Task ThePanelOffersEveryEnrichableFieldAndNoMeasurementAtAll()
+    public async Task ThePanelOffersEveryWritableFieldAndNoMeasurementAtAll()
     {
         var markup = await PanelAsync();
 
-        foreach (var definition in FieldRegistry.OwnerEnrichable)
+        foreach (var definition in FieldRegistry.OwnerEnrichable.Concat(FieldRegistry.OwnerOverridable))
         {
             await Assert.That(markup).Contains($"name=\"{OwnerWrites.FieldPrefix}{definition.Name}\"");
         }
 
-        foreach (var measured in new[] { "CODEBASE", "PLAYERS", "GENRE", CapabilityFields.Measured("GMCP") })
+        // GENRE is on the form now and was in this list, which was the list conflating two things.
+        // §8.5's rule is that an owner may never edit a MEASUREMENT, and a hand-typed MSSP GENRE is
+        // not one — §5.1 calls `mssp` a game filling in a self-description it maintains. What stays
+        // off the form is what a probe observed, plus the fields the codebase fills in about the
+        // connection, where a typed answer and a measured one would mean different things.
+        foreach (var refused in new[]
+                 {
+                     "PLAYERS", "UPTIME", "CODEBASE", "HOSTNAME", "PORT", "IP", "FAMILY",
+                     CapabilityFields.Measured("GMCP"), CapabilityFields.Declared("GMCP"),
+                 })
         {
-            await Assert.That(markup).DoesNotContain($"{OwnerWrites.FieldPrefix}{measured}");
+            await Assert.That(markup).DoesNotContain($"{OwnerWrites.FieldPrefix}{refused}");
         }
+    }
+
+    /// <summary>
+    /// An override box shows what the game reports beside it, and never inside it.
+    /// </summary>
+    /// <remarks>
+    /// Two claims in one, and the second is the one worth a test. Showing the report is what makes
+    /// the form an override rather than a blank second opinion. Putting it in the box would invite an
+    /// owner to retype their own MSSP into a row that says the same thing — a second value, a second
+    /// age, and a second thing that goes stale independently of the first.
+    /// </remarks>
+    [Test]
+    public async Task AnOverrideBoxShowsTheReportBesideItRatherThanInIt()
+    {
+        var markup = await PanelAsync(reported: [("GENRE", "Adventure")]);
+
+        await Assert.That(Render.Words(markup)).Contains("your game reports");
+        await Assert.That(markup).Contains("Adventure");
+        await Assert.That(markup).DoesNotContain("value=\"Adventure\"");
+    }
+
+    /// <summary>
+    /// The name box says that saving it moves the game's address, and that the old one keeps working.
+    /// </summary>
+    /// <remarks>
+    /// §5.7's promise is to whoever holds the old URL, and the person about to change it is the one
+    /// who has not read the spec. A URL changing under somebody is the kind of surprise they should
+    /// have been told about before pressing the button rather than after.
+    /// </remarks>
+    [Test]
+    public async Task ThePanelSaysThatRenamingMovesTheGamesAddress()
+    {
+        var words = Render.Words(await PanelAsync());
+
+        await Assert.That(words).Contains("the address of its page");
+        await Assert.That(words).Contains("redirects to its current one");
     }
 
     /// <summary>
@@ -172,13 +217,19 @@ public class OwnerSurfaceTests
         await Assert.That(edits.Single().Field).IsEqualTo("CODEBASE");
     }
 
-    private static Task<string> PanelAsync(IReadOnlyDictionary<string, GameField>? declared = null) =>
+    private static Task<string> PanelAsync(
+        IReadOnlyDictionary<string, GameField>? declared = null,
+        IReadOnlyList<(string Field, string Value)>? reported = null) =>
         Render.ComponentAsync<OwnerPanel>(
             new Dictionary<string, object?>
             {
                 ["GameId"] = Game,
                 ["Name"] = "Ashen Court",
                 ["Declared"] = declared ?? new Dictionary<string, GameField>(StringComparer.Ordinal),
+                ["Reported"] = (reported ?? []).ToDictionary(
+                    r => r.Field,
+                    r => new GameField(Game, r.Field, FieldSource.Mssp, r.Value, Now.AddDays(-30), Now),
+                    StringComparer.OrdinalIgnoreCase),
                 ["Now"] = Now,
             },
             services => services.AddSingleton<AntiforgeryStateProvider, NoAntiforgery>());

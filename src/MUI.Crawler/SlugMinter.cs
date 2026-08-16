@@ -41,7 +41,7 @@ public sealed class SlugMinter(
     IGameFieldStore fields,
     ISlugHistoryStore history,
     TimeSpan? grace = null,
-    ILogger<SlugMinter>? logger = null)
+    ILogger<SlugMinter>? logger = null) : IOwnerRenames
 {
     /// <summary>
     /// How long a new name must hold before it is worth a new URL.
@@ -75,6 +75,19 @@ public sealed class SlugMinter(
 
         var stored = await fields.ForGameAsync(gameId, cancellationToken);
 
+        // An owner has said what this game is called, and it outranks the report on every surface
+        // that renders it (§5.1, §8.5). Re-minting from MSSP here would spend every cycle renaming
+        // the game back to what its config says — the owner's name on the page and the report's in
+        // the URL, with a change-feed entry each time. Their withdrawal is an empty row, which is why
+        // this asks for a value rather than for the row's existence: nothing is deleted, so the row
+        // outlives the override and must stop counting when the value goes.
+        if (stored.Any(row => row.Source is FieldSource.Owner
+                && string.Equals(row.Field, IdentityMsspVariables.Name, StringComparison.OrdinalIgnoreCase)
+                && row.Value.Length > 0))
+        {
+            return null;
+        }
+
         if (Winner(stored, IdentityMsspVariables.Name) is not { } declared)
         {
             return null;
@@ -99,6 +112,77 @@ public sealed class SlugMinter(
             return null;
         }
 
+        return await MintAsync(game, name, now, cancellationToken);
+    }
+
+    /// <summary>
+    /// Applies a name a verified owner chose, at once (spec §8.5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>No grace, and this is the whole difference from <see cref="ConsiderAsync"/>.</b> The
+    /// fourteen days exist because MSSP flaps — a name published while a config was half-edited
+    /// should not churn a URL, and waiting is the only way to tell a settled name from a passing one.
+    /// An owner pressing save has already answered that question, and making them wait a fortnight
+    /// while the page showed the new name and the URL showed the old one would be the interface
+    /// disbelieving somebody it has verified.
+    /// </para>
+    /// <para>
+    /// <b><c>MsspDefaults.MeaningfulName</c> is not consulted either.</b> That filter stops an
+    /// <em>unedited</em> codebase publishing its own name from minting a dozen listings called
+    /// PennMUSH. A name typed on purpose by a verified owner is edited by definition, and whoever
+    /// runs the PennMUSH development server is entitled to call it PennMUSH.
+    /// </para>
+    /// <para>
+    /// Everything after that is the same act as a measured rename, deliberately: one mint, one
+    /// <c>game_slug_history</c> row, one promise that every slug redirects for ever. A second rename
+    /// path would be a second place for that promise to be almost true.
+    /// </para>
+    /// </remarks>
+    public async Task<Rename?> ApplyAsync(
+        Guid gameId,
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        if (await games.ByIdAsync(gameId, cancellationToken) is not { } game
+            || string.Equals(name, game.Name, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        // The owner's own instant is the write's, not a probe's: nothing was observed here.
+        return await MintAsync(game, name, DateTimeOffset.UtcNow, cancellationToken);
+    }
+
+    /// <summary>
+    /// The catalogue's view of the same act, so <c>OwnerEnrichment</c> can ask for it without
+    /// <c>MUI.Catalog</c> knowing this class exists.
+    /// </summary>
+    /// <remarks>
+    /// Explicit, so the crawler's own callers keep the <see cref="Rename"/> they act on — the cycle
+    /// logs it and the change feed is written from it — while the seam carries only what the seam
+    /// needs.
+    /// </remarks>
+    Task IOwnerRenames.RenameAsync(Guid gameId, string name, CancellationToken cancellationToken) =>
+        ApplyAsync(gameId, name, cancellationToken);
+
+    /// <summary>
+    /// Mints the URL for a name and retires the one it replaces — the act both entry points perform.
+    /// </summary>
+    /// <remarks>
+    /// Shared rather than written twice, because the two callers differ only in <em>whether</em> to
+    /// rename and never in <em>how</em>. §5.7's promise that every slug a game has ever had redirects
+    /// to it for ever is kept by exactly these four lines, and a copy of them is a copy that can fall
+    /// out of step with the table.
+    /// </remarks>
+    private async Task<Rename?> MintAsync(
+        GameRecord game,
+        string name,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
         var slug = await GameSlug.UniqueAsync(
             name,
             (candidate, ct) => IsTakenAsync(game.Id, candidate, ct),
@@ -118,6 +202,9 @@ public sealed class SlugMinter(
             // of this game tries again against a catalogue that has moved on. Deliberately broad and
             // deliberately not rethrown: the caller has already written this probe's reachability,
             // and a rename is the one step here whose failure must not reach it.
+            //
+            // An owner's save takes the same treatment for the same reason: their field row is
+            // already stored, the page already shows the new name, and only the URL waits.
             logger?.LogWarning(
                 error,
                 "{Name} could not take {Slug}; it keeps {Current} and the re-mint is retried on the "
@@ -147,9 +234,19 @@ public sealed class SlugMinter(
         (await games.BySlugAsync(candidate, ct) is { } holder && holder.Id != gameId)
         || (await history.RetiredByAsync(candidate, ct) is { } former && former != gameId);
 
+    /// <summary>
+    /// The winning value among what a game <em>reported</em> about itself, ignoring its owner.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ConsiderAsync"/> is the MSSP-driven path, and an owner row would win the ladder and
+    /// then be the wrong answer twice: while an override stands the method has already returned, and
+    /// once it is withdrawn the row survives as an empty value — nothing is deleted — which would
+    /// resolve to no meaningful name at all and freeze the URL for ever.
+    /// </remarks>
     private static GameField? Winner(IReadOnlyList<GameField> stored, string field) =>
-        FieldPrecedence.Winner(
-            stored.Where(row => string.Equals(row.Field, field, StringComparison.OrdinalIgnoreCase)));
+        FieldPrecedence.Winner(stored
+            .Where(row => row.Source is not FieldSource.Owner)
+            .Where(row => string.Equals(row.Field, field, StringComparison.OrdinalIgnoreCase)));
 }
 
 /// <summary>

@@ -44,16 +44,79 @@ public class FieldRegistryTests
     }
 
     [Test]
-    public async Task TheOwnerEnrichableFieldsAreTheOnesMsspCannotExpress()
+    public async Task TheEnrichmentFieldsAreTheOnesMsspCannotExpress()
     {
         // Spec §3.2 names exactly these as absent from MSSP.
-        var enrichable = FieldRegistry.All.Where(f => f.OwnerEnrichable).Select(f => f.Name).ToList();
+        var enrichment = FieldRegistry.All
+            .Where(f => f.OwnerWritable is OwnerWritable.Enrichment)
+            .Select(f => f.Name)
+            .ToList();
 
-        await Assert.That(enrichable).Contains("FANDOM");
-        await Assert.That(enrichable).Contains("APPLICATION PROCESS");
-        await Assert.That(enrichable).Contains("RP ENFORCEMENT");
-        await Assert.That(enrichable).Contains("CONSENT TOOLS");
+        await Assert.That(enrichment).Contains("FANDOM");
+        await Assert.That(enrichment).Contains("APPLICATION PROCESS");
+        await Assert.That(enrichment).Contains("RP ENFORCEMENT");
+        await Assert.That(enrichment).Contains("CONSENT TOOLS");
     }
+
+    [Test]
+    public async Task TheOverridableFieldsAreTheHandTypedHalfOfMssp()
+    {
+        // Spec §8.5, widened: an MSSP report is not a measurement — §5.1 calls it a game filling in a
+        // self-description it maintains — so a verified owner may answer it. What they may answer is
+        // what a person types into mush.cnf, and nothing the codebase fills in for them.
+        var overridable = FieldRegistry.All
+            .Where(f => f.OwnerWritable is OwnerWritable.Override)
+            .Select(f => f.Name)
+            .ToList();
+
+        await Assert.That(overridable).IsEquivalentTo(new[]
+        {
+            "NAME", "GENRE", "SUBGENRE", "GAMEPLAY", "GAMESYSTEM", "DESCRIPTION", "STATUS",
+            "WEBSITE", "CONTACT", "DISCORD", "ICON", "LANGUAGE", "LOCATION", "MINIMUM AGE",
+            "CREATED", "INTERMUD",
+        });
+    }
+
+    [Test]
+    public async Task TheConnectionDescribingFieldsAreNobodysToAssert()
+    {
+        // The line between the two halves of MSSP. HOSTNAME, PORT, IP and CODEBASE describe the
+        // connection rather than the game and are auto-filled by the codebase, so a hand-typed answer
+        // and a measured one would mean genuinely different things under one name.
+        //
+        // capability.*.declared is left out for a sharper reason: the matrix's whole job is to show
+        // what a game claims beside what its handshake offered, and an owner editing the claimed
+        // column is editing one half of a comparison about themselves.
+        var writable = Writable();
+
+        foreach (var machinery in new[]
+                 {
+                     "HOSTNAME", "PORT", "IP", "IPV6", "CODEBASE", "FAMILY", "CHARSET", "CRAWL DELAY",
+                     CapabilityFields.Declared("GMCP"),
+                 })
+        {
+            await Assert.That(writable).DoesNotContain(machinery);
+        }
+    }
+
+    [Test]
+    public async Task NothingAProbeMeasuredIsWritableByAnybody()
+    {
+        // §8.5's line, asserted rather than trusted to the layout of a table. A successful write to
+        // any of these would make the whole site a self-report with extra steps.
+        var writable = Writable();
+
+        await Assert.That(writable).DoesNotContain("PLAYERS");
+        await Assert.That(writable).DoesNotContain("UPTIME");
+        await Assert.That(writable).DoesNotContain(InternalFields.BannerHash);
+        await Assert.That(writable).DoesNotContain(InternalFields.ConnectScreen);
+        await Assert.That(writable.Where(CapabilityFields.IsMeasured)).IsEmpty();
+    }
+
+    private static List<string> Writable() => FieldRegistry.All
+        .Where(f => f.OwnerWritable is not OwnerWritable.No)
+        .Select(f => f.Name)
+        .ToList();
 
     [Test]
     public async Task TheRequiredMsspTrioIsDeclared()

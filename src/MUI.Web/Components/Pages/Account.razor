@@ -22,7 +22,8 @@
     scripting off along with the rest of the write path.
 *@
 
-<PageTitle>Your games — mu*index</PageTitle>
+<SitePreview Title="Your games" Data="false"
+             Description="The listings you have claimed, and what a claim lets you change." />
 
 @if (Users is null)
 {
@@ -122,6 +123,7 @@ else
                     <OwnerPanel GameId="game.Id"
                                 Name="@game.Name"
                                 Declared="DeclaredFor(game.Id)"
+                                Reported="ReportedFor(game.Id)"
                                 OptOut="CrawlFor(game.Id)"
                                 Now="Now" />
 
@@ -252,6 +254,14 @@ else
     /// </remarks>
     private Dictionary<Guid, IReadOnlyDictionary<string, GameField>> Owned { get; } = [];
 
+    /// <summary>What each claimed game reports about itself, keyed by game.</summary>
+    /// <remarks>
+    /// MSSP rows, read in the same pass as the owner's own, so the override boxes can show what the
+    /// game already says without a second round trip per field. Shown beside the boxes and never
+    /// used as their value.
+    /// </remarks>
+    private Dictionary<Guid, IReadOnlyDictionary<string, GameField>> Reports { get; } = [];
+
     /// <summary>§11's answer per game: which of its addresses we are still dialling.</summary>
     private Dictionary<Guid, OwnerOptOutState> Crawling { get; } = [];
 
@@ -347,6 +357,12 @@ else
             ? declared
             : new Dictionary<string, GameField>(StringComparer.Ordinal);
 
+    /// <summary>What a game reports about itself, for the boxes that override a report.</summary>
+    private IReadOnlyDictionary<string, GameField> ReportedFor(Guid gameId) =>
+        Reports.TryGetValue(gameId, out var reported)
+            ? reported
+            : new Dictionary<string, GameField>(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// Whether we are dialling this game, per address — or null where there is no register to ask.
     /// </summary>
@@ -396,6 +412,7 @@ else
                 if (Services.GetService<OwnerEnrichment>() is { } enrichment)
                 {
                     Owned[game.Id] = await enrichment.DeclaredAsync(game.Id);
+                    Reports[game.Id] = await enrichment.ReportedAsync(game.Id);
                 }
 
                 // §11, per address. Read here with everything else this page needs so the panel

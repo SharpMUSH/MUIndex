@@ -49,6 +49,63 @@
         <button type="submit">Save what you declared</button>
     </form>
 
+    @*
+        The overridable half (§8.5). MSSP has a variable for every one of these, so the form shows
+        what the game reports beside the box rather than offering an empty one — and says plainly
+        that fixing mush.cnf is the better repair, because an answer typed here reaches this site and
+        no other crawler.
+
+        The report is shown as text and never as the box's value. Pre-filling an editable field with
+        a game's own report invites somebody to retype it into an override saying exactly the same
+        thing: a second row, a second age, a second thing to keep current, in exchange for nothing.
+    *@
+    <h3>What @Name reports, and what you would rather we showed</h3>
+
+    <p class="faint">
+        Your MSSP is what every crawler reads, and we go on showing it beside anything you put here —
+        an answer of yours does not hide one of your game's. <strong>Nothing measured can be edited
+        from here</strong>: not a player count, not a capability, not an hour of reachability. If a
+        line below is wrong in your <code>mush.cnf</code>, fixing it there fixes it everywhere.
+    </p>
+
+    <form method="post" action="/account/games/@GameId/enrichment" class="enrichment override">
+        <AntiforgeryToken />
+
+        @foreach (var definition in FieldRegistry.OwnerOverridable)
+        {
+            <label>
+                <span class="kicker">@definition.Name.ToLowerInvariant()</span>
+                <input type="text"
+                       name="@(OwnerWrites.FieldPrefix + definition.Name)"
+                       value="@(Current(definition.Name)?.Value)"
+                       maxlength="@OwnerEnrichment.MaxValueLength" />
+                @if (Reported.TryGetValue(definition.Name, out var reported) && reported.Value.Length > 0)
+                {
+                    <span class="faint">
+                        your game reports <span class="mono">@reported.Value</span>, confirmed
+                        @Relative.Format(Now - reported.LastConfirmedAt) ago
+                    </span>
+                }
+                else
+                {
+                    <span class="faint">your game reports nothing here</span>
+                }
+            </label>
+        }
+
+        <button type="submit">Save what you declared</button>
+    </form>
+
+    @*
+        The one field on this form that moves more than a row. Said here rather than in a tooltip,
+        because a URL changing is the kind of surprise somebody should have read about first.
+    *@
+    <p class="faint">
+        Changing the name changes what @Name is listed as and the address of its page. The old
+        address goes on working for ever — every URL this game has ever had redirects to its current
+        one — and clearing the box hands the name back to whatever your MSSP says.
+    </p>
+
     <h3>Your connect screen</h3>
 
     @if (Suppressed)
@@ -162,6 +219,17 @@
     /// </remarks>
     [Parameter] public IReadOnlyDictionary<string, GameField> Declared { get; set; } =
         new Dictionary<string, GameField>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// What the game reports about itself, for the boxes that override a report.
+    /// </summary>
+    /// <remarks>
+    /// Read beside <see cref="Declared"/> in the same pass, and shown as text rather than used as a
+    /// value — see <c>OwnerEnrichment.ReportedAsync</c> for why an editable box is never pre-filled
+    /// with somebody's own MSSP.
+    /// </remarks>
+    [Parameter] public IReadOnlyDictionary<string, GameField> Reported { get; set; } =
+        new Dictionary<string, GameField>(StringComparer.OrdinalIgnoreCase);
 
     [Parameter] public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
 

@@ -142,6 +142,196 @@ public class OwnerEnrichmentPostgresTests
         await Assert.That(after).IsEquivalentTo(before);
     }
 
+    /// <summary>
+    /// The overridable half: what a person types into <c>mush.cnf</c>, and nothing the codebase
+    /// fills in about the connection.
+    /// </summary>
+    /// <remarks>
+    /// Pinned for the same reason the enrichment list above is, and with more at stake: this half has
+    /// MSSP counterparts, so a field added here starts outranking something a game reports about
+    /// itself the moment somebody marks it. That is the review.
+    /// </remarks>
+    [Test]
+    public async Task TheOverridableSetIsTheHandTypedHalfOfMssp()
+    {
+        await Assert.That(FieldRegistry.OwnerOverridable.Select(d => d.Name))
+            .IsEquivalentTo(new[]
+            {
+                "NAME", "CONTACT", "WEBSITE", "DISCORD", "ICON", "CREATED", "LANGUAGE", "LOCATION",
+                "MINIMUM AGE", "GENRE", "GAMEPLAY", "GAMESYSTEM", "SUBGENRE", "STATUS", "INTERMUD",
+                "DESCRIPTION",
+            });
+    }
+
+    /// <summary>
+    /// An override and the report it overrides are two rows, and both survive.
+    /// </summary>
+    /// <remarks>
+    /// This is the property the whole widening rests on. <c>GameField</c> is keyed
+    /// <c>(game, field, source)</c>, so an owner answering <c>GENRE</c> cannot overwrite what their
+    /// game reports even by accident — the page shows theirs first because §5.1's ladder puts
+    /// <c>owner</c> above <c>mssp</c>, and it shows the report beside it with its own age. A site
+    /// whose claim is that its data is measured may not quietly replace one fact with another.
+    /// </remarks>
+    [Test]
+    public async Task AnOverrideSitsBesideTheReportRatherThanOverIt()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var world = await World.BuildAsync(db);
+
+        await world.Fields.UpsertAsync(new GameField(
+            world.Game, "GENRE", FieldSource.Mssp, "Adventure", Now.AddDays(-30), Now.AddDays(-1)));
+
+        var outcome = await world.Enrichment.ApplyAsync(
+            world.Game, world.Owner, [new OwnerEdit("GENRE", "Fantasy")]);
+
+        await Assert.That(outcome.Verdict).IsEqualTo(EnrichmentVerdict.Applied);
+
+        var rows = (await world.Fields.ForGameAsync(world.Game))
+            .Where(f => f.Field == "GENRE")
+            .ToList();
+
+        await Assert.That(rows.Count).IsEqualTo(2);
+        await Assert.That(rows.Single(r => r.Source is FieldSource.Mssp).Value).IsEqualTo("Adventure");
+        await Assert.That(rows.Single(r => r.Source is FieldSource.Owner).Value).IsEqualTo("Fantasy");
+
+        // And the owner's is what a reader is shown first.
+        await Assert.That(FieldPrecedence.Winner(rows)!.Value).IsEqualTo("Fantasy");
+    }
+
+    /// <summary>
+    /// An override is <em>declared</em>, and widening the writable set did not move that line.
+    /// </summary>
+    /// <remarks>
+    /// The failure this guards against is the plausible one: having decided an owner may answer
+    /// <c>GENRE</c>, it would be easy to start treating their answer as authoritative in the sense
+    /// the site reserves for a socket. <see cref="FieldSources.IsMeasured"/> is the one spelling of
+    /// that line — it decides the word on every chip, the state the API names, and whether a badge on
+    /// somebody else's site shows a number — and <c>owner</c> is on the declared side of it exactly
+    /// as <c>mssp</c> is.
+    /// </remarks>
+    [Test]
+    public async Task AnOverrideIsDeclaredJustAsTheReportIs()
+    {
+        await Assert.That(FieldSources.IsMeasured(FieldSource.Owner)).IsFalse();
+        await Assert.That(FieldSources.IsMeasured(FieldSource.Mssp)).IsFalse();
+    }
+
+    /// <summary>
+    /// The connection-describing half is refused out loud, like a measurement.
+    /// </summary>
+    /// <remarks>
+    /// <c>CODEBASE</c> is hand-typeable in principle and is still not an owner's to answer: it names
+    /// the software rather than the game, the crawler reads it off the login replies, and an owner
+    /// correcting it there corrects it for the reference pages and the ecosystem figures that count
+    /// it. <c>capability.gmcp.declared</c> is refused for a sharper reason — the matrix exists to
+    /// show a claim beside a handshake, and this would be editing one half of a comparison about
+    /// oneself.
+    /// </remarks>
+    [Test]
+    [Arguments("CODEBASE")]
+    [Arguments("HOSTNAME")]
+    [Arguments("PORT")]
+    [Arguments("FAMILY")]
+    public async Task TheConnectionDescribingFieldsAreRefusedByName(string field)
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var world = await World.BuildAsync(db);
+
+        var outcome = await world.Enrichment.ApplyAsync(
+            world.Game, world.Owner, [new OwnerEdit(field, "something")]);
+
+        await Assert.That(outcome.Verdict).IsEqualTo(EnrichmentVerdict.NotEnrichable);
+        await Assert.That(outcome.Field).IsEqualTo(field);
+        await Assert.That((await world.Fields.ForGameAsync(world.Game)).Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    /// Answering <c>NAME</c> stores a row and asks for the listing and the URL to follow it.
+    /// </summary>
+    /// <remarks>
+    /// The listed name is a denormalised column and the URL minted from it is a promise to everybody
+    /// holding the old one, so this is the one writable field whose write has a second half. What the
+    /// second half <em>does</em> is <c>SlugMinter</c>'s to prove; what this asserts is that it is
+    /// asked for at all, and asked for with the name the owner typed.
+    /// </remarks>
+    [Test]
+    public async Task AnsweringTheNameAsksForTheListingAndTheUrlToFollow()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var world = await World.BuildAsync(db);
+        var renames = new RecordedRenames();
+
+        var enrichment = new OwnerEnrichment(
+            new NpgsqlClaimStore(db.DataSource),
+            world.Fields,
+            new FieldReconciler(world.Fields),
+            FieldRegistry.Instance,
+            new FixedClock(Now),
+            renames);
+
+        var outcome = await enrichment.ApplyAsync(
+            world.Game, world.Owner, [new OwnerEdit("NAME", "Corvid Court")]);
+
+        await Assert.That(outcome.Verdict).IsEqualTo(EnrichmentVerdict.Applied);
+        await Assert.That(renames.Applied).IsEquivalentTo(new[] { (world.Game, "Corvid Court") });
+    }
+
+    /// <summary>
+    /// Withdrawing the name renames nothing, because giving one up is not asking for another.
+    /// </summary>
+    /// <remarks>
+    /// The empty row goes on existing — nothing is deleted — and simply stops outranking the game's
+    /// own report, so the crawler's ordinary grace decides what it is called from the next cycle.
+    /// Renaming to an empty string here would take a game's listing away on a form submission.
+    /// </remarks>
+    [Test]
+    public async Task WithdrawingTheNameRenamesNothing()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var world = await World.BuildAsync(db);
+        var renames = new RecordedRenames();
+
+        var enrichment = new OwnerEnrichment(
+            new NpgsqlClaimStore(db.DataSource),
+            world.Fields,
+            new FieldReconciler(world.Fields),
+            FieldRegistry.Instance,
+            new FixedClock(Now),
+            renames);
+
+        await enrichment.ApplyAsync(world.Game, world.Owner, [new OwnerEdit("NAME", "Corvid Court")]);
+        await enrichment.ApplyAsync(world.Game, world.Owner, [new OwnerEdit("NAME", "   ")]);
+
+        await Assert.That(renames.Applied.Count).IsEqualTo(1);
+
+        var row = (await world.Fields.ForGameAsync(world.Game))
+            .Single(f => f.Field == "NAME" && f.Source is FieldSource.Owner);
+
+        await Assert.That(row.Value).IsEqualTo(string.Empty);
+    }
+
+    /// <summary>
+    /// A deployment with no minter behind it stores the name and does less, rather than refusing.
+    /// </summary>
+    /// <remarks>
+    /// The row is the fact; the URL is a convenience built on it. Refusing the write would make the
+    /// absence of one collaborator look to an owner like a rule about what they may say.
+    /// </remarks>
+    [Test]
+    public async Task WithNoMinterTheNameIsStillStored()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var world = await World.BuildAsync(db);
+
+        var outcome = await world.Enrichment.ApplyAsync(
+            world.Game, world.Owner, [new OwnerEdit("NAME", "Corvid Court")]);
+
+        await Assert.That(outcome.Verdict).IsEqualTo(EnrichmentVerdict.Applied);
+        await Assert.That((await world.Fields.ForGameAsync(world.Game))
+            .Single(f => f.Field == "NAME").Value).IsEqualTo("Corvid Court");
+    }
+
     /// <summary>A pending claim is an account that asked; asking is not proving (§8.1).</summary>
     [Test]
     public async Task APendingClaimGrantsNothing()
@@ -483,6 +673,22 @@ public class OwnerEnrichmentPostgresTests
         return await connection.ExecuteScalarAsync<int>(
             "SELECT count(*)::int FROM field_change WHERE game_id = @game AND field = @field",
             new { game, field });
+    }
+
+    /// <summary>
+    /// A minter that records rather than mints. What a real one does to a URL is
+    /// <c>SlugMinterTests</c>'s to prove; this suite's question is whether it is asked.
+    /// </summary>
+    private sealed class RecordedRenames : IOwnerRenames
+    {
+        public List<(Guid Game, string Name)> Applied { get; } = [];
+
+        public Task RenameAsync(Guid gameId, string name, CancellationToken cancellationToken = default)
+        {
+            Applied.Add((gameId, name));
+
+            return Task.CompletedTask;
+        }
     }
 
     private sealed record World(

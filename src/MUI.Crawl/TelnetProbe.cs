@@ -115,25 +115,77 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // connect screen nor its answer to WHO, and recording it as either would be recording a
             // decision of ours as a measurement of theirs. It is dropped on the floor deliberately —
             // that is what the gap between bannerLines and flushLines is.
-            await telnet.SendAsync([]);
-            await SettleAsync(telnet, Arrived, bannerLines, _options.QuietPeriod, budget.Token);
-            var flushLines = Arrived();
+            //
+            // It also ends the session outright on every DIKU descendant, which reads an empty line
+            // at its name prompt as a goodbye — see HungUp for what that costs and what it must not.
+            var flushLines = bannerLines;
+            var whoLines = bannerLines;
+            var infoLines = bannerLines;
+            var versionLines = bannerLines;
+            var asked = false;
 
-            // Phase 3 — the first question we are allowed to ask. SendAsync appends the line ending
-            // itself, so the command is handed over bare.
-            await telnet.SendAsync(Encoding.ASCII.GetBytes(WhoCommand));
-            await SettleAsync(telnet, Arrived, flushLines, _options.SilenceGrace, budget.Token);
-            var whoLines = Arrived();
+            // Phases 3 to 5 — the questions we are allowed to ask, in order. SendAsync appends the
+            // line ending itself, so each command is handed over bare.
+            //
+            // `sent` fires between the write and the wait, which is the only place it can be honest:
+            // a question is asked when its bytes have gone, not when we decided to ask it. Live()
+            // above narrows the window rather than closing it — the peer can still go in the moment
+            // between the check and the write — and a flag set before the send would survive that as
+            // a claim to have asked something that never left.
+            async Task<int> AskAsync(string command, int baseline, Action? sent = null)
+            {
+                await telnet.SendAsync(Encoding.ASCII.GetBytes(command));
+                sent?.Invoke();
+                await SettleAsync(telnet, Arrived, baseline, _options.SilenceGrace, budget.Token);
+                return Arrived();
+            }
 
-            // Phase 4 — INFO at the login screen.
-            await telnet.SendAsync(Encoding.ASCII.GetBytes(InfoCommand));
-            await SettleAsync(telnet, Arrived, whoLines, _options.SilenceGrace, budget.Token);
-            var infoLines = Arrived();
+            try
+            {
+                await telnet.SendAsync([]);
+                await SettleAsync(telnet, Arrived, bannerLines, _options.QuietPeriod, budget.Token);
+                flushLines = whoLines = infoLines = versionLines = Arrived();
 
-            // Phase 5 — VERSION at the login screen.
-            await telnet.SendAsync(Encoding.ASCII.GetBytes(VersionCommand));
-            await SettleAsync(telnet, Arrived, infoLines, _options.SilenceGrace, budget.Token);
-            var versionLines = Arrived();
+                // Asking a socket that has already been closed is not asking. A write to a peer that
+                // has sent FIN succeeds — the bytes go to a kernel buffer nobody will ever read, and
+                // only the write *after* the RST throws — so an unguarded WHO here would come back
+                // unanswered and be recorded as a WHO the game answered unreadably. That is a hatched
+                // cell on the heatmap, and hatched means "we asked and could not read it", which
+                // would be our own dead socket published as a fact about their parser (rule 5).
+                // Checking costs nothing and also returns three silence graces of crawl budget that
+                // were being spent waiting on a connection that had already gone.
+                if (Live(client))
+                {
+                    whoLines = infoLines = versionLines =
+                        await AskAsync(WhoCommand, flushLines, () => asked = true);
+                }
+
+                if (Live(client))
+                {
+                    infoLines = versionLines = await AskAsync(InfoCommand, whoLines);
+                }
+
+                if (Live(client))
+                {
+                    versionLines = await AskAsync(VersionCommand, infoLines);
+                }
+            }
+            catch (Exception error) when (HungUp(error) && Measured(lines, bannerLines, seen))
+            {
+                // The server said its piece and then dropped us, which is a fact about the session
+                // and not about the host: the connect screen, the handshake and any MSSP report are
+                // all already in hand, and every one of them was measured before the socket died.
+                //
+                // Reporting the whole probe as Failed threw them away and wrote the game down as
+                // unreachable — a game that answered, recorded as one that did not, on the strength
+                // of a line *we* sent. That is the fifth rule, and it is why this is not a rescue of
+                // a broken probe but the correct reading of a complete one: what we could obtain, we
+                // obtained. The phases we never reached keep their pre-loop counts, so they yield
+                // nothing rather than an empty answer, and `asked` keeps WHO honest about which.
+                _logger.LogDebug(
+                    "{Host}:{Port} closed the session after its connect screen ({Error}); keeping what it said",
+                    target.Host, target.Port, error.Message);
+            }
 
             string banner, whoText, infoText, versionText;
             lock (lines)
@@ -160,8 +212,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 OfferedOptions = seen.Supported,
                 Negotiation = seen.ToNegotiation(),
                 Banner = banner,
-                Who = new WhoParser().Parse(whoText),
-                WhoShape = PayloadRedaction.Replayable(whoText),
+                Who = asked ? new WhoParser().Parse(whoText) : WhoReading.NotAsked,
+                WhoShape = asked ? PayloadRedaction.Replayable(whoText) : null,
                 Info = infoText.Length == 0 ? null : infoText,
                 Version = versionText.Length == 0 ? null : versionText,
                 BannerPlayerCount = BannerCount.Find(banner),
@@ -185,6 +237,67 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Failure = Classify(error),
                 Elapsed = Stopwatch.GetElapsedTime(started),
             };
+        }
+    }
+
+    /// <summary>Whether the far end is still there to be asked anything.</summary>
+    /// <remarks>
+    /// A readable socket with nothing readable on it is a socket the peer has closed, which is the
+    /// only way to tell the difference before writing into it — TCP accepts the first write after a
+    /// FIN and reports nothing. Every read the probe cares about has already been drained by the
+    /// interpreter's own loop by the time this is called, between phases, so "readable" here means
+    /// the close and not a pending line.
+    /// </remarks>
+    private static bool Live(TcpClient client)
+    {
+        try
+        {
+            return !client.Client.Poll(0, SelectMode.SelectRead) || client.Client.Available > 0;
+        }
+        catch (Exception error) when (error is SocketException or ObjectDisposedException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Whether an exception is the far end having gone, rather than us having given up.</summary>
+    /// <remarks>
+    /// <para>
+    /// Deliberately not <see cref="OperationCanceledException"/>, which is the probe budget expiring
+    /// and belongs on the failure path where <c>FailureReading</c> can read it as a stalled handshake
+    /// (spec §5.3). A closed socket is the opposite case: the session is over rather than overrunning,
+    /// and there is nothing left to wait for.
+    /// </para>
+    /// <para>
+    /// <see cref="ObjectDisposedException"/> is here because the interpreter's own transport is what
+    /// gets torn down when the peer goes, so a write racing that teardown surfaces as a disposal
+    /// rather than as the underlying socket error.
+    /// </para>
+    /// </remarks>
+    private static bool HungUp(Exception error) => error
+        is IOException
+        or SocketException
+        or ObjectDisposedException;
+
+    /// <summary>
+    /// Whether the session yielded anything before it ended.
+    /// </summary>
+    /// <remarks>
+    /// The guard on carrying evidence forward, and the reason a hang-up is not a blanket amnesty. A
+    /// host that accepts a connection and drops it without a word has told us nothing, and calling
+    /// that <c>Answered</c> would fabricate a measurement out of a TCP handshake. Either a connect
+    /// screen arrived or the far end spoke telnet back; with neither, the probe failed.
+    /// </remarks>
+    private static bool Measured(List<string> lines, int bannerLines, Observations seen)
+    {
+        if (seen.Supported.Count > 0)
+        {
+            return true;
+        }
+
+        lock (lines)
+        {
+            return bannerLines > 0 && lines.Take(bannerLines).Any(line => line.Length > 0);
         }
     }
 

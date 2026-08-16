@@ -105,6 +105,30 @@ our host is unreachable and perfectly alive.
   measurement from a fixture is being misled by exactly the mechanism this project exists to replace.
 - Publish an absolute "how many people play MU\*" figure. Shares ship; totals do not (spec §15.7).
 
+## The one HTTP client, and why it is not the fetchers the rule above forbids
+
+`IconFetcher` retrieves the image a game's `ICON` field names, so the site can serve it from its own
+origin instead of hot-linking it — which would hand every reader's address to a third party for a
+decoration (§11). **This is not the "no fetchers, no HTML parsers for third-party sites" rule being
+bent.** That rule is about *harvesting somebody's catalogue*: reading a directory's pages to acquire
+data we then present as ours. This fetches one image, from a URL the game itself published, at the
+game's own request, and presents it as theirs.
+
+The constraints are not optional and live on the registration in `IconEndpoint.AddMuiIcons`: a typed
+client through `IHttpClientFactory` (**never** `new HttpClient()` — the factory is what bounds the
+handler's lifetime, and a pinned DNS answer on the one component that fetches attacker-chosen URLs
+compounds §7.2's TOCTOU gap), `AllowAutoRedirect = false` because a redirect is a second address the
+gate never ruled on, the body read to a ceiling rather than trusted to `Content-Length`, and the
+content type read from the bytes by `ImageHeader` rather than from any header. **SVG is refused** —
+it is a document that can carry script, and serving one from our origin is an XSS hole with an image
+tag in front of it. `ImageHeader` parses headers and does not decode: no image library, no decoder
+attack surface reached by an owner-supplied URL.
+
+`game_icon` is the **one table here that may be dropped and refilled**. The fact is the `ICON` field;
+those are bytes fetched from the URL it names, so §7.5's "nothing is ever deleted" does not reach
+them. A failed fetch writes nothing at all — no row, no marker, no attempt counter — and the page
+renders the monogram it would have rendered anyway.
+
 ## Security: the gate is on the address, not the name
 
 `REFERRAL` is attacker-controlled. Refusing `10.0.0.5` and `localhost` by inspection is **not

@@ -1,0 +1,125 @@
+@using MUI.Catalog
+@using MUI.Web.Data
+@inject CatalogueSource Catalogue
+
+@*
+    Everything a program reads about this page, and nothing a reader sees.
+
+    One component rather than a block of tags per page, because the rules it enforces are the site's
+    and not each page's: the query string comes off the canonical URL, the fixture confesses in the
+    metadata because the banner cannot follow a link into somebody's chat client, and the title is
+    spelled with the wordmark once instead of fifteen times.
+*@
+
+<PageTitle>@Heading</PageTitle>
+
+<HeadContent>
+    <meta name="description" content="@Text" />
+    <link rel="canonical" href="@Canonical" />
+
+    <meta property="og:site_name" content="@PreviewCopy.SiteName" />
+    <meta property="og:type" content="@(Card is PreviewCard.Reference ? "article" : "website")" />
+    <meta property="og:title" content="@Heading" />
+    <meta property="og:description" content="@Text" />
+    <meta property="og:url" content="@Canonical" />
+    <meta property="og:image" content="@Image" />
+    <meta property="og:image:alt" content="@PreviewCopy.CardAlt(Title)" />
+
+    @*
+        summary_large_image and not summary: the cards are 1200×630 and a small card would letterbox
+        them into an unreadable strip. The name is Twitter's; every other unfurler that reads these
+        tags reads them under the same names.
+    *@
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="@Heading" />
+    <meta name="twitter:description" content="@Text" />
+    <meta name="twitter:image" content="@Image" />
+
+    @if (StructuredData is { } graph)
+    {
+        @*
+            Raw, because it is JSON and not markup. Safe to write raw for one specific reason:
+            GameStructuredData serialises with System.Text.Json's default encoder, which escapes
+            angle brackets to < and > — so a game that named itself with a closing script
+            tag cannot close this element. See that type's remarks; the encoder is not a detail to
+            be tuned there.
+        *@
+        @((MarkupString)$"<script type=\"application/ld+json\">{graph}</script>")
+    }
+</HeadContent>
+
+@code {
+    /// <summary>
+    /// The request being answered, for the absolute URLs an unfurler cannot resolve for itself.
+    /// </summary>
+    /// <remarks>
+    /// Null under a headless render, which is how the component tests invoke a page. The absolute
+    /// forms fall back to the path, which is wrong for an unfurler and unreachable by one — nothing
+    /// pastes a link to a test renderer.
+    /// </remarks>
+    [CascadingParameter]
+    public HttpContext? Http { get; set; }
+
+    /// <summary>This page's own part of the title. Null on the front page, which is just the wordmark.</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>What this page is, in a sentence or two. Required — a page without one is summarised
+    /// by whoever links to it, from whatever text happens to come first in the body.</summary>
+    [Parameter, EditorRequired]
+    public string Description { get; set; } = PreviewCopy.Site;
+
+    [Parameter]
+    public PreviewCard Card { get; set; } = PreviewCard.Site;
+
+    /// <summary>
+    /// Whether this page shows catalogue data, and so has to confess when the catalogue is a fixture.
+    /// </summary>
+    /// <remarks>
+    /// False for the pages that are prose and forms — signing in, submitting a game, a page that is
+    /// not there. Those say the same true thing with or without a database behind them, and
+    /// prefixing them with "nothing here was measured" would be a disclaimer about nothing.
+    /// </remarks>
+    [Parameter]
+    public bool Data { get; set; } = true;
+
+    /// <summary>
+    /// Builds the schema.org graph, given this site's origin. Only a game page has one.
+    /// </summary>
+    /// <remarks>
+    /// A function and not a string, so that a page does not have to resolve the origin for itself —
+    /// and so the builder is never run at all over the fixture, where its output would have to be
+    /// thrown away.
+    /// </remarks>
+    [Parameter]
+    public Func<Uri, string>? Graph { get; set; }
+
+    private string Heading => PreviewCopy.Title(Title);
+
+    private string Text => Data && !Catalogue.IsMeasured
+        ? PreviewCopy.Demo(Description)
+        : Description;
+
+    private string Canonical => Http is null
+        ? "/"
+        : SiteUrls.CanonicalOf(Http);
+
+    private string Image => Http is null
+        ? CardPath
+        : SiteUrls.Absolute(Http, CardPath);
+
+    private string CardPath => $"/og/{Card.ToString().ToLowerInvariant()}.png";
+
+    /// <summary>
+    /// The graph, or nothing at all over the fixture.
+    /// </summary>
+    /// <remarks>
+    /// <b>There is no honest way to ship invented structured data.</b> Its whole audience is
+    /// programs, none of which render the demo banner, and the vocabulary has no field meaning "and
+    /// none of this was measured". Absent is the only correct answer, and it is decided here rather
+    /// than in the builder so the rule sits beside the other thing the fixture changes.
+    /// </remarks>
+    private string? StructuredData => Catalogue.IsMeasured && Graph is not null && Http is not null
+        ? Graph(SiteUrls.OriginOf(Http))
+        : null;
+}
