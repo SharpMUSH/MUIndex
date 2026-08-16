@@ -174,4 +174,64 @@ public class LoginCommandReadingTests
             null, "This MUCK is rated NC-17. If you are not 18 or are offended by this, type 'QUIT'"))
             .IsNull();
     }
+
+    /// <summary>
+    /// A game that names itself over <c>INFO</c> has named itself, MSSP or no MSSP.
+    /// </summary>
+    /// <remarks>
+    /// The real reply from <c>game.convergencemush.org:10000</c>, which offers no MSSP at all and was
+    /// therefore refused a listing for a fortnight while answering every probe perfectly. RhostMUSH,
+    /// TinyMUX and TinyMUSH all answer <c>INFO</c> this way.
+    /// </remarks>
+    [Test]
+    public async Task AnInfoBlockThatNamesTheGameIsRead()
+    {
+        const string Info = """
+            ### Begin INFO 1
+            Name: Convergence MUSH
+            Uptime: Tue Sep 16 23:39:43 2025
+            Connected: 64
+            Size: 1944
+            Version: RhostMUSH 4.27.3
+            ### End INFO
+            """;
+
+        await Assert.That(LoginCommandReading.MeaningfulName(Info, null)).IsEqualTo("Convergence MUSH");
+
+        // And the codebase still reads out of the same block, unchanged.
+        await Assert.That(LoginCommandReading.MeaningfulCodebase(Info, null)).IsEqualTo("RhostMUSH 4.27.3");
+    }
+
+    /// <summary>
+    /// A name that only restates the codebase identifies nobody, whichever command carried it.
+    /// </summary>
+    /// <remarks>
+    /// The same rule <c>MsspDefaults.MeaningfulName</c> applies to <c>NAME</c>, and the reason it has
+    /// to apply here too: every unedited install on the internet answers this way, so admitting one
+    /// would let a submitter mint a listing per default install they can point at — and take the
+    /// slug the real game will want.
+    /// </remarks>
+    [Test]
+    [Arguments("Name: PennMUSH")]
+    [Arguments("Name: PennMUSH 1.8.8p0")]
+    // Template text, from MsspDefaults' own list — the vocabulary is shared rather than restated,
+    // which is the point of routing this through MeaningfulName instead of writing a second filter.
+    [Arguments("Name: Unnamed")]
+    [Arguments("Name: Your MUD Name")]
+    [Arguments("Name:")]
+    public async Task AnInfoNameThatIsOnlyTheCodebaseOrAPlaceholderIsRefused(string line)
+    {
+        var info = $"### Begin INFO 1\n{line}\nVersion: PennMUSH 1.8.8p0\n### End INFO";
+
+        await Assert.That(LoginCommandReading.MeaningfulName(info, null)).IsNull();
+    }
+
+    /// <summary>No <c>INFO</c>, or one that never names anything, yields nothing.</summary>
+    [Test]
+    public async Task AnInfoBlockWithNoNameYieldsNothing()
+    {
+        await Assert.That(LoginCommandReading.MeaningfulName(null, null)).IsNull();
+        await Assert.That(LoginCommandReading.MeaningfulName(string.Empty, "PennMUSH 1.8.8p0")).IsNull();
+        await Assert.That(LoginCommandReading.MeaningfulName("Connected: 12\nSize: 900", null)).IsNull();
+    }
 }

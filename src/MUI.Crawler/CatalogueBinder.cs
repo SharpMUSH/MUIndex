@@ -149,10 +149,51 @@ public sealed class CatalogueBinder(
     /// </para>
     /// </remarks>
     private static bool MayBeListed(CrawlTarget target, ProbeResult result) =>
-        !ProposedByAStranger(target)
-        || (result.MsspOutcome is MsspOutcome.Received
+        !ProposedByAStranger(target) || IdentifiedItself(result);
+
+    /// <summary>
+    /// Whether the <em>server</em> told us what it is, by any means it chose.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The gate is on evidence, not on one protocol.</b> It read MSSP alone for a fortnight, which
+    /// quietly meant "a game may be listed if its codebase implements telnet option 70" — a fact
+    /// about somebody's build, dressed as a judgement about whether they exist.
+    /// <c>game.convergencemush.org:10000</c> is the case that made it plain: RhostMUSH, no MSSP, and
+    /// an <c>INFO</c> reply naming the game, its engine and its sixty-four connected players. It was
+    /// probed fourteen seconds after it was submitted, answered every six hours for a fortnight, and
+    /// was refused a listing every time.
+    /// </para>
+    /// <para>
+    /// <b>What the gate is actually for survives intact.</b> §7.2 exists so a stranger cannot mint a
+    /// listing by pointing us at an address, and — the sharper half — so the identity matcher never
+    /// scores an unvouched target against the whole catalogue on nothing. Each signal below is the
+    /// far end speaking a MU\* protocol about itself, which is exactly the bar MSSP was standing in
+    /// for. A banner is deliberately <em>not</em> among them: every TCP service on earth can print
+    /// text at a stranger, and admitting one would make the gate a formality.
+    /// </para>
+    /// <para>
+    /// <c>MeaningfulName</c> rather than any name, in both readers, and that is what keeps the
+    /// Aardwolf case closed: an unedited install answering with its engine's name has identified its
+    /// codebase and not itself, so it still does not list and still cannot take the slug.
+    /// </para>
+    /// </remarks>
+    private static bool IdentifiedItself(ProbeResult result) =>
+        // It named itself, over MSSP or over INFO. Either is the game answering for the game.
+        (result.MsspOutcome is MsspOutcome.Received
             && (MsspReading.MeaningfulName(result.Mssp) is not null
-                || MsspReading.Meaningful(result.Mssp, "HOSTNAME") is not null));
+                || MsspReading.Meaningful(result.Mssp, "HOSTNAME") is not null))
+        || LoginCommandReading.MeaningfulName(result.Info, result.Version) is not null
+
+        // It named its engine. Weaker than a name and still unforgeable by whoever typed the address
+        // into the form: an HTTP server, an SSH daemon and a wrong port do not answer INFO with a
+        // codebase. The listing it earns is under its own address (NameOf), never under the engine.
+        || LoginCommandReading.MeaningfulCodebase(result.Info, result.Version) is not null
+
+        // We got in and read a player list. The strongest signal here and the one hardest to produce
+        // by accident — WhoConfidence.Count means a parser walked a real WHO header, and rule 4 says
+        // an unreadable one yields unknown rather than a number.
+        || result.Who.Confidence is WhoConfidence.Count;
 
     /// <summary>
     /// Whether this address reached us from somebody with no standing to vouch for it.
@@ -228,6 +269,14 @@ public sealed class CatalogueBinder(
     private static string NameOf(ProbeResult result) =>
         MsspReading.MeaningfulName(result.Mssp)
         ?? MsspReading.Meaningful(result.Mssp, "HOSTNAME")
+        // A name the game gave over INFO, which for an MSSP-less codebase is the only one there is.
+        // Below MSSP because a server that publishes both has said the MSSP one on purpose, and above
+        // the address because "Convergence MUSH" is what its players call it.
+        ?? LoginCommandReading.MeaningfulName(result.Info, result.Version)
+        // The last resort, and honest: a game that told us nothing about itself is listed under the
+        // only thing we know about it, never under its codebase's name. A target admitted by the
+        // codebase or WHO signals alone lands here, which is the intended outcome — it earned a
+        // listing by existing, not a name it never gave.
         ?? $"{result.Host}:{result.Port}";
 
     /// <summary>

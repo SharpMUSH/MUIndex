@@ -12,6 +12,15 @@ public static class LoginCommandReading
 {
     private static readonly string[] CodebaseLabels = ["codebase", "server", "engine", "family"];
     private static readonly string[] VersionLabels = ["version", "release"];
+
+    /// <summary>
+    /// The labels an <c>INFO</c> block uses for the game's own name.
+    /// </summary>
+    /// <remarks>
+    /// <c>Name:</c> is what RhostMUSH, TinyMUX and TinyMUSH all write. <c>Mudname</c> is MSSP's
+    /// spelling, seen in <c>INFO</c> on codebases that grew one from the other.
+    /// </remarks>
+    private static readonly string[] NameLabels = ["name", "mudname", "game"];
     private static readonly IReadOnlyDictionary<string, string> FamilyNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["pennmush"] = "PennMUSH",
@@ -55,6 +64,45 @@ public static class LoginCommandReading
         return FromLabelledValue(info)
             ?? FromLabelledValue(version)
             ?? FromUnlabelledVersion(version);
+    }
+
+    /// <summary>
+    /// The game's own name as its <c>INFO</c> block gives it, or null.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The counterpart to <c>MsspDefaults.MeaningfulName</c>, and it exists because MSSP is not
+    /// the only way a server names itself.</b> RhostMUSH answers <c>INFO</c> and offers no MSSP at
+    /// all: <c>game.convergencemush.org:10000</c> replies <c>Name: Convergence MUSH</c>,
+    /// <c>Connected: 64</c>, <c>Version: RhostMUSH 4.27.3</c> — a complete, measured
+    /// self-identification — and was refused a listing for a fortnight because the one gate that
+    /// reads a name only knew about MSSP.
+    /// </para>
+    /// <para>
+    /// Same filter as the MSSP reader, for the same reason: a name that merely restates the codebase
+    /// has not identified anything. <c>Name: PennMUSH</c> is a non-answer whichever command carried
+    /// it, and admitting one would put every unedited install in the listing under its engine's name.
+    /// </para>
+    /// </remarks>
+    public static string? MeaningfulName(string? info, string? version)
+    {
+        var codebase = MeaningfulCodebase(info, version);
+
+        foreach (var line in Lines(info))
+        {
+            if (!TrySplitLabelled(line, out var label, out var value)
+                || !NameLabels.Contains(label, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (Clean(value) is { } named && MsspDefaults.MeaningfulName(named, codebase) is { } meaningful)
+            {
+                return meaningful;
+            }
+        }
+
+        return null;
     }
 
     private static string? FromLabelledValue(string? text)
