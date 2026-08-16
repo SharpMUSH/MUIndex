@@ -34,6 +34,19 @@ public sealed record ProbeResult
     /// <summary>Layer 2 — the connect screen, ANSI intact. Display asset and codebase fingerprint both.</summary>
     public string? Banner { get; init; }
 
+    /// <summary>
+    /// Whether the server emitted MXP in anything it sent us.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="OfferedOptions"/> because it is a different observation. MXP is
+    /// telnet option 91 and a server that negotiates it lands in that set like any other; a great
+    /// many never negotiate and simply start emitting MXP, whose line-mode sequences are ANSI-legal
+    /// and pass harmlessly through a client that has never heard of them. Both facts are worth
+    /// having and they are not the same fact, so this one is recorded under the source that
+    /// produced it rather than folded in beside the handshake's.
+    /// </remarks>
+    public bool MxpObserved { get; init; }
+
     /// <summary>Layer 3 — what login-screen commands yielded.</summary>
     /// <remarks>
     /// Defaults to <see cref="WhoReading.NotAsked"/> rather than to an unreadable answer, so a probe

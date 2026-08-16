@@ -39,6 +39,7 @@ public sealed class I3Cycle(
     ICrawlTargetRepository targets,
     II3BindingRepository bindings,
     IPresenceStore presence,
+    IGameFieldStore fields,
     I3Options options,
     TimeProvider time,
     ILogger<I3Cycle>? log = null)
@@ -106,6 +107,25 @@ public sealed class I3Cycle(
 
                 result.Seeded++;
                 continue;
+            }
+
+            // The mud's own name for itself, recorded under a source that says how weak it is.
+            //
+            // §7.6 says the seed contributes an address and nothing else, and this is the deliberate
+            // exception rather than an erosion of it: 31 games are listed as an IP because they are
+            // LP-family, offer no MSSP, and print a login prompt with no title in it. There is no
+            // measurement of their names to be had through the telnet probe — not "not yet", but not
+            // at all — and `82-153-225-173-4242` is not a more honest listing than `Nightfall`, only
+            // an unusable one. The provenance system exists to carry a weak value labelled weak.
+            //
+            // It cannot displace a name a human typed: `staff` outranks `i3_mudlist`, which matters
+            // because the live network carries `Your MUD Name`, `test` and `DeadSouls-FluffOS2019`
+            // beside the real ones. Nothing polices what a mud calls itself.
+            if (target.GameId is { } named && !string.IsNullOrWhiteSpace(mud.Name))
+            {
+                await fields.UpsertAsync(
+                    new GameField(named, "NAME", FieldSource.I3Mudlist, mud.Name, now, now),
+                    cancellationToken);
             }
 
             // Promoted by the ordinary crawl since we last looked, so we now know which game it is.

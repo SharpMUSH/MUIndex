@@ -212,6 +212,13 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 OfferedOptions = seen.Supported,
                 Negotiation = seen.ToNegotiation(),
                 Banner = banner,
+
+                // Every phase, not just the banner: a server may answer the connect screen in plain
+                // text and then mark up its WHO table, and one occurrence anywhere is the same fact.
+                MxpObserved = MxpSignal.IsPresent(banner)
+                    || MxpSignal.IsPresent(whoText)
+                    || MxpSignal.IsPresent(infoText)
+                    || MxpSignal.IsPresent(versionText),
                 Who = asked ? new WhoParser().Parse(whoText) : WhoReading.NotAsked,
                 WhoShape = asked ? PayloadRedaction.Replayable(whoText) : null,
                 Info = infoText.Length == 0 ? null : infoText,

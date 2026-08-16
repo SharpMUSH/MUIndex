@@ -136,6 +136,7 @@ if (arguments.I3)
             targets,
             new NpgsqlI3BindingRepository(source),
             new NpgsqlPresenceStore(source),
+            fields,
             i3Options.Pass,
             time,
             loggerFactory.CreateLogger<I3Cycle>())
