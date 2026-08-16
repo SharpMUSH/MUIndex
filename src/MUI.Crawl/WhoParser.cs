@@ -54,18 +54,32 @@ public sealed partial class WhoParser : IWhoParser
         // games treat the login prompt as a character-name prompt, so "WHO" comes back as
         // "No character by that name found." — which is one careless regex away from being reported
         // as a measured zero for a game with hundreds of players online. Observed on alteraeon.com.
-        if (meaningful.Any(LooksLikeLoginPrompt))
-        {
-            return WhoReading.Unreadable;
-        }
+        var loginPrompt = meaningful.Any(LooksLikeLoginPrompt);
 
         // 1. The server's own summary, which is the only statement here it makes deliberately.
+        //
+        // **A positive summary outranks the veto, and that is the whole of what the veto is for.**
+        // The danger it guards is a *fabricated zero* — "No character by that name" read as nobody
+        // being on — so it has to beat a zero and must not beat a number. Several games print their
+        // count on the connect screen and then re-prompt for a name in the same breath: the-burbs
+        // answers "There are three people connected to the game." and then "Please enter a name:",
+        // and suppressing that reading loses a count the server volunteered. Observed in production
+        // when this veto's vocabulary was widened and a game that had been reporting three players
+        // went dark.
         foreach (var line in Enumerable.Reverse(meaningful).Take(6))
         {
-            if (TrySummary(line, out var counted))
+            if (TrySummary(line, out var counted) && (counted > 0 || !loginPrompt))
             {
                 return new WhoReading(WhoConfidence.Count, counted);
             }
+        }
+
+        // Everything below reads structure rather than a sentence — a roster, a header, rows — and
+        // none of it is safe on a payload that is really a login prompt: a refusal message split
+        // over four lines is four rows to anything counting rows.
+        if (loginPrompt)
+        {
+            return WhoReading.Unreadable;
         }
 
         // 2. A list of who is on, in place of a number. Several games answer WHO with names and no
