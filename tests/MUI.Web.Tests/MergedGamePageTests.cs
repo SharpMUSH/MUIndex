@@ -1,5 +1,6 @@
 using System.Net;
 
+using MUI.Catalog;
 using MUI.Catalog.Persistence;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -51,6 +52,48 @@ public class MergedGamePageTests
         var response = await site.Client.GetAsync("/g/tidewater-nights?plain=1");
 
         await Assert.That(response.Headers.Location!.ToString()).IsEqualTo("/g/m-u-s-h?plain=1");
+    }
+
+    [Test]
+    public async Task AFormerSlugOfAnAbsorbedGameFollowsThroughToTheSurvivor()
+    {
+        // Found on production, ten minutes after the first five merges went in. §5.7 promises every
+        // slug a game has ever had redirects to it FOR EVER; §7.3 then took the game those slugs
+        // pointed at off every public read. The former slug resolved to a game the lookup would no
+        // longer return, the guard against redirecting onto a 404 fired, and five URLs that had
+        // worked that morning answered 404 instead.
+        //
+        // The guard was right and the answer was wrong: the destination exists, it is one hop further
+        // on. A rename followed by a merge is two hops through two different tables, and the promise
+        // is about the URL, not about how many tables it takes to keep it.
+        await using var site = await SiteHost.StartAsync(services => services
+            .AddSingleton<ISlugHistoryStore>(new FakeSlugHistory { ["aardmud-org-4000"] = "tidewater-nights" })
+            .AddSingleton<IMergeRedirects>(new FakeMergeRedirects { ["tidewater-nights"] = "m-u-s-h" }));
+
+        var response = await site.Client.GetAsync("/g/aardmud-org-4000");
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.MovedPermanently);
+        await Assert.That(response.Headers.Location!.ToString()).IsEqualTo("/g/m-u-s-h");
+    }
+
+    private sealed class FakeSlugHistory : ISlugHistoryStore
+    {
+        private readonly Dictionary<string, string> _rows = new(StringComparer.Ordinal);
+
+        public string this[string formerSlug]
+        {
+            set => _rows[formerSlug] = value;
+        }
+
+        public Task<string?> CurrentSlugAsync(string formerSlug, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_rows.GetValueOrDefault(formerSlug));
+
+        public Task<Guid?> RetiredByAsync(string slug, CancellationToken cancellationToken = default) =>
+            Task.FromResult<Guid?>(_rows.ContainsKey(slug) ? Guid.Empty : null);
+
+        public Task<IReadOnlyList<SlugRetirement>> ForGameAsync(
+            Guid gameId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<SlugRetirement>>([]);
     }
 
     private sealed class FakeMergeRedirects : IMergeRedirects

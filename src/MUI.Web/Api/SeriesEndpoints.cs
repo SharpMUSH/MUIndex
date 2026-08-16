@@ -1,6 +1,7 @@
 using System.Globalization;
 
 using MUI.Catalog;
+using MUI.Catalog.Persistence;
 using MUI.Web.Data;
 
 using Microsoft.Net.Http.Headers;
@@ -186,8 +187,12 @@ public static class SeriesEndpoints
         }
 
         if (!isId
-            && await slugs.CurrentSlugAsync(key, http.RequestAborted) is { } current
-            && await queries.FindAsync(current, http.RequestAborted) is not null)
+            && await SlugDestination.ForAsync(
+                key,
+                http.RequestServices.GetService<IMergeRedirects>(),
+                slugs,
+                queries,
+                http.RequestAborted) is { } current)
         {
             http.Response.StatusCode = StatusCodes.Status301MovedPermanently;
             http.Response.Headers[HeaderNames.Location] =

@@ -1,4 +1,5 @@
 using MUI.Catalog;
+using MUI.Catalog.Persistence;
 
 using Microsoft.Net.Http.Headers;
 
@@ -136,8 +137,15 @@ public static class BadgeEndpoints
             return (page.Summary, false);
         }
 
-        if (await slugs.CurrentSlugAsync(slug, http.RequestAborted) is { } current
-            && await queries.FindAsync(current, http.RequestAborted) is not null)
+        // The same resolver as the page and the API. A badge is embedded in somebody's README or
+        // channel topic and nobody goes back to edit it, so it is the surface a stale URL survives
+        // longest on — and it was the surface most likely to be left answering 404 by a merge.
+        if (await SlugDestination.ForAsync(
+                slug,
+                http.RequestServices.GetService<IMergeRedirects>(),
+                slugs,
+                queries,
+                http.RequestAborted) is { } current)
         {
             http.Response.StatusCode = StatusCodes.Status301MovedPermanently;
             http.Response.Headers[HeaderNames.Location] = $"{ApiRoutes.Page(current)}/badge{suffix}";

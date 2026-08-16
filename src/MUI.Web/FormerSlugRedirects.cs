@@ -95,42 +95,14 @@ public static class FormerSlugRedirects
 
     /// <summary>
     /// Where this slug now points, or null when it is current, unknown, or names a game that is not
-    /// there.
+    /// there. <see cref="SlugDestination"/> holds the rule, because the API has to answer it the same
+    /// way and the two drifted apart the first time a merge was recorded.
     /// </summary>
-    /// <remarks>
-    /// Both refusals matter and both are only reachable through <see cref="ConfiguredSlugHistory"/>,
-    /// because the table's answer comes from a join that already excludes a live slug and cannot name
-    /// a game that does not exist. A hand-written alias can do either, and the reader pays for it in
-    /// a permanent redirect their browser caches: off a page that works in the first case, onto a
-    /// page that says "no game here" in the second.
-    /// </remarks>
-    private static async Task<string?> MovedToAsync(HttpContext context, string slug)
-    {
-        // §7.3's merge, asked first and asked separately. A merged-away game still holds its own slug
-        // — a merge is not a rename and nothing goes into the former-slug table — so the history below
-        // has no answer for it and never will. The guard the history needs (is some game still wearing
-        // this slug?) is exactly wrong here: this game is wearing it, and that is the case we redirect.
-        if (context.RequestServices.GetService<IMergeRedirects>() is { } merges
-            && await merges.AbsorbedIntoAsync(slug, context.RequestAborted) is { } survivor
-            && !string.Equals(survivor, slug, StringComparison.Ordinal))
-        {
-            return survivor;
-        }
-
-        var history = context.RequestServices.GetService<ISlugHistory>();
-
-        if (history is null
-            || await history.CurrentSlugAsync(slug, context.RequestAborted) is not { } current
-            || string.Equals(current, slug, StringComparison.Ordinal))
-        {
-            return null;
-        }
-
-        var games = context.RequestServices.GetRequiredService<IGameQueries>();
-
-        return await games.FindAsync(slug, context.RequestAborted) is not null
-            || await games.FindAsync(current, context.RequestAborted) is null
-            ? null
-            : current;
-    }
+    private static Task<string?> MovedToAsync(HttpContext context, string slug) =>
+        SlugDestination.ForAsync(
+            slug,
+            context.RequestServices.GetService<IMergeRedirects>(),
+            context.RequestServices.GetService<ISlugHistory>(),
+            context.RequestServices.GetRequiredService<IGameQueries>(),
+            context.RequestAborted);
 }
