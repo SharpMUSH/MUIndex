@@ -33,7 +33,22 @@ namespace MUI.I3;
 /// is the supported path and the only one this client reads.
 /// </para>
 /// </remarks>
-public sealed class GatewayClient : IAsyncDisposable
+/// <summary>
+/// The two questions MUIndex asks Intermud-3, without the socket that carries them.
+/// </summary>
+/// <remarks>
+/// Exists so the cycle that seeds, binds and counts is testable with no gateway and no network,
+/// which is the same reason <c>MUI.Catalog</c> cannot see <c>MUI.Crawl</c>: the code that decides
+/// what an answer <em>means</em> should never need a live correspondent to exercise.
+/// </remarks>
+public interface II3Gateway
+{
+    Task<IReadOnlyList<I3Mud>> MudlistAsync(CancellationToken cancellationToken = default);
+
+    Task<I3WhoReply?> WhoAsync(string mud, CancellationToken cancellationToken = default);
+}
+
+public sealed class GatewayClient : II3Gateway, IAsyncDisposable
 {
     private static readonly JsonSerializerOptions Json = new()
     {

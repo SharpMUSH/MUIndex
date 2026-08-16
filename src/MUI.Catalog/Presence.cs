@@ -66,6 +66,19 @@ public sealed record PresenceSample
 
     public static PresenceSample Unmeasurable(Guid gameId, DateTimeOffset at, UnmeasurableReason reason) =>
         new() { GameId = gameId, At = at, Count = null, Source = FieldSource.Who, Reason = reason };
+
+    /// <summary>An uncountable sample that names the pipe it failed on.</summary>
+    /// <remarks>
+    /// The overload above answers <see cref="FieldSource.Who"/> because for years there was one pipe
+    /// and an uncountable row came off it by definition. There are two now, and I3 silence stored as
+    /// <c>who</c> would say a game failed to answer a telnet command nobody sent it (§5.5).
+    /// </remarks>
+    public static PresenceSample Unmeasurable(
+        Guid gameId,
+        DateTimeOffset at,
+        UnmeasurableReason reason,
+        FieldSource source) =>
+        new() { GameId = gameId, At = at, Count = null, Source = source, Reason = reason };
 }
 
 /// <summary>
