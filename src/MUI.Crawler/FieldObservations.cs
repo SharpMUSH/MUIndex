@@ -1,6 +1,7 @@
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
 using MUI.Crawl;
+using MUI.Discovery;
 
 namespace MUI.Crawler;
 
@@ -81,7 +82,10 @@ public static class FieldObservations
 
         observations.AddRange(Measured(result));
         observations.AddRange(Declared(result));
-        observations.AddRange(Parsed(result));
+
+        // Reading last, and knowing what the other two produced: its one assumption is withdrawn by
+        // anything the game said about its own codebase, and that is exactly the rows above.
+        observations.AddRange(Parsed(result, observations));
 
         return observations;
     }
@@ -112,16 +116,58 @@ public static class FieldObservations
     /// not a screen with a player count in it, so a change here is a game that upgraded — an event
     /// worth a change-feed row rather than noise that buries them.
     /// </para>
+    /// <para>
+    /// <b>Last of all, and only into an otherwise empty space, comes the one assumption:</b> a game
+    /// whose own text calls itself a MUCK is running one (<see cref="MuckNaming"/>). It is reached
+    /// only when nothing was declared and nothing was labelled, because the MUCK line is the family
+    /// least able to answer either question — no MSSP, no <c>INFO</c>, no labelled <c>VERSION</c> —
+    /// and 21 of the 23 games in the catalogue that say <c>MUCK</c> in their own words carried no
+    /// codebase whatsoever. It sits on the same rung as the reading above it: least trusted, still
+    /// ours to have read (§6.2).
+    /// </para>
     /// </remarks>
-    private static IEnumerable<FieldObservation> Parsed(ProbeResult result)
+    private static IEnumerable<FieldObservation> Parsed(
+        ProbeResult result,
+        IReadOnlyList<FieldObservation> alreadyObserved)
     {
         // Null unless the text labelled a value or plainly named a known family. Rule 4: a parser
         // that guessed here would be inventing a fact about somebody else's server.
         if (LoginCommandReading.MeaningfulCodebase(result.Info, result.Version) is { Length: > 0 } codebase)
         {
             yield return new FieldObservation(CodebaseField, FieldSource.Banner, codebase);
+            yield break;
+        }
+
+        // The one assumption, and only where there is nothing else at all. A game that declared what
+        // it runs — or a family, which is the same answer coarsened — is never guessed over: our
+        // value would lose to theirs on the ladder anyway, and all it could do on the way is turn a
+        // guess of ours into a published disagreement with their own report (§5.1, rule 5).
+        //
+        // Asked of the rows this probe is about to store rather than of the report, because that is
+        // the question: MsspReading.Meaningful answers a different one, reading CODEBASE "PennMUSH"
+        // as unset because a *name* of "PennMUSH" is somebody who never edited mush.cnf — and a
+        // codebase of PennMUSH is the answer itself.
+        if (alreadyObserved.Any(o =>
+                o.Field.Equals(CodebaseField, StringComparison.OrdinalIgnoreCase)
+                || o.Field.Equals(FamilyField, StringComparison.OrdinalIgnoreCase)))
+        {
+            yield break;
+        }
+
+        if (MuckNaming.Assumed(
+                result.Banner,
+                result.Info,
+                result.Version,
+                MsspReading.MeaningfulName(result.Mssp),
+                result.Host)
+            is { } muck)
+        {
+            yield return new FieldObservation(CodebaseField, FieldSource.Banner, muck);
         }
     }
+
+    /// <summary>MSSP's coarse taxonomy, which answers the same question <c>CODEBASE</c> does.</summary>
+    private const string FamilyField = "FAMILY";
 
     /// <summary>
     /// Layer 1 — what the server actually negotiated (spec §6.1).

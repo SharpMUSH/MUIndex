@@ -428,6 +428,18 @@ label the result as the game's assertion. Migration `0003_presence_sample.sql` h
 sentence since the presence table was written: several games publish their count only on the connect
 screen, "and that is still a measurement of ours".
 
+**The one assumed codebase: a game whose own words say MUCK is running one.** The MUCK line is the
+family least able to answer any of the questions above — Fuzzball offers no MSSP, answers no `INFO`,
+and prints no labelled version — and what it does have is the word, in the name on its screen, in
+its `NAME`, and in the address it answers at. `MuckNaming` is reached only when nothing else
+produced a codebase at all, writes `MUCK` on `banner` where every declared value outranks it, and is
+withdrawn entirely by any *other* known family named anywhere in the same text. That guard is the
+whole of its safety and it is not hypothetical: `mud.stick.org:9000` is a ROM/Merc/Diku derivative
+whose ASCII art reads *"Don't get Stuck… in da Muck"*, and it is the only game in the catalogue the
+guard rejects — 21 games gain a codebase they did not have, and it stays a MUD. **The game's words
+only.** A name typed by staff is ours, and turning our own listing name into a measurement of
+somebody else's server is §5.1's line in the other direction.
+
 ### 6.3 Layer 3 — `WHO` / `DOING` at the connect screen
 
 The MU\*-family advantage: Penn, MUX, Rhost and the TinyMUD family answer `WHO` and `DOING`
