@@ -62,7 +62,7 @@ public class IdentityCorpusTests
             host: "new.hoster.example",
             mssp: ProbeResults.Mssp(
                 ("NAME", "Corvid"), ("CREATED", "2003"), ("WEBSITE", "https://corvid.example")),
-            banner: "an entirely new screen"), None);
+            banner: "An entirely new screen, with nothing of the old one left in it."), None);
 
         await Assert.That(verdict).IsTypeOf<IdentityVerdict.Merge>();
         await Assert.That(((IdentityVerdict.Merge)verdict).GameId).IsEqualTo(corvid);
@@ -73,7 +73,7 @@ public class IdentityCorpusTests
     {
         // A game with no MSSP at all that moved host. 0.50 is a real signal and not a proof, so both
         // pages stay live and a person decides.
-        const string banner = "Welcome to the Rookery.";
+        const string banner = "Welcome to the Rookery.\nSeven towers, and a long memory.";
         await _world.GameAsync((IdentityFields.BannerHash, BannerFingerprint.Of(banner)));
 
         var verdict = await Matcher.ResolveAsync(
@@ -229,6 +229,41 @@ public class IdentityCorpusTests
             ProbeResults.Answered(host: "unrelated.example.org", banner: "  \r\n  "), None);
 
         await Assert.That(verdict).IsTypeOf<IdentityVerdict.Fresh>();
+    }
+
+    [Test]
+    public async Task AStockColourPromptIsNotAConnectScreen()
+    {
+        // The same rule as the silent screen, one notch up, and it is not hypothetical: three unrelated
+        // ROM games in the live catalogue — Adventures Unlimited, Pendulum's Calm and StockMUD — send
+        // nothing before the first prompt but "Do you want ANSI? (Y/n)", hash identically, and had two
+        // duplicate reviews open between them at 0.50, the same score as a genuine twin.
+        //
+        // A screen this short is the codebase talking, not the game. Measured against the live
+        // catalogue: every connect screen under 40 flattened characters is a capability-negotiation
+        // prompt, and the shortest one that names its game is 42.
+        const string prompt = "Do you want ANSI? (Y/n) ";
+        await _world.GameAsync((IdentityFields.BannerHash, BannerFingerprint.Of(prompt)));
+
+        var verdict = await Matcher.ResolveAsync(
+            ProbeResults.Answered(host: "unrelated.example.org", banner: prompt), None);
+
+        await Assert.That(verdict).IsTypeOf<IdentityVerdict.Fresh>();
+    }
+
+    [Test]
+    public async Task AShortScreenThatNamesTheGameIsStillASignal()
+    {
+        // The floor must not be so high it eats the real ones. Minstrel Hall's whole screen is 42
+        // characters and it says who it is, which is exactly what the banner signal is for.
+        const string banner = "Welcome to Minstrel Hall! Enter your name:";
+        var hall = await _world.GameAsync((IdentityFields.BannerHash, BannerFingerprint.Of(banner)));
+
+        var verdict = await Matcher.ResolveAsync(
+            ProbeResults.Answered(host: "unrelated.example.org", banner: banner), None);
+
+        await Assert.That(verdict).IsTypeOf<IdentityVerdict.Review>();
+        await Assert.That(((IdentityVerdict.Review)verdict).GameId).IsEqualTo(hall);
     }
 
     [Test]

@@ -22,6 +22,15 @@ namespace MUI.Crawler;
 /// fills up with hosts nobody ever reached. A target that has answered before already has its game
 /// id on it, so a later failure still records downtime against the right game.
 /// </para>
+/// <para>
+/// <b>Attribution is decided once; duplication is asked on every probe.</b> An address that already
+/// has a game keeps it — re-pointing one behind an operator's back is a merge, and merges are §7.3's
+/// business rather than a crawl cycle's side effect. But the catalogue can only find out that two of
+/// its listings are one game from evidence that arrives *later*, so a bound target is still scored
+/// against the rest of the catalogue and can still open a suspected-duplicate pair. It could not,
+/// once, and aardmud.org:23 and :4000 sat in the catalogue with identical connect screens and
+/// nothing between them.
+/// </para>
 /// </remarks>
 public sealed class CatalogueBinder(
     IGameStore games,
@@ -47,12 +56,34 @@ public sealed class CatalogueBinder(
 
         if (target.GameId is { } known && await games.ByIdAsync(known, cancellationToken) is not null)
         {
-            if (result.Outcome is ProbeOutcome.Answered)
+            if (result.Outcome is not ProbeOutcome.Answered)
             {
-                await AttachAsync(known, result, cancellationToken);
+                return new Binding(known, Created: false, ReviewedAgainst: null);
             }
 
-            return new Binding(known, Created: false, ReviewedAgainst: null);
+            await AttachAsync(known, result, cancellationToken);
+
+            // Attribution is settled — this address is that game and stays that game. Whether the
+            // catalogue is listing one game twice is a different question, and it used to be asked
+            // only once, here, on the first probe that ever reached this address. Two ports of one
+            // game that looked different the single time they were compared stayed two listings for
+            // ever, because nothing looked again: aardmud.org:23 and :4000 have byte-identical
+            // connect screens and no open pair between them.
+            if (await matcher.RivalAsync(result, known, cancellationToken) is not { CandidateGameId: { } rival } score)
+            {
+                return new Binding(known, Created: false, ReviewedAgainst: null);
+            }
+
+            // Idempotent by contract: an open pair is returned rather than re-opened, so a twin that
+            // matches on every probe for a year is still one row awaiting one judgement.
+            await reviews.OpenAsync(known, rival, score, time.GetUtcNow(), cancellationToken);
+
+            logger?.LogInformation(
+                "{Host}:{Port} is listed already and scored {Score:F2} against another listing; a "
+                + "duplicate review is open and neither page has moved",
+                result.Host, result.Port, score.Score);
+
+            return new Binding(known, Created: false, ReviewedAgainst: rival);
         }
 
         if (result.Outcome is not ProbeOutcome.Answered)

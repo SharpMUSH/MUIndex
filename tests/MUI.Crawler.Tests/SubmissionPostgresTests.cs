@@ -403,11 +403,14 @@ public class SubmissionPostgresTests
             [new CrawlSeed("mush.example.org", 4201)],
             TimeProvider.System);
 
+        // A whole connect screen rather than a line of it: the merge this test needs is NAME + CREATED
+        // + banner, and a screen under BannerFingerprint.MinimumIdentifyingLength is not a signal —
+        // rightly, since three unrelated games in the live catalogue share "Do you want ANSI? (Y/n)".
         var probe = new ScriptedProbe(target => Probes.Answered(
             host: target.Host,
             port: target.Port,
             mssp: Probes.Mssp(("NAME", "Tidewater Nights"), ("CREATED", "2004")),
-            banner: "Welcome to Tidewater Nights"));
+            banner: "Welcome to Tidewater Nights.\nA harbour town, and a long memory."));
 
         await Cycle(source, probe, resolver).RunAsync();
 

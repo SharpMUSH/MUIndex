@@ -51,6 +51,70 @@ public sealed class IdentityMatcher(
         var observed = Observation.Of(result);
         var endpoint = await endpoints.ByAddressAsync(result.Host, result.Port, ct);
 
+        var best = await BestAsync(await CandidatesAsync(observed, endpoint, ct), observed, endpoint, null, ct);
+
+        if (best?.CandidateGameId is not { } gameId)
+        {
+            return new IdentityVerdict.Fresh(best);
+        }
+
+        return best.Score >= options.AutoMergeThreshold ? new IdentityVerdict.Merge(gameId, best)
+            : best.Score >= options.ReviewThreshold ? new IdentityVerdict.Review(gameId, best)
+            : new IdentityVerdict.Fresh(best);
+    }
+
+    /// <summary>
+    /// The strongest game <em>other than</em> <paramref name="bound"/> that this probe could also be,
+    /// at or above <see cref="DiscoveryOptions.ReviewThreshold"/> — or null when nothing else comes
+    /// close (spec §7.3).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b><see cref="ResolveAsync"/> cannot answer this question, and that is the whole reason this
+    /// exists.</b> A probe of an address we have already attributed scores its own game at 1.00 on the
+    /// endpoint signal alone, so the bound game is always the winner and a twin standing right behind
+    /// it is never returned. Attribution is settled for such a probe; what is not settled is whether
+    /// the catalogue is now listing one game twice.
+    /// </para>
+    /// <para>
+    /// <b>A rival is never a merge, however high it scores.</b> Above the merge threshold on first
+    /// sighting means "create nothing, this is that game"; the same score against an address already
+    /// bound elsewhere means "these two listings may be one", and folding a live listing into another
+    /// without a person looking is not a thing anybody undoes. So the ceiling here is a review, and
+    /// the score is carried onto the pair so the operator sees what it was.
+    /// </para>
+    /// </remarks>
+    public async Task<IdentityScore?> RivalAsync(ProbeResult result, Guid bound, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        if (result.Outcome is not ProbeOutcome.Answered)
+        {
+            return null;
+        }
+
+        var observed = Observation.Of(result);
+        var candidates = await CandidatesAsync(observed, endpoint: null, ct);
+        candidates.Remove(bound);
+
+        if (candidates.Count == 0)
+        {
+            // The common case by a wide margin, and the reason this is affordable on every probe of
+            // every bound target: reverse lookups on the index found nobody else, so no candidate is
+            // scored and no field row — connect screens included — is read.
+            return null;
+        }
+
+        var best = await BestAsync(candidates, observed, endpoint: null, bound, ct);
+
+        return best is not null && best.Score >= options.ReviewThreshold ? best : null;
+    }
+
+    private async Task<HashSet<Guid>> CandidatesAsync(
+        Observation observed,
+        KnownEndpoint? endpoint,
+        CancellationToken ct)
+    {
         var candidates = new HashSet<Guid>();
         if (endpoint is not null)
         {
@@ -63,10 +127,20 @@ public sealed class IdentityMatcher(
         await GatherAsync(candidates, IdentityFields.Website, observed.Website, ct);
         await GatherAsync(candidates, IdentityFields.Contact, observed.Contact, ct);
 
+        return candidates;
+    }
+
+    private async Task<IdentityScore?> BestAsync(
+        HashSet<Guid> candidates,
+        Observation observed,
+        KnownEndpoint? endpoint,
+        Guid? excluding,
+        CancellationToken ct)
+    {
         IdentityScore? best = null;
         foreach (var candidate in candidates)
         {
-            if (!await games.ExistsAsync(candidate, ct))
+            if (candidate == excluding || !await games.ExistsAsync(candidate, ct))
             {
                 // An endpoint or field row outliving its game is a repair job, not a match.
                 continue;
@@ -79,14 +153,7 @@ public sealed class IdentityMatcher(
             }
         }
 
-        if (best?.CandidateGameId is not { } gameId)
-        {
-            return new IdentityVerdict.Fresh(best);
-        }
-
-        return best.Score >= options.AutoMergeThreshold ? new IdentityVerdict.Merge(gameId, best)
-            : best.Score >= options.ReviewThreshold ? new IdentityVerdict.Review(gameId, best)
-            : new IdentityVerdict.Fresh(best);
+        return best;
     }
 
     private async Task GatherAsync(HashSet<Guid> candidates, string field, string? value, CancellationToken ct)
@@ -205,13 +272,17 @@ public sealed class IdentityMatcher(
             ClaimTokenBeacon.Read(result));
 
         /// <summary>
-        /// The banner's fingerprint, or null when the connect screen carried no text at all. A server
-        /// that sends nothing before the first prompt is common, and the hash of an empty string is a
-        /// perfectly stable value that every such server would share — an absence scoring as an
-        /// agreement, at half the merge threshold.
+        /// The banner's fingerprint, or null when the connect screen carried too little text to be
+        /// about this game rather than about its engine. A server that sends nothing before the first
+        /// prompt is common, and the hash of an empty string is a perfectly stable value that every
+        /// such server would share — an absence scoring as an agreement, at half the merge threshold.
+        /// A stock "Do you want ANSI?" is the same absence with a few more characters in it, which is
+        /// what <see cref="BannerFingerprint.MinimumIdentifyingLength"/> measures and why it is a
+        /// length rather than the emptiness check this used to be.
         /// </summary>
         private static string? FingerprintOf(string? banner) =>
-            banner is { Length: > 0 } && BannerFingerprint.Flatten(banner).Length > 0
+            banner is { Length: > 0 }
+            && BannerFingerprint.Flatten(banner).Length >= BannerFingerprint.MinimumIdentifyingLength
                 ? BannerFingerprint.Of(banner)
                 : null;
     }
