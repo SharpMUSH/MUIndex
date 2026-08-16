@@ -155,11 +155,19 @@ public sealed class IconFetcher(
                 response.Headers.ETag?.ToString(),
                 time.GetUtcNow());
         }
-        catch (Exception error) when (error is not OperationCanceledException)
+        catch (Exception error)
+            when (error is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             // Deliberately broad, and deliberately quiet. Somebody's web server being unreachable is
             // a fact about our afternoon; it does not enter their game's record and it is not
             // something a reader of their page should be told.
+            //
+            // The second clause is what makes the first one true. `HttpClient` reports its OWN
+            // Timeout elapsing as a TaskCanceledException — an OperationCanceledException by type,
+            // with a stalled stranger as its cause — so a filter that read only the type let a far
+            // end that went quiet escape as though this host were shutting down. It reached
+            // IconRefresher, which had the same filter, and StopHost took the site with it. Ask the
+            // token who actually cancelled, never the exception.
             logger?.LogDebug(error, "Could not fetch the icon at {Url}. Nothing is written", uri);
 
             return null;

@@ -204,6 +204,56 @@ public class IconFetcherTests
             .IsNull();
     }
 
+    /// <summary>
+    /// A web server that goes quiet past the client's own timeout is a missing icon, not an
+    /// exception thrown at whoever called us.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is the one that stopped the site.</b> <c>HttpClient</c> reports its own
+    /// <c>Timeout</c> elapsing as a <see cref="TaskCanceledException"/>, which <em>is</em> an
+    /// <see cref="OperationCanceledException"/> — so a filter reading "everything except a
+    /// cancellation" lets it straight through, on the reasoning that a cancellation means our host
+    /// is stopping. Nobody had cancelled anything: a stranger's web server had simply not answered
+    /// in ten seconds. It escaped <see cref="IconRefresher"/>, and .NET's default
+    /// <c>BackgroundServiceExceptionBehavior.StopHost</c> then stopped the whole process — the
+    /// crawler with it — three hundred times in one afternoon.
+    /// </para>
+    /// <para>
+    /// The handler here stalls and the client is given a short timeout, so the exception is the real
+    /// one raised by the real code path rather than one this test invented the shape of.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AServerThatStallsPastOurOwnTimeoutIsAMissingIconAndNotAnException()
+    {
+        var http = new StubHandler().Stalling();
+
+        await Assert.That(await Impatient(http).FetchAsync(Game, "https://icons.example.org/logo.png"))
+            .IsNull();
+    }
+
+    /// <summary>
+    /// And the distinction the broken filter was reaching for, kept: a caller that is stopping
+    /// stops the fetch, and hears about it.
+    /// </summary>
+    /// <remarks>
+    /// A host shutting down is not an icon that could not be fetched, and swallowing it here would
+    /// leave <see cref="IconRefresher"/> looping through twenty more addresses on the way out.
+    /// </remarks>
+    [Test]
+    public async Task AHostThatIsStoppingStopsTheFetch()
+    {
+        var http = new StubHandler().Stalling();
+
+        using var stopping = new CancellationTokenSource();
+        await stopping.CancelAsync();
+
+        await Assert.That(async () => await Fetcher(http).FetchAsync(
+                Game, "https://icons.example.org/logo.png", cancellationToken: stopping.Token))
+            .Throws<OperationCanceledException>();
+    }
+
     /// <summary>And the one that works: the bytes, and the type we determined from them.</summary>
     [Test]
     public async Task AGoodIconComesBackWithTheTypeWeReadRatherThanTheOneClaimed()
@@ -231,6 +281,13 @@ public class IconFetcherTests
             new HostScopeGuard(resolver),
             new Frozen(Now));
     }
+
+    /// <summary>The same fetcher, on a client whose patience runs out while a test still can.</summary>
+    private static IconFetcher Impatient(StubHandler http) =>
+        new(
+            new HttpClient(http) { Timeout = TimeSpan.FromMilliseconds(100) },
+            new HostScopeGuard(new FakeResolver(["203.0.113.10"])),
+            new Frozen(Now));
 
     private static HttpResponseMessage Ok(byte[] body, string contentType = "image/png")
     {
@@ -275,6 +332,8 @@ public class IconFetcherTests
 
         private Exception? _throws;
 
+        private bool _stalls;
+
         public List<HttpRequestMessage> Requests { get; } = [];
 
         public StubHandler Responds(HttpResponseMessage response)
@@ -291,14 +350,32 @@ public class IconFetcherTests
             return this;
         }
 
-        protected override Task<HttpResponseMessage> SendAsync(
+        /// <summary>A far end that accepted the connection and then said nothing.</summary>
+        public StubHandler Stalling()
+        {
+            _stalls = true;
+
+            return this;
+        }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Requests.Add(request);
 
-            return _throws is not null
-                ? Task.FromException<HttpResponseMessage>(_throws)
-                : Task.FromResult(_response ?? new HttpResponseMessage(HttpStatusCode.NotFound));
+            if (_throws is not null)
+            {
+                throw _throws;
+            }
+
+            if (_stalls)
+            {
+                // Longer than any client here waits, and cancellable so the timeout is the client's
+                // own rather than this handler deciding to give up.
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+
+            return _response ?? new HttpResponseMessage(HttpStatusCode.NotFound);
         }
     }
 
