@@ -59,15 +59,15 @@ public class AboutPageTests
         var mudverse = Page.Sources.Single(s => s.Name == "MudVerse");
 
         await Assert.That(mudverse.State).IsEqualTo(ImportSourceState.Withheld);
-        await Assert.That(Plain).Contains("not read — waiting on permission");
+        await Assert.That(Plain).Contains("not read — awaiting permission");
     }
 
     [Test]
     public async Task TheAttributionSaysAddressesOnlyAndSaysWhy()
     {
         await Assert.That(Render.Words(Plain)).Contains("We take addresses. Nothing else.");
-        await Assert.That(Plain).Contains("no player counts");
-        await Assert.That(Plain).Contains("no reachability history");
+        await Assert.That(Render.Words(Plain)).Contains("No player counts");
+        await Assert.That(Render.Words(Plain)).Contains("no reachability history");
     }
 
     [Test]
@@ -86,8 +86,8 @@ public class AboutPageTests
     {
         var text = Render.Words(Plain);
 
-        await Assert.That(text).Contains("60-day floor on the day we discover it");
-        await Assert.That(text).Contains("reachable time we ourselves probed");
+        await Assert.That(text).Contains("starts at the floor on the day we discover it");
+        await Assert.That(text).Contains("quarter of the reachable time we probed");
     }
 
     [Test]
@@ -131,12 +131,12 @@ public class AboutPageTests
     {
         // The built-in URL is on a domain nobody has chosen. Printed unmarked it would read as the
         // way to reach us, which is the one thing this section exists to provide.
-        await Assert.That(Plain).Contains("built-in placeholder");
+        await Assert.That(Render.Words(Plain)).Contains("is a placeholder and answers nobody");
 
         var configured = PlainText.RenderAbout(AboutPage.Build(
             new ProbeOptions { InfoUrl = "https://example.test/crawler" }, new DatasetLicenceOptions()));
 
-        await Assert.That(configured).DoesNotContain("built-in placeholder");
+        await Assert.That(Render.Words(configured)).DoesNotContain("is a placeholder and answers nobody");
     }
 
     [Test]
@@ -160,7 +160,7 @@ public class AboutPageTests
 
         // Honoured within one cycle, and the way back out is on the page — an opt-out whose exit is
         // undocumented is a trap.
-        await Assert.That(text).Contains("inside one crawl cycle");
+        await Assert.That(text).Contains("within one crawl cycle");
         await Assert.That(text).Contains("undo without asking us");
     }
 
@@ -220,7 +220,7 @@ public class AboutPageTests
         // vocabulary rule broken on the page that states it.
         var uses = Regex.Matches(text, "uptime", RegexOptions.IgnoreCase).Count;
         await Assert.That(uses).IsEqualTo(2);
-        await Assert.That(text).Contains("does not measure whether the game was up");
+        await Assert.That(text).Contains("unreachable and perfectly alive");
         await Assert.That(text).Contains("nothing here measured it");
     }
 
@@ -231,8 +231,8 @@ public class AboutPageTests
         // they are absent. PlainParityTests asserts the opposite about every other surface.
         var text = Render.Words(Plain);
 
-        await Assert.That(text).Contains("no votes, stars, ratings or recommendations");
-        await Assert.That(text).Contains("no forums, reviews, wikis, comments or player profiles");
+        await Assert.That(text).Contains("No votes, stars, ratings or recommendations");
+        await Assert.That(text).Contains("No forums, reviews, wikis, comments or player profiles");
         await Assert.That(text).Contains("Player names are never persisted.");
         await Assert.That(text).Contains("No absolute population figure is published.");
     }
@@ -244,7 +244,7 @@ public class AboutPageTests
 
         await Assert.That(text).Contains("The code is MIT.");
         await Assert.That(text).Contains("licence for the data is an open question");
-        await Assert.That(text).Contains("has not been taken");
+        await Assert.That(text).Contains("not yet taken");
 
         // What the deployment serves is still shown — a consumer needs the terms — but framed as
         // this deployment's answer rather than as the project's.

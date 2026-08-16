@@ -301,8 +301,8 @@ public class PlainParityTests
         var text = PlainText.RenderHome(counts, await Queries.FeedsAsync(), Now);
 
         await Assert.That(text).Contains("games known");
-        await Assert.That(text).Contains("with players on right now (measured)");
-        await Assert.That(text).Contains("answering with nothing we can count");
+        await Assert.That(text).Contains("with players on now (measured)");
+        await Assert.That(text).Contains("answering, count unknown");
     }
 
     [Test]

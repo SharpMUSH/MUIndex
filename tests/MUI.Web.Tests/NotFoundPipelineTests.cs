@@ -78,6 +78,6 @@ public class NotFoundPipelineTests
 
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
         await Assert.That(Render.Words(await response.Content.ReadAsStringAsync()))
-            .Contains("No game here");
+            .Contains("No game at this address");
     }
 }

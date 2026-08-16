@@ -26,9 +26,8 @@ public static class SubmitCopy
     public const string Title = "Submit a game";
 
     public const string Lede =
-        "Tell us where a game is. A host and a port, and that is the whole form — everything else "
-        + "on this site is measured by our own crawler, so there is nothing here for you to fill in "
-        + "about the game and nothing here for anybody to claim about it.";
+        "Tell us where a game is. A host and a port is the whole form; everything else on this site "
+        + "is measured by our own crawler.";
 
     /// <summary>What happens to an address after it is submitted, in the order it happens.</summary>
     /// <remarks>
@@ -37,25 +36,20 @@ public static class SubmitCopy
     /// </remarks>
     public static IReadOnlyList<string> Points { get; } =
     [
-        "We resolve the address before we dial it, and refuse it if any of what it resolves to is "
-        + "somewhere other than the public internet. That is a decision about where our own socket "
-        + "may go, and it is never written into anything as a fact about a game.",
+        "We resolve the address before dialling it, and refuse anything that resolves off the public "
+        + "internet. That is a decision about our own socket, never a fact about a game.",
 
-        "If whoever runs that host has asked us not to crawl it, we will not take the address "
-        + "either — however it was asked, and whoever is asking us to. Somebody else cannot put "
-        + "your game back on this site by filling in a form after you have told us to leave it "
-        + "alone.",
+        "If whoever runs that host has asked us not to crawl it, we will not take the address, "
+        + "whoever submits it. A stranger cannot put your game back on this site.",
 
-        "If it answers, we read what the server says for itself — its name, what it runs, who is on "
-        + "— and keep reading it on its own schedule, for ever. Nothing is ever deleted here, so an "
-        + "address only has to be given once.",
+        "If it answers, we read what the server says for itself and keep reading it on its own "
+        + "schedule, for ever. An address only has to be given once.",
 
-        "Nothing about it appears on this site until somebody proves they run it. We took the "
-        + "address from a stranger, and a stranger's word is not evidence: claiming takes a passkey "
-        + "and one line published on the game itself, and then the listing is live.",
+        "Nothing appears on the site until somebody proves they run it. Claiming takes a passkey and "
+        + "one line published on the game itself.",
 
-        "An address we already have collapses onto what is already here. Sending it twice makes no "
-        + "second listing and does not bring the next probe forward.",
+        "An address we already have collapses onto the existing entry. Sending it twice makes no "
+        + "second listing and brings no probe forward.",
     ];
 
     /// <summary>The label on each box, so the rendered form and the plain one cannot drift.</summary>
@@ -63,15 +57,14 @@ public static class SubmitCopy
 
     public const string PortLabel = "Port";
 
-    public const string HostHint = "mud.example.org — or paste mud.example.org:4201 and leave the port empty";
+    public const string HostHint = "mud.example.org, or paste mud.example.org:4201 and leave the port empty";
 
-    public const string SubmitLabel = "Submit this address";
+    public const string SubmitLabel = "Submit";
 
     /// <summary>What the site says when it has no database and therefore no registry to write into.</summary>
     public const string NoCatalogue =
-        "Submitting needs a database behind it, and this site is running on the demo fixture. There "
-        + "is no crawl registry here to put an address into, so the form is absent rather than "
-        + "present and quietly doing nothing.";
+        "Submitting needs a database, and this site is running on the demo fixture. There is no "
+        + "crawl registry to write into, so the form is absent rather than quietly doing nothing.";
 
     /// <summary>The answer to one submission, or null when nothing has been submitted yet.</summary>
     public static SubmitAnswer? Answer(SubmissionOutcome? outcome, string? address, SubmitLink? link = null) =>
@@ -81,18 +74,17 @@ public static class SubmitCopy
 
             SubmissionOutcome.Accepted => new SubmitAnswer(
                 "In the registry.",
-                $"{Named(address)} will be dialled on the next crawl cycle, and on its own schedule "
-                + "for ever after that. If it publishes a name of its own we will list it here as "
-                + "soon as somebody proves they run it — come back to this form with the same "
-                + "address and it will hand you the link."),
+                $"{Named(address)} will be dialled on the next crawl cycle, then on its own schedule "
+                + "for ever. It appears here once somebody proves they run it — come back to this "
+                + "form with the same address and it will hand you the link."),
 
             // Two arms, and the link is what differs. A game we list gets its page; a submitted one
             // nobody has claimed gets its claim page, because that is the only exit from hidden and
             // a person who has just told us the address is exactly who should be offered it.
             SubmissionOutcome.AlreadyListed when link?.IsClaim is true => new SubmitAnswer(
-                "We have that address, and nobody has claimed it.",
-                $"{Named(address)} is one we already measure, and none of it is on this site "
-                + "because nobody has proved they run it. If that is you, this is the way in.",
+                "We have it, unclaimed.",
+                $"{Named(address)} is one we already measure. It stays off the site until somebody "
+                + "proves they run it. If that is you, this is the way in.",
                 link),
 
             SubmissionOutcome.AlreadyListed when link is not null => new SubmitAnswer(
@@ -108,15 +100,14 @@ public static class SubmitCopy
 
             SubmissionOutcome.AlreadyQueued => new SubmitAnswer(
                 "Already waiting.",
-                $"{Named(address)} is in the crawl registry and has not answered for itself yet. "
-                + "Sending it again does not bring it forward — a target keeps its own schedule, "
-                + "which is what stops anybody hurrying us at somebody else's server."),
+                $"{Named(address)} is in the crawl registry and has not answered yet. Sending it "
+                + "again does not bring it forward: a target keeps its own schedule, so nobody can "
+                + "hurry us at somebody else's server."),
 
             SubmissionOutcome.Malformed => new SubmitAnswer(
-                "That is not an address we can dial.",
+                "Not an address we can dial.",
                 "A host needs a dot or a colon in it, and a port is a number between 1 and 65535. "
-                + "Either fill in both boxes, or paste the whole thing — mud.example.org:4201 — "
-                + "into the first."),
+                + "Fill in both boxes, or paste mud.example.org:4201 into the first."),
 
             // ONE SENTENCE FOR ALL THREE, AND THE VAGUENESS IS THE POINT. §7.2 keeps "did not
             // resolve" and "resolved somewhere we will not go" apart because they are two facts and
@@ -134,18 +125,16 @@ public static class SubmitCopy
                 or SubmissionOutcome.Unresolvable
                 or SubmissionOutcome.RefusedOptOut => new SubmitAnswer(
                 "We cannot dial that.",
-                $"A few things produce that answer for {Named(address)} — the name may not resolve, "
-                + "it may resolve somewhere that is not the public internet, or whoever runs that "
-                + "host may have asked us to stay away — and we deliberately do not say which, "
-                + "because answering that for a stranger is a way to learn about a network from "
-                + "outside it. Nothing has been recorded about whatever is at that address; the "
-                + "decision was ours and it is filed as ours."),
+                $"Three things produce this answer for {Named(address)}: the name may not resolve, "
+                + "it may resolve off the public internet, or whoever runs that host may have asked "
+                + "us to stay away. We deliberately do not say which, because answering that for a "
+                + "stranger maps a network from outside it. Nothing was recorded about the address; "
+                + "the decision was ours and it is filed as ours."),
 
             SubmissionOutcome.TooMany => new SubmitAnswer(
-                "That is enough for now.",
-                "This form is rate-limited by where a submission came from, and that bound has been "
-                + "reached. Come back in an hour. Nothing you sent has been lost — an address we "
-                + "took is already in the registry."),
+                "Enough for now.",
+                "This form is rate-limited by sender, and you have hit the bound. Come back in an "
+                + "hour. Nothing was lost — anything we took is already in the registry."),
 
             _ => null,
         };

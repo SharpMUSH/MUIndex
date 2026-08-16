@@ -74,7 +74,7 @@ public class SubmitSurfaceTests
     {
         var page = Render.Words(await PageAsync());
 
-        await Assert.That(page).Contains("Nothing about it appears on this site until somebody proves they run it");
+        await Assert.That(page).Contains("Nothing appears on the site until somebody proves they run it");
     }
 
     /// <summary>Over the demo fixture the form is absent rather than present and doing nothing.</summary>
@@ -164,7 +164,7 @@ public class SubmitSurfaceTests
         // And the page says out loud that it is refusing to say, rather than seeming vague.
         var words = Render.Words(await PageAsync("?result=undialable&host=internal.example.org&port=4201"));
 
-        await Assert.That(words).Contains("we deliberately do not say which");
+        await Assert.That(words).Contains("We deliberately do not say which");
 
         // The facts still exist, and are still three, where they belong: in our own record. The enum
         // keeps every member and the table keeps every word; only the surface collapses them.
@@ -216,9 +216,7 @@ public class SubmitSurfaceTests
     {
         var words = Render.Words(await PageAsync());
 
-        await Assert.That(words).Contains(
-            "Somebody else cannot put your game back on this site by filling in a form after you "
-            + "have told us to leave it alone");
+        await Assert.That(words).Contains("A stranger cannot put your game back on this site");
     }
 
     /// <summary>An accepted submission says what will happen and what will not.</summary>
@@ -231,7 +229,7 @@ public class SubmitSurfaceTests
         await Assert.That(words).Contains("will be dialled on the next crawl cycle");
 
         // And how to get it listed, which is the question the answer raises.
-        await Assert.That(words).Contains("as soon as somebody proves they run it");
+        await Assert.That(words).Contains("It appears here once somebody proves they run it");
         await Assert.That(words).Contains("come back to this form with the same address");
     }
 
