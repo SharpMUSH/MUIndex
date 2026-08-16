@@ -76,7 +76,10 @@ public class IdentityMatcherTests
         // 0.60 + 0.50 = 1.10. This is the known-move shape, and it is the reason the two weights add to
         // more than the threshold rather than exactly to it.
         var world = new IdentityWorld();
-        const string banner = "Welcome to Corvid.\nType 'connect'.";
+        // Long enough to be a connect screen rather than a colour prompt (BannerFingerprint
+        // .MinimumIdentifyingLength). The 33-character version this used to carry was shorter than any
+        // screen in the live catalogue, which is how a fixture comes to agree with a bug.
+        const string banner = "Welcome to Corvid.\nA place for slow stories.\nType 'connect'.";
         var corvid = await world.GameAsync(
             (IdentityFields.Name, "Corvid"),
             (IdentityFields.Created, "2003"),

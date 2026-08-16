@@ -747,6 +747,68 @@ public class CrawlCyclePostgresTests
     }
 
     /// <summary>Brings every target forward so a second cycle has something to do.</summary>
+    [Test]
+    public async Task ATwinThatOnlyBecomesRecognisableLaterIsStillReviewed()
+    {
+        // aardmud.org:23 and aardmud.org:4000 are one game, with byte-identical connect screens, two
+        // listings and no duplicate review between them. Identity was decided once, on first sighting,
+        // and never revisited: BindAsync returned at its first branch whenever the target already had
+        // a game, so the matcher never ran again. A second port that happened to look different the
+        // one time it was compared — behind a maintenance screen, mid-reboot, or simply not yet
+        // carrying the name — was a separate listing for ever, and no later evidence could reach it.
+        //
+        // §7.3's middle band is "both pages live and a person decides". That has to stay reachable
+        // after the first probe, or the band only ever catches twins discovered minutes apart.
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+
+        await SeedAsync(source, new CrawlSeed("mush.example.org", 4201), new CrawlSeed("mush.example.org", 4000));
+
+        const string screen = "Welcome to Tidewater Nights.\nA harbour town, and a long memory.";
+        var closed = "This port is closed for maintenance. Please try again later on.";
+
+        var probe = new ScriptedProbe(target => Probes.Answered(
+            host: target.Host,
+            port: target.Port,
+            banner: target.Port == 4201 ? screen : closed));
+
+        var cycle = Build(source, probe, new StepClock());
+
+        var first = await cycle.RunAsync();
+
+        // Two listings, and rightly so: on the evidence of that cycle they were two different servers.
+        await Assert.That(first.Listed).IsEqualTo(2);
+        await Assert.That(first.ReviewsOpened).IsEqualTo(0);
+
+        // The second port comes out of maintenance and serves the same screen as the first.
+        closed = screen;
+        await MakeDueAsync(source);
+        var second = await cycle.RunAsync();
+
+        await Assert.That(second.ReviewsOpened).IsEqualTo(1);
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        // Nothing is merged behind anyone's back — the addresses keep the games they were bound to
+        // and both pages stay live. What must exist is the open pair.
+        await Assert.That(await connection.ExecuteScalarAsync<long>("SELECT count(*) FROM game"))
+            .IsEqualTo(2L);
+
+        var pair = await connection.QuerySingleAsync<(Guid Left, Guid Right, double Score)>(
+            "SELECT left_game_id, right_game_id, score FROM duplicate_review WHERE resolved_at IS NULL");
+
+        await Assert.That(pair.Left).IsNotEqualTo(pair.Right);
+        await Assert.That(pair.Score).IsEqualTo(IdentityWeights.BannerHash);
+
+        // And it stays one row however long the twin goes on matching, or the operator gets a fresh
+        // pair to judge every time the crawler comes round.
+        await MakeDueAsync(source);
+        await cycle.RunAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<long>("SELECT count(*) FROM duplicate_review"))
+            .IsEqualTo(1L);
+    }
+
     private static async Task MakeDueAsync(NpgsqlDataSource source)
     {
         await using var connection = await source.OpenConnectionAsync();
