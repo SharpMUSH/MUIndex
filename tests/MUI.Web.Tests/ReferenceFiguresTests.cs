@@ -167,7 +167,9 @@ public class ReferenceFiguresTests
         public Task<EcosystemDashboard> EcosystemAsync(CancellationToken cancellationToken = default) =>
             throw new NotSupportedException("This stub answers listing questions only.");
 
-        public Task<Rankings> RankingsAsync(CancellationToken cancellationToken = default) =>
+        public Task<Rankings> RankingsAsync(
+            RankingSpan span = RankingSpan.Week,
+            CancellationToken cancellationToken = default) =>
             throw new NotSupportedException("This stub answers listing questions only.");
     }
 }

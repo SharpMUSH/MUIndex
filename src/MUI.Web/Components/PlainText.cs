@@ -24,7 +24,11 @@ public static class PlainText
     /// <summary>Nothing this renderer writes exceeds this, because text browsers are 80 wide.</summary>
     public const int Columns = 80;
 
-    public static string Render(GamePage page, DateTimeOffset now, ReachSummary? reach = null)
+    public static string Render(
+        GamePage page,
+        DateTimeOffset now,
+        ReachSummary? reach = null,
+        TrendSeries? trend = null)
     {
         var b = new StringBuilder();
         var s = page.Summary;
@@ -58,6 +62,7 @@ public static class PlainText
         }
 
         AppendActivity(b, page.Activity);
+        AppendTrend(b, trend);
         AppendReachable(b, reach);
         AppendCapabilities(b, page);
         AppendDeclared(b, page, now);
@@ -92,6 +97,51 @@ public static class PlainText
         b.AppendLine("  counted   = we got in and read a number, including a measured zero");
         b.AppendLine("  uncounted = we got in and no number could be read");
         b.AppendLine("  no data   = we have no measurement for that hour");
+    }
+
+    /// <summary>
+    /// The trend in words: the direction first, then a line per week.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Weeks rather than days, from <see cref="TrendSeries.PerWeek"/> — the same lines the graphical
+    /// page hides behind "read as text", so the two surfaces cannot drift into saying different
+    /// things about one series. A quarter is ninety days and nobody reads ninety lines.
+    /// </para>
+    /// <para>
+    /// The seek links are here too. A range is part of the address, and a text browser that could
+    /// see the chart's window but not change it would have the graphic's navigation and none of its
+    /// function — which is the decoration §9 is testing for.
+    /// </para>
+    /// </remarks>
+    private static void AppendTrend(StringBuilder b, TrendSeries? trend)
+    {
+        if (trend is null || trend.Days.Count == 0)
+        {
+            return;
+        }
+
+        Heading(b, $"HOW MANY, OVER TIME ({trend.From:d MMM yyyy} – {trend.To:d MMM yyyy}, UTC)");
+        Wrap(b, trend.Sentence);
+
+        if (!trend.HasAnyCount)
+        {
+            return;
+        }
+
+        b.AppendLine();
+
+        foreach (var line in trend.PerWeek())
+        {
+            Wrap(b, line, "  ");
+        }
+
+        b.AppendLine();
+
+        var range = new TrendRange(trend.From, trend.To);
+
+        b.AppendLine($"  earlier: ?{range.Previous().Query}&plain=1");
+        b.AppendLine("  a week is summarised over the days in it we counted; a week with none says so");
     }
 
     /// <summary>The 90-day strip in words: the summary, then every spell that was not reachable.</summary>
@@ -721,6 +771,23 @@ public static class PlainText
         Heading(b, $"BUSIEST — median measured players, last {(int)rankings.Window.TotalDays} days");
         Wrap(b, EcosystemCopy.BusiestBasis(rankings));
         b.AppendLine();
+        Wrap(b, EcosystemCopy.SpanChoice);
+        b.AppendLine();
+
+        // The three windows as addresses, because a text browser cannot use a tab strip and the
+        // choice must survive here or the graphical selector is decoration (spec §9). One per line:
+        // the addresses do not fit on one inside eighty columns, and a wrapped URL is not clickable
+        // in the browsers this surface exists for.
+        b.AppendLine("  windows:");
+
+        foreach (var span in RankingSpans.All)
+        {
+            b.AppendLine(span == rankings.Span
+                ? $"    [{EcosystemCopy.SpanLabel(span),-8}] this one"
+                : $"     {EcosystemCopy.SpanLabel(span),-8}  /rankings?window={span.Slug()}&plain=1");
+        }
+
+        b.AppendLine();
 
         if (rankings.Busiest.Count == 0)
         {
@@ -735,7 +802,8 @@ public static class PlainText
             place++;
             b.AppendLine($"  {place,3}  {game.Name}");
             b.AppendLine($"       median {game.Median} · peak {game.Peak} · "
-                + $"{game.Samples} counted samples · /g/{game.Slug}");
+                + $"{game.Samples} counted samples over {game.Days} of "
+                + $"{(int)rankings.Window.TotalDays} days · /g/{game.Slug}");
         }
 
         Heading(b, "LONGEST UNBROKEN REACHABLE SPELL");

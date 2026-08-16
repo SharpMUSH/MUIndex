@@ -95,6 +95,11 @@ public static class SiteComposition
             services.AddSingleton<IAvailabilityHistory>(s => s.GetRequiredService<FixtureGameQueries>());
             services.AddSingleton<IPresenceSeries, FixturePresenceSeries>();
 
+            // The series stays empty and the trend does not, and that is the banner rule rather than
+            // an inconsistency: §10's JSON has nowhere to say the games are invented, and a page has
+            // the banner at the top of it. See IPresenceTrends.
+            services.AddSingleton<IPresenceTrends, FixturePresenceTrends>();
+
             // No crawler, so no pulse — and no invented one. The strip renders nothing at all rather
             // than a fabricated heartbeat, which on the one page whose whole argument is "this was
             // measured" would be the worst possible thing to make up.

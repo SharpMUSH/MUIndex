@@ -35,7 +35,11 @@ public class PlainParityTests
     {
         var page = await Queries.FindAsync(slug);
         var reach = ReachSeries.Build(await Queries.ForGameAsync(page!.Summary.Id), Now);
-        return PlainText.Render(page, Now, reach);
+        var range = TrendRange.Default(DateOnly.FromDateTime(Now.UtcDateTime));
+        var trend = await new FixturePresenceTrends()
+            .ForGameAsync(page.Summary.Id, range.From, range.To);
+
+        return PlainText.Render(page, Now, reach, trend);
     }
 
     [Test]
@@ -47,6 +51,42 @@ public class PlainParityTests
         await Assert.That(text).Contains("Busiest");
         await Assert.That(text).Contains("Mon —");
         await Assert.That(text).Contains("Wed —");
+    }
+
+    [Test]
+    public async Task TheTrendSurvivesAsASentenceALinePerWeekAndAWayToSeek()
+    {
+        // The graphic is an SVG, so this is where it is decided whether the chart carries
+        // information or decoration. All three parts have to survive: the direction, the numbers,
+        // and the ability to move the window — a text browser that could see the range but not
+        // change it would have the navigation and none of its function.
+        var text = await GameAsync("m-u-s-h");
+
+        await Assert.That(text).Contains("HOW MANY, OVER TIME");
+        await Assert.That(text).Contains("typically");
+        await Assert.That(text).Contains("peak");
+        await Assert.That(text).Contains("earlier: ?from=");
+    }
+
+    [Test]
+    public async Task TheTrendSaysWhichKindOfNothingAQuietWeekWas()
+    {
+        // The same three states as the heatmap, at a coarser grain: a week nobody measured and a
+        // week probed without a readable count are different facts about a game, and neither is an
+        // empty one. The fixture is built to contain both.
+        // Render.Words, because these phrases straddle the eighty-column wrap and a raw Contains
+        // would be asserting where the line happened to break rather than what the page says.
+        var text = Render.Words(await GameAsync("m-u-s-h"));
+
+        await Assert.That(text).Contains("not measured");
+        await Assert.That(text).Contains("probed without a count");
+
+        // And no cause is named for either: a failed probe writes no presence row, so silence
+        // cannot tell an outage of theirs from a gap of ours.
+        var trend = text[text.IndexOf("HOW MANY, OVER TIME", StringComparison.Ordinal)..];
+        var reachable = trend.IndexOf("Reachable (", StringComparison.Ordinal);
+
+        await Assert.That(reachable > 0 ? trend[..reachable] : trend).DoesNotContain("unreachable");
     }
 
     [Test]

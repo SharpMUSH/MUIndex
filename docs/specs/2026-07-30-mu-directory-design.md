@@ -960,16 +960,43 @@ forty lines of box-drawing does not answer that. And the connect screen is the o
 not control — leading with it hands the top of every page to whatever the server happens to send,
 including the blank, enormous and hostile cases.
 
-Below: live count, day × hour activity heatmap, the 90-day reachable strip, a capability matrix
-showing **measured beside declared with an age on each**, endpoint history, change feed, referral
-neighbours, outbound links.
+Below: live count, day × hour activity heatmap, the presence trend, the 90-day reachable strip, a
+capability matrix showing **measured beside declared with an age on each**, endpoint history, change
+feed, referral neighbours, outbound links.
+
+**The trend is the heatmap's missing question.** The grid folds every week measured into one 168-cell
+shape, which answers *when in a week is anyone on* and destroys *is this game growing* — a game that
+doubled last month and one that halved draw the same grid. So the trend is measured players per day
+over a calendar range the reader can seek, drawn from `presence_rollup_day`: a mean line with a
+min–max band behind it, because a game peaking at forty and idling at two has the same mean as one
+sitting at twenty-one all evening and they are not the same game.
+
+Two rules shape it and neither is cosmetic. **The line is broken at every day nobody measured** —
+every chart of this kind on every other directory draws one continuous polyline, and an interpolated
+gap is our crawl schedule published as their quiet fortnight. And a day probed without a readable
+count is a mark in its own gutter *below* the baseline rather than a point at zero, because on the
+line it would read as a measured empty game: §5.4's middle state collapsed into a filled one. The
+range lives in the query string, so seeking is links rather than script and survives into plain
+mode.
 
 **Plain mode, `?plain=1`**, served automatically to text browsers. Not a courtesy — it is the test
 of the whole system: *if a fact cannot survive in plain text, its graphic on the main site is
 decoration.* Bounded in cost because it renders from the same view models; the graphical game page
 is the plain page with graphics added, not a second document.
 
-**Rankings.** Computed from measured data only.
+**Rankings.** Computed from measured data only, over a window the reader chooses from seven, thirty
+and ninety days — the week stays the default, because that is what this table has always meant.
+
+The statistic is the same at every width: the **median** of the counts we read, summed out of
+`presence_rollup_day`'s distribution rather than out of `presence_sample`, so a ranking is not
+chained to raw retention and does not silently shorten its own window as a deployment ages. The
+distribution is exact rather than bucketed — one entry per count some probe actually read, bounded by
+the samples in the bucket — and the Postgres tests assert it returns the same number
+`percentile_disc(0.5)` returns over the same rows.
+
+Eligibility has two clauses and needs both: a floor on how many counted samples a median may be taken
+over, and a floor on **how much of the window they came from**. Without the second, a game probed
+hard for one weekend clears twenty-four samples and ranks in a table describing a quarter.
 
 **Ecosystem dashboard.** Codebase market share and protocol adoption curves (TLS, UTF-8, GMCP,
 MXP) — *shares, not totals*. The absolute "how many people play MU\*" figure is deliberately

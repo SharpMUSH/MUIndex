@@ -399,7 +399,14 @@ public interface IGameQueries
     Task<EcosystemDashboard> EcosystemAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Rankings computed from measured data only (spec §9). There is no vote anywhere.</summary>
-    Task<Rankings> RankingsAsync(CancellationToken cancellationToken = default);
+    /// <remarks>
+    /// The span is defaulted rather than required so that a caller who does not care gets the week —
+    /// which is what this table has always meant, and what changing the default silently would
+    /// misrepresent on every surface that has ever printed it.
+    /// </remarks>
+    Task<Rankings> RankingsAsync(
+        RankingSpan span = RankingSpan.Week,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record LivenessFeeds(
