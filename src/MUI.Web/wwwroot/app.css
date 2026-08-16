@@ -424,6 +424,51 @@ ul.legend li { display: inline-flex; align-items: center; gap: 6px; }
 }
 .swatch.gap { background: transparent; outline: 1px dashed var(--faint); outline-offset: -1px; }
 
+/* ── presence trend ────────────────────────────────────────────────────────
+   Measured players per day, over a range the reader can move. The heatmap folds every week into one
+   grid, which answers "when is anyone on" and destroys "is this game growing" — this is the second
+   question, and the graphic has to keep the same three states the grid does.
+
+   The load-bearing rule is the one that is NOT expressed here: the line is broken at every day
+   nobody measured, and it is broken in the path data rather than by any style below. A CSS dash
+   cannot express "no measurement", and drawing a continuous line under a faint stroke would still
+   be publishing our crawl schedule as their quiet fortnight. See TrendGeometry.                 */
+
+.trend-wrap { margin: var(--cpad) 0 8px; }
+svg.trend { width: 100%; height: 168px; display: block; overflow: visible; }
+svg.trend .grid { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+svg.trend .band { fill: color-mix(in srgb, var(--accent) 16%, transparent); stroke: none; }
+svg.trend .mean {
+    fill: none; stroke: var(--accent); stroke-width: 2;
+    stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke;
+}
+svg.trend .dot { fill: var(--accent); }
+/* The hatched state sits in its own gutter below the baseline. On the zero line it would read as a
+   measured zero, which is §5.4's middle state collapsed into a filled one. */
+svg.trend .uncounted { fill: var(--dim); opacity: 0.55; }
+svg.trend .hit { fill: transparent; }
+.trend-scale { display: flex; justify-content: space-between; font-size: 10.5px; margin: 6px 0 8px; }
+
+.swatch.mean { background: var(--accent); height: 3px; border-radius: 2px; }
+.swatch.band { background: color-mix(in srgb, var(--accent) 16%, transparent); outline: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); outline-offset: -1px; }
+.swatch.uncounted { background: var(--dim); opacity: 0.55; height: 6px; border-radius: 2px; }
+
+ul.weeks { list-style: none; margin: 8px 0 0; padding: 0; font-size: 12px; color: var(--dim); }
+ul.weeks li { padding: 2px 0; }
+
+/* ── the ranking window selector ───────────────────────────────────────────
+   Three links, not a control: the window is part of the address, so back works, the tab is
+   shareable, and a text browser gets the same three choices.                                    */
+
+nav.spans { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 var(--cpad); }
+nav.spans .span {
+    font: 11px/1 var(--kick); letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px;
+    color: var(--dim); text-decoration: none;
+}
+nav.spans .span:hover { border-color: var(--dim); color: var(--text); }
+nav.spans .span.on { border-color: var(--accent); color: var(--accent); }
+
 details.read-as-text { margin: 8px 0 var(--cpad); font-size: 13px; }
 details.read-as-text summary { cursor: pointer; color: var(--dim); }
 details.read-as-text[open] > *:not(summary) { animation: reveal 120ms ease-out; }

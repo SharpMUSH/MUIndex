@@ -34,7 +34,24 @@ else
 
     <section aria-labelledby="busiest">
         <h2 id="busiest">Busiest, by measured concurrent players</h2>
+
+        @*
+            Three windows, as links rather than as a control. The page is a document and the window
+            is part of its address, so the browser's back button works, the tab can be shared, and a
+            text browser gets the same three choices — which is the whole test §9 sets for a
+            graphic. aria-current marks the live one, so the state is announced and not only shaded.
+        *@
+        <nav class="spans" aria-label="Ranking window">
+            @foreach (var span in RankingSpans.All)
+            {
+                <a href="@Href(span)"
+                   class="@(span == Table.Span ? "span on" : "span")"
+                   aria-current="@(span == Table.Span ? "page" : null)">@EcosystemCopy.SpanLabel(span)</a>
+            }
+        </nav>
+
         <p class="dim">@EcosystemCopy.BusiestBasis(Table)</p>
+        <p class="faint">@EcosystemCopy.SpanChoice</p>
 
         @if (Table.Busiest.Count == 0)
         {
@@ -58,6 +75,7 @@ else
                             <th scope="col">median</th>
                             <th scope="col">peak</th>
                             <th scope="col">counted samples</th>
+                            <th scope="col">days measured</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -75,6 +93,9 @@ else
                                 <td class="mono state-present">@game.Median</td>
                                 <td class="mono">@game.Peak</td>
                                 <td class="mono faint">@game.Samples</td>
+                                @* The other half of the basis: a thousand samples means something
+                                   different over ninety days than over three. *@
+                                <td class="mono faint">@game.Days / @((int)Table.Window.TotalDays)</td>
                             </tr>
                         }
                     </tbody>
@@ -128,18 +149,32 @@ else
         Archived games are out of both tables and nothing else; one successful probe puts them back.
         <a href="/archive">archive</a> ·
         <a href="/ecosystem">ecosystem</a> ·
-        <a href="?plain=1">plain text</a>
+        <a href="?window=@Span.Slug()&plain=1">plain text</a>
     </p>
 }
 
 @code {
     [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
 
+    /// <summary>Which window to rank over: <c>7d</c>, <c>30d</c> or <c>90d</c>.</summary>
+    /// <remarks>
+    /// Anything else falls back to the week rather than erroring. A mistyped window on a browsable
+    /// league table is not worth a 400 in front of a page that has a right answer to give, and the
+    /// selector then shows which window the reader actually got.
+    /// </remarks>
+    [SupplyParameterFromQuery(Name = "window")] private string? WindowSlug { get; set; }
+
     private bool Plain => Truthy.Is(PlainFlag);
 
     private DateTimeOffset Now => Clock.GetUtcNow();
 
+    private RankingSpan Span => RankingSpans.Parse(WindowSlug);
+
     private Rankings Table = Rankings.Empty(default, TimeSpan.Zero, 0);
 
-    protected override async Task OnParametersSetAsync() => Table = await Queries.RankingsAsync();
+    /// <summary>The address of one window, carrying plain mode through if that is how we arrived.</summary>
+    private string Href(RankingSpan span) =>
+        Plain ? $"?window={span.Slug()}&plain=1" : $"?window={span.Slug()}";
+
+    protected override async Task OnParametersSetAsync() => Table = await Queries.RankingsAsync(Span);
 }

@@ -33,11 +33,9 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     public static readonly DateTimeOffset Now = new(2026, 7, 30, 20, 0, 0, TimeSpan.Zero);
 
     /// <summary>
-    /// The same week and the same sample floor <c>NpgsqlGameQueries</c> ranks on, so the demo page
-    /// and the measured one describe their table the same way.
+    /// The same sample floor <c>NpgsqlGameQueries</c> ranks on, so the demo page and the measured
+    /// one describe their table the same way. The window comes from the span asked for.
     /// </summary>
-    private static readonly TimeSpan RankingWindow = TimeSpan.FromDays(7);
-
     private const int MinimumSamples = 24;
 
     private static readonly GameSummary Mush = new(
@@ -593,9 +591,16 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// unmeasurable produces no median and drops out of the table — which is the behaviour that has to
     /// be visible, because reading those as zeros is the failure §5.4 exists to prevent.
     /// </remarks>
-    public Task<Rankings> RankingsAsync(CancellationToken cancellationToken = default)
+    public Task<Rankings> RankingsAsync(
+        RankingSpan span = RankingSpan.Week,
+        CancellationToken cancellationToken = default)
     {
         var listed = All.Where(g => g.State is not LifecycleState.Archived).ToList();
+
+        // The grid is one week of hours, so a wider span is the same shape measured for longer:
+        // the median and the peak are unchanged and only the basis grows. Nothing here is a
+        // measurement of anything — the demo banner says so on every page this renders.
+        var weeks = span.Days() / 7d;
 
         var busiest = listed
             .Select(g => (Game: g, Counts: Activity(g)
@@ -609,7 +614,8 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
                 entry.Game.Name,
                 entry.Counts[entry.Counts.Count / 2],
                 entry.Counts[^1],
-                entry.Counts.Count))
+                (int)Math.Round(entry.Counts.Count * weeks),
+                span.Days()))
             .OrderByDescending(row => row.Median)
             .ThenByDescending(row => row.Peak)
             .ThenBy(row => row.Name, StringComparer.Ordinal)
@@ -624,7 +630,10 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
             .ToList();
 
         return Task.FromResult(new Rankings(
-            Now, RankingWindow, MinimumSamples, listed.Count, busiest.Count, busiest, spells));
+            Now, span.Window(), MinimumSamples, listed.Count, busiest.Count, busiest, spells)
+        {
+            Span = span,
+        });
     }
 
     public Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default) =>

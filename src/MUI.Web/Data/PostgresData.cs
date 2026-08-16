@@ -78,6 +78,7 @@ public static class PostgresData
         // one deployable running both has one of it.
         services.TryAddSingleton(s => new NpgsqlPresenceRollupStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IPresenceSeries>(s => s.GetRequiredService<NpgsqlPresenceRollupStore>());
+        services.TryAddSingleton<IPresenceTrends>(s => new PresenceTrends(s.GetRequiredService<IPresenceSeries>()));
 
         // §5.7's former-slug table. Registered here rather than only with the crawler because a
         // read-only replica serves the redirects too — the promise is about URLs, not about which

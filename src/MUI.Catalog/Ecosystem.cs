@@ -297,6 +297,80 @@ public static class EcosystemProtocols
 
 
 /// <summary>
+/// How far back the busiest ranking looks (spec §9).
+/// </summary>
+/// <remarks>
+/// <para>
+/// Three named spans rather than an arbitrary range, because a ranking is a claim and each of these
+/// is a different one: a week says who is busy now, a quarter says who has been busy. An open range
+/// would let a reader pick a fortnight in which one game happened to be linked from somewhere and
+/// call the result a ranking.
+/// </para>
+/// <para>
+/// The windows are <b>day-aligned in UTC</b> and not rolling from the current instant: the median
+/// behind them is summed out of <c>presence_rollup_day</c>, whose buckets are whole UTC days
+/// (migration 0019). A rolling window would have to cut the oldest bucket in half and could not,
+/// so the honest description — and the one the page prints — is "the last N days" meaning N whole
+/// day buckets, the current, partial one included.
+/// </para>
+/// </remarks>
+public enum RankingSpan
+{
+    /// <summary>Seven days. The default, and what the ranking has always meant.</summary>
+    Week,
+
+    /// <summary>Thirty days.</summary>
+    Month,
+
+    /// <summary>Ninety days.</summary>
+    Quarter,
+}
+
+/// <summary>Words and windows for <see cref="RankingSpan"/>, in one place.</summary>
+public static class RankingSpans
+{
+    /// <summary>Every span, in the order the selector offers them.</summary>
+    public static readonly IReadOnlyList<RankingSpan> All =
+        [RankingSpan.Week, RankingSpan.Month, RankingSpan.Quarter];
+
+    public static int Days(this RankingSpan span) => span switch
+    {
+        RankingSpan.Week => 7,
+        RankingSpan.Month => 30,
+        RankingSpan.Quarter => 90,
+        _ => throw new ArgumentOutOfRangeException(nameof(span)),
+    };
+
+    public static TimeSpan Window(this RankingSpan span) => TimeSpan.FromDays(span.Days());
+
+    /// <summary>What the span is called in a query string: <c>7d</c>, <c>30d</c>, <c>90d</c>.</summary>
+    public static string Slug(this RankingSpan span) => $"{span.Days()}d";
+
+    /// <summary>
+    /// The span a query string names, or <see cref="RankingSpan.Week"/>.
+    /// </summary>
+    /// <remarks>
+    /// Unknown input falls back to the default rather than erroring: a ranking is a browsable
+    /// surface, and a mistyped window is not worth a 400 in front of a page that has a right answer
+    /// to give.
+    /// </remarks>
+    public static RankingSpan Parse(string? slug) =>
+        All.FirstOrDefault(s => string.Equals(s.Slug(), slug, StringComparison.OrdinalIgnoreCase),
+            RankingSpan.Week);
+
+    /// <summary>
+    /// How many of the window's days a game must have been measured on to be ranked in it.
+    /// </summary>
+    /// <remarks>
+    /// Half, rounded up. The sample floor alone does not scale: a game probed hard for two days
+    /// clears twenty-four samples and would then rank in a ninety-day table off two days of data,
+    /// which is a claim about a quarter made from a weekend. Coverage is what makes the longer
+    /// windows mean what they say, and it is why the floor itself stays flat.
+    /// </remarks>
+    public static int MinimumDays(this RankingSpan span) => (span.Days() + 1) / 2;
+}
+
+/// <summary>
 /// One game in the busiest ranking, with the measurements the rank is computed from beside it.
 /// </summary>
 /// <remarks>
@@ -306,8 +380,13 @@ public static class EcosystemProtocols
 /// a ranking whose arithmetic a reader cannot check is the kind of ranking §2 refuses.
 /// <see cref="Median"/> is an observed value and never an average of two, so it is a number some
 /// probe actually read.
+///
+/// <see cref="Days"/> is the second half of the basis and matters more the wider the window gets:
+/// twelve hundred samples over a quarter is a different fact depending on whether they came from
+/// ninety days or from three, and the eligibility rule the table applies (<see
+/// cref="RankingSpans.MinimumDays"/>) is stated in the same units.
 /// </remarks>
-public sealed record BusiestGame(string Slug, string Name, int Median, int Peak, int Samples);
+public sealed record BusiestGame(string Slug, string Name, int Median, int Peak, int Samples, int Days = 0);
 
 /// <summary>
 /// A game's current unbroken run of measured reachability.
@@ -350,6 +429,16 @@ public sealed record Rankings(
     IReadOnlyList<BusiestGame> Busiest,
     IReadOnlyList<ReachableSpell> LongestUnbroken)
 {
+    /// <summary>Which of the three windows this table was computed over.</summary>
+    /// <remarks>
+    /// Carried beside <see cref="Window"/> rather than derived from it, so the selector highlights
+    /// the span that was actually asked for instead of one recovered by matching a duration.
+    /// </remarks>
+    public RankingSpan Span { get; init; } = RankingSpan.Week;
+
+    /// <summary>Days of the window a game must have been measured on to appear.</summary>
+    public int MinimumDays => Span.MinimumDays();
+
     public static Rankings Empty(DateTimeOffset asOf, TimeSpan window, int minimumSamples) =>
         new(asOf, window, minimumSamples, 0, 0, [], []);
 }

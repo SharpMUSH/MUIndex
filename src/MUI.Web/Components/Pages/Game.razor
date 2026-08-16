@@ -34,7 +34,7 @@ else if (Plain)
     @* Plain mode is a real second surface, not a courtesy. If a fact cannot survive here, its
        graphic on the main page is decoration. It renders from the same view models — this page is
        the graphical one with the graphics removed, which is what bounds its cost (spec §9). *@
-    <pre class="mono plain">@PlainText.Render(Page, Now, Reach)</pre>
+    <pre class="mono plain">@PlainText.Render(Page, Now, Reach, Trend)</pre>
 }
 else
 {
@@ -183,6 +183,32 @@ else
                 <h2 id="activity-heading">When people are on</h2>
                 <ActivityHeatmap Cells="Page.Activity" />
 
+                @*
+                    The heatmap above folds every week measured into one grid, which answers "when
+                    is anyone on" and destroys "is this game growing" — a game that doubled last
+                    month and one that halved draw the same 168 cells. This is the second question.
+                *@
+                @if (Trend is not null)
+                {
+                    <h2 id="trend-heading">How many, over time</h2>
+                    <PresenceTrend Series="Trend" />
+
+                    @* The range is in the address, so seeking is links and needs no script. *@
+                    <nav class="spans" aria-label="Trend range">
+                        @foreach (var days in RangePresets)
+                        {
+                            <a href="@RangeHref(TrendRange.Preset(days, Today))"
+                               class="@(Range.Covers(days, Today) ? "span on" : "span")"
+                               aria-current="@(Range.Covers(days, Today) ? "page" : null)">@days days</a>
+                        }
+                        <a class="span" href="@RangeHref(Range.Previous())" rel="prev">← earlier</a>
+                        @if (Range.Next(Today) is { } next)
+                        {
+                            <a class="span" href="@RangeHref(next)" rel="next">later →</a>
+                        }
+                    </nav>
+                }
+
                 <h2>Reachable</h2>
                 <AvailabilityStrip Summary="Reach" />
 
@@ -279,9 +305,32 @@ else
 
     [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
 
+    /// <summary>The first and last day of the trend range, as <c>yyyy-MM-dd</c>.</summary>
+    /// <remarks>
+    /// Clamped rather than validated: see <see cref="TrendRange.Parse"/>. What the reader gets is
+    /// always printed over the graphic, so a range that was adjusted says so rather than quietly
+    /// drawing a different fortnight from the one asked for.
+    /// </remarks>
+    [SupplyParameterFromQuery(Name = "from")] private string? RangeFrom { get; set; }
+
+    [SupplyParameterFromQuery(Name = "to")] private string? RangeTo { get; set; }
+
     private bool Plain => Truthy.Is(PlainFlag);
 
+    /// <summary>The widths the presets offer, ending today.</summary>
+    private static readonly int[] RangePresets = [30, 90, 365];
+
     private GamePage? Page;
+
+    private TrendSeries? Trend;
+
+    private DateOnly Today => DateOnly.FromDateTime(Now.UtcDateTime);
+
+    private TrendRange Range => TrendRange.Parse(RangeFrom, RangeTo, Today);
+
+    /// <summary>The address of one range, carrying plain mode through if that is how we arrived.</summary>
+    private string RangeHref(TrendRange range) =>
+        Plain ? $"?{range.Query}&plain=1" : $"?{range.Query}";
 
     /// <summary>
     /// The icon we hold for this game, or null — which covers "the field names none", "we could not
@@ -333,6 +382,12 @@ else
 
         Icon = Page is not null && Services.GetService<IIconStore>() is { } icons
             ? await icons.ForGameAsync(Page.Summary.Id)
+            : null;
+
+        // Service-located like the icon store above, and for the same reason: a deployment without
+        // a trend source renders the page without the chart rather than failing to render at all.
+        Trend = Page is not null && Services.GetService<IPresenceTrends>() is { } trends
+            ? await trends.ForGameAsync(Page.Summary.Id, Range.From, Range.To)
             : null;
 
         if (Page is null)

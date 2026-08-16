@@ -56,26 +56,52 @@ public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source) : IPresen
         // counted samples alone and come back NULL when there were none, and a group is only produced
         // for a bucket some probe actually wrote a row in — so an hour nobody measured stays absent
         // rather than arriving as a zero.
+        // The distribution (migration 0019) needs a second level of grouping — one row per distinct
+        // count before one row per bucket — so the aggregate is built in a CTE and joined back. It
+        // is exact rather than bucketed: an entry per count some probe actually read, which is
+        // bounded by the number of counted samples in the bucket and is a handful.
+        //
+        // A LEFT JOIN, because a bucket that was probed and never counted has no distribution at all
+        // and must still produce its row — that is §5.4's hatched cell, and dropping it here would
+        // turn "probed, could not count" into "not measured".
         var sql = $"""
+            WITH tally AS (
+                SELECT s.game_id,
+                       date_trunc('{unit}', s.at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS bucket,
+                       count(*) FILTER (WHERE s.count IS NOT NULL) AS counted,
+                       count(*) FILTER (WHERE s.count IS NULL) AS unmeasurable,
+                       min(s.count) AS lowest,
+                       max(s.count) AS highest,
+                       sum(s.count) AS total
+                  FROM presence_sample s
+                 WHERE s.at >= @from AND s.at < @to
+                 GROUP BY 1, 2),
+            frequency AS (
+                SELECT s.game_id,
+                       date_trunc('{unit}', s.at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS bucket,
+                       s.count AS value,
+                       count(*) AS times
+                  FROM presence_sample s
+                 WHERE s.at >= @from AND s.at < @to AND s.count IS NOT NULL
+                 GROUP BY 1, 2, 3),
+            histogram AS (
+                SELECT game_id, bucket, jsonb_object_agg(value::text, times) AS counts
+                  FROM frequency
+                 GROUP BY game_id, bucket)
             INSERT INTO {table} (
                 game_id, {bucket}, counted_samples, unmeasurable_samples,
-                min_count, max_count, sum_count)
-            SELECT s.game_id,
-                   date_trunc('{unit}', s.at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC',
-                   count(*) FILTER (WHERE s.count IS NOT NULL),
-                   count(*) FILTER (WHERE s.count IS NULL),
-                   min(s.count),
-                   max(s.count),
-                   sum(s.count)
-              FROM presence_sample s
-             WHERE s.at >= @from AND s.at < @to
-             GROUP BY 1, 2
+                min_count, max_count, sum_count, count_histogram)
+            SELECT t.game_id, t.bucket, t.counted, t.unmeasurable,
+                   t.lowest, t.highest, t.total, h.counts
+              FROM tally t
+              LEFT JOIN histogram h ON h.game_id = t.game_id AND h.bucket = t.bucket
             ON CONFLICT (game_id, {bucket}) DO UPDATE SET
                 counted_samples      = EXCLUDED.counted_samples,
                 unmeasurable_samples = EXCLUDED.unmeasurable_samples,
                 min_count            = EXCLUDED.min_count,
                 max_count            = EXCLUDED.max_count,
-                sum_count            = EXCLUDED.sum_count
+                sum_count            = EXCLUDED.sum_count,
+                count_histogram      = EXCLUDED.count_histogram
             """;
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
