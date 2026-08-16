@@ -116,33 +116,55 @@ public sealed class GatewayClient : IAsyncDisposable
         var result = await CallAsync("mudlist", new Dictionary<string, object?>(), cancellationToken)
             .ConfigureAwait(false);
 
-        // The gateway has spelled this both ways across releases: a bare object keyed by mud name, and
-        // an envelope with the list under `muds`. Accept either rather than pin a beta API's shape.
+        // The gateway represents its mudlist two different ways in two different places: the JSON-RPC
+        // method answers `{"muds": [ … ]}` — an array, each element carrying its own `name` — while
+        // the state file it writes to disk is an object keyed by mud name. Both are accepted, because
+        // a beta whose own two representations disagree is not one to pin a single shape to, and
+        // reading the wrong one yields an empty list rather than an error.
         var muds = result.ValueKind == JsonValueKind.Object && result.TryGetProperty("muds", out var inner)
             ? inner
             : result;
 
-        if (muds.ValueKind != JsonValueKind.Object)
-        {
-            return [];
-        }
-
         var list = new List<I3Mud>();
-        foreach (var entry in muds.EnumerateObject())
+
+        switch (muds.ValueKind)
         {
-            if (entry.Value.ValueKind != JsonValueKind.Object)
-            {
-                continue;
-            }
+            case JsonValueKind.Array:
+                foreach (var element in muds.EnumerateArray())
+                {
+                    if (element.ValueKind != JsonValueKind.Object)
+                    {
+                        continue;
+                    }
 
-            var mud = entry.Value.Deserialize<I3Mud>(Json);
-            if (mud is null)
-            {
-                continue;
-            }
+                    var mud = element.Deserialize<I3Mud>(Json);
+                    if (mud is not null && !string.IsNullOrEmpty(mud.Name))
+                    {
+                        list.Add(mud);
+                    }
+                }
 
-            // The key is the canonical mud name; the body may or may not repeat it.
-            list.Add(string.IsNullOrEmpty(mud.Name) ? mud with { Name = entry.Name } : mud);
+                break;
+
+            case JsonValueKind.Object:
+                foreach (var entry in muds.EnumerateObject())
+                {
+                    if (entry.Value.ValueKind != JsonValueKind.Object)
+                    {
+                        continue;
+                    }
+
+                    var mud = entry.Value.Deserialize<I3Mud>(Json);
+                    if (mud is null)
+                    {
+                        continue;
+                    }
+
+                    // The key is the canonical mud name; the body may or may not repeat it.
+                    list.Add(string.IsNullOrEmpty(mud.Name) ? mud with { Name = entry.Name } : mud);
+                }
+
+                break;
         }
 
         return list;

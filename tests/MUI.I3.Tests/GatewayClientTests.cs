@@ -235,15 +235,77 @@ public class GatewayClientTests
         await Assert.That(list).Count().IsEqualTo(2);
 
         var nightfall = list.Single(m => m.Name == "Nightfall");
-        await Assert.That(nightfall.Address).IsEqualTo("82.153.225.173");
-        await Assert.That(nightfall.PlayerPort).IsEqualTo(4242);
+        await Assert.That(nightfall.HostAddress).IsEqualTo("82.153.225.173");
+        await Assert.That(nightfall.PlayerPortNumber).IsEqualTo(4242);
         await Assert.That(nightfall.IsUp).IsTrue();
         await Assert.That(nightfall.Answers("who")).IsTrue();
         await Assert.That(nightfall.Answers("locate")).IsFalse();
 
         // Zero is a published fact, not a missing value: the spec permits it for a mud that is not
         // connectable, and MUIndex publishes it about itself.
-        await Assert.That(list.Single(m => m.Name == "Epitaph").PlayerPort).IsEqualTo(0);
+        await Assert.That(list.Single(m => m.Name == "Epitaph").PlayerPortNumber).IsEqualTo(0);
+    }
+
+    /// <summary>
+    /// The shape the live gateway actually answers with, captured off <c>*i4</c> verbatim.
+    /// </summary>
+    /// <remarks>
+    /// <b>Written because assuming the shape was wrong once already.</b> The handler reads as though
+    /// it returns a small object keyed by name; what comes back is an array whose elements spell the
+    /// endpoint <c>host</c> and <c>port</c> — not <c>address</c> and <c>player_port</c>, which is how
+    /// the same gateway spells them in the state file it writes to disk. A client written against
+    /// either one alone parses the other into nothing at all, silently.
+    /// </remarks>
+    [Test]
+    public async Task TheLiveShapeParsesWholeIncludingTheDescriptiveFields()
+    {
+        const string captured = """
+            {"status":"success","count":2,"muds":[
+              {"name":"The Zone","host":"136.144.155.250","port":8888,"tcp_port":8891,"udp_port":8890,
+               "driver":"DGD 1.4.1","mudlib":"WOTFlib 0.90","mud_type":"LPMud","status":"up",
+               "services":{"channel":1,"ftp":21,"tell":1,"who":1,"locate":1,"http":8887},
+               "open_status":"beta testing"},
+              {"name":"CyberASSAULT","host":"143.42.166.81","port":11111,"tcp_port":0,"udp_port":0,
+               "driver":"CircleMUD","mudlib":"LuminariMUD","mud_type":"CircleMUD","status":"up",
+               "services":{"finger":1,"who":1,"channel":1,"locate":1,"tell":1},
+               "open_status":"open","admin_email":"admin@example.invalid"}]}
+            """;
+
+        await using var gateway = FakeGateway.Start(async (line, g) =>
+        {
+            if (FakeGateway.MethodOf(line) == "authenticate")
+            {
+                await Authenticate(line, g);
+                return;
+            }
+
+            await g.SendAsync(JsonSerializer.Deserialize<JsonElement>(
+                $$"""{"jsonrpc":"2.0","id":{{FakeGateway.IdOf(line)}},"result":{{captured.Replace("\n", "")}}}"""));
+        });
+
+        await using var client = new GatewayClient(OptionsFor(gateway));
+        await client.ConnectAsync(CancellationToken.None);
+
+        var list = await client.MudlistAsync(CancellationToken.None);
+
+        await Assert.That(list).Count().IsEqualTo(2);
+
+        var zone = list.Single(m => m.Name == "The Zone");
+        await Assert.That(zone.HostAddress).IsEqualTo("136.144.155.250");
+        await Assert.That(zone.PlayerPortNumber).IsEqualTo(8888);
+        await Assert.That(zone.Driver).IsEqualTo("DGD 1.4.1");
+        await Assert.That(zone.Mudlib).IsEqualTo("WOTFlib 0.90");
+        await Assert.That(zone.MudType).IsEqualTo("LPMud");
+        await Assert.That(zone.OpenStatus).IsEqualTo("beta testing");
+        await Assert.That(zone.IsUp).IsTrue();
+        await Assert.That(zone.Answers("who")).IsTrue();
+
+        // A service whose value is a port rather than 1 is still advertised — `ftp: 21`, `http: 8887`.
+        await Assert.That(zone.Answers("ftp")).IsTrue();
+
+        var cyber = list.Single(m => m.Name == "CyberASSAULT");
+        await Assert.That(cyber.AdminEmail).IsEqualTo("admin@example.invalid");
+        await Assert.That(cyber.Driver).IsEqualTo("CircleMUD");
     }
 
     /// <summary>

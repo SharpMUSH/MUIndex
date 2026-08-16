@@ -25,20 +25,37 @@ public sealed record I3Mud
     public string Name { get; init; } = "";
 
     /// <summary>
-    /// The address the mud gave the router. **An IP literal in practice**, not the hostname a player
-    /// would type, which is why matching one of these to a game we already know is a question for
-    /// whatever owns identity rather than something this record answers.
+    /// The address the mud gave the router. <b>An IP literal in practice</b>, not the hostname a
+    /// player would type, which is why binding one of these to a game we already know is a question
+    /// for whatever owns identity rather than something this record answers.
     /// </summary>
+    /// <remarks>
+    /// The gateway spells this <c>host</c> over JSON-RPC and <c>address</c> in the state file it
+    /// writes to disk. Both are accepted because a beta whose two representations already disagree
+    /// with each other is not one to pin a single spelling to.
+    /// </remarks>
+    [JsonPropertyName("host")]
+    public string Host { get; init; } = "";
+
     [JsonPropertyName("address")]
-    public string Address { get; init; } = "";
+    public string Address { private get; init; } = "";
+
+    /// <summary>Whichever of the two spellings this payload used.</summary>
+    public string HostAddress => string.IsNullOrEmpty(Host) ? Address : Host;
 
     /// <summary>
     /// Where a player would connect. <b>Zero is meaningful</b>: the spec permits it for a mud that is
     /// private or closed, and a participant that publishes 0 is telling us there is nothing to dial.
     /// MUIndex publishes 0 itself.
     /// </summary>
+    [JsonPropertyName("port")]
+    public int Port { get; init; }
+
     [JsonPropertyName("player_port")]
-    public int PlayerPort { get; init; }
+    public int PlayerPort { private get; init; }
+
+    /// <summary>Whichever of the two spellings this payload used.</summary>
+    public int PlayerPortNumber => Port != 0 ? Port : PlayerPort;
 
     /// <summary>
     /// What the mud will answer. The gateway drops zero-valued flags, so a service that is off is
@@ -50,6 +67,46 @@ public sealed record I3Mud
     /// <summary>The router's word for the mudlist entry's state: <c>up</c>, <c>down</c>, and so on.</summary>
     [JsonPropertyName("status")]
     public string Status { get; init; } = "";
+
+    /// <summary>
+    /// The engine the mud runs, as it described itself at startup — <c>CoffeeMud v5.11.0.1</c>,
+    /// <c>FluffOS v2.23-ds03</c>, <c>DGD 1.4.1</c>, <c>CircleMUD</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Carrying a version, which is the interesting part.</b> All 179 entries on the live network
+    /// filled this in. It is still the mud's claim about itself relayed by a router — the same class
+    /// of statement as an MSSP <c>CODEBASE</c> — so it is a cross-check and a seed, never a
+    /// measurement.
+    /// </remarks>
+    [JsonPropertyName("driver")]
+    public string Driver { get; init; } = "";
+
+    /// <summary>The library on top of the driver: <c>WOTFlib 0.90</c>, <c>LuminariMUD</c>.</summary>
+    [JsonPropertyName("mudlib")]
+    public string Mudlib { get; init; } = "";
+
+    /// <summary>The family: <c>CoffeeMud</c>, <c>LPMud</c>, <c>DikuMUD</c>, <c>Godwars</c>.</summary>
+    [JsonPropertyName("mud_type")]
+    public string MudType { get; init; } = "";
+
+    /// <summary>
+    /// The mud's own word for whether it is open — free text in practice, where 60 sampled muds
+    /// produced 19 spellings.
+    /// </summary>
+    [JsonPropertyName("open_status")]
+    public string OpenStatus { get; init; } = "";
+
+    /// <summary>
+    /// A contact address the mud published to the whole network, present on 125 of 179 entries.
+    /// </summary>
+    /// <remarks>
+    /// <b>Published by them, to everyone, on purpose</b> — it is how I3 expects participants to be
+    /// reachable, and it is already visible to every mud on the network and on the router's public
+    /// web pages. That does not make it ours to put on a page: it is an owner-contact signal for
+    /// §8's claim flow, not a field to render.
+    /// </remarks>
+    [JsonPropertyName("admin_email")]
+    public string AdminEmail { get; init; } = "";
 
     /// <summary>Whether this mud advertises a service, by the mapping's own convention.</summary>
     /// <remarks>
