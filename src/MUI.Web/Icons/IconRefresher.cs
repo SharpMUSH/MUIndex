@@ -62,10 +62,18 @@ public sealed class IconRefresher(
             {
                 await PassAsync(stoppingToken);
             }
-            catch (Exception error) when (error is not OperationCanceledException)
+            catch (Exception error)
+                when (error is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
             {
                 // A pass that throws is a pass skipped, never a service that stops. The icons are a
                 // decoration and this loop outliving them is worth more than any one failure.
+                //
+                // And "a cancellation" is not the same question as "are we stopping". An HttpClient
+                // timeout is a TaskCanceledException raised by a stranger's silence; reading the
+                // type alone let it out of here, and BackgroundServiceExceptionBehavior.StopHost —
+                // the default, and not something this service gets to opt out of on its own behalf
+                // — then stopped the crawler, the web tier and the lease over a decoration. Only
+                // the token knows whether this host is going away.
                 logger.LogWarning(error, "An icon refresh pass failed. The next one runs as scheduled");
             }
         }
