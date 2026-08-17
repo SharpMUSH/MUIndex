@@ -155,6 +155,15 @@ public static class Messages
         ["state.unreachable"] = "unreachable",
         ["state.notCounted"] = "not counted",
 
+        // ── the listing's own absences, which are not the game page's ────────────────────────────
+        // `state.notCounted` is the glossary's word for a probe that answered without a number, and
+        // the listing was printing it for a window with no measurement in it at all — three cases
+        // wearing one word, and the one it wore names a cause. This says the absence and stops.
+        ["listing.count.none"] = "no count",
+        ["listing.plain.fromHere"] = "from here",
+        ["listing.plain.archived"] = "archived",
+        ["listing.plain.claimed"] = "claimed",
+
         // ── the words the product rests on ────────────────────────────────────────────────────
         ["term.connected"] = "connected",
         ["term.unclaimed"] = "unclaimed",

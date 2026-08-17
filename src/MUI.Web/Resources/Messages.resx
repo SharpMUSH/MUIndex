@@ -316,6 +316,22 @@
     <value>not counted</value>
     <comment>the four kinds of absence</comment>
   </data>
+  <data name="listing.count.none" xml:space="preserve">
+    <value>no count</value>
+    <comment>the listing's own absences, which are not the game page's</comment>
+  </data>
+  <data name="listing.plain.fromHere" xml:space="preserve">
+    <value>from here</value>
+    <comment>the listing's own absences, which are not the game page's</comment>
+  </data>
+  <data name="listing.plain.archived" xml:space="preserve">
+    <value>archived</value>
+    <comment>the listing's own absences, which are not the game page's</comment>
+  </data>
+  <data name="listing.plain.claimed" xml:space="preserve">
+    <value>claimed</value>
+    <comment>the listing's own absences, which are not the game page's</comment>
+  </data>
   <data name="term.connected" xml:space="preserve">
     <value>connected</value>
     <comment>the words the product rests on</comment>

@@ -507,8 +507,17 @@ else
     /// What goes in the count column, which is whichever measurement the switch is showing.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Never a zero standing in for an unknown. A game we reached and could not count says so in
     /// words — the one string on this row that is not a number, so it cannot be misread as one.
+    /// </para>
+    /// <para>
+    /// And never <c>state.notCounted</c>, which is the glossary's word for a probe that answered
+    /// without a number. A null here is three things — that, a window we never measured in, and a
+    /// game with no rows at all — and printing the first of them as the name of all three files our
+    /// crawl schedule as a fact about somebody's game (rule 5). The word says the count is absent
+    /// and stops, which is what rule 2's third state is: not measured, naming no cause.
+    /// </para>
     /// </remarks>
     private string CountText(GameSummary game)
     {
@@ -517,12 +526,12 @@ else
             return game.PlayersOverWindow is { } window
                 ? (SortWindows.IsMedian(Filter.Sort) ? window.Median : window.Peak)
                     .ToString(CultureInfo.InvariantCulture)
-                : Messages.For(Tag, "state.notCounted");
+                : Messages.For(Tag, "listing.count.none");
         }
 
         return game.PlayersNow is { } now
             ? now.ToString(CultureInfo.InvariantCulture)
-            : Messages.For(Tag, "state.notCounted");
+            : Messages.For(Tag, "listing.count.none");
     }
 
     /// <summary>

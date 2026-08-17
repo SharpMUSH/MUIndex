@@ -400,15 +400,16 @@ public static class PlainText
             if (!broken && GameSorting.IsUnranked(g, filter.Sort))
             {
                 broken = true;
-                b.AppendLine($"-- from here: {FacetWords.Unranked(tag, filter.Sort)}");
+                b.AppendLine(
+                    $"-- {Say(tag, "listing.plain.fromHere")}: {FacetWords.Unranked(tag, filter.Sort)}");
                 b.AppendLine();
             }
 
             // Archived and claimed are the two worth a mark; unclaimed is most of the catalogue and
             // is not one, here for the same reason it is not on the rendered row. This surface and
             // that one say the same things about a game or they are not two views of one listing.
-            var mark = g.State is LifecycleState.Archived ? "  [archived]"
-                : g.IsClaimed ? "  [claimed]"
+            var mark = g.State is LifecycleState.Archived ? $"  [{Say(tag, "listing.plain.archived")}]"
+                : g.IsClaimed ? $"  [{Say(tag, "listing.plain.claimed")}]"
                 : string.Empty;
             b.AppendLine($"{g.Name}{mark}");
             b.AppendLine($"  /g/{g.Slug}");

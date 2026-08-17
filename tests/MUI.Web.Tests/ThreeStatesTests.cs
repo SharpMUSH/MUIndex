@@ -18,6 +18,56 @@ namespace MUI.Web.Tests;
 /// </remarks>
 public class ThreeStatesTests
 {
+    /// <summary>
+    /// The listing's absent count says the count is absent, and does not name a cause.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three cases were wearing one word, and the word named a cause.</b> The count column
+    /// printed <c>state.notCounted</c> — the glossary's phrase for a probe that answered without a
+    /// number — whenever the window had no measurement, which also covers a window we never probed
+    /// in and a game with no rows at all. Two of the three are our crawl schedule, and rule 5 says
+    /// our schedule is never published as a fact about somebody's game. The same conflation was
+    /// found and fixed on the game page's hero; this is the listing's half of it.
+    /// </remarks>
+    [Test]
+    public async Task TheListingSaysACountIsAbsentWithoutSayingWhy()
+    {
+        var absent = Messages.For(Locales.SourceTag, "listing.count.none");
+        var probed = Messages.For(Locales.SourceTag, "state.notCounted");
+
+        // Two different facts, so two different strings — in every language, not just this one.
+        foreach (var locale in Locales.All.Where(l => l.IsChoosable))
+        {
+            await Assert.That(Messages.For(locale.Tag, "listing.count.none"))
+                .IsNotEqualTo(Messages.For(locale.Tag, "state.notCounted"))
+                .Because($"{locale.Tag} must not print a probed-but-unreadable count for an unmeasured window");
+        }
+
+        // And it names nothing: no cause, no zero.
+        await Assert.That(absent).DoesNotContain("0");
+        await Assert.That(absent).IsNotEqualTo(probed);
+    }
+
+    /// <summary>The plain listing marks and its break line are the bundle's words, not English.</summary>
+    /// <remarks>
+    /// The rendered listing was localized and its <c>?plain=1</c> mirror was not: "-- from here:",
+    /// "[archived]" and "[claimed]" were literals, so a German reader's text alternative carried
+    /// three English words the page beside it does not. A mirror that answers in a different
+    /// language from the page is not a mirror.
+    /// </remarks>
+    [Test]
+    public async Task ThePlainListingMarksAreTranslatedLikeTheRestOfIt()
+    {
+        foreach (var id in new[]
+        {
+            "listing.plain.fromHere", "listing.plain.archived", "listing.plain.claimed",
+        })
+        {
+            await Assert.That(Messages.Ids).Contains(id);
+            await Assert.That(Messages.For(Locales.SourceTag, id)).IsNotEmpty();
+        }
+    }
+
     private static readonly DateTimeOffset Now = FixtureGameQueries.Now;
 
     /// <summary>The language these assertions are written in, named rather than assumed.</summary>
