@@ -821,12 +821,16 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             new { since = since.ToUniversalTime(), limit = FeedLimit },
             cancellationToken: cancellationToken));
 
+        // The detail is what this row adds to the heading it sits under, and nothing else. "first
+        // seen" under "newly discovered" and "answered again" under "came back" were the heading
+        // said twice — ten rows of it on the front page, ten extra announcements for a screen
+        // reader — and "we keep knocking" was a promise about the crawler repeated once per dark
+        // game, which the section heading now makes once. A cause is a measurement and stays.
         return new LivenessFeeds(
-            discovered.Select(r => new FeedEntry(r.Id, r.Slug, r.Name, r.At, "first seen")).ToList(),
+            discovered.Select(r => new FeedEntry(r.Id, r.Slug, r.Name, r.At, string.Empty)).ToList(),
             wentDark.Select(r => new FeedEntry(
-                r.Id, r.Slug, r.Name, r.At,
-                $"unreachable · {r.Cause ?? "unknown"} · we keep knocking")).ToList(),
-            cameBack.Select(r => new FeedEntry(r.Id, r.Slug, r.Name, r.At, "answered again")).ToList());
+                r.Id, r.Slug, r.Name, r.At, r.Cause ?? "unknown")).ToList(),
+            cameBack.Select(r => new FeedEntry(r.Id, r.Slug, r.Name, r.At, string.Empty)).ToList());
     }
 
     /// <summary>

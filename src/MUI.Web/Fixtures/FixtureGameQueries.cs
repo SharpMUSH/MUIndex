@@ -731,8 +731,9 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
             ],
             WentDark:
             [
-                Event("verdigris", Now.AddDays(-6),
-                    "unreachable since 24 July · connection refused · page stays, we keep knocking weekly"),
+                // The cause, and not the promise to keep probing: the section heading says that
+                // once, rather than every row saying it again.
+                Event("verdigris", Now.AddDays(-6), "connection refused"),
             ],
             CameBack:
             [

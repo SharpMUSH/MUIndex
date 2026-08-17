@@ -104,4 +104,23 @@ public class FindAGameTests
             await Assert.That(words.Contains(forbidden, StringComparison.OrdinalIgnoreCase)).IsFalse();
         }
     }
+
+    [Test]
+    public async Task TheWizardHasAPlainTextMirrorLikeEveryOtherPage()
+    {
+        // ?plain=1 was on four pages of six, and missing from this one and the listing — the two
+        // heaviest, where it matters most. A guarantee with two exceptions is not one.
+        //
+        // This page is the one whose mirror is not "the graphical page with the graphics removed",
+        // because a form has nothing to remove: it is the same questions with the parameter each
+        // answer writes, so a reader in a text browser can compose the listing URL directly.
+        var page = await Render.PageAsync<FindAGame>([]);
+        var listing = await new MUI.Web.Fixtures.FixtureGameQueries().SearchAsync(new GameFilter());
+        var plain = MUI.Web.Components.PlainText.RenderFind(listing);
+
+        await Assert.That(page).Contains("href=\"?plain=1\"");
+        await Assert.That(plain).Contains("FIND A GAME");
+        await Assert.That(plain).Contains("band=");
+        await Assert.That(plain).Contains("/games?plain=1");
+    }
 }

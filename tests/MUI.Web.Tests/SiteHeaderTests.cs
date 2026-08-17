@@ -64,11 +64,53 @@ public class SiteHeaderTests
         await Assert.That(await HeaderAsync(signedIn: true)).IsNotNull();
     }
 
-    private static Task<string> HeaderAsync(bool signedIn) =>
+    [Test]
+    public async Task TheCatalogueLinksAreTwoLabelledGroupsAndTheActionsAreNotInThem()
+    {
+        // Nine links in one flat row, in no order anybody could name. They are two ideas — places to
+        // browse, and things to read about the hobby — and two odd ones out: submit is an action
+        // rather than a category, and about is site meta. Both moved to the far end, beside sign in.
+        var markup = await HeaderAsync(signedIn: false);
+
+        await Assert.That(markup).Contains("aria-label=\"Browse\"");
+        await Assert.That(markup).Contains("aria-label=\"Learn\"");
+
+        var catalogues = markup[markup.IndexOf("site-nav", StringComparison.Ordinal)..
+            markup.IndexOf("nav class=\"account", StringComparison.Ordinal)];
+
+        await Assert.That(catalogues).Contains("/games");
+        await Assert.That(catalogues).Contains("/rankings");
+        await Assert.That(catalogues).DoesNotContain("/submit");
+        await Assert.That(catalogues).DoesNotContain("/about");
+    }
+
+    [Test]
+    public async Task TheCurrentPageIsMarkedAndTheMarkerIsDrawnInsideTheItem()
+    {
+        // aria-current is the fact. The drawing of it is an inset box-shadow in the stylesheet, not
+        // a border or a padding change: either of those adds a pixel to the current item's box and
+        // shifts every link beside it on arrival, which is the reported defect.
+        var markup = await HeaderAsync(signedIn: false, path: "/reference/protocols/mssp");
+
+        await Assert.That(markup).Contains("href=\"/reference\" class=\"on\" aria-current=\"page\"");
+        await Assert.That(markup.Split("aria-current").Length - 1).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task TheHomePageDoesNotMarkEverySectionAsCurrent()
+    {
+        // "/" is a prefix of every path on the site, so a section match that reached it would mark
+        // the whole bar on the one page that has no item in it.
+        var markup = await HeaderAsync(signedIn: false, path: "/");
+
+        await Assert.That(markup).DoesNotContain("aria-current");
+    }
+
+    private static Task<string> HeaderAsync(bool signedIn, string path = "/games") =>
         Render.ComponentAsync<MainLayout>(new Dictionary<string, object?>(), services =>
         {
             services.AddSingleton(new CatalogueSource(IsMeasured: true));
-            services.AddCascadingValue(_ => Context(signedIn));
+            services.AddCascadingValue(_ => Context(signedIn, path));
         });
 
     /// <summary>
@@ -80,9 +122,13 @@ public class SiteHeaderTests
     /// has no way to produce a real session without an authenticator. The guard under test is the
     /// layout's own read of <c>Identity.IsAuthenticated</c>, and that runs either way.
     /// </remarks>
-    private static HttpContext Context(bool signedIn)
+    private static HttpContext Context(bool signedIn, string path = "/games")
     {
         var context = new DefaultHttpContext();
+
+        // The header asks it one other thing now: which page this is, so the item for it can be
+        // marked. A path and nothing else — no route data, no endpoint.
+        context.Request.Path = path;
 
         if (signedIn)
         {

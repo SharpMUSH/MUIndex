@@ -29,7 +29,7 @@ public class CrawlerStripTests
         var pulse = Pulse(TimeSpan.FromSeconds(40));
 
         await Assert.That(pulse.State(Now)).IsEqualTo(CrawlState.Working);
-        await Assert.That(CrawlerCopy.State(pulse, Now)).IsEqualTo("crawler working — last probe just now");
+        await Assert.That(CrawlerCopy.State(pulse, Now)).IsEqualTo("crawler live · last probe just now");
     }
 
     /// <summary>
@@ -49,7 +49,7 @@ public class CrawlerStripTests
         var copy = CrawlerCopy.State(pulse, Now);
 
         await Assert.That(pulse.State(Now)).IsEqualTo(CrawlState.Quiet);
-        await Assert.That(copy).IsEqualTo("crawler quiet — last probe 4h ago");
+        await Assert.That(copy).IsEqualTo("crawler quiet · last probe 4h ago");
 
         foreach (var diagnosis in new[] { "stopped", "down", "crashed", "stalled", "failed", "error", "offline" })
         {
@@ -88,7 +88,7 @@ public class CrawlerStripTests
         await Assert.That(CrawlerCopy.LastCycle(CrawlerPulse.Unknown)).IsNull();
 
         var html = await Render.PageAsync<Components.Pages.Home>([]);
-        await Assert.That(html).DoesNotContain("crawler working");
+        await Assert.That(html).DoesNotContain("crawler live");
         await Assert.That(html).DoesNotContain("crawler quiet");
     }
 
@@ -104,10 +104,10 @@ public class CrawlerStripTests
     public async Task ACycleWithNothingDueSaysSoRatherThanPrintingZeroes()
     {
         await Assert.That(CrawlerCopy.LastCycle(Pulse(TimeSpan.Zero, Cycle(0, 0, 0))))
-            .IsEqualTo("last cycle: nothing was due");
+            .IsEqualTo("nothing due this cycle");
 
         await Assert.That(CrawlerCopy.LastCycle(Pulse(TimeSpan.Zero, Cycle(8, 6, 2))))
-            .IsEqualTo("last cycle: 8 due · 6 answered · 2 failed");
+            .IsEqualTo("8 due · 6 answered · 2 failed");
     }
 
     /// <summary>

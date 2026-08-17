@@ -19,18 +19,30 @@
     </p>
 }
 
+@*
+    Nine links in one flat row, in no order anybody could name, and no mark on the one you were
+    reading. They are two ideas and two odd ones out: games · archive · find · random are places to
+    browse, reference · ecosystem · rankings are things to read about the hobby — and submit is an
+    action rather than a category, about is site meta. The first two are labelled groups, the last
+    two moved to the far end beside sign in, where a reader looks for what to *do*.
+*@
 <header class="site">
     <a class="mark mono" href="/">mu<span class="star">*</span>index</a>
-    <nav aria-label="Catalogues">
-        <a href="/games">games</a>
-        <a href="/archive">archive</a>
-        <a href="/find">find a game</a>
-        <a href="/games/random">random</a>
-        <a href="/reference">reference</a>
-        <a href="/ecosystem">ecosystem</a>
-        <a href="/rankings">rankings</a>
-        <a href="/submit">submit</a>
-        <a href="/about">about</a>
+    <nav class="site-nav" aria-label="Catalogues">
+        <span class="nav-group" role="group" aria-label="Browse">
+            <span class="nav-label" aria-hidden="true">browse</span>
+            @Item("/games", "games")
+            @Item("/find", "find a game")
+            @Item("/games/random", "random")
+            @Item("/archive", "archive")
+        </span>
+        <span class="nav-rule" aria-hidden="true"></span>
+        <span class="nav-group" role="group" aria-label="Learn">
+            <span class="nav-label" aria-hidden="true">learn</span>
+            @Item("/reference", "reference")
+            @Item("/ecosystem", "ecosystem")
+            @Item("/rankings", "rankings")
+        </span>
     </nav>
     @*
         The account, in a slot of its own rather than as a tenth entry above — that list names places
@@ -41,20 +53,56 @@
         connect-screen decision, the opt-out. All of them rendered, tested and reachable only by
         somebody who remembered to type /account.
     *@
-    <nav class="account" aria-label="Your account">
+    <nav class="account" aria-label="This site and your account">
+        @Item("/about", "about")
+        <a class="action" href="/submit">submit</a>
         @if (HttpContext?.User is { Identity.IsAuthenticated: true })
         {
-            <a href="/account">your games</a>
+            <a class="action primary" href="/account">your games</a>
         }
         else
         {
-            <a href="/account/sign-in">sign in</a>
+            <a class="action primary" href="/account/sign-in">sign in</a>
         }
     </nav>
 </header>
 <main id="content">@Body</main>
 
 @code {
+    /// <summary>
+    /// One nav item, marked when it is the page being read.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>aria-current="page"</c> is the fact; the underline is the drawing of it. The marker is an
+    /// inset box-shadow rather than a border or a padding change, because either of those adds a
+    /// pixel to the item's box and shifts every link beside it the moment it becomes current — a
+    /// bar that moves when you arrive is a bar you cannot aim at.
+    /// </para>
+    /// <para>
+    /// A section matches its own root and everything under it, so a reference article marks
+    /// "reference" — but "/" matches only itself, or every item on the site would be current on the
+    /// home page.
+    /// </para>
+    /// </remarks>
+    private RenderFragment Item(string href, string text) =>
+        @<a href="@href" class="@(IsCurrent(href) ? "on" : null)"
+            aria-current="@(IsCurrent(href) ? "page" : null)">@text</a>;
+
+    private bool IsCurrent(string href)
+    {
+        var path = HttpContext?.Request.Path.Value?.TrimEnd('/');
+
+        if (string.IsNullOrEmpty(path))
+        {
+            path = "/";
+        }
+
+        return href == "/"
+            ? path == "/"
+            : path == href || path.StartsWith(href + "/", StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// The request, for the one question this layout asks it: is anybody signed in.
     /// </summary>

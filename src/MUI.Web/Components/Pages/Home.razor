@@ -20,10 +20,15 @@ else
     <SitePreview Description="@PreviewCopy.Site" />
 
     <section class="hero">
-        @* The wordmark in the header is the same three words, so a visible h1 here would print the
-           site's name twice down the left edge. The search box is the hero; the heading names the
-           document for anything that cannot see one. /find owns "Find a game". *@
-        <h1 class="sr-only">mu*index</h1>
+        @*
+            The heading says what the site is rather than what it is called. An h1 reading
+            "mu*index" printed the wordmark twice down the left edge and told a first-time reader
+            nothing, so it was hidden — but a hidden h1 is a page whose first visible words are a
+            search placeholder. This is the sentence the meta description already carried, and it is
+            the one thing a stranger needs before they read a count.
+        *@
+        <h1>A directory of the MU* hobby</h1>
+        <p class="lede">Every fact was measured by a crawler that connected to the game.</p>
 
         <form class="search" method="get" action="/games" role="search">
             <label for="q" class="sr-only">Search games by name, theme, codebase or host</label>
@@ -59,7 +64,9 @@ else
         </section>
 
         <section aria-labelledby="feed-dark">
-            <h2 id="feed-dark" class="kicker">went dark</h2>
+            @* "Still probed" belongs here, once, rather than under every row as "we keep knocking".
+               Nothing is ever deleted (§7.5) and this is where that promise is made. *@
+            <h2 id="feed-dark" class="kicker">went dark — still probed</h2>
             @if (Feeds.WentDark.Count == 0)
             {
                 <p class="faint">Nothing went dark.</p>

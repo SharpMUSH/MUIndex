@@ -26,7 +26,12 @@
             <span class="mono state-present">● live</span>
         }
     </div>
-    <p class="@(Kind is FeedKind.CameBack ? "return-line" : "mono detail")">@Entry.Detail</p>
+    @* Only where there is something to add. A row whose detail restated its own column heading was
+       one line of repetition per game, and the feeds are ten games deep. *@
+    @if (Entry.Detail is { Length: > 0 })
+    {
+        <p class="@(Kind is FeedKind.CameBack ? "return-line" : "mono detail")">@Entry.Detail</p>
+    }
 </article>
 
 @code {

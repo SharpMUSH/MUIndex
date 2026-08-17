@@ -37,10 +37,10 @@ public static class CrawlerCopy
         var age = Relative.Ago(now - last);
 
         return pulse.State(now) is CrawlState.Working
-            ? $"crawler working — last probe {age}"
+            ? $"crawler live · last probe {age}"
             // "Quiet", not "stopped": see the class remarks. The age is the measurement; the reader
             // draws their own conclusion, which is more than we can honestly draw for them.
-            : $"crawler quiet — last probe {age}";
+            : $"crawler quiet · last probe {age}";
     }
 
     /// <summary>
@@ -62,9 +62,11 @@ public static class CrawlerCopy
 
         // An empty cycle is a real answer and gets its own words, because "0 due · 0 answered" reads
         // like a failure and means the opposite: everything in the registry is up to date.
+        // The strip already reads "crawler live · last probe 4m ago", so "last cycle:" was a label
+        // for a clause that follows one anyway. What the cycle did, in the strip's own voice.
         return cycle.Considered == 0
-            ? "last cycle: nothing was due"
-            : $"last cycle: {cycle.Considered} due · {cycle.Answered} answered · {cycle.Failed} failed";
+            ? "nothing due this cycle"
+            : $"{cycle.Considered} due · {cycle.Answered} answered · {cycle.Failed} failed";
     }
 
     /// <summary>The backlog, for the plain rendering, which has room for it.</summary>

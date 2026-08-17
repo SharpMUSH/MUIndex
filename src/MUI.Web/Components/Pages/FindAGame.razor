@@ -1,6 +1,7 @@
 @page "/find"
 @using MUI.Catalog
 @using MUI.Web.Api
+@using MUI.Web.Reference
 @inject IGameQueries Queries
 
 @*
@@ -24,11 +25,17 @@
 
 <PageTitle>Find a game — mu*index</PageTitle>
 
+@if (Plain)
+{
+    <pre class="mono plain">@PlainText.RenderFind(Listing)</pre>
+}
+else
+{
+
 <h1>Find a game</h1>
 
 <p class="dim">
-    Six questions, none of them required. Every answer narrows the listing — and every number beside
-    an answer is how many games we have measured that way, not an estimate.
+    Six optional questions. Every number is a count of games we measured, not an estimate.
     <a href="/games">Skip to the whole listing</a> if you would rather browse.
 </p>
 
@@ -78,13 +85,27 @@ else
             *@
             <label>
                 <input type="checkbox" name="@FacetKeys.Tls" value="true" />
-                an encrypted connection, which we completed ourselves
+                TLS — handshake completed by us
             </label>
+            @*
+                Five acronyms with nothing beside them is a question only somebody who already knows
+                the answer can answer. Three words each, and the name links to the page that has the
+                rest — this site has a reference article on every one of them, and the page that asks
+                a reader to choose between them was the one place not pointing at it.
+            *@
             @foreach (var protocol in Protocols)
             {
                 <label>
                     <input type="checkbox" name="@FacetKeys.Protocol" value="@protocol.Token" />
-                    @protocol.Token.ToUpperInvariant()
+                    @if (Article(protocol.Token) is { } article)
+                    {
+                        <a href="/reference/protocols/@article">@protocol.Token.ToUpperInvariant()</a>
+                    }
+                    else
+                    {
+                        @protocol.Token.ToUpperInvariant()
+                    }
+                    <span class="dim">— @Gloss(protocol.Token)</span>
                     <span class="faint">@protocol.Count games</span>
                 </label>
             }
@@ -104,13 +125,25 @@ else
         <button type="submit">Show me the games</button>
     </form>
 
-    <p class="faint">
-        This does not choose for you. Every answer above filters on something we measured, and what
-        comes back is the listing in the listing's own order.
-    </p>
+    @*
+        Said once. The page made this point three times — in the lede, in this line, and again in
+        the counts' own note — and it is the kind of reassurance that stops reassuring the third
+        time it is offered.
+    *@
+    <p class="faint">Answers filter; they never rank.</p>
+}
+
+@* The text mirror, in the footer position every other page puts it in. It was on four pages of six
+   and missing from this one and the listing — the two heaviest, where it matters most. *@
+<p class="faint"><a href="?plain=1">plain text</a></p>
+
 }
 
 @code {
+    [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
+
+    private bool Plain => Truthy.Is(PlainFlag);
+
     private GameListing? Listing { get; set; }
 
     /// <summary>
@@ -129,7 +162,45 @@ else
     {
         ActivityBand.PlayersNow => "somebody is on now",
         ActivityBand.ActiveThisWeek => "somebody was on this week",
-        _ => "quiet is fine — we can reach it, and could not count",
+
+        // The listing's own words for this band, because a reader who ticks it here and lands there
+        // should meet the same sentence rather than have to work out that they match.
+        _ => "reachable, count unknown",
+    };
+
+    /// <summary>
+    /// The slug of the reference article for a protocol, or null where there is none.
+    /// </summary>
+    /// <remarks>
+    /// Asked of the library rather than assumed from the name: the crawler measures protocols the
+    /// reference has never had an article on, and a link that 404s is worse than an acronym with a
+    /// gloss beside it.
+    /// </remarks>
+    private static string? Article(string token) =>
+        ReferenceLibrary.Shipped.Find(ReferenceKind.Protocol, token.ToLowerInvariant())?.Slug;
+
+    /// <summary>
+    /// What a protocol is for, in three words.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not the reference article's summary: those are a sentence each and this is a
+    /// checkbox label. The name beside it links to the article, which is where the rest lives — and
+    /// an acronym nothing here expands is a question only somebody who already knows the answer can
+    /// answer.
+    /// </remarks>
+    private static string Gloss(string token) => token.ToUpperInvariant() switch
+    {
+        "MSSP" => "server self-description",
+        "MCCP" => "compressed output",
+        "MXP" => "clickable links",
+        "GMCP" => "structured client data",
+        "MSDP" => "structured client data",
+        "CHARSET" => "encoding negotiation",
+        "TTYPE" => "client tells its type",
+        "ATCP" => "structured client data",
+        "MSP" => "sound triggers",
+        "EOR" => "prompt marking",
+        _ => "measured in the handshake",
     };
 
     /// <summary>The measured-protocol facet, which is a checkbox set rather than a choice.</summary>

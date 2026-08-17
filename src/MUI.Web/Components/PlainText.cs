@@ -815,6 +815,61 @@ public static class PlainText
         return b.ToString();
     }
 
+    /// <summary>
+    /// The find-a-game questions, as text — with the query each answer writes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the one page whose plain rendering is not simply the graphical one with the graphics
+    /// removed, because the page is a form and a form has nothing to remove. What it is instead is
+    /// the same six questions with the address each answer produces, so a reader in a text browser
+    /// — or on a phone with a keyboard and no patience for six selects — can compose the listing URL
+    /// directly. The values come from the live facets exactly as the form's options do, so this
+    /// cannot offer a filter the listing would refuse.
+    /// </para>
+    /// <para>
+    /// It exists because <c>?plain=1</c> was on four pages of six, and missing from the two heaviest.
+    /// A guarantee with two exceptions is not one.
+    /// </para>
+    /// </remarks>
+    public static string RenderFind(GameListing? listing)
+    {
+        var b = new StringBuilder();
+
+        b.AppendLine("FIND A GAME");
+        b.AppendLine();
+        Wrap(b, "Six optional questions. Every number is a count of games we measured, not an "
+            + "estimate. Answers filter; they never rank.");
+
+        if (listing is null)
+        {
+            Heading(b, "NOT ANSWERING");
+            Wrap(b, "The catalogue is not answering, so there is nothing to choose between.");
+            return b.ToString();
+        }
+
+        b.AppendLine();
+        Wrap(b, "Each answer below is one parameter on /games. Join them with & — "
+            + "/games?band=playersNow&genre=fantasy is a question this listing can answer.");
+
+        foreach (var group in listing.Facets)
+        {
+            Heading(b, FacetWords.Group(group.Key).ToUpperInvariant()
+                + $"  ({group.Key}=)");
+
+            foreach (var value in group.Values)
+            {
+                b.AppendLine($"  {group.Key}={value.Token,-24} "
+                    + $"{FacetWords.Value(group.Key, value)} ({value.Count})");
+            }
+        }
+
+        Heading(b, "THE WHOLE LISTING");
+        b.AppendLine("  /games?plain=1");
+
+        return b.ToString();
+    }
+
     /// <summary>The rankings, with every basis in the same words the rendered page uses.</summary>
     public static string RenderRankings(Rankings rankings, DateTimeOffset now)
     {
