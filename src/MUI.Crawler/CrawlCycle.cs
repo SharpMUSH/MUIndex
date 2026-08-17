@@ -201,7 +201,8 @@ public sealed class CrawlCycle(
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(options.ProbeTimeout);
 
-        var result = await probe.ProbeAsync(new ProbeTarget(target.Host, target.Port), budget.Token);
+        var result = await probe.ProbeAsync(
+            new ProbeTarget(target.Host, target.Port) { Charset = target.Charset }, budget.Token);
 
         // Nothing measured while this host was being taken down is a fact about the far end, and the
         // writes below are fast enough against a Postgres on the same network to land before Npgsql

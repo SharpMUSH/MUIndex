@@ -17,6 +17,14 @@
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.2" />
 
     <!--
+      The legacy code pages, for CHARSET overrides. .NET ships UTF-*, ASCII and Latin-1 and nothing
+      else: GBK, Big5, EUC-KR, Shift-JIS and the Windows code pages all raise ArgumentException from
+      Encoding.GetEncoding until CodePagesEncodingProvider is registered. Measured on .NET 10 — the
+      NU1510 this raises says the reference is likely unnecessary, and it is wrong.
+    -->
+    <PackageVersion Include="System.Text.Encoding.CodePages" Version="10.0.2" />
+
+    <!--
       Hosting and DI *abstractions* only. The crawler is an in-process BackgroundService in the web
       deployable (spec §4.11, §12), so it needs BackgroundService and IServiceCollection and nothing
       that decides how a host is built; MUI.Import exposes AddMuiImporters for the same reason, so a

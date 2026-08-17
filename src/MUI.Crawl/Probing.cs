@@ -3,6 +3,18 @@ namespace MUI.Crawl;
 /// <summary>What the crawler was asked to dial.</summary>
 public sealed record ProbeTarget(string Host, int Port)
 {
+    /// <summary>
+    /// The encoding an operator has said this game's bytes are in, overriding what it declares.
+    /// </summary>
+    /// <remarks>
+    /// Null on every target that has not needed one, which is nearly all of them. It rides on the
+    /// target rather than on <see cref="ProbeOptions"/> because it is a fact about one game and the
+    /// options are one instance shared by the whole crawl; and it is a name rather than an
+    /// <c>Encoding</c> so that this seam stays a value a fixture can carry. See
+    /// <see cref="WireEncoding"/> for why the crawler cannot work this out for itself.
+    /// </remarks>
+    public string? Charset { get; init; }
+
     public override string ToString() => Host.Contains(':') ? $"[{Host}]:{Port}" : $"{Host}:{Port}";
 }
 

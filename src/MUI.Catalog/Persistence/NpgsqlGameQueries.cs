@@ -524,7 +524,35 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             Activity: activity,
             Declared: DeclaredOf(fields, now),
             Changes: changes.Select(Describe).ToList(),
-            Neighbours: neighbours);
+            Neighbours: neighbours,
+            ConnectScreenCharset: ScreenCharset(fields));
+    }
+
+    /// <summary>
+    /// The encoding the connect screen was read with, or null when nothing needed saying.
+    /// </summary>
+    /// <remarks>
+    /// <b>Read from <c>charset.read</c> and from nothing else — never from the <c>CHARSET</c>
+    /// override an operator typed.</b> Those are two different facts and only one of them is about
+    /// this screen: the override is what somebody asked for, and <c>charset.read</c> is what the
+    /// probe applied. They come apart whenever the override names an encoding this runtime does not
+    /// have, which <c>WireEncoding.Override</c> ignores — reading the raw staff row would then
+    /// caption a Latin-1 screen "read as not-an-encoding", a sentence about the screen that is not
+    /// true of it. A row exists here only where the encoding was determined, so an unusable override
+    /// correctly produces no caption at all rather than a confident wrong one.
+    ///
+    /// UTF-8 is suppressed because it is the ordinary case and worth no caption: there is nothing
+    /// surprising to tell a reader, and a line of provenance on every screen in the catalogue would
+    /// bury the thirteen where it matters.
+    /// </remarks>
+    private static string? ScreenCharset(IReadOnlyList<GameField> fields)
+    {
+        var charset = Winner(fields, InternalFields.CharsetRead)?.Value;
+
+        return string.IsNullOrWhiteSpace(charset)
+            || string.Equals(charset, "utf-8", StringComparison.OrdinalIgnoreCase)
+                ? null
+                : charset;
     }
 
     public async Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default)

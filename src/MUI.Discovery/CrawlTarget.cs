@@ -44,6 +44,18 @@ public sealed record CrawlTarget
 
     public required DateTimeOffset FirstSeenAt { get; init; }
 
+    /// <summary>
+    /// The encoding an operator has said this game's bytes are in — its <c>CHARSET</c> field at
+    /// source <c>staff</c> — or null, which is nearly every target.
+    /// </summary>
+    /// <remarks>
+    /// It travels with the target because the probe has no database and the encoding must be known
+    /// before a single byte is decoded. Read-only here: this is the one property on a target that
+    /// belongs to the game rather than to the address, so it is loaded with the row and never
+    /// written back through it.
+    /// </remarks>
+    public string? Charset { get; init; }
+
     public DateTimeOffset? LastProbedAt { get; init; }
 
     public Guid? DiscoveredFromGameId { get; init; }

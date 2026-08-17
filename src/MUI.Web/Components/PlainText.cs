@@ -251,7 +251,12 @@ public static class PlainText
                 return;
         }
 
-        b.AppendLine($"  [connect screen: {screen.RowCount} lines, text only]");
+        // The same caption the figure carries, for the same reason: on a game whose bytes were not
+        // UTF-8 this is how a reader learns which encoding they are looking at rather than blaming
+        // their terminal. The two surfaces must not disagree about the screen.
+        var charset = page.ConnectScreenCharset is { Length: > 0 } read ? $", read as {read}" : string.Empty;
+
+        b.AppendLine($"  [connect screen: {screen.RowCount} lines, text only{charset}]");
         if (screen.IsOversized)
         {
             b.AppendLine($"  Unusually long; the graphical page shows the first {Ansi.CropRows}.");

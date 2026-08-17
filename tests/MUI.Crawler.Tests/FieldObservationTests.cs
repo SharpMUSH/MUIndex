@@ -31,6 +31,55 @@ public class FieldObservationTests
             .IsNull();
     }
 
+    /// <summary>
+    /// An encoding nobody determined is not stored, in any form and under any source.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A screen that is not UTF-8 and that nobody has explained is read with Latin-1 to keep its
+    /// bytes whole. <b>That is a way of holding the bytes, not a reading of them</b>, and writing
+    /// <c>iso-8859-1</c> down for it would produce a value where the honest answer is unknown
+    /// (rule 4) and sign it with a source that says we measured it about the game (rule 5). The
+    /// screen still renders; it simply carries no claim about its encoding, which is what we know.
+    /// </para>
+    /// <para>
+    /// The two determined cases carry the source of their determination, which is genuinely
+    /// different in each: a strict decoder proved the bytes, or a person asserted them.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AnUndeterminedEncodingIsNotRecordedAsOne()
+    {
+        var undetermined = FieldObservations.From(Probes.Answered(banner: "…") with
+        {
+            ReadAs = "iso-8859-1",
+            CharsetSource = WireCharset.Undetermined,
+        });
+
+        await Assert.That(undetermined.Any(o => o.Field == FieldObservations.CharsetReadField))
+            .IsFalse();
+
+        var proven = FieldObservations.From(Probes.Answered(banner: "…") with
+        {
+            ReadAs = "utf-8",
+            CharsetSource = WireCharset.Proven,
+        });
+
+        await Assert.That(Value(proven, FieldObservations.CharsetReadField, FieldSource.Handshake))
+            .IsEqualTo("utf-8");
+
+        var overridden = FieldObservations.From(Probes.Answered(banner: "…") with
+        {
+            ReadAs = "gb2312",
+            CharsetSource = WireCharset.Overridden,
+        });
+
+        await Assert.That(Value(overridden, FieldObservations.CharsetReadField, FieldSource.Staff))
+            .IsEqualTo("gb2312");
+        await Assert.That(Value(overridden, FieldObservations.CharsetReadField, FieldSource.Handshake))
+            .IsNull();
+    }
+
     [Test]
     public async Task TheNegotiatedOptionAndTheDeclaredVariableLandOnOneField()
     {

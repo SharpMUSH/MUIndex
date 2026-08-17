@@ -683,6 +683,70 @@ public class GameQueriesPostgresTests
         await Assert.That(page.Changes[0].At).IsEqualTo(Now.AddDays(-16));
     }
 
+    /// <summary>
+    /// The screen's caption says what the probe applied, and never what somebody asked for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Those come apart whenever an override names an encoding the runtime does not have, which
+    /// <c>WireEncoding.Override</c> ignores in favour of reading the bytes the ordinary way. Reading
+    /// the raw <c>CHARSET/staff</c> row here would then caption a Latin-1 screen "read as
+    /// not-an-encoding" — a sentence about the screen that is not true of it, and one no reader
+    /// could tell from a real measurement.
+    /// </para>
+    /// <para>
+    /// <c>charset.read</c> exists only where the encoding was determined, so the unusable override
+    /// correctly yields no caption at all rather than a confident wrong one.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AnUnusableOverrideCaptionsNothingRatherThanItself()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var fields = new NpgsqlGameFieldStore(db.DataSource);
+
+        await fields.UpsertAsync(new GameField(
+            game, "connect_screen", FieldSource.Banner, "Welcome to Corvid", Now, Now));
+        await fields.UpsertAsync(new GameField(
+            game, "CHARSET", FieldSource.Staff, "not-an-encoding", Now, Now));
+
+        await Assert.That((await QueriesOn(db).FindAsync("corvid"))!.ConnectScreenCharset).IsNull();
+
+        // The probe's own answer is what the caption comes from, and it says gb2312 because that is
+        // what the bytes were read with — not "gbk", which is what somebody typed.
+        await fields.UpsertAsync(new GameField(
+            game, "charset.read", FieldSource.Staff, "gb2312", Now, Now));
+
+        await Assert.That((await QueriesOn(db).FindAsync("corvid"))!.ConnectScreenCharset)
+            .IsEqualTo("gb2312");
+    }
+
+    /// <summary>UTF-8 is the ordinary case and earns no caption.</summary>
+    /// <remarks>
+    /// A line of provenance on all 522 screens would bury the handful where the encoding is the
+    /// interesting fact.
+    /// </remarks>
+    [Test]
+    public async Task AnOrdinaryUtf8ScreenSaysNothingAboutItsEncoding()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var fields = new NpgsqlGameFieldStore(db.DataSource);
+
+        await fields.UpsertAsync(new GameField(
+            game, "connect_screen", FieldSource.Banner, "Welcome to Corvid", Now, Now));
+        await fields.UpsertAsync(new GameField(
+            game, "charset.read", FieldSource.Handshake, "utf-8", Now, Now));
+
+        var page = await QueriesOn(db).FindAsync("corvid");
+
+        await Assert.That(page!.ConnectScreenCharset).IsNull();
+
+        // And it is machinery, so it stays out of "Declared by the game" — it is ours, not theirs.
+        await Assert.That(page.Declared.Keys).IsEmpty();
+    }
+
     [Test]
     public async Task AConnectScreenIsAFieldAndCanBeSuppressed()
     {

@@ -23,7 +23,20 @@ namespace MUI.Crawler;
 public static class FieldObservations
 {
     /// <summary>The field the negotiated character encoding is stored under.</summary>
+    /// <remarks>
+    /// This is also where an operator's override goes, at <c>staff</c>, which outranks everything —
+    /// the same shape every other hand-set value has. Nothing new was added for it.
+    /// </remarks>
     public const string CharsetField = "CHARSET";
+
+    /// <summary>The field the encoding a session's bytes were actually read with is stored under.</summary>
+    /// <remarks>
+    /// Not <see cref="CharsetField"/> under another source, because they are not two accounts of one
+    /// fact: <c>CHARSET</c> is what the session settled on and this is what the bytes proved to be,
+    /// and on <c>mud.pkuxkx.net:8080</c> both are true at once. Folding them into one field would
+    /// make the ladder pick a winner between two statements that do not contend.
+    /// </remarks>
+    public const string CharsetReadField = "charset.read";
 
     /// <summary>
     /// The field a codebase is stored under, whoever read it.
@@ -234,6 +247,40 @@ public static class FieldObservations
         {
             yield return new FieldObservation(
                 CapabilityFields.Measured(MsspCapability), FieldSource.Handshake, "false");
+        }
+
+        // What the bytes turned out to be — a different question from what the session agreed to,
+        // and answered by a strict decoder rather than by anybody's say-so.
+        //
+        // NOTHING IS WRITTEN WHEN THE ENCODING IS UNDETERMINED, and that is the point of consulting
+        // the source rather than the name. A screen that is not UTF-8 and that nobody has explained
+        // is read with Latin-1 to keep its bytes whole — a way of holding them, not a reading of
+        // them. Storing "iso-8859-1" for it would put our own fallback into the game's record as
+        // something we measured about the game, which is rule 4 producing a value where the honest
+        // answer is unknown, and rule 5 signing it with a measured source. The screen still renders;
+        // it simply carries no claim about its encoding, which is exactly what we know.
+        //
+        // The two determined cases carry the source of the determination, because they genuinely
+        // have different ones: the bytes proved UTF-8 to a decoder that cannot be talked round, and
+        // an override is a person's assertion. A staff row here outranks the handshake one, so an
+        // override that is later withdrawn must be deleted by hand — the same as every other staff
+        // override in this catalogue (see the NAME overrides), and for the same reason.
+        if (result.ReadAs is { Length: > 0 } readAs)
+        {
+            switch (result.CharsetSource)
+            {
+                case WireCharset.Proven:
+                    yield return new FieldObservation(CharsetReadField, FieldSource.Handshake, readAs);
+                    break;
+
+                case WireCharset.Overridden:
+                    yield return new FieldObservation(CharsetReadField, FieldSource.Staff, readAs);
+                    break;
+
+                case WireCharset.Undetermined:
+                default:
+                    break;
+            }
         }
 
         if (!result.Negotiation.CharsetNegotiated || result.Negotiation.Charset is not { Length: > 0 } charset)

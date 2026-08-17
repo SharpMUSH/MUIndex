@@ -203,11 +203,25 @@ public static class InternalFields
     /// </remarks>
     public const string ConnectScreenSuppressed = "connect_screen_suppressed";
 
+    /// <summary>
+    /// The encoding the connect screen's bytes were actually read with (see <c>WireEncoding</c>).
+    /// </summary>
+    /// <remarks>
+    /// <b>Internal because of where the only list of fields is printed.</b> The game page renders
+    /// <c>GamePage.Declared</c> under the heading "Declared by the game", and this is the opposite
+    /// of declared — it is what a strict decoder proved about bytes, arrived at by us, sometimes in
+    /// contradiction of what the game said. A row of ours under that heading is our own reasoning
+    /// published as the game's claim, which is rule 5. It has a surface, and it is the caption on
+    /// the screen it describes.
+    /// </remarks>
+    public const string CharsetRead = "charset.read";
+
     private static readonly HashSet<string> Names = new(StringComparer.Ordinal)
     {
         BannerHash,
         ConnectScreen,
         ConnectScreenSuppressed,
+        CharsetRead,
     };
 
     /// <summary>

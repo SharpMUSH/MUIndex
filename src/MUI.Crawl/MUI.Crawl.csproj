@@ -8,6 +8,8 @@
   <ItemGroup>
     <PackageReference Include="TelnetNegotiationCore" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- NU1510 claims this is redundant; without it Encoding.GetEncoding("gbk") throws. See WireEncoding. -->
+    <PackageReference Include="System.Text.Encoding.CodePages" NoWarn="NU1510" />
   </ItemGroup>
 
   <!--

@@ -65,7 +65,10 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(_options.Timeout);
 
-        var lines = new List<string>();
+        // Bytes, not text, and the whole reason is WireEncoding: which encoding these are in cannot
+        // be known from one line, and reading them wrongly is not recoverable. They are decoded once
+        // at the end of the session, when there is a whole screen to test.
+        var lines = new List<byte[]>();
         var seen = new Observations();
 
         using var client = new TcpClient();
@@ -187,14 +190,19 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                     target.Host, target.Port, error.Message);
             }
 
-            string banner, whoText, infoText, versionText;
+            // One decision, over the whole session, taken here because here is the first moment
+            // there is a whole session to decide from.
+            WireReading reading;
             lock (lines)
             {
-                banner = string.Join("\n", lines.Take(bannerLines));
-                whoText = string.Join("\n", lines.Skip(flushLines).Take(whoLines - flushLines));
-                infoText = string.Join("\n", lines.Skip(whoLines).Take(infoLines - whoLines));
-                versionText = string.Join("\n", lines.Skip(infoLines).Take(versionLines - infoLines));
+                reading = WireEncoding.Read(lines, target.Charset);
             }
+
+            var read = reading.Lines;
+            var banner = string.Join("\n", read.Take(bannerLines));
+            var whoText = string.Join("\n", read.Skip(flushLines).Take(whoLines - flushLines));
+            var infoText = string.Join("\n", read.Skip(whoLines).Take(infoLines - whoLines));
+            var versionText = string.Join("\n", read.Skip(infoLines).Take(versionLines - infoLines));
 
             if (telnet.CurrentEncoding is not null)
             {
@@ -211,6 +219,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Outcome = ProbeOutcome.Answered,
                 OfferedOptions = seen.Supported,
                 Negotiation = seen.ToNegotiation(),
+                ReadAs = reading.Charset,
+                CharsetSource = reading.Source,
                 Banner = banner,
 
                 // Every phase, not just the banner: a server may answer the connect screen in plain
@@ -313,7 +323,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// that <c>Answered</c> would fabricate a measurement out of a TCP handshake. Either a connect
     /// screen arrived or the far end spoke telnet back; with neither, the probe failed.
     /// </remarks>
-    private static bool Measured(List<string> lines, int bannerLines, Observations seen)
+    private static bool Measured(List<byte[]> lines, int bannerLines, Observations seen)
     {
         if (seen.Supported.Count > 0)
         {
@@ -327,11 +337,18 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     }
 
     /// <summary>The connect screen as it stands part-way through the phase that is collecting it.</summary>
-    private static string BannerSoFar(List<string> lines, int count)
+    /// <remarks>
+    /// Read with the Latin-1 fallback rather than the session's eventual encoding, because the
+    /// session does not have one yet and this is not the text anybody will see. Its only reader is
+    /// <see cref="LooksUnfinished"/>, which measures a length and looks at one ASCII punctuation
+    /// mark — questions whose answers no 8-bit byte changes. The decision proper is taken once, at
+    /// the end, in <see cref="WireEncoding.Read"/>.
+    /// </remarks>
+    private static string BannerSoFar(List<byte[]> lines, int count)
     {
         lock (lines)
         {
-            return string.Join("\n", lines.Take(count));
+            return string.Join("\n", lines.Take(count).Select(WireEncoding.Fallback.GetString));
         }
     }
 
@@ -459,7 +476,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// something, and neither route can silently become the only one.
     /// </para>
     /// </remarks>
-    private TelnetInterpreterBuilder Build(Observations seen, List<string> lines)
+    private TelnetInterpreterBuilder Build(Observations seen, List<byte[]> lines)
     {
         void Note(string protocol) => seen.Note(protocol);
 
@@ -541,13 +558,18 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             .UseMode(TelnetInterpreter.TelnetMode.Client)
             .UseLogger(_logger)
             .WithClientIdentity(_options.TerminalTypes.Count > 0 ? _options.TerminalTypes[0] : "MUINDEX-CRAWLER")
-            .OnSubmit((bytes, encoding, _) =>
+            .OnSubmit((bytes, _, _) =>
             {
-                // Cleaned here, at the one place text enters the crawler from the wire. See WireText.
-                var text = WireText.Clean((encoding ?? Encoding.UTF8).GetString(bytes));
+                // The encoding this callback offers is deliberately ignored. It is whatever CHARSET
+                // settled on, which is a declaration about the session and not a measurement of
+                // these bytes — pkuxkx negotiates UTF-8 and sends GBK — and decoding on it here used
+                // the *replacing* fallback, so a byte it could not read became U+FFFD before anybody
+                // downstream could object. The bytes are kept whole and read once, at the end of the
+                // session, by WireEncoding. The declaration is still recorded; it is just recorded
+                // as a declaration.
                 lock (lines)
                 {
-                    lines.Add(text);
+                    lines.Add(bytes);
                 }
 
                 return ValueTask.CompletedTask;
