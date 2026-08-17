@@ -508,8 +508,8 @@ public static class PlainText
         b.AppendLine("MU*INDEX");
         b.AppendLine();
         b.AppendLine($"{counts.Known} games known");
-        b.AppendLine($"{counts.WithPlayersOn} with players on now (measured)");
-        b.AppendLine($"{counts.CountUnknown} answering, count unknown");
+        b.AppendLine($"{counts.WithPlayersOn} connected now (measured)");
+        b.AppendLine($"{counts.CountUnknown} answering, uncounted");
         b.AppendLine($"{counts.Archived} archived, still probed");
 
         // Same three facts as the rendered strip, in the same order and the same words, plus the

@@ -25,7 +25,10 @@
         the game page's fields, where a reader is weighing one fact and "declared 3y ago" is exactly
         the fact they are weighing — and short where it rides a row in a listing.
     *@
-    <Moment At="Fact.LastConfirmedAt" Now="Now" Spoken="ValueShown" Class="age" />
+    @if (AgeShown)
+    {
+        <Moment At="Fact.LastConfirmedAt" Now="Now" Spoken="ValueShown" Class="age" />
+    }
 </span>
 
 @code {
@@ -54,6 +57,16 @@
     /// the provenance.
     /// </remarks>
     [Parameter] public bool GlyphShown { get; set; } = true;
+
+    /// <summary>Whether the chip prints the age of the thing it labels.</summary>
+    /// <remarks>
+    /// Off on a listing row, where the row already has a freshness column of its own. The chip's age
+    /// and that column dated the same probe, so every row printed one age twice, four characters
+    /// apart, in two different alignments — which is the run the handoff describes as arriving at a
+    /// screen reader as one slur. The title still carries the absolute time, so nothing is lost to a
+    /// reader who wants it; what is dropped is the second copy.
+    /// </remarks>
+    [Parameter] public bool AgeShown { get; set; } = true;
 
     private string Word => Fact.IsMeasured ? "measured" : "declared";
 

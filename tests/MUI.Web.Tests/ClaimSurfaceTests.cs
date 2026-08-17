@@ -30,7 +30,9 @@ public class ClaimSurfaceTests
     {
         var page = await Render.PageAsync<Game>(new() { ["Slug"] = "m-u-s-h" });
 
-        await Assert.That(page).Contains("Everything here was measured, not entered by an owner");
+        // One sentence, where the badge and a paragraph three blocks below used to say the same
+        // thing twice. The invitation is the half that depends on there being anywhere to sign in.
+        await Assert.That(Render.Words(page)).Contains("Unclaimed — everything here was measured.");
         await Assert.That(page).DoesNotContain("Claim this game");
     }
 

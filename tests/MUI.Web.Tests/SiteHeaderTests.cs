@@ -80,8 +80,31 @@ public class SiteHeaderTests
 
         await Assert.That(catalogues).Contains("/games");
         await Assert.That(catalogues).Contains("/rankings");
-        await Assert.That(catalogues).DoesNotContain("/submit");
         await Assert.That(catalogues).DoesNotContain("/about");
+
+        // Submit is in the nav's markup, and it is not in either group: it lives in `menu-tail`,
+        // which the bar shows only at the width where the right-hand cluster has run out of room
+        // for it. A destination the bar cannot fit moves; it is never dropped.
+        var groups = catalogues[..catalogues.IndexOf("menu-tail", StringComparison.Ordinal)];
+
+        await Assert.That(groups).DoesNotContain("/submit");
+        await Assert.That(catalogues).Contains("/submit");
+    }
+
+    [Test]
+    public async Task EveryCatalogueLinkIsInTheDocumentExactlyOnce()
+    {
+        // The bar collapses into a disclosure on a narrow window, and the obvious way to build that
+        // is a second copy of the links inside the menu. It is also wrong: two copies put two
+        // `aria-current="page"` markers in one document and hand a screen reader the catalogue
+        // twice. The disclosure wraps the same two groups instead, and CSS decides whether it is a
+        // menu or a row.
+        var markup = await HeaderAsync(signedIn: false, path: "/games");
+
+        foreach (var href in new[] { "/games", "/find", "/games/random", "/archive", "/reference", "/ecosystem", "/rankings" })
+        {
+            await Assert.That(markup.Split($"href=\"{href}\"").Length - 1).IsEqualTo(1);
+        }
     }
 
     [Test]

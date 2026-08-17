@@ -44,19 +44,34 @@ public class FeedAndArchiveTests
     }
 
     [Test]
-    public async Task TheReturnCardGetsTheFullSentenceAtBodySizeAndTheOthersDoNot()
+    public async Task ARowSaysWhatHappenedAndWhenAndNothingTheHeadingAlreadySaid()
     {
-        // The one place the site raises its voice, and it earns it: a game dark for two years
-        // answering is the thing nobody else can tell you.
-        var entry = new FeedEntry(Guid.NewGuid(), "x", "The Long Sleep", Now, "Answered again after 26 months dark.");
+        // Three lists of five rows, and every row used to carry a prose line under it — "first
+        // seen", "answered again", "we keep knocking", and on the discovery feed the referral that
+        // found the game and the codebase it answered with. The column heading above says which
+        // register this is, so each of those was the same fact announced twice: twenty extra lines
+        // on the front page for a screen reader to wade through.
+        //
+        // What survives is a *cause*, which is not a repetition of the heading — the socket was
+        // refused, or the name did not resolve. It rides in the one right-hand cell beside the age
+        // rather than on a second line: "refused · 16h".
+        var entry = new FeedEntry(Guid.NewGuid(), "x", "The Long Sleep", Now, "connection refused");
 
         var back = await CardAsync(entry, FeedKind.CameBack);
         var dark = await CardAsync(entry, FeedKind.WentDark);
+        var found = await CardAsync(entry, FeedKind.NewlyDiscovered);
 
-        await Assert.That(back).Contains("class=\"return-line\"");
-        await Assert.That(back).Contains("● live");
-        await Assert.That(dark).Contains("class=\"mono detail\"");
-        await Assert.That(dark).DoesNotContain("class=\"return-line\"");
+        // No second line on any of the three.
+        foreach (var html in new[] { back, dark, found })
+        {
+            await Assert.That(html).DoesNotContain("class=\"return-line\"");
+            await Assert.That(html).DoesNotContain("class=\"mono detail\"");
+        }
+
+        // A return says it is back; a cause appears only where there is one to give.
+        await Assert.That(Render.Words(back)).Contains("live");
+        await Assert.That(Render.Words(dark)).Contains("connection refused");
+        await Assert.That(Render.Words(found)).DoesNotContain("connection refused");
     }
 
     [Test]

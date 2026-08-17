@@ -1,4 +1,5 @@
 @page "/games"
+@using System.Globalization
 @using Microsoft.AspNetCore.WebUtilities
 @using MUI.Web.Api
 @inject IGameQueries Queries
@@ -12,6 +13,13 @@
 else
 {
     <SitePreview Title="Games" Description="@PreviewCopy.Pages.Games" />
+
+    @*
+        A card page: the blocks bleed to the card's edges and pad themselves, so the rule under the
+        header and the filter column's own fill run the full width they are supposed to. Inside
+        main's padding neither could.
+    *@
+    <div class="card-page">
 
     <header class="listing-head">
         <h1>Games</h1>
@@ -64,29 +72,83 @@ else
             </p>
         }
 
+        @*
+            The toolbar: what order this is in, on the left; the control that changes it and the two
+            column names on the right.
+
+            The order used to be a <select> plus a "show" button in the filter column — a control
+            that armed itself and waited. This is a pressed-state toggle group of links, so a choice
+            applies on click with no script, the current one is a <span> rather than a link to the
+            page you are reading, and the address bar carries the answer.
+
+            Five options and not the drawing's three. `now / typical / peak` is the drawing, and the
+            two after the rule are the orders that read a spelling and a date rather than a count —
+            they had a control before this change and dropping them to match a mockup that never
+            had them would be losing a feature to a picture.
+        *@
         <div class="listing-bar">
-            <p class="result-count">
-                <strong>@Listing.Games.Count</strong>
-                <span class="dim">@(Listing.Games.Count == 1 ? "game" : "games")</span>
-            </p>
-            <p class="kicker listing-order">
-                @* The order is stated rather than left to be inferred from the first few rows. *@
-                by @FacetWords.Sort(Filter.Sort)
+            <p class="listing-order">
+                sorted by <span class="order-name">@FacetWords.Sort(Filter.Sort)</span>
                 @if (Listing.Games.Count > 0)
                 {
                     @* Only where there is something to be random among. An affordance that cannot do
                        what it offers is worse than one that is not there. *@
-                    <text> · </text><a href="@RandomHref">random</a>
+                    <span class="sep" aria-hidden="true">·</span><a href="@RandomHref">random</a>
                 }
             </p>
 
-            @*
-                The verb, once, over the column it belongs to. Every row used to carry it — "reached
-                2w ago" beside a count that already wore the same age — so the age was on the row
-                twice and the word 515 times. The cells hold the bare age now; this says what it is.
-            *@
-            <p class="kicker reached-head" aria-hidden="true">reached</p>
+            <div class="listing-tools">
+                <nav class="switch" aria-label="Order">
+                    @foreach (var option in SortOptions)
+                    {
+                        @if (option.Rule)
+                        {
+                            <span class="switch-rule" aria-hidden="true"></span>
+                        }
+                        @if (Filter.Sort == option.Sort)
+                        {
+                            <span class="on" aria-current="true">@option.Label</span>
+                        }
+                        else
+                        {
+                            <a href="@SortHref(option.Sort)">@option.Label</a>
+                        }
+                    }
+                </nav>
+
+                @*
+                    The two column names, once, over the columns they belong to. Every row used to
+                    carry the verb — "reached 2w ago" beside a count that already wore the same age
+                    — so the age was on the row twice and the word 515 times. And the count's unit
+                    lives here rather than on 515 rows: "CONNECTED" said once is also one string per
+                    locale instead of five hundred.
+                *@
+                <p class="kicker column-head" aria-hidden="true">connected · reached</p>
+            </div>
         </div>
+
+        @*
+            The window the two statistical orders are computed over, and only while one of them is
+            the order in force — three more pressed-state options under the switch that produced
+            them. A median is a median *of* something (§15.7), so the span it was taken over is part
+            of the order's name and not a preference hidden somewhere else.
+        *@
+        @if (SortWindows.Of(Filter.Sort) is not null)
+        {
+            <nav class="switch windows" aria-label="Window">
+                @foreach (var (sort, label) in WindowOptions)
+                {
+                    @if (Filter.Sort == sort)
+                    {
+                        <span class="on" aria-current="true">@label</span>
+                    }
+                    else
+                    {
+                        <a href="@SortHref(sort)">@label</a>
+                    }
+                }
+            </nav>
+        }
 
         <ul class="games">
             @foreach (var g in Listing.Games)
@@ -106,17 +168,23 @@ else
                     </li>
                 }
                 <li class="game-row @(g.State is LifecycleState.Archived ? "archived" : null)">
+                    @*
+                        Three zones on one grid — identity · measurement · freshness — and the
+                        metadata spanning underneath. The count and the age are siblings on the
+                        first line rather than a nested column stacking one over the other, which is
+                        what put the age on a line of its own and left the two right-hand columns
+                        unable to line up down the page.
+
+                        No plate on a row. The handoff's listing is identity, measurement and
+                        freshness and nothing else — a 36px square per row is a fourth column of
+                        furniture down a list five hundred long, and the face a game published
+                        is on its own page at the size that shows it. It stays in GamePlate,
+                        which the game page draws.
+                    *@
                     <div class="row-main">
-                        @*
-                            No plate on a row. The handoff's listing is identity, measurement and
-                            freshness and nothing else — a 36px square per row is a fourth column of
-                            furniture down a list five hundred long, and the face a game published
-                            is on its own page at the size that shows it. It stays in GamePlate,
-                            which the game page draws.
-                        *@
                         <div class="row-text">
                             <p class="row-head">
-                                <a class="name" href="/g/@g.Slug">@g.Name</a>
+                                <a class="name" href="/g/@g.Slug"><GameName Name="@g.Name" /></a>
                                 @*
                                     Archived and claimed are the two states worth saying. Unclaimed
                                     is the majority state of the catalogue — it was on all 515 rows,
@@ -131,11 +199,24 @@ else
                                 }
                                 else if (g.IsClaimed)
                                 {
-                                    <span class="badge claimed">claimed</span>
+                                    @*
+                                        A ring with a tick in it, and no visible word. The word was
+                                        a pill the width of "claimed" on the handful of rows that
+                                        carry it, which is furniture for a fact a browsing reader
+                                        did not come for; the name it needs is on the control, where
+                                        a screen reader and a tooltip both reach it.
+
+                                        "claimed by its owner" names no person and assumes no
+                                        gender — the passive is the point (i18n S7), not a
+                                        shortening.
+                                    *@
+                                    <span class="claim-ring" role="img"
+                                          aria-label="claimed by its owner"
+                                          title="claimed by its owner">✓</span>
                                 }
                             </p>
 
-                            <p class="meta mono">
+                            <p class="meta mono" translate="no">
                                 @*
                                     The codebase wears the same chip the game page puts on it — value,
                                     glyph, age — rather than a bare string. A row that showed
@@ -145,7 +226,10 @@ else
                                 *@
                                 @if (g.CodebaseProvenance is { } codebase)
                                 {
-                                    <Chip Fact="codebase" Now="Now" />
+                                    @* No age on the chip: the row's own freshness column dates the
+                                       same probe, and printing it here made every row say one age
+                                       twice. *@
+                                    <Chip Fact="codebase" Now="Now" AgeShown="false" />
                                 }
                                 else if (g.Codebase is { } cb)
                                 {
@@ -196,93 +280,57 @@ else
                                         +@rest
                                     </span>
                                 }
+                                @*
+                                    What the count column is showing, when it is showing a statistic
+                                    rather than the last reading. A median is a median *of*
+                                    something (§15.7) — thirty counts and three hundred are not the
+                                    same evidence — so the span and the sample tally ride with the
+                                    number they produced, on the line the row keeps its machine
+                                    facts on.
+                                *@
+                                @if (g.PlayersOverWindow is { } window && SortWindows.Of(Filter.Sort) is not null)
+                                {
+                                    <text> · </text><span class="window">@Sampled(window)</span>
+                                }
                             </p>
                         </div>
 
-                        <p class="row-figure mono">
-                            @*
-                                Three states, spelled rather than implied. A missing count says so in
-                                words — it is never rendered as a zero, and never left blank for a
-                                reader to guess at. A measured zero keeps the accent glyph every other
-                                count has, because it is every bit as much a measurement.
+                        @*
+                            The measurement. Three states, spelled rather than implied: a missing
+                            count says so in words, is never rendered as a zero, and is never left
+                            blank for a reader to guess at. A measured zero is a number like any
+                            other — we got in and nobody was there is a result.
 
-                                This is the one fact on the row set larger than the rest, and that is
-                                the whole of how "players on now" is told apart from the protocol and
-                                codebase facts beside it. The glyph could not carry that difference:
-                                it means measured-or-declared everywhere on this site, and giving it a
-                                second meaning here would cost the first one. Scale and position are
-                                free of that constraint — nothing else in a row is 17px, so the count
-                                is what the eye lands on, and the vocabulary stays intact.
-                            *@
-                            @if (g.PlayersNow is { } n)
+                            **No provenance glyph.** It was a ● or a ◇ before every count and the
+                            word "declared" after some of them, on all 515 rows, with the legend for
+                            it somewhere else on the page. Where a number came from is what you
+                            weigh when choosing between two games, not while scanning five hundred
+                            — so it lives on the game page, and on the facet groups' own badges
+                            where it tells a reader whether a filter is trustworthy before they
+                            apply it. Rule 1 is intact: both kinds of number are still shown, and
+                            both still say which they are, one surface along.
+
+                            **And no unit.** "on" after every count is one English word repeated
+                            515 times; the column is named once, above, which is also one string
+                            per locale instead of five hundred.
+                        *@
+                        <p class="row-count mono @CountState(g)">@CountText(g)</p>
+
+                        @*
+                            Freshness. The bare age, under a column head that carries the verb — the
+                            row used to print the age here and again inside the codebase chip beside
+                            it, so one probe was dated twice per row. Never reached is its own
+                            sentence and is never dated from our own first sighting.
+                        *@
+                        <p class="row-seen mono">
+                            @if (g.LastReachableAt is { } seen)
                             {
-                                <span class="players @(n > 0 ? "live" : "empty")">
-                                    @*
-                                        The glyph follows the provenance, the same way the game page's
-                                        does. This row shipped a hard-coded measured dot beside the
-                                        declared chip below it — a green ● and a ◇ chip describing one
-                                        number, which is the disagreement the chip was added to end.
-
-                                        The chip's own glyph is off (GlyphShown) rather than this one
-                                        being dropped: one fact, one glyph, and it belongs at the head
-                                        of the figure where a reader scanning the column looks first.
-                                    *@
-                                    <span class="pip @(g.PlayersNowProvenance?.IsMeasured is false ? "state-declared" : "state-present")" aria-hidden="true">@(g.PlayersNowProvenance?.IsMeasured is false ? "◇" : "●")</span><span class="count">@n</span> <span class="unit">on</span>
-
-                                    @*
-                                        And how we know it — said in words on the rows where it is
-                                        not what the page has already promised. The chip that used to
-                                        sit here carried the word and the age of the same probe the
-                                        freshness column dates, so every row stated one age twice and
-                                        the word "measured" 515 times under a heading reading "every
-                                        fact below was measured".
-
-                                        A declared count is the exception and it is the one a reader
-                                        could be misled by, so it keeps its word as well as its
-                                        glyph. Rule 1 is intact: the two kinds of number are still
-                                        told apart on this row, by shape, by colour and in text.
-                                    *@
-                                    @if (g.PlayersNowProvenance?.IsMeasured is false)
-                                    {
-                                        <span class="declared-note">declared</span>
-                                    }
-                                </span>
+                                <Moment At="seen" Now="Now" />
                             }
                             else
                             {
-                                <span class="players unknown"><span aria-hidden="true">–</span> count unknown</span>
+                                <span class="state-unknown">never</span>
                             }
-
-                            @*
-                                What this order ranked the row on, where it ranked on something other
-                                than a fact already printed above. A listing sorted by an average that
-                                appears nowhere on its rows is one a reader has to take on trust, and
-                                the sample tally rides along because a mean is a mean of something
-                                (§15.7) — thirty counts and three hundred are not the same evidence
-                                and the row is where that shows.
-                            *@
-                            @if (g.PlayersOverWindow is { } window)
-                            {
-                                <span class="window">@FacetWords.Window(window, Filter.Sort)</span>
-                            }
-
-                            @*
-                                What the last-seen facet filters on, shown on the rows it returned, so
-                                a reader can check the facet did what it said. Never reached is its own
-                                sentence and is never dated from our own first sighting.
-                            *@
-                            <span class="seen">
-                                @if (g.LastReachableAt is { } seen)
-                                {
-                                    @* The bare age, under the column that says what it is — and the
-                                       verb for a reader who is listening rather than scanning. *@
-                                    <span class="sr-only">reached </span><Moment At="seen" Now="Now" />
-                                }
-                                else
-                                {
-                                    <span class="state-unknown">never reached</span>
-                                }
-                            </span>
                         </p>
                     </div>
                 </li>
@@ -300,10 +348,26 @@ else
             </div>
         }
 
-        <p class="faint"><a href="@PlainHref">plain text</a></p>
         </div>
         </div>
+
+        @*
+            The card's own footer, on the card rather than inside the results column — the same row
+            in the same place as every other page's, which is the whole of the "plain text in every
+            footer" fix.
+        *@
+        <p class="card-footer">
+            <a href="/games">all games</a>
+            <span class="sep" aria-hidden="true">·</span>
+            <a href="/archive">archive</a>
+            <span class="sep" aria-hidden="true">·</span>
+            <a href="/submit">submit a game</a>
+            <span class="sep" aria-hidden="true">·</span>
+            <a href="@PlainHref">plain text</a>
+        </p>
     }
+
+    </div>
 }
 
 @code {
@@ -361,6 +425,101 @@ else
         .FirstOrDefault(g => GameSorting.IsUnranked(g, Filter.Sort));
 
     private bool BreakBefore(GameSummary game) => ReferenceEquals(game, FirstUnranked);
+
+    /// <summary>One option on the order switch: what it says, and whether a rule precedes it.</summary>
+    private sealed record SortOption(GameSort Sort, string Label, bool Rule = false);
+
+    /// <summary>
+    /// The order switch, as the handoff draws it plus the two orders it never had to draw.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The switch chooses which measurement the count column shows</b>, not merely how the rows
+    /// are stacked — <c>now</c> is the last reading, <c>typical</c> is a median over a window and
+    /// <c>peak</c> is the highest count seen in one. That is why they are three words rather than
+    /// nine: the window is a second, smaller choice that only exists once one of the two statistics
+    /// is in force, and the column head says what the numbers under it are.
+    /// </para>
+    /// <para>
+    /// <c>name</c> and <c>reached</c> follow a rule, because they are a different kind of order —
+    /// they read a spelling and a date rather than a count, and the column does not change under
+    /// them. They are not in the drawing; they were in the control the drawing replaces, and losing
+    /// a way to sort a five-hundred-row list alphabetically in order to match a mockup that never
+    /// had one would be trading a feature for a picture.
+    /// </para>
+    /// </remarks>
+    private static readonly SortOption[] SortOptions =
+    [
+        new(GameSort.Players, "now"),
+        new(GameSort.MedianWeek, "typical"),
+        new(GameSort.PeakWeek, "peak"),
+        new(GameSort.Name, "name", Rule: true),
+        new(GameSort.Reached, "reached"),
+    ];
+
+    /// <summary>
+    /// The three spans, spelled for whichever statistic is in force.
+    /// </summary>
+    /// <remarks>
+    /// Derived from the sort rather than listed twice, so a median and a peak cannot drift into
+    /// offering different windows.
+    /// </remarks>
+    private IEnumerable<(GameSort Sort, string Label)> WindowOptions =>
+        SortWindows.IsMedian(Filter.Sort)
+            ? [(GameSort.MedianWeek, "7 days"), (GameSort.MedianMonth, "30 days"), (GameSort.MedianQuarter, "90 days")]
+            : [(GameSort.PeakWeek, "7 days"), (GameSort.PeakMonth, "30 days"), (GameSort.PeakQuarter, "90 days")];
+
+    /// <summary>This listing in one other order, keeping every other thing it was asked.</summary>
+    private string SortHref(GameSort sort) =>
+        "/games" + ListingLinks.With(Query, FacetKeys.Sort, FacetTokens.Of(sort));
+
+    /// <summary>
+    /// What goes in the count column, which is whichever measurement the switch is showing.
+    /// </summary>
+    /// <remarks>
+    /// Never a zero standing in for an unknown. A game we reached and could not count says so in
+    /// words — the one string on this row that is not a number, so it cannot be misread as one.
+    /// </remarks>
+    private string CountText(GameSummary game)
+    {
+        if (SortWindows.Of(Filter.Sort) is not null)
+        {
+            return game.PlayersOverWindow is { } window
+                ? (SortWindows.IsMedian(Filter.Sort) ? window.Median : window.Peak)
+                    .ToString(CultureInfo.InvariantCulture)
+                : "not counted";
+        }
+
+        return game.PlayersNow is { } now
+            ? now.ToString(CultureInfo.InvariantCulture)
+            : "not counted";
+    }
+
+    /// <summary>
+    /// The count's register: accent where somebody is on, plain for a measured zero, faint for a
+    /// number we do not have.
+    /// </summary>
+    /// <remarks>
+    /// A measured zero is dimmed rather than accented and is never faint: we got in and nobody was
+    /// there is a measurement, and it is not the same fact as a count we could not read.
+    /// </remarks>
+    private string CountState(GameSummary game)
+    {
+        var value = SortWindows.Of(Filter.Sort) is not null
+            ? game.PlayersOverWindow is { } w ? (SortWindows.IsMedian(Filter.Sort) ? w.Median : w.Peak) : (int?)null
+            : game.PlayersNow;
+
+        return value switch
+        {
+            null => "unknown",
+            0 => "empty",
+            _ => "live",
+        };
+    }
+
+    /// <summary>The span and the sample tally behind a statistic, in the row's own machine voice.</summary>
+    private static string Sampled(PresenceWindow window) =>
+        $"{window.Window.TotalDays:0}d · {window.Samples} count{(window.Samples == 1 ? string.Empty : "s")}";
 
     protected override async Task OnParametersSetAsync()
     {

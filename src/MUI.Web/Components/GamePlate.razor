@@ -21,7 +21,7 @@
     <img class="plate icon" alt="" src="@IconEndpoint.For(Slug)"
          width="@Size" height="@Size" loading="lazy" decoding="async" />
 }
-else
+else if (Fallback)
 {
     <div class="plate mono" aria-hidden="true">@Monogram.Of(Name)</div>
 }
@@ -33,6 +33,26 @@ else
 
     /// <summary>Whether we hold bytes for this game — never whether it declared an icon.</summary>
     [Parameter] public bool HasIcon { get; set; }
+
+    /// <summary>
+    /// Whether a game with no icon gets a monogram, or gets no element at all.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Off on the game page, per the handoff.</b> "When absent, render no element at all. No
+    /// monogram, no grey square, no initial in a circle." Two reasons, and both hold: an empty
+    /// frame on five hundred pages is noise, and a generated monogram invents a brand the game never
+    /// supplied — which on a site whose whole claim is that it publishes only what it measured is
+    /// the one kind of decoration that costs something. The title simply starts at the left edge,
+    /// and because the identity block is a flex row with a gap, the indent collapses on its own.
+    /// </para>
+    /// <para>
+    /// The parameter exists rather than the behaviour being unconditional because a surface that
+    /// needs a fixed left edge down a list of rows is a different argument from a surface showing
+    /// one game. Nothing passes it today.
+    /// </para>
+    /// </remarks>
+    [Parameter] public bool Fallback { get; set; }
 
     /// <summary>
     /// The box the plate occupies, which the stylesheet fixes and this repeats on the element.

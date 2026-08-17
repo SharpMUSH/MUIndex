@@ -47,15 +47,20 @@ public class CapabilityMatrixTests
         // It used to be the section's heading text and, verbatim, the table's sr-only caption — so a
         // screen reader heard the same sentence twice on the way to the first row. As the caption it
         // is the table's own description, it is on screen for everybody, and it is there once.
+        // The wording is the short form the handoff's copy table asks for. "capabilities" was the
+        // word the heading directly above already says, so the caption no longer repeats it.
         var html = await MatrixAsync();
         var head = html[..html.IndexOf("<table", StringComparison.Ordinal)];
 
         await Assert.That(html).Contains("<caption class=\"count");
-        await Assert.That(Render.Words(html)).Contains("1 of 4 capabilities disagrees with what the game declares");
-        await Assert.That(head).DoesNotContain("1 of 4 capabilities");
+        await Assert.That(Render.Words(html)).Contains("1 of 4 disagree with what the game declares.");
+        await Assert.That(head).DoesNotContain("1 of 4");
 
-        var occurrences = Render.Words(html).Split("1 of 4 capabilities").Length - 1;
+        var occurrences = Render.Words(html).Split("1 of 4").Length - 1;
         await Assert.That(occurrences).IsEqualTo(1);
+
+        // The heading is just the noun, which is the other half of saying it once.
+        await Assert.That(Render.Words(head)).Contains("Capabilities");
     }
 
     [Test]

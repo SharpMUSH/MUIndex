@@ -242,13 +242,65 @@ public class FacetSurfaceTests
         // failure this guards against, in either direction.
         foreach (var group in listing.Facets.Where(g => g.Kind is FacetKind.Choice))
         {
+            var single = FacetWords.IsSingleChoice(group.Key);
+
             foreach (var value in group.Values)
             {
                 var name = FacetWords.Value(group.Key, value);
 
-                await Assert.That(html).Contains($"{name}, {value.Count} games, only");
-                await Assert.That(html)
-                    .Contains($"{name}, {group.Total - value.Count} games, excluded");
+                // "only" is on the tri-state groups alone. Activity and last-seen are one ordered
+                // scale — a radio group — so their rows say what choosing returns and nothing about
+                // a second state they do not have.
+                await Assert.That(html).Contains(single
+                    ? $"{name}, {Plural(value.Count)}"
+                    : $"{name}, {Plural(value.Count)}, only");
+
+                if (!single)
+                {
+                    await Assert.That(html)
+                        .Contains($"{name}, {Plural(group.Total - value.Count)}, excluded");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// A count and its noun, agreeing — because the panel says it that way.
+    /// </summary>
+    /// <remarks>
+    /// Every accessible name on the panel read "1 games" and "0 games" until this pass. English has
+    /// two forms and this is the one place the panel says a number out loud, so it says it
+    /// correctly; the test spells the rule out rather than accepting whatever the panel produced.
+    /// </remarks>
+    private static string Plural(int count) => count == 1 ? "1 game" : $"{count} games";
+
+    [Test]
+    public async Task ExclusionIsOfferedOnlyWhereExcludingMeansSomething()
+    {
+        // Activity and last-seen are nested thresholds on one ordered scale: a game reached an hour
+        // ago is also in the last seven days and the last thirty, and "connected now" is a narrower
+        // window than "active this week" rather than a different kind of thing. "Everything but
+        // games with somebody connected" is not a question anybody has — so those groups are radios
+        // with no exclude affordance at all, which is one control and one tab stop per value instead
+        // of two.
+        var listing = await Queries.SearchAsync(new GameFilter());
+        var html = await PanelAsync(new GameFilter());
+
+        foreach (var group in listing.Facets.Where(g => g.Kind is FacetKind.Choice))
+        {
+            foreach (var value in group.Values)
+            {
+                var excluded = $"{FacetWords.Value(group.Key, value)}, {Plural(group.Total - value.Count)}, excluded";
+
+                if (FacetWords.IsSingleChoice(group.Key))
+                {
+                    await Assert.That(html).DoesNotContain(excluded)
+                        .Because($"{group.Key} is one ordered scale and cannot be excluded from");
+                }
+                else
+                {
+                    await Assert.That(html).Contains(excluded);
+                }
             }
         }
     }
@@ -268,7 +320,7 @@ public class FacetSurfaceTests
         await Assert.That(words).Contains("Unticked means not measured — not that the game lacks it");
         await Assert.That(words).Contains("A blank is a gap in our measurement, not a no");
         await Assert.That(words).Contains("not identified");
-        await Assert.That(words).Contains("from the same query as the list below");
+        await Assert.That(words).Contains("Counts are games we measured, never estimates");
         await Assert.That(words).Contains("An unknown count is not a zero");
     }
 
@@ -282,7 +334,7 @@ public class FacetSurfaceTests
         var html = await PanelAsync(new GameFilter());
 
         await Assert.That(html).Contains("<summary>");
-        await Assert.That(Render.Words(html)).Contains("what a blank means");
+        await Assert.That(Render.Words(html)).Contains("what the badges and the blanks mean");
     }
 
     [Test]
@@ -368,11 +420,15 @@ public class FacetSurfaceTests
     [Test]
     public async Task AChosenValueIsMarkedSoTheFormShowsWhatTheUrlAsked()
     {
+        // No <select> and no checkbox left on this panel: the state is the row's own class and its
+        // aria-current, and the way out is the row's own link. A control that showed nothing at rest
+        // until it was opened is the defect the rows replace.
         var filter = new GameFilter { Band = ActivityBand.Archived, IncludeArchived = true };
         var html = await PanelAsync(filter);
 
-        await Assert.That(html).Contains("selected");
-        await Assert.That(html).Contains("checked");
+        await Assert.That(html).Contains("aria-current=\"true\"");
+        await Assert.That(html).Contains("facet-row on");
+        await Assert.That(html).DoesNotContain("<select");
     }
 
     [Test]
@@ -463,13 +519,20 @@ public class FacetSurfaceTests
     [Test]
     public async Task TheSortIsAControlOnThePanelAndAParameterInTheUrl()
     {
+        // The order moved off this panel and into the listing's own toolbar, over the column whose
+        // numbers it changes — a pressed-state switch of links rather than a <select> that armed
+        // itself and waited for a "show" button. What the panel may not do is keep a second, stale
+        // copy of the control.
         var html = await PanelAsync(new GameFilter { Sort = GameSort.Players });
 
-        await Assert.That(html).Contains($"name=\"{FacetKeys.Sort}\"");
+        await Assert.That(html).DoesNotContain($"name=\"{FacetKeys.Sort}\"");
+        await Assert.That(html).DoesNotContain("<select");
 
+        // Every order is still a parameter, and still named, wherever it is drawn.
         foreach (var sort in Enum.GetValues<GameSort>())
         {
-            await Assert.That(Render.Words(html)).Contains(FacetWords.Sort(sort));
+            await Assert.That(FacetWords.Sort(sort)).IsNotEmpty();
+            await Assert.That(FacetTokens.Of(sort)).IsNotEmpty();
         }
     }
 
@@ -511,7 +574,13 @@ public class FacetSurfaceTests
 
         // And the whole facet is still one tab stop, as the select was: one radio group, arrow keys
         // within it.
-        await Assert.That(html).Contains("Tick to include, − to exclude.");
+        // Read off the collapsed text: the note contains U+2212 MINUS SIGN, which the renderer
+        // encodes as a character reference in the raw markup.
+        await Assert.That(Render.Words(html)).Contains(FacetWords.Note(FacetKeys.Codebase));
+
+        // And the note is per group now rather than one line under all of them — activity is a
+        // radio group and "tick to include" was never true of it.
+        await Assert.That(Render.Words(html)).Contains(FacetWords.Note(FacetKeys.Band));
     }
 
     [Test]

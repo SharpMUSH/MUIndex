@@ -19,6 +19,14 @@ else
 {
     <SitePreview Description="@PreviewCopy.Site" />
 
+    @*
+        One column, one rhythm. The blocks are spaced by the column's own gap rather than by a
+        margin on each of them, because a margin on a block that renders nothing — the crawler strip
+        on a deployment with no pulse — leaves its space behind. This page had an 82px dead band
+        there for exactly that reason.
+    *@
+    <div class="page-flow">
+
     <section class="hero">
         @*
             The heading says what the site is rather than what it is called. An h1 reading
@@ -27,12 +35,23 @@ else
             search placeholder. This is the sentence the meta description already carried, and it is
             the one thing a stranger needs before they read a count.
         *@
-        <h1>A directory of the MU* hobby</h1>
-        <p class="lede">Every fact was measured by a crawler that connected to the game.</p>
+        <div class="hero-head">
+            <h1>A directory of the MU* hobby</h1>
+            <p class="lede">Every fact was measured by a crawler that connected to the game.</p>
+        </div>
 
+        @*
+            One field, with the glyph inside it rather than a second control beside it. The button
+            stays: this form's only other way to submit is the return key, and a control that exists
+            only as a keystroke is one a reader using a switch or a pointer cannot reach.
+        *@
         <form class="search" method="get" action="/games" role="search">
             <label for="q" class="sr-only">Search games by name, theme, codebase or host</label>
-            <input id="q" type="search" name="q" placeholder="search @Counts.Known games" />
+            <span class="search-field">
+                <span class="search-glyph mono" aria-hidden="true">⌕</span>
+                <input id="q" type="search" name="q"
+                       placeholder="search by name, theme, codebase or host" />
+            </span>
             <button type="submit">search</button>
         </form>
 
@@ -42,9 +61,14 @@ else
             dashboard — the numbers are the front page's whole claim and they were set at the size
             of the metadata beside them.
 
-            No sub-labels: "games with a count" under "with players on" is a gloss on a label that
+            No sub-labels: "games with a count" under "connected now" is a gloss on a label that
             should carry its own meaning, so the label carries it. There is no "reachable this week"
             tile because the store cannot answer it, and an estimate here would undo the argument.
+
+            "Connected now" rather than "with players on". The crawler counts open connections and
+            not people — one player with two clients is two connections, and a bot is a connection —
+            so the word that localizes cleanly is also the one that is true. See the handoff's
+            "why players became connected".
         *@
         <ul class="tiles">
             <li>
@@ -52,11 +76,11 @@ else
                 <span class="figure mono">@Counts.Known</span>
             </li>
             <li>
-                <span class="kicker">with players on</span>
+                <span class="kicker">connected now</span>
                 <span class="figure mono state-present">@Counts.WithPlayersOn</span>
             </li>
             <li>
-                <span class="kicker">answering, not counted</span>
+                <span class="kicker">answering, uncounted</span>
                 <span class="figure mono">@Counts.CountUnknown</span>
             </li>
             <li>
@@ -70,8 +94,14 @@ else
         <CrawlerStrip Pulse="Pulse" Now="Now" />
     </section>
 
+    @*
+        Three registers, three colours, and the colours are the site's own: the accent means
+        measured and is what a discovery and a return both are, amber means the thing we are least
+        sure of and is what a game we can no longer reach is. The heading carries it; nothing on the
+        rows below does, because a column of amber ages would say "went dark" once per row.
+    *@
     <div class="feeds">
-        <section aria-labelledby="feed-new">
+        <section class="feed feed-lit" aria-labelledby="feed-new">
             <h2 id="feed-new" class="kicker">newly discovered</h2>
             @if (Feeds.NewlyDiscovered.Count == 0)
             {
@@ -83,7 +113,7 @@ else
             }
         </section>
 
-        <section aria-labelledby="feed-dark">
+        <section class="feed feed-dark" aria-labelledby="feed-dark">
             @* "Still probed" belongs here, once, rather than under every row as "we keep knocking".
                Nothing is ever deleted (§7.5) and this is where that promise is made. *@
             <h2 id="feed-dark" class="kicker">went dark — still probed</h2>
@@ -97,7 +127,7 @@ else
             }
         </section>
 
-        <section aria-labelledby="feed-back">
+        <section class="feed feed-lit" aria-labelledby="feed-back">
             <h2 id="feed-back" class="kicker">came back</h2>
             @if (Feeds.CameBack.Count == 0)
             {
@@ -110,12 +140,17 @@ else
         </section>
     </div>
 
-    <p class="faint">
-        <a href="/games">all games</a> ·
-        <a href="/archive">archive</a> ·
-        <a href="/submit">submit a game</a> ·
+    <p class="card-footer">
+        <a href="/games">all games</a>
+        <span class="sep" aria-hidden="true">·</span>
+        <a href="/archive">archive</a>
+        <span class="sep" aria-hidden="true">·</span>
+        <a href="/submit">submit a game</a>
+        <span class="sep" aria-hidden="true">·</span>
         <a href="?plain=1">plain text</a>
     </p>
+
+    </div>
 }
 
 @code {

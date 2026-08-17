@@ -23,53 +23,50 @@
         the archive is in. Everything here is a control a reader touches on most visits; the facets
         below are the ones they touch on some.
     *@
+    @*
+        One field, and it is the only control on this panel that is still a form control.
+
+        The sort <select> and the "show" button that armed it are gone: the order is a pressed-state
+        switch in the listing's own toolbar, over the column whose numbers it changes, and every
+        facet below applies on click. What is left here needs a submit because a text field has
+        nothing to click — a reader types and presses the button or the return key, and both work
+        with no script.
+    *@
     <div class="filter-bar">
         <label for="q" class="sr-only">Search games</label>
-        <input id="q" type="search" name="@FacetKeys.Text" value="@Filter.Text"
-               placeholder="search games" />
-
-        <span class="bar-field">
-            <label for="sort" class="bar-label">sort</label>
+        <span class="search-field">
+            <span class="search-glyph mono" aria-hidden="true">⌕</span>
+            <input id="q" type="search" name="@FacetKeys.Text" value="@Filter.Text"
+                   placeholder="search games" />
             @*
-                Grouped by what each order reads — a fact already on the row, or a statistic over a
-                span — because nine options in one flat list is a list nobody reads to the bottom of,
-                and because that split is the difference a reader most needs to see before choosing.
-                Enumerated from the enum rather than listed here, so a sort added there cannot be one
-                the panel silently stops offering.
+                Inside the field rather than beside it. The column is 268px and a second box on that
+                row leaves the field too narrow to read a typed name in — and a submit that exists
+                only as the return key is one a pointer-only reader cannot press.
             *@
-            <select id="sort" name="@FacetKeys.Sort">
-                @foreach (var group in Enum.GetValues<GameSort>().GroupBy(FacetWords.SortGroup))
-                {
-                    <optgroup label="@group.Key">
-                        @foreach (var sort in group)
-                        {
-                            <option value="@FacetTokens.Of(sort)" selected="@(Filter.Sort == sort)">
-                                @FacetWords.Sort(sort)
-                            </option>
-                        }
-                    </optgroup>
-                }
-            </select>
+            <button type="submit" class="search-go" aria-label="Search games">
+                <span aria-hidden="true">→</span>
+            </button>
         </span>
-
-        <label class="check bar-check">
-            <input type="checkbox" name="@FacetKeys.Archived" value="true" checked="@Filter.IncludeArchived" />
-            <span>include archived</span>
-        </label>
-
-        @*
-            The one exclusion this listing applies that the reader did not ask for, and the control
-            that undoes it, in the bar on every request rather than behind a preference. It is a
-            default of ours over what a game declared about itself — never a measurement of one —
-            so the way out of it has to be as visible as the listing it shapes.
-        *@
-        <label class="check bar-check">
-            <input type="checkbox" name="@FacetKeys.Adult" value="true" checked="@Filter.IncludeAdult" />
-            <span>include adult</span>
-        </label>
-
-        <button type="submit">show</button>
     </div>
+
+    @*
+        Below 900px the whole panel is a disclosure above the listing rather than eleven hundred
+        pixels of open filters to scroll past before the first game — and above it, the same panel
+        with no disclosure at all. One markup, two behaviours, and the switch is a width rather than
+        a script: at desktop widths the summary is hidden and the content forced visible.
+
+        Open whenever the reader has actually asked something, because a filter in force that
+        nothing shows is the defect this control exists to replace.
+    *@
+    <details class="facet-collapse" open="@AnyFiltered">
+        <summary>
+            <span class="summary-word">filters</span>
+            @if (Chips.Count > 0)
+            {
+                <span class="summary-count">@Chips.Count</span>
+            }
+        </summary>
+        <div class="facet-body">
 
     @if (Facets.Count > 0)
     {
@@ -97,9 +94,6 @@
             }
         </div>
 
-        @* Said once, under the groups it applies to, rather than on each of them. *@
-        <p class="hint facet-hint">Tick to include, − to exclude.</p>
-
         @*
             Everything else, behind one disclosure. Nine facets in a column is a column taller than
             the listing it filters, and the handoff's panel is short because it is opinionated about
@@ -125,8 +119,16 @@
         {
             <fieldset class="facet presence">
                 <legend>
-                    <span class="facet-name">@FacetWords.Group(group.Key)</span>
-                    @Evidence(group)
+                    <span class="facet-head">
+                        <span class="facet-name">@FacetWords.Group(group.Key)</span>
+                        @Evidence(group)
+                    </span>
+                    @*
+                        The one sentence that has to be readable at the moment of ticking rather than
+                        in a key somewhere else, because a reader ticking boxes is exactly the person
+                        who would otherwise read an unticked box as the game declining a protocol.
+                    *@
+                    <span class="facet-note">Unticked means not measured — not that the game lacks it.</span>
                 </legend>
                 <div class="checks">
                     @foreach (var value in group.Values)
@@ -139,12 +141,6 @@
                         </label>
                     }
                 </div>
-                @*
-                    The one sentence that has to be readable at the moment of ticking rather than in
-                    a key somewhere else, because a reader ticking boxes is exactly the person who
-                    would otherwise read an unticked box as the game declining a protocol.
-                *@
-                <p class="hint">Unticked means not measured — not that the game lacks it.</p>
             </fieldset>
         }
     }
@@ -155,24 +151,65 @@
         tooltip and not a title attribute: this is the difference the site exists to publish, so it
         stays in the document whether or not a pointer ever hovers anything.
     *@
+    @*
+        The two exclusions this listing applies that the reader did not ask for, and the way out of
+        each. They are ours over what a game declared about itself — never a measurement of one — so
+        they have to be as visible as the listing they shape.
+
+        Link rows in the panel's own geometry rather than checkboxes waiting on a button: they are
+        the same kind of thing every other row here is, and they apply on click like the rest.
+    *@
+    <fieldset class="facet also">
+        <legend>
+            <span class="facet-head">
+                <span class="facet-name">also show</span>
+            </span>
+            <span class="facet-note">Off by default. Neither is a judgement about the game.</span>
+        </legend>
+        <div class="rows">
+            <div class="facet-row @(Filter.IncludeArchived ? "on" : null)">
+                <a class="pick" href="@Toggled(FacetKeys.Archived, Filter.IncludeArchived)"
+                   aria-current="@(Filter.IncludeArchived ? "true" : null)"
+                   aria-label="@($"archived games, {(Filter.IncludeArchived ? "shown" : "hidden")}")">
+                    <span class="tick" aria-hidden="true">@(Filter.IncludeArchived ? "✓" : "☐")</span>
+                    <span class="row-name">archived</span>
+                </a>
+            </div>
+            <div class="facet-row @(Filter.IncludeAdult ? "on" : null)">
+                <a class="pick" href="@Toggled(FacetKeys.Adult, Filter.IncludeAdult)"
+                   aria-current="@(Filter.IncludeAdult ? "true" : null)"
+                   aria-label="@($"games declaring adult content, {(Filter.IncludeAdult ? "shown" : "hidden")}")">
+                    <span class="tick" aria-hidden="true">@(Filter.IncludeAdult ? "✓" : "☐")</span>
+                    <span class="row-name">adult</span>
+                </a>
+            </div>
+        </div>
+    </fieldset>
+
+    @*
+        One line at the foot, and the readings a reader would otherwise have to guess at behind one
+        disclosure. The three-row provenance legend that used to sit here is gone from the panel's
+        floor: every group now wears its own evidence badge, which is where the word is actually
+        needed — before a filter is applied rather than after the panel has been read to the bottom.
+    *@
     <div class="facet-key">
-        <span class="key-item">
-            <span class="evidence measured"><span aria-hidden="true">●</span> @FacetWords.Evidence(FacetEvidence.Measured)</span>
-            @FacetWords.EvidenceMeaning(FacetEvidence.Measured)
-        </span>
-        <span class="key-item">
-            <span class="evidence declared"><span aria-hidden="true">◇</span> @FacetWords.Evidence(FacetEvidence.Declared)</span>
-            @FacetWords.EvidenceMeaning(FacetEvidence.Declared)
-        </span>
-        <span class="key-item">
-            <span class="evidence derived"><span aria-hidden="true">◆</span> @FacetWords.Evidence(FacetEvidence.Derived)</span>
-            @FacetWords.EvidenceMeaning(FacetEvidence.Derived)
-        </span>
-        <span class="key-item">counts are exact, from the same query as the list below</span>
+        <p class="facet-note">Counts are games we measured, never estimates.</p>
 
         <details class="facet-more">
-            <summary>what a blank means</summary>
+            <summary>what the badges and the blanks mean</summary>
             <ul>
+                <li>
+                    <span class="evidence measured"><span aria-hidden="true">●</span> @FacetWords.Evidence(FacetEvidence.Measured)</span>
+                    — @FacetWords.EvidenceMeaning(FacetEvidence.Measured).
+                </li>
+                <li>
+                    <span class="evidence declared"><span aria-hidden="true">◇</span> @FacetWords.Evidence(FacetEvidence.Declared)</span>
+                    — @FacetWords.EvidenceMeaning(FacetEvidence.Declared).
+                </li>
+                <li>
+                    <span class="evidence derived"><span aria-hidden="true">◆</span> @FacetWords.Evidence(FacetEvidence.Derived)</span>
+                    — @FacetWords.EvidenceMeaning(FacetEvidence.Derived).
+                </li>
                 <li>
                     A blank is a gap in our measurement, not a no. Each facet spells its own:
                     <em>not identified</em>, <em>not declared</em>, <em>nothing negotiated</em>.
@@ -187,6 +224,9 @@
             </ul>
         </details>
     </div>
+
+        </div>
+    </details>
 </form>
 
 @*
@@ -236,22 +276,33 @@
     private RenderFragment Group(FacetGroup group) =>
         @<text>
                 <fieldset class="facet choice @(group.IsFiltered ? "chosen" : null)">
+                        @*
+                            Name on one edge, evidence badge on the other, and the note under both —
+                            all three at the rows' own left padding so every word in the panel shares
+                            one left edge. The badge is a bordered pill rather than two words running
+                            on from the heading: it says whether this whole group is something we
+                            watched or something the games told us, which is what a reader needs
+                            before they trust a count enough to filter on it.
+                        *@
                         <legend>
-                            <span class="facet-name">@FacetWords.Group(group.Key)</span>
-                            @Evidence(group)
+                            <span class="facet-head">
+                                <span class="facet-name">@FacetWords.Group(group.Key)</span>
+                                @Evidence(group)
+                            </span>
+                            <span class="facet-note">@FacetWords.Note(group.Key)</span>
                         </legend>
-    
+
                         <div class="rows">
                             @*
                                 Always first, always empty: a facet you cannot un-choose is a trap. It
                                 is a row like the others rather than a "clear" button, because "any" is
                                 an answer to the same question the rows below it answer.
                             *@
-                            <div class="facet-row any @(group.IsFiltered ? null : "on")">
+                            <div class="@AnyRowClass(group)">
                                 <a class="pick" href="@Href(group, null)"
                                    aria-current="@(group.IsFiltered ? null : "true")"
-                                   aria-label="@($"any {FacetWords.Group(group.Key)}, {group.Total} games")">
-                                    <span class="tick" aria-hidden="true">@(group.IsFiltered ? "☐" : "✓")</span>
+                                   aria-label="@($"any {FacetWords.Group(group.Key)}, {Games(group.Total)}")">
+                                    <span class="tick" aria-hidden="true">@AnyGlyph(group)</span>
                                     <span class="row-name">any</span>
                                     <span class="count">@group.Total</span>
                                 </a>
@@ -332,21 +383,86 @@
     /// </para>
     /// </remarks>
     private RenderFragment Row(FacetGroup group, FacetValue value) =>
-        @<div class="facet-row @RowState(value)">
+        @<div class="@RowClass(group, value)">
             <a class="pick" href="@Href(group, value.State is FacetState.Included ? null : value.Token)"
                aria-current="@(value.State is FacetState.Included ? "true" : null)"
-               aria-label="@($"{FacetWords.Value(group.Key, value)}, {value.Count} games, only")">
-                <span class="tick" aria-hidden="true">@(value.State is FacetState.Included ? "✓" : "☐")</span>
+               aria-label="@($"{FacetWords.Value(group.Key, value)}, {Games(value.Count)}{(Single(group) ? string.Empty : ", only")}")">
+                <span class="tick" aria-hidden="true">@PickGlyph(group, value)</span>
                 <span class="row-name">@FacetWords.Value(group.Key, value)</span>
                 <span class="count">@value.Count</span>
             </a>
-            <a class="drop"
-               href="@Href(group, value.State is FacetState.Excluded ? null : Excluded(value).Token)"
-               aria-current="@(value.State is FacetState.Excluded ? "true" : null)"
-               aria-label="@($"{FacetWords.Value(group.Key, value)}, {group.Total - value.Count} games, excluded")">
-                <span aria-hidden="true">@(value.State is FacetState.Excluded ? "×" : "−")</span>
-            </a>
+            @*
+                No exclusion where the values are one ordered scale. "Everything but games with
+                somebody connected" is not a question a reader has, and offering it added a second
+                control and a second tab stop to every row of two facets for a filter that cannot
+                mean anything.
+            *@
+            @if (!Single(group))
+            {
+                <a class="drop"
+                   href="@Href(group, value.State is FacetState.Excluded ? null : Excluded(value).Token)"
+                   aria-current="@(value.State is FacetState.Excluded ? "true" : null)"
+                   aria-label="@($"{FacetWords.Value(group.Key, value)}, {Games(group.Total - value.Count)}, excluded")">
+                    <span aria-hidden="true">@(value.State is FacetState.Excluded ? "×" : "−")</span>
+                </a>
+            }
         </div>;
+
+    /// <summary>Whether this group's values are one ordered scale rather than alternatives.</summary>
+    private static bool Single(FacetGroup group) => FacetWords.IsSingleChoice(group.Key);
+
+    /// <summary>
+    /// A row's classes, joined here rather than interpolated in the attribute.
+    /// </summary>
+    /// <remarks>
+    /// Razor renders a null branch as an empty string and leaves the space around it, so an
+    /// attribute assembled inline ships as <c>class="facet-row excluded "</c> — which is harmless to
+    /// a browser and is one more thing every selector, test and diff has to know to tolerate.
+    /// </remarks>
+    private static string RowClass(FacetGroup group, FacetValue value) =>
+        string.Join(' ', Classes("facet-row", RowState(value), Single(group) ? "single" : null));
+
+    private static string AnyRowClass(FacetGroup group) =>
+        string.Join(' ', Classes("facet-row", "any", group.IsFiltered ? null : "on", Single(group) ? "single" : null));
+
+    private static IEnumerable<string> Classes(params string?[] parts) =>
+        parts.Where(p => !string.IsNullOrEmpty(p))!;
+
+    /// <summary>
+    /// The glyph on a value's own row: a radio where the group is one choice, a checkbox where it
+    /// is a set.
+    /// </summary>
+    /// <remarks>
+    /// The shape is the second carrier of the same fact the control's behaviour already has — a
+    /// panel drawing ticks beside values that deselect one another is a panel telling the reader
+    /// something untrue about what a click will do.
+    /// </remarks>
+    private static string PickGlyph(FacetGroup group, FacetValue value) => (Single(group), value.State) switch
+    {
+        (true, FacetState.Included) => "◉",
+        (true, _) => "○",
+        (false, FacetState.Included) => "✓",
+        _ => "☐",
+    };
+
+    private static string AnyGlyph(FacetGroup group) => (Single(group), group.IsFiltered) switch
+    {
+        (true, false) => "◉",
+        (true, true) => "○",
+        (false, false) => "✓",
+        _ => "☐",
+    };
+
+    /// <summary>
+    /// A count and its noun, agreeing.
+    /// </summary>
+    /// <remarks>
+    /// Every accessible name in this panel read "1 games" and "0 games". English has two forms and
+    /// this is the one place the panel says a number out loud, so it says it correctly — and it is
+    /// the shape an ICU plural message replaces when the strings are extracted, rather than a
+    /// concatenation a translator cannot reach (i18n S3).
+    /// </remarks>
+    private static string Games(int count) => count == 1 ? "1 game" : $"{count} games";
 
     /// <summary>
     /// This listing, asked one facet differently — and asked nothing at all where the token is null,
@@ -369,6 +485,14 @@
     /// </remarks>
     private string Href(FacetGroup group, string? token) =>
         "/games" + ListingLinks.With(Query, group.Key, token);
+
+    /// <summary>This listing with one of the two inclusion switches flipped.</summary>
+    /// <remarks>
+    /// Off is the absence of the key rather than <c>=false</c>, so the address a reader copies says
+    /// only what they asked for — the same rule the sort and every facet follow.
+    /// </remarks>
+    private string Toggled(string key, bool on) =>
+        "/games" + ListingLinks.With(Query, key, on ? null : "true");
 
     private static string RowState(FacetValue value) => value.State switch
     {
@@ -403,6 +527,16 @@
     [Parameter] public string Query { get; set; } = string.Empty;
 
     private IReadOnlyList<ActiveFilter> Chips => ActiveFilters.For(Facets, Filter, Query);
+
+    /// <summary>Whether this listing is answering anything narrower than "all of them".</summary>
+    /// <remarks>
+    /// What decides the narrow disclosure's start state. The chips are the same set of selections
+    /// drawn as removals, so counting them is the same question asked once; the two inclusion
+    /// switches are not chips and are asked directly.
+    /// </remarks>
+    private bool AnyFiltered =>
+        Chips.Count > 0 || Filter.IncludeArchived || Filter.IncludeAdult
+        || Filter.Text is { Length: > 0 };
 
     /// <summary>
     /// The evidence chip: a glyph, and the word, always both.

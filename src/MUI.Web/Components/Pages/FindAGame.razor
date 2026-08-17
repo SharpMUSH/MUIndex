@@ -163,9 +163,11 @@ else
         ActivityBand.PlayersNow => "somebody is on now",
         ActivityBand.ActiveThisWeek => "somebody was on this week",
 
-        // The listing's own words for this band, because a reader who ticks it here and lands there
-        // should meet the same sentence rather than have to work out that they match.
-        _ => "reachable, count unknown",
+        // The listing's own word for this band, read from the listing's own vocabulary rather than
+        // spelled again here — a reader who ticks it and lands there should meet the same word, and
+        // two copies of a string are two places for it to drift. It did: the listing shortened this
+        // to "uncounted" and this page went on saying "reachable, count unknown".
+        _ => FacetWords.BandWord(FacetTokens.Of(band)),
     };
 
     /// <summary>

@@ -28,22 +28,56 @@
 *@
 <div class="shell">
 <header class="site">
-    <a class="mark mono" href="/">mu<span class="star">*</span>index</a>
+    <a class="mark" href="/">mu<span class="star">*</span>index</a>
+    @*
+        The bar degrades through a defined order rather than through whatever flexbox decides
+        (i18n S2): group labels first, then submit's border, then both groups into one disclosure.
+        Width triggers each step, never language — a German reader on a wide monitor never leaves
+        step 0 and an English reader in a narrow window reaches step 2.
+
+        Every destination survives all three steps. That is what makes the disclosure a `details`
+        holding the same seven links rather than a shorter bar: a step that dropped a link would be
+        a navigation that changes what the site contains depending on the window.
+    *@
+    @*
+        **Every link exists exactly once.** Step 3 is a disclosure wrapping the same two groups, not
+        a second copy of them beside the first — a duplicate set would put two `aria-current="page"`
+        markers in one document and hand a screen reader the catalogue twice. Above the collapse
+        width the summary is hidden and the disclosure's content is forced visible, so one markup is
+        a bar on a laptop and a menu on a phone with no script and no second rendering.
+    *@
     <nav class="site-nav" aria-label="Catalogues">
-        <span class="nav-group" role="group" aria-label="Browse">
-            <span class="nav-label" aria-hidden="true">browse</span>
-            @Item("/games", "games")
-            @Item("/find", "find a game")
-            @Item("/games/random", "random")
-            @Item("/archive", "archive")
-        </span>
-        <span class="nav-rule" aria-hidden="true"></span>
-        <span class="nav-group" role="group" aria-label="Learn">
-            <span class="nav-label" aria-hidden="true">learn</span>
-            @Item("/reference", "reference")
-            @Item("/ecosystem", "ecosystem")
-            @Item("/rankings", "rankings")
-        </span>
+        <details class="nav-menu">
+            <summary>menu <span aria-hidden="true">▾</span></summary>
+            <div class="menu-panel">
+                <span class="nav-group" role="group" aria-label="Browse">
+                    <span class="nav-label" aria-hidden="true">browse</span>
+                    @Item("/games", "games")
+                    @Item("/find", "find")
+                    @Item("/games/random", "random")
+                    @Item("/archive", "archive")
+                </span>
+                <span class="nav-rule" aria-hidden="true"></span>
+                <span class="nav-group" role="group" aria-label="Learn">
+                    <span class="nav-label" aria-hidden="true">learn</span>
+                    @Item("/reference", "reference")
+                    @Item("/ecosystem", "ecosystem")
+                    @Item("/rankings", "rankings")
+                </span>
+
+                @*
+                    Step 4. On a phone the right cluster runs out of room too, so submit comes in
+                    here rather than being dropped — the rule is still that a step loses decoration
+                    and never a destination. About and sign in stay in the bar: the first is two
+                    words, and the second is the only item at that end that changes what the site
+                    will let a reader do.
+                *@
+                <span class="menu-tail">
+                    <span class="nav-label" aria-hidden="true">this site</span>
+                    <a href="/submit">submit a game</a>
+                </span>
+            </div>
+        </details>
     </nav>
     @*
         The account, in a slot of its own rather than as a tenth entry above — that list names places

@@ -68,8 +68,11 @@ public class GamePlateTests
         await Assert.That(html).DoesNotContain("no icon");
         await Assert.That(html).DoesNotContain("icon unavailable");
 
-        // The name is beside it either way, so the picture is never the thing announced.
-        await Assert.That(html).Contains("class=\"plate mono\" aria-hidden=\"true\"");
+        // And no element at all where there is no icon. "When absent, render no element: no
+        // monogram, no grey square, no initial in a circle" — an empty frame on five hundred pages
+        // is noise, and a generated monogram invents a brand the game never supplied, which on a
+        // site that publishes only what it measured is the one decoration that costs something.
+        await Assert.That(html).DoesNotContain("class=\"plate");
     }
 
     [Test]
@@ -100,15 +103,29 @@ public class GamePlateTests
     }
 
     [Test]
-    public async Task TheGamePageAndTheListingDrawOneVocabularyAtTwoSizes()
+    public async Task NoSurfaceInventsAFaceForAGameThatPublishedNone()
     {
-        // Two spellings of "the first letters of the name" is how a game comes to be MU on one page
-        // and M* on the next, so the monogram has one implementation — on the page that draws it.
+        // Neither the listing nor the game page draws a monogram now. The component still knows how
+        // — a surface that needs a fixed left edge down a list of rows is a different argument — but
+        // nothing passes Fallback, so a game with no icon gets no element on either surface and the
+        // title simply starts at the left edge.
         var page = await Render.PageAsync<Game>(new() { ["Slug"] = "m-u-s-h" });
         var listing = await Render.PageAsync<Games>([]);
 
-        await Assert.That(page).Contains("class=\"plate mono\"");
-        await Assert.That(Render.Words(page)).Contains(Monogram.Of("M*U*S*H"));
+        await Assert.That(page).DoesNotContain("class=\"plate");
         await Assert.That(listing).DoesNotContain("class=\"plate");
+
+        // And the one implementation is still there, behind the parameter, so the two surfaces
+        // cannot grow two spellings of "the first letters of the name".
+        var withFallback = await Render.ComponentAsync<GamePlate>(new()
+        {
+            ["Slug"] = "m-u-s-h",
+            ["Name"] = "M*U*S*H",
+            ["HasIcon"] = false,
+            ["Fallback"] = true,
+        });
+
+        await Assert.That(withFallback).Contains("class=\"plate mono\" aria-hidden=\"true\"");
+        await Assert.That(Render.Words(withFallback)).Contains(Monogram.Of("M*U*S*H"));
     }
 }

@@ -299,26 +299,46 @@ public class PlainParityTests
 
         await Assert.That(html).Contains("class=\"chip declared");
 
-        // The count is the exception, and only in one direction. Its chip repeated the age the
-        // freshness column already carried and said "measured" on every row of a page headed "every
-        // fact below was measured" — so the row keeps the glyph, and spells the word out where the
-        // number is one the game states about itself. Never colour or glyph alone.
-        await Assert.That(Render.Words(html)).Contains("class=\"declared-note\">declared</span>");
-        await Assert.That(Render.Words(html)).DoesNotContain("class=\"chip measured\"><span class=\"sr-only\">measured");
+        // The count is the exception, and finding S1 took it all the way: no glyph and no word
+        // beside a number on a listing row at all. Where a number came from is what a reader weighs
+        // when choosing between two games, not while scanning five hundred, so it lives on the game
+        // page and on the facet groups' own badges — which is where it tells them whether a filter
+        // is trustworthy *before* they apply it. Rule 1 is intact one surface along.
+        await Assert.That(html).DoesNotContain("class=\"declared-note\"");
+        await Assert.That(html).DoesNotContain("class=\"pip");
+
+        // And the chip that stays — the codebase — prints no age, because the row has a freshness
+        // column of its own and every row used to state one age twice, four characters apart.
+        var meta = html[html.IndexOf("class=\"meta", StringComparison.Ordinal)..];
+        await Assert.That(meta[..meta.IndexOf("</p>", StringComparison.Ordinal)])
+            .DoesNotContain("<time");
     }
 
     [Test]
-    public async Task TheRowsGlyphAgreesWithTheChipBesideIt()
+    public async Task TheCountColumnCarriesANumberAndNothingElse()
     {
-        // The chip was added to the row and the glyph in front of it was left hard-coded measured,
-        // so a declared count rendered a green ● beside a ◇ chip — one number described two ways in
-        // the same breath, which is the disagreement the chip exists to end. The game page was fixed
-        // and the listing that points at it was not.
+        // Finding S1, and the localization win with it. The cell used to read "●545 on" — a
+        // provenance glyph whose legend lived elsewhere on the page, then the number, then one
+        // English word repeated on all 515 rows. The column is named once, above the rows, and the
+        // cells hold the bare figure.
         var html = await Render.PageAsync<Games>([]);
+        var counts = html.Split("class=\"row-count").Skip(1).ToList();
 
-        // Razor encodes both glyphs, so the assertion reads them as the markup carries them.
-        await Assert.That(html).Contains("class=\"pip state-declared\" aria-hidden=\"true\">&#x25C7;");
-        await Assert.That(html).Contains("class=\"pip state-present\" aria-hidden=\"true\">&#x25CF;");
+        await Assert.That(counts).IsNotEmpty();
+
+        foreach (var cell in counts)
+        {
+            var text = Render.Words(cell[..cell.IndexOf("</p>", StringComparison.Ordinal)]);
+
+            // Either a bare number, or the words that say there is no number. Never a zero standing
+            // in for an unknown, and never a unit.
+            await Assert.That(text).DoesNotContain(" on");
+            await Assert.That(text).DoesNotContain("●");
+            await Assert.That(text).DoesNotContain("◇");
+        }
+
+        // The column head is where the noun went, once.
+        await Assert.That(Render.Words(html)).Contains("connected · reached");
     }
 
     [Test]
@@ -360,13 +380,18 @@ public class PlainParityTests
         var declared = await Render.PageAsync<Game>(new() { ["Slug"] = "ashen-court" });
         var measured = await Render.PageAsync<Game>(new() { ["Slug"] = "m-u-s-h" });
 
-        await Assert.That(declared).Contains("class=\"chip declared");
+        // The chip became the figure's own kicker: the count over the word and the age that
+        // produced it, which is one fact read as one block rather than a number with a label
+        // trailing it at metadata size.
         await Assert.That(Render.Words(declared)).Contains("declared");
-        await Assert.That(measured).Contains("class=\"chip measured");
+        await Assert.That(declared).Contains("figure-count mono declared");
+        await Assert.That(Render.Words(measured)).Contains("measured");
+        await Assert.That(measured).Contains("figure-count mono");
+        await Assert.That(measured).DoesNotContain("figure-count mono declared");
 
-        // A count nobody could take gets no chip, because there is nothing to label.
+        // A count nobody could take says so in words, and never as a zero.
         var none = await Render.PageAsync<Game>(new() { ["Slug"] = "midnight-sun" });
-        await Assert.That(none).Contains("count unknown");
+        await Assert.That(Render.Words(none)).Contains("not counted");
     }
 
     [Test]
@@ -392,8 +417,8 @@ public class PlainParityTests
         var text = PlainText.RenderHome(counts, await Queries.FeedsAsync(), CrawlerPulse.Unknown, Now);
 
         await Assert.That(text).Contains("games known");
-        await Assert.That(text).Contains("with players on now (measured)");
-        await Assert.That(text).Contains("answering, count unknown");
+        await Assert.That(text).Contains("connected now (measured)");
+        await Assert.That(text).Contains("answering, uncounted");
     }
 
     [Test]

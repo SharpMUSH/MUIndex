@@ -39,31 +39,24 @@ else
 {
     @* The game is the hero; the connect screen follows as evidence. Leading with the art would hand
        the top of every page to whatever a stranger's server happens to send. *@
-    <article class="game @(Archived ? "archived" : null)">
+    <article class="game card-page @(Archived ? "archived" : null)">
         <header class="game-head">
+          <div class="game-identity">
             @*
-                The icon a game publishes, where we hold one, and the monogram otherwise — the same
-                component the listing draws, at this page's larger size. Two spellings of one plate is
-                how a game comes to be M*U*S*H's own logo on one surface and "MU" on the next.
+                The icon a game publishes, and nothing where it published none. No monogram, no grey
+                square, no initial in a circle: an empty frame on five hundred pages is noise, and a
+                generated monogram invents a brand the game never supplied — which on a site that
+                publishes only what it measured is the one decoration that costs something. The
+                indent collapses by itself, because it is the row's gap and not a padding value.
             *@
             <GamePlate Slug="@Page.Summary.Slug" Name="@Page.Summary.Name"
-                       HasIcon="Icon is not null" Size="68" />
+                       HasIcon="Icon is not null" Size="64" />
             <div class="game-title">
-                <h1>@Page.Summary.Name</h1>
-                <p class="badges">
-                    @if (Archived)
-                    {
-                        <span class="badge archived">archived</span>
-                    }
-                    else if (Page.Summary.IsClaimed)
-                    {
-                        <span class="badge claimed">claimed</span>
-                    }
-                    else
-                    {
-                        <span class="badge">unclaimed</span>
-                    }
-                </p>
+                <h1><GameName Name="@Page.Summary.Name" /></h1>
+                @if (Archived)
+                {
+                    <p class="badges"><span class="badge archived">archived</span></p>
+                }
                 @if (Page.Summary.Tagline is { } tagline)
                 {
                     <p class="tagline dim">@tagline</p>
@@ -72,16 +65,23 @@ else
                 {
                     <p class="lede">@description</p>
                 }
-                @if (!Page.Summary.IsClaimed && !Archived)
+                @*
+                    The claim state as one sentence rather than a badge and a paragraph three blocks
+                    apart. "Unclaimed" was a pill on the page and the same fact was restated below in
+                    prose; the invitation sits with the fact because an owner arriving at their own
+                    listing is the one reader for whom it is an action. A link and not a button —
+                    nothing happens until they are signed in (spec §8.1).
+                *@
+                @if (Page.Summary.IsClaimed)
                 {
-                    @*
-                        The invitation sits with the fact rather than in a banner. An owner arriving
-                        at their own listing is the one reader for whom "nobody has claimed this" is
-                        an action rather than a note — and it is a link, not a button, because
-                        nothing happens until they are signed in (spec §8.1).
-                    *@
-                    <p class="faint">
-                        Everything here was measured, not entered by an owner.
+                    <p class="claim-line dim">
+                        Claimed by its owner — measured facts below are still ours.
+                    </p>
+                }
+                else if (!Archived)
+                {
+                    <p class="claim-line dim">
+                        Unclaimed — everything here was measured.
                         @if (Claimable)
                         {
                             <a href="/g/@Page.Summary.Slug/claim">Claim this game</a>
@@ -101,17 +101,23 @@ else
                     one holding an address that stopped answering — and §7.5's promise that nothing is
                     deleted is invisible if the row is simply not shown.
                 *@
+                @*
+                    The addresses, as lines rather than boxes. Each was a bordered panel the full
+                    width of the title column, which gave a hostname the furniture of a card on a
+                    page whose only framed thing is the connect screen — somebody else's output,
+                    quoted.
+                *@
                 @foreach (var e in Page.Endpoints.OrderByDescending(e => e.IsCurrent).ThenBy(e => e.Port))
                 {
-                    <p class="endpoint mono @(e.IsCurrent ? null : "former")">
-                        @e.Host @e.Port
+                    <p class="endpoint mono @(e.IsCurrent ? null : "former")" translate="no">
+                        <span class="address">@e.Host @e.Port</span>
                         @if (e.TlsMeasured)
                         {
                             <span class="state-present">● tls</span>
                         }
                         @if (e.IsCurrent)
                         {
-                            <span class="faint">answering here since @Dates.Absolute(e.FirstSeenAt)</span>
+                            <span class="faint">answering since @Dates.Absolute(e.FirstSeenAt)</span>
                         }
                         else
                         {
@@ -123,31 +129,35 @@ else
                     </p>
                 }
             </div>
-            <div class="connect">
-                <p class="live mono">
-                    @if (Page.Summary.PlayersNow is { } n)
-                    {
-                        @*
-                            The count, and how we came by it. This page is the surface a reader
-                            trusts most, and it was the one printing the measured glyph over every
-                            number it had — including the ones a game states about itself, which the
-                            listing that points here already labels as such. One vocabulary.
-                        *@
-                        <span class="@(Counted?.IsMeasured is false ? "state-declared" : "state-present")">
-                            @(Counted?.IsMeasured is false ? "◇" : "●") @n players on now
-                        </span>
-                        @if (Counted is { } counted)
-                        {
-                            <Chip Fact="counted" Now="Now" ValueShown="false" />
-                        }
-                    }
-                    else
-                    {
-                        @* Never a zero and never a blank: those are different facts and only one of
-                           them is a measurement. *@
-                        <span class="state-unknown">– count unknown</span>
-                    }
-                </p>
+          </div>
+
+            @*
+                The figure, and the kicker that dates it. Both are one fact — a count is only as good
+                as the probe that produced it — so they read as one block at the far end of the
+                header rather than as a number and a chip on one line.
+
+                "connected" and not "players on now": the crawler counts open connections, not
+                people, and one person with two clients is two connections. The word that localizes
+                cleanly is the one that is true.
+            *@
+            <div class="game-figure">
+                @if (Page.Summary.PlayersNow is { } n)
+                {
+                    <p class="figure-count mono @(Counted?.IsMeasured is false ? "declared" : null)">
+                        @n <span class="unit">connected</span>
+                    </p>
+                    <p class="kicker figure-age">
+                        @(Counted?.IsMeasured is false ? "declared" : "measured")
+                        <Moment At="@(Counted?.LastConfirmedAt ?? Now)" Now="Now" Ago="true" Spoken="true" />
+                    </p>
+                }
+                else
+                {
+                    @* Never a zero and never a blank: those are different facts and only one of
+                       them is a measurement. *@
+                    <p class="figure-count mono unknown">not counted</p>
+                    <p class="kicker figure-age">reachable, count unreadable</p>
+                }
             </div>
         </header>
 
@@ -200,17 +210,29 @@ else
             </div>
         }
 
+        @*
+            One column. The page was two — the charts on the left, capabilities and the declared
+            fields in a right rail — which put the DOM's whole left column ahead of a panel the eye
+            meets at the top right, so the tab key ran to the bottom of the page and jumped back up.
+            Stacked, reading order and focus order are the same order.
+        *@
+        <div class="game-body">
+
         <section aria-labelledby="screen-heading">
             <h2 id="screen-heading">Connect screen</h2>
             <AnsiQuote Screen="ConnectScreen" CapturedAt="Captured" Now="Now"
                        Name="@Page.Summary.Name"
                        Frozen="@(Archived || Unlisted)"
-                       Charset="Page.ConnectScreenCharset" />
+                       Charset="@Page.ConnectScreenCharset" />
         </section>
 
-        <div class="two-up">
             <section aria-labelledby="activity-heading">
-                <h2 id="activity-heading">When people are on</h2>
+                @*
+                    "Connections by hour" and not "when people are on": the grid counts connections,
+                    which is what the crawler can see, and naming it for people is a claim about who
+                    is behind them that no probe can make.
+                *@
+                <h2 id="activity-heading">Connections by hour</h2>
                 <ActivityHeatmap Cells="Page.Activity" />
 
                 @*
@@ -317,7 +339,7 @@ else
 
                 @if (Page.Changes.Count > 0)
                 {
-                    <h2>What changed</h2>
+                    <h2 id="changed">What changed</h2>
                     <ol class="changes mono">
                         @foreach (var change in Page.Changes.OrderByDescending(c => c.At))
                         {
@@ -332,10 +354,10 @@ else
                 }
             </section>
 
-            <section aria-labelledby="capabilities">
+            <section aria-labelledby="capabilities" class="cap-section">
                 <CapabilityMatrix Rows="Page.Capabilities" Now="Now" />
 
-                <h2>Declared by the game</h2>
+                <h2 id="declared">Declared by the game</h2>
                 <dl class="declared">
                     @foreach (var (name, chip) in Page.Declared)
                     {
@@ -350,9 +372,16 @@ else
                     </p>
                 }
             </section>
+
         </div>
 
-        <p class="faint"><a href="?plain=1">plain text</a></p>
+        <p class="card-footer">
+            <a href="#declared">declared by the game</a>
+            <span class="sep" aria-hidden="true">·</span>
+            <a href="#changed">what changed</a>
+            <span class="sep" aria-hidden="true">·</span>
+            <a href="?plain=1">plain text</a>
+        </p>
     </article>
 }
 

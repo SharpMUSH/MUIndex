@@ -49,10 +49,36 @@
             <div class="quote" role="img" aria-label="@Alternative" tabindex="0">
                 <pre lang="@Language">@Paint(Screen.Rows)</pre>
             </div>
+            @*
+                The words, inside the same figure rather than in a block below it.
+
+                **Still a disclosure, and the handoff draws it open.** Its version exposes "only the
+                lines that are actually prose" — the address and the connect / create / QUIT
+                instructions — and that is the one instruction here we cannot follow: deciding which
+                of a stranger's lines are artwork and which are prose is a judgement about somebody
+                else's screen, and rules 4 and 5 forbid us presenting our reading of their output as
+                a fact about their game. So the alternative stays the *whole* screen, unaltered.
+
+                Which is why it stays folded. Shown open it would draw the same eighty columns of
+                box-drawing twice on one page — the exact triplication B1 exists to remove, at two
+                copies instead of three. One figure, one drawing, and the complete text a keystroke
+                away: the disclosure moved inside the frame so the two are visibly one block, and
+                the summary wears the kicker the handoff names.
+            *@
+            <details class="screen-text">
+                <summary><span class="kicker">read as text</span></summary>
+                <pre lang="@Language" translate="no">@Screen.PlainText</pre>
+            </details>
             <figcaption>
                 <span>as sent by the server</span>
                 <span aria-hidden="true">·</span>
-                <span>@Ansi.Columns×@Screen.RowCount</span>
+                @*
+                    The width in cells the screen actually occupies, not the width in characters.
+                    East Asian Wide codepoints take two terminal cells, so a Chinese banner drawn to
+                    80 columns is forty glyphs — and a caption claiming 80 tells anyone trying to
+                    render it faithfully the wrong number (i18n S4).
+                *@
+                <span>@Columns×@Screen.RowCount@(DoubleWidth ? ", double-width" : string.Empty)</span>
                 <span aria-hidden="true">·</span>
                 <span>@Depth</span>
                 @if (Charset is { Length: > 0 } charset)
@@ -76,11 +102,6 @@
                 }
             </figcaption>
         </figure>
-
-        <details class="read-as-text">
-            <summary>read as text</summary>
-            <pre class="mono plain-screen" lang="@Language">@Screen.PlainText</pre>
-        </details>
         break;
 }
 
@@ -113,6 +134,42 @@
     private string Depth => Screen.Rows.SelectMany(r => r.Runs).Any(r => !r.Style.IsPlain)
         ? "16-colour SGR"
         : "no colour";
+
+    /// <summary>
+    /// Whether this screen is drawn out of double-width glyphs.
+    /// </summary>
+    /// <remarks>
+    /// Any East Asian Wide character makes the grid a two-cell grid: a row of forty Han glyphs and a
+    /// row of eighty ASCII ones are the same width on a terminal, and arithmetic that counts
+    /// characters mis-measures one of them. One is enough to say so, because a screen mixing the two
+    /// is the case where the caption's number matters most.
+    /// </remarks>
+    private bool DoubleWidth => Screen.Rows
+        .SelectMany(r => r.Runs)
+        .Any(run => run.Text.EnumerateRunes().Any(IsWide));
+
+    /// <summary>The width the screen occupies in terminal cells.</summary>
+    private int Columns => DoubleWidth ? Ansi.Columns / 2 : Ansi.Columns;
+
+    /// <summary>
+    /// The East Asian Wide and Fullwidth ranges, which is what "two cells" means in practice.
+    /// </summary>
+    private static bool IsWide(System.Text.Rune rune) => rune.Value switch
+    {
+        >= 0x1100 and <= 0x115f => true,        // Hangul Jamo initial consonants
+        >= 0x2e80 and <= 0x303e => true,        // CJK radicals, Kangxi, CJK symbols
+        >= 0x3041 and <= 0x33ff => true,        // kana, Hangul compatibility, CJK compatibility
+        >= 0x3400 and <= 0x4dbf => true,        // CJK extension A
+        >= 0x4e00 and <= 0x9fff => true,        // CJK unified ideographs
+        >= 0xa000 and <= 0xa4cf => true,        // Yi
+        >= 0xac00 and <= 0xd7a3 => true,        // Hangul syllables
+        >= 0xf900 and <= 0xfaff => true,        // CJK compatibility ideographs
+        >= 0xfe30 and <= 0xfe6f => true,        // CJK compatibility forms
+        >= 0xff00 and <= 0xff60 => true,        // fullwidth forms
+        >= 0xffe0 and <= 0xffe6 => true,        // fullwidth signs
+        >= 0x20000 and <= 0x3fffd => true,      // CJK extensions B and beyond
+        _ => false,
+    };
 
     /// <summary>
     /// What the drawing is, in one line — the whole of what the art says to a reader who cannot see

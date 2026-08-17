@@ -11,6 +11,9 @@
     <h2 id="@Id">Capabilities</h2>
 </div>
 
+@* Six columns of nowrap cells do not fit a phone, and the page body may never scroll sideways —
+   so the table scrolls inside its own box, which is the same rule the ANSI frame follows. *@
+<div class="table-wrap">
 <table class="matrix">
     @*
         The tally, once. It was the section's heading text and then, verbatim, this table's caption —
@@ -18,9 +21,16 @@
         the table's own accessible description, it survives a collapsed section, and it is on screen
         for everybody rather than only for a screen reader.
     *@
+    @*
+        Short of the long form on purpose. "0 of 6 capabilities disagree with what the game declares"
+        was the section's heading text and then, verbatim, this caption; said once and set beside the
+        table it describes, the shorter sentence carries the same fact and reads as a summary rather
+        than as a restatement.
+    *@
     <caption class="count @(Disagreements.Count > 0 ? "warn" : "faint")">
-        @Disagreements.Count of @Rows.Count capabilities
-        @(Disagreements.Count == 1 ? "disagrees" : "disagree") with what the game declares
+        @(Disagreements.Count == 0
+            ? $"None of the {Rows.Count} disagree."
+            : $"{Disagreements.Count} of {Rows.Count} disagree with what the game declares.")
     </caption>
     <thead>
         <tr>
@@ -59,6 +69,7 @@
         }
     </tbody>
 </table>
+</div>
 
 @if (Disagreements.Count > 0)
 {
