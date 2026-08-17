@@ -291,19 +291,20 @@ public class PlainParityTests
     [Test]
     public async Task TheRenderedListingRowCarriesTheSameLabelThePlainOneSpells()
     {
-        // The rendered row and the plain row have to be two renderings of one fact. The chip is the
-        // vocabulary the game page already uses — glyph, relative age, amber when it has aged out —
-        // and the row reuses it rather than inventing a second way of saying "we read this off a
-        // banner forty minutes ago".
+        // The rendered row and the plain row have to be two renderings of one fact. The fields on
+        // the meta line keep the chip the game page uses — glyph, relative age, amber when it has
+        // aged out — rather than inventing a second way of saying "nobody has confirmed this since
+        // 2023".
         var html = await Render.PageAsync<Games>([]);
 
-        await Assert.That(html).Contains("class=\"chip measured");
         await Assert.That(html).Contains("class=\"chip declared");
 
-        // Never colour or glyph alone: the word is in the accessibility tree either as the chip's
-        // own title or as text only a screen reader reads.
-        await Assert.That(Render.Words(html)).Contains("declared");
-        await Assert.That(Render.Words(html)).Contains("measured");
+        // The count is the exception, and only in one direction. Its chip repeated the age the
+        // freshness column already carried and said "measured" on every row of a page headed "every
+        // fact below was measured" — so the row keeps the glyph, and spells the word out where the
+        // number is one the game states about itself. Never colour or glyph alone.
+        await Assert.That(Render.Words(html)).Contains("class=\"declared-note\">declared</span>");
+        await Assert.That(Render.Words(html)).DoesNotContain("class=\"chip measured\"><span class=\"sr-only\">measured");
     }
 
     [Test]

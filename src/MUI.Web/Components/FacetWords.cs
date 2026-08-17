@@ -124,7 +124,11 @@ public static class FacetWords
     /// </remarks>
     public static string SortGroup(GameSort sort) => SortWindows.Of(sort) is null
         ? "on the row now"
-        : SortWindows.IsMedian(sort) ? "typical over a window" : "highest seen in a window";
+
+        // Two words, because each option under them already names its own window: "typically on ·
+        // 7 days" under a heading reading "typical over a window" said the window twice and the
+        // word once.
+        : SortWindows.IsMedian(sort) ? "typical" : "peak";
 
     /// <summary>
     /// How a window figure is spelled where it is shown beside the row it ranked.
@@ -167,7 +171,7 @@ public static class FacetWords
     /// </remarks>
     public static string Unranked(GameSort sort) => sort switch
     {
-        GameSort.Players => "answering with nothing we can count — not zero players",
+        GameSort.Players => "reachable, count unreadable — not zero",
         GameSort.Reached => "never once reached — not reached long ago",
 
         // Two reasons in one group, and the sentence names both: nothing countable in the window, or
@@ -245,7 +249,7 @@ public static class FacetWords
     {
         "playersNow" => "players on now",
         "activeThisWeek" => "active this week",
-        "quiet" => "quiet — reachable, nobody counted",
+        "quiet" => "reachable, count unknown",
         "dark" => "dark — not reached in a month",
         _ => "archived",
     };

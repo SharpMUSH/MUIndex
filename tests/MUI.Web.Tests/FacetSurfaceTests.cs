@@ -250,7 +250,7 @@ public class FacetSurfaceTests
         // is that they are all still in the document, which is what this asserts.
         var words = Render.Words(await PanelAsync(new GameFilter()));
 
-        await Assert.That(words).Contains("Unticked is not a no");
+        await Assert.That(words).Contains("Unticked means not measured — not that the game lacks it");
         await Assert.That(words).Contains("A blank is a gap in our measurement, not a no");
         await Assert.That(words).Contains("not identified");
         await Assert.That(words).Contains("from the same query as the list below");

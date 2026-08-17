@@ -651,6 +651,10 @@ ul.games > li, ul.archive > li {
 
 ul.games > li.game-row:hover { background: var(--surface); }
 
+/* The row is a touch target before it is a layout: the game's name is the link, and on a phone a
+   list of five hundred of them is a list of five hundred things to hit. 44px is the floor. */
+ul.games > li.game-row { min-height: 44px; }
+
 /* Three columns: the game's face, what it is, and what we measured. The plate is what gives a
    five-hundred-row list a left edge the eye can run down — before it, every row began with a
    different-length name and the only way to find a game was to read them. `start` rather than
@@ -686,9 +690,9 @@ ul.games .name, ul.archive .name { font-size: 15px; font-weight: 600; text-decor
 ul.games .name:hover { text-decoration: underline; text-underline-offset: 3px; }
 ul.archive .name { color: var(--dim); }
 
-/* The majority state of the catalogue, so it is the quiet word rather than the third pill. A badge
-   every row wears distinguishes no row from any other, and at 700 rows it is chrome. */
-ul.games .unclaimed { font: 10px/1 var(--kick); letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+/* No rule for "unclaimed": it is not on a row any more. The majority state of the catalogue said on
+   every row is an administrative fact about our records, repeated once per game at a reader looking
+   for somewhere to play. It stays on the game page, where it arrives with the way to change it. */
 
 .row-text .tagline {
     margin: 2px 0 0;
@@ -704,6 +708,10 @@ ul.games .unclaimed { font: 10px/1 var(--kick); letter-spacing: 0.14em; text-tra
 
 ul.games .meta, ul.archive .meta { margin: 3px 0 0; font-size: 11.5px; color: var(--faint); }
 ul.games .meta .protocol { white-space: nowrap; }
+
+/* The protocols this row did not print. A count rather than a name, and the names are in its title
+   for a pointer and on the game's page for everybody. */
+ul.games .meta .protocol.more { color: var(--dim); }
 
 /* A provenance chip on a listing or archive row. The chip's own age size is set for body copy, and
    these contexts are already smaller than that — so the age rides the row's size rather than growing
@@ -756,9 +764,11 @@ ul.games .meta .protocol { white-space: nowrap; }
     text-shadow: 0 0 7px color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
-/* The count's own chip rides beside the figure. Spaced in CSS and not by a space in the markup,
-   because the renderer trims whitespace around a conditional and "219 on" ran into its own glyph. */
-.row-figure .players .chip { margin-left: 6px; }
+/* A count the game states about itself rather than one we read. Spaced in CSS and not by a space in
+   the markup, because the renderer trims whitespace around a conditional and "9 on" ran into it.
+   Only on the rows where it applies: "measured" under a heading that already says every fact below
+   was measured is a word that distinguishes nothing. */
+.row-figure .players .declared-note { margin-left: 6px; color: var(--amber); font-size: 11px; }
 .row-figure .players .unit { color: var(--faint); }
 .row-figure .players.unknown { color: var(--faint); }
 .row-figure .seen { color: var(--faint); font-size: 11.5px; }
@@ -811,6 +821,10 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
 .listing-bar .result-count strong { font-size: 19px; font-weight: 600; }
 .listing-bar .listing-order { margin: 0; }
 .listing-bar .listing-order a { color: var(--faint); }
+
+/* The freshness column's own head, at the far end of the bar and over the ages it names. Pushed
+   there rather than placed, so the order and the count keep the left edge they had. */
+.listing-bar .reached-head { margin: 0 0 0 auto; }
 
 /*
   Nothing matched. A plate rather than a paragraph, because an empty listing is a state and not an

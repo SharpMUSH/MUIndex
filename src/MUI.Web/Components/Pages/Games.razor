@@ -60,6 +60,13 @@ else
                     <text> · </text><a href="@RandomHref">random</a>
                 }
             </p>
+
+            @*
+                The verb, once, over the column it belongs to. Every row used to carry it — "reached
+                2w ago" beside a count that already wore the same age — so the age was on the row
+                twice and the word 515 times. The cells hold the bare age now; this says what it is.
+            *@
+            <p class="kicker reached-head" aria-hidden="true">reached</p>
         </div>
 
         <ul class="games">
@@ -94,12 +101,12 @@ else
                             <p class="row-head">
                                 <a class="name" href="/g/@g.Slug">@g.Name</a>
                                 @*
-                                    Archived and claimed are the two states worth a pill. Unclaimed is
-                                    the majority state of the catalogue and is drawn as the quiet word
-                                    it is — pilled on every row it was chrome, and a badge every game
-                                    wears is a badge that distinguishes none of them. The word itself
-                                    stays, on every row and in plain text, because "nobody has claimed
-                                    this" is a fact about the entry.
+                                    Archived and claimed are the two states worth saying. Unclaimed
+                                    is the majority state of the catalogue — it was on all 515 rows,
+                                    an administrative fact about our records repeated 515 times to a
+                                    reader looking for a game to play, and a mark every row wears
+                                    distinguishes no row from any other. It stays on the game page,
+                                    where it comes with the invitation to claim, and in the API.
                                 *@
                                 @if (g.State is LifecycleState.Archived)
                                 {
@@ -108,10 +115,6 @@ else
                                 else if (g.IsClaimed)
                                 {
                                     <span class="badge claimed">claimed</span>
-                                }
-                                else
-                                {
-                                    <span class="unclaimed">unclaimed</span>
                                 }
                             </p>
 
@@ -160,9 +163,26 @@ else
                                     <span class="state-unknown"
                                           title="we could not identify the codebase this game runs">Unknown Codebase</span>
                                 }
-                                @foreach (var p in g.MeasuredProtocols)
+                                @*
+                                    The protocols, and no dot beside each of them. Every one of these
+                                    is measured — that is what puts it on the line — so six accent
+                                    dots per row said one thing six times and gave the row six marks
+                                    to read past. Three, then a count of the rest: a row is a hint at
+                                    what a game is, and the game's page lists all of them with the
+                                    handshake each came from.
+                                *@
+                                @foreach (var p in g.MeasuredProtocols.Take(ProtocolsShown))
                                 {
-                                    <text> · </text><span class="protocol">@p <span class="state-present" aria-hidden="true">●</span></span>
+                                    <text> · </text><span class="protocol">@p</span>
+                                }
+                                @if (g.MeasuredProtocols.Count > ProtocolsShown)
+                                {
+                                    var rest = g.MeasuredProtocols.Count - ProtocolsShown;
+                                    <text> </text>
+                                    <span class="protocol more"
+                                          title="@($"and {rest} more: {string.Join(", ", g.MeasuredProtocols.Skip(ProtocolsShown))}")">
+                                        +@rest
+                                    </span>
                                 }
                             </p>
                         </div>
@@ -198,16 +218,21 @@ else
                                     <span class="pip @(g.PlayersNowProvenance?.IsMeasured is false ? "state-declared" : "state-present")" aria-hidden="true">@(g.PlayersNowProvenance?.IsMeasured is false ? "◇" : "●")</span><span class="count">@n</span> <span class="unit">on</span>
 
                                     @*
-                                        And how we know it. A number somebody read out of a WHO nine
-                                        minutes ago and a number a game asserts about itself are
-                                        different facts, and this row said the same thing for both.
-                                        The colour and the age are the difference, in the vocabulary
-                                        the game page already uses — and the word is spelled out for
-                                        a screen reader, because a glyph is not a fact.
+                                        And how we know it — said in words on the rows where it is
+                                        not what the page has already promised. The chip that used to
+                                        sit here carried the word and the age of the same probe the
+                                        freshness column dates, so every row stated one age twice and
+                                        the word "measured" 515 times under a heading reading "every
+                                        fact below was measured".
+
+                                        A declared count is the exception and it is the one a reader
+                                        could be misled by, so it keeps its word as well as its
+                                        glyph. Rule 1 is intact: the two kinds of number are still
+                                        told apart on this row, by shape, by colour and in text.
                                     *@
-                                    @if (g.PlayersNowProvenance is { } counted)
+                                    @if (g.PlayersNowProvenance?.IsMeasured is false)
                                     {
-                                        <Chip Fact="counted" Now="Now" ValueShown="false" GlyphShown="false" />
+                                        <span class="declared-note">declared</span>
                                     }
                                 </span>
                             }
@@ -237,7 +262,9 @@ else
                             <span class="seen">
                                 @if (g.LastReachableAt is { } seen)
                                 {
-                                    <text>reached @Relative.Ago(Now - seen)</text>
+                                    @* The bare age, under the column that says what it is — and the
+                                       verb for a reader who is listening rather than scanning. *@
+                                    <span class="sr-only">reached </span>@Relative.Format(Now - seen)
                                 }
                                 else
                                 {
@@ -306,6 +333,16 @@ else
     /// given — including when it ranks nothing, which is the case where the break is the first thing
     /// on the list and is exactly as worth drawing.
     /// </remarks>
+    /// <summary>
+    /// How many protocol names a row prints before it counts the rest.
+    /// </summary>
+    /// <remarks>
+    /// A game offering nine of them turned the meta line into the longest thing on the row and
+    /// pushed the tagline out of it. Three is enough to tell one kind of game from another at a
+    /// glance; the game's own page lists every one with the handshake it came from.
+    /// </remarks>
+    private const int ProtocolsShown = 3;
+
     private GameSummary? FirstUnranked => Listing.Games
         .FirstOrDefault(g => GameSorting.IsUnranked(g, Filter.Sort));
 

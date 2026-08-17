@@ -359,8 +359,13 @@ public static class PlainText
                 b.AppendLine();
             }
 
-            var mark = g.State is LifecycleState.Archived ? "[archived]" : g.IsClaimed ? "[claimed]" : "[unclaimed]";
-            b.AppendLine($"{g.Name}  {mark}");
+            // Archived and claimed are the two worth a mark; unclaimed is most of the catalogue and
+            // is not one, here for the same reason it is not on the rendered row. This surface and
+            // that one say the same things about a game or they are not two views of one listing.
+            var mark = g.State is LifecycleState.Archived ? "  [archived]"
+                : g.IsClaimed ? "  [claimed]"
+                : string.Empty;
+            b.AppendLine($"{g.Name}{mark}");
             b.AppendLine($"  /g/{g.Slug}");
 
             // How we know, and how old it is — the same two words and the same relative age the game
