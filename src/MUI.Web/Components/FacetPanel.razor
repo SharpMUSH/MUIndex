@@ -81,14 +81,14 @@
             near-identical pairs, and a state nothing showed at rest: a select sitting on an option
             in its second group looks exactly like one sitting on "any" until it is opened.
 
-            Two radios per row instead, sharing the facet's name, so the browser does the work:
-            picking one clears the rest, arrow keys move within the group, and the whole facet is
-            one tab stop as the select was. No script, and the querystring is unchanged — the
-            exclusion is still the same !value token the binding and the read API already parse.
+            Two links per row instead — tick to include, − to exclude — and each one is this listing
+            asked one facet differently. They apply on click, which no scriptless control on a form
+            can do: as radios they were honest about the filter's shape and useless in the hand,
+            because nothing happened until the reader found the "show" button.
 
-            Radios rather than checkboxes because a Choice facet holds one selection (FacetChoice):
-            the control offers exactly what the filter can hold, rather than a tick that quietly
-            replaces the last one.
+            The querystring is unchanged and is still the whole of the state: the exclusion is the
+            same !value token the binding and the read API already parse, and a ticked row's own
+            link is the one that clears it.
         *@
         <div class="facet-grid">
             @foreach (var group in Facets.Where(g => g.Kind is FacetKind.Choice))
@@ -105,14 +105,15 @@
                             is a row like the others rather than a "clear" button, because "any" is
                             an answer to the same question the rows below it answer.
                         *@
-                        <label class="facet-row any @(group.IsFiltered ? null : "on")">
-                            <input type="radio" name="@group.Key" value=""
-                                   checked="@(!group.IsFiltered)"
-                                   aria-label="@($"any {FacetWords.Group(group.Key)}, {group.Total} games")" />
-                            <span class="tick" aria-hidden="true">@(group.IsFiltered ? "☐" : "✓")</span>
-                            <span class="row-name">any</span>
-                            <span class="count">@group.Total</span>
-                        </label>
+                        <div class="facet-row any @(group.IsFiltered ? null : "on")">
+                            <a class="pick" href="@Href(group, null)"
+                               aria-current="@(group.IsFiltered ? null : "true")"
+                               aria-label="@($"any {FacetWords.Group(group.Key)}, {group.Total} games")">
+                                <span class="tick" aria-hidden="true">@(group.IsFiltered ? "☐" : "✓")</span>
+                                <span class="row-name">any</span>
+                                <span class="count">@group.Total</span>
+                            </a>
+                        </div>
 
                         @foreach (var value in Shown(group))
                         {
@@ -287,21 +288,42 @@
     /// </remarks>
     private RenderFragment Row(FacetGroup group, FacetValue value) =>
         @<div class="facet-row @RowState(value)">
-            <label class="pick">
-                <input type="radio" name="@group.Key" value="@value.Token"
-                       checked="@(value.State is FacetState.Included)"
-                       aria-label="@($"{FacetWords.Value(group.Key, value)}, {value.Count} games, only")" />
+            <a class="pick" href="@Href(group, value.State is FacetState.Included ? null : value.Token)"
+               aria-current="@(value.State is FacetState.Included ? "true" : null)"
+               aria-label="@($"{FacetWords.Value(group.Key, value)}, {value.Count} games, only")">
                 <span class="tick" aria-hidden="true">@(value.State is FacetState.Included ? "✓" : "☐")</span>
                 <span class="row-name">@FacetWords.Value(group.Key, value)</span>
                 <span class="count">@value.Count</span>
-            </label>
-            <label class="drop">
-                <input type="radio" name="@group.Key" value="@Excluded(value).Token"
-                       checked="@(value.State is FacetState.Excluded)"
-                       aria-label="@($"{FacetWords.Value(group.Key, value)}, {group.Total - value.Count} games, excluded")" />
+            </a>
+            <a class="drop"
+               href="@Href(group, value.State is FacetState.Excluded ? null : Excluded(value).Token)"
+               aria-current="@(value.State is FacetState.Excluded ? "true" : null)"
+               aria-label="@($"{FacetWords.Value(group.Key, value)}, {group.Total - value.Count} games, excluded")">
                 <span aria-hidden="true">@(value.State is FacetState.Excluded ? "×" : "−")</span>
-            </label>
+            </a>
         </div>;
+
+    /// <summary>
+    /// This listing, asked one facet differently — and asked nothing at all where the token is null,
+    /// which is what makes a ticked row untick itself.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>They are links, not controls, and that is why they work on click.</b> As radios they were
+    /// honest about the filter's shape and useless in the hand: a reader ticked a value and nothing
+    /// happened until they found the "show" button, which is the failure a filter panel cannot have.
+    /// A link needs no script, applies immediately, is a real target for the keyboard and the
+    /// browser's own "open in a new tab", and the state it produces is the URL — which is what this
+    /// panel has always said the state is.
+    /// </para>
+    /// <para>
+    /// The whole querystring rides along, so a facet change keeps the sort, the archive switch and
+    /// plain mode. What it cannot keep is text typed into the search box and not yet submitted; that
+    /// box has its own button, and no scriptless page can read an unsubmitted field.
+    /// </para>
+    /// </remarks>
+    private string Href(FacetGroup group, string? token) =>
+        "/games" + ListingLinks.With(Query, group.Key, token);
 
     private static string RowState(FacetValue value) => value.State switch
     {

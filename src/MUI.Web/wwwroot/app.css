@@ -1193,18 +1193,34 @@ fieldset.facets input[type="search"] { flex: 1 1 16rem; min-width: 0; }
     margin-top: var(--cpad);
 }
 
-.listing-grid > .facet-form { border-right: 1px solid var(--line); padding-right: var(--cpad); }
+/*
+  Placed explicitly, and that is load-bearing: the panel renders TWO siblings into this grid — the
+  form, and the row of active-filter chips that sits outside it because a chip is a link and not a
+  control. Left to auto-placement the chips took the second column and the listing dropped to the
+  first, under a filter column a thousand pixels tall — so applying a filter looked like a page that
+  had lost its results.
+*/
+.listing-grid > .facet-form {
+    grid-column: 1;
+    grid-row: 1 / span 99;
+    border-right: 1px solid var(--line);
+    padding-right: var(--cpad);
+}
+.listing-grid > * { grid-column: 2; min-width: 0; }
 .listing-side { min-width: 0; padding-left: var(--cpad); }
+.listing-grid > .active-filters { padding-left: var(--cpad); }
 
 /* One column below 900px: the filters become a block above the rows, in the order they are already
    in. Their edge goes with the column it belonged to. */
 @media (max-width: 900px) {
     .listing-grid { grid-template-columns: minmax(0, 1fr); }
+    .listing-grid > * { grid-column: 1; }
     .listing-grid > .facet-form {
+        grid-column: 1; grid-row: auto;
         border-right: 0; padding-right: 0;
         border-bottom: 1px solid var(--line); padding-bottom: var(--cpad); margin-bottom: var(--cpad);
     }
-    .listing-side { padding-left: 0; }
+    .listing-side, .listing-grid > .active-filters { padding-left: 0; }
 }
 
 /* In a 268px column the facets stack: one group per row, and the bar's controls with them. */
@@ -1288,7 +1304,9 @@ select {
     color: var(--faint); font-family: var(--mono);
 }
 .facet-row .drop:hover { color: var(--text); }
-.facet-row input[type="radio"] { position: absolute; width: 1px; height: 1px; opacity: 0; margin: 0; }
+/* Links, so a click applies the filter rather than arming a control that waits for a button. */
+.facet-row a { text-decoration: none; color: inherit; border-radius: var(--radius); }
+.facet-row .drop { display: block; }
 
 .facet-row:hover { background: var(--raised); }
 
@@ -1316,7 +1334,7 @@ select {
 .facet-row.excluded .drop { color: var(--text); }
 
 /* The radios are hidden, so the focus ring belongs to the row that holds them. */
-.facet-row:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.facet-row a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* The tail. A summary is a control, so it gets the row's own height and hit area. */
 .facet .facet-tail { margin-top: 2px; }

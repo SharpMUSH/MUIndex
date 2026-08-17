@@ -216,9 +216,16 @@ public class FacetSurfaceTests
         await Assert.That(html).Contains("action=\"/games\"");
         await Assert.That(html).DoesNotContain("<script");
 
+        // Every facet reaches the same querystring, whichever shape its control has: the presence
+        // facets are checkboxes the form submits, and the choice facets are links that carry the
+        // key themselves — a control that waited for a "show" button was a filter that did nothing
+        // when a reader clicked it.
         foreach (var group in (await Queries.SearchAsync(new GameFilter())).Facets)
         {
-            await Assert.That(html).Contains($"name=\"{group.Key}\"");
+            var named = html.Contains($"name=\"{group.Key}\"", StringComparison.Ordinal)
+                || html.Contains($"/games?{group.Key}=", StringComparison.Ordinal);
+
+            await Assert.That(named).IsTrue().Because($"{group.Key} reaches no querystring");
         }
     }
 
@@ -497,8 +504,10 @@ public class FacetSurfaceTests
         // The sort control keeps its optgroups — grouping nine orders by what each one reads is a
         // different job from listing one facet's values twice.
         await Assert.That(grid).DoesNotContain("<optgroup");
-        await Assert.That(html).Contains("type=\"radio\" name=\"codebase\" value=\"Evennia\"");
-        await Assert.That(html).Contains("type=\"radio\" name=\"codebase\" value=\"!Evennia\"");
+        // Links, not controls: a filter that needs a second click on a "show" button before it does
+        // anything is a filter panel that does not work, which is what radios made these.
+        await Assert.That(html).Contains("href=\"/games?codebase=Evennia\"");
+        await Assert.That(html).Contains("href=\"/games?codebase=%21Evennia\"");
 
         // And the whole facet is still one tab stop, as the select was: one radio group, arrow keys
         // within it.
@@ -516,7 +525,9 @@ public class FacetSurfaceTests
 
         await Assert.That(html).Contains("class=\"facet-row excluded\"");
         await Assert.That(Render.Words(html)).Contains("games, excluded\"");
-        await Assert.That(html).Contains("value=\"!Evennia\" checked");
+        // And the applied one links to clearing itself, so a row unticks where it was ticked.
+        await Assert.That(html).Contains("aria-current=\"true\"");
+        await Assert.That(html).Contains("href=\"/games\"");
     }
 
     private static async Task<string> PanelAsync(GameFilter filter)
