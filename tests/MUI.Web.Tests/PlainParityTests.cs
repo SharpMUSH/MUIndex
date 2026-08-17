@@ -331,8 +331,38 @@ public class PlainParityTests
             PlainText.RenderArchive(await ArchiveAsync(), query: null, Now, Locales.SourceTag),
         };
 
+        // These five hold to the cap on every line, addresses included, and that is not relaxed:
+        // the exemption below belongs to one surface and must not spread to the others by being
+        // written as a blanket rule.
         foreach (var line in surfaces.SelectMany(s => s.Split('\n')))
         {
+            await Assert.That(line.TrimEnd().Length).IsLessThanOrEqualTo(PlainText.Columns);
+        }
+
+        // Find was the one surface the cap was never checked on. It is checked on the prose only,
+        // because its addresses genuinely cannot hold to it — a query carrying six answers is past
+        // eighty columns before any wrapping decision is made, and a wrapped address is not
+        // clickable in the browsers this surface exists for. See the note on PlainText.Columns.
+        // German as well as English: a translated option label is the longest thing this renderer
+        // writes and the one no fixed vocabulary bounds. And loaded rather than empty, so the long
+        // addresses are actually present and the prose is measured beside them.
+        const string Loaded = "?plain=1&genre=Fantasy&language=English&lineage=MUSH&archived=true";
+
+        string[] find =
+        [
+            PlainText.RenderFind(await FindScreen.BuildAsync(Queries, "?plain=1")),
+            PlainText.RenderFind(await FindScreen.BuildAsync(Queries, "?plain=1", "de"), "de"),
+            PlainText.RenderFind(await FindScreen.BuildAsync(Queries, Loaded)),
+            PlainText.RenderFind(await FindScreen.BuildAsync(Queries, Loaded, "de"), "de"),
+        ];
+
+        foreach (var line in find.SelectMany(s => s.Split('\n')))
+        {
+            if (line.TrimStart().StartsWith('/'))
+            {
+                continue;
+            }
+
             await Assert.That(line.TrimEnd().Length).IsLessThanOrEqualTo(PlainText.Columns);
         }
     }

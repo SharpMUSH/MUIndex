@@ -1,4 +1,5 @@
 using MUI.Catalog;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Components;
 
@@ -43,7 +44,9 @@ public static class ActiveFilters
         if (!string.IsNullOrWhiteSpace(filter.Text))
         {
             chips.Add(new ActiveFilter(
-                "search", filter.Text.Trim(), Href(ListingLinks.With(query, FacetKeys.Text, null))));
+                FacetWords.Group(tag, FacetKeys.Text),
+                filter.Text.Trim(),
+                Href(ListingLinks.With(query, FacetKeys.Text, null))));
         }
 
         var drawn = new HashSet<string>(StringComparer.Ordinal);
@@ -99,16 +102,22 @@ public static class ActiveFilters
         // Last, because it widens the answer rather than narrowing it and reads oddly among the
         // things that narrow it — but present, because it is a thing the URL is asking for and a
         // reader who cannot see it asked has no way to stop asking.
+        var included = Messages.For(tag, "facet.value.included");
+
         if (filter.IncludeArchived)
         {
             chips.Add(new ActiveFilter(
-                "archived", "included", Href(ListingLinks.With(query, FacetKeys.Archived, null))));
+                FacetWords.Group(tag, FacetKeys.Archived),
+                included,
+                Href(ListingLinks.With(query, FacetKeys.Archived, null))));
         }
 
         if (filter.IncludeAdult)
         {
             chips.Add(new ActiveFilter(
-                "adult", "included", Href(ListingLinks.With(query, FacetKeys.Adult, null))));
+                FacetWords.Group(tag, FacetKeys.Adult),
+                included,
+                Href(ListingLinks.With(query, FacetKeys.Adult, null))));
         }
 
         return chips;

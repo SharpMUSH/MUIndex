@@ -493,6 +493,50 @@ public class FacetSurfaceTests
         await Assert.That(gmcp.RemoveHref).DoesNotContain("GMCP");
     }
 
+    /// <summary>Every chip is a translated word, including the four the panel does not supply.</summary>
+    /// <remarks>
+    /// Three chips are built by <see cref="ActiveFilters"/> itself rather than read off a facet
+    /// group — a typed name, and the two widenings — and all three, plus the word "included", were
+    /// still literal English after the rest of the site was localized. A translated listing rendered
+    /// them beside translated chips, so one row mixed two languages. Asserted by asking the bundle
+    /// what each says rather than by repeating the English, which is the whole point of the fix.
+    /// </remarks>
+    [Test]
+    public async Task EveryChipIsAWordFromTheBundleAndNotALiteral()
+    {
+        const string Url = $"?q=sun&{FacetKeys.Archived}=true&{FacetKeys.Adult}=true";
+        var en = Locales.SourceTag;
+
+        await Assert.That(GameFilterBinding.TryRead(Url, out var query, out _)).IsTrue();
+
+        var listing = await Queries.SearchAsync(query.Filter);
+        var chips = ActiveFilters.For(en, listing.Facets, query.Filter, Url);
+        var facets = chips.Select(c => c.Facet).ToList();
+
+        foreach (var key in (string[])[FacetKeys.Text, FacetKeys.Archived, FacetKeys.Adult])
+        {
+            await Assert.That(facets)
+                .Contains(FacetWords.Group(en, key))
+                .Because($"the {key} chip names itself from the bundle");
+        }
+
+        // "included" is the only chip value that is a state of ours rather than a token a game gave
+        // us, so it is the only one that has to be translated rather than passed through.
+        var included = Messages.For(en, "facet.value.included");
+
+        await Assert.That(chips.Count(c => c.Value == included)).IsEqualTo(2);
+
+        // And none of the four is a bare key leaking through FacetWords.Group's fallback, which
+        // cannot be told from the English by comparing strings — "archived" is both the facet key
+        // and the word. So the bundle is asked whether it owns the id at all: an id the bundle has
+        // is an id a translator can reach, and that is the thing being asserted.
+        foreach (var id in (string[])
+            ["facet.group.search", "facet.group.archived", "facet.group.adult", "facet.value.included"])
+        {
+            await Assert.That(Messages.Ids).Contains(id);
+        }
+    }
+
     [Test]
     public async Task NothingSelectedIsNoChipsAtAll()
     {

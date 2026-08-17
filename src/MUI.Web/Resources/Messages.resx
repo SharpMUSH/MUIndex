@@ -2888,4 +2888,28 @@
     <value>** disagree</value>
     <comment>the plain surface's own headings for this page</comment>
   </data>
+  <data name="listing.row.connected" xml:space="preserve">
+    <value>connected</value>
+    <comment>the listing row's own labels</comment>
+  </data>
+  <data name="listing.row.reached" xml:space="preserve">
+    <value>reached</value>
+    <comment>the listing row's own labels</comment>
+  </data>
+  <data name="facet.group.search" xml:space="preserve">
+    <value>search</value>
+    <comment>the active-filter chips</comment>
+  </data>
+  <data name="facet.group.archived" xml:space="preserve">
+    <value>archived</value>
+    <comment>the active-filter chips</comment>
+  </data>
+  <data name="facet.group.adult" xml:space="preserve">
+    <value>adult</value>
+    <comment>the active-filter chips</comment>
+  </data>
+  <data name="facet.value.included" xml:space="preserve">
+    <value>included</value>
+    <comment>the active-filter chips</comment>
+  </data>
 </root>

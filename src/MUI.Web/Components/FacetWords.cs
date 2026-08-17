@@ -47,6 +47,14 @@ public static class FacetWords
         FacetKeys.Family => "facet.group.family",
         FacetKeys.Genre => "facet.group.genre",
         FacetKeys.Language => "facet.group.language",
+
+        // The three the panel has no group for. They are things the query asks that no facet
+        // answers back — a typed name, and the two widenings — and they reach a reader only as
+        // chips. Named here rather than in the chip builder so there is one place a facet is put
+        // into words, and so the fallback below stays what it is for: a key nobody has named yet.
+        FacetKeys.Text => "facet.group.search",
+        FacetKeys.Archived => "facet.group.archived",
+        FacetKeys.Adult => "facet.group.adult",
         _ => key,
     });
 

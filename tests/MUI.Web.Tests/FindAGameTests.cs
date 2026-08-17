@@ -364,9 +364,13 @@ public class FindAGameTests
     public async Task TheGroupedQuestionSaysTheGroupingIsOurs()
     {
         var screen = await ScreenAsync();
-        var kind = screen.Questions.Single(q => q.Text == "What kind of game?");
 
-        await Assert.That(kind.Key).IsEqualTo(FacetKeys.Lineage);
+        // Selected by the facet key, not by its English. The question is identified by the facet it
+        // asks — that is the fact this test is about — so an edit to the copy or a translated locale
+        // must not make it fail, and must not make it fail pointing at lineage evidence.
+        var kind = screen.Questions.Single(q => q.Key == FacetKeys.Lineage);
+
+        await Assert.That(kind.Text).IsEqualTo(Messages.For(Locales.SourceTag, "find.q.lineage"));
         await Assert.That(kind.Evidence).IsEqualTo(FacetEvidence.Derived);
 
         var html = await FindAsync();
@@ -530,6 +534,121 @@ public class FindAGameTests
 
         await Assert.That(answered.Questions.Single(q => q.Key == FacetKeys.Genre).Options
             .Any(o => o.IsChosen)).IsTrue();
+    }
+
+    /// <summary>
+    /// A chosen capability outside the commonest six is still on the page, and can still be undone.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The client question does not go through <see cref="FindScreen"/>'s <c>Split</c> — its options
+    /// are two facets welded into one control — so the rule that a reader's own answer is never
+    /// folded away had to be carried across by hand, and was not. The shown list was the first six
+    /// by popularity and the tail was the remainder with every chosen option filtered out, so a
+    /// capability ranking seventh or lower was in neither: the answer in force was invisible and the
+    /// only affordance that clears it went with it. A single-choice control that can enter a state
+    /// it cannot leave is the worst shape a question on this page can have.
+    /// </para>
+    /// <para>
+    /// Exercised over a catalogue built to rank the chosen capability last, because the six-game
+    /// fixture measures one protocol and cannot produce a seventh option at all.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AChosenCapabilityOutsideTheCommonestSixIsStillShownAndStillClearable()
+    {
+        var many = new ManyCapabilities();
+
+        // The rarest, which is what the popularity cut pushes furthest out of sight.
+        var rare = ManyCapabilities.Protocols[^1];
+
+        var before = await FindScreen.BuildAsync(many, string.Empty);
+        var offered = before.Questions.Single(q => q.Key == FacetKeys.Protocol);
+
+        // The premise: it really is in the tail before anybody chooses it.
+        await Assert.That(offered.Options.Any(o => o.Label.StartsWith(rare, StringComparison.Ordinal)))
+            .IsFalse();
+        await Assert.That(offered.Tail.Any(o => o.Label.StartsWith(rare, StringComparison.Ordinal)))
+            .IsTrue();
+
+        var screen = await FindScreen.BuildAsync(many, $"?{FacetKeys.Protocol}={rare}");
+        var client = screen.Questions.Single(q => q.Key == FacetKeys.Protocol);
+
+        // Shown, not folded: promoted into the open list exactly as Split promotes one elsewhere.
+        var chosen = client.Options.Single(o => o.IsChosen);
+
+        await Assert.That(chosen.Label).StartsWith(rare);
+        await Assert.That(client.Tail.Any(o => o.IsChosen)).IsFalse();
+
+        // And clearable: its own link drops the answer rather than setting it again, so the control
+        // is reachable in both directions with no second affordance.
+        await Assert.That(chosen.Href).DoesNotContain($"{FacetKeys.Protocol}={rare}");
+
+        GameFilterBinding.TryRead(QueryOf(chosen.Href), out var cleared, out _);
+
+        await Assert.That(cleared.Filter.MeasuredProtocols).IsEmpty();
+
+        // The plain surface carries it too, or the graphical fix is half a fix (§9).
+        await Assert.That(PlainText.RenderFind(screen)).Contains($"[x] {rare}");
+    }
+
+    /// <summary>
+    /// A catalogue measuring more capabilities than the client question shows, ranked so the last is
+    /// well outside the cut.
+    /// </summary>
+    private sealed class ManyCapabilities : IGameQueries
+    {
+        internal static readonly string[] Protocols =
+        [
+            "MSSP", "MCCP", "GMCP", "MXP", "MSDP", "TTYPE", "ATCP", "MSP", "EOR",
+        ];
+
+        // Nine games offer the first, one offers the last: a strict popularity order with no ties,
+        // so which options fall outside the shown six is a fact rather than a sort artefact.
+        private static readonly IReadOnlyList<GameFacetRow> Rows =
+        [
+            .. Protocols.SelectMany((protocol, rank) => Enumerable
+                .Range(0, Protocols.Length - rank)
+                .Select(n => Row($"{protocol}-{n}", protocol))),
+        ];
+
+        public Task<GameListing> SearchAsync(GameFilter filter, CancellationToken ct = default) =>
+            Task.FromResult(FacetedSearch.Search(Rows, filter));
+
+        public Task<IReadOnlyList<GameSummary>> ListAsync(GameFilter filter, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<GamePage?> FindAsync(string slug, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<GamePage?> FindAsync(Guid id, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<GameSummary?> FindByIdAsync(Guid id, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<LivenessFeeds> FeedsAsync(CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<EcosystemDashboard> EcosystemAsync(CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<Rankings> RankingsAsync(RankingSpan span, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        private static GameFacetRow Row(string slug, string protocol) => new(
+            new GameSummary(
+                Guid.NewGuid(), slug, slug, null, LifecycleState.Active, IsClaimed: false,
+                PlayersNow: 1, Codebase: "PennMUSH", MeasuredProtocols: [protocol]),
+            ActivityBand.PlayersNow,
+            LastSeenBand.Day,
+            TlsMeasured: false,
+            Charset: "UTF-8",
+            Language: "English",
+            Codebase: "PennMUSH",
+            Family: "TinyMUD",
+            Genre: "Fantasy",
+            IsAdult: false);
     }
 
     /// <summary>

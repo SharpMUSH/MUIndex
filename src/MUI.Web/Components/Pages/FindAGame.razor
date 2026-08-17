@@ -1,5 +1,6 @@
 @page "/find"
 @using Microsoft.AspNetCore.WebUtilities
+@using Microsoft.Extensions.Primitives
 @using MUI.Catalog
 @using MUI.Web.Api
 @using MUI.Web.Localization
@@ -246,10 +247,19 @@ else
 
 @code {
     /// <summary>The querystring this render is answering, exactly as the request carried it.</summary>
-    private string Query => new Uri(Nav.Uri).Query;
+    /// <remarks>
+    /// Read off <c>Nav.Uri</c> once per render rather than on every access. It was a computed
+    /// property that allocated a <see cref="Uri"/> each time it was touched, and four members read
+    /// it — one of them, <see cref="Carried"/>, from inside a <c>foreach</c> — so a page whose whole
+    /// state is its querystring reparsed that querystring several times to draw one screen.
+    /// </remarks>
+    private string Query { get; set; } = string.Empty;
 
-    private bool Plain => Truthy.Is(
-        QueryHelpers.ParseQuery(Query).TryGetValue("plain", out var flag) ? flag.ToString() : null);
+    /// <summary>The same querystring, parsed once, for the members that read parameters out of it.</summary>
+    private Dictionary<string, StringValues> Parsed { get; set; } = [];
+
+    private bool Plain =>
+        Truthy.Is(Parsed.TryGetValue("plain", out var flag) ? flag.ToString() : null);
 
     private string PlainHref => ListingLinks.With(Query, "plain", "1");
 
@@ -286,8 +296,8 @@ else
 
     private static string Heading(int index) => $"find-q{index}";
 
-    private string? Text => QueryHelpers.ParseQuery(Query)
-        .TryGetValue(FacetKeys.Text, out var typed) ? typed.ToString() : null;
+    private string? Text =>
+        Parsed.TryGetValue(FacetKeys.Text, out var typed) ? typed.ToString() : null;
 
     /// <summary>
     /// Every answer the name field has to carry with it, as hidden inputs.
@@ -300,7 +310,7 @@ else
     /// field supplies it, and a second copy would reach the binding as <c>old,new</c>.
     /// </remarks>
     private IEnumerable<KeyValuePair<string, string>> Carried =>
-        QueryHelpers.ParseQuery(Query)
+        Parsed
             .Where(p => !string.Equals(p.Key, FacetKeys.Text, StringComparison.Ordinal))
             .SelectMany(p => p.Value.Select(v => new KeyValuePair<string, string>(p.Key, v ?? string.Empty)));
 
@@ -326,6 +336,13 @@ else
             <span class="count mono">@option.Count</span>
         </a>;
 
-    protected override async Task OnParametersSetAsync() =>
+    protected override async Task OnParametersSetAsync()
+    {
+        // Both set before the screen is built, because every member that reads a parameter reads
+        // them and the screen is the first thing that does.
+        Query = new Uri(Nav.Uri).Query;
+        Parsed = QueryHelpers.ParseQuery(Query);
+
         Screen = await FindScreen.BuildAsync(Queries, Query, Tag);
+    }
 }

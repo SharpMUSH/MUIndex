@@ -16,13 +16,24 @@ namespace MUI.Web.Components;
 /// <para>
 /// It renders from the same view models the graphical pages use, which is what bounds its
 /// maintenance cost — the main pages are these with graphics added, not second documents that have
-/// to be kept in step. Nothing here is wider than 80 columns and every state is a word, never a
-/// glyph, a colour or a cell shape.
+/// to be kept in step. No prose here is wider than 80 columns — addresses excepted, see
+/// <see cref="Columns"/> — and every state is a word, never a glyph, a colour or a cell shape.
 /// </para>
 /// </remarks>
 public static class PlainText
 {
-    /// <summary>Nothing this renderer writes exceeds this, because text browsers are 80 wide.</summary>
+    /// <summary>
+    /// No prose this renderer writes exceeds this, because text browsers are 80 wide.
+    /// </summary>
+    /// <remarks>
+    /// <b>URLs are the one exception, and are exempt on purpose.</b> The cap used to be documented
+    /// as covering everything, which was not true and could not be made true: an address is printed
+    /// whole because a wrapped one is not clickable in the browsers this surface exists for, and a
+    /// find query with six answers in it is longer than eighty columns on its own. The choice is
+    /// between a line a reader can follow and a line a reader can use, and for an address it is the
+    /// second. Everything that is not an address wraps — <see cref="Wrap"/> — and
+    /// <c>NoPlainLineIsWiderThanEightyColumns</c> enforces exactly that split.
+    /// </remarks>
     public const int Columns = 80;
 
     public static string Render(
@@ -999,7 +1010,26 @@ public static class PlainText
     /// </remarks>
     private static void Answer(StringBuilder b, FindOption option)
     {
-        b.AppendLine($"  [{(option.IsChosen ? "x" : " ")}] {option.Label} ({option.Count})");
+        var mark = $"  [{(option.IsChosen ? "x" : " ")}] ";
+        var text = $"{option.Label} ({option.Count})";
+
+        if (mark.Length + text.Length <= Columns)
+        {
+            b.AppendLine(mark + text);
+        }
+        else
+        {
+            // A label too long for the line keeps its checkbox on the first line and hangs its
+            // continuation under the label rather than under the box, so a wrapped option cannot be
+            // read as a second one. The labels that reach this are the catalogue's own — a genre, a
+            // language, a lineage — and nothing bounds their length but the games.
+            var wrapped = new StringBuilder();
+            Wrap(wrapped, text, new string(' ', mark.Length));
+
+            b.Append(mark).Append(wrapped.ToString().AsSpan(mark.Length));
+        }
+
+        // The address is never wrapped: see the note on Columns.
         b.AppendLine($"      {option.Href}");
     }
 

@@ -440,14 +440,29 @@ public sealed class FindScreen
 
         var ordered = options.OrderByDescending(o => o.Count).ThenBy(o => o.Label, StringComparer.Ordinal).ToList();
 
+        // The same rule <see cref="Split"/> applies to every other question, applied here too: a
+        // chosen answer is promoted into the shown list rather than left in the tail. This question
+        // does not go through Split — its options are two facets welded into one control — and the
+        // rule was not carried across, so a capability ranking seventh or lower was dropped from the
+        // shown list by the popularity cut and from the tail by the "not chosen" filter, leaving a
+        // reader who had chosen it unable to see the answer in force or to undo it. A single-choice
+        // control that can enter a state it cannot leave is the worst shape this page has.
+        var shown = ordered.Take(OptionsShown).ToList();
+        var tail = new List<FindOption>();
+
+        foreach (var option in ordered.Skip(OptionsShown))
+        {
+            (option.IsChosen ? shown : tail).Add(option);
+        }
+
         return new FindQuestion(
             FacetKeys.Protocol,
             Messages.For(tag, "find.q.client"),
             FacetEvidence.Measured,
             new FindOption(
                 Messages.For(tag, "find.any.client"), loose.Games.Count, !chosen, "/find" + bare),
-            [.. ordered.Take(OptionsShown)],
-            [.. ordered.Skip(OptionsShown).Where(o => !o.IsChosen)],
+            shown,
+            tail,
 
             // The client answer lifted is a pass we already took, so this figure is a listing's own
             // size rather than a guess at one.

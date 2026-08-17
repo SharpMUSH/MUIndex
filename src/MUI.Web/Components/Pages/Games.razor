@@ -329,7 +329,20 @@ else
                             515 times; the column is named once, above, which is also one string
                             per locale instead of five hundred.
                         *@
-                        <p class="row-count mono @CountState(g)">@CountText(g)</p>
+                        @*
+                            **And the label a column head cannot carry.** The visible head above is
+                            `aria-hidden`, correctly — a reader who can see it does not want it
+                            repeated 515 times — but that left the row exposing a bare "12" beside a
+                            bare "2h ago" with nothing saying which was the count and which the age.
+                            The fix is a label in the row rather than a second visible head: hidden
+                            to the eye, spoken once per row, and the visual head stays hidden
+                            because the sighted reader already has the column.
+                        *@
+                        @* The trailing space is an entity because Razor collapses a literal one,
+                           and without it the row is announced as "connected219". *@
+                        <p class="row-count mono @CountState(g)">
+                            <span class="sr-only">@Messages.For(Tag, "listing.row.connected")&#160;</span>@CountText(g)
+                        </p>
 
                         @*
                             Freshness. The bare age, under a column head that carries the verb — the
@@ -338,6 +351,7 @@ else
                             sentence and is never dated from our own first sighting.
                         *@
                         <p class="row-seen mono">
+                            <span class="sr-only">@Messages.For(Tag, "listing.row.reached")&#160;</span>
                             @if (g.LastReachableAt is { } seen)
                             {
                                 <Moment At="seen" Now="Now" />

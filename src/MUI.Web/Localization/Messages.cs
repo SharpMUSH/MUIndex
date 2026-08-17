@@ -1255,6 +1255,27 @@ public static class Messages
         ["game.plain.measured"] = "measured",
         ["game.plain.declared.column"] = "declared",
         ["game.plain.disagree"] = "** disagree",
+
+        // ══ appended block: the listing row's own labels and the last three chips ══════════════
+        //
+        // The two column heads, repeated per row for assistive technology only. The visible head is
+        // said once over the column and stays `aria-hidden`, because a reader who can see it does
+        // not need it five hundred times; a reader who cannot see it has no column at all, and a
+        // bare "12" and "2h ago" name neither the count nor the age. Two ids rather than splitting
+        // `listing.columns` on its separator: a locale is free to order or punctuate that head
+        // however it reads best, and a split would make the row's labels a function of its
+        // typography.
+        ["listing.row.connected"] = "connected",
+        ["listing.row.reached"] = "reached",
+
+        // The chips the active-filter row builds itself rather than reading off a facet group.
+        // They are the last three that were still English on a translated page: two are questions
+        // the query asks that no facet answers, and "included" is the only chip value that is a
+        // state of ours rather than a token a game gave us.
+        ["facet.group.search"] = "search",
+        ["facet.group.archived"] = "archived",
+        ["facet.group.adult"] = "adult",
+        ["facet.value.included"] = "included",
     };
 
     /// <summary>

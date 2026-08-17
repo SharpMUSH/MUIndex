@@ -111,9 +111,16 @@ public class AdultSurfaceTests
 
         var filter = Listing(Query);
         var listing = await Queries.SearchAsync(filter);
-        var chip = ActiveFilters.For(Locales.SourceTag, listing.Facets, filter, Query).Single(c => c.Facet is "adult");
 
-        await Assert.That(chip.Value).IsEqualTo("included");
+        // Both halves of the chip come out of the bundle now, so this asks the bundle what they say
+        // rather than repeating the English. The fact under test is unchanged and is not wording:
+        // the chip for this key exists, it says the key is included, and its link takes it back off.
+        var chips = ActiveFilters.For(Locales.SourceTag, listing.Facets, filter, Query);
+        var chip = chips.Single(
+            c => c.Facet == FacetWords.Group(Locales.SourceTag, FacetKeys.Adult));
+
+        await Assert.That(chip.Value)
+            .IsEqualTo(Messages.For(Locales.SourceTag, "facet.value.included"));
         await Assert.That(chip.RemoveHref).DoesNotContain(FacetKeys.Adult);
     }
 
