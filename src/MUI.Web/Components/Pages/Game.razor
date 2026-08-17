@@ -217,12 +217,23 @@ else
                     <PresenceTrend Series="Trend" Shape="Shape" />
 
                     @* The range is in the address, so seeking is links and needs no script. *@
+                    @*
+                        The option you are already on is not a link to itself. A pressed state, said
+                        with aria-current and drawn with the accent — the pair reads as a toggle
+                        because it is one, and there is no keystroke that lands on a control whose
+                        only effect is to re-fetch the page you are reading.
+                    *@
                     <nav class="spans" aria-label="Trend range">
                         @foreach (var days in RangePresets)
                         {
-                            <a href="@RangeHref(TrendRange.Preset(days, Today))"
-                               class="@(Range.Covers(days, Today) ? "span on" : "span")"
-                               aria-current="@(Range.Covers(days, Today) ? "page" : null)">@days days</a>
+                            @if (Range.Covers(days, Today))
+                            {
+                                <span class="span on" aria-current="true">@days days</span>
+                            }
+                            else
+                            {
+                                <a href="@RangeHref(TrendRange.Preset(days, Today))" class="span">@days days</a>
+                            }
                         }
                         <a class="span" href="@RangeHref(Range.Previous())" rel="prev">← earlier</a>
                         @if (Range.Next(Today) is { } next)
@@ -239,9 +250,14 @@ else
                     <nav class="spans shapes" aria-label="Trend shape">
                         @foreach (var shape in new[] { TrendShape.Line, TrendShape.Bar })
                         {
-                            <a href="@ShapeHref(shape)"
-                               class="@(Shape == shape ? "span on" : "span")"
-                               aria-current="@(Shape == shape ? "page" : null)">@shape.Label()</a>
+                            @if (Shape == shape)
+                            {
+                                <span class="span on" aria-current="true">@shape.Label()</span>
+                            }
+                            else
+                            {
+                                <a href="@ShapeHref(shape)" class="span">@shape.Label()</a>
+                            }
                         }
                     </nav>
                 }

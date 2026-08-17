@@ -564,8 +564,14 @@ nav.spans .span {
     padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px;
     color: var(--dim); text-decoration: none;
 }
-nav.spans .span:hover { border-color: var(--dim); color: var(--text); }
-nav.spans .span.on { border-color: var(--accent); color: var(--accent); }
+nav.spans a.span:hover { border-color: var(--dim); color: var(--text); }
+
+/* The pressed one, which is a span rather than a link to the page you are on. Tinted as well as
+   outlined, because with no hover to distinguish it the border alone was doing all the work. */
+nav.spans .span.on {
+    border-color: var(--accent); color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
 /* The shape sits under the range and is the smaller question of the two, so it follows immediately
    rather than being spaced as a second block. */
 nav.spans.shapes { margin-top: -4px; }
