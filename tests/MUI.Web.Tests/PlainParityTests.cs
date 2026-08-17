@@ -243,6 +243,23 @@ public class PlainParityTests
     }
 
     [Test]
+    public async Task TheRenderedRowNamesTheFieldBecauseNothingElseOnItDoes()
+    {
+        // The two surfaces word this one state differently and that is deliberate. Plain text and
+        // the facet panel both print "codebase" as a heading and say "not identified" under it; a
+        // listing row has no heading, so its label has to name the field itself or read as an
+        // absence of nothing in particular.
+        var html = await Render.PageAsync<Games>([]);
+
+        await Assert.That(Render.Words(html)).Contains("Unknown Codebase");
+
+        // And the sentence saying whose limit this is survives on the element, because the short
+        // label does not carry it: an unidentified codebase is a fact about our parsers' reach and
+        // not about the game (rule 5).
+        await Assert.That(html).Contains("we could not identify the codebase this game runs");
+    }
+
+    [Test]
     public async Task TheListingSaysHowEachCountAndCodebaseWasObtainedAndHowOldItIs()
     {
         // §9's test of the whole system, applied to the listing: if provenance cannot survive in

@@ -141,21 +141,24 @@ else
                                     @*
                                         The commonest state in the catalogue, so it is the quietest
                                         thing on the row — the same reasoning that demoted "unclaimed"
-                                        from a pill to a word. It was the longest string on the meta
-                                        line and it appeared on more rows than any codebase did, so
-                                        the one row in three that <em>has</em> an identified codebase
-                                        was the one that looked emptiest.
+                                        from a pill to a word. "Codebase not identified" was the
+                                        longest string on the meta line and appeared on more rows than
+                                        any codebase did, so the one row that <em>had</em> an
+                                        identified codebase was the one that looked emptiest.
 
-                                        The word "codebase" comes off the picture and stays in the
-                                        accessibility tree and in the title, because position is what
-                                        carries it: this is the first item on the meta line, which is
-                                        where the codebase chip sits on every row that has one. What
-                                        may not be shortened is "not identified" itself — that is a
-                                        measurement of our own reach, and "unknown" would make it
-                                        sound like a fact about the game.
+                                        Two words, and they name the field so the label stands on its
+                                        own — a row is read on its own, unlike the facet panel and the
+                                        plain listing, which both print "codebase" as a heading and go
+                                        on saying "not identified" underneath it.
+
+                                        The title carries the longer sentence for a reader who wants
+                                        it. It is the one place on this row that says whose limit
+                                        this is: an unidentified codebase is a fact about how far our
+                                        parsers reach and not about the game, and the shorter label
+                                        does not say so by itself.
                                     *@
-                                    <span class="state-unknown" title="codebase not identified">
-                                        <span class="sr-only">codebase</span>not identified</span>
+                                    <span class="state-unknown"
+                                          title="we could not identify the codebase this game runs">Unknown Codebase</span>
                                 }
                                 @foreach (var p in g.MeasuredProtocols)
                                 {
