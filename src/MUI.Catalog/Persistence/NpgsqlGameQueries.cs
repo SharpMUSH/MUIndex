@@ -92,6 +92,27 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// </remarks>
     private const string ListedStates = "('archived', 'excluded', 'unlisted')";
 
+    /// <summary>
+    /// The states no browsing surface may reach, whatever it is asking about.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>`archived` is deliberately not in here, and that is the whole distinction.</b> The archive
+    /// is a browsable section in its own right (§7.5) with its own facet and its own feed entry when
+    /// a game comes back. The other two are not sections: "we decided this is not a game somebody can
+    /// play" and "the people who run it asked to come out" both mean *nothing that walks the site
+    /// arrives here*. Only the address does.
+    /// </para>
+    /// <para>
+    /// <b>It exists because the listing was not the only way in.</b> The liveness feeds and the
+    /// referral neighbours both read <c>Public</c> alone, which says who vouched for a game and
+    /// nothing about its lifecycle — so a game taken out of the listing went on being offered as a
+    /// *newly discovered* entry and as a link on its neighbour's page. Excluding it from the listing
+    /// and then linking to it from the listing's own pages is not excluding it.
+    /// </para>
+    /// </remarks>
+    private const string NeverBrowsable = "('excluded', 'unlisted')";
+
     /// <summary>The same rule where the table is aliased.</summary>
     private const string PublicG =
         $"((g.submitted_at IS NULL OR g.is_claimed OR g.corroborated_at IS NOT NULL) AND {NotAbsorbedG})";
@@ -216,7 +237,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             SELECT g.id AS Id, g.slug AS Slug, g.name AS Name, g.tagline AS Tagline,
                    g.state AS State, g.is_claimed AS IsClaimed, g.last_reachable_at AS LastReachableAt
               FROM game g
-             WHERE g.state NOT IN ('excluded', 'unlisted')
+             WHERE g.state NOT IN {NeverBrowsable}
                AND (@includeArchived OR g.state <> 'archived')
                AND {PublicG}
              ORDER BY g.name
@@ -358,6 +379,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
               JOIN game_endpoint ep ON ep.host = e.to_host AND ep.port = e.to_port
               JOIN game g ON g.id = ep.game_id
              WHERE e.from_game_id = @gameId AND g.id <> @gameId AND {PublicG}
+               AND g.state NOT IN {NeverBrowsable}
 
             UNION ALL
 
@@ -367,6 +389,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
               JOIN referral_edge e ON e.to_host = ep.host AND e.to_port = ep.port
               JOIN game g ON g.id = e.from_game_id
              WHERE ep.game_id = @gameId AND g.id <> @gameId AND {PublicG}
+               AND g.state NOT IN {NeverBrowsable}
             """,
             new { gameId },
             cancellationToken: cancellationToken));
@@ -586,6 +609,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             SELECT id AS Id, slug AS Slug, name AS Name, first_seen_at AS At, NULL AS Cause
               FROM game
              WHERE first_seen_at >= @since AND {Public}
+               AND state NOT IN {NeverBrowsable}
              ORDER BY first_seen_at DESC
              LIMIT @limit
             """,
@@ -598,7 +622,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
               FROM availability_interval a
               JOIN game g ON g.id = a.game_id
              WHERE a.to_at IS NULL AND a.state = 'unreachable' AND a.from_at >= @since
-               AND {PublicG}
+               AND {PublicG} AND g.state NOT IN {NeverBrowsable}
              ORDER BY a.from_at DESC
              LIMIT @limit
             """,
@@ -616,7 +640,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
               JOIN availability_interval prev
                 ON prev.game_id = a.game_id AND prev.to_at = a.from_at AND prev.state <> 'reachable'
              WHERE a.state = 'reachable' AND a.from_at >= @since
-               AND {PublicG}
+               AND {PublicG} AND g.state NOT IN {NeverBrowsable}
              ORDER BY a.from_at DESC
              LIMIT @limit
             """,

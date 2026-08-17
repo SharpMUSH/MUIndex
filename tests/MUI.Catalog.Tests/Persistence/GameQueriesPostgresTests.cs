@@ -62,17 +62,7 @@ public class GameQueriesPostgresTests
         var games = new NpgsqlGameStore(db.DataSource);
         await games.ExcludeAsync(stock, "Stock configuration.", Now);
 
-        await using (var connection = await db.DataSource.OpenConnectionAsync())
-        {
-            await connection.ExecuteAsync(
-                """
-                INSERT INTO app_user (
-                    id, display_name, normalised_name, security_stamp, concurrency_stamp, created_at)
-                VALUES (@user, 'admin', 'ADMIN', 'stamp', 'stamp', @at)
-                """,
-                new { user = Owner, at = Now });
-        }
-
+        await OwnerRowAsync(db);
         await games.UnlistAsync(asked, Owner, Now);
 
         var queries = QueriesOn(db);
@@ -86,6 +76,49 @@ public class GameQueriesPostgresTests
             .IsEqualTo(LifecycleState.Excluded);
         await Assert.That((await queries.FindAsync("asked-to-come-out"))!.Summary.State)
             .IsEqualTo(LifecycleState.Unlisted);
+    }
+
+    /// <summary>
+    /// The listing is not the only way in, so the two never-browsable states leave the feeds and the
+    /// referral links as well.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both surfaces read <c>Public</c> alone</b>, which says who vouched for a game and nothing
+    /// about its lifecycle — so a game taken out of the listing went on being offered as a *newly
+    /// discovered* entry and as a link on its neighbour's page. Excluding something from the listing
+    /// and then linking to it from the listing's own pages is not excluding it.
+    ///
+    /// <c>archived</c> is deliberately still in both: the archive is a browsable section in its own
+    /// right, and "came back" is the entry §7.5 promises when one answers again.
+    /// </remarks>
+    [Test]
+    public async Task NeitherTheFeedsNorTheNeighboursOfferAGameThatIsNotBrowsable()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        // First seen yesterday, all three, because the discovered feed's window is the only thing
+        // that decides whether a game is in it — and the default seed is two years old.
+        var seen = Now.AddDays(-1);
+        var lister = await Seed.GameAsync(db, "corvid", "Corvid", firstSeenAt: seen);
+        var stock = await Seed.GameAsync(db, "your-mud-name", "Your MUD Name", firstSeenAt: seen);
+        var asked = await Seed.GameAsync(db, "asked-to-come-out", "Asked To Come Out", firstSeenAt: seen);
+
+        await EndpointAsync(db, stock, "stock.example.org", 4201);
+        await EndpointAsync(db, asked, "asked.example.org", 4201);
+        await EdgeAsync(db, lister, "stock.example.org", 4201);
+        await EdgeAsync(db, lister, "asked.example.org", 4201);
+
+        var games = new NpgsqlGameStore(db.DataSource);
+        await games.ExcludeAsync(stock, "Stock configuration.", Now);
+        await OwnerRowAsync(db);
+        await games.UnlistAsync(asked, Owner, Now);
+
+        var queries = QueriesOn(db);
+        var feeds = await queries.FeedsAsync();
+        var neighbours = (await queries.FindAsync("corvid"))!.Referrals;
+
+        await Assert.That(feeds.NewlyDiscovered.Select(f => f.Slug).ToList())
+            .IsEquivalentTo(new[] { "corvid" });
+        await Assert.That(neighbours).IsEmpty();
     }
 
     /// <summary>The argument behind an exclusion reaches the page that carries the decision.</summary>
@@ -567,6 +600,26 @@ public class GameQueriesPostgresTests
         await Assert.That(endpoint.IsCurrent).IsFalse();
         await Assert.That(endpoint.FirstSeenAt).IsEqualTo(Now.AddYears(-3));
         await Assert.That(endpoint.LastSeenAt).IsEqualTo(Now.AddMonths(-8));
+    }
+
+    /// <summary>An address a game answers on, so a referral edge has something to land on.</summary>
+    private static Task EndpointAsync(TestDatabase db, Guid game, string host, int port) =>
+        new NpgsqlEndpointStore(db.DataSource).UpsertAsync(
+            new GameEndpoint(game, host, port, EndpointKind.Telnet, Now, Now, EndpointState.Active));
+
+    /// <summary>The account an unlisting is attributed to. The schema will not take one without.</summary>
+    private static async Task OwnerRowAsync(TestDatabase db)
+    {
+        await using var connection = await db.DataSource.OpenConnectionAsync();
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO app_user (
+                id, display_name, normalised_name, security_stamp, concurrency_stamp, created_at)
+            VALUES (@user, 'admin', 'ADMIN', 'stamp', 'stamp', @at)
+            ON CONFLICT (id) DO NOTHING
+            """,
+            new { user = Owner, at = Now });
     }
 
     private static async Task EdgeAsync(TestDatabase db, Guid from, string host, int port)

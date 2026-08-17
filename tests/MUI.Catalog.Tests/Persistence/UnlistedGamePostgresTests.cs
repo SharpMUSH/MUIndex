@@ -143,6 +143,29 @@ public class UnlistedGamePostgresTests
         await Assert.That((await games.ByIdAsync(id))!.State).IsEqualTo(LifecycleState.Active);
     }
 
+    /// <summary>
+    /// An owner's button may not undo an editor's judgement, even though both take a game out of the
+    /// listing.
+    /// </summary>
+    /// <remarks>
+    /// Nothing stops an excluded instance being claimed and opted out, and the two states are not
+    /// interchangeable: exclusion says what an address <em>is</em>, and only a person who can argue
+    /// with that reverses it. Refusing costs the caller nothing — the game is already out of the
+    /// listing — and layering an unlisting over it would erase the reason.
+    /// </remarks>
+    [Test]
+    public async Task AnExcludedGameCannotBeUnlistedOutOfItsExclusion()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var games = new NpgsqlGameStore(db.DataSource);
+        var id = await GameAsync(db, "a-dev-instance");
+
+        await games.ExcludeAsync(id, "Dev instance of a game listed separately.", At);
+        await games.UnlistAsync(id, await OwnerAsync(db, "claimant"), At.AddHours(1));
+
+        await Assert.That((await games.ByIdAsync(id))!.State).IsEqualTo(LifecycleState.Excluded);
+    }
+
     /// <summary>An exclusion is not undone by a socket answering, and never was.</summary>
     [Test]
     public async Task AProbeThatAnswersDoesNotUndoAnExclusion()
@@ -174,10 +197,15 @@ public class UnlistedGamePostgresTests
         await Assert.That((await games.ByIdAsync(id))!.State).IsEqualTo(LifecycleState.Active);
 
         await using var connection = await db.DataSource.OpenConnectionAsync();
-        var at = await connection.QuerySingleAsync<DateTimeOffset?>(
-            "SELECT unlisted_at FROM game WHERE id = @id", new { id });
 
-        await Assert.That(at).IsNull();
+        // Both, because game_unlisting_is_attributed holds them in step and a row keeping the account
+        // that asked, under a state that no longer says anybody did, is a fact about nothing.
+        await Assert.That(await connection.QuerySingleAsync<DateTimeOffset?>(
+                "SELECT unlisted_at FROM game WHERE id = @id", new { id }))
+            .IsNull();
+        await Assert.That(await connection.QuerySingleAsync<Guid?>(
+                "SELECT unlisted_by FROM game WHERE id = @id", new { id }))
+            .IsNull();
 
         // And the crawl owns it again, which is the half that would be missed by asserting the state.
         await games.SetStateAsync(id, LifecycleState.Archived, At.AddDays(2));

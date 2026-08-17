@@ -154,13 +154,21 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
         // archived_at is cleared for the reason IncludeAsync clears excluded_at: the schema holds the
         // date and the state in step, and a game can be dark on the day its owner asks. Nothing else
         // about the row is touched — the history that made it dark is still true and still shown.
+        //
+        // **`AND state <> 'excluded'` is the same clause SetStateAsync carries, and it is needed here
+        // for the same reason.** An exclusion is a judgement a person made about what an address is,
+        // and only a person undoes it. Nothing stops an excluded instance being claimed and opted
+        // out, and without this clause its claim-holder could then move it out of that state through
+        // a button meant for something else — the editor's decision discarded by a caller that did
+        // not know it existed. An unlisting is refused rather than layered over it; the exclusion
+        // already withholds the listing, so nothing is lost by refusing.
         await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE game
                SET state = 'unlisted', archived_at = NULL,
                    excluded_at = NULL, excluded_reason = NULL,
                    unlisted_at = @at, unlisted_by = @byUserId
-             WHERE id = @id
+             WHERE id = @id AND state <> 'excluded'
             """,
             new { id, at = at.ToUniversalTime(), byUserId },
             cancellationToken: cancellationToken));
