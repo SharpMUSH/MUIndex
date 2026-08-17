@@ -1,5 +1,6 @@
 using System.Text;
 using MUI.Catalog;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Components;
 
@@ -816,59 +817,127 @@ public static class PlainText
     }
 
     /// <summary>
-    /// The find-a-game questions, as text — with the query each answer writes.
+    /// The find-a-game questions, as text — the same six, in the same words, with the same counts.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// This is the one page whose plain rendering is not simply the graphical one with the graphics
-    /// removed, because the page is a form and a form has nothing to remove. What it is instead is
-    /// the same six questions with the address each answer produces, so a reader in a text browser
-    /// — or on a phone with a keyboard and no patience for six selects — can compose the listing URL
-    /// directly. The values come from the live facets exactly as the form's options do, so this
-    /// cannot offer a filter the listing would refuse.
+    /// <b>Built from the same <see cref="FindScreen"/> the rendered page draws</b>, which is the
+    /// whole of the fix here. This was a different page: it dumped ten facet groups as querystring
+    /// recipes while the rendered page asked six questions, and the two disagreed about what could
+    /// be asked at all — plain offered the silent bucket the rendered page hid. A text mirror
+    /// showing a different set of facts is not a mirror.
     /// </para>
     /// <para>
-    /// It exists because <c>?plain=1</c> was on four pages of six, and missing from the two heaviest.
-    /// A guarantee with two exceptions is not one.
+    /// The addresses differ from the rendered page's only because the querystring they are built
+    /// from carries <c>plain=1</c>, so following one stays in this surface. That falls out of the
+    /// construction rather than being arranged: every link on both surfaces is the page's own URL
+    /// with one parameter changed.
     /// </para>
     /// </remarks>
-    public static string RenderFind(GameListing? listing)
+    public static string RenderFind(FindScreen screen, string? tag = null)
     {
+        ArgumentNullException.ThrowIfNull(screen);
+
+        var locale = tag ?? Locales.SourceTag;
         var b = new StringBuilder();
 
-        b.AppendLine("FIND A GAME");
-        b.AppendLine();
-        Wrap(b, "Six optional questions. Every number is a count of games we measured, not an "
-            + "estimate. Answers filter; they never rank.");
+        // Upper-cased from the translated word rather than typed in capitals, so a locale that
+        // has this page still gets the surface's own shape. Everything below is read off the
+        // screen, which was built for this same locale — there is no second translation here.
+        b.AppendLine(Say(locale, "find.title").ToUpperInvariant());
 
-        if (listing is null)
+        if (screen.Error is { } problem)
         {
-            Heading(b, "NOT ANSWERING");
-            Wrap(b, "The catalogue is not answering, so there is nothing to choose between.");
+            // Refused rather than ignored, in the same words the rendered page refuses it with.
+            Heading(b, Say(locale, "find.refused").ToUpperInvariant());
+            Wrap(b, problem, "  ");
+            b.AppendLine();
+            b.AppendLine("  /find?plain=1");
             return b.ToString();
         }
 
-        b.AppendLine();
-        Wrap(b, "Each answer below is one parameter on /games. Join them with & — "
-            + "/games?band=playersNow&genre=fantasy is a question this listing can answer.");
+        Heading(b, Say(locale, "find.kicker").ToUpperInvariant());
+        Wrap(b, Say(locale, "find.matching", ("count", screen.Matching)), "  ");
+        Wrap(b, Say(
+            locale,
+            "find.basis",
+            ("listed", screen.Listed),
+            ("answers", screen.Answers.Count)), "  ");
 
-        foreach (var group in listing.Facets)
+        if (screen.Matching > 0)
         {
-            Heading(b, FacetWords.Group(group.Key).ToUpperInvariant()
-                + $"  ({group.Key}=)");
+            b.AppendLine();
+            b.AppendLine("  " + Say(locale, "find.show", ("count", screen.Matching)));
+            b.AppendLine("      " + screen.ShowHref);
+        }
 
-            foreach (var value in group.Values)
+        if (screen.Loosen is { } loosen)
+        {
+            b.AppendLine();
+            b.AppendLine("  " + Say(
+                locale, "find.drop", ("answer", loosen.Label), ("count", loosen.Count)));
+            b.AppendLine("      " + loosen.Href);
+        }
+
+        if (screen.Answers.Count > 0)
+        {
+            Heading(b, Say(locale, "find.answersGiven").ToUpperInvariant());
+
+            foreach (var chip in screen.Answers)
             {
-                b.AppendLine($"  {group.Key}={value.Token,-24} "
-                    + $"{FacetWords.Value(group.Key, value)} ({value.Count})");
+                b.AppendLine($"  {chip.Label}");
+                b.AppendLine($"      {Say(locale, "find.clear", ("question", chip.Question))}");
+                b.AppendLine($"      {chip.ClearHref}");
+            }
+
+            b.AppendLine();
+            b.AppendLine("  " + Say(locale, "find.clearAll"));
+            b.AppendLine("      " + screen.ClearHref);
+        }
+
+        foreach (var question in screen.Questions)
+        {
+            Heading(
+                b,
+                question.Text.ToUpperInvariant()
+                    + $"  ({FacetWords.Evidence(question.Evidence)})");
+
+            if (question.Any is { } any)
+            {
+                Answer(b, any);
+            }
+
+            // The tail is written out in full. There is no folding here and there should not be:
+            // a disclosure is a graphical economy, and the guarantee this surface carries is that
+            // every option the page offers can be reached from it.
+            foreach (var option in question.Options.Concat(question.Tail))
+            {
+                Answer(b, option);
             }
         }
 
-        Heading(b, "THE WHOLE LISTING");
+        Heading(b, Say(locale, "find.wholeListing").ToUpperInvariant());
         b.AppendLine("  /games?plain=1");
 
         return b.ToString();
     }
+
+    /// <summary>
+    /// One answer: whether it is the one in force, what it is called, what choosing it returns.
+    /// </summary>
+    /// <remarks>
+    /// The state is a pair of characters and never a colour or an indent, and the count is in the
+    /// same parentheses the rendered page puts it in a column — so the two surfaces can be read
+    /// against each other line for line.
+    /// </remarks>
+    private static void Answer(StringBuilder b, FindOption option)
+    {
+        b.AppendLine($"  [{(option.IsChosen ? "x" : " ")}] {option.Label} ({option.Count})");
+        b.AppendLine($"      {option.Href}");
+    }
+
+    private static string Say(string tag, string id, params (string Key, object? Value)[] args) =>
+        Messages.For(tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 
     /// <summary>The rankings, with every basis in the same words the rendered page uses.</summary>
     public static string RenderRankings(Rankings rankings, DateTimeOffset now)

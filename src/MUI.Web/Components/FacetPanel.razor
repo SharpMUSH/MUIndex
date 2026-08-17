@@ -561,32 +561,13 @@
         || Filter.Text is { Length: > 0 };
 
     /// <summary>
-    /// The evidence chip: a glyph, and the word, always both.
+    /// The evidence chip, from the one component that draws it.
     /// </summary>
     /// <remarks>
-    /// The glyphs are the site's own state vocabulary — ● for something we watched, ◇ for something
-    /// only claimed, ◆ for a claim we grouped ourselves — and they are <c>aria-hidden</c>, because
-    /// the word beside them is the same fact and a screen reader announcing "black circle measured"
-    /// is worse than announcing "measured". Colour is never the carrier: the word is legible with no
-    /// ink at all, which is also why the third glyph is the second one filled in rather than a shape
-    /// nobody has seen before — derived is a declaration with our hand on it, and reads as one.
+    /// It was three glyphs, three class names and three words spelled here; the find-a-game page
+    /// wants the same badge on every question, and two copies of a vocabulary this small is how the
+    /// two surfaces come to disagree about what <em>derived</em> looks like.
     /// </remarks>
-    private static RenderFragment Evidence(FacetGroup group) => @<span class="evidence @Kind(group)">
-        <span aria-hidden="true">@Glyph(group.Evidence)</span>
-        @FacetWords.Evidence(group.Evidence)
-    </span>;
-
-    private static string Glyph(FacetEvidence evidence) => evidence switch
-    {
-        FacetEvidence.Measured => "●",
-        FacetEvidence.Derived => "◆",
-        _ => "◇",
-    };
-
-    private static string Kind(FacetGroup group) => group.Evidence switch
-    {
-        FacetEvidence.Measured => "measured",
-        FacetEvidence.Derived => "derived",
-        _ => "declared",
-    };
+    private static RenderFragment Evidence(FacetGroup group) =>
+        @<EvidenceChip Evidence="group.Evidence" />;
 }

@@ -6,7 +6,8 @@ page and supersedes the second bundle where they overlap. Same shape as
 [`2026-08-17-mockup-parity-qa.md`](2026-08-17-mockup-parity-qa.md): numbered deltas with what the
 mock says, what ours does as measured, and a severity; then the conflicts.
 
-**Nothing here is implemented.** This is the pre-edit checklist.
+**Parts one to four were written before the work; part five records what shipped.** Everything in
+part two is now built except where part five says otherwise.
 
 ## Method
 
@@ -277,3 +278,62 @@ Bundle 3's own list, plus what this audit adds:
 - A combination returning zero shows the loosen button and the number on it comes from a query (N6,
   X2).
 - No option is offered that `/games` cannot apply (Q10, X5).
+
+---
+
+# Part five — what shipped, and where it diverges
+
+Measured on the branch, at 1440 / 1024 / 768 / 430 in both themes and at `/de/find`, on the fixture.
+
+## The verification list, run
+
+| Check | Result |
+|---|---|
+| Count and submit in view with the viewport at the last question (R6) | ✅ at 1440, 1024, 768 and 430, both with and without answers |
+| Rhythm 24 / 14 / 24 inside each question (L3) | ✅ exactly, on all six |
+| Six labelled groups, exactly one option chosen in each (Q1, Q6) | ✅ six `role="group"` with `aria-labelledby`, one `aria-current="true"` each, every option ≥ 40px |
+| Works with scripting off (X3) | ✅ zero `<script>` on the rendered page; every answer an anchor; the one form the page owns is a GET at `/find`. Asserted in `FindAGameTests.NothingOnThisPageNeedsScript` |
+| `/find?…` linkable and surviving reload (S1) | ✅ |
+| `?plain=1` carries the same six questions, options and words (S2, S3, X7) | ✅ both surfaces are renderers over one `FindScreen` |
+| Zero results shows the loosen button, on a counted number (N6, X2) | ✅ |
+| No option offered that `/games` cannot apply (Q10, X5) | ✅ every link walked through the listing's own binding in test |
+| Document horizontal scroll, and clipping inside `main` (R1, R2) | ✅ none, at four widths × two themes × four querystrings |
+
+## Divergences, each because a rule here forbade the drawing
+
+1. **No `aria-live`, and none needed (X3).** The count is computed server-side and every answer is
+   an address, so the debounced live region is unnecessary rather than unimplemented. Zero elements
+   with `aria-live`, deliberately.
+2. **Headings, not `fieldset`/`legend` (Q1).** A `<legend>` is announced when focus enters a form
+   control in its group, and there are no form controls to enter — the options are links. Each
+   question is a `role="group"` labelled by a real `<h2>`, which the handoff allows as the
+   substitution and which also puts the six in the document outline.
+3. **The dark-games default is not inverted (X1).** Kept as the listing's, with the claim that
+   nothing is filtered deleted rather than the default changed; both answers carry the count they
+   return.
+4. **`uncounted` stays (X6, Δ3).** Read from `FacetWords.BandWord`, so Find and the listing cannot
+   drift apart again. Taking Δ3 would mean changing the listing and the locked glossary in the same
+   commit.
+5. **Per-facet absence wording, not one word `unknown` (X7).** The silent bucket is selectable and
+   carries its count — F3's substance — spelled `not declared` / `not identified` as `FacetWords`
+   requires.
+6. **The panel stacks at ≤ 860px, and the drawing has no answer for that (R4).** Below the questions
+   because it is below them in the DOM, sticky to the bottom of the viewport, laid out as a wrapping
+   row *in document order*. It was briefly a two-column bar with the call to action pinned right and
+   spanning three rows, which put it first to the eye and fourth to the keyboard; `scroll-padding-bottom`
+   on `html:has(.find-page)` is what stops the pinned bar covering an option that has just taken focus.
+7. **The page's own copy is in the message bundle, questions included.** The six questions, the
+   answer that un-asks each one and the capability glosses are ids rather than English in C#, and
+   the locale is a parameter of `FindScreen.BuildAsync` rather than something applied to what it
+   returns — so the rendered page and `?plain=1` cannot come out in different languages. The four
+   satellite `.resx` files are untouched; the new ids fall back to English, which is what a
+   reader should see until they are translated.
+
+## Known, and not fixed here
+
+- **The tab order crosses the column boundary once at ≥ 861px**: six questions top to bottom, then
+  up and right into the panel. That is the DOM order a right-hand summary column has, and the
+  alternative — the panel first — would hand a keyboard reader "show these 19 games" before the
+  first question. Strictly forward within each column, and strictly forward everywhere at ≤ 860px.
+- **The plain surface's structural headings elsewhere on the site are still English.** Find's are
+  not, because Find is the page in scope; the rest of `PlainText` is a separate pass.
