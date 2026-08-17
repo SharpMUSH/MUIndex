@@ -105,6 +105,112 @@ public class AnsiTests
     }
 
     [Test]
+    public async Task AWidthIsCountedInTerminalCellsAndPerRowRatherThanPerScreen()
+    {
+        // The row that made a screen-wide flag wrong: seventy-nine ASCII characters and one Han
+        // glyph. Eighty characters, eighty-one cells — and the caption used to halve the whole
+        // screen the moment any wide rune appeared anywhere, and report forty for this.
+        var mixed = new string('x', 79) + "漢";
+        var screen = Ansi.Parse($"{mixed}\nplain\nplain", suppressedByOwner: false);
+
+        await Assert.That(screen.Rows[0].Text.Length).IsEqualTo(80);
+        await Assert.That(screen.Rows[0].Cells).IsEqualTo(81);
+        await Assert.That(screen.CellColumns).IsEqualTo(81);
+        await Assert.That(screen.HasWideRunes).IsTrue();
+
+        // And a screen drawn entirely out of wide glyphs is twice its character count, which is the
+        // case the halving was written for and the only one it got right.
+        var wide = Ansi.Parse($"{new string('漢', 40)}\n{new string('漢', 40)}\n{new string('漢', 40)}",
+            suppressedByOwner: false);
+
+        await Assert.That(wide.CellColumns).IsEqualTo(80);
+    }
+
+    [Test]
+    public async Task AWideRuneOnOneRowDoesNotWidenTheRowsAroundIt()
+    {
+        // The width reported is the widest row, not the widest row's arithmetic applied to all of
+        // them. A banner with one Japanese line in it is as wide as that line and no wider.
+        var screen = Ansi.Parse("ascii\n漢字\nascii", suppressedByOwner: false);
+
+        await Assert.That(screen.Rows[0].Cells).IsEqualTo(5);
+        await Assert.That(screen.Rows[1].Cells).IsEqualTo(4);
+        await Assert.That(screen.CellColumns).IsEqualTo(5);
+    }
+
+    [Test]
+    public async Task ACombiningMarkCostsNoCellOfItsOwn()
+    {
+        // It is drawn onto the cell before it. Counted as a character, an accented Greek or
+        // Devanagari banner would be reported wider than it is drawn.
+        //
+        // Composed here rather than written as a literal, so the decomposition is this test's and
+        // not whatever normalisation the file was saved under: three letters, each carrying a
+        // combining acute of its own.
+        var acute = (char)0x0301;
+        var decomposed = string.Concat(Enumerable.Repeat($"e{acute}", 3));
+        var screen = Ansi.Parse($"{decomposed}\nplain\nplain", suppressedByOwner: false);
+
+        await Assert.That(screen.Rows[0].Text.Length).IsEqualTo(6);
+        await Assert.That(screen.Rows[0].Cells).IsEqualTo(3);
+        await Assert.That(screen.HasWideRunes).IsFalse();
+    }
+
+    [Test]
+    public async Task AnEmptyScreenHasNoWidthRatherThanTheGridsWidth()
+    {
+        await Assert.That(Ansi.Parse(null, false).CellColumns).IsEqualTo(0);
+    }
+
+    /// <summary>
+    /// The whole accessible alternative to the picture is outside the picture.
+    /// </summary>
+    /// <remarks>
+    /// <c>role="img"</c> makes every descendant presentational, so a disclosure inside
+    /// <c>div.quote</c> is announced as nothing at all and the one-line <c>aria-label</c> becomes
+    /// the only alternative there is — a label saying the screen exists, in place of the screen.
+    /// The disclosure therefore sits beside the quoted region and inside the figure.
+    /// </remarks>
+    [Test]
+    public async Task TheReadAsTextDisclosureIsOutsideTheRoleImgSubtree()
+    {
+        var html = await Render.ComponentAsync<AnsiQuote>(new()
+        {
+            ["Screen"] = Ansi.Parse(Screen(6), suppressedByOwner: false),
+        });
+
+        await Assert.That(html).Contains("role=\"img\"");
+        await Assert.That(html).Contains("aria-label=");
+        await Assert.That(html).Contains("class=\"screen-text\"");
+
+        // The quoted region holds one <pre> and no other element that closes with </div>, so the
+        // first </div> after it is its own — and the disclosure has to come after that.
+        var quote = html.IndexOf("class=\"quote\"", StringComparison.Ordinal);
+        var closes = html.IndexOf("</div>", quote, StringComparison.Ordinal);
+        var disclosure = html.IndexOf("class=\"screen-text\"", StringComparison.Ordinal);
+
+        await Assert.That(quote).IsGreaterThanOrEqualTo(0);
+        await Assert.That(disclosure).IsGreaterThan(closes);
+
+        // And it is still inside the figure, which is what makes the two one block.
+        var figure = html.IndexOf("</figure>", StringComparison.Ordinal);
+        await Assert.That(disclosure).IsLessThan(figure);
+    }
+
+    [Test]
+    public async Task TheCaptionStatesTheWidestRowInCellsRatherThanAHalvedGrid()
+    {
+        // Seventy-nine ASCII characters and one Han glyph: eighty-one cells. The caption said forty.
+        var html = Render.Words(await Render.ComponentAsync<AnsiQuote>(new()
+        {
+            ["Screen"] = Ansi.Parse(new string('x', 79) + "漢\nplain\nplain", suppressedByOwner: false),
+        }));
+
+        await Assert.That(html).Contains("81×");
+        await Assert.That(html).DoesNotContain("40×");
+    }
+
+    [Test]
     public async Task TheTextAlternativeCarriesNoColourCodes()
     {
         // A screen reader is told what the screen says, not how it was painted.

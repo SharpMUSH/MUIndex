@@ -56,12 +56,16 @@ public static class PlainText
 
         b.AppendLine();
 
-        // Every state spelled as a word. "Unknown" is written out rather than left blank, because a
+        // Every state spelled as a word. The absence is written out rather than left blank, because a
         // blank reads as zero to a human exactly as it does to a parser — and the count says how it
         // was obtained here as it does on the listing, or this page is the less honest of the two.
+        //
+        // The absence names no cause, for the reason the graphical hero's does not: a null count
+        // covers an unmeasured game, a probe that answered with nothing countable, and a count older
+        // than the window, and this surface can no more tell them apart than that one can.
         b.AppendLine((s.PlayersNow is { } n
             ? $"{Say(tag, "game.plain.playersNow", ("count", n))}  {Label(tag, s.PlayersNowProvenance, now)}"
-            : Say(tag, "game.plain.playersUnknown")).TrimEnd());
+            : Say(tag, "game.plain.playersNoCount")).TrimEnd());
 
         if (page.ReachableFraction is { } r)
         {

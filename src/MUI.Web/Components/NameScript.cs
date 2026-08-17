@@ -187,6 +187,13 @@ public static class NameScript
         >= 0x0900 and <= 0x097f => Script.Devanagari,
         >= 0x0e00 and <= 0x0e7f => Script.Thai,
         >= 0x1100 and <= 0x11ff => Script.Hangul,
+
+        // Greek Extended: polytonic Greek and nothing else is written in it, so it settles the
+        // language exactly as the basic Greek block above does. Unlisted, it fell through to
+        // Script.Other and a name spelled with breathings — Ἑλλάς — got no lang at all, which made
+        // the answer depend on which accents the name happened to carry.
+        >= 0x1f00 and <= 0x1fff => Script.Greek,
+
         >= 0x3040 and <= 0x30ff => Script.Kana,                       // hiragana and katakana
         >= 0x3400 and <= 0x4dbf => Script.Han,                        // extension A
         >= 0x4e00 and <= 0x9fff => Script.Han,                        // unified ideographs

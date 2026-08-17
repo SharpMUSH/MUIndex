@@ -960,10 +960,6 @@
     <value>answering since {date}</value>
     <comment>the game page's own headings</comment>
   </data>
-  <data name="game.unknownCount" xml:space="preserve">
-    <value>unknown count</value>
-    <comment>the game page's own headings</comment>
-  </data>
   <data name="game.readAsTextRows" xml:space="preserve">
     <value>read as text — {count, plural, one {# row} other {# rows}}</value>
     <comment>the game page's own headings</comment>
@@ -2856,12 +2852,8 @@
     <value>Players now: {count}</value>
     <comment>the plain surface's own headings for this page</comment>
   </data>
-  <data name="game.plain.playersUnknown" xml:space="preserve">
-    <value>Players now: unknown (no count could be measured)</value>
-    <comment>the plain surface's own headings for this page</comment>
-  </data>
   <data name="game.plain.capabilities" xml:space="preserve">
-    <value>Capabilities ({disagreeing} of {total} disagree)</value>
+    <value>Capabilities ({disagreeing, plural, one {# of {total} disagrees} other {# of {total} disagree}})</value>
     <comment>the plain surface's own headings for this page</comment>
   </data>
   <data name="game.plain.declared" xml:space="preserve">
@@ -2887,5 +2879,17 @@
   <data name="game.plain.disagree" xml:space="preserve">
     <value>** disagree</value>
     <comment>the plain surface's own headings for this page</comment>
+  </data>
+  <data name="game.count.none" xml:space="preserve">
+    <value>no count</value>
+    <comment>added by the accessibility review, second pass</comment>
+  </data>
+  <data name="game.count.none.why" xml:space="preserve">
+    <value>no current count, and nothing here says why</value>
+    <comment>added by the accessibility review, second pass</comment>
+  </data>
+  <data name="game.plain.playersNoCount" xml:space="preserve">
+    <value>Players now: no count (nothing here says why)</value>
+    <comment>added by the accessibility review, second pass</comment>
   </data>
 </root>

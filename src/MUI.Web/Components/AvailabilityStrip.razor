@@ -79,10 +79,23 @@
 
     private string Tag => Http.LocaleOf().Tag;
 
-    /// <summary>Rendered once and used twice, as the paragraph and as the graphic's own label.</summary>
-    private string Sentence => Summary.Sentence(Tag);
+    /// <summary>
+    /// Rendered once and used twice, as the paragraph and as the graphic's own label.
+    /// </summary>
+    /// <remarks>
+    /// Computed in <see cref="OnParametersSet"/> rather than on each read, which is what "once"
+    /// means: both of these walk the ninety-day series and format a message per span, and the markup
+    /// reads each of them twice.
+    /// </remarks>
+    private string Sentence = string.Empty;
 
-    private IReadOnlyList<string> Spells => Summary.Spells(Tag);
+    private IReadOnlyList<string> Spells = [];
+
+    protected override void OnParametersSet()
+    {
+        Sentence = Summary.Sentence(Tag);
+        Spells = Summary.Spells(Tag);
+    }
 
     private string L(string id) => Messages.For(Tag, id);
 

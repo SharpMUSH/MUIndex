@@ -216,7 +216,9 @@ public class PlainParityTests
     {
         var text = await GameAsync("m-u-s-h");
 
-        await Assert.That(text).Contains("Capabilities (1 of 6 disagree)");
+        // One disagreement takes a singular verb here exactly as it does in the caption over the
+        // graphical matrix. The two surfaces are one fact and had two grammars.
+        await Assert.That(text).Contains("Capabilities (1 of 6 disagrees)");
         await Assert.That(text).Contains("measured: NO      declared: yes  ** disagree");
     }
 
@@ -503,9 +505,16 @@ public class PlainParityTests
         await Assert.That(measured).Contains("figure-count mono");
         await Assert.That(measured).DoesNotContain("figure-count mono declared");
 
-        // A count nobody could take says so in words, and never as a zero.
+        // A count the page does not have says so in words, and never as a zero. Read off the id,
+        // and off the figure rather than the whole document: what the hero may not do is pick one of
+        // rule 2's three states when the null it was handed covers all of them, so the word here is
+        // the absence itself and the assertion is that it is present and legible.
         var none = await Render.PageAsync<Game>(new() { ["Slug"] = "midnight-sun" });
-        await Assert.That(Render.Words(none)).Contains("not counted");
+        var figure = none[none.IndexOf("class=\"game-figure\"", StringComparison.Ordinal)..];
+        var words = Render.Words(figure[..figure.IndexOf("</div>", StringComparison.Ordinal)]);
+
+        await Assert.That(words).Contains(Messages.For(Locales.SourceTag, "game.count.none"));
+        await Assert.That(words).DoesNotContain("0");
     }
 
     [Test]

@@ -39,6 +39,7 @@ public class ScriptAndDirectionTests
     [Arguments("바람의나라", "ko")]                 // Hangul
     [Arguments("เมืองแห่งเงา", "th")]                    // Thai
     [Arguments("Δίκτυο", "el")]                    // Greek
+    [Arguments("Ἑλλάς", "el")]                     // opens in Greek Extended, continues in Greek
     [Arguments("מבוך", "he")]                      // Hebrew
     [Arguments("مدينة الأحلام", "ar")]                // Arabic
     public async Task AScriptUsedForOneLanguageSettlesIt(string name, string expected)
@@ -46,6 +47,27 @@ public class ScriptAndDirectionTests
         // Kana settle Japanese wherever they appear, and one is enough: a Japanese title is
         // routinely mostly Han with a single particle in it.
         await Assert.That(NameScript.LanguageOf(name)).IsEqualTo(expected);
+    }
+
+    /// <summary>
+    /// Greek Extended is Greek, and the widening stops at its edges.
+    /// </summary>
+    /// <remarks>
+    /// Polytonic Greek lives at U+1F00–U+1FFF and nothing else is written there, so the block
+    /// settles a language exactly as the basic Greek block does. Unlisted, it fell to
+    /// <c>Script.Other</c> — which meant whether a Greek name was tagged at all depended on which of
+    /// its letters happened to carry a breathing mark. Asserted from the codepoints rather than from
+    /// a word, because no natural Greek word is written entirely out of this block.
+    /// </remarks>
+    [Test]
+    [Arguments(0x1f00, "el")]     // the first letter in the block
+    [Arguments(0x1ffe, "el")]     // the last assigned character in it
+    [Arguments(0x1efd, null)]     // Latin Extended Additional, one below — shared by many languages
+    [Arguments(0x2010, null)]     // general punctuation, above — a script at all only by courtesy
+    public async Task GreekExtendedSettlesGreekAndTheBlocksAroundItStillSettleNothing(
+        int codepoint, string? expected)
+    {
+        await Assert.That(NameScript.LanguageOf(char.ConvertFromUtf32(codepoint))).IsEqualTo(expected);
     }
 
     [Test]
