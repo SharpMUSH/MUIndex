@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    日本語, machine-translated and not reviewed by a person.
+
+    Every page served in this locale carries the ◆ notice saying so, and the locale is reachable but
+    never offered: nothing sends a reader here. Promotion to LocaleStatus.Shipped is a person reading
+    the locked strings against Glossary.cs, not an edit to a status enum.
+
+    The values are ICU MessageFormat. Argument names in braces are code.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="a11y.asciiBanner" xml:space="preserve">
+    <value>ASCIIバナー：{game}の接続画面。</value>
+  </data>
+  <data name="a11y.plainText" xml:space="preserve">
+    <value>プレーンテキスト</value>
+  </data>
+  <data name="a11y.readAsText" xml:space="preserve">
+    <value>テキストで読む</value>
+  </data>
+  <data name="a11y.skipToContent" xml:space="preserve">
+    <value>本文へスキップ</value>
+  </data>
+  <data name="capabilities.agree" xml:space="preserve">
+    <value>{disagreeing, plural, =0 {{total}件のうち不一致はなし。} other {{total}件のうち#件がゲームの自己申告と不一致。}}</value>
+  </data>
+  <data name="chart.basis" xml:space="preserve">
+    <value>{days, plural, other {#日間実測}} · {probes, plural, other {#回の探査}}</value>
+  </data>
+  <data name="facet.any" xml:space="preserve">
+    <value>{facet}を問わない、{count, plural, other {#件のゲーム}}</value>
+  </data>
+  <data name="facet.count" xml:space="preserve">
+    <value>{count, plural, other {#件のゲーム}}</value>
+  </data>
+  <data name="facet.value.choose" xml:space="preserve">
+    <value>{value}、{count, plural, other {#件のゲーム}}</value>
+  </data>
+  <data name="facet.value.exclude" xml:space="preserve">
+    <value>{value}、{count, plural, other {#件のゲーム}}、除外</value>
+  </data>
+  <data name="facet.value.include" xml:space="preserve">
+    <value>{value}、{count, plural, other {#件のゲーム}}、のみ</value>
+  </data>
+  <data name="kicker.declared" xml:space="preserve">
+    <value>自己申告</value>
+  </data>
+  <data name="kicker.derived" xml:space="preserve">
+    <value>導出</value>
+  </data>
+  <data name="kicker.measured" xml:space="preserve">
+    <value>実測</value>
+  </data>
+  <data name="listing.total" xml:space="preserve">
+    <value>{count, plural, =0 {ゲームなし} other {#件のゲーム}}、すべての事実は実測。</value>
+  </data>
+  <data name="locale.label" xml:space="preserve">
+    <value>言語</value>
+  </data>
+  <data name="locale.submit" xml:space="preserve">
+    <value>言語を変更</value>
+  </data>
+  <data name="mt.banner" xml:space="preserve">
+    <value>このページは機械翻訳されています。実測値は影響を受けていません。</value>
+  </data>
+  <data name="mt.original" xml:space="preserve">
+    <value>英語の原文を読む</value>
+  </data>
+  <data name="provenance.capability.declared" xml:space="preserve">
+    <value>自己申告</value>
+  </data>
+  <data name="provenance.capability.measured" xml:space="preserve">
+    <value>実測</value>
+  </data>
+  <data name="provenance.count.declared" xml:space="preserve">
+    <value>自己申告</value>
+  </data>
+  <data name="provenance.count.measured" xml:space="preserve">
+    <value>実測</value>
+  </data>
+  <data name="provenance.derived" xml:space="preserve">
+    <value>導出</value>
+  </data>
+  <data name="provenance.game.declared" xml:space="preserve">
+    <value>自己申告</value>
+  </data>
+  <data name="provenance.game.measured" xml:space="preserve">
+    <value>実測</value>
+  </data>
+  <data name="provenance.screen.measured" xml:space="preserve">
+    <value>実測</value>
+  </data>
+  <data name="state.notCounted" xml:space="preserve">
+    <value>読み取り不可</value>
+  </data>
+  <data name="state.notMeasured" xml:space="preserve">
+    <value>未計測</value>
+  </data>
+  <data name="state.uncounted" xml:space="preserve">
+    <value>接続数読み取り不可</value>
+  </data>
+  <data name="state.unreachable" xml:space="preserve">
+    <value>到達不可</value>
+  </data>
+  <data name="term.claimedByOwner" xml:space="preserve">
+    <value>所有者により申請済み</value>
+  </data>
+  <data name="term.connected" xml:space="preserve">
+    <value>接続数</value>
+  </data>
+  <data name="term.peak" xml:space="preserve">
+    <value>ピーク</value>
+  </data>
+  <data name="term.stillProbed" xml:space="preserve">
+    <value>探査は継続中</value>
+  </data>
+  <data name="term.typical" xml:space="preserve">
+    <value>通常</value>
+  </data>
+  <data name="term.unclaimed" xml:space="preserve">
+    <value>所有者未申請</value>
+  </data>
+  <data name="window.samples" xml:space="preserve">
+    <value>{days}日 · {count, plural, other {#件の計数}}</value>
+  </data>
+</root>

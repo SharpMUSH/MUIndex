@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    Deutsch, machine-translated and not reviewed by a person.
+
+    Every page served in this locale carries the ◆ notice saying so, and the locale is reachable but
+    never offered: nothing sends a reader here. Promotion to LocaleStatus.Shipped is a person reading
+    the locked strings against Glossary.cs, not an edit to a status enum.
+
+    The values are ICU MessageFormat. Argument names in braces are code.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="a11y.asciiBanner" xml:space="preserve">
+    <value>ASCII-Banner: der Verbindungsbildschirm von {game}.</value>
+  </data>
+  <data name="a11y.plainText" xml:space="preserve">
+    <value>Textfassung</value>
+  </data>
+  <data name="a11y.readAsText" xml:space="preserve">
+    <value>als Text lesen</value>
+  </data>
+  <data name="a11y.skipToContent" xml:space="preserve">
+    <value>zum Inhalt springen</value>
+  </data>
+  <data name="capabilities.agree" xml:space="preserve">
+    <value>{disagreeing, plural, =0 {Keine der {total} widerspricht.} one {# von {total} widerspricht dem, was das Spiel angibt.} other {# von {total} widersprechen dem, was das Spiel angibt.}}</value>
+  </data>
+  <data name="chart.basis" xml:space="preserve">
+    <value>{days, plural, one {# Tag} other {# Tage}} gemessen · {probes, plural, one {# Abfrage} other {# Abfragen}}</value>
+  </data>
+  <data name="facet.any" xml:space="preserve">
+    <value>{facet}: beliebig, {count, plural, one {# Spiel} other {# Spiele}}</value>
+  </data>
+  <data name="facet.count" xml:space="preserve">
+    <value>{count, plural, one {# Spiel} other {# Spiele}}</value>
+  </data>
+  <data name="facet.value.choose" xml:space="preserve">
+    <value>{value}, {count, plural, one {# Spiel} other {# Spiele}}</value>
+  </data>
+  <data name="facet.value.exclude" xml:space="preserve">
+    <value>{value}, {count, plural, one {# Spiel} other {# Spiele}}, ausgeschlossen</value>
+  </data>
+  <data name="facet.value.include" xml:space="preserve">
+    <value>{value}, {count, plural, one {# Spiel} other {# Spiele}}, nur</value>
+  </data>
+  <data name="kicker.declared" xml:space="preserve">
+    <value>angegeben</value>
+  </data>
+  <data name="kicker.derived" xml:space="preserve">
+    <value>abgeleitet</value>
+  </data>
+  <data name="kicker.measured" xml:space="preserve">
+    <value>gemessen</value>
+  </data>
+  <data name="listing.total" xml:space="preserve">
+    <value>{count, plural, =0 {Keine Spiele} one {# Spiel} other {# Spiele}}, jede Tatsache gemessen.</value>
+  </data>
+  <data name="locale.label" xml:space="preserve">
+    <value>Sprache</value>
+  </data>
+  <data name="locale.submit" xml:space="preserve">
+    <value>Sprache wechseln</value>
+  </data>
+  <data name="mt.banner" xml:space="preserve">
+    <value>Diese Seite wurde maschinell übersetzt. Die gemessenen Werte sind davon nicht betroffen.</value>
+  </data>
+  <data name="mt.original" xml:space="preserve">
+    <value>Das englische Original lesen</value>
+  </data>
+  <data name="provenance.capability.declared" xml:space="preserve">
+    <value>angegeben</value>
+  </data>
+  <data name="provenance.capability.measured" xml:space="preserve">
+    <value>gemessen</value>
+  </data>
+  <data name="provenance.count.declared" xml:space="preserve">
+    <value>angegeben</value>
+  </data>
+  <data name="provenance.count.measured" xml:space="preserve">
+    <value>gemessen</value>
+  </data>
+  <data name="provenance.derived" xml:space="preserve">
+    <value>abgeleitet</value>
+  </data>
+  <data name="provenance.game.declared" xml:space="preserve">
+    <value>angegeben</value>
+  </data>
+  <data name="provenance.game.measured" xml:space="preserve">
+    <value>gemessen</value>
+  </data>
+  <data name="provenance.screen.measured" xml:space="preserve">
+    <value>gemessen</value>
+  </data>
+  <data name="state.notCounted" xml:space="preserve">
+    <value>nicht gezählt</value>
+  </data>
+  <data name="state.notMeasured" xml:space="preserve">
+    <value>nicht gemessen</value>
+  </data>
+  <data name="state.uncounted" xml:space="preserve">
+    <value>ungezählt</value>
+  </data>
+  <data name="state.unreachable" xml:space="preserve">
+    <value>nicht erreichbar</value>
+  </data>
+  <data name="term.claimedByOwner" xml:space="preserve">
+    <value>vom Betreiber beansprucht</value>
+  </data>
+  <data name="term.connected" xml:space="preserve">
+    <value>Verbindungen</value>
+  </data>
+  <data name="term.peak" xml:space="preserve">
+    <value>Spitze</value>
+  </data>
+  <data name="term.stillProbed" xml:space="preserve">
+    <value>wird weiter abgefragt</value>
+  </data>
+  <data name="term.typical" xml:space="preserve">
+    <value>typisch</value>
+  </data>
+  <data name="term.unclaimed" xml:space="preserve">
+    <value>nicht beansprucht</value>
+  </data>
+  <data name="window.samples" xml:space="preserve">
+    <value>{days}d · {count, plural, one {# Zählung} other {# Zählungen}}</value>
+  </data>
+</root>

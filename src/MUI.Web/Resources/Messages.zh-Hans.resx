@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    中文, machine-translated and not reviewed by a person.
+
+    Every page served in this locale carries the ◆ notice saying so, and the locale is reachable but
+    never offered: nothing sends a reader here. Promotion to LocaleStatus.Shipped is a person reading
+    the locked strings against Glossary.cs, not an edit to a status enum.
+
+    The values are ICU MessageFormat. Argument names in braces are code.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="a11y.asciiBanner" xml:space="preserve">
+    <value>ASCII 横幅：{game} 的连接画面。</value>
+  </data>
+  <data name="a11y.plainText" xml:space="preserve">
+    <value>纯文本</value>
+  </data>
+  <data name="a11y.readAsText" xml:space="preserve">
+    <value>以文本形式阅读</value>
+  </data>
+  <data name="a11y.skipToContent" xml:space="preserve">
+    <value>跳至主要内容</value>
+  </data>
+  <data name="capabilities.agree" xml:space="preserve">
+    <value>{disagreeing, plural, =0 {全部{total}项均一致。} other {在{total}项中，有#项与游戏自述不符。}}</value>
+  </data>
+  <data name="chart.basis" xml:space="preserve">
+    <value>{days, plural, other {#天}}实测 · {probes, plural, other {#次探测}}</value>
+  </data>
+  <data name="facet.any" xml:space="preserve">
+    <value>任意{facet}，{count, plural, other {#个游戏}}</value>
+  </data>
+  <data name="facet.count" xml:space="preserve">
+    <value>{count, plural, other {#个游戏}}</value>
+  </data>
+  <data name="facet.value.choose" xml:space="preserve">
+    <value>{value}，{count, plural, other {#个游戏}}</value>
+  </data>
+  <data name="facet.value.exclude" xml:space="preserve">
+    <value>{value}，{count, plural, other {#个游戏}}，已排除</value>
+  </data>
+  <data name="facet.value.include" xml:space="preserve">
+    <value>{value}，{count, plural, other {#个游戏}}，仅此项</value>
+  </data>
+  <data name="kicker.declared" xml:space="preserve">
+    <value>自述</value>
+  </data>
+  <data name="kicker.derived" xml:space="preserve">
+    <value>推算</value>
+  </data>
+  <data name="kicker.measured" xml:space="preserve">
+    <value>实测</value>
+  </data>
+  <data name="listing.total" xml:space="preserve">
+    <value>{count, plural, =0 {无游戏} other {#个游戏}}，每项事实均为实测。</value>
+  </data>
+  <data name="locale.label" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="locale.submit" xml:space="preserve">
+    <value>切换语言</value>
+  </data>
+  <data name="mt.banner" xml:space="preserve">
+    <value>本页由机器翻译。实测数值不受影响。</value>
+  </data>
+  <data name="mt.original" xml:space="preserve">
+    <value>阅读英文原文</value>
+  </data>
+  <data name="provenance.capability.declared" xml:space="preserve">
+    <value>自述</value>
+  </data>
+  <data name="provenance.capability.measured" xml:space="preserve">
+    <value>实测</value>
+  </data>
+  <data name="provenance.count.declared" xml:space="preserve">
+    <value>自述</value>
+  </data>
+  <data name="provenance.count.measured" xml:space="preserve">
+    <value>实测</value>
+  </data>
+  <data name="provenance.derived" xml:space="preserve">
+    <value>推算</value>
+  </data>
+  <data name="provenance.game.declared" xml:space="preserve">
+    <value>自述</value>
+  </data>
+  <data name="provenance.game.measured" xml:space="preserve">
+    <value>实测</value>
+  </data>
+  <data name="provenance.screen.measured" xml:space="preserve">
+    <value>实测</value>
+  </data>
+  <data name="state.notCounted" xml:space="preserve">
+    <value>未计数</value>
+  </data>
+  <data name="state.notMeasured" xml:space="preserve">
+    <value>未实测</value>
+  </data>
+  <data name="state.uncounted" xml:space="preserve">
+    <value>未能计数</value>
+  </data>
+  <data name="state.unreachable" xml:space="preserve">
+    <value>无法连通</value>
+  </data>
+  <data name="term.claimedByOwner" xml:space="preserve">
+    <value>已由所有者认领</value>
+  </data>
+  <data name="term.connected" xml:space="preserve">
+    <value>连接数</value>
+  </data>
+  <data name="term.peak" xml:space="preserve">
+    <value>峰值</value>
+  </data>
+  <data name="term.stillProbed" xml:space="preserve">
+    <value>仍在探测</value>
+  </data>
+  <data name="term.typical" xml:space="preserve">
+    <value>典型值</value>
+  </data>
+  <data name="term.unclaimed" xml:space="preserve">
+    <value>无人认领</value>
+  </data>
+  <data name="window.samples" xml:space="preserve">
+    <value>{days}天 · {count, plural, other {#次计数}}</value>
+  </data>
+</root>

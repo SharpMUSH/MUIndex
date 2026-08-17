@@ -1,6 +1,6 @@
 using System.Globalization;
 
-using Microsoft.Extensions.Localization;
+using System.Resources;
 
 namespace MUI.Web.Localization;
 
@@ -94,6 +94,12 @@ public static class Messages
         ["a11y.plainText"] = "plain text",
         ["a11y.skipToContent"] = "skip to content",
         ["a11y.asciiBanner"] = "ASCII banner: the connect screen of {game}.",
+
+        // ── the machine-translation notice ────────────────────────────────────────────────────
+        // The second clause is load-bearing and is only true because the machine voice carries
+        // translate="no": counts, hostnames and codebase strings never enter the pipeline at all.
+        ["mt.banner"] = "This page was translated by machine. The measured values are unaffected.",
+        ["mt.original"] = "Read the English original",
 
         // ── the switcher's own chrome, which has to read in the locale being left ─────────────
         ["locale.label"] = "language",
@@ -196,26 +202,44 @@ public static class Messages
             return English.GetValueOrDefault(id);
         }
 
-        if (Localizer is null || Culture(tag) is not { } culture)
+        if (Culture(tag) is not { } culture)
         {
             return null;
         }
 
-        var previous = CultureInfo.CurrentUICulture;
-
+        // The resource set for this culture *alone*, with tryParents off — which is the whole point.
+        // GetString walks up to the neutral resources, so it answers the English for a locale that
+        // has translated nothing, and a caller asking "does this locale carry its own words for this
+        // id" would be told yes for every id in the site. The fallback is deliberate elsewhere and
+        // wrong here.
+        //
+        // A ResourceManager rather than IStringLocalizer, and that is not a rejection of the pattern
+        // — IStringLocalizer *is* a ResourceManager with the culture read off the ambient thread.
+        // This lookup is static and is called from Razor markup, from the plain-text renderer and
+        // from headless component tests alike, and it is handed the locale rather than inferring
+        // one; the DI wrapper would mean it could not answer at all without a host behind it, which
+        // is most of where it is called from. AddMuiLocalization still registers the injected form
+        // for anything that wants it.
         try
         {
-            CultureInfo.CurrentUICulture = culture;
-
-            var found = Localizer[id];
-
-            return found.ResourceNotFound ? null : found.Value;
+            return Resources.GetResourceSet(culture, createIfNotExists: true, tryParents: false)
+                ?.GetString(id);
         }
-        finally
+        catch (MissingManifestResourceException)
         {
-            CultureInfo.CurrentUICulture = previous;
+            return null;
         }
     }
+
+    /// <summary>
+    /// The satellite assemblies, keyed off the marker type so the base name cannot drift.
+    /// </summary>
+    /// <remarks>
+    /// One per culture, compiled by the SDK from <c>Resources/Messages.&lt;culture&gt;.resx</c> with
+    /// no <c>&lt;EmbeddedResource&gt;</c> entries in the project file. A culture with no satellite
+    /// answers null here rather than throwing, which is the fallback path.
+    /// </remarks>
+    private static readonly ResourceManager Resources = new(typeof(Web.Resources.Messages));
 
     private static CultureInfo? Culture(string tag)
     {
@@ -232,20 +256,7 @@ public static class Messages
     /// <summary>The source text for an id, which is what a resx has to agree with.</summary>
     public static string? Source(string id) => English.GetValueOrDefault(id);
 
-    /// <summary>
-    /// The resource set, once the host has built one.
-    /// </summary>
-    /// <remarks>
-    /// Handed over at startup by <c>AddMuiLocalization</c>. Static rather than injected because a
-    /// message is read from Razor markup, from a plain-text renderer and from a static helper alike,
-    /// and threading a localizer through all three to reach a lookup with no per-request state would
-    /// be plumbing for its own sake. Null under a component test, where the compiled-in English is
-    /// the whole of it — which is what keeps those tests independent of a host.
-    /// </remarks>
-    private static IStringLocalizer? Localizer;
 
-    /// <summary>Hands the resource set to the lookup. Called once, from composition.</summary>
-    public static void Use(IStringLocalizer localizer) => Localizer = localizer;
 
     /// <summary>Every id the site says, in the order the source bundle declares them.</summary>
     public static IReadOnlyList<string> Ids { get; } = [.. English.Keys];

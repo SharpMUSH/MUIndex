@@ -89,7 +89,7 @@ public static class LocaleRouting
             // offered one exactly once, off the header their browser sends.
             var remembered = Locales.Find(context.Request.Cookies[Locales.CookieName]);
 
-            if (remembered is { IsOffered: true } && remembered.Tag != Locales.SourceTag)
+            if (remembered is { IsChoosable: true } && remembered.Tag != Locales.SourceTag)
             {
                 context.Response.Redirect("/" + remembered.Tag + path + context.Request.QueryString);
                 return;

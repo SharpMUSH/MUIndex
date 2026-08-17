@@ -154,12 +154,9 @@ public static class SiteComposition
         // limit.
         app.UseSubmitterAddress();
 
-        // The lookup is static — a message is read from Razor markup, from the plain-text renderer
-        // and from a static helper alike — so the resource set is handed to it once, here, rather
-        // than injected into three call sites that have no other reason to know a host exists.
-        Localization.Messages.Use(
-            app.Services.GetRequiredService<IStringLocalizerFactory>()
-                .Create(typeof(Resources.Messages)));
+        // The review locales, which are not languages and are never a default — see
+        // LanguageSwitcher for why a switcher with one option had to be able to grow a second.
+        Locales.UsePreview(app.Environment.IsDevelopment());
 
         // Before anything routes, because the locale is a path segment and every @page directive is
         // written without it: the middleware moves the prefix into PathBase so one route table

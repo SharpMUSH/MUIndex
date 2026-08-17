@@ -18,6 +18,29 @@ public enum LocaleStatus
     /// <summary>Being translated. Reachable by URL for review; not in the switcher.</summary>
     InProgress,
 
+    /// <summary>
+    /// Translated by machine, not reviewed by a person. Reachable, and it says so on every page.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The handoff's own third tier, and the banner is the whole of what makes it honest.</b>
+    /// Long-form prose may be machine-translated behind a label; what may not be is the accessibility
+    /// strings, because a sighted reader who meets a garbled label can look at the graphic and
+    /// correct for it and a blind reader has only the label. So a locale in this state carries the
+    /// <c>◆</c> notice on every page — the glyph that already means <em>derived</em>, so a returning
+    /// reader recognises the claim without learning a symbol — and the notice's second clause is
+    /// load-bearing: the measured values are unaffected, which is only true because the machine voice
+    /// carries <c>translate="no"</c> and never enters the pipeline.
+    /// </para>
+    /// <para>
+    /// It is <see cref="Locale.IsChoosable"/> and not <see cref="Locale.IsOffered"/>: a reader can
+    /// pick one, and nothing — not <c>Accept-Language</c>, not an <c>hreflang</c> alternate, not a
+    /// default — ever sends them to one. Promotion to <see cref="Shipped"/> is a person reviewing the
+    /// glossary, and the test that guards <c>Offered</c> is what stops it happening by accident.
+    /// </para>
+    /// </remarks>
+    MachineTranslated,
+
     /// <summary>Locked strings translated and reviewed. Offered to readers.</summary>
     Shipped,
 
@@ -44,8 +67,20 @@ public enum LocaleStatus
 /// <param name="Status">Whether a reader may be sent here.</param>
 public sealed record Locale(string Tag, string Endonym, LocaleStatus Status)
 {
-    /// <summary>Whether the switcher offers this one.</summary>
+    /// <summary>Whether a reader may be sent here by default.</summary>
     public bool IsOffered => Status is LocaleStatus.Shipped;
+
+    /// <summary>Whether a reader who has explicitly chosen this one may be kept in it.</summary>
+    /// <remarks>
+    /// Wider than <see cref="IsOffered"/> by exactly the review locales. A reader is never sent to
+    /// one by <c>Accept-Language</c> or by any default; having picked it from the switcher, they
+    /// stay in it, which is the difference between offering a locale and honouring a choice.
+    /// </remarks>
+    public bool IsChoosable =>
+        Status is LocaleStatus.Shipped or LocaleStatus.MachineTranslated or LocaleStatus.TestOnly;
+
+    /// <summary>Whether every page in this locale has to say a machine wrote its words.</summary>
+    public bool IsMachineTranslated => Status is LocaleStatus.MachineTranslated;
 }
 
 /// <summary>
@@ -102,9 +137,14 @@ public static class Locales
     public static IReadOnlyList<Locale> All { get; } =
     [
         new("en", "English", LocaleStatus.Shipped),
-        new("zh-Hans", "中文", LocaleStatus.Planned),
-        new("ja", "日本語", LocaleStatus.Planned),
-        new("de", "Deutsch", LocaleStatus.Planned),
+        // Machine-translated and labelled as such on every page. Reachable so the pipeline can be
+        // exercised against real scripts and real word lengths; not offered, because no person has
+        // read them yet. See LocaleStatus.MachineTranslated.
+        new("zh-Hans", "中文", LocaleStatus.MachineTranslated),
+        new("ja", "日本語", LocaleStatus.MachineTranslated),
+        new("de", "Deutsch", LocaleStatus.MachineTranslated),
+        new("nl", "Nederlands", LocaleStatus.MachineTranslated),
+
         new("ru", "Русский", LocaleStatus.Planned),
         new("th", "ไทย", LocaleStatus.Planned),
         new("hi", "हिन्दी", LocaleStatus.Planned),
@@ -127,6 +167,49 @@ public static class Locales
 
     /// <summary>The locales a reader may actually be sent to.</summary>
     public static IReadOnlyList<Locale> Offered { get; } = [.. All.Where(l => l.IsOffered)];
+
+    /// <summary>
+    /// The locales a switcher lists, which in a review build includes the ones that are not
+    /// languages.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The gate stays, and this is not a hole in it.</b> Nothing reaches a reader before its
+    /// locked strings are translated — <see cref="Offered"/> is that rule and it is unchanged. What
+    /// this adds is a way to <em>look at</em> the control: with English the only shipped locale the
+    /// switcher had nothing to switch between, so it drew nothing at all, and a control nobody can
+    /// see is a control nobody can review.
+    /// </para>
+    /// <para>
+    /// What it offers in a review build is the pseudolocale and the CI canary, and neither claims to
+    /// be a translation: one is accented English and the other is machine output that is missing
+    /// plural forms on purpose. Both are exactly what somebody reviewing the switcher, the routing
+    /// and the 1.4x width budget wants to click.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<Locale> Switchable() => Switchable(Preview);
+
+    /// <summary>
+    /// Whether this deployment is one somebody is reviewing.
+    /// </summary>
+    /// <remarks>
+    /// Set once from composition, like the resource set beside it, rather than injected into the
+    /// switcher. A component that took <c>IWebHostEnvironment</c> could not be rendered without a
+    /// web host behind it, and every headless page test in this suite renders one — so the coupling
+    /// would have been paid on hundreds of tests to answer one boolean.
+    /// </remarks>
+    public static bool Preview { get; private set; }
+
+    /// <summary>Turns the review locales on for this process. Called once, from composition.</summary>
+    public static void UsePreview(bool preview) => Preview = preview;
+
+    /// <summary>The switchable set for an explicit answer, which is what a test asks for.</summary>
+    public static IReadOnlyList<Locale> Switchable(bool preview) =>
+    [
+        .. All.Where(l => l.IsOffered
+            || l.Status is LocaleStatus.MachineTranslated
+            || (preview && l.Status is LocaleStatus.TestOnly)),
+    ];
 
     /// <summary>The source locale, which is never missing and never falls back.</summary>
     public static Locale Source { get; } = All.Single(l => l.Tag == SourceTag);

@@ -8,7 +8,23 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
-    <InvariantGlobalization>true</InvariantGlobalization>
+    <!--
+      Real globalization, and this had to change the day the site grew a second language.
+
+      Invariant mode is a runtime switch that removes ICU entirely: every culture but the invariant
+      one becomes an invalid identifier, CultureInfo.GetCultureInfo("en") throws, and — the part that
+      matters here — satellite assemblies can never be resolved, because resolving one is a culture
+      lookup. The four translated resx files compiled correctly and were unreachable, which is the
+      worst shape a bug can have: it builds, it ships, and every reader gets English.
+
+      It is set per *executable*, so this is MUI.Web's setting and the crawler that runs in-process
+      with it inherits the change. That is the risk worth naming: culture-sensitive comparison and
+      casing stop being invariant, and this codebase parses other people's output for a living. Every
+      parser here already spells its intent — StringComparison.Ordinal, ToLowerInvariant — and the
+      1375 tests across Crawl, Crawler, Catalog and Discovery are what hold that, so the flip is
+      checked rather than assumed.
+    -->
+    <InvariantGlobalization>false</InvariantGlobalization>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <Authors>Harry Cordewener</Authors>
     <Product>MUIndex</Product>

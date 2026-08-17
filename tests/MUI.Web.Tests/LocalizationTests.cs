@@ -519,4 +519,133 @@ public class LocalizationTests
                 e => e.Element("value")?.Value ?? string.Empty,
                 StringComparer.Ordinal);
     }
+
+    [Test]
+    public async Task NothingButAShippedLocaleIsEverOfferedToAReader()
+    {
+        // The gate, stated twice on purpose. `Offered` is what a default may reach — Accept-Language,
+        // a remembered cookie, an hreflang alternate — and it is English alone until a glossary is
+        // translated. A review build lists more in the switcher; that is a control somebody clicks,
+        // not a place a reader is sent.
+        await Assert.That(Locales.Offered.Select(l => l.Tag)).IsEquivalentTo(new[] { Locales.SourceTag });
+
+        foreach (var locale in Locales.All.Where(l => l.Status is not LocaleStatus.Shipped))
+        {
+            await Assert.That(locale.IsOffered)
+                .IsFalse()
+                .Because($"{locale.Tag} is {locale.Status} and must not be offered");
+        }
+
+        // And no default reaches a review locale, whatever a browser asks for.
+        await Assert.That(LocaleRouting.Preferred("qps-ploc,ru;q=0.9")).IsNull();
+
+        // The alternates name only what is offered: an hreflang pointing at a pseudolocale would
+        // invite a search engine to index accented English as a language.
+        var alternates = LocaleRouting.Alternates("/games").Select(a => a.HrefLang).ToList();
+
+        await Assert.That(alternates).DoesNotContain("qps-ploc");
+        await Assert.That(alternates).DoesNotContain("ru-x-canary");
+    }
+
+    [Test]
+    public async Task AReviewBuildListsTheLocalesThatAreNotLanguages()
+    {
+        // Without this the switcher has one option, draws nothing, and cannot be reviewed at all —
+        // which is how it shipped invisible.
+        var production = Locales.Switchable(preview: false);
+        var review = Locales.Switchable(preview: true);
+
+        // A machine-translated locale is in both — it has real words and it says on every page that
+        // a machine wrote them. The pseudolocale and the canary are in neither, because they are not
+        // languages and nothing but a review build should list them.
+        await Assert.That(production.Select(l => l.Tag)).Contains("de");
+        await Assert.That(production.Select(l => l.Tag)).DoesNotContain("qps-ploc");
+        await Assert.That(review.Select(l => l.Tag)).Contains("qps-ploc");
+        await Assert.That(review.Count).IsGreaterThan(production.Count);
+
+        // A planned locale is in neither: nothing is translated, so listing it would offer a page
+        // that is still English under a name saying it is not.
+        await Assert.That(review.Select(l => l.Tag)).DoesNotContain("ru");
+    }
+
+    [Test]
+    public async Task AChosenReviewLocaleIsHonouredEvenThoughItIsNeverOffered()
+    {
+        // The difference between offering a locale and honouring a choice. Nothing sends a reader to
+        // the pseudolocale; having picked it, they stay in it across an unprefixed URL, or the
+        // switcher would appear to do nothing on the next page.
+        await Assert.That(Locales.Find("qps-ploc")!.IsOffered).IsFalse();
+        await Assert.That(Locales.Find("qps-ploc")!.IsChoosable).IsTrue();
+
+        // Same for a machine-translated one, and for the same reason: nothing sends a reader there.
+        await Assert.That(Locales.Find("de")!.IsOffered).IsFalse();
+        await Assert.That(Locales.Find("de")!.IsChoosable).IsTrue();
+
+        // A planned locale is neither. There is nothing to choose.
+        await Assert.That(Locales.Find("ru")!.IsChoosable).IsFalse();
+    }
+
+    [Test]
+    public async Task AMachineTranslatedLocaleSaysSoOnEveryPage()
+    {
+        // The notice is the whole of what makes the tier honest, and its second clause — that the
+        // measured values are unaffected — is only true because the machine voice carries
+        // translate="no" and never enters the pipeline. If that stopped being true this would be the
+        // most damaging sentence on the site, so it is asserted rather than trusted.
+        var machine = Locales.All.Where(l => l.Status is LocaleStatus.MachineTranslated).ToList();
+
+        await Assert.That(machine).IsNotEmpty();
+
+        foreach (var locale in machine)
+        {
+            await Assert.That(locale.IsMachineTranslated).IsTrue();
+            await Assert.That(locale.IsOffered).IsFalse().Because($"{locale.Tag} is unreviewed");
+
+            // The notice reads in the locale it is warning about, so both its strings have to exist
+            // there or the warning arrives in the language the reader could not read.
+            foreach (var id in new[] { "mt.banner", "mt.original" })
+            {
+                await Assert.That(Messages.For(locale.Tag, id)).IsNotEmpty();
+            }
+        }
+
+        // And a shipped locale carries no notice, because nothing about it was guessed.
+        await Assert.That(Locales.Source.IsMachineTranslated).IsFalse();
+    }
+
+    [Test]
+    public async Task EveryMachineTranslatedLocaleTranslatedTheWholeGlossary()
+    {
+        // Not the review gate — that is a person reading them. This is the weaker thing worth
+        // asserting: a bundle that stopped halfway would leave a page in two languages, with the
+        // English half being exactly the provenance words a reader most needs to trust.
+        foreach (var locale in Locales.All.Where(l => l.Status is LocaleStatus.MachineTranslated))
+        {
+            foreach (var locked in Glossary.Locked)
+            {
+                await Assert.That(Messages.HasOwn(locale.Tag, locked.Id))
+                    .IsTrue()
+                    .Because($"{locale.Tag} has no {locked.Id}");
+            }
+        }
+    }
+
+    [Test]
+    public async Task TheFourKindsOfAbsenceStayFourInEveryTranslation()
+    {
+        // The finding the glossary exists for, checked against what the translators actually wrote.
+        // A machine translating "not measured", "uncounted", "unreachable" and "not counted" will
+        // reach for the same target phrase for at least two of them if nothing stops it — and a
+        // reader then cannot tell a game that answered from one that did not.
+        string[] ids = ["state.notMeasured", "state.uncounted", "state.unreachable", "state.notCounted"];
+
+        foreach (var locale in Locales.All.Where(l => l.Status is LocaleStatus.MachineTranslated))
+        {
+            var rendered = ids.Select(id => Messages.For(locale.Tag, id)).ToList();
+
+            await Assert.That(rendered.Distinct().Count())
+                .IsEqualTo(ids.Length)
+                .Because($"{locale.Tag} collapsed two of the four kinds of absence: {string.Join(" / ", rendered)}");
+        }
+    }
 }

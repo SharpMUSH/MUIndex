@@ -1,0 +1,51 @@
+@using MUI.Web.Localization
+
+@*
+    The notice a machine-translated page carries, on every page, at the top.
+
+    **◆ is the glyph that already means derived** — computed rather than observed — so a returning
+    reader recognises the claim without learning a new symbol. Everything on this site says how it
+    came to be known; this is the site applying that rule to its own words.
+
+    **The second clause is load-bearing and is true.** "The measured values are unaffected" holds
+    because the machine voice — game names, hostnames, codebase strings, versions, protocol acronyms,
+    connect-screen output — carries `translate="no"` and never enters the pipeline at all. If that
+    ever stopped being true, this sentence would become the most damaging one on the site, so it is
+    asserted by a test rather than trusted.
+
+    **And a way back.** A reader who would rather have words a person wrote can have them in one
+    click, on the page they are already reading. It is the same address without the locale prefix,
+    which is the canonical English one.
+
+    Not dismissible. A reader who cannot tell a translated sentence from a written one is in exactly
+    the position the demo banner exists to prevent them being in about the data.
+*@
+
+@if (Locale.IsMachineTranslated)
+{
+    <p class="mt-banner" role="status">
+        <span class="glyph" aria-hidden="true">◆</span>
+        <span>@Messages.For(Locale.Tag, "mt.banner")</span>
+        <a href="@English">@Messages.For(Locale.Tag, "mt.original")</a>
+    </p>
+}
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private Locale Locale => HttpContext.LocaleOf().Locale;
+
+    /// <summary>
+    /// This same page, unprefixed — which is the English one.
+    /// </summary>
+    /// <remarks>
+    /// The querystring travels with it: a reader who has narrowed the listing to three facets and
+    /// then asks for the original has not asked to start the listing again. The prefix is already
+    /// off the path, because the middleware moved it into <c>PathBase</c>.
+    /// </remarks>
+    private string English =>
+        HttpContext is { } context
+            ? context.Request.Path.ToUriComponent() + context.Request.QueryString.ToUriComponent()
+            : "/";
+}

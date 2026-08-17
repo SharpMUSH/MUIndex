@@ -188,4 +188,12 @@
     <value>change language</value>
     <comment>the switcher's own chrome, which has to read in the locale being left</comment>
   </data>
+  <data name="mt.banner" xml:space="preserve">
+    <value>This page was translated by machine. The measured values are unaffected.</value>
+    <comment>the machine-translation notice</comment>
+  </data>
+  <data name="mt.original" xml:space="preserve">
+    <value>Read the English original</value>
+    <comment>the machine-translation notice</comment>
+  </data>
 </root>

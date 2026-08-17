@@ -17,9 +17,16 @@
     home page — losing somebody's place is a strange way to answer "I would rather read this in
     German".
 
-    It renders only where there is a choice to make. One option is not a control, and a switcher
+    **It renders only where there is a choice to make.** One option is not a control, and a switcher
     offering a language whose locked strings are not translated yet would be offering a page that is
-    mostly still English — see LocaleStatus for why nothing ships before its glossary does.
+    mostly still English — see LocaleStatus for why nothing ships before its glossary does. Today
+    that means it draws nothing in production, because English is the only shipped locale.
+
+    In a development build it also lists the two review locales, which is how the control gets looked
+    at at all: a switcher with one option is invisible, and an invisible control is one nobody can
+    review. Neither of them claims to be a translation — one is accented English and the other is
+    machine output missing plural forms on purpose — and neither is ever reached by a default, only
+    by somebody choosing it here.
 *@
 
 @if (Offered.Count > 1)
@@ -46,7 +53,15 @@
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }
 
-    private static IReadOnlyList<Locale> Offered => Locales.Offered;
+    /// <summary>
+    /// What this switcher lists: the shipped locales, plus the review ones in a development build.
+    /// </summary>
+    /// <remarks>
+    /// Read from <see cref="Locales.Preview"/>, which composition sets from the environment. Not
+    /// injected: a component that required <c>IWebHostEnvironment</c> could not be rendered without
+    /// a web host, and every headless page test in this suite renders one.
+    /// </remarks>
+    private IReadOnlyList<Locale> Offered => Locales.Switchable();
 
     private string Tag => HttpContext.LocaleOf().Tag;
 
