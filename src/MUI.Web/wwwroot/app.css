@@ -19,7 +19,7 @@
       than the 14 this site had, one radius for controls and a larger one for the surfaces that hold
       them, and a single easing curve at an eighth of a second.
     */
-    --cpad: 20px;               /* the density control writes this, and only this */
+    --cpad: 24px;               /* the density control writes this, and only this */
     --row-pad: 13px;            /* a listing row: 13px 20px, over a 44px floor */
 
     --radius: 9px;              /* controls, chips, rows, nav items */
@@ -149,7 +149,7 @@ body {
   instrument, and this site is the second: a directory whose bar, filters and rows are one panel.
 */
 .shell {
-    max-width: 1120px;
+    max-width: 1320px;
     margin: var(--cpad) auto calc(var(--cpad) * 3);
     background: var(--surface);
     border: 1px solid var(--line);
@@ -179,12 +179,18 @@ a { color: inherit; }
 header.site {
     border-bottom: 1px solid var(--line);
     background: var(--raised);
-    padding: 0 var(--cpad);
-    min-height: 60px;
+    padding: 11px var(--cpad);
     display: flex;
-    gap: var(--cpad);
+    flex-wrap: wrap;
+    column-gap: var(--cpad);
+    row-gap: 8px;
     align-items: center;
 }
+
+header.site .mark { flex: 0 0 auto; }
+header.site .site-nav { flex: 1 1 auto; }
+header.site nav.account { flex: 0 0 auto; }
+header.site .theme { flex: 0 0 auto; }
 
 header.site .mark { font-family: var(--mono); font-weight: 600; text-decoration: none; }
 header.site .mark .star { color: var(--accent); }
@@ -943,7 +949,7 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
 
 /* ── the listing's own header ────────────────────────────────────────────── */
 
-.listing-head { margin-bottom: var(--cpad); }
+.listing-head { margin-bottom: calc(var(--cpad) * 1.25); }
 .listing-head p { margin: 0; max-width: 62ch; }
 
 .listing-bar {
@@ -951,7 +957,7 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
     align-items: baseline;
     gap: var(--cpad);
     flex-wrap: wrap;
-    margin: calc(var(--cpad) * 1.5) 0 4px;
+    margin: 0 0 10px;
 }
 
 .listing-bar .result-count { margin: 0; font-size: 13px; }
@@ -1140,13 +1146,12 @@ table.ranking tbody th { font-weight: 400; }
    is the only reason they are there.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-form.facet-form {
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--surface);
-    padding: var(--cpad);
-    margin: 0 0 var(--cpad);
-}
+/*
+  No box. It was a panel on a page — border, radius, its own surface — and inside the card it became
+  a box within a box, fighting the hairline that already separates it from the rows. The column's
+  own edge is the separation; the form is just its contents.
+*/
+form.facet-form { border: 0; background: none; padding: 0; margin: 0; }
 
 /* ── the bar ─────────────────────────────────────────────────────────────── */
 
@@ -1227,6 +1232,7 @@ fieldset.facets input[type="search"] { flex: 1 1 16rem; min-width: 0; }
     grid-row: 1 / span 99;
     border-right: 1px solid var(--line);
     padding-right: var(--cpad);
+    padding-bottom: var(--cpad);
 }
 .listing-grid > * { grid-column: 2; min-width: 0; }
 .listing-side { min-width: 0; padding-left: var(--cpad); }
@@ -1391,7 +1397,9 @@ fieldset.facet.presence {
     min-width: 0;
 }
 
-fieldset.facet.presence .checks { display: flex; flex-wrap: wrap; gap: 6px; }
+fieldset.facet.presence .checks { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+fieldset.facet.presence .check { max-width: 100%; }
+fieldset.facet.presence .check .check-name { overflow-wrap: anywhere; min-width: 0; }
 
 fieldset.facet.presence .check {
     display: inline-flex;
