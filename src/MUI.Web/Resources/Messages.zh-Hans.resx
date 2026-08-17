@@ -762,6 +762,192 @@
   <data name="capability.whereTheyDisagree" xml:space="preserve">
     <value>不一致之处（{count}）</value>
   </data>
+  <data name="activity.cell.counted" xml:space="preserve">
+    <value>{day} {time}——{count, plural, =0 {0人连接，实测} other {平均#人连接}}</value>
+  </data>
+  <data name="activity.cell.notCounted" xml:space="preserve">
+    <value>{day} {time}——已探测，未能读取计数</value>
+  </data>
+  <data name="activity.cell.notMeasured" xml:space="preserve">
+    <value>{day} {time}——该小时未实测</value>
+  </data>
+  <data name="activity.none" xml:space="preserve">
+    <value>我们尚未实测该游戏的活跃度。</value>
+  </data>
+  <data name="activity.noCount" xml:space="preserve">
+    <value>一周中没有任何一个小时得出过连接人数。</value>
+  </data>
+  <data name="activity.allZero" xml:space="preserve">
+    <value>每个小时都已实测，其中没有任何一个小时有人连接。</value>
+  </data>
+  <data name="activity.gap.day" xml:space="preserve">
+    <value>{count, plural, other {{day}有#小时尚未实测。}}</value>
+  </data>
+  <data name="activity.gap.week" xml:space="preserve">
+    <value>{count, plural, other {一周中有#小时尚未实测。}}</value>
+  </data>
+  <data name="activity.uncounted.day" xml:space="preserve">
+    <value>{count, plural, other {{day}有#小时有应答，但未能计数。}}</value>
+  </data>
+  <data name="activity.uncounted.week" xml:space="preserve">
+    <value>{count, plural, other {一周中有#小时有应答，但未能计数。}}</value>
+  </data>
+  <data name="activity.busiest.everyDay" xml:space="preserve">
+    <value>每天最热闹，{window}。</value>
+  </data>
+  <data name="activity.busiest.everyDay.part" xml:space="preserve">
+    <value>每天{part}最热闹，{window}。</value>
+  </data>
+  <data name="activity.busiest.days" xml:space="preserve">
+    <value>{days}最热闹，{window}。</value>
+  </data>
+  <data name="activity.busiest.days.part" xml:space="preserve">
+    <value>{days}{part}最热闹，{window}。</value>
+  </data>
+  <data name="activity.quiet" xml:space="preserve">
+    <value>{who}一贯冷清，{window}。</value>
+  </data>
+  <data name="activity.quiet.part" xml:space="preserve">
+    <value>{who}的{part}一贯冷清，{window}。</value>
+  </data>
+  <data name="activity.quiet.everyDay" xml:space="preserve">
+    <value>每天</value>
+  </data>
+  <data name="activity.quiet.everyMeasuredDay" xml:space="preserve">
+    <value>我们实测到的每一天</value>
+  </data>
+  <data name="activity.quiet.weekdays" xml:space="preserve">
+    <value>工作日</value>
+  </data>
+  <data name="activity.quiet.onDays" xml:space="preserve">
+    <value>{days}</value>
+  </data>
+  <data name="activity.part.morning" xml:space="preserve">
+    <value>上午</value>
+  </data>
+  <data name="activity.part.afternoon" xml:space="preserve">
+    <value>下午</value>
+  </data>
+  <data name="activity.part.evening" xml:space="preserve">
+    <value>晚上</value>
+  </data>
+  <data name="activity.part.smallHours" xml:space="preserve">
+    <value>凌晨</value>
+  </data>
+  <data name="activity.parts.morning" xml:space="preserve">
+    <value>上午</value>
+  </data>
+  <data name="activity.parts.afternoon" xml:space="preserve">
+    <value>下午</value>
+  </data>
+  <data name="activity.parts.evening" xml:space="preserve">
+    <value>晚上</value>
+  </data>
+  <data name="activity.parts.smallHours" xml:space="preserve">
+    <value>凌晨</value>
+  </data>
+  <data name="activity.days.list" xml:space="preserve">
+    <value>{list}、{next}</value>
+  </data>
+  <data name="activity.days.pair" xml:space="preserve">
+    <value>{first}和{second}</value>
+  </data>
+  <data name="activity.sparse.kicker" xml:space="preserve">
+    <value>实测次数尚不足</value>
+  </data>
+  <data name="activity.sparse.none" xml:space="preserve">
+    <value>一周中尚无任何一个小时有过实测。</value>
+  </data>
+  <data name="activity.sparse.uncounted" xml:space="preserve">
+    <value>{count, plural, other {#小时有应答，但未能计数。}}</value>
+  </data>
+  <data name="activity.sparse.wait" xml:space="preserve">
+    <value>待一周七天每天都有实测后，网格才会显示。</value>
+  </data>
+  <data name="activity.sparse.days" xml:space="preserve">
+    <value>{days, plural, other {七天中已实测#天；待每天都有实测小时后，网格才会显示。}}</value>
+  </data>
+  <data name="activity.sample.zero" xml:space="preserve">
+    <value>{count, plural, other {已实测#小时，其中始终无人连接。}}</value>
+  </data>
+  <data name="activity.sample.peak" xml:space="preserve">
+    <value>{count, plural, other {已实测#小时，最热闹的是{day} {time} UTC，{peak}人连接。}}</value>
+  </data>
+  <data name="activity.sample.more" xml:space="preserve">
+    <value>{count, plural, other {另有#小时有应答，但未能计数。}}</value>
+  </data>
+  <data name="activity.day.line" xml:space="preserve">
+    <value>{day}——{facts}</value>
+  </data>
+  <data name="activity.day.facts" xml:space="preserve">
+    <value>{first}，{second}</value>
+  </data>
+  <data name="activity.day.allZero" xml:space="preserve">
+    <value>全天实测为零</value>
+  </data>
+  <data name="activity.day.peak" xml:space="preserve">
+    <value>{time}峰值{count}人</value>
+  </data>
+  <data name="activity.day.nobodyOn" xml:space="preserve">
+    <value>{window}无人连接</value>
+  </data>
+  <data name="activity.day.noCount" xml:space="preserve">
+    <value>各小时均无计数</value>
+  </data>
+  <data name="activity.day.notMeasured" xml:space="preserve">
+    <value>{count, plural, other {#小时未实测}}</value>
+  </data>
+  <data name="activity.day.notCounted" xml:space="preserve">
+    <value>{count, plural, other {#小时已探测但未能计数}}</value>
+  </data>
+  <data name="activity.column.day" xml:space="preserve">
+    <value>星期</value>
+  </data>
+  <data name="activity.column.quietest" xml:space="preserve">
+    <value>最冷清</value>
+  </data>
+  <data name="activity.column.busiest" xml:space="preserve">
+    <value>最热闹</value>
+  </data>
+  <data name="activity.column.at" xml:space="preserve">
+    <value>时间</value>
+  </data>
+  <data name="activity.column.noCount" xml:space="preserve">
+    <value>无计数</value>
+  </data>
+  <data name="activity.caption" xml:space="preserve">
+    <value>按天显示的连接人数，时间为 UTC。{window}。</value>
+  </data>
+  <data name="activity.times" xml:space="preserve">
+    <value>时间为 UTC · {window}</value>
+  </data>
+  <data name="activity.rollingAverage" xml:space="preserve">
+    <value>{weeks, plural, other {#周滚动平均}}</value>
+  </data>
+  <data name="activity.legend.counted" xml:space="preserve">
+    <value>已计数，含实测为零</value>
+  </data>
+  <data name="activity.legend.notCounted" xml:space="preserve">
+    <value>已探测，未能读取计数</value>
+  </data>
+  <data name="activity.legend.notMeasured" xml:space="preserve">
+    <value>该小时未实测</value>
+  </data>
+  <data name="activity.plain.heading" xml:space="preserve">
+    <value>有人连接的时段（UTC）</value>
+  </data>
+  <data name="activity.key.counted" xml:space="preserve">
+    <value>已计数</value>
+  </data>
+  <data name="activity.key.counted.meaning" xml:space="preserve">
+    <value>我们连上了并读到了数字，包括实测为零</value>
+  </data>
+  <data name="activity.key.uncounted.meaning" xml:space="preserve">
+    <value>我们连上了，但读不到数字</value>
+  </data>
+  <data name="activity.key.notMeasured.meaning" xml:space="preserve">
+    <value>我们没有该小时的实测数据</value>
+  </data>
   <data name="locale.label" xml:space="preserve">
     <value>语言</value>
   </data>

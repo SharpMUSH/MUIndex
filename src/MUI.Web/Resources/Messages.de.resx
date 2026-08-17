@@ -762,6 +762,192 @@
   <data name="capability.whereTheyDisagree" xml:space="preserve">
     <value>wo sie widersprechen ({count})</value>
   </data>
+  <data name="activity.cell.counted" xml:space="preserve">
+    <value>{day} {time} — {count, plural, =0 {0 Spieler, gemessen} one {durchschnittlich # Spieler} other {durchschnittlich # Spieler}}</value>
+  </data>
+  <data name="activity.cell.notCounted" xml:space="preserve">
+    <value>{day} {time} — abgefragt, keine Zählung ablesbar</value>
+  </data>
+  <data name="activity.cell.notMeasured" xml:space="preserve">
+    <value>{day} {time} — keine Messung in dieser Stunde</value>
+  </data>
+  <data name="activity.none" xml:space="preserve">
+    <value>Wir haben die Aktivität dieses Spiels noch nicht gemessen.</value>
+  </data>
+  <data name="activity.noCount" xml:space="preserve">
+    <value>Keine Stunde der Woche hat eine Zählung ergeben.</value>
+  </data>
+  <data name="activity.allZero" xml:space="preserve">
+    <value>Jede Stunde gemessen, und in keiner war jemand verbunden.</value>
+  </data>
+  <data name="activity.gap.day" xml:space="preserve">
+    <value>{count, plural, one {Für # Stunde am {day} liegt noch keine Messung vor.} other {Für # Stunden am {day} liegt noch keine Messung vor.}}</value>
+  </data>
+  <data name="activity.gap.week" xml:space="preserve">
+    <value>{count, plural, one {Für # Stunde der Woche liegt noch keine Messung vor.} other {Für # Stunden der Woche liegt noch keine Messung vor.}}</value>
+  </data>
+  <data name="activity.uncounted.day" xml:space="preserve">
+    <value>{count, plural, one {# Stunde am {day} hat geantwortet, aber keine Zählung ergeben.} other {# Stunden am {day} haben geantwortet, aber keine Zählung ergeben.}}</value>
+  </data>
+  <data name="activity.uncounted.week" xml:space="preserve">
+    <value>{count, plural, one {# Stunde der Woche hat geantwortet, aber keine Zählung ergeben.} other {# Stunden der Woche haben geantwortet, aber keine Zählung ergeben.}}</value>
+  </data>
+  <data name="activity.busiest.everyDay" xml:space="preserve">
+    <value>Jeden Tag am belebtesten, {window}.</value>
+  </data>
+  <data name="activity.busiest.everyDay.part" xml:space="preserve">
+    <value>Jeden Tag am belebtesten, {part}, {window}.</value>
+  </data>
+  <data name="activity.busiest.days" xml:space="preserve">
+    <value>{days} am belebtesten, {window}.</value>
+  </data>
+  <data name="activity.busiest.days.part" xml:space="preserve">
+    <value>{days} am belebtesten, {part}, {window}.</value>
+  </data>
+  <data name="activity.quiet" xml:space="preserve">
+    <value>Verlässlich ruhig {who}, {window}.</value>
+  </data>
+  <data name="activity.quiet.part" xml:space="preserve">
+    <value>Verlässlich ruhig {who} {part}, {window}.</value>
+  </data>
+  <data name="activity.quiet.everyDay" xml:space="preserve">
+    <value>jeden Tag</value>
+  </data>
+  <data name="activity.quiet.everyMeasuredDay" xml:space="preserve">
+    <value>an jedem gemessenen Tag</value>
+  </data>
+  <data name="activity.quiet.weekdays" xml:space="preserve">
+    <value>an Wochentagen</value>
+  </data>
+  <data name="activity.quiet.onDays" xml:space="preserve">
+    <value>an {days}</value>
+  </data>
+  <data name="activity.part.morning" xml:space="preserve">
+    <value>morgens</value>
+  </data>
+  <data name="activity.part.afternoon" xml:space="preserve">
+    <value>nachmittags</value>
+  </data>
+  <data name="activity.part.evening" xml:space="preserve">
+    <value>abends</value>
+  </data>
+  <data name="activity.part.smallHours" xml:space="preserve">
+    <value>nachts</value>
+  </data>
+  <data name="activity.parts.morning" xml:space="preserve">
+    <value>morgens</value>
+  </data>
+  <data name="activity.parts.afternoon" xml:space="preserve">
+    <value>nachmittags</value>
+  </data>
+  <data name="activity.parts.evening" xml:space="preserve">
+    <value>abends</value>
+  </data>
+  <data name="activity.parts.smallHours" xml:space="preserve">
+    <value>nachts</value>
+  </data>
+  <data name="activity.days.list" xml:space="preserve">
+    <value>{list}, {next}</value>
+  </data>
+  <data name="activity.days.pair" xml:space="preserve">
+    <value>{first} und {second}</value>
+  </data>
+  <data name="activity.sparse.kicker" xml:space="preserve">
+    <value>noch nicht genug Messungen</value>
+  </data>
+  <data name="activity.sparse.none" xml:space="preserve">
+    <value>Für keine Stunde der Woche liegt bisher eine Messung vor.</value>
+  </data>
+  <data name="activity.sparse.uncounted" xml:space="preserve">
+    <value>{count, plural, one {# Stunde hat geantwortet und keine Zählung ergeben.} other {# Stunden haben geantwortet und keine Zählung ergeben.}}</value>
+  </data>
+  <data name="activity.sparse.wait" xml:space="preserve">
+    <value>Das Raster erscheint, sobald für jeden Wochentag eine Messung vorliegt.</value>
+  </data>
+  <data name="activity.sparse.days" xml:space="preserve">
+    <value>{days, plural, one {Bisher an # von sieben Tagen gemessen; das Raster erscheint, sobald jeder Tag eine gemessene Stunde hat.} other {Bisher an # von sieben Tagen gemessen; das Raster erscheint, sobald jeder Tag eine gemessene Stunde hat.}}</value>
+  </data>
+  <data name="activity.sample.zero" xml:space="preserve">
+    <value>{count, plural, one {# Stunde gemessen, darin war niemand verbunden.} other {# Stunden gemessen, in allen war niemand verbunden.}}</value>
+  </data>
+  <data name="activity.sample.peak" xml:space="preserve">
+    <value>{count, plural, one {# Stunde gemessen, die belebteste mit {peak} am {day} um {time} UTC.} other {# Stunden gemessen, die belebteste mit {peak} am {day} um {time} UTC.}}</value>
+  </data>
+  <data name="activity.sample.more" xml:space="preserve">
+    <value>{count, plural, one {# weitere Stunde hat geantwortet und keine Zählung ergeben.} other {# weitere Stunden haben geantwortet und keine Zählung ergeben.}}</value>
+  </data>
+  <data name="activity.day.line" xml:space="preserve">
+    <value>{day} — {facts}</value>
+  </data>
+  <data name="activity.day.facts" xml:space="preserve">
+    <value>{first}, {second}</value>
+  </data>
+  <data name="activity.day.allZero" xml:space="preserve">
+    <value>den ganzen Tag null gemessen</value>
+  </data>
+  <data name="activity.day.peak" xml:space="preserve">
+    <value>Spitze {count} um {time}</value>
+  </data>
+  <data name="activity.day.nobodyOn" xml:space="preserve">
+    <value>niemand verbunden {window}</value>
+  </data>
+  <data name="activity.day.noCount" xml:space="preserve">
+    <value>in keiner Stunde eine Zählung</value>
+  </data>
+  <data name="activity.day.notMeasured" xml:space="preserve">
+    <value>{count, plural, one {# Stunde nicht gemessen} other {# Stunden nicht gemessen}}</value>
+  </data>
+  <data name="activity.day.notCounted" xml:space="preserve">
+    <value>{count, plural, one {# Stunde abgefragt, aber nicht zählbar} other {# Stunden abgefragt, aber nicht zählbar}}</value>
+  </data>
+  <data name="activity.column.day" xml:space="preserve">
+    <value>Tag</value>
+  </data>
+  <data name="activity.column.quietest" xml:space="preserve">
+    <value>ruhigste</value>
+  </data>
+  <data name="activity.column.busiest" xml:space="preserve">
+    <value>belebteste</value>
+  </data>
+  <data name="activity.column.at" xml:space="preserve">
+    <value>um</value>
+  </data>
+  <data name="activity.column.noCount" xml:space="preserve">
+    <value>keine Zählung</value>
+  </data>
+  <data name="activity.caption" xml:space="preserve">
+    <value>Verbundene Spieler nach Tag, in UTC. {window}.</value>
+  </data>
+  <data name="activity.times" xml:space="preserve">
+    <value>Zeiten in UTC · {window}</value>
+  </data>
+  <data name="activity.rollingAverage" xml:space="preserve">
+    <value>{weeks, plural, one {gleitender Durchschnitt über # Woche} other {gleitender Durchschnitt über # Wochen}}</value>
+  </data>
+  <data name="activity.legend.counted" xml:space="preserve">
+    <value>gezählt, auch eine gemessene Null</value>
+  </data>
+  <data name="activity.legend.notCounted" xml:space="preserve">
+    <value>abgefragt, keine Zählung ablesbar</value>
+  </data>
+  <data name="activity.legend.notMeasured" xml:space="preserve">
+    <value>keine Messung in dieser Stunde</value>
+  </data>
+  <data name="activity.plain.heading" xml:space="preserve">
+    <value>Wann Spieler verbunden sind (UTC)</value>
+  </data>
+  <data name="activity.key.counted" xml:space="preserve">
+    <value>gezählt</value>
+  </data>
+  <data name="activity.key.counted.meaning" xml:space="preserve">
+    <value>wir sind hineingekommen und haben eine Zahl abgelesen, auch eine gemessene Null</value>
+  </data>
+  <data name="activity.key.uncounted.meaning" xml:space="preserve">
+    <value>wir sind hineingekommen, aber keine Zahl war ablesbar</value>
+  </data>
+  <data name="activity.key.notMeasured.meaning" xml:space="preserve">
+    <value>für diese Stunde liegt uns keine Messung vor</value>
+  </data>
   <data name="locale.label" xml:space="preserve">
     <value>Sprache</value>
   </data>

@@ -762,6 +762,192 @@
   <data name="capability.whereTheyDisagree" xml:space="preserve">
     <value>不一致の箇所（{count}）</value>
   </data>
+  <data name="activity.cell.counted" xml:space="preserve">
+    <value>{day} {time} — {count, plural, =0 {接続数0、実測} other {平均#人}}</value>
+  </data>
+  <data name="activity.cell.notCounted" xml:space="preserve">
+    <value>{day} {time} — 探査したが接続数は読み取れず</value>
+  </data>
+  <data name="activity.cell.notMeasured" xml:space="preserve">
+    <value>{day} {time} — この時間は未計測</value>
+  </data>
+  <data name="activity.none" xml:space="preserve">
+    <value>このゲームの活動はまだ実測していない。</value>
+  </data>
+  <data name="activity.noCount" xml:space="preserve">
+    <value>週のどの時間にも接続数は得られていない。</value>
+  </data>
+  <data name="activity.allZero" xml:space="preserve">
+    <value>すべての時間を実測し、どの時間も接続はなかった。</value>
+  </data>
+  <data name="activity.gap.day" xml:space="preserve">
+    <value>{count, plural, other {{day}の#時間はまだ未計測。}}</value>
+  </data>
+  <data name="activity.gap.week" xml:space="preserve">
+    <value>{count, plural, other {週全体で#時間がまだ未計測。}}</value>
+  </data>
+  <data name="activity.uncounted.day" xml:space="preserve">
+    <value>{count, plural, other {{day}の#時間は応答したが接続数は読み取れず。}}</value>
+  </data>
+  <data name="activity.uncounted.week" xml:space="preserve">
+    <value>{count, plural, other {週全体で#時間が応答したが接続数は読み取れず。}}</value>
+  </data>
+  <data name="activity.busiest.everyDay" xml:space="preserve">
+    <value>毎日、{window}が最も多い。</value>
+  </data>
+  <data name="activity.busiest.everyDay.part" xml:space="preserve">
+    <value>毎日、{part}の{window}が最も多い。</value>
+  </data>
+  <data name="activity.busiest.days" xml:space="preserve">
+    <value>{days}は{window}が最も多い。</value>
+  </data>
+  <data name="activity.busiest.days.part" xml:space="preserve">
+    <value>{days}は{part}、{window}が最も多い。</value>
+  </data>
+  <data name="activity.quiet" xml:space="preserve">
+    <value>{who}の{window}は常に接続が少ない。</value>
+  </data>
+  <data name="activity.quiet.part" xml:space="preserve">
+    <value>{who}の{part}、{window}は常に接続が少ない。</value>
+  </data>
+  <data name="activity.quiet.everyDay" xml:space="preserve">
+    <value>毎日</value>
+  </data>
+  <data name="activity.quiet.everyMeasuredDay" xml:space="preserve">
+    <value>実測できたすべての日</value>
+  </data>
+  <data name="activity.quiet.weekdays" xml:space="preserve">
+    <value>平日</value>
+  </data>
+  <data name="activity.quiet.onDays" xml:space="preserve">
+    <value>{days}</value>
+  </data>
+  <data name="activity.part.morning" xml:space="preserve">
+    <value>午前</value>
+  </data>
+  <data name="activity.part.afternoon" xml:space="preserve">
+    <value>午後</value>
+  </data>
+  <data name="activity.part.evening" xml:space="preserve">
+    <value>夜</value>
+  </data>
+  <data name="activity.part.smallHours" xml:space="preserve">
+    <value>深夜</value>
+  </data>
+  <data name="activity.parts.morning" xml:space="preserve">
+    <value>午前</value>
+  </data>
+  <data name="activity.parts.afternoon" xml:space="preserve">
+    <value>午後</value>
+  </data>
+  <data name="activity.parts.evening" xml:space="preserve">
+    <value>夜</value>
+  </data>
+  <data name="activity.parts.smallHours" xml:space="preserve">
+    <value>深夜</value>
+  </data>
+  <data name="activity.days.list" xml:space="preserve">
+    <value>{list}、{next}</value>
+  </data>
+  <data name="activity.days.pair" xml:space="preserve">
+    <value>{first}と{second}</value>
+  </data>
+  <data name="activity.sparse.kicker" xml:space="preserve">
+    <value>実測がまだ足りない</value>
+  </data>
+  <data name="activity.sparse.none" xml:space="preserve">
+    <value>週のどの時間もまだ未計測。</value>
+  </data>
+  <data name="activity.sparse.uncounted" xml:space="preserve">
+    <value>{count, plural, other {#時間は応答したが接続数は読み取れず。}}</value>
+  </data>
+  <data name="activity.sparse.wait" xml:space="preserve">
+    <value>週のすべての曜日に実測が入るとグリッドが表示される。</value>
+  </data>
+  <data name="activity.sparse.days" xml:space="preserve">
+    <value>{days, plural, other {これまでに7日のうち#日を実測。すべての曜日に1時間でも入るとグリッドが表示される。}}</value>
+  </data>
+  <data name="activity.sample.zero" xml:space="preserve">
+    <value>{count, plural, other {#時間を実測、いずれも接続なし。}}</value>
+  </data>
+  <data name="activity.sample.peak" xml:space="preserve">
+    <value>{count, plural, other {#時間を実測、最多は{day} {time} UTCの{peak}。}}</value>
+  </data>
+  <data name="activity.sample.more" xml:space="preserve">
+    <value>{count, plural, other {他に#時間が応答したが接続数は読み取れず。}}</value>
+  </data>
+  <data name="activity.day.line" xml:space="preserve">
+    <value>{day} — {facts}</value>
+  </data>
+  <data name="activity.day.facts" xml:space="preserve">
+    <value>{first}、{second}</value>
+  </data>
+  <data name="activity.day.allZero" xml:space="preserve">
+    <value>終日ゼロを実測</value>
+  </data>
+  <data name="activity.day.peak" xml:space="preserve">
+    <value>{time}にピーク{count}</value>
+  </data>
+  <data name="activity.day.nobodyOn" xml:space="preserve">
+    <value>{window}は接続なし</value>
+  </data>
+  <data name="activity.day.noCount" xml:space="preserve">
+    <value>どの時間も接続数を読み取れず</value>
+  </data>
+  <data name="activity.day.notMeasured" xml:space="preserve">
+    <value>{count, plural, other {#時間が未計測}}</value>
+  </data>
+  <data name="activity.day.notCounted" xml:space="preserve">
+    <value>{count, plural, other {#時間は探査したが読み取り不可}}</value>
+  </data>
+  <data name="activity.column.day" xml:space="preserve">
+    <value>曜日</value>
+  </data>
+  <data name="activity.column.quietest" xml:space="preserve">
+    <value>最少</value>
+  </data>
+  <data name="activity.column.busiest" xml:space="preserve">
+    <value>最多</value>
+  </data>
+  <data name="activity.column.at" xml:space="preserve">
+    <value>時刻</value>
+  </data>
+  <data name="activity.column.noCount" xml:space="preserve">
+    <value>読み取り不可</value>
+  </data>
+  <data name="activity.caption" xml:space="preserve">
+    <value>曜日別の接続数（UTC）。{window}。</value>
+  </data>
+  <data name="activity.times" xml:space="preserve">
+    <value>時刻はUTC · {window}</value>
+  </data>
+  <data name="activity.rollingAverage" xml:space="preserve">
+    <value>{weeks, plural, other {#週の移動平均}}</value>
+  </data>
+  <data name="activity.legend.counted" xml:space="preserve">
+    <value>計数あり（実測のゼロを含む）</value>
+  </data>
+  <data name="activity.legend.notCounted" xml:space="preserve">
+    <value>探査したが接続数は読み取れず</value>
+  </data>
+  <data name="activity.legend.notMeasured" xml:space="preserve">
+    <value>その時間は未計測</value>
+  </data>
+  <data name="activity.plain.heading" xml:space="preserve">
+    <value>人がいる時間帯（UTC）</value>
+  </data>
+  <data name="activity.key.counted" xml:space="preserve">
+    <value>計数あり</value>
+  </data>
+  <data name="activity.key.counted.meaning" xml:space="preserve">
+    <value>接続でき、数値を読み取れた（実測のゼロを含む）</value>
+  </data>
+  <data name="activity.key.uncounted.meaning" xml:space="preserve">
+    <value>接続できたが、数値は読み取れなかった</value>
+  </data>
+  <data name="activity.key.notMeasured.meaning" xml:space="preserve">
+    <value>その時間の実測がない</value>
+  </data>
   <data name="locale.label" xml:space="preserve">
     <value>言語</value>
   </data>

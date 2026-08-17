@@ -1746,7 +1746,18 @@ ul.sole-use-names {
 ul.sole-use-names li { color: var(--dim); }
 
 /* Wide content scrolls inside its own box; the page body never scrolls sideways. */
-.table-wrap { overflow-x: auto; margin: var(--cpad) 0; }
+/*
+  A scroller contains its own absolutely positioned descendants — and until it did, the game page
+  scrolled sideways.
+
+  `.sr-only` is `position: absolute`, and with no positioned ancestor its containing block was the
+  initial one: the text a screen reader reads out of the capability matrix was laid out at the
+  matrix's own width, 463px in German, *outside* this box and outside `.shell`'s `overflow-x: clip`.
+  So five spans nobody can see pushed the document 59px wider than a 360px phone, and the whole page
+  scrolled to reveal nothing. Visually-hidden is not the same as out of the layout, and one
+  `position: relative` is what makes the difference invisible in both directions.
+*/
+.table-wrap { position: relative; overflow-x: auto; margin: var(--cpad) 0; }
 
 /* Inside a section that already spaces its children, the wrapper carries no margin of its own —
    and it keeps the table's rounded frame from being clipped square by the scroll box. */
