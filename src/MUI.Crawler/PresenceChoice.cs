@@ -105,9 +105,9 @@ public static class PresenceChoice
     }
 
     /// <summary>
-    /// Why no count was obtainable. Three reasons, and they name three different problems: a game that
-    /// answers no <c>WHO</c> at all, a <c>WHO</c> our parser could not read, and an MSSP
-    /// <c>PLAYERS</c> that was not a number.
+    /// Why no count was obtainable. Four reasons, and they name four different problems: a game that
+    /// answers no <c>WHO</c> at all, a game whose login prompt ate the word, a <c>WHO</c> our parser
+    /// could not read, and an MSSP <c>PLAYERS</c> that was not a number.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -115,6 +115,12 @@ public static class PresenceChoice
     /// picked from the strongest evidence rather than defaulted. A non-numeric <c>PLAYERS</c> outranks
     /// the WHO reasons because it is a fact about the game's own report — the one place a server said
     /// something and we could not use it.
+    /// </para>
+    /// <para>
+    /// <b><c>who_login_prompt</c> is the one of the four that is not ours</b>, and it was the largest
+    /// population inside <c>who_unparseable</c> until it was given a word of its own: 43 of the 107
+    /// payloads stored on 2026-08-17. See <see cref="UnmeasurableReason.WhoLoginPrompt"/> for what the
+    /// two were being read as, and migration 0026 for why no existing row is rewritten.
     /// </para>
     /// <para>
     /// <b>The <c>info</c> rung adds no fourth reason, and that is a finding rather than an omission.</b>
@@ -131,6 +137,7 @@ public static class PresenceChoice
     /// </remarks>
     private static UnmeasurableReason ReasonFor(ProbeResult result, string? declaredPlayers) =>
         declaredPlayers is not null ? UnmeasurableReason.PlayersNotNumeric
+        : result.Who.Confidence is WhoConfidence.LoginPrompt ? UnmeasurableReason.WhoLoginPrompt
         : result.Who.Attempted ? UnmeasurableReason.WhoUnparseable
         : UnmeasurableReason.WhoNotOffered;
 }

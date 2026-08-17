@@ -229,6 +229,59 @@ public class ProbeSessionTests
         await Assert.That(result.Who.Count).IsEqualTo(5);
     }
 
+    /// <summary>
+    /// The one case where the flush is an answer rather than a stray line.
+    /// </summary>
+    /// <remarks>
+    /// <b>Measured on three live games.</b> tharel.net:5005 stored 23 characters —
+    /// <c>Do you want ANSI? (Y/n)</c> — as its connect screen, and one Return produces 3033;
+    /// mdhoria.net:6996 stored 101 and has 2826 behind it; cleftofdimension.com:9000 stored 29 and
+    /// has 2197. Seventeen active games gate their whole screen behind that keystroke, and the probe
+    /// was already sending it and throwing the answer away.
+    /// </remarks>
+    [Test]
+    public async Task AScreenBehindAColourQuestionIsTheConnectScreen()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "Do you want ANSI? (Y/n) ",
+            BlankLineReply =
+                "Ansi enabled!\r\nWelcome to Adventures Unlimited\r\n"
+                + "Based on CircleMUD 3.0, created by Jeremy Elson\r\n"
+                + "Players Currently Online: 7\r\n",
+            WhoReply = "Illegal name, try again.\r\nName: \r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Banner).Contains("Welcome to Adventures Unlimited");
+        await Assert.That(result.BannerPlayerCount).IsEqualTo(7);
+
+        // And the WHO window still begins after all of it, so the game's refusal is read as the
+        // refusal it is rather than as part of its connect screen.
+        await Assert.That(result.Banner).DoesNotContain("Illegal name");
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.LoginPrompt);
+    }
+
+    [Test]
+    public async Task AServerThatSimplyRepaintsIsStillCountedAsNeither()
+    {
+        // The negative that pays for the case above. A screen that has already painted is not a
+        // gate however it ends, so what a stray Return produces stays discarded — which on a
+        // TinyMUSH is the screen repeated and on a DIKU is a goodbye.
+        await using var game = new FakeGame
+        {
+            Banner = "Welcome to Nowhere\r\nBy what name do you wish to be known? \r\n",
+            BlankLineReply = "By what name do you wish to be known? \r\n",
+            WhoReply = "There are 5 players connected.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Banner).Contains("Welcome to Nowhere");
+        await Assert.That(result.Who.Count).IsEqualTo(5);
+    }
+
     [Test]
     public async Task InfoAndVersionRepliesAreCapturedSeparately()
     {

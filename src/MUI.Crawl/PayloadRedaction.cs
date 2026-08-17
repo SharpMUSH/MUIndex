@@ -70,8 +70,14 @@ public static class PayloadRedaction
         "status", "port", "host", "flags",
 
         // Login prompts. A payload that is one of these must go on being recognisable as one.
+        //
+        // The second line was added with WhoReading.LoginPrompt, and for the reason this list exists
+        // at all: a stored shape has to replay to the same verdict the live parser reached, and
+        // "Illegal name, try again." masked to "Aaaaaaa name, aaa aaaaaaa." replays as unreadable —
+        // the parser backlog those 43 games were being counted into, reproduced in the archive.
         "by", "that", "found", "enter", "the", "create", "a", "new", "what", "your", "password",
         "type", "welcome", "please", "and", "of", "to",
+        "illegal", "reserved", "did", "i", "get", "right",
     };
 
     /// <summary>The character a masked upper-case letter becomes.</summary>

@@ -184,6 +184,7 @@ public static class SqlEnums
     {
         UnmeasurableReason.WhoUnparseable => "who_unparseable",
         UnmeasurableReason.WhoNotOffered => "who_not_offered",
+        UnmeasurableReason.WhoLoginPrompt => "who_login_prompt",
         UnmeasurableReason.PlayersNotNumeric => "players_not_numeric",
         UnmeasurableReason.I3NoReply => "i3_no_reply",
         _ => throw Unmapped(reason),
@@ -193,6 +194,7 @@ public static class SqlEnums
     {
         "who_unparseable" => UnmeasurableReason.WhoUnparseable,
         "who_not_offered" => UnmeasurableReason.WhoNotOffered,
+        "who_login_prompt" => UnmeasurableReason.WhoLoginPrompt,
         "players_not_numeric" => UnmeasurableReason.PlayersNotNumeric,
         "i3_no_reply" => UnmeasurableReason.I3NoReply,
         _ => throw Unread(value, nameof(UnmeasurableReason)),

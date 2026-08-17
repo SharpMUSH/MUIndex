@@ -65,6 +65,11 @@
             <a class="action primary" href="/account/sign-in">sign in</a>
         }
     </nav>
+    @*
+        Last in the bar, because it is the one control here that does not go anywhere: everything to
+        its left names a page and this changes the one you are on.
+    *@
+    <ThemeToggle />
 </header>
 <main id="content">@Body</main>
 

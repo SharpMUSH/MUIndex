@@ -86,4 +86,53 @@ public class BannerCountTests
 
         await Assert.That(BannerCount.Find(coloured)).IsEqualTo(218);
     }
+
+    /// <summary>
+    /// The second way a screen states a count: a sentence rather than a label.
+    /// </summary>
+    /// <remarks>
+    /// Both fixtures are live connect screens of games recorded as having no count.
+    /// <c>telehack.com:23</c> prints its sentence in the connect screen <em>and</em> in its
+    /// <c>WHO</c>, and it was unreadable in both places for two unrelated reasons — this reader had
+    /// its own, narrower idea of what a stated count looks like. It now goes through
+    /// <see cref="WhoParser.TryStatedCount"/>, which is the one the <c>WHO</c> reply uses.
+    /// </remarks>
+    [Test]
+    [Arguments("It is 8:00 pm in Mountain View.\nThere are 122 local users.", 122)]
+    [Arguments("Welcome to Erion MUD!\nThere are 41 players and 3 immortals online.", 41)]
+    [Arguments("There are no players connected.", 0)]
+    public async Task ACountStatedAsASentenceIsReadToo(string banner, int expected)
+    {
+        await Assert.That(BannerCount.Find(banner)).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task TheCeilingRuleArrivesWithTheSharedReader()
+    {
+        // retromud prints "11 out of 200 users playing" — eleven people and a licence for two
+        // hundred. That rule lives in the WHO parser and this reader gets it by using it rather than
+        // by growing a second copy that would have to learn it again.
+        await Assert.That(BannerCount.Find("There are currently 11 out of 200 users playing."))
+            .IsEqualTo(11);
+    }
+
+    [Test]
+    public async Task ANameLengthRuleIsNotACount()
+    {
+        // akanbar's login screen, and the false positive the sentence reader is anchored against: a
+        // number beside a People noun is not a population unless something says it is.
+        await Assert.That(BannerCount.Find("Your name must be between 6 and 12 characters long."))
+            .IsNull();
+        await Assert.That(BannerCount.Find("There are 20 new players registered today.")).IsNull();
+    }
+
+    [Test]
+    public async Task TwoDifferentFiguresAreStillRefused()
+    {
+        // The rule that keeps this the weakest source honest, now that a screen can state a count
+        // two ways: when they disagree we cannot tell which is the players online, and picking is
+        // guessing.
+        await Assert.That(BannerCount.Find("Players online: 5\nThere are 60 users connected."))
+            .IsNull();
+    }
 }

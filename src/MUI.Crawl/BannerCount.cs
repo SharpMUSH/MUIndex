@@ -41,9 +41,9 @@ public static partial class BannerCount
         var text = AnsiPattern().Replace(banner, string.Empty);
         int? found = null;
 
-        foreach (Match match in LabelledCountPattern().Matches(text))
+        foreach (var value in Candidates(text))
         {
-            if (!int.TryParse(match.Groups["n"].Value, out var value) || value is < 0 or > Implausible)
+            if (value is < 0 or > Implausible)
             {
                 continue;
             }
@@ -60,6 +60,39 @@ public static partial class BannerCount
         }
 
         return found;
+    }
+
+    /// <summary>
+    /// Every count this screen states about itself, in either of the two ways a screen states one.
+    /// </summary>
+    /// <remarks>
+    /// <b>The second way was the whole of what this reader was missing.</b> A connect screen states a
+    /// count either as a label — <c>Players Currently Online: 218</c> — or as a sentence:
+    /// <c>erion-mud</c> says <c>There are 41 players and 3 immortals online.</c> and
+    /// <c>telehack.com:23</c> says <c>There are 122 local users.</c>, and neither is a label. The
+    /// sentence reader is <see cref="WhoParser.TryStatedCount"/>, which is the same one a <c>WHO</c>
+    /// reply goes through, because a server stating its own figure writes the same sentence wherever
+    /// it prints it — telehack prints that one in both places, and it was unreadable in both for two
+    /// unrelated reasons. <b>Nothing is reimplemented here</b>; the whole of that parser's vocabulary,
+    /// including the ceiling rule that keeps <c>11 out of 200</c> from reading as 200, arrives with it.
+    /// </remarks>
+    private static IEnumerable<int> Candidates(string text)
+    {
+        foreach (Match match in LabelledCountPattern().Matches(text))
+        {
+            if (int.TryParse(match.Groups["n"].Value, out var labelled))
+            {
+                yield return labelled;
+            }
+        }
+
+        foreach (var line in text.Split('\n'))
+        {
+            if (WhoParser.TryStatedCount(line, out var stated))
+            {
+                yield return stated;
+            }
+        }
     }
 
     // "Players Currently Online: 218" / "Players online: 42" / "Currently connected: 7"
