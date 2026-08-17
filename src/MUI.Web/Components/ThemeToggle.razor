@@ -1,0 +1,61 @@
+@using MUI.Web.Theme
+
+@*
+    Three buttons rather than one flip, and the reason is not thoroughness.
+
+    A flip has to be labelled — "switch to light" — and for a reader who has never chosen, the
+    server does not know what to write on it: prefers-color-scheme is a fact about their machine
+    that never reaches us. It would also have no way back. Once a flip has moved somebody off
+    "follow my system" they are pinned for good, and the reader most likely to want that setting is
+    the one whose desktop switches at dusk — the reader for whom being pinned is worst.
+
+    Each button is its own submit with its own value, so choosing is one press from anywhere in the
+    set. A radio group would have been the other honest shape and costs two.
+*@
+<form class="theme" method="post" action="@ReaderTheme.Path" aria-labelledby="theme-label">
+    <span id="theme-label" class="kick">theme</span>
+    <input type="hidden" name="@ReaderTheme.ReturnField" value="@Here" />
+    @foreach (var choice in ReaderTheme.Choices)
+    {
+        <button type="submit" name="@ReaderTheme.Field" value="@ReaderTheme.Word(choice)" aria-pressed="@Pressed(choice)">@ReaderTheme.Word(choice)</button>
+    }
+</form>
+
+@code {
+    /// <summary>The request, for the cookie it carries and the URL it arrived at.</summary>
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private ThemeChoice InForce => ReaderTheme.Of(HttpContext);
+
+    /// <summary>
+    /// The page this control was rendered on, so choosing does not lose the reader's place.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The query string travels with it: a reader who has narrowed the listing to three facets and
+    /// then changes the theme has not asked to start the listing again.
+    /// </para>
+    /// <para>
+    /// <b>ToUriComponent and not the values.</b> <c>Request.Path</c> is decoded, so a path with
+    /// anything escaped in it comes back as raw characters — and this value is posted to us and
+    /// written into a <c>Location</c> header, where a raw character is refused by
+    /// <see cref="ReaderTheme.Back"/> and lands the reader on the front page instead of the page
+    /// they were reading.
+    /// </para>
+    /// </remarks>
+    private string Here =>
+        HttpContext is { } context
+            ? context.Request.Path.ToUriComponent() + context.Request.QueryString.ToUriComponent()
+            : "/";
+
+    /// <summary>
+    /// Which one is in force, written out rather than left to colour.
+    /// </summary>
+    /// <remarks>
+    /// A literal string and not a bool: Razor renders a bool-valued attribute by presence, so
+    /// <c>aria-pressed</c> would vanish for the two that are not pressed — and a set of toggle
+    /// buttons where only one carries the attribute is a set a screen reader announces two ways.
+    /// </remarks>
+    private string Pressed(ThemeChoice choice) => choice == InForce ? "true" : "false";
+}

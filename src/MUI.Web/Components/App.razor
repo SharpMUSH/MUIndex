@@ -1,14 +1,18 @@
+@using MUI.Web.Theme
+
 @*
-    No data-theme here. Dark is the stylesheet's default and a reader whose system says light gets
-    light — pinning the attribute meant a light-preferring reader was served dark regardless, which
-    is not "dark is the default", it is "there is one theme".
+    data-theme is written only when the reader has asked for one. Dark is the stylesheet's default
+    and a reader whose system says light gets light — pinning the attribute unconditionally meant a
+    light-preferring reader was served dark regardless, which is not "dark is the default", it is
+    "there is one theme". So the absence of the attribute is load-bearing: it is what hands the
+    decision to prefers-color-scheme in app.css.
 *@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="@ReaderTheme.Attribute(Theme)">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark light" />
+    <meta name="color-scheme" content="@ReaderTheme.ColorScheme(Theme)" />
     @*
         No <base href="/">. It came with the template, it is inert under static server rendering — the
         Blazor router that wants it is not loaded here — and it silently broke every link written as a
@@ -49,11 +53,20 @@
     <link rel="manifest" href="/site.webmanifest" />
 
     @*
-        Both, because neither theme is the real one. A single theme-color hands mobile Safari one of
-        them as the truth and puts a dark bar above a light page for half the readers.
+        Both when we do not know, because neither theme is the real one: a single theme-color hands
+        mobile Safari one of them as the truth and puts a dark bar above a light page for half the
+        readers. One when we do — a reader who pinned light on a phone set to dark is exactly the
+        case the pair gets wrong, and it is the only case in which we know better than the system.
     *@
-    <meta name="theme-color" content="#0f1113" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#f7f8f9" media="(prefers-color-scheme: light)" />
+    @if (Theme is ThemeChoice.System)
+    {
+        <meta name="theme-color" content="@ReaderTheme.Plate(ThemeChoice.Dark)" media="(prefers-color-scheme: dark)" />
+        <meta name="theme-color" content="@ReaderTheme.Plate(ThemeChoice.Light)" media="(prefers-color-scheme: light)" />
+    }
+    else
+    {
+        <meta name="theme-color" content="@ReaderTheme.Plate(Theme)" />
+    }
 
     <HeadOutlet />
 </head>
@@ -69,6 +82,20 @@
 </html>
 
 @code {
+    /// <summary>The request, for the one thing this document asks it: which theme was chosen.</summary>
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    /// <summary>
+    /// The reader's own choice, read once per document.
+    /// </summary>
+    /// <remarks>
+    /// It reaches the markup in three places — the attribute the stylesheet switches on, the
+    /// color-scheme the browser paints its own controls from, and the colour a phone paints its
+    /// chrome — and all three have to agree or the reader gets a light page inside dark furniture.
+    /// </remarks>
+    private ThemeChoice Theme => ReaderTheme.Of(HttpContext);
+
     /// <summary>
     /// The stylesheet's address: absolute, and carrying the content fingerprint.
     /// </summary>
