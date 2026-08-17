@@ -23,7 +23,20 @@ namespace MUI.Crawler;
 public static class FieldObservations
 {
     /// <summary>The field the negotiated character encoding is stored under.</summary>
+    /// <remarks>
+    /// This is also where an operator's override goes, at <c>staff</c>, which outranks everything —
+    /// the same shape every other hand-set value has. Nothing new was added for it.
+    /// </remarks>
     public const string CharsetField = "CHARSET";
+
+    /// <summary>The field the encoding a session's bytes were actually read with is stored under.</summary>
+    /// <remarks>
+    /// Not <see cref="CharsetField"/> under another source, because they are not two accounts of one
+    /// fact: <c>CHARSET</c> is what the session settled on and this is what the bytes proved to be,
+    /// and on <c>mud.pkuxkx.net:8080</c> both are true at once. Folding them into one field would
+    /// make the ladder pick a winner between two statements that do not contend.
+    /// </remarks>
+    public const string CharsetReadField = "charset.read";
 
     /// <summary>
     /// The field a codebase is stored under, whoever read it.
@@ -234,6 +247,16 @@ public static class FieldObservations
         {
             yield return new FieldObservation(
                 CapabilityFields.Measured(MsspCapability), FieldSource.Handshake, "false");
+        }
+
+        // What the bytes turned out to be, which is a different question from what the session
+        // agreed to and is answered by a strict decoder rather than by anybody's say-so. Emitted
+        // only when we worked it out ourselves: where an operator has set the override, the
+        // CHARSET/staff row they set IS the record, and the crawler writing a second copy of it
+        // would be manufacturing a staff assertion out of a measurement.
+        if (!result.CharsetOverridden && result.ReadAs is { Length: > 0 } readAs)
+        {
+            yield return new FieldObservation(CharsetReadField, FieldSource.Handshake, readAs);
         }
 
         if (!result.Negotiation.CharsetNegotiated || result.Negotiation.Charset is not { Length: > 0 } charset)

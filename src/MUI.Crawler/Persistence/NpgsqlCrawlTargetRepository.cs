@@ -26,12 +26,27 @@ namespace MUI.Crawler.Persistence;
 /// </remarks>
 public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICrawlTargetRepository
 {
+    /// <remarks>
+    /// The charset override is read here, with the target, rather than by the probe — which has no
+    /// database and must not grow one (spec §6.5). It is a subquery rather than a column on
+    /// <c>crawl_target</c> because it is not a fact about an address: it belongs to the game, it is
+    /// keyed <c>(game, field, source)</c> like every other staff assertion, and putting it anywhere
+    /// else would make it the one operator override with a table of its own. <c>source = 'staff'</c>
+    /// exactly, never the precedence winner: an override is a decision somebody made, and taking a
+    /// value the server itself declared would be reading the declaration we already know can be
+    /// wrong (see <c>WireEncoding</c>).
+    /// </remarks>
     private const string Columns = """
         id AS Id, game_id AS GameId, host AS Host, port AS Port, use_tls AS UseTls,
         next_probe_at AS NextProbeAt, consecutive_failures AS ConsecutiveFailures,
         crawl_delay AS CrawlDelay, first_seen_at AS FirstSeenAt, last_probed_at AS LastProbedAt,
         discovered_from_game_id AS DiscoveredFromGameId, depth AS Depth,
-        is_operator_seed AS IsOperatorSeed, submitted_at AS SubmittedAt
+        is_operator_seed AS IsOperatorSeed, submitted_at AS SubmittedAt,
+        (SELECT f.value
+           FROM game_field f
+          WHERE f.game_id = crawl_target.game_id
+            AND f.field = 'CHARSET'
+            AND f.source = 'staff') AS Charset
         """;
 
     public async Task<CrawlTarget?> ByAddressAsync(string host, int port, CancellationToken ct)
@@ -205,6 +220,8 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
 
         public DateTimeOffset? SubmittedAt { get; init; }
 
+        public string? Charset { get; init; }
+
         public CrawlTarget ToRecord() => new()
         {
             Id = Id,
@@ -221,6 +238,7 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
             Depth = Depth,
             IsOperatorSeed = IsOperatorSeed,
             SubmittedAt = SubmittedAt,
+            Charset = Charset,
         };
     }
 }

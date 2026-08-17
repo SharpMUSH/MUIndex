@@ -139,7 +139,14 @@ public sealed record GamePage(
 
     // §9's referral neighbours. Defaulted because the fixture and the tests build a page without
     // them, and a game with no neighbours is the ordinary case rather than a missing read.
-    IReadOnlyList<ReferralNeighbour>? Neighbours = null)
+    IReadOnlyList<ReferralNeighbour>? Neighbours = null,
+
+    // The encoding ConnectScreen was read with — an operator's CHARSET override where there is one,
+    // and otherwise what the crawler's strict decoder settled on. It rides on the page rather than
+    // in Declared because Declared is printed under "Declared by the game" and this is ours, not
+    // theirs (see InternalFields.CharsetRead). Null for the overwhelming majority, which are UTF-8
+    // or plain ASCII and need nothing said about them.
+    string? ConnectScreenCharset = null)
 {
     public int DisagreementCount => Capabilities.Count(c => c.Disagrees);
 

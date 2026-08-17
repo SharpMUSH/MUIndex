@@ -32,6 +32,25 @@
     --sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
     --mono: "Cascadia Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
     --kick: "JetBrains Mono", var(--mono);
+
+    /*
+      The same stack with the duospaced CJK faces appended, for the one place a game's own bytes are
+      shown back. The order is not cosmetic and the families are not interchangeable: a connect
+      screen from a Chinese, Japanese or Korean game is column art built on the assumption that a Han
+      glyph is exactly twice the advance of an ASCII one, which holds for Noto Sans Mono CJK, Sarasa
+      Mono and MS Gothic and does NOT hold for PingFang, Microsoft YaHei or Hiragino Sans — those are
+      proportional, and falling into one turns pkuxkx's bordered banner into a ragged staircase. The
+      Latin faces stay in front so an ASCII screen is unchanged.
+
+      No webfont, deliberately. Noto Sans Mono CJK SC is some eight megabytes a weight, and
+      subsetting is per-screen — a different glyph set for every game, regenerated on every crawl.
+      A reader with none of these installed gets their system's default CJK face, which is legible
+      and merely misaligned; that is the right end to lose at.
+    */
+    --mono-cjk: "Cascadia Mono", ui-monospace, "SFMono-Regular", Consolas,
+        "Noto Sans Mono CJK SC", "Noto Sans Mono CJK TC", "Noto Sans Mono CJK JP",
+        "Noto Sans Mono CJK KR", "Sarasa Mono SC", "Sarasa Mono J", "MS Gothic", "SimSun",
+        monospace;
 }
 
 /*
@@ -547,7 +566,7 @@ dl.stats dd { margin: 3px 0 0; font-size: 17px; }
 figure.ansi .quote { position: relative; background: #000; }
 figure.ansi .quote pre {
     margin: 0; padding: var(--cpad);
-    font: 13px/1.5 var(--mono); font-variant-ligatures: none;
+    font: 13px/1.5 var(--mono-cjk); font-variant-ligatures: none;
     color: #aaaaaa; white-space: pre; overflow-x: auto;
 }
 figure.ansi .crop-fade {

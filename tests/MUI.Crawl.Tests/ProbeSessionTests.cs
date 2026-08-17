@@ -56,6 +56,53 @@ public class ProbeSessionTests
         await Assert.That(result.Banner).Contains("By what name do you wish to be known?");
     }
 
+    /// <summary>
+    /// The whole path, against the bytes that exposed it: a server that negotiates UTF-8 and sends
+    /// GBK is read losslessly, and an operator's override makes it right.
+    /// </summary>
+    /// <remarks>
+    /// Measured on <c>mud.pkuxkx.net:8080</c>, which offers CHARSET, answers the REQUEST with a list
+    /// containing UTF-8 and nothing else, accepts our ACCEPTED, and then sends its whole connect
+    /// screen in GBK — the encoding on that game is chosen from a menu on the login screen
+    /// (<c>Input 1 for GBK, 2 for UTF8, 3 for BIG5</c>) rather than from the option just negotiated.
+    /// Neither side negotiated anything wrongly. What was wrong was decoding on the strength of it.
+    /// </remarks>
+    [Test]
+    public async Task AServerThatDeclaresOneEncodingAndSendsAnotherIsNotDestroyedOnTheWayIn()
+    {
+        // FakeGame writes Latin-1, so a string of U+00xx puts these exact bytes on the wire. This is
+        // the game's own name, "北大侠客行", as GBK.
+        const string titleInGbk = "\u00b1\u00b1  \u00b4\u00f3  \u00cf\u00c0  \u00bf\u00cd  \u00d0\u00d0";
+
+        // Two servers rather than two probes of one, because FakeGame serves a single connection.
+        await using var untold = new FakeGame
+        {
+            Banner = $"----====   {titleInGbk}  ====----\r\n",
+            BannerTail = "Enter your name: ",
+        };
+        await using var game = new FakeGame
+        {
+            Banner = $"----====   {titleInGbk}  ====----\r\n",
+            BannerTail = "Enter your name: ",
+        };
+
+        var asSent = await new TelnetProbe(Fast()).ProbeAsync(untold.Target);
+
+        // Nothing lost. The old code decoded on the negotiated encoding with a replacing fallback,
+        // and every one of these bytes came back as U+FFFD — permanently, because the bytes are gone
+        // by the time anything downstream sees the string.
+        await Assert.That(asSent.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(asSent.Banner).DoesNotContain("\ufffd");
+        await Assert.That(asSent.ReadAs).IsEqualTo("iso-8859-1");
+        await Assert.That(asSent.CharsetOverridden).IsFalse();
+
+        var told = await new TelnetProbe(Fast()).ProbeAsync(game.Target with { Charset = "gbk" });
+
+        await Assert.That(told.Banner).Contains("北  大  侠  客  行");
+        await Assert.That(told.ReadAs).IsEqualTo("gb2312");
+        await Assert.That(told.CharsetOverridden).IsTrue();
+    }
+
     [Test]
     public async Task AServerThatHangsUpOnTheFlushLineStillCountsAsHavingAnswered()
     {

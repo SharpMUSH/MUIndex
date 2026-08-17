@@ -31,6 +31,23 @@ public sealed record ProbeResult
     /// </summary>
     public Negotiation Negotiation { get; init; } = new();
 
+    /// <summary>
+    /// The encoding every piece of text below was actually read with, or null when the probe
+    /// produced no text at all.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not the same fact as <see cref="Negotiation.Charset"/>, and kept apart for the usual
+    /// reason.</b> That one is what the session settled on — a declaration, and on
+    /// <c>mud.pkuxkx.net:8080</c> a true one about a state of the session the connect screen never
+    /// reaches. This one is what a strict UTF-8 decoder proved about the bytes, or what an operator
+    /// said they were. Where the two differ, that disagreement is the interesting fact and belongs
+    /// on the page (rule 1). See <see cref="WireEncoding"/>.
+    /// </remarks>
+    public string? ReadAs { get; init; }
+
+    /// <summary>Whether <see cref="ReadAs"/> came from an operator's override rather than from the bytes.</summary>
+    public bool CharsetOverridden { get; init; }
+
     /// <summary>Layer 2 — the connect screen, ANSI intact. Display asset and codebase fingerprint both.</summary>
     public string? Banner { get; init; }
 

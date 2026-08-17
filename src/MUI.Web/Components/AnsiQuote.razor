@@ -39,7 +39,7 @@
                 by the server. The text follows under "read as text".
             </p>
             <div class="quote">
-                <pre>@Paint(Screen.Visible)</pre>
+                <pre lang="@Language">@Paint(Screen.Visible)</pre>
                 @if (Screen.IsCropped)
                 {
                     <div class="crop-fade" aria-hidden="true"></div>
@@ -51,6 +51,15 @@
                 <span>@Ansi.Columns×@Screen.RowCount</span>
                 <span aria-hidden="true">·</span>
                 <span>@Depth</span>
+                @if (Charset is { Length: > 0 } charset)
+                {
+                    @* Only when it is not UTF-8 — see NpgsqlGameQueries.ScreenCharset. "read as"
+                       rather than "encoded in", because that is the honest verb: it is what we
+                       decoded the bytes with, and on a game that declares one encoding and sends
+                       another the two are different sentences. *@
+                    <span aria-hidden="true">·</span>
+                    <span>read as @charset</span>
+                }
                 @if (CapturedAt is { } at)
                 {
                     <span aria-hidden="true">·</span>
@@ -78,7 +87,7 @@
                 <summary>show all @Screen.RowCount rows</summary>
                 <div class="ansi">
                     <div class="quote">
-                        <pre>@Paint(Screen.Rows)</pre>
+                        <pre lang="@Language">@Paint(Screen.Rows)</pre>
                     </div>
                 </div>
             </details>
@@ -86,7 +95,7 @@
 
         <details class="read-as-text">
             <summary>read as text</summary>
-            <pre class="mono plain-screen">@Screen.PlainText</pre>
+            <pre class="mono plain-screen" lang="@Language">@Screen.PlainText</pre>
         </details>
         break;
 }
@@ -102,6 +111,17 @@
 
     /// <summary>An archived game's screen is preserved, not current, and the caption says which.</summary>
     [Parameter] public bool Frozen { get; set; }
+
+    /// <summary>
+    /// The encoding these bytes were read with, when it is worth saying — null for UTF-8 and ASCII.
+    /// </summary>
+    [Parameter] public string? Charset { get; set; }
+
+    /// <summary>
+    /// The language tag the screen is rendered under, so a browser picks the right regional Han
+    /// forms. Null leaves the attribute off entirely and the page's own lang stands.
+    /// </summary>
+    private string? Language => ScreenLanguage.For(Charset);
 
     private string Depth => Screen.Rows.SelectMany(r => r.Runs).Any(r => !r.Style.IsPlain)
         ? "16-colour SGR"

@@ -524,7 +524,32 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             Activity: activity,
             Declared: DeclaredOf(fields, now),
             Changes: changes.Select(Describe).ToList(),
-            Neighbours: neighbours);
+            Neighbours: neighbours,
+            ConnectScreenCharset: ScreenCharset(fields));
+    }
+
+    /// <summary>
+    /// The encoding the connect screen was read with, or null when nothing needed saying.
+    /// </summary>
+    /// <remarks>
+    /// The staff override first and by name rather than through <see cref="FieldPrecedence"/>: the
+    /// ladder's other rungs on <c>CHARSET</c> are the game's own claim and the handshake's result,
+    /// and neither of those is a statement about how these bytes were read. Where there is no
+    /// override the crawler's own answer stands. Both are suppressed when they are UTF-8, which is
+    /// the ordinary case and worth no caption — there is nothing surprising to tell a reader, and a
+    /// line of provenance on every screen in the catalogue would bury the thirteen where it matters.
+    /// </remarks>
+    private static string? ScreenCharset(IReadOnlyList<GameField> fields)
+    {
+        var charset = fields.FirstOrDefault(f =>
+                string.Equals(f.Field, "CHARSET", StringComparison.Ordinal)
+                && f.Source is FieldSource.Staff)?.Value
+            ?? Winner(fields, InternalFields.CharsetRead)?.Value;
+
+        return string.IsNullOrWhiteSpace(charset)
+            || string.Equals(charset, "utf-8", StringComparison.OrdinalIgnoreCase)
+                ? null
+                : charset;
     }
 
     public async Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default)
