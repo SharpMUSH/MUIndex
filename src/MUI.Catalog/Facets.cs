@@ -17,6 +17,13 @@ public static class FacetKeys
 
     public const string Archived = "archived";
 
+    /// <summary>
+    /// Whether games declaring adult content are in the answer. Off unless asked for — see
+    /// <c>GameFilter.IncludeAdult</c> for why the default lives in the query language rather than
+    /// in the filter.
+    /// </summary>
+    public const string Adult = "adult";
+
     public const string Band = "band";
 
     public const string LastSeen = "seen";
@@ -621,7 +628,17 @@ public sealed record GameFacetRow(
     string? Language,
     string? Codebase,
     string? Family,
-    string? Genre);
+    string? Genre,
+
+    /// <summary>
+    /// Whether the game declared adult content, by <see cref="AdultContent"/>'s one rule.
+    /// </summary>
+    /// <remarks>
+    /// Carried on the row rather than re-derived from <see cref="Genre"/> here, because
+    /// <c>GENRE</c> is only half of it: MSSP's <c>ADULT MATERIAL</c> flag is the other half and has
+    /// no facet of its own to ride in on.
+    /// </remarks>
+    bool IsAdult);
 
 /// <summary>
 /// Turns a filter and a set of games into the listing plus every facet's counts.
@@ -668,8 +685,20 @@ public static class FacetedSearch
         // database and the demo fixture disagreed about that until this became one function.
         var wantsArchived = filter.IncludeArchived || filter.Band is ActivityBand.Archived;
 
+        // Games declaring adult content leave the default listing, and — like archiving — nothing
+        // else: their pages, their history and every count outside this listing are untouched.
+        //
+        // *Unlike* the archived band, asking for `genre=Adult` does not lift it, and that asymmetry
+        // is deliberate. `band=archived` is a value of a bounded facet, so it is drawn whatever it
+        // counts, and a value that is always drawn and always returns nothing is a broken control
+        // that has to be rescued. Genre is open-ended: a value nothing matches is never offered at
+        // all, so there is nothing to rescue — and lifting on the selection would make every *other*
+        // count in that dropdown a promise the listing would not keep, because choosing one of them
+        // would drop the exclusion back on. The checkbox is the one way in, and it is in the bar on
+        // every request.
         var baseRows = rows
             .Where(r => (wantsArchived || r.Band is not ActivityBand.Archived)
+                && (filter.IncludeAdult || !r.IsAdult)
                 && MatchesText(r, filter.Text))
             .ToList();
 

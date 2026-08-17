@@ -172,7 +172,8 @@ public class FacetPolarityTests
         Language: null,
         Codebase: game.Codebase,
         Family: null,
-        Genre: null);
+        Genre: null,
+        IsAdult: false);
 
     private static GameSummary Game(string slug, string? codebase) => new(
         Guid.NewGuid(), slug, slug, null, LifecycleState.Active, IsClaimed: false,

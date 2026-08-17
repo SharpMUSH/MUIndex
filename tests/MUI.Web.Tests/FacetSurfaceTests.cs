@@ -35,6 +35,7 @@ public class FacetSurfaceTests
     {
         FacetKeys.Text => "corvid",
         FacetKeys.Archived => "true",
+        FacetKeys.Adult => "true",
         FacetKeys.Tls => "true",
         FacetKeys.Band => "quiet",
         FacetKeys.LastSeen => "week",
@@ -423,9 +424,16 @@ public class FacetSurfaceTests
     [Test]
     public async Task NothingSelectedIsNoChipsAtAll()
     {
-        var listing = await Queries.SearchAsync(new GameFilter());
+        // Through the binding rather than from `new GameFilter()`, because "nothing selected" is a
+        // fact about a URL and the binding is what turns one into a filter. The two are not the
+        // same object: GameFilter.IncludeAdult defaults to true so that the data dump and the home
+        // page's counts go on counting the whole catalogue, and it is the empty *query* — this
+        // listing, with nothing asked of it — that has adult games out.
+        await Assert.That(GameFilterBinding.TryRead(string.Empty, out var query, out _)).IsTrue();
 
-        await Assert.That(ActiveFilters.For(listing.Facets, new GameFilter(), string.Empty)).IsEmpty();
+        var listing = await Queries.SearchAsync(query.Filter);
+
+        await Assert.That(ActiveFilters.For(listing.Facets, query.Filter, string.Empty)).IsEmpty();
     }
 
     [Test]
@@ -486,6 +494,7 @@ public class FacetSurfaceTests
         '|',
         f.Text,
         f.IncludeArchived,
+        f.IncludeAdult,
         f.Tls,
         f.Band,
         f.LastSeen,

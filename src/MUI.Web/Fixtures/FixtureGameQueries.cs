@@ -93,9 +93,23 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         PlayersNow: null, Codebase: "TinyMUX 2.12", MeasuredProtocols: [],
         LastReachableAt: Now.AddDays(-700));
 
+    // Declares GENRE Adult, so the default listing leaves it out and the bar's checkbox brings it
+    // back. Present for the same reason Midnight Sun declares no genre at all: a fixture with
+    // nothing in a bucket does not exercise the bucket, and this one is a *default* — the state a
+    // reader lands on without asking for anything, and the easiest one to break unnoticed.
+    private static readonly GameSummary Cinder = new(
+        Guid.Parse("aaaaaaaa-0000-0000-0000-000000000009"), "cinder", "Cinder",
+        "Declares adult content, so it is off the default listing until the box is ticked.",
+        LifecycleState.Active, IsClaimed: false,
+        PlayersNow: 4, Codebase: "Evennia", MeasuredProtocols: ["MSSP"],
+        LastReachableAt: Now.AddMinutes(-25));
+
     private static readonly GameSummary[] All =
     [
-        .. new[] { Mush, Eldertale, Aardwolf, MidnightSun, Enormous, Ashen, Gaslight, Verdigris }
+        .. new[]
+            {
+                Mush, Eldertale, Aardwolf, MidnightSun, Enormous, Ashen, Gaslight, Verdigris, Cinder,
+            }
             .Select(Labelled),
     ];
 
@@ -239,7 +253,12 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         Language: game.Slug is "midnight-sun" ? "Swedish" : "English",
         Codebase: game.Codebase,
         Family: Family(game),
-        Genre: Genre(game));
+        Genre: Genre(game),
+
+        // Through the same predicate the database reads, rather than a slug test of its own — the
+        // two implementations disagreeing about which games a filter returns is the failure that
+        // put the filtering itself into one shared function.
+        IsAdult: AdultContent.Declared(Genre(game), AdultMaterial(game)));
 
     private static ActivityBand Band(GameSummary g) => g.Slug switch
     {
@@ -279,6 +298,22 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         "ashen-court" => "Historical",
         "aardwolf" or "batmud" => "Fantasy",
         "m-u-s-h" or "eldertale" => "Development",
+        "cinder" => AdultContent.Genre,
+        _ => null,
+    };
+
+    /// <summary>
+    /// MSSP <c>ADULT MATERIAL</c>, which most games never send at all — and a game that did not
+    /// send it has not answered the question either way.
+    /// </summary>
+    /// <remarks>
+    /// Cinder House declares its content through <c>GENRE</c> instead, which is the way three of the
+    /// four games this catches in production do it. The flag is the other way, and the reason the
+    /// rule reads both.
+    /// </remarks>
+    private static string? AdultMaterial(GameSummary g) => g.Slug switch
+    {
+        "ashen-court" => "0",
         _ => null,
     };
 

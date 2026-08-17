@@ -299,10 +299,14 @@ public class EcosystemSurfaceTests
         var archived = await Queries.ListAsync(new GameFilter { Band = ActivityBand.Archived });
         var slugs = archived.Select(g => g.Slug).ToHashSet(StringComparer.Ordinal);
 
+        // Counted from the fixture rather than written down as a literal, so a game added to the
+        // demo does not fail this test for the one reason it is not about.
+        var catalogue = await Queries.ListAsync(new GameFilter { IncludeArchived = true });
+
         await Assert.That(slugs).IsNotEmpty();
         await Assert.That(rankings.Busiest.Any(g => slugs.Contains(g.Slug))).IsFalse();
         await Assert.That(rankings.LongestUnbroken.Any(s => slugs.Contains(s.Slug))).IsFalse();
-        await Assert.That(dashboard.ListedGames).IsEqualTo(8 - slugs.Count);
+        await Assert.That(dashboard.ListedGames).IsEqualTo(catalogue.Count - slugs.Count);
     }
 
     [Test]
@@ -311,7 +315,11 @@ public class EcosystemSurfaceTests
         // The plain surface is the test of the whole system, and a text browser is eighty wide.
         foreach (var line in (await EcosystemAsync() + await RankingsAsync()).Split('\n'))
         {
-            await Assert.That(line.TrimEnd().Length).IsLessThanOrEqualTo(PlainText.Columns);
+            // The line itself in the message: a bare "expected 80, got 81" sends the next reader
+            // hunting through two whole renderings for the one that grew.
+            await Assert.That(line.TrimEnd().Length)
+                .IsLessThanOrEqualTo(PlainText.Columns)
+                .Because($"too wide: {line.TrimEnd()}");
         }
     }
 }

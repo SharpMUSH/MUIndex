@@ -312,6 +312,12 @@ public sealed record GameView(
 public sealed record FilterView(
     string? Q,
     bool IncludeArchived,
+
+    /// <summary>
+    /// Whether games declaring adult content were in this answer. <c>false</c> unless
+    /// <c>?adult=1</c> asked for them, so a cached response says which listing it is.
+    /// </summary>
+    bool IncludeAdult,
     IReadOnlyList<string> Protocol,
     bool Tls,
     ActivityBand? Band,
@@ -335,6 +341,7 @@ public sealed record FilterView(
         return new FilterView(
             filter.Text,
             filter.IncludeArchived,
+            filter.IncludeAdult,
             filter.MeasuredProtocols,
             filter.Tls,
             filter.Band,

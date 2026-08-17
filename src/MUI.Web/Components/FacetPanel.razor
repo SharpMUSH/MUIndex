@@ -57,6 +57,17 @@
             <span>include archived</span>
         </label>
 
+        @*
+            The one exclusion this listing applies that the reader did not ask for, and the control
+            that undoes it, in the bar on every request rather than behind a preference. It is a
+            default of ours over what a game declared about itself — never a measurement of one —
+            so the way out of it has to be as visible as the listing it shapes.
+        *@
+        <label class="check bar-check">
+            <input type="checkbox" name="@FacetKeys.Adult" value="true" checked="@Filter.IncludeAdult" />
+            <span>include adult</span>
+        </label>
+
         <button type="submit">show</button>
     </div>
 

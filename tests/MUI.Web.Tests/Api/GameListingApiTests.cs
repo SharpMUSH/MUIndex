@@ -53,6 +53,33 @@ public class GameListingApiTests
     }
 
     [Test]
+    public async Task TheAdultDefaultIsTheSameOnTheApiAsOnThePage()
+    {
+        // One parser, two callers. /games and /api/games have to mean one thing by one URL, so a
+        // default the page applies and the API does not would make the two disagree about what the
+        // same link returns — and the API's answer is the one that ends up in somebody's cache.
+        await using var host = await ApiHost.StartAsync();
+
+        var hidden = await Json.ElementAsync(await host.Client.GetAsync(ApiRoutes.Games));
+        var shown = await Json.ElementAsync(
+            await host.Client.GetAsync($"{ApiRoutes.Games}?{FacetKeys.Adult}=true"));
+
+        static IEnumerable<string?> Slugs(JsonElement listing) =>
+            listing.GetProperty("games").EnumerateArray().Select(g => g.GetProperty("slug").GetString());
+
+        await Assert.That(Slugs(hidden)).DoesNotContain("cinder");
+        await Assert.That(Slugs(shown)).Contains("cinder");
+
+        // Echoed either way, so a cached body says which of the two listings it is.
+        await Assert.That(hidden.GetProperty("filter").GetProperty("includeAdult").GetBoolean()).IsFalse();
+        await Assert.That(shown.GetProperty("filter").GetProperty("includeAdult").GetBoolean()).IsTrue();
+
+        // Out of the listing and of nothing else: the game's own route still answers.
+        await Assert.That((int)(await host.Client.GetAsync($"{ApiRoutes.Games}/cinder")).StatusCode)
+            .IsEqualTo(200);
+    }
+
+    [Test]
     public async Task AProtocolFacetMatchesWhatWasMeasuredAndNotWhatWasClaimed()
     {
         await using var host = await ApiHost.StartAsync();

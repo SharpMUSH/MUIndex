@@ -90,6 +90,13 @@ public static class GameFilterBinding
         {
             Text = string.IsNullOrWhiteSpace(text) ? null : text,
             IncludeArchived = Truthy.Is(read(FacetKeys.Archived)),
+
+            // The listing surface's own default, and the reason it is written here rather than on
+            // GameFilter (which defaults the other way): everything that reads a querystring goes
+            // through this function, and nothing that does not is meant to be touched. The data
+            // dump, the home page's counts and the reference pages' per-codebase figures build
+            // their filters in code, and go on counting the whole catalogue.
+            IncludeAdult = Truthy.Is(read(FacetKeys.Adult)),
             MeasuredProtocols = protocols,
             Tls = Truthy.Is(read(FacetKeys.Tls)),
             Band = band,

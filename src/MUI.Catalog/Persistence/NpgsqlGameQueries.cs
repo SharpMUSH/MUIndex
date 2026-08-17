@@ -238,6 +238,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             var state = SqlEnums.ToLifecycleState(row.State);
 
             var codebase = Winner(forGame, "CODEBASE");
+            var genre = Winner(forGame, "GENRE")?.Value;
 
             var summary = new GameSummary(
                 row.Id,
@@ -264,7 +265,13 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 Language: Winner(forGame, "LANGUAGE")?.Value,
                 Codebase: summary.Codebase,
                 Family: Winner(forGame, "FAMILY")?.Value,
-                Genre: Winner(forGame, "GENRE")?.Value));
+                Genre: genre,
+
+                // Whichever source won each variable, since an owner correcting their own MSSP is
+                // the case the field table exists for — an owner may add the flag their server
+                // never sent, and the listing has to read the correction rather than the original.
+                IsAdult: AdultContent.Declared(
+                    genre, Winner(forGame, AdultContent.Field)?.Value)));
         }
 
         return FacetedSearch.Search(facetRows, filter);

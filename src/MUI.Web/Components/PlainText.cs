@@ -303,7 +303,11 @@ public static class PlainText
         b.AppendLine("GAMES");
         b.AppendLine($"{games.Count} game(s)"
             + (string.IsNullOrWhiteSpace(filter.Text) ? string.Empty : $" matching \"{filter.Text}\"")
-            + (filter.IncludeArchived ? ", archived included" : ", archived excluded"));
+            + (filter.IncludeArchived ? ", archived included" : ", archived excluded")
+
+            // Both exclusions, both stated. A text browser cannot see the checkbox in the bar, so
+            // the line that says what this listing is has to carry the same two facts the bar does.
+            + (filter.IncludeAdult ? ", adult included" : ", adult excluded"));
 
         // The order, stated. A sorted list that does not say what it is sorted by is one a reader has
         // to reverse-engineer from the first few rows — and that is exactly how a tail of games

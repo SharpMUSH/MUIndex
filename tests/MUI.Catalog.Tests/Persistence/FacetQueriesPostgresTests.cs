@@ -68,6 +68,62 @@ public class FacetQueriesPostgresTests
     }
 
     [Test]
+    public async Task TheAdultDefaultReadsBothDeclarationsOffRealRows()
+    {
+        // The half no in-memory test reaches: which columns the rule is actually wired to. GENRE
+        // and ADULT MATERIAL are two separate variables and they catch different games — the flag
+        // is the only way a game whose setting is Fantasy can say so, and one of the four games
+        // this catches in production does exactly that.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var byGenre = await Seed.GameAsync(db, "by-genre", "By Genre", lastReachableAt: Now);
+        var byFlag = await Seed.GameAsync(db, "by-flag", "By Flag", lastReachableAt: Now);
+        var says = await Seed.GameAsync(db, "says-no", "Says No", lastReachableAt: Now);
+        await Seed.GameAsync(db, "silent", "Silent", lastReachableAt: Now);
+        var fields = new NpgsqlGameFieldStore(db.DataSource);
+
+        await fields.UpsertAsync(new GameField(
+            byGenre, "GENRE", FieldSource.Mssp, AdultContent.Genre, Now, Now));
+        await fields.UpsertAsync(new GameField(
+            byFlag, "GENRE", FieldSource.Mssp, "Fantasy", Now, Now));
+        await fields.UpsertAsync(new GameField(
+            byFlag, AdultContent.Field, FieldSource.Mssp, "1", Now, Now));
+
+        // A game that answered the question with a no is not a game that declared adult content —
+        // and neither is one that never answered it. Both stay in the default listing.
+        await fields.UpsertAsync(new GameField(
+            says, AdultContent.Field, FieldSource.Mssp, "0", Now, Now));
+
+        var listed = await QueriesOn(db).ListAsync(new GameFilter { IncludeAdult = false });
+        var all = await QueriesOn(db).ListAsync(new GameFilter());
+
+        await Assert.That(listed.Select(g => g.Slug).ToList())
+            .IsEquivalentTo(new[] { "says-no", "silent" });
+        await Assert.That(all).Count().IsEqualTo(4);
+    }
+
+    [Test]
+    public async Task AnOwnerCanCorrectTheFlagTheirServerNeverSent()
+    {
+        // game_field is keyed (game, field, source) so both sides of a disagreement can be held,
+        // and the listing has to read the winner rather than the original. An owner adding the flag
+        // their MSSP omits is the whole reason owner enrichment exists.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, "corrected", "Corrected", lastReachableAt: Now);
+        var fields = new NpgsqlGameFieldStore(db.DataSource);
+
+        await fields.UpsertAsync(new GameField(game, "GENRE", FieldSource.Mssp, "Fantasy", Now, Now));
+
+        await Assert.That((await QueriesOn(db).ListAsync(new GameFilter { IncludeAdult = false })).Count)
+            .IsEqualTo(1);
+
+        await fields.UpsertAsync(new GameField(
+            game, AdultContent.Field, FieldSource.Owner, "1", Now, Now));
+
+        await Assert.That((await QueriesOn(db).ListAsync(new GameFilter { IncludeAdult = false })).Count)
+            .IsEqualTo(0);
+    }
+
+    [Test]
     public async Task TheCharsetFacetReadsWhatWasNegotiatedAndNotWhatMsspClaimed()
     {
         // CHARSET is one of the few fields both a handshake and MSSP write, so the precedence winner

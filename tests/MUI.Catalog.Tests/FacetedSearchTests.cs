@@ -39,7 +39,11 @@ public class FacetedSearchTests
             Language: null,
             codebase,
             Family: null,
-            genre);
+            genre,
+
+            // Adult content has its own suite (AdultListingTests). Every row here declares none, so
+            // these counts are taken over the whole set and are not quietly shaped by that default.
+            IsAdult: false);
     }
 
     private static FacetGroup Group(GameListing listing, string key) =>
@@ -209,7 +213,7 @@ public class FacetedSearchTests
                     null),
                 ActivityBand.Dark,
                 FacetedSearch.LastSeenOf(null, Now),
-                false, null, null, null, null, null),
+                false, null, null, null, null, null, false),
         ];
 
         await Assert.That(FacetedSearch.LastSeenOf(null, Now)).IsEqualTo(LastSeenBand.Never);
