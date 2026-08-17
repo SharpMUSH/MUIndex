@@ -263,6 +263,30 @@ public sealed record WhoReading(WhoConfidence Confidence, int? Count = null, int
     public static readonly WhoReading Unreadable = new(WhoConfidence.Unknown);
 
     /// <summary>
+    /// A <c>WHO</c> was sent, and what came back was the server's login prompt reacting to it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Distinct from <see cref="Unreadable"/> because it names a different problem, and only one
+    /// of the two is ours.</b> Unreadable says our parser met a dialect it could not read — a defect
+    /// with an owner and a fix. This says the server never had a <c>WHO</c> to answer: its login
+    /// prompt takes a character name, so the word was consumed as one and what came back is
+    /// <c>Illegal name, try again.</c> There is nothing here for a parser to get better at.
+    /// </para>
+    /// <para>
+    /// Filing the second as the first is rule 5 in its quietest form: a limit of our own written into
+    /// a game's record as a fact about the game. Of 107 stored payloads read on 2026-08-17, 43 were
+    /// this — so the largest single population under <c>who_unparseable</c> was games with no
+    /// <c>WHO</c> to parse, and the figure was being read as a parser backlog.
+    /// </para>
+    /// <para>
+    /// It is <see cref="Attempted"/> and it has no count, so §5.4's hatched cell is unchanged: we
+    /// asked, and we cannot say how many people are on. Only the reason recorded beside it changes.
+    /// </para>
+    /// </remarks>
+    public static readonly WhoReading LoginPrompt = new(WhoConfidence.LoginPrompt);
+
+    /// <summary>
     /// The count is trustworthy. Never synthesised: an unreadable WHO reports
     /// <see cref="WhoConfidence.Unknown"/> and the site falls back to MSSP <c>PLAYERS</c>, labelled
     /// as such. A parser that guessed zero would be indistinguishable from an empty game.
@@ -293,6 +317,12 @@ public enum WhoConfidence
 
     /// <summary>Asked, and nothing usable came back. Writes no presence sample at all.</summary>
     Unknown,
+
+    /// <summary>
+    /// Asked, and the server answered as though the word were a character name. See
+    /// <see cref="WhoReading.LoginPrompt"/>.
+    /// </summary>
+    LoginPrompt,
 
     /// <summary>The number of connected players is readable.</summary>
     Count,

@@ -196,6 +196,36 @@ public class PresenceChoiceTests
         await Assert.That(reading.Reason).IsEqualTo(UnmeasurableReason.WhoNotOffered);
     }
 
+    /// <summary>
+    /// The fourth reason, and the one that is not about us.
+    /// </summary>
+    /// <remarks>
+    /// <c>who_unparseable</c> says our parser met a dialect it could not read — a defect with an
+    /// owner and a fix — and this says the game has no pre-login <c>WHO</c> at all: the word went in
+    /// as a character name and <c>Illegal name, try again.</c> came back. Of the 107 payloads stored
+    /// under the first word and read on 2026-08-17, 43 were the second, so the largest population in
+    /// the parser backlog was games with nothing to parse.
+    /// </remarks>
+    [Test]
+    public async Task AGameWhoseLoginPromptAteTheWordIsNotAParserWeOwe()
+    {
+        var reading = PresenceChoice.From(Probes.Answered(who: WhoReading.LoginPrompt));
+
+        await Assert.That(reading.Count).IsNull();
+        await Assert.That(reading.Reason).IsEqualTo(UnmeasurableReason.WhoLoginPrompt);
+    }
+
+    [Test]
+    public async Task ADeclaredCountStillOutranksTheLoginPromptReason()
+    {
+        // The reason is only ever reached when no rung produced a number, and the ladder is
+        // unchanged: a game that ate the word and publishes MSSP PLAYERS is counted, not hatched.
+        var reading = PresenceChoice.From(Probes.Answered(
+            mssp: Probes.Mssp(("PLAYERS", "48")), who: WhoReading.LoginPrompt));
+
+        await Assert.That(reading.Count).IsEqualTo(48);
+    }
+
     [Test]
     public async Task ANegativeMsspPlayersIsRefusedRatherThanStored()
     {

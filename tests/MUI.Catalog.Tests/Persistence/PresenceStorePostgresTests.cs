@@ -105,6 +105,32 @@ public class PresenceStorePostgresTests
         await Assert.That(sample.Source).IsEqualTo(FieldSource.I3);
     }
 
+    /// <summary>
+    /// Migration 0026's word, proved against a real database rather than against SqlEnums alone.
+    /// </summary>
+    /// <remarks>
+    /// The C# spelling and the SQL CHECK constraint are two halves of one decision, and a member
+    /// added on one side and forgotten on the other has to fail here rather than at three in the
+    /// morning against production. <c>who_login_prompt</c> separates a game with no pre-login
+    /// <c>WHO</c> from a <c>WHO</c> our parser could not read — 43 of 107 stored payloads were the
+    /// first, filed as the second.
+    /// </remarks>
+    [Test]
+    public async Task ALoginPromptRoundTripsAsItsOwnReason()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlPresenceStore(db.DataSource);
+
+        await new PresenceWriter(store).WriteAsync(
+            game, PresenceReading.Unmeasurable(UnmeasurableReason.WhoLoginPrompt), At);
+
+        var sample = (await store.ForGameAsync(game, At.AddHours(-1), At.AddHours(1))).Single();
+
+        await Assert.That(sample.Count).IsNull();
+        await Assert.That(sample.Reason).IsEqualTo(UnmeasurableReason.WhoLoginPrompt);
+    }
+
     [Test]
     [Arguments(FieldSource.Who)]
     [Arguments(FieldSource.I3)]

@@ -104,6 +104,10 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
             var bannerLines = Arrived();
 
+            // Whether the flush below is a stray line or the answer to a question. Decided here,
+            // before it is sent, because after it there is no way to tell the two apart.
+            var gated = BannerGate.IsAnsweredByReturn(BannerSoFar(lines, bannerLines));
+
             // Phase 2 — an empty line, and everything it produces is thrown away.
             //
             // The IAC DO above is well-formed telnet, and a server that does not implement telnet at
@@ -148,6 +152,21 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 await telnet.SendAsync([]);
                 await SettleAsync(telnet, Arrived, bannerLines, _options.QuietPeriod, budget.Token);
                 flushLines = whoLines = infoLines = versionLines = Arrived();
+
+                // …unless the connect screen was a question, in which case the terminator answered
+                // it and what arrived is the screen the game meant to show. Seventeen active games
+                // gate their whole screen behind one keystroke — see BannerGate for the three that
+                // were dialled by hand, where 23, 101 and 29 characters of prompt were being stored
+                // as the connect screen of a game with 3033, 2826 and 2197 characters behind it.
+                //
+                // Moving the boundary rather than concatenating: the banner is a contiguous run of
+                // lines from the start of the session, and it stays one. What changes is where it
+                // ends. The flush window closes to nothing, which is correct — on a gated server
+                // there was no discarded reaction, because the reaction was the screen.
+                if (gated)
+                {
+                    bannerLines = Arrived();
+                }
 
                 // Asking a socket that has already been closed is not asking. A write to a peer that
                 // has sent FIN succeeds — the bytes go to a kernel buffer nobody will ever read, and

@@ -31,6 +31,13 @@ if (result.MsspBytesRejected is { } rejected)
 }
 
 Console.WriteLine($"negotiated    {(result.OfferedOptions.Count == 0 ? "(none observed)" : string.Join(", ", result.OfferedOptions.Order()))}");
+
+// How much screen we came away with, which is the first thing to look at on a game that gates its
+// connect screen behind a colour question: 23 characters means we recorded the question, and a few
+// thousand means BannerGate saw it for what it was and the terminator answered it.
+Console.WriteLine($"banner        {result.Banner?.Length ?? 0} chars"
+    + (BannerGate.IsAnsweredByReturn(result.Banner) ? " — still a gate, unanswered" : string.Empty));
+
 if (result.BannerPlayerCount is { } fromBanner)
 {
     Console.WriteLine($"banner count  {fromBanner} (stated in the connect screen)");
@@ -46,6 +53,13 @@ Console.WriteLine($"charset       {result.Negotiation.Charset ?? "(unset)"}{(res
 // does not is the bug this line was added to catch. It caught one on darcness.net:4201.
 Console.WriteLine($"codebase      {LoginCommandReading.MeaningfulCodebase(result.Info, result.Version)
     ?? "— nothing the reader would stand behind"}");
+
+// The other half of the same question, and printed for the same reason. Most of the hobby writes no
+// labelled INFO line and does carry a licence credit on its connect screen, so on the majority of
+// games this is the line that decides whether the page names an engine — and it is the one that has
+// to be checked against the screen above it after any widening in CodebaseCredits.
+Console.WriteLine($"credits       {CodebaseCredits.Named(result.Banner)
+    ?? "— no licence notice this reader would stand behind"}");
 
 if (LoginCommandReading.ConnectedPlayers(result.Info) is { } fromInfo)
 {

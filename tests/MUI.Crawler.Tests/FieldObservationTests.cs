@@ -340,6 +340,12 @@ public class FieldObservationTests
         // mud.stick.org:9000. The whole guard, at the layer that stores the value: the same screen
         // that jokes about muck credits DikuMUD, MERC and ROM, and a codebase we invented for it
         // would be a fact about somebody else's game that nobody at either end ever claimed.
+        //
+        // **This asserted null until CodebaseCredits existed, and the improvement is why it does
+        // not now.** The screen names its codebase in the licence notice every Diku descendant is
+        // required to carry, so there is a right answer here and it is the one the comment above has
+        // always named. What must never happen is MUCK — the word is a joke in the game's own title
+        // — and that is now a positive assertion rather than the side effect of reading nothing.
         var observed = FieldObservations.From(Probes.Answered(
             host: "mud.stick.org",
             banner: """
@@ -348,7 +354,9 @@ public class FieldObservationTests
                 """));
 
         await Assert.That(Value(observed, FieldObservations.CodebaseField, FieldSource.Banner))
-            .IsNull();
+            .IsEqualTo("DikuMUD");
+        await Assert.That(observed.Count(o => o.Field == FieldObservations.CodebaseField))
+            .IsEqualTo(1);
     }
 
     [Test]
