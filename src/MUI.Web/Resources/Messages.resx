@@ -1964,4 +1964,420 @@
     <value>the connect screen</value>
     <comment>how a value reached us, one id per source</comment>
   </data>
+  <data name="ecosystem.title" xml:space="preserve">
+    <value>The ecosystem</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.noTotals" xml:space="preserve">
+    <value>Shares, never totals. We do not publish a figure for how many people play MU*: a ratio over the games we measured survives the ones we cannot reach, and a headcount does not.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.listed" xml:space="preserve">
+    <value>{count, plural, one {{value} game listed} other {{value} games listed}}</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.handshakes" xml:space="preserve">
+    <value>{count, plural, one {{value} game whose handshake we completed} other {{value} games whose handshake we completed}}</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.msspReports" xml:space="preserve">
+    <value>{count, plural, one {{value} game whose MSSP report we hold} other {{value} games whose MSSP report we hold}}</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.oldestHandshake" xml:space="preserve">
+    <value>Oldest handshake here: confirmed {age} ago.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.share" xml:space="preserve">
+    <value>{count, number} of {total, number} ({fraction, number, ::percent .0})</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.share.nothing" xml:space="preserve">
+    <value>{count, number} of {total, number} — nothing measured yet</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.share.percent" xml:space="preserve">
+    <value>{fraction, number, ::percent .0}</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.codebases.title" xml:space="preserve">
+    <value>Codebases</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.codebases.basis" xml:space="preserve">
+    <value>Of the {listed, plural, one {# game} other {# games}} listed, {identified, number} told us what they run, and every share below is over those {identified, number}. A codebase we could not read is left out of the denominator, never counted as something else.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.codebases.none" xml:space="preserve">
+    <value>No listed game has told us its codebase yet.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.soleUse" xml:space="preserve">
+    <value>{share} run a codebase no other listed game runs — one game each, which is a name rather than a share. They are inside the denominator above and folded out of the bars, not dropped:</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.lineages.title" xml:space="preserve">
+    <value>Lineages</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.lineages.basis" xml:space="preserve">
+    <value>The same games, grouped by the tradition their server descends from — our reading of the codebase, not anything a game published. No game reports "MUSH": MSSP has no such value, and most of the MUSH world publishes no MSSP at all, so this is the only way the question can be asked.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.lineages.none" xml:space="preserve">
+    <value>No listed game runs a codebase we place in a lineage yet.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.lineages.notClassified" xml:space="preserve">
+    <value>{count, plural, one {# of those games runs a codebase} other {# of those games run codebases}} we do not place in any lineage — several say as much themselves, publishing {family}. They are inside the denominator above and in nobody's share.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.protocols.title" xml:space="preserve">
+    <value>Protocols</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.protocols.floor" xml:space="preserve">
+    <value>Read every measured figure below as a floor. We ask for MSSP by name, so silence there is an answer. Nothing else here is requested, and a server may support a protocol without ever offering it.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.mssp.instrument" xml:space="preserve">
+    <value>{instrument} is the one row below that is not a floor: we ask every server for it by name, so the games that did not offer it were asked and declined. It is also the only one with no declared figure, because every game whose report we hold supports it by demonstration and a count of the ones that also listed it would measure a habit against that.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.mssp.gap" xml:space="preserve">
+    <value>We hold {reports, number} reports and {offered, plural, one {# game} other {# games}} offer MSSP today: the other {gap, number} stopped publishing one after we read it, and a report is not thrown away because it stopped being reissued.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.protocols.caption" xml:space="preserve">
+    <value>Protocol adoption. Measured is what a server offered in a completed handshake; declared is what its MSSP claims. Two sets of games, so two denominators.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.column.protocol" xml:space="preserve">
+    <value>protocol</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.column.measured" xml:space="preserve">
+    <value>measured — of {basis}</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.column.declared" xml:space="preserve">
+    <value>declared — of {basis}</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.measured.never" xml:space="preserve">
+    <value>not measured — never observed</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.measured.declined" xml:space="preserve">
+    <value>{share} · {declined, plural, one {# game} other {# games}} declined when asked</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.measured.unasked" xml:space="preserve">
+    <value>{share} · {unobserved, plural, one {# game} other {# games}} neither offered nor asked</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.measured.declinedAndUnasked" xml:space="preserve">
+    <value>{share} · {declined, plural, one {# game} other {# games}} declined when asked · {unobserved, plural, one {# game} other {# games}} neither offered nor asked</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.declared.none" xml:space="preserve">
+    <value>not asked — every report here is the answer</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.curve.title" xml:space="preserve">
+    <value>Adoption over time</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.curve.caveat" xml:space="preserve">
+    <value>Each point is a share over the games we had measured that day, so this line moves for two reasons: a game changing what it offers, and the set of games we can measure changing around it. Only the first is adoption. The transition count below is the part that is purely games changing their minds.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.curve.caption" xml:space="preserve">
+    <value>Measured share of each protocol, oldest reading first</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.curve.then" xml:space="preserve">
+    <value>then</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.curve.now" xml:space="preserve">
+    <value>now</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.curve.notMeasured" xml:space="preserve">
+    <value>not measured</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.snapshot.title" xml:space="preserve">
+    <value>A snapshot, not a curve</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.snapshot" xml:space="preserve">
+    <value>A snapshot of what we can measure now. An adoption curve plots games changing their minds, and we record a change when it happens, so the curve becomes drawable once enough have been recorded. Plotting when we first reached each game would measure the crawl, not the hobby.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.transitions" xml:space="preserve">
+    <value>{count, plural, one {# capability change} other {# capability changes}} recorded so far — the material a curve is drawn from.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.transitions.none" xml:space="preserve">
+    <value>No measured capability has changed yet, so there is nothing to plot.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.plain.denominators" xml:space="preserve">
+    <value>Measured is of {measured}; declared is of {declared}. Two sets of games, so two denominators.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.plain.counts" xml:space="preserve">
+    <value>{listed} · {handshakes} · {mssp}.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.plain.oldestHandshake" xml:space="preserve">
+    <value>The oldest handshake in this picture was last confirmed {age} ago.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.plain.lineages" xml:space="preserve">
+    <value>The same games, grouped by the tradition their server descends from. This is {evidence} — {meaning} — and not anything a game published: no game reports "MUSH", because MSSP has no such value and most of the MUSH world publishes no MSSP at all.</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.plain.measured" xml:space="preserve">
+    <value>measured: {value}</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="ecosystem.plain.declared" xml:space="preserve">
+    <value>declared: {value}</value>
+    <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
+  </data>
+  <data name="rankings.title" xml:space="preserve">
+    <value>Rankings</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.noVote" xml:space="preserve">
+    <value>Computed from measured data only. No votes, stars or ratings, ever. Nothing here ranks quality. We have not measured it.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.busiest.title" xml:space="preserve">
+    <value>Busiest, by measured concurrent players</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.window.label" xml:space="preserve">
+    <value>Ranking window</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.span" xml:space="preserve">
+    <value>{days, plural, one {# day} other {# days}}</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.basis.median" xml:space="preserve">
+    <value>Median of the player counts we measured over the last {days, plural, one {# day} other {# days}}.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.basis.none" xml:space="preserve">
+    <value>No game yet has the {samples, number} samples across {days, plural, one {# day} other {# days}} that a median needs.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.basis.eligible" xml:space="preserve">
+    <value>{eligible, plural, one {# game} other {# games}} of {listed, number} have the {samples, number} samples across {days, plural, one {# day} other {# days}} it needs.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.basis.zero" xml:space="preserve">
+    <value>A measured zero counts; an unreadable count does not.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.spanChoice" xml:space="preserve">
+    <value>A week says who is busy now; a quarter says who has been busy. They are different questions and a game can lead one and not the other. Days are whole days, UTC.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.busiest.empty" xml:space="preserve">
+    <value>No listed game has enough counted samples to rank yet — a statement about how long we have been measuring, not about how busy anybody is.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.busiest.caption" xml:space="preserve">
+    <value>Games ranked by the median of the player counts we measured over the last {days, plural, one {# day} other {# days}}. Games on the same median share a place; nothing here breaks the tie.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.column.place" xml:space="preserve">
+    <value>#</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.column.game" xml:space="preserve">
+    <value>game</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.column.median" xml:space="preserve">
+    <value>median</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.column.peak" xml:space="preserve">
+    <value>peak</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.column.samples" xml:space="preserve">
+    <value>counted samples</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.column.days" xml:space="preserve">
+    <value>days measured</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.spells.title" xml:space="preserve">
+    <value>Longest unbroken reachable spell</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.spells.basis" xml:space="preserve">
+    <value>Every probe since the date given found the game reachable. Reachable, not up: we measure a socket from one host, and a game we cannot route to is perfectly alive. A spell cannot be longer than we have been watching, so the date is the fact and the duration follows.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.spells.empty" xml:space="preserve">
+    <value>No listed game is in an unbroken reachable spell right now.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.spells.caption" xml:space="preserve">
+    <value>Games whose every probe since the date given found them reachable. Games reachable since the same date share a place; nothing here breaks the tie.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.column.since" xml:space="preserve">
+    <value>reachable since</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.column.duration" xml:space="preserve">
+    <value>that is</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.archivedNote" xml:space="preserve">
+    <value>Archived games are out of both tables and nothing else; one successful probe puts them back.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.plain.busiest" xml:space="preserve">
+    <value>Busiest — median measured players, last {days, plural, one {# day} other {# days}}</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.plain.windows" xml:space="preserve">
+    <value>windows:</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.plain.thisOne" xml:space="preserve">
+    <value>this one</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.plain.row" xml:space="preserve">
+    <value>median {median, number} · peak {peak, number} · {samples, plural, one {# counted sample} other {# counted samples}} over {days, number} of {window, number} days</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.plain.spellRow" xml:space="preserve">
+    <value>reachable on every probe since {date} · {duration}</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="archive.title" xml:space="preserve">
+    <value>The archive</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.lede" xml:space="preserve">
+    <value>Games that have stopped answering. Nothing was deleted. Still probed weekly, and one successful probe puts a game back in the listing the same day.</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.search.legend" xml:space="preserve">
+    <value>search the archive</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.search.label" xml:space="preserve">
+    <value>Search archived games</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.search.placeholder" xml:space="preserve">
+    <value>name, codebase or description</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.search.submit" xml:space="preserve">
+    <value>show</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.count" xml:space="preserve">
+    <value>{count, plural, =0 {No archived games} one {# archived game} other {# archived games}}</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.badge" xml:space="preserve">
+    <value>archived</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.lastReachable" xml:space="preserve">
+    <value>last reachable</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.knownLive" xml:space="preserve">
+    <value>known live</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.darkFor" xml:space="preserve">
+    <value>({age} ago)</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.empty" xml:space="preserve">
+    <value>Nothing matched.</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.neverReachable" xml:space="preserve">
+    <value>never, in anything we measured</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.noReachableTime" xml:space="preserve">
+    <value>no reachable time measured</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.darkFor.unknown" xml:space="preserve">
+    <value>unknown</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.knownLive.years" xml:space="preserve">
+    <value>{years, number, ::.#} years</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.knownLive.days" xml:space="preserve">
+    <value>{days, plural, one {# day} other {# days}}</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.run" xml:space="preserve">
+    <value>{from} – {to} · {span}</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.run.months" xml:space="preserve">
+    <value>{count, plural, one {# month} other {# months}}</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.run.years" xml:space="preserve">
+    <value>{count, plural, one {# year} other {# years}}</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.plain.matching" xml:space="preserve">
+    <value>{count, plural, one {# game} other {# games}} matching "{query}"</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.plain.count" xml:space="preserve">
+    <value>{count, plural, one {# game} other {# games}}</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.plain.lastReachable" xml:space="preserve">
+    <value>Last reachable:</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.plain.knownLive" xml:space="preserve">
+    <value>Known live:</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.plain.knownLiveValue" xml:space="preserve">
+    <value>{value} of measured reachable time</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.plain.run" xml:space="preserve">
+    <value>Run:</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="archive.plain.codebase" xml:space="preserve">
+    <value>Codebase:</value>
+    <comment>the archive: removed from the default listing, and from nothing else</comment>
+  </data>
+  <data name="footer.randomGame" xml:space="preserve">
+    <value>random game</value>
+    <comment>/find's footer, which the rebuild left in English</comment>
+  </data>
 </root>

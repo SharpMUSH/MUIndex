@@ -216,10 +216,12 @@ public class PlainParityTests
             entries.Add(ArchiveEntry.For(game, await Queries.ForGameAsync(game.Id), Now));
         }
 
-        var text = PlainText.RenderArchive(Locales.SourceTag, entries, null, Now);
+        var text = PlainText.RenderArchive(entries, null, Now, Locales.SourceTag);
 
-        await Assert.That(text).Contains("Last reachable:");
-        await Assert.That(text).Contains("Known live:");
+        // The labels, asked of the bundle rather than spelled again here: the mirror has to carry
+        // the same two facts as the page, and which words say them is the bundle's business.
+        await Assert.That(text).Contains(Messages.For(Locales.SourceTag, "archive.plain.lastReachable"));
+        await Assert.That(text).Contains(Messages.For(Locales.SourceTag, "archive.plain.knownLive"));
         await Assert.That(text).Contains("Gaslight Row");
     }
 
@@ -234,7 +236,7 @@ public class PlainParityTests
             entries.Add(ArchiveEntry.For(game, await Queries.ForGameAsync(game.Id), Now));
         }
 
-        var text = PlainText.RenderArchive(Locales.SourceTag, entries, null, Now).ToLowerInvariant();
+        var text = PlainText.RenderArchive(entries, null, Now, Locales.SourceTag).ToLowerInvariant();
 
         await Assert.That(text).Contains("[archived]");
         await Assert.That(text).DoesNotContain("dead");
@@ -254,7 +256,7 @@ public class PlainParityTests
 
             // The archive too, because its lines are the ones a label lengthens most: an archived
             // game's codebase carries the oldest age on the site.
-            PlainText.RenderArchive(Locales.SourceTag, await ArchiveAsync(), query: null, Now),
+            PlainText.RenderArchive(await ArchiveAsync(), query: null, Now, Locales.SourceTag),
         };
 
         foreach (var line in surfaces.SelectMany(s => s.Split('\n')))
@@ -441,7 +443,7 @@ public class PlainParityTests
         // "Codebase: PennMUSH 1.8.5" on /archive — the same value, one surface saying nobody has
         // confirmed it since 2023 and the other not. The archive is where a value is oldest and
         // where the label matters most.
-        var text = PlainText.RenderArchive(Locales.SourceTag, await ArchiveAsync(), query: null, Now);
+        var text = PlainText.RenderArchive(await ArchiveAsync(), query: null, now: Now, tag: Locales.SourceTag);
 
         // Asserted through the bundle rather than as a literal: the label is four messages now
         // — the shape, the word, the rung and its plural — and a literal here would pass while the

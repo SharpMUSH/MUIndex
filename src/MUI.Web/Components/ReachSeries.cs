@@ -329,18 +329,4 @@ public static class Wording
 
         return span.TotalHours >= 1 ? $"{(int)span.TotalHours}h" : $"{(int)span.TotalMinutes}m";
     }
-
-    /// <summary>A span of years said as a run, which is the fact an archive entry is worth having for.</summary>
-    public static string Run(DateTimeOffset from, DateTimeOffset to)
-    {
-        var years = (int)((to - from).TotalDays / 365.25);
-        var span = years switch
-        {
-            0 => $"{(int)((to - from).TotalDays / 30.44)} months",
-            1 => "1 year",
-            _ => $"{years} years",
-        };
-
-        return $"{from:yyyy} – {to:yyyy} · {span}";
-    }
 }

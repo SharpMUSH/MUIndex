@@ -23,18 +23,18 @@
 
 @if (Plain)
 {
-    <pre class="mono plain">@PlainText.RenderRankings(Table, Now)</pre>
+    <pre class="mono plain">@PlainText.RenderRankings(Table, Now, Tag)</pre>
 }
 else
 {
     <SitePreview Title="Rankings" Description="@PreviewCopy.Pages.Rankings"
                  Card="PreviewCard.Rankings" />
 
-    <h1>Rankings</h1>
-    <p class="dim">@EcosystemCopy.NoVote</p>
+    <h1>@L("rankings.title")</h1>
+    <p class="dim">@EcosystemCopy.NoVote(Tag)</p>
 
     <section aria-labelledby="busiest">
-        <h2 id="busiest">Busiest, by measured concurrent players</h2>
+        <h2 id="busiest">@L("rankings.busiest.title")</h2>
 
         @*
             Three windows, as links rather than as a control. The page is a document and the window
@@ -42,42 +42,37 @@ else
             text browser gets the same three choices — which is the whole test §9 sets for a
             graphic. aria-current marks the live one, so the state is announced and not only shaded.
         *@
-        <nav class="spans" aria-label="Ranking window">
+        <nav class="spans" aria-label="@L("rankings.window.label")">
             @foreach (var span in RankingSpans.All)
             {
                 <a href="@Href(span)"
                    class="@(span == Table.Span ? "span on" : "span")"
-                   aria-current="@(span == Table.Span ? "page" : null)">@EcosystemCopy.SpanLabel(span)</a>
+                   aria-current="@(span == Table.Span ? "page" : null)">@EcosystemCopy.SpanLabel(Tag, span)</a>
             }
         </nav>
 
-        <p class="dim">@EcosystemCopy.BusiestBasis(Table)</p>
-        <p class="faint">@EcosystemCopy.SpanChoice</p>
+        <p class="dim">@EcosystemCopy.BusiestBasis(Tag, Table)</p>
+        <p class="faint">@EcosystemCopy.SpanChoice(Tag)</p>
 
         @if (Table.Busiest.Count == 0)
         {
-            <p class="faint">
-                No listed game has enough counted samples to rank yet — a statement about how long we
-                have been measuring, not about how busy anybody is.
-            </p>
+            <p class="faint">@L("rankings.busiest.empty")</p>
         }
         else
         {
             <div class="table-wrap">
                 <table class="ranking">
                     <caption class="sr-only">
-                        Games ranked by the median of the player counts we measured over the last
-                        @((int)Table.Window.TotalDays) days. Games on the same median share a place;
-                        nothing here breaks the tie.
+                        @Say("rankings.busiest.caption", ("days", (int)Table.Window.TotalDays))
                     </caption>
                     <thead>
                         <tr>
-                            <th scope="col" class="place">#</th>
-                            <th scope="col">game</th>
-                            <th scope="col">median</th>
-                            <th scope="col">peak</th>
-                            <th scope="col">counted samples</th>
-                            <th scope="col">days measured</th>
+                            <th scope="col" class="place">@L("rankings.column.place")</th>
+                            <th scope="col">@L("rankings.column.game")</th>
+                            <th scope="col">@L("rankings.column.median")</th>
+                            <th scope="col">@L("rankings.column.peak")</th>
+                            <th scope="col">@L("rankings.column.samples")</th>
+                            <th scope="col">@L("rankings.column.days")</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -105,27 +100,24 @@ else
     </section>
 
     <section aria-labelledby="spells">
-        <h2 id="spells">Longest unbroken reachable spell</h2>
-        <p class="dim">@EcosystemCopy.SpellBasis</p>
+        <h2 id="spells">@L("rankings.spells.title")</h2>
+        <p class="dim">@EcosystemCopy.SpellBasis(Tag)</p>
 
         @if (Table.LongestUnbroken.Count == 0)
         {
-            <p class="faint">No listed game is in an unbroken reachable spell right now.</p>
+            <p class="faint">@L("rankings.spells.empty")</p>
         }
         else
         {
             <div class="table-wrap">
                 <table class="ranking">
-                    <caption class="sr-only">
-                        Games whose every probe since the date given found them reachable. Games
-                        reachable since the same date share a place; nothing here breaks the tie.
-                    </caption>
+                    <caption class="sr-only">@L("rankings.spells.caption")</caption>
                     <thead>
                         <tr>
-                            <th scope="col" class="place">#</th>
-                            <th scope="col">game</th>
-                            <th scope="col">reachable since</th>
-                            <th scope="col">that is</th>
+                            <th scope="col" class="place">@L("rankings.column.place")</th>
+                            <th scope="col">@L("rankings.column.game")</th>
+                            <th scope="col">@L("rankings.column.since")</th>
+                            <th scope="col">@L("rankings.column.duration")</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -153,17 +145,14 @@ else
     </section>
 
     <p class="faint">
-        Archived games are out of both tables and nothing else; one successful probe puts them back.
-        <a href="/archive">archive</a> ·
-        <a href="/ecosystem">ecosystem</a> ·
-        <a href="?window=@Span.Slug()&plain=1">plain text</a>
+        @L("rankings.archivedNote")
+        <a href="/archive">@L("nav.archive")</a> ·
+        <a href="/ecosystem">@L("nav.ecosystem")</a> ·
+        <a href="?window=@Span.Slug()&plain=1">@L("a11y.plainText")</a>
     </p>
 }
 
 @code {
-    [CascadingParameter] private HttpContext? Http { get; set; }
-
-    private string Tag => Http.LocaleOf().Tag;
 
     [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
 
@@ -206,4 +195,14 @@ else
         Plain ? $"?window={span.Slug()}&plain=1" : $"?window={span.Slug()}";
 
     protected override async Task OnParametersSetAsync() => Table = await Queries.RankingsAsync(Span);
+
+    /// <summary>The locale this league table is being read in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    private string L(string id) => Messages.For(Tag, id);
+
+    private string Say(string id, params (string Key, object? Value)[] args) =>
+        Messages.For(Tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 }

@@ -1,6 +1,7 @@
 using MUI.Catalog;
 using MUI.Web.Components;
 using MUI.Web.Fixtures;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Tests;
 
@@ -24,6 +25,18 @@ public class EcosystemSurfaceTests
     private static async Task<string> RankingsAsync() =>
         PlainText.RenderRankings(await Queries.RankingsAsync(), Now);
 
+    /// <summary>
+    /// One message, as the source locale renders it.
+    /// </summary>
+    /// <remarks>
+    /// These assertions are about what the two surfaces <em>claim</em>, not about the English they
+    /// happen to claim it in. Reading the claim out of the bundle keeps the guard exactly as strong
+    /// — a page that stopped saying it fails here — while leaving the wording free to be translated,
+    /// which is the whole reason it moved into the bundle.
+    /// </remarks>
+    private static string Say(string id, params (string Key, object? Value)[] args) =>
+        Messages.For("en", id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
+
     [Test]
     public async Task NoAbsolutePlayerFigureIsEmittedByEitherSurface()
     {
@@ -43,7 +56,7 @@ public class EcosystemSurfaceTests
         await Assert.That(text).DoesNotContain("across all games");
 
         // And it says out loud that the omission is deliberate rather than an oversight.
-        await Assert.That(Render.Words(text)).Contains("Shares, never totals");
+        await Assert.That(Render.Words(text)).Contains(Say("ecosystem.noTotals"));
     }
 
     [Test]
@@ -73,9 +86,14 @@ public class EcosystemSurfaceTests
         // talkative and calling the difference adoption.
         var text = Render.Words(await EcosystemAsync());
 
-        await Assert.That(text).Contains("whose handshake we completed");
-        await Assert.That(text).Contains("whose MSSP report we hold");
-        await Assert.That(text).Contains("Two sets of games, so two denominators");
+        var dashboard = await Queries.EcosystemAsync();
+
+        await Assert.That(text).Contains(EcosystemCopy.Handshakes("en", dashboard.Handshakes));
+        await Assert.That(text).Contains(EcosystemCopy.MsspReports("en", dashboard.MsspReports));
+        await Assert.That(text).Contains(Say(
+            "ecosystem.plain.denominators",
+            ("measured", EcosystemCopy.Handshakes("en", dashboard.Handshakes)),
+            ("declared", EcosystemCopy.MsspReports("en", dashboard.MsspReports))));
     }
 
     [Test]
@@ -85,12 +103,15 @@ public class EcosystemSurfaceTests
         // this, which is a fact about our reach; "0.0%" is a claim about everybody else's servers.
         var never = new ProtocolAdoption("TLS", Offered: null, Declined: 0, Handshakes: 400, Declared: 12, MsspReports: 300);
 
-        await Assert.That(EcosystemCopy.Measured(never)).Contains("not measured");
-        await Assert.That(EcosystemCopy.Measured(never)).DoesNotContain("0.0%");
-        await Assert.That(EcosystemCopy.Measured(never)).DoesNotContain("0 of 400");
+        await Assert.That(EcosystemCopy.Measured("en", never))
+            .IsEqualTo(Say("ecosystem.measured.never"));
+        await Assert.That(EcosystemCopy.Measured("en", never)).DoesNotContain("0.0%");
+        await Assert.That(EcosystemCopy.Measured("en", never)).DoesNotContain("0 of 400");
 
         // The declared side is unaffected and still carries its own set.
-        await Assert.That(EcosystemCopy.Declared(never)).IsEqualTo("12 of 300 (4.0%)");
+        await Assert.That(EcosystemCopy.Declared("en", never)).IsEqualTo(
+            Say("ecosystem.share", ("count", 12), ("total", 300), ("fraction", 12d / 300)));
+        await Assert.That(EcosystemCopy.Declared("en", never)).IsEqualTo("12 of 300 (4.0%)");
     }
 
     [Test]
@@ -100,8 +121,9 @@ public class EcosystemSurfaceTests
         var nothing = new MeasuredShare("GMCP", 0, 0);
 
         await Assert.That(nothing.Fraction).IsNull();
-        await Assert.That(EcosystemCopy.Share(nothing)).Contains("nothing measured yet");
-        await Assert.That(EcosystemCopy.Share(nothing)).DoesNotContain("%");
+        await Assert.That(EcosystemCopy.Share("en", nothing))
+            .IsEqualTo(Say("ecosystem.share.nothing", ("count", 0), ("total", 0)));
+        await Assert.That(EcosystemCopy.Share("en", nothing)).DoesNotContain("%");
     }
 
     [Test]
@@ -112,8 +134,7 @@ public class EcosystemSurfaceTests
         // saying so publishes our own instrumentation as a fact about somebody's game.
         var text = Render.Words(await EcosystemAsync());
 
-        await Assert.That(text).Contains("may support a protocol without ever offering it");
-        await Assert.That(text).Contains("as a floor");
+        await Assert.That(text).Contains(Say("ecosystem.protocols.floor"));
     }
 
     [Test]
@@ -124,8 +145,8 @@ public class EcosystemSurfaceTests
         // crawl reaching more games and nothing about anybody adopting anything.
         var text = Render.Words(await EcosystemAsync());
 
-        await Assert.That(text).Contains("A snapshot of what we can measure now");
-        await Assert.That(text).Contains("nothing to plot");
+        await Assert.That(text).Contains(Say("ecosystem.snapshot"));
+        await Assert.That(text).Contains(Say("ecosystem.transitions.none"));
         await Assert.That(text).DoesNotContain("growth");
     }
 
@@ -138,7 +159,10 @@ public class EcosystemSurfaceTests
         await Assert.That(dashboard.Codebases.NotIdentified).IsGreaterThan(0);
         await Assert.That(dashboard.Codebases.Families.Sum(f => f.Count))
             .IsEqualTo(dashboard.Codebases.Identified);
-        await Assert.That(text).Contains("left out of the denominator, never counted as something else");
+        await Assert.That(text).Contains(Say(
+            "ecosystem.codebases.basis",
+            ("listed", dashboard.Codebases.Identified + dashboard.Codebases.NotIdentified),
+            ("identified", dashboard.Codebases.Identified)));
     }
 
     [Test]
@@ -155,8 +179,13 @@ public class EcosystemSurfaceTests
 
         await Assert.That(listed).IsEqualTo(dashboard.ListedGames);
         await Assert.That(dashboard.Codebases.Identified).IsNotEqualTo(listed);
-        await Assert.That(text).Contains($"Of the {listed} games listed, {dashboard.Codebases.Identified} told us what they run");
-        await Assert.That(text).Contains($"every share below is over those {dashboard.Codebases.Identified}");
+        // Both numbers in one sentence, and each unmistakable for the other.
+        await Assert.That(text).Contains(Say(
+            "ecosystem.codebases.basis",
+            ("listed", listed),
+            ("identified", dashboard.Codebases.Identified)));
+        await Assert.That(text).Contains($"{listed} games listed");
+        await Assert.That(text).Contains($"over those {dashboard.Codebases.Identified}");
     }
 
     /// <summary>The one-game codebases are folded out of the chart and listed under it.</summary>
@@ -177,7 +206,8 @@ public class EcosystemSurfaceTests
 
         await Assert.That(text).Contains(
             $"{codebases.SoleUseTotal.Count} of {codebases.Identified}");
-        await Assert.That(text).Contains("no other listed game runs");
+        await Assert.That(text).Contains(
+            Say("ecosystem.soleUse", ("share", EcosystemCopy.Share("en", codebases.SoleUseTotal))));
 
         foreach (var alone in codebases.SoleUse)
         {
@@ -201,7 +231,8 @@ public class EcosystemSurfaceTests
         await Assert.That(mssp.Measured).IsNotNull();
         await Assert.That(mssp.Declined).IsGreaterThan(0);
         await Assert.That(text).Contains("MSSP");
-        await Assert.That(text).Contains("is the one row below that is not a floor");
+        await Assert.That(text).Contains(
+            Say("ecosystem.mssp.instrument", ("instrument", EcosystemProtocols.Instrument)));
     }
 
     [Test]
@@ -218,9 +249,9 @@ public class EcosystemSurfaceTests
         var blank = dashboard.Protocols.Where(p => p.DeclaredShare is null).Select(p => p.Protocol);
 
         await Assert.That(blank).IsEquivalentTo(new[] { "MSSP" });
-        await Assert.That(EcosystemCopy.Declared(dashboard.Protocols.Single(p => p.Protocol == "MSSP")))
+        await Assert.That(EcosystemCopy.Declared("en", dashboard.Protocols.Single(p => p.Protocol == "MSSP")))
             .DoesNotContain("%");
-        await Assert.That(text).Contains("every report here is the answer");
+        await Assert.That(text).Contains(Say("ecosystem.declared.none"));
     }
 
     [Test]
@@ -236,13 +267,14 @@ public class EcosystemSurfaceTests
         var withGap = new ProtocolAdoption("MSSP", Offered: 123, Declined: 295, Handshakes: 418,
             Declared: 1, MsspReports: 131);
 
-        await Assert.That(EcosystemCopy.MsspBasis(withGap, 131)).Contains("We hold 131 reports");
-        await Assert.That(EcosystemCopy.MsspBasis(withGap, 131)).Contains("the other 8");
+        await Assert.That(EcosystemCopy.MsspBasis("en", withGap, 131)).Contains(
+            Say("ecosystem.mssp.gap", ("reports", 131), ("offered", 123), ("gap", 8)));
 
         // And no gap means no sentence about one, rather than "the other 0".
         var level = withGap with { Offered = 131 };
 
-        await Assert.That(EcosystemCopy.MsspBasis(level, 131)).DoesNotContain("the other");
+        await Assert.That(EcosystemCopy.MsspBasis("en", level, 131))
+            .IsEqualTo(Say("ecosystem.mssp.instrument", ("instrument", EcosystemProtocols.Instrument)));
     }
 
     [Test]
@@ -250,13 +282,15 @@ public class EcosystemSurfaceTests
     {
         var text = Render.Words(await RankingsAsync());
 
-        await Assert.That(text).Contains("Median of the player counts we measured over the last 7 days");
+        await Assert.That(text).Contains(Say("rankings.basis.median", ("days", 7)));
 
         // The threshold, as a sentence rather than as arithmetic. Where nothing qualifies the page
         // said "0 of 519 games listed produced the 24 counted samples a median needs, on at least 4
         // days of the window", which is a subtraction the reader was left to do.
         await Assert.That(text).Contains("24 samples across 4 days");
-        await Assert.That(text).Contains("A measured zero counts; an unreadable count does not");
+
+        // Rule 4 on the surface that most invites a zero to be read as an absence.
+        await Assert.That(text).Contains(Say("rankings.basis.zero"));
     }
 
     [Test]
@@ -265,7 +299,7 @@ public class EcosystemSurfaceTests
         // §2's permanent non-goal, said on the surface a reader would look for it on.
         var text = Render.Words(await RankingsAsync());
 
-        await Assert.That(text).Contains("No votes, stars or ratings, ever");
+        await Assert.That(text).Contains(Say("rankings.noVote"));
         await Assert.That(text.ToLowerInvariant()).DoesNotContain("rate this");
         await Assert.That(text.ToLowerInvariant()).DoesNotContain("top rated");
     }
