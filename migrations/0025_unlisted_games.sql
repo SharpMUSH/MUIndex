@@ -19,10 +19,14 @@
 -- prose about somebody's request would be inventing a third version of it.
 --
 -- **`unlisted_by` is not audit decoration.** It is the whole authorisation story in one column: the
--- account that held a verified claim on this game at the moment the button was pressed. This
--- repository has already shipped one claim about a third party's wishes that was compiled in by
--- whoever typed it (`ContactedMaintainer`, defaulted to true). A NOT NULL reference to the account
--- that asked is what that defect did not have.
+-- account that asked for this, here. Through `OwnerListing` — the only writer in the shipped tree —
+-- that is by construction the account holding a verified claim on the game at the moment the button
+-- was pressed. **An operator writing this row by hand records their own account**, which is §11's
+-- third route arriving at the listing: a person at our end recording what somebody asked for, with
+-- `crawl_opt_out.detail` holding who asked and how. Neither case may be inferred and neither may be
+-- defaulted. This repository has already shipped one claim about a third party's wishes that was
+-- compiled in by whoever typed it (`ContactedMaintainer`, defaulted to true); a NOT NULL reference
+-- to somebody is what that defect did not have.
 --
 -- **Reversible by a probe, unlike an exclusion.** `ArchiveSweeper.RestoreAsync` relists this state
 -- on the first answered probe, and that is safe by construction rather than by a check: an

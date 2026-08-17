@@ -37,7 +37,11 @@ public interface IGameStore
     /// argument. The reason is that they asked; <paramref name="byUserId"/> is the account that held
     /// a verified claim when they asked, and <c>crawl_opt_out</c> holds how the ask arrived.
     /// </remarks>
-    /// <param name="byUserId">The claim-verified account that asked. Never inferred, never defaulted.</param>
+    /// <param name="byUserId">
+    /// The account that asked for it here — claim-verified through the dashboard, and the operator's
+    /// own where §11's recorded-request route reaches the listing by hand. Never inferred, never
+    /// defaulted.
+    /// </param>
     Task UnlistAsync(
         Guid id,
         Guid byUserId,
