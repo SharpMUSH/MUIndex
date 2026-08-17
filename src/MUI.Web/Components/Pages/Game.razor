@@ -166,12 +166,17 @@ else
         {
             <div class="archive-plate">
                 <p>
-                    Last answered <strong>@Entry.LastAnswered</strong>, @Entry.DarkFor(Now) ago.
+                    @* The plate's own sentence is still English and belongs with the rest of this
+                       page's copy; what the entry supplies is already localized. *@
+                    Last answered <strong>@Entry.LastAnswered(Http.LocaleOf().Tag)</strong>,
+                    @Entry.DarkFor(Http.LocaleOf().Tag, Now) ago.
                     Still probed weekly; this page updates the day it answers.
                 </p>
-                @if (Entry.Run is { } run)
+                @if (Entry.Run(Http.LocaleOf().Tag) is { } run)
                 {
-                    <p class="mono faint">@run · @Entry.KnownLiveWording known live</p>
+                    <p class="mono faint">
+                        @run · @Entry.KnownLiveWording(Http.LocaleOf().Tag) known live
+                    </p>
                 }
             </div>
         }

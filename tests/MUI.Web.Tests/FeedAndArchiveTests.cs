@@ -1,6 +1,7 @@
 using MUI.Catalog;
 using MUI.Web.Components;
 using MUI.Web.Fixtures;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Tests;
 
@@ -128,20 +129,28 @@ public class FeedAndArchiveTests
 
         await Assert.That(entry.LastReachableAt).IsNotNull();
         await Assert.That(entry.KnownLive).IsGreaterThan(TimeSpan.FromDays(365 * 10));
-        await Assert.That(entry.LastAnswered).Contains("2023");
-        await Assert.That(entry.Run).IsNotNull();
+        await Assert.That(entry.LastAnswered("en")).Contains("2023");
+        await Assert.That(entry.Run("en")).IsNotNull();
     }
 
     [Test]
     public async Task AGameWeCouldNeverReachHasNoRunToState()
     {
         // Inventing a run from the dates we happen to hold would be asserting rather than measuring.
+        // Asserted through the message rather than against its English, because the claim is that
+        // the entry says *this* — never reached at all, and no reachable time measured — rather than
+        // that it says it in these words. A locale that dropped either would fail here too.
         var game = (await Queries.ListAsync(new GameFilter { IncludeArchived = true })).First();
         var entry = ArchiveEntry.For(game, [], Now);
 
-        await Assert.That(entry.Run).IsNull();
-        await Assert.That(entry.LastAnswered).Contains("never");
-        await Assert.That(entry.KnownLiveWording).IsEqualTo("no reachable time measured");
+        await Assert.That(entry.Run("en")).IsNull();
+        await Assert.That(entry.LastAnswered("en"))
+            .IsEqualTo(Messages.For("en", "archive.neverReachable"));
+        await Assert.That(entry.KnownLiveWording("en"))
+            .IsEqualTo(Messages.For("en", "archive.noReachableTime"));
+
+        // And a zero here is an absence of measurement, never a measured zero.
+        await Assert.That(entry.KnownLiveWording("en")).DoesNotContain("0");
     }
 
     [Test]

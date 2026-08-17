@@ -547,28 +547,52 @@ public static class PlainText
     }
 
     /// <summary>The archive. Past tense, no alarm, and the run of years given as a fact.</summary>
-    public static string RenderArchive(IReadOnlyList<ArchiveEntry> entries, string? query, DateTimeOffset now)
+    /// <remarks>
+    /// The label column is measured rather than hard-spaced. Four labels padded to seventeen
+    /// columns is an arrangement that holds for exactly one language, and a locale whose word for
+    /// "last reachable" is longer would have run its value into it.
+    /// </remarks>
+    public static string RenderArchive(
+        IReadOnlyList<ArchiveEntry> entries,
+        string? query,
+        DateTimeOffset now,
+        string tag = Locales.SourceTag)
     {
+        ArgumentNullException.ThrowIfNull(entries);
+
         var b = new StringBuilder();
 
-        b.AppendLine("THE ARCHIVE");
-        Wrap(b, "Games that have stopped answering. Nothing was deleted. Still probed weekly, and "
-            + "one successful probe puts a game back in the listing.");
+        b.AppendLine(Say(tag, "archive.title").ToUpperInvariant());
+        Wrap(b, Say(tag, "archive.lede"));
         b.AppendLine();
-        b.AppendLine($"{entries.Count} game(s)"
-            + (string.IsNullOrWhiteSpace(query) ? string.Empty : $" matching \"{query}\""));
+        b.AppendLine(string.IsNullOrWhiteSpace(query)
+            ? Say(tag, "archive.plain.count", ("count", entries.Count))
+            : Say(tag, "archive.plain.matching", ("count", entries.Count), ("query", query)));
         b.AppendLine();
+
+        string[] labels =
+        [
+            Say(tag, "archive.plain.lastReachable"),
+            Say(tag, "archive.plain.knownLive"),
+            Say(tag, "archive.plain.run"),
+            Say(tag, "archive.plain.codebase"),
+        ];
+
+        var width = Math.Max(17, labels.Max(l => l.Length) + 1);
+        var badge = Say(tag, "archive.badge");
 
         foreach (var entry in entries)
         {
-            b.AppendLine($"{entry.Summary.Name}  [archived]");
+            b.AppendLine($"{entry.Summary.Name}  [{badge}]");
             b.AppendLine($"  /g/{entry.Summary.Slug}");
-            b.AppendLine($"  Last reachable:  {entry.LastAnswered} ({entry.DarkFor(now)} ago)");
-            b.AppendLine($"  Known live:      {entry.KnownLiveWording} of measured reachable time");
+            b.AppendLine($"  {labels[0].PadRight(width)}{entry.LastAnswered(tag)} "
+                + Say(tag, "archive.darkFor", ("age", entry.DarkFor(tag, now))));
+            b.AppendLine($"  {labels[1].PadRight(width)}"
+                + Say(tag, "archive.plain.knownLiveValue", ("value", entry.KnownLiveWording(tag))));
 
-            if (entry.Run is { } run)
+            if (entry.Run(tag) is { } run)
             {
-                b.AppendLine($"  Run:             {run}");
+                b.AppendLine($"  {labels[2].PadRight(width)}{run}");
             }
 
             // Labelled here above all. This is where a value is oldest — nobody has confirmed an
@@ -578,7 +602,7 @@ public static class PlainText
             if (entry.Summary.Codebase is { } codebase)
             {
                 b.AppendLine(
-                    $"  Codebase:        {codebase}  {Label(entry.Summary.CodebaseProvenance, now)}"
+                    $"  {labels[3].PadRight(width)}{codebase}  {Label(entry.Summary.CodebaseProvenance, now)}"
                         .TrimEnd());
             }
 
@@ -587,7 +611,7 @@ public static class PlainText
 
         if (entries.Count == 0)
         {
-            b.AppendLine("Nothing matched.");
+            b.AppendLine(Say(tag, "archive.empty"));
         }
 
         return b.ToString();
@@ -681,31 +705,32 @@ public static class PlainText
 
         var b = new StringBuilder();
 
-        b.AppendLine("THE ECOSYSTEM");
-        Wrap(b, EcosystemCopy.NoTotals);
+        b.AppendLine(Say(tag, "ecosystem.title").ToUpperInvariant());
+        Wrap(b, EcosystemCopy.NoTotals(tag));
         b.AppendLine();
-        Wrap(b, $"{dashboard.ListedGames} games listed · "
-            + $"{EcosystemCopy.Handshakes(dashboard.Handshakes)} · "
-            + $"{EcosystemCopy.MsspReports(dashboard.MsspReports)}.");
+        Wrap(b, Say(tag, "ecosystem.plain.counts",
+            ("listed", EcosystemCopy.Listed(tag, dashboard.ListedGames)),
+            ("handshakes", EcosystemCopy.Handshakes(tag, dashboard.Handshakes)),
+            ("mssp", EcosystemCopy.MsspReports(tag, dashboard.MsspReports))));
 
         if (dashboard.OldestHandshake is { } oldest)
         {
-            Wrap(b, "The oldest handshake in this picture was last confirmed "
-                + $"{Relative.Format(now - oldest)} ago.");
+            Wrap(b, Say(tag, "ecosystem.plain.oldestHandshake",
+                ("age", Relative.Format(now - oldest))));
         }
 
-        Heading(b, "CODEBASES");
-        Wrap(b, EcosystemCopy.CodebaseBasis(dashboard.Codebases));
+        Heading(b, Say(tag, "ecosystem.codebases.title").ToUpperInvariant());
+        Wrap(b, EcosystemCopy.CodebaseBasis(tag, dashboard.Codebases));
         b.AppendLine();
 
         foreach (var family in dashboard.Codebases.Shared)
         {
-            b.AppendLine($"  {family.Label,-24} {EcosystemCopy.Share(family)}");
+            b.AppendLine($"  {family.Label,-24} {EcosystemCopy.Share(tag, family)}");
         }
 
         if (dashboard.Codebases.Families.Count == 0)
         {
-            b.AppendLine("  No listed game has told us its codebase yet.");
+            b.AppendLine("  " + Say(tag, "ecosystem.codebases.none"));
         }
 
         // The graphic folds these behind a disclosure and this surface has none, so it prints them
@@ -714,7 +739,7 @@ public static class PlainText
         if (dashboard.Codebases.SoleUse.Count > 0)
         {
             b.AppendLine();
-            Wrap(b, EcosystemCopy.SoleUse(dashboard.Codebases), "  ");
+            Wrap(b, EcosystemCopy.SoleUse(tag, dashboard.Codebases), "  ");
             b.AppendLine();
 
             foreach (var alone in dashboard.Codebases.SoleUse)
@@ -724,39 +749,37 @@ public static class PlainText
         }
 
 
-        Heading(b, "LINEAGES");
-        Wrap(b, "The same games, grouped by the tradition their server descends from. This is "
-            + $"{FacetWords.Evidence(tag, FacetEvidence.Derived)} — "
-            + $"{FacetWords.EvidenceMeaning(tag, FacetEvidence.Derived)} — and not anything a game "
-            + "published: no game reports \"MUSH\", because MSSP has no such value and most of the "
-            + "MUSH world publishes no MSSP at all.");
+        Heading(b, Say(tag, "ecosystem.lineages.title").ToUpperInvariant());
+        Wrap(b, Say(tag, "ecosystem.plain.lineages",
+            ("evidence", FacetWords.Evidence(tag, FacetEvidence.Derived)),
+            ("meaning", FacetWords.EvidenceMeaning(tag, FacetEvidence.Derived))));
         b.AppendLine();
 
         foreach (var lineage in dashboard.Codebases.Lineages)
         {
-            b.AppendLine($"  {lineage.Label,-24} {EcosystemCopy.Share(lineage)}");
+            b.AppendLine($"  {lineage.Label,-24} {EcosystemCopy.Share(tag, lineage)}");
         }
 
         if (dashboard.Codebases.Lineages.Count == 0)
         {
-            b.AppendLine("  No listed game runs a codebase we place in a lineage yet.");
+            b.AppendLine("  " + Say(tag, "ecosystem.lineages.none"));
         }
 
         if (dashboard.Codebases.NotClassified > 0)
         {
             b.AppendLine();
-            Wrap(b, $"{dashboard.Codebases.NotClassified} of those game(s) run a codebase we do not "
-                + "place in any lineage — several publish FAMILY Custom, saying so themselves. They "
-                + "are inside the denominator above and in nobody's share.", "  ");
+            Wrap(b, Say(tag, "ecosystem.lineages.notClassified",
+                ("count", dashboard.Codebases.NotClassified),
+                ("family", EcosystemCopy.CustomFamily)), "  ");
         }
 
-        Heading(b, "PROTOCOLS");
-        Wrap(b, EcosystemCopy.Floor);
+        Heading(b, Say(tag, "ecosystem.protocols.title").ToUpperInvariant());
+        Wrap(b, EcosystemCopy.Floor(tag));
 
         if (dashboard.Mssp is { } mssp)
         {
             b.AppendLine();
-            Wrap(b, EcosystemCopy.MsspBasis(mssp, dashboard.MsspReports));
+            Wrap(b, EcosystemCopy.MsspBasis(tag, mssp, dashboard.MsspReports));
         }
 
         b.AppendLine();
@@ -764,19 +787,21 @@ public static class PlainText
         foreach (var protocol in dashboard.Protocols)
         {
             b.AppendLine($"  {protocol.Protocol}");
-            Wrap(b, $"measured: {EcosystemCopy.Measured(protocol)}", "    ");
-            Wrap(b, $"declared: {EcosystemCopy.Declared(protocol)}", "    ");
+            Wrap(b, Say(tag, "ecosystem.plain.measured",
+                ("value", EcosystemCopy.Measured(tag, protocol))), "    ");
+            Wrap(b, Say(tag, "ecosystem.plain.declared",
+                ("value", EcosystemCopy.Declared(tag, protocol))), "    ");
         }
 
         b.AppendLine();
-        Wrap(b, $"Measured is of {EcosystemCopy.Handshakes(dashboard.Handshakes)}; declared is of "
-            + $"{EcosystemCopy.MsspReports(dashboard.MsspReports)}. Two sets of games, so two "
-            + "denominators.");
+        Wrap(b, Say(tag, "ecosystem.plain.denominators",
+            ("measured", EcosystemCopy.Handshakes(tag, dashboard.Handshakes)),
+            ("declared", EcosystemCopy.MsspReports(tag, dashboard.MsspReports))));
 
-        Heading(b, "A SNAPSHOT, NOT A CURVE");
-        Wrap(b, EcosystemCopy.NoCurve);
+        Heading(b, Say(tag, "ecosystem.snapshot.title").ToUpperInvariant());
+        Wrap(b, EcosystemCopy.NoCurve(tag));
         b.AppendLine();
-        Wrap(b, EcosystemCopy.Transitions(dashboard.CapabilityTransitions));
+        Wrap(b, EcosystemCopy.Transitions(tag, dashboard.CapabilityTransitions));
 
         return b.ToString();
     }
@@ -952,40 +977,47 @@ public static class PlainText
         Messages.For(tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 
     /// <summary>The rankings, with every basis in the same words the rendered page uses.</summary>
-    public static string RenderRankings(Rankings rankings, DateTimeOffset now)
+    public static string RenderRankings(
+        Rankings rankings, DateTimeOffset now, string tag = Locales.SourceTag)
     {
         ArgumentNullException.ThrowIfNull(rankings);
 
         var b = new StringBuilder();
+        var days = (int)rankings.Window.TotalDays;
 
-        b.AppendLine("RANKINGS");
-        Wrap(b, EcosystemCopy.NoVote);
+        b.AppendLine(Say(tag, "rankings.title").ToUpperInvariant());
+        Wrap(b, EcosystemCopy.NoVote(tag));
 
-        Heading(b, $"BUSIEST — median measured players, last {(int)rankings.Window.TotalDays} days");
-        Wrap(b, EcosystemCopy.BusiestBasis(rankings));
+        Heading(b, Say(tag, "rankings.plain.busiest", ("days", days)).ToUpperInvariant());
+        Wrap(b, EcosystemCopy.BusiestBasis(tag, rankings));
         b.AppendLine();
-        Wrap(b, EcosystemCopy.SpanChoice);
+        Wrap(b, EcosystemCopy.SpanChoice(tag));
         b.AppendLine();
 
         // The three windows as addresses, because a text browser cannot use a tab strip and the
         // choice must survive here or the graphical selector is decoration (spec §9). One per line:
         // the addresses do not fit on one inside eighty columns, and a wrapped URL is not clickable
         // in the browsers this surface exists for.
-        b.AppendLine("  windows:");
+        b.AppendLine("  " + Say(tag, "rankings.plain.windows"));
+
+        // The width the three labels are padded to is measured rather than assumed: "7 days" is
+        // six columns and its German is nine, and a hard -8 would have run the address into it.
+        var labels = RankingSpans.All.ToDictionary(s => s, s => EcosystemCopy.SpanLabel(tag, s));
+        var width = labels.Values.Max(l => l.Length);
+        var here = Say(tag, "rankings.plain.thisOne");
 
         foreach (var span in RankingSpans.All)
         {
             b.AppendLine(span == rankings.Span
-                ? $"    [{EcosystemCopy.SpanLabel(span),-8}] this one"
-                : $"     {EcosystemCopy.SpanLabel(span),-8}  /rankings?window={span.Slug()}&plain=1");
+                ? $"    [{labels[span].PadRight(width)}] {here}"
+                : $"     {labels[span].PadRight(width)}  /rankings?window={span.Slug()}&plain=1");
         }
 
         b.AppendLine();
 
         if (rankings.Busiest.Count == 0)
         {
-            Wrap(b, "No listed game has enough counted samples to rank yet — a statement about how "
-                + "long we have been measuring, not about how busy anybody is.", "  ");
+            Wrap(b, Say(tag, "rankings.busiest.empty"), "  ");
         }
 
         var place = 0;
@@ -994,18 +1026,21 @@ public static class PlainText
         {
             place++;
             b.AppendLine($"  {place,3}  {game.Name}");
-            b.AppendLine($"       median {game.Median} · peak {game.Peak} · "
-                + $"{game.Samples} counted samples over {game.Days} of "
-                + $"{(int)rankings.Window.TotalDays} days · /g/{game.Slug}");
+            Wrap(b, Say(tag, "rankings.plain.row",
+                ("median", game.Median),
+                ("peak", game.Peak),
+                ("samples", game.Samples),
+                ("days", game.Days),
+                ("window", days)) + $" · /g/{game.Slug}", "       ");
         }
 
-        Heading(b, "LONGEST UNBROKEN REACHABLE SPELL");
-        Wrap(b, EcosystemCopy.SpellBasis);
+        Heading(b, Say(tag, "rankings.spells.title").ToUpperInvariant());
+        Wrap(b, EcosystemCopy.SpellBasis(tag));
         b.AppendLine();
 
         if (rankings.LongestUnbroken.Count == 0)
         {
-            Wrap(b, "No listed game is in an unbroken reachable spell right now.", "  ");
+            Wrap(b, Say(tag, "rankings.spells.empty"), "  ");
         }
 
         place = 0;
@@ -1014,8 +1049,9 @@ public static class PlainText
         {
             place++;
             b.AppendLine($"  {place,3}  {spell.Name}");
-            b.AppendLine($"       reachable on every probe since {spell.Since:d MMMM yyyy} · "
-                + $"{Wording.Duration(spell.LengthAt(now))} · /g/{spell.Slug}");
+            Wrap(b, Say(tag, "rankings.plain.spellRow",
+                ("date", Dates.Absolute(spell.Since)),
+                ("duration", Wording.Duration(spell.LengthAt(now)))) + $" · /g/{spell.Slug}", "       ");
         }
 
         return b.ToString();

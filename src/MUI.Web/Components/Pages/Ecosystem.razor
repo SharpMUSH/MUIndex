@@ -24,33 +24,38 @@
 
 @if (Plain)
 {
-    <pre class="mono plain">@PlainText.RenderEcosystem(Dashboard, Now)</pre>
+    <pre class="mono plain">@PlainText.RenderEcosystem(Dashboard, Now, Tag)</pre>
 }
 else
 {
     <SitePreview Title="The ecosystem" Description="@PreviewCopy.Pages.Ecosystem" />
 
-    <h1>The ecosystem</h1>
-    <p class="dim">@EcosystemCopy.NoTotals</p>
+    <h1>@L("ecosystem.title")</h1>
+    <p class="dim">@EcosystemCopy.NoTotals(Tag)</p>
 
+    @*
+        The numeral is drawn heavier than the words around it, and it is an argument to the
+        sentence rather than a fragment glued in front of one — so a language that puts the number
+        last may, and a translator opening the resx meets no markup at all.
+    *@
     <ul class="counts mono">
-        <li><strong>@Dashboard.ListedGames</strong> games listed</li>
-        <li><strong>@Dashboard.Handshakes</strong> whose handshake we completed</li>
-        <li><strong>@Dashboard.MsspReports</strong> whose MSSP report we hold</li>
+        <li>@Counted("ecosystem.listed", Dashboard.ListedGames)</li>
+        <li>@Counted("ecosystem.handshakes", Dashboard.Handshakes)</li>
+        <li>@Counted("ecosystem.msspReports", Dashboard.MsspReports)</li>
     </ul>
 
     @if (Dashboard.OldestHandshake is { } oldest)
     {
-        <p class="faint">Oldest handshake here: confirmed @Relative.Format(Now - oldest) ago.</p>
+        <p class="faint">@Say("ecosystem.oldestHandshake", ("age", Relative.Format(Now - oldest)))</p>
     }
 
     <section aria-labelledby="codebases">
-        <h2 id="codebases">Codebases</h2>
-        <p class="dim">@EcosystemCopy.CodebaseBasis(Dashboard.Codebases)</p>
+        <h2 id="codebases">@L("ecosystem.codebases.title")</h2>
+        <p class="dim">@EcosystemCopy.CodebaseBasis(Tag, Dashboard.Codebases)</p>
 
         @if (Dashboard.Codebases.Families.Count == 0)
         {
-            <p class="faint">No listed game has told us its codebase yet.</p>
+            <p class="faint">@L("ecosystem.codebases.none")</p>
         }
 
         <ul class="shares">
@@ -65,7 +70,7 @@ else
                     <span class="share-track" aria-hidden="true">
                         <span class="share-fill" style="width: @Percent(family.Fraction)"></span>
                     </span>
-                    <span class="share-figure mono">@EcosystemCopy.Share(family)</span>
+                    <span class="share-figure mono">@EcosystemCopy.Share(Tag, family)</span>
                 </li>
             }
         </ul>
@@ -76,7 +81,7 @@ else
         @if (Dashboard.Codebases.SoleUse.Count > 0)
         {
             <details class="sole-use">
-                <summary>@EcosystemCopy.SoleUse(Dashboard.Codebases)</summary>
+                <summary>@EcosystemCopy.SoleUse(Tag, Dashboard.Codebases)</summary>
                 <ul class="sole-use-names">
                     @foreach (var alone in Dashboard.Codebases.SoleUse)
                     {
@@ -90,24 +95,21 @@ else
     </section>
 
     <section aria-labelledby="lineages">
-        <h2 id="lineages">Lineages</h2>
+        <h2 id="lineages">@L("ecosystem.lineages.title")</h2>
 
         @* The one panel on this page whose numbers we are the author of, and it says so in the
            first clause rather than in a footnote. Everything else here is a count of what servers
            did or published; this is a count of a judgement. *@
         <p class="dim">
-            The same games, grouped by the tradition their server descends from — our reading of the
-            codebase, not anything a game published. No game reports "MUSH": MSSP has no such value,
-            and most of the MUSH world publishes no MSSP at all, so this is the only way the question
-            can be asked.
+            @L("ecosystem.lineages.basis")
             <span class="evidence derived">
-                <span aria-hidden="true">◆</span> @FacetWords.Evidence(Http.LocaleOf().Tag, FacetEvidence.Derived)
+                <span aria-hidden="true">◆</span> @FacetWords.Evidence(Tag, FacetEvidence.Derived)
             </span>
         </p>
 
         @if (Dashboard.Codebases.Lineages.Count == 0)
         {
-            <p class="faint">No listed game runs a codebase we place in a lineage yet.</p>
+            <p class="faint">@L("ecosystem.lineages.none")</p>
         }
 
         <ul class="shares">
@@ -120,7 +122,7 @@ else
                     <span class="share-track" aria-hidden="true">
                         <span class="share-fill derived" style="width: @Percent(lineage.Fraction)"></span>
                     </span>
-                    <span class="share-figure mono">@EcosystemCopy.Share(lineage)</span>
+                    <span class="share-figure mono">@EcosystemCopy.Share(Tag, lineage)</span>
                 </li>
             }
         </ul>
@@ -130,36 +132,41 @@ else
             @* Our abstention, kept out of everyone else's bar. Counting only the games we placed
                would make these add to 100% and inflate every one of them by exactly the amount we
                did not know. *@
+            @* The MSSP value itself is machine voice and carries its own marking, so it reaches
+               the sentence as an argument rather than as a span the message has to be cut around.
+               Both are ours: the pattern is the source bundle's and the argument is a constant. *@
             <p class="faint">
-                @Dashboard.Codebases.NotClassified of those
-                @(Dashboard.Codebases.NotClassified == 1 ? "games runs a codebase" : "games run codebases")
-                we do not place in any lineage — several say as much themselves, publishing
-                <span class="mono">FAMILY Custom</span>. They are inside the denominator above and
-                in nobody's share.
+                @((MarkupString)Say(
+                    "ecosystem.lineages.notClassified",
+                    ("count", Dashboard.Codebases.NotClassified),
+                    ("family", $"<span class=\"mono\" translate=\"no\">{System.Net.WebUtility.HtmlEncode(EcosystemCopy.CustomFamily)}</span>")))
             </p>
         }
     </section>
 
     <section aria-labelledby="protocols">
-        <h2 id="protocols">Protocols</h2>
-        <p class="dim">@EcosystemCopy.Floor</p>
+        <h2 id="protocols">@L("ecosystem.protocols.title")</h2>
+        <p class="dim">@EcosystemCopy.Floor(Tag)</p>
 
         @if (Dashboard.Mssp is { } mssp)
         {
-            <p class="faint">@EcosystemCopy.MsspBasis(mssp, Dashboard.MsspReports)</p>
+            <p class="faint">@EcosystemCopy.MsspBasis(Tag, mssp, Dashboard.MsspReports)</p>
         }
 
         <div class="table-wrap">
             <table class="protocols">
-                <caption class="sr-only">
-                    Protocol adoption. Measured is what a server offered in a completed handshake;
-                    declared is what its MSSP claims. Two sets of games, so two denominators.
-                </caption>
+                <caption class="sr-only">@L("ecosystem.protocols.caption")</caption>
                 <thead>
                     <tr>
-                        <th scope="col">protocol</th>
-                        <th scope="col">measured — of @EcosystemCopy.Handshakes(Dashboard.Handshakes)</th>
-                        <th scope="col">declared — of @EcosystemCopy.MsspReports(Dashboard.MsspReports)</th>
+                        <th scope="col">@L("ecosystem.column.protocol")</th>
+                        <th scope="col">
+                            @Say("ecosystem.column.measured",
+                                 ("basis", EcosystemCopy.Handshakes(Tag, Dashboard.Handshakes)))
+                        </th>
+                        <th scope="col">
+                            @Say("ecosystem.column.declared",
+                                 ("basis", EcosystemCopy.MsspReports(Tag, Dashboard.MsspReports)))
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -175,11 +182,11 @@ else
                                     </span>
                                 }
                                 <span class="@(protocol.Measured is null ? "faint" : "mono")">
-                                    @EcosystemCopy.Measured(protocol)
+                                    @EcosystemCopy.Measured(Tag, protocol)
                                 </span>
                             </td>
                             <td class="declared @(protocol.DeclaredShare is null ? "faint" : "mono")">
-                                @EcosystemCopy.Declared(protocol)
+                                @EcosystemCopy.Declared(Tag, protocol)
                             </td>
                         </tr>
                     }
@@ -197,13 +204,17 @@ else
         *@
         @if (Curves.Any(c => c.IsCurve))
         {
-            <h2 id="curve">Adoption over time</h2>
-            <p class="dim">@EcosystemCopy.CurveCaveat</p>
+            <h2 id="curve">@L("ecosystem.curve.title")</h2>
+            <p class="dim">@EcosystemCopy.CurveCaveat(Tag)</p>
 
             <table class="curve">
-                <caption class="sr-only">Measured share of each protocol, oldest reading first</caption>
+                <caption class="sr-only">@L("ecosystem.curve.caption")</caption>
                 <thead>
-                    <tr><th scope="col">protocol</th><th scope="col">then</th><th scope="col">now</th></tr>
+                    <tr>
+                        <th scope="col">@L("ecosystem.column.protocol")</th>
+                        <th scope="col">@L("ecosystem.curve.then")</th>
+                        <th scope="col">@L("ecosystem.curve.now")</th>
+                    </tr>
                 </thead>
                 <tbody>
                     @foreach (var curve in Curves.Where(c => c.IsCurve))
@@ -223,17 +234,17 @@ else
         }
         else
         {
-            <h2 id="curve">A snapshot, not a curve</h2>
-            <p class="dim">@EcosystemCopy.NoCurve</p>
+            <h2 id="curve">@L("ecosystem.snapshot.title")</h2>
+            <p class="dim">@EcosystemCopy.NoCurve(Tag)</p>
         }
 
-        <p class="mono">@EcosystemCopy.Transitions(Dashboard.CapabilityTransitions)</p>
+        <p class="mono">@EcosystemCopy.Transitions(Tag, Dashboard.CapabilityTransitions)</p>
     </section>
 
     <p class="faint">
-        <a href="/rankings">rankings</a> ·
-        <a href="/games">all games</a> ·
-        <a href="?plain=1">plain text</a>
+        <a href="/rankings">@L("nav.rankings")</a> ·
+        <a href="/games">@L("footer.allGames")</a> ·
+        <a href="?plain=1">@L("a11y.plainText")</a>
     </p>
 }
 
@@ -287,8 +298,15 @@ else
     }
 
     /// <summary>A share, or the honest absence of one.</summary>
-    private static string Share(MeasuredShare? share) =>
-        share?.Fraction is { } fraction ? Percent(fraction) : "not measured";
+    /// <remarks>
+    /// A curve's cell carries the percentage alone — the denominator is the column head — so this
+    /// is the one figure here that is not <see cref="EcosystemCopy.Share"/>. The absence keeps its
+    /// own id: an unmeasured protocol share and an unmeasured hour of the week are the same three
+    /// words in English and need not be in anything else.
+    /// </remarks>
+    private string Share(MeasuredShare? share) => share?.Fraction is { } fraction
+        ? Say("ecosystem.share.percent", ("fraction", fraction))
+        : L("ecosystem.curve.notMeasured");
 
     /// <summary>
     /// A bar width, formatted by hand and under the invariant culture.
@@ -305,4 +323,25 @@ else
 
     /// <summary>The locale this page is being answered in.</summary>
     [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    private string L(string id) => Messages.For(Tag, id);
+
+    private string Say(string id, params (string Key, object? Value)[] args) =>
+        Messages.For(Tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
+
+    /// <summary>
+    /// One of the three counts at the top, with the numeral drawn heavier than the words.
+    /// </summary>
+    /// <remarks>
+    /// The markup is an argument rather than a seam in the message, which is what lets a language
+    /// put the number somewhere English does not — and what keeps the resx a translator opens free
+    /// of tags. The pattern is ours and the only argument is a number we formatted, so nothing
+    /// reader-supplied reaches <see cref="MarkupString"/>.
+    /// </remarks>
+    private MarkupString Counted(string id, int count) => (MarkupString)Say(
+        id,
+        ("count", count),
+        ("value", $"<strong>{System.Net.WebUtility.HtmlEncode(count.ToString(System.Globalization.CultureInfo.InvariantCulture))}</strong>"));
 }

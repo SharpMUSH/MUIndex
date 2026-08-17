@@ -1,4 +1,5 @@
 using MUI.Catalog;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Components;
 
@@ -19,9 +20,24 @@ namespace MUI.Web.Components;
 /// a bar beside the number and the other does not, and the bar is an illustration of a sentence that
 /// is already complete without it.
 /// </para>
+/// <para>
+/// <b>Every member takes the locale first.</b> These are sentences rather than fragments and the
+/// numbers inside them agree with the language they are spoken in, so there is no locale-free form
+/// of any of them to fall back on — the same convention <see cref="FacetWords"/> and
+/// <see cref="ActiveFilters"/> already keep.
+/// </para>
 /// </remarks>
 public static class EcosystemCopy
 {
+    /// <summary>
+    /// The MSSP field and value a game publishes to say its codebase belongs to no family.
+    /// </summary>
+    /// <remarks>
+    /// Machine voice, so it is an argument to the lineage sentence rather than words inside it: a
+    /// locale that translated <c>FAMILY Custom</c> would be naming a field no server has.
+    /// </remarks>
+    public const string CustomFamily = "FAMILY Custom";
+
     /// <summary>
     /// A share as a number over the set it was counted in, always in that order.
     /// </summary>
@@ -29,14 +45,19 @@ public static class EcosystemCopy
     /// The count and the denominator come first and the percentage second, because the percentage is
     /// the derived figure and the one that travels when somebody quotes the page. An empty
     /// denominator reads as nothing measured rather than as nought per cent — 0 of 0 is not 0%.
+    /// The percentage goes through the message formatter rather than through a format string,
+    /// because a decimal comma and the space some locales put before the sign are part of the
+    /// language and not of the number.
     /// </remarks>
-    public static string Share(MeasuredShare share)
+    public static string Share(string tag, MeasuredShare share)
     {
         ArgumentNullException.ThrowIfNull(share);
 
         return share.Fraction is { } fraction
-            ? $"{share.Count} of {share.Denominator} ({Wording.Percent(fraction)})"
-            : $"{share.Count} of {share.Denominator} — nothing measured yet";
+            ? Say(tag, "ecosystem.share",
+                ("count", share.Count), ("total", share.Denominator), ("fraction", fraction))
+            : Say(tag, "ecosystem.share.nothing",
+                ("count", share.Count), ("total", share.Denominator));
     }
 
     /// <summary>
@@ -50,15 +71,13 @@ public static class EcosystemCopy
     /// direction it exists to catch, on the page that argues for it, so the denominator and the set
     /// it was drawn from are now in the same sentence and neither can be mistaken for the other.
     /// </remarks>
-    public static string CodebaseBasis(CodebaseUsage codebases)
+    public static string CodebaseBasis(string tag, CodebaseUsage codebases)
     {
         ArgumentNullException.ThrowIfNull(codebases);
 
-        var listed = codebases.Identified + codebases.NotIdentified;
-
-        return $"Of the {Games(listed)} listed, {codebases.Identified} told us what they run, and "
-            + $"every share below is over those {codebases.Identified}. A codebase we could not "
-            + "read is left out of the denominator, never counted as something else.";
+        return Say(tag, "ecosystem.codebases.basis",
+            ("listed", codebases.Identified + codebases.NotIdentified),
+            ("identified", codebases.Identified));
     }
 
     /// <summary>
@@ -76,13 +95,11 @@ public static class EcosystemCopy
     /// claims — one game each, still inside the denominator — is checkable against the list it opens.
     /// </para>
     /// </remarks>
-    public static string SoleUse(CodebaseUsage codebases)
+    public static string SoleUse(string tag, CodebaseUsage codebases)
     {
         ArgumentNullException.ThrowIfNull(codebases);
 
-        return $"{Share(codebases.SoleUseTotal)} run a codebase no other listed game runs — one "
-            + "game each, which is a name rather than a share. They are inside the denominator "
-            + "above and folded out of the bars, not dropped:";
+        return Say(tag, "ecosystem.soleUse", ("share", Share(tag, codebases.SoleUseTotal)));
     }
 
     /// <summary>
@@ -94,15 +111,12 @@ public static class EcosystemCopy
     /// than the set offering MSSP today. Two numbers a reader can subtract have to be reconciled on
     /// the page — left alone they read as an arithmetic error, which is how this one was found.
     /// </remarks>
-    public static string MsspBasis(ProtocolAdoption mssp, int reports)
+    public static string MsspBasis(string tag, ProtocolAdoption mssp, int reports)
     {
         ArgumentNullException.ThrowIfNull(mssp);
 
-        var opening = $"{EcosystemProtocols.Instrument} is the one row below that is not a floor: "
-            + "we ask every server for it by name, so the games that did not offer it were asked "
-            + "and declined. It is also the only one with no declared figure, because every game "
-            + "whose report we hold supports it by demonstration and a count of the ones that also "
-            + "listed it would measure a habit against that.";
+        var opening = Say(tag, "ecosystem.mssp.instrument",
+            ("instrument", EcosystemProtocols.Instrument));
 
         if (mssp.Offered is not { } offered)
         {
@@ -113,21 +127,31 @@ public static class EcosystemCopy
 
         return gap <= 0
             ? opening
-            : $"{opening} We hold {reports} reports and {Games(offered)} offer MSSP today: the "
-                + $"other {gap} stopped publishing one after we read it, and a report is not "
-                + "thrown away because it stopped being reissued.";
+            : opening + " " + Say(tag, "ecosystem.mssp.gap",
+                ("reports", reports), ("offered", offered), ("gap", gap));
     }
 
     /// <summary>What the measured column is a fraction of, spelled out wherever it is used.</summary>
-    public static string Handshakes(int games) =>
-        $"{Games(games)} whose handshake we completed";
+    public static string Handshakes(string tag, int games) =>
+        Say(tag, "ecosystem.handshakes", ("count", games), ("value", games));
 
     /// <summary>What the declared column is a fraction of. A different set, deliberately named apart.</summary>
-    public static string MsspReports(int games) =>
-        $"{Games(games)} whose MSSP report we hold";
+    public static string MsspReports(string tag, int games) =>
+        Say(tag, "ecosystem.msspReports", ("count", games), ("value", games));
 
-    /// <summary>The measured side of one protocol, including the case where there is no measurement.</summary>
-    public static string Measured(ProtocolAdoption protocol)
+    /// <summary>How many games are listed at all — the set the two denominators are drawn from.</summary>
+    public static string Listed(string tag, int games) =>
+        Say(tag, "ecosystem.listed", ("count", games), ("value", games));
+
+    /// <summary>
+    /// The measured side of one protocol, including the case where there is no measurement.
+    /// </summary>
+    /// <remarks>
+    /// Four ids and not a share with clauses appended. "· 6 games neither offered nor asked" is a
+    /// fragment in English word order, and a language that puts the qualification first or inflects
+    /// the noun for the clause it sits in has nowhere to say so if the sentence arrives in pieces.
+    /// </remarks>
+    public static string Measured(string tag, ProtocolAdoption protocol)
     {
         ArgumentNullException.ThrowIfNull(protocol);
 
@@ -136,16 +160,21 @@ public static class EcosystemCopy
             // Never "0%". Nothing has ever been observed to offer this, which is a statement about
             // our reach and not about the hobby — TLS is the standing case, because the crawler dials
             // plain telnet and TLS is not a telnet option.
-            return "not measured — never observed";
+            return Say(tag, "ecosystem.measured.never");
         }
 
-        var rest = protocol.Declined > 0
-            ? $" · {Games(protocol.Declined)} declined when asked"
-            : string.Empty;
+        var figure = Share(tag, share);
 
-        return protocol.Unobserved > 0
-            ? $"{Share(share)}{rest} · {Games(protocol.Unobserved)} neither offered nor asked"
-            : $"{Share(share)}{rest}";
+        return (protocol.Declined > 0, protocol.Unobserved > 0) switch
+        {
+            (true, true) => Say(tag, "ecosystem.measured.declinedAndUnasked",
+                ("share", figure), ("declined", protocol.Declined), ("unobserved", protocol.Unobserved)),
+            (true, false) => Say(tag, "ecosystem.measured.declined",
+                ("share", figure), ("declined", protocol.Declined)),
+            (false, true) => Say(tag, "ecosystem.measured.unasked",
+                ("share", figure), ("unobserved", protocol.Unobserved)),
+            _ => figure,
+        };
     }
 
     /// <summary>
@@ -157,13 +186,13 @@ public static class EcosystemCopy
     /// is MSSP and only MSSP: every game whose report we hold has proved it supports MSSP by
     /// sending one, so there is no population left over to be a share of.
     /// </remarks>
-    public static string Declared(ProtocolAdoption protocol)
+    public static string Declared(string tag, ProtocolAdoption protocol)
     {
         ArgumentNullException.ThrowIfNull(protocol);
 
         return protocol.DeclaredShare is { } share
-            ? Share(share)
-            : "not asked — every report here is the answer";
+            ? Share(tag, share)
+            : Say(tag, "ecosystem.declared.none");
     }
 
     /// <summary>
@@ -176,22 +205,15 @@ public static class EcosystemCopy
     /// honest reading of the measured column is a floor, and a page that renders it without saying so
     /// publishes our own instrumentation as a fact about somebody's game.
     /// </remarks>
-    public const string Floor =
-        "Read every measured figure below as a floor. We ask for MSSP by name, so silence there is "
-        + "an answer. Nothing else here is requested, and a server may support a protocol without "
-        + "ever offering it.";
+    public static string Floor(string tag) => Say(tag, "ecosystem.protocols.floor");
 
     /// <summary>Why there is a snapshot here and not the curve §9 asks for.</summary>
     /// <remarks>
-    /// The alternative was available and is the reason this paragraph exists: every observation
+    /// The alternative was available and is the reason this sentence exists: every observation
     /// carries a <c>first_seen_at</c>, and plotting those would draw a confident rising line that
     /// measures our crawler reaching more games and nothing whatever about adoption.
     /// </remarks>
-    public const string NoCurve =
-        "A snapshot of what we can measure now. An adoption curve plots games changing their minds, "
-        + "and we record a change when it happens, so the curve becomes drawable once enough have "
-        + "been recorded. Plotting when we first reached each game would measure the crawl, not the "
-        + "hobby.";
+    public static string NoCurve(string tag) => Say(tag, "ecosystem.snapshot");
 
     /// <summary>
     /// What a drawn curve does and does not measure, said beside the curve rather than under it.
@@ -203,40 +225,40 @@ public static class EcosystemCopy
     /// DikuMUDs would move every share on this page without one game having changed anything, and a
     /// reader deserves to be told that before they read a slope as a trend.
     /// </remarks>
-    public const string CurveCaveat =
-        "Each point is a share over the games we had measured that day, so this line moves for two "
-        + "reasons: a game changing what it offers, and the set of games we can measure changing "
-        + "around it. Only the first is adoption. The transition count below is the part that is "
-        + "purely games changing their minds.";
+    public static string CurveCaveat(string tag) => Say(tag, "ecosystem.curve.caveat");
 
     /// <summary>Why there is no headline population figure, said where somebody might look for one.</summary>
-    public const string NoTotals =
-        "Shares, never totals. We do not publish a figure for how many people play MU*: a ratio over "
-        + "the games we measured survives the ones we cannot reach, and a headcount does not.";
+    public static string NoTotals(string tag) => Say(tag, "ecosystem.noTotals");
 
     /// <summary>How many capability transitions have been recorded, and what that means for the curve.</summary>
-    public static string Transitions(int transitions) => transitions == 0
-        ? "No measured capability has changed yet, so there is nothing to plot."
-        : $"{Recorded(transitions)} recorded so far — the material a curve is drawn from.";
+    public static string Transitions(string tag, int transitions) => transitions == 0
+        ? Say(tag, "ecosystem.transitions.none")
+        : Say(tag, "ecosystem.transitions", ("count", transitions));
 
     /// <summary>The basis of the busiest table, stated on the page rather than in a footnote.</summary>
-    public static string BusiestBasis(Rankings rankings)
+    public static string BusiestBasis(string tag, Rankings rankings)
     {
         ArgumentNullException.ThrowIfNull(rankings);
 
         // "0 of 519 games listed produced the 24 counted samples a median needs, on at least 4 days
         // of the window" is arithmetic where a sentence would do. Where nothing qualifies, say that;
-        // where something does, the count is the fact and the threshold follows it.
-        var basis = $"Median of the player counts we measured over the last "
-            + $"{(int)rankings.Window.TotalDays} days. ";
+        // where something does, the count is the fact and the threshold follows it. Three whole
+        // sentences joined by a space, so each one is a translator's unit rather than a clause.
+        var days = (int)rankings.Window.TotalDays;
 
         var eligible = rankings.Eligible == 0
-            ? $"No game yet has the {rankings.MinimumSamples} samples across "
-                + $"{Days(rankings.MinimumDays)} that a median needs. "
-            : $"{Games(rankings.Eligible)} of {rankings.ListedGames} have the "
-                + $"{rankings.MinimumSamples} samples across {Days(rankings.MinimumDays)} it needs. ";
+            ? Say(tag, "rankings.basis.none",
+                ("samples", rankings.MinimumSamples), ("days", rankings.MinimumDays))
+            : Say(tag, "rankings.basis.eligible",
+                ("eligible", rankings.Eligible),
+                ("listed", rankings.ListedGames),
+                ("samples", rankings.MinimumSamples),
+                ("days", rankings.MinimumDays));
 
-        return basis + eligible + "A measured zero counts; an unreadable count does not.";
+        return string.Join(' ',
+            Say(tag, "rankings.basis.median", ("days", days)),
+            eligible,
+            Say(tag, "rankings.basis.zero"));
     }
 
     /// <summary>
@@ -247,24 +269,19 @@ public static class EcosystemCopy
     /// sentence says so — a reader comparing the tabs is comparing "busy now" with "busy for
     /// months", and two games can honestly swap places between them.
     /// </remarks>
-    public const string SpanChoice =
-        "A week says who is busy now; a quarter says who has been busy. They are different questions "
-        + "and a game can lead one and not the other. Days are whole days, UTC.";
+    public static string SpanChoice(string tag) => Say(tag, "rankings.spanChoice");
 
     /// <summary>The window as it is offered in the selector.</summary>
-    public static string SpanLabel(RankingSpan span) => span switch
-    {
-        RankingSpan.Week => "7 days",
-        RankingSpan.Month => "30 days",
-        RankingSpan.Quarter => "90 days",
-        _ => $"{span.Days()} days",
-    };
+    /// <remarks>
+    /// One message for all three and for the fallback alike, rather than three literals and a
+    /// format string: the agreement is the same job in every case, and the day count is the only
+    /// thing that differs.
+    /// </remarks>
+    public static string SpanLabel(string tag, RankingSpan span) =>
+        Say(tag, "rankings.span", ("days", span.Days()));
 
     /// <summary>What the second table is, and the limit it cannot be read past.</summary>
-    public const string SpellBasis =
-        "Every probe since the date given found the game reachable. Reachable, not up: we measure a "
-        + "socket from one host, and a game we cannot route to is perfectly alive. A spell cannot be "
-        + "longer than we have been watching, so the date is the fact and the duration follows.";
+    public static string SpellBasis(string tag) => Say(tag, "rankings.spells.basis");
 
     /// <summary>
     /// Said on the rankings page, because §2 makes it permanent rather than pending.
@@ -275,13 +292,8 @@ public static class EcosystemCopy
     /// itself is the fact, and a reader who has arrived at a league table wants to know what it does
     /// and does not measure before they want the history.
     /// </remarks>
-    public const string NoVote =
-        "Computed from measured data only. No votes, stars or ratings, ever. Nothing here ranks "
-        + "quality. We have not measured it.";
+    public static string NoVote(string tag) => Say(tag, "rankings.noVote");
 
-    private static string Games(int n) => n == 1 ? "1 game" : $"{n} games";
-
-    private static string Days(int n) => n == 1 ? "1 day" : $"{n} days";
-
-    private static string Recorded(int n) => n == 1 ? "1 capability change" : $"{n} capability changes";
+    private static string Say(string tag, string id, params (string Key, object? Value)[] args) =>
+        Messages.For(tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 }
