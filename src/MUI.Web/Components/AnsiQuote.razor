@@ -1,3 +1,5 @@
+@using MUI.Web.Localization
+
 @*
     The ANSI quotation frame.
 
@@ -22,7 +24,7 @@
         @* The owner's choice, stated and nothing more. No accusation, no empty box, and the plate
            holds the same place the frame would have. *@
         <div class="ansi-plate">
-            <p>The owner asked us not to republish this game's connect screen.</p>
+            <p>@L("ansi.suppressed")</p>
         </div>
         break;
 
@@ -33,8 +35,8 @@
            measurement. *@
         <p class="faint">
             @(Screen.State is AnsiScreenState.Absent
-                ? "No connect screen has been captured from this game."
-                : $"Only {Screen.RowCount} {(Screen.RowCount == 1 ? "row" : "rows")} came back — too little to show.")
+                ? L("ansi.absent")
+                : L("ansi.tooSmall", ("count", Screen.RowCount)))
         </p>
         break;
 
@@ -66,11 +68,11 @@
                 the summary wears the kicker the handoff names.
             *@
             <details class="screen-text">
-                <summary><span class="kicker">read as text</span></summary>
+                <summary><span class="kicker">@L("a11y.readAsText")</span></summary>
                 <pre lang="@Language" translate="no">@Screen.PlainText</pre>
             </details>
             <figcaption>
-                <span>as sent by the server</span>
+                <span>@L("ansi.asSent")</span>
                 <span aria-hidden="true">·</span>
                 @*
                     The width in cells the screen actually occupies, not the width in characters.
@@ -78,27 +80,33 @@
                     80 columns is forty glyphs — and a caption claiming 80 tells anyone trying to
                     render it faithfully the wrong number (i18n S4).
                 *@
-                <span>@Columns×@Screen.RowCount@(DoubleWidth ? ", double-width" : string.Empty)</span>
+                <span>@L(DoubleWidth ? "ansi.size.doubleWidth" : "ansi.size",
+                        ("columns", Columns), ("rows", Screen.RowCount))</span>
                 <span aria-hidden="true">·</span>
-                <span>@Depth</span>
+                <span>@L(Depth)</span>
                 @if (Charset is { Length: > 0 } charset)
                 {
                     @* Only when it is not UTF-8 — see NpgsqlGameQueries.ScreenCharset. "read as"
                        rather than "encoded in", because that is the honest verb: it is what we
                        decoded the bytes with, and on a game that declares one encoding and sends
-                       another the two are different sentences. *@
+                       another the two are different sentences. The charset token itself is machine
+                       voice and goes in as an argument. *@
                     <span aria-hidden="true">·</span>
-                    <span>read as @charset</span>
+                    <span>@L("ansi.readAs", ("charset", charset))</span>
                 }
                 @if (CapturedAt is { } at)
                 {
+                    @* The word and the <time> beside it, rather than one message with the age
+                       substituted in: the age is a resolvable element with its own title, and
+                       flattening it to a string to make one sentence would cost a reader the
+                       machine-readable timestamp. See Moment. *@
                     <span aria-hidden="true">·</span>
-                    <span>captured <Moment At="at" Now="Now" Ago="true" Spoken="true" /></span>
+                    <span>@L("ansi.captured") <Moment At="at" Now="Now" Ago="true" Spoken="true" /></span>
                 }
                 @if (Frozen)
                 {
                     <span aria-hidden="true">·</span>
-                    <span>frozen — the last screen we saw</span>
+                    <span>@L("ansi.frozen")</span>
                 }
             </figcaption>
         </figure>
@@ -131,9 +139,19 @@
     /// </summary>
     private string? Language => ScreenLanguage.For(Charset);
 
+    /// <summary>The request, for the locale the frame around somebody else's screen is written in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    private string L(string id) => Messages.For(Tag, id);
+
+    private string L(string id, params (string Key, object? Value)[] args) =>
+        Messages.For(Tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
+
     private string Depth => Screen.Rows.SelectMany(r => r.Runs).Any(r => !r.Style.IsPlain)
-        ? "16-colour SGR"
-        : "no colour";
+        ? "ansi.depth.colour"
+        : "ansi.depth.plain";
 
     /// <summary>
     /// Whether this screen is drawn out of double-width glyphs.
@@ -182,8 +200,8 @@
     /// immediately below, unaltered.
     /// </remarks>
     private string Alternative => Name is { Length: > 0 } name
-        ? $"ASCII art: the connect screen of {name}. Its text is under \"read as text\", below."
-        : "ASCII art: this game's connect screen. Its text is under \"read as text\", below.";
+        ? L("ansi.alt.named", ("game", name))
+        : L("ansi.alt");
 
     /// <summary>
     /// Rows into spans. Written against the builder rather than as markup because a connect screen

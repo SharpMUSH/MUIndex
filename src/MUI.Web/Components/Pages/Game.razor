@@ -26,8 +26,8 @@
     @* Not reached over HTTP: OnParametersSetAsync signals not-found, and the framework answers with
        the site's own page and a 404 rather than with this. It is what a headless render of this
        component produces, where there is no response to give a status line to. *@
-    <h1>Not found</h1>
-    <p class="dim">No game at this address. Check the spelling.</p>
+    <h1>@L("game.notFound")</h1>
+    <p class="dim">@L("game.notFound.hint")</p>
 }
 else if (Plain)
 {
@@ -122,9 +122,11 @@ else
                         }
                         else
                         {
-                            @* Named as ours to have stopped reaching, never as theirs to have gone. *@
+                            @* Named as ours to have stopped reaching, never as theirs to have gone.
+                               The state itself is the catalogue's own token and stays machine voice. *@
                             <span class="faint">
-                                @e.State — last answered <Moment At="e.LastSeenAt" Now="Now" Ago="true" Spoken="true" />
+                                <span translate="no">@e.State</span> — @L("game.endpoint.lastAnswered")
+                                <Moment At="e.LastSeenAt" Now="Now" Ago="true" Spoken="true" />
                             </span>
                         }
                     </p>
@@ -166,12 +168,16 @@ else
         {
             <div class="archive-plate">
                 <p>
-                    Last answered <strong>@Entry.LastAnswered</strong>, @Entry.DarkFor(Now) ago.
-                    Still probed weekly; this page updates the day it answers.
+                    @L("game.archived.lastAnswered",
+                        ("date", Entry.LastAnswered), ("ago", Entry.DarkFor(Now)))
+                    @L("game.archived.stillProbed")
                 </p>
                 @if (Entry.Run is { } run)
                 {
-                    <p class="mono faint">@run · @Entry.KnownLiveWording known live</p>
+                    <p class="mono faint">
+                        <span translate="no">@run</span> ·
+                        @L("game.archived.knownLive", ("span", Entry.KnownLiveWording))
+                    </p>
                 }
             </div>
         }
@@ -190,24 +196,17 @@ else
         @if (Excluded)
         {
             <div class="archive-plate">
-                <p>
-                    Not in the listing, the rankings or the daily figure: we do not think this address
-                    is a game somebody can play. Everything below is what it told us, unchanged.
-                </p>
+                <p>@L("game.excluded")</p>
                 @if (Page.ExcludedReason is { Length: > 0 } why)
                 {
-                    <p class="faint">Our reason: @why</p>
+                    <p class="faint">@L("game.excluded.reason", ("why", why))</p>
                 }
             </div>
         }
         else if (Unlisted)
         {
             <div class="archive-plate">
-                <p>
-                    Not in the listing, the rankings or the daily figure, at the request of the people
-                    who run it. Everything below is preserved as it was, this page and every address
-                    it has ever had go on answering, and we are not dialling it.
-                </p>
+                <p>@L("game.unlisted")</p>
             </div>
         }
 
@@ -253,22 +252,22 @@ else
                         because it is one, and there is no keystroke that lands on a control whose
                         only effect is to re-fetch the page you are reading.
                     *@
-                    <nav class="spans" aria-label="Trend range">
+                    <nav class="spans" aria-label="@L("trend.spans.label")">
                         @foreach (var days in RangePresets)
                         {
                             @if (Range.Covers(days, Today))
                             {
-                                <span class="span on" aria-current="true">@days days</span>
+                                <span class="span on" aria-current="true">@L("trend.preset", ("days", days))</span>
                             }
                             else
                             {
-                                <a href="@RangeHref(TrendRange.Preset(days, Today))" class="span">@days days</a>
+                                <a href="@RangeHref(TrendRange.Preset(days, Today))" class="span">@L("trend.preset", ("days", days))</a>
                             }
                         }
-                        <a class="span" href="@RangeHref(Range.Previous())" rel="prev">← earlier</a>
+                        <a class="span" href="@RangeHref(Range.Previous())" rel="prev">@L("trend.earlier")</a>
                         @if (Range.Next(Today) is { } next)
                         {
-                            <a class="span" href="@RangeHref(next)" rel="next">later →</a>
+                            <a class="span" href="@RangeHref(next)" rel="next">@L("trend.later")</a>
                         }
                     </nav>
 
@@ -277,16 +276,16 @@ else
                         right for every game on the site — see TrendShape — so it is a link rather
                         than a preference, and a reader who found the one they wanted can send it.
                     *@
-                    <nav class="spans shapes" aria-label="Trend shape">
+                    <nav class="spans shapes" aria-label="@L("trend.shapes.label")">
                         @foreach (var shape in new[] { TrendShape.Line, TrendShape.Bar })
                         {
                             @if (Shape == shape)
                             {
-                                <span class="span on" aria-current="true">@shape.Label()</span>
+                                <span class="span on" aria-current="true">@shape.Label(Tag)</span>
                             }
                             else
                             {
-                                <a href="@ShapeHref(shape)" class="span">@shape.Label()</a>
+                                <a href="@ShapeHref(shape)" class="span">@shape.Label(Tag)</a>
                             }
                         }
                     </nav>
@@ -309,9 +308,9 @@ else
                     @foreach (var group in Page.Referrals.GroupBy(n => n.Direction))
                     {
                         <p class="faint">
-                            @(group.Key is ReferralDirection.Lists
-                                ? "This game's own referral list names:"
-                                : "Named by the referral list of:")
+                            @L(group.Key is ReferralDirection.Lists
+                                ? "game.referrals.lists"
+                                : "game.referrals.listedBy")
                         </p>
                         <ul class="neighbours">
                             @foreach (var neighbour in group)
@@ -321,14 +320,14 @@ else
                                     @if (neighbour.Present)
                                     {
                                         <span class="faint">
-                                            since @Dates.Absolute(neighbour.FirstSeenAt)
+                                            @L("game.referral.since", ("date", Dates.Absolute(neighbour.FirstSeenAt)))
                                         </span>
                                     }
                                     else
                                     {
                                         @* Dropped from the list, not deleted — the edge is kept. *@
                                         <span class="faint">
-                                            no longer listed, last seen
+                                            @L("game.referral.dropped")
                                             <Moment At="neighbour.LastSeenAt" Now="Now" Ago="true" />
                                         </span>
                                     }
@@ -360,17 +359,21 @@ else
 
                 <h2 id="declared">@L("game.declaredByGame")</h2>
                 <dl class="declared">
+                    @*
+                        The field name is the MSSP token the game itself published, lowercased — an
+                        open set we neither choose nor could translate without inventing a word for
+                        somebody's `FANDOM`. Machine voice, and marked so a browser's own translator
+                        obeys too.
+                    *@
                     @foreach (var (name, chip) in Page.Declared)
                     {
-                        <dt class="kicker">@name</dt>
+                        <dt class="kicker" translate="no">@name</dt>
                         <dd><Chip Fact="chip" Now="Now" /></dd>
                     }
                 </dl>
                 @if (StaleCount > 0)
                 {
-                    <p class="note faint">
-                        @StaleCount are past their refresh window. Old, not wrong.
-                    </p>
+                    <p class="note faint">@L("game.stale", ("count", StaleCount))</p>
                 }
             </section>
 
@@ -546,8 +549,10 @@ else
     /// <summary>The locale this page is being answered in.</summary>
     [CascadingParameter] private HttpContext? Http { get; set; }
 
-    private string L(string id) => Messages.For(Http.LocaleOf().Tag, id);
+    private string Tag => Http.LocaleOf().Tag;
+
+    private string L(string id) => Messages.For(Tag, id);
 
     private string L(string id, params (string Key, object? Value)[] args) =>
-        Messages.For(Http.LocaleOf().Tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
+        Messages.For(Tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 }

@@ -1,3 +1,5 @@
+using MUI.Web.Localization;
+
 namespace MUI.Web.Components;
 
 /// <summary>How the trend is drawn.</summary>
@@ -41,6 +43,14 @@ public static class TrendShapes
     /// <summary>What the address calls it.</summary>
     public static string Slug(this TrendShape shape) => shape is TrendShape.Bar ? "bar" : "line";
 
-    /// <summary>What the selector calls it.</summary>
-    public static string Label(this TrendShape shape) => shape is TrendShape.Bar ? "bars" : "line";
+    /// <summary>
+    /// What the selector calls it, in the reader's language.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Slug"/>, which is what the <em>address</em> calls it and stays
+    /// English for ever: a URL a reader copies out of a German page has to keep working when it is
+    /// pasted into an English one, so the query value is machine voice and only the label is not.
+    /// </remarks>
+    public static string Label(this TrendShape shape, string tag) =>
+        Messages.For(tag, shape is TrendShape.Bar ? "trend.shape.bar" : "trend.shape.line");
 }

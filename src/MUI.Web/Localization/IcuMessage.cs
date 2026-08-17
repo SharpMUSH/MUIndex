@@ -270,6 +270,12 @@ public static class IcuMessage
         {
             DateTimeOffset offset => offset,
             DateTime dt => new DateTimeOffset(dt),
+
+            // A day-grain fact carries a DateOnly, and every day-grain surface on this site — the
+            // trend chart's ninety columns, the reachability strip's ninety bars — has one to say.
+            // Refusing it would have meant each of those formatting its own date at the call site,
+            // which is the hard-coded month name this argument exists to remove.
+            DateOnly day => new DateTimeOffset(day.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
             _ => throw new FormatException($"A {kind} argument must be a date, not {value?.GetType().Name ?? "null"}."),
         };
 
