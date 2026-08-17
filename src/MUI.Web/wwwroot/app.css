@@ -133,13 +133,31 @@
 
 body {
     margin: 0;
-    background: var(--bg);
+    /* One soft radial off the top-right, as the handoff's effects.css carries it: the page is a
+       ground for the card rather than a second surface competing with it, and a dead flat black
+       makes the card's own border the only thing holding the layout together. */
+    background: var(--bg) radial-gradient(120% 100% at 80% -10%,
+        color-mix(in srgb, var(--surface) 70%, var(--bg)) 0%, var(--bg) 55%) fixed;
     color: var(--text);
     font: 14px/1.65 var(--sans);
     text-wrap: pretty;
 }
 
-main { max-width: 1080px; margin: 0 auto; padding: calc(var(--cpad) * 2) var(--cpad); }
+/*
+  The shell: everything the handoff draws sits in one card — the bar along its top edge, the content
+  under it — rather than loose on the page. It is the difference between a document and an
+  instrument, and this site is the second: a directory whose bar, filters and rows are one panel.
+*/
+.shell {
+    max-width: 1120px;
+    margin: var(--cpad) auto calc(var(--cpad) * 3);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+main { padding: calc(var(--cpad) * 1.5) var(--cpad) calc(var(--cpad) * 2); }
 
 h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 6px; }
 h2 { font-size: 20px; font-weight: 600; margin: calc(var(--cpad) * 1.4) 0 10px; }
@@ -160,10 +178,12 @@ a { color: inherit; }
 
 header.site {
     border-bottom: 1px solid var(--line);
-    padding: var(--cpad);
+    background: var(--raised);
+    padding: 0 var(--cpad);
+    min-height: 60px;
     display: flex;
     gap: var(--cpad);
-    align-items: baseline;
+    align-items: center;
 }
 
 header.site .mark { font-family: var(--mono); font-weight: 600; text-decoration: none; }
@@ -821,7 +841,7 @@ ul.archive .name { color: var(--dim); }
     white-space: nowrap;
 }
 
-ul.games .meta, ul.archive .meta { margin: 3px 0 0; font-size: 11.5px; color: var(--faint); }
+ul.games .meta, ul.archive .meta { margin: 3px 0 0; font-size: 12.5px; color: var(--dim); }
 ul.games .meta .protocol { white-space: nowrap; }
 
 /* The protocols this row did not print. A count rather than a name, and the names are in its title
@@ -860,7 +880,7 @@ ul.games .meta .protocol.more { color: var(--dim); }
    again. Three states, three weights, no new colours.                                            */
 
 .row-figure .players { color: var(--text); display: block; }
-.row-figure .players .count { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.row-figure .players .count { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
 .row-figure .players .pip { margin-right: 5px; }
 
 /* A count of nobody, measured. Dimmed rather than hidden — we got in and nobody was there is a
@@ -886,7 +906,7 @@ ul.games .meta .protocol.more { color: var(--dim); }
 .row-figure .players .declared-note { margin-left: 6px; color: var(--amber); font-size: 11px; }
 .row-figure .players .unit { color: var(--faint); }
 .row-figure .players.unknown { color: var(--faint); }
-.row-figure .seen { color: var(--faint); font-size: 11.5px; }
+.row-figure .seen { color: var(--faint); font-size: 12.5px; }
 
 /* What a window sort ranked this row on, printed on the row it ranked. Faint and small: it is the
    basis for the order rather than a fact the row is about, and the count above it stays the figure. */
