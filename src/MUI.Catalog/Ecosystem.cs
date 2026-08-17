@@ -58,6 +58,48 @@ public sealed record CodebaseUsage(
 {
     public static readonly CodebaseUsage None = new([], [], 0, 0, 0);
 
+    /// <summary>The codebases more than one listed game runs — the shares that are shares.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A population of one cannot answer the question this panel asks.</b> Live, 49 of the 72
+    /// families here were a single game at 0.5%: the tail was two-thirds of the list, and among it
+    /// <c>Alter Aeon</c>, <c>Materia Magica</c>, <c>LuminariMUD</c> and <c>EternityMUD</c> — a game's
+    /// own name, restated as its codebase, in a chart about what the hobby shares. So the split is
+    /// here rather than in the surfaces, which would otherwise each decide where the tail begins.
+    /// </para>
+    /// <para>
+    /// <b>The cut is the count, and deliberately not the name.</b> Refusing a <c>CODEBASE</c> that
+    /// matches the game's own name was the obvious rule and it is wrong in both directions.
+    /// <c>LambdaMOO</c>, <c>EmpireMUD</c>, <c>CircleMUD</c>, <c>Evennia</c> and <c>CoffeeMUD</c> are
+    /// all codebases several games run whose flagship game carries the name, so it would blank a
+    /// true field for exactly one member of a real family and leave the family's count wrong. And it
+    /// would not reach <c>Rapture</c>, <c>Anatolia</c> or <c>OSB</c>, which are one-game rows saying
+    /// just as little. Refusing the value outright would be worse than either: a game that told us
+    /// what it runs would land in <see cref="NotIdentified"/>, which is our editorial decision
+    /// recorded as their silence — rule 5, on the page that argues for it.
+    /// </para>
+    /// <para>
+    /// Both halves are projections of <see cref="Families"/> rather than lists of their own. Two
+    /// stored lists that must partition one set is an invitation for a surface to render a game
+    /// twice or not at all, and there is nothing to check them against once they disagree.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<MeasuredShare> Shared => [.. Families.Where(share => share.Count > 1)];
+
+    /// <summary>The codebases exactly one listed game runs, in the order the panel folds them.</summary>
+    public IReadOnlyList<MeasuredShare> SoleUse => [.. Families.Where(share => share.Count == 1)];
+
+    /// <summary>
+    /// <see cref="SoleUse"/> as one share of the games that told us — one game each, so the count of
+    /// codebases and the count of games are the same number.
+    /// </summary>
+    /// <remarks>
+    /// Over <see cref="Identified"/>, the same denominator as every bar above it, so that
+    /// <see cref="Shared"/> plus this is exactly the games that answered and a reader can add the
+    /// page up. A fold that quietly narrowed the denominator would inflate every share left in it.
+    /// </remarks>
+    public MeasuredShare SoleUseTotal => new("sole use", SoleUse.Count, Identified);
+
     /// <summary>
     /// The dashboard's codebase panel, from the <c>CODEBASE</c> value of every game that gave us one.
     /// </summary>

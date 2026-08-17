@@ -46,24 +46,71 @@ public static class CodebaseFamily
         // a fact about its build and never the name of a different codebase.
         var end = words.Length;
 
-        for (var i = 1; i < words.Length; i++)
+        for (var i = 0; i < words.Length; i++)
         {
-            if (LooksLikeAVersion(words[i]))
+            // Never the first word: a game whose whole CODEBASE is `2.12` has published a version
+            // and no name, and folding that away would put an empty bar on the dashboard.
+            if (i > 0 && LooksLikeAVersion(words[i]))
             {
                 end = i;
                 break;
             }
+
+            // The version need not arrive at a space — `MorgenGrauen-3.3.5` is one word and two
+            // facts. Whatever precedes the join is still name, so the cut falls after this word.
+            if (JoinedVersionAt(words[i]) is { } cut)
+            {
+                words[i] = words[i][..cut];
+                end = i + 1;
+                break;
+            }
         }
 
-        // Never from the first word. A game whose whole CODEBASE is `2.12` has published a version
-        // and no name, and folding that to nothing would put an empty bar on the dashboard.
-        while (end > 1 && IsQualifier(words[end - 1]))
+        // Nothing on the name's side of the cut that is not part of the name. `AnsalonMUD - 1.7b2`
+        // stops before the version and leaves the dash the operator typed to separate the two.
+        while (end > 1 && (IsQualifier(words[end - 1]) || IsSeparator(words[end - 1])))
         {
             end--;
         }
 
         return string.Join(' ', words[..end]);
     }
+
+    /// <summary>
+    /// Where a version hyphenated onto the end of a word begins, or null when the word is all name.
+    /// </summary>
+    /// <remarks>
+    /// <b>Dotted, and that is the whole of the safety margin.</b> A hyphen followed by anything
+    /// version-shaped would take <c>TMI-2</c> — a live mudlib whose name ends in a digit — and
+    /// publish two games under <c>TMI</c>, which is the mid-phrase truncation this fold refuses
+    /// everywhere else. Requiring a dot in the suffix costs a codebase that hyphenates a
+    /// single-number version onto its name, and no such codebase is in the catalogue; it keeps
+    /// <c>TD-MUDLIB</c>, <c>LambdaMOO-ToastStunt</c> and <c>PD/NM III</c> whole, which are.
+    /// <para>
+    /// The leftmost qualifying hyphen wins, because the version starts where it starts:
+    /// <c>NC-7.0.288.cd9c3554</c> is <c>NC</c> and a build, not <c>NC-7</c> and one.
+    /// </para>
+    /// </remarks>
+    private static int? JoinedVersionAt(string word)
+    {
+        for (var at = word.IndexOf('-'); at > 0; at = word.IndexOf('-', at + 1))
+        {
+            var suffix = word[(at + 1)..];
+
+            if (suffix.Contains('.') && LooksLikeAVersion(suffix))
+            {
+                return at;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Whether a word is punctuation an operator typed between two facts rather than a word of the
+    /// name. <c>Original / Loosely Diku</c> is three words of a name and one of them is a slash.
+    /// </summary>
+    private static bool IsSeparator(string word) => !word.Any(char.IsLetterOrDigit);
 
     /// <summary>
     /// Whether a trailing word describes the <em>build</em> rather than continuing the name.

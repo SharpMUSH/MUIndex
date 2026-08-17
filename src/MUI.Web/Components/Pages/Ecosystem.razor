@@ -53,10 +53,12 @@ else
         }
 
         <ul class="shares">
-            @foreach (var family in Dashboard.Codebases.Families)
+            @foreach (var family in Dashboard.Codebases.Shared)
             {
                 <li>
-                    <span class="share-label">@family.Label</span>
+                    <span class="share-label">
+                        <a href="/games?@(FacetKeys.Codebase)=@Uri.EscapeDataString(family.Label)">@family.Label</a>
+                    </span>
                     @* The bar carries no fact of its own, so it is hidden from assistive technology
                        rather than announced twice beside the figure that does. *@
                     <span class="share-track" aria-hidden="true">
@@ -67,6 +69,23 @@ else
             }
         </ul>
 
+        @* The tail, folded rather than deleted. A share of one is a name, and fifty of them at 0.5%
+           were two-thirds of this list; every one is still here, one click and one link from the
+           game that runs it, and the fold's own arithmetic closes against the bars above. *@
+        @if (Dashboard.Codebases.SoleUse.Count > 0)
+        {
+            <details class="sole-use">
+                <summary>@EcosystemCopy.SoleUse(Dashboard.Codebases)</summary>
+                <ul class="sole-use-names">
+                    @foreach (var alone in Dashboard.Codebases.SoleUse)
+                    {
+                        <li>
+                            <a href="/games?@(FacetKeys.Codebase)=@Uri.EscapeDataString(alone.Label)">@alone.Label</a>
+                        </li>
+                    }
+                </ul>
+            </details>
+        }
     </section>
 
     <section aria-labelledby="lineages">
