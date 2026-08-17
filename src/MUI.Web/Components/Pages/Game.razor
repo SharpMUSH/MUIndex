@@ -156,10 +156,25 @@ else
                 }
                 else
                 {
-                    @* Never a zero and never a blank: those are different facts and only one of
-                       them is a measurement. *@
-                    <p class="figure-count mono unknown">@L("state.notCounted")</p>
-                    <p class="kicker figure-age">@L("game.unknownCount")</p>
+                    @*
+                        Never a zero and never a blank: those are different facts and only one of
+                        them is a measurement.
+
+                        And never "not counted" either, which is what stood here. That is the
+                        glossary's word for an hour we reached and could not read a number out of —
+                        the middle of rule 2's three states. A null count is not that state; it is
+                        every state at once. `PlayersNow` comes back null when nobody has measured
+                        this game, when a probe answered with nothing countable, and when the last
+                        count is older than the window this figure covers, and nothing on this page
+                        can tell those apart. Naming the middle one files our own silence as a probe
+                        of theirs, which is rule 5 in the one place a reader looks first.
+
+                        So the figure states the absence and the kicker declines to explain it. The
+                        cause is knowable from the strip and the grid below, which are derived from
+                        intervals and from presence rows respectively and *can* tell them apart.
+                    *@
+                    <p class="figure-count mono unknown">@L("game.count.none")</p>
+                    <p class="kicker figure-age">@L("game.count.none.why")</p>
                 }
             </div>
         </header>
@@ -381,8 +396,13 @@ else
 
         <div class="card-footer">
             <a href="#declared">@L("footer.declaredByGame")</a>
-            <span class="sep" aria-hidden="true">·</span>
-            <a href="#changed">@L("footer.whatChanged")</a>
+            @* Only where there is a #changed to land on. The heading is rendered under the same
+               condition, so on a game with no recorded change this link went nowhere at all. *@
+            @if (Page.Changes.Count > 0)
+            {
+                <span class="sep" aria-hidden="true">·</span>
+                <a href="#changed">@L("footer.whatChanged")</a>
+            }
             <span class="sep" aria-hidden="true">·</span>
             <a href="?plain=1">@L("a11y.plainText")</a>
                     <LanguageSwitcher />

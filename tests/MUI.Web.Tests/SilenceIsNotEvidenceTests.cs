@@ -1,6 +1,8 @@
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
 using MUI.Web.Components;
+using MUI.Web.Components.Pages;
+using MUI.Web.Fixtures;
 using MUI.Web.Localization;
 
 namespace MUI.Web.Tests;
@@ -138,6 +140,61 @@ public class SilenceIsNotEvidenceTests
 
         // Not in the registry, which is exactly why a registry-shaped guard would have missed it.
         await Assert.That(FieldRegistry.Instance.Find(InternalFields.BannerHash)).IsNull();
+    }
+
+    /// <summary>
+    /// A missing count is not a count somebody failed to read.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The game page's hero said <c>state.notCounted</c> whenever <c>PlayersNow</c> was null, and the
+    /// glossary reserves that string for the middle of rule 2's three states: an hour we reached and
+    /// could not read a number out of. A null count is not that state. It is that state, an hour
+    /// nobody measured, and a count older than the window this figure covers, and nothing on the page
+    /// separates them — so Gaslight Row, archived and unreached since 2018, was described as a game
+    /// we had probed and failed to count.
+    /// </para>
+    /// <para>
+    /// Asserted through the locked ids rather than the English, and on both surfaces, because
+    /// <c>?plain=1</c> carried the same claim in its own words ("no count could be measured").
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AGamePageWithNoCountNamesNoCauseForNotHavingOne()
+    {
+        var page = await new FixtureGameQueries().FindAsync("gaslight-row");
+
+        await Assert.That(page!.Summary.PlayersNow).IsNull();
+
+        // The hero itself, sliced out: the strip and the grid below it are entitled to the words
+        // "unreachable" and "uncounted", because they are derived from intervals and from presence
+        // rows and can tell those states apart. This figure cannot, so this figure may not say them.
+        var raw = await Render.PageAsync<Game>(new() { ["Slug"] = "gaslight-row" });
+        var opens = raw.IndexOf("class=\"game-figure\"", StringComparison.Ordinal);
+
+        await Assert.That(opens).IsGreaterThanOrEqualTo(0);
+
+        var figure = Render.Words(raw[opens..raw.IndexOf("</div>", opens, StringComparison.Ordinal)]);
+
+        var count = PlainText.Render(page, Now)
+            .ReplaceLineEndings("\n")
+            .Split('\n')
+            .First(line => line.StartsWith("Players now:", StringComparison.Ordinal));
+
+        foreach (var text in new[] { figure, count })
+        {
+            // The three locked words that would each name a cause nobody measured.
+            await Assert.That(text).DoesNotContain(Messages.For(Locales.SourceTag, "state.notCounted"));
+            await Assert.That(text).DoesNotContain(Messages.For(Locales.SourceTag, "state.uncounted"));
+            await Assert.That(text).DoesNotContain(Messages.For(Locales.SourceTag, "state.unreachable"));
+
+            // And never a nought, which is the other direction of the same mistake.
+            await Assert.That(text).DoesNotContain("0");
+        }
+
+        await Assert.That(figure).Contains(Messages.For(Locales.SourceTag, "game.count.none"));
+        await Assert.That(figure).Contains(Messages.For(Locales.SourceTag, "game.count.none.why"));
+        await Assert.That(count).IsEqualTo(Messages.For(Locales.SourceTag, "game.plain.playersNoCount"));
     }
 
     private static AvailabilityInterval Reachable(DateTimeOffset from, DateTimeOffset? to) => new()

@@ -329,7 +329,6 @@ public static class Messages
         ["game.claimed"] = "Claimed by its owner — measured facts below are still ours.",
         ["game.claim"] = "Claim this game",
         ["game.answeringSince"] = "answering since {date}",
-        ["game.unknownCount"] = "unknown count",
         ["game.readAsTextRows"] = "read as text — {count, plural, one {# row} other {# rows}}",
         ["capability.column"] = "capability",
         ["capability.age"] = "age",
@@ -1247,8 +1246,9 @@ public static class Messages
 
         // ── the plain surface's own headings for this page ────────────────────────────────────
         ["game.plain.playersNow"] = "Players now: {count}",
-        ["game.plain.playersUnknown"] = "Players now: unknown (no count could be measured)",
-        ["game.plain.capabilities"] = "Capabilities ({disagreeing} of {total} disagree)",
+        // The graphical caption pluralises this and the plain one did not, so one surface said "1 of
+        // 6 disagrees" and its own mirror said "1 of 6 disagree" about the same six rows.
+        ["game.plain.capabilities"] = "Capabilities ({disagreeing, plural, one {# of {total} disagrees} other {# of {total} disagree}})",
         ["game.plain.declared"] = "Declared by the game",
         ["game.plain.connectScreen"] = "Connect screen",
         ["game.plain.whatChanged"] = "What changed",
@@ -1276,6 +1276,22 @@ public static class Messages
         ["facet.group.archived"] = "archived",
         ["facet.group.adult"] = "adult",
         ["facet.value.included"] = "included",
+
+        // ── added by the accessibility review, second pass ────────────────────────────────────
+        // Kept in one block at the end because several agents are appending to this file at once.
+
+        // The game page's live figure when there is no count to put in it — rule 2's third state on
+        // the hero rather than on a heatmap cell.
+        //
+        // `PlayersNow` is null for an hour nobody measured, for a probe that answered with nothing
+        // countable, and for a count older than the window this figure covers: one null over three
+        // situations the page cannot tell apart. It said `state.notCounted`, which the glossary
+        // reserves for an unreadable count — so a game we have never once reached was described as
+        // one we probed and failed to count, which is our silence published as their measurement.
+        // What is left is the absence itself, naming no cause.
+        ["game.count.none"] = "no count",
+        ["game.count.none.why"] = "no current count, and nothing here says why",
+        ["game.plain.playersNoCount"] = "Players now: no count (nothing here says why)",
     };
 
     /// <summary>

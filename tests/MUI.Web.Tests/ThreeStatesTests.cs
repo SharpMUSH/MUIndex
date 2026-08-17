@@ -96,6 +96,41 @@ public class ThreeStatesTests
         await Assert.That(html).DoesNotContain("Busiest");
     }
 
+    /// <summary>
+    /// The threshold itself, from both sides.
+    /// </summary>
+    /// <remarks>
+    /// The test above uses one measured day, which passes whether the comparison is <c>&gt;=</c>,
+    /// <c>&gt;</c> or off by one. Six against seven is the only pair that pins
+    /// <see cref="ActivitySummary.MeasuredDaysForGrid"/> down, and two surfaces read it — the grid's
+    /// own gate and the plain surface's.
+    /// </remarks>
+    [Test]
+    public async Task SixMeasuredDaysIsNotAWeekAndTheSeventhIsWhatDrawsTheGrid()
+    {
+        var six = Enumerable.Range(0, ActivitySummary.MeasuredDaysForGrid - 1)
+            .Select(day => new ActivityCell(day, 20, 3, Probed: true))
+            .ToList();
+
+        var withoutGrid = Render.Words(await GridAsync(six));
+
+        await Assert.That(withoutGrid).Contains("not enough measurements yet");
+        await Assert.That(withoutGrid).DoesNotContain("<table");
+
+        var seven = six
+            .Append(new ActivityCell(ActivitySummary.MeasuredDaysForGrid - 1, 20, 3, Probed: true))
+            .ToList();
+
+        await Assert.That(Render.Words(await GridAsync(seven))).Contains("<table class=\"perday\"");
+
+        // And the plain surface turns on the same day, or the two disagree about how much was
+        // measured — which is the failure mode a shared constant with one caller invites.
+        await Assert.That(ActivitySummary.MeasuredDays(six))
+            .IsLessThan(ActivitySummary.MeasuredDaysForGrid);
+        await Assert.That(ActivitySummary.MeasuredDays(seven))
+            .IsEqualTo(ActivitySummary.MeasuredDaysForGrid);
+    }
+
     [Test]
     public async Task TheThreeStatesAreThreeDifferentCellsInTheMarkup()
     {

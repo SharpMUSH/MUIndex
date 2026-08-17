@@ -1,6 +1,7 @@
 using MUI.Catalog;
 using MUI.Web.Components;
 using MUI.Web.Fixtures;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Tests;
 
@@ -56,25 +57,28 @@ public class PlainSurfaceTests
     }
 
     [Test]
-    public async Task AnUnknownCountSaysSoInWordsRatherThanBeingBlank()
+    public async Task AMissingCountSaysSoInWordsRatherThanBeingBlank()
     {
         // A blank reads as zero to a human exactly as it does to a parser. Midnight Sun answers,
         // offers no MSSP and no pre-login WHO, so there is genuinely nothing to count.
+        //
+        // Read off the id rather than the English: what this guards is that the absence is written
+        // out at all, not that it is written out in any particular words.
         var text = await RenderAsync("midnight-sun");
 
-        await Assert.That(text).Contains("Players now: unknown");
+        await Assert.That(text).Contains(Messages.For(Locales.SourceTag, "game.plain.playersNoCount"));
         await Assert.That(text).DoesNotContain("Players now: 0");
     }
 
     [Test]
-    public async Task AMeasuredZeroIsPrintedAsZeroAndNotAsUnknown()
+    public async Task AMeasuredZeroIsPrintedAsZeroAndNotAsAnAbsence()
     {
         // Eldertale really has nobody on. That is a measurement and must not be softened into a
         // shrug — the two are different facts and the plain surface has to keep them apart.
         var text = await RenderAsync("eldertale");
 
         await Assert.That(text).Contains("Players now: 0");
-        await Assert.That(text).DoesNotContain("unknown");
+        await Assert.That(text).DoesNotContain(Messages.For(Locales.SourceTag, "game.plain.playersNoCount"));
     }
 
     [Test]
@@ -89,18 +93,30 @@ public class PlainSurfaceTests
         await Assert.That(declared).Contains("Players now: 9  (declared, 9m)");
         await Assert.That(measured).Contains("Players now: 15  (measured, 4m)");
 
-        // A count nobody could take keeps its sentence and gains no label.
+        // A count that does not exist keeps its sentence and gains no label — a provenance chip over
+        // nothing would attest to a measurement nobody took.
         await Assert.That(await RenderAsync("midnight-sun"))
-            .Contains("Players now: unknown (no count could be measured)");
+            .Contains(Messages.For(Locales.SourceTag, "game.plain.playersNoCount"));
     }
 
     [Test]
     public async Task ADisagreementIsFlaggedInWordsNotByColour()
     {
         var text = await RenderAsync("m-u-s-h");
+        var page = await Queries.FindAsync("m-u-s-h");
 
+        // The mark on the row, and the tally in the heading — the latter read off the id, so the
+        // assertion is that the count reached the heading rather than that English inflects the
+        // verb one particular way.
         await Assert.That(text).Contains("** disagree");
-        await Assert.That(text).Contains("disagree)");
+        await Assert.That(text).Contains(Messages.For(
+            Locales.SourceTag,
+            "game.plain.capabilities",
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["disagreeing"] = page!.DisagreementCount,
+                ["total"] = page.Capabilities.Count,
+            }));
     }
 
     [Test]

@@ -960,10 +960,6 @@
     <value>answering since {date}</value>
     <comment>the game page's own headings</comment>
   </data>
-  <data name="game.unknownCount" xml:space="preserve">
-    <value>unknown count</value>
-    <comment>the game page's own headings</comment>
-  </data>
   <data name="game.readAsTextRows" xml:space="preserve">
     <value>read as text — {count, plural, one {# row} other {# rows}}</value>
     <comment>the game page's own headings</comment>
@@ -2856,12 +2852,8 @@
     <value>Players now: {count}</value>
     <comment>the plain surface's own headings for this page</comment>
   </data>
-  <data name="game.plain.playersUnknown" xml:space="preserve">
-    <value>Players now: unknown (no count could be measured)</value>
-    <comment>the plain surface's own headings for this page</comment>
-  </data>
   <data name="game.plain.capabilities" xml:space="preserve">
-    <value>Capabilities ({disagreeing} of {total} disagree)</value>
+    <value>Capabilities ({disagreeing, plural, one {# of {total} disagrees} other {# of {total} disagree}})</value>
     <comment>the plain surface's own headings for this page</comment>
   </data>
   <data name="game.plain.declared" xml:space="preserve">
@@ -2890,26 +2882,38 @@
   </data>
   <data name="listing.row.connected" xml:space="preserve">
     <value>connected</value>
-    <comment>the listing row's own labels</comment>
+    <comment>appended block: the listing row's own labels and the last three chips</comment>
   </data>
   <data name="listing.row.reached" xml:space="preserve">
     <value>reached</value>
-    <comment>the listing row's own labels</comment>
+    <comment>appended block: the listing row's own labels and the last three chips</comment>
   </data>
   <data name="facet.group.search" xml:space="preserve">
     <value>search</value>
-    <comment>the active-filter chips</comment>
+    <comment>appended block: the listing row's own labels and the last three chips</comment>
   </data>
   <data name="facet.group.archived" xml:space="preserve">
     <value>archived</value>
-    <comment>the active-filter chips</comment>
+    <comment>appended block: the listing row's own labels and the last three chips</comment>
   </data>
   <data name="facet.group.adult" xml:space="preserve">
     <value>adult</value>
-    <comment>the active-filter chips</comment>
+    <comment>appended block: the listing row's own labels and the last three chips</comment>
   </data>
   <data name="facet.value.included" xml:space="preserve">
     <value>included</value>
-    <comment>the active-filter chips</comment>
+    <comment>appended block: the listing row's own labels and the last three chips</comment>
+  </data>
+  <data name="game.count.none" xml:space="preserve">
+    <value>no count</value>
+    <comment>added by the accessibility review, second pass</comment>
+  </data>
+  <data name="game.count.none.why" xml:space="preserve">
+    <value>no current count, and nothing here says why</value>
+    <comment>added by the accessibility review, second pass</comment>
+  </data>
+  <data name="game.plain.playersNoCount" xml:space="preserve">
+    <value>Players now: no count (nothing here says why)</value>
+    <comment>added by the accessibility review, second pass</comment>
   </data>
 </root>
