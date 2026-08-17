@@ -292,25 +292,13 @@ public static class IcuMessage
         };
     }
 
-    private static readonly ConcurrentDictionary<string, CultureInfo> Cultures = new(StringComparer.OrdinalIgnoreCase);
-
     /// <summary>
     /// The culture a tag names, or the invariant one where .NET has never heard of it.
     /// </summary>
     /// <remarks>
-    /// <c>qps-ploc</c> and <c>ru-x-canary</c> are ours rather than anybody's, and asking .NET for
-    /// them raises. The invariant culture is the right answer for both: neither is a language, and
-    /// what they exercise is the message machinery rather than a number format.
+    /// <see cref="Locales.CultureOf"/>'s cache rather than one of its own: the number formats a
+    /// message renders and the day names a sentence names are the same CLDR data, and two lookups
+    /// of one tag are two places for it to be answered differently.
     /// </remarks>
-    private static CultureInfo Culture(string tag) => Cultures.GetOrAdd(tag, static t =>
-    {
-        try
-        {
-            return CultureInfo.GetCultureInfo(t);
-        }
-        catch (CultureNotFoundException)
-        {
-            return CultureInfo.InvariantCulture;
-        }
-    });
+    private static CultureInfo Culture(string tag) => Locales.CultureOf(tag);
 }

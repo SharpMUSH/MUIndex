@@ -34,7 +34,7 @@ else if (Plain)
     @* Plain mode is a real second surface, not a courtesy. If a fact cannot survive here, its
        graphic on the main page is decoration. It renders from the same view models — this page is
        the graphical one with the graphics removed, which is what bounds its cost (spec §9). *@
-    <pre class="mono plain">@PlainText.Render(Page, Now, Reach, Trend)</pre>
+    <pre class="mono plain">@PlainText.Render(Page, Now, Reach, Trend, Http.LocaleOf().Tag)</pre>
 }
 else
 {

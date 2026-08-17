@@ -341,6 +341,103 @@ public static class Messages
         ["capability.disagrees"] = "disagrees",
         ["capability.whereTheyDisagree"] = "where they disagree ({count})",
 
+        // ── the week of hours, said in words ──────────────────────────────────────────────────
+        // The heatmap's sentence, its per-day alternative, and the label on every cell. Three
+        // states and never two: an hour we counted — a measured zero included — an hour that
+        // answered and produced no count, and an hour nobody has a measurement for. The third
+        // names no cause in any language, because a probe that failed and an hour we never dialled
+        // write the same nothing, and a translation that reached for "offline" or "not reachable"
+        // would file our crawl schedule as a fact about somebody's game.
+        //
+        // Every count is an argument rather than a spelled-out word. "Two hours … have" was a
+        // number, a noun and a verb agreed in English word order, with nowhere in it for a
+        // translator to stand.
+        ["activity.cell.counted"] = "{day} {time} — {count, plural, =0 {0 players, measured} one {# player on average} other {# players on average}}",
+        ["activity.cell.notCounted"] = "{day} {time} — probed, no count could be read",
+        ["activity.cell.notMeasured"] = "{day} {time} — no measurement in this hour",
+
+        ["activity.none"] = "We have not measured this game's activity yet.",
+        ["activity.noCount"] = "No hour of the week has produced a player count.",
+
+        // A measured zero everywhere is a measurement, and a strong one. It must not read as an
+        // absence of data in any language.
+        ["activity.allZero"] = "Measured every hour and nobody has been on in any of them.",
+
+        // Two ids apiece, because "on Monday" and "across the week" land in different places in
+        // different languages, and a fragment glued into a sentence is one nobody can move.
+        ["activity.gap.day"] = "{count, plural, one {# hour on {day} has no measurement yet.} other {# hours on {day} have no measurement yet.}}",
+        ["activity.gap.week"] = "{count, plural, one {# hour across the week has no measurement yet.} other {# hours across the week have no measurement yet.}}",
+        ["activity.uncounted.day"] = "{count, plural, one {# hour on {day} answered but produced no count.} other {# hours on {day} answered but produced no count.}}",
+        ["activity.uncounted.week"] = "{count, plural, one {# hour across the week answered but produced no count.} other {# hours across the week answered but produced no count.}}",
+
+        ["activity.busiest.everyDay"] = "Busiest every day, {window}.",
+        ["activity.busiest.everyDay.part"] = "Busiest every day, {part}, {window}.",
+        ["activity.busiest.days"] = "Busiest {days} {window}.",
+        ["activity.busiest.days.part"] = "Busiest {days} {part}, {window}.",
+
+        ["activity.quiet"] = "Reliably quiet {who}, {window}.",
+        ["activity.quiet.part"] = "Reliably quiet {who} in the {part}, {window}.",
+        ["activity.quiet.everyDay"] = "every day",
+        ["activity.quiet.everyMeasuredDay"] = "every day we could measure",
+        ["activity.quiet.weekdays"] = "on weekdays",
+        ["activity.quiet.onDays"] = "on {days}",
+
+        // The same four names in two registers: the busy band takes the plural — "evenings,
+        // 17:00–21:59" — and the quiet one the singular, "in the evening". English builds the
+        // second from the first by adding an s, which is a fact about English and not about nouns.
+        ["activity.part.morning"] = "morning",
+        ["activity.part.afternoon"] = "afternoon",
+        ["activity.part.evening"] = "evening",
+        ["activity.part.smallHours"] = "small hours",
+        ["activity.parts.morning"] = "mornings",
+        ["activity.parts.afternoon"] = "afternoons",
+        ["activity.parts.evening"] = "evenings",
+        ["activity.parts.smallHours"] = "small hours",
+
+        // A run of days, folded rather than joined on a comma: the separator and the final
+        // conjunction both belong to a language, and Chinese uses neither of ours.
+        ["activity.days.list"] = "{list}, {next}",
+        ["activity.days.pair"] = "{first} and {second}",
+
+        ["activity.sparse.kicker"] = "not enough measurements yet",
+        ["activity.sparse.none"] = "No hour of the week has a measurement yet.",
+        ["activity.sparse.uncounted"] = "{count, plural, one {# hour answered and produced no count.} other {# hours answered and produced no count.}}",
+        ["activity.sparse.wait"] = "The grid appears once every day of the week has one.",
+        ["activity.sparse.days"] = "{days, plural, one {Measured on # of the seven days so far; the grid appears once every day has an hour in it.} other {Measured on # of the seven days so far; the grid appears once every day has an hour in it.}}",
+        ["activity.sample.zero"] = "{count, plural, one {# hour measured, all of it at nobody on.} other {# hours measured, all of them at nobody on.}}",
+        ["activity.sample.peak"] = "{count, plural, one {# hour measured, the busiest {peak} on {day} at {time} UTC.} other {# hours measured, the busiest {peak} on {day} at {time} UTC.}}",
+        ["activity.sample.more"] = "{count, plural, one {# more hour answered and produced no count.} other {# more hours answered and produced no count.}}",
+
+        ["activity.day.line"] = "{day} — {facts}",
+        ["activity.day.facts"] = "{first}, {second}",
+        ["activity.day.allZero"] = "measured at zero all day",
+        ["activity.day.peak"] = "peak {count} at {time}",
+        ["activity.day.nobodyOn"] = "nobody on {window}",
+        ["activity.day.noCount"] = "no count in any hour",
+        ["activity.day.notMeasured"] = "{count, plural, one {# hour not measured} other {# hours not measured}}",
+        ["activity.day.notCounted"] = "{count, plural, one {# hour probed but uncountable} other {# hours probed but uncountable}}",
+
+        // The panel's own chrome: the headings of the text alternative, the legend beside the
+        // drawing, and the key the plain surface prints in place of both. The "not measured"
+        // column reuses state.notMeasured rather than saying it a second way — the whole panel
+        // has one word for that hour or it has none.
+        ["activity.column.day"] = "day",
+        ["activity.column.quietest"] = "quietest",
+        ["activity.column.busiest"] = "busiest",
+        ["activity.column.at"] = "at",
+        ["activity.column.noCount"] = "no count",
+        ["activity.caption"] = "Players on by day, in UTC. {window}.",
+        ["activity.times"] = "times in UTC · {window}",
+        ["activity.rollingAverage"] = "{weeks, plural, one {#-week rolling average} other {#-week rolling average}}",
+        ["activity.legend.counted"] = "counted, including a measured zero",
+        ["activity.legend.notCounted"] = "probed, no count could be read",
+        ["activity.legend.notMeasured"] = "no measurement in that hour",
+        ["activity.plain.heading"] = "When people are on (UTC)",
+        ["activity.key.counted"] = "counted",
+        ["activity.key.counted.meaning"] = "we got in and read a number, including a measured zero",
+        ["activity.key.uncounted.meaning"] = "we got in and no number could be read",
+        ["activity.key.notMeasured.meaning"] = "we have no measurement for that hour",
+
         // ── the switcher's own chrome, which has to read in the locale being left ─────────────
         ["locale.label"] = "language",
         ["locale.submit"] = "change language",

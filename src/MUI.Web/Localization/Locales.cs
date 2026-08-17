@@ -1,3 +1,6 @@
+using System.Collections.Concurrent;
+using System.Globalization;
+
 namespace MUI.Web.Localization;
 
 /// <summary>How far along a locale is, and therefore whether a reader may be sent to it.</summary>
@@ -222,4 +225,42 @@ public static class Locales
 
     /// <summary>Whether a path segment looks like one of ours, without deciding anything else.</summary>
     public static bool IsLocaleSegment(string segment) => Find(segment) is not null;
+
+    private static readonly ConcurrentDictionary<string, CultureInfo> Cultures =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The CLDR data behind a tag — day names, number formats — or the invariant culture where
+    /// .NET has never heard of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Not everything a locale says comes out of our bundle, and the day names are the case in
+    /// point.</b> "Monday" through "Sunday" were an array in a component here, which made a German
+    /// page render a German sentence around seven English day names — and no translator could have
+    /// fixed it, because the words were not in a file they are ever sent. CLDR already carries them
+    /// for every locale this site names and for every locale it might.
+    /// </para>
+    /// <para>
+    /// <c>qps-ploc</c> and <c>ru-x-canary</c> are ours rather than anybody's and asking .NET for
+    /// them raises. The invariant culture is the right answer for both: neither is a language, and
+    /// what they exercise is the message machinery rather than a calendar.
+    /// </para>
+    /// </remarks>
+    public static CultureInfo CultureOf(string tag)
+    {
+        ArgumentNullException.ThrowIfNull(tag);
+
+        return Cultures.GetOrAdd(tag, static t =>
+        {
+            try
+            {
+                return CultureInfo.GetCultureInfo(t);
+            }
+            catch (CultureNotFoundException)
+            {
+                return CultureInfo.InvariantCulture;
+            }
+        });
+    }
 }

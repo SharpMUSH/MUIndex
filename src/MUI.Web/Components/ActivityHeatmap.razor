@@ -1,3 +1,4 @@
+@using MUI.Web.Localization
 @*
     The activity heatmap: day-of-week × hour, in three states.
 
@@ -14,11 +15,16 @@
     Flat fill for counted (including a measured zero), hatched outline for probed-but-uncountable,
     empty for not-reachable. That distinction is the whole of spec §5.4, it is carried by cell shape
     and not by colour, and it survives greyscale printing.
+
+    Every word of it — the sentence, the legend, the column headings and the day names in the row
+    headers — is answered in the language the request asked for. The day names come from CLDR
+    rather than from this project, because seven weekday strings compiled into a component are
+    seven strings no translator is ever sent.
 *@
 
 @if (Cells.Count == 0)
 {
-    <p class="summary">@ActivitySummary.Sentence(Cells)</p>
+    <p class="summary">@ActivitySummary.Sentence(Tag, Cells)</p>
 }
 else if (!Enough)
 {
@@ -29,14 +35,14 @@ else if (!Enough)
         before there is a shape to describe.
     *@
     <div class="sparse">
-        <p class="kicker">not enough measurements yet</p>
-        <p>@ActivitySummary.Sparse(Cells)</p>
+        <p class="kicker">@L("activity.sparse.kicker")</p>
+        <p>@ActivitySummary.Sparse(Tag, Cells)</p>
     </div>
 }
 else
 {
-    <p class="summary">@ActivitySummary.Sentence(Cells)</p>
-    <p class="faint mono">times in UTC · @Window</p>
+    <p class="summary">@ActivitySummary.Sentence(Tag, Cells)</p>
+    <p class="faint mono">@L("activity.times", ("window", Window))</p>
 
     <div class="heat-wrap" aria-hidden="true">
         <table class="heat">
@@ -58,7 +64,7 @@ else
                 @foreach (var day in Days)
                 {
                     <tr>
-                        <th scope="row">@ActivitySummary.ShortDayName(day)</th>
+                        <th scope="row">@ActivitySummary.ShortDayName(Tag, day)</th>
                         @foreach (var hour in Hours)
                         {
                             var cell = Cell(day, hour);
@@ -75,9 +81,9 @@ else
 
     @* The key to a drawing nothing announces, so it is hidden with the drawing it explains. *@
     <ul class="legend" aria-hidden="true">
-        <li><span class="swatch counted"></span>counted, including a measured zero</li>
-        <li><span class="swatch unmeasurable"></span>probed, no count could be read</li>
-        <li><span class="swatch gap"></span>no measurement in that hour</li>
+        <li><span class="swatch counted"></span>@L("activity.legend.counted")</li>
+        <li><span class="swatch unmeasurable"></span>@L("activity.legend.notCounted")</li>
+        <li><span class="swatch gap"></span>@L("activity.legend.notMeasured")</li>
     </ul>
 
     @*
@@ -86,24 +92,26 @@ else
         and its column — which is the thing the 7×24 grid was providing at 168 times the cost.
     *@
     <details class="read-as-text">
-        <summary>read as text — @Rows.Count rows</summary>
+        <summary>@L("game.readAsTextRows", ("count", Rows.Count))</summary>
         <table class="perday">
-            <caption>Players on by day, in UTC. @Window.</caption>
+            <caption>@L("activity.caption", ("window", Window))</caption>
             <thead>
                 <tr>
-                    <th scope="col">day</th>
-                    <th scope="col">quietest</th>
-                    <th scope="col">busiest</th>
-                    <th scope="col">at</th>
-                    <th scope="col">not measured</th>
-                    <th scope="col">no count</th>
+                    <th scope="col">@L("activity.column.day")</th>
+                    <th scope="col">@L("activity.column.quietest")</th>
+                    <th scope="col">@L("activity.column.busiest")</th>
+                    <th scope="col">@L("activity.column.at")</th>
+                    @* The same locked id the cell values use. One word for that hour on the whole
+                       panel, or a reader meets two and has to decide whether they mean one thing. *@
+                    <th scope="col">@L("state.notMeasured")</th>
+                    <th scope="col">@L("activity.column.noCount")</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var day in Rows)
                 {
                     <tr>
-                        <th scope="row">@day.Day</th>
+                        <th scope="row">@day.Name(Tag)</th>
                         @if (day.Busiest is { } busiest)
                         {
                             <td class="num">@day.Quietest</td>
@@ -113,7 +121,7 @@ else
                         else
                         {
                             @* Never a zero here: no count was read, which is not a count of none. *@
-                            <td class="faint" colspan="3">no count in any hour</td>
+                            <td class="faint" colspan="3">@L("activity.day.noCount")</td>
                         }
                         <td class="num">@Hourly(day.NotMeasured)</td>
                         <td class="num">@Hourly(day.NotCounted)</td>
@@ -127,8 +135,25 @@ else
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<ActivityCell> Cells { get; set; } = [];
 
-    /// <summary>Stated in words, because a heatmap without its window is an unlabelled average.</summary>
-    [Parameter] public string Window { get; set; } = "8-week rolling average";
+    /// <summary>
+    /// How many weeks the average covers, because a heatmap without its window is an unlabelled
+    /// average.
+    /// </summary>
+    /// <remarks>
+    /// A number rather than the sentence it used to be: "8-week rolling average" was a phrase a
+    /// caller passed in, so the one part of this panel a page could set was the one part no
+    /// translator could reach.
+    /// </remarks>
+    [Parameter] public int Weeks { get; set; } = 8;
+
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    private string Window => L("activity.rollingAverage", ("weeks", Weeks));
+
+    private string L(string id, params (string Key, object? Value)[] args) =>
+        Messages.For(Tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 
     private static readonly int[] Hours = [.. Enumerable.Range(0, 24)];
 
@@ -154,7 +179,7 @@ else
         // be read as here. Whether the game was reachable in that hour is the strip's question.
         ?? new ActivityCell(day, hour, null, Probed: false);
 
-    private static string Label(ActivityCell cell) => ActivitySummary.CellLabel(cell);
+    private string Label(ActivityCell cell) => ActivitySummary.CellLabel(Tag, cell);
 
     private static string CellClass(ActivityCell cell) => cell switch
     {

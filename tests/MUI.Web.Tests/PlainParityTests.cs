@@ -2,6 +2,7 @@ using MUI.Catalog;
 using MUI.Web.Components;
 using MUI.Web.Components.Pages;
 using MUI.Web.Fixtures;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Tests;
 
@@ -51,6 +52,33 @@ public class PlainParityTests
         await Assert.That(text).Contains("Busiest");
         await Assert.That(text).Contains("Mon —");
         await Assert.That(text).Contains("Wed —");
+    }
+
+    /// <summary>
+    /// The mirror answers in the language the reader asked in, day names included.
+    /// </summary>
+    /// <remarks>
+    /// Over HTTP rather than through the renderer, because the thing being checked is that the
+    /// locale reaches this surface at all: the plain page is composed by a different code path from
+    /// the rendered one, and the heatmap's words were the last on the site to be answered in English
+    /// whatever the address said. A German reader's per-day lines start "Mo", not "Mon".
+    /// </remarks>
+    [Test]
+    public async Task ThePlainMirrorIsAnsweredInTheLanguageTheAddressAsksFor()
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var english = Render.Words(await site.Client.GetStringAsync("/g/m-u-s-h?plain=1"));
+        var german = Render.Words(await site.Client.GetStringAsync("/de/g/m-u-s-h?plain=1"));
+
+        await Assert.That(english).Contains("Mon —");
+        await Assert.That(german).Contains("Mo —");
+        await Assert.That(german).DoesNotContain("Mon —");
+
+        // The same three states, and still three. The words for two of them are the glossary's, so
+        // in German they are German — and they are still two different words.
+        await Assert.That(german).Contains(Messages.For("de", "state.notMeasured"));
+        await Assert.That(german).Contains(Messages.For("de", "state.uncounted"));
     }
 
     [Test]

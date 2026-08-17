@@ -1004,6 +1004,254 @@
     <value>where they disagree ({count})</value>
     <comment>the game page's own headings</comment>
   </data>
+  <data name="activity.cell.counted" xml:space="preserve">
+    <value>{day} {time} — {count, plural, =0 {0 players, measured} one {# player on average} other {# players on average}}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.cell.notCounted" xml:space="preserve">
+    <value>{day} {time} — probed, no count could be read</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.cell.notMeasured" xml:space="preserve">
+    <value>{day} {time} — no measurement in this hour</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.none" xml:space="preserve">
+    <value>We have not measured this game's activity yet.</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.noCount" xml:space="preserve">
+    <value>No hour of the week has produced a player count.</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.allZero" xml:space="preserve">
+    <value>Measured every hour and nobody has been on in any of them.</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.gap.day" xml:space="preserve">
+    <value>{count, plural, one {# hour on {day} has no measurement yet.} other {# hours on {day} have no measurement yet.}}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.gap.week" xml:space="preserve">
+    <value>{count, plural, one {# hour across the week has no measurement yet.} other {# hours across the week have no measurement yet.}}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.uncounted.day" xml:space="preserve">
+    <value>{count, plural, one {# hour on {day} answered but produced no count.} other {# hours on {day} answered but produced no count.}}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.uncounted.week" xml:space="preserve">
+    <value>{count, plural, one {# hour across the week answered but produced no count.} other {# hours across the week answered but produced no count.}}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.busiest.everyDay" xml:space="preserve">
+    <value>Busiest every day, {window}.</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.busiest.everyDay.part" xml:space="preserve">
+    <value>Busiest every day, {part}, {window}.</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.busiest.days" xml:space="preserve">
+    <value>Busiest {days} {window}.</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.busiest.days.part" xml:space="preserve">
+    <value>Busiest {days} {part}, {window}.</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.quiet" xml:space="preserve">
+    <value>Reliably quiet {who}, {window}.</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.quiet.part" xml:space="preserve">
+    <value>Reliably quiet {who} in the {part}, {window}.</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.quiet.everyDay" xml:space="preserve">
+    <value>every day</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.quiet.everyMeasuredDay" xml:space="preserve">
+    <value>every day we could measure</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.quiet.weekdays" xml:space="preserve">
+    <value>on weekdays</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.quiet.onDays" xml:space="preserve">
+    <value>on {days}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.part.morning" xml:space="preserve">
+    <value>morning</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.part.afternoon" xml:space="preserve">
+    <value>afternoon</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.part.evening" xml:space="preserve">
+    <value>evening</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.part.smallHours" xml:space="preserve">
+    <value>small hours</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.parts.morning" xml:space="preserve">
+    <value>mornings</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.parts.afternoon" xml:space="preserve">
+    <value>afternoons</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.parts.evening" xml:space="preserve">
+    <value>evenings</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.parts.smallHours" xml:space="preserve">
+    <value>small hours</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.days.list" xml:space="preserve">
+    <value>{list}, {next}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.days.pair" xml:space="preserve">
+    <value>{first} and {second}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.sparse.kicker" xml:space="preserve">
+    <value>not enough measurements yet</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.sparse.none" xml:space="preserve">
+    <value>No hour of the week has a measurement yet.</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.sparse.uncounted" xml:space="preserve">
+    <value>{count, plural, one {# hour answered and produced no count.} other {# hours answered and produced no count.}}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.sparse.wait" xml:space="preserve">
+    <value>The grid appears once every day of the week has one.</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.sparse.days" xml:space="preserve">
+    <value>{days, plural, one {Measured on # of the seven days so far; the grid appears once every day has an hour in it.} other {Measured on # of the seven days so far; the grid appears once every day has an hour in it.}}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.sample.zero" xml:space="preserve">
+    <value>{count, plural, one {# hour measured, all of it at nobody on.} other {# hours measured, all of them at nobody on.}}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.sample.peak" xml:space="preserve">
+    <value>{count, plural, one {# hour measured, the busiest {peak} on {day} at {time} UTC.} other {# hours measured, the busiest {peak} on {day} at {time} UTC.}}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.sample.more" xml:space="preserve">
+    <value>{count, plural, one {# more hour answered and produced no count.} other {# more hours answered and produced no count.}}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.day.line" xml:space="preserve">
+    <value>{day} — {facts}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.day.facts" xml:space="preserve">
+    <value>{first}, {second}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.day.allZero" xml:space="preserve">
+    <value>measured at zero all day</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.day.peak" xml:space="preserve">
+    <value>peak {count} at {time}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.day.nobodyOn" xml:space="preserve">
+    <value>nobody on {window}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.day.noCount" xml:space="preserve">
+    <value>no count in any hour</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.day.notMeasured" xml:space="preserve">
+    <value>{count, plural, one {# hour not measured} other {# hours not measured}}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.day.notCounted" xml:space="preserve">
+    <value>{count, plural, one {# hour probed but uncountable} other {# hours probed but uncountable}}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.column.day" xml:space="preserve">
+    <value>day</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.column.quietest" xml:space="preserve">
+    <value>quietest</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.column.busiest" xml:space="preserve">
+    <value>busiest</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.column.at" xml:space="preserve">
+    <value>at</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.column.noCount" xml:space="preserve">
+    <value>no count</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.caption" xml:space="preserve">
+    <value>Players on by day, in UTC. {window}.</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.times" xml:space="preserve">
+    <value>times in UTC · {window}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.rollingAverage" xml:space="preserve">
+    <value>{weeks, plural, one {#-week rolling average} other {#-week rolling average}}</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.legend.counted" xml:space="preserve">
+    <value>counted, including a measured zero</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.legend.notCounted" xml:space="preserve">
+    <value>probed, no count could be read</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.legend.notMeasured" xml:space="preserve">
+    <value>no measurement in that hour</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.plain.heading" xml:space="preserve">
+    <value>When people are on (UTC)</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.key.counted" xml:space="preserve">
+    <value>counted</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.key.counted.meaning" xml:space="preserve">
+    <value>we got in and read a number, including a measured zero</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.key.uncounted.meaning" xml:space="preserve">
+    <value>we got in and no number could be read</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
+  <data name="activity.key.notMeasured.meaning" xml:space="preserve">
+    <value>we have no measurement for that hour</value>
+    <comment>the week of hours, said in words</comment>
+  </data>
   <data name="locale.label" xml:space="preserve">
     <value>language</value>
     <comment>the switcher's own chrome, which has to read in the locale being left</comment>

@@ -29,7 +29,8 @@ public static class PlainText
         GamePage page,
         DateTimeOffset now,
         ReachSummary? reach = null,
-        TrendSeries? trend = null)
+        TrendSeries? trend = null,
+        string tag = Locales.SourceTag)
     {
         var b = new StringBuilder();
         var s = page.Summary;
@@ -72,7 +73,7 @@ public static class PlainText
             b.AppendLine($"Longest outage: {Wording.Duration(o)}");
         }
 
-        AppendActivity(b, page.Activity);
+        AppendActivity(b, page.Activity, tag);
         AppendTrend(b, trend);
         AppendReachable(b, reach);
         AppendCapabilities(b, page);
@@ -88,37 +89,46 @@ public static class PlainText
     /// the same content the graphical page hides behind "read as text". The three states of spec
     /// §5.4 are three different words here and never share one.
     /// </summary>
-    private static void AppendActivity(StringBuilder b, IReadOnlyList<ActivityCell> cells)
+    private static void AppendActivity(StringBuilder b, IReadOnlyList<ActivityCell> cells, string tag)
     {
         if (cells.Count == 0)
         {
             return;
         }
 
-        Heading(b, "When people are on (UTC)");
+        Heading(b, Say(tag, "activity.plain.heading"));
 
         // The same threshold the graphical page draws on, and the same words. Below it there is no
         // grid there and no seven lines here: a week of prose about two measured hours would be this
         // surface describing a shape the measurements do not have.
         if (ActivitySummary.MeasuredDays(cells) < ActivitySummary.MeasuredDaysForGrid)
         {
-            Wrap(b, ActivitySummary.Sparse(cells));
+            Wrap(b, ActivitySummary.Sparse(tag, cells));
             return;
         }
 
-        Wrap(b, ActivitySummary.Sentence(cells));
+        Wrap(b, ActivitySummary.Sentence(tag, cells));
         b.AppendLine();
 
-        foreach (var line in ActivitySummary.PerDay(cells))
+        foreach (var line in ActivitySummary.PerDay(tag, cells))
         {
             Wrap(b, line, "  ");
         }
 
         b.AppendLine();
-        b.AppendLine("  counted   = we got in and read a number, including a measured zero");
-        b.AppendLine("  uncounted = we got in and no number could be read");
-        b.AppendLine("  no data   = we have no measurement for that hour");
+
+        // The key. The three words on the left are the site's own — two of them the glossary's
+        // locked ids — rather than a third spelling invented for this surface: "no data" said here
+        // what "not measured" says everywhere else, which left a reader deciding whether the two
+        // were one state. Wrapped rather than padded to a column, because a language whose word for
+        // "uncounted" is four syllables must not push the line past eighty.
+        Key(b, tag, "activity.key.counted", "activity.key.counted.meaning");
+        Key(b, tag, "state.uncounted", "activity.key.uncounted.meaning");
+        Key(b, tag, "state.notMeasured", "activity.key.notMeasured.meaning");
     }
+
+    private static void Key(StringBuilder b, string tag, string word, string meaning) =>
+        Wrap(b, $"{Say(tag, word)} = {Say(tag, meaning)}", "  ");
 
     /// <summary>
     /// The trend in words: the direction first, then a line per week.

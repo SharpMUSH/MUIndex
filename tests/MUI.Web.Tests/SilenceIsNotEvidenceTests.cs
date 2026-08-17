@@ -1,6 +1,7 @@
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
 using MUI.Web.Components;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Tests;
 
@@ -77,16 +78,30 @@ public class SilenceIsNotEvidenceTests
             }
         }
 
-        var sentence = ActivitySummary.Sentence(week);
+        var sentence = ActivitySummary.Sentence(Locales.SourceTag, week);
 
         await Assert.That(sentence).Contains("have no measurement yet");
         await Assert.That(sentence).DoesNotContain("not reachable");
         await Assert.That(sentence).DoesNotContain("unreachable");
 
         var cell = new ActivityCell(3, 4, null, Probed: false);
-        await Assert.That(ActivitySummary.CellLabel(cell)).DoesNotContain("reachable");
-        await Assert.That(ActivitySummary.CellValue(cell)).IsEqualTo("not measured");
-        await Assert.That(ActivitySummary.PerDay(week).First()).Contains("not measured");
+        await Assert.That(ActivitySummary.CellLabel(Locales.SourceTag, cell)).DoesNotContain("reachable");
+
+        // The locked id, not the English spelling of it: what this test guards is that the hour is
+        // called not-measured rather than given a cause, in whatever language the reader asked for.
+        await Assert.That(ActivitySummary.CellValue(Locales.SourceTag, cell))
+            .IsEqualTo(Messages.For(Locales.SourceTag, "state.notMeasured"));
+
+        await Assert.That(ActivitySummary.PerDay(Locales.SourceTag, week).First()).Contains("not measured");
+
+        // And no locale names a cause for it either. "unreachable" is a different locked id with a
+        // different translation in every bundle, and an hour with no presence row is not one.
+        foreach (var locale in Locales.All)
+        {
+            await Assert.That(ActivitySummary.CellValue(locale.Tag, cell))
+                .IsNotEqualTo(Messages.For(locale.Tag, "state.unreachable"))
+                .Because($"{locale.Tag} calls an unmeasured hour unreachable");
+        }
     }
 
     /// <summary>
