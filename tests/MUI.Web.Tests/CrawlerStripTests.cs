@@ -1,3 +1,5 @@
+using MUI.Web.Localization;
+
 using MUI.Catalog;
 using MUI.Web.Components;
 
@@ -29,7 +31,8 @@ public class CrawlerStripTests
         var pulse = Pulse(TimeSpan.FromSeconds(40));
 
         await Assert.That(pulse.State(Now)).IsEqualTo(CrawlState.Working);
-        await Assert.That(CrawlerCopy.State(pulse, Now)).IsEqualTo("crawler live · last probe just now");
+        await Assert.That(CrawlerCopy.State(Locales.SourceTag, pulse, Now))
+            .IsEqualTo("crawler live · last probe " + Messages.For(Locales.SourceTag, "age.ago.now"));
     }
 
     /// <summary>
@@ -46,10 +49,11 @@ public class CrawlerStripTests
     public async Task AStalePulseIsQuietAndNamesNoCause()
     {
         var pulse = Pulse(TimeSpan.FromHours(4));
-        var copy = CrawlerCopy.State(pulse, Now);
+        var copy = CrawlerCopy.State(Locales.SourceTag, pulse, Now);
 
         await Assert.That(pulse.State(Now)).IsEqualTo(CrawlState.Quiet);
-        await Assert.That(copy).IsEqualTo("crawler quiet · last probe 4h ago");
+        await Assert.That(copy).IsEqualTo(
+            "crawler quiet · last probe " + Relative.Ago(Locales.SourceTag, TimeSpan.FromHours(4)));
 
         foreach (var diagnosis in new[] { "stopped", "down", "crashed", "stalled", "failed", "error", "offline" })
         {
@@ -65,8 +69,8 @@ public class CrawlerStripTests
     {
         var rendered = string.Join(
             "\n",
-            CrawlerCopy.State(Pulse(TimeSpan.FromSeconds(10)), Now),
-            CrawlerCopy.State(Pulse(TimeSpan.FromDays(2)), Now),
+            CrawlerCopy.State(Locales.SourceTag, Pulse(TimeSpan.FromSeconds(10)), Now),
+            CrawlerCopy.State(Locales.SourceTag, Pulse(TimeSpan.FromDays(2)), Now),
             CrawlerCopy.LastCycle(Pulse(TimeSpan.Zero, Cycle(8, 6, 2))) ?? string.Empty,
             CrawlerCopy.Registry(Pulse(TimeSpan.Zero)));
 

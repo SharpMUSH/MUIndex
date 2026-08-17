@@ -198,7 +198,7 @@ public class PlainParityTests
     {
         // The register the cards carry is a tone, and a tone is not a fact. In text the words do
         // all of the work.
-        var text = PlainText.RenderFeeds(await Queries.FeedsAsync(), Now);
+        var text = PlainText.RenderFeeds(Locales.SourceTag, await Queries.FeedsAsync(), Now);
 
         await Assert.That(text).Contains("NEWLY DISCOVERED");
         await Assert.That(text).Contains("WENT DARK");
@@ -216,7 +216,7 @@ public class PlainParityTests
             entries.Add(ArchiveEntry.For(game, await Queries.ForGameAsync(game.Id), Now));
         }
 
-        var text = PlainText.RenderArchive(entries, null, Now);
+        var text = PlainText.RenderArchive(Locales.SourceTag, entries, null, Now);
 
         await Assert.That(text).Contains("Last reachable:");
         await Assert.That(text).Contains("Known live:");
@@ -234,7 +234,7 @@ public class PlainParityTests
             entries.Add(ArchiveEntry.For(game, await Queries.ForGameAsync(game.Id), Now));
         }
 
-        var text = PlainText.RenderArchive(entries, null, Now).ToLowerInvariant();
+        var text = PlainText.RenderArchive(Locales.SourceTag, entries, null, Now).ToLowerInvariant();
 
         await Assert.That(text).Contains("[archived]");
         await Assert.That(text).DoesNotContain("dead");
@@ -249,12 +249,12 @@ public class PlainParityTests
         {
             await GameAsync("m-u-s-h"),
             await GameAsync("midnight-sun"),
-            PlainText.RenderFeeds(await Queries.FeedsAsync(), Now),
+            PlainText.RenderFeeds(Locales.SourceTag, await Queries.FeedsAsync(), Now),
             PlainText.RenderListing(await Queries.SearchAsync(new GameFilter()), new GameFilter(), Now),
 
             // The archive too, because its lines are the ones a label lengthens most: an archived
             // game's codebase carries the oldest age on the site.
-            PlainText.RenderArchive(await ArchiveAsync(), query: null, Now),
+            PlainText.RenderArchive(Locales.SourceTag, await ArchiveAsync(), query: null, Now),
         };
 
         foreach (var line in surfaces.SelectMany(s => s.Split('\n')))
@@ -313,7 +313,19 @@ public class PlainParityTests
         await Assert.That(text).Contains("Players now: 9   (declared, 9m)");
 
         // And a value nobody has confirmed in years says so in the word, not in an amber colour.
-        await Assert.That(text).Contains("PennMUSH 1.8.5  (declared, 3y, stale)");
+        // Asserted through the bundle rather than as a literal: the label is four messages now
+        // — the shape, the word, the rung and its plural — and a literal here would pass while the
+        // German page said something else entirely.
+        var label = Messages.For(
+            Locales.SourceTag,
+            "chip.plain.stale",
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["how"] = Messages.For(Locales.SourceTag, "provenance.game.declared"),
+                ["age"] = Relative.Format(Locales.SourceTag, TimeSpan.FromDays(365 * 3)),
+            });
+
+        await Assert.That(text).Contains($"PennMUSH 1.8.5  {label}");
     }
 
     [Test]
@@ -429,9 +441,21 @@ public class PlainParityTests
         // "Codebase: PennMUSH 1.8.5" on /archive — the same value, one surface saying nobody has
         // confirmed it since 2023 and the other not. The archive is where a value is oldest and
         // where the label matters most.
-        var text = PlainText.RenderArchive(await ArchiveAsync(), query: null, Now);
+        var text = PlainText.RenderArchive(Locales.SourceTag, await ArchiveAsync(), query: null, Now);
 
-        await Assert.That(text).Contains("PennMUSH 1.8.5  (declared, 3y, stale)");
+        // Asserted through the bundle rather than as a literal: the label is four messages now
+        // — the shape, the word, the rung and its plural — and a literal here would pass while the
+        // German page said something else entirely.
+        var label = Messages.For(
+            Locales.SourceTag,
+            "chip.plain.stale",
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["how"] = Messages.For(Locales.SourceTag, "provenance.game.declared"),
+                ["age"] = Relative.Format(Locales.SourceTag, TimeSpan.FromDays(365 * 3)),
+            });
+
+        await Assert.That(text).Contains($"PennMUSH 1.8.5  {label}");
 
         // And the rendered page wears the same chip the listing row does.
         var html = await Render.PageAsync<Archive>([]);
@@ -442,7 +466,7 @@ public class PlainParityTests
     public async Task TheHomePageCountsOnlyWhatWasMeasured()
     {
         var counts = SiteCounts.From(await Queries.ListAsync(new GameFilter { IncludeArchived = true }));
-        var text = PlainText.RenderHome(counts, await Queries.FeedsAsync(), CrawlerPulse.Unknown, Now);
+        var text = PlainText.RenderHome(Locales.SourceTag, counts, await Queries.FeedsAsync(), CrawlerPulse.Unknown, Now);
 
         await Assert.That(text).Contains("games known");
         await Assert.That(text).Contains("connected now (measured)");
@@ -458,7 +482,7 @@ public class PlainParityTests
         var surfaces = new[]
         {
             await GameAsync("m-u-s-h"),
-            PlainText.RenderHome(counts, await Queries.FeedsAsync(), CrawlerPulse.Unknown, Now),
+            PlainText.RenderHome(Locales.SourceTag, counts, await Queries.FeedsAsync(), CrawlerPulse.Unknown, Now),
             PlainText.RenderListing(await Queries.SearchAsync(new GameFilter()), new GameFilter(), Now),
         };
 

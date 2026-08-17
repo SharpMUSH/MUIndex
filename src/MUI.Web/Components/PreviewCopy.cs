@@ -90,8 +90,9 @@ public static class PreviewCopy
     /// connect. An unfurler truncates, so the ordering is the design — the address survives being
     /// cut, and the sentence that identifies the game does not.
     /// </remarks>
-    public static string ForGame(GamePage page, DateTimeOffset now)
+    public static string ForGame(string tag, GamePage page, DateTimeOffset now)
     {
+        ArgumentNullException.ThrowIfNull(tag);
         ArgumentNullException.ThrowIfNull(page);
 
         var summary = page.Summary;
@@ -108,10 +109,10 @@ public static class PreviewCopy
             // one. What matters is that it went dark and roughly when — and §7.4's promise that it
             // is still here, which is the thing no incumbent directory can say.
             sentences.Add(summary.LastReachableAt is { } last
-                ? $"Archived — last reachable {Relative.Ago(now - last)}, and still probed"
+                ? $"Archived — last reachable {Relative.Ago(tag, now - last, AgeSense.Reached)}, and still probed"
                 : "Archived, and still probed");
         }
-        else if (Count(summary, now) is { } count)
+        else if (Count(tag, summary, now) is { } count)
         {
             sentences.Add(count);
         }
@@ -135,7 +136,7 @@ public static class PreviewCopy
     /// preview states our parser's limit as a fact about their game (rule 4, rule 5). A measured
     /// zero is the opposite case and is published: we got in and nobody was there.
     /// </remarks>
-    private static string? Count(GameSummary summary, DateTimeOffset now)
+    private static string? Count(string tag, GameSummary summary, DateTimeOffset now)
     {
         if (summary.PlayersNow is not { } players)
         {
@@ -152,7 +153,7 @@ public static class PreviewCopy
             return null;
         }
 
-        return $"{players} {word}, {Provenance.How(chip)} {Relative.Ago(now - chip.LastConfirmedAt)}";
+        return $"{players} {word}, {Provenance.How(tag, chip)} {Relative.Ago(tag, now - chip.LastConfirmedAt)}";
     }
 
     /// <summary>Where you connect, which is the fact a reader most often wanted the page for.</summary>

@@ -133,8 +133,8 @@ public class SortingTests
         var html = Render.Words(await Render.PageAsync<Games>([]));
 
         await Assert.That(html).DoesNotContain("now ago");
-        await Assert.That(Relative.Ago(TimeSpan.FromSeconds(10))).IsEqualTo("just now");
-        await Assert.That(Relative.Ago(TimeSpan.FromMinutes(20))).IsEqualTo("20m ago");
+        await Assert.That(Relative.Ago(Locales.SourceTag, TimeSpan.FromSeconds(10))).IsEqualTo("just now");
+        await Assert.That(Relative.Ago(Locales.SourceTag, TimeSpan.FromMinutes(20))).IsEqualTo("20m ago");
     }
 
     [Test]

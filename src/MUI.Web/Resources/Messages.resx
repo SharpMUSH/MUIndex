@@ -102,107 +102,107 @@
   </data>
   <data name="find.title" xml:space="preserve">
     <value>Find a game</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.kicker" xml:space="preserve">
     <value>matching all answers</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.noun" xml:space="preserve">
     <value>{count, plural, one {game} other {games}}</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.clearAll" xml:space="preserve">
     <value>clear all answers</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.startAgain" xml:space="preserve">
     <value>start again</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.more" xml:space="preserve">
     <value>{count, plural, one {# more} other {# more}}</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.answersGiven" xml:space="preserve">
     <value>answers given</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.wholeListing" xml:space="preserve">
     <value>the whole listing</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.refused" xml:space="preserve">
     <value>that query was refused</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.name.label" xml:space="preserve">
     <value>a name, if you have one</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.name.placeholder" xml:space="preserve">
     <value>name, or part of one</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.name.submit" xml:space="preserve">
     <value>Search by name</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.q.band" xml:space="preserve">
     <value>Is anyone playing right now?</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.q.genre" xml:space="preserve">
     <value>What do you want to play?</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.q.lineage" xml:space="preserve">
     <value>What kind of game?</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.q.language" xml:space="preserve">
     <value>In which language?</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.q.client" xml:space="preserve">
     <value>Anything your client needs?</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.q.dark" xml:space="preserve">
     <value>Include games that have gone dark?</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.any.band" xml:space="preserve">
     <value>doesn't matter</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.any.genre" xml:space="preserve">
     <value>any genre</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.any.lineage" xml:space="preserve">
     <value>any kind</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.any.language" xml:space="preserve">
     <value>any language</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.any.client" xml:space="preserve">
     <value>doesn't matter</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.dark.no" xml:space="preserve">
     <value>no, only live games</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.dark.yes" xml:space="preserve">
     <value>yes, show me those too</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.dark.chip" xml:space="preserve">
     <value>games that have gone dark</value>
-    <comment>the find page's own copy, questions included</comment>
+    <comment>find a game, where the count is the whole point of the page</comment>
   </data>
   <data name="find.protocol.tls" xml:space="preserve">
     <value>TLS — encrypted, handshake completed by us</value>
@@ -1807,5 +1807,161 @@
   <data name="account.store.note" xml:space="preserve">
     <value>No email address, no password, no IP log tied to your account. Lose every passkey and you can publish a fresh claim token on your game and start again: the game is the proof, not the account.</value>
     <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="date.absolute" xml:space="preserve">
+    <value>{day} {month} {year}</value>
+    <comment>dates, ages and provenance — the two shapes on nearly every page</comment>
+  </data>
+  <data name="date.stamp" xml:space="preserve">
+    <value>{date} {time} UTC</value>
+    <comment>dates, ages and provenance — the two shapes on nearly every page</comment>
+  </data>
+  <data name="age.short.now" xml:space="preserve">
+    <value>now</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.short.minutes" xml:space="preserve">
+    <value>{count, plural, one {#m} other {#m}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.short.hours" xml:space="preserve">
+    <value>{count, plural, one {#h} other {#h}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.short.days" xml:space="preserve">
+    <value>{count, plural, one {#d} other {#d}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.short.weeks" xml:space="preserve">
+    <value>{count, plural, one {#w} other {#w}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.short.months" xml:space="preserve">
+    <value>{count, plural, one {#mo} other {#mo}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.short.years" xml:space="preserve">
+    <value>{count, plural, one {#y} other {#y}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.ago.now" xml:space="preserve">
+    <value>just now</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.ago.minutes" xml:space="preserve">
+    <value>{count, plural, one {#m ago} other {#m ago}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.ago.hours" xml:space="preserve">
+    <value>{count, plural, one {#h ago} other {#h ago}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.ago.days" xml:space="preserve">
+    <value>{count, plural, one {#d ago} other {#d ago}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.ago.weeks" xml:space="preserve">
+    <value>{count, plural, one {#w ago} other {#w ago}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.ago.months" xml:space="preserve">
+    <value>{count, plural, one {#mo ago} other {#mo ago}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.ago.years" xml:space="preserve">
+    <value>{count, plural, one {#y ago} other {#y ago}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.dark.now" xml:space="preserve">
+    <value>just now</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.dark.minutes" xml:space="preserve">
+    <value>{count, plural, one {#m ago} other {#m ago}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.dark.hours" xml:space="preserve">
+    <value>{count, plural, one {#h ago} other {#h ago}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.dark.days" xml:space="preserve">
+    <value>{count, plural, one {#d ago} other {#d ago}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.dark.weeks" xml:space="preserve">
+    <value>{count, plural, one {#w ago} other {#w ago}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.dark.months" xml:space="preserve">
+    <value>{count, plural, one {#mo ago} other {#mo ago}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="age.dark.years" xml:space="preserve">
+    <value>{count, plural, one {#y ago} other {#y ago}}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="time.title" xml:space="preserve">
+    <value>{age}, {stamp}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="time.spoken" xml:space="preserve">
+    <value>, {stamp}</value>
+    <comment>the age ladder, in three registers</comment>
+  </data>
+  <data name="chip.title" xml:space="preserve">
+    <value>{value} — {how} via {source}, last confirmed {date}</value>
+    <comment>the provenance chip's tooltip</comment>
+  </data>
+  <data name="chip.title.stale" xml:space="preserve">
+    <value>{value} — {how} via {source}, last confirmed {date} (past its expected refresh)</value>
+    <comment>the provenance chip's tooltip</comment>
+  </data>
+  <data name="chip.plain" xml:space="preserve">
+    <value>({how}, {age})</value>
+    <comment>the provenance chip's tooltip</comment>
+  </data>
+  <data name="chip.plain.stale" xml:space="preserve">
+    <value>({how}, {age}, stale)</value>
+    <comment>the provenance chip's tooltip</comment>
+  </data>
+  <data name="provenance.game.ownerDeclared" xml:space="preserve">
+    <value>owner-declared</value>
+    <comment>the provenance chip's tooltip</comment>
+  </data>
+  <data name="source.staff" xml:space="preserve">
+    <value>staff</value>
+    <comment>how a value reached us, one id per source</comment>
+  </data>
+  <data name="source.handshake" xml:space="preserve">
+    <value>the telnet handshake</value>
+    <comment>how a value reached us, one id per source</comment>
+  </data>
+  <data name="source.owner" xml:space="preserve">
+    <value>the owner</value>
+    <comment>how a value reached us, one id per source</comment>
+  </data>
+  <data name="source.who" xml:space="preserve">
+    <value>WHO</value>
+    <comment>how a value reached us, one id per source</comment>
+  </data>
+  <data name="source.i3" xml:space="preserve">
+    <value>I3</value>
+    <comment>how a value reached us, one id per source</comment>
+  </data>
+  <data name="source.mssp" xml:space="preserve">
+    <value>MSSP</value>
+    <comment>how a value reached us, one id per source</comment>
+  </data>
+  <data name="source.info" xml:space="preserve">
+    <value>INFO</value>
+    <comment>how a value reached us, one id per source</comment>
+  </data>
+  <data name="source.i3Mudlist" xml:space="preserve">
+    <value>the I3 mudlist</value>
+    <comment>how a value reached us, one id per source</comment>
+  </data>
+  <data name="source.banner" xml:space="preserve">
+    <value>the connect screen</value>
+    <comment>how a value reached us, one id per source</comment>
   </data>
 </root>

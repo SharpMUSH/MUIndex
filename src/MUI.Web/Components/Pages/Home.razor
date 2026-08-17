@@ -14,7 +14,7 @@
 
 @if (Plain)
 {
-    <pre class="mono plain">@PlainText.RenderHome(Counts, Feeds, Pulse, Now)</pre>
+    <pre class="mono plain">@PlainText.RenderHome(Http.LocaleOf().Tag, Counts, Feeds, Pulse, Now)</pre>
 }
 else
 {

@@ -1,4 +1,5 @@
 @using MUI.Catalog
+@using MUI.Web.Localization
 
 @*
     The instrument, shown running.
@@ -17,11 +18,15 @@
 {
     <p class="crawler mono faint">
         <span class="@StateClass" aria-hidden="true">●</span>
-        @CrawlerCopy.State(Pulse, Now)@(LastCycle is null ? "" : " · ") @LastCycle
+        @CrawlerCopy.State(Tag, Pulse, Now)@(LastCycle is null ? "" : " · ") @LastCycle
     </p>
 }
 
 @code {
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
     [Parameter, EditorRequired] public CrawlerPulse Pulse { get; set; } = CrawlerPulse.Unknown;
 
     [Parameter, EditorRequired] public DateTimeOffset Now { get; set; }

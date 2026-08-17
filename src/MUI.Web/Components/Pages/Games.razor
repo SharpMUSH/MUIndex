@@ -282,8 +282,16 @@ else
                                 {
                                     var rest = g.MeasuredProtocols.Count - ProtocolsShown;
                                     <text> </text>
+                                    @* The one tooltip on this row that was still being built in
+                                       markup, beside an id that already said the same thing in four
+                                       languages. The protocol names inside it are machine voice and
+                                       pass through; the "and … more" around them is ours. *@
                                     <span class="protocol more"
-                                          title="@($"and {rest} more: {string.Join(", ", g.MeasuredProtocols.Skip(ProtocolsShown))}")">
+                                          title="@Messages.For(Tag, "listing.moreProtocols", new Dictionary<string, object?>(StringComparer.Ordinal)
+                                          {
+                                              ["count"] = rest,
+                                              ["names"] = string.Join(", ", g.MeasuredProtocols.Skip(ProtocolsShown)),
+                                          })">
                                         +@rest
                                     </span>
                                 }

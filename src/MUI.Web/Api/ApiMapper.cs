@@ -1,5 +1,6 @@
 using MUI.Catalog;
 using MUI.Web.Components;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Api;
 
@@ -10,6 +11,12 @@ namespace MUI.Web.Api;
 /// It computes nothing the catalogue already computed. Reachability arithmetic, staleness and the
 /// disagreement flag all arrive decided (spec §5.6) and are carried across, because a surface that
 /// re-derived any of them would be free to disagree with the page about the same fact.
+/// <para>
+/// <b>Every string it emits is English, named by <see cref="Locales.SourceTag"/> rather than left to
+/// a default.</b> The read API is a contract with a program, and an age that read <c>vor 2 Wo.</c>
+/// because the caller happened to send an <c>Accept-Language</c> header would be a breaking change
+/// nobody deployed. The seconds beside it are the field a consumer should be reading anyway.
+/// </para>
 /// </remarks>
 public static class ApiMapper
 {
@@ -150,7 +157,7 @@ public static class ApiMapper
             chip.IsMeasured,
             chip.LastConfirmedAt,
             age.TotalSeconds,
-            Relative.Format(age),
+            Relative.Format(Locales.SourceTag, age),
             chip.IsStale);
     }
 
@@ -164,7 +171,7 @@ public static class ApiMapper
             row.Disagrees,
             row.LastConfirmedAt,
             age?.TotalSeconds,
-            age is { } span ? Relative.Format(span) : null);
+            age is { } span ? Relative.Format(Locales.SourceTag, span) : null);
     }
 
     /// <summary>

@@ -16,7 +16,7 @@
         which is what stops one game being indexed as two.
     *@
     <SitePreview Title="@Page.Summary.Name"
-                 Description="@PreviewCopy.ForGame(Page, Now)"
+                 Description="@PreviewCopy.ForGame(Http.LocaleOf().Tag, Page, Now)"
                  Card="PreviewCard.Game"
                  Graph="GraphFor" />
 }
@@ -118,7 +118,7 @@ else
                         }
                         @if (e.IsCurrent)
                         {
-                            <span class="faint">@L("game.answeringSince", ("date", Dates.Absolute(e.FirstSeenAt)))</span>
+                            <span class="faint">@L("game.answeringSince", ("date", Dates.Absolute(Http.LocaleOf().Tag, e.FirstSeenAt)))</span>
                         }
                         else
                         {
@@ -166,7 +166,7 @@ else
         {
             <div class="archive-plate">
                 <p>
-                    Last answered <strong>@Entry.LastAnswered</strong>, @Entry.DarkFor(Now) ago.
+                    Last answered <strong>@Entry.LastAnswered(Http.LocaleOf().Tag)</strong>, @Entry.DarkFor(Http.LocaleOf().Tag, Now) ago.
                     Still probed weekly; this page updates the day it answers.
                 </p>
                 @if (Entry.Run is { } run)
@@ -321,7 +321,7 @@ else
                                     @if (neighbour.Present)
                                     {
                                         <span class="faint">
-                                            since @Dates.Absolute(neighbour.FirstSeenAt)
+                                            since @Dates.Absolute(Http.LocaleOf().Tag, neighbour.FirstSeenAt)
                                         </span>
                                     }
                                     else
@@ -348,7 +348,7 @@ else
                                 @* One date format, site-wide: this list said 2026-08-17 while the
                                    address line above it said Aug 2026 and the rankings said
                                    31 July 2026. *@
-                                <span class="faint">@Dates.Absolute(change.At)</span> @change.Summary
+                                <span class="faint">@Dates.Absolute(Http.LocaleOf().Tag, change.At)</span> @change.Summary
                             </li>
                         }
                     </ol>

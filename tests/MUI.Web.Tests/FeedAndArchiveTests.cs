@@ -1,3 +1,5 @@
+using MUI.Web.Localization;
+
 using MUI.Catalog;
 using MUI.Web.Components;
 using MUI.Web.Fixtures;
@@ -128,7 +130,7 @@ public class FeedAndArchiveTests
 
         await Assert.That(entry.LastReachableAt).IsNotNull();
         await Assert.That(entry.KnownLive).IsGreaterThan(TimeSpan.FromDays(365 * 10));
-        await Assert.That(entry.LastAnswered).Contains("2023");
+        await Assert.That(entry.LastAnswered(Locales.SourceTag)).Contains("2023");
         await Assert.That(entry.Run).IsNotNull();
     }
 
@@ -140,7 +142,7 @@ public class FeedAndArchiveTests
         var entry = ArchiveEntry.For(game, [], Now);
 
         await Assert.That(entry.Run).IsNull();
-        await Assert.That(entry.LastAnswered).Contains("never");
+        await Assert.That(entry.LastAnswered(Locales.SourceTag)).Contains("never");
         await Assert.That(entry.KnownLiveWording).IsEqualTo("no reachable time measured");
     }
 

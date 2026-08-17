@@ -762,6 +762,102 @@ public static class Messages
         ["account.store.note"] = "No email address, no password, no IP log tied to your account. "
             + "Lose every passkey and you can publish a fresh claim token on your game and start "
             + "again: the game is the proof, not the account.",
+
+        // ── dates, ages and provenance — the two shapes on nearly every page ──────────────────
+        // Appended as one block on purpose: three other surfaces are appending to this file at the
+        // same time, and a marked section at the end is a merge that adds rather than one that
+        // collides.
+        //
+        // <b>The words come from CLDR and the order comes from here.</b> A month name is
+        // <c>CultureInfo</c>'s — see <c>Locales.CultureOf</c>, and see the day names in the heatmap,
+        // which are the same job — but the *arrangement* of day, month and year is not something a
+        // .NET format string can express for a language it is never sent. Japanese writes
+        // 2026年7月30日 and German puts a point after the day; both are one edit to this pattern and
+        // neither is reachable through <c>ToString("d MMM yyyy")</c>.
+        ["date.absolute"] = "{day} {month} {year}",
+
+        // UTC is named rather than implied, and it is not a word to translate. Every time on this
+        // site is UTC because a crawler's clock is the only one it has, and a reader in another zone
+        // who is not told cannot tell whether 14:02 is theirs. The 24-hour spelling is the site's
+        // and not the locale's for the same reason: one zone, one clock, one shape.
+        ["date.stamp"] = "{date} {time} UTC",
+
+        // ── the age ladder, in three registers ────────────────────────────────────────────────
+        // Three families over the same seven rungs, and the English is identical in two of them.
+        // That is the point. A bare duration is a duration; "how long ago did we last confirm this
+        // value" and "how long has this game been unreached" are two different questions, and a
+        // language that answers them with one phrasing can still choose to — while one that needs
+        // "vor 2 Wo." for the first and "seit 2 Wo." for the second has somewhere to say so.
+        //
+        // Every rung is a real ICU plural even where English has one form, because the branch a
+        // language actually needs is not knowable from the source text. `#` prints the number.
+        ["age.short.now"] = "now",
+        ["age.short.minutes"] = "{count, plural, one {#m} other {#m}}",
+        ["age.short.hours"] = "{count, plural, one {#h} other {#h}}",
+        ["age.short.days"] = "{count, plural, one {#d} other {#d}}",
+        ["age.short.weeks"] = "{count, plural, one {#w} other {#w}}",
+        ["age.short.months"] = "{count, plural, one {#mo} other {#mo}}",
+        ["age.short.years"] = "{count, plural, one {#y} other {#y}}",
+
+        // How long ago we last confirmed a value. The freshest rung is a word rather than a
+        // duration — "now ago" was a real bug, and giving the rung its own id is what makes it
+        // unwritable rather than merely fixed.
+        ["age.ago.now"] = "just now",
+        ["age.ago.minutes"] = "{count, plural, one {#m ago} other {#m ago}}",
+        ["age.ago.hours"] = "{count, plural, one {#h ago} other {#h ago}}",
+        ["age.ago.days"] = "{count, plural, one {#d ago} other {#d ago}}",
+        ["age.ago.weeks"] = "{count, plural, one {#w ago} other {#w ago}}",
+        ["age.ago.months"] = "{count, plural, one {#mo ago} other {#mo ago}}",
+        ["age.ago.years"] = "{count, plural, one {#y ago} other {#y ago}}",
+
+        // How long since the game was last reached. Identical English, different question — and
+        // never "offline" or "down" in any language: we measured a socket from one vantage point
+        // and a game with a routing problem to our host is unreachable and perfectly alive.
+        ["age.dark.now"] = "just now",
+        ["age.dark.minutes"] = "{count, plural, one {#m ago} other {#m ago}}",
+        ["age.dark.hours"] = "{count, plural, one {#h ago} other {#h ago}}",
+        ["age.dark.days"] = "{count, plural, one {#d ago} other {#d ago}}",
+        ["age.dark.weeks"] = "{count, plural, one {#w ago} other {#w ago}}",
+        ["age.dark.months"] = "{count, plural, one {#mo ago} other {#mo ago}}",
+        ["age.dark.years"] = "{count, plural, one {#y ago} other {#y ago}}",
+
+        // The <time> element's own two joins: the hover title, and the absolute a screen reader
+        // hears after the visible age. Both are an age and an instant in one string, and which one
+        // comes first is a language's decision rather than a comma in a template.
+        ["time.title"] = "{age}, {stamp}",
+        ["time.spoken"] = ", {stamp}",
+
+        // ── the provenance chip's tooltip ─────────────────────────────────────────────────────
+        // The value and the source token are machine voice and pass through untranslated; every
+        // word around them is ours. "last confirmed" is a fact about our crawl and not about the
+        // game, and it must stay one in every language — it is the date we last saw the value, not
+        // a date the game did anything.
+        ["chip.title"] = "{value} — {how} via {source}, last confirmed {date}",
+        ["chip.title.stale"] = "{value} — {how} via {source}, last confirmed {date} (past its expected refresh)",
+
+        // The same chip in plain text, where there is no hover to put it in.
+        ["chip.plain"] = "({how}, {age})",
+        ["chip.plain.stale"] = "({how}, {age}, stale)",
+
+        // Three registers of the measured/declared line already exist above; this is the fourth
+        // subject, and it is a separate id for the reason all the others are.
+        ["provenance.game.ownerDeclared"] = "owner-declared",
+
+        // ── how a value reached us, one id per source ─────────────────────────────────────────
+        // <b>A display name, not an enum member.</b> The chip's tooltip printed FieldSource's own
+        // ToString and told readers a value came "via Mssp" — an acronym mis-cased, in a sentence
+        // no translator could reach, because the words were never in a file they are sent. MSSP,
+        // GMCP, WHO, INFO and I3 are protocol names and stay exactly as they are in every locale;
+        // the handshake, the connect screen, the owner and this project's staff are ours to say.
+        ["source.staff"] = "staff",
+        ["source.handshake"] = "the telnet handshake",
+        ["source.owner"] = "the owner",
+        ["source.who"] = "WHO",
+        ["source.i3"] = "I3",
+        ["source.mssp"] = "MSSP",
+        ["source.info"] = "INFO",
+        ["source.i3Mudlist"] = "the I3 mudlist",
+        ["source.banner"] = "the connect screen",
     };
 
     /// <summary>
