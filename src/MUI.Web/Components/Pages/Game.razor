@@ -88,33 +88,14 @@ else
                         }
                     </p>
                 }
-            </div>
-            <div class="connect">
-                <p class="live mono">
-                    @if (Page.Summary.PlayersNow is { } n)
-                    {
-                        @*
-                            The count, and how we came by it. This page is the surface a reader
-                            trusts most, and it was the one printing the measured glyph over every
-                            number it had — including the ones a game states about itself, which the
-                            listing that points here already labels as such. One vocabulary.
-                        *@
-                        <span class="@(Counted?.IsMeasured is false ? "state-declared" : "state-present")">
-                            @(Counted?.IsMeasured is false ? "◇" : "●") @n players on now
-                        </span>
-                        @if (Counted is { } counted)
-                        {
-                            <Chip Fact="counted" Now="Now" ValueShown="false" />
-                        }
-                    }
-                    else
-                    {
-                        @* Never a zero and never a blank: those are different facts and only one of
-                           them is a measurement. *@
-                        <span class="state-unknown">– count unknown</span>
-                    }
-                </p>
+
                 @*
+                    The address, inside the title's own column and sharing its left edge. It used to
+                    be a sibling of the outer row, beside the count — so it hung under the logo and
+                    read as belonging to it, and on a game with no logo it sat in a column of its
+                    own for no reason. Nested like this the indent is the title's, and it collapses
+                    to nothing by itself when there is no logo.
+
                     Current addresses first, then the ones the game has left. A departed address is
                     rendered rather than dropped, because the reader most in need of this page is the
                     one holding an address that stopped answering — and §7.5's promise that nothing is
@@ -141,6 +122,32 @@ else
                         }
                     </p>
                 }
+            </div>
+            <div class="connect">
+                <p class="live mono">
+                    @if (Page.Summary.PlayersNow is { } n)
+                    {
+                        @*
+                            The count, and how we came by it. This page is the surface a reader
+                            trusts most, and it was the one printing the measured glyph over every
+                            number it had — including the ones a game states about itself, which the
+                            listing that points here already labels as such. One vocabulary.
+                        *@
+                        <span class="@(Counted?.IsMeasured is false ? "state-declared" : "state-present")">
+                            @(Counted?.IsMeasured is false ? "◇" : "●") @n players on now
+                        </span>
+                        @if (Counted is { } counted)
+                        {
+                            <Chip Fact="counted" Now="Now" ValueShown="false" />
+                        }
+                    }
+                    else
+                    {
+                        @* Never a zero and never a blank: those are different facts and only one of
+                           them is a measurement. *@
+                        <span class="state-unknown">– count unknown</span>
+                    }
+                </p>
             </div>
         </header>
 

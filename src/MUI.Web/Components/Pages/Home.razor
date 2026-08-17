@@ -36,13 +36,33 @@ else
             <button type="submit">search</button>
         </form>
 
-        @* Only counts we measured. There is no "reachable this week" figure here because the store
-           cannot answer it yet, and an estimate on this page would undo the whole argument. *@
-        <ul class="counts mono">
-            <li><strong>@Counts.Known</strong> games known</li>
-            <li><span class="state-present">● @Counts.WithPlayersOn</span> with players on now</li>
-            <li><strong>@Counts.CountUnknown</strong> answering, count unknown</li>
-            <li><a href="/archive">@Counts.Archived archived</a>, still probed</li>
+        @*
+            Four tiles: a label and a value, and no sub-label under either. They were one mono line
+            of "9 games known · 5 with players on now · …", which is a sentence pretending to be a
+            dashboard — the numbers are the front page's whole claim and they were set at the size
+            of the metadata beside them.
+
+            No sub-labels: "games with a count" under "with players on" is a gloss on a label that
+            should carry its own meaning, so the label carries it. There is no "reachable this week"
+            tile because the store cannot answer it, and an estimate here would undo the argument.
+        *@
+        <ul class="tiles">
+            <li>
+                <span class="kicker">games known</span>
+                <span class="figure mono">@Counts.Known</span>
+            </li>
+            <li>
+                <span class="kicker">with players on</span>
+                <span class="figure mono state-present">@Counts.WithPlayersOn</span>
+            </li>
+            <li>
+                <span class="kicker">answering, not counted</span>
+                <span class="figure mono">@Counts.CountUnknown</span>
+            </li>
+            <li>
+                <a href="/archive"><span class="kicker">archived</span>
+                <span class="figure mono">@Counts.Archived</span></a>
+            </li>
         </ul>
 
         @* Under the counts on purpose. Every figure above it is only as current as the loop this

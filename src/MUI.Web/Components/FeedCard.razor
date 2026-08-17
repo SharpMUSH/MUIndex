@@ -10,7 +10,13 @@
     suppressed entirely under prefers-reduced-motion.
 *@
 
-<article class="feed-card @Register">
+@*
+    A row, not a card. Three lists of five boxed cards was three columns of boxes on a page whose
+    only other framed thing is a connect screen — and a card per game gives a name, an age and at
+    most six words the furniture of a section. Name left, age right, a hairline between: the shape
+    the handoff draws, and the shape a list of "what changed" wants.
+*@
+<article class="feed-row @Register">
     @* Off when the card sits under a column that already names the register, so the page does not
        read "newly discovered newly discovered". A screen reader still gets it: the columns are
        sections labelled by their own heading. *@
@@ -20,11 +26,16 @@
     }
     <div class="feed-name">
         <a href="/g/@Entry.Slug">@Entry.Name</a>
-        <Moment At="Entry.At" Now="Now" Class="mono faint" />
-        @if (Kind is FeedKind.CameBack)
-        {
-            <span class="mono state-present">● live</span>
-        }
+        @* One cell at the row's right edge: the state, where there is one, and then the age — so a
+           returned game reads "live · 4h" rather than dropping its marker onto a line of its own. *@
+        <span class="feed-state">
+            @if (Kind is FeedKind.CameBack)
+            {
+                <span class="mono state-present">● live</span>
+                <span class="faint" aria-hidden="true">·</span>
+            }
+            <Moment At="Entry.At" Now="Now" Class="mono faint" />
+        </span>
     </div>
     @* Only where there is something to add. A row whose detail restated its own column heading was
        one line of repetition per game, and the feeds are ten games deep. *@

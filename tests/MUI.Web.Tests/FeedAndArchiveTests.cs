@@ -35,7 +35,10 @@ public class FeedAndArchiveTests
 
         foreach (var html in new[] { discovered, dark, back })
         {
-            await Assert.That(html).Contains("<article class=\"feed-card");
+            // A row rather than a card: three columns of boxes gave a name and an age the furniture
+            // of a section, on a page whose only other framed thing is somebody else's connect
+            // screen. The three registers are still three, and still one shape.
+            await Assert.That(html).Contains("<article class=\"feed-row");
             await Assert.That(html).Contains("href=\"/g/x\"");
         }
     }

@@ -12,8 +12,22 @@
 */
 
 :root {
-    --cpad: 14px;               /* the density control writes this, and only this */
-    --row-pad: 9px;
+    /*
+      Spacing, radii and motion, in the relationships the design handoff's own token files carry.
+      The values are theirs; the colours below are ours — the handoff's palette is a different
+      product's and its README says so. What transfers is the scale: content padding at 20px rather
+      than the 14 this site had, one radius for controls and a larger one for the surfaces that hold
+      them, and a single easing curve at an eighth of a second.
+    */
+    --cpad: 20px;               /* the density control writes this, and only this */
+    --row-pad: 13px;            /* a listing row: 13px 20px, over a 44px floor */
+
+    --radius: 9px;              /* controls, chips, rows, nav items */
+    --radius-lg: 14px;          /* cards and panels — the things controls sit in */
+    --radius-pill: 99px;        /* pills and badges */
+
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --dur: 0.14s;
 
     --bg: #0f1113;
     --surface: #16191c;
@@ -111,8 +125,8 @@
 }
 
 :root[data-density="compact"] {
-    --cpad: 9px;
-    --row-pad: 5px;
+    --cpad: 13px;
+    --row-pad: 8px;
 }
 
 * { box-sizing: border-box; }
@@ -128,7 +142,7 @@ body {
 main { max-width: 1080px; margin: 0 auto; padding: calc(var(--cpad) * 2) var(--cpad); }
 
 h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 6px; }
-h2 { font-size: 19px; font-weight: 600; margin: calc(var(--cpad) * 2) 0 var(--cpad); }
+h2 { font-size: 20px; font-weight: 600; margin: calc(var(--cpad) * 1.4) 0 10px; }
 a { color: inherit; }
 
 .dim { color: var(--dim); }
@@ -181,8 +195,11 @@ header.site .mark .star { color: var(--accent); }
 table.matrix { border-collapse: collapse; width: 100%; }
 table.matrix th, table.matrix td {
     text-align: left;
-    padding: var(--row-pad) var(--cpad);
+    /* Its own padding rather than the row token: this table is six rows of two-word states, and a
+       listing row's 13px by 20px turns each of them into a paragraph. */
+    padding: 9px 12px 9px 0;
     border-bottom: 1px solid var(--line);
+    white-space: nowrap;
 }
 table.matrix thead th { font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
 table.matrix tr.disagrees { background: color-mix(in srgb, var(--amber) 9%, transparent); }
@@ -372,17 +389,32 @@ button {
     cursor: pointer;
 }
 
-ul.counts {
-    list-style: none; margin: 0; padding: 0;
-    display: flex; flex-wrap: wrap; gap: 20px; font-size: 12px; color: var(--dim);
+/* ── the four figures ──────────────────────────────────────────────────────
+   A label and a value, in a framed tile, at the size a front page's whole claim deserves. They were
+   one 12px mono line reading like a caption, which is what a count of the hobby is not.        */
+
+ul.tiles {
+    list-style: none; margin: var(--cpad) 0 0; padding: 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px;
 }
-ul.counts strong { color: var(--text); font-weight: 400; }
+ul.tiles li {
+    border: 1px solid var(--line); border-radius: var(--radius-lg);
+    background: var(--surface); padding: 12px 14px;
+    display: grid; gap: 6px;
+}
+ul.tiles a { text-decoration: none; display: grid; gap: 6px; }
+ul.tiles .kicker { color: var(--faint); }
+ul.tiles .figure { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+ul.tiles .figure.state-present { color: var(--accent); }
 
 /* The crawler strip, under the counts it is the provenance of. A step smaller and dimmer than they
    are, because it is about the instrument rather than about the hobby — a reader who never notices
    it has lost nothing, and one who comes looking for it knows where to look. */
+/* Hairlines top and bottom, as the handoff frames it: the strip is a band of provenance under the
+   figures it qualifies, and a band reads as one thing where a loose line reads as a footnote. */
 p.crawler {
-    margin: 10px 0 0; font-size: 11px;
+    margin: var(--cpad) 0 0; padding: 8px 0; font-size: 12.5px;
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
 }
 
 .feeds {
@@ -396,25 +428,36 @@ p.crawler {
    One shape, three registers. Neutral, unlit, and — for a return — the one place the site raises
    its voice, because a game dark for two years answering is what no incumbent can tell you.    */
 
-.feed-card {
-    border: 1px solid var(--line);
-    background: var(--recessed);
-    border-radius: 8px;
-    padding: 12px 14px;
-    margin-bottom: 10px;
+/* A row: name left, age right, a hairline between. Three columns of boxed cards gave a name and an
+   age the furniture of a section, and framed things on this site are supposed to mean something —
+   the connect screen is quoted in a frame because it is somebody else's. */
+
+.feed-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 2px 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
 }
 
-.feed-card .feed-name { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-.feed-card .feed-name a { font-size: 15px; font-weight: 600; text-decoration: none; }
-.feed-card .detail { font-size: 11.5px; color: var(--dim); margin: 4px 0 0; }
-.feed-card.unlit { opacity: 0.78; }
-.feed-card.unlit .feed-name a { color: var(--dim); }
+.feed-row .feed-name { display: contents; }
+.feed-row .feed-state { display: inline-flex; align-items: baseline; gap: 6px; font-size: 12px; }
+.feed-row .feed-name a { font-size: 14px; font-weight: 600; text-decoration: none; }
+.feed-row .detail, .feed-row .return-line {
+    grid-column: 1 / -1; margin: 0; font-size: 11.5px; color: var(--faint);
+}
+.feed-row.unlit .feed-name a { color: var(--dim); }
 
-.feed-card.returned {
-    border-color: color-mix(in srgb, var(--accent) 34%, transparent);
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
+/* The return still raises its voice — it is the thing no incumbent can tell you — but as a tinted
+   row rather than a card: the accent on the name and the age, and the one glow this page spends. */
+.feed-row.returned {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    border-bottom-color: color-mix(in srgb, var(--accent) 26%, transparent);
     animation: return-glow 1.4s ease-out 1;
 }
+.feed-row.returned .feed-name a { color: var(--accent); }
+.feed-row.returned .return-line { color: var(--dim); }
 
 /* Motion budget, one of three: once, on arrival, never repeating. */
 @keyframes return-glow {
@@ -422,11 +465,15 @@ p.crawler {
     to   { box-shadow: 0 0 0 14px transparent; }
 }
 
-.feed-card.returned .return-line { font-size: 15px; line-height: 1.5; color: var(--text); margin: 6px 0 0; }
+
 
 /* ── game page ─────────────────────────────────────────────────────────── */
 
 .game-head { display: flex; gap: var(--cpad); flex-wrap: wrap; align-items: flex-start; }
+
+/* The count sits at the far end, on its own, now that the address has moved into the title's column
+   where it belongs. Right-aligned so the number and its age read as one figure. */
+.game-head .connect { margin-left: auto; text-align: right; }
 .game-head .game-title { flex: 1; min-width: 260px; }
 .game-head .plate {
     width: 68px; height: 68px; flex: none;
@@ -719,8 +766,9 @@ ul.games > li, ul.archive > li {
 ul.games > li.game-row:hover { background: var(--surface); }
 
 /* The row is a touch target before it is a layout: the game's name is the link, and on a phone a
-   list of five hundred of them is a list of five hundred things to hit. 44px is the floor. */
-ul.games > li.game-row { min-height: 44px; }
+   list of five hundred of them is a list of five hundred things to hit. The handoff's geometry —
+   13px by 20px over a 46px floor — is what puts a comfortable target under every name. */
+ul.games > li.game-row { min-height: 46px; padding: var(--row-pad) var(--cpad); }
 
 /* Three columns: the game's face, what it is, and what we measured. The plate is what gives a
    five-hundred-row list a left edge the eye can run down — before it, every row began with a
@@ -729,7 +777,7 @@ ul.games > li.game-row { min-height: 44px; }
 .row-main {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 2px var(--cpad);
+    gap: 3px 20px;
     align-items: start;
 }
 
@@ -1084,7 +1132,19 @@ form.facet-form {
   The archive's own search box is the same control with a legend on it, so it is styled here rather
   than growing a second look for one question asked on two pages.
 */
-.filter-bar, fieldset.facets {
+/* The bar's controls stack down the filter column: at 268px a search field, a sort select, two
+   checkboxes and a button laid side by side wrap into a shape nobody chose. */
+.filter-bar {
+    display: grid;
+    gap: 10px;
+    align-items: center;
+}
+
+.filter-bar .bar-field { display: grid; gap: 4px; }
+.filter-bar .bar-field select { width: 100%; }
+.filter-bar button { justify-self: start; }
+
+fieldset.facets {
     display: flex;
     gap: 10px;
     align-items: center;
@@ -1093,7 +1153,7 @@ form.facet-form {
 
 fieldset.facets {
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: var(--radius-lg);
     background: var(--surface);
     padding: var(--cpad);
     margin: 0 0 var(--cpad);
@@ -1106,7 +1166,8 @@ fieldset.facets legend {
     color: var(--faint);
 }
 
-.filter-bar input[type="search"], fieldset.facets input[type="search"] { flex: 1 1 16rem; min-width: 0; }
+.filter-bar input[type="search"] { min-width: 0; width: 100%; }
+fieldset.facets input[type="search"] { flex: 1 1 16rem; min-width: 0; }
 
 .bar-field { display: inline-flex; align-items: center; gap: 6px; }
 .bar-label { font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
@@ -1119,6 +1180,34 @@ fieldset.facets legend {
   auto-fit at a narrow floor, so eight facets pack four to a row on a laptop, two on a tablet and one
   on a phone without a breakpoint being written for any of them.
 */
+/* ── the listing's two columns ─────────────────────────────────────────────
+   What you are asking on the left, what came back on the right. `stretch` so the filter column's
+   own edge runs the full height of the card: aligned to its content it stops under a short panel
+   and leaves a well beside the rows.                                                            */
+
+.listing-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 268px) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0;
+    margin-top: var(--cpad);
+}
+
+.listing-grid > .facet-form { border-right: 1px solid var(--line); padding-right: var(--cpad); }
+.listing-side { min-width: 0; padding-left: var(--cpad); }
+
+/* One column below 900px: the filters become a block above the rows, in the order they are already
+   in. Their edge goes with the column it belonged to. */
+@media (max-width: 900px) {
+    .listing-grid { grid-template-columns: minmax(0, 1fr); }
+    .listing-grid > .facet-form {
+        border-right: 0; padding-right: 0;
+        border-bottom: 1px solid var(--line); padding-bottom: var(--cpad); margin-bottom: var(--cpad);
+    }
+    .listing-side { padding-left: 0; }
+}
+
+/* In a 268px column the facets stack: one group per row, and the bar's controls with them. */
 .facet-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(214px, 1fr));
