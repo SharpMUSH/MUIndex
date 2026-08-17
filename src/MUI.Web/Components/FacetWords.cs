@@ -92,16 +92,22 @@ public static class FacetWords
     /// column says and what the sort does; "busiest" is <c>/rankings</c>'s word for a median over a
     /// window with a sample floor under it, and lending it to one instantaneous count would be two
     /// different measurements answering to one name on the same site. The window sorts name their
-    /// statistic <em>and</em> their span for the same reason — "average players on" alone would be
-    /// three different orders wearing one label.
+    /// statistic <em>and</em> their span for the same reason — "typically on" alone would be three
+    /// different orders wearing one label.
+    /// <para>
+    /// "Typically on" rather than "median players on". The statistic is a median and is called one
+    /// everywhere it is documented, but the control is read by people looking for a game to play and
+    /// the word for what they want is <em>typical</em>. The row beside it prints the number under the
+    /// word "median", so nothing is hidden by the plainer label.
+    /// </para>
     /// </remarks>
     public static string Sort(GameSort sort) => sort switch
     {
         GameSort.Players => "players on now",
         GameSort.Reached => "last reached",
-        GameSort.AverageWeek => "average players on · 7 days",
-        GameSort.AverageMonth => "average players on · 30 days",
-        GameSort.AverageQuarter => "average players on · 90 days",
+        GameSort.MedianWeek => "typically on · 7 days",
+        GameSort.MedianMonth => "typically on · 30 days",
+        GameSort.MedianQuarter => "typically on · 90 days",
         GameSort.PeakWeek => "most on at once · 7 days",
         GameSort.PeakMonth => "most on at once · 30 days",
         GameSort.PeakQuarter => "most on at once · 90 days",
@@ -118,16 +124,24 @@ public static class FacetWords
     /// </remarks>
     public static string SortGroup(GameSort sort) => SortWindows.Of(sort) is null
         ? "on the row now"
-        : SortWindows.IsAverage(sort) ? "averaged over a window" : "highest seen in a window";
+        : SortWindows.IsMedian(sort) ? "typical over a window" : "highest seen in a window";
 
     /// <summary>
     /// How a window figure is spelled where it is shown beside the row it ranked.
     /// </summary>
     /// <remarks>
-    /// <b>The sample count is part of the sentence and not an optional extra.</b> An average is a
-    /// mean of something, and this site does not publish a fraction whose denominator it has hidden
+    /// <para>
+    /// <b>The sample count is part of the sentence and not an optional extra.</b> A median is a
+    /// median of something, and this site does not publish a figure whose basis it has hidden
     /// (§15.7). It is also the only thing on the row that distinguishes a game measured three hundred
     /// times from one found on Friday and probed thirty.
+    /// </para>
+    /// <para>
+    /// The word here is "median" even though the control says "typically on". The control is a
+    /// question a reader is choosing between and the row is the answer's basis — a number labelled
+    /// with the statistic it is, so anybody who wants to know what "typical" was computed as can read
+    /// it off the row rather than the documentation.
+    /// </para>
     /// </remarks>
     public static string Window(PresenceWindow window, GameSort sort)
     {
@@ -136,8 +150,8 @@ public static class FacetWords
         var span = $"{window.Window.TotalDays:0}d";
         var counts = $"{window.Samples} count{(window.Samples == 1 ? string.Empty : "s")}";
 
-        return SortWindows.IsAverage(sort)
-            ? $"avg {window.Average.ToString("0.#", CultureInfo.InvariantCulture)} · {span} · {counts}"
+        return SortWindows.IsMedian(sort)
+            ? $"median {window.Median.ToString(CultureInfo.InvariantCulture)} · {span} · {counts}"
             : $"most {window.Peak} at once · {span} · {counts}";
     }
 
@@ -157,11 +171,11 @@ public static class FacetWords
         GameSort.Reached => "never once reached — not reached long ago",
 
         // Two reasons in one group, and the sentence names both: nothing countable in the window, or
-        // too few counts to take a mean of. Neither is "nobody plays here", and a tail rendered as a
-        // run of noughts would say exactly that.
-        _ when SortWindows.IsAverage(sort) =>
+        // too few counts to take a median of. Neither is "nobody plays here", and a tail rendered as
+        // a run of noughts would say exactly that.
+        _ when SortWindows.IsMedian(sort) =>
             $"fewer than {SortWindows.MinimumSamples} counts in the window, or none at all "
-            + "— not an average of zero",
+            + "— not a typical count of zero",
         _ when SortWindows.Of(sort) is not null =>
             "nothing we could count in the window — not a game nobody was on",
         _ => string.Empty,

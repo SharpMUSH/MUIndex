@@ -138,14 +138,14 @@ public enum GameSort
     /// <summary>Most recently reached first.</summary>
     Reached,
 
-    /// <summary>Highest average count over the last 7 days, first.</summary>
-    AverageWeek,
+    /// <summary>Highest median count over the last 7 days, first.</summary>
+    MedianWeek,
 
-    /// <summary>Highest average count over the last 30 days, first.</summary>
-    AverageMonth,
+    /// <summary>Highest median count over the last 30 days, first.</summary>
+    MedianMonth,
 
-    /// <summary>Highest average count over the last 90 days, first.</summary>
-    AverageQuarter,
+    /// <summary>Highest median count over the last 90 days, first.</summary>
+    MedianQuarter,
 
     /// <summary>Largest single count observed in the last 7 days, first.</summary>
     PeakWeek,
@@ -171,13 +171,19 @@ public enum GameSort
 /// knows what these mean.
 /// </para>
 /// <para>
-/// <b>An average carries a sample floor and a peak does not</b>, because they fail differently. A
-/// mean over four probes is not a mean of anything and would put a game found on Friday above one
-/// measured three hundred times, which is ranking our own crawl schedule; the floor is the same
+/// <b>A median carries a sample floor and a peak does not</b>, because they fail differently. A
+/// median over four probes is not a median of anything and would put a game found on Friday above
+/// one measured three hundred times, which is ranking our own crawl schedule; the floor is the same
 /// <c>NpgsqlGameQueries.MinimumRankingSamples</c> that <c>/rankings</c> uses, so the two surfaces
 /// cannot come to hold two opinions about how much evidence is enough. A peak is one observation and
 /// is true however few of them there were — we counted that many people on at once, and a floor
 /// under it would suppress a measurement we actually took.
+/// </para>
+/// <para>
+/// <b>A median and never a mean</b>, which is the same choice <c>/rankings</c> made and migration
+/// 0019 exists to make cheap. A mean is pulled around by the one evening a game was linked from
+/// somewhere; the typical count is what a reader asking "how busy is this normally" wants, and it is
+/// a number a server actually reported rather than an arithmetic artefact between two of them.
 /// </para>
 /// </remarks>
 public static class SortWindows
@@ -202,28 +208,28 @@ public static class SortWindows
     /// <summary>The span a sort reads over, or null where it reads no window at all.</summary>
     public static TimeSpan? Of(GameSort sort) => sort switch
     {
-        GameSort.AverageWeek or GameSort.PeakWeek => Week,
-        GameSort.AverageMonth or GameSort.PeakMonth => Month,
-        GameSort.AverageQuarter or GameSort.PeakQuarter => Quarter,
+        GameSort.MedianWeek or GameSort.PeakWeek => Week,
+        GameSort.MedianMonth or GameSort.PeakMonth => Month,
+        GameSort.MedianQuarter or GameSort.PeakQuarter => Quarter,
         _ => null,
     };
 
-    /// <summary>Whether a sort ranks on the mean rather than on the largest reading.</summary>
-    public static bool IsAverage(GameSort sort) =>
-        sort is GameSort.AverageWeek or GameSort.AverageMonth or GameSort.AverageQuarter;
+    /// <summary>Whether a sort ranks on the typical count rather than on the largest reading.</summary>
+    public static bool IsMedian(GameSort sort) =>
+        sort is GameSort.MedianWeek or GameSort.MedianMonth or GameSort.MedianQuarter;
 
     /// <summary>
     /// Whether a window's figures are enough to rank this game on this sort.
     /// </summary>
     /// <remarks>
-    /// A window with no counted sample at all ranks nothing either way: there is no average over
+    /// A window with no counted sample at all ranks nothing either way: there is no median of
     /// nothing and no largest of no readings, and the query does not return a row for such a game.
     /// </remarks>
     public static bool CanRank(PresenceWindow window, GameSort sort)
     {
         ArgumentNullException.ThrowIfNull(window);
 
-        return window.Samples > 0 && (!IsAverage(sort) || window.Samples >= MinimumSamples);
+        return window.Samples > 0 && (!IsMedian(sort) || window.Samples >= MinimumSamples);
     }
 }
 
@@ -293,17 +299,17 @@ public static class GameSorting
     }
 
     /// <summary>
-    /// What a window sort ranks on, as one number — the mean, or the largest reading.
+    /// What a window sort ranks on, as one number — the typical count, or the largest reading.
     /// </summary>
     /// <remarks>
     /// Zero for every sort that reads no window, and for every game this sort cannot rank. Neither
     /// is a claim that nobody was there: the games in the second group sort below the break, where
     /// the listing says in words what they have in common.
     /// </remarks>
-    private static double Ranked(GameSummary game, GameSort sort) =>
+    private static int Ranked(GameSummary game, GameSort sort) =>
         SortWindows.Of(sort) is null || game.PlayersOverWindow is not { } window
             ? 0
-            : SortWindows.IsAverage(sort) ? window.Average : window.Peak;
+            : SortWindows.IsMedian(sort) ? window.Median : window.Peak;
 }
 
 /// <summary>

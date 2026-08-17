@@ -231,14 +231,20 @@ public sealed record GameSummaryView(
     PresenceWindowView? PlayersOverWindow = null);
 
 /// <summary>
-/// One game's counts over one window, as <c>?sort=averageWeek</c> and its neighbours rank on them.
+/// One game's counts over one window, as <c>?sort=medianWeek</c> and its neighbours rank on them.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <see cref="Samples"/> is published beside <see cref="Average"/> and is not optional: a mean whose
-/// denominator is hidden is exactly the kind of figure §15.7 refuses, and it is the only thing here
-/// that tells a game measured three hundred times from one found on Friday. A consumer that ranks on
-/// <see cref="Average"/> without reading it will rank our crawl schedule.
+/// <see cref="Median"/> and not a mean, which is the same choice <c>/rankings</c> makes: a mean is
+/// pulled around by the one evening a game was linked from somewhere. It is an <b>observed</b>
+/// count — the first value whose running frequency reaches the half-way position, never the average
+/// of two — so a consumer republishing it is republishing a number a server reported.
+/// </para>
+/// <para>
+/// <see cref="Samples"/> is published beside it and is not optional: a figure whose basis is hidden
+/// is exactly what §15.7 refuses, and it is the only thing here that tells a game measured three
+/// hundred times from one found on Friday. A consumer that ranks on <see cref="Median"/> without
+/// reading it will rank our crawl schedule.
 /// </para>
 /// <para>
 /// Both figures are over <b>counted</b> samples alone. A probe that got in and could not read a
@@ -246,7 +252,7 @@ public sealed record GameSummaryView(
 /// the window is absent from this field rather than present with zeroes in it.
 /// </para>
 /// </remarks>
-public sealed record PresenceWindowView(int WindowDays, double Average, int Peak, int Samples);
+public sealed record PresenceWindowView(int WindowDays, int Median, int Peak, int Samples);
 
 public sealed record GameView(
     Guid Id,

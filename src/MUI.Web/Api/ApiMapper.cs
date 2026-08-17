@@ -55,7 +55,7 @@ public static class ApiMapper
     private static PresenceWindowView? Window(PresenceWindow? window) => window is null
         ? null
         : new PresenceWindowView(
-            (int)window.Window.TotalDays, window.Average, window.Peak, window.Samples);
+            (int)window.Window.TotalDays, window.Median, window.Peak, window.Samples);
 
     /// <summary>
     /// One facet, carried across exactly as the catalogue counted it.

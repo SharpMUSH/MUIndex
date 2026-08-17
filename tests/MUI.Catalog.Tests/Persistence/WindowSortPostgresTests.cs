@@ -8,11 +8,13 @@ namespace MUI.Catalog.Tests.Persistence;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Three things can go wrong here and each of them fails silently on a page that still renders. The
-/// mean can be taken of means, which quietly reweights every game with uneven coverage. The window
-/// can be read from raw samples alone, which shortens without saying so the day retention drops its
-/// first partition — the exact failure migration 0019 was written about. And an uncountable probe can
-/// be folded in as a zero, which is rule 4 broken in the one place the arithmetic makes it easy.
+/// Four things can go wrong here and each of them fails silently on a page that still renders. The
+/// typical count can be computed as a mean, which one linked evening drags upward — the reason
+/// migration 0019 put a distribution in the rollup at all. The window can be read from raw samples
+/// alone, which shortens without saying so the day retention drops its first partition. An
+/// uncountable probe can be folded in as a zero, which is rule 4 broken where the arithmetic makes it
+/// easy. And the walk can land one element high on an even sample count, which shipped once on
+/// <c>/rankings</c> already.
 /// </para>
 /// <para>
 /// So every test here is about the arithmetic rather than the plumbing, and the load-bearing one is
@@ -28,12 +30,12 @@ public class WindowSortPostgresTests
         new(db.DataSource) { Clock = () => Now };
 
     [Test]
-    public async Task TheAverageIsASumOverATallyAndNeverAMeanOfMeans()
+    public async Task TheTypicalCountIsAMedianAndOneBigEveningDoesNotMoveIt()
     {
-        // Two days of very different coverage: one probe reading 100, then forty reading 10. The
-        // mean of the two daily means is 55 and the mean of the counts is about 12 — and the second
-        // is the one a reader asked for. This is the failure mode `sum_count` exists to prevent, and
-        // it only appears once the days have been rolled up.
+        // The reason 0019 put a distribution in the rollup, applied to the listing. Forty probes read
+        // ten and one read a hundred: the mean is 12.2, the mean of the two daily means is 55, and
+        // the number a reader asking "how busy is this normally" wants is 10. Only the last of those
+        // is a count somebody's server actually reported.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db, "uneven", "Uneven");
         var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
@@ -48,12 +50,40 @@ public class WindowSortPostgresTests
 
         await Maintenance(db).RunAsync(Now);
 
-        var window = await WindowOf(db, "uneven", GameSort.AverageWeek);
+        var window = await WindowOf(db, "uneven", GameSort.MedianWeek);
 
         await Assert.That(window).IsNotNull();
         await Assert.That(window!.Samples).IsEqualTo(41);
-        await Assert.That(window.Average).IsEqualTo((100d + (40 * 10)) / 41).Within(0.0001);
+        await Assert.That(window.Median).IsEqualTo(10);
+
+        // The evening is not thrown away, it is reported as what it was: the largest single reading.
         await Assert.That(window.Peak).IsEqualTo(100);
+    }
+
+    [Test]
+    public async Task AnEvenSampleCountTakesTheLowerMiddleValueAndNotTheOneAboveIt()
+    {
+        // `ceil(n / 2.0)` and not `(n + 1) / 2`. `sum()` over a bigint returns numeric, so the
+        // division is exact and four samples ask for element 2 — which the second value satisfies.
+        // Integer division would ask for 2 as well; the failure is subtler and shipped on /rankings
+        // once: it is the numeric division being written as if it rounded. Four readings of 1, 3, 9
+        // and 27 have a discrete median of 3, and never 9 and never 6.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, "even", "Even");
+        var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
+
+        foreach (var (hour, count) in new[] { (1, 1), (2, 3), (3, 9), (4, 27) })
+        {
+            await writer.WriteAsync(
+                game, PresenceReading.Counted(count, FieldSource.Who), Now.AddDays(-2).AddHours(hour));
+        }
+
+        await Maintenance(db).RunAsync(Now);
+
+        var window = await WindowOf(db, "even", GameSort.MedianWeek);
+
+        await Assert.That(window!.Median).IsEqualTo(3);
+        await Assert.That(window.Samples).IsEqualTo(4);
     }
 
     [Test]
@@ -73,20 +103,23 @@ public class WindowSortPostgresTests
         await Maintenance(db).RunAsync(Now.AddDays(-1));
         await writer.WriteAsync(game, PresenceReading.Counted(8, FieldSource.Who), Now.AddMinutes(-30));
 
-        var window = await WindowOf(db, "spanning", GameSort.AverageWeek);
+        var window = await WindowOf(db, "spanning", GameSort.MedianWeek);
 
         await Assert.That(window).IsNotNull();
         await Assert.That(window!.Samples).IsEqualTo(2).Because("one sample from each side of the watermark");
-        await Assert.That(window.Average).IsEqualTo(6d).Within(0.0001);
+
+        // Two readings, so the walk takes the lower — and a raw sample and a rolled-up one have to
+        // enter that walk as the same kind of thing, which is what the shared frequency table is for.
+        await Assert.That(window.Median).IsEqualTo(4);
         await Assert.That(window.Peak).IsEqualTo(8);
     }
 
     [Test]
-    public async Task AProbeThatCouldNotCountIsNotAveragedAsAZero()
+    public async Task AProbeThatCouldNotCountIsNotCountedAsAZero()
     {
-        // Rule 4 where the arithmetic makes breaking it easy: a NULL count in a sum reads as nothing
-        // and in a tally reads as one, and the difference between those two is a game whose DOING
-        // header is past our parser being reported as half as busy as it is.
+        // Rule 4 where the arithmetic makes breaking it easy: an uncountable probe entering the
+        // distribution as a zero would drag the median of a game whose DOING header is past our
+        // parser straight to the bottom of the listing while it runs perfectly well.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db, "half-read", "Half Read");
         var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
@@ -103,11 +136,11 @@ public class WindowSortPostgresTests
 
         await Maintenance(db).RunAsync(Now);
 
-        var window = await WindowOf(db, "half-read", GameSort.AverageWeek);
+        var window = await WindowOf(db, "half-read", GameSort.MedianWeek);
 
         await Assert.That(window).IsNotNull();
         await Assert.That(window!.Samples).IsEqualTo(1).Because("five probes counted nothing, so they count for nothing");
-        await Assert.That(window.Average).IsEqualTo(20d).Within(0.0001);
+        await Assert.That(window.Median).IsEqualTo(20);
     }
 
     [Test]
@@ -124,8 +157,8 @@ public class WindowSortPostgresTests
         await writer.WriteAsync(
             uncounted, PresenceReading.Unmeasurable(UnmeasurableReason.WhoNotOffered), Now.AddDays(-1));
 
-        await Assert.That(await WindowOf(db, "silent", GameSort.AverageWeek)).IsNull();
-        await Assert.That(await WindowOf(db, "uncountable", GameSort.AverageWeek)).IsNull();
+        await Assert.That(await WindowOf(db, "silent", GameSort.MedianWeek)).IsNull();
+        await Assert.That(await WindowOf(db, "uncountable", GameSort.MedianWeek)).IsNull();
     }
 
     [Test]
@@ -147,9 +180,9 @@ public class WindowSortPostgresTests
         await Assert.That((await WindowOf(db, "long-record", GameSort.PeakMonth))!.Peak).IsEqualTo(50);
         await Assert.That((await WindowOf(db, "long-record", GameSort.PeakQuarter))!.Peak).IsEqualTo(500);
 
-        await Assert.That((await WindowOf(db, "long-record", GameSort.AverageWeek))!.Window)
+        await Assert.That((await WindowOf(db, "long-record", GameSort.MedianWeek))!.Window)
             .IsEqualTo(SortWindows.Week);
-        await Assert.That((await WindowOf(db, "long-record", GameSort.AverageQuarter))!.Window)
+        await Assert.That((await WindowOf(db, "long-record", GameSort.MedianQuarter))!.Window)
             .IsEqualTo(SortWindows.Quarter);
     }
 

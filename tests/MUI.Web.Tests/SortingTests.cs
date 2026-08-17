@@ -172,34 +172,36 @@ public class SortingTests
     public async Task AWindowSortRanksOnTheWindowAndNotOnTheCountOnTheRow()
     {
         // The point of the three window orders: a game with two people on right now and a steady
-        // average outranks one that happens to have five on at the moment this page was drawn.
-        var steady = Windowed("steady", playersNow: 2, average: 40, peak: 44, samples: 300);
-        var spiking = Windowed("spiking", playersNow: 5, average: 3, peak: 90, samples: 300);
+        // forty most of the time outranks one that happens to have five on at the moment this page
+        // was drawn — and the same two games swap places when the question is the biggest night
+        // either of them had.
+        var steady = Windowed("steady", playersNow: 2, median: 40, peak: 44, samples: 300);
+        var spiking = Windowed("spiking", playersNow: 5, median: 3, peak: 90, samples: 300);
 
-        var byAverage = GameSorting.Apply([spiking, steady], GameSort.AverageWeek);
+        var byMedian = GameSorting.Apply([spiking, steady], GameSort.MedianWeek);
         var byPeak = GameSorting.Apply([steady, spiking], GameSort.PeakWeek);
 
-        await Assert.That(byAverage[0].Name).IsEqualTo("steady");
+        await Assert.That(byMedian[0].Name).IsEqualTo("steady");
         await Assert.That(byPeak[0].Name).IsEqualTo("spiking");
     }
 
     [Test]
-    public async Task AnAverageNeedsEnoughCountsToBeAnAverageAndAPeakDoesNot()
+    public async Task AMedianNeedsEnoughCountsToBeAMedianAndAPeakDoesNot()
     {
-        // They fail differently, so they are floored differently. A mean over four probes is not a
-        // mean of anything and would put a game found on Friday above one measured three hundred
+        // They fail differently, so they are floored differently. A median over four probes is not a
+        // median of anything and would put a game found on Friday above one measured three hundred
         // times — that is ranking our crawl schedule. A peak is one observation and is true however
         // few of them there were: we counted that many people on at once, and suppressing it would
         // hide a measurement we actually took.
-        var thin = Windowed("thin", playersNow: 1, average: 90, peak: 90, samples: 4);
+        var thin = Windowed("thin", playersNow: 1, median: 90, peak: 90, samples: 4);
 
-        await Assert.That(GameSorting.IsUnranked(thin, GameSort.AverageWeek)).IsTrue();
+        await Assert.That(GameSorting.IsUnranked(thin, GameSort.MedianWeek)).IsTrue();
         await Assert.That(GameSorting.IsUnranked(thin, GameSort.PeakWeek)).IsFalse();
 
         // A game measured enough times clears it, so the floor is a floor and not a wall.
         var thick = thin with { PlayersOverWindow = thin.PlayersOverWindow! with { Samples = 24 } };
 
-        await Assert.That(GameSorting.IsUnranked(thick, GameSort.AverageWeek)).IsFalse();
+        await Assert.That(GameSorting.IsUnranked(thick, GameSort.MedianWeek)).IsFalse();
 
         // That this floor is the one /rankings puts under its median is not asserted here: it is
         // NpgsqlGameQueries.MinimumRankingSamples = SortWindows.MinimumSamples, so the two cannot
@@ -210,15 +212,15 @@ public class SortingTests
     public async Task AGameWithNoWindowSortsBelowTheBreakAndNeverAsAZero()
     {
         // The same rule as every other sort here, on the newest columns. A game we could not count
-        // in the window has no average, and an average of nought is a different claim entirely.
-        var counted = Windowed("counted", playersNow: 0, average: 1.5, peak: 6, samples: 200);
+        // in the window has no typical count, and a typical count of nought is a different claim.
+        var counted = Windowed("counted", playersNow: 0, median: 2, peak: 6, samples: 200);
         var uncountable = Summary("uncountable", players: null, reached: FixtureGameQueries.Now);
 
-        var order = GameSorting.Apply([uncountable, counted], GameSort.AverageMonth);
+        var order = GameSorting.Apply([uncountable, counted], GameSort.MedianMonth);
 
         await Assert.That(order[0].Name).IsEqualTo("counted");
-        await Assert.That(GameSorting.IsUnranked(uncountable, GameSort.AverageMonth)).IsTrue();
-        await Assert.That(FacetWords.Unranked(GameSort.AverageMonth)).Contains("not an average of zero");
+        await Assert.That(GameSorting.IsUnranked(uncountable, GameSort.MedianMonth)).IsTrue();
+        await Assert.That(FacetWords.Unranked(GameSort.MedianMonth)).Contains("not a typical count of zero");
         await Assert.That(FacetWords.Unranked(GameSort.PeakMonth)).Contains("not a game nobody was on");
     }
 
@@ -228,9 +230,11 @@ public class SortingTests
         // A listing ordered by a figure that appears nowhere on its rows is one a reader has to take
         // on trust — and the sample tally rides along because a mean is a mean of something (§15.7):
         // thirty counts and three hundred are not the same evidence.
-        var html = Render.Words(await Render.PageAsync<Games>([], "?sort=averageMonth"));
+        var html = Render.Words(await Render.PageAsync<Games>([], "?sort=medianMonth"));
 
-        await Assert.That(html).Contains("avg");
+        // "median" on the row even though the control says "typically on": the control is the
+        // question and the row is the basis, labelled with the statistic it actually is.
+        await Assert.That(html).Contains("median");
         await Assert.That(html).Contains("counts");
         await Assert.That(html).Contains("30d");
 
@@ -271,9 +275,9 @@ public class SortingTests
         Guid.NewGuid(), name, name, null, LifecycleState.Active, false, players, null, [], reached);
 
     private static GameSummary Windowed(
-        string name, int? playersNow, double average, int peak, int samples) =>
+        string name, int? playersNow, int median, int peak, int samples) =>
         Summary(name, playersNow, FixtureGameQueries.Now) with
         {
-            PlayersOverWindow = new PresenceWindow(SortWindows.Week, average, peak, samples),
+            PlayersOverWindow = new PresenceWindow(SortWindows.Week, median, peak, samples),
         };
 }

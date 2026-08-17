@@ -184,13 +184,18 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// <b>Null where the grid has no counted hour</b>: a game we cannot count and an archived game
     /// that answered in none of these hours both fall below the break, which is the state this
     /// fixture exists to make renderable. The sample tally is the week's counted hours scaled to the
-    /// window, so the thirty- and ninety-day sorts clear the average's floor and the seven-day one
+    /// window, so the thirty- and ninety-day sorts clear the median's floor and the seven-day one
     /// shows what a game near it looks like.
+    /// </para>
+    /// <para>
+    /// The median is the lower of the two middle values on an even count, which is what
+    /// <c>percentile_disc(0.5)</c> returns and what the database's own walk reproduces. Averaging the
+    /// pair would put a number on the demo page that no hour of the grid beside it contains.
     /// </para>
     /// </remarks>
     private static PresenceWindow? OverWindow(GameSummary game, TimeSpan window)
     {
-        var counted = Activity(game).Where(c => c.IsCounted).Select(c => c.Count!.Value).ToList();
+        var counted = Activity(game).Where(c => c.IsCounted).Select(c => c.Count!.Value).Order().ToList();
 
         if (counted.Count == 0)
         {
@@ -199,7 +204,11 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
 
         var samples = (int)Math.Round(counted.Count * (window.TotalDays / 7));
 
-        return new PresenceWindow(window, counted.Average(), counted.Max(), samples);
+        return new PresenceWindow(
+            window,
+            counted[(int)Math.Ceiling(counted.Count / 2.0) - 1],
+            counted[^1],
+            samples);
     }
 
     /// <summary>A listing with no panel — the same search, projected.</summary>

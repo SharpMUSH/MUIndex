@@ -365,10 +365,25 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// listing sorted at nine in the evening is the part a reader most expects to be in there.
     /// </para>
     /// <para>
-    /// <b>The mean is a sum over a tally and never a mean of means.</b> The rollup stores
-    /// <c>sum_count</c> beside <c>counted_samples</c> for precisely this: averaging daily averages
-    /// would weight a day probed twice the same as a day probed forty times, and the games with the
-    /// thinnest coverage are exactly the ones that would then move.
+    /// <b>The typical count is a median, walked out of migration 0019's distributions</b>, and it is
+    /// the same walk <see cref="RankingsAsync"/> does — summed frequencies in ascending count order,
+    /// and the first value whose running total reaches <c>ceil(n / 2.0)</c>. A mean was the obvious
+    /// thing to compute from <c>sum_count</c> and is the wrong statistic: it is pulled around by the
+    /// one evening a game was linked from somewhere, which is exactly what 0019 was written about.
+    /// The number that comes out is a count a server actually reported and never the average of two.
+    /// </para>
+    /// <para>
+    /// <c>ceil(n / 2.0)</c> and not <c>(n + 1) / 2</c> — <c>sum()</c> over a bigint returns
+    /// <c>numeric</c>, so the division is exact and an even sample count asks for element 15.5, which
+    /// no row satisfies until the one after the median. That off-by-one shipped once already on the
+    /// rankings and is pinned there by equality with <c>percentile_disc</c>.
+    /// </para>
+    /// <para>
+    /// <b>A rolled-up day with no distribution is excluded from all three figures rather than from
+    /// one</b>, so the tally printed on the row is the tally the median was taken over. Those are the
+    /// buckets 0019 could not rebuild on a deployment that had already dropped raw; counting their
+    /// samples while their counts could not reach the walk would publish a basis the arithmetic never
+    /// used. Raw samples above the watermark are individual counts and always participate.
     /// </para>
     /// <para>
     /// <b>A NULL count is excluded rather than read as a zero</b> (rule 4). A probe that got in and
@@ -405,43 +420,57 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             span AS (
                 SELECT date_trunc('day', @from AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS from_at
             ),
-            parts AS (
-                SELECT p.game_id,
-                       count(p.count)::bigint AS counted,
-                       sum(p.count)::bigint   AS total,
-                       max(p.count)           AS peak
+            -- One frequency table over both halves: a raw sample is one occurrence of the count it
+            -- read, and a rolled-up day is however many occurrences its distribution records. The
+            -- median, the tally and the peak all come off this, so they cannot describe three
+            -- different sets of probes.
+            frequency AS (
+                SELECT p.game_id, p.count AS value, count(*)::bigint AS times
                   FROM presence_sample p
                  WHERE p.game_id = ANY(@ids)
+                   AND p.count IS NOT NULL
                    AND p.at >= (SELECT from_at FROM span)
                    AND p.at >= (SELECT at FROM boundary)
-                 GROUP BY 1
+                 GROUP BY 1, 2
 
                 UNION ALL
 
-                SELECT r.game_id,
-                       sum(r.counted_samples)::bigint,
-                       sum(r.sum_count)::bigint,
-                       max(r.max_count)
+                SELECT r.game_id, e.key::int, sum(e.value::bigint)
                   FROM presence_rollup_day r
+                  CROSS JOIN LATERAL jsonb_each_text(r.count_histogram) AS e(key, value)
                  WHERE r.game_id = ANY(@ids)
+                   AND r.count_histogram IS NOT NULL
                    AND r.day >= (SELECT from_at FROM span)
                    AND r.day < (SELECT at FROM boundary)
-                 GROUP BY 1
+                 GROUP BY 1, 2
+            ),
+            counted AS (
+                SELECT game_id, value, sum(times) AS times
+                  FROM frequency
+                 GROUP BY 1, 2
+            ),
+            walked AS (
+                SELECT game_id, value,
+                       sum(times) OVER (PARTITION BY game_id ORDER BY value) AS running,
+                       ceil(sum(times) OVER (PARTITION BY game_id) / 2.0)    AS half,
+                       sum(times) OVER (PARTITION BY game_id)                AS samples,
+                       max(value)  OVER (PARTITION BY game_id)               AS peak
+                  FROM counted
             )
-            SELECT game_id      AS GameId,
-                   sum(counted)::int AS Samples,
-                   sum(total)::bigint AS Total,
-                   max(peak)::int     AS Peak
-              FROM parts
+            SELECT game_id        AS GameId,
+                   min(value)::int AS Median,
+                   max(peak)::int  AS Peak,
+                   max(samples)::int AS Samples
+              FROM walked
+             WHERE running >= half
              GROUP BY 1
-            HAVING sum(counted) > 0
             """,
             new { ids, from = (now - window).ToUniversalTime() },
             cancellationToken: cancellationToken));
 
         return rows.ToDictionary(
             r => r.GameId,
-            r => new PresenceWindow(window, (double)r.Total / r.Samples, r.Peak, r.Samples));
+            r => new PresenceWindow(window, r.Median, r.Peak, r.Samples));
     }
 
     /// <summary>
@@ -1444,23 +1473,16 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         DateTime LastSeenAt,
         bool Present);
 
-    /// <summary>
-    /// One game's window tally as the query returns it — the sum and the count, never a mean.
-    /// </summary>
-    /// <remarks>
-    /// The division happens once, in C#, over the totals of both halves of the union. Dividing in SQL
-    /// per half and averaging the two would be the mean-of-means the rollup's <c>sum_count</c> column
-    /// exists to prevent.
-    /// </remarks>
+    /// <summary>One game's window figures as the walk returns them.</summary>
     private sealed class WindowRow
     {
         public Guid GameId { get; init; }
 
-        public int Samples { get; init; }
-
-        public long Total { get; init; }
+        public int Median { get; init; }
 
         public int Peak { get; init; }
+
+        public int Samples { get; init; }
     }
 
     private sealed class ActivityRow

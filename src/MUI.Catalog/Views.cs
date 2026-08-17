@@ -141,18 +141,25 @@ public sealed record GameSummary(
 /// </summary>
 /// <remarks>
 /// <para>
+/// <b><see cref="Median"/> and not a mean</b>, for the reason migration 0019 was written down:
+/// a mean is pulled around by the one evening a game was linked from somewhere, and what a reader
+/// asking "how busy is this normally" wants is the typical count. It is an <em>observed</em> count —
+/// the walk takes the first value whose running frequency reaches the half-way position, never the
+/// average of two — so the number on the row is one somebody's server actually reported.
+/// </para>
+/// <para>
 /// <b>Both figures are over counted samples alone.</b> A probe that got in and could not read a
 /// number writes no count (§5.4's middle state), and an hour nobody probed writes nothing at all —
-/// neither is a zero, and neither may be averaged as one. So <see cref="Samples"/> is the
-/// denominator this <see cref="Average"/> was actually taken over and not the number of hours in the
-/// window, which is the same distinction §15.7 draws about every other fraction on this site.
+/// neither is a zero, and neither may be ranked as one. So <see cref="Samples"/> is the tally this
+/// <see cref="Median"/> was actually taken over and not the number of hours in the window, which is
+/// the same distinction §15.7 draws about every other fraction on this site.
 /// </para>
 /// <para>
 /// <b><see cref="Samples"/> is carried rather than being an internal detail of the query</b>, because
-/// a mean has to be published with the size of what it is a mean of. A game found on Friday and
-/// probed four times has an average, and a reader shown it beside a game measured three hundred
-/// times, with nothing to tell them apart, is being handed our crawl schedule as though it were the
-/// hobby's shape.
+/// a median has to be published with the size of what it is a median of. A game found on Friday and
+/// probed four times has one, and a reader shown it beside a game measured three hundred times, with
+/// nothing to tell them apart, is being handed our crawl schedule as though it were the hobby's
+/// shape.
 /// </para>
 /// <para>
 /// <see cref="Peak"/> is the largest single count observed in the window and is deliberately not a
@@ -167,7 +174,7 @@ public sealed record GameSummary(
 /// day of measurements to make a label exact.
 /// </para>
 /// </remarks>
-public sealed record PresenceWindow(TimeSpan Window, double Average, int Peak, int Samples);
+public sealed record PresenceWindow(TimeSpan Window, int Median, int Peak, int Samples);
 
 /// <summary>A game as its own page shows it.</summary>
 /// <remarks>
