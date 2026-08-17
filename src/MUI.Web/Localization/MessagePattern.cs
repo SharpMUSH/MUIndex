@@ -381,6 +381,21 @@ public sealed record MessagePattern(IReadOnlyList<MessagePart> Parts)
 
     private static string Name(string s, ref int at) => Word(s, ref at, "an argument name");
 
+    /// <summary>
+    /// A branch selector: a category keyword, or <c>=</c> and the number it matches exactly.
+    /// </summary>
+    /// <remarks>
+    /// <b>A bare <c>=</c> is a parse error and not a selector.</b> It was accepted — the <c>=</c>
+    /// was consumed, nothing had to follow it, and the category check above skips anything starting
+    /// with one — so <c>{n, plural, = {none} other {#}}</c> stored a branch under a key no number
+    /// written any way can equal. That is exactly the dead branch this parser exists to refuse
+    /// rather than to keep quietly, and it is the one shape that got past the check.
+    /// <para>
+    /// ICU parses an explicit value as a number, so a leading sign and a fraction are both legal
+    /// after the <c>=</c> and a word is not: <c>=x</c> is a typo for a keyword, and a keyword is
+    /// what the branch above it would have checked.
+    /// </para>
+    /// </remarks>
     private static string Selector(string s, ref int at)
     {
         var start = at;
@@ -388,6 +403,42 @@ public sealed record MessagePattern(IReadOnlyList<MessagePart> Parts)
         if (at < s.Length && s[at] == '=')
         {
             at++;
+
+            if (at < s.Length && s[at] == '-')
+            {
+                at++;
+            }
+
+            var digits = at;
+
+            while (at < s.Length && char.IsAsciiDigit(s[at]))
+            {
+                at++;
+            }
+
+            if (at == digits)
+            {
+                throw new FormatException($"Expected a number after '=' at {digits} in: {s}");
+            }
+
+            if (at < s.Length && s[at] == '.')
+            {
+                at++;
+
+                var fraction = at;
+
+                while (at < s.Length && char.IsAsciiDigit(s[at]))
+                {
+                    at++;
+                }
+
+                if (at == fraction)
+                {
+                    throw new FormatException($"Expected a fraction after '.' at {fraction} in: {s}");
+                }
+            }
+
+            return s[start..at];
         }
 
         while (at < s.Length && (char.IsLetterOrDigit(s[at]) || s[at] is '_' or '-' or '.'))

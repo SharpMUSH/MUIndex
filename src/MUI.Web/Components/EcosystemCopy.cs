@@ -54,9 +54,9 @@ public static class EcosystemCopy
         ArgumentNullException.ThrowIfNull(share);
 
         return share.Fraction is { } fraction
-            ? Say(tag, "ecosystem.share",
+            ? Messages.Say(tag, "ecosystem.share",
                 ("count", share.Count), ("total", share.Denominator), ("fraction", fraction))
-            : Say(tag, "ecosystem.share.nothing",
+            : Messages.Say(tag, "ecosystem.share.nothing",
                 ("count", share.Count), ("total", share.Denominator));
     }
 
@@ -75,7 +75,7 @@ public static class EcosystemCopy
     {
         ArgumentNullException.ThrowIfNull(codebases);
 
-        return Say(tag, "ecosystem.codebases.basis",
+        return Messages.Say(tag, "ecosystem.codebases.basis",
             ("listed", codebases.Identified + codebases.NotIdentified),
             ("identified", codebases.Identified));
     }
@@ -99,7 +99,7 @@ public static class EcosystemCopy
     {
         ArgumentNullException.ThrowIfNull(codebases);
 
-        return Say(tag, "ecosystem.soleUse", ("share", Share(tag, codebases.SoleUseTotal)));
+        return Messages.Say(tag, "ecosystem.soleUse", ("share", Share(tag, codebases.SoleUseTotal)));
     }
 
     /// <summary>
@@ -115,7 +115,7 @@ public static class EcosystemCopy
     {
         ArgumentNullException.ThrowIfNull(mssp);
 
-        var opening = Say(tag, "ecosystem.mssp.instrument",
+        var opening = Messages.Say(tag, "ecosystem.mssp.instrument",
             ("instrument", EcosystemProtocols.Instrument));
 
         if (mssp.Offered is not { } offered)
@@ -127,21 +127,21 @@ public static class EcosystemCopy
 
         return gap <= 0
             ? opening
-            : opening + " " + Say(tag, "ecosystem.mssp.gap",
+            : opening + " " + Messages.Say(tag, "ecosystem.mssp.gap",
                 ("reports", reports), ("offered", offered), ("gap", gap));
     }
 
     /// <summary>What the measured column is a fraction of, spelled out wherever it is used.</summary>
     public static string Handshakes(string tag, int games) =>
-        Say(tag, "ecosystem.handshakes", ("count", games), ("value", games));
+        Messages.Say(tag, "ecosystem.handshakes", ("count", games), ("value", games));
 
     /// <summary>What the declared column is a fraction of. A different set, deliberately named apart.</summary>
     public static string MsspReports(string tag, int games) =>
-        Say(tag, "ecosystem.msspReports", ("count", games), ("value", games));
+        Messages.Say(tag, "ecosystem.msspReports", ("count", games), ("value", games));
 
     /// <summary>How many games are listed at all — the set the two denominators are drawn from.</summary>
     public static string Listed(string tag, int games) =>
-        Say(tag, "ecosystem.listed", ("count", games), ("value", games));
+        Messages.Say(tag, "ecosystem.listed", ("count", games), ("value", games));
 
     /// <summary>
     /// The measured side of one protocol, including the case where there is no measurement.
@@ -160,18 +160,18 @@ public static class EcosystemCopy
             // Never "0%". Nothing has ever been observed to offer this, which is a statement about
             // our reach and not about the hobby — TLS is the standing case, because the crawler dials
             // plain telnet and TLS is not a telnet option.
-            return Say(tag, "ecosystem.measured.never");
+            return Messages.Say(tag, "ecosystem.measured.never");
         }
 
         var figure = Share(tag, share);
 
         return (protocol.Declined > 0, protocol.Unobserved > 0) switch
         {
-            (true, true) => Say(tag, "ecosystem.measured.declinedAndUnasked",
+            (true, true) => Messages.Say(tag, "ecosystem.measured.declinedAndUnasked",
                 ("share", figure), ("declined", protocol.Declined), ("unobserved", protocol.Unobserved)),
-            (true, false) => Say(tag, "ecosystem.measured.declined",
+            (true, false) => Messages.Say(tag, "ecosystem.measured.declined",
                 ("share", figure), ("declined", protocol.Declined)),
-            (false, true) => Say(tag, "ecosystem.measured.unasked",
+            (false, true) => Messages.Say(tag, "ecosystem.measured.unasked",
                 ("share", figure), ("unobserved", protocol.Unobserved)),
             _ => figure,
         };
@@ -192,7 +192,7 @@ public static class EcosystemCopy
 
         return protocol.DeclaredShare is { } share
             ? Share(tag, share)
-            : Say(tag, "ecosystem.declared.none");
+            : Messages.Say(tag, "ecosystem.declared.none");
     }
 
     /// <summary>
@@ -205,7 +205,7 @@ public static class EcosystemCopy
     /// honest reading of the measured column is a floor, and a page that renders it without saying so
     /// publishes our own instrumentation as a fact about somebody's game.
     /// </remarks>
-    public static string Floor(string tag) => Say(tag, "ecosystem.protocols.floor");
+    public static string Floor(string tag) => Messages.Say(tag, "ecosystem.protocols.floor");
 
     /// <summary>Why there is a snapshot here and not the curve §9 asks for.</summary>
     /// <remarks>
@@ -213,7 +213,7 @@ public static class EcosystemCopy
     /// carries a <c>first_seen_at</c>, and plotting those would draw a confident rising line that
     /// measures our crawler reaching more games and nothing whatever about adoption.
     /// </remarks>
-    public static string NoCurve(string tag) => Say(tag, "ecosystem.snapshot");
+    public static string NoCurve(string tag) => Messages.Say(tag, "ecosystem.snapshot");
 
     /// <summary>
     /// What a drawn curve does and does not measure, said beside the curve rather than under it.
@@ -225,15 +225,15 @@ public static class EcosystemCopy
     /// DikuMUDs would move every share on this page without one game having changed anything, and a
     /// reader deserves to be told that before they read a slope as a trend.
     /// </remarks>
-    public static string CurveCaveat(string tag) => Say(tag, "ecosystem.curve.caveat");
+    public static string CurveCaveat(string tag) => Messages.Say(tag, "ecosystem.curve.caveat");
 
     /// <summary>Why there is no headline population figure, said where somebody might look for one.</summary>
-    public static string NoTotals(string tag) => Say(tag, "ecosystem.noTotals");
+    public static string NoTotals(string tag) => Messages.Say(tag, "ecosystem.noTotals");
 
     /// <summary>How many capability transitions have been recorded, and what that means for the curve.</summary>
     public static string Transitions(string tag, int transitions) => transitions == 0
-        ? Say(tag, "ecosystem.transitions.none")
-        : Say(tag, "ecosystem.transitions", ("count", transitions));
+        ? Messages.Say(tag, "ecosystem.transitions.none")
+        : Messages.Say(tag, "ecosystem.transitions", ("count", transitions));
 
     /// <summary>The basis of the busiest table, stated on the page rather than in a footnote.</summary>
     public static string BusiestBasis(string tag, Rankings rankings)
@@ -247,18 +247,18 @@ public static class EcosystemCopy
         var days = (int)rankings.Window.TotalDays;
 
         var eligible = rankings.Eligible == 0
-            ? Say(tag, "rankings.basis.none",
+            ? Messages.Say(tag, "rankings.basis.none",
                 ("samples", rankings.MinimumSamples), ("days", rankings.MinimumDays))
-            : Say(tag, "rankings.basis.eligible",
+            : Messages.Say(tag, "rankings.basis.eligible",
                 ("eligible", rankings.Eligible),
                 ("listed", rankings.ListedGames),
                 ("samples", rankings.MinimumSamples),
                 ("days", rankings.MinimumDays));
 
         return string.Join(' ',
-            Say(tag, "rankings.basis.median", ("days", days)),
+            Messages.Say(tag, "rankings.basis.median", ("days", days)),
             eligible,
-            Say(tag, "rankings.basis.zero"));
+            Messages.Say(tag, "rankings.basis.zero"));
     }
 
     /// <summary>
@@ -269,7 +269,7 @@ public static class EcosystemCopy
     /// sentence says so — a reader comparing the tabs is comparing "busy now" with "busy for
     /// months", and two games can honestly swap places between them.
     /// </remarks>
-    public static string SpanChoice(string tag) => Say(tag, "rankings.spanChoice");
+    public static string SpanChoice(string tag) => Messages.Say(tag, "rankings.spanChoice");
 
     /// <summary>The window as it is offered in the selector.</summary>
     /// <remarks>
@@ -278,10 +278,10 @@ public static class EcosystemCopy
     /// thing that differs.
     /// </remarks>
     public static string SpanLabel(string tag, RankingSpan span) =>
-        Say(tag, "rankings.span", ("days", span.Days()));
+        Messages.Say(tag, "rankings.span", ("days", span.Days()));
 
     /// <summary>What the second table is, and the limit it cannot be read past.</summary>
-    public static string SpellBasis(string tag) => Say(tag, "rankings.spells.basis");
+    public static string SpellBasis(string tag) => Messages.Say(tag, "rankings.spells.basis");
 
     /// <summary>
     /// Said on the rankings page, because §2 makes it permanent rather than pending.
@@ -292,8 +292,5 @@ public static class EcosystemCopy
     /// itself is the fact, and a reader who has arrived at a league table wants to know what it does
     /// and does not measure before they want the history.
     /// </remarks>
-    public static string NoVote(string tag) => Say(tag, "rankings.noVote");
-
-    private static string Say(string tag, string id, params (string Key, object? Value)[] args) =>
-        Messages.For(tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
+    public static string NoVote(string tag) => Messages.Say(tag, "rankings.noVote");
 }

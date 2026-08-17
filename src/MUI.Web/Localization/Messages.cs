@@ -1315,6 +1315,24 @@ public static class Messages
         return IcuMessage.Format(pattern, tag, args);
     }
 
+    /// <summary>
+    /// The same, with the arguments named inline rather than built into a dictionary first.
+    /// </summary>
+    /// <remarks>
+    /// <b>One helper, because there were eleven.</b> Every component that renders more than one
+    /// message had grown its own private wrapper turning a tuple array into an ordinal dictionary
+    /// and calling <see cref="For"/> — the same six lines, copied, and twice inside one file.
+    /// <c>StringComparer.Ordinal</c> is the part that mattered and the part a twelfth copy would
+    /// eventually get wrong: an argument name is a token in a pattern, matched exactly, and a
+    /// dictionary that folded case would answer a lookup the parser never asked for.
+    /// </remarks>
+    public static string Say(string tag, string id, params (string Key, object? Value)[] args)
+    {
+        ArgumentNullException.ThrowIfNull(args);
+
+        return For(tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
+    }
+
     /// <summary>A count and its noun, agreeing — the commonest call by a long way.</summary>
     public static string Count(string tag, int count) =>
         For(tag, "facet.count", new Dictionary<string, object?> { ["count"] = count });

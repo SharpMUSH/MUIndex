@@ -75,13 +75,13 @@ public static class ActivitySummary
     /// </summary>
     public static string CellLabel(string tag, ActivityCell cell) => cell switch
     {
-        { IsGap: true } => Say(tag, "activity.cell.notMeasured", When(tag, cell)),
-        { IsUnmeasurable: true } => Say(tag, "activity.cell.notCounted", When(tag, cell)),
+        { IsGap: true } => Messages.Say(tag, "activity.cell.notMeasured", When(tag, cell)),
+        { IsUnmeasurable: true } => Messages.Say(tag, "activity.cell.notCounted", When(tag, cell)),
 
         // One message for all three counted cases, because =0 is an exact match in ICU and a
         // measured zero is a count. "0 players, measured" and "1 player on average" are the same
         // fact said about different numbers, and a language that needs a third form for two has it.
-        _ => Say(tag, "activity.cell.counted", [.. When(tag, cell), ("count", cell.Count!.Value)]),
+        _ => Messages.Say(tag, "activity.cell.counted", [.. When(tag, cell), ("count", cell.Count!.Value)]),
     };
 
     private static (string Key, object? Value)[] When(string tag, ActivityCell cell) =>
@@ -187,13 +187,13 @@ public static class ActivitySummary
         var what = counted.Count switch
         {
             0 when measured.Count == 0 => Messages.For(tag, "activity.sparse.none"),
-            0 => Say(tag, "activity.sparse.uncounted", ("count", measured.Count)),
+            0 => Messages.Say(tag, "activity.sparse.uncounted", ("count", measured.Count)),
             _ => Sample(tag, counted, measured.Count - counted.Count),
         };
 
         var still = days == 0
             ? Messages.For(tag, "activity.sparse.wait")
-            : Say(tag, "activity.sparse.days", ("days", days));
+            : Messages.Say(tag, "activity.sparse.days", ("days", days));
 
         return $"{what} {still}";
     }
@@ -204,8 +204,8 @@ public static class ActivitySummary
         var peak = counted.MaxBy(c => c.Count)!;
 
         var sentence = peak.Count == 0
-            ? Say(tag, "activity.sample.zero", ("count", counted.Count))
-            : Say(
+            ? Messages.Say(tag, "activity.sample.zero", ("count", counted.Count))
+            : Messages.Say(
                 tag,
                 "activity.sample.peak",
                 ("count", counted.Count),
@@ -215,7 +215,7 @@ public static class ActivitySummary
 
         return uncountable == 0
             ? sentence
-            : $"{sentence} {Say(tag, "activity.sample.more", ("count", uncountable))}";
+            : $"{sentence} {Messages.Say(tag, "activity.sample.more", ("count", uncountable))}";
     }
 
     /// <summary>
@@ -296,11 +296,11 @@ public static class ActivitySummary
             {
                 clauses.Add(busiest == 0
                     ? Messages.For(tag, "activity.day.allZero")
-                    : Say(tag, "activity.day.peak", ("count", busiest), ("time", Time(day.PeakHour ?? 0))));
+                    : Messages.Say(tag, "activity.day.peak", ("count", busiest), ("time", Time(day.PeakHour ?? 0))));
 
                 if (day.NobodyOn is { } quiet)
                 {
-                    clauses.Add(Say(tag, "activity.day.nobodyOn", ("window", quiet)));
+                    clauses.Add(Messages.Say(tag, "activity.day.nobodyOn", ("window", quiet)));
                 }
             }
             else
@@ -310,15 +310,15 @@ public static class ActivitySummary
 
             if (day.NotMeasured > 0)
             {
-                clauses.Add(Say(tag, "activity.day.notMeasured", ("count", day.NotMeasured)));
+                clauses.Add(Messages.Say(tag, "activity.day.notMeasured", ("count", day.NotMeasured)));
             }
 
             if (day.NotCounted > 0)
             {
-                clauses.Add(Say(tag, "activity.day.notCounted", ("count", day.NotCounted)));
+                clauses.Add(Messages.Say(tag, "activity.day.notCounted", ("count", day.NotCounted)));
             }
 
-            lines.Add(Say(
+            lines.Add(Messages.Say(
                 tag,
                 "activity.day.line",
                 ("day", day.Name(tag)),
@@ -356,15 +356,15 @@ public static class ActivitySummary
         if (busyDays.Count == 7)
         {
             return part is null
-                ? Say(tag, "activity.busiest.everyDay", ("window", window))
-                : Say(tag, "activity.busiest.everyDay.part", ("part", part), ("window", window));
+                ? Messages.Say(tag, "activity.busiest.everyDay", ("window", window))
+                : Messages.Say(tag, "activity.busiest.everyDay.part", ("part", part), ("window", window));
         }
 
         var days = JoinDays(tag, busyDays);
 
         return part is null
-            ? Say(tag, "activity.busiest.days", ("days", days), ("window", window))
-            : Say(tag, "activity.busiest.days.part", ("days", days), ("part", part), ("window", window));
+            ? Messages.Say(tag, "activity.busiest.days", ("days", days), ("window", window))
+            : Messages.Say(tag, "activity.busiest.days.part", ("days", days), ("part", part), ("window", window));
     }
 
     private static string? Quietest(string tag, IReadOnlyList<ActivityCell> counted)
@@ -419,11 +419,11 @@ public static class ActivitySummary
                 : "activity.quiet.everyDay")
             : weekdays
                 ? Messages.For(tag, "activity.quiet.weekdays")
-                : Say(tag, "activity.quiet.onDays", ("days", JoinDays(tag, quietDays)));
+                : Messages.Say(tag, "activity.quiet.onDays", ("days", JoinDays(tag, quietDays)));
 
         return part is null
-            ? Say(tag, "activity.quiet", ("who", who), ("window", window))
-            : Say(tag, "activity.quiet.part", ("who", who), ("part", part), ("window", window));
+            ? Messages.Say(tag, "activity.quiet", ("who", who), ("window", window))
+            : Messages.Say(tag, "activity.quiet.part", ("who", who), ("part", part), ("window", window));
     }
 
     /// <summary>Whether a band of hours has a name a person would use for it.</summary>
@@ -462,13 +462,13 @@ public static class ActivitySummary
 
         var head = Fold(tag, "activity.days.list", "list", "next", names.Take(names.Count - 1));
 
-        return Say(tag, "activity.days.pair", ("first", head), ("second", names[^1]));
+        return Messages.Say(tag, "activity.days.pair", ("first", head), ("second", names[^1]));
     }
 
     /// <summary>Reduces a list to one string, two at a time, through a two-argument message.</summary>
     private static string Fold(
         string tag, string id, string first, string second, IEnumerable<string> items) =>
-        items.Aggregate((a, b) => Say(tag, id, (first, a), (second, b)));
+        items.Aggregate((a, b) => Messages.Say(tag, id, (first, a), (second, b)));
 
     /// <summary>
     /// Names the day when a run of odd hours is all in one, so the sentence can point at it.
@@ -484,8 +484,8 @@ public static class ActivitySummary
         var days = cells.Select(c => c.DayOfWeek).Distinct().ToList();
 
         return days.Count == 1
-            ? Say(tag, onOneDay, ("count", cells.Count), ("day", DayName(tag, days[0])))
-            : Say(tag, acrossTheWeek, ("count", cells.Count));
+            ? Messages.Say(tag, onOneDay, ("count", cells.Count), ("day", DayName(tag, days[0])))
+            : Messages.Say(tag, acrossTheWeek, ("count", cells.Count));
     }
 
     /// <summary>An hour of the day, as a clock reading. Machine voice, in Western digits.</summary>
@@ -495,8 +495,6 @@ public static class ActivitySummary
     private static string Window(Run run) =>
         Time(run.From) + "–" + run.To.ToString("00", CultureInfo.InvariantCulture) + ":59";
 
-    private static string Say(string tag, string id, params (string Key, object? Value)[] args) =>
-        Messages.For(tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 
     private static Run? LongestRun(IEnumerable<ActivityCell> cells, Func<ActivityCell, bool> predicate)
     {

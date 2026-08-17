@@ -1,4 +1,5 @@
 using MUI.Catalog;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Components;
 
@@ -38,7 +39,7 @@ public sealed record ArchiveEntry(
     /// inventing one from the dates we happened to hold would be asserting rather than measuring.
     /// </summary>
     public string? Run(string tag) => FirstSeenAt is { } from && LastReachableAt is { } to
-        ? Say(tag, "archive.run",
+        ? Messages.Say(tag, "archive.run",
             ("from", from.UtcDateTime.Year),
             ("to", to.UtcDateTime.Year),
             ("span", RunSpan(tag, to - from)))
@@ -54,7 +55,7 @@ public sealed record ArchiveEntry(
     /// </remarks>
     public string LastAnswered(string tag) => LastReachableAt is { } at
         ? Dates.Absolute(tag, at)
-        : Say(tag, "archive.neverReachable");
+        : Messages.Say(tag, "archive.neverReachable");
 
     /// <summary>
     /// How long we measured it reachable, cumulatively. The label supplies "known live" — saying it
@@ -65,24 +66,20 @@ public sealed record ArchiveEntry(
     /// words: "0 days" would be this site claiming it watched a game stay unreachable throughout.
     /// </remarks>
     public string KnownLiveWording(string tag) => KnownLive == TimeSpan.Zero
-        ? Say(tag, "archive.noReachableTime")
+        ? Messages.Say(tag, "archive.noReachableTime")
         : KnownLive.TotalDays >= 365
-            ? Say(tag, "archive.knownLive.years", ("years", KnownLive.TotalDays / 365.25))
-            : Say(tag, "archive.knownLive.days", ("days", (int)KnownLive.TotalDays));
+            ? Messages.Say(tag, "archive.knownLive.years", ("years", KnownLive.TotalDays / 365.25))
+            : Messages.Say(tag, "archive.knownLive.days", ("days", (int)KnownLive.TotalDays));
 
     /// <summary>
     /// How long ago it last answered, or that we cannot say — never a cause, only a gap.
     /// </summary>
     public string DarkFor(string tag, DateTimeOffset now) => LastReachableAt is { } at
         ? Relative.Format(tag, now - at)
-        : Say(tag, "archive.darkFor.unknown");
+        : Messages.Say(tag, "archive.darkFor.unknown");
 
     /// <summary>A run's length, in the largest unit that says anything.</summary>
     private static string RunSpan(string tag, TimeSpan span) => span.TotalDays / 365.25 >= 1
-        ? Say(tag, "archive.run.years", ("count", (int)(span.TotalDays / 365.25)))
-        : Say(tag, "archive.run.months", ("count", (int)(span.TotalDays / 30.44)));
-
-    private static string Say(string tag, string id, params (string Key, object? Value)[] args) =>
-        Localization.Messages.For(
-            tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
+        ? Messages.Say(tag, "archive.run.years", ("count", (int)(span.TotalDays / 365.25)))
+        : Messages.Say(tag, "archive.run.months", ("count", (int)(span.TotalDays / 30.44)));
 }

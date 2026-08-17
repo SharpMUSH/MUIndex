@@ -28,6 +28,15 @@ namespace MUI.Web.Localization;
 /// has not changed since startup is work nobody asked for. The cache is keyed on the pattern text
 /// because that is the only thing the parse depends on; the locale is applied at format time.
 /// </para>
+/// <para>
+/// <b>The cache is unbounded, and that is safe only because of what may be passed to it.</b> A
+/// pattern comes from a resource bundle or from a literal in this repository, so the set of distinct
+/// keys is fixed when the process starts and is a few hundred entries. <b>A pattern built from
+/// request data must never reach <see cref="Format"/> or <see cref="Compile"/></b> — a querystring
+/// or a game's own name interpolated into a pattern would make this dictionary grow without limit
+/// for as long as somebody kept asking. Interpolate into an <em>argument</em>, which is not cached
+/// and not parsed; the pattern is the part that has to be written down in advance.
+/// </para>
 /// </remarks>
 public static class IcuMessage
 {
@@ -110,7 +119,7 @@ public static class IcuMessage
                 return;
 
             case ArgumentKind.Number:
-                b.Append(Number(value, argument.Style, culture));
+                b.Append(Number(argument.Name, value, argument.Style, culture));
                 return;
 
             case ArgumentKind.Date:
@@ -141,49 +150,84 @@ public static class IcuMessage
         object? value,
         CultureInfo culture)
     {
-        var operands = Operands(argument.Name, value);
+        var number = Quantity(argument.Name, value);
+        var operands = value is PluralOperands given ? given : PluralOperands.Of(number);
         var kind = argument.Kind is ArgumentKind.SelectOrdinal
             ? PluralKind.Ordinal
             : PluralKind.Cardinal;
 
         // An `=value` match is tested against the number as written, before the offset — ICU says
         // so, and it is what lets "=0 {nobody}" work in a message that also subtracts one.
-        var exact = "=" + operands.Format(CultureInfo.InvariantCulture);
+        var exact = "=" + Plain(number, operands.V);
 
         if (argument.Branches.TryGetValue(exact, out var matched))
         {
-            Render(matched, tag, args, b, operands.Format(culture));
+            Render(matched, tag, args, b, Hash(number, operands.V, culture));
             return;
         }
 
         // The category, and `#`, are both taken from the offset-adjusted number. "{n, plural,
         // offset:1 other {and # others}}" over three people is "and 2 others".
-        var adjusted = Offset(operands, argument.Offset);
-        var keyword = PluralRules.Keyword(PluralRules.Of(tag, adjusted, kind));
+        var adjusted = number - argument.Offset;
+        var keyword = PluralRules.Keyword(
+            PluralRules.Of(tag, PluralOperands.Of(adjusted, operands.V), kind));
 
         var branch = argument.Branches.GetValueOrDefault(keyword) ?? argument.Branches["other"];
 
-        Render(branch, tag, args, b, adjusted.Format(culture));
+        Render(branch, tag, args, b, Hash(adjusted, operands.V, culture));
     }
 
-    private static PluralOperands Offset(PluralOperands operands, long offset) =>
-        offset == 0 ? operands : PluralOperands.Of(operands.N - offset, operands.V);
-
-    /// <summary>The operands of whatever a caller passed, or a refusal naming the argument.</summary>
-    private static PluralOperands Operands(string name, object? value) => value switch
+    /// <summary>The signed number a caller passed, or a refusal naming the argument.</summary>
+    private static decimal Quantity(string name, object? value) => value switch
     {
-        int i => PluralOperands.Of(i),
-        long l => PluralOperands.Of(l),
-        short s => PluralOperands.Of(s),
-        byte by => PluralOperands.Of(by),
-        decimal d => PluralOperands.Of(d),
-        double db => PluralOperands.Of((decimal)db),
-        float f => PluralOperands.Of((decimal)f),
-        PluralOperands o => o,
+        int i => i,
+        long l => l,
+        short s => s,
+        byte by => by,
+        decimal d => d,
+        double db => (decimal)db,
+        float f => (decimal)f,
+
+        // Absolute by construction: the operands CLDR states are, so a caller handing them over
+        // directly has already discarded whatever sign the quantity had.
+        PluralOperands o => o.N,
+
         null => throw new FormatException($"'{name}' is a plural argument and was null."),
         _ => throw new FormatException(
             $"'{name}' is a plural argument and must be a number, not {value.GetType().Name}."),
     };
+
+    /// <summary>
+    /// The number a <c>#</c> stands for, written exactly as <c>{n, number}</c> would write it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One bundle may not print one quantity two ways.</b> <c>#</c> was the raw integer digits
+    /// and <c>{n, number}</c> was the culture's grouped form, so a listing past a thousand said
+    /// "1234 games" in a sentence and "1,234" in the column beside it — and in German the separator
+    /// is a full stop, which no invariant rendering reaches at all. ICU replaces <c>#</c> with the
+    /// argument's own formatted number, so the default pattern here is the default pattern there.
+    /// </para>
+    /// <para>
+    /// The sign travels with it. CLDR takes the absolute value to choose a category and never to
+    /// display one, and "3 games" for minus three is a measurement stated backwards.
+    /// </para>
+    /// </remarks>
+    private static string Hash(decimal number, int visibleFractionDigits, CultureInfo culture) =>
+        number.ToString(
+            visibleFractionDigits == 0 ? "#,##0" : "#,##0." + new string('0', visibleFractionDigits),
+            culture);
+
+    /// <summary>The same number as an <c>=</c> key, which is matched and never shown to anybody.</summary>
+    /// <remarks>
+    /// Plain and invariant on purpose: it is compared against what a message author typed between
+    /// the braces, and a translator writing <c>=1000</c> should not have to know which separator
+    /// their locale would have inserted.
+    /// </remarks>
+    private static string Plain(decimal number, int visibleFractionDigits) =>
+        number.ToString(
+            visibleFractionDigits == 0 ? "0" : "0." + new string('0', visibleFractionDigits),
+            CultureInfo.InvariantCulture);
 
     /// <summary>
     /// <c>{n, number, style}</c>, with ICU's named styles and its <c>::</c> skeletons.
@@ -195,9 +239,23 @@ public static class IcuMessage
     /// only reason it is a column. What this covers is prose: a percentage inside a sentence is a
     /// number a reader reads rather than scans, and that one localizes.
     /// </remarks>
-    private static string Number(object? value, string? style, CultureInfo culture)
+    private static string Number(string name, object? value, string? style, CultureInfo culture)
     {
-        var number = Convert.ToDecimal(value, CultureInfo.InvariantCulture);
+        decimal number;
+
+        try
+        {
+            number = Convert.ToDecimal(value, CultureInfo.InvariantCulture);
+        }
+        catch (Exception e) when (e is InvalidCastException or OverflowException or FormatException)
+        {
+            // The documented contract on Format is FormatException, and Convert raises two others
+            // this could not have said anything about. Neither of them names the argument, and a
+            // page rendering forty messages needs to be told which one it was.
+            throw new FormatException(
+                $"'{name}' is a number argument and must be a number, "
+                + $"not {value?.GetType().Name ?? "null"}.", e);
+        }
 
         if (style is { Length: > 0 } && style.StartsWith("::", StringComparison.Ordinal))
         {
@@ -269,6 +327,12 @@ public static class IcuMessage
         var when = value switch
         {
             DateTimeOffset offset => offset,
+
+            // An Unspecified kind takes the machine's own offset from this constructor, so the same
+            // message rendered on two hosts said two different times and neither said which. This
+            // site is UTC everywhere on purpose — every date it prints says so — and a date that
+            // arrived without a zone did not arrive from somewhere else.
+            DateTime { Kind: DateTimeKind.Unspecified } bare => new DateTimeOffset(bare, TimeSpan.Zero),
             DateTime dt => new DateTimeOffset(dt),
 
             // A day-grain fact carries a DateOnly, and every day-grain surface on this site — the

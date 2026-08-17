@@ -136,6 +136,33 @@ public class IcuMessageTests
     }
 
     [Test]
+    public async Task AHashPrintsANumberTheWayANumberArgumentPrintsIt()
+    {
+        // One bundle may not print one quantity two ways. `#` was the raw integer digits and
+        // `{n, number}` was the culture's grouped form, so a listing past a thousand said "1234
+        // games" in a sentence and "1,234" in the column beside it. The separator is the culture's:
+        // en groups with a comma and de with a full stop.
+        await Assert.That(Format("{n, plural, other {# games}}", "en", ("n", 1234))).IsEqualTo("1,234 games");
+        await Assert.That(Format("{n, plural, other {# Spiele}}", "de", ("n", 1234))).IsEqualTo("1.234 Spiele");
+
+        await Assert.That(Format("{n, plural, other {#}}", "en", ("n", 1_234_567)))
+            .IsEqualTo(Format("{n, number, integer}", "en", ("n", 1_234_567)));
+    }
+
+    [Test]
+    public async Task ANegativeCountKeepsItsSign()
+    {
+        // CLDR takes the absolute value to choose a category and never to print the number. The
+        // operands are absolute because the chart says so; the rendering is not, and printing "3
+        // games" for minus three is a measurement stated backwards.
+        const string Pattern = "{n, plural, one {# game} other {# games}}";
+
+        await Assert.That(Format(Pattern, "en", ("n", -1))).IsEqualTo("-1 game");
+        await Assert.That(Format(Pattern, "en", ("n", -3))).IsEqualTo("-3 games");
+        await Assert.That(Format(Pattern, "en", ("n", -1234))).IsEqualTo("-1,234 games");
+    }
+
+    [Test]
     public async Task ChineseHasOneFormAndSoAgreesWithAnyShape()
     {
         // Which is exactly why it cannot be the locale a string architecture is validated against.
@@ -260,6 +287,55 @@ public class IcuMessageTests
     {
         await Assert.That(() => MessagePattern.Parse("a } b")).Throws<FormatException>();
         await Assert.That(() => MessagePattern.Parse("{n, plural, other {#}")).Throws<FormatException>();
+    }
+
+    [Test]
+    [Arguments("{n, plural, = {none} other {#}}")]           // a bare '=' matched nothing at all
+    [Arguments("{n, plural, =x {none} other {#}}")]          // and neither does a word after it
+    [Arguments("{n, plural, =- {none} other {#}}")]
+    [Arguments("{n, plural, =. {none} other {#}}")]
+    public async Task AnExplicitMatchWithNoNumberAfterItIsRefused(string pattern)
+    {
+        // An `=` selector is stored under a key compared against the number as written, so `=` on
+        // its own is a branch nothing can ever select. The category check at the line above skips
+        // anything starting with `=`, so this was the one dead branch the parser let through — and
+        // a dead branch is precisely what this parser refuses rather than guesses at.
+        await Assert.That(() => MessagePattern.Parse(pattern)).Throws<FormatException>();
+    }
+
+    [Test]
+    public async Task AnExplicitMatchStillTakesEveryNumberIcuWritesOneWith()
+    {
+        // Refusing the empty case must not also refuse the legal ones: ICU parses an explicit value
+        // as a number, which may carry a sign and a fraction.
+        await Assert.That(Format("{n, plural, =0 {none} other {#}}", "en", ("n", 0))).IsEqualTo("none");
+        await Assert.That(Format("{n, plural, =-1 {owed} other {#}}", "en", ("n", -1))).IsEqualTo("owed");
+        await Assert.That(Format("{n, plural, =1.5 {half} other {#}}", "en", ("n", 1.5m))).IsEqualTo("half");
+    }
+
+    [Test]
+    public async Task ADateWithNoZoneIsReadAsUtcAndNotAsTheServersOwnClock()
+    {
+        // This site states UTC on every date it prints, and `new DateTimeOffset(dt)` applies the
+        // machine's local offset to an Unspecified kind — so the same message rendered on two
+        // hosts said two different times, and neither said which.
+        var unspecified = new DateTime(2026, 8, 17, 14, 2, 0, DateTimeKind.Unspecified);
+
+        await Assert.That(Format("{d, time, medium}", "en", ("d", unspecified))).IsEqualTo("14:02:00");
+        await Assert.That(Format("{d, date, zzz}", "en", ("d", unspecified))).IsEqualTo("+00:00");
+    }
+
+    [Test]
+    public async Task ANumberArgumentThatIsNotANumberNamesItselfInTheRefusal()
+    {
+        // The documented contract is FormatException. Convert.ToDecimal raises InvalidCastException
+        // for a value with no conversion and OverflowException for one out of range, and neither
+        // says which argument in a forty-message page was the one that failed.
+        await Assert.That(() => Format("{n, number}", "en", ("n", new object())))
+            .Throws<FormatException>();
+
+        await Assert.That(() => Format("{n, number, integer}", "en", ("n", double.MaxValue)))
+            .Throws<FormatException>();
     }
 
     // ── the parse, as a thing callers can read ───────────────────────────────────────────────

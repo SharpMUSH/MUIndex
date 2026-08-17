@@ -95,13 +95,45 @@ public static class PluralRules
         // The v = 0 is why this file carries operands at all: "1.0 stars" is other, not one, and
         // the two quantities are equal. `qps` is the pseudolocale and is English underneath, so it
         // has to select exactly what English selects or it exercises the wrong branch.
-        "en" or "de" or "nl" or "sv" or "da" or "no" or "fi" or "et" or "el" or "it" or "es"
-            or "qps" => o is { I: 1, V: 0 } ? PluralCategory.One : PluralCategory.Other,
+        "en" or "de" or "nl" or "sv" or "fi" or "et" or "qps" =>
+            o is { I: 1, V: 0 } ? PluralCategory.One : PluralCategory.Other,
 
-        // one: i = 0,1
-        // many: e = 0 and i != 0 and i % 1000000 = 0 and v = 0  (un million, not un millions)
-        "fr" or "pt" =>
-            o is { E: 0, V: 0, I: not 0 } && o.I % 1_000_000 == 0 ? PluralCategory.Many
+        // one: n = 1
+        //
+        // <b>Not the line above, and 1.0 is the whole of the difference.</b> Greek, Norwegian,
+        // Spanish and Turkish say `one` for it where English says `other`. All four had been given
+        // English's rule, because on the integers the two agree — and the integers are all anybody
+        // checks. Turkish had `n = 0..1` besides, which is a real CLDR rule belonging to Akan and
+        // Punjabi and puts zero in the form Turkish keeps for exactly one thing.
+        "el" or "no" or "tr" => o.N == 1m ? PluralCategory.One : PluralCategory.Other,
+
+        // one: n = 1 or t != 0 and i = 0,1
+        //
+        // Danish alone, and the only `one` in this table that reaches a quantity which is not 1:
+        // "0,5 stjerne" rather than "0,5 stjerner". Copied from Swedish, it loses that clause
+        // silently — the integers, again, agree.
+        "da" => o.N == 1m || (o.T != 0 && o.I is 0 or 1)
+            ? PluralCategory.One
+            : PluralCategory.Other,
+
+        // one:  i = 1 and v = 0                                   (it)
+        //       n = 1                                             (es)
+        //       i = 0,1                                           (fr, pt)
+        // many: e = 0 and i != 0 and i % 1000000 = 0 and v = 0    (all four)
+        //
+        // The Romance millions rule — "un millón de juegos", with the preposition the other forms
+        // do not take. fr and pt carried it; it and es were folded into English's rule above and so
+        // had no `many` at all, which is a form a translator would have been asked to write and
+        // never given anywhere to put.
+        "it" => Millions(o) ? PluralCategory.Many
+            : o is { I: 1, V: 0 } ? PluralCategory.One
+            : PluralCategory.Other,
+
+        "es" => Millions(o) ? PluralCategory.Many
+            : o.N == 1m ? PluralCategory.One
+            : PluralCategory.Other,
+
+        "fr" or "pt" => Millions(o) ? PluralCategory.Many
             : o.I is 0 or 1 ? PluralCategory.One
             : PluralCategory.Other,
 
@@ -112,7 +144,22 @@ public static class PluralRules
         //
         // 11 and 12 end in 1 and 2 and take neither `one` nor `few`. A rule written from the first
         // three examples anybody tries is wrong for both.
-        "ru" or "uk" or "be" => o.V != 0 ? PluralCategory.Other
+        "ru" or "uk" => o.V != 0 ? PluralCategory.Other
+            : (o.I % 10, o.I % 100) switch
+            {
+                (1, not 11) => PluralCategory.One,
+                (2 or 3 or 4, not (12 or 13 or 14)) => PluralCategory.Few,
+                _ => PluralCategory.Many,
+            },
+
+        // one:  n % 10 = 1 and n % 100 != 11
+        // few:  n % 10 = 2..4 and n % 100 != 12..14
+        // many: n % 10 = 0 or n % 10 = 5..9 or n % 100 = 11..14
+        //
+        // Belarusian states Russian's shape on `n` rather than on `i` with `v = 0`, so 1.0 is
+        // `one` here and `other` there. It had been folded in with Russian above: right for every
+        // integer, wrong for every number written with a decimal place.
+        "be" => !Whole(o) ? PluralCategory.Other
             : (o.I % 10, o.I % 100) switch
             {
                 (1, not 11) => PluralCategory.One,
@@ -145,14 +192,17 @@ public static class PluralRules
         // one: i = 0 or n = 1
         "hi" => o.I == 0 || o.N == 1m ? PluralCategory.One : PluralCategory.Other,
 
-        // one: i = 1 and v = 0
+        // one: i = 1 and v = 0 or i = 0 and v != 0
         // two: i = 2 and v = 0
-        // many: v = 0 and n != 0..10 and n % 10 = 0
+        //
+        // The `many` this rule used to carry for multiples of ten was withdrawn from CLDR before
+        // 46, and so was every one of Hebrew's ordinals. A table still stating them selects a
+        // branch nobody was ever asked to translate — which the `other` fallback cannot catch,
+        // because the branch is present and simply wrong.
         "he" => o switch
         {
-            { I: 1, V: 0 } => PluralCategory.One,
+            { I: 1, V: 0 } or { I: 0, V: not 0 } => PluralCategory.One,
             { I: 2, V: 0 } => PluralCategory.Two,
-            { V: 0 } when o.N > 10 && o.I % 10 == 0 => PluralCategory.Many,
             _ => PluralCategory.Other,
         },
 
@@ -166,6 +216,7 @@ public static class PluralRules
             0 => PluralCategory.Zero,
             1 => PluralCategory.One,
             2 => PluralCategory.Two,
+            _ when !Whole(o) => PluralCategory.Other,
             _ => (o.I % 100) switch
             {
                 >= 3 and <= 10 => PluralCategory.Few,
@@ -173,9 +224,6 @@ public static class PluralRules
                 _ => PluralCategory.Other,
             },
         },
-
-        // one: n = 0..1
-        "tr" => o.N <= 1m ? PluralCategory.One : PluralCategory.Other,
 
         // No plural inflection at all. This is exactly why Chinese cannot be the locale a string
         // architecture is validated against: it agrees with any shape, including a wrong one.
@@ -189,51 +237,83 @@ public static class PluralRules
         // one: n % 10 = 1 and n % 100 != 11     (1st, 21st, but 11th)
         // two: n % 10 = 2 and n % 100 != 12     (2nd, 22nd, but 12th)
         // few: n % 10 = 3 and n % 100 != 13     (3rd, 23rd, but 13th)
-        "en" or "qps" => (o.I % 10, o.I % 100) switch
-        {
-            (1, not 11) => PluralCategory.One,
-            (2, not 12) => PluralCategory.Two,
-            (3, not 13) => PluralCategory.Few,
-            _ => PluralCategory.Other,
-        },
+        "en" or "qps" => !Whole(o) ? PluralCategory.Other
+            : (o.I % 10, o.I % 100) switch
+            {
+                (1, not 11) => PluralCategory.One,
+                (2, not 12) => PluralCategory.Two,
+                (3, not 13) => PluralCategory.Few,
+                _ => PluralCategory.Other,
+            },
+
+        // one: n % 10 = 1,2 and n % 100 != 11,12     (1:a and 2:a, then 3:e — and 11:e, 12:e)
+        "sv" => !Whole(o) ? PluralCategory.Other
+            : (o.I % 10, o.I % 100) switch
+            {
+                (1 or 2, not (11 or 12)) => PluralCategory.One,
+                _ => PluralCategory.Other,
+            },
 
         // one: n = 1   (1er / 1re, then 2e, 3e …)
-        "fr" => o.I == 1 ? PluralCategory.One : PluralCategory.Other,
+        "fr" => o.N == 1m ? PluralCategory.One : PluralCategory.Other,
 
         // few: n % 10 = 3 and n % 100 != 13
-        "uk" => (o.I % 10, o.I % 100) switch
-        {
-            (3, not 13) => PluralCategory.Few,
-            _ => PluralCategory.Other,
-        },
+        "uk" => !Whole(o) ? PluralCategory.Other
+            : (o.I % 10, o.I % 100) switch
+            {
+                (3, not 13) => PluralCategory.Few,
+                _ => PluralCategory.Other,
+            },
+
+        // few: n % 10 = 2,3 and n % 100 != 12,13
+        "be" => !Whole(o) ? PluralCategory.Other
+            : (o.I % 10, o.I % 100) switch
+            {
+                (2 or 3, not (12 or 13)) => PluralCategory.Few,
+                _ => PluralCategory.Other,
+            },
 
         // many: n = 11,8,80,800
-        "it" => o.I is 11 or 8 or 80 or 800 ? PluralCategory.Many : PluralCategory.Other,
-
-        // one: n = 1,5,7,8,9,10   two: n = 2,3   few: n = 4   many: n = 6
-        "he" => o.I switch
-        {
-            1 or 5 or 7 or 8 or 9 or 10 => PluralCategory.One,
-            2 or 3 => PluralCategory.Two,
-            4 => PluralCategory.Few,
-            6 => PluralCategory.Many,
-            _ => PluralCategory.Other,
-        },
+        "it" => Whole(o) && o.I is 11 or 8 or 80 or 800 ? PluralCategory.Many : PluralCategory.Other,
 
         // one: n = 1   two: n = 2,3   few: n = 4   many: n = 6
-        "hi" => o.I switch
-        {
-            1 => PluralCategory.One,
-            2 or 3 => PluralCategory.Two,
-            4 => PluralCategory.Few,
-            6 => PluralCategory.Many,
-            _ => PluralCategory.Other,
-        },
+        "hi" => !Whole(o) ? PluralCategory.Other
+            : o.I switch
+            {
+                1 => PluralCategory.One,
+                2 or 3 => PluralCategory.Two,
+                4 => PluralCategory.Few,
+                6 => PluralCategory.Many,
+                _ => PluralCategory.Other,
+            },
 
-        // Every other language this site knows about has one ordinal form, including German,
-        // Russian, Chinese, Japanese, Thai and Portuguese.
+        // one: n = 1
+        "vi" or "ms" => o.N == 1m ? PluralCategory.One : PluralCategory.Other,
+
+        // Every other language this site knows about has one ordinal form: German, Spanish, Danish,
+        // Norwegian, Greek, Dutch, Finnish, Estonian, Polish, Czech, Slovak, Russian, Portuguese,
+        // Thai, Indonesian, Chinese, Japanese, Korean, Turkish, Arabic — and Hebrew, whose six-way
+        // ordinal table CLDR withdrew before 46.
         _ => PluralCategory.Other,
     };
+
+    /// <summary>The Romance millions rule, which CLDR states identically for all four languages.</summary>
+    /// <remarks>
+    /// <c>many: e = 0 and i != 0 and i % 1000000 = 0 and v = 0</c>. <c>e</c> is the compact-decimal
+    /// exponent and is zero for everything this site formats, so the clause CLDR adds for compact
+    /// notation cannot be reached from here.
+    /// </remarks>
+    private static bool Millions(PluralOperands o) =>
+        o is { E: 0, V: 0, I: not 0 } && o.I % 1_000_000 == 0;
+
+    /// <summary>Whether the number is a whole one, which is all a CLDR range can ever match.</summary>
+    /// <remarks>
+    /// <c>n % 100 = 3..10</c> is a range over integers: 3.5 is not in it, however its integer part
+    /// reads. Testing <c>i</c> in its place gives every fraction the category of the whole number
+    /// below it — the wrong form for a rate and for an average alike, and invisible in a table
+    /// exercised only with counts.
+    /// </remarks>
+    private static bool Whole(PluralOperands o) => o.N == o.I;
 
     /// <summary>
     /// Every category a locale can produce, which is what a message has to cover.

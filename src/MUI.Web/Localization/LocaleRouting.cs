@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace MUI.Web.Localization;
 
@@ -48,6 +50,27 @@ public static class LocaleRouting
     /// <summary>Where the middleware leaves its answer for the rest of the request.</summary>
     public const string ItemKey = "mui.locale";
 
+    /// <summary>
+    /// Whether this request is being answered by a deployment somebody is reviewing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Asked of the request, because the alternatives were a global and an injection and both
+    /// had already failed.</b> A component taking <c>IWebHostEnvironment</c> as a dependency cannot
+    /// be rendered without a web host behind it, and every headless component test in this suite
+    /// renders one without. A <c>static bool</c> written from composition fixed that and bought a
+    /// worse problem: a test process starts many hosts, in Development and in Production, so the
+    /// last one to start decided what the switcher listed on every request served by any of them.
+    /// </para>
+    /// <para>
+    /// The request's own services answer it, and a request that has none — a component rendered
+    /// with no <c>HttpContext</c> at all — is not a review build. Nothing has to be told; the
+    /// question simply has an answer wherever it is asked.
+    /// </para>
+    /// </remarks>
+    public static bool IsReviewBuild(this HttpContext? context) =>
+        context?.RequestServices?.GetService<IHostEnvironment>()?.IsDevelopment() is true;
+
     /// <summary>The locale this request is being answered in.</summary>
     public static LocaleContext LocaleOf(this HttpContext? context) =>
         context?.Items.TryGetValue(ItemKey, out var found) is true && found is LocaleContext ctx
@@ -64,6 +87,17 @@ public static class LocaleRouting
             var path = context.Request.Path.Value ?? "/";
             var segment = FirstSegment(path);
 
+            // The same path, still escaped, for anything written into a Location header.
+            //
+            // Request.Path.Value is decoded: a segment containing %2F comes back as a bare slash and
+            // becomes two segments, a %23 comes back as a `#` and truncates the target at the
+            // fragment, a %3F becomes a `?` and turns the rest of the path into a query, and every
+            // non-ASCII character comes back raw into a header field that may not carry one. A
+            // reader following that redirect is sent somewhere they did not ask for. Splitting on
+            // '/' is still right here, because in the escaped form a literal slash is the only
+            // separator and an encoded one is three characters that are not it.
+            var escaped = context.Request.Path.ToUriComponent();
+
             if (Locales.Find(segment) is { } named)
             {
                 // The canonical English address carries no prefix, so /en/... is a second URL for a
@@ -74,7 +108,7 @@ public static class LocaleRouting
                 {
                     if (Redirectable(context.Request))
                     {
-                        context.Response.Redirect(Rest(path) + context.Request.QueryString, permanent: true);
+                        context.Response.Redirect(Rest(escaped) + context.Request.QueryString, permanent: true);
                         return;
                     }
 
@@ -112,13 +146,13 @@ public static class LocaleRouting
 
             if (remembered is { IsChoosable: true } && remembered.Tag != Locales.SourceTag)
             {
-                context.Response.Redirect("/" + remembered.Tag + path + context.Request.QueryString);
+                context.Response.Redirect("/" + remembered.Tag + escaped + context.Request.QueryString);
                 return;
             }
 
             if (remembered is null && Preferred(context.Request.Headers.AcceptLanguage) is { } guessed)
             {
-                context.Response.Redirect("/" + guessed.Tag + path + context.Request.QueryString);
+                context.Response.Redirect("/" + guessed.Tag + escaped + context.Request.QueryString);
                 return;
             }
 
@@ -167,7 +201,41 @@ public static class LocaleRouting
             ? new LocaleContext(chosen, FromPath: false)
             : null;
 
-    /// <summary>The switcher's endpoint: remember a choice, and go back to the same page in it.</summary>
+    /// <summary>
+    /// The switcher's endpoint: remember a choice, and go back to the same page in it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Anti-forgery is off here, deliberately, and on the same reasoning as the theme control
+    /// beside it.</b> Everything a forged post can achieve is that the victim's next page view is
+    /// in a language they did not pick — visible on arrival, stated in their own language's name in
+    /// the switcher, and undone by one click of the control that is already on the page. Nothing is
+    /// read, nothing is written that survives the reader clearing it, and this site holds no
+    /// user-specific state beyond a theme and a language.
+    /// </para>
+    /// <para>
+    /// The price of buying protection against that is not a token: it is an
+    /// <c>&lt;AntiforgeryToken /&gt;</c> in the header of <em>every page</em>, because that is where
+    /// the switcher is. The token rides in a cookie, so it would put a <c>Set-Cookie</c> on every
+    /// response from a site that otherwise sets none for a signed-out reader, and make every one of
+    /// those responses uncacheable by anything in front of us — and then answer a reader whose
+    /// cached page outlived its token with a 400 where they expected a language.
+    /// </para>
+    /// <para>
+    /// <b><c>SameSite=Lax</c> is not what makes this safe, and it is worth being exact about why.</b>
+    /// SameSite governs when a cookie is <em>sent</em>, not whether one may be <em>set</em>: a
+    /// cross-site form post is a top-level navigation, the <c>Set-Cookie</c> in the answer is
+    /// stored, and a later top-level GET does carry a Lax cookie. The attack works. What makes it
+    /// not worth defending against is its consequence, which is that a stranger can change the
+    /// language of one page view.
+    /// </para>
+    /// <para>
+    /// The measure that would be worth having is a <c>Sec-Fetch-Site</c> check, which costs no
+    /// token, no cookie, no cache entry and no script. It belongs to this endpoint and the theme
+    /// endpoint together — one control guarded and its twin not is worse than neither — so it is a
+    /// change of its own rather than a line here.
+    /// </para>
+    /// </remarks>
     public static IEndpointRouteBuilder MapMuiLocale(this IEndpointRouteBuilder endpoints)
     {
         ArgumentNullException.ThrowIfNull(endpoints);

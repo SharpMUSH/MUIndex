@@ -28,6 +28,13 @@ namespace MUI.Web.Localization;
 /// and because the rules below are transcribed from CLDR in the operands CLDR states them in — a
 /// transcription into a different vocabulary is a transcription that cannot be checked.
 /// </para>
+/// <para>
+/// <b>These are absolute values and this type cannot print a number.</b> CLDR takes the absolute
+/// value to choose a category, never to display one, so a <c>Format</c> here would drop the sign of
+/// every number it was handed — and it did, along with the group separator, which put "1234 games"
+/// in a sentence beside "1,234" in the column. Rendering belongs to <see cref="IcuMessage"/>, which
+/// still holds the signed value the caller passed.
+/// </para>
 /// </remarks>
 public readonly record struct PluralOperands(
     decimal N,
@@ -96,10 +103,4 @@ public readonly record struct PluralOperands(
 
         return result;
     }
-
-    /// <summary>The number as the message will print it, when no explicit format was given.</summary>
-    public string Format(CultureInfo culture) =>
-        V == 0
-            ? I.ToString(CultureInfo.InvariantCulture)
-            : N.ToString("F" + V.ToString(CultureInfo.InvariantCulture), culture);
 }

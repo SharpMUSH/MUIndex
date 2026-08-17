@@ -68,19 +68,19 @@ public sealed record TrendDay(
     /// </remarks>
     public string Label(string tag) => this switch
     {
-        { IsGap: true } => Say(tag, "trend.day.notMeasured", ("d", Date)),
-        { IsUncountable: true } => Say(tag, "trend.day.notCounted", ("d", Date)),
+        { IsGap: true } => Messages.Say(tag, "trend.day.notMeasured", ("d", Date)),
+        { IsUncountable: true } => Messages.Say(tag, "trend.day.notCounted", ("d", Date)),
 
         // Every probe returning the same number is its own sentence rather than a range with that
         // number written twice: "24–24" is arithmetic printed where a measurement was asked for.
-        { Min: { } lo, Max: { } hi } when lo == hi => Say(
+        { Min: { } lo, Max: { } hi } when lo == hi => Messages.Say(
             tag,
             "trend.day.flat",
             ("d", Date),
             ("count", lo),
             ("probes", CountedSamples)),
 
-        _ => Say(
+        _ => Messages.Say(
             tag,
             "trend.day.counted",
             ("d", Date),
@@ -89,9 +89,6 @@ public sealed record TrendDay(
             ("high", Max),
             ("probes", CountedSamples)),
     };
-
-    private static string Say(string tag, string id, params (string Key, object? Value)[] args) =>
-        Messages.For(tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 }
 
 /// <summary>
@@ -165,7 +162,7 @@ public sealed record TrendSeries(DateOnly From, DateOnly To, IReadOnlyList<Trend
         var counted = Days.Where(d => d.IsCounted).ToList();
         var typical = Median(counted.Select(d => d.Average!.Value));
 
-        var start = Say(
+        var start = Messages.Say(
             tag,
             "trend.summary",
             ("typical", Number(typical)),
@@ -196,8 +193,8 @@ public sealed record TrendSeries(DateOnly From, DateOnly To, IReadOnlyList<Trend
         foreach (var week in Days.Chunk(7))
         {
             var span = week.Length == 1
-                ? Say(tag, "trend.week.oneDay", ("d", week[0].Date))
-                : Say(tag, "trend.week.span", ("from", week[0].Date), ("to", week[^1].Date));
+                ? Messages.Say(tag, "trend.week.oneDay", ("d", week[0].Date))
+                : Messages.Say(tag, "trend.week.span", ("from", week[0].Date), ("to", week[^1].Date));
 
             var counted = week.Where(d => d.IsCounted).ToList();
             var uncountable = week.Count(d => d.IsUncountable);
@@ -205,7 +202,7 @@ public sealed record TrendSeries(DateOnly From, DateOnly To, IReadOnlyList<Trend
 
             if (counted.Count == 0)
             {
-                yield return Say(
+                yield return Messages.Say(
                     tag,
                     uncountable > 0 ? "trend.week.notCounted" : "trend.week.notMeasured",
                     ("span", span));
@@ -213,7 +210,7 @@ public sealed record TrendSeries(DateOnly From, DateOnly To, IReadOnlyList<Trend
                 continue;
             }
 
-            var line = Say(
+            var line = Messages.Say(
                 tag,
                 "trend.week.counted",
                 ("span", span),
@@ -225,12 +222,12 @@ public sealed record TrendSeries(DateOnly From, DateOnly To, IReadOnlyList<Trend
             // separator belongs to a language, and Chinese uses neither of ours.
             if (uncountable > 0)
             {
-                line = Join(tag, line, Say(tag, "trend.week.uncounted", ("count", uncountable)));
+                line = Join(tag, line, Messages.Say(tag, "trend.week.uncounted", ("count", uncountable)));
             }
 
             if (unmeasured > 0)
             {
-                line = Join(tag, line, Say(tag, "trend.week.unmeasured", ("count", unmeasured)));
+                line = Join(tag, line, Messages.Say(tag, "trend.week.unmeasured", ("count", unmeasured)));
             }
 
             yield return line;
@@ -238,7 +235,7 @@ public sealed record TrendSeries(DateOnly From, DateOnly To, IReadOnlyList<Trend
     }
 
     private static string Join(string tag, string line, string clause) =>
-        Say(tag, "trend.week.and", ("line", line), ("clause", clause));
+        Messages.Say(tag, "trend.week.and", ("line", line), ("clause", clause));
 
     /// <summary>
     /// The rollup's buckets as a day per column, with the days it does not hold left as gaps.
@@ -297,14 +294,12 @@ public sealed record TrendSeries(DateOnly From, DateOnly To, IReadOnlyList<Trend
         // after the noun.
         var change = Math.Round(Math.Abs(after - before) / before, 2);
 
-        return Say(
+        return Messages.Say(
             tag,
             after > before ? "trend.direction.up" : "trend.direction.down",
             ("change", change));
     }
 
-    private static string Say(string tag, string id, params (string Key, object? Value)[] args) =>
-        Messages.For(tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 
     private static double Median(IEnumerable<double> values)
     {

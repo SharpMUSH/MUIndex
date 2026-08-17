@@ -154,10 +154,6 @@ public static class SiteComposition
         // limit.
         app.UseSubmitterAddress();
 
-        // The review locales, which are not languages and are never a default — see
-        // LanguageSwitcher for why a switcher with one option had to be able to grow a second.
-        Locales.UsePreview(app.Environment.IsDevelopment());
-
         // Before anything routes, because the locale is a path segment and every @page directive is
         // written without it: the middleware moves the prefix into PathBase so one route table
         // serves every language. It is also before the not-found page, so a mistyped URL inside a
