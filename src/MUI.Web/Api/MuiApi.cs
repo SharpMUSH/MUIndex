@@ -84,7 +84,9 @@ public static class MuiApi
                 new RouteView("GET", ApiRoutes.Games,
                     "The listing. Same querystring as the site's facet panel: q, archived, "
                     + "protocol (repeatable), band, limit, offset. Archived games are excluded "
-                    + "unless archived=true."),
+                    + "unless archived=true. Two states are never in it and archived=true does not "
+                    + "lift them: an address an editor ruled out as not a game, and a game whose "
+                    + "owners asked to come out. Both still answer at their own route."),
                 new RouteView("GET", ApiRoutes.Games + "/{id-or-slug}",
                     "One game, by its immutable id or its current slug. A slug the game used to "
                     + "have redirects here permanently."),

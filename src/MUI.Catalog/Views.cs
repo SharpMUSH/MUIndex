@@ -204,7 +204,12 @@ public sealed record GamePage(
     // in Declared because Declared is printed under "Declared by the game" and this is ours, not
     // theirs (see InternalFields.CharsetRead). Null for the overwhelming majority, which are UTF-8
     // or plain ASCII and need nothing said about them.
-    string? ConnectScreenCharset = null)
+    string? ConnectScreenCharset = null,
+
+    // Why an editor ruled this address out (migration 0024), shown on the page that carries the
+    // decision. Null for every other state — including `unlisted`, which is not our argument to
+    // make and has none to print.
+    string? ExcludedReason = null)
 {
     public int DisagreementCount => Capabilities.Count(c => c.Disagrees);
 

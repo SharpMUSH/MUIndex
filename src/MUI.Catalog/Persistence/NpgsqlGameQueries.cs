@@ -76,14 +76,42 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// The states a game is counted and listed in.
     /// </summary>
     /// <remarks>
-    /// <b>Two states withhold a game from the listing and they are not the same statement.</b>
+    /// <para>
+    /// <b>Three states withhold a game from the listing and no two of them are the same statement.</b>
     /// <c>archived</c> says it stopped answering and is reversed by the next probe that gets an
-    /// answer; <c>excluded</c> says we decided it is not a game for players and is reversed only by
-    /// a person. Both keep the page, the URL, the history and the crawl. Named once here so that a
-    /// count added later cannot quietly include one of them — the same reasoning as `Public` below,
-    /// which arrived after a lookup had already forgotten it once.
+    /// answer; <c>excluded</c> says we decided it is not a game for players and is reversed only by a
+    /// person; <c>unlisted</c> says the people who run it asked to come out, and is reversed by
+    /// either of them (§11). All three keep the page, the URL, the history and the crawl. Named once
+    /// here so that a count added later cannot quietly include one of them — the same reasoning as
+    /// <c>Public</c> below, which arrived after a lookup had already forgotten it once.
+    /// </para>
+    /// <para>
+    /// <b>It was named once and then written out eleven times</b>, which is how a constant fails at
+    /// the job it was added for. Every predicate now reads it, so the state added next is added here.
+    /// </para>
     /// </remarks>
-    private const string ListedStates = "('archived', 'excluded')";
+    private const string ListedStates = "('archived', 'excluded', 'unlisted')";
+
+    /// <summary>
+    /// The states no browsing surface may reach, whatever it is asking about.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>`archived` is deliberately not in here, and that is the whole distinction.</b> The archive
+    /// is a browsable section in its own right (§7.5) with its own facet and its own feed entry when
+    /// a game comes back. The other two are not sections: "we decided this is not a game somebody can
+    /// play" and "the people who run it asked to come out" both mean *nothing that walks the site
+    /// arrives here*. Only the address does.
+    /// </para>
+    /// <para>
+    /// <b>It exists because the listing was not the only way in.</b> The liveness feeds and the
+    /// referral neighbours both read <c>Public</c> alone, which says who vouched for a game and
+    /// nothing about its lifecycle — so a game taken out of the listing went on being offered as a
+    /// *newly discovered* entry and as a link on its neighbour's page. Excluding it from the listing
+    /// and then linking to it from the listing's own pages is not excluding it.
+    /// </para>
+    /// </remarks>
+    private const string NeverBrowsable = "('excluded', 'unlisted')";
 
     /// <summary>The same rule where the table is aliased.</summary>
     private const string PublicG =
@@ -198,6 +226,13 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         // archived band is asking for them, so it lifts the exclusion by itself. Without that the one
         // facet value naming the archive returned nothing at all, while the fixture returned the
         // archive: one filter, two answers, and only one of them was tested.
+        //
+        // **The toggle lifts `archived` and only `archived`**, which it did not until now: the
+        // predicate read `@includeArchived OR state NOT IN (archived, excluded)`, so a reader ticking
+        // "show me the archive" was also handed every stock `Your MUD Name` instance an editor had
+        // ruled out. Each of the other two states answers a question the archive checkbox does not
+        // ask — and for `unlisted` there is no checkbox to add, because a game that asked to come out
+        // of the listing is not served by a control that puts it back in.
         var includeArchived = filter.IncludeArchived || filter.Band is ActivityBand.Archived;
 
         var rows = (await connection.QueryAsync<GameRow>(new CommandDefinition(
@@ -205,7 +240,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             SELECT g.id AS Id, g.slug AS Slug, g.name AS Name, g.tagline AS Tagline,
                    g.state AS State, g.is_claimed AS IsClaimed, g.last_reachable_at AS LastReachableAt
               FROM game g
-             WHERE (@includeArchived OR g.state NOT IN ('archived', 'excluded'))
+             WHERE g.state NOT IN {NeverBrowsable}
+               AND (@includeArchived OR g.state <> 'archived')
                AND {PublicG}
              ORDER BY g.name
             """,
@@ -515,6 +551,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
               JOIN game_endpoint ep ON ep.host = e.to_host AND ep.port = e.to_port
               JOIN game g ON g.id = ep.game_id
              WHERE e.from_game_id = @gameId AND g.id <> @gameId AND {PublicG}
+               AND g.state NOT IN {NeverBrowsable}
 
             UNION ALL
 
@@ -524,6 +561,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
               JOIN referral_edge e ON e.to_host = ep.host AND e.to_port = ep.port
               JOIN game g ON g.id = e.from_game_id
              WHERE ep.game_id = @gameId AND g.id <> @gameId AND {PublicG}
+               AND g.state NOT IN {NeverBrowsable}
             """,
             new { gameId },
             cancellationToken: cancellationToken));
@@ -561,7 +599,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     private const string GameSelect =
         $"""
         SELECT id AS Id, slug AS Slug, name AS Name, tagline AS Tagline, state AS State,
-               is_claimed AS IsClaimed, last_reachable_at AS LastReachableAt
+               is_claimed AS IsClaimed, last_reachable_at AS LastReachableAt,
+               excluded_reason AS ExcludedReason
           FROM game
          WHERE {Public}
         """;
@@ -699,7 +738,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             Declared: DeclaredOf(fields, now),
             Changes: changes.Select(Describe).ToList(),
             Neighbours: neighbours,
-            ConnectScreenCharset: ScreenCharset(fields));
+            ConnectScreenCharset: ScreenCharset(fields),
+            ExcludedReason: row.ExcludedReason);
     }
 
     /// <summary>
@@ -743,6 +783,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             SELECT id AS Id, slug AS Slug, name AS Name, first_seen_at AS At, NULL AS Cause
               FROM game
              WHERE first_seen_at >= @since AND {Public}
+               AND state NOT IN {NeverBrowsable}
              ORDER BY first_seen_at DESC
              LIMIT @limit
             """,
@@ -755,7 +796,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
               FROM availability_interval a
               JOIN game g ON g.id = a.game_id
              WHERE a.to_at IS NULL AND a.state = 'unreachable' AND a.from_at >= @since
-               AND {PublicG}
+               AND {PublicG} AND g.state NOT IN {NeverBrowsable}
              ORDER BY a.from_at DESC
              LIMIT @limit
             """,
@@ -773,7 +814,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
               JOIN availability_interval prev
                 ON prev.game_id = a.game_id AND prev.to_at = a.from_at AND prev.state <> 'reachable'
              WHERE a.state = 'reachable' AND a.from_at >= @since
-               AND {PublicG}
+               AND {PublicG} AND g.state NOT IN {NeverBrowsable}
              ORDER BY a.from_at DESC
              LIMIT @limit
             """,
@@ -822,34 +863,34 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         var totals = await connection.QuerySingleAsync<EcosystemTotalsRow>(new CommandDefinition(
             $"""
             SELECT
-              (SELECT count(*)::int FROM game WHERE state NOT IN ('archived', 'excluded') AND {Public}) AS Listed,
+              (SELECT count(*)::int FROM game WHERE state NOT IN {ListedStates} AND {Public}) AS Listed,
 
               -- A completed session, which is what a measured capability is a capability of.
               (SELECT count(DISTINCT a.game_id)::int
                  FROM availability_interval a
                  JOIN game g ON g.id = a.game_id
-                WHERE {PublicG} AND g.state NOT IN ('archived', 'excluded') AND a.state = 'reachable') AS Handshakes,
+                WHERE {PublicG} AND g.state NOT IN {ListedStates} AND a.state = 'reachable') AS Handshakes,
 
               -- Games whose MSSP report we hold. A different set from the one above, and the whole
               -- reason the declared column carries its own denominator.
               (SELECT count(DISTINCT f.game_id)::int
                  FROM game_field f
                  JOIN game g ON g.id = f.game_id
-                WHERE {PublicG} AND g.state NOT IN ('archived', 'excluded') AND f.source = 'mssp') AS MsspReports,
+                WHERE {PublicG} AND g.state NOT IN {ListedStates} AND f.source = 'mssp') AS MsspReports,
 
               -- How stale the stalest handshake in this snapshot is, so the page can say how old the
               -- picture is rather than implying it is of this minute.
               (SELECT min(f.last_confirmed_at)
                  FROM game_field f
                  JOIN game g ON g.id = f.game_id
-                WHERE {PublicG} AND g.state NOT IN ('archived', 'excluded') AND f.source = 'handshake'
+                WHERE {PublicG} AND g.state NOT IN {ListedStates} AND f.source = 'handshake'
                   AND f.field LIKE 'capability.%.measured') AS OldestHandshake,
 
               -- The raw material of the curve this page cannot yet draw (§5.1's change ledger).
               (SELECT count(*)::int
                  FROM field_change c
                  JOIN game g ON g.id = c.game_id
-                WHERE {PublicG} AND g.state NOT IN ('archived', 'excluded')
+                WHERE {PublicG} AND g.state NOT IN {ListedStates}
                   AND c.field LIKE 'capability.%.measured') AS CapabilityTransitions
             """,
             cancellationToken: cancellationToken));
@@ -859,7 +900,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             SELECT DISTINCT ON (f.game_id) f.value
               FROM game_field f
               JOIN game g ON g.id = f.game_id
-             WHERE {PublicG} AND g.state NOT IN ('archived', 'excluded') AND f.field = 'CODEBASE' AND f.value <> ''
+             WHERE {PublicG} AND g.state NOT IN {ListedStates} AND f.field = 'CODEBASE' AND f.value <> ''
              ORDER BY f.game_id, array_position(@ladder::text[], f.source), f.last_confirmed_at DESC
             """,
             new { ladder = SourceLadder },
@@ -871,7 +912,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
               FROM (SELECT DISTINCT ON (f.game_id, f.field) f.field, f.value
                       FROM game_field f
                       JOIN game g ON g.id = f.game_id
-                     WHERE {PublicG} AND g.state NOT IN ('archived', 'excluded') AND f.field LIKE 'capability.%'
+                     WHERE {PublicG} AND g.state NOT IN {ListedStates} AND f.field LIKE 'capability.%'
                      ORDER BY f.game_id, f.field,
                               array_position(@ladder::text[], f.source), f.last_confirmed_at DESC) winner
              GROUP BY winner.field, winner.value
@@ -924,7 +965,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
         var listed = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
-            $"SELECT count(*)::int FROM game WHERE state NOT IN ('archived', 'excluded') AND {Public}",
+            $"SELECT count(*)::int FROM game WHERE state NOT IN {ListedStates} AND {Public}",
             cancellationToken: cancellationToken));
 
         // The median comes out of `presence_rollup_day`'s distribution (migration 0019) rather than
@@ -956,7 +997,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                   FROM presence_rollup_day r
                   JOIN game g ON g.id = r.game_id
                  WHERE r.day >= @from AND r.count_histogram IS NOT NULL
-                   AND g.state NOT IN ('archived', 'excluded') AND {PublicG}),
+                   AND g.state NOT IN {ListedStates} AND {PublicG}),
             eligible AS (
                 SELECT game_id, slug, name,
                        sum(counted_samples)::int AS samples,
@@ -1003,7 +1044,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             SELECT g.slug AS Slug, g.name AS Name, a.from_at AS Since
               FROM availability_interval a
               JOIN game g ON g.id = a.game_id
-             WHERE a.to_at IS NULL AND a.state = 'reachable' AND g.state NOT IN ('archived', 'excluded')
+             WHERE a.to_at IS NULL AND a.state = 'reachable' AND g.state NOT IN {ListedStates}
                AND {PublicG}
              ORDER BY a.from_at
              LIMIT @limit
@@ -1464,6 +1505,12 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         public bool IsClaimed { get; init; }
 
         public DateTimeOffset? LastReachableAt { get; init; }
+
+        /// <summary>
+        /// Why an editor ruled this out (migration 0024). Null on the listing's own query, which does
+        /// not select it — the listing has no excluded games in it to explain.
+        /// </summary>
+        public string? ExcludedReason { get; init; }
     }
 
     private sealed class FieldRow

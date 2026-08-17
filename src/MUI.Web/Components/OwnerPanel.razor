@@ -202,6 +202,60 @@
             <button type="submit">Stop crawling us</button>
         </form>
     }
+
+    @*
+        The second decision (migration 0025), and it is a second one rather than a stronger version of
+        the first. Stopping the crawl is what most people who press that button want; this is for the
+        ones who want the page out of the directory as well, and it is offered only underneath a
+        standing opt-out on every address — a game we are still dialling has not made the first
+        decision, and there is nothing here to extend.
+    *@
+    @if (Listing is { IsUnlisted: true })
+    {
+        <h3>Being listed</h3>
+
+        <p>
+            @Name is out of the listing, out of the rankings and out of the daily figure. Its page
+            and every URL it has ever had go on answering, and everything measured before you asked
+            is still on it. Nothing was deleted; it is simply not somewhere a reader arrives by
+            browsing.
+        </p>
+
+        <form method="post" action="/account/games/@GameId/listing">
+            <AntiforgeryToken />
+            <input type="hidden" name="unlist" value="false" />
+            <button type="submit">Put us back in the listing</button>
+        </form>
+
+        <p class="faint">
+            One probe that answers does this too. While your opt-out stands we do not dial, so
+            nothing will — but the day you take it back, the address comes up within a week and the
+            probe that gets an answer puts you back. You do not have to ask us twice.
+        </p>
+    }
+    else if (Listing is { MayUnlist: true })
+    {
+        <h3>Being listed</h3>
+
+        <p>
+            We have stopped dialling you, and your page is still in the listing with what we measured
+            before that. If you would rather it were not, say so and it comes out — of the listing,
+            the rankings and the daily figure.
+        </p>
+
+        <p class="faint">
+            Nothing is deleted and nothing breaks: the page answers, every URL it has ever had still
+            redirects to it, and anyone you send there sees it. It stops being somewhere a reader can
+            arrive by browsing. Reversible from here, and by any probe that answers after you take
+            your opt-out back.
+        </p>
+
+        <form method="post" action="/account/games/@GameId/listing">
+            <AntiforgeryToken />
+            <input type="hidden" name="unlist" value="true" />
+            <button type="submit">Take us out of the listing too</button>
+        </form>
+    }
 </section>
 
 @code {
@@ -238,6 +292,16 @@
     /// register to ask — the demo fixture, which dials nothing.
     /// </summary>
     [Parameter] public OwnerOptOutState? OptOut { get; set; }
+
+    /// <summary>
+    /// Whether this game is in the listing and whether its owner may take it out (migration 0025), or
+    /// null where nothing here records that — the demo fixture, which has no register to ask.
+    /// </summary>
+    /// <remarks>
+    /// Null and "may not" render identically, and deliberately: a control offered where we cannot
+    /// tell whether we are still crawling somebody would be the panel guessing on their behalf.
+    /// </remarks>
+    [Parameter] public OwnerListingState? Listing { get; set; }
 
     /// <summary>The routes the standing rules came in by, for the case this side cannot undo.</summary>
     private string Routes => string.Join(", ", (OptOut?.Standing ?? [])

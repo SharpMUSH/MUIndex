@@ -1251,6 +1251,31 @@ probe can know about is still doing something legitimate.
     carried the field is stored like any other measurement; an opted-out game's page keeps everything
     measured before the ask and gains nothing after it, with the grid's empty hours naming no cause
     (§5.4); and a withdrawn opt-out keeps its row and gains a `withdrawn_at`.
+
+  **Unlisting is the second decision, and it is a second one rather than a stronger opt-out.**
+  Built (migration 0025, `LifecycleState.Unlisted`, `OwnerListing`). Stopping the crawl is what most
+  operators who reach for the opt-out want, and the promise above is kept for them. For the ones who
+  want the page out of the directory as well, an owner whose crawl is stopped on *every* address the
+  game answers on gets one control on their dashboard, and it takes the game out of the default
+  listing, the rankings and the "active today" figure — §7.5's list, withheld for a third reason.
+
+  - **`AllStopped` is the gate, and `Partial` is refused out loud.** A game whose second port we are
+    still dialling has not made the first decision. Unlisting it would create the one combination
+    nothing on this site can describe: a page no reader can find, filling up with fresh measurements.
+  - **It is not `archived` and it is not `excluded`.** Archiving says the game stopped answering,
+    which is false about a game that is running and simply not being dialled; exclusion (§7.5,
+    migration 0024) says we decided it is not a game somebody can play, which is false about a game.
+    Each of the three withholds a listing and no two of them are the same statement, and the state
+    column is what every facet, feed and API reader filters on.
+  - **The row records the account and not an argument.** `unlisted_by` is NOT NULL against `app_user`:
+    the reason is that they asked, `crawl_opt_out` holds how the ask arrived, and our own prose about
+    somebody's request would be a third version of it. `excluded_reason` exists for the opposite
+    reason — that one is our claim and has to be arguable.
+  - **A probe undoes it**, unlike an exclusion, and safely by construction: an opted-out address is
+    refused before the dial, so a probe that answered is proof no opt-out stands. The exit an
+    operator can work alone — delete the TXT record, wait out §7.4's floor — therefore brings the
+    listing back with the crawl. An unlisting whose only exit was ours would be the trap this
+    section's second bullet warns about.
 - **Player names are never persisted.** WHO responses are parsed in memory and discarded. What may
   be derived from them is derived from *times* — idle-time buckets, session lengths — and never from
   identities.

@@ -54,6 +54,10 @@ public static class OwnerWrites
         public const string Stopped = "crawl-stopped";
 
         public const string Resumed = "crawl-resumed";
+
+        public const string Unlisted = "unlisted";
+
+        public const string Relisted = "relisted";
     }
 
     /// <summary>
@@ -161,6 +165,36 @@ public static class OwnerWrites
                 // we have stopped crawling them and has not been told we never had an address to stop.
                 _ => Results.Redirect(
                     $"{Dashboard}?refused=crawl&because={OwnerOptOutVerdict.NoAddresses}"),
+            };
+        });
+
+        // The second half of §11's opt-out (migration 0025): out of the listing as well as out of the
+        // crawl. Offered only where a standing opt-out already covers every address, and refused out
+        // loud where it does not — a page nobody can find, still filling with fresh measurements, is
+        // the one state nothing on this site knows how to describe.
+        games.MapPost("/listing", async (
+            HttpContext context,
+            UserManager<MuiUser> users,
+            OwnerListing listing,
+            Guid gameId,
+            IFormCollection form) =>
+        {
+            if (await users.GetUserAsync(context.User) is not { } user)
+            {
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            }
+
+            var unlist = string.Equals(form["unlist"], "true", StringComparison.Ordinal);
+
+            var outcome = await listing.SetAsync(gameId, user.Id, unlist, context.RequestAborted);
+
+            return outcome.Verdict switch
+            {
+                OwnerListingVerdict.Applied => Results.Redirect(
+                    $"{Dashboard}?saved={gameId}&did={(unlist ? Saved.Unlisted : Saved.Relisted)}"),
+                OwnerListingVerdict.NotAnOwner => Results.StatusCode(StatusCodes.Status403Forbidden),
+                _ => Results.Redirect(
+                    $"{Dashboard}?refused=listing&because={OwnerListingVerdict.NotOptedOut}"),
             };
         });
     }

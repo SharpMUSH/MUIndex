@@ -13,6 +13,9 @@ public class GameQueriesPostgresTests
 {
     private static readonly DateTimeOffset Now = Seed.Now;
 
+    /// <summary>The account an unlisting is attributed to, since the schema will not take one without.</summary>
+    private static readonly Guid Owner = Guid.Parse("cccccccc-0000-0000-0000-000000000001");
+
     private static NpgsqlGameQueries QueriesOn(TestDatabase db) =>
         new(db.DataSource) { Clock = () => Now };
 
@@ -34,6 +37,108 @@ public class GameQueriesPostgresTests
         // Its page survives, which is the half of §7.5 that is easy to lose.
         await Assert.That(page).IsNotNull();
         await Assert.That(page!.Summary.State).IsEqualTo(LifecycleState.Archived);
+    }
+
+    /// <summary>
+    /// The archive checkbox lifts the archive, and neither of the other two states that withhold a
+    /// game from the listing.
+    /// </summary>
+    /// <remarks>
+    /// <b>It lifted all three until now.</b> The predicate read
+    /// <c>@includeArchived OR state NOT IN ('archived', 'excluded')</c>, so a reader who ticked "show
+    /// me the archive" was also handed every stock <c>Your MUD Name</c> instance an editor had ruled
+    /// out — asking one question and being answered another. `unlisted` would have inherited the same
+    /// bug and been worse: the one state whose entire purpose is that browsing does not reach it.
+    /// </remarks>
+    [Test]
+    public async Task TheArchiveToggleRevealsTheArchiveAndNothingElse()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        await Seed.GameAsync(db, "corvid", "Corvid");
+        await Seed.GameAsync(db, "gaslight-row", "Gaslight Row", LifecycleState.Archived);
+        var stock = await Seed.GameAsync(db, "your-mud-name", "Your MUD Name");
+        var asked = await Seed.GameAsync(db, "asked-to-come-out", "Asked To Come Out");
+
+        var games = new NpgsqlGameStore(db.DataSource);
+        await games.ExcludeAsync(stock, "Stock configuration.", Now);
+
+        await OwnerRowAsync(db);
+        await games.UnlistAsync(asked, Owner, Now);
+
+        var queries = QueriesOn(db);
+        var withArchive = await queries.ListAsync(new GameFilter { IncludeArchived = true });
+
+        await Assert.That(withArchive.Select(g => g.Slug).ToList())
+            .IsEquivalentTo(new[] { "corvid", "gaslight-row" });
+
+        // Both pages still answer. Out of the listing is the whole of what either state does.
+        await Assert.That((await queries.FindAsync("your-mud-name"))!.Summary.State)
+            .IsEqualTo(LifecycleState.Excluded);
+        await Assert.That((await queries.FindAsync("asked-to-come-out"))!.Summary.State)
+            .IsEqualTo(LifecycleState.Unlisted);
+    }
+
+    /// <summary>
+    /// The listing is not the only way in, so the two never-browsable states leave the feeds and the
+    /// referral links as well.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both surfaces read <c>Public</c> alone</b>, which says who vouched for a game and nothing
+    /// about its lifecycle — so a game taken out of the listing went on being offered as a *newly
+    /// discovered* entry and as a link on its neighbour's page. Excluding something from the listing
+    /// and then linking to it from the listing's own pages is not excluding it.
+    ///
+    /// <c>archived</c> is deliberately still in both: the archive is a browsable section in its own
+    /// right, and "came back" is the entry §7.5 promises when one answers again.
+    /// </remarks>
+    [Test]
+    public async Task NeitherTheFeedsNorTheNeighboursOfferAGameThatIsNotBrowsable()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        // First seen yesterday, all three, because the discovered feed's window is the only thing
+        // that decides whether a game is in it — and the default seed is two years old.
+        var seen = Now.AddDays(-1);
+        var lister = await Seed.GameAsync(db, "corvid", "Corvid", firstSeenAt: seen);
+        var stock = await Seed.GameAsync(db, "your-mud-name", "Your MUD Name", firstSeenAt: seen);
+        var asked = await Seed.GameAsync(db, "asked-to-come-out", "Asked To Come Out", firstSeenAt: seen);
+
+        await EndpointAsync(db, stock, "stock.example.org", 4201);
+        await EndpointAsync(db, asked, "asked.example.org", 4201);
+        await EdgeAsync(db, lister, "stock.example.org", 4201);
+        await EdgeAsync(db, lister, "asked.example.org", 4201);
+
+        var games = new NpgsqlGameStore(db.DataSource);
+        await games.ExcludeAsync(stock, "Stock configuration.", Now);
+        await OwnerRowAsync(db);
+        await games.UnlistAsync(asked, Owner, Now);
+
+        var queries = QueriesOn(db);
+        var feeds = await queries.FeedsAsync();
+        var neighbours = (await queries.FindAsync("corvid"))!.Referrals;
+
+        await Assert.That(feeds.NewlyDiscovered.Select(f => f.Slug).ToList())
+            .IsEquivalentTo(new[] { "corvid" });
+        await Assert.That(neighbours).IsEmpty();
+    }
+
+    /// <summary>The argument behind an exclusion reaches the page that carries the decision.</summary>
+    /// <remarks>
+    /// Migration 0024 shipped the column and nothing that read it, so the nine instances it was
+    /// written for rendered as ordinary pages with no sign that anybody had decided anything. An
+    /// unlisting has no counterpart here on purpose: it is not our argument to print.
+    /// </remarks>
+    [Test]
+    public async Task AnExclusionsReasonIsOnItsPage()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var stock = await Seed.GameAsync(db, "lpcdb", "lpcdb");
+
+        await new NpgsqlGameStore(db.DataSource)
+            .ExcludeAsync(stock, "A tool on the network rather than a game.", Now);
+
+        var page = await QueriesOn(db).FindAsync("lpcdb");
+
+        await Assert.That(page!.ExcludedReason).IsEqualTo("A tool on the network rather than a game.");
     }
 
     [Test]
@@ -495,6 +600,26 @@ public class GameQueriesPostgresTests
         await Assert.That(endpoint.IsCurrent).IsFalse();
         await Assert.That(endpoint.FirstSeenAt).IsEqualTo(Now.AddYears(-3));
         await Assert.That(endpoint.LastSeenAt).IsEqualTo(Now.AddMonths(-8));
+    }
+
+    /// <summary>An address a game answers on, so a referral edge has something to land on.</summary>
+    private static Task EndpointAsync(TestDatabase db, Guid game, string host, int port) =>
+        new NpgsqlEndpointStore(db.DataSource).UpsertAsync(
+            new GameEndpoint(game, host, port, EndpointKind.Telnet, Now, Now, EndpointState.Active));
+
+    /// <summary>The account an unlisting is attributed to. The schema will not take one without.</summary>
+    private static async Task OwnerRowAsync(TestDatabase db)
+    {
+        await using var connection = await db.DataSource.OpenConnectionAsync();
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO app_user (
+                id, display_name, normalised_name, security_stamp, concurrency_stamp, created_at)
+            VALUES (@user, 'admin', 'ADMIN', 'stamp', 'stamp', @at)
+            ON CONFLICT (id) DO NOTHING
+            """,
+            new { user = Owner, at = Now });
     }
 
     private static async Task EdgeAsync(TestDatabase db, Guid from, string host, int port)

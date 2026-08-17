@@ -34,7 +34,17 @@ public static class PlainText
         var s = page.Summary;
 
         b.Append(s.Name.ToUpperInvariant());
-        b.Append(s.State is LifecycleState.Archived ? " [archived]" : s.IsClaimed ? " [claimed]" : " [unclaimed]");
+        // The states that withhold a game from the listing are named here rather than folded into
+        // [archived], because this surface is the one a reader reaches with a script: a page that says
+        // [archived] for a game whose owner asked to come out would be the wrong fact in the only
+        // field a parser reads.
+        b.Append(s.State switch
+        {
+            LifecycleState.Archived => " [archived]",
+            LifecycleState.Excluded => " [excluded]",
+            LifecycleState.Unlisted => " [unlisted]",
+            _ => s.IsClaimed ? " [claimed]" : " [unclaimed]",
+        });
         b.AppendLine();
 
         foreach (var e in page.Endpoints)

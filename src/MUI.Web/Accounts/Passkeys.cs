@@ -109,6 +109,10 @@ public static class Passkeys
         // OwnerEnrichment because it asks the same question about ownership before it writes.
         services.AddScoped<OwnerOptOut>();
 
+        // The second half of that decision (migration 0025), which is only offered once the first one
+        // is standing on every address — so it takes OwnerOptOut rather than re-deriving the answer.
+        services.AddScoped<OwnerListing>();
+
         services.Configure<IdentityPasskeyOptions>(options =>
         {
             // Set explicitly rather than inferred from the host header, which the ASP.NET Core docs

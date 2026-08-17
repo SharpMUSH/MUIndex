@@ -48,7 +48,20 @@ internal sealed class InMemoryGameStore : IGameStore
         SetStateAsync(id, LifecycleState.Excluded, at, ct);
 
     public Task IncludeAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
-        SetStateAsync(id, LifecycleState.Active, at, ct);
+        Move(id, LifecycleState.Active, at, from: LifecycleState.Excluded);
+
+    public Task UnlistAsync(Guid id, Guid byUserId, DateTimeOffset at, CancellationToken ct = default)
+    {
+        if (_games.TryGetValue(id, out var game))
+        {
+            _games[id] = game with { State = LifecycleState.Unlisted, ArchivedAt = null };
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task RelistAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
+        Move(id, LifecycleState.Active, at, from: LifecycleState.Unlisted);
 
     public Task SetStateAsync(
         Guid id,
@@ -56,13 +69,27 @@ internal sealed class InMemoryGameStore : IGameStore
         DateTimeOffset at,
         CancellationToken cancellationToken = default)
     {
-        if (_games.TryGetValue(id, out var game))
+        // The store's own `state NOT IN ('excluded', 'unlisted')` clause, mirrored — a double that
+        // let the sweeper walk one of those games back into the listing would report a guard this
+        // codebase relies on as working when it had been removed.
+        if (_games.TryGetValue(id, out var game)
+            && game.State is not (LifecycleState.Excluded or LifecycleState.Unlisted))
         {
             _games[id] = game with
             {
                 State = state,
                 ArchivedAt = state is LifecycleState.Archived ? at : null,
             };
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task Move(Guid id, LifecycleState to, DateTimeOffset at, LifecycleState from)
+    {
+        if (_games.TryGetValue(id, out var game) && game.State == from)
+        {
+            _games[id] = game with { State = to, ArchivedAt = null };
         }
 
         return Task.CompletedTask;

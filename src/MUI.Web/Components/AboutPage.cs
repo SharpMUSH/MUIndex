@@ -176,6 +176,14 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
                 + "it asked. Only new data stops: the activity grid stops gaining hours and names no "
                 + "cause, because our decision to stop knocking is a fact about us. It is recorded "
                 + "on the crawl that did not happen, and in the register of who asked."),
+            new("If stopping is not enough, the listing can go too.",
+                "Once we have stopped on every address your game answers on, your dashboard offers "
+                + "one more thing: take it out of the listing, the rankings and the daily figure. "
+                + "The page and every address it has ever had still answer, and nothing is deleted — "
+                + "it stops being somewhere a reader arrives by browsing. It needs a verified claim, "
+                + "because it is a decision about your game and we record who made it. And a probe "
+                + "undoes it: take your opt-out back, and the next dial that gets an answer puts you "
+                + "back in the listing without asking us twice."),
         ])
     {
         Identity = AboutIdentity.For(probe),

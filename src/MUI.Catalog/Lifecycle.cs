@@ -68,4 +68,31 @@ public enum LifecycleState
     /// </para>
     /// </remarks>
     Excluded,
+
+    /// <summary>
+    /// A game whose owner asked to be left alone and then asked to come out of the listing as well
+    /// (spec §11, migration 0025).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Not <see cref="Excluded"/>, and the difference is whose statement it is.</b> An exclusion
+    /// is our judgement that a thing is not a game for players, and it carries an argument a reader
+    /// can disagree with. This is a game. What it is not is a game that wants to be in a directory,
+    /// and the state has to be able to say that without also saying something false about what it is.
+    /// </para>
+    /// <para>
+    /// <b>Reachable only under a standing opt-out.</b> Unlisting is offered to an owner who has
+    /// already stopped the crawl on every address their game answers on — <c>OwnerOptOut</c>'s
+    /// <c>AllStopped</c>. "They asked us to stop and they meant it" is one decision made twice, and
+    /// the second half is not offered to somebody who has not made the first.
+    /// </para>
+    /// <para>
+    /// <b>A probe undoes it, unlike an exclusion.</b> <c>ArchiveSweeper.RestoreAsync</c> relists it
+    /// on the first answered probe — safe by construction, because an opted-out address is refused
+    /// before the dial, so a probe that answers is proof that no opt-out stands. The exit an operator
+    /// can work alone (delete the TXT record and wait out §7.4's floor) therefore brings the listing
+    /// back with the crawl.
+    /// </para>
+    /// </remarks>
+    Unlisted,
 }

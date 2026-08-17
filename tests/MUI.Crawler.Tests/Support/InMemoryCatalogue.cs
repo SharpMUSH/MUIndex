@@ -55,23 +55,64 @@ public sealed class FakeGameStore : IGameStore
     }
 
     public Task ExcludeAsync(Guid id, string reason, DateTimeOffset at, CancellationToken ct = default) =>
-        SetStateAsync(id, LifecycleState.Excluded, at, ct);
+        Move(id, LifecycleState.Excluded, at);
 
     public Task IncludeAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
-        SetStateAsync(id, LifecycleState.Active, at, ct);
+        Move(id, LifecycleState.Active, at, from: LifecycleState.Excluded);
 
+    public Task UnlistAsync(Guid id, Guid byUserId, DateTimeOffset at, CancellationToken ct = default) =>
+        Move(id, LifecycleState.Unlisted, at, unless: LifecycleState.Excluded);
+
+    public Task RelistAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
+        Move(id, LifecycleState.Active, at, from: LifecycleState.Unlisted);
+
+    /// <summary>
+    /// The crawl's own way in, and it may not move a game out of a state a person put it in.
+    /// </summary>
+    /// <remarks>
+    /// The store's <c>state NOT IN ('excluded', 'unlisted')</c> clause, mirrored. A double without it
+    /// would let the ingestor restore an unlisted game and the sweeper archive an excluded one, and
+    /// report the crawler as honouring a guard that had been deleted.
+    /// </remarks>
     public Task SetStateAsync(
         Guid id,
         LifecycleState state,
         DateTimeOffset at,
         CancellationToken cancellationToken = default)
     {
-        if (_games.TryGetValue(id, out var game))
+        if (_games.TryGetValue(id, out var game)
+            && game.State is not (LifecycleState.Excluded or LifecycleState.Unlisted))
         {
             _games[id] = game with
             {
                 State = state,
                 ArchivedAt = state is LifecycleState.Archived ? at : null,
+            };
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// A person's state change, which the crawl's guard does not apply to.
+    /// </summary>
+    /// <param name="from">Where the move is legal from, when only one state may make it.</param>
+    /// <param name="unless">A state the move is refused from, mirroring an <c>AND state &lt;&gt;</c> clause.</param>
+    private Task Move(
+        Guid id,
+        LifecycleState to,
+        DateTimeOffset at,
+        LifecycleState? from = null,
+        LifecycleState? unless = null)
+    {
+        if (_games.TryGetValue(id, out var game)
+            && (from is null || game.State == from)
+            && (unless is null || game.State != unless))
+        {
+            _games[id] = game with
+            {
+                State = to,
+                ArchivedAt = to is LifecycleState.Archived ? at : null,
             };
         }
 

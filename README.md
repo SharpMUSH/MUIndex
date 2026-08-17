@@ -72,6 +72,19 @@ about us, and colouring it as a fact about somebody's server is the one thing th
 exists not to do. It is recorded where our decisions belong: on the crawl that did not happen, and
 in the register of who asked.
 
+**And if stopping is not enough, the listing can go too.** Some operators want the page out of the
+directory as well, which the three routes above do not do. A game whose crawl is stopped on *every*
+address it answers on gets one more control on its owner dashboard: take it out of the listing, the
+rankings and the daily figure. The page, the URL and every address it has ever had go on answering —
+nothing is deleted here either — it simply stops being somewhere a reader arrives by browsing.
+
+Two things about that control are deliberate. It is offered only under a standing opt-out on every
+address, because a page nobody can find that is still filling up with fresh measurements is a state
+worth refusing to create. And it needs a verified claim, because unlisting somebody's game is a claim
+about what they want, and this project records who made it rather than inferring it. **It is undone
+by a probe**: take the opt-out back, and the answer to the next dial — within a week, on the
+permanent floor — puts the game back in the listing without anybody asking us twice.
+
 ### The archive
 
 A game that stays dark eventually leaves the default listing, but only ever *into* the archive —
