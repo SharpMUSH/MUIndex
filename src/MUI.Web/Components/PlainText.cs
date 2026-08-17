@@ -95,6 +95,16 @@ public static class PlainText
         }
 
         Heading(b, "When people are on (UTC)");
+
+        // The same threshold the graphical page draws on, and the same words. Below it there is no
+        // grid there and no seven lines here: a week of prose about two measured hours would be this
+        // surface describing a shape the measurements do not have.
+        if (ActivitySummary.MeasuredDays(cells) < ActivitySummary.MeasuredDaysForGrid)
+        {
+            Wrap(b, ActivitySummary.Sparse(cells));
+            return;
+        }
+
         Wrap(b, ActivitySummary.Sentence(cells));
         b.AppendLine();
 
@@ -236,9 +246,9 @@ public static class PlainText
             + (chip.IsStale ? ", stale)" : ")");
 
     /// <summary>
-    /// The connect screen with its SGR stripped. Colour codes are never announced, and the three
-    /// cases the frame has — suppressed, too small, oversized — are stated rather than left as an
-    /// absence for the reader to interpret.
+    /// The connect screen with its SGR stripped. Colour codes are never announced, and the cases the
+    /// frame has — suppressed, absent, too small — are stated rather than left as an absence for the
+    /// reader to interpret.
     /// </summary>
     private static void AppendConnectScreen(StringBuilder b, GamePage page)
     {
@@ -267,11 +277,6 @@ public static class PlainText
         var charset = page.ConnectScreenCharset is { Length: > 0 } read ? $", read as {read}" : string.Empty;
 
         b.AppendLine($"  [connect screen: {screen.RowCount} lines, text only{charset}]");
-        if (screen.IsOversized)
-        {
-            b.AppendLine($"  Unusually long; the graphical page shows the first {Ansi.CropRows}.");
-        }
-
         b.AppendLine();
         foreach (var row in screen.Rows)
         {

@@ -186,6 +186,9 @@ table.matrix th, table.matrix td {
 }
 table.matrix thead th { font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
 table.matrix tr.disagrees { background: color-mix(in srgb, var(--amber) 9%, transparent); }
+/* At the foot, where a caption belongs on a table whose heading is directly above it — and stated
+   once, here, rather than in the heading as well. */
+table.matrix caption.count { caption-side: bottom; text-align: left; font-size: 12px; padding: 8px 0 0; }
 .state-present { color: var(--accent); }
 .state-absent  { color: var(--dim); }
 .state-unknown { color: var(--faint); }
@@ -541,11 +544,37 @@ details.read-as-text[open] > *:not(summary) { animation: reveal 120ms ease-out; 
 /* Motion budget, three of three. */
 @keyframes reveal { from { opacity: 0; } to { opacity: 1; } }
 
-ul.perday, ul.spells {
+ul.spells {
     list-style: none; margin: 6px 0 0; padding: 0;
     font-family: var(--mono); font-size: 12px; color: var(--dim);
 }
-ul.perday li, ul.spells li { padding: 2px 0; }
+ul.spells li { padding: 2px 0; }
+
+/* The grid's text alternative: seven rows rather than a hundred and sixty-eight cells. Numbers are
+   tabular so the columns scan, and the caption sits under the table it describes. */
+table.perday {
+    width: 100%; margin: 6px 0 0; border-collapse: collapse;
+    font-family: var(--mono); font-size: 12px; color: var(--dim);
+    caption-side: bottom;
+}
+table.perday caption { padding: 8px 0 0; color: var(--faint); text-align: left; }
+table.perday th, table.perday td { padding: 4px 8px 4px 0; text-align: left; }
+table.perday thead th {
+    font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint);
+    border-bottom: 1px solid var(--line); padding-bottom: 6px;
+}
+table.perday tbody th { color: var(--text); font-weight: 600; }
+table.perday td.num { font-variant-numeric: tabular-nums; }
+
+/* Not enough measured days to draw a week. A panel rather than a bare line, so the section reads as
+   answered rather than as a graphic that failed to load. */
+.sparse {
+    margin: 10px 0 var(--cpad); padding: calc(var(--cpad) * 1.5) var(--cpad);
+    border: 1px dashed var(--line); border-radius: 8px;
+    background: var(--recessed); color: var(--dim); text-align: center;
+}
+.sparse p { margin: 0; }
+.sparse .kicker { margin-bottom: 6px; }
 
 /* ── availability strip ────────────────────────────────────────────────────
    Ninety bars, oldest left. Degraded is a *short* bar and not merely another colour; unreachable
@@ -572,19 +601,21 @@ dl.stats dd { margin: 3px 0 0; font-size: 17px; }
 
 /* ── the ANSI quotation frame ──────────────────────────────────────────── */
 
-figure.ansi .quote { position: relative; background: #000; }
+/* Every row, once, in a region that scrolls — a screen twice the height of the frame is scrolled
+   rather than cropped and offered again below. The cap is about 26 rows, which is what a terminal
+   showed the player; past that the reader scrolls the same way they would have on connecting.
+   Focusable, because a scrolling region a keyboard cannot reach is one a keyboard cannot read. */
+figure.ansi .quote {
+    position: relative; background: #000;
+    max-height: 33em; overflow: auto; overscroll-behavior: contain;
+}
+figure.ansi .quote:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 figure.ansi .quote pre {
     margin: 0; padding: var(--cpad);
     font: 13px/1.5 var(--mono-cjk); font-variant-ligatures: none;
-    color: #aaaaaa; white-space: pre; overflow-x: auto;
-}
-figure.ansi .crop-fade {
-    position: absolute; left: 0; right: 0; bottom: 0; height: 56px;
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0), #000);
-    pointer-events: none;
+    color: #aaaaaa; white-space: pre;
 }
 figure.ansi figcaption { display: flex; gap: 8px; flex-wrap: wrap; }
-details.read-as-text .ansi { border: 1px solid var(--line); }
 pre.plain-screen { background: var(--recessed); padding: var(--cpad); overflow-x: auto; font-size: 12px; }
 
 .ansi-plate {

@@ -9,18 +9,18 @@
 
 <div class="section-head">
     <h2 id="@Id">Capabilities</h2>
-    @* The count lives in the section head so it survives a collapsed section and a screen reader
-       alike — a tint on a row does neither. *@
-    <p class="count @(Disagreements.Count > 0 ? "warn" : "faint")">
-        @Disagreements.Count of @Rows.Count capabilities
-        @(Disagreements.Count == 1 ? "disagrees" : "disagree") with what the game declares
-    </p>
 </div>
 
 <table class="matrix">
-    <caption class="sr-only">
-        Capabilities measured in the handshake beside the ones the game declares.
-        @Disagreements.Count of @Rows.Count @(Disagreements.Count == 1 ? "disagrees" : "disagree").
+    @*
+        The tally, once. It was the section's heading text and then, verbatim, this table's caption —
+        so a screen reader heard the same sentence twice before reaching a row. As the caption it is
+        the table's own accessible description, it survives a collapsed section, and it is on screen
+        for everybody rather than only for a screen reader.
+    *@
+    <caption class="count @(Disagreements.Count > 0 ? "warn" : "faint")">
+        @Disagreements.Count of @Rows.Count capabilities
+        @(Disagreements.Count == 1 ? "disagrees" : "disagree") with what the game declares
     </caption>
     <thead>
         <tr>

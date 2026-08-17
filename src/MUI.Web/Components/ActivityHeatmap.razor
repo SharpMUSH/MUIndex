@@ -1,26 +1,45 @@
 @*
     The activity heatmap: day-of-week × hour, in three states.
 
-    A real <table> with row and column headers, so a screen reader's table mode — which is arrow-key
-    navigation — works on it without a line of script. But the sentence comes first: it is the
-    accessible summary and the answer a reader actually wants, and the "read as text" disclosure
-    under the grid gives a line per day rather than 168 announced cells.
+    Three layers, in the order a listener meets them. **The sentence** is the answer — when is
+    anyone actually on — and most readers need nothing after it. **The table** under "read as text"
+    is seven rows, one per day, and is the drawing's text alternative: every fact the grid carries
+    is in it. **The drawing itself** is hidden from assistive tech, because it now says nothing the
+    first two do not, and announced cell by cell it is 168 utterances to deliver one shape.
+
+    Below seven measured days there is no drawing at all. A grid with one probe in it announced
+    "not measured" 167 times before reaching the single number that existed, and looked like a fault
+    to everybody else.
 
     Flat fill for counted (including a measured zero), hatched outline for probed-but-uncountable,
     empty for not-reachable. That distinction is the whole of spec §5.4, it is carried by cell shape
     and not by colour, and it survives greyscale printing.
 *@
 
-<p class="summary">@ActivitySummary.Sentence(Cells)</p>
-<p class="faint mono">times in UTC · @Window</p>
-
-@if (Cells.Count > 0)
+@if (Cells.Count == 0)
 {
-    <div class="heat-wrap">
+    <p class="summary">@ActivitySummary.Sentence(Cells)</p>
+}
+else if (!Enough)
+{
+    @*
+        The panel replaces the summary rather than following it. On two measured hours the summary
+        reads "busiest Monday, small hours" — a claim about a week, drawn from a Monday morning, and
+        the one kind of sentence this site may not write. What there is, and what has to arrive
+        before there is a shape to describe.
+    *@
+    <div class="sparse">
+        <p class="kicker">not enough measurements yet</p>
+        <p>@ActivitySummary.Sparse(Cells)</p>
+    </div>
+}
+else
+{
+    <p class="summary">@ActivitySummary.Sentence(Cells)</p>
+    <p class="faint mono">times in UTC · @Window</p>
+
+    <div class="heat-wrap" aria-hidden="true">
         <table class="heat">
-            <caption class="sr-only">
-                Players on by day of the week and hour, in UTC. @ActivitySummary.Sentence(Cells)
-            </caption>
             <thead>
                 <tr>
                     <td></td>
@@ -43,11 +62,10 @@
                         @foreach (var hour in Hours)
                         {
                             var cell = Cell(day, hour);
-                            @* The value is announced; the whole sentence is the mouse tooltip. The
-                               headers already say which hour of which day this is. *@
-                            <td class="@CellClass(cell)" style="@CellStyle(cell)" title="@Label(cell)">
-                                <span class="sr-only">@ActivitySummary.CellValue(cell)</span>
-                            </td>
+                            @* The whole sentence is the mouse tooltip. The cell carries no announced
+                               text: this grid is hidden from assistive tech and the seven rows under
+                               it hold the same facts in seven utterances rather than 168. *@
+                            <td class="@CellClass(cell)" style="@CellStyle(cell)" title="@Label(cell)"></td>
                         }
                     </tr>
                 }
@@ -55,20 +73,54 @@
         </table>
     </div>
 
-    <ul class="legend">
-        <li><span class="swatch counted" aria-hidden="true"></span>counted, including a measured zero</li>
-        <li><span class="swatch unmeasurable" aria-hidden="true"></span>probed, no count could be read</li>
-        <li><span class="swatch gap" aria-hidden="true"></span>no measurement in that hour</li>
+    @* The key to a drawing nothing announces, so it is hidden with the drawing it explains. *@
+    <ul class="legend" aria-hidden="true">
+        <li><span class="swatch counted"></span>counted, including a measured zero</li>
+        <li><span class="swatch unmeasurable"></span>probed, no count could be read</li>
+        <li><span class="swatch gap"></span>no measurement in that hour</li>
     </ul>
 
+    @*
+        The text alternative, and one keystroke away rather than a wall to scroll past. A real table
+        with a caption and headers, so a screen reader can read one cell in the context of its day
+        and its column — which is the thing the 7×24 grid was providing at 168 times the cost.
+    *@
     <details class="read-as-text">
-        <summary>read as text</summary>
-        <ul class="perday">
-            @foreach (var line in ActivitySummary.PerDay(Cells))
-            {
-                <li>@line</li>
-            }
-        </ul>
+        <summary>read as text — @Rows.Count rows</summary>
+        <table class="perday">
+            <caption>Players on by day, in UTC. @Window.</caption>
+            <thead>
+                <tr>
+                    <th scope="col">day</th>
+                    <th scope="col">quietest</th>
+                    <th scope="col">busiest</th>
+                    <th scope="col">at</th>
+                    <th scope="col">not measured</th>
+                    <th scope="col">no count</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var day in Rows)
+                {
+                    <tr>
+                        <th scope="row">@day.Day</th>
+                        @if (day.Busiest is { } busiest)
+                        {
+                            <td class="num">@day.Quietest</td>
+                            <td class="num">@busiest</td>
+                            <td class="num">@($"{day.PeakHour:00}:00")</td>
+                        }
+                        else
+                        {
+                            @* Never a zero here: no count was read, which is not a count of none. *@
+                            <td class="faint" colspan="3">no count in any hour</td>
+                        }
+                        <td class="num">@Hourly(day.NotMeasured)</td>
+                        <td class="num">@Hourly(day.NotCounted)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     </details>
 }
 
@@ -81,6 +133,20 @@
     private static readonly int[] Hours = [.. Enumerable.Range(0, 24)];
 
     private IEnumerable<int> Days => Cells.Select(c => c.DayOfWeek).Distinct().Order();
+
+    /// <summary>The seven rows, computed once per render and read by the table under the drawing.</summary>
+    private IReadOnlyList<ActivitySummary.DayLine> Rows => ActivitySummary.Days(Cells);
+
+    /// <summary>Whether there is a week here to draw. See <see cref="ActivitySummary.MeasuredDaysForGrid"/>.</summary>
+    private bool Enough => ActivitySummary.MeasuredDays(Cells) >= ActivitySummary.MeasuredDaysForGrid;
+
+    /// <summary>A tally of hours, where none of them is a dash rather than a nought.</summary>
+    /// <remarks>
+    /// Zero hours unmeasured and zero players on are different noughts, and this column sits beside
+    /// the one holding the other. The dash is what the rest of the site prints where a number would
+    /// be read as a measurement.
+    /// </remarks>
+    private static string Hourly(int hours) => hours == 0 ? "–" : hours.ToString();
 
     private ActivityCell Cell(int day, int hour) =>
         Cells.FirstOrDefault(c => c.DayOfWeek == day && c.Hour == hour)

@@ -92,23 +92,16 @@ public class AnsiTests
     }
 
     [Test]
-    public async Task AScreenPastTwentyFourRowsIsCroppedAndSaysHowManyThereAre()
+    public async Task ALongScreenIsParsedWholeRatherThanCropped()
     {
-        var screen = Ansi.Parse(Screen(47), suppressedByOwner: false);
-
-        await Assert.That(screen.RowCount).IsEqualTo(47);
-        await Assert.That(screen.IsCropped).IsTrue();
-        await Assert.That(screen.IsOversized).IsFalse();
-        await Assert.That(screen.Visible.Count()).IsEqualTo(Ansi.CropRows);
-    }
-
-    [Test]
-    public async Task AScreenPastTwoHundredRowsIsFlaggedAsOversizedAndStillCropsAtTwentyFour()
-    {
+        // There is no crop any more. The frame used to hold the first twenty-four rows, offer the
+        // whole screen again under "show all N rows" and its text a third time under "read as text"
+        // — three copies of one piece of box-drawing, and three passes through it for anybody
+        // listening. One region, every row, and it scrolls.
         var screen = Ansi.Parse(Screen(214), suppressedByOwner: false);
 
-        await Assert.That(screen.IsOversized).IsTrue();
-        await Assert.That(screen.Visible.Count()).IsEqualTo(Ansi.CropRows);
+        await Assert.That(screen.RowCount).IsEqualTo(214);
+        await Assert.That(screen.Rows.Count).IsEqualTo(214);
     }
 
     [Test]

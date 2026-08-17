@@ -42,13 +42,20 @@ public class CapabilityMatrixTests
     }
 
     [Test]
-    public async Task TheCountIsInTheSectionHeadSoItSurvivesCollapse()
+    public async Task TheTallyIsTheTablesCaptionAndIsSaidExactlyOnce()
     {
+        // It used to be the section's heading text and, verbatim, the table's sr-only caption — so a
+        // screen reader heard the same sentence twice on the way to the first row. As the caption it
+        // is the table's own description, it is on screen for everybody, and it is there once.
         var html = await MatrixAsync();
         var head = html[..html.IndexOf("<table", StringComparison.Ordinal)];
 
-        await Assert.That(head).Contains("1 of 4 capabilities");
-        await Assert.That(head).Contains("disagrees with what the game declares");
+        await Assert.That(html).Contains("<caption class=\"count");
+        await Assert.That(Render.Words(html)).Contains("1 of 4 capabilities disagrees with what the game declares");
+        await Assert.That(head).DoesNotContain("1 of 4 capabilities");
+
+        var occurrences = Render.Words(html).Split("1 of 4 capabilities").Length - 1;
+        await Assert.That(occurrences).IsEqualTo(1);
     }
 
     [Test]

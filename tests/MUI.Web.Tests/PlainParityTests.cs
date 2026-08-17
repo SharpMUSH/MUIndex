@@ -144,12 +144,15 @@ public class PlainParityTests
     }
 
     [Test]
-    public async Task AnOversizedScreenSaysHowLongItIs()
+    public async Task ALongScreenSaysHowLongItIsAndPrintsAllOfIt()
     {
+        // No crop on either surface any more, so no note about one. The graphical page scrolls the
+        // whole screen in one frame rather than showing the first twenty-four rows and offering the
+        // rest twice more; this surface prints every row, as it always did.
         var text = await GameAsync("batmud");
 
         await Assert.That(text).Contains("connect screen: 214 lines");
-        await Assert.That(text).Contains("Unusually long");
+        await Assert.That(text).DoesNotContain("Unusually long");
     }
 
     [Test]

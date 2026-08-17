@@ -25,12 +25,6 @@ public static class Ansi
     /// <summary>The grid the art was drawn for. Games assume it; scaling breaks the box-drawing.</summary>
     public const int Columns = 80;
 
-    /// <summary>How much of a screen the page shows before it asks the reader to open the rest.</summary>
-    public const int CropRows = 24;
-
-    /// <summary>Past this the screen is unusual enough that the caption says so as well as cropping.</summary>
-    public const int OversizeRows = 200;
-
     /// <summary>Below this there is not enough screen to be worth a frame, so the hero collapses.</summary>
     public const int MinimumRows = 3;
 
@@ -424,15 +418,15 @@ public sealed record AnsiRow(IReadOnlyList<AnsiRun> Runs)
 /// <summary>
 /// A parsed connect screen and the honest facts about its size.
 /// </summary>
+/// <remarks>
+/// There is no crop here any more, and the absence is the point. The frame used to show the first
+/// twenty-four rows, offer the whole screen again under "show all N rows", and offer its text a third
+/// time under "read as text" — three copies of the same box-drawing in one document, which a screen
+/// reader walks three times to reach four lines of prose. The frame now renders every row once and
+/// scrolls, and the text alternative below it is the only other copy.
+/// </remarks>
 public sealed record AnsiScreen(AnsiScreenState State, IReadOnlyList<AnsiRow> Rows, int RowCount)
 {
-    public bool IsCropped => RowCount > Ansi.CropRows;
-
-    /// <summary>Unusually long. Still cropped at the same place; the caption says why it had to be.</summary>
-    public bool IsOversized => RowCount > Ansi.OversizeRows;
-
-    public IEnumerable<AnsiRow> Visible => Rows.Take(Ansi.CropRows);
-
     /// <summary>
     /// The text alternative. Colour codes are never announced — a screen reader is told what the
     /// screen says, not how it was painted.

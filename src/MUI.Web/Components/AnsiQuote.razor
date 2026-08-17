@@ -8,6 +8,12 @@
 
     It is a figure with a text alternative, skippable in one keystroke, and SGR codes are never
     announced.
+
+    **One copy.** The art is drawn once, in full, in a region that scrolls — not cropped here,
+    repeated under "show all N rows", and repeated again as text. Three copies of the same
+    box-drawing was the largest block on the page and, to a screen reader, three passes through
+    characters that carry no words. The drawing is one image with a one-line alternative; the words
+    live under "read as text", once.
 *@
 
 @switch (Screen.State)
@@ -33,17 +39,15 @@
         break;
 
     default:
-        <figure class="ansi" aria-labelledby="@($"{Id}-caption")">
-            <p id="@($"{Id}-caption")" class="sr-only">
-                Connect screen, @Screen.RowCount @(Screen.RowCount == 1 ? "row" : "rows"), as sent
-                by the server. The text follows under "read as text".
-            </p>
-            <div class="quote">
-                <pre lang="@Language">@Paint(Screen.Visible)</pre>
-                @if (Screen.IsCropped)
-                {
-                    <div class="crop-fade" aria-hidden="true"></div>
-                }
+        <figure class="ansi">
+            @*
+                One image with one alternative. role="img" prunes the art from the accessibility
+                tree the way aria-hidden would, and unlike aria-hidden it leaves the region
+                focusable — which it has to be, because the region scrolls and a keyboard is how
+                some readers scroll it. The trend chart beside this is labelled the same way.
+            *@
+            <div class="quote" role="img" aria-label="@Alternative" tabindex="0">
+                <pre lang="@Language">@Paint(Screen.Rows)</pre>
             </div>
             <figcaption>
                 <span>as sent by the server</span>
@@ -73,26 +77,6 @@
             </figcaption>
         </figure>
 
-        @if (Screen.IsOversized)
-        {
-            <p class="faint">
-                Unusually long at @Screen.RowCount rows. The first @Ansi.CropRows are shown; the
-                rest is under "show all rows".
-            </p>
-        }
-
-        @if (Screen.IsCropped)
-        {
-            <details class="read-as-text">
-                <summary>show all @Screen.RowCount rows</summary>
-                <div class="ansi">
-                    <div class="quote">
-                        <pre lang="@Language">@Paint(Screen.Rows)</pre>
-                    </div>
-                </div>
-            </details>
-        }
-
         <details class="read-as-text">
             <summary>read as text</summary>
             <pre class="mono plain-screen" lang="@Language">@Screen.PlainText</pre>
@@ -104,6 +88,9 @@
     [Parameter, EditorRequired] public AnsiScreen Screen { get; set; } = default!;
 
     [Parameter] public string Id { get; set; } = "connect-screen";
+
+    /// <summary>The game whose screen this is, for the one-line alternative to name.</summary>
+    [Parameter] public string? Name { get; set; }
 
     [Parameter] public DateTimeOffset? CapturedAt { get; set; }
 
@@ -126,6 +113,20 @@
     private string Depth => Screen.Rows.SelectMany(r => r.Runs).Any(r => !r.Style.IsPlain)
         ? "16-colour SGR"
         : "no colour";
+
+    /// <summary>
+    /// What the drawing is, in one line — the whole of what the art says to a reader who cannot see
+    /// it.
+    /// </summary>
+    /// <remarks>
+    /// It names the screen and points at the text, and it does not attempt to describe the
+    /// box-drawing: a paragraph about somebody else's ASCII would be our reading of their artwork
+    /// presented as a fact about their game. The words the screen contains are under "read as text"
+    /// immediately below, unaltered.
+    /// </remarks>
+    private string Alternative => Name is { Length: > 0 } name
+        ? $"ASCII art: the connect screen of {name}. Its text is under \"read as text\", below."
+        : "ASCII art: this game's connect screen. Its text is under \"read as text\", below.";
 
     /// <summary>
     /// Rows into spans. Written against the builder rather than as markup because a connect screen
