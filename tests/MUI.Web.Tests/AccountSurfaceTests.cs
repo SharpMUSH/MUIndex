@@ -17,6 +17,7 @@ using MUI.Web;
 using MUI.Web.Accounts;
 using MUI.Web.Components.Pages;
 using MUI.Web.Fixtures;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Tests;
 
@@ -68,6 +69,90 @@ public class AccountSurfaceTests
         await Assert.That(body).DoesNotContain("Sign in");
         await Assert.That(body).DoesNotContain("give up this claim");
     }
+
+    /// <summary>
+    /// Every word of the sign-in page comes out of the message bundle.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Both branches, because they are two different pages: over the demo fixture it is one sentence
+    /// saying there is nothing to sign in to, and behind a database it is the whole passkey
+    /// explanation — and the second was never rendered by any test at all, so it could have drifted
+    /// into English without anything noticing.
+    /// </para>
+    /// <para>
+    /// The pseudolocale is the instrument: it accents and brackets anything that reached a reader
+    /// through <see cref="Messages"/>, so an English sentence surviving here is one typed into the
+    /// markup. Asserted against the English render rather than against pasted strings, so this keeps
+    /// holding when the copy is edited.
+    /// </para>
+    /// </remarks>
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task EveryWordOfSigningInComesFromTheBundle(bool withDatabase)
+    {
+        var english = Render.Words(await SignInAsync(Locales.SourceTag, withDatabase));
+        var pseudo = Render.Words(await SignInAsync("qps-ploc", withDatabase));
+
+        await Assert.That(pseudo).Contains("⟦");
+
+        // Which page this is, asserted rather than assumed: a harness that failed to register
+        // identity would render the one-sentence branch twice and the loop below would pass on a
+        // page nobody had looked at.
+        await Assert.That(english.Contains(
+                Messages.For(Locales.SourceTag, "account.store.heading"), StringComparison.Ordinal))
+            .IsEqualTo(withDatabase);
+
+        await Assert.That(english.Contains(
+                Messages.For(Locales.SourceTag, "account.signIn.noDatabase"), StringComparison.Ordinal))
+            .IsEqualTo(!withDatabase);
+
+        // Every sentence of the English page, absent from the same page in another language.
+        foreach (var id in Messages.Ids.Where(i => i.StartsWith("account.", StringComparison.Ordinal)))
+        {
+            var sentence = Render.Words(Messages.For(Locales.SourceTag, id));
+
+            if (!english.Contains(sentence, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            await Assert.That(pseudo)
+                .DoesNotContain(sentence)
+                .Because($"{id} is rendered as English whatever language the page was asked for");
+        }
+    }
+
+    /// <summary>
+    /// The sign-in page, in one locale, with or without a database behind it.
+    /// </summary>
+    /// <remarks>
+    /// The locale arrives the way the middleware leaves it — in <c>HttpContext.Items</c> — because
+    /// that is what the page reads. Identity is registered only for the second case, which is
+    /// exactly the condition the page itself branches on.
+    /// </remarks>
+    private static Task<string> SignInAsync(string tag, bool withDatabase) =>
+        Render.ComponentAsync<MUI.Web.Components.Pages.SignIn>([], services =>
+        {
+            services.AddLogging();
+            services.AddSingleton(new MUI.Web.Data.CatalogueSource(IsMeasured: withDatabase));
+
+            var context = new DefaultHttpContext();
+            context.Items[LocaleRouting.ItemKey] =
+                new LocaleContext(Locales.Find(tag)!, FromPath: tag != Locales.SourceTag);
+            services.AddCascadingValue(_ => context);
+
+            if (!withDatabase)
+            {
+                return;
+            }
+
+            services.AddHttpContextAccessor();
+            services.AddAuthentication();
+            services.AddSingleton<IUserStore<MuiUser>>(new Accounts([]));
+            services.AddIdentityCore<MuiUser>().AddSignInManager();
+        });
 
     /// <summary>A signed-out visitor is offered the way in and nothing else.</summary>
     [Test]

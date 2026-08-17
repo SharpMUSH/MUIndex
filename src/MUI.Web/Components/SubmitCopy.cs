@@ -1,6 +1,7 @@
 using System.Globalization;
 
 using MUI.Discovery;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Components;
 
@@ -11,8 +12,15 @@ namespace MUI.Web.Components;
 /// <para>
 /// Here rather than in the page because the plain surface renders the same words (spec §9), and a
 /// form whose refusal reads differently in a text browser is a form with two policies. Nothing here
-/// touches a database or a socket: this maps a <see cref="SubmissionOutcome"/> to English, and
+/// touches a database or a socket: this maps a <see cref="SubmissionOutcome"/> to a message id, and
 /// <see cref="SubmissionService"/> is what decides.
+/// </para>
+/// <para>
+/// <b>Every member takes a locale, and the address is an ICU argument rather than a prefix.</b> The
+/// answers used to open with the address glued to the front of an English sentence, which is a fact
+/// about English word order and not about addresses — a language that puts the subject elsewhere had
+/// nowhere to say so. The default is the source language, so a caller with no request behind it
+/// still gets a sentence.
 /// </para>
 /// <para>
 /// <b>No refusal here explains itself with an address.</b> The receipt carries a detail naming what
@@ -23,91 +31,74 @@ namespace MUI.Web.Components;
 /// </remarks>
 public static class SubmitCopy
 {
-    public const string Title = "Submit a game";
+    public static string Title(string tag = Locales.SourceTag) => Say(tag, "submit.title");
 
-    public const string Lede =
-        "Tell us where a game is. A host and a port is the whole form; everything else on this site "
-        + "is measured by our own crawler.";
+    public static string Lede(string tag = Locales.SourceTag) => Say(tag, "submit.lede");
 
     /// <summary>What happens to an address after it is submitted, in the order it happens.</summary>
     /// <remarks>
     /// The third point is the one people are surprised by, so it is stated on the form rather than
     /// discovered afterwards: a submission does not put a listing up.
     /// </remarks>
-    public static IReadOnlyList<string> Points { get; } =
+    public static IReadOnlyList<string> Points(string tag = Locales.SourceTag) =>
     [
-        "We resolve the address before dialling it, and refuse anything that resolves off the public "
-        + "internet. That is a decision about our own socket, never a fact about a game.",
-
-        "If whoever runs that host has asked us not to crawl it, we will not take the address, "
-        + "whoever submits it. A stranger cannot put your game back on this site.",
-
-        "If it answers, we read what the server says for itself and keep reading it on its own "
-        + "schedule, for ever. An address only has to be given once.",
-
-        "Nothing appears on the site until somebody proves they run it. Claiming takes a passkey and "
-        + "one line published on the game itself.",
-
-        "An address we already have collapses onto the existing entry. Sending it twice makes no "
-        + "second listing and brings no probe forward.",
+        Say(tag, "submit.what.resolve"),
+        Say(tag, "submit.what.optOut"),
+        Say(tag, "submit.what.schedule"),
+        Say(tag, "submit.what.claim"),
+        Say(tag, "submit.what.duplicate"),
     ];
 
     /// <summary>The label on each box, so the rendered form and the plain one cannot drift.</summary>
-    public const string HostLabel = "Host";
+    public static string HostLabel(string tag = Locales.SourceTag) => Say(tag, "submit.host.label");
 
-    public const string PortLabel = "Port";
+    public static string PortLabel(string tag = Locales.SourceTag) => Say(tag, "submit.port.label");
 
-    public const string HostHint = "mud.example.org, or paste mud.example.org:4201 and leave the port empty";
+    public static string HostHint(string tag = Locales.SourceTag) => Say(tag, "submit.host.hint");
 
-    public const string SubmitLabel = "Submit";
+    public static string SubmitLabel(string tag = Locales.SourceTag) => Say(tag, "submit.button");
 
     /// <summary>What the site says when it has no database and therefore no registry to write into.</summary>
-    public const string NoCatalogue =
-        "Submitting needs a database, and this site is running on the demo fixture. There is no "
-        + "crawl registry to write into, so the form is absent rather than quietly doing nothing.";
+    public static string NoCatalogue(string tag = Locales.SourceTag) => Say(tag, "submit.noCatalogue");
 
     /// <summary>The answer to one submission, or null when nothing has been submitted yet.</summary>
-    public static SubmitAnswer? Answer(SubmissionOutcome? outcome, string? address, SubmitLink? link = null) =>
+    public static SubmitAnswer? Answer(
+        SubmissionOutcome? outcome,
+        string? address,
+        SubmitLink? link = null,
+        string tag = Locales.SourceTag) =>
         outcome switch
         {
             null => null,
 
             SubmissionOutcome.Accepted => new SubmitAnswer(
-                "In the registry.",
-                $"{Named(address)} will be dialled on the next crawl cycle, then on its own schedule "
-                + "for ever. It appears here once somebody proves they run it — come back to this "
-                + "form with the same address and it will hand you the link."),
+                Say(tag, "submit.accepted.heading"),
+                Say(tag, "submit.accepted.sentence", ("address", Named(tag, address)))),
 
             // Two arms, and the link is what differs. A game we list gets its page; a submitted one
             // nobody has claimed gets its claim page, because that is the only exit from hidden and
             // a person who has just told us the address is exactly who should be offered it.
             SubmissionOutcome.AlreadyListed when link?.IsClaim is true => new SubmitAnswer(
-                "We have it, unclaimed.",
-                $"{Named(address)} is one we already measure. It stays off the site until somebody "
-                + "proves they run it. If that is you, this is the way in.",
+                Say(tag, "submit.unclaimed.heading"),
+                Say(tag, "submit.unclaimed.sentence", ("address", Named(tag, address))),
                 link),
 
             SubmissionOutcome.AlreadyListed when link is not null => new SubmitAnswer(
-                "We already have that one.",
-                $"{Named(address)} is a game we already measure. Nothing was created and nothing "
-                + "was changed.",
+                Say(tag, "submit.known.heading"),
+                Say(tag, "submit.known.sentence", ("address", Named(tag, address))),
                 link),
 
             SubmissionOutcome.AlreadyListed => new SubmitAnswer(
-                "We already have that address.",
-                $"{Named(address)} is already known to us. Nothing was created and nothing was "
-                + "changed."),
+                Say(tag, "submit.knownAddress.heading"),
+                Say(tag, "submit.knownAddress.sentence", ("address", Named(tag, address)))),
 
             SubmissionOutcome.AlreadyQueued => new SubmitAnswer(
-                "Already waiting.",
-                $"{Named(address)} is in the crawl registry and has not answered yet. Sending it "
-                + "again does not bring it forward: a target keeps its own schedule, so nobody can "
-                + "hurry us at somebody else's server."),
+                Say(tag, "submit.queued.heading"),
+                Say(tag, "submit.queued.sentence", ("address", Named(tag, address)))),
 
             SubmissionOutcome.Malformed => new SubmitAnswer(
-                "Not an address we can dial.",
-                "A host needs a dot or a colon in it, and a port is a number between 1 and 65535. "
-                + "Fill in both boxes, or paste mud.example.org:4201 into the first."),
+                Say(tag, "submit.malformed.heading"),
+                Say(tag, "submit.malformed.sentence")),
 
             // ONE SENTENCE FOR ALL THREE, AND THE VAGUENESS IS THE POINT. §7.2 keeps "did not
             // resolve" and "resolved somewhere we will not go" apart because they are two facts and
@@ -124,22 +115,30 @@ public static class SubmitCopy
             SubmissionOutcome.RefusedNotRoutable
                 or SubmissionOutcome.Unresolvable
                 or SubmissionOutcome.RefusedOptOut => new SubmitAnswer(
-                "We cannot dial that.",
-                $"Three things produce this answer for {Named(address)}: the name may not resolve, "
-                + "it may resolve off the public internet, or whoever runs that host may have asked "
-                + "us to stay away. We deliberately do not say which, because answering that for a "
-                + "stranger maps a network from outside it. Nothing was recorded about the address; "
-                + "the decision was ours and it is filed as ours."),
+                Say(tag, "submit.undialable.heading"),
+                Say(tag, "submit.undialable.sentence", ("address", Named(tag, address)))),
 
             SubmissionOutcome.TooMany => new SubmitAnswer(
-                "Enough for now.",
-                "This form is rate-limited by sender, and you have hit the bound. Come back in an "
-                + "hour. Nothing was lost — anything we took is already in the registry."),
+                Say(tag, "submit.tooMany.heading"),
+                Say(tag, "submit.tooMany.sentence")),
 
             _ => null,
         };
 
-    private static string Named(string? address) => address is { Length: > 0 } ? address : "that address";
+    /// <summary>
+    /// The address as the sentence names it — or the noun phrase that stands where one would.
+    /// </summary>
+    /// <remarks>
+    /// Its own id rather than a fragment of every sentence that can take it: it is a noun phrase
+    /// filling a hostname's slot, and it declines in the languages that decline.
+    /// </remarks>
+    private static string Named(string tag, string? address) =>
+        address is { Length: > 0 } ? address : Say(tag, "submit.answer.thatAddress");
+
+    private static string Say(string tag, string id) => Messages.For(tag, id);
+
+    private static string Say(string tag, string id, params (string Key, object? Value)[] args) =>
+        Messages.For(tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 }
 
 /// <summary>One answer, as both surfaces render it.</summary>
@@ -152,9 +151,17 @@ public sealed record SubmitAnswer(string Heading, string Sentence, SubmitLink? L
 /// </param>
 public sealed record SubmitLink(string Href, string Label, bool IsClaim = false)
 {
+    /// <summary>
+    /// A game's page, labelled with its own address.
+    /// </summary>
+    /// <remarks>
+    /// The label is the URL, which is machine voice and takes no locale: a reader following it is
+    /// being shown where they are about to go, and translating a path would be inventing one.
+    /// </remarks>
     public static SubmitLink Game(string slug) => new($"/g/{slug}", $"/g/{slug}");
 
-    public static SubmitLink Claim(string slug) => new($"/g/{slug}/claim", "claim this game", IsClaim: true);
+    public static SubmitLink Claim(string slug, string tag = Locales.SourceTag) =>
+        new($"/g/{slug}/claim", Messages.For(tag, "submit.link.claim"), IsClaim: true);
 }
 
 /// <summary>

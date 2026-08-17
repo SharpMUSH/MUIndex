@@ -441,6 +441,327 @@ public static class Messages
         // ── the switcher's own chrome, which has to read in the locale being left ─────────────
         ["locale.label"] = "language",
         ["locale.submit"] = "change language",
+
+        // ═════════════════════════════════════════════════════════════════════════════════════
+        // STATIC PAGE COPY — /about, /submit, /account/sign-in
+        //
+        // The three pages that were prose in a C# file rather than strings in a bundle, and so were
+        // still English when the site was asked for German. Nothing here is reworded on the way in:
+        // the English is byte-for-byte what the page already said, and only its home changed. The
+        // about page in particular *states* the rules this repository is written from, and a rule
+        // paraphrased while being moved is a rule quietly rewritten.
+        //
+        // Every lead/body pair is two ids for the reason AboutPoint is two fields: the graphical
+        // page sets the lead in bold and the plain page cannot, so the emphasis is presentational
+        // and the sentence is not. A translator gets two sentences to move rather than one string
+        // with markup in the middle of it.
+        // ═════════════════════════════════════════════════════════════════════════════════════
+
+        // ── about: the page, and what a fact here is ──────────────────────────────────────────
+        ["about.title"] = "About mu*index",
+        ["about.lede"] = "Every game here was measured by a machine that connected to it, and every "
+            + "value says where it came from and when. This page covers what that proves, what we "
+            + "get wrong, whose directories we read, and how to make the crawler stop.",
+
+        ["about.measures.heading"] = "What a fact here is",
+        ["about.measures.declared.lead"] = "Measured beats declared, and both are shown.",
+        ["about.measures.declared.body"] = "A game's MSSP report is the game describing itself. The "
+            + "telnet handshake is what we watched it do. Both appear on its page, labelled with how "
+            + "and when. Where they disagree, we show the disagreement.",
+        ["about.measures.count.lead"] = "A player count says where it came from.",
+        ["about.measures.count.body"] = "Either a WHO or DOING read at the connect screen, which we "
+            + "counted, or the game's own MSSP PLAYERS field, which it published. Never merged.",
+        ["about.measures.unknown.lead"] = "An answer we cannot read is unknown, never zero.",
+        ["about.measures.unknown.body"] = "Servers customise their WHO headers freely, and past a "
+            + "point our parser cannot read one. That is uncountable, its own state. A measured zero "
+            + "— we got in, nobody was there — is a count, and prints as one.",
+        ["about.measures.reachable.lead"] = "Reachable, never uptime.",
+        ["about.measures.reachable.body"] = "We open a socket from one host at intervals. A game we "
+            + "cannot route to is unreachable and perfectly alive. Nothing here claims a game's "
+            + "uptime, because nothing here measured it.",
+        ["about.measures.hour.lead"] = "An hour is counted, uncountable, or not measured.",
+        ["about.measures.hour.body"] = "The activity grid has three states. The third is empty and "
+            + "names no cause: an hour we could not reach and an hour we never probed are the same "
+            + "absence, and neither is that server's downtime.",
+
+        // ── about: what we know we get wrong ──────────────────────────────────────────────────
+        ["about.limits.heading"] = "What we know we get wrong",
+        ["about.limits.grace.lead"] = "Archive grace is measured from the day we found you.",
+        ["about.limits.grace.body"] = "A game that stops answering leaves the default listing after "
+            + "its grace period: a quarter of the reachable time we probed, floored at 60 days and "
+            + "capped at 365. A game running since 1995 starts at the floor on the day we discover "
+            + "it. We import nothing to fill in the years before we arrived.",
+        ["about.limits.created.lead"] = "We do not credit MSSP CREATED toward that grace.",
+        ["about.limits.created.body"] = "It is one hand-typed line in a config file, so crediting it "
+            + "would make the archive threshold gameable. It is shown as a declaration and buys "
+            + "nothing.",
+        ["about.limits.claim.lead"] = "Claiming a game earns the ceiling.",
+        ["about.limits.claim.body"] = "Proving server access is worth the full year of grace, "
+            + "however long we have been watching.",
+        ["about.limits.oneHost.lead"] = "Everything here is one host, looking at intervals.",
+        ["about.limits.oneHost.body"] = "A percentage of reachable time is a fraction of the window "
+            + "we observed, never of one we did not. No graphic here fills in the rest.",
+        ["about.limits.deletion.lead"] = "Nothing is ever deleted.",
+        ["about.limits.deletion.body"] = "Archiving takes a game out of the default listing, the "
+            + "rankings and the active-today figure, and nothing else. Its page, URL, history and "
+            + "address survive, it keeps being probed, and one successful probe puts it back.",
+
+        // ── about: what this site will not do ─────────────────────────────────────────────────
+        ["about.never.heading"] = "What this site will not do",
+        ["about.never.votes.lead"] = "No votes, stars, ratings or recommendations.",
+        ["about.never.votes.body"] = "Rankings are computed from measured data only. A directory "
+            + "ranked by who can mobilise the most clicks describes the campaigning, not the hobby, "
+            + "and that is what killed the incumbents.",
+        ["about.never.forums.lead"] = "No forums, reviews, wikis, comments or player profiles.",
+        ["about.never.forums.body"] = "Orientation material — what a MUSH is, which codebase suits "
+            + "collaborative roleplay — is written, signed and versioned like the rest of the site.",
+        ["about.never.names.lead"] = "Player names are never persisted.",
+        ["about.never.names.body"] = "A WHO reply is parsed in memory for a count and the shape of "
+            + "the header. The names are not written down; aggregates use a salted hash with a "
+            + "rotating salt.",
+        ["about.never.population.lead"] = "No absolute population figure is published.",
+        ["about.never.population.body"] = "Per-codebase and per-protocol shares ship: a ratio over "
+            + "the measured set survives the games we cannot count. \"How many people play MU*\" "
+            + "does not, because that number would not survive being quoted.",
+
+        // ── about: the crawler, and how to make it stop ───────────────────────────────────────
+        // Four arguments rather than four concatenations, and none of them is decoration: the
+        // permitted command list, the MSSP variable and the DNS label and value are all read off the
+        // objects that consume them, so a page advertising a switch wired to nothing is impossible
+        // to write. A sentence assembled around them in English word order would have nowhere for a
+        // translator to put the verb.
+        ["about.crawler.heading"] = "The crawler, and how to make it stop",
+        ["about.crawler.probe.lead"] = "A probe is one connection that never logs in.",
+        ["about.crawler.probe.body"] = "It opens a socket, negotiates telnet options, reads the "
+            + "connect screen, asks for MSSP by negotiating option 70, sends {commands}, and "
+            + "disconnects. No character, no login, nothing changed on the far side. A timeout "
+            + "bounds the session so a wedged probe cannot sit on a connection slot.",
+        ["about.crawler.delay.lead"] = "CRAWL DELAY wins.",
+        ["about.crawler.delay.body"] = "A game that states a preferred minimum gap in its MSSP "
+            + "report gets it, over our own schedule in both directions: 720 hours means monthly, "
+            + "not weekly. A dark game is still tried for ever at the longer interval, which is how "
+            + "it re-lists itself when it comes back.",
+        ["about.crawler.referral.lead"] = "A referred address is verified, never trusted.",
+        ["about.crawler.referral.body"] = "MSSP lets a game name other games. Every name is resolved "
+            + "before anything is dialled, and refused unless every address it resolves to is "
+            + "globally routable. A mixed answer refuses the whole target. Our refusal is filed as "
+            + "ours and never appears in a game's record as downtime.",
+        ["about.crawler.screens.lead"] = "Connect screens are shown because they are sent to "
+            + "everybody.",
+        ["about.crawler.screens.body"] = "A server paints its connect screen, unauthenticated, to "
+            + "every anonymous connection. We display it as evidence and label it. Ask and it comes "
+            + "down.",
+        ["about.crawler.stop.lead"] = "Say stop, and we stop — three ways.",
+        ["about.crawler.stop.body"] = "Publish {variable} 1 in your MSSP report, and the probe that "
+            + "reads it is the last one. Or publish a TXT record at {label}.your.host reading "
+            + "\"{value}\", which needs no MSSP support and no account here. Or write to a person. "
+            + "All three are honoured within one crawl cycle, recorded with the date and what we "
+            + "read, and enforced on the submission form too.",
+        ["about.crawler.scope.lead"] = "The MSSP field stops that listener; the record stops the "
+            + "host.",
+        ["about.crawler.scope.body"] = "MSSP is published by the port that answered, so it speaks "
+            + "for that port — MU* hosting routinely runs unrelated games on one domain, and one "
+            + "must not silence its neighbour. A TXT record covers every port unless it names one, "
+            + "as \"{value}=4201\". Anything there we cannot read as a port list means the whole "
+            + "host, so \"{value}=all\" works.",
+        ["about.crawler.dns.lead"] = "The DNS route is the one you can undo without asking us.",
+        ["about.crawler.dns.body"] = "A TXT record is readable without connecting to a server that "
+            + "told us not to, so we re-read it before every dial. Delete it and we dial again "
+            + "within a week. An MSSP field cannot be re-read without doing the thing you asked us "
+            + "to stop, so MSSP opt-outs and written requests stand until you say otherwise. That "
+            + "TXT lookup is all an opted-out address gets: it touches your nameserver, never your "
+            + "game.",
+        ["about.crawler.stopping.lead"] = "Stopping is not deleting, and it is not downtime.",
+        ["about.crawler.stopping.body"] = "A game that opts out keeps its page, its address and "
+            + "everything we measured before it asked. Only new data stops: the activity grid stops "
+            + "gaining hours and names no cause, because our decision to stop knocking is a fact "
+            + "about us. It is recorded on the crawl that did not happen, and in the register of "
+            + "who asked.",
+        ["about.crawler.unlist.lead"] = "If stopping is not enough, the listing can go too.",
+        ["about.crawler.unlist.body"] = "Once we have stopped on every address your game answers "
+            + "on, your dashboard offers one more thing: take it out of the listing, the rankings "
+            + "and the daily figure. The page and every address it has ever had still answer, and "
+            + "nothing is deleted — it stops being somewhere a reader arrives by browsing. It needs "
+            + "a verified claim, because it is a decision about your game and we record who made "
+            + "it. And a probe undoes it: take your opt-out back, and the next dial that gets an "
+            + "answer puts you back in the listing without asking us twice.",
+
+        // ── about: who is knocking ────────────────────────────────────────────────────────────
+        // Two whole sentences and not one with a branch, because the unannounced case is a
+        // paragraph explaining a library gap and the announced one is a line. The name is an
+        // argument in both: it is read off ProbeOptions, so a deployment that configures its own
+        // gets a page that names it.
+        ["about.identity.announced"] = "The crawler names itself {name} when a server asks what it "
+            + "is.",
+        ["about.identity.unannounced"] = "The crawler is configured to call itself {name} but cannot "
+            + "yet say so. Its telnet library gives a client no way to set the terminal type, so "
+            + "your logs see that library's default, and NEW-ENVIRON is answered from the crawler "
+            + "host's environment. Both are gaps in the library and ours to fix there. Until then, "
+            + "recognise a probe by its shape: one connection, no login, a short read-only command "
+            + "set, gone.",
+        ["about.identity.crawler"] = "crawler",
+        ["about.identity.contact"] = "contact",
+        ["about.identity.crawler.line"] = "Crawler: {name}",
+        ["about.identity.contact.line"] = "Contact: {url}",
+        ["about.identity.placeholder"] = "— placeholder; this deployment set no contact address",
+        ["about.identity.placeholder.plain"] = "No contact address is configured, so the one above "
+            + "is a placeholder and answers nobody.",
+
+        // ── about: where the list of games came from ──────────────────────────────────────────
+        // The directories' own names and addresses are machine voice and are nowhere in this file.
+        // What each one gave us, and whether we read it at all, is ours to say and so is here.
+        ["about.sources.heading"] = "Where the list of games came from",
+        ["about.sources.addresses.lead"] = "We take addresses. Nothing else.",
+        ["about.sources.addresses.body"] = "A backfill takes a host and a port. No player counts, no "
+            + "reachability history, no descriptions, no fields, and no note of which site an "
+            + "address came from.",
+        ["about.sources.less.lead"] = "Deliberately less than those sites can give.",
+        ["about.sources.less.body"] = "Several hold years of dated player counts. Importing that "
+            + "would fill the heatmaps of the games somebody else was already watching, and rest "
+            + "this site's central claim on another party's prober.",
+        ["about.sources.origin.lead"] = "A game's origin is not one fact.",
+        ["about.sources.origin.body"] = "Any game worth listing appears in several of these "
+            + "directories, so \"imported from\" would name whichever fetch ran first. That a game "
+            + "exists is public information; where we read it adds nothing and is the part of "
+            + "somebody else's work with the least claim to be ours.",
+        ["about.sources.etiquette.lead"] = "Reading somebody's site is still reading somebody's "
+            + "site.",
+        ["about.sources.etiquette.body"] = "We ask for a bulk export or a documented endpoint before "
+            + "scraping, read robots.txt first, and rate-limit scrapes hard. A source that needs its "
+            + "maintainer's say-so is not fetched until a person can state they were asked.",
+
+        // Two states and never one word for both: a directory we chose not to fetch is a different
+        // fact from one we could not, and the badge is the only place a reader meets the difference.
+        ["about.source.read"] = "read — addresses only",
+        ["about.source.withheld"] = "not read — awaiting permission",
+
+        ["about.source.tintinMssp.note"] = "One page, one request. Published by a crawler that "
+            + "connects to each game and prints what it read.",
+        ["about.source.tintinMsdp.note"] = "The same crawler's MSDP listing. Nearly a subset of its "
+            + "MSSP sibling, read for the few addresses it reaches that the other does not.",
+        ["about.source.mudConnector.note"] = "Publishes its whole catalogue on one page, so reading "
+            + "it costs a single request. Our largest source of addresses, and of no measurements.",
+        ["about.source.mudStats.note"] = "One index page and one page per world, so a scrape rather "
+            + "than an export. On 30 July 2026 we fetched 143 of their pages, fifteen seconds apart "
+            + "and honouring robots.txt, but before anyone had written to them. That should not "
+            + "have happened. The gate now takes a person willing to state the maintainer was "
+            + "asked.",
+        ["about.source.mudVerse.note"] = "Implemented, tested, never run. The strongest source here "
+            + "on every axis except permission, and nothing will be fetched until somebody has "
+            + "written to them.",
+
+        // ── about: licence ────────────────────────────────────────────────────────────────────
+        ["about.licence.heading"] = "Licence",
+        ["about.licence.code.lead"] = "The code is MIT.",
+        ["about.licence.code.body"] = "The site, the crawler and the parsers are open source under "
+            + "the MIT licence.",
+        ["about.licence.open.lead"] = "The licence for the data is an open question.",
+        ["about.licence.open.body"] = "A separate decision from the code's, and not yet taken. Treat "
+            + "the terms below as this deployment's current answer, not the project's settled "
+            + "position. A rival directory taking the whole catalogue is a success condition here, "
+            + "so whatever is settled will not stand in the way of one.",
+        ["about.licence.codeLabel"] = "code",
+        ["about.licence.dataLabel"] = "data, as this deployment serves it",
+        ["about.licence.creditLabel"] = "credit as",
+        ["about.licence.code.line"] = "Code: {licence}",
+        ["about.licence.data.line"] = "Data: {licence}",
+        ["about.licence.credit.line"] = "Credit as: {credit}",
+        ["about.licence.deployment"] = "(what this deployment serves. The project's own answer is "
+            + "still open.)",
+
+        // ── submit a game ─────────────────────────────────────────────────────────────────────
+        // A host, a port, and nothing else. The form has no name box and no description box, so
+        // every word on this page is ours rather than a submitter's, and all of it belongs here.
+        ["submit.title"] = "Submit a game",
+        ["submit.lede"] = "Tell us where a game is. A host and a port is the whole form; everything "
+            + "else on this site is measured by our own crawler.",
+        ["submit.host.label"] = "Host",
+        ["submit.port.label"] = "Port",
+        ["submit.host.hint"] = "mud.example.org, or paste mud.example.org:4201 and leave the port "
+            + "empty",
+        ["submit.button"] = "Submit",
+        ["submit.noCatalogue"] = "Submitting needs a database, and this site is running on the demo "
+            + "fixture. There is no crawl registry to write into, so the form is absent rather than "
+            + "quietly doing nothing.",
+        ["submit.notHere"] = "Not here",
+        ["submit.what.heading"] = "What happens to an address",
+        ["submit.what.resolve"] = "We resolve the address before dialling it, and refuse anything "
+            + "that resolves off the public internet. That is a decision about our own socket, "
+            + "never a fact about a game.",
+        ["submit.what.optOut"] = "If whoever runs that host has asked us not to crawl it, we will "
+            + "not take the address, whoever submits it. A stranger cannot put your game back on "
+            + "this site.",
+        ["submit.what.schedule"] = "If it answers, we read what the server says for itself and keep "
+            + "reading it on its own schedule, for ever. An address only has to be given once.",
+        ["submit.what.claim"] = "Nothing appears on the site until somebody proves they run it. "
+            + "Claiming takes a passkey and one line published on the game itself.",
+        ["submit.what.duplicate"] = "An address we already have collapses onto the existing entry. "
+            + "Sending it twice makes no second listing and brings no probe forward.",
+
+        // The answers. Every one takes {address} as an argument rather than opening with it, because
+        // a language that puts the subject elsewhere has nowhere to say so if the address is glued
+        // to the front of an English sentence. The word for an address we could not read is its own
+        // id: it is a noun phrase standing where a hostname would, and it inflects.
+        ["submit.answer.thatAddress"] = "that address",
+        ["submit.accepted.heading"] = "In the registry.",
+        ["submit.accepted.sentence"] = "{address} will be dialled on the next crawl cycle, then on "
+            + "its own schedule for ever. It appears here once somebody proves they run it — come "
+            + "back to this form with the same address and it will hand you the link.",
+        ["submit.unclaimed.heading"] = "We have it, unclaimed.",
+        ["submit.unclaimed.sentence"] = "{address} is one we already measure. It stays off the site "
+            + "until somebody proves they run it. If that is you, this is the way in.",
+        ["submit.known.heading"] = "We already have that one.",
+        ["submit.known.sentence"] = "{address} is a game we already measure. Nothing was created and "
+            + "nothing was changed.",
+        ["submit.knownAddress.heading"] = "We already have that address.",
+        ["submit.knownAddress.sentence"] = "{address} is already known to us. Nothing was created "
+            + "and nothing was changed.",
+        ["submit.queued.heading"] = "Already waiting.",
+        ["submit.queued.sentence"] = "{address} is in the crawl registry and has not answered yet. "
+            + "Sending it again does not bring it forward: a target keeps its own schedule, so "
+            + "nobody can hurry us at somebody else's server.",
+        ["submit.malformed.heading"] = "Not an address we can dial.",
+        ["submit.malformed.sentence"] = "A host needs a dot or a colon in it, and a port is a number "
+            + "between 1 and 65535. Fill in both boxes, or paste mud.example.org:4201 into the "
+            + "first.",
+        ["submit.undialable.heading"] = "We cannot dial that.",
+        ["submit.undialable.sentence"] = "Three things produce this answer for {address}: the name "
+            + "may not resolve, it may resolve off the public internet, or whoever runs that host "
+            + "may have asked us to stay away. We deliberately do not say which, because answering "
+            + "that for a stranger maps a network from outside it. Nothing was recorded about the "
+            + "address; the decision was ours and it is filed as ours.",
+        ["submit.tooMany.heading"] = "Enough for now.",
+        ["submit.tooMany.sentence"] = "This form is rate-limited by sender, and you have hit the "
+            + "bound. Come back in an hour. Nothing was lost — anything we took is already in the "
+            + "registry.",
+        ["submit.link.claim"] = "claim this game",
+
+        // ── signing in, which is a passkey and nothing else ───────────────────────────────────
+        ["account.signIn.title"] = "Sign in",
+        ["account.signIn.preview"] = "Sign in with a passkey to claim a game you run. There is no "
+            + "password to lose and none to steal.",
+        ["account.signIn.noDatabase"] = "Claiming needs a database, and this site is running on the "
+            + "demo fixture. There is nothing to sign in to.",
+        ["account.signIn.passkey.lead"] = "Sign-in is a passkey.",
+        ["account.signIn.passkey.body"] = "Your device or password manager holds the private key; we "
+            + "hold only the public half. No password, no email.",
+        ["account.signIn.button"] = "Sign in with a passkey",
+        ["account.signIn.script"] = "The one page here that needs JavaScript. Passkeys cannot work "
+            + "without it.",
+        ["account.register.heading"] = "No account yet?",
+        ["account.register.lede"] = "You need one only to claim a game you run. Pick a name to be "
+            + "known by — a label beside your claim, not a real name.",
+        ["account.register.name.label"] = "Name",
+        ["account.register.name.placeholder"] = "e.g. corvid-admin",
+        ["account.register.button"] = "Create an account with a passkey",
+        ["account.store.heading"] = "What we store",
+        ["account.store.name"] = "The name you chose.",
+        ["account.store.keys"] = "The public key of each passkey you register, and what your device "
+            + "called it.",
+        ["account.store.claims"] = "Which games you have claimed, and when.",
+        ["account.store.note"] = "No email address, no password, no IP log tied to your account. "
+            + "Lose every passkey and you can publish a fresh claim token on your game and start "
+            + "again: the game is the proof, not the account.",
     };
 
     /// <summary>

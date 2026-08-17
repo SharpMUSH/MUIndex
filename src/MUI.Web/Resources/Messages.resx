@@ -1260,4 +1260,552 @@
     <value>change language</value>
     <comment>the switcher's own chrome, which has to read in the locale being left</comment>
   </data>
+  <data name="about.title" xml:space="preserve">
+    <value>About mu*index</value>
+    <comment>about: the page, and what a fact here is</comment>
+  </data>
+  <data name="about.lede" xml:space="preserve">
+    <value>Every game here was measured by a machine that connected to it, and every value says where it came from and when. This page covers what that proves, what we get wrong, whose directories we read, and how to make the crawler stop.</value>
+    <comment>about: the page, and what a fact here is</comment>
+  </data>
+  <data name="about.measures.heading" xml:space="preserve">
+    <value>What a fact here is</value>
+    <comment>about: the page, and what a fact here is</comment>
+  </data>
+  <data name="about.measures.declared.lead" xml:space="preserve">
+    <value>Measured beats declared, and both are shown.</value>
+    <comment>about: the page, and what a fact here is</comment>
+  </data>
+  <data name="about.measures.declared.body" xml:space="preserve">
+    <value>A game's MSSP report is the game describing itself. The telnet handshake is what we watched it do. Both appear on its page, labelled with how and when. Where they disagree, we show the disagreement.</value>
+    <comment>about: the page, and what a fact here is</comment>
+  </data>
+  <data name="about.measures.count.lead" xml:space="preserve">
+    <value>A player count says where it came from.</value>
+    <comment>about: the page, and what a fact here is</comment>
+  </data>
+  <data name="about.measures.count.body" xml:space="preserve">
+    <value>Either a WHO or DOING read at the connect screen, which we counted, or the game's own MSSP PLAYERS field, which it published. Never merged.</value>
+    <comment>about: the page, and what a fact here is</comment>
+  </data>
+  <data name="about.measures.unknown.lead" xml:space="preserve">
+    <value>An answer we cannot read is unknown, never zero.</value>
+    <comment>about: the page, and what a fact here is</comment>
+  </data>
+  <data name="about.measures.unknown.body" xml:space="preserve">
+    <value>Servers customise their WHO headers freely, and past a point our parser cannot read one. That is uncountable, its own state. A measured zero — we got in, nobody was there — is a count, and prints as one.</value>
+    <comment>about: the page, and what a fact here is</comment>
+  </data>
+  <data name="about.measures.reachable.lead" xml:space="preserve">
+    <value>Reachable, never uptime.</value>
+    <comment>about: the page, and what a fact here is</comment>
+  </data>
+  <data name="about.measures.reachable.body" xml:space="preserve">
+    <value>We open a socket from one host at intervals. A game we cannot route to is unreachable and perfectly alive. Nothing here claims a game's uptime, because nothing here measured it.</value>
+    <comment>about: the page, and what a fact here is</comment>
+  </data>
+  <data name="about.measures.hour.lead" xml:space="preserve">
+    <value>An hour is counted, uncountable, or not measured.</value>
+    <comment>about: the page, and what a fact here is</comment>
+  </data>
+  <data name="about.measures.hour.body" xml:space="preserve">
+    <value>The activity grid has three states. The third is empty and names no cause: an hour we could not reach and an hour we never probed are the same absence, and neither is that server's downtime.</value>
+    <comment>about: the page, and what a fact here is</comment>
+  </data>
+  <data name="about.limits.heading" xml:space="preserve">
+    <value>What we know we get wrong</value>
+    <comment>about: what we know we get wrong</comment>
+  </data>
+  <data name="about.limits.grace.lead" xml:space="preserve">
+    <value>Archive grace is measured from the day we found you.</value>
+    <comment>about: what we know we get wrong</comment>
+  </data>
+  <data name="about.limits.grace.body" xml:space="preserve">
+    <value>A game that stops answering leaves the default listing after its grace period: a quarter of the reachable time we probed, floored at 60 days and capped at 365. A game running since 1995 starts at the floor on the day we discover it. We import nothing to fill in the years before we arrived.</value>
+    <comment>about: what we know we get wrong</comment>
+  </data>
+  <data name="about.limits.created.lead" xml:space="preserve">
+    <value>We do not credit MSSP CREATED toward that grace.</value>
+    <comment>about: what we know we get wrong</comment>
+  </data>
+  <data name="about.limits.created.body" xml:space="preserve">
+    <value>It is one hand-typed line in a config file, so crediting it would make the archive threshold gameable. It is shown as a declaration and buys nothing.</value>
+    <comment>about: what we know we get wrong</comment>
+  </data>
+  <data name="about.limits.claim.lead" xml:space="preserve">
+    <value>Claiming a game earns the ceiling.</value>
+    <comment>about: what we know we get wrong</comment>
+  </data>
+  <data name="about.limits.claim.body" xml:space="preserve">
+    <value>Proving server access is worth the full year of grace, however long we have been watching.</value>
+    <comment>about: what we know we get wrong</comment>
+  </data>
+  <data name="about.limits.oneHost.lead" xml:space="preserve">
+    <value>Everything here is one host, looking at intervals.</value>
+    <comment>about: what we know we get wrong</comment>
+  </data>
+  <data name="about.limits.oneHost.body" xml:space="preserve">
+    <value>A percentage of reachable time is a fraction of the window we observed, never of one we did not. No graphic here fills in the rest.</value>
+    <comment>about: what we know we get wrong</comment>
+  </data>
+  <data name="about.limits.deletion.lead" xml:space="preserve">
+    <value>Nothing is ever deleted.</value>
+    <comment>about: what we know we get wrong</comment>
+  </data>
+  <data name="about.limits.deletion.body" xml:space="preserve">
+    <value>Archiving takes a game out of the default listing, the rankings and the active-today figure, and nothing else. Its page, URL, history and address survive, it keeps being probed, and one successful probe puts it back.</value>
+    <comment>about: what we know we get wrong</comment>
+  </data>
+  <data name="about.never.heading" xml:space="preserve">
+    <value>What this site will not do</value>
+    <comment>about: what this site will not do</comment>
+  </data>
+  <data name="about.never.votes.lead" xml:space="preserve">
+    <value>No votes, stars, ratings or recommendations.</value>
+    <comment>about: what this site will not do</comment>
+  </data>
+  <data name="about.never.votes.body" xml:space="preserve">
+    <value>Rankings are computed from measured data only. A directory ranked by who can mobilise the most clicks describes the campaigning, not the hobby, and that is what killed the incumbents.</value>
+    <comment>about: what this site will not do</comment>
+  </data>
+  <data name="about.never.forums.lead" xml:space="preserve">
+    <value>No forums, reviews, wikis, comments or player profiles.</value>
+    <comment>about: what this site will not do</comment>
+  </data>
+  <data name="about.never.forums.body" xml:space="preserve">
+    <value>Orientation material — what a MUSH is, which codebase suits collaborative roleplay — is written, signed and versioned like the rest of the site.</value>
+    <comment>about: what this site will not do</comment>
+  </data>
+  <data name="about.never.names.lead" xml:space="preserve">
+    <value>Player names are never persisted.</value>
+    <comment>about: what this site will not do</comment>
+  </data>
+  <data name="about.never.names.body" xml:space="preserve">
+    <value>A WHO reply is parsed in memory for a count and the shape of the header. The names are not written down; aggregates use a salted hash with a rotating salt.</value>
+    <comment>about: what this site will not do</comment>
+  </data>
+  <data name="about.never.population.lead" xml:space="preserve">
+    <value>No absolute population figure is published.</value>
+    <comment>about: what this site will not do</comment>
+  </data>
+  <data name="about.never.population.body" xml:space="preserve">
+    <value>Per-codebase and per-protocol shares ship: a ratio over the measured set survives the games we cannot count. "How many people play MU*" does not, because that number would not survive being quoted.</value>
+    <comment>about: what this site will not do</comment>
+  </data>
+  <data name="about.crawler.heading" xml:space="preserve">
+    <value>The crawler, and how to make it stop</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.probe.lead" xml:space="preserve">
+    <value>A probe is one connection that never logs in.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.probe.body" xml:space="preserve">
+    <value>It opens a socket, negotiates telnet options, reads the connect screen, asks for MSSP by negotiating option 70, sends {commands}, and disconnects. No character, no login, nothing changed on the far side. A timeout bounds the session so a wedged probe cannot sit on a connection slot.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.delay.lead" xml:space="preserve">
+    <value>CRAWL DELAY wins.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.delay.body" xml:space="preserve">
+    <value>A game that states a preferred minimum gap in its MSSP report gets it, over our own schedule in both directions: 720 hours means monthly, not weekly. A dark game is still tried for ever at the longer interval, which is how it re-lists itself when it comes back.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.referral.lead" xml:space="preserve">
+    <value>A referred address is verified, never trusted.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.referral.body" xml:space="preserve">
+    <value>MSSP lets a game name other games. Every name is resolved before anything is dialled, and refused unless every address it resolves to is globally routable. A mixed answer refuses the whole target. Our refusal is filed as ours and never appears in a game's record as downtime.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.screens.lead" xml:space="preserve">
+    <value>Connect screens are shown because they are sent to everybody.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.screens.body" xml:space="preserve">
+    <value>A server paints its connect screen, unauthenticated, to every anonymous connection. We display it as evidence and label it. Ask and it comes down.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.stop.lead" xml:space="preserve">
+    <value>Say stop, and we stop — three ways.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.stop.body" xml:space="preserve">
+    <value>Publish {variable} 1 in your MSSP report, and the probe that reads it is the last one. Or publish a TXT record at {label}.your.host reading "{value}", which needs no MSSP support and no account here. Or write to a person. All three are honoured within one crawl cycle, recorded with the date and what we read, and enforced on the submission form too.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.scope.lead" xml:space="preserve">
+    <value>The MSSP field stops that listener; the record stops the host.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.scope.body" xml:space="preserve">
+    <value>MSSP is published by the port that answered, so it speaks for that port — MU* hosting routinely runs unrelated games on one domain, and one must not silence its neighbour. A TXT record covers every port unless it names one, as "{value}=4201". Anything there we cannot read as a port list means the whole host, so "{value}=all" works.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.dns.lead" xml:space="preserve">
+    <value>The DNS route is the one you can undo without asking us.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.dns.body" xml:space="preserve">
+    <value>A TXT record is readable without connecting to a server that told us not to, so we re-read it before every dial. Delete it and we dial again within a week. An MSSP field cannot be re-read without doing the thing you asked us to stop, so MSSP opt-outs and written requests stand until you say otherwise. That TXT lookup is all an opted-out address gets: it touches your nameserver, never your game.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.stopping.lead" xml:space="preserve">
+    <value>Stopping is not deleting, and it is not downtime.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.stopping.body" xml:space="preserve">
+    <value>A game that opts out keeps its page, its address and everything we measured before it asked. Only new data stops: the activity grid stops gaining hours and names no cause, because our decision to stop knocking is a fact about us. It is recorded on the crawl that did not happen, and in the register of who asked.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.unlist.lead" xml:space="preserve">
+    <value>If stopping is not enough, the listing can go too.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.crawler.unlist.body" xml:space="preserve">
+    <value>Once we have stopped on every address your game answers on, your dashboard offers one more thing: take it out of the listing, the rankings and the daily figure. The page and every address it has ever had still answer, and nothing is deleted — it stops being somewhere a reader arrives by browsing. It needs a verified claim, because it is a decision about your game and we record who made it. And a probe undoes it: take your opt-out back, and the next dial that gets an answer puts you back in the listing without asking us twice.</value>
+    <comment>about: the crawler, and how to make it stop</comment>
+  </data>
+  <data name="about.identity.announced" xml:space="preserve">
+    <value>The crawler names itself {name} when a server asks what it is.</value>
+    <comment>about: who is knocking</comment>
+  </data>
+  <data name="about.identity.unannounced" xml:space="preserve">
+    <value>The crawler is configured to call itself {name} but cannot yet say so. Its telnet library gives a client no way to set the terminal type, so your logs see that library's default, and NEW-ENVIRON is answered from the crawler host's environment. Both are gaps in the library and ours to fix there. Until then, recognise a probe by its shape: one connection, no login, a short read-only command set, gone.</value>
+    <comment>about: who is knocking</comment>
+  </data>
+  <data name="about.identity.crawler" xml:space="preserve">
+    <value>crawler</value>
+    <comment>about: who is knocking</comment>
+  </data>
+  <data name="about.identity.contact" xml:space="preserve">
+    <value>contact</value>
+    <comment>about: who is knocking</comment>
+  </data>
+  <data name="about.identity.crawler.line" xml:space="preserve">
+    <value>Crawler: {name}</value>
+    <comment>about: who is knocking</comment>
+  </data>
+  <data name="about.identity.contact.line" xml:space="preserve">
+    <value>Contact: {url}</value>
+    <comment>about: who is knocking</comment>
+  </data>
+  <data name="about.identity.placeholder" xml:space="preserve">
+    <value>— placeholder; this deployment set no contact address</value>
+    <comment>about: who is knocking</comment>
+  </data>
+  <data name="about.identity.placeholder.plain" xml:space="preserve">
+    <value>No contact address is configured, so the one above is a placeholder and answers nobody.</value>
+    <comment>about: who is knocking</comment>
+  </data>
+  <data name="about.sources.heading" xml:space="preserve">
+    <value>Where the list of games came from</value>
+    <comment>about: where the list of games came from</comment>
+  </data>
+  <data name="about.sources.addresses.lead" xml:space="preserve">
+    <value>We take addresses. Nothing else.</value>
+    <comment>about: where the list of games came from</comment>
+  </data>
+  <data name="about.sources.addresses.body" xml:space="preserve">
+    <value>A backfill takes a host and a port. No player counts, no reachability history, no descriptions, no fields, and no note of which site an address came from.</value>
+    <comment>about: where the list of games came from</comment>
+  </data>
+  <data name="about.sources.less.lead" xml:space="preserve">
+    <value>Deliberately less than those sites can give.</value>
+    <comment>about: where the list of games came from</comment>
+  </data>
+  <data name="about.sources.less.body" xml:space="preserve">
+    <value>Several hold years of dated player counts. Importing that would fill the heatmaps of the games somebody else was already watching, and rest this site's central claim on another party's prober.</value>
+    <comment>about: where the list of games came from</comment>
+  </data>
+  <data name="about.sources.origin.lead" xml:space="preserve">
+    <value>A game's origin is not one fact.</value>
+    <comment>about: where the list of games came from</comment>
+  </data>
+  <data name="about.sources.origin.body" xml:space="preserve">
+    <value>Any game worth listing appears in several of these directories, so "imported from" would name whichever fetch ran first. That a game exists is public information; where we read it adds nothing and is the part of somebody else's work with the least claim to be ours.</value>
+    <comment>about: where the list of games came from</comment>
+  </data>
+  <data name="about.sources.etiquette.lead" xml:space="preserve">
+    <value>Reading somebody's site is still reading somebody's site.</value>
+    <comment>about: where the list of games came from</comment>
+  </data>
+  <data name="about.sources.etiquette.body" xml:space="preserve">
+    <value>We ask for a bulk export or a documented endpoint before scraping, read robots.txt first, and rate-limit scrapes hard. A source that needs its maintainer's say-so is not fetched until a person can state they were asked.</value>
+    <comment>about: where the list of games came from</comment>
+  </data>
+  <data name="about.source.read" xml:space="preserve">
+    <value>read — addresses only</value>
+    <comment>about: where the list of games came from</comment>
+  </data>
+  <data name="about.source.withheld" xml:space="preserve">
+    <value>not read — awaiting permission</value>
+    <comment>about: where the list of games came from</comment>
+  </data>
+  <data name="about.source.tintinMssp.note" xml:space="preserve">
+    <value>One page, one request. Published by a crawler that connects to each game and prints what it read.</value>
+    <comment>about: where the list of games came from</comment>
+  </data>
+  <data name="about.source.tintinMsdp.note" xml:space="preserve">
+    <value>The same crawler's MSDP listing. Nearly a subset of its MSSP sibling, read for the few addresses it reaches that the other does not.</value>
+    <comment>about: where the list of games came from</comment>
+  </data>
+  <data name="about.source.mudConnector.note" xml:space="preserve">
+    <value>Publishes its whole catalogue on one page, so reading it costs a single request. Our largest source of addresses, and of no measurements.</value>
+    <comment>about: where the list of games came from</comment>
+  </data>
+  <data name="about.source.mudStats.note" xml:space="preserve">
+    <value>One index page and one page per world, so a scrape rather than an export. On 30 July 2026 we fetched 143 of their pages, fifteen seconds apart and honouring robots.txt, but before anyone had written to them. That should not have happened. The gate now takes a person willing to state the maintainer was asked.</value>
+    <comment>about: where the list of games came from</comment>
+  </data>
+  <data name="about.source.mudVerse.note" xml:space="preserve">
+    <value>Implemented, tested, never run. The strongest source here on every axis except permission, and nothing will be fetched until somebody has written to them.</value>
+    <comment>about: where the list of games came from</comment>
+  </data>
+  <data name="about.licence.heading" xml:space="preserve">
+    <value>Licence</value>
+    <comment>about: licence</comment>
+  </data>
+  <data name="about.licence.code.lead" xml:space="preserve">
+    <value>The code is MIT.</value>
+    <comment>about: licence</comment>
+  </data>
+  <data name="about.licence.code.body" xml:space="preserve">
+    <value>The site, the crawler and the parsers are open source under the MIT licence.</value>
+    <comment>about: licence</comment>
+  </data>
+  <data name="about.licence.open.lead" xml:space="preserve">
+    <value>The licence for the data is an open question.</value>
+    <comment>about: licence</comment>
+  </data>
+  <data name="about.licence.open.body" xml:space="preserve">
+    <value>A separate decision from the code's, and not yet taken. Treat the terms below as this deployment's current answer, not the project's settled position. A rival directory taking the whole catalogue is a success condition here, so whatever is settled will not stand in the way of one.</value>
+    <comment>about: licence</comment>
+  </data>
+  <data name="about.licence.codeLabel" xml:space="preserve">
+    <value>code</value>
+    <comment>about: licence</comment>
+  </data>
+  <data name="about.licence.dataLabel" xml:space="preserve">
+    <value>data, as this deployment serves it</value>
+    <comment>about: licence</comment>
+  </data>
+  <data name="about.licence.creditLabel" xml:space="preserve">
+    <value>credit as</value>
+    <comment>about: licence</comment>
+  </data>
+  <data name="about.licence.code.line" xml:space="preserve">
+    <value>Code: {licence}</value>
+    <comment>about: licence</comment>
+  </data>
+  <data name="about.licence.data.line" xml:space="preserve">
+    <value>Data: {licence}</value>
+    <comment>about: licence</comment>
+  </data>
+  <data name="about.licence.credit.line" xml:space="preserve">
+    <value>Credit as: {credit}</value>
+    <comment>about: licence</comment>
+  </data>
+  <data name="about.licence.deployment" xml:space="preserve">
+    <value>(what this deployment serves. The project's own answer is still open.)</value>
+    <comment>about: licence</comment>
+  </data>
+  <data name="submit.title" xml:space="preserve">
+    <value>Submit a game</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.lede" xml:space="preserve">
+    <value>Tell us where a game is. A host and a port is the whole form; everything else on this site is measured by our own crawler.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.host.label" xml:space="preserve">
+    <value>Host</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.port.label" xml:space="preserve">
+    <value>Port</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.host.hint" xml:space="preserve">
+    <value>mud.example.org, or paste mud.example.org:4201 and leave the port empty</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.button" xml:space="preserve">
+    <value>Submit</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.noCatalogue" xml:space="preserve">
+    <value>Submitting needs a database, and this site is running on the demo fixture. There is no crawl registry to write into, so the form is absent rather than quietly doing nothing.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.notHere" xml:space="preserve">
+    <value>Not here</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.what.heading" xml:space="preserve">
+    <value>What happens to an address</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.what.resolve" xml:space="preserve">
+    <value>We resolve the address before dialling it, and refuse anything that resolves off the public internet. That is a decision about our own socket, never a fact about a game.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.what.optOut" xml:space="preserve">
+    <value>If whoever runs that host has asked us not to crawl it, we will not take the address, whoever submits it. A stranger cannot put your game back on this site.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.what.schedule" xml:space="preserve">
+    <value>If it answers, we read what the server says for itself and keep reading it on its own schedule, for ever. An address only has to be given once.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.what.claim" xml:space="preserve">
+    <value>Nothing appears on the site until somebody proves they run it. Claiming takes a passkey and one line published on the game itself.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.what.duplicate" xml:space="preserve">
+    <value>An address we already have collapses onto the existing entry. Sending it twice makes no second listing and brings no probe forward.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.answer.thatAddress" xml:space="preserve">
+    <value>that address</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.accepted.heading" xml:space="preserve">
+    <value>In the registry.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.accepted.sentence" xml:space="preserve">
+    <value>{address} will be dialled on the next crawl cycle, then on its own schedule for ever. It appears here once somebody proves they run it — come back to this form with the same address and it will hand you the link.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.unclaimed.heading" xml:space="preserve">
+    <value>We have it, unclaimed.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.unclaimed.sentence" xml:space="preserve">
+    <value>{address} is one we already measure. It stays off the site until somebody proves they run it. If that is you, this is the way in.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.known.heading" xml:space="preserve">
+    <value>We already have that one.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.known.sentence" xml:space="preserve">
+    <value>{address} is a game we already measure. Nothing was created and nothing was changed.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.knownAddress.heading" xml:space="preserve">
+    <value>We already have that address.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.knownAddress.sentence" xml:space="preserve">
+    <value>{address} is already known to us. Nothing was created and nothing was changed.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.queued.heading" xml:space="preserve">
+    <value>Already waiting.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.queued.sentence" xml:space="preserve">
+    <value>{address} is in the crawl registry and has not answered yet. Sending it again does not bring it forward: a target keeps its own schedule, so nobody can hurry us at somebody else's server.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.malformed.heading" xml:space="preserve">
+    <value>Not an address we can dial.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.malformed.sentence" xml:space="preserve">
+    <value>A host needs a dot or a colon in it, and a port is a number between 1 and 65535. Fill in both boxes, or paste mud.example.org:4201 into the first.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.undialable.heading" xml:space="preserve">
+    <value>We cannot dial that.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.undialable.sentence" xml:space="preserve">
+    <value>Three things produce this answer for {address}: the name may not resolve, it may resolve off the public internet, or whoever runs that host may have asked us to stay away. We deliberately do not say which, because answering that for a stranger maps a network from outside it. Nothing was recorded about the address; the decision was ours and it is filed as ours.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.tooMany.heading" xml:space="preserve">
+    <value>Enough for now.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.tooMany.sentence" xml:space="preserve">
+    <value>This form is rate-limited by sender, and you have hit the bound. Come back in an hour. Nothing was lost — anything we took is already in the registry.</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="submit.link.claim" xml:space="preserve">
+    <value>claim this game</value>
+    <comment>submit a game</comment>
+  </data>
+  <data name="account.signIn.title" xml:space="preserve">
+    <value>Sign in</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="account.signIn.preview" xml:space="preserve">
+    <value>Sign in with a passkey to claim a game you run. There is no password to lose and none to steal.</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="account.signIn.noDatabase" xml:space="preserve">
+    <value>Claiming needs a database, and this site is running on the demo fixture. There is nothing to sign in to.</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="account.signIn.passkey.lead" xml:space="preserve">
+    <value>Sign-in is a passkey.</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="account.signIn.passkey.body" xml:space="preserve">
+    <value>Your device or password manager holds the private key; we hold only the public half. No password, no email.</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="account.signIn.button" xml:space="preserve">
+    <value>Sign in with a passkey</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="account.signIn.script" xml:space="preserve">
+    <value>The one page here that needs JavaScript. Passkeys cannot work without it.</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="account.register.heading" xml:space="preserve">
+    <value>No account yet?</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="account.register.lede" xml:space="preserve">
+    <value>You need one only to claim a game you run. Pick a name to be known by — a label beside your claim, not a real name.</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="account.register.name.label" xml:space="preserve">
+    <value>Name</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="account.register.name.placeholder" xml:space="preserve">
+    <value>e.g. corvid-admin</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="account.register.button" xml:space="preserve">
+    <value>Create an account with a passkey</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="account.store.heading" xml:space="preserve">
+    <value>What we store</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="account.store.name" xml:space="preserve">
+    <value>The name you chose.</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="account.store.keys" xml:space="preserve">
+    <value>The public key of each passkey you register, and what your device called it.</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="account.store.claims" xml:space="preserve">
+    <value>Which games you have claimed, and when.</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
+  <data name="account.store.note" xml:space="preserve">
+    <value>No email address, no password, no IP log tied to your account. Lose every passkey and you can publish a fresh claim token on your game and start again: the game is the proof, not the account.</value>
+    <comment>signing in, which is a passkey and nothing else</comment>
+  </data>
 </root>

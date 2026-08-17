@@ -2,6 +2,7 @@
 @using Microsoft.Extensions.Options
 @using MUI.Crawl
 @using MUI.Web.Api
+@using MUI.Web.Localization
 @inject IOptions<DatasetLicenceOptions> Dataset
 @inject IServiceProvider Services
 
@@ -19,13 +20,13 @@
 
 @if (Plain)
 {
-    <pre class="mono plain">@PlainText.RenderAbout(Page)</pre>
+    <pre class="mono plain">@PlainText.RenderAbout(Page, Tag)</pre>
 }
 else
 {
     <SitePreview Title="About" Description="@PreviewCopy.Pages.About" />
 
-    <h1>About mu*index</h1>
+    <h1>@L("about.title")</h1>
     <p class="summary">@Page.Lede</p>
 
     @foreach (var section in Page.Sections)
@@ -40,19 +41,22 @@ else
 
             @if (section.Identity is { } identity)
             {
-                <p class="note">@identity.Wording</p>
+                <p class="note">@identity.Wording(Tag)</p>
 
+                @* The list is `mono` because its values are a terminal type and a URL — machine
+                   voice, and skipped by the translation sweep for that reason. The two labels are
+                   ours and are not, so they carry `translate="yes"` against the class around them. *@
                 <dl class="identity mono">
-                    <dt class="kicker">crawler</dt>
+                    <dt class="kicker" translate="yes">@L("about.identity.crawler")</dt>
                     <dd>@identity.Name</dd>
-                    <dt class="kicker">contact</dt>
+                    <dt class="kicker" translate="yes">@L("about.identity.contact")</dt>
                     <dd>
                         <a href="@identity.InfoUrl">@identity.InfoUrl</a>
                         @if (!identity.ContactConfigured)
                         {
                             @* Amber is the site's word for declared-but-unverified, and an address
                                nobody configured is exactly that: a value with nothing behind it. *@
-                            <span class="warn"> — placeholder; this deployment set no contact address</span>
+                            <span class="warn" translate="yes"> @L("about.identity.placeholder")</span>
                         }
                     </dd>
                 </dl>
@@ -69,7 +73,7 @@ else
                         <li>
                             <p class="source-head">
                                 <a class="name" href="@source.Url" rel="external">@source.Name</a>
-                                <span class="badge">@source.StatusWording</span>
+                                <span class="badge">@source.StatusWording(Tag)</span>
                             </p>
                             <p class="dim">@source.Note</p>
                         </li>
@@ -80,9 +84,9 @@ else
             @if (section.Licence is { } licence)
             {
                 <dl class="identity mono">
-                    <dt class="kicker">code</dt>
+                    <dt class="kicker" translate="yes">@L("about.licence.codeLabel")</dt>
                     <dd>@licence.CodeLicence</dd>
-                    <dt class="kicker">data, as this deployment serves it</dt>
+                    <dt class="kicker" translate="yes">@L("about.licence.dataLabel")</dt>
                     <dd>
                         @if (licence.DataLicenceUrl is { } url)
                         {
@@ -93,22 +97,39 @@ else
                             @licence.DataLicenceName
                         }
                     </dd>
-                    <dt class="kicker">credit as</dt>
+                    <dt class="kicker" translate="yes">@L("about.licence.creditLabel")</dt>
                     <dd>@licence.Attribution</dd>
                 </dl>
 
-                <p class="note dim">@licence.Notice</p>
+                @*
+                    Configuration, not chrome, and so not a message.
+
+                    The notice is set per deployment beside the licence name and the attribution
+                    line, and the read API serves the same bytes to whoever takes the bulk dump. A
+                    translated copy on this page and an untranslated one in the dump would be two
+                    statements of one deployment's terms, and a reader could not tell which bound
+                    it. `translate="no"` so a browser's own translator leaves it alone too — the
+                    same treatment the licence name and the credit line beside it already get.
+                *@
+                <p class="note dim" translate="no">@licence.Notice</p>
             }
         </section>
     }
 
-    <p class="faint"><a href="?plain=1">plain text</a></p>
+    <p class="faint"><a href="?plain=1">@L("a11y.plainText")</a></p>
 }
 
 @code {
     [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
 
     private bool Plain => Truthy.Is(PlainFlag);
+
+    /// <summary>The locale this page is being answered in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    private string L(string id) => Messages.For(Tag, id);
 
     /*
         The crawler's own options when the crawl loop is hosted in this process, and the defaults
@@ -119,5 +140,6 @@ else
     */
     private AboutPage Page => AboutPage.Build(
         Services.GetService(typeof(ProbeOptions)) as ProbeOptions ?? new ProbeOptions(),
-        Dataset.Value);
+        Dataset.Value,
+        Tag);
 }

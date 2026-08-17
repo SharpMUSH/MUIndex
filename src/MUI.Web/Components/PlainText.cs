@@ -601,11 +601,16 @@ public static class PlainText
     /// owes the directories it read, and an acknowledgement a text browser cannot render is an
     /// acknowledgement made to the layout rather than to anybody.
     /// </remarks>
-    public static string RenderAbout(AboutPage page)
+    public static string RenderAbout(AboutPage page, string tag = Locales.SourceTag)
     {
+        ArgumentNullException.ThrowIfNull(page);
+
         var b = new StringBuilder();
 
-        b.AppendLine("ABOUT MU*INDEX");
+        // Upper-cased from the translated title rather than typed in capitals, so this surface keeps
+        // its own shape in a language that has one. A locale whose script has no case is unchanged,
+        // which is correct: the shape is English typography and the words are not.
+        b.AppendLine(Say(tag, "about.title").ToUpperInvariant());
         b.AppendLine();
         Wrap(b, page.Lede);
 
@@ -622,22 +627,21 @@ public static class PlainText
             if (section.Identity is { } identity)
             {
                 b.AppendLine();
-                Wrap(b, identity.Wording, "  ");
+                Wrap(b, identity.Wording(tag), "  ");
                 b.AppendLine();
-                Wrap(b, $"Crawler: {identity.Name}", "  ");
-                Wrap(b, $"Contact: {identity.InfoUrl}", "  ");
+                Wrap(b, Say(tag, "about.identity.crawler.line", ("name", identity.Name)), "  ");
+                Wrap(b, Say(tag, "about.identity.contact.line", ("url", identity.InfoUrl)), "  ");
 
                 if (!identity.ContactConfigured)
                 {
-                    Wrap(b, "No contact address is configured, so the one above is a placeholder "
-                        + "and answers nobody.", "  ");
+                    Wrap(b, Say(tag, "about.identity.placeholder.plain"), "  ");
                 }
             }
 
             foreach (var source in section.Sources)
             {
                 b.AppendLine();
-                b.AppendLine($"  {source.Name} — {source.StatusWording}");
+                b.AppendLine($"  {source.Name} — {source.StatusWording(tag)}");
                 b.AppendLine($"  {source.Url}");
                 Wrap(b, source.Note, "    ");
             }
@@ -648,16 +652,16 @@ public static class PlainText
                 // Every one of these goes through the wrapper rather than being laid out in columns:
                 // a licence name and an attribution are both configuration, and a deployment that
                 // sets a long one must not push a line off the side of a text browser.
-                Wrap(b, $"Code: {licence.CodeLicence}", "  ");
-                Wrap(b, $"Data: {licence.DataLicenceName}", "  ");
+                Wrap(b, Say(tag, "about.licence.code.line", ("licence", licence.CodeLicence)), "  ");
+                Wrap(b, Say(tag, "about.licence.data.line", ("licence", licence.DataLicenceName)), "  ");
 
                 if (licence.DataLicenceUrl is { } url)
                 {
                     Wrap(b, url, "  ");
                 }
 
-                Wrap(b, "(what this deployment serves. The project's own answer is still open.)", "  ");
-                Wrap(b, $"Credit as: {licence.Attribution}", "  ");
+                Wrap(b, Say(tag, "about.licence.deployment"), "  ");
+                Wrap(b, Say(tag, "about.licence.credit.line", ("credit", licence.Attribution)), "  ");
                 b.AppendLine();
                 Wrap(b, licence.Notice, "  ");
             }
@@ -791,13 +795,14 @@ public static class PlainText
     /// around it — what happens to an address, and what happened to the last one — which is the part
     /// that could otherwise have been carried by layout.
     /// </remarks>
-    public static string RenderSubmit(SubmitAnswer? answer, bool hasCatalogue)
+    public static string RenderSubmit(
+        SubmitAnswer? answer, bool hasCatalogue, string tag = Locales.SourceTag)
     {
         var b = new StringBuilder();
 
-        b.AppendLine(SubmitCopy.Title.ToUpperInvariant());
+        b.AppendLine(SubmitCopy.Title(tag).ToUpperInvariant());
         b.AppendLine();
-        Wrap(b, SubmitCopy.Lede);
+        Wrap(b, SubmitCopy.Lede(tag));
 
         if (answer is not null)
         {
@@ -812,14 +817,14 @@ public static class PlainText
 
         if (!hasCatalogue)
         {
-            Heading(b, "NOT HERE");
-            Wrap(b, SubmitCopy.NoCatalogue);
+            Heading(b, Say(tag, "submit.notHere").ToUpperInvariant());
+            Wrap(b, SubmitCopy.NoCatalogue(tag));
             return b.ToString();
         }
 
-        Heading(b, "WHAT HAPPENS TO AN ADDRESS");
+        Heading(b, Say(tag, "submit.what.heading").ToUpperInvariant());
 
-        foreach (var point in SubmitCopy.Points)
+        foreach (var point in SubmitCopy.Points(tag))
         {
             b.AppendLine();
             Wrap(b, point, "  ");

@@ -10,6 +10,7 @@ using MUI.Crawl;
 using MUI.Discovery;
 using MUI.Web.Api;
 using MUI.Web.Components;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Tests;
 
@@ -33,6 +34,19 @@ public class AboutPageTests
     private static AboutPage Page => AboutPage.Build(new ProbeOptions(), new DatasetLicenceOptions());
 
     private static string Plain => PlainText.RenderAbout(Page);
+
+    /// <summary>
+    /// The English a message id carries, which is what this page is asserted against.
+    /// </summary>
+    /// <remarks>
+    /// The copy lives in <see cref="Messages"/> now, so a sentence pasted into a test would be a
+    /// third copy of it — and the one nothing checks. Asking the bundle asserts the fact this page
+    /// makes a claim about ("the archive-grace limitation is stated") rather than the spelling of
+    /// it, and still fails if the id stops reaching the page. Where a claim is a <em>rule</em>
+    /// rather than a sentence — the count of the word "uptime", the refusal to say
+    /// "no automated opt-out" — the literal stays, because there the wording is the rule.
+    /// </remarks>
+    private static string Says(string id) => Messages.For(Locales.SourceTag, id);
 
     [Test]
     public async Task EveryDirectoryTheBackfillReadIsCreditedByNameAndByAddress()
@@ -59,13 +73,17 @@ public class AboutPageTests
         var mudverse = Page.Sources.Single(s => s.Name == "MudVerse");
 
         await Assert.That(mudverse.State).IsEqualTo(ImportSourceState.Withheld);
-        await Assert.That(Plain).Contains("not read — awaiting permission");
+        await Assert.That(Plain).Contains(Says("about.source.withheld"));
+
+        // And the badge for one we did read is a different string, not a negation of this one: a
+        // reader meets the difference between "we chose not to" and "we could not" only here.
+        await Assert.That(Says("about.source.read")).IsNotEqualTo(Says("about.source.withheld"));
     }
 
     [Test]
     public async Task TheAttributionSaysAddressesOnlyAndSaysWhy()
     {
-        await Assert.That(Render.Words(Plain)).Contains("We take addresses. Nothing else.");
+        await Assert.That(Render.Words(Plain)).Contains(Says("about.sources.addresses.lead"));
         await Assert.That(Render.Words(Plain)).Contains("No player counts");
         await Assert.That(Render.Words(Plain)).Contains("no reachability history");
     }
@@ -131,12 +149,13 @@ public class AboutPageTests
     {
         // The built-in URL is on a domain nobody has chosen. Printed unmarked it would read as the
         // way to reach us, which is the one thing this section exists to provide.
-        await Assert.That(Render.Words(Plain)).Contains("is a placeholder and answers nobody");
+        await Assert.That(Render.Words(Plain)).Contains(Says("about.identity.placeholder.plain"));
 
         var configured = PlainText.RenderAbout(AboutPage.Build(
             new ProbeOptions { InfoUrl = "https://example.test/crawler" }, new DatasetLicenceOptions()));
 
-        await Assert.That(Render.Words(configured)).DoesNotContain("is a placeholder and answers nobody");
+        await Assert.That(Render.Words(configured))
+            .DoesNotContain(Says("about.identity.placeholder.plain"));
     }
 
     [Test]
@@ -182,7 +201,7 @@ public class AboutPageTests
     {
         var text = Render.Words(Plain);
 
-        await Assert.That(text).Contains("CRAWL DELAY wins.");
+        await Assert.That(text).Contains(Says("about.crawler.delay.lead"));
         await Assert.That(text).Contains("resolved before anything is dialled");
         await Assert.That(text).Contains("globally routable");
     }
@@ -203,7 +222,7 @@ public class AboutPageTests
     {
         var text = Render.Words(Plain);
 
-        await Assert.That(text).Contains("Measured beats declared, and both are shown.");
+        await Assert.That(text).Contains(Says("about.measures.declared.lead"));
         await Assert.That(text).Contains("MSSP PLAYERS field");
         await Assert.That(text).Contains("WHO or DOING read at the connect screen");
         await Assert.That(text).Contains("unknown, never zero");
@@ -214,10 +233,12 @@ public class AboutPageTests
     {
         var text = Render.Words(Plain);
 
-        await Assert.That(text).Contains("Reachable, never uptime.");
+        await Assert.That(text).Contains(Says("about.measures.reachable.lead"));
 
-        // The word appears twice and both are refusals. Anything else would be the site's own
-        // vocabulary rule broken on the page that states it.
+        // The word appears twice and both are refusals — counted in the rendered English, and a
+        // literal on purpose. Here the wording *is* the rule: this is the site's vocabulary,
+        // "reachable, never uptime", asserted on the one page allowed to print the other word.
+        // Anything else would be that rule broken on the page that states it.
         var uses = Regex.Matches(text, "uptime", RegexOptions.IgnoreCase).Count;
         await Assert.That(uses).IsEqualTo(2);
         await Assert.That(text).Contains("unreachable and perfectly alive");
@@ -231,10 +252,10 @@ public class AboutPageTests
         // they are absent. PlainParityTests asserts the opposite about every other surface.
         var text = Render.Words(Plain);
 
-        await Assert.That(text).Contains("No votes, stars, ratings or recommendations");
-        await Assert.That(text).Contains("No forums, reviews, wikis, comments or player profiles");
-        await Assert.That(text).Contains("Player names are never persisted.");
-        await Assert.That(text).Contains("No absolute population figure is published.");
+        await Assert.That(text).Contains(Says("about.never.votes.lead"));
+        await Assert.That(text).Contains(Says("about.never.forums.lead"));
+        await Assert.That(text).Contains(Says("about.never.names.lead"));
+        await Assert.That(text).Contains(Says("about.never.population.lead"));
     }
 
     [Test]
@@ -242,7 +263,7 @@ public class AboutPageTests
     {
         var text = Render.Words(Plain);
 
-        await Assert.That(text).Contains("The code is MIT.");
+        await Assert.That(text).Contains(Says("about.licence.code.lead"));
         await Assert.That(text).Contains("licence for the data is an open question");
         await Assert.That(text).Contains("not yet taken");
 
@@ -292,6 +313,58 @@ public class AboutPageTests
                 // URLs out as well would be the plain page with worse typography.
                 await Assert.That(markup).Contains(source.Url);
             }
+        }
+    }
+
+    /// <summary>
+    /// Every sentence on this page comes out of the bundle, and the machine voice does not.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The pseudolocale accents and brackets every string that reached a reader through
+    /// <see cref="Messages"/>, so anything still legible as English here is a sentence typed into a
+    /// page — which is what the whole of this page was until it was moved. This was the largest
+    /// untranslated surface on the site, and the one it would be worst to leave: it is where the
+    /// site explains what a measurement here proves, to a reader who by definition does not yet
+    /// trust it.
+    /// </para>
+    /// <para>
+    /// The directories' names and addresses go the other way. They are somebody else's name and
+    /// somebody else's URL, they are the credit §7.6 owes, and translating either would destroy the
+    /// acknowledgement rather than localize it — so they are asserted to be <em>unchanged</em>.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task EverySentenceComesFromTheBundleAndTheDirectoriesOwnNamesDoNot()
+    {
+        var page = AboutPage.Build(new ProbeOptions(), new DatasetLicenceOptions(), "qps-ploc");
+        var pseudo = PlainText.RenderAbout(page, "qps-ploc");
+
+        await Assert.That(pseudo).Contains("⟦");
+
+        foreach (var section in Page.Sections)
+        {
+            await Assert.That(pseudo)
+                .DoesNotContain(section.Heading)
+                .Because($"the {section.Id} heading never went through the message pipeline");
+
+            foreach (var point in section.Points)
+            {
+                await Assert.That(pseudo)
+                    .DoesNotContain(point.Lead)
+                    .Because($"a point in {section.Id} is hard-coded English");
+            }
+        }
+
+        // The crawler's own name and the licence a deployment configured are machine voice too, and
+        // are read off the objects that own them rather than out of the bundle.
+        await Assert.That(pseudo).Contains(page.Sections.Single(s => s.Id == "crawler").Identity!.Name);
+        await Assert.That(pseudo).Contains(new DatasetLicenceOptions().LicenceName);
+
+        foreach (var source in Page.Sources)
+        {
+            await Assert.That(pseudo).Contains(source.Name);
+            await Assert.That(pseudo).Contains(source.Url);
         }
     }
 
