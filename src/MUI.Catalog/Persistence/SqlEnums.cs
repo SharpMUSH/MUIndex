@@ -165,6 +165,7 @@ public static class SqlEnums
         LifecycleState.Dark => "dark",
         LifecycleState.Archived => "archived",
         LifecycleState.Excluded => "excluded",
+        LifecycleState.Unlisted => "unlisted",
         _ => throw Unmapped(state),
     };
 
@@ -175,6 +176,7 @@ public static class SqlEnums
         "dark" => LifecycleState.Dark,
         "archived" => LifecycleState.Archived,
         "excluded" => LifecycleState.Excluded,
+        "unlisted" => LifecycleState.Unlisted,
         _ => throw Unread(value, nameof(LifecycleState)),
     };
 

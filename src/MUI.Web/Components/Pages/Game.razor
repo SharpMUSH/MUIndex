@@ -173,9 +173,45 @@ else
             </div>
         }
 
+        @*
+            The other two ways out of the listing, which had no copy at all until now: migration 0024
+            shipped `excluded` with a reason column and nothing that printed it, so a reader who
+            arrived at one of the nine stock instances saw an ordinary page and no sign that anybody
+            had decided anything about it.
+
+            The two plates say different things because the decisions are different. An exclusion is
+            OURS and has to be arguable, so it prints the argument. An unlisting is THEIRS, so it
+            prints no reason at all — publishing our paraphrase of somebody's request on the page they
+            asked us to take down would be answering it with a smaller version of itself.
+        *@
+        @if (Excluded)
+        {
+            <div class="archive-plate">
+                <p>
+                    Not in the listing, the rankings or the daily figure: we do not think this address
+                    is a game somebody can play. Everything below is what it told us, unchanged.
+                </p>
+                @if (Page.ExcludedReason is { Length: > 0 } why)
+                {
+                    <p class="faint">Our reason: @why</p>
+                }
+            </div>
+        }
+        else if (Unlisted)
+        {
+            <div class="archive-plate">
+                <p>
+                    Not in the listing, the rankings or the daily figure, at the request of the people
+                    who run it. Everything below is preserved as it was, this page and every address
+                    it has ever had go on answering, and we are not dialling it.
+                </p>
+            </div>
+        }
+
         <section aria-labelledby="screen-heading">
             <h2 id="screen-heading">Connect screen</h2>
-            <AnsiQuote Screen="ConnectScreen" CapturedAt="Captured" Now="Now" Frozen="Archived"
+            <AnsiQuote Screen="ConnectScreen" CapturedAt="Captured" Now="Now"
+                       Frozen="@(Archived || Unlisted)"
                        Charset="Page.ConnectScreenCharset" />
         </section>
 
@@ -409,7 +445,21 @@ else
 
     private bool Archived => Page?.Summary.State is LifecycleState.Archived;
 
-    private DateTimeOffset? Captured => Archived ? Entry.LastReachableAt : Now.AddMinutes(-4);
+    private bool Excluded => Page?.Summary.State is LifecycleState.Excluded;
+
+    private bool Unlisted => Page?.Summary.State is LifecycleState.Unlisted;
+
+    /// <summary>
+    /// When what is on this page was last true.
+    /// </summary>
+    /// <remarks>
+    /// An unlisted game is frozen for the same reason an archived one is — nothing new arrives, and
+    /// the opt-out under it means nothing will — so its connect screen is dated from the last probe
+    /// that answered rather than presented as four minutes old. Saying "just now" over a capture from
+    /// before somebody asked us to stop would be the freshest lie on the page.
+    /// </remarks>
+    private DateTimeOffset? Captured =>
+        Archived || Unlisted ? Entry.LastReachableAt : Now.AddMinutes(-4);
 
     private int StaleCount => Page?.Declared.Count(d => d.Value.IsStale) ?? 0;
 

@@ -217,9 +217,54 @@ public class OwnerSurfaceTests
         await Assert.That(edits.Single().Field).IsEqualTo("CODEBASE");
     }
 
+    /// <summary>
+    /// The unlisting control is not offered to a game we are still dialling.
+    /// </summary>
+    /// <remarks>
+    /// The panel is where the gate is visible, and a button rendered here that the endpoint would
+    /// refuse is worse than no button: it reads as an offer. Null and "may not" render identically —
+    /// where nothing records whether we are crawling somebody, the panel does not guess for them.
+    /// </remarks>
+    [Test]
+    [Arguments(null)]
+    [Arguments(false)]
+    public async Task TheUnlistingControlIsOfferedOnlyOnceWeHaveStopped(bool? mayUnlist)
+    {
+        var html = await PanelAsync(
+            listing: mayUnlist is { } may ? new OwnerListingState(IsUnlisted: false, MayUnlist: may) : null);
+
+        await Assert.That(html).DoesNotContain("/listing");
+    }
+
+    [Test]
+    public async Task AGameWeHaveStoppedEverywhereIsOfferedTheWayOutOfTheListing()
+    {
+        var html = await PanelAsync(listing: new OwnerListingState(IsUnlisted: false, MayUnlist: true));
+
+        await Assert.That(html).Contains($"/account/games/{Game}/listing");
+        await Assert.That(html).Contains("Take us out of the listing too");
+    }
+
+    /// <summary>
+    /// An unlisted game is offered the way back, and told the probe will do it too.
+    /// </summary>
+    /// <remarks>
+    /// The second sentence is the one that matters. An owner who withdraws their opt-out in their own
+    /// zone file and never returns here should not be left believing the listing needs a second ask.
+    /// </remarks>
+    [Test]
+    public async Task AnUnlistedGameIsOfferedTheWayBackAndToldAProbeDoesItToo()
+    {
+        var html = await PanelAsync(listing: new OwnerListingState(IsUnlisted: true, MayUnlist: true));
+
+        await Assert.That(html).Contains("Put us back in the listing");
+        await Assert.That(html).Contains("One probe that answers does this too");
+    }
+
     private static Task<string> PanelAsync(
         IReadOnlyDictionary<string, GameField>? declared = null,
-        IReadOnlyList<(string Field, string Value)>? reported = null) =>
+        IReadOnlyList<(string Field, string Value)>? reported = null,
+        OwnerListingState? listing = null) =>
         Render.ComponentAsync<OwnerPanel>(
             new Dictionary<string, object?>
             {
@@ -230,6 +275,7 @@ public class OwnerSurfaceTests
                     r => r.Field,
                     r => new GameField(Game, r.Field, FieldSource.Mssp, r.Value, Now.AddDays(-30), Now),
                     StringComparer.OrdinalIgnoreCase),
+                ["Listing"] = listing,
                 ["Now"] = Now,
             },
             services => services.AddSingleton<AntiforgeryStateProvider, NoAntiforgery>());

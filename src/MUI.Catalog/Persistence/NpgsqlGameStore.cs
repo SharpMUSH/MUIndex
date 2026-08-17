@@ -143,6 +143,45 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
             cancellationToken: cancellationToken));
     }
 
+    public async Task UnlistAsync(
+        Guid id,
+        Guid byUserId,
+        DateTimeOffset at,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        // archived_at is cleared for the reason IncludeAsync clears excluded_at: the schema holds the
+        // date and the state in step, and a game can be dark on the day its owner asks. Nothing else
+        // about the row is touched — the history that made it dark is still true and still shown.
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE game
+               SET state = 'unlisted', archived_at = NULL,
+                   excluded_at = NULL, excluded_reason = NULL,
+                   unlisted_at = @at, unlisted_by = @byUserId
+             WHERE id = @id
+            """,
+            new { id, at = at.ToUniversalTime(), byUserId },
+            cancellationToken: cancellationToken));
+    }
+
+    public async Task RelistAsync(Guid id, DateTimeOffset at, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        // Straight back to active, as IncludeAsync does and for the same reason: the next probe
+        // decides the rest, and guessing at the state it held before would be inventing one.
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE game
+               SET state = 'active', unlisted_at = NULL, unlisted_by = NULL
+             WHERE id = @id AND state = 'unlisted'
+            """,
+            new { id },
+            cancellationToken: cancellationToken));
+    }
+
     public async Task SetStateAsync(
         Guid id,
         LifecycleState state,
@@ -151,10 +190,12 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
     {
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
-        // **`AND state <> 'excluded'` is the load-bearing clause.** The sweeper and the ingestor both
-        // call this, and both would otherwise walk an excluded game back into the listing — the
-        // sweeper by archiving it when it went dark, the ingestor by restoring it when it answered.
-        // Refusing here rather than at each caller means a third caller written later inherits it.
+        // **`AND state NOT IN ('excluded', 'unlisted')` is the load-bearing clause.** The sweeper and
+        // the ingestor both call this, and both would otherwise walk one of those games back into the
+        // listing — the sweeper by archiving it when it went dark, the ingestor by restoring it when
+        // it answered. Refusing here rather than at each caller means a third caller written later
+        // inherits it. Both states are left by their own method, which is where the thing this
+        // signature cannot express lives: an argument for one, an account for the other.
         //
         // archived_at is set on the way in and cleared on the way out, because the schema's
         // game_archived_games_have_a_date constraint holds the two in step. Nothing else about the
@@ -165,13 +206,15 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
                SET state = @state,
                    archived_at = CASE WHEN @state = 'archived' THEN @at ELSE NULL END,
 
-                   -- Cleared on the way to any other state, because game_exclusion_is_explained
-                   -- holds the date and the state in step. An exclusion is undone by moving the
-                   -- game out of it, which is a person's act; nothing here can put one on, because
-                   -- there is nowhere in this signature to say why.
+                   -- Cleared on the way to any other state, because game_exclusion_is_explained and
+                   -- game_unlisting_is_attributed hold each date and the state in step. Neither can
+                   -- be put *on* from here, because there is nowhere in this signature to say why or
+                   -- to name who asked.
                    excluded_at = NULL,
-                   excluded_reason = NULL
-             WHERE id = @id AND state <> 'excluded'
+                   excluded_reason = NULL,
+                   unlisted_at = NULL,
+                   unlisted_by = NULL
+             WHERE id = @id AND state NOT IN ('excluded', 'unlisted')
             """,
             new { id, state = SqlEnums.ToDb(state), at = at.ToUniversalTime() },
             cancellationToken: cancellationToken));

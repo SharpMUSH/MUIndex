@@ -23,6 +23,28 @@ public class PlainSurfaceTests
         return PlainText.Render(page!, Now);
     }
 
+    /// <summary>
+    /// The three states that withhold a listing are three markers, not one.
+    /// </summary>
+    /// <remarks>
+    /// This is the surface a reader reaches with a script, so the marker is the whole answer. Folding
+    /// `unlisted` into `[archived]` would put the wrong fact — "it stopped answering" — in the one
+    /// field a parser reads, about a game that is running and simply not being dialled.
+    /// </remarks>
+    [Test]
+    [Arguments(LifecycleState.Archived, "[archived]")]
+    [Arguments(LifecycleState.Excluded, "[excluded]")]
+    [Arguments(LifecycleState.Unlisted, "[unlisted]")]
+    public async Task EachWayOutOfTheListingIsMarkedAsItself(LifecycleState state, string marker)
+    {
+        var page = await Queries.FindAsync("m-u-s-h");
+        var text = PlainText.Render(
+            page! with { Summary = page.Summary with { State = state } },
+            Now);
+
+        await Assert.That(text.Split('\n')[0]).EndsWith(marker);
+    }
+
     [Test]
     public async Task AnUnknownCountSaysSoInWordsRatherThanBeingBlank()
     {

@@ -125,6 +125,7 @@ else
                                 Declared="DeclaredFor(game.Id)"
                                 Reported="ReportedFor(game.Id)"
                                 OptOut="CrawlFor(game.Id)"
+                                Listing="ListingFor(game.Id)"
                                 Now="Now" />
 
                     @*
@@ -264,6 +265,8 @@ else
     /// <summary>§11's answer per game: which of its addresses we are still dialling.</summary>
     private Dictionary<Guid, OwnerOptOutState> Crawling { get; } = [];
 
+    private Dictionary<Guid, OwnerListingState> Listings { get; } = [];
+
     /// <summary>
     /// What the last write did, carried back through a redirect (see <see cref="OwnerWrites"/>).
     /// </summary>
@@ -318,8 +321,16 @@ else
     /// What the last write actually did, in a sentence about that write.
     /// </summary>
     /// <remarks>
-    /// Three outcomes and not one, because hiding a connect screen used to report "now shows it as
-    /// owner-declared" — the enrichment sentence, on a page whose whole job is to say what happened.
+    /// <para>
+    /// One sentence per write, because hiding a connect screen used to report "now shows it as owner
+    /// declared" — the enrichment sentence, on a page whose whole job is to say what happened.
+    /// </para>
+    /// <para>
+    /// <b>The same defect had already come back once.</b> §11's two crawl outcomes were added to
+    /// <c>OwnerWrites.Saved</c> and never to this switch, so an owner who pressed "stop crawling us"
+    /// was told their page now showed something as owner-declared. A branch per constant, and the
+    /// default names itself rather than standing in for whatever arrives next.
+    /// </para>
     /// </remarks>
     private string Outcome
     {
@@ -333,6 +344,16 @@ else
                     $"We have stopped republishing {game}'s connect screen. The page says so plainly "
                     + "rather than leaving a hole.",
                 "screen-shown" => $"{game}'s connect screen is on its page again.",
+                "crawl-stopped" =>
+                    $"We have stopped dialling {game}, on every address we have for it. Its page keeps "
+                    + "everything measured before you asked.",
+                "crawl-resumed" => $"We are dialling {game} again, from its next turn in the schedule.",
+                "unlisted" =>
+                    $"{game} is out of the listing, the rankings and the daily figure. Its page and "
+                    + "every URL it has ever had go on answering.",
+                "relisted" =>
+                    $"{game} is back in the listing. One probe that answers is all it needs to be "
+                    + "measured again.",
                 _ => $"{game}'s page now shows it as owner-declared.",
             };
         }
@@ -371,6 +392,10 @@ else
     /// </remarks>
     private OwnerOptOutState? CrawlFor(Guid gameId) =>
         Crawling.TryGetValue(gameId, out var state) ? state : null;
+
+    /// <summary>Whether this game is in the listing, or null where nothing here records it.</summary>
+    private OwnerListingState? ListingFor(Guid gameId) =>
+        Listings.TryGetValue(gameId, out var state) ? state : null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -419,6 +444,12 @@ else
                 if (Services.GetService<OwnerOptOut>() is { } optOut)
                 {
                     Crawling[game.Id] = await optOut.StateAsync(game.Id);
+                }
+
+                // Migration 0025's second decision, read the same way and for the same reason.
+                if (Services.GetService<OwnerListing>() is { } listing)
+                {
+                    Listings[game.Id] = await listing.StateAsync(game.Id);
                 }
 
                 if (Services.GetService<ClaimService>() is { } service)

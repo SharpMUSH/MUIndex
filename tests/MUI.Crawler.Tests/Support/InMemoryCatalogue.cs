@@ -60,6 +60,12 @@ public sealed class FakeGameStore : IGameStore
     public Task IncludeAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
         SetStateAsync(id, LifecycleState.Active, at, ct);
 
+    public Task UnlistAsync(Guid id, Guid byUserId, DateTimeOffset at, CancellationToken ct = default) =>
+        SetStateAsync(id, LifecycleState.Unlisted, at, ct);
+
+    public Task RelistAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
+        SetStateAsync(id, LifecycleState.Active, at, ct);
+
     public Task SetStateAsync(
         Guid id,
         LifecycleState state,

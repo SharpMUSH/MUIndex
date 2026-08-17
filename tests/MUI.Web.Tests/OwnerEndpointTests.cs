@@ -278,6 +278,189 @@ public class OwnerEndpointTests
         await Assert.That(host.OptOuts.All).IsEmpty();
     }
 
+    /// <summary>
+    /// The second decision is offered only under the first, and the endpoint enforces it.
+    /// </summary>
+    /// <remarks>
+    /// Unlisting a game we are still dialling produces the one state nothing on this site can
+    /// describe: a page no reader can find, filling up with fresh measurements. So it is refused, and
+    /// refused out loud — an owner who pressed the button and was told nothing would reasonably
+    /// conclude their game had come out of the listing.
+    /// </remarks>
+    [Test]
+    public async Task AGameWeAreStillDiallingCannotBeUnlisted()
+    {
+        await using var host = await Harness.StartAsync(game: Mush);
+
+        var response = await host.PostAsync(
+            $"/account/games/{Mush}/listing", new() { ["unlist"] = "true" });
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Found);
+        await Assert.That(response.Headers.Location!.ToString()).Contains("refused=listing");
+        await Assert.That(host.Games.Unlisted).IsEmpty();
+    }
+
+    /// <summary>
+    /// Stopping the crawl on one of two listeners is not stopping, so it does not unlock this either.
+    /// </summary>
+    /// <remarks>
+    /// <c>OwnerOptOutState.Partial</c> is shown as itself rather than rounded to the friendlier
+    /// neighbour, and the same refusal to round has to reach the gate: a game whose second port we
+    /// are still dialling has not made the first decision, whatever the first port says.
+    /// </remarks>
+    [Test]
+    public async Task StoppingOneOfTwoAddressesIsNotEnoughToUnlist()
+    {
+        await using var host = await Harness.StartAsync(game: Mush);
+
+        var page = await new FixtureGameQueries().FindAsync(Mush);
+        var one = page!.Endpoints.First(e => e.IsCurrent);
+
+        await host.OptOuts.RecordAsync(
+            new CrawlOptOut
+            {
+                Host = one.Host,
+                Port = one.Port,
+                Source = OptOutSource.Request,
+                RecordedAt = DateTimeOffset.UtcNow,
+                LastConfirmedAt = DateTimeOffset.UtcNow,
+                Detail = "one listener only",
+            },
+            CancellationToken.None);
+
+        var response = await host.PostAsync(
+            $"/account/games/{Mush}/listing", new() { ["unlist"] = "true" });
+
+        await Assert.That(response.Headers.Location!.ToString()).Contains("refused=listing");
+        await Assert.That(host.Games.Unlisted).IsEmpty();
+    }
+
+    /// <summary>The two decisions in the order they are meant to be made, over real HTTP.</summary>
+    [Test]
+    public async Task AnOwnerWhoStoppedTheCrawlEverywhereCanComeOutOfTheListing()
+    {
+        await using var host = await Harness.StartAsync(game: Mush);
+
+        await host.PostAsync($"/account/games/{Mush}/crawl", new() { ["stop"] = "true" });
+
+        var response = await host.PostAsync(
+            $"/account/games/{Mush}/listing", new() { ["unlist"] = "true" });
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Found);
+        await Assert.That(response.Headers.Location!.ToString())
+            .IsEqualTo($"/account?saved={Mush}&did=unlisted");
+
+        // The account that held a verified claim when the button was pressed, stored rather than
+        // inferred. It is the whole authorisation story, and the defect this repository already has
+        // in its history is a claim about somebody else's wishes that nobody could trace to an asker.
+        await Assert.That(host.Games.Unlisted[Mush]).IsEqualTo(host.Owner.Id);
+    }
+
+    /// <summary>
+    /// Coming back is never gated on the opt-out, which is the asymmetry that keeps it from being a
+    /// trap.
+    /// </summary>
+    /// <remarks>
+    /// An owner who has already deleted the TXT record is no longer opted out, and is waiting out
+    /// §7.4's floor for the probe that would relist them automatically. A button that refused them on
+    /// the grounds that they were not opted out would strand exactly the person who had done the
+    /// documented thing.
+    /// </remarks>
+    [Test]
+    public async Task ComingBackDoesNotRequireStillBeingOptedOut()
+    {
+        await using var host = await Harness.StartAsync(game: Mush);
+
+        var response = await host.PostAsync(
+            $"/account/games/{Mush}/listing", new() { ["unlist"] = "false" });
+
+        await Assert.That(response.Headers.Location!.ToString())
+            .IsEqualTo($"/account?saved={Mush}&did=relisted");
+        await Assert.That(host.Games.Relisted).Contains(Mush);
+    }
+
+    /// <summary>Somebody without a verified claim is refused, and writes nothing.</summary>
+    [Test]
+    public async Task AnUnverifiedClaimCannotUnlistAGame()
+    {
+        await using var host = await Harness.StartAsync(verified: false, game: Mush);
+
+        var response = await host.PostAsync(
+            $"/account/games/{Mush}/listing", new() { ["unlist"] = "true" });
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Forbidden);
+        await Assert.That(host.Games.Unlisted).IsEmpty();
+    }
+
+    /// <summary>
+    /// The two lifecycle writes the listing endpoint makes, recorded rather than performed.
+    /// </summary>
+    /// <remarks>
+    /// Everything else on <see cref="IGameStore"/> throws. What is under test here is the route, the
+    /// gate and the redirect; a double that quietly answered every other call would let a change to
+    /// one of them arrive through this file without a failure.
+    /// </remarks>
+    private sealed class RecordingGameStore : IGameStore
+    {
+        public Dictionary<Guid, Guid> Unlisted { get; } = [];
+
+        public List<Guid> Relisted { get; } = [];
+
+        public Task UnlistAsync(Guid id, Guid byUserId, DateTimeOffset at, CancellationToken ct = default)
+        {
+            Unlisted[id] = byUserId;
+            return Task.CompletedTask;
+        }
+
+        public Task RelistAsync(Guid id, DateTimeOffset at, CancellationToken ct = default)
+        {
+            Relisted.Add(id);
+            return Task.CompletedTask;
+        }
+
+        public Task<GameRecord?> ByIdAsync(Guid id, CancellationToken ct = default) =>
+            Task.FromResult<GameRecord?>(null);
+
+        public Task<GameRecord?> BySlugAsync(string slug, CancellationToken ct = default) =>
+            Task.FromResult<GameRecord?>(null);
+
+        public Task InsertAsync(GameRecord game, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task ExcludeAsync(Guid id, string reason, DateTimeOffset at, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task IncludeAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task SetStateAsync(Guid id, LifecycleState state, DateTimeOffset at, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task CorroborateAsync(
+            Guid id,
+            DateTimeOffset at,
+            IReadOnlyList<string> signals,
+            CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task MarkReachableAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task SetClaimedAsync(Guid id, bool isClaimed, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<string?> RenameAsync(
+            Guid id,
+            string name,
+            string slug,
+            DateTimeOffset at,
+            CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<GameRecord>> UnarchivedAsync(CancellationToken ct = default) =>
+            throw new NotSupportedException();
+    }
+
     /// <summary>§11's register, in memory. Keeps rows and withdraws them, exactly as the real one.</summary>
     private sealed class InMemoryOptOuts : ICrawlOptOutRepository
     {
@@ -352,17 +535,27 @@ public class OwnerEndpointTests
             WebApplication app,
             HttpClient client,
             InMemoryFieldStore fields,
-            InMemoryOptOuts optOuts)
+            InMemoryOptOuts optOuts,
+            RecordingGameStore games,
+            MuiUser owner)
         {
             _app = app;
             _client = client;
             Fields = fields;
             OptOuts = optOuts;
+            Games = games;
+            Owner = owner;
         }
 
         public InMemoryFieldStore Fields { get; }
 
         public InMemoryOptOuts OptOuts { get; }
+
+        /// <summary>What the listing endpoint wrote, and on whose say-so.</summary>
+        public RecordingGameStore Games { get; }
+
+        /// <summary>The signed-in account, so a test can assert the unlisting was attributed to it.</summary>
+        public MuiUser Owner { get; }
 
         /// <param name="game">
         /// Which game the claim is on. Defaults to the one the enrichment tests use; the opt-out
@@ -407,6 +600,15 @@ public class OwnerEndpointTests
                 optOuts, new NoDns(), TimeProvider.System));
             builder.Services.AddSingleton<OwnerOptOut>();
 
+            // Migration 0025's second decision, behind the real service — the gate under test is the
+            // deployed one and not a second copy of its rule written here.
+            var games = new RecordingGameStore();
+
+            builder.Services.AddSingleton(games);
+            builder.Services.AddSingleton<IGameStore>(games);
+            builder.Services.AddSingleton(TimeProvider.System);
+            builder.Services.AddSingleton<OwnerListing>();
+
             var app = builder.Build();
 
             // The site's own order, through the site's own call — not a copy of it. A harness that
@@ -448,7 +650,9 @@ public class OwnerEndpointTests
                 app,
                 new HttpClient(handler) { BaseAddress = new Uri(address) },
                 fields,
-                optOuts);
+                optOuts,
+                games,
+                user);
         }
 
         public async Task<HttpResponseMessage> PostAsync(

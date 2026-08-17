@@ -29,6 +29,31 @@ public interface IGameStore
     /// <summary>Puts an excluded game back in the listing. A person's act, like the exclusion.</summary>
     Task IncludeAsync(Guid id, DateTimeOffset at, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Takes a game out of the listing because the people who run it asked (spec §11, migration 0025).
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="ExcludeAsync"/> because it carries an account rather than an
+    /// argument. The reason is that they asked; <paramref name="byUserId"/> is the account that held
+    /// a verified claim when they asked, and <c>crawl_opt_out</c> holds how the ask arrived.
+    /// </remarks>
+    /// <param name="byUserId">The claim-verified account that asked. Never inferred, never defaulted.</param>
+    Task UnlistAsync(
+        Guid id,
+        Guid byUserId,
+        DateTimeOffset at,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Puts an unlisted game back in the listing, and hands it back to the crawl.
+    /// </summary>
+    /// <remarks>
+    /// Called by the owner's own button and by <see cref="ArchiveSweeper.RestoreAsync"/> when a probe
+    /// answers — the second is the documented exit for an operator who withdrew the opt-out in their
+    /// own zone file and never had an account here.
+    /// </remarks>
+    Task RelistAsync(Guid id, DateTimeOffset at, CancellationToken cancellationToken = default);
+
     Task SetStateAsync(
         Guid id,
         LifecycleState state,

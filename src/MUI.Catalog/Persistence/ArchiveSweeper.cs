@@ -45,7 +45,13 @@ public sealed class ArchiveSweeper(
             // first time an excluded dev instance went dark the sweeper would move it to `archived`
             // and the next probe that answered would restore it to `active` — the decision discarded
             // by two automatic steps, neither of which knew it existed.
-            if (game.State is LifecycleState.Excluded)
+            //
+            // An unlisting is somebody else's decision and is skipped for the same reason. It is
+            // rarely reached — a game that opted out writes no availability transition at all, so it
+            // has no open unreachable interval to be archived on — but a game that had already gone
+            // dark before its owner asked does, and archiving that one would replace "they asked" with
+            // "it stopped answering" in the one column the listing reads.
+            if (game.State is LifecycleState.Excluded or LifecycleState.Unlisted)
             {
                 continue;
             }
@@ -72,12 +78,27 @@ public sealed class ArchiveSweeper(
     {
         var game = await games.ByIdAsync(gameId, cancellationToken);
 
-        if (game is null || game.State is not LifecycleState.Archived)
+        // An unlisted game is relisted by a probe too, and that is safe by construction rather than
+        // by a check here: an opted-out address is refused before the dial (§11), so a probe that
+        // answered is proof that no opt-out stands on it any more. It is what makes the exit an
+        // operator can work alone — delete the TXT record, be dialled again within a week on §7.4's
+        // floor — bring the listing back with the crawl, rather than leaving them to ask us twice.
+        //
+        // `Excluded` is deliberately not in this list. That one is our judgement about what the
+        // thing is, and a socket answering was never evidence against it.
+        if (game is null || game.State is not (LifecycleState.Archived or LifecycleState.Unlisted))
         {
             return false;
         }
 
-        await games.SetStateAsync(gameId, LifecycleState.Active, at, cancellationToken);
+        if (game.State is LifecycleState.Unlisted)
+        {
+            await games.RelistAsync(gameId, at, cancellationToken);
+        }
+        else
+        {
+            await games.SetStateAsync(gameId, LifecycleState.Active, at, cancellationToken);
+        }
 
         return true;
     }

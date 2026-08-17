@@ -101,6 +101,12 @@ public static class Render
         public Task IncludeAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
             SetStateAsync(id, LifecycleState.Active, at, ct);
 
+        public Task UnlistAsync(Guid id, Guid byUserId, DateTimeOffset at, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task RelistAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
         public Task SetStateAsync(Guid id, LifecycleState state, DateTimeOffset at, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 

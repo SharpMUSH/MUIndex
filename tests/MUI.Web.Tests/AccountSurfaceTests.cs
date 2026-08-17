@@ -557,6 +557,24 @@ public class AccountSurfaceTests
         public Task IncludeAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
             SetStateAsync(id, LifecycleState.Active, at, ct);
 
+        /// <summary>Which games were unlisted here, and on whose say-so.</summary>
+        public Dictionary<Guid, Guid> Unlisted { get; } = [];
+
+        /// <summary>Which games were put back.</summary>
+        public List<Guid> Relisted { get; } = [];
+
+        public Task UnlistAsync(Guid id, Guid byUserId, DateTimeOffset at, CancellationToken ct = default)
+        {
+            Unlisted[id] = byUserId;
+            return Task.CompletedTask;
+        }
+
+        public Task RelistAsync(Guid id, DateTimeOffset at, CancellationToken ct = default)
+        {
+            Relisted.Add(id);
+            return Task.CompletedTask;
+        }
+
         public Task SetStateAsync(Guid id, LifecycleState state, DateTimeOffset at, CancellationToken ct = default) =>
             Task.CompletedTask;
 
