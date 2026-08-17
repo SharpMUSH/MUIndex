@@ -1,3 +1,4 @@
+@using MUI.Web.Localization
 @*
     The provenance chip. One glyph, one relative age, no border.
 
@@ -68,16 +69,36 @@
     /// </remarks>
     [Parameter] public bool AgeShown { get; set; } = true;
 
-    private string Word => Fact.IsMeasured ? "measured" : "declared";
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    private string Word => Messages.For(
+        Tag, Fact.IsMeasured ? "provenance.game.measured" : "provenance.game.declared");
 
     private string Glyph => Fact.IsMeasured ? "●" : "◇";
 
-    private string Class => Word + (Fact.IsStale ? " stale" : string.Empty);
+    // The class name is a stylesheet selector and not a word anybody reads, so it stays English
+    // while the word beside it localizes. A CSS class that changed with the reader's language would
+    // take the colour and the glyph with it.
+    private string Class => (Fact.IsMeasured ? "measured" : "declared")
+        + (Fact.IsStale ? " stale" : string.Empty);
 
     // The full record belongs in the title as well as the expanded view: a reader hovering wants
     // the absolute time, and a screen reader gets the source named rather than inferred from colour.
-    private string Title =>
-        $"{Fact.Value} — {Word} via {Fact.Source}, "
-        + $"last confirmed {Dates.Stamp(Fact.LastConfirmedAt)}"
-        + (Fact.IsStale ? " (past its expected refresh)" : string.Empty);
+    //
+    // The value and the source token pass through as they are — a version string and a protocol
+    // name are evidence — and every word around them comes from the bundle. "last confirmed" says
+    // when *we* last saw the value and never when the game did anything, which is the difference
+    // between recording a measurement of theirs and recording a decision of ours.
+    private string Title => Messages.For(
+        Tag,
+        Fact.IsStale ? "chip.title.stale" : "chip.title",
+        new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["value"] = Fact.Value,
+            ["how"] = Word,
+            ["source"] = Provenance.Via(Tag, Fact.Source),
+            ["date"] = Dates.Stamp(Tag, Fact.LastConfirmedAt),
+        });
 }

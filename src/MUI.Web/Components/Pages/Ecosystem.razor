@@ -41,7 +41,7 @@ else
 
     @if (Dashboard.OldestHandshake is { } oldest)
     {
-        <p class="faint">Oldest handshake here: confirmed @Relative.Format(Now - oldest) ago.</p>
+        <p class="faint">Oldest handshake here: confirmed @Relative.Ago(Http.LocaleOf().Tag, Now - oldest).</p>
     }
 
     <section aria-labelledby="codebases">

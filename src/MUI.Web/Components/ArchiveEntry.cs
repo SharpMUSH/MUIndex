@@ -44,8 +44,8 @@ public sealed record ArchiveEntry(
     /// <summary>
     /// When it last answered, in the site's one absolute format — see <see cref="Dates"/>.
     /// </summary>
-    public string LastAnswered => LastReachableAt is { } at
-        ? Dates.Absolute(at)
+    public string LastAnswered(string tag) => LastReachableAt is { } at
+        ? Dates.Absolute(tag, at)
         : "never, in anything we measured";
 
     /// <summary>
@@ -58,6 +58,6 @@ public sealed record ArchiveEntry(
             ? $"{KnownLive.TotalDays / 365.25:0.#} years"
             : $"{(int)KnownLive.TotalDays} days";
 
-    public string DarkFor(DateTimeOffset now) =>
-        LastReachableAt is { } at ? Relative.Format(now - at) : "unknown";
+    public string DarkFor(string tag, DateTimeOffset now) =>
+        LastReachableAt is { } at ? Relative.Format(tag, now - at) : "unknown";
 }

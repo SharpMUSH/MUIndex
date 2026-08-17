@@ -1,5 +1,6 @@
 @page "/archive"
 @using MUI.Web.Data
+@using MUI.Web.Localization
 @inject IGameQueries Queries
 @inject IAvailabilityHistory History
 @inject TimeProvider Clock
@@ -17,7 +18,7 @@
 
 @if (Plain)
 {
-    <pre class="mono plain">@PlainText.RenderArchive(Entries, Query, Now)</pre>
+    <pre class="mono plain">@PlainText.RenderArchive(Tag, Entries, Query, Now)</pre>
 }
 else
 {
@@ -70,7 +71,7 @@ else
                     </div>
                     <dl class="archive-facts mono">
                         <dt class="kicker">last reachable</dt>
-                        <dd>@entry.LastAnswered <span class="faint">(@entry.DarkFor(Now) ago)</span></dd>
+                        <dd>@entry.LastAnswered(Tag) <span class="faint">(@entry.DarkFor(Tag, Now) ago)</span></dd>
                         <dt class="kicker">known live</dt>
                         <dd>@entry.KnownLiveWording</dd>
                     </dl>
@@ -88,6 +89,10 @@ else
 }
 
 @code {
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
     [SupplyParameterFromQuery(Name = "q")] private string? Query { get; set; }
     [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
 

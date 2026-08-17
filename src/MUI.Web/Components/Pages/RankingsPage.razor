@@ -1,3 +1,4 @@
+@using MUI.Web.Localization
 @page "/rankings"
 @inject IGameQueries Queries
 @inject TimeProvider Clock
@@ -141,7 +142,7 @@ else
                                     @Place(Table.LongestUnbroken.Select(s => s.Since.Ticks), spell.Since.Ticks)
                                 </td>
                                 <th scope="row"><a href="/g/@spell.Slug">@spell.Name</a></th>
-                                <td class="mono">@Dates.Absolute(spell.Since)</td>
+                                <td class="mono">@Dates.Absolute(Tag, spell.Since)</td>
                                 <td class="mono state-present">@Wording.Duration(spell.LengthAt(Now))</td>
                             </tr>
                         }
@@ -160,6 +161,10 @@ else
 }
 
 @code {
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
     [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
 
     /// <summary>Which window to rank over: <c>7d</c>, <c>30d</c> or <c>90d</c>.</summary>

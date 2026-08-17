@@ -23,7 +23,7 @@ namespace MUI.Web.Components;
 public static class CrawlerCopy
 {
     /// <summary>The heartbeat, as a sentence.</summary>
-    public static string State(CrawlerPulse pulse, DateTimeOffset now)
+    public static string State(string tag, CrawlerPulse pulse, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(pulse);
 
@@ -34,7 +34,11 @@ public static class CrawlerCopy
             return "no probe has finished here yet";
         }
 
-        var age = Relative.Ago(now - last);
+        // The age localizes; the sentence around it has not been through the bundle yet, so a German
+        // reader meets one German fragment in an English line. That is the fallback working — it
+        // tells them truthfully which part has been translated — and not a reason to leave the age
+        // English too.
+        var age = Relative.Ago(tag, now - last);
 
         return pulse.State(now) is CrawlState.Working
             ? $"crawler live · last probe {age}"

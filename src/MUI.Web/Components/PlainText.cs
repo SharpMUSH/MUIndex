@@ -60,7 +60,7 @@ public static class PlainText
         // blank reads as zero to a human exactly as it does to a parser — and the count says how it
         // was obtained here as it does on the listing, or this page is the less honest of the two.
         b.AppendLine((s.PlayersNow is { } n
-            ? $"Players now: {n}  {Label(s.PlayersNowProvenance, now)}"
+            ? $"Players now: {n}  {Label(tag, s.PlayersNowProvenance, now)}"
             : "Players now: unknown (no count could be measured)").TrimEnd());
 
         if (page.ReachableFraction is { } r)
@@ -77,7 +77,7 @@ public static class PlainText
         AppendTrend(b, trend);
         AppendReachable(b, reach);
         AppendCapabilities(b, page);
-        AppendDeclared(b, page, now);
+        AppendDeclared(b, tag, page, now);
         AppendConnectScreen(b, page);
         AppendChanges(b, page);
 
@@ -219,7 +219,7 @@ public static class PlainText
         }
     }
 
-    private static void AppendDeclared(StringBuilder b, GamePage page, DateTimeOffset now)
+    private static void AppendDeclared(StringBuilder b, string tag, GamePage page, DateTimeOffset now)
     {
         if (page.Declared.Count == 0)
         {
@@ -230,7 +230,7 @@ public static class PlainText
 
         foreach (var (name, chip) in page.Declared)
         {
-            b.AppendLine($"  {name,-10} {chip.Value}  {Label(chip, now)}");
+            b.AppendLine($"  {name,-10} {chip.Value}  {Label(tag, chip, now)}");
         }
     }
 
@@ -251,10 +251,16 @@ public static class PlainText
     /// break, and a private spelling is one the fifth surface cannot reach even to obey.
     /// </para>
     /// </remarks>
-    internal static string Label(ProvenanceChip? chip, DateTimeOffset now) => chip is null
+    internal static string Label(string tag, ProvenanceChip? chip, DateTimeOffset now) => chip is null
         ? string.Empty
-        : $"({Provenance.How(chip)}, {Relative.Format(now - chip.LastConfirmedAt)}"
-            + (chip.IsStale ? ", stale)" : ")");
+        : Messages.For(
+            tag,
+            chip.IsStale ? "chip.plain.stale" : "chip.plain",
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["how"] = Provenance.How(tag, chip),
+                ["age"] = Relative.Format(tag, now - chip.LastConfirmedAt),
+            });
 
     /// <summary>
     /// The connect screen with its SGR stripped. Colour codes are never announced, and the cases the
@@ -385,7 +391,7 @@ public static class PlainText
             // was hard-coded here and said "(measured)" over every count including the ones a game
             // asserted about itself, which is rule 5 broken by a format string.
             b.AppendLine((g.PlayersNow is { } n
-                ? $"  Players now: {n}   {Label(g.PlayersNowProvenance, now)}"
+                ? $"  Players now: {n}   {Label(tag, g.PlayersNowProvenance, now)}"
                 : "  Players now: unknown (no count could be measured)").TrimEnd());
 
             // What a window sort ranked this row on. Only where there is one, because a line reading
@@ -397,7 +403,7 @@ public static class PlainText
 
             // Never blank. "We could not identify it" is a measurement and a missing line is not.
             b.AppendLine((g.Codebase is { } codebase
-                ? $"  Codebase:    {codebase}  {Label(g.CodebaseProvenance, now)}"
+                ? $"  Codebase:    {codebase}  {Label(tag, g.CodebaseProvenance, now)}"
                 : "  Codebase:    not identified").TrimEnd());
 
             b.AppendLine(g.MeasuredProtocols.Count > 0
@@ -408,7 +414,7 @@ public static class PlainText
             // the oldest bucket, because a game we have never got an answer from has no date and
             // inventing one from our first sighting would read as its outage.
             b.AppendLine(g.LastReachableAt is { } seen
-                ? $"  Last reached: {Relative.Ago(now - seen)}"
+                ? $"  Last reached: {Relative.Ago(tag, now - seen, AgeSense.Reached)}"
                 : "  Last reached: never — no answer yet");
 
             if (g.Tagline is { } tagline)
@@ -475,17 +481,23 @@ public static class PlainText
     /// The three liveness feeds. All three are the same shape here, because the register the
     /// graphical cards carry is a tone and a tone is not a fact — the words have to do the work.
     /// </summary>
-    public static string RenderFeeds(LivenessFeeds feeds, DateTimeOffset now)
+    public static string RenderFeeds(string tag, LivenessFeeds feeds, DateTimeOffset now)
     {
         var b = new StringBuilder();
 
-        Feed(b, "NEWLY DISCOVERED", feeds.NewlyDiscovered, "Nothing new.", now);
-        Feed(b, "WENT DARK", feeds.WentDark, "Nothing went dark.", now);
-        Feed(b, "CAME BACK", feeds.CameBack, "Nothing came back. We keep knocking.", now);
+        Feed(b, tag, "NEWLY DISCOVERED", feeds.NewlyDiscovered, "Nothing new.", now);
+        Feed(b, tag, "WENT DARK", feeds.WentDark, "Nothing went dark.", now);
+        Feed(b, tag, "CAME BACK", feeds.CameBack, "Nothing came back. We keep knocking.", now);
 
         return b.ToString();
 
-        static void Feed(StringBuilder b, string title, IReadOnlyList<FeedEntry> entries, string empty, DateTimeOffset now)
+        static void Feed(
+            StringBuilder b,
+            string tag,
+            string title,
+            IReadOnlyList<FeedEntry> entries,
+            string empty,
+            DateTimeOffset now)
         {
             b.AppendLine(title);
 
@@ -498,7 +510,7 @@ public static class PlainText
 
             foreach (var e in entries)
             {
-                b.AppendLine($"  {e.Name}  ({Relative.Format(now - e.At)} ago)  /g/{e.Slug}");
+                b.AppendLine($"  {e.Name}  ({Relative.Ago(tag, now - e.At)})  /g/{e.Slug}");
                 Wrap(b, e.Detail, "    ");
             }
 
@@ -508,6 +520,7 @@ public static class PlainText
 
     /// <summary>The home page: what we know, then what changed.</summary>
     public static string RenderHome(
+        string tag,
         SiteCounts counts,
         LivenessFeeds feeds,
         CrawlerPulse pulse,
@@ -530,7 +543,7 @@ public static class PlainText
         if (pulse.State(now) is not CrawlState.NotYet)
         {
             b.AppendLine();
-            b.AppendLine(CrawlerCopy.State(pulse, now));
+            b.AppendLine(CrawlerCopy.State(tag, pulse, now));
 
             if (CrawlerCopy.LastCycle(pulse) is { } cycle)
             {
@@ -542,12 +555,13 @@ public static class PlainText
 
         b.AppendLine();
 
-        b.Append(RenderFeeds(feeds, now));
+        b.Append(RenderFeeds(tag, feeds, now));
         return b.ToString();
     }
 
     /// <summary>The archive. Past tense, no alarm, and the run of years given as a fact.</summary>
-    public static string RenderArchive(IReadOnlyList<ArchiveEntry> entries, string? query, DateTimeOffset now)
+    public static string RenderArchive(
+        string tag, IReadOnlyList<ArchiveEntry> entries, string? query, DateTimeOffset now)
     {
         var b = new StringBuilder();
 
@@ -563,7 +577,8 @@ public static class PlainText
         {
             b.AppendLine($"{entry.Summary.Name}  [archived]");
             b.AppendLine($"  /g/{entry.Summary.Slug}");
-            b.AppendLine($"  Last reachable:  {entry.LastAnswered} ({entry.DarkFor(now)} ago)");
+            b.AppendLine(
+                $"  Last reachable:  {entry.LastAnswered(tag)} ({entry.DarkFor(tag, now)} ago)");
             b.AppendLine($"  Known live:      {entry.KnownLiveWording} of measured reachable time");
 
             if (entry.Run is { } run)
@@ -578,7 +593,7 @@ public static class PlainText
             if (entry.Summary.Codebase is { } codebase)
             {
                 b.AppendLine(
-                    $"  Codebase:        {codebase}  {Label(entry.Summary.CodebaseProvenance, now)}"
+                    $"  Codebase:        {codebase}  {Label(tag, entry.Summary.CodebaseProvenance, now)}"
                         .TrimEnd());
             }
 
@@ -691,7 +706,7 @@ public static class PlainText
         if (dashboard.OldestHandshake is { } oldest)
         {
             Wrap(b, "The oldest handshake in this picture was last confirmed "
-                + $"{Relative.Format(now - oldest)} ago.");
+                + $"{Relative.Ago(tag, now - oldest)}.");
         }
 
         Heading(b, "CODEBASES");
