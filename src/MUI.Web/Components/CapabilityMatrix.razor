@@ -1,3 +1,5 @@
+@using MUI.Web.Localization
+
 @*
     The capability matrix: measured and declared as two columns, never merged into one badge.
 
@@ -28,9 +30,11 @@
         than as a restatement.
     *@
     <caption class="count @(Disagreements.Count > 0 ? "warn" : "faint")">
-        @(Disagreements.Count == 0
-            ? $"None of the {Rows.Count} disagree."
-            : $"{Disagreements.Count} of {Rows.Count} disagree with what the game declares.")
+        @Messages.For(Tag, "capabilities.agree", new Dictionary<string, object?>
+        {
+            ["disagreeing"] = Disagreements.Count,
+            ["total"] = Rows.Count,
+        })
     </caption>
     <thead>
         <tr>
@@ -107,6 +111,12 @@
     [Parameter] public string Id { get; set; } = "capabilities";
 
     [Parameter] public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>The request, for the locale its caption is written in.</summary>
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string Tag => HttpContext.LocaleOf().Tag;
 
     /// <summary>Disagreements first, then measured-present, then absent, then unknown.</summary>
     private IEnumerable<CapabilityRow> Sorted => Rows

@@ -53,7 +53,11 @@ public class CapabilityMatrixTests
         var head = html[..html.IndexOf("<table", StringComparison.Ordinal)];
 
         await Assert.That(html).Contains("<caption class=\"count");
-        await Assert.That(Render.Words(html)).Contains("1 of 4 disagree with what the game declares.");
+
+        // "disagrees" and not "disagree": the caption is an ICU message with a real plural clause,
+        // so one disagreement agrees with its verb. It read "1 of 4 disagree" for as long as the
+        // sentence was assembled by hand.
+        await Assert.That(Render.Words(html)).Contains("1 of 4 disagrees with what the game declares.");
         await Assert.That(head).DoesNotContain("1 of 4");
 
         var occurrences = Render.Words(html).Split("1 of 4").Length - 1;

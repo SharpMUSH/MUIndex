@@ -1,3 +1,5 @@
+@using MUI.Web.Localization
+
 @*
     The facet panel: one plain GET form, no script.
 
@@ -123,12 +125,6 @@
                         <span class="facet-name">@FacetWords.Group(group.Key)</span>
                         @Evidence(group)
                     </span>
-                    @*
-                        The one sentence that has to be readable at the moment of ticking rather than
-                        in a key somewhere else, because a reader ticking boxes is exactly the person
-                        who would otherwise read an unticked box as the game declining a protocol.
-                    *@
-                    <span class="facet-note">Unticked means not measured — not that the game lacks it.</span>
                 </legend>
                 <div class="checks">
                     @foreach (var value in group.Values)
@@ -289,7 +285,6 @@
                                 <span class="facet-name">@FacetWords.Group(group.Key)</span>
                                 @Evidence(group)
                             </span>
-                            <span class="facet-note">@FacetWords.Note(group.Key)</span>
                         </legend>
 
                         <div class="rows">
@@ -301,7 +296,7 @@
                             <div class="@AnyRowClass(group)">
                                 <a class="pick" href="@Href(group, null)"
                                    aria-current="@(group.IsFiltered ? null : "true")"
-                                   aria-label="@($"any {FacetWords.Group(group.Key)}, {Games(group.Total)}")">
+                                   aria-label="@Name("facet.any", group.Total, ("facet", FacetWords.Group(group.Key)))">
                                     <span class="tick" aria-hidden="true">@AnyGlyph(group)</span>
                                     <span class="row-name">any</span>
                                     <span class="count">@group.Total</span>
@@ -386,7 +381,7 @@
         @<div class="@RowClass(group, value)">
             <a class="pick" href="@Href(group, value.State is FacetState.Included ? null : value.Token)"
                aria-current="@(value.State is FacetState.Included ? "true" : null)"
-               aria-label="@($"{FacetWords.Value(group.Key, value)}, {Games(value.Count)}{(Single(group) ? string.Empty : ", only")}")">
+               aria-label="@Name(Single(group) ? "facet.value.choose" : "facet.value.include", value.Count, ("value", FacetWords.Value(group.Key, value)))">
                 <span class="tick" aria-hidden="true">@PickGlyph(group, value)</span>
                 <span class="row-name">@FacetWords.Value(group.Key, value)</span>
                 <span class="count">@value.Count</span>
@@ -402,7 +397,7 @@
                 <a class="drop"
                    href="@Href(group, value.State is FacetState.Excluded ? null : Excluded(value).Token)"
                    aria-current="@(value.State is FacetState.Excluded ? "true" : null)"
-                   aria-label="@($"{FacetWords.Value(group.Key, value)}, {Games(group.Total - value.Count)}, excluded")">
+                   aria-label="@Name("facet.value.exclude", group.Total - value.Count, ("value", FacetWords.Value(group.Key, value)))">
                     <span aria-hidden="true">@(value.State is FacetState.Excluded ? "×" : "−")</span>
                 </a>
             }
@@ -420,7 +415,11 @@
     /// a browser and is one more thing every selector, test and diff has to know to tolerate.
     /// </remarks>
     private static string RowClass(FacetGroup group, FacetValue value) =>
-        string.Join(' ', Classes("facet-row", RowState(value), Single(group) ? "single" : null));
+        string.Join(' ', Classes(
+            "facet-row",
+            RowState(value),
+            Single(group) ? "single" : null,
+            value is { Count: 0, IsSelected: false } ? "empty" : null));
 
     private static string AnyRowClass(FacetGroup group) =>
         string.Join(' ', Classes("facet-row", "any", group.IsFiltered ? null : "on", Single(group) ? "single" : null));
@@ -453,16 +452,39 @@
         _ => "☐",
     };
 
+    /// <summary>The request, for the locale these names are spoken in.</summary>
+    [CascadingParameter]
+    private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
     /// <summary>
-    /// A count and its noun, agreeing.
+    /// One accessible name, as a message rather than as a sentence glued together here.
     /// </summary>
     /// <remarks>
-    /// Every accessible name in this panel read "1 games" and "0 games". English has two forms and
-    /// this is the one place the panel says a number out loud, so it says it correctly — and it is
-    /// the shape an ICU plural message replaces when the strings are extracted, rather than a
-    /// concatenation a translator cannot reach (i18n S3).
+    /// <para>
+    /// These were the concatenations the i18n review names: a value, a comma, a number, a space and
+    /// an English noun, in English word order. Every part of that is wrong somewhere — Russian needs
+    /// three plural forms and Arabic six, Chinese needs a measure word, several languages put the
+    /// unit before the number, and there is nowhere in a string built here for a translator to
+    /// intervene without editing this file.
+    /// </para>
+    /// <para>
+    /// They were also wrong in English: every one of them read "1 games" and "0 games" until the
+    /// plural clause existed to say otherwise.
+    /// </para>
     /// </remarks>
-    private static string Games(int count) => count == 1 ? "1 game" : $"{count} games";
+    private string Name(string id, int count, params (string Key, object? Value)[] rest)
+    {
+        var args = new Dictionary<string, object?>(StringComparer.Ordinal) { ["count"] = count };
+
+        foreach (var (key, value) in rest)
+        {
+            args[key] = value;
+        }
+
+        return Messages.For(Tag, id, args);
+    }
 
     /// <summary>
     /// This listing, asked one facet differently — and asked nothing at all where the token is null,

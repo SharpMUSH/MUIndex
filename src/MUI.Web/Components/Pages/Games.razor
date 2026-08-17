@@ -21,10 +21,13 @@ else
     *@
     <div class="card-page">
 
+    @*
+        The heading, and nothing under it. The count was restated here and again in the toolbar's
+        own "sorted by" line a few pixels below, and "every fact measured" is the claim the whole
+        site makes rather than a fact about this page.
+    *@
     <header class="listing-head">
         <h1>Games</h1>
-        @* The count is the page's own fact and belongs in its head, not only over the rows. *@
-        <p class="dim">@Listing.Games.Count games, every fact measured.</p>
     </header>
 
     @if (Error is { } problem)
@@ -356,7 +359,7 @@ else
             in the same place as every other page's, which is the whole of the "plain text in every
             footer" fix.
         *@
-        <p class="card-footer">
+        <div class="card-footer">
             <a href="/games">all games</a>
             <span class="sep" aria-hidden="true">·</span>
             <a href="/archive">archive</a>
@@ -364,7 +367,8 @@ else
             <a href="/submit">submit a game</a>
             <span class="sep" aria-hidden="true">·</span>
             <a href="@PlainHref">plain text</a>
-        </p>
+                    <LanguageSwitcher />
+        </div>
     }
 
     </div>

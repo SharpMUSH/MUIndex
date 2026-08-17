@@ -116,7 +116,11 @@ public class SortingTests
         await Assert.That(sorted).Contains("unranked-break");
         await Assert.That(Render.Words(sorted)).Contains("from here");
         await Assert.That(Render.Words(sorted)).Contains(FacetWords.Unranked(GameSort.Players));
-        await Assert.That(FacetWords.Unranked(GameSort.Players)).Contains("not zero");
+        // The break names the state rather than arguing with a reading of it. It said "reachable,
+        // count unreadable — not zero", which spends most of its words denying something nobody had
+        // thought yet; the state has a name, the site uses that name everywhere else, and the rows
+        // under the break say "not counted" in their own cells.
+        await Assert.That(FacetWords.Unranked(GameSort.Players)).IsEqualTo("Unknown count");
     }
 
     [Test]

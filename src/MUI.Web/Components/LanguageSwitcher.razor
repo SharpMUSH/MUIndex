@@ -1,0 +1,73 @@
+@using MUI.Web.Localization
+
+@*
+    The language switcher.
+
+    **No flags.** A flag denotes a state, and a state is not a language — which is wrong everywhere
+    and actively wrong here, on a directory whose Chinese-language games run on American hosts and
+    whose English-language games run in half a dozen countries.
+
+    **Each language named in itself** — Deutsch, Русский, 中文 — never in English. A reader looking
+    for their own language is looking for the word they call it by; "German" is help for somebody who
+    already reads English, which is the one reader who does not need this control.
+
+    **A select and a submit, because this site runs no script.** The same shape as the theme control
+    beside it in the footer: choosing posts, the server writes the cookie and redirects, and the
+    reader lands on the page they were reading in the language they picked rather than on a localized
+    home page — losing somebody's place is a strange way to answer "I would rather read this in
+    German".
+
+    It renders only where there is a choice to make. One option is not a control, and a switcher
+    offering a language whose locked strings are not translated yet would be offering a page that is
+    mostly still English — see LocaleStatus for why nothing ships before its glossary does.
+*@
+
+@if (Offered.Count > 1)
+{
+    <form class="locale" method="post" action="@Locales.Path">
+        <label class="kick" for="locale-select">@Messages.For(Tag, "locale.label")</label>
+        <input type="hidden" name="@Locales.ReturnField" value="@Here" />
+        <select id="locale-select" name="@Locales.Field">
+            @foreach (var locale in Offered)
+            {
+                @* lang on the option, so a screen reader says each name in its own voice rather
+                   than attempting 中文 with the phonetics of the page it is currently on. *@
+                <option value="@locale.Tag" lang="@locale.Tag" selected="@(locale.Tag == Tag)">
+                    @locale.Endonym
+                </option>
+            }
+        </select>
+        <button type="submit">@Messages.For(Tag, "locale.submit")</button>
+    </form>
+}
+
+@code {
+    /// <summary>The request, for the locale in force and the page to come back to.</summary>
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private static IReadOnlyList<Locale> Offered => Locales.Offered;
+
+    private string Tag => HttpContext.LocaleOf().Tag;
+
+    /// <summary>
+    /// The page this control was rendered on, without its locale prefix.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The querystring travels with it: a reader who has narrowed the listing to three facets and
+    /// then changes language has not asked to start the listing again.
+    /// </para>
+    /// <para>
+    /// <c>ToUriComponent</c> and not the values. <c>Request.Path</c> is decoded, so a path with
+    /// anything escaped in it comes back as raw characters — and this value is posted to us and
+    /// written into a <c>Location</c> header, where a raw character is refused by
+    /// <see cref="LocaleRouting.Back"/> and lands the reader on the front page instead of where they
+    /// were. The prefix is already off, because the middleware moved it into <c>PathBase</c>.
+    /// </para>
+    /// </remarks>
+    private string Here =>
+        HttpContext is { } context
+            ? context.Request.Path.ToUriComponent() + context.Request.QueryString.ToUriComponent()
+            : "/";
+}

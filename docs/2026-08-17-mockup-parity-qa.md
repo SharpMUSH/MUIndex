@@ -219,3 +219,129 @@ and the Russian CI canary.
 - `::details-content` carries the two disclosures that are only disclosures at narrow widths. Both
   are guarded by `@supports`, and a browser without it gets a working menu button and a working
   filters disclosure at every width instead of an unreachable panel.
+
+---
+
+# Part three — after the first review
+
+Changes made once the pass above was on screen, in the order they were asked for.
+
+## Full-bleed, and the navbar with it
+
+The card is gone: no border, no radius, no shadow, no side margins. Drawing the site as one panel on
+a ground is a mockup convention rather than a product decision. What the card carried survives — one
+bar along the top, bands separated by hairlines, every block on one left edge — and that edge is now
+a single fluid `--gutter` which lands on the drawing's 24px at the width it was drawn to.
+
+The bar is chrome and behaves like it: sticky, because the game page runs to three and a half
+thousand pixels with the catalogue at the top.
+
+**And a defect the pass itself shipped:** `overflow: hidden` on the bar clipped away every pixel of
+the nav's own dropdown, so at the width where that disclosure *is* the navigation it opened onto
+nothing. Both the bar and the shell now clip sideways and stay open downwards; `clip` is what allows
+that pairing, where `hidden` coerces the other axis to `auto`.
+
+## The filter panel no longer shrinks under a selection
+
+Reported: filtering to Evennia shifted the ACTIVITY group up and made its options disappear.
+
+The cause was in `Facets.Bounded` — a bounded vocabulary dropped every value whose count was zero
+*in the current domain*, so narrowing the codebase deleted two of activity's four rows, shifted
+everything below them, and left the reader unable to see or reach the thresholds they had not
+chosen.
+
+Fixed by splitting the two questions the code was asking at once. **How many** a row returns is
+counted over the filtered domain; **whether the row exists at all** is decided by the catalogue as
+the reader is looking at it — before any facet selection, after the text search and the archived and
+adult switches. So a scale keeps its length whatever else is filtered, and a lineage nobody runs
+still does not appear. A rung that returns nothing is dimmed and stays clickable: 0 is an answer,
+and it lands on the listing's own empty state.
+
+## Copy, at the user's direction
+
+- The three per-group notes are gone — *Tick to include, − to exclude* / *Pick one. Each is a wider
+  window than the last.* / *Unticked means not measured — not that the game lacks it.* This reverses
+  §C9 above, which the handoff asked for. The last of the three still exists in the panel's footer
+  disclosure, where a `<details>` keeps it in the accessibility tree and in what a text browser is
+  served.
+- `6 games, every fact measured.` removed from the listing header: the count is restated in the
+  toolbar a few pixels below, and "every fact measured" is the site's claim rather than this page's.
+- `reachable, count unreadable — not zero` → **`Unknown count`**. The old line spent most of its
+  words denying a reading nobody had had yet; the state has a name and the rows below the break say
+  `not counted` in their own cells.
+
+## A light theme that is not white
+
+The page surface was `#ffffff`, and once the shell went full-bleed that stopped being a panel and
+became the whole window. Large fields of pure white glare, the halation is worst for readers with
+astigmatism, and 21:1 body contrast is past the point where more helps. No guideline forbids it —
+WCAG has a floor and no ceiling — which is why every design system that has thought about it lands
+on an off-white by convention instead: Primer's `#f6f8fa`, Carbon's `#f4f4f4`, Material 3's tinted
+surfaces, Solarized Light's cream.
+
+The ramp is now a soft cool grey, with near-white reserved for what sits *above* it. That also
+restores a distinction light had lost: `--surface` and `--raised` were both `#ffffff`, so a card
+lifted off the page in dark was lifted by nothing here.
+
+Every step was measured against the new surface:
+
+| Token | Value | On `--surface` |
+|---|---|---|
+| `--text` | `#1a1f23` | 15.3:1 |
+| `--dim` | `#4d585f` | 6.7:1 |
+| `--faint` | `#646f76` | **4.8:1** — was 3.5:1 |
+| `--accent` | `#04795b` | 5.0:1 |
+| `--amber` | `#7d5400` | 6.2:1 |
+| `--derived` | `#5240b8` | 7.0:1 |
+| `--danger` | `#a8261e` | 6.5:1 |
+
+`--faint` moved because it did not clear 4.5:1 before and it carries 12px ages and provenance —
+exactly the small low-contrast text the handoff asked to have checked.
+
+## The i18n pipeline
+
+The half that was previously listed as out of scope. What is built and tested:
+
+- **Locale routing.** The locale is a path segment (`/de/games?plain=1`), because a locale living
+  only in a cookie or in `Accept-Language` gives one URL two bodies — a shared link opens in the
+  sender's language for them and the recipient's for everybody else, and a cache serves whichever
+  arrived first. The source locale has no prefix and `/en/...` redirects to it permanently.
+  `Accept-Language` decides the first visit and nothing after it. `UseRouting` is now called
+  explicitly, because the auto-inserted one runs before any middleware and resolved the endpoint
+  before the prefix had been rewritten away.
+- **ICU MessageFormat**, hand-written for the subset the site uses: argument substitution, `plural`
+  with `#` and `=n` exact matches, and `select`. Unimplemented syntax throws rather than rendering
+  something plausible. There is no escape for a literal brace, and that is deliberate: the obvious
+  spelling is ambiguous with `...}}` at the end of every argument, which is a bug this formatter had
+  until the tests found it.
+- **CLDR plural rules** for the nine tags the site commits to. English's two forms, Russian's three
+  (including 11 and 12, which end in 1 and 2 and take neither `one` nor `few`), and Chinese's one.
+- **The locked glossary** — context-keyed ids with the English, the grammatical subject the word
+  agrees with, and the rationale, shipped to translators as the brief rather than withheld. Four ids
+  for "measured" because Russian has four forms of it and English collapses them.
+- **The language switcher** — footer, `<select>` plus submit so it survives JavaScript being off,
+  each language named in itself, no flags, returning to the same page.
+- **`hreflang` alternates** with `x-default` on the unprefixed address.
+- **The Russian CI canary and a pseudolocale.** Chinese ships first and *cannot fail an agreement
+  bug* — no gender, no plural inflection, no case — so a string architecture that is wrong for every
+  inflected language passes review against it. The canary is machine-translated, never shipped, and
+  deliberately missing a `few` branch: the completeness test is what turns that into a build failure.
+
+**What is deliberately not done:** no locale is offered. `LocaleStatus.Shipped` is English alone,
+and the gate is a test — a locale may not be offered while any *locked* id is untranslated. The
+handoff's order of work is explicit that nothing reaches a reader before the glossary is
+human-translated and reviewed, and inventing translations here would be exactly the failure the
+glossary exists to prevent. The strings extracted so far are the concatenations the review names and
+the glossary itself; the rest of the chrome is still literal English in the templates and is the next
+mechanical step.
+
+## Verified again after all of the above
+
+| Check | Result |
+|---|---|
+| Document horizontal scroll — 8 pages × 4 widths × 2 themes | none |
+| Element clipping, same matrix | none |
+| `nav.scrollWidth <= nav.clientWidth`, 1440 → 360 | holds; bar stays 60px |
+| Nav geometry across four pages | byte-identical |
+| Locale routing | `/games` 200 · `/en/games` 301 → `/games` · `/qps-ploc/games` 200 · `/zz/games` 404 |
+| Tests | 680 Web · 499 Catalog · 346 Crawl · 250 Crawler · 267 Discovery · 13 I3 |

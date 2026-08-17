@@ -711,7 +711,11 @@ public static class FacetedSearch
             // This facet's own selection lifted, so a count is what choosing the value returns.
             var domain = baseRows.Where(r => Chosen(r, filter, facet.Key) && Present(r, filter)).ToList();
             var values = facet.Bounded is { } vocabulary
-                ? Bounded(domain, facet, vocabulary, filter)
+
+                // Counted over the domain, but which rows exist at all is decided by baseRows —
+                // the catalogue as this reader is looking at it, before any facet selection. See
+                // Bounded: that is what keeps a scale the same length whatever else is filtered.
+                ? Bounded(domain, baseRows, facet, vocabulary, filter)
                 : Open(domain, facet, filter);
 
             if (values.Count > 0)
@@ -846,15 +850,48 @@ public static class FacetedSearch
             filter.MeasuredProtocols.Contains(protocol, StringComparer.OrdinalIgnoreCase);
     }
 
-    /// <summary>A fixed vocabulary, kept in its declared order because that order is a scale.</summary>
+    /// <summary>
+    /// A fixed vocabulary, kept in its declared order because that order is a scale — and kept
+    /// whole, because a scale with a rung missing is not the same scale.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Every value stays, including the ones that would return nothing.</b> An open-ended facet
+    /// drops its empty values and should: nobody wants three hundred codebases nothing matches. A
+    /// bounded one is four named thresholds a reader picks between, and dropping the empty ones
+    /// meant that filtering the codebase — a facet in a different group entirely — silently deleted
+    /// two of activity's four rows, shifted everything below them up the panel, and left the reader
+    /// unable to see or reach the thresholds they had not chosen.
+    /// </para>
+    /// <para>
+    /// A zero is also the answer to a question worth asking. "How many Evennia games were active
+    /// this week" is a fact about the catalogue, and <em>none</em> is as real a measurement as four.
+    /// The row says 0 and stays clickable; what it leads to is the listing's own empty state, which
+    /// says what happened and how to get back. The rule this looked like it was serving — a choice
+    /// may not promise results it will not deliver — is intact, because a row reading 0 promises
+    /// nothing.
+    /// </para>
+    /// <para>
+    /// <b>Which rungs exist is decided by <paramref name="catalogue"/> and not by
+    /// <paramref name="domain"/>.</b> That is the whole of the fix: the count on a row answers the
+    /// reader's current question, and whether the row is there at all answers a different one — does
+    /// this catalogue exercise this value at all. Reading both off the filtered set made the panel
+    /// shrink under a selection; reading both off the unfiltered one would print six lineages nobody
+    /// runs. <paramref name="catalogue"/> is the listing before any facet was chosen but after the
+    /// text search and the archived and adult switches, because those three are what a reader means
+    /// by "the catalogue I am looking at".
+    /// </para>
+    /// </remarks>
     private static List<FacetValue> Bounded(
         IReadOnlyList<GameFacetRow> domain,
+        IReadOnlyList<GameFacetRow> catalogue,
         ChoiceFacet facet,
         IReadOnlyList<string> vocabulary,
         GameFilter filter)
     {
         var selection = facet.SelectionOf(filter);
         var counts = Counts(domain, facet);
+        var ever = Counts(catalogue, facet);
 
         return
         [
@@ -865,7 +902,7 @@ public static class FacetedSearch
                     selection?.Covers(token) ?? false,
                     IsUnknown: false,
                     IsExcluded: (selection?.Covers(token) ?? false) && selection!.Exclude))
-                .Where(v => v.Count > 0 || v.IsSelected),
+                .Where(v => (ever.GetValueOrDefault(v.Token)?.Count ?? 0) > 0 || v.IsSelected),
         ];
     }
 

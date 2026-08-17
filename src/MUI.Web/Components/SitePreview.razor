@@ -1,5 +1,6 @@
 @using MUI.Catalog
 @using MUI.Web.Data
+@using MUI.Web.Localization
 @inject CatalogueSource Catalogue
 
 @*
@@ -16,6 +17,26 @@
 <HeadContent>
     <meta name="description" content="@Text" />
     <link rel="canonical" href="@Canonical" />
+
+    @*
+        The same document in every language it exists in.
+
+        A locale that lives only in a cookie or in Accept-Language gives one URL two bodies, and a
+        search engine indexes whichever it happened to be served. These say the addresses out loud,
+        and x-default points at the unprefixed one — which is what tells a crawler that the English
+        URL is the one to show a reader whose language nothing here matches, rather than leaving it
+        to pick among them.
+
+        Emitted only where there is more than one to name. Ceremony for a site that ships one
+        language would be markup asserting a choice nobody has.
+    *@
+    @if (Http is { } request && Locales.Offered.Count > 1)
+    {
+        @foreach (var (hreflang, path) in LocaleRouting.Alternates(request.PathWithinLocale()))
+        {
+            <link rel="alternate" hreflang="@hreflang" href="@request.Absolute(path)" />
+        }
+    }
 
     <meta property="og:site_name" content="@PreviewCopy.SiteName" />
     <meta property="og:type" content="@(Card is PreviewCard.Reference ? "article" : "website")" />

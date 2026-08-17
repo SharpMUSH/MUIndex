@@ -156,7 +156,7 @@ else
                     @* Never a zero and never a blank: those are different facts and only one of
                        them is a measurement. *@
                     <p class="figure-count mono unknown">not counted</p>
-                    <p class="kicker figure-age">reachable, count unreadable</p>
+                    <p class="kicker figure-age">unknown count</p>
                 }
             </div>
         </header>
@@ -375,13 +375,14 @@ else
 
         </div>
 
-        <p class="card-footer">
+        <div class="card-footer">
             <a href="#declared">declared by the game</a>
             <span class="sep" aria-hidden="true">·</span>
             <a href="#changed">what changed</a>
             <span class="sep" aria-hidden="true">·</span>
             <a href="?plain=1">plain text</a>
-        </p>
+                    <LanguageSwitcher />
+        </div>
     </article>
 }
 

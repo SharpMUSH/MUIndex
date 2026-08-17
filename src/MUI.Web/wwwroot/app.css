@@ -102,46 +102,67 @@
   data-theme wins over the system in both directions, so a toggle can be added without moving any of
   this.
 */
+/*
+  ── the light theme, and why none of it is white ───────────────────────────
+  The page surface was #ffffff, and once the card went full-bleed that stopped being a panel and
+  became the whole window. A large field of pure white glares: the halation it produces around dark
+  text is worst for readers with astigmatism and is one of the things dyslexic readers most often
+  ask to be turned down, and 21:1 body contrast is past the point where more helps and into the
+  point where it tires. Nobody's guideline forbids it — WCAG has a floor and no ceiling — which is
+  why every design system that has thought about it lands in the same place by convention instead:
+  GitHub Primer's canvas.subtle #f6f8fa, IBM Carbon's #f4f4f4 background under white layers,
+  Material 3's tinted surfaces, Solarized Light's cream. All of them are off-white.
+
+  So the ramp is a soft cool grey and the near-white is reserved for the things that are supposed to
+  sit *above* it — tiles, the hover plane. That also restores a distinction the light theme had lost
+  entirely: --surface and --raised were both #ffffff, so a card lifted off the page by a step in the
+  dark theme was lifted by nothing at all here, and its border was doing all the work.
+
+  Text is a near-black with the ramp's own hue rather than #000, at ~15:1 — comfortably past the
+  4.5:1 floor and short of the glare. Every step below was measured against the new surface, and
+  --faint moved because it did not clear 4.5:1 against the old one: it carries ages and provenance
+  at 12px, which is exactly the small low-contrast text the handoff asked to have checked.
+*/
 @media (prefers-color-scheme: light) {
     :root {
-        --bg: #f7f8f9;
-        --surface: #ffffff;
-        --raised: #ffffff;
-        --recessed: #eef0f2;
-        --line: #dfe3e6;
-        --line-soft: #eaedef;
+        --bg: #eef1f2;         /* behind the page; barely visible now the shell is full-bleed */
+        --surface: #f4f6f7;    /* the page itself */
+        --raised: #fbfcfc;     /* tiles, hover planes — above the page, never below it */
+        --recessed: #e9edee;   /* the bar, the filter column */
+        --line: #d3d9dc;
+        --line-soft: #e2e7e9;
 
-        --text: #14181b;
-        --dim: #4d565d;
-        --faint: #79838a;
+        --text: #1a1f23;       /* 15.3:1 — past the floor, short of the glare */
+        --dim: #4d585f;        /* 6.7:1 */
+        --faint: #646f76;      /* 4.8:1 — was 3.5:1 and carried 12px ages */
 
-        --accent: #04795b;     /* same hue, dropped in value to clear 4.5:1 on white */
-        --amber: #8a5d00;
-        --derived: #5b46c4;
-        --danger: #b3261e;
+        --accent: #04795b;     /* same hue, dropped in value: 5.0:1 */
+        --amber: #7d5400;      /* 6.2:1 */
+        --derived: #5240b8;    /* 7.0:1 */
+        --danger: #a8261e;     /* 6.5:1 */
 
-        --shadow: 0 1px 2px rgb(16 24 32 / 5%), 0 4px 16px rgb(16 24 32 / 6%);
+        --shadow: 0 1px 2px rgb(16 24 32 / 4%), 0 4px 16px rgb(16 24 32 / 5%);
     }
 }
 
 :root[data-theme="light"] {
-    --bg: #f7f8f9;
-    --surface: #ffffff;
-    --raised: #ffffff;
-    --recessed: #eef0f2;
-    --line: #dfe3e6;
-    --line-soft: #eaedef;
+    --bg: #eef1f2;
+    --surface: #f4f6f7;
+    --raised: #fbfcfc;
+    --recessed: #e9edee;
+    --line: #d3d9dc;
+    --line-soft: #e2e7e9;
 
-    --text: #14181b;
-    --dim: #4d565d;
-    --faint: #79838a;
+    --text: #1a1f23;
+    --dim: #4d585f;
+    --faint: #646f76;
 
     --accent: #04795b;
-    --amber: #8a5d00;
-    --derived: #5b46c4;
-    --danger: #b3261e;
+    --amber: #7d5400;
+    --derived: #5240b8;
+    --danger: #a8261e;
 
-    --shadow: 0 1px 2px rgb(16 24 32 / 5%), 0 4px 16px rgb(16 24 32 / 6%);
+    --shadow: 0 1px 2px rgb(16 24 32 / 4%), 0 4px 16px rgb(16 24 32 / 5%);
 }
 
 :root[data-theme="dark"] {
@@ -888,9 +909,21 @@ p.crawler .state-present { text-shadow: var(--glow); }
 /* On a card page the footer is a band of the card rather than a block in a padded column, so it
    pads itself to the same edge every other band uses. */
 .card-page > .card-footer { padding: 14px var(--gutter) 22px; }
+.card-footer { align-items: baseline; }
 .card-footer a { text-decoration: none; }
 .card-footer a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .card-footer .sep { color: var(--faint); }
+
+/*
+  The language switcher, at the far end of the footer beside the plain-text link — the two controls
+  that change how the page is read rather than which page it is. Pushed there rather than placed, so
+  the destinations keep the left edge they had.
+*/
+form.locale {
+    display: flex; align-items: baseline; gap: 8px; margin: 0 0 0 auto;
+}
+form.locale select { font-size: 12.5px; padding: 4px 6px; }
+form.locale button { font-size: 12.5px; padding: 4px 10px; }
 
 
 
@@ -1974,6 +2007,16 @@ select {
 .facet-row a { text-decoration: none; color: inherit; border-radius: var(--radius); }
 
 .facet-row:hover { background: var(--raised); }
+
+/*
+  A rung of a scale that this filter leaves empty. It stays — a bounded facet is four named
+  thresholds a reader picks between, and deleting the empty ones meant narrowing the codebase
+  silently removed two of activity's four rows and shifted the panel under the reader's pointer. It
+  is dimmed rather than disabled, because 0 is an answer: "no Evennia game was active this week" is
+  a fact about the catalogue, and clicking it lands on the listing's own empty state.
+*/
+.facet-row.empty { opacity: 0.55; }
+.facet-row.empty:hover { opacity: 1; }
 
 /* Included: the accent as a tint and a ring, and the count goes accent with the label — the number
    is the part of the row that says what the filter will return, so it is the part that has to look

@@ -171,7 +171,7 @@ public static class FacetWords
     /// </remarks>
     public static string Unranked(GameSort sort) => sort switch
     {
-        GameSort.Players => "reachable, count unreadable — not zero",
+        GameSort.Players => "Unknown count",
         GameSort.Reached => "never once reached — not reached long ago",
 
         // Two reasons in one group, and the sentence names both: nothing countable in the window, or
@@ -267,29 +267,13 @@ public static class FacetWords
         key is FacetKeys.Band or FacetKeys.LastSeen;
 
     /// <summary>
-    /// The one sentence a group needs at the moment somebody uses it.
-    /// </summary>
-    /// <remarks>
-    /// Under each group's own heading rather than once at the foot of the panel, because the three
-    /// shapes say three different things and a reader ticking a codebase is not the reader picking
-    /// an activity threshold. It replaces a single line under the third group that applied to two of
-    /// them and contradicted the first.
-    /// </remarks>
-    public static string Note(string key) => key switch
-    {
-        FacetKeys.Band => "Pick one. Each is a wider window than the last.",
-        FacetKeys.LastSeen => "Pick one. Each is a wider window than the last.",
-        _ => "Tick to include, − to exclude.",
-    };
-
-    /// <summary>
     /// What an activity band is called, from its token — the same word the listing's own row uses.
     /// </summary>
     /// <remarks>
     /// Public so a second surface can read the vocabulary rather than spell it again. Find a game
-    /// carried its own copy of "reachable, count unknown" with a comment saying it was the
-    /// listing's words for the band, and then the listing shortened the band to "uncounted" and the
-    /// two drifted — which is the whole failure the comment was written to prevent.
+    /// carried its own copy of "reachable, count unknown" with a comment saying it was the listing's
+    /// words for the band, and then the listing shortened the band to "uncounted" and the two
+    /// drifted — which is the whole failure the comment was written to prevent.
     /// </remarks>
     public static string BandWord(string token) => Band(token);
 

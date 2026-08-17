@@ -308,16 +308,16 @@ public class FacetSurfaceTests
     [Test]
     public async Task ThePanelSaysInWordsThatAnUnknownIsNotANo()
     {
-        // Said in the markup, not only in a comment. A reader ticking boxes is exactly the person who
-        // would otherwise read an unticked box as the game declining a protocol.
+        // Said in the markup, not only in a comment. A reader who reads an unticked box as the game
+        // declining a protocol has been told something the site never measured.
         //
-        // The prose these used to sit in is gone — the panel explained itself at more length than it
-        // took to operate — so each of them now has a place of its own: the tick-box reading is a
-        // line inside the fieldset it is about, and the rest is one disclosure. What may not change
-        // is that they are all still in the document, which is what this asserts.
+        // The three lines that used to sit under each group header are gone at the user's direction,
+        // so the reading now has one home rather than several: the disclosure at the foot of the
+        // panel. What may not change is that it is still in the document — a <details> keeps its
+        // contents in the accessibility tree and in what a text browser is served, which is what
+        // makes it a fair place to put the long form of a rule and not a place to hide one.
         var words = Render.Words(await PanelAsync(new GameFilter()));
 
-        await Assert.That(words).Contains("Unticked means not measured — not that the game lacks it");
         await Assert.That(words).Contains("A blank is a gap in our measurement, not a no");
         await Assert.That(words).Contains("not identified");
         await Assert.That(words).Contains("Counts are games we measured, never estimates");
@@ -574,13 +574,13 @@ public class FacetSurfaceTests
 
         // And the whole facet is still one tab stop, as the select was: one radio group, arrow keys
         // within it.
-        // Read off the collapsed text: the note contains U+2212 MINUS SIGN, which the renderer
-        // encodes as a character reference in the raw markup.
-        await Assert.That(Render.Words(html)).Contains(FacetWords.Note(FacetKeys.Codebase));
-
-        // And the note is per group now rather than one line under all of them — activity is a
-        // radio group and "tick to include" was never true of it.
-        await Assert.That(Render.Words(html)).Contains(FacetWords.Note(FacetKeys.Band));
+        // And no prose under the group headers. The three notes that lived there — "tick to
+        // include", "pick one", "unticked means not measured" — are gone at the user's direction:
+        // the control's shape says what it does, and a panel explaining itself once per group is a
+        // panel nobody reads once.
+        await Assert.That(Render.Words(html)).DoesNotContain("Tick to include");
+        await Assert.That(Render.Words(html)).DoesNotContain("Pick one.");
+        await Assert.That(Render.Words(html)).DoesNotContain("Unticked means not measured");
     }
 
     [Test]

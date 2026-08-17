@@ -6,6 +6,7 @@ using MUI.Web.Components;
 using MUI.Web.Data;
 using MUI.Web.Fixtures;
 using MUI.Web.Icons;
+using MUI.Web.Localization;
 using MUI.Web.Submissions;
 using MUI.Web.Theme;
 
@@ -129,6 +130,18 @@ public static class SiteComposition
         // limit.
         app.UseSubmitterAddress();
 
+        // Before anything routes, because the locale is a path segment and every @page directive is
+        // written without it: the middleware moves the prefix into PathBase so one route table
+        // serves every language. It is also before the not-found page, so a mistyped URL inside a
+        // locale is answered in that locale rather than in English.
+        app.UseMuiLocale();
+
+        // Explicit, and that is load-bearing rather than tidy: with no UseRouting call of its own an
+        // app gets one inserted at the very top of the pipeline, which resolved the endpoint before
+        // the middleware above had rewritten the path — so every localized URL 404'd while the
+        // unprefixed one worked. Naming it here is what puts routing after the rewrite.
+        app.UseRouting();
+
         // A reader who mistyped a URL, and a crawler indexing one, both got a 404 with an empty body:
         // the <NotFound> fragment inside <Router> is never rendered under static server rendering, so
         // the site's own "no game here" paragraph was dead copy. This answers those with the page —
@@ -167,6 +180,10 @@ public static class SiteComposition
         // Outside the guard above, because it writes a cookie and nothing else: a reader of the demo
         // deployment has the same eyes as a reader of the real one.
         app.MapMuiTheme();
+
+        // Beside the theme endpoint and for the same reason: it writes a cookie and redirects, and
+        // a reader of the demo deployment reads the same language as a reader of the real one.
+        app.MapMuiLocale();
 
         // §5.7, and before the route that would answer with "not found": a slug this game used to
         // have is a URL somebody is still holding, and it redirects to the page it has now —
