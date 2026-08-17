@@ -22,6 +22,14 @@
     --cpad: 24px;               /* the density control writes this, and only this */
     --row-pad: 13px;            /* a listing row: 13px 20px, over a 44px floor */
 
+    /*
+      The one horizontal inset the whole site shares — the bar, every content band, every listing
+      row. Fluid rather than fixed because the page is full-bleed now: at the width the handoff was
+      drawn to it lands on the 24px the drawing uses, and it grows a little rather than leaving a
+      wide monitor's chrome pinned to the very edge of the glass.
+    */
+    --gutter: clamp(14px, 1.6vw, 28px);
+
     --radius: 9px;              /* controls, chips, rows, nav items */
     --radius-lg: 14px;          /* cards and panels — the things controls sit in */
     --radius-pill: 99px;        /* pills and badges */
@@ -165,11 +173,7 @@
 
 body {
     margin: 0;
-    /* One soft radial off the top-right, as the handoff's effects.css carries it: the page is a
-       ground for the card rather than a second surface competing with it, and a dead flat black
-       makes the card's own border the only thing holding the layout together. */
-    background: var(--bg) radial-gradient(120% 100% at 80% -10%,
-        color-mix(in srgb, var(--surface) 70%, var(--bg)) 0%, var(--bg) 55%) fixed;
+    background: var(--bg);
     color: var(--text);
     font: 14px/1.65 var(--sans);
     text-wrap: pretty;
@@ -180,14 +184,32 @@ body {
   under it — rather than loose on the page. It is the difference between a document and an
   instrument, and this site is the second: a directory whose bar, filters and rows are one panel.
 */
+/*
+  ── the shell ──────────────────────────────────────────────────────────────
+  Full-bleed. The handoff draws the site as one card floating on a ground, and that is a drawing
+  convention rather than a product decision — a directory is an instrument you fill the window with,
+  not a document you frame. So the card's border, radius, shadow and side margins are gone and the
+  page IS the surface; what the card was actually carrying — one bar along the top, bands separated
+  by hairlines, every block sharing one left edge — is unchanged and is the part that mattered.
+
+  The radial that used to sit on the body moves here, because the body is no longer visible behind
+  anything. It is the one thing keeping a full-height dark page from reading as flat black.
+*/
 .shell {
-    max-width: 1320px;
-    margin: var(--cpad) auto calc(var(--cpad) * 3);
-    background: var(--surface);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow);
-    overflow: hidden;
+    min-height: 100vh;
+    margin: 0;
+    background: var(--surface) radial-gradient(80% 90% at 78% -20%,
+        color-mix(in srgb, var(--raised) 45%, var(--surface)) 0%, var(--surface) 100%) fixed;
+
+    /*
+      Clipped sideways and open downwards. `hidden` on both axes is what a card wants and it
+      swallowed the nav's own menu: at the width where both groups collapse into a disclosure, the
+      panel is positioned under the bar and every pixel of it was being clipped away, so the one
+      control that carries the whole catalogue on a narrow window opened onto nothing. `clip` pairs
+      with `visible` — `hidden` would coerce it to `auto` and hand the page a scrollbar.
+    */
+    overflow-x: clip;
+    overflow-y: visible;
 }
 
 /*
@@ -195,7 +217,7 @@ body {
   the card's edges — the listing's two columns, the game page's hairline-separated bands — cancels
   it and pads each block itself, because a full-bleed rule cannot be drawn inside a padded box.
 */
-main { padding: 30px var(--cpad) 26px; }
+main { padding: 30px var(--gutter) 40px; }
 main:has(> .card-page) { padding: 0; }
 
 /*
@@ -257,15 +279,38 @@ a { color: inherit; }
 header.site {
     height: 60px;
     flex: none;
-    border-bottom: 1px solid var(--line-soft);
+    border-bottom: 1px solid var(--line);
     background: var(--recessed);
-    padding: 0 20px;
+    padding: 0 var(--gutter);
     display: flex;
     align-items: stretch;
     justify-content: space-between;
     gap: 20px;
-    overflow: hidden;
+
+    /*
+      A bar spanning the window is chrome, so it stays where chrome belongs. The game page runs to
+      three and a half thousand pixels and the catalogue is at the top of it; scrolling back up to
+      reach the nav is a cost the card layout hid by being short.
+    */
+    position: sticky;
+    top: 0;
+    z-index: 30;
+
+    /*
+      Sideways only. `overflow: hidden` is what a fixed-height bar wants — nothing may spill out of
+      it — but it clipped the nav's own dropdown to nothing at the width where that dropdown IS the
+      navigation. `clip` on one axis leaves `visible` legal on the other; `hidden` would coerce it.
+    */
+    overflow-x: clip;
+    overflow-y: visible;
 }
+
+/*
+  The bar is one line of chrome and the demo banner above it is a statement about the whole site, so
+  the banner scrolls away and the bar does not. Where there is no banner the bar is simply at the
+  top of the document.
+*/
+.demo-banner { position: relative; z-index: 31; }
 
 header.site .mark { flex: 0 0 auto; }
 header.site .site-nav { flex: 1 1 auto; min-width: 0; }
@@ -532,8 +577,23 @@ header.site .nav-menu .menu-panel {
     border-radius: var(--radius); box-shadow: var(--shadow);
 }
 header.site .nav-menu .menu-panel > .nav-group { flex-direction: column; align-items: stretch; gap: 2px; }
-header.site .nav-menu .menu-panel a { padding: 6px 8px; border-radius: 6px; }
+header.site .nav-menu .menu-panel a { padding: 6px 10px; border-radius: 6px; }
 header.site .nav-menu .menu-panel a:hover { background: var(--surface); text-decoration: none; }
+
+/*
+  The current page, marked for a list rather than for a bar — and only while the panel IS a list.
+  The inset shadow that lands on the bar's bottom edge becomes a full-width rule under one row of a
+  dropdown, which reads as a text field rather than as "you are here", so in the panel the marker
+  moves to the leading edge. Scoped to the collapsed width: unscoped it drew a vertical accent bar
+  and a tinted box down the side of the current item in the open bar.
+*/
+@media (max-width: 860px) {
+    header.site .nav-menu .menu-panel a.on {
+        box-shadow: inset 2px 0 0 0 var(--accent);
+        background: color-mix(in srgb, var(--accent) 10%, transparent);
+        color: var(--accent);
+    }
+}
 header.site .nav-menu .menu-panel .nav-label { padding: 6px 8px 2px; }
 header.site .nav-menu .menu-panel .nav-rule { display: none; }
 header.site .menu-tail { display: flex; flex-direction: column; gap: 2px; }
@@ -827,7 +887,7 @@ p.crawler .state-present { text-shadow: var(--glow); }
 
 /* On a card page the footer is a band of the card rather than a block in a padded column, so it
    pads itself to the same edge every other band uses. */
-.card-page > .card-footer { padding: 14px 20px 18px; }
+.card-page > .card-footer { padding: 14px var(--gutter) 22px; }
 .card-footer a { text-decoration: none; }
 .card-footer a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .card-footer .sep { color: var(--faint); }
@@ -841,7 +901,7 @@ p.crawler .state-present { text-shadow: var(--glow); }
 .game-head {
     display: flex; gap: 20px; flex-wrap: wrap;
     align-items: flex-start; justify-content: space-between;
-    padding: 24px;
+    padding: 24px var(--gutter);
     border-bottom: 1px solid var(--line-soft);
 }
 
@@ -881,7 +941,7 @@ p.crawler .state-present { text-shadow: var(--glow); }
 .game-figure .figure-age { margin: 0; }
 
 /* One column, and the sections spaced by it rather than by margins that disagree. */
-.game-body { display: flex; flex-direction: column; gap: 28px; padding: 24px; }
+.game-body { display: flex; flex-direction: column; gap: 28px; padding: 28px var(--gutter) 8px; }
 .game-body > section { display: flex; flex-direction: column; gap: 10px; }
 .game-body > section > h2 { margin: 0; font-size: 17px; }
 /* An icon sits in the monogram's place and at its size. `contain` rather than `cover`: a logo that
@@ -1192,7 +1252,7 @@ ul.games, ul.archive { list-style: none; margin: 0; padding: 0; }
 */
 ul.games > li, ul.archive > li {
     border-bottom: 1px solid var(--line-soft);
-    padding: var(--row-pad) 20px;
+    padding: var(--row-pad) var(--gutter);
     margin: 0;
 }
 
@@ -1201,7 +1261,7 @@ ul.games > li.game-row:hover { background: var(--raised); }
 /* The row is a touch target before it is a layout: the game's name is the link, and on a phone a
    list of five hundred of them is a list of five hundred things to hit. The handoff's geometry —
    13px by 20px over a 46px floor — is what puts a comfortable target under every name. */
-ul.games > li.game-row { min-height: 46px; padding: var(--row-pad) 20px; }
+ul.games > li.game-row { min-height: 46px; padding: var(--row-pad) var(--gutter); }
 
 /* Three columns: the game's face, what it is, and what we measured. The plate is what gives a
    five-hundred-row list a left edge the eye can run down — before it, every row began with a
@@ -1391,7 +1451,7 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
    width of the card rather than stopping at a content measure. */
 .listing-head {
     margin: 0;
-    padding: 22px 20px 18px;
+    padding: 22px var(--gutter) 18px;
     border-bottom: 1px solid var(--line-soft);
     display: flex; flex-direction: column; gap: 7px;
 }
@@ -1409,7 +1469,7 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
     gap: 12px 20px;
     flex-wrap: wrap;
     margin: 0;
-    padding: 11px 20px;
+    padding: 11px var(--gutter);
     border-bottom: 1px solid var(--line-soft);
     font-size: 13px;
     color: var(--dim);
@@ -1440,7 +1500,7 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
 
 /* The window under the statistic it belongs to, quieter than the switch that produced it. */
 .switch.windows {
-    padding: 8px 20px;
+    padding: 8px var(--gutter);
     border-bottom: 1px solid var(--line-soft);
     font-size: 12px;
     justify-content: flex-end;
@@ -1753,14 +1813,17 @@ fieldset.facets input[type="search"] { flex: 1 1 16rem; min-width: 0; }
     grid-row: 1 / span 99;
     background: var(--recessed);
     border-right: 1px solid var(--line-soft);
-    padding: 20px 14px;
+
+    /* Less 8px than the gutter, because every row inside pads itself by that — which is what puts
+       a facet label on exactly the same left edge as the wordmark above it. */
+    padding: 20px max(6px, calc(var(--gutter) - 8px));
     display: flex;
     flex-direction: column;
     gap: 24px;
 }
 .listing-grid > * { grid-column: 2; min-width: 0; }
 .listing-side { min-width: 0; }
-.listing-grid > .active-filters { padding: 12px 20px 0; margin: 0; }
+.listing-grid > .active-filters { padding: 12px var(--gutter) 0; margin: 0; }
 
 /*
   ── the filter column, narrow ──────────────────────────────────────────────
@@ -1776,7 +1839,7 @@ fieldset.facets input[type="search"] { flex: 1 1 16rem; min-width: 0; }
         border-right: 0;
         border-bottom: 1px solid var(--line-soft);
     }
-    .listing-grid > .active-filters { padding: 12px 14px 0; }
+    .listing-grid > .active-filters { padding: 12px var(--gutter) 0; }
 
     /* Two columns of groups where there is room for them, so the opened panel is a band rather
        than a column a reader has to scroll the length of. */
@@ -2100,7 +2163,6 @@ fieldset.facet.presence .check .count { color: var(--faint); font-variant-numeri
   that can spare it, and the two right-hand columns hold their edge.
 */
 @media (max-width: 620px) {
-    ul.games > li, ul.archive > li, ul.games > li.game-row { padding: var(--row-pad) 14px; }
     .row-main { gap: 3px 12px; }
     .row-count { font-size: 14px; }
     .row-count.unknown { font-size: 12.5px; }
