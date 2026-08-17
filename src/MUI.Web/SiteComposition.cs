@@ -173,6 +173,12 @@ public static class SiteComposition
         // permanently, and for an archived game exactly as for a live one.
         app.UseFormerSlugRedirects();
 
+        // A facet panel with no script submits every control it has, empty ones included, so the URL
+        // a reader copies out of the address bar says "no filters" in 117 characters. This sends
+        // them on to the one that says it in none. Before the pages, so a request that is going to
+        // be redirected never costs a catalogue read.
+        app.UseCanonicalListingUrls();
+
         // §11's contact address, and it is mapped before the pages because the crawler has already
         // published it: whatever else moves on this site, the URL a dialled admin was handed has to
         // keep landing on the part of /about that tells them how to make us stop.
