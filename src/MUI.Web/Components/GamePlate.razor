@@ -1,0 +1,48 @@
+@using MUI.Web.Icons
+
+@*
+    A game's face: the icon it published, where we hold one, and its monogram otherwise.
+
+    Served from this origin rather than the game's. Hot-linking would hand every reader's address,
+    user-agent and referring URL to a third-party server for a decoration — on a listing, to five
+    hundred of them at once — which is what §11 exists to prevent.
+
+    A game with no icon gets no element saying so. There is no placeholder, no broken image and no
+    "logo unavailable": that we could not reach somebody's web server is a fact about our afternoon
+    and not about their game (rule 5), and the monogram is what a game with nothing declared gets
+    anyway. The two states are drawn identically on purpose.
+
+    aria-hidden on the monogram and alt="" on the image, both because the game's name is the link
+    immediately beside this — a screen reader announcing the picture as well would read it twice.
+*@
+
+@if (HasIcon)
+{
+    <img class="plate icon" alt="" src="@IconEndpoint.For(Slug)"
+         width="@Size" height="@Size" loading="lazy" decoding="async" />
+}
+else
+{
+    <div class="plate mono" aria-hidden="true">@Monogram.Of(Name)</div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Slug { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired] public string Name { get; set; } = string.Empty;
+
+    /// <summary>Whether we hold bytes for this game — never whether it declared an icon.</summary>
+    [Parameter] public bool HasIcon { get; set; }
+
+    /// <summary>
+    /// The box the plate occupies, which the stylesheet fixes and this repeats on the element.
+    /// </summary>
+    /// <remarks>
+    /// The attributes are what reserve the space before the bytes arrive, and on a listing of five
+    /// hundred lazily-loaded images that is the difference between a page that settles and one that
+    /// reflows under the reader as they scroll. It is the box and not the image's own dimensions —
+    /// <c>object-fit: contain</c> letterboxes the artwork inside it rather than cropping it, so a
+    /// logo that is not square is still the shape its author drew.
+    /// </remarks>
+    [Parameter] public int Size { get; set; } = 36;
+}

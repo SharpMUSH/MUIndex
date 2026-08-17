@@ -187,12 +187,17 @@ public static class GameFilterBinding
 
     /// <summary>
     /// The listing's order. Refused rather than ignored, like every other unreadable facet: a
-    /// consumer who asked for <c>?sort=busiest</c> and silently got the alphabet would read the first
-    /// name on the page as the busiest game on the site.
+    /// consumer who asked for <c>?sort=busiest</c> and silently got some other order would read the
+    /// first name on the page as the busiest game on the site.
     /// </summary>
+    /// <remarks>
+    /// The default is <see cref="GameFilter"/>'s own, read off a default instance rather than named
+    /// again here. Two literals is how <c>/games</c> and <c>/api/games</c> come to answer one URL two
+    /// ways, which is the failure this whole class exists to make impossible.
+    /// </remarks>
     private static bool TrySort(Func<string, StringValues> read, out GameSort sort, out string? error)
     {
-        sort = GameSort.Name;
+        sort = new GameFilter().Sort;
         error = null;
         var text = read(FacetKeys.Sort).ToString();
 

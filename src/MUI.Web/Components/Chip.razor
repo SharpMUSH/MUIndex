@@ -16,7 +16,10 @@
            rather than looking — where the value is shown, the title carries it as it always has. *@
         <span class="sr-only">@Word</span>
     }
-    <span class="glyph" aria-hidden="true">@Glyph</span>
+    @if (GlyphShown)
+    {
+        <span class="glyph" aria-hidden="true">@Glyph</span>
+    }
     <span class="age">@Age</span>
 </span>
 
@@ -33,6 +36,19 @@
     /// other. Everything else about the chip is identical, which is the point of the parameter.
     /// </remarks>
     [Parameter] public bool ValueShown { get; set; } = true;
+
+    /// <summary>
+    /// Whether the chip draws the state glyph, or leaves it to the sentence it sits in.
+    /// </summary>
+    /// <remarks>
+    /// Off in exactly one place: a listing row's player count, which draws the glyph itself at the
+    /// head of the figure because that is where a reader scanning a column of numbers looks. The row
+    /// shipped with both, so one fact wore two identical diamonds four characters apart — and a
+    /// reader who counts glyphs to count facts was being told there were two. The colour, the title
+    /// and the word a screen reader hears are unchanged, so what is dropped is the duplicate and not
+    /// the provenance.
+    /// </remarks>
+    [Parameter] public bool GlyphShown { get; set; } = true;
 
     private string Word => Fact.IsMeasured ? "measured" : "declared";
 

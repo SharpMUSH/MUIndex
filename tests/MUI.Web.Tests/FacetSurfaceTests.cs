@@ -39,7 +39,9 @@ public class FacetSurfaceTests
         FacetKeys.Band => "quiet",
         FacetKeys.LastSeen => "week",
         FacetKeys.Protocol => "GMCP",
-        FacetKeys.Sort => "players",
+        // Not the default. The point of the check below is that the parameter changed something,
+        // and asking for the order the filter already arrives in changes nothing by construction.
+        FacetKeys.Sort => "name",
         _ => "something",
     };
 

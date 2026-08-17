@@ -159,8 +159,48 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// one row per game.
     /// </remarks>
     public Task<GameListing> SearchAsync(
-        GameFilter filter, CancellationToken cancellationToken = default) =>
-        Task.FromResult(FacetedSearch.Search([.. All.Select(FacetRow)], filter));
+        GameFilter filter, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        var games = SortWindows.Of(filter.Sort) is { } span
+            ? All.Select(g => g with { PlayersOverWindow = OverWindow(g, span) })
+            : All.AsEnumerable();
+
+        return Task.FromResult(FacetedSearch.Search([.. games.Select(FacetRow)], filter));
+    }
+
+    /// <summary>
+    /// What a fixture game's counts add up to over a window, read off the same invented week the
+    /// heatmap draws.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Derived rather than tabulated, so the demo cannot show a listing sorted by an average that
+    /// contradicts the grid on the game page beside it — the two would then be two answers to one
+    /// question, which is the failure the fixture's own remarks say it exists to avoid.
+    /// </para>
+    /// <para>
+    /// <b>Null where the grid has no counted hour</b>: a game we cannot count and an archived game
+    /// that answered in none of these hours both fall below the break, which is the state this
+    /// fixture exists to make renderable. The sample tally is the week's counted hours scaled to the
+    /// window, so the thirty- and ninety-day sorts clear the average's floor and the seven-day one
+    /// shows what a game near it looks like.
+    /// </para>
+    /// </remarks>
+    private static PresenceWindow? OverWindow(GameSummary game, TimeSpan window)
+    {
+        var counted = Activity(game).Where(c => c.IsCounted).Select(c => c.Count!.Value).ToList();
+
+        if (counted.Count == 0)
+        {
+            return null;
+        }
+
+        var samples = (int)Math.Round(counted.Count * (window.TotalDays / 7));
+
+        return new PresenceWindow(window, counted.Average(), counted.Max(), samples);
+    }
 
     /// <summary>A listing with no panel — the same search, projected.</summary>
     public async Task<IReadOnlyList<GameSummary>> ListAsync(

@@ -103,6 +103,22 @@ public sealed record ActivityCell(int DayOfWeek, int Hour, int? Count, bool Prob
 /// put the difference. Null where — and only where — the value beside it is null: a chip over
 /// nothing would be a label attesting to a measurement nobody took.
 /// </para>
+/// <para>
+/// <see cref="HasIcon"/> is whether we hold bytes for this game's <c>ICON</c>, and it is a flag
+/// rather than the image because a listing row needs to know which of two elements to draw and
+/// nothing more. It carries no age and no provenance on purpose: the icon is a decoration and the
+/// fact behind it is the <c>ICON</c> field, which wears a chip on the game's own page. False covers
+/// "the field names none", "we could not fetch it" and "there is no database behind this site"
+/// alike, and the row renders the monogram for all three — a fetch of ours that failed is our
+/// afternoon and not a fact about the game (rule 5).
+/// </para>
+/// <para>
+/// <see cref="PlayersOverWindow"/> is filled only when the listing was asked for in an order that
+/// ranks on it, because it costs an aggregate over the presence series and no other surface reads
+/// it. Null therefore means two things that must not be confused on the page: this listing did not
+/// ask, or it asked and the game has nothing countable in the window. <c>GameSorting.IsUnranked</c>
+/// is the one place that distinction is resolved, and it resolves it against the sort.
+/// </para>
 /// </remarks>
 public sealed record GameSummary(
     Guid Id,
@@ -116,7 +132,42 @@ public sealed record GameSummary(
     IReadOnlyList<string> MeasuredProtocols,
     DateTimeOffset? LastReachableAt = null,
     ProvenanceChip? PlayersNowProvenance = null,
-    ProvenanceChip? CodebaseProvenance = null);
+    ProvenanceChip? CodebaseProvenance = null,
+    bool HasIcon = false,
+    PresenceWindow? PlayersOverWindow = null);
+
+/// <summary>
+/// What a game's counts added up to over one window — the basis a window sort ranks on (spec §9).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Both figures are over counted samples alone.</b> A probe that got in and could not read a
+/// number writes no count (§5.4's middle state), and an hour nobody probed writes nothing at all —
+/// neither is a zero, and neither may be averaged as one. So <see cref="Samples"/> is the
+/// denominator this <see cref="Average"/> was actually taken over and not the number of hours in the
+/// window, which is the same distinction §15.7 draws about every other fraction on this site.
+/// </para>
+/// <para>
+/// <b><see cref="Samples"/> is carried rather than being an internal detail of the query</b>, because
+/// a mean has to be published with the size of what it is a mean of. A game found on Friday and
+/// probed four times has an average, and a reader shown it beside a game measured three hundred
+/// times, with nothing to tell them apart, is being handed our crawl schedule as though it were the
+/// hobby's shape.
+/// </para>
+/// <para>
+/// <see cref="Peak"/> is the largest single count observed in the window and is deliberately not a
+/// simultaneous total: it is one reading, from one probe, and it says the game had that many people
+/// on at once at some moment we were watching.
+/// </para>
+/// <para>
+/// <see cref="Window"/> is the span that was <em>asked for</em>. The far end is snapped back to a
+/// whole UTC day, because the rollup that outlives the raw samples is bucketed by day and a bucket is
+/// all or nothing — so the figures cover at least this span and up to a day more, never less. See
+/// <c>NpgsqlGameQueries.PlayersOverWindowAsync</c> for why over-reading by hours beats discarding a
+/// day of measurements to make a label exact.
+/// </para>
+/// </remarks>
+public sealed record PresenceWindow(TimeSpan Window, double Average, int Peak, int Samples);
 
 /// <summary>A game as its own page shows it.</summary>
 /// <remarks>
@@ -312,10 +363,12 @@ public sealed record GameFilter
     /// <remarks>
     /// A question about presentation, and still part of the filter, because the URL is the whole of
     /// this page's state: a sorted listing has to be linkable exactly as a filtered one is, and the
-    /// read API has to answer the same question the page asked. <see cref="GameSort.Name"/> is the
-    /// default and is the one order that ranks nobody.
+    /// read API has to answer the same question the page asked. The default is
+    /// <see cref="GameSort.Players"/> — see the remarks on that member for why it is not the
+    /// alphabet, and why the default has to be the same one here and in
+    /// <c>GameFilterBinding</c>.
     /// </remarks>
-    public GameSort Sort { get; init; } = GameSort.Name;
+    public GameSort Sort { get; init; } = GameSort.Players;
 }
 
 /// <summary>

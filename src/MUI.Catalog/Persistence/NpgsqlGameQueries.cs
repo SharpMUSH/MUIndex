@@ -134,9 +134,12 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// <remarks>
     /// A day's worth of hourly probes. A median over three samples is not a median, and a game found
     /// on Friday would otherwise take the top of the table off one lucky evening probe — which is
-    /// ranking our crawl schedule rather than the game.
+    /// ranking our crawl schedule rather than the game. It is <see cref="SortWindows.MinimumSamples"/>
+    /// rather than a second literal, because the listing's average sorts put the same floor under the
+    /// same kind of statistic and two constants would eventually disagree about how much evidence is
+    /// enough.
     /// </remarks>
-    public const int MinimumRankingSamples = 24;
+    public const int MinimumRankingSamples = SortWindows.MinimumSamples;
 
     private const int FeedLimit = 10;
 
@@ -218,6 +221,13 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         var fields = await FieldsForAsync(connection, ids, cancellationToken);
         var presence = await PresenceDigestAsync(connection, ids, now, cancellationToken);
         var tls = await TlsEndpointsAsync(connection, ids, cancellationToken);
+        var icons = await IconsForAsync(connection, ids, cancellationToken);
+
+        // Only where the order asks for it. It is an aggregate over the presence series of the whole
+        // catalogue, and computing it for a listing sorted by name would be a scan nobody reads.
+        var windows = SortWindows.Of(filter.Sort) is { } span
+            ? await PlayersOverWindowAsync(connection, ids, span, now, cancellationToken)
+            : [];
 
         var facetRows = new List<GameFacetRow>(rows.Count);
 
@@ -241,7 +251,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 MeasuredProtocolsOf(forGame),
                 row.LastReachableAt,
                 CountChip(digest, now),
-                Chip(codebase, now));
+                Chip(codebase, now),
+                icons.Contains(row.Id),
+                windows.GetValueOrDefault(row.Id));
 
             facetRows.Add(new GameFacetRow(
                 summary,
@@ -306,6 +318,130 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             cancellationToken: cancellationToken));
 
         return [.. rows];
+    }
+
+    /// <summary>
+    /// Which of these games we hold icon bytes for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The flag and never the bytes. A listing row needs to know which of two elements to draw — the
+    /// game's own picture, served from this origin, or the monogram — and 500 images in a listing
+    /// query would be a hundred megabytes to answer a yes-or-no question per row. The image itself
+    /// arrives on its own request at <c>/g/{slug}/icon</c>, which is cached for a day and served with
+    /// the type we determined from the bytes.
+    /// </para>
+    /// <para>
+    /// <b>False carries no cause and must never be given one.</b> A game whose <c>ICON</c> names
+    /// nothing, one whose web server we could not reach, and every game on a deployment with an empty
+    /// cache are indistinguishable here on purpose: only the first is a fact about the game, and rule
+    /// 5 forbids publishing the other two as though they were.
+    /// </para>
+    /// </remarks>
+    private static async Task<HashSet<Guid>> IconsForAsync(
+        NpgsqlConnection connection,
+        Guid[] ids,
+        CancellationToken cancellationToken)
+    {
+        var rows = await connection.QueryAsync<Guid>(new CommandDefinition(
+            "SELECT game_id FROM game_icon WHERE game_id = ANY(@ids)",
+            new { ids },
+            cancellationToken: cancellationToken));
+
+        return [.. rows];
+    }
+
+    /// <summary>
+    /// What each game's counts added up to over one window — the basis the window sorts rank on.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Read from the daily rollup below the watermark and from raw samples above it</b>, exactly as
+    /// <see cref="ActivityAsync"/> reads the hourly pair, and for the same two reasons. The rollup is
+    /// the copy that survives retention dropping raw partitions (§5.2), so reading raw alone would
+    /// silently shorten the ninety-day window on any deployment that has ever configured retention;
+    /// and the rollup consumes only whole elapsed days, so reading it alone would leave out every
+    /// probe taken since midnight — which on a seven-day window is a seventh of the evidence and on a
+    /// listing sorted at nine in the evening is the part a reader most expects to be in there.
+    /// </para>
+    /// <para>
+    /// <b>The mean is a sum over a tally and never a mean of means.</b> The rollup stores
+    /// <c>sum_count</c> beside <c>counted_samples</c> for precisely this: averaging daily averages
+    /// would weight a day probed twice the same as a day probed forty times, and the games with the
+    /// thinnest coverage are exactly the ones that would then move.
+    /// </para>
+    /// <para>
+    /// <b>A NULL count is excluded rather than read as a zero</b> (rule 4). A probe that got in and
+    /// could not read a number is §5.4's middle state; it contributes to neither the sum nor the
+    /// tally, so a game whose <c>DOING</c> header is past our parser has no average rather than an
+    /// average of nothing. The <c>HAVING</c> drops such a game from the result entirely, and the
+    /// listing puts it below the break with a sentence saying which of the two it is.
+    /// </para>
+    /// <para>
+    /// <b>The far end of the window is snapped back to a whole UTC day</b>, so the window covers at
+    /// least the span it names and never less. The rollup is bucketed by day and a bucket is all or
+    /// nothing: a cutoff at midday would drop the whole day it fell in, which on a seven-day window
+    /// is a seventh of the evidence discarded to make the label exact. Of the two errors available,
+    /// reading a few hours more than the label says is the one that does not throw away measurements
+    /// we took — and the label reads "7 days" rather than "168 hours" for that reason.
+    /// </para>
+    /// </remarks>
+    private static async Task<Dictionary<Guid, PresenceWindow>> PlayersOverWindowAsync(
+        NpgsqlConnection connection,
+        Guid[] ids,
+        TimeSpan window,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var rows = await connection.QueryAsync<WindowRow>(new CommandDefinition(
+            """
+            WITH boundary AS (
+                SELECT coalesce(
+                    (SELECT rolled_up_through FROM presence_rollup_state WHERE scope = 'day'),
+                    '-infinity'::timestamptz) AS at
+            ),
+            -- Truncated in UTC on both sides of the wire, like every other bucket boundary here, so
+            -- a session's TimeZone setting can never move the window's far end by a day.
+            span AS (
+                SELECT date_trunc('day', @from AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS from_at
+            ),
+            parts AS (
+                SELECT p.game_id,
+                       count(p.count)::bigint AS counted,
+                       sum(p.count)::bigint   AS total,
+                       max(p.count)           AS peak
+                  FROM presence_sample p
+                 WHERE p.game_id = ANY(@ids)
+                   AND p.at >= (SELECT from_at FROM span)
+                   AND p.at >= (SELECT at FROM boundary)
+                 GROUP BY 1
+
+                UNION ALL
+
+                SELECT r.game_id,
+                       sum(r.counted_samples)::bigint,
+                       sum(r.sum_count)::bigint,
+                       max(r.max_count)
+                  FROM presence_rollup_day r
+                 WHERE r.game_id = ANY(@ids)
+                   AND r.day >= (SELECT from_at FROM span)
+                   AND r.day < (SELECT at FROM boundary)
+                 GROUP BY 1
+            )
+            SELECT game_id      AS GameId,
+                   sum(counted)::int AS Samples,
+                   sum(total)::bigint AS Total,
+                   max(peak)::int     AS Peak
+              FROM parts
+             GROUP BY 1
+            HAVING sum(counted) > 0
+            """,
+            new { ids, from = (now - window).ToUniversalTime() },
+            cancellationToken: cancellationToken));
+
+        return rows.ToDictionary(
+            r => r.GameId,
+            r => new PresenceWindow(window, (double)r.Total / r.Samples, r.Peak, r.Samples));
     }
 
     /// <summary>
@@ -429,7 +565,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             MeasuredProtocolsOf(fields),
             row.LastReachableAt,
             CountChip(digest, now),
-            Chip(codebase, now));
+            Chip(codebase, now),
+            (await IconsForAsync(connection, ids, cancellationToken)).Contains(row.Id));
     }
 
     public async Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default)
@@ -498,7 +635,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             MeasuredProtocolsOf(fields),
             row.LastReachableAt,
             CountChip(digest, now),
-            Chip(codebase, now));
+            Chip(codebase, now),
+            (await IconsForAsync(connection, ids, cancellationToken)).Contains(row.Id));
 
         return new GamePage(
             summary,
@@ -1305,6 +1443,25 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         DateTime FirstSeenAt,
         DateTime LastSeenAt,
         bool Present);
+
+    /// <summary>
+    /// One game's window tally as the query returns it — the sum and the count, never a mean.
+    /// </summary>
+    /// <remarks>
+    /// The division happens once, in C#, over the totals of both halves of the union. Dividing in SQL
+    /// per half and averaging the two would be the mean-of-means the rollup's <c>sum_count</c> column
+    /// exists to prevent.
+    /// </remarks>
+    private sealed class WindowRow
+    {
+        public Guid GameId { get; init; }
+
+        public int Samples { get; init; }
+
+        public long Total { get; init; }
+
+        public int Peak { get; init; }
+    }
 
     private sealed class ActivityRow
     {

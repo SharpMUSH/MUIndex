@@ -296,8 +296,38 @@ public class PlainParityTests
         var html = await Render.PageAsync<Games>([]);
 
         // Razor encodes both glyphs, so the assertion reads them as the markup carries them.
-        await Assert.That(html).Contains("class=\"state-declared\" aria-hidden=\"true\">&#x25C7;");
-        await Assert.That(html).Contains("class=\"state-present\" aria-hidden=\"true\">&#x25CF;");
+        await Assert.That(html).Contains("class=\"pip state-declared\" aria-hidden=\"true\">&#x25C7;");
+        await Assert.That(html).Contains("class=\"pip state-present\" aria-hidden=\"true\">&#x25CF;");
+    }
+
+    [Test]
+    public async Task OneCountWearsOneGlyphAndNotTwo()
+    {
+        // The agreement above was reached by printing the glyph twice: the pip at the head of the
+        // figure and the chip's own, four characters apart, describing one number. A reader who
+        // counts glyphs to count facts was being told there were two, and on a declared count the
+        // row read "◇ 10 on ◇ 73m". The pip stays, because it is where the eye lands when scanning
+        // a column of numbers; the chip keeps the colour, the title and the word a screen reader
+        // hears, and drops the duplicate.
+        var html = await Render.PageAsync<Games>([]);
+        var figures = html.Split("class=\"row-figure").Skip(1);
+
+        foreach (var figure in figures)
+        {
+            var row = figure[..figure.IndexOf("</p>", StringComparison.Ordinal)];
+
+            await Assert.That(Glyphs(row))
+                .IsLessThanOrEqualTo(1)
+                .Because($"one count, one glyph: {row}");
+        }
+
+        // And the chip is still there carrying the rest of the label, so what went is the duplicate
+        // rather than the provenance.
+        await Assert.That(html).Contains("class=\"chip declared");
+        await Assert.That(Render.Words(html)).Contains("declared");
+
+        static int Glyphs(string markup) =>
+            markup.Split("&#x25C7;").Length - 1 + markup.Split("&#x25CF;").Length - 1;
     }
 
     [Test]

@@ -88,11 +88,14 @@ public static class FacetKeys
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Every one of these sorts on a fact already on the row.</b> There is no "busiest" here and the
-/// word is deliberately not used: <c>/rankings</c> means something specific by it — a median over a
-/// window with a sample floor under it — and a sort that reads one instantaneous count would be a
-/// cruder question wearing the same name. This is "players on now", which is exactly what it orders
-/// by and exactly as much as it claims.
+/// <b>Every one of these is named for the measurement it reads, never for a superlative.</b> There is
+/// no "busiest" here and the word is deliberately not used: <c>/rankings</c> means something specific
+/// by it — a median over a window with a sample floor under it — and a sort answering to the same
+/// name on a different arithmetic would be two measurements wearing one word on one site.
+/// <see cref="Players"/> is "players on now", which is exactly what it orders by and exactly as much
+/// as it claims; the window sorts name their statistic and their span, because an average over seven
+/// days and a peak over ninety are different questions and a reader has to be able to see which one
+/// they asked.
 /// </para>
 /// <para>
 /// <b>There is no "recently listed".</b> The only date we have for that is <c>game.first_seen_at</c>,
@@ -106,21 +109,122 @@ public static class FacetKeys
 public enum GameSort
 {
     /// <summary>
-    /// Alphabetical, and the default.
+    /// Alphabetical — the one order that ranks nobody.
     /// </summary>
     /// <remarks>
-    /// The default is the one order that ranks nobody. Every other sort in this enum puts some games
-    /// above others on a measurement, and a listing that arrives pre-ranked is making an editorial
-    /// claim the reader never asked for — the same objection this project has to star ratings, one
-    /// step removed. Sorting is a thing a reader chooses.
+    /// This was the default, on the argument that a listing arriving pre-ranked makes an editorial
+    /// claim the reader never asked for. The argument holds against a <em>ranking</em> and does not
+    /// hold against this: the alphabet is not neutral, it is an order too, and the one it produces
+    /// puts <c>3Kingdoms</c> above every game in the hobby for no reason anybody chose. Neither
+    /// order is an opinion of ours — <see cref="Players"/> reads a measurement and this reads a
+    /// spelling — so the question is which one answers what a reader came for, and they came to find
+    /// a game with people in it. It remains one click away and every URL that names it still means
+    /// what it meant.
     /// </remarks>
     Name,
 
-    /// <summary>Most players counted on right now, first.</summary>
+    /// <summary>
+    /// Most players counted on right now, first — and the default.
+    /// </summary>
+    /// <remarks>
+    /// The most useful fact on the page leads it. This ranks on a measurement rather than on our
+    /// judgement, which is the property that matters: the games above the fold are the ones somebody
+    /// was counted in, not the ones we chose to promote. The break the listing draws is what keeps it
+    /// honest — the games we could not count follow as a group that says so, and never as a tail of
+    /// zeroes (see <see cref="GameSorting"/>).
+    /// </remarks>
     Players,
 
     /// <summary>Most recently reached first.</summary>
     Reached,
+
+    /// <summary>Highest average count over the last 7 days, first.</summary>
+    AverageWeek,
+
+    /// <summary>Highest average count over the last 30 days, first.</summary>
+    AverageMonth,
+
+    /// <summary>Highest average count over the last 90 days, first.</summary>
+    AverageQuarter,
+
+    /// <summary>Largest single count observed in the last 7 days, first.</summary>
+    PeakWeek,
+
+    /// <summary>Largest single count observed in the last 30 days, first.</summary>
+    PeakMonth,
+
+    /// <summary>Largest single count observed in the last 90 days, first.</summary>
+    PeakQuarter,
+}
+
+/// <summary>
+/// The windows the listing can be sorted over, and what each of the two statistics needs before it
+/// may rank a game (spec §9).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Three spans and not a free parameter.</b> A window a caller can dial to any width is a window
+/// somebody can tune until a game they like comes top, and every one of these figures would then be
+/// answering a slightly different question from the one beside it. Seven, thirty and ninety days are
+/// the three this site already measures things over — <c>RankingWindow</c>, "reachable recently" and
+/// the availability fraction on a game's page — so a reader who has read one of those pages already
+/// knows what these mean.
+/// </para>
+/// <para>
+/// <b>An average carries a sample floor and a peak does not</b>, because they fail differently. A
+/// mean over four probes is not a mean of anything and would put a game found on Friday above one
+/// measured three hundred times, which is ranking our own crawl schedule; the floor is the same
+/// <c>NpgsqlGameQueries.MinimumRankingSamples</c> that <c>/rankings</c> uses, so the two surfaces
+/// cannot come to hold two opinions about how much evidence is enough. A peak is one observation and
+/// is true however few of them there were — we counted that many people on at once, and a floor
+/// under it would suppress a measurement we actually took.
+/// </para>
+/// </remarks>
+public static class SortWindows
+{
+    /// <summary>
+    /// How many counted samples an average needs before it may rank a game.
+    /// </summary>
+    /// <remarks>
+    /// A day's worth of hourly probes, and the same floor <c>/rankings</c> puts under its median —
+    /// <c>NpgsqlGameQueries.MinimumRankingSamples</c> is this constant, so the listing and the league
+    /// table cannot come to hold two opinions about how much evidence is enough. It lives here rather
+    /// than there because the sort is what enforces it and the sort is model-layer.
+    /// </remarks>
+    public const int MinimumSamples = 24;
+
+    public static readonly TimeSpan Week = TimeSpan.FromDays(7);
+
+    public static readonly TimeSpan Month = TimeSpan.FromDays(30);
+
+    public static readonly TimeSpan Quarter = TimeSpan.FromDays(90);
+
+    /// <summary>The span a sort reads over, or null where it reads no window at all.</summary>
+    public static TimeSpan? Of(GameSort sort) => sort switch
+    {
+        GameSort.AverageWeek or GameSort.PeakWeek => Week,
+        GameSort.AverageMonth or GameSort.PeakMonth => Month,
+        GameSort.AverageQuarter or GameSort.PeakQuarter => Quarter,
+        _ => null,
+    };
+
+    /// <summary>Whether a sort ranks on the mean rather than on the largest reading.</summary>
+    public static bool IsAverage(GameSort sort) =>
+        sort is GameSort.AverageWeek or GameSort.AverageMonth or GameSort.AverageQuarter;
+
+    /// <summary>
+    /// Whether a window's figures are enough to rank this game on this sort.
+    /// </summary>
+    /// <remarks>
+    /// A window with no counted sample at all ranks nothing either way: there is no average over
+    /// nothing and no largest of no readings, and the query does not return a row for such a game.
+    /// </remarks>
+    public static bool CanRank(PresenceWindow window, GameSort sort)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+
+        return window.Samples > 0 && (!IsAverage(sort) || window.Samples >= MinimumSamples);
+    }
 }
 
 /// <summary>
@@ -144,9 +248,20 @@ public enum GameSort
 public static class GameSorting
 {
     /// <summary>Whether this sort has nothing to rank a game by — never "whether it is zero".</summary>
+    /// <remarks>
+    /// A window sort is unranked where the window is absent — the game had nothing countable in the
+    /// span — <em>and</em> where it is present and too thin to average over. Both are "we cannot put
+    /// this game in this order", and the break the surfaces draw says so in one sentence rather than
+    /// dropping the game or floating it to the bottom as a nought.
+    /// </remarks>
     public static bool IsUnranked(GameSummary game, GameSort sort)
     {
         ArgumentNullException.ThrowIfNull(game);
+
+        if (SortWindows.Of(sort) is not null)
+        {
+            return game.PlayersOverWindow is not { } window || !SortWindows.CanRank(window, sort);
+        }
 
         return sort switch
         {
@@ -161,17 +276,34 @@ public static class GameSorting
         ArgumentNullException.ThrowIfNull(games);
 
         // Ranked before unranked, always — then the sort's own key, then the name, so the order is
-        // total and a listing does not shuffle between two identical requests.
+        // total and a listing does not shuffle between two identical requests. Each key reads as
+        // zero for the sorts it does not belong to, which is safe only because the unranked games
+        // have already been pushed below every ranked one by the first clause: a key of zero here
+        // is "this sort does not use this column", never "this game measured nothing".
         var ordered = games
             .OrderBy(g => IsUnranked(g, sort) ? 1 : 0)
             .ThenByDescending(g => sort is GameSort.Players ? g.PlayersNow ?? 0 : 0)
             .ThenByDescending(g => sort is GameSort.Reached
                 ? g.LastReachableAt ?? DateTimeOffset.MinValue
                 : DateTimeOffset.MinValue)
+            .ThenByDescending(g => Ranked(g, sort))
             .ThenBy(g => g.Name, StringComparer.OrdinalIgnoreCase);
 
         return [.. ordered];
     }
+
+    /// <summary>
+    /// What a window sort ranks on, as one number — the mean, or the largest reading.
+    /// </summary>
+    /// <remarks>
+    /// Zero for every sort that reads no window, and for every game this sort cannot rank. Neither
+    /// is a claim that nobody was there: the games in the second group sort below the break, where
+    /// the listing says in words what they have in common.
+    /// </remarks>
+    private static double Ranked(GameSummary game, GameSort sort) =>
+        SortWindows.Of(sort) is null || game.PlayersOverWindow is not { } window
+            ? 0
+            : SortWindows.IsAverage(sort) ? window.Average : window.Peak;
 }
 
 /// <summary>

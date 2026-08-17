@@ -142,6 +142,15 @@ header.site .mark .star { color: var(--accent); }
 
 .chip { white-space: nowrap; }
 .chip .glyph { font-family: var(--mono); }
+
+/* The gap between a value and the glyph that qualifies it. A margin and not a space in the markup,
+   for the reason every other gap on this stylesheet is: the renderer trims whitespace between two
+   adjacent elements, so the chip shipped as "3Scapes mudlib◇ 73m" and "CircleMUD◇ 3h" — the declared
+   diamond welded to the last letter of the value, while the measured protocols beside it kept the
+   space their markup happens to put there. One fact read as two different shapes depending on which
+   column it was in. Adjacent-sibling, so the glyph gains nothing after the screen-reader word, which
+   is positioned out of the flow and would otherwise leave a gap before a chip that shows no value. */
+.chip .value + .glyph { margin-left: 4px; }
 .chip .age { font-family: var(--mono); font-size: 12px; color: var(--faint); margin-left: 4px; }
 .chip.measured .glyph { color: var(--accent); }
 .chip.declared .glyph { color: var(--amber); }
@@ -592,12 +601,33 @@ ul.games > li, ul.archive > li {
 
 ul.games > li.game-row:hover { background: var(--surface); }
 
+/* Three columns: the game's face, what it is, and what we measured. The plate is what gives a
+   five-hundred-row list a left edge the eye can run down — before it, every row began with a
+   different-length name and the only way to find a game was to read them. `start` rather than
+   `baseline` because a 36px box has no baseline worth aligning a name to. */
 .row-main {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 2px var(--cpad);
-    align-items: baseline;
+    align-items: start;
 }
+
+/* The row's own plate. Same recessed square, same border, same monogram treatment as the game
+   page's — one vocabulary at two sizes, so a reader who has seen the page recognises the row. */
+.row-main .plate {
+    width: 36px; height: 36px; flex: none;
+    border: 1px solid var(--line); border-radius: 6px;
+    background: var(--recessed); color: var(--dim);
+    display: grid; place-items: center;
+    font-size: 12px; letter-spacing: 0.02em;
+
+    /* Nudged down to sit against the name's cap height rather than above it. */
+    margin-top: 2px;
+}
+
+/* `contain`, never `cover`: a logo that is not square is letterboxed rather than cropped, because
+   cropping somebody's artwork to fit our box is a small edit to a thing they published. */
+.row-main img.plate { object-fit: contain; padding: 3px; }
 
 .row-text { min-width: 0; }
 .row-head { margin: 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
@@ -644,7 +674,37 @@ ul.games .meta .protocol { white-space: nowrap; }
     justify-items: end;
 }
 
-.row-figure .players { color: var(--text); }
+/* ── the count, which is the fact most readers came for ────────────────────
+   Players on now is a fact like any other and is labelled like any other — the glyph beside it means
+   measured or declared exactly as it does in every other column, because a second meaning for the
+   accent dot would cost it the first one. What sets it apart is scale and position, which carry no
+   meaning to lose: the number is 17px and nothing else in a row is above 15, so it is what the eye
+   lands on, and it sits at the head of a column that lines up down the page.
+
+   The number's own weight then does the rest of the work. A count with somebody in it is at full
+   text colour; a measured zero is dimmed one step — still a measurement, still glyphed, still above
+   the break, and visibly not somewhere to go tonight. An unknown says so in words and is dimmer
+   again. Three states, three weights, no new colours.                                            */
+
+.row-figure .players { color: var(--text); display: block; }
+.row-figure .players .count { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.row-figure .players .pip { margin-right: 5px; }
+
+/* A count of nobody, measured. Dimmed rather than hidden — we got in and nobody was there is a
+   result, and the row above the break is where it belongs. */
+.row-figure .players.empty .count { color: var(--dim); font-weight: 400; }
+
+/* The one place a live count is marked as such: a soft glow on the pip where somebody is actually on
+   right now. A text-shadow rather than a ring, because a ring is drawn on the glyph's inline box —
+   which is a tall narrow rectangle, not the dot — and rendered as a lozenge round a circle. This
+   follows the glyph itself at any font and any size.
+
+   Static. Five hundred of these animating is a page that cannot be read, and the motion budget is
+   spent on the "came back" card. It is a reinforcement and never the carrier: the count, the glyph
+   and the word behind it all say the same thing without it. */
+.row-figure .players.live .pip.state-present {
+    text-shadow: 0 0 7px color-mix(in srgb, var(--accent) 60%, transparent);
+}
 
 /* The count's own chip rides beside the figure. Spaced in CSS and not by a space in the markup,
    because the renderer trims whitespace around a conditional and "219 on" ran into its own glyph. */
@@ -652,6 +712,10 @@ ul.games .meta .protocol { white-space: nowrap; }
 .row-figure .players .unit { color: var(--faint); }
 .row-figure .players.unknown { color: var(--faint); }
 .row-figure .seen { color: var(--faint); font-size: 11.5px; }
+
+/* What a window sort ranked this row on, printed on the row it ranked. Faint and small: it is the
+   basis for the order rather than a fact the row is about, and the count above it stays the figure. */
+.row-figure .window { color: var(--faint); font-size: 11.5px; }
 
 /* Archived: dimmed one step, and that is the whole treatment. No red, no strikethrough, no "dead" —
    the entry is a library record for a periodical that ceased publication. */
@@ -1096,10 +1160,13 @@ fieldset.facet.presence .hint { margin: 6px 0 0; font-size: 11.5px; color: var(-
     .filter-bar input[type="search"] { flex: 1 0 100%; }
     .filter-bar button { margin-left: auto; }
 
-    /* The measured column goes under the name rather than fighting it for a width neither has. */
-    .row-main { grid-template-columns: minmax(0, 1fr); }
+    /* The measured column goes under the name rather than fighting it for a width neither has —
+       under the name and not under the plate, so the row keeps the left edge the plate gives it and
+       the figure lines up with the text it belongs to. */
+    .row-main { grid-template-columns: auto minmax(0, 1fr); }
+    .row-main .plate { grid-row: span 2; }
     .row-figure { text-align: left; justify-items: start; margin-top: 4px; }
-    .row-figure { display: flex; gap: 12px; flex-wrap: wrap; }
+    .row-figure { display: flex; gap: 12px; flex-wrap: wrap; align-items: baseline; }
 }
 /* ── reference and orientation pages ───────────────────────────────────────
    The hand-written section (spec §9). Two things it has to communicate that no

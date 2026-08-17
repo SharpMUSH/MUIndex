@@ -303,8 +303,14 @@ public static class PlainText
         // The order, stated. A sorted list that does not say what it is sorted by is one a reader has
         // to reverse-engineer from the first few rows — and that is exactly how a tail of games
         // showing no number gets read as a tail of games with no players.
-        b.AppendLine($"Sorted by {FacetWords.Sort(filter.Sort)}"
-            + $"  (?{FacetKeys.Sort}={string.Join('/', FacetTokens.Sorts)})");
+        b.AppendLine($"Sorted by {FacetWords.Sort(filter.Sort)}");
+
+        // And every order it could have been in, wrapped rather than run on: a text browser cannot
+        // operate a <select> but can perfectly well edit a URL, and nine sort tokens on one line is
+        // a hundred and thirty columns of it running off the right of the screen. Wrapped, because
+        // the alternative — offering three of the nine and calling it the list — is a control the
+        // plain surface has that the rendered one does not.
+        Wrap(b, $"?{FacetKeys.Sort}={string.Join(" / ", FacetTokens.Sorts)}", "  ");
 
         AppendFacets(b, listing.Facets);
         b.AppendLine();
@@ -340,6 +346,13 @@ public static class PlainText
             b.AppendLine((g.PlayersNow is { } n
                 ? $"  Players now: {n}   {Label(g.PlayersNowProvenance, now)}"
                 : "  Players now: unknown (no count could be measured)").TrimEnd());
+
+            // What a window sort ranked this row on. Only where there is one, because a line reading
+            // "over 7 days: —" on every row of an alphabetical listing is a column of nothing.
+            if (g.PlayersOverWindow is { } window)
+            {
+                b.AppendLine($"  Ranked on:   {FacetWords.Window(window, filter.Sort)}");
+            }
 
             // Never blank. "We could not identify it" is a measurement and a missing line is not.
             b.AppendLine((g.Codebase is { } codebase

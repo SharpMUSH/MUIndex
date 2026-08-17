@@ -30,12 +30,24 @@
 
         <span class="bar-field">
             <label for="sort" class="bar-label">sort</label>
+            @*
+                Grouped by what each order reads — a fact already on the row, or a statistic over a
+                span — because nine options in one flat list is a list nobody reads to the bottom of,
+                and because that split is the difference a reader most needs to see before choosing.
+                Enumerated from the enum rather than listed here, so a sort added there cannot be one
+                the panel silently stops offering.
+            *@
             <select id="sort" name="@FacetKeys.Sort">
-                @foreach (var sort in Enum.GetValues<GameSort>())
+                @foreach (var group in Enum.GetValues<GameSort>().GroupBy(FacetWords.SortGroup))
                 {
-                    <option value="@FacetTokens.Of(sort)" selected="@(Filter.Sort == sort)">
-                        @FacetWords.Sort(sort)
-                    </option>
+                    <optgroup label="@group.Key">
+                        @foreach (var sort in group)
+                        {
+                            <option value="@FacetTokens.Of(sort)" selected="@(Filter.Sort == sort)">
+                                @FacetWords.Sort(sort)
+                            </option>
+                        }
+                    </optgroup>
                 }
             </select>
         </span>
