@@ -326,8 +326,11 @@ Measured on the branch, at 1440 / 1024 / 768 / 430 in both themes and at `/de/fi
    answer that un-asks each one and the capability glosses are ids rather than English in C#, and
    the locale is a parameter of `FindScreen.BuildAsync` rather than something applied to what it
    returns — so the rendered page and `?plain=1` cannot come out in different languages. The four
-   satellite `.resx` files are untouched; the new ids fall back to English, which is what a
-   reader should see until they are translated.
+   satellite `.resx` files were untouched when this was written and are not any more: German, Dutch,
+   Japanese and Chinese each carry 44 translated `find.*` ids now, so a reader on `/de/find` meets
+   the page in German rather than the English fallback this paragraph promised. What still falls
+   back to English is whatever has been added since a translation round — currently the `crawler.*`,
+   `preview.*`, `feed.plain.*` and `home.plain.*` ids, which are queued for the next one.
 
 ## Known, and not fixed here
 

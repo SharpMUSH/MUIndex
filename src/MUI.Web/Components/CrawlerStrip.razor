@@ -31,7 +31,7 @@
 
     [Parameter, EditorRequired] public DateTimeOffset Now { get; set; }
 
-    private string? LastCycle => CrawlerCopy.LastCycle(Pulse);
+    private string? LastCycle => CrawlerCopy.LastCycle(Tag, Pulse);
 
     // Working is the only state that gets the "present" colour the counts above use. Quiet is
     // deliberately the faint one and not a red: we do not know that anything is wrong, and a strip

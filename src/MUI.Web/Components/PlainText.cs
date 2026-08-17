@@ -497,9 +497,13 @@ public static class PlainText
     {
         var b = new StringBuilder();
 
-        Feed(b, tag, "NEWLY DISCOVERED", feeds.NewlyDiscovered, "Nothing new.", now);
-        Feed(b, tag, "WENT DARK", feeds.WentDark, "Nothing went dark.", now);
-        Feed(b, tag, "CAME BACK", feeds.CameBack, "Nothing came back. We keep knocking.", now);
+        // Heading and empty state both through the bundle. The empty states are the ids the
+        // graphical cards already say, so the two surfaces cannot disagree in any language; the
+        // headings are plain-only ids, because the card's own kicker for the middle feed carries
+        // "— still probed" and this column has that promise elsewhere.
+        Feed(b, tag, "feed.plain.newlyDiscovered", feeds.NewlyDiscovered, "feed.nothingNew", now);
+        Feed(b, tag, "feed.plain.wentDark", feeds.WentDark, "feed.nothingDark", now);
+        Feed(b, tag, "feed.plain.cameBack", feeds.CameBack, "feed.nothingBack", now);
 
         return b.ToString();
 
@@ -511,11 +515,14 @@ public static class PlainText
             string empty,
             DateTimeOffset now)
         {
-            b.AppendLine(title);
+            // Uppercased here rather than in the bundle, as every other heading on this surface is:
+            // the id carries the words, the renderer carries the typography, and a script with no
+            // case is left exactly as its translator wrote it.
+            b.AppendLine(Say(tag, title).ToUpperInvariant());
 
             if (entries.Count == 0)
             {
-                b.AppendLine($"  {empty}");
+                b.AppendLine($"  {Say(tag, empty)}");
                 b.AppendLine();
                 return;
             }
@@ -542,12 +549,14 @@ public static class PlainText
 
         var b = new StringBuilder();
 
+        // The wordmark, which is the site's name and stays out of the bundle for the same reason a
+        // hostname does. Everything under it is a sentence and goes through it.
         b.AppendLine("MU*INDEX");
         b.AppendLine();
-        b.AppendLine($"{counts.Known} games known");
-        b.AppendLine($"{counts.WithPlayersOn} connected now (measured)");
-        b.AppendLine($"{counts.CountUnknown} answering, uncounted");
-        b.AppendLine($"{counts.Archived} archived, still probed");
+        b.AppendLine(Say(tag, "home.plain.known", ("count", counts.Known)));
+        b.AppendLine(Say(tag, "home.plain.connectedNow", ("count", counts.WithPlayersOn)));
+        b.AppendLine(Say(tag, "home.plain.uncounted", ("count", counts.CountUnknown)));
+        b.AppendLine(Say(tag, "home.plain.archived", ("count", counts.Archived)));
 
         // Same three facts as the rendered strip, in the same order and the same words, plus the
         // registry line the narrow page has no room for. Omitted entirely when there is nothing
@@ -557,12 +566,12 @@ public static class PlainText
             b.AppendLine();
             b.AppendLine(CrawlerCopy.State(tag, pulse, now));
 
-            if (CrawlerCopy.LastCycle(pulse) is { } cycle)
+            if (CrawlerCopy.LastCycle(tag, pulse) is { } cycle)
             {
                 b.AppendLine(cycle);
             }
 
-            b.AppendLine(CrawlerCopy.Registry(pulse));
+            b.AppendLine(CrawlerCopy.Registry(tag, pulse));
         }
 
         b.AppendLine();

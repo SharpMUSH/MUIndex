@@ -278,6 +278,57 @@ public class PlainParityTests
         await Assert.That(text).Contains("Aardwolf MUD");
     }
 
+    /// <summary>
+    /// The three feeds are three sections in the reader's language, not three English headings.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>They were literals in the renderer, and a <c>tag</c> that reached only the ages.</b>
+    /// Passing a locale to <c>RenderFeeds</c> and asserting the result therefore proved nothing:
+    /// every locale printed "NEWLY DISCOVERED" and "Nothing new." and the test that passed
+    /// <c>Locales.SourceTag</c> was asserting English against English.
+    /// </para>
+    /// <para>
+    /// So this asks in two languages at once. The pseudolocale is the discriminating half — it is
+    /// generated from the source bundle, so a string that reaches it came through <c>Messages</c>
+    /// and a string that did not is still plain English on the page. German is the half that proves
+    /// the tag threads all the way down to a real satellite: the empty states are translated there
+    /// already, so a German render has to print German sentences and not the fallback.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task TheFeedHeadingsAndEmptyStatesComeFromTheBundleAndNotFromTheRenderer()
+    {
+        var feeds = await Queries.FeedsAsync();
+        var empty = new LivenessFeeds([], [], []);
+
+        // Through the bundle: the pseudolocale accents and brackets every source string, and only a
+        // string that went through Messages can come back accented.
+        var pseudo = PlainText.RenderFeeds("qps-ploc", empty, Now);
+
+        await Assert.That(pseudo).DoesNotContain("NEWLY DISCOVERED");
+        await Assert.That(pseudo).Contains(
+            Messages.For("qps-ploc", "feed.plain.newlyDiscovered").ToUpperInvariant());
+        await Assert.That(pseudo).Contains(Messages.For("qps-ploc", "feed.nothingNew"));
+
+        // And in German, where the empty states are translated: the sentences the satellite carries,
+        // not the English they fall back from.
+        var german = PlainText.RenderFeeds("de", empty, Now);
+
+        await Assert.That(german).Contains("Nichts Neues.");
+        await Assert.That(german).Contains("Nichts ist verstummt.");
+        await Assert.That(german).Contains("Nichts ist zurückgekehrt. Wir klopfen weiter.");
+        await Assert.That(german).DoesNotContain("Nothing new.");
+
+        // The headings are asked of the bundle rather than spelled here, so this keeps holding on
+        // the day feed.plain.* is translated and stops being the English fallback.
+        foreach (var id in new[] { "feed.plain.newlyDiscovered", "feed.plain.wentDark", "feed.plain.cameBack" })
+        {
+            await Assert.That(PlainText.RenderFeeds("de", feeds, Now))
+                .Contains(Messages.For("de", id).ToUpperInvariant());
+        }
+    }
+
     [Test]
     public async Task TheArchiveSaysWhenEachGameWasLastReachableAndHowLongItWasKnownLive()
     {
@@ -545,6 +596,82 @@ public class PlainParityTests
         await Assert.That(text).Contains("games known");
         await Assert.That(text).Contains("connected now (measured)");
         await Assert.That(text).Contains("answering, uncounted");
+    }
+
+    /// <summary>
+    /// The four front-page figures, and the crawler's own line, in the reader's language.
+    /// </summary>
+    /// <remarks>
+    /// <b>The count labels and the crawler strip were the last English on a localized page.</b>
+    /// The strip is the worst of the two: it is the provenance of the four figures above it, so a
+    /// reader who cannot read it is a reader with no way to discount them — and it printed
+    /// "crawler live · last probe" in English around an age that had been carefully localized.
+    /// The wordmark is exempt and stays: a site's name is machine voice, like a hostname.
+    /// </remarks>
+    [Test]
+    public async Task TheHomeCountsAndTheCrawlerLineComeFromTheBundle()
+    {
+        var counts = SiteCounts.From(await Queries.ListAsync(new GameFilter { IncludeArchived = true }));
+        var cycle = new CrawlCycleRecord(
+            Now.AddMinutes(-2), Now.AddMinutes(-1), 8, 8, 6, 2, 0, 0, 0, 0, 0, 6, 0, 0, 0);
+        var pulse = new CrawlerPulse(Now.AddMinutes(-1), Now.AddMinutes(3), 4, 710, cycle);
+
+        var pseudo = PlainText.RenderHome("qps-ploc", counts, await Queries.FeedsAsync(), pulse, Now);
+
+        // The wordmark is the one line that must not have gone through the bundle.
+        await Assert.That(pseudo).Contains("MU*INDEX");
+
+        // Everything else did. "crawler live" carries no plural branch, so the pseudolocale accents
+        // it end to end and its English spelling cannot survive a trip through the bundle.
+        await Assert.That(pseudo).DoesNotContain("crawler live");
+
+        // The counts do carry plural branches, and the pseudolocale steps over anything inside
+        // braces — accenting a branch keyword would make the message unparseable. So the signal
+        // there is the ⟦⟧ the transform wraps the whole message in, which is what asking the bundle
+        // for the expected string tests: a renderer that interpolated its own line would print the
+        // same words with no brackets round them.
+        await Assert.That(pseudo)
+            .Contains(Messages.For("qps-ploc", "home.plain.known", Count(counts.Known)));
+        await Assert.That(pseudo)
+            .Contains(Messages.For("qps-ploc", "home.plain.archived", Count(counts.Archived)));
+        await Assert.That(pseudo).DoesNotContain($"\n{counts.Known} games known");
+        await Assert.That(pseudo)
+            .Contains(CrawlerCopy.Registry("qps-ploc", pulse))
+            .And.DoesNotContain($"\n{pulse.TargetsKnown} addresses in the registry");
+
+        // And the whole surface threads one tag: the German render says what the German bundle says
+        // for every id, whether that is a translation or the English it still falls back to.
+        var german = PlainText.RenderHome("de", counts, await Queries.FeedsAsync(), pulse, Now);
+
+        foreach (var id in new[]
+                 {
+                     "home.plain.known", "home.plain.connectedNow",
+                     "home.plain.uncounted", "home.plain.archived",
+                 })
+        {
+            await Assert.That(german).Contains(Messages.For("de", id, Count(CountFor(id, counts))));
+        }
+
+        await Assert.That(german).Contains(CrawlerCopy.State("de", pulse, Now));
+        await Assert.That(german).Contains(CrawlerCopy.LastCycle("de", pulse)!);
+        await Assert.That(german).Contains(CrawlerCopy.Registry("de", pulse));
+
+        // The feeds it appends carry German ages, which is the one part of a feed row that was
+        // already localized and so the one that proves the tag survived the call into RenderFeeds.
+        var first = (await Queries.FeedsAsync()).NewlyDiscovered[0];
+
+        await Assert.That(german).Contains(Relative.Ago("de", Now - first.At));
+
+        static Dictionary<string, object?> Count(int count) =>
+            new(StringComparer.Ordinal) { ["count"] = count };
+
+        static int CountFor(string id, SiteCounts counts) => id switch
+        {
+            "home.plain.known" => counts.Known,
+            "home.plain.connectedNow" => counts.WithPlayersOn,
+            "home.plain.uncounted" => counts.CountUnknown,
+            _ => counts.Archived,
+        };
     }
 
     [Test]

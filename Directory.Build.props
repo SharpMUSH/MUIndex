@@ -21,8 +21,13 @@
       with it inherits the change. That is the risk worth naming: culture-sensitive comparison and
       casing stop being invariant, and this codebase parses other people's output for a living. Every
       parser here already spells its intent — StringComparison.Ordinal, ToLowerInvariant — and the
-      1375 tests across Crawl, Crawler, Catalog and Discovery are what hold that, so the flip is
-      checked rather than assumed.
+      Crawl, Crawler, Catalog and Discovery suites are what hold that, so the flip is checked rather
+      than assumed.
+
+      No count here. This said "1375 tests" and was wrong by the time it was read: a number in a
+      comment beside a switch it does not control goes stale on the next commit that adds a test,
+      and then reads as a fact about the present. The four suites are the claim; how many cases they
+      hold is `dotnet run`'s answer, not this file's.
     -->
     <InvariantGlobalization>false</InvariantGlobalization>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>

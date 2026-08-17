@@ -71,8 +71,8 @@ public class CrawlerStripTests
             "\n",
             CrawlerCopy.State(Locales.SourceTag, Pulse(TimeSpan.FromSeconds(10)), Now),
             CrawlerCopy.State(Locales.SourceTag, Pulse(TimeSpan.FromDays(2)), Now),
-            CrawlerCopy.LastCycle(Pulse(TimeSpan.Zero, Cycle(8, 6, 2))) ?? string.Empty,
-            CrawlerCopy.Registry(Pulse(TimeSpan.Zero)));
+            CrawlerCopy.LastCycle(Locales.SourceTag, Pulse(TimeSpan.Zero, Cycle(8, 6, 2))) ?? string.Empty,
+            CrawlerCopy.Registry(Locales.SourceTag, Pulse(TimeSpan.Zero)));
 
         foreach (var word in new[] { "uptime", "unreachable", "reachable" })
         {
@@ -89,7 +89,7 @@ public class CrawlerStripTests
     public async Task AnUnmeasuredPulseRendersNothing()
     {
         await Assert.That(CrawlerPulse.Unknown.State(Now)).IsEqualTo(CrawlState.NotYet);
-        await Assert.That(CrawlerCopy.LastCycle(CrawlerPulse.Unknown)).IsNull();
+        await Assert.That(CrawlerCopy.LastCycle(Locales.SourceTag, CrawlerPulse.Unknown)).IsNull();
 
         var html = await Render.PageAsync<Components.Pages.Home>([]);
         await Assert.That(html).DoesNotContain("crawler live");
@@ -107,10 +107,10 @@ public class CrawlerStripTests
     [Test]
     public async Task ACycleWithNothingDueSaysSoRatherThanPrintingZeroes()
     {
-        await Assert.That(CrawlerCopy.LastCycle(Pulse(TimeSpan.Zero, Cycle(0, 0, 0))))
+        await Assert.That(CrawlerCopy.LastCycle(Locales.SourceTag, Pulse(TimeSpan.Zero, Cycle(0, 0, 0))))
             .IsEqualTo("nothing due this cycle");
 
-        await Assert.That(CrawlerCopy.LastCycle(Pulse(TimeSpan.Zero, Cycle(8, 6, 2))))
+        await Assert.That(CrawlerCopy.LastCycle(Locales.SourceTag, Pulse(TimeSpan.Zero, Cycle(8, 6, 2))))
             .IsEqualTo("8 due · 6 answered · 2 failed");
     }
 

@@ -43,8 +43,10 @@ public class AboutPageTests
     /// third copy of it — and the one nothing checks. Asking the bundle asserts the fact this page
     /// makes a claim about ("the archive-grace limitation is stated") rather than the spelling of
     /// it, and still fails if the id stops reaching the page. Where a claim is a <em>rule</em>
-    /// rather than a sentence — the count of the word "uptime", the refusal to say
-    /// "no automated opt-out" — the literal stays, because there the wording is the rule.
+    /// rather than a sentence — the refusal to say "no automated opt-out" — the literal stays,
+    /// because there the wording is the rule. A rule about the site's <em>vocabulary</em> is the one
+    /// case where a literal on this page is wrong: it belongs over the whole bundle in every locale,
+    /// which is where <see cref="NoMessageOutsideTheseTwoRefusalsUsesTheWordUptime"/> puts it.
     /// </remarks>
     private static string Says(string id) => Messages.For(Locales.SourceTag, id);
 
@@ -228,21 +230,79 @@ public class AboutPageTests
         await Assert.That(text).Contains("unknown, never zero");
     }
 
+    /// <summary>
+    /// The page explains what reachability is, in whatever language it is being read in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This used to count the English word "uptime" and require exactly two of it.</b> That was a
+    /// reasonable guard while the page was a C# string and an unreasonable one the moment it became
+    /// a translation: a Japanese or Chinese rendering of the same two refusals contains the token
+    /// zero times and would fail, and a German one contains it twice by a coincidence of loanwords
+    /// rather than because the rule held. Worse, the assertion made the *presence* of the forbidden
+    /// word the thing under test, so the page's vocabulary rule was guarded by requiring the
+    /// vocabulary to be broken.
+    /// </para>
+    /// <para>
+    /// The rule survives, split from the spelling. Here: the two refusal ids reach the page, asked
+    /// of the bundle, so this holds in every locale. And in
+    /// <see cref="NoMessageOutsideTheseTwoRefusalsUsesTheWordUptime"/>: the word appears in no other
+    /// message, in no locale — which is the rule itself ("reachable, never uptime", in copy),
+    /// checked over the whole bundle rather than inferred from one page's word count.
+    /// </para>
+    /// </remarks>
     [Test]
-    public async Task ReachableIsExplainedAndNeverCalledUptimeExceptToRefuseTheWord()
+    public async Task ReachableIsExplainedInWhateverLanguageThePageIsRead()
     {
         var text = Render.Words(Plain);
 
         await Assert.That(text).Contains(Says("about.measures.reachable.lead"));
+        await Assert.That(text).Contains(Says("about.measures.reachable.body"));
 
-        // The word appears twice and both are refusals — counted in the rendered English, and a
-        // literal on purpose. Here the wording *is* the rule: this is the site's vocabulary,
-        // "reachable, never uptime", asserted on the one page allowed to print the other word.
-        // Anything else would be that rule broken on the page that states it.
-        var uses = Regex.Matches(text, "uptime", RegexOptions.IgnoreCase).Count;
-        await Assert.That(uses).IsEqualTo(2);
+        // The substance of the refusal, which is what the rule is for: the measurement is of our
+        // socket from our host, and an unreachable game may be perfectly alive.
         await Assert.That(text).Contains("unreachable and perfectly alive");
         await Assert.That(text).Contains("nothing here measured it");
+    }
+
+    /// <summary>
+    /// "Reachable, never uptime" — over the bundle, in every locale, rather than over one page.
+    /// </summary>
+    /// <remarks>
+    /// The two about-page ids are the whole exemption: they are the sentences that name the word in
+    /// order to refuse it, and they are the only place on the site allowed to. Every other id is
+    /// checked in every bundle a reader can be served, so a translator who reaches for the loanword
+    /// in a reachability string fails this rather than shipping it — which a rendered-English word
+    /// count could never have caught.
+    /// </remarks>
+    [Test]
+    public async Task NoMessageOutsideTheseTwoRefusalsUsesTheWordUptime()
+    {
+        string[] refusals = ["about.measures.reachable.lead", "about.measures.reachable.body"];
+
+        var tags = Locales.All
+            .Select(locale => locale.Tag)
+            .Append(Locales.SourceTag)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        await Assert.That(tags).IsNotEmpty();
+
+        foreach (var tag in tags)
+        {
+            foreach (var id in Messages.Ids.Except(refusals, StringComparer.Ordinal))
+            {
+                var pattern = Messages.Pattern(tag, id) ?? string.Empty;
+
+                await Assert.That(pattern.Contains("uptime", StringComparison.OrdinalIgnoreCase))
+                    .IsFalse()
+                    .Because($"{id} says \"uptime\" in {tag}; the word here is reachable");
+            }
+        }
+
+        // And the exemption is real rather than vacuous: the English refusals do use the word, which
+        // is what makes them refusals and not silence.
+        await Assert.That(Says("about.measures.reachable.lead").ToLowerInvariant()).Contains("uptime");
     }
 
     [Test]
