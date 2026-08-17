@@ -331,14 +331,23 @@ public sealed class Catalogue
         Minter(grace, renamesFail));
 
     /// <summary>A game that already exists, so a probe has something to be attributed to.</summary>
-    public Guid Listed(LifecycleState state = LifecycleState.Active)
+    /// <param name="state">Its lifecycle state.</param>
+    /// <param name="slug">Its URL. The default is a game that has named itself.</param>
+    /// <param name="name">
+    /// What it is listed as. Pass an address for the other case the catalogue is full of: a game
+    /// listed under the only thing anybody knows about it.
+    /// </param>
+    public Guid Listed(
+        LifecycleState state = LifecycleState.Active,
+        string slug = "corvid",
+        string name = "Corvid")
     {
         var id = Guid.CreateVersion7();
 
         Games.Seed(new GameRecord(
             id,
-            "corvid",
-            "Corvid",
+            slug,
+            name,
             Tagline: null,
             state,
             IsClaimed: false,

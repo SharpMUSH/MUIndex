@@ -354,6 +354,33 @@ public class SlugMinterTests
         await Assert.That(rename!.Name).IsEqualTo("Corvid Reborn");
     }
 
+    /// <summary>
+    /// A game whose name is in a script the slug fold cannot keep takes the name and keeps the URL.
+    /// </summary>
+    /// <remarks>
+    /// <c>GameSlug.Mint</c> keeps ASCII and Latin-1 and nothing else, so a Hangul, Cyrillic or Kanji
+    /// name folds to the empty string — and the empty stem's fallback is the word <c>game</c>, which
+    /// this game would then hold for ever while the next such game took <c>game-2</c>. The address it
+    /// was already listed at is a real URL and its own; the name belongs on the page, where the fold
+    /// does not reach. Found by rehearsing a catalogue-wide re-mint against a copy of production,
+    /// where the first name the Intermud-3 mudlist supplied for an unnamed game was <c>엘리시안 전기</c>.
+    /// </remarks>
+    [Test]
+    public async Task ANameTheFoldCannotKeepLeavesTheAddressInTheUrl()
+    {
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed(slug: "110-10-160-150-4001", name: "110.10.160.150:4001");
+        await DeclaredAsync(catalogue, game, "엘리시안 전기", changedAt: Now.AddDays(-15));
+
+        var rename = await catalogue.Minter(Grace).ConsiderAsync(game, Now);
+
+        await Assert.That(rename!.Name).IsEqualTo("엘리시안 전기");
+        await Assert.That(rename.Slug).IsEqualTo("110-10-160-150-4001");
+        await Assert.That(rename.FormerSlug).IsNull();
+        await Assert.That(catalogue.Slugs.All).IsEmpty();
+        await Assert.That((await catalogue.Games.ByIdAsync(game))!.Name).IsEqualTo("엘리시안 전기");
+    }
+
     /// <summary>The row <c>OwnerEnrichment</c> stores when an owner answers <c>NAME</c>.</summary>
     private static Task OwnerDeclaredAsync(Catalogue catalogue, Guid game, string name) =>
         catalogue.Fields.UpsertAsync(new GameField(

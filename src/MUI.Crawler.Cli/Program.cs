@@ -213,6 +213,46 @@ if (arguments.Release is { } slug)
     return released ? 0 : 1;
 }
 
+// §5.7's grace, waived by hand for one pass. The rule waits fourteen days because it cannot tell a
+// settled name from a flapping one without watching; a person with the change feed in front of them
+// can, and this is where they say so. Nothing else about the rename is different — the same minter
+// makes the same decision, writes the same game_slug_history row, and the retired slug redirects for
+// ever — so a name this refuses is a name a cycle would refuse too, and the reason to run it twice
+// is that the catalogue has moved, not that it might answer differently.
+if (arguments.MintNow)
+{
+    var minter = new SlugMinter(
+        games, fields, slugs, grace: TimeSpan.Zero, loggerFactory.CreateLogger<SlugMinter>());
+
+    await using var connection = await source.OpenConnectionAsync();
+
+    // Every game, including the archived and the excluded: §3 keeps their pages, their URLs and
+    // their history, so a game that is off the listing is still one somebody can reach and still
+    // one whose URL should say what it is called.
+    var everyGame = (await connection.QueryAsync<Guid>("SELECT id FROM game ORDER BY name")).ToList();
+
+    Console.WriteLine($"mint          {everyGame.Count} games considered with no grace — {arguments.Because}");
+
+    var minted = 0;
+
+    foreach (var id in everyGame)
+    {
+        if (await minter.ConsiderAsync(id, time.GetUtcNow()) is not { } rename)
+        {
+            continue;
+        }
+
+        minted++;
+
+        Console.WriteLine(
+            $"  {rename.FormerSlug ?? "(same slug)",-34} → {rename.Slug,-34} {rename.Name}");
+    }
+
+    Console.WriteLine($"mint          {minted} renamed, {everyGame.Count - minted} left as they were");
+
+    return 0;
+}
+
 var planted = await CrawlSeeds.PlantAsync(targets, arguments.Seeds, time);
 Console.WriteLine($"seeds         {arguments.Seeds.Count} configured, {planted} new in the registry");
 

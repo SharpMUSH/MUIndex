@@ -111,14 +111,34 @@ public static class GameSlug
     /// table as well as <c>game.slug</c>, because a URL a game gave up is still one somebody is
     /// holding and pointing it at a different game is worse than the 404 it replaces.
     /// </remarks>
+    /// <param name="name">What the game calls itself.</param>
+    /// <param name="isTaken">Whether a candidate belongs to anybody, ever.</param>
+    /// <param name="fallback">
+    /// What to mint from when <paramref name="name"/> folds to nothing — the address the game answers
+    /// at, or the URL it already has. Null where the caller genuinely knows nothing else.
+    /// </param>
+    /// <param name="cancellationToken">The caller's budget.</param>
     public static async Task<string> UniqueAsync(
         string name,
         Func<string, CancellationToken, Task<bool>> isTaken,
+        string? fallback = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(isTaken);
 
         var stem = Mint(name);
+
+        // The fold above keeps Latin-1 and nothing beyond it, so a game named in Hangul, Cyrillic or
+        // Kanji arrives here with nothing to make a URL out of — and both callers know its address,
+        // which is what the fold's own remarks promise such a game gets. It went unnoticed while the
+        // only game with an unmintable name was one that had never told us a name at all, whose
+        // "name" was already its address; the mudlist then handed us a real one, in Hangul, and the
+        // slug for it was the word "game" — permanently, because every slug redirects for ever.
+        if (stem.Length == 0 && fallback is { Length: > 0 })
+        {
+            stem = Mint(fallback);
+        }
+
         if (stem.Length == 0)
         {
             // Never an invented word: a slug that reads like a name nobody chose is worse than one
