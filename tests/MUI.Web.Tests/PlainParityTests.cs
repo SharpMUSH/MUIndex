@@ -90,10 +90,14 @@ public class PlainParityTests
         // change it would have the navigation and none of its function.
         var text = await GameAsync("m-u-s-h");
 
-        await Assert.That(text).Contains("HOW MANY, OVER TIME");
+        // The heading through the bundle rather than shouted in English. It used to be upper-cased
+        // here with ToUpperInvariant, which is an English typographic habit applied to a string a
+        // translator writes — and one that mangles ß and Turkish i on the way past.
+        await Assert.That(text).Contains(Messages.For(Locales.SourceTag, "trend.plain.heading"));
         await Assert.That(text).Contains("typically");
         await Assert.That(text).Contains("peak");
-        await Assert.That(text).Contains("earlier: ?from=");
+        await Assert.That(text)
+            .Contains($"{Messages.For(Locales.SourceTag, "trend.plain.earlier")}: ?from=");
     }
 
     [Test]
@@ -111,10 +115,13 @@ public class PlainParityTests
 
         // And no cause is named for either: a failed probe writes no presence row, so silence
         // cannot tell an outage of theirs from a gap of ours.
-        var trend = text[text.IndexOf("HOW MANY, OVER TIME", StringComparison.Ordinal)..];
-        var reachable = trend.IndexOf("Reachable (", StringComparison.Ordinal);
+        var trend = text[text.IndexOf(
+            Messages.For(Locales.SourceTag, "trend.plain.heading"), StringComparison.Ordinal)..];
+        var reachable = trend.IndexOf(
+            Messages.For(Locales.SourceTag, "reach.plain.heading") + " (", StringComparison.Ordinal);
 
-        await Assert.That(reachable > 0 ? trend[..reachable] : trend).DoesNotContain("unreachable");
+        await Assert.That(reachable > 0 ? trend[..reachable] : trend)
+            .DoesNotContain(Messages.For(Locales.SourceTag, "state.unreachable"));
     }
 
     [Test]
@@ -168,7 +175,13 @@ public class PlainParityTests
     {
         var text = await GameAsync("midnight-sun");
 
-        await Assert.That(text).Contains("Only 2 row(s) came back");
+        // Through the bundle, which is also how it stopped saying "row(s)": a parenthesised s is a
+        // fact about English written where a plural rule belongs, and the graphical frame and this
+        // surface now render the one ICU message rather than two spellings of it.
+        await Assert.That(text).Contains(Messages.For(
+            Locales.SourceTag,
+            "ansi.tooSmall",
+            new Dictionary<string, object?>(StringComparer.Ordinal) { ["count"] = 2 }));
     }
 
     [Test]

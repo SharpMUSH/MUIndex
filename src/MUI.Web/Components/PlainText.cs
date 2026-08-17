@@ -60,26 +60,30 @@ public static class PlainText
         // blank reads as zero to a human exactly as it does to a parser — and the count says how it
         // was obtained here as it does on the listing, or this page is the less honest of the two.
         b.AppendLine((s.PlayersNow is { } n
-            ? $"Players now: {n}  {Label(tag, s.PlayersNowProvenance, now)}"
-            : "Players now: unknown (no count could be measured)").TrimEnd());
+            ? $"{Say(tag, "game.plain.playersNow", ("count", n))}  {Label(tag, s.PlayersNowProvenance, now)}"
+            : Say(tag, "game.plain.playersUnknown")).TrimEnd());
 
         if (page.ReachableFraction is { } r)
         {
-            b.AppendLine($"Reachable: {Wording.Percent(r)} of the last 90 days");
+            b.AppendLine(Say(
+                tag,
+                "reach.plain.fraction",
+                ("percent", Wording.Percent(r)),
+                ("days", ReachSeries.WindowDays)));
         }
 
         if (page.LongestOutage is { } o)
         {
-            b.AppendLine($"Longest outage: {Wording.Duration(o)}");
+            b.AppendLine(Say(tag, "reach.plain.longestOutage", ("duration", Wording.Duration(o))));
         }
 
         AppendActivity(b, page.Activity, tag);
-        AppendTrend(b, trend);
-        AppendReachable(b, reach);
-        AppendCapabilities(b, page);
-        AppendDeclared(b, tag, page, now);
-        AppendConnectScreen(b, page);
-        AppendChanges(b, page);
+        AppendTrend(b, trend, tag);
+        AppendReachable(b, reach, tag);
+        AppendCapabilities(b, page, tag);
+        AppendDeclared(b, page, now, tag);
+        AppendConnectScreen(b, page, tag);
+        AppendChanges(b, page, tag);
 
         return b.ToString();
     }
@@ -145,15 +149,16 @@ public static class PlainText
     /// function — which is the decoration §9 is testing for.
     /// </para>
     /// </remarks>
-    private static void AppendTrend(StringBuilder b, TrendSeries? trend)
+    private static void AppendTrend(StringBuilder b, TrendSeries? trend, string tag)
     {
         if (trend is null || trend.Days.Count == 0)
         {
             return;
         }
 
-        Heading(b, $"HOW MANY, OVER TIME ({trend.From:d MMM yyyy} – {trend.To:d MMM yyyy}, UTC)");
-        Wrap(b, trend.Sentence);
+        Heading(b, $"{Say(tag, "trend.plain.heading")} "
+            + $"({Say(tag, "trend.plain.range", ("from", trend.From), ("to", trend.To))})");
+        Wrap(b, trend.Sentence(tag));
 
         if (!trend.HasAnyCount)
         {
@@ -162,7 +167,7 @@ public static class PlainText
 
         b.AppendLine();
 
-        foreach (var line in trend.PerWeek())
+        foreach (var line in trend.PerWeek(tag))
         {
             Wrap(b, line, "  ");
         }
@@ -171,36 +176,42 @@ public static class PlainText
 
         var range = new TrendRange(trend.From, trend.To);
 
-        b.AppendLine($"  earlier: ?{range.Previous().Query}&plain=1");
-        b.AppendLine("  a week is summarised over the days in it we counted; a week with none says so");
+        b.AppendLine($"  {Say(tag, "trend.plain.earlier")}: ?{range.Previous().Query}&plain=1");
+        Wrap(b, Say(tag, "trend.plain.note"), "  ");
     }
 
     /// <summary>The 90-day strip in words: the summary, then every spell that was not reachable.</summary>
-    private static void AppendReachable(StringBuilder b, ReachSummary? reach)
+    private static void AppendReachable(StringBuilder b, ReachSummary? reach, string tag)
     {
         if (reach is null)
         {
             return;
         }
 
-        Heading(b, $"Reachable (last {reach.Window} days)");
-        Wrap(b, reach.Sentence);
+        Heading(b, $"{Say(tag, "reach.plain.heading")} "
+            + $"({Say(tag, "reach.plain.window", ("days", reach.Window))})");
+        Wrap(b, reach.Sentence(tag));
 
-        if (reach.Spells.Count == 0)
+        var spells = reach.Spells(tag);
+        if (spells.Count == 0)
         {
             return;
         }
 
         b.AppendLine();
-        foreach (var spell in reach.Spells)
+        foreach (var spell in spells)
         {
             b.AppendLine($"  {spell}");
         }
     }
 
-    private static void AppendCapabilities(StringBuilder b, GamePage page)
+    private static void AppendCapabilities(StringBuilder b, GamePage page, string tag)
     {
-        Heading(b, $"Capabilities ({page.DisagreementCount} of {page.Capabilities.Count} disagree)");
+        Heading(b, Say(
+            tag,
+            "game.plain.capabilities",
+            ("disagreeing", page.DisagreementCount),
+            ("total", page.Capabilities.Count)));
 
         // The same order the matrix uses: disagreements first, then measured-present, then absent,
         // then unknown. Two surfaces of one fact must not put it in two places.
@@ -214,19 +225,20 @@ public static class PlainText
             })
             .ThenBy(c => c.Protocol, StringComparer.Ordinal))
         {
-            var flag = c.Disagrees ? "  ** disagree" : string.Empty;
-            b.AppendLine($"  {c.Protocol,-10} measured: {Word(c.Measured),-7} declared: {Word(c.Declared)}{flag}");
+            var flag = c.Disagrees ? "  " + Say(tag, "game.plain.disagree") : string.Empty;
+            b.AppendLine($"  {c.Protocol,-10} {Say(tag, "game.plain.measured")}: {Word(c.Measured),-7} "
+                + $"{Say(tag, "game.plain.declared.column")}: {Word(c.Declared)}{flag}");
         }
     }
 
-    private static void AppendDeclared(StringBuilder b, string tag, GamePage page, DateTimeOffset now)
+    private static void AppendDeclared(StringBuilder b, GamePage page, DateTimeOffset now, string tag)
     {
         if (page.Declared.Count == 0)
         {
             return;
         }
 
-        Heading(b, "Declared by the game");
+        Heading(b, Say(tag, "game.plain.declared"));
 
         foreach (var (name, chip) in page.Declared)
         {
@@ -267,33 +279,33 @@ public static class PlainText
     /// frame has — suppressed, absent, too small — are stated rather than left as an absence for the
     /// reader to interpret.
     /// </summary>
-    private static void AppendConnectScreen(StringBuilder b, GamePage page)
+    private static void AppendConnectScreen(StringBuilder b, GamePage page, string tag)
     {
         var screen = Ansi.Parse(page.ConnectScreen, page.ConnectScreenSuppressed);
 
-        Heading(b, "Connect screen");
+        Heading(b, Say(tag, "game.plain.connectScreen"));
 
         switch (screen.State)
         {
             case AnsiScreenState.Suppressed:
-                b.AppendLine("  The owner asked us not to republish this game's connect screen.");
+                Wrap(b, Say(tag, "ansi.suppressed"), "  ");
                 return;
 
             case AnsiScreenState.Absent:
-                b.AppendLine("  No connect screen has been captured from this game.");
+                Wrap(b, Say(tag, "ansi.absent"), "  ");
                 return;
 
             case AnsiScreenState.TooSmall:
-                b.AppendLine($"  Only {screen.RowCount} row(s) came back — too little to show.");
+                Wrap(b, Say(tag, "ansi.tooSmall", ("count", screen.RowCount)), "  ");
                 return;
         }
 
         // The same caption the figure carries, for the same reason: on a game whose bytes were not
         // UTF-8 this is how a reader learns which encoding they are looking at rather than blaming
         // their terminal. The two surfaces must not disagree about the screen.
-        var charset = page.ConnectScreenCharset is { Length: > 0 } read ? $", read as {read}" : string.Empty;
-
-        b.AppendLine($"  [connect screen: {screen.RowCount} lines, text only{charset}]");
+        b.AppendLine("  [" + (page.ConnectScreenCharset is { Length: > 0 } read
+            ? Say(tag, "ansi.plain.rows.readAs", ("count", screen.RowCount), ("charset", read))
+            : Say(tag, "ansi.plain.rows", ("count", screen.RowCount))) + "]");
         b.AppendLine();
         foreach (var row in screen.Rows)
         {
@@ -301,14 +313,14 @@ public static class PlainText
         }
     }
 
-    private static void AppendChanges(StringBuilder b, GamePage page)
+    private static void AppendChanges(StringBuilder b, GamePage page, string tag)
     {
         if (page.Changes.Count == 0)
         {
             return;
         }
 
-        Heading(b, "What changed");
+        Heading(b, Say(tag, "game.plain.whatChanged"));
         foreach (var change in page.Changes.OrderByDescending(c => c.At))
         {
             b.AppendLine($"  {change.At:yyyy-MM-dd}  {change.Summary}");
@@ -1109,7 +1121,16 @@ public static class PlainText
         }
     }
 
-    /// <summary>Colour is never the only carrier of a state, and here there is no colour at all.</summary>
+    /// <summary>
+    /// Colour is never the only carrier of a state, and here there is no colour at all.
+    /// </summary>
+    /// <remarks>
+    /// The one thing on this surface left in English on purpose. These are a two-column tabular
+    /// token in a fixed-width table eighty columns wide, read the way a flag in <c>ls -l</c> is,
+    /// and the row's own labels beside them <em>are</em> translated — so what a reader meets is a
+    /// German sentence naming a machine token, which is the arrangement every other machine value
+    /// on this site already has. A four-syllable translation would push the row past eighty.
+    /// </remarks>
     private static string Word(CapabilityState state) => state switch
     {
         CapabilityState.Present => "yes",

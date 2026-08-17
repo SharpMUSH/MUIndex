@@ -2380,4 +2380,512 @@
     <value>random game</value>
     <comment>/find's footer, which the rebuild left in English</comment>
   </data>
+  <data name="trend.day.counted" xml:space="preserve">
+    <value>{d, date, medium} — {typical} on average, {low}–{high} across {probes, plural, one {# probe} other {# probes}}</value>
+    <comment>the trend chart's per-day title, one per column</comment>
+  </data>
+  <data name="trend.day.flat" xml:space="preserve">
+    <value>{d, date, medium} — {count, plural, =0 {0 players} one {# player} other {# players}}, every one of {probes, plural, one {# probe} other {# probes}}</value>
+    <comment>the trend chart's per-day title, one per column</comment>
+  </data>
+  <data name="trend.day.notCounted" xml:space="preserve">
+    <value>{d, date, medium} — probed, no count could be read</value>
+    <comment>the trend chart's per-day title, one per column</comment>
+  </data>
+  <data name="trend.day.notMeasured" xml:space="preserve">
+    <value>{d, date, medium} — no measurement</value>
+    <comment>the trend chart's per-day title, one per column</comment>
+  </data>
+  <data name="trend.summary" xml:space="preserve">
+    <value>Typically {typical} on, peaking at {peak}, over {counted} of {days, plural, one {# day} other {# days}}.</value>
+    <comment>the sentence above the chart</comment>
+  </data>
+  <data name="trend.direction.steady" xml:space="preserve">
+    <value>Steady across the range.</value>
+    <comment>the sentence above the chart</comment>
+  </data>
+  <data name="trend.direction.up" xml:space="preserve">
+    <value>Up about {change, number, percent} from the start of the range to the end.</value>
+    <comment>the sentence above the chart</comment>
+  </data>
+  <data name="trend.direction.down" xml:space="preserve">
+    <value>Down about {change, number, percent} from the start of the range to the end.</value>
+    <comment>the sentence above the chart</comment>
+  </data>
+  <data name="trend.none.probed" xml:space="preserve">
+    <value>Probed in this range, and no player count could be read from any of it.</value>
+    <comment>the sentence above the chart</comment>
+  </data>
+  <data name="trend.none.notMeasured" xml:space="preserve">
+    <value>No measurement in this range.</value>
+    <comment>the sentence above the chart</comment>
+  </data>
+  <data name="trend.empty" xml:space="preserve">
+    <value>Nothing counted in this range.</value>
+    <comment>the sentence above the chart</comment>
+  </data>
+  <data name="trend.week.span" xml:space="preserve">
+    <value>{from, date, d MMM}–{to, date, d MMM}</value>
+    <comment>the week lines, which are the text alternative and the plain surface both</comment>
+  </data>
+  <data name="trend.week.oneDay" xml:space="preserve">
+    <value>{d, date, d MMM}</value>
+    <comment>the week lines, which are the text alternative and the plain surface both</comment>
+  </data>
+  <data name="trend.week.counted" xml:space="preserve">
+    <value>{span}: typically {typical}, peak {peak}, {days, plural, one {# day} other {# days}} counted</value>
+    <comment>the week lines, which are the text alternative and the plain surface both</comment>
+  </data>
+  <data name="trend.week.notCounted" xml:space="preserve">
+    <value>{span}: probed, no count could be read</value>
+    <comment>the week lines, which are the text alternative and the plain surface both</comment>
+  </data>
+  <data name="trend.week.notMeasured" xml:space="preserve">
+    <value>{span}: not measured</value>
+    <comment>the week lines, which are the text alternative and the plain surface both</comment>
+  </data>
+  <data name="trend.week.uncounted" xml:space="preserve">
+    <value>{count, plural, one {# day probed without a count} other {# days probed without a count}}</value>
+    <comment>the week lines, which are the text alternative and the plain surface both</comment>
+  </data>
+  <data name="trend.week.unmeasured" xml:space="preserve">
+    <value>{count, plural, one {# day not measured} other {# days not measured}}</value>
+    <comment>the week lines, which are the text alternative and the plain surface both</comment>
+  </data>
+  <data name="trend.week.and" xml:space="preserve">
+    <value>{line}, {clause}</value>
+    <comment>the week lines, which are the text alternative and the plain surface both</comment>
+  </data>
+  <data name="trend.range" xml:space="preserve">
+    <value>days in UTC · {from, date, medium} – {to, date, medium}</value>
+    <comment>the chart's own chrome</comment>
+  </data>
+  <data name="trend.ceiling" xml:space="preserve">
+    <value>{value} at the top</value>
+    <comment>the chart's own chrome</comment>
+  </data>
+  <data name="trend.counted" xml:space="preserve">
+    <value>{counted} of {days, plural, one {# day} other {# days}} counted</value>
+    <comment>the chart's own chrome</comment>
+  </data>
+  <data name="trend.axis.month" xml:space="preserve">
+    <value>{d, date, MMM}</value>
+    <comment>the chart's own chrome</comment>
+  </data>
+  <data name="trend.axis.monthYear" xml:space="preserve">
+    <value>{d, date, MMM yyyy}</value>
+    <comment>the chart's own chrome</comment>
+  </data>
+  <data name="trend.legend.mean" xml:space="preserve">
+    <value>mean of the counts we read that day</value>
+    <comment>the chart's own chrome</comment>
+  </data>
+  <data name="trend.legend.peak" xml:space="preserve">
+    <value>up to the busiest count that day</value>
+    <comment>the chart's own chrome</comment>
+  </data>
+  <data name="trend.legend.band" xml:space="preserve">
+    <value>lowest to highest count that day</value>
+    <comment>the chart's own chrome</comment>
+  </data>
+  <data name="trend.legend.notCounted" xml:space="preserve">
+    <value>probed, no count could be read</value>
+    <comment>the chart's own chrome</comment>
+  </data>
+  <data name="trend.legend.notMeasured.bar" xml:space="preserve">
+    <value>not measured — no bar at all</value>
+    <comment>the chart's own chrome</comment>
+  </data>
+  <data name="trend.legend.notMeasured.line" xml:space="preserve">
+    <value>not measured — a break in the line</value>
+    <comment>the chart's own chrome</comment>
+  </data>
+  <data name="trend.spans.label" xml:space="preserve">
+    <value>Trend range</value>
+    <comment>seeking and switching, which are links because the range is in the address</comment>
+  </data>
+  <data name="trend.shapes.label" xml:space="preserve">
+    <value>Trend shape</value>
+    <comment>seeking and switching, which are links because the range is in the address</comment>
+  </data>
+  <data name="trend.preset" xml:space="preserve">
+    <value>{days, plural, one {# day} other {# days}}</value>
+    <comment>seeking and switching, which are links because the range is in the address</comment>
+  </data>
+  <data name="trend.earlier" xml:space="preserve">
+    <value>← earlier</value>
+    <comment>seeking and switching, which are links because the range is in the address</comment>
+  </data>
+  <data name="trend.later" xml:space="preserve">
+    <value>later →</value>
+    <comment>seeking and switching, which are links because the range is in the address</comment>
+  </data>
+  <data name="trend.shape.line" xml:space="preserve">
+    <value>line</value>
+    <comment>seeking and switching, which are links because the range is in the address</comment>
+  </data>
+  <data name="trend.shape.bar" xml:space="preserve">
+    <value>bars</value>
+    <comment>seeking and switching, which are links because the range is in the address</comment>
+  </data>
+  <data name="trend.plain.heading" xml:space="preserve">
+    <value>How many, over time</value>
+    <comment>seeking and switching, which are links because the range is in the address</comment>
+  </data>
+  <data name="trend.plain.range" xml:space="preserve">
+    <value>{from, date, medium} – {to, date, medium}, UTC</value>
+    <comment>seeking and switching, which are links because the range is in the address</comment>
+  </data>
+  <data name="trend.plain.earlier" xml:space="preserve">
+    <value>earlier</value>
+    <comment>seeking and switching, which are links because the range is in the address</comment>
+  </data>
+  <data name="trend.plain.note" xml:space="preserve">
+    <value>a week is summarised over the days in it we counted; a week with none says so</value>
+    <comment>seeking and switching, which are links because the range is in the address</comment>
+  </data>
+  <data name="reach.kicker" xml:space="preserve">
+    <value>reachable · last {days, plural, one {# day} other {# days}}</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.stat.reachable" xml:space="preserve">
+    <value>reachable</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.stat.longestOutage" xml:space="preserve">
+    <value>longest outage</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.stat.lastCause" xml:space="preserve">
+    <value>last cause</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.noOutage" xml:space="preserve">
+    <value>none in the window</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.noCause" xml:space="preserve">
+    <value>nothing recorded</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.scale.ago" xml:space="preserve">
+    <value>{days, plural, one {# day ago} other {# days ago}}</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.scale.today" xml:space="preserve">
+    <value>today</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.legend.reachable" xml:space="preserve">
+    <value>reachable</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.legend.degraded" xml:space="preserve">
+    <value>degraded — answered, could not finish</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.legend.unreachable" xml:space="preserve">
+    <value>unreachable</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.legend.notMeasured" xml:space="preserve">
+    <value>not measured</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.word.reachable" xml:space="preserve">
+    <value>reachable</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.word.degraded" xml:space="preserve">
+    <value>degraded</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.word.unreachable" xml:space="preserve">
+    <value>unreachable</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.word.notMeasured" xml:space="preserve">
+    <value>not measured</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.day.reachable" xml:space="preserve">
+    <value>{d, date, d MMM} — reachable all day</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.day.degraded" xml:space="preserve">
+    <value>{d, date, d MMM} — degraded ({cause}): answered, could not finish</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.day.unreachable" xml:space="preserve">
+    <value>{d, date, d MMM} — unreachable ({cause})</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.day.notMeasured" xml:space="preserve">
+    <value>{d, date, d MMM} — not measured; we were not watching this game yet</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.none" xml:space="preserve">
+    <value>{days, plural, one {Not yet measured over the last # day.} other {Not yet measured over the last # days.}}</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.fraction.window" xml:space="preserve">
+    <value>Reachable {percent} of the last {days, plural, one {# day} other {# days}}.</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.fraction.measured" xml:space="preserve">
+    <value>Reachable {percent} of the {days, plural, one {# day} other {# days}} we have measured.</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.fraction.unknown" xml:space="preserve">
+    <value>{days, plural, one {Reachability over the last # day is not yet measured.} other {Reachability over the last # days is not yet measured.}}</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.unreachable.noneInWindow" xml:space="preserve">
+    <value>No day in the window was unreachable.</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.unreachable.noneMeasured" xml:space="preserve">
+    <value>No day we measured was unreachable.</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.unreachable.days" xml:space="preserve">
+    <value>{count, plural, one {# day unreachable.} other {# days unreachable.}}</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.degraded.days" xml:space="preserve">
+    <value>{count, plural, one {# day degraded — we got in and could not finish.} other {# days degraded — we got in and could not finish.}}</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.longestOutage" xml:space="preserve">
+    <value>Longest outage {duration}.</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.longestOutage.cause" xml:space="preserve">
+    <value>Longest outage {duration} ({cause}).</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.predate" xml:space="preserve">
+    <value>{count, plural, one {# day predates anything we measured.} other {# days predate anything we measured.}}</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.spell.range" xml:space="preserve">
+    <value>{from, date, d MMM} – {to, date, d MMM}</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.spell.oneDay" xml:space="preserve">
+    <value>{d, date, d MMM}</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.spell" xml:space="preserve">
+    <value>{range}: {count, plural, one {# day} other {# days}} {word}</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.spell.cause" xml:space="preserve">
+    <value>{range}: {count, plural, one {# day} other {# days}} {word} ({cause})</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.plain.heading" xml:space="preserve">
+    <value>Reachable</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.plain.window" xml:space="preserve">
+    <value>{days, plural, one {last # day} other {last # days}}</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.plain.fraction" xml:space="preserve">
+    <value>Reachable: {percent} of the {days, plural, one {last # day} other {last # days}}</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="reach.plain.longestOutage" xml:space="preserve">
+    <value>Longest outage: {duration}</value>
+    <comment>the reachability strip</comment>
+  </data>
+  <data name="cause.dns" xml:space="preserve">
+    <value>dns did not resolve</value>
+    <comment>why a dial did not complete, in a person's words</comment>
+  </data>
+  <data name="cause.refused" xml:space="preserve">
+    <value>connection refused</value>
+    <comment>why a dial did not complete, in a person's words</comment>
+  </data>
+  <data name="cause.tls" xml:space="preserve">
+    <value>tls failed</value>
+    <comment>why a dial did not complete, in a person's words</comment>
+  </data>
+  <data name="cause.timeout" xml:space="preserve">
+    <value>timed out</value>
+    <comment>why a dial did not complete, in a person's words</comment>
+  </data>
+  <data name="cause.handshakeStalled" xml:space="preserve">
+    <value>handshake stalled</value>
+    <comment>why a dial did not complete, in a person's words</comment>
+  </data>
+  <data name="cause.none" xml:space="preserve">
+    <value>no cause recorded</value>
+    <comment>why a dial did not complete, in a person's words</comment>
+  </data>
+  <data name="ansi.suppressed" xml:space="preserve">
+    <value>The owner asked us not to republish this game's connect screen.</value>
+    <comment>the ANSI capture's frame</comment>
+  </data>
+  <data name="ansi.absent" xml:space="preserve">
+    <value>No connect screen has been captured from this game.</value>
+    <comment>the ANSI capture's frame</comment>
+  </data>
+  <data name="ansi.tooSmall" xml:space="preserve">
+    <value>{count, plural, one {Only # row came back — too little to show.} other {Only # rows came back — too little to show.}}</value>
+    <comment>the ANSI capture's frame</comment>
+  </data>
+  <data name="ansi.asSent" xml:space="preserve">
+    <value>as sent by the server</value>
+    <comment>the ANSI capture's frame</comment>
+  </data>
+  <data name="ansi.size" xml:space="preserve">
+    <value>{columns}×{rows}</value>
+    <comment>the ANSI capture's frame</comment>
+  </data>
+  <data name="ansi.size.doubleWidth" xml:space="preserve">
+    <value>{columns}×{rows}, double-width</value>
+    <comment>the ANSI capture's frame</comment>
+  </data>
+  <data name="ansi.depth.colour" xml:space="preserve">
+    <value>16-colour SGR</value>
+    <comment>the ANSI capture's frame</comment>
+  </data>
+  <data name="ansi.depth.plain" xml:space="preserve">
+    <value>no colour</value>
+    <comment>the ANSI capture's frame</comment>
+  </data>
+  <data name="ansi.readAs" xml:space="preserve">
+    <value>read as {charset}</value>
+    <comment>the ANSI capture's frame</comment>
+  </data>
+  <data name="ansi.captured" xml:space="preserve">
+    <value>captured</value>
+    <comment>the ANSI capture's frame</comment>
+  </data>
+  <data name="ansi.frozen" xml:space="preserve">
+    <value>frozen — the last screen we saw</value>
+    <comment>the ANSI capture's frame</comment>
+  </data>
+  <data name="ansi.alt.named" xml:space="preserve">
+    <value>ASCII art: the connect screen of {game}. Its text is under "read as text", below.</value>
+    <comment>the ANSI capture's frame</comment>
+  </data>
+  <data name="ansi.alt" xml:space="preserve">
+    <value>ASCII art: this game's connect screen. Its text is under "read as text", below.</value>
+    <comment>the ANSI capture's frame</comment>
+  </data>
+  <data name="ansi.plain.rows" xml:space="preserve">
+    <value>{count, plural, one {connect screen: # line, text only} other {connect screen: # lines, text only}}</value>
+    <comment>the ANSI capture's frame</comment>
+  </data>
+  <data name="ansi.plain.rows.readAs" xml:space="preserve">
+    <value>{count, plural, one {connect screen: # line, text only, read as {charset}} other {connect screen: # lines, text only, read as {charset}}}</value>
+    <comment>the ANSI capture's frame</comment>
+  </data>
+  <data name="capability.disagree.declaredNotOffered" xml:space="preserve">
+    <value>the game declares it, and the server has never offered it in a handshake.</value>
+    <comment>the capability matrix's disagreements, said in prose</comment>
+  </data>
+  <data name="capability.disagree.offeredNotDeclared" xml:space="preserve">
+    <value>the server offers it, and the game's own record says it does not.</value>
+    <comment>the capability matrix's disagreements, said in prose</comment>
+  </data>
+  <data name="capability.disagree.note" xml:space="preserve">
+    <value>Usually a stale hand-typed field, not a lie. Shown because a client should not rely on what the two disagree about.</value>
+    <comment>the capability matrix's disagreements, said in prose</comment>
+  </data>
+  <data name="game.notFound" xml:space="preserve">
+    <value>Not found</value>
+    <comment>the rest of the game page</comment>
+  </data>
+  <data name="game.notFound.hint" xml:space="preserve">
+    <value>No game at this address. Check the spelling.</value>
+    <comment>the rest of the game page</comment>
+  </data>
+  <data name="game.endpoint.lastAnswered" xml:space="preserve">
+    <value>last answered</value>
+    <comment>the rest of the game page</comment>
+  </data>
+  <data name="game.stale" xml:space="preserve">
+    <value>{count, plural, one {# is past its refresh window. Old, not wrong.} other {# are past their refresh window. Old, not wrong.}}</value>
+    <comment>the rest of the game page</comment>
+  </data>
+  <data name="game.referrals.lists" xml:space="preserve">
+    <value>This game's own referral list names:</value>
+    <comment>the rest of the game page</comment>
+  </data>
+  <data name="game.referrals.listedBy" xml:space="preserve">
+    <value>Named by the referral list of:</value>
+    <comment>the rest of the game page</comment>
+  </data>
+  <data name="game.referral.since" xml:space="preserve">
+    <value>since {date}</value>
+    <comment>the rest of the game page</comment>
+  </data>
+  <data name="game.referral.dropped" xml:space="preserve">
+    <value>no longer listed, last seen</value>
+    <comment>the rest of the game page</comment>
+  </data>
+  <data name="game.archived.lastAnswered" xml:space="preserve">
+    <value>Last answered {date}, {ago} ago.</value>
+    <comment>the rest of the game page</comment>
+  </data>
+  <data name="game.archived.stillProbed" xml:space="preserve">
+    <value>Still probed weekly; this page updates the day it answers.</value>
+    <comment>the rest of the game page</comment>
+  </data>
+  <data name="game.archived.knownLive" xml:space="preserve">
+    <value>{span} known live</value>
+    <comment>the rest of the game page</comment>
+  </data>
+  <data name="game.excluded" xml:space="preserve">
+    <value>Not in the listing, the rankings or the daily figure: we do not think this address is a game somebody can play. Everything below is what it told us, unchanged.</value>
+    <comment>the rest of the game page</comment>
+  </data>
+  <data name="game.excluded.reason" xml:space="preserve">
+    <value>Our reason: {why}</value>
+    <comment>the rest of the game page</comment>
+  </data>
+  <data name="game.unlisted" xml:space="preserve">
+    <value>Not in the listing, the rankings or the daily figure, at the request of the people who run it. Everything below is preserved as it was, this page and every address it has ever had go on answering, and we are not dialling it.</value>
+    <comment>the rest of the game page</comment>
+  </data>
+  <data name="game.plain.playersNow" xml:space="preserve">
+    <value>Players now: {count}</value>
+    <comment>the plain surface's own headings for this page</comment>
+  </data>
+  <data name="game.plain.playersUnknown" xml:space="preserve">
+    <value>Players now: unknown (no count could be measured)</value>
+    <comment>the plain surface's own headings for this page</comment>
+  </data>
+  <data name="game.plain.capabilities" xml:space="preserve">
+    <value>Capabilities ({disagreeing} of {total} disagree)</value>
+    <comment>the plain surface's own headings for this page</comment>
+  </data>
+  <data name="game.plain.declared" xml:space="preserve">
+    <value>Declared by the game</value>
+    <comment>the plain surface's own headings for this page</comment>
+  </data>
+  <data name="game.plain.connectScreen" xml:space="preserve">
+    <value>Connect screen</value>
+    <comment>the plain surface's own headings for this page</comment>
+  </data>
+  <data name="game.plain.whatChanged" xml:space="preserve">
+    <value>What changed</value>
+    <comment>the plain surface's own headings for this page</comment>
+  </data>
+  <data name="game.plain.measured" xml:space="preserve">
+    <value>measured</value>
+    <comment>the plain surface's own headings for this page</comment>
+  </data>
+  <data name="game.plain.declared.column" xml:space="preserve">
+    <value>declared</value>
+    <comment>the plain surface's own headings for this page</comment>
+  </data>
+  <data name="game.plain.disagree" xml:space="preserve">
+    <value>** disagree</value>
+    <comment>the plain surface's own headings for this page</comment>
+  </data>
 </root>

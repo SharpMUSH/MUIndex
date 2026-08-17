@@ -1,5 +1,6 @@
 using MUI.Catalog;
 using MUI.Web.Components;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Tests;
 
@@ -10,6 +11,9 @@ namespace MUI.Web.Tests;
 public class ReachSeriesTests
 {
     private static readonly DateTimeOffset Now = new(2026, 7, 30, 20, 0, 0, TimeSpan.Zero);
+
+    /// <summary>The locale these assertions read in — the source bundle they are written against.</summary>
+    private const string English = Locales.SourceTag;
 
     private static AvailabilityInterval Span(double from, double? to, AvailabilityState state, FailureCause cause) =>
         new()
@@ -39,7 +43,7 @@ public class ReachSeriesTests
 
         await Assert.That(summary.Days.Count(d => d.State is ReachState.Unmeasured)).IsGreaterThan(70);
         await Assert.That(summary.Days.Any(d => d.State is ReachState.Unreachable)).IsFalse();
-        await Assert.That(summary.Sentence).Contains("predate anything we measured");
+        await Assert.That(summary.Sentence(English)).Contains("predate anything we measured");
     }
 
     [Test]
@@ -55,8 +59,8 @@ public class ReachSeriesTests
         ], Now);
 
         await Assert.That(summary.Days.Any(d => d.State is ReachState.Degraded)).IsTrue();
-        await Assert.That(summary.Sentence).Contains("degraded");
-        await Assert.That(summary.Sentence).Contains("could not finish");
+        await Assert.That(summary.Sentence(English)).Contains("degraded");
+        await Assert.That(summary.Sentence(English)).Contains("could not finish");
     }
 
     [Test]
@@ -89,7 +93,12 @@ public class ReachSeriesTests
 
         await Assert.That(summary.LongestOutageCause).IsEqualTo(FailureCause.Refused);
         await Assert.That(summary.LastCause).IsEqualTo(FailureCause.Timeout);
-        await Assert.That(summary.Sentence).Contains("connection refused");
+        // The cause named through the bundle rather than spelled here, so the assertion is about
+        // which FailureCause reached the sentence and survives its being translated.
+        await Assert.That(summary.Sentence(English))
+            .Contains(Wording.Cause(English, FailureCause.Refused));
+        await Assert.That(summary.Sentence(English))
+            .DoesNotContain(Wording.Cause(English, FailureCause.Timeout));
     }
 
     [Test]
@@ -104,9 +113,11 @@ public class ReachSeriesTests
             Span(37, null, AvailabilityState.Reachable, FailureCause.None),
         ], Now);
 
-        await Assert.That(summary.Spells.Count()).IsEqualTo(1);
-        await Assert.That(summary.Spells[0]).Contains("unreachable");
-        await Assert.That(summary.Spells[0]).Contains("dns did not resolve");
+        await Assert.That(summary.Spells(English).Count).IsEqualTo(1);
+        await Assert.That(summary.Spells(English)[0])
+            .Contains(Messages.For(English, "reach.word.unreachable"));
+        await Assert.That(summary.Spells(English)[0])
+            .Contains(Wording.Cause(English, FailureCause.Dns));
     }
 
     [Test]

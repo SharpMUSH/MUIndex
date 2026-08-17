@@ -1043,6 +1043,218 @@ public static class Messages
         // in exactly this job. This one had nothing to reuse: nav.random is a nav item reading
         // "random", and a footer link naming what it fetches is a different phrase.
         ["footer.randomGame"] = "random game",
+
+        // THE TREND CHART, THE REACHABILITY STRIP AND THE REST OF THE GAME PAGE
+        // ═════════════════════════════════════════════════════════════════════════════════════
+        //
+        // The last surface that answered in English whatever the reader asked for, and the largest:
+        // ninety per-day tooltips on the trend chart and ninety more on the strip beside it were two
+        // hundred strings of one shape, built by gluing a date to a fragment.
+        //
+        // **A day has the same three states an hour has, and they are three ids here.** A day we
+        // counted — a measured zero included — a day probed all through that produced no count, and
+        // a day with no measurement at all. The third names no cause in any language: a failed probe
+        // writes no presence row, so an empty day covers a probe we could not complete and a day we
+        // never dialled alike, and a translation reaching for "offline" or "not reachable" would file
+        // our crawl schedule as a fact about somebody's game. `trend.day.notMeasured` and
+        // `trend.day.notCounted` are deliberately far apart in wording so no locale can quietly
+        // render both as *unavailable*, and a test asserts they stay different in every locale.
+        //
+        // **Dates are `{d, date, …}` arguments, never a month name written here.** The style is part
+        // of the pattern, so a translator who needs `2026/05/21` writes `{d, date, short}` in their
+        // own copy and gets it — which is the whole reason the date went through the formatter
+        // rather than through a `ToString` at the call site.
+
+        // ── the trend chart's per-day title, one per column ───────────────────────────────────
+        // Four shapes, and the reader gets exactly one. A flat day — every probe returning the same
+        // number — is its own id rather than a range with the same number twice, because "24–24" is
+        // arithmetic where a measurement was asked for.
+        ["trend.day.counted"] = "{d, date, medium} — {typical} on average, {low}–{high} across {probes, plural, one {# probe} other {# probes}}",
+        ["trend.day.flat"] = "{d, date, medium} — {count, plural, =0 {0 players} one {# player} other {# players}}, every one of {probes, plural, one {# probe} other {# probes}}",
+        ["trend.day.notCounted"] = "{d, date, medium} — probed, no count could be read",
+        ["trend.day.notMeasured"] = "{d, date, medium} — no measurement",
+
+        // ── the sentence above the chart ──────────────────────────────────────────────────────
+        // It was five fragments: two numbers spelled into English, a hand-written "N of M days" and
+        // a trend word chosen by an English rule and glued on the end. The direction is its own
+        // sentence rather than a word substituted into this one, so a language that opens with it
+        // can.
+        ["trend.summary"] = "Typically {typical} on, peaking at {peak}, over {counted} of {days, plural, one {# day} other {# days}}.",
+        ["trend.direction.steady"] = "Steady across the range.",
+        ["trend.direction.up"] = "Up about {change, number, percent} from the start of the range to the end.",
+        ["trend.direction.down"] = "Down about {change, number, percent} from the start of the range to the end.",
+
+        // Both of the "nothing to draw" sentences, and neither of them gives a cause.
+        ["trend.none.probed"] = "Probed in this range, and no player count could be read from any of it.",
+        ["trend.none.notMeasured"] = "No measurement in this range.",
+        ["trend.empty"] = "Nothing counted in this range.",
+
+        // ── the week lines, which are the text alternative and the plain surface both ─────────
+        ["trend.week.span"] = "{from, date, d MMM}–{to, date, d MMM}",
+        ["trend.week.oneDay"] = "{d, date, d MMM}",
+        ["trend.week.counted"] = "{span}: typically {typical}, peak {peak}, {days, plural, one {# day} other {# days}} counted",
+        ["trend.week.notCounted"] = "{span}: probed, no count could be read",
+        ["trend.week.notMeasured"] = "{span}: not measured",
+        ["trend.week.uncounted"] = "{count, plural, one {# day probed without a count} other {# days probed without a count}}",
+        ["trend.week.unmeasured"] = "{count, plural, one {# day not measured} other {# days not measured}}",
+        ["trend.week.and"] = "{line}, {clause}",
+
+        // ── the chart's own chrome ────────────────────────────────────────────────────────────
+        ["trend.range"] = "days in UTC · {from, date, medium} – {to, date, medium}",
+        ["trend.ceiling"] = "{value} at the top",
+        ["trend.counted"] = "{counted} of {days, plural, one {# day} other {# days}} counted",
+        ["trend.axis.month"] = "{d, date, MMM}",
+        ["trend.axis.monthYear"] = "{d, date, MMM yyyy}",
+
+        // The legend. "not measured" gets the whole clause rather than the two words plus a dash and
+        // a fragment, because what follows the dash is a fact about the drawing and moves in a
+        // sentence that puts the verb last.
+        ["trend.legend.mean"] = "mean of the counts we read that day",
+        ["trend.legend.peak"] = "up to the busiest count that day",
+        ["trend.legend.band"] = "lowest to highest count that day",
+        ["trend.legend.notCounted"] = "probed, no count could be read",
+        ["trend.legend.notMeasured.bar"] = "not measured — no bar at all",
+        ["trend.legend.notMeasured.line"] = "not measured — a break in the line",
+
+        // ── seeking and switching, which are links because the range is in the address ────────
+        ["trend.spans.label"] = "Trend range",
+        ["trend.shapes.label"] = "Trend shape",
+        ["trend.preset"] = "{days, plural, one {# day} other {# days}}",
+        ["trend.earlier"] = "← earlier",
+        ["trend.later"] = "later →",
+        ["trend.shape.line"] = "line",
+        ["trend.shape.bar"] = "bars",
+        ["trend.plain.heading"] = "How many, over time",
+        ["trend.plain.range"] = "{from, date, medium} – {to, date, medium}, UTC",
+        ["trend.plain.earlier"] = "earlier",
+        ["trend.plain.note"] = "a week is summarised over the days in it we counted; a week with none says so",
+
+        // ── the reachability strip ────────────────────────────────────────────────────────────
+        // *Reachable*, never *up*. We measured a socket from one vantage point, and a game with a
+        // routing problem to our host is unreachable and perfectly alive (spec §5.8). Every locale
+        // has to keep that distinction, which is why the word is a locked id in four registers
+        // rather than one string reused in four places: the stat label, the legend swatch, the noun
+        // inside a spell, and the day's own tooltip decline differently in most languages.
+        ["reach.kicker"] = "reachable · last {days, plural, one {# day} other {# days}}",
+        ["reach.stat.reachable"] = "reachable",
+        ["reach.stat.longestOutage"] = "longest outage",
+        ["reach.stat.lastCause"] = "last cause",
+        ["reach.noOutage"] = "none in the window",
+        ["reach.noCause"] = "nothing recorded",
+        ["reach.scale.ago"] = "{days, plural, one {# day ago} other {# days ago}}",
+        ["reach.scale.today"] = "today",
+        ["reach.legend.reachable"] = "reachable",
+        ["reach.legend.degraded"] = "degraded — answered, could not finish",
+        ["reach.legend.unreachable"] = "unreachable",
+        ["reach.legend.notMeasured"] = "not measured",
+
+        // The state as a noun, for the middle of a spell — "3 days unreachable". Separate from the
+        // legend above, which is a caption, and from the day tooltips below, which are sentences.
+        ["reach.word.reachable"] = "reachable",
+        ["reach.word.degraded"] = "degraded",
+        ["reach.word.unreachable"] = "unreachable",
+        ["reach.word.notMeasured"] = "not measured",
+
+        // Ninety of these are drawn per game. The fourth is the one that matters: a day before we
+        // knew the game existed is not a day it was down, and it says so about us rather than about
+        // them.
+        ["reach.day.reachable"] = "{d, date, d MMM} — reachable all day",
+        ["reach.day.degraded"] = "{d, date, d MMM} — degraded ({cause}): answered, could not finish",
+        ["reach.day.unreachable"] = "{d, date, d MMM} — unreachable ({cause})",
+        ["reach.day.notMeasured"] = "{d, date, d MMM} — not measured; we were not watching this game yet",
+
+        // The sentence the strip illustrates. The percentage's denominator is observed time and not
+        // the window, so there are two ids and not one with a substituted noun: a game found an hour
+        // ago must not read "Reachable 100.0% of the last 90 days" off a single probe.
+        ["reach.none"] = "{days, plural, one {Not yet measured over the last # day.} other {Not yet measured over the last # days.}}",
+        ["reach.fraction.window"] = "Reachable {percent} of the last {days, plural, one {# day} other {# days}}.",
+        ["reach.fraction.measured"] = "Reachable {percent} of the {days, plural, one {# day} other {# days}} we have measured.",
+        ["reach.fraction.unknown"] = "{days, plural, one {Reachability over the last # day is not yet measured.} other {Reachability over the last # days is not yet measured.}}",
+        ["reach.unreachable.noneInWindow"] = "No day in the window was unreachable.",
+        ["reach.unreachable.noneMeasured"] = "No day we measured was unreachable.",
+        ["reach.unreachable.days"] = "{count, plural, one {# day unreachable.} other {# days unreachable.}}",
+        ["reach.degraded.days"] = "{count, plural, one {# day degraded — we got in and could not finish.} other {# days degraded — we got in and could not finish.}}",
+        ["reach.longestOutage"] = "Longest outage {duration}.",
+        ["reach.longestOutage.cause"] = "Longest outage {duration} ({cause}).",
+        ["reach.predate"] = "{count, plural, one {# day predates anything we measured.} other {# days predate anything we measured.}}",
+        ["reach.spell.range"] = "{from, date, d MMM} – {to, date, d MMM}",
+        ["reach.spell.oneDay"] = "{d, date, d MMM}",
+        ["reach.spell"] = "{range}: {count, plural, one {# day} other {# days}} {word}",
+        ["reach.spell.cause"] = "{range}: {count, plural, one {# day} other {# days}} {word} ({cause})",
+        ["reach.plain.heading"] = "Reachable",
+        ["reach.plain.window"] = "{days, plural, one {last # day} other {last # days}}",
+        ["reach.plain.fraction"] = "Reachable: {percent} of the {days, plural, one {last # day} other {last # days}}",
+        ["reach.plain.longestOutage"] = "Longest outage: {duration}",
+
+        // ── why a dial did not complete, in a person's words ──────────────────────────────────
+        // Ours to say and theirs to be measured about: a cause is what our socket saw, so it names
+        // the event and never a judgement of the game.
+        ["cause.dns"] = "dns did not resolve",
+        ["cause.refused"] = "connection refused",
+        ["cause.tls"] = "tls failed",
+        ["cause.timeout"] = "timed out",
+        ["cause.handshakeStalled"] = "handshake stalled",
+        ["cause.none"] = "no cause recorded",
+
+        // ── the ANSI capture's frame ──────────────────────────────────────────────────────────
+        // The chrome around somebody else's screen, never the screen: what is inside the <pre> is
+        // what the server sent and is not a string in any bundle. "read as" rather than "encoded
+        // in", because that is the honest verb — it is what we decoded the bytes with, and a game
+        // that declares one encoding and sends another makes those two different sentences.
+        ["ansi.suppressed"] = "The owner asked us not to republish this game's connect screen.",
+        ["ansi.absent"] = "No connect screen has been captured from this game.",
+        ["ansi.tooSmall"] = "{count, plural, one {Only # row came back — too little to show.} other {Only # rows came back — too little to show.}}",
+        ["ansi.asSent"] = "as sent by the server",
+        ["ansi.size"] = "{columns}×{rows}",
+        ["ansi.size.doubleWidth"] = "{columns}×{rows}, double-width",
+        ["ansi.depth.colour"] = "16-colour SGR",
+        ["ansi.depth.plain"] = "no colour",
+        ["ansi.readAs"] = "read as {charset}",
+        ["ansi.captured"] = "captured",
+        ["ansi.frozen"] = "frozen — the last screen we saw",
+        ["ansi.alt.named"] = "ASCII art: the connect screen of {game}. Its text is under \"read as text\", below.",
+        ["ansi.alt"] = "ASCII art: this game's connect screen. Its text is under \"read as text\", below.",
+        ["ansi.plain.rows"] = "{count, plural, one {connect screen: # line, text only} other {connect screen: # lines, text only}}",
+        ["ansi.plain.rows.readAs"] = "{count, plural, one {connect screen: # line, text only, read as {charset}} other {connect screen: # lines, text only, read as {charset}}}",
+
+        // ── the capability matrix's disagreements, said in prose ──────────────────────────────
+        ["capability.disagree.declaredNotOffered"] = "the game declares it, and the server has never offered it in a handshake.",
+        ["capability.disagree.offeredNotDeclared"] = "the server offers it, and the game's own record says it does not.",
+        ["capability.disagree.note"] = "Usually a stale hand-typed field, not a lie. Shown because a client should not rely on what the two disagree about.",
+
+        // ── the rest of the game page ─────────────────────────────────────────────────────────
+        ["game.notFound"] = "Not found",
+        ["game.notFound.hint"] = "No game at this address. Check the spelling.",
+        ["game.endpoint.lastAnswered"] = "last answered",
+        ["game.stale"] = "{count, plural, one {# is past its refresh window. Old, not wrong.} other {# are past their refresh window. Old, not wrong.}}",
+        ["game.referrals.lists"] = "This game's own referral list names:",
+        ["game.referrals.listedBy"] = "Named by the referral list of:",
+        ["game.referral.since"] = "since {date}",
+        ["game.referral.dropped"] = "no longer listed, last seen",
+
+        // The archive plate. "Still probed" is the promise §7.5 makes and the reason the page is
+        // still here at all, so it is said rather than implied by the page continuing to exist.
+        ["game.archived.lastAnswered"] = "Last answered {date}, {ago} ago.",
+        ["game.archived.stillProbed"] = "Still probed weekly; this page updates the day it answers.",
+        ["game.archived.knownLive"] = "{span} known live",
+
+        // The two ways out of the listing that are not archiving. They say different things because
+        // the decisions are different: an exclusion is OURS and has to be arguable, so it prints the
+        // argument; an unlisting is THEIRS, so it prints no reason at all.
+        ["game.excluded"] = "Not in the listing, the rankings or the daily figure: we do not think this address is a game somebody can play. Everything below is what it told us, unchanged.",
+        ["game.excluded.reason"] = "Our reason: {why}",
+        ["game.unlisted"] = "Not in the listing, the rankings or the daily figure, at the request of the people who run it. Everything below is preserved as it was, this page and every address it has ever had go on answering, and we are not dialling it.",
+
+        // ── the plain surface's own headings for this page ────────────────────────────────────
+        ["game.plain.playersNow"] = "Players now: {count}",
+        ["game.plain.playersUnknown"] = "Players now: unknown (no count could be measured)",
+        ["game.plain.capabilities"] = "Capabilities ({disagreeing} of {total} disagree)",
+        ["game.plain.declared"] = "Declared by the game",
+        ["game.plain.connectScreen"] = "Connect screen",
+        ["game.plain.whatChanged"] = "What changed",
+        ["game.plain.measured"] = "measured",
+        ["game.plain.declared.column"] = "declared",
+        ["game.plain.disagree"] = "** disagree",
     };
 
     /// <summary>

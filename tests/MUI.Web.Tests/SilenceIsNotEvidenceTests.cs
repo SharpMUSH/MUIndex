@@ -37,9 +37,14 @@ public class SilenceIsNotEvidenceTests
 
         // The number itself was always right — FractionReachable divides by observed time. It was
         // the sentence that widened it to the window.
-        await Assert.That(summary.Sentence).Contains("we have measured");
-        await Assert.That(summary.Sentence).DoesNotContain("of the last 90 days");
-        await Assert.That(summary.Sentence).Contains("89 days predate anything we measured");
+        //
+        // Asserted through the bundle rather than against the English, so the rule holds in every
+        // locale: the two denominators are two different ids and a translation cannot merge them.
+        var sentence = summary.Sentence(Locales.SourceTag);
+
+        await Assert.That(sentence).Contains(Say("reach.fraction.measured", ("percent", "100.0%"), ("days", 1)));
+        await Assert.That(sentence).DoesNotContain(Say("reach.fraction.window", ("percent", "100.0%"), ("days", 90)));
+        await Assert.That(sentence).Contains(Say("reach.predate", ("count", 89)));
     }
 
     /// <summary>A window we watched all of may say so, and says it the short way.</summary>
@@ -50,9 +55,18 @@ public class SilenceIsNotEvidenceTests
             [Reachable(from: Now.AddDays(-120), to: null)],
             Now);
 
-        await Assert.That(summary.Sentence).Contains("Reachable 100.0% of the last 90 days.");
-        await Assert.That(summary.Sentence).DoesNotContain("predate");
+        // The whole sentence, assembled from the ids it is supposed to use and no others: the window
+        // phrasing because the window was fully observed, and nothing about days that predate us.
+        await Assert.That(summary.Sentence(Locales.SourceTag)).IsEqualTo(
+            Say("reach.fraction.window", ("percent", "100.0%"), ("days", 90))
+            + " " + Messages.For(Locales.SourceTag, "reach.unreachable.noneInWindow"));
     }
+
+    private static string Say(string id, params (string Key, object? Value)[] args) =>
+        Messages.For(
+            Locales.SourceTag,
+            id,
+            args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 
     /// <summary>
     /// An hour with no presence row is not an hour the game was down.
