@@ -157,7 +157,7 @@ public class PayloadRedactionTests
         var parser = new WhoParser();
         var prompt = PayloadRedaction.Structural("No character by that name found.");
 
-        await Assert.That(parser.Parse(prompt).Confidence).IsEqualTo(WhoConfidence.Unknown);
+        await Assert.That(parser.Parse(prompt).Confidence).IsEqualTo(WhoConfidence.LoginPrompt);
     }
 
     /// <summary>Nothing in, nothing out — and never a null to trip a writer.</summary>

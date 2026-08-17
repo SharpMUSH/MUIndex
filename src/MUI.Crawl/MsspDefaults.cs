@@ -20,24 +20,31 @@ namespace MUI.Crawl;
 public static class MsspDefaults
 {
     /// <summary>
-    /// Values that mean "nobody filled this in". Compared case-insensitively after trimming.
+    /// Codebase names, which mean "nobody filled this in" <em>when they arrive as a game's name</em>.
     /// </summary>
-    private static readonly HashSet<string> Placeholders = new(StringComparer.OrdinalIgnoreCase)
+    /// <remarks>
+    /// ONLY NAMES NOBODY WOULD CALL A GAME. This list erases a name, so a codebase whose name is also
+    /// a plausible game title stays off it however often it is left unedited — Last Outpost, Luminari
+    /// and GodWars are games as well as codebases, and refusing them would delete a real answer to
+    /// stop a default. <see cref="MeaningfulName"/> already catches those from the other side, by
+    /// refusing a name that merely restates the game's own <c>CODEBASE</c>.
+    ///
+    /// AresMUSH and CobraMUSH were missing and are the reason this comment exists: both are MUSH
+    /// codebases an operator can leave unedited, both are in the survey, and the list had every one
+    /// of their siblings.
+    /// </remarks>
+    private static readonly HashSet<string> CodebaseNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Codebase names published as the game's name. AresMUSH and CobraMUSH were missing and are
-        // the reason this comment exists: both are MUSH codebases an operator can leave unedited,
-        // both are in the survey, and the list had every one of their siblings.
-        //
-        // ONLY NAMES NOBODY WOULD CALL A GAME. This list erases a name, so a codebase whose name is
-        // also a plausible game title stays off it however often it is left unedited — Last Outpost,
-        // Luminari and GodWars are games as well as codebases, and refusing them would delete a real
-        // answer to stop a default. MeaningfulName already catches those from the other side, by
-        // refusing a name that merely restates the game's own CODEBASE.
         "PennMUSH", "TinyMUSH", "TinyMUX", "MUX", "RhostMUSH", "Rhost", "CobraMUSH", "AresMUSH",
         "Evennia", "CoffeeMud", "CircleMUD", "tbaMUD", "ROM", "SMAUG", "Diku", "DikuMUD",
         "MudOS", "FluffOS", "LPMud", "LDMud", "MOO", "LambdaMOO", "TinyMUCK", "MUCK", "Fuzzball",
+    };
 
-        // Template text left in place.
+    /// <summary>
+    /// Template text left in place, which means "nobody filled this in" <em>in any field</em>.
+    /// </summary>
+    private static readonly HashSet<string> Templates = new(StringComparer.OrdinalIgnoreCase)
+    {
         "Unknown", "Unnamed", "Untitled", "N/A", "None", "TBD", "Change Me", "ChangeMe",
         "Your MUD Name", "Your MUD", "MUD Name", "My Server", "Example", "Test",
         "localhost", "0", "-1",
@@ -47,6 +54,12 @@ public static class MsspDefaults
     /// Whether a value is a codebase default, template text, or blank — all of which mean the field
     /// was never answered.
     /// </summary>
+    /// <remarks>
+    /// <b>For fields where a codebase's name is not an answer.</b> Its first caller was
+    /// <c>NAME</c>, where "PennMUSH" is the absence of a signal, and the two halves of the list were
+    /// one set until a reader of <c>CODEBASE</c> arrived — for which "PennMUSH" is the answer itself
+    /// and this test would have deleted it. See <see cref="IsTemplate"/>.
+    /// </remarks>
     public static bool IsPlaceholder(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -54,8 +67,21 @@ public static class MsspDefaults
             return true;
         }
 
-        return Placeholders.Contains(value.Trim());
+        var trimmed = value.Trim();
+
+        return CodebaseNames.Contains(trimmed) || Templates.Contains(trimmed);
     }
+
+    /// <summary>
+    /// Whether a value is template text or blank, without treating a codebase's name as one.
+    /// </summary>
+    /// <remarks>
+    /// The test for a field whose whole purpose is to carry a codebase's name — <c>CODEBASE</c>,
+    /// <c>MUDLIB</c>, <c>FAMILY</c>, and the driver and mudlib an I3 mudlist entry carries.
+    /// <c>Unknown</c> there is still nothing; <c>FluffOS</c> there is the answer.
+    /// </remarks>
+    public static bool IsTemplate(string? value) =>
+        string.IsNullOrWhiteSpace(value) || Templates.Contains(value.Trim());
 
     /// <summary>
     /// A game's name as declared, or null when the declaration is a default.

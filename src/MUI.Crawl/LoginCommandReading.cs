@@ -455,39 +455,11 @@ public static partial class LoginCommandReading
     /// Whether the text names this family as a word, rather than containing it as a fragment of one.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Measured on <c>darcness.net:4201</c>.</b> Its <c>INFO</c> block says <c>Name: RetroMUX</c>
-    /// and <c>Version: MUX 2.12.0.10</c>, and a plain substring search finds <c>rom</c> inside
-    /// <c>RetroMUX</c> — so the reader published <c>ROM MUX 2.12.0.10</c>, a Diku derivative's name
-    /// glued to a TinyMUD derivative's version, for a game that had claimed neither. <c>from</c>,
-    /// <c>chrome</c> and <c>Rome</c> are the same bug waiting; so is <c>moo</c> inside <c>smooth</c>.
-    /// </para>
-    /// <para>
-    /// Rule 4 does not stop at "no value where there is no reading". <b>A wrong value is worse than
-    /// none</b>, because it is the one the page shows and nobody thinks to doubt — and this one would
-    /// have gone out under <c>banner</c>, which is measured, on games with no MSSP to contradict it.
-    /// </para>
-    /// <para>
-    /// A letter or digit before the marker disqualifies it, and a letter after does. A digit after
-    /// does not: <c>ROM24</c> and <c>CircleMUD3</c> are how these are written in the wild, while
-    /// <c>RetroMUX</c> and <c>MUCKer</c> are caught by the other two edges.
-    /// </para>
+    /// The rule and the <c>RetroMUX</c> bug it was written for now live in <see cref="FamilyWord"/>,
+    /// because <see cref="CodebaseCredits"/> asks the identical question about the identical names
+    /// and a second copy of this is a second place for that bug to come back.
     /// </remarks>
-    private static bool NamesFamily(string value, string marker)
-    {
-        for (var at = 0; (at = value.IndexOf(marker, at, StringComparison.OrdinalIgnoreCase)) >= 0; at += marker.Length)
-        {
-            var end = at + marker.Length;
-
-            if ((at == 0 || !char.IsLetterOrDigit(value[at - 1]))
-                && (end == value.Length || !char.IsLetter(value[end])))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    private static bool NamesFamily(string value, string marker) => FamilyWord.Names(value, marker);
 
     /// <summary>The label a MUSH-family <c>INFO</c> block states its player count under.</summary>
     private const string ConnectedLabel = "Connected";

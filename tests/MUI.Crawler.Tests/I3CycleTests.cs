@@ -86,6 +86,70 @@ public class I3CycleTests
     }
 
     /// <summary>
+    /// What the mudlist says a bound game runs, which arrived on every pass and was dropped.
+    /// </summary>
+    /// <remarks>
+    /// <c>I3Mud.Driver</c>, <c>Mudlib</c> and <c>MudType</c> were modelled when the gateway was
+    /// written and nothing read them until now. Asked of the live network on 2026-08-17, 179 of 179
+    /// entries filled in all three, and 47 of the games bound to an I3 name had no codebase on
+    /// record at all.
+    /// </remarks>
+    [Test]
+    public async Task WhatABoundMudSaysItRunsIsRecordedAsTheClaimItIs()
+    {
+        var game = Guid.CreateVersion7();
+        var targets = new FakeTargets();
+        targets.Existing[("136.144.155.250", 8888)] = game;
+        var fields = new FakeFields();
+
+        var cycle = new I3Cycle(
+            new StubGateway([
+                Mud("Mystic Falls", "136.144.155.250", 8888) with
+                {
+                    Driver = "FluffOS v2.23-ds03",
+                    Mudlib = "Dead Souls 3.9",
+                    MudType = "LPMud",
+                },
+            ]),
+            targets, new FakeBindings(), new FakePresence(), fields, new I3Options(), Clock());
+
+        await cycle.RunAsync(CancellationToken.None);
+
+        var codebase = fields.Written.Single(f => f.Field == FieldObservations.CodebaseField);
+        var mudlib = fields.Written.Single(f => f.Field == I3Description.MudlibField);
+        var family = fields.Written.Single(f => f.Field == I3Description.FamilyField);
+
+        // The driver is the codebase and the mudlib is not. Dead Souls is a library; FluffOS is what
+        // the game runs, and MSSP means the same thing by CODEBASE.
+        await Assert.That(codebase.Value).IsEqualTo("FluffOS v2.23-ds03");
+        await Assert.That(mudlib.Value).IsEqualTo("Dead Souls 3.9");
+        await Assert.That(family.Value).IsEqualTo("LPMud");
+
+        // Declared, on the rung below MSSP: the mud told a router at some past startup and the router
+        // repeated it onward. A game filling in its own MSSP still outranks all three.
+        await Assert.That(codebase.Source).IsEqualTo(FieldSource.I3Mudlist);
+        await Assert.That(FieldSources.IsMeasured(FieldSource.I3Mudlist)).IsFalse();
+    }
+
+    [Test]
+    public async Task AnUnboundMudStillContributesNothingButItsAddress()
+    {
+        // The fields above are written only where there is a game to write them against. An address
+        // that has not answered for itself is not a game (§7.1), and §7.6 takes host and port.
+        var fields = new FakeFields();
+
+        var cycle = new I3Cycle(
+            new StubGateway([
+                Mud("Nightfall", "82.153.225.173", 4242) with { Driver = "DGD 1.4.1", MudType = "LPMud" },
+            ]),
+            new FakeTargets(), new FakeBindings(), new FakePresence(), fields, new I3Options(), Clock());
+
+        await cycle.RunAsync(CancellationToken.None);
+
+        await Assert.That(fields.Written).IsEmpty();
+    }
+
+    /// <summary>
     /// One game under several I3 names binds once and the pass carries on.
     /// </summary>
     /// <remarks>

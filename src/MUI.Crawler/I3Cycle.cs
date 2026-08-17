@@ -128,6 +128,21 @@ public sealed class I3Cycle(
                     cancellationToken);
             }
 
+            // And what it says it runs, which is three more fields of the same kind arriving in the
+            // same packet. They were modelled when the gateway was written and never read; 179 of
+            // 179 live entries fill in all three, and 47 of the games bound to an I3 name carry no
+            // codebase at all. See I3Description for which field is which and why this is declared.
+            if (target.GameId is { } described)
+            {
+                foreach (var observation in I3Description.From(mud))
+                {
+                    await fields.UpsertAsync(
+                        new GameField(
+                            described, observation.Field, observation.Source, observation.Value, now, now),
+                        cancellationToken);
+                }
+            }
+
             // Promoted by the ordinary crawl since we last looked, so we now know which game it is.
             //
             // A refusal here is ordinary rather than exceptional: one game routinely holds several I3

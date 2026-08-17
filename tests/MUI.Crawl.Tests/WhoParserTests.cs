@@ -103,7 +103,10 @@ public class WhoParserTests
         // hundreds online — a fabricated measurement, which is worse than admitting we cannot tell.
         var reading = Parser.Parse(AlterAeonResponse);
 
-        await Assert.That(reading.Confidence).IsEqualTo(WhoConfidence.Unknown);
+        // LoginPrompt rather than Unknown: Alter Aeon has no pre-login WHO for a parser to be bad at,
+        // and recording it beside the dialects we genuinely cannot read counted it as our backlog.
+        await Assert.That(reading.Confidence).IsEqualTo(WhoConfidence.LoginPrompt);
+        await Assert.That(reading.Attempted).IsTrue();
         await Assert.That(reading.HasCount).IsFalse();
         await Assert.That(reading.Count).IsNull();
     }
@@ -121,7 +124,8 @@ public class WhoParserTests
         // answer to it.
         var reading = Parser.Parse($"Player Name  On For  Idle  Doing\n{line}");
 
-        await Assert.That(reading.Confidence).IsEqualTo(WhoConfidence.Unknown);
+        await Assert.That(reading.Confidence).IsEqualTo(WhoConfidence.LoginPrompt);
+        await Assert.That(reading.HasCount).IsFalse();
     }
 
     [Test]
@@ -257,10 +261,14 @@ public class WhoParserTests
         // The negative that pays for the widening above. Bare "on" is the loosest word this parser
         // admits, so it counts only immediately after a noun that means people — never after a
         // number in a sentence about anything else, and never on its own.
+        //
+        // No count is the whole of what this test is about, so it asserts that and not which flavour
+        // of uncountable: the first line is a login prompt and the other two are ordinary sentences,
+        // and those are correctly different confidences for reasons tested elsewhere.
         var reading = Parser.Parse(line);
 
         await Assert.That(reading.HasCount).IsFalse();
-        await Assert.That(reading.Confidence).IsEqualTo(WhoConfidence.Unknown);
+        await Assert.That(reading.Count).IsNull();
     }
 
     /// <summary>
@@ -343,7 +351,7 @@ public class WhoParserTests
 
         await Assert.That(reading.HasCount).IsFalse();
         await Assert.That(reading.Count).IsNull();
-        await Assert.That(reading.Confidence).IsEqualTo(WhoConfidence.Unknown);
+        await Assert.That(reading.Confidence).IsEqualTo(WhoConfidence.LoginPrompt);
     }
 
     [Test]
@@ -352,6 +360,91 @@ public class WhoParserTests
         // LP muds phrase this on purpose. There is no number in the sentence, so there is nothing to
         // read, and inventing one from "loads" would be exactly rule 4's fabrication.
         var reading = Parser.Parse("Loads of people are on now.");
+
+        await Assert.That(reading.HasCount).IsFalse();
+    }
+
+    /// <summary>
+    /// telehack.com:23, captured 2026-08-17. A server announcing its population with no word in it
+    /// that any other shape here admits.
+    /// </summary>
+    [Test]
+    public async Task AnAnnouncedFigureIsACountEvenWithNoConnectivityWord()
+    {
+        var reading = Parser.Parse("""
+            TELEHACK STATUS  2026-Aug-17
+            There are 122 local users.  There are 26649 hosts on the network.
+            """);
+
+        await Assert.That(reading.Count).IsEqualTo(122);
+    }
+
+    [Test]
+    [Arguments("Your name must be between 6 and 12 characters long.")]
+    [Arguments("There are 20 new players registered today.")]
+    [Arguments("There are 6 to 12 characters allowed.")]
+    public async Task AnAnnouncementThatIsReallyARuleIsNotACount(string line)
+    {
+        // The price of dropping the connectivity qualifier for one shape. "There are …" is the first
+        // anchor and the full stop straight after the noun is the second and stricter one: a
+        // sentence that ends at the noun has finished counting, and one that carries on into
+        // "registered today" is counting something else.
+        var reading = Parser.Parse(line);
+
+        await Assert.That(reading.HasCount).IsFalse();
+    }
+
+    [Test]
+    public async Task TheCeilingStillWinsOverTheAnnouncement()
+    {
+        // retromud's sentence starts "There are currently 11 out of 200 users playing." — the new
+        // shape sits below the ceiling patterns so the number that means the population is the one
+        // that is read.
+        await Assert.That(Parser.Parse("There are currently 11 out of 200 users playing.").Count)
+            .IsEqualTo(11);
+    }
+
+    /// <summary>
+    /// moo.ghostmoo.org:6969, captured 2026-08-17 — a Fuzzball MUCK's table rule, which carries the
+    /// total. A whole codebase family's footer rather than one game's.
+    /// </summary>
+    [Test]
+    public async Task TheFooterAMuckDrawsUnderItsTableIsACount()
+    {
+        var reading = Parser.Parse("""
+            User         Name Idle
+            --[Sat Aug 19 03:14:07 2696]--------------------------------[0 users; 0d 00h]--
+            """);
+
+        await Assert.That(reading.HasCount).IsTrue();
+        await Assert.That(reading.Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    /// moo.demetro.nl:8888, captured 2026-08-17. A perfectly ordinary column layout in Dutch.
+    /// </summary>
+    [Test]
+    public async Task AColumnHeaderIsFoundInAGameThatIsNotInEnglish()
+    {
+        // "Naam" is not "Name", and the table was unreadable for it. Online beside Idle is the same
+        // header in any language, because those two are borrowed rather than translated.
+        var reading = Parser.Parse("""
+            R Naam                   S Klasse     Online  Idle    Bezig
+            - ---------------------- - --------  ------  ------  --------------------
+            W Wizard-Person (#12345) A -         14 uur  02 min  Rondkijken
+            P Speler-Twee    (#4242) A -         03 uur  00 min
+            """);
+
+        await Assert.That(reading.Count).IsEqualTo(2);
+        await Assert.That(reading.Confidence).IsEqualTo(WhoConfidence.PerPlayer);
+    }
+
+    [Test]
+    public async Task OnlineOnItsOwnIsNotAColumnHeader()
+    {
+        // Both words are required. "online" alone appears in half the sentences on a connect screen,
+        // and reading one as a table header would count whatever followed it as rows.
+        var reading = Parser.Parse("Come online and join us today\nsomething\nsomething else");
 
         await Assert.That(reading.HasCount).IsFalse();
     }

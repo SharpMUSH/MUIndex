@@ -145,7 +145,17 @@ public static class FieldObservations
     {
         // Null unless the text labelled a value or plainly named a known family. Rule 4: a parser
         // that guessed here would be inventing a fact about somebody else's server.
-        if (LoginCommandReading.MeaningfulCodebase(result.Info, result.Version) is { Length: > 0 } codebase)
+        //
+        // The credit line is second because it is coarser and not because it is weaker: a labelled
+        // `Codebase:` or `Version:` line names an engine and a release, and `Based on CircleMUD
+        // 3.0bpl10` is read as `CircleMUD` on purpose (see CodebaseCredits). Both are the same rung
+        // and contend for the same (game, CODEBASE, banner) row, so exactly one of them may win, and
+        // the more specific reading wins. It is reached far more often than the first: run over the
+        // 303 stored connect screens of games with no codebase on record on 2026-08-16, the credit
+        // reader names 132 of them, while a labelled INFO or VERSION line is a MUSH-family habit that
+        // most of the hobby does not have.
+        if ((LoginCommandReading.MeaningfulCodebase(result.Info, result.Version)
+                ?? CodebaseCredits.Named(result.Banner)) is { Length: > 0 } codebase)
         {
             yield return new FieldObservation(CodebaseField, FieldSource.Banner, codebase);
             yield break;
@@ -180,7 +190,11 @@ public static class FieldObservations
     }
 
     /// <summary>MSSP's coarse taxonomy, which answers the same question <c>CODEBASE</c> does.</summary>
-    private const string FamilyField = "FAMILY";
+    /// <remarks>
+    /// Public since <see cref="I3Description"/> writes it too — one field name with one spelling,
+    /// because a second copy is a place for the two to drift apart and stop reconciling.
+    /// </remarks>
+    public const string FamilyField = "FAMILY";
 
     /// <summary>
     /// Layer 1 — what the server actually negotiated (spec §6.1).

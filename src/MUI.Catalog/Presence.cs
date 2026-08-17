@@ -13,6 +13,22 @@ public enum UnmeasurableReason
     /// <summary>WHO was never attempted — the game answers no pre-login WHO.</summary>
     WhoNotOffered,
 
+    /// <summary>
+    /// WHO was asked and the server answered its own login prompt, having taken the word as a
+    /// character name.
+    /// </summary>
+    /// <remarks>
+    /// <b>Split out of <see cref="WhoUnparseable"/>, which it had been hiding inside.</b> The two
+    /// look identical on the heatmap — both are the hatched, probed-but-uncountable cell — and they
+    /// are opposite facts to whoever reads the reason. <c>who_unparseable</c> is a parser of ours
+    /// that met a dialect it could not read, and every one of them is a defect with a fix.
+    /// <c>who_login_prompt</c> is a game with no pre-login <c>WHO</c> at all: <c>WHO</c> went in as a
+    /// character name and <c>Illegal name, try again.</c> came back, and no amount of parser work
+    /// will ever produce a count from it. Of 107 stored payloads read on 2026-08-17, 43 were this
+    /// — filed as our backlog while being a property of the DIKU login screen.
+    /// </remarks>
+    WhoLoginPrompt,
+
     /// <summary>MSSP declared PLAYERS but the value was not a number.</summary>
     PlayersNotNumeric,
 
