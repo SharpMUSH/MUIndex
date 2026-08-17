@@ -69,6 +69,138 @@
   <data name="capabilities.agree" xml:space="preserve">
     <value>{disagreeing, plural, =0 {Geen van de {total} wijkt af.} one {# van de {total} wijkt af van wat het spel opgeeft.} other {# van de {total} wijken af van wat het spel opgeeft.}}</value>
   </data>
+  <data name="find.matching" xml:space="preserve">
+    <value>{count, plural, =0 {Geen spel past bij elk antwoord.} one {# spel past bij elk antwoord.} other {# spellen passen bij elk antwoord.}}</value>
+  </data>
+  <data name="find.basis" xml:space="preserve">
+    <value>van {listed, plural, one {# vermeld spel} other {# vermelde spellen}} · {answers, plural, =0 {geen antwoorden gegeven} one {# antwoord gegeven} other {# antwoorden gegeven}}</value>
+  </data>
+  <data name="find.show" xml:space="preserve">
+    <value>{count, plural, one {Toon het ene spel} other {Toon deze # spellen}}</value>
+  </data>
+  <data name="find.drop" xml:space="preserve">
+    <value>"{answer}" laten vallen — {count, plural, one {# spel} other {# spellen}}</value>
+  </data>
+  <data name="find.clear" xml:space="preserve">
+    <value>antwoord wissen op: {question}</value>
+  </data>
+  <data name="find.title" xml:space="preserve">
+    <value>Een spel zoeken</value>
+  </data>
+  <data name="find.kicker" xml:space="preserve">
+    <value>passend bij alle antwoorden</value>
+  </data>
+  <data name="find.noun" xml:space="preserve">
+    <value>{count, plural, one {spel} other {spellen}}</value>
+  </data>
+  <data name="find.clearAll" xml:space="preserve">
+    <value>alle antwoorden wissen</value>
+  </data>
+  <data name="find.startAgain" xml:space="preserve">
+    <value>opnieuw beginnen</value>
+  </data>
+  <data name="find.more" xml:space="preserve">
+    <value>{count, plural, one {# meer} other {# meer}}</value>
+  </data>
+  <data name="find.answersGiven" xml:space="preserve">
+    <value>gegeven antwoorden</value>
+  </data>
+  <data name="find.wholeListing" xml:space="preserve">
+    <value>de hele lijst</value>
+  </data>
+  <data name="find.refused" xml:space="preserve">
+    <value>die zoekopdracht is geweigerd</value>
+  </data>
+  <data name="find.name.label" xml:space="preserve">
+    <value>een naam, als je er een hebt</value>
+  </data>
+  <data name="find.name.placeholder" xml:space="preserve">
+    <value>naam, of een deel ervan</value>
+  </data>
+  <data name="find.name.submit" xml:space="preserve">
+    <value>Zoeken op naam</value>
+  </data>
+  <data name="find.q.band" xml:space="preserve">
+    <value>Speelt er nu iemand?</value>
+  </data>
+  <data name="find.q.genre" xml:space="preserve">
+    <value>Wat wil je spelen?</value>
+  </data>
+  <data name="find.q.lineage" xml:space="preserve">
+    <value>Wat voor spel?</value>
+  </data>
+  <data name="find.q.language" xml:space="preserve">
+    <value>In welke taal?</value>
+  </data>
+  <data name="find.q.client" xml:space="preserve">
+    <value>Heeft je client iets nodig?</value>
+  </data>
+  <data name="find.q.dark" xml:space="preserve">
+    <value>Ook stilgevallen spellen meenemen?</value>
+  </data>
+  <data name="find.any.band" xml:space="preserve">
+    <value>maakt niet uit</value>
+  </data>
+  <data name="find.any.genre" xml:space="preserve">
+    <value>elk genre</value>
+  </data>
+  <data name="find.any.lineage" xml:space="preserve">
+    <value>elke soort</value>
+  </data>
+  <data name="find.any.language" xml:space="preserve">
+    <value>elke taal</value>
+  </data>
+  <data name="find.any.client" xml:space="preserve">
+    <value>maakt niet uit</value>
+  </data>
+  <data name="find.dark.no" xml:space="preserve">
+    <value>nee, alleen live spellen</value>
+  </data>
+  <data name="find.dark.yes" xml:space="preserve">
+    <value>ja, toon die ook</value>
+  </data>
+  <data name="find.dark.chip" xml:space="preserve">
+    <value>stilgevallen spellen</value>
+  </data>
+  <data name="find.protocol.tls" xml:space="preserve">
+    <value>TLS — versleuteld, handshake door ons voltooid</value>
+  </data>
+  <data name="find.protocol.mssp" xml:space="preserve">
+    <value>MSSP — zelfbeschrijving van de server</value>
+  </data>
+  <data name="find.protocol.mccp" xml:space="preserve">
+    <value>MCCP — gecomprimeerde uitvoer</value>
+  </data>
+  <data name="find.protocol.mxp" xml:space="preserve">
+    <value>MXP — klikbare links</value>
+  </data>
+  <data name="find.protocol.gmcp" xml:space="preserve">
+    <value>GMCP — gestructureerde clientgegevens</value>
+  </data>
+  <data name="find.protocol.msdp" xml:space="preserve">
+    <value>MSDP — gestructureerde clientgegevens</value>
+  </data>
+  <data name="find.protocol.charset" xml:space="preserve">
+    <value>CHARSET — onderhandeling over codering</value>
+  </data>
+  <data name="find.protocol.utf8" xml:space="preserve">
+    <value>UTF-8 — niet-Latijnse tekst wordt weergegeven</value>
+  </data>
+  <data name="find.protocol.ttype" xml:space="preserve">
+    <value>TTYPE — client meldt zijn type</value>
+  </data>
+  <data name="find.protocol.atcp" xml:space="preserve">
+    <value>ATCP — gestructureerde clientgegevens</value>
+  </data>
+  <data name="find.protocol.msp" xml:space="preserve">
+    <value>MSP — geluidstriggers</value>
+  </data>
+  <data name="find.protocol.eor" xml:space="preserve">
+    <value>EOR — promptmarkering</value>
+  </data>
+  <data name="find.protocol.other" xml:space="preserve">
+    <value>{token} — gemeten in de handshake</value>
+  </data>
   <data name="provenance.count.measured" xml:space="preserve">
     <value>gemeten</value>
   </data>

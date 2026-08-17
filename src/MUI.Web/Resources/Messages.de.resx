@@ -69,6 +69,138 @@
   <data name="capabilities.agree" xml:space="preserve">
     <value>{disagreeing, plural, =0 {Keine der {total} widerspricht.} one {# von {total} widerspricht dem, was das Spiel angibt.} other {# von {total} widersprechen dem, was das Spiel angibt.}}</value>
   </data>
+  <data name="find.matching" xml:space="preserve">
+    <value>{count, plural, =0 {Keine Spiele passen zu allen Antworten.} one {# Spiel passt zu allen Antworten.} other {# Spiele passen zu allen Antworten.}}</value>
+  </data>
+  <data name="find.basis" xml:space="preserve">
+    <value>von {listed, plural, one {# eingetragenem Spiel} other {# eingetragenen Spielen}} · {answers, plural, =0 {keine Antworten gegeben} one {# Antwort gegeben} other {# Antworten gegeben}}</value>
+  </data>
+  <data name="find.show" xml:space="preserve">
+    <value>{count, plural, one {Das eine Spiel zeigen} other {Diese # Spiele zeigen}}</value>
+  </data>
+  <data name="find.drop" xml:space="preserve">
+    <value>„{answer}“ entfernen — {count, plural, one {# Spiel} other {# Spiele}}</value>
+  </data>
+  <data name="find.clear" xml:space="preserve">
+    <value>Antwort zurücksetzen: {question}</value>
+  </data>
+  <data name="find.title" xml:space="preserve">
+    <value>Ein Spiel finden</value>
+  </data>
+  <data name="find.kicker" xml:space="preserve">
+    <value>passend zu allen Antworten</value>
+  </data>
+  <data name="find.noun" xml:space="preserve">
+    <value>{count, plural, one {Spiel} other {Spiele}}</value>
+  </data>
+  <data name="find.clearAll" xml:space="preserve">
+    <value>alle Antworten zurücksetzen</value>
+  </data>
+  <data name="find.startAgain" xml:space="preserve">
+    <value>neu beginnen</value>
+  </data>
+  <data name="find.more" xml:space="preserve">
+    <value>{count, plural, one {# weiteres} other {# weitere}}</value>
+  </data>
+  <data name="find.answersGiven" xml:space="preserve">
+    <value>gegebene Antworten</value>
+  </data>
+  <data name="find.wholeListing" xml:space="preserve">
+    <value>das gesamte Verzeichnis</value>
+  </data>
+  <data name="find.refused" xml:space="preserve">
+    <value>diese Anfrage wurde abgelehnt</value>
+  </data>
+  <data name="find.name.label" xml:space="preserve">
+    <value>ein Name, falls vorhanden</value>
+  </data>
+  <data name="find.name.placeholder" xml:space="preserve">
+    <value>Name oder Namensteil</value>
+  </data>
+  <data name="find.name.submit" xml:space="preserve">
+    <value>Nach Namen suchen</value>
+  </data>
+  <data name="find.q.band" xml:space="preserve">
+    <value>Spielt gerade jemand?</value>
+  </data>
+  <data name="find.q.genre" xml:space="preserve">
+    <value>Was soll gespielt werden?</value>
+  </data>
+  <data name="find.q.lineage" xml:space="preserve">
+    <value>Welche Art von Spiel?</value>
+  </data>
+  <data name="find.q.language" xml:space="preserve">
+    <value>In welcher Sprache?</value>
+  </data>
+  <data name="find.q.client" xml:space="preserve">
+    <value>Was braucht der Client?</value>
+  </data>
+  <data name="find.q.dark" xml:space="preserve">
+    <value>Verstummte Spiele einbeziehen?</value>
+  </data>
+  <data name="find.any.band" xml:space="preserve">
+    <value>egal</value>
+  </data>
+  <data name="find.any.genre" xml:space="preserve">
+    <value>beliebiges Genre</value>
+  </data>
+  <data name="find.any.lineage" xml:space="preserve">
+    <value>beliebige Art</value>
+  </data>
+  <data name="find.any.language" xml:space="preserve">
+    <value>beliebige Sprache</value>
+  </data>
+  <data name="find.any.client" xml:space="preserve">
+    <value>egal</value>
+  </data>
+  <data name="find.dark.no" xml:space="preserve">
+    <value>nein, nur aktive Spiele</value>
+  </data>
+  <data name="find.dark.yes" xml:space="preserve">
+    <value>ja, auch diese zeigen</value>
+  </data>
+  <data name="find.dark.chip" xml:space="preserve">
+    <value>verstummte Spiele</value>
+  </data>
+  <data name="find.protocol.tls" xml:space="preserve">
+    <value>TLS — verschlüsselt, Handshake von uns abgeschlossen</value>
+  </data>
+  <data name="find.protocol.mssp" xml:space="preserve">
+    <value>MSSP — Selbstauskunft des Servers</value>
+  </data>
+  <data name="find.protocol.mccp" xml:space="preserve">
+    <value>MCCP — komprimierte Ausgabe</value>
+  </data>
+  <data name="find.protocol.mxp" xml:space="preserve">
+    <value>MXP — anklickbare Links</value>
+  </data>
+  <data name="find.protocol.gmcp" xml:space="preserve">
+    <value>GMCP — strukturierte Client-Daten</value>
+  </data>
+  <data name="find.protocol.msdp" xml:space="preserve">
+    <value>MSDP — strukturierte Client-Daten</value>
+  </data>
+  <data name="find.protocol.charset" xml:space="preserve">
+    <value>CHARSET — Aushandlung der Kodierung</value>
+  </data>
+  <data name="find.protocol.utf8" xml:space="preserve">
+    <value>UTF-8 — nichtlateinischer Text wird dargestellt</value>
+  </data>
+  <data name="find.protocol.ttype" xml:space="preserve">
+    <value>TTYPE — Client nennt seinen Typ</value>
+  </data>
+  <data name="find.protocol.atcp" xml:space="preserve">
+    <value>ATCP — strukturierte Client-Daten</value>
+  </data>
+  <data name="find.protocol.msp" xml:space="preserve">
+    <value>MSP — Sound-Auslöser</value>
+  </data>
+  <data name="find.protocol.eor" xml:space="preserve">
+    <value>EOR — Prompt-Markierung</value>
+  </data>
+  <data name="find.protocol.other" xml:space="preserve">
+    <value>{token} — im Handshake gemessen</value>
+  </data>
   <data name="provenance.count.measured" xml:space="preserve">
     <value>gemessen</value>
   </data>

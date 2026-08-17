@@ -69,6 +69,138 @@
   <data name="capabilities.agree" xml:space="preserve">
     <value>{disagreeing, plural, =0 {全部{total}项均一致。} other {在{total}项中，有#项与游戏自述不符。}}</value>
   </data>
+  <data name="find.matching" xml:space="preserve">
+    <value>{count, plural, =0 {没有游戏符合全部回答。} other {有#个游戏符合全部回答。}}</value>
+  </data>
+  <data name="find.basis" xml:space="preserve">
+    <value>在{listed, plural, other {#个已列出的游戏}}中 · {answers, plural, =0 {未作回答} other {已回答#项}}</value>
+  </data>
+  <data name="find.show" xml:space="preserve">
+    <value>{count, plural, other {显示这#个游戏}}</value>
+  </data>
+  <data name="find.drop" xml:space="preserve">
+    <value>去掉“{answer}”——{count, plural, other {#个游戏}}</value>
+  </data>
+  <data name="find.clear" xml:space="preserve">
+    <value>清除该问题的回答：{question}</value>
+  </data>
+  <data name="find.title" xml:space="preserve">
+    <value>查找游戏</value>
+  </data>
+  <data name="find.kicker" xml:space="preserve">
+    <value>符合全部回答</value>
+  </data>
+  <data name="find.noun" xml:space="preserve">
+    <value>{count, plural, other {游戏}}</value>
+  </data>
+  <data name="find.clearAll" xml:space="preserve">
+    <value>清除全部回答</value>
+  </data>
+  <data name="find.startAgain" xml:space="preserve">
+    <value>重新开始</value>
+  </data>
+  <data name="find.more" xml:space="preserve">
+    <value>{count, plural, other {另有#项}}</value>
+  </data>
+  <data name="find.answersGiven" xml:space="preserve">
+    <value>已回答</value>
+  </data>
+  <data name="find.wholeListing" xml:space="preserve">
+    <value>全部列表</value>
+  </data>
+  <data name="find.refused" xml:space="preserve">
+    <value>该查询已被拒绝</value>
+  </data>
+  <data name="find.name.label" xml:space="preserve">
+    <value>名称（若有）</value>
+  </data>
+  <data name="find.name.placeholder" xml:space="preserve">
+    <value>名称或部分名称</value>
+  </data>
+  <data name="find.name.submit" xml:space="preserve">
+    <value>按名称搜索</value>
+  </data>
+  <data name="find.q.band" xml:space="preserve">
+    <value>现在有人在玩吗？</value>
+  </data>
+  <data name="find.q.genre" xml:space="preserve">
+    <value>你想玩什么？</value>
+  </data>
+  <data name="find.q.lineage" xml:space="preserve">
+    <value>哪种游戏？</value>
+  </data>
+  <data name="find.q.language" xml:space="preserve">
+    <value>使用哪种语言？</value>
+  </data>
+  <data name="find.q.client" xml:space="preserve">
+    <value>你的客户端有什么需求吗？</value>
+  </data>
+  <data name="find.q.dark" xml:space="preserve">
+    <value>是否包含已失联的游戏？</value>
+  </data>
+  <data name="find.any.band" xml:space="preserve">
+    <value>不限</value>
+  </data>
+  <data name="find.any.genre" xml:space="preserve">
+    <value>任意题材</value>
+  </data>
+  <data name="find.any.lineage" xml:space="preserve">
+    <value>任意类型</value>
+  </data>
+  <data name="find.any.language" xml:space="preserve">
+    <value>任意语言</value>
+  </data>
+  <data name="find.any.client" xml:space="preserve">
+    <value>不限</value>
+  </data>
+  <data name="find.dark.no" xml:space="preserve">
+    <value>否，仅未失联的游戏</value>
+  </data>
+  <data name="find.dark.yes" xml:space="preserve">
+    <value>是，也一并显示</value>
+  </data>
+  <data name="find.dark.chip" xml:space="preserve">
+    <value>已失联的游戏</value>
+  </data>
+  <data name="find.protocol.tls" xml:space="preserve">
+    <value>TLS——已加密，握手由我们完成</value>
+  </data>
+  <data name="find.protocol.mssp" xml:space="preserve">
+    <value>MSSP——服务器自述</value>
+  </data>
+  <data name="find.protocol.mccp" xml:space="preserve">
+    <value>MCCP——输出压缩</value>
+  </data>
+  <data name="find.protocol.mxp" xml:space="preserve">
+    <value>MXP——可点击链接</value>
+  </data>
+  <data name="find.protocol.gmcp" xml:space="preserve">
+    <value>GMCP——结构化客户端数据</value>
+  </data>
+  <data name="find.protocol.msdp" xml:space="preserve">
+    <value>MSDP——结构化客户端数据</value>
+  </data>
+  <data name="find.protocol.charset" xml:space="preserve">
+    <value>CHARSET——编码协商</value>
+  </data>
+  <data name="find.protocol.utf8" xml:space="preserve">
+    <value>UTF-8——非拉丁文本可正常显示</value>
+  </data>
+  <data name="find.protocol.ttype" xml:space="preserve">
+    <value>TTYPE——客户端自述类型</value>
+  </data>
+  <data name="find.protocol.atcp" xml:space="preserve">
+    <value>ATCP——结构化客户端数据</value>
+  </data>
+  <data name="find.protocol.msp" xml:space="preserve">
+    <value>MSP——声音触发</value>
+  </data>
+  <data name="find.protocol.eor" xml:space="preserve">
+    <value>EOR——提示符标记</value>
+  </data>
+  <data name="find.protocol.other" xml:space="preserve">
+    <value>{token}——握手中实测</value>
+  </data>
   <data name="provenance.count.measured" xml:space="preserve">
     <value>实测</value>
   </data>

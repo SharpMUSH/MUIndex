@@ -298,7 +298,9 @@ a { color: inherit; }
    full-height box and its current-page marker can land on the bar's own bottom edge.            */
 
 header.site {
-    height: 60px;
+    /* One row is 60px and stays 60px; a bar that has wrapped is as tall as what it holds. */
+    min-height: 60px;
+    row-gap: 4px;
     flex: none;
     border-bottom: 1px solid var(--line);
     background: var(--recessed);
@@ -333,8 +335,28 @@ header.site {
 */
 .demo-banner { position: relative; z-index: 31; }
 
+/*
+  The bar measures itself.
+
+  Every threshold in the ladder below used to be a pixel count, and every one of them was really a
+  measurement of *English*: the seven catalogue links are 430px in English and 517px in Japanese, so
+  860 was the width at which the English bar stopped fitting and German, Dutch and Japanese spent the
+  whole 861–1100 band with links running out of their box. 1024 is one of the four widths this design
+  is reviewed at, and all three failed at it.
+
+  `max-content` is the browser's own answer to "how wide is this text, in this language, in this
+  font" — so the nav asks for exactly what its links need and `flex-wrap` gives it its own row the
+  moment the bar cannot. No number to keep in step with a translation, nothing to re-tune when a
+  string changes, and a language nobody has measured yet is right on arrival.
+
+  What the reader gets in that band is a two-row bar rather than a menu, which is the trade: every
+  destination stays visible and in the same order, and the row that moves is the one that was being
+  clipped. Below the collapse width it is still one disclosure, because a menu is the right shape on
+  a phone whatever the language.
+*/
+header.site { flex-wrap: wrap; }
 header.site .mark { flex: 0 0 auto; }
-header.site .site-nav { flex: 1 1 auto; min-width: 0; }
+header.site .site-nav { flex: 1 1 auto; min-width: max-content; }
 header.site nav.account { flex: 0 0 auto; }
 header.site form.theme { flex: 0 0 auto; }
 
@@ -608,7 +630,7 @@ header.site .nav-menu .menu-panel a:hover { background: var(--surface); text-dec
   moves to the leading edge. Scoped to the collapsed width: unscoped it drew a vertical accent bar
   and a tinted box down the side of the current item in the open bar.
 */
-@media (max-width: 860px) {
+@media (max-width: 880px) {
     header.site .nav-menu .menu-panel a.on {
         box-shadow: inset 2px 0 0 0 var(--accent);
         background: color-mix(in srgb, var(--accent) 10%, transparent);
@@ -620,7 +642,7 @@ header.site .nav-menu .menu-panel .nav-rule { display: none; }
 header.site .menu-tail { display: flex; flex-direction: column; gap: 2px; }
 
 @supports selector(::details-content) {
-    @media (min-width: 861px) {
+    @media (min-width: 881px) {
         header.site .nav-menu > summary { display: none; }
 
         /*
@@ -659,7 +681,7 @@ header.site .menu-tail { display: flex; flex-direction: column; gap: 2px; }
       both at once would leave seven links in a row in no order anybody could name, which is the
       state this bar was rebuilt out of.
     */
-    @media (min-width: 861px) and (max-width: 1180px) {
+    @media (min-width: 881px) and (max-width: 1180px) {
         header.site .nav-label { display: none; }
         header.site .nav-menu .menu-panel { gap: 14px; }
         header.site .nav-menu .menu-panel > .nav-group { gap: 11px; }
@@ -673,7 +695,7 @@ header.site .menu-tail { display: flex; flex-direction: column; gap: 2px; }
     header.site nav.account a.action:not(.primary):hover { color: var(--text); }
 }
 
-@media (max-width: 860px) {                     /* step 3 — one disclosure, every destination kept */
+@media (max-width: 880px) {                     /* step 3 — one disclosure, every destination kept */
     header.site .site-nav { justify-content: flex-start; }
 
     /*
@@ -684,7 +706,7 @@ header.site .menu-tail { display: flex; flex-direction: column; gap: 2px; }
       six pages. The ends are sized by their content and the middle was the only thing that could
       yield, so a longer word at either end came out of the one item that must never shrink.
     */
-    header.site .site-nav { flex: 0 0 auto; min-width: max-content; }
+    header.site .site-nav { flex: 0 0 auto; }
 }
 
 /*
@@ -726,6 +748,22 @@ header.site .menu-tail { display: flex; flex-direction: column; gap: 2px; }
   nothing is dropped — the German bar and the English bar hold the same seven pages either side of
   it, which is the property the whole ladder exists to keep.
 */
+/*
+  Step 7 — and on the narrowest phone the bar stops being one line, for whichever language needs it.
+
+  At 360px the German bar wants 412px: "mu*index · Menü ▾ · über uns · anmelden · auto hell dunkel".
+  Everything above this step spends decoration and the ladder has none left — and the item that fell
+  off the end was the theme control, clipped past `.shell`'s `overflow-x: clip` and so not merely
+  cramped but gone. A reader on a 360px phone in German could not change the theme at all.
+
+  No width triggers this and no language is named in it: the bar already wraps on content, so the
+  theme control takes a second row exactly where it stops fitting. German and Dutch reach it at 360
+  and English and Chinese do not, which is the ladder working rather than a rule about German. The
+  one thing set here is what happens *after* a wrap — the control keeps the trailing edge it has on
+  one line, so the bar does not appear to change its mind about which end it belongs to.
+*/
+header.site form.theme { margin-inline-start: auto; }
+
 @media (max-width: 480px) {
     header.site .mark { font-size: 14px; letter-spacing: 0; }
     header.site form.theme { gap: 4px; }

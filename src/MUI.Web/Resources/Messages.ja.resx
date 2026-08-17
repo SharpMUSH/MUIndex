@@ -69,6 +69,138 @@
   <data name="capabilities.agree" xml:space="preserve">
     <value>{disagreeing, plural, =0 {{total}件のうち不一致はなし。} other {{total}件のうち#件がゲームの自己申告と不一致。}}</value>
   </data>
+  <data name="find.matching" xml:space="preserve">
+    <value>{count, plural, =0 {すべての回答に一致するゲームはなし。} other {すべての回答に一致するゲームは#件。}}</value>
+  </data>
+  <data name="find.basis" xml:space="preserve">
+    <value>{listed, plural, other {掲載#件のゲーム}}のうち · {answers, plural, =0 {回答なし} other {回答#件}}</value>
+  </data>
+  <data name="find.show" xml:space="preserve">
+    <value>{count, plural, other {この#件のゲームを表示}}</value>
+  </data>
+  <data name="find.drop" xml:space="preserve">
+    <value>「{answer}」を解除 — {count, plural, other {#件のゲーム}}</value>
+  </data>
+  <data name="find.clear" xml:space="preserve">
+    <value>回答を解除：{question}</value>
+  </data>
+  <data name="find.title" xml:space="preserve">
+    <value>ゲームを探す</value>
+  </data>
+  <data name="find.kicker" xml:space="preserve">
+    <value>すべての回答に一致</value>
+  </data>
+  <data name="find.noun" xml:space="preserve">
+    <value>{count, plural, other {ゲーム}}</value>
+  </data>
+  <data name="find.clearAll" xml:space="preserve">
+    <value>回答をすべて解除</value>
+  </data>
+  <data name="find.startAgain" xml:space="preserve">
+    <value>やり直す</value>
+  </data>
+  <data name="find.more" xml:space="preserve">
+    <value>{count, plural, other {他#件}}</value>
+  </data>
+  <data name="find.answersGiven" xml:space="preserve">
+    <value>回答済み</value>
+  </data>
+  <data name="find.wholeListing" xml:space="preserve">
+    <value>一覧全体</value>
+  </data>
+  <data name="find.refused" xml:space="preserve">
+    <value>そのクエリは拒否された</value>
+  </data>
+  <data name="find.name.label" xml:space="preserve">
+    <value>名前（分かっていれば）</value>
+  </data>
+  <data name="find.name.placeholder" xml:space="preserve">
+    <value>名前、または名前の一部</value>
+  </data>
+  <data name="find.name.submit" xml:space="preserve">
+    <value>名前で検索</value>
+  </data>
+  <data name="find.q.band" xml:space="preserve">
+    <value>今プレイしている人はいる？</value>
+  </data>
+  <data name="find.q.genre" xml:space="preserve">
+    <value>何をプレイしたい？</value>
+  </data>
+  <data name="find.q.lineage" xml:space="preserve">
+    <value>どんな種類のゲーム？</value>
+  </data>
+  <data name="find.q.language" xml:space="preserve">
+    <value>どの言語？</value>
+  </data>
+  <data name="find.q.client" xml:space="preserve">
+    <value>クライアントに必要なものは？</value>
+  </data>
+  <data name="find.q.dark" xml:space="preserve">
+    <value>消息不明のゲームも含める？</value>
+  </data>
+  <data name="find.any.band" xml:space="preserve">
+    <value>問わない</value>
+  </data>
+  <data name="find.any.genre" xml:space="preserve">
+    <value>ジャンルを問わない</value>
+  </data>
+  <data name="find.any.lineage" xml:space="preserve">
+    <value>種類を問わない</value>
+  </data>
+  <data name="find.any.language" xml:space="preserve">
+    <value>言語を問わない</value>
+  </data>
+  <data name="find.any.client" xml:space="preserve">
+    <value>問わない</value>
+  </data>
+  <data name="find.dark.no" xml:space="preserve">
+    <value>いいえ、ライブのゲームのみ</value>
+  </data>
+  <data name="find.dark.yes" xml:space="preserve">
+    <value>はい、それらも表示</value>
+  </data>
+  <data name="find.dark.chip" xml:space="preserve">
+    <value>消息不明のゲーム</value>
+  </data>
+  <data name="find.protocol.tls" xml:space="preserve">
+    <value>TLS — 暗号化、ハンドシェイクは当サイトで完了</value>
+  </data>
+  <data name="find.protocol.mssp" xml:space="preserve">
+    <value>MSSP — サーバーの自己申告</value>
+  </data>
+  <data name="find.protocol.mccp" xml:space="preserve">
+    <value>MCCP — 出力の圧縮</value>
+  </data>
+  <data name="find.protocol.mxp" xml:space="preserve">
+    <value>MXP — クリック可能なリンク</value>
+  </data>
+  <data name="find.protocol.gmcp" xml:space="preserve">
+    <value>GMCP — 構造化クライアントデータ</value>
+  </data>
+  <data name="find.protocol.msdp" xml:space="preserve">
+    <value>MSDP — 構造化クライアントデータ</value>
+  </data>
+  <data name="find.protocol.charset" xml:space="preserve">
+    <value>CHARSET — エンコーディングのネゴシエーション</value>
+  </data>
+  <data name="find.protocol.utf8" xml:space="preserve">
+    <value>UTF-8 — 非ラテン文字が表示される</value>
+  </data>
+  <data name="find.protocol.ttype" xml:space="preserve">
+    <value>TTYPE — クライアントが自分の種類を伝える</value>
+  </data>
+  <data name="find.protocol.atcp" xml:space="preserve">
+    <value>ATCP — 構造化クライアントデータ</value>
+  </data>
+  <data name="find.protocol.msp" xml:space="preserve">
+    <value>MSP — サウンドのトリガー</value>
+  </data>
+  <data name="find.protocol.eor" xml:space="preserve">
+    <value>EOR — プロンプトの区切り</value>
+  </data>
+  <data name="find.protocol.other" xml:space="preserve">
+    <value>{token} — ハンドシェイクで実測</value>
+  </data>
   <data name="provenance.count.measured" xml:space="preserve">
     <value>実測</value>
   </data>

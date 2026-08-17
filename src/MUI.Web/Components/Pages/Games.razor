@@ -495,12 +495,12 @@ else
             return game.PlayersOverWindow is { } window
                 ? (SortWindows.IsMedian(Filter.Sort) ? window.Median : window.Peak)
                     .ToString(CultureInfo.InvariantCulture)
-                : "not counted";
+                : Messages.For(Tag, "state.notCounted");
         }
 
         return game.PlayersNow is { } now
             ? now.ToString(CultureInfo.InvariantCulture)
-            : "not counted";
+            : Messages.For(Tag, "state.notCounted");
     }
 
     /// <summary>
