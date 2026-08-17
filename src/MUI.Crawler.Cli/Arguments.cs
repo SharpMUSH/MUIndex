@@ -13,7 +13,9 @@ public sealed record Arguments
     public const string Usage = """
         mui-crawl — run crawl cycles against a real database and print what landed.
 
-          --connection <string>   PostgreSQL connection string. Defaults to $MUI_CRAWL_POSTGRES.
+          --connection <string>   PostgreSQL connection string. Defaults to $MUI_CRAWL_POSTGRES, and
+                                  then to $MUI_POSTGRES, which is what the deployable reads — so
+                                  this runs inside the deployment with no connection string typed.
           --seed <host:port>      An address to add to the registry. Repeatable. An IPv6 literal
                                   is bracketed — [2001:db8::1]:4201 — because a bare one does not
                                   say which colon is the port.
@@ -44,6 +46,11 @@ public sealed record Arguments
                                   are games. Run mui-probe against one to see what it says now.
           --release <slug>        Publish one of them by hand, recorded as staff rather than as a
                                   measurement, and exit. Needs --because.
+          --mint-now              Consider every game for a re-mint with §5.7's grace set to zero,
+                                  and exit. Waives the wait and nothing else: a name a source has
+                                  never declared, a codebase default and an owner's override are
+                                  refused here exactly as they are on a normal cycle. Needs
+                                  --because. Every slug it retires still redirects for ever.
           -v, --verbose           Debug logging.
           -h, --help              This.
 
@@ -52,7 +59,19 @@ public sealed record Arguments
         somebody else's server.
         """;
 
-    public string? Connection { get; init; } = Environment.GetEnvironmentVariable("MUI_CRAWL_POSTGRES");
+    /// <summary>
+    /// Where the catalogue is.
+    /// </summary>
+    /// <remarks>
+    /// <c>MUI_CRAWL_POSTGRES</c> first, because a person pointing this at a scratch database on their
+    /// laptop should not have to unset the deployment's variable to do it — and then
+    /// <c>MUI_POSTGRES</c>, which is what <c>MUI.Web</c> reads. The second is for running this
+    /// <em>inside</em> the deployment, where the connection string is already in the environment and
+    /// asking an operator to paste it onto a command line makes a secret into shell history.
+    /// </remarks>
+    public string? Connection { get; init; } =
+        Environment.GetEnvironmentVariable("MUI_CRAWL_POSTGRES")
+        ?? Environment.GetEnvironmentVariable("MUI_POSTGRES");
 
     public IReadOnlyList<CrawlSeed> Seeds { get; init; } = [];
 
@@ -106,6 +125,18 @@ public sealed record Arguments
 
     /// <summary>The slug of a submission to publish by hand (spec §7.8), or null.</summary>
     public string? Release { get; init; }
+
+    /// <summary>
+    /// Consider every game for a re-mint with §5.7's grace waived, and exit.
+    /// </summary>
+    /// <remarks>
+    /// The grace answers "is this name settled or is it flapping", and a person reading the change
+    /// feed can answer it for a catalogue in one sitting where the rule has to answer it blind. That
+    /// is the only judgement this switch carries — <see cref="SlugMinter"/> does the rest of the
+    /// deciding, so a codebase default, an owner's override and a name no source has declared are
+    /// refused here exactly as they are on a cycle.
+    /// </remarks>
+    public bool MintNow { get; init; }
 
     /// <summary>An address to ask DNS about, without touching a database or a game server.</summary>
     public CrawlAddress? OptOutCheck { get; init; }
@@ -192,6 +223,10 @@ public sealed record Arguments
                     parsed = parsed with { Release = Next(args, ref i, "--release") };
                     break;
 
+                case "--mint-now":
+                    parsed = parsed with { MintNow = true };
+                    break;
+
                 case "--because":
                     parsed = parsed with { Because = Next(args, ref i, "--because") };
                     break;
@@ -218,6 +253,15 @@ public sealed record Arguments
         {
             throw new ArgumentException(
                 $"--release needs --because: say what convinced you.{Environment.NewLine}{Usage}");
+        }
+
+        // The third of the same rule. Waiving the grace mints URLs the catalogue then keeps for ever,
+        // on somebody's reading of the change feed rather than on the passage of time, and the log
+        // line each rename writes should say whose reading it was.
+        if (parsed.MintNow && string.IsNullOrWhiteSpace(parsed.Because))
+        {
+            throw new ArgumentException(
+                $"--mint-now needs --because: say what settled these names.{Environment.NewLine}{Usage}");
         }
 
         // Before a socket rather than after one: an address nobody can open is worth catching while

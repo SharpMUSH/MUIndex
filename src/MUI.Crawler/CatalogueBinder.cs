@@ -270,6 +270,10 @@ public sealed class CatalogueBinder(
             async (candidate, ct) =>
                 await games.BySlugAsync(candidate, ct) is not null
                 || await slugs.RetiredByAsync(candidate, ct) is not null,
+            // What NameOf falls back to, for the same reason and one step later: a game that named
+            // itself in a script the fold does not keep is listed at its address rather than at the
+            // word "game", which the next such game would then have to share as game-2.
+            $"{result.Host}:{result.Port}",
             cancellationToken);
 
         var game = new GameRecord(

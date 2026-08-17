@@ -102,6 +102,25 @@ public class GameSlugTests
     }
 
     [Test]
+    public async Task ANameInAScriptTheFoldCannotKeepIsMintedFromTheAddressInstead()
+    {
+        // Both callers know an address — the one a probe answered at, or the URL the game already
+        // has — and the word "game" is a URL only one game can hold, whatever it is called.
+        var slug = await GameSlug.UniqueAsync(
+            "엘리시안 전기", (_, _) => Task.FromResult(false), "110.10.160.150:4001");
+
+        await Assert.That(slug).IsEqualTo("110-10-160-150-4001");
+    }
+
+    [Test]
+    public async Task AnAddressThatFoldsToNothingEitherStillGetsAUrl()
+    {
+        var slug = await GameSlug.UniqueAsync("엘리시안 전기", (_, _) => Task.FromResult(false), "！？");
+
+        await Assert.That(slug).IsEqualTo("game");
+    }
+
+    [Test]
     public async Task ASlugIsBounded()
     {
         var slug = GameSlug.Mint(new string('a', 500));

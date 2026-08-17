@@ -183,9 +183,14 @@ public sealed class SlugMinter(
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
+        // The URL it already has is the fallback, and it is not a made-up one: a game whose name this
+        // fold cannot render keeps the address-derived slug it was listed under and takes its real
+        // name on the page. Asking for its own slug is not a collision — IsTakenAsync answers for
+        // everybody except this game — so the rename goes through and retires nothing.
         var slug = await GameSlug.UniqueAsync(
             name,
             (candidate, ct) => IsTakenAsync(game.Id, candidate, ct),
+            game.Slug,
             cancellationToken);
 
         string? retired;
