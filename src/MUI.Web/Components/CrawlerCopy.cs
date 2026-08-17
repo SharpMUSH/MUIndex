@@ -1,4 +1,5 @@
 using MUI.Catalog;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Components;
 
@@ -31,20 +32,23 @@ public static class CrawlerCopy
         {
             // Reached only by a caller that renders NotYet anyway, and worded rather than empty so
             // that a future caller which does render it says something true.
-            return "no probe has finished here yet";
+            return Messages.For(tag, "crawler.noProbe");
         }
 
-        // The age localizes; the sentence around it has not been through the bundle yet, so a German
-        // reader meets one German fragment in an English line. That is the fallback working — it
-        // tells them truthfully which part has been translated — and not a reason to leave the age
-        // English too.
+        // The age arrives as an argument rather than being concatenated on: the ladder that builds
+        // it already localizes, and a language that puts the age before the state has nowhere to
+        // say so if the two are glued together. This whole sentence used to be English around a
+        // German fragment, on the one strip whose job is to let a reader discount the counts above
+        // it — the provenance line for four figures, in a language its reader did not choose.
         var age = Relative.Ago(tag, now - last);
+        var args = new Dictionary<string, object?>(StringComparer.Ordinal) { ["age"] = age };
 
-        return pulse.State(now) is CrawlState.Working
-            ? $"crawler live · last probe {age}"
+        return Messages.For(
+            tag,
             // "Quiet", not "stopped": see the class remarks. The age is the measurement; the reader
             // draws their own conclusion, which is more than we can honestly draw for them.
-            : $"crawler quiet · last probe {age}";
+            pulse.State(now) is CrawlState.Working ? "crawler.live" : "crawler.quiet",
+            args);
     }
 
     /// <summary>
@@ -55,7 +59,7 @@ public static class CrawlerCopy
     /// printed all of them would be a dashboard, and this is a line of provenance under a search box.
     /// <c>Considered</c> is named "due" because that is what it counts and what the log calls it.
     /// </remarks>
-    public static string? LastCycle(CrawlerPulse pulse)
+    public static string? LastCycle(string tag, CrawlerPulse pulse)
     {
         ArgumentNullException.ThrowIfNull(pulse);
 
@@ -69,15 +73,33 @@ public static class CrawlerCopy
         // The strip already reads "crawler live · last probe 4m ago", so "last cycle:" was a label
         // for a clause that follows one anyway. What the cycle did, in the strip's own voice.
         return cycle.Considered == 0
-            ? "nothing due this cycle"
-            : $"{cycle.Considered} due · {cycle.Answered} answered · {cycle.Failed} failed";
+            ? Messages.For(tag, "crawler.cycle.nothingDue")
+            : Messages.For(
+                tag,
+                "crawler.cycle",
+                // Three counters, three plural arguments in one message. English inflects none of
+                // them, which is exactly why they may not be three concatenated fragments: the
+                // languages that do inflect them would have no way to reach the words.
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["considered"] = cycle.Considered,
+                    ["answered"] = cycle.Answered,
+                    ["failed"] = cycle.Failed,
+                });
     }
 
     /// <summary>The backlog, for the plain rendering, which has room for it.</summary>
-    public static string Registry(CrawlerPulse pulse)
+    public static string Registry(string tag, CrawlerPulse pulse)
     {
         ArgumentNullException.ThrowIfNull(pulse);
 
-        return $"{pulse.TargetsKnown} addresses in the registry, {pulse.DueNow} due now";
+        return Messages.For(
+            tag,
+            "crawler.registry",
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["targets"] = pulse.TargetsKnown,
+                ["due"] = pulse.DueNow,
+            });
     }
 }

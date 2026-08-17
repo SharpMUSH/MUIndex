@@ -65,7 +65,7 @@
     <comment>counts, which is where the concatenations were</comment>
   </data>
   <data name="listing.total" xml:space="preserve">
-    <value>{count, plural, =0 {No games} one {# game} other {# games}}, every fact measured.</value>
+    <value>{count, plural, =0 {No games listed here.} one {# game, each fact carrying how it was obtained.} other {# games, each fact carrying how it was obtained.}}</value>
     <comment>counts, which is where the concatenations were</comment>
   </data>
   <data name="chart.basis" xml:space="preserve">
@@ -73,7 +73,7 @@
     <comment>counts, which is where the concatenations were</comment>
   </data>
   <data name="window.samples" xml:space="preserve">
-    <value>{days}d · {count, plural, one {# count} other {# counts}}</value>
+    <value>{days, plural, one {#d} other {#d}} · {count, plural, one {# count} other {# counts}}</value>
     <comment>counts, which is where the concatenations were</comment>
   </data>
   <data name="capabilities.agree" xml:space="preserve">
@@ -473,7 +473,7 @@
     <comment>home</comment>
   </data>
   <data name="home.lede" xml:space="preserve">
-    <value>Every fact was measured by a crawler that connected to the game.</value>
+    <value>Every fact carries how it was obtained and how old it is: measured by our crawler, or declared by the game and marked as such.</value>
     <comment>home</comment>
   </data>
   <data name="home.search.label" xml:space="preserve">
@@ -905,11 +905,11 @@
     <comment>sort orders</comment>
   </data>
   <data name="sort.window.median" xml:space="preserve">
-    <value>median {value} · {days}d · {count, plural, one {# count} other {# counts}}</value>
+    <value>median {value} · {days, plural, one {#d} other {#d}} · {count, plural, one {# count} other {# counts}}</value>
     <comment>sort orders</comment>
   </data>
   <data name="sort.window.peak" xml:space="preserve">
-    <value>most {value} at once · {days}d · {count, plural, one {# count} other {# counts}}</value>
+    <value>most {value} at once · {days, plural, one {#d} other {#d}} · {count, plural, one {# count} other {# counts}}</value>
     <comment>sort orders</comment>
   </data>
   <data name="game.connectScreen" xml:space="preserve">
@@ -2915,5 +2915,173 @@
   <data name="game.plain.playersNoCount" xml:space="preserve">
     <value>Players now: no count (nothing here says why)</value>
     <comment>added by the accessibility review, second pass</comment>
+  </data>
+  <data name="crawler.live" xml:space="preserve">
+    <value>crawler live · last probe {age}</value>
+    <comment>the crawler strip, whose sentence was English around a localized age</comment>
+  </data>
+  <data name="crawler.quiet" xml:space="preserve">
+    <value>crawler quiet · last probe {age}</value>
+    <comment>the crawler strip, whose sentence was English around a localized age</comment>
+  </data>
+  <data name="crawler.noProbe" xml:space="preserve">
+    <value>no probe has finished here yet</value>
+    <comment>the crawler strip, whose sentence was English around a localized age</comment>
+  </data>
+  <data name="crawler.cycle.nothingDue" xml:space="preserve">
+    <value>nothing due this cycle</value>
+    <comment>the crawler strip, whose sentence was English around a localized age</comment>
+  </data>
+  <data name="crawler.cycle" xml:space="preserve">
+    <value>{considered, plural, one {# due} other {# due}} · {answered, plural, one {# answered} other {# answered}} · {failed, plural, one {# failed} other {# failed}}</value>
+    <comment>the crawler strip, whose sentence was English around a localized age</comment>
+  </data>
+  <data name="crawler.registry" xml:space="preserve">
+    <value>{targets, plural, one {# address in the registry} other {# addresses in the registry}}, {due, plural, one {# due now} other {# due now}}</value>
+    <comment>the crawler strip, whose sentence was English around a localized age</comment>
+  </data>
+  <data name="preview.documentTitle" xml:space="preserve">
+    <value>{page} — {site}</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.site" xml:space="preserve">
+    <value>A directory of the MU* hobby — MUSHes, MUDs, MUCKs, MOOs — where every fact carries how it was obtained and how old it is.</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.demo" xml:space="preserve">
+    <value>Demo data — nothing here was measured. {description}</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.cardAlt" xml:space="preserve">
+    <value>{site} — measured, not asserted</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.cardAlt.named" xml:space="preserve">
+    <value>{title} on {site}</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.title.games" xml:space="preserve">
+    <value>Games</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.title.archive" xml:space="preserve">
+    <value>The archive</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.title.rankings" xml:space="preserve">
+    <value>Rankings</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.title.ecosystem" xml:space="preserve">
+    <value>The ecosystem</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.title.reference" xml:space="preserve">
+    <value>Reference</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.title.about" xml:space="preserve">
+    <value>About</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.title.notFound" xml:space="preserve">
+    <value>Not found</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.title.random" xml:space="preserve">
+    <value>Random game</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.title.account" xml:space="preserve">
+    <value>Your games</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.title.claim" xml:space="preserve">
+    <value>Claim {game}</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.desc.games" xml:space="preserve">
+    <value>Every MU* we have reached, faceted on what we measured: codebase, the protocols a server offered in the handshake, TLS, charset, language, and when we last got in.</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.desc.archive" xml:space="preserve">
+    <value>The games that went dark, kept. Each keeps its page, history and URL, is still probed weekly, and returns to the listing on one successful connection.</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.desc.rankings" xml:space="preserve">
+    <value>Busiest, most reachable, longest running — computed from measurements only. No votes, stars or ratings anywhere on this site.</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.desc.ecosystem" xml:space="preserve">
+    <value>Codebase share and protocol adoption across the games we measure, with what servers offer set beside what they declare. Shares, never totals.</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.desc.reference" xml:space="preserve">
+    <value>Hand-written pages on the codebases, clients and protocols of the MU* hobby, cross-linked to counts taken from the crawl.</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.desc.about" xml:space="preserve">
+    <value>How this catalogue is built: what the crawler does, what it refuses to do, and how to make it stop.</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.desc.notFound" xml:space="preserve">
+    <value>No game at this address. Nothing here is ever deleted, so a game that once lived at this URL still does — check the spelling.</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.desc.random" xml:space="preserve">
+    <value>One game from the catalogue, chosen at random and never the same one twice.</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.desc.account" xml:space="preserve">
+    <value>The listings you have claimed, and what a claim lets you change.</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.desc.claim" xml:space="preserve">
+    <value>Prove you run this game by publishing a token where only its operator could put it.</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.game.archived" xml:space="preserve">
+    <value>Archived — last reachable {age}, and still probed</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.game.archived.undated" xml:space="preserve">
+    <value>Archived, and still probed</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.game.countUnknown" xml:space="preserve">
+    <value>Player count unknown — the game answers, and publishes no number we can read</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="preview.game.count" xml:space="preserve">
+    <value>{count, plural, one {# player} other {# players}}, {how} {age}</value>
+    <comment>what this site says about itself where it is not this site</comment>
+  </data>
+  <data name="feed.plain.newlyDiscovered" xml:space="preserve">
+    <value>Newly discovered</value>
+    <comment>the plain mirror's feed headings and home counts</comment>
+  </data>
+  <data name="feed.plain.wentDark" xml:space="preserve">
+    <value>Went dark</value>
+    <comment>the plain mirror's feed headings and home counts</comment>
+  </data>
+  <data name="feed.plain.cameBack" xml:space="preserve">
+    <value>Came back</value>
+    <comment>the plain mirror's feed headings and home counts</comment>
+  </data>
+  <data name="home.plain.known" xml:space="preserve">
+    <value>{count, plural, one {# game known} other {# games known}}</value>
+    <comment>the plain mirror's feed headings and home counts</comment>
+  </data>
+  <data name="home.plain.connectedNow" xml:space="preserve">
+    <value>{count, plural, one {# connected now (measured)} other {# connected now (measured)}}</value>
+    <comment>the plain mirror's feed headings and home counts</comment>
+  </data>
+  <data name="home.plain.uncounted" xml:space="preserve">
+    <value>{count, plural, one {# answering, uncounted} other {# answering, uncounted}}</value>
+    <comment>the plain mirror's feed headings and home counts</comment>
+  </data>
+  <data name="home.plain.archived" xml:space="preserve">
+    <value>{count, plural, one {# archived, still probed} other {# archived, still probed}}</value>
+    <comment>the plain mirror's feed headings and home counts</comment>
   </data>
 </root>

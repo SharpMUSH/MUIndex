@@ -3,6 +3,7 @@
 @using MUI.Catalog
 @using MUI.Catalog.Persistence
 @using MUI.Web.Accounts
+@using MUI.Web.Localization
 @inject IGameQueries Queries
 @inject IServiceProvider Services
 @inject TimeProvider Clock
@@ -22,8 +23,8 @@
     scripting off along with the rest of the write path.
 *@
 
-<SitePreview Title="Your games" Data="false"
-             Description="The listings you have claimed, and what a claim lets you change." />
+<SitePreview Title="@PreviewCopy.Titles.Account(Tag)" Data="false"
+             Description="@PreviewCopy.Pages.Account(Tag)" />
 
 @if (Users is null)
 {
@@ -309,6 +310,8 @@ else
 
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }
+
+    private string Tag => HttpContext.LocaleOf().Tag;
 
     private DateTimeOffset Now => Clock.GetUtcNow();
 

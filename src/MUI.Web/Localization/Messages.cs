@@ -57,9 +57,20 @@ public static class Messages
         ["facet.value.exclude"] = "{value}, {count, plural, one {# game} other {# games}}, excluded",
         ["facet.value.choose"] = "{value}, {count, plural, one {# game} other {# games}}",
         ["facet.any"] = "any {facet}, {count, plural, one {# game} other {# games}}",
-        ["listing.total"] = "{count, plural, =0 {No games} one {# game} other {# games}}, every fact measured.",
+        // Not "every fact measured": the catalogue publishes declared and derived facts too, and
+        // shows them as such (rule 1 — measured beats declared, and *both are shown*). The summary
+        // line of a listing that labels a declared count "declared" four rows below cannot claim
+        // the opposite about the same rows. What is true of every fact is the labelling.
+        ["listing.total"] = "{count, plural, =0 {No games listed here.}"
+            + " one {# game, each fact carrying how it was obtained.}"
+            + " other {# games, each fact carrying how it was obtained.}}",
         ["chart.basis"] = "{days, plural, one {# day} other {# days}} measured · {probes, plural, one {# probe} other {# probes}}",
-        ["window.samples"] = "{days}d · {count, plural, one {# count} other {# counts}}",
+        // The day count selects a plural form as the age ladder's does (age.short.days), rather than
+        // gluing a bare {days} to a literal "d". English does not inflect the abbreviation and
+        // German does — 1 Tag, 2 Tage — so a translator handed "{days}d" has one slot for two
+        // forms, and the German satellite duly shipped an English "d" inside a German sentence.
+        // The unit belongs inside the branch, which is the only place a language can vary it.
+        ["window.samples"] = "{days, plural, one {#d} other {#d}} · {count, plural, one {# count} other {# counts}}",
         ["capabilities.agree"] = "{disagreeing, plural, =0 {None of the {total} disagree.} one {# of {total} disagrees with what the game declares.} other {# of {total} disagree with what the game declares.}}",
 
         // ── find a game, where the count is the whole point of the page ───────────────────────
@@ -191,7 +202,11 @@ public static class Messages
 
         // ── home ──────────────────────────────────────────────────────────────────────────────
         ["home.title"] = "A directory of the MU* hobby",
-        ["home.lede"] = "Every fact was measured by a crawler that connected to the game.",
+        // Same correction as listing.total, on the sentence that makes the claim to a first-time
+        // reader. The front page cannot say every fact was measured while the row below it wears a
+        // "declared" chip; what holds of every fact is that it says which of the two it is.
+        ["home.lede"] = "Every fact carries how it was obtained and how old it is: measured by our "
+            + "crawler, or declared by the game and marked as such.",
         ["home.search.label"] = "Search games by name, theme, codebase or host",
         ["home.search.placeholder"] = "search by name, theme, codebase or host",
         ["home.search.submit"] = "search",
@@ -313,8 +328,11 @@ public static class Messages
         ["sort.unranked.reached"] = "never once reached — not reached long ago",
         ["sort.unranked.median"] = "fewer than {minimum} counts in the window, or none at all — not a typical count of zero",
         ["sort.unranked.window"] = "nothing we could count in the window — not a game nobody was on",
-        ["sort.window.median"] = "median {value} · {days}d · {count, plural, one {# count} other {# counts}}",
-        ["sort.window.peak"] = "most {value} at once · {days}d · {count, plural, one {# count} other {# counts}}",
+        // {days} selects a plural form here too — same reason as window.samples above.
+        ["sort.window.median"] = "median {value} · {days, plural, one {#d} other {#d}}"
+            + " · {count, plural, one {# count} other {# counts}}",
+        ["sort.window.peak"] = "most {value} at once · {days, plural, one {#d} other {#d}}"
+            + " · {count, plural, one {# count} other {# counts}}",
 
         // ── the game page's own headings ──────────────────────────────────────────────────────
         ["game.connectScreen"] = "Connect screen",
@@ -1292,6 +1310,108 @@ public static class Messages
         ["game.count.none"] = "no count",
         ["game.count.none.why"] = "no current count, and nothing here says why",
         ["game.plain.playersNoCount"] = "Players now: no count (nothing here says why)",
+
+        // ══ appended: the last surfaces that were still English on a localized page ═══════════
+        //
+        // Three gaps, found after the sweep that walked visible text and title/aria-label/
+        // placeholder — none of which reaches a <meta> element or a <pre> mirror.
+        //
+        // ── the crawler strip, whose sentence was English around a localized age ──────────────
+        // The age used to be the only localized part, so a German reader met "crawler live · last
+        // probe 4m" — one German fragment inside an English line, on the one strip whose whole job
+        // is to let a reader discount every number above it. The age comes in as an argument
+        // because the ladder that builds it already localizes, and because a language that puts
+        // the age first has nowhere to say so if the two are concatenated.
+        ["crawler.live"] = "crawler live · last probe {age}",
+        ["crawler.quiet"] = "crawler quiet · last probe {age}",
+        ["crawler.noProbe"] = "no probe has finished here yet",
+
+        // Three counters, each agreeing with its own number. English inflects none of them and
+        // several languages inflect all three, which is exactly the case a concatenation cannot be
+        // translated out of.
+        ["crawler.cycle.nothingDue"] = "nothing due this cycle",
+        ["crawler.cycle"] = "{considered, plural, one {# due} other {# due}}"
+            + " · {answered, plural, one {# answered} other {# answered}}"
+            + " · {failed, plural, one {# failed} other {# failed}}",
+        ["crawler.registry"] = "{targets, plural, one {# address in the registry} other {# addresses in the registry}}"
+            + ", {due, plural, one {# due now} other {# due now}}",
+
+        // ── what this site says about itself where it is not this site ────────────────────────
+        // The <title>, the meta description and the Open Graph tags. A German page advertised
+        // itself in English to a reader, a search engine and every link preview — the three places
+        // a reader has least ability to check what they were told, and the one surface the demo
+        // banner cannot follow a link into.
+        //
+        // The wordmark is not here. "mu*index" is the site's name, machine voice like a hostname or
+        // a codebase string, so it arrives as {site} rather than as text a translator could edit.
+        ["preview.documentTitle"] = "{page} — {site}",
+        ["preview.site"] = "A directory of the MU* hobby — MUSHes, MUDs, MUCKs, MOOs — where every "
+            + "fact carries how it was obtained and how old it is.",
+        ["preview.demo"] = "Demo data — nothing here was measured. {description}",
+        ["preview.cardAlt"] = "{site} — measured, not asserted",
+        ["preview.cardAlt.named"] = "{title} on {site}",
+
+        // One id per page, title and description apart: a title is a noun phrase and a description
+        // is a sentence, and a language that declines the first differently from the second has
+        // nowhere to stand if they share an id.
+        ["preview.title.games"] = "Games",
+        ["preview.title.archive"] = "The archive",
+        ["preview.title.rankings"] = "Rankings",
+        ["preview.title.ecosystem"] = "The ecosystem",
+        ["preview.title.reference"] = "Reference",
+        ["preview.title.about"] = "About",
+        ["preview.title.notFound"] = "Not found",
+        ["preview.title.random"] = "Random game",
+        ["preview.title.account"] = "Your games",
+        ["preview.title.claim"] = "Claim {game}",
+
+        ["preview.desc.games"] = "Every MU* we have reached, faceted on what we measured: codebase, "
+            + "the protocols a server offered in the handshake, TLS, charset, language, and when we "
+            + "last got in.",
+        ["preview.desc.archive"] = "The games that went dark, kept. Each keeps its page, history and "
+            + "URL, is still probed weekly, and returns to the listing on one successful connection.",
+        ["preview.desc.rankings"] = "Busiest, most reachable, longest running — computed from "
+            + "measurements only. No votes, stars or ratings anywhere on this site.",
+        ["preview.desc.ecosystem"] = "Codebase share and protocol adoption across the games we "
+            + "measure, with what servers offer set beside what they declare. Shares, never totals.",
+        ["preview.desc.reference"] = "Hand-written pages on the codebases, clients and protocols of "
+            + "the MU* hobby, cross-linked to counts taken from the crawl.",
+        ["preview.desc.about"] = "How this catalogue is built: what the crawler does, what it refuses "
+            + "to do, and how to make it stop.",
+        ["preview.desc.notFound"] = "No game at this address. Nothing here is ever deleted, so a game "
+            + "that once lived at this URL still does — check the spelling.",
+        ["preview.desc.random"] = "One game from the catalogue, chosen at random and never the same "
+            + "one twice.",
+        ["preview.desc.account"] = "The listings you have claimed, and what a claim lets you change.",
+        ["preview.desc.claim"] = "Prove you run this game by publishing a token where only its "
+            + "operator could put it.",
+
+        // A game's own preview. The name, the host and the port stay machine voice; everything the
+        // site says *about* them is here. The unknown count is a sentence and never a zero (rule 4),
+        // and the archived plate says "still probed" because that is §7.5's promise.
+        ["preview.game.archived"] = "Archived — last reachable {age}, and still probed",
+        ["preview.game.archived.undated"] = "Archived, and still probed",
+        ["preview.game.countUnknown"] = "Player count unknown — the game answers, and publishes no "
+            + "number we can read",
+        ["preview.game.count"] = "{count, plural, one {# player} other {# players}}, {how} {age}",
+
+        // ── the plain mirror's feed headings and home counts ──────────────────────────────────
+        // Uppercased at the call site like every other plain heading, so the id carries the words
+        // and not the casing — a locale whose script has no case gets the words unharmed.
+        // The empty states are not here: feed.nothingNew and its two siblings already exist and are
+        // already translated, and the graphical cards and this mirror say the same sentence.
+        ["feed.plain.newlyDiscovered"] = "Newly discovered",
+        ["feed.plain.wentDark"] = "Went dark",
+        ["feed.plain.cameBack"] = "Came back",
+
+        // The four figures the front page tiles carry, as whole sentences rather than a number
+        // glued to a tile label — the mirror has no tiles to put a label beside. English inflects
+        // only the first; the other three carry both branches anyway, because a language that
+        // inflects them has nowhere else to say so.
+        ["home.plain.known"] = "{count, plural, one {# game known} other {# games known}}",
+        ["home.plain.connectedNow"] = "{count, plural, one {# connected now (measured)} other {# connected now (measured)}}",
+        ["home.plain.uncounted"] = "{count, plural, one {# answering, uncounted} other {# answering, uncounted}}",
+        ["home.plain.archived"] = "{count, plural, one {# archived, still probed} other {# archived, still probed}}",
     };
 
     /// <summary>

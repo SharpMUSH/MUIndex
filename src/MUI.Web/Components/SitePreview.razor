@@ -44,7 +44,7 @@
     <meta property="og:description" content="@Text" />
     <meta property="og:url" content="@Canonical" />
     <meta property="og:image" content="@Image" />
-    <meta property="og:image:alt" content="@PreviewCopy.CardAlt(Title)" />
+    <meta property="og:image:alt" content="@PreviewCopy.CardAlt(Tag, Title)" />
 
     @*
         summary_large_image and not summary: the cards are 1200×630 and a small card would letterbox
@@ -85,10 +85,22 @@
     [Parameter]
     public string? Title { get; set; }
 
+    /// <summary>The locale this request is being answered in, which the metadata is written in too.</summary>
+    /// <remarks>
+    /// A German page used to carry an English title, description and card. Nothing visible said so —
+    /// no reader sees a <c>&lt;meta&gt;</c> — and the surfaces that do render it are a search
+    /// result, a chat client unfurling a link and a bookmark, none of which the reader can correct.
+    /// </remarks>
+    private string Tag => Http.LocaleOf().Tag;
+
     /// <summary>What this page is, in a sentence or two. Required — a page without one is summarised
     /// by whoever links to it, from whatever text happens to come first in the body.</summary>
+    /// <remarks>
+    /// Defaulted to null and resolved against the request's locale, because the default sentence is
+    /// itself a translated one and a parameter initialiser has no locale to resolve it in.
+    /// </remarks>
     [Parameter, EditorRequired]
-    public string Description { get; set; } = PreviewCopy.Site;
+    public string? Description { get; set; }
 
     [Parameter]
     public PreviewCard Card { get; set; } = PreviewCard.Site;
@@ -115,11 +127,13 @@
     [Parameter]
     public Func<Uri, string>? Graph { get; set; }
 
-    private string Heading => PreviewCopy.Title(Title);
+    private string Heading => PreviewCopy.Title(Tag, Title);
+
+    private string Said => Description ?? PreviewCopy.Site(Tag);
 
     private string Text => Data && !Catalogue.IsMeasured
-        ? PreviewCopy.Demo(Description)
-        : Description;
+        ? PreviewCopy.Demo(Tag, Said)
+        : Said;
 
     private string Canonical => Http is null
         ? "/"

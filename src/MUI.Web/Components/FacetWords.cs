@@ -169,7 +169,10 @@ public static class FacetWords
                 ["value"] = SortWindows.IsMedian(sort)
                     ? window.Median.ToString(CultureInfo.InvariantCulture)
                     : window.Peak.ToString(CultureInfo.InvariantCulture),
-                ["days"] = ((int)window.Window.TotalDays).ToString(CultureInfo.InvariantCulture),
+                // A number and not a string: {days} selects a plural branch now, so that the day
+                // unit can inflect in a language that inflects it, and a plural argument has to be
+                // a number to have operands at all.
+                ["days"] = (int)window.Window.TotalDays,
                 ["count"] = window.Samples,
             });
     }

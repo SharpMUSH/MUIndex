@@ -421,9 +421,16 @@ front end would sit behind.
 
 | Check | Result |
 |---|---|
-| ICU conformance cases | 727 web tests, including the apostrophe, offset, ordinal and fraction cases |
+| ICU conformance cases | in the web suite, including the apostrophe, offset, ordinal and fraction cases |
 | Every bundle parses | asserted for every locale × every id |
 | Every translation names only arguments the English supplies | asserted |
 | Every named locale has a CLDR rule | asserted against `LocalesCovered` |
 | resx ⇄ compiled-in English | asserted both ways |
-| Tests | 727 Web · 499 Catalog · 346 Crawl · 250 Crawler · 267 Discovery · 13 I3 |
+| Tests | 791 Web · 499 Catalog · 346 Crawl · 267 Discovery · 250 Crawler — 2,153, all passing |
+
+The count is the five suites `MUIndex.slnx` and CI actually run, each `dotnet run`. Earlier rows here
+carried a sixth entry, "13 I3", against no project of that name in the tree; it is dropped rather
+than carried forward, because a figure nobody can reproduce is the kind of number this site exists
+to argue against. The rows in parts two and three are left at what *they* measured — this document
+is a log of successive passes, and back-dating an earlier pass's count to today's would destroy the
+record rather than correct it.

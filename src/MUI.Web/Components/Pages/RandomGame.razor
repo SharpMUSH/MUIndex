@@ -1,5 +1,6 @@
 @page "/games/random"
 @using MUI.Web.Api
+@using MUI.Web.Localization
 @inject IGameQueries Queries
 @inject NavigationManager Nav
 
@@ -12,7 +13,7 @@
     OnInitializedAsync, which never reaches markup.
 *@
 
-<SitePreview Title="Random game" Description="@PreviewCopy.Pages.Random" />
+<SitePreview Title="@PreviewCopy.Titles.Random(Tag)" Description="@PreviewCopy.Pages.Random(Tag)" />
 
 <h1>Nothing to pick from</h1>
 
@@ -29,6 +30,10 @@ else
 }
 
 @code {
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
     private string? Error { get; set; }
 
     protected override async Task OnInitializedAsync()

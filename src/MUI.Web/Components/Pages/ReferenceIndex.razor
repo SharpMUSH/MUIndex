@@ -1,4 +1,5 @@
 @page "/reference"
+@using MUI.Web.Localization
 @using MUI.Web.Reference
 
 @*
@@ -16,7 +17,7 @@
 }
 else
 {
-    <SitePreview Title="Reference" Description="@PreviewCopy.Pages.Reference"
+    <SitePreview Title="@PreviewCopy.Titles.Reference(Tag)" Description="@PreviewCopy.Pages.Reference(Tag)"
                  Card="PreviewCard.Reference" />
 
     <h1>Reference</h1>
@@ -54,6 +55,10 @@ else
 }
 
 @code {
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
     [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
 
     private bool Plain => Truthy.Is(PlainFlag);

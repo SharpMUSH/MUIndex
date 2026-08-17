@@ -4,6 +4,7 @@
 @using MUI.Catalog.Persistence
 @using MUI.Discovery
 @using MUI.Web.Accounts
+@using MUI.Web.Localization
 @inject IServiceProvider Services
 @inject TimeProvider Clock
 
@@ -20,8 +21,10 @@
     access to that server published it, and the account this claim is bound to answers who asked.
 *@
 
-<SitePreview Title="@($"Claim {Game?.Name ?? Slug}")" Data="false"
-             Description="Prove you run this game by publishing a token where only its operator could put it." />
+@* The game's name is its own bytes and goes into the message as an argument, not as text a
+   translator could edit — the same rule that keeps a hostname out of the bundle. *@
+<SitePreview Title="@PreviewCopy.Titles.Claim(Tag, Game?.Name ?? Slug)" Data="false"
+             Description="@PreviewCopy.Pages.Claim(Tag)" />
 
 @if (Game is null)
 {
@@ -241,4 +244,6 @@ else
 
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }
+
+    private string Tag => HttpContext.LocaleOf().Tag;
 }
