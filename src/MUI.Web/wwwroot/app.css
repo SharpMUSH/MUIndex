@@ -805,6 +805,22 @@ ul.shares .share-figure { color: var(--dim); white-space: nowrap; }
    ink agrees with the words, so the two halves of the page cannot be read as one kind of fact. */
 .share-fill.derived { background: var(--derived); }
 
+/* The codebases exactly one game runs. Folded because a share of one is a name and not a share —
+   live, fifty of them at 0.5% were two-thirds of the chart above — and a disclosure rather than a
+   deletion because the fold's arithmetic has to be checkable against what it folded. The summary
+   carries the whole sentence, so a reader who never opens it has still read the number. */
+details.sole-use { margin: var(--cpad) 0; font-size: 13px; }
+details.sole-use > summary { cursor: pointer; color: var(--dim); max-width: 68ch; }
+ul.sole-use-names {
+    list-style: none;
+    margin: var(--cpad) 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px var(--cpad);
+}
+ul.sole-use-names li { color: var(--dim); }
+
 /* Wide content scrolls inside its own box; the page body never scrolls sideways. */
 .table-wrap { overflow-x: auto; margin: var(--cpad) 0; }
 

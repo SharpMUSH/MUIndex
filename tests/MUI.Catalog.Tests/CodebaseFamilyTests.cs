@@ -76,6 +76,53 @@ public class CodebaseFamilyTests
     public async Task ARealMultiWordNameKeepsEveryWord(string reported) =>
         await Assert.That(CodebaseFamily.Of(reported)).IsEqualTo(reported);
 
+    /// <summary>A version hyphenated straight onto the name is still a version.</summary>
+    /// <remarks>
+    /// Both values are live. The fold looks for the version at a space, so a game that typed no space
+    /// kept its patchlevel in the family name and got a bar of its own on the dashboard —
+    /// <c>MorgenGrauen-3.3.5</c> sat beside the <c>MorgenGrauen</c> key <see cref="CodebaseLineage"/>
+    /// already carries, and matched it only through the fallback that reads the words of a string it
+    /// could not fold.
+    /// </remarks>
+    [Test]
+    [Arguments("MorgenGrauen-3.3.5", "MorgenGrauen")]
+    [Arguments("NC-7.0.288.cd9c3554", "NC")]
+    public async Task AVersionJoinedByAHyphenIsStillFoldedAway(string reported, string family) =>
+        await Assert.That(CodebaseFamily.Of(reported)).IsEqualTo(family);
+
+    /// <summary>…and a hyphen inside a name is not a version boundary.</summary>
+    /// <remarks>
+    /// The rule that pays for the one above, and it is why the suffix has to be a <em>dotted</em>
+    /// version rather than anything version-shaped. <c>TMI-2</c> is a mudlib whose name ends in a
+    /// digit, and a rule loose enough to fold it would publish two live codebases under a name
+    /// nobody uses — the same mid-phrase truncation this fold is careful about everywhere else.
+    /// </remarks>
+    [Test]
+    [Arguments("TMI-2 1.3-pre2(modified)", "TMI-2")]
+    [Arguments("TMI-2", "TMI-2")]
+    [Arguments("TD-MUDLIB 2.0", "TD-MUDLIB")]
+    [Arguments("LambdaMOO-ToastStunt 2.7.3_4", "LambdaMOO-ToastStunt")]
+    [Arguments("MUX 2.13.0.0-MP MPARK-BB-ST", "MUX")]
+    public async Task AHyphenInsideANameIsNotWhereTheVersionStarts(string reported, string family) =>
+        await Assert.That(CodebaseFamily.Of(reported)).IsEqualTo(family);
+
+    /// <summary>Punctuation left standing between the name and the version is not the name.</summary>
+    /// <remarks>
+    /// Live, and it rendered as the family <c>AnsalonMUD -</c>: the cut stops before the version, and
+    /// the dash the operator typed to separate the two was on the name's side of it.
+    /// </remarks>
+    [Test]
+    public async Task ASeparatorBeforeTheVersionIsNotPartOfTheName()
+    {
+        await Assert.That(CodebaseFamily.Of(
+                "AnsalonMUD - 1.7b2 (Originally Rom 2.4 Actively Improved since 1996)"))
+            .IsEqualTo("AnsalonMUD");
+
+        // A word carrying letters is a word of the name, whatever punctuation is in it.
+        await Assert.That(CodebaseFamily.Of("Original / Loosely Diku"))
+            .IsEqualTo("Original / Loosely Diku");
+    }
+
     [Test]
     public async Task AFoldNeverTruncatesMidPhrase()
     {

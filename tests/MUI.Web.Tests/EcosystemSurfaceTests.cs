@@ -159,6 +159,32 @@ public class EcosystemSurfaceTests
         await Assert.That(text).Contains($"every share below is over those {dashboard.Codebases.Identified}");
     }
 
+    /// <summary>The one-game codebases are folded out of the chart and listed under it.</summary>
+    /// <remarks>
+    /// Live, 49 of the 72 rows in this panel were one game at 0.5% — the tail was two-thirds of the
+    /// list and answered no question a reader has, because a share of one is a name and not a share.
+    /// Folded rather than dropped: the surface still prints every one of them, so the panel's own
+    /// arithmetic stays checkable on the page.
+    /// </remarks>
+    [Test]
+    public async Task ACodebaseOnlyOneGameRunsIsFoldedOutOfTheChartAndStillPrinted()
+    {
+        var codebases = (await Queries.EcosystemAsync()).Codebases;
+        var text = Render.Words(await EcosystemAsync());
+
+        await Assert.That(codebases.Shared).IsNotEmpty();
+        await Assert.That(codebases.SoleUse).IsNotEmpty();
+
+        await Assert.That(text).Contains(
+            $"{codebases.SoleUseTotal.Count} of {codebases.Identified}");
+        await Assert.That(text).Contains("no other listed game runs");
+
+        foreach (var alone in codebases.SoleUse)
+        {
+            await Assert.That(text).Contains(alone.Label);
+        }
+    }
+
     [Test]
     public async Task TheMsspRowStaysBecauseItIsTheOnlyMeasurementThatIsNotAFloor()
     {

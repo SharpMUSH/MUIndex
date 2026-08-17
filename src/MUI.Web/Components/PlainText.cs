@@ -643,7 +643,7 @@ public static class PlainText
         Wrap(b, EcosystemCopy.CodebaseBasis(dashboard.Codebases));
         b.AppendLine();
 
-        foreach (var family in dashboard.Codebases.Families)
+        foreach (var family in dashboard.Codebases.Shared)
         {
             b.AppendLine($"  {family.Label,-24} {EcosystemCopy.Share(family)}");
         }
@@ -651,6 +651,21 @@ public static class PlainText
         if (dashboard.Codebases.Families.Count == 0)
         {
             b.AppendLine("  No listed game has told us its codebase yet.");
+        }
+
+        // The graphic folds these behind a disclosure and this surface has none, so it prints them
+        // outright. Both say the same sentence first, which is the point of EcosystemCopy: the
+        // plain surface may be shorter than the page and it may not be more or less honest than it.
+        if (dashboard.Codebases.SoleUse.Count > 0)
+        {
+            b.AppendLine();
+            Wrap(b, EcosystemCopy.SoleUse(dashboard.Codebases), "  ");
+            b.AppendLine();
+
+            foreach (var alone in dashboard.Codebases.SoleUse)
+            {
+                b.AppendLine($"    {alone.Label}");
+            }
         }
 
 

@@ -62,6 +62,30 @@ public static class EcosystemCopy
     }
 
     /// <summary>
+    /// The line that folds away the codebases only one game runs, and says what it folded.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The number comes first and the reason second, so the sentence is complete before it is
+    /// justified: this is the panel's second-largest figure and it may not read as a footnote.
+    /// </para>
+    /// <para>
+    /// <b>It says "folded", and the games are listed under it.</b> A page that quietly dropped
+    /// fifty rows and left a chart that no longer adds up would be hiding our own editorial decision
+    /// inside somebody else's numbers, which is the move this site exists to refuse. What the fold
+    /// claims — one game each, still inside the denominator — is checkable against the list it opens.
+    /// </para>
+    /// </remarks>
+    public static string SoleUse(CodebaseUsage codebases)
+    {
+        ArgumentNullException.ThrowIfNull(codebases);
+
+        return $"{Share(codebases.SoleUseTotal)} run a codebase no other listed game runs — one "
+            + "game each, which is a name rather than a share. They are inside the denominator "
+            + "above and folded out of the bars, not dropped:";
+    }
+
+    /// <summary>
     /// How to read the MSSP row, whose two counts differ and whose declared cell is empty.
     /// </summary>
     /// <remarks>
