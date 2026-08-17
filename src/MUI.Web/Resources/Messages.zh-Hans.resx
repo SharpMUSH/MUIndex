@@ -42,89 +42,65 @@
   <resheader name="version"><value>2.0</value></resheader>
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
-  <data name="a11y.asciiBanner" xml:space="preserve">
-    <value>ASCII 横幅：{game} 的连接画面。</value>
-  </data>
-  <data name="a11y.plainText" xml:space="preserve">
-    <value>纯文本</value>
-  </data>
-  <data name="a11y.readAsText" xml:space="preserve">
-    <value>以文本形式阅读</value>
-  </data>
-  <data name="a11y.skipToContent" xml:space="preserve">
-    <value>跳至主要内容</value>
-  </data>
-  <data name="capabilities.agree" xml:space="preserve">
-    <value>{disagreeing, plural, =0 {全部{total}项均一致。} other {在{total}项中，有#项与游戏自述不符。}}</value>
-  </data>
-  <data name="chart.basis" xml:space="preserve">
-    <value>{days, plural, other {#天}}实测 · {probes, plural, other {#次探测}}</value>
-  </data>
-  <data name="facet.any" xml:space="preserve">
-    <value>任意{facet}，{count, plural, other {#个游戏}}</value>
-  </data>
   <data name="facet.count" xml:space="preserve">
     <value>{count, plural, other {#个游戏}}</value>
-  </data>
-  <data name="facet.value.choose" xml:space="preserve">
-    <value>{value}，{count, plural, other {#个游戏}}</value>
-  </data>
-  <data name="facet.value.exclude" xml:space="preserve">
-    <value>{value}，{count, plural, other {#个游戏}}，已排除</value>
   </data>
   <data name="facet.value.include" xml:space="preserve">
     <value>{value}，{count, plural, other {#个游戏}}，仅此项</value>
   </data>
-  <data name="kicker.declared" xml:space="preserve">
-    <value>自述</value>
+  <data name="facet.value.exclude" xml:space="preserve">
+    <value>{value}，{count, plural, other {#个游戏}}，已排除</value>
   </data>
-  <data name="kicker.derived" xml:space="preserve">
-    <value>推算</value>
+  <data name="facet.value.choose" xml:space="preserve">
+    <value>{value}，{count, plural, other {#个游戏}}</value>
   </data>
-  <data name="kicker.measured" xml:space="preserve">
-    <value>实测</value>
+  <data name="facet.any" xml:space="preserve">
+    <value>任意{facet}，{count, plural, other {#个游戏}}</value>
   </data>
   <data name="listing.total" xml:space="preserve">
     <value>{count, plural, =0 {无游戏} other {#个游戏}}，每项事实均为实测。</value>
   </data>
-  <data name="locale.label" xml:space="preserve">
-    <value>语言</value>
+  <data name="chart.basis" xml:space="preserve">
+    <value>{days, plural, other {#天}}实测 · {probes, plural, other {#次探测}}</value>
   </data>
-  <data name="locale.submit" xml:space="preserve">
-    <value>切换语言</value>
+  <data name="window.samples" xml:space="preserve">
+    <value>{days}天 · {count, plural, other {#次计数}}</value>
   </data>
-  <data name="mt.banner" xml:space="preserve">
-    <value>本页由机器翻译。实测数值不受影响。</value>
-  </data>
-  <data name="mt.original" xml:space="preserve">
-    <value>阅读英文原文</value>
-  </data>
-  <data name="provenance.capability.declared" xml:space="preserve">
-    <value>自述</value>
-  </data>
-  <data name="provenance.capability.measured" xml:space="preserve">
-    <value>实测</value>
-  </data>
-  <data name="provenance.count.declared" xml:space="preserve">
-    <value>自述</value>
+  <data name="capabilities.agree" xml:space="preserve">
+    <value>{disagreeing, plural, =0 {全部{total}项均一致。} other {在{total}项中，有#项与游戏自述不符。}}</value>
   </data>
   <data name="provenance.count.measured" xml:space="preserve">
     <value>实测</value>
   </data>
-  <data name="provenance.derived" xml:space="preserve">
-    <value>推算</value>
-  </data>
-  <data name="provenance.game.declared" xml:space="preserve">
-    <value>自述</value>
-  </data>
   <data name="provenance.game.measured" xml:space="preserve">
+    <value>实测</value>
+  </data>
+  <data name="provenance.capability.measured" xml:space="preserve">
     <value>实测</value>
   </data>
   <data name="provenance.screen.measured" xml:space="preserve">
     <value>实测</value>
   </data>
-  <data name="state.notCounted" xml:space="preserve">
-    <value>未计数</value>
+  <data name="kicker.measured" xml:space="preserve">
+    <value>实测</value>
+  </data>
+  <data name="provenance.count.declared" xml:space="preserve">
+    <value>自述</value>
+  </data>
+  <data name="provenance.game.declared" xml:space="preserve">
+    <value>自述</value>
+  </data>
+  <data name="provenance.capability.declared" xml:space="preserve">
+    <value>自述</value>
+  </data>
+  <data name="kicker.declared" xml:space="preserve">
+    <value>自述</value>
+  </data>
+  <data name="provenance.derived" xml:space="preserve">
+    <value>推算</value>
+  </data>
+  <data name="kicker.derived" xml:space="preserve">
+    <value>推算</value>
   </data>
   <data name="state.notMeasured" xml:space="preserve">
     <value>未实测</value>
@@ -135,14 +111,17 @@
   <data name="state.unreachable" xml:space="preserve">
     <value>无法连通</value>
   </data>
-  <data name="term.claimedByOwner" xml:space="preserve">
-    <value>已由所有者认领</value>
+  <data name="state.notCounted" xml:space="preserve">
+    <value>未计数</value>
   </data>
   <data name="term.connected" xml:space="preserve">
     <value>连接数</value>
   </data>
-  <data name="term.peak" xml:space="preserve">
-    <value>峰值</value>
+  <data name="term.unclaimed" xml:space="preserve">
+    <value>无人认领</value>
+  </data>
+  <data name="term.claimedByOwner" xml:space="preserve">
+    <value>已由所有者认领</value>
   </data>
   <data name="term.stillProbed" xml:space="preserve">
     <value>仍在探测</value>
@@ -150,10 +129,511 @@
   <data name="term.typical" xml:space="preserve">
     <value>典型值</value>
   </data>
-  <data name="term.unclaimed" xml:space="preserve">
-    <value>无人认领</value>
+  <data name="term.peak" xml:space="preserve">
+    <value>峰值</value>
   </data>
-  <data name="window.samples" xml:space="preserve">
-    <value>{days}天 · {count, plural, other {#次计数}}</value>
+  <data name="a11y.readAsText" xml:space="preserve">
+    <value>以文本形式阅读</value>
+  </data>
+  <data name="a11y.plainText" xml:space="preserve">
+    <value>纯文本</value>
+  </data>
+  <data name="a11y.skipToContent" xml:space="preserve">
+    <value>跳至主要内容</value>
+  </data>
+  <data name="a11y.asciiBanner" xml:space="preserve">
+    <value>ASCII 横幅：{game} 的连接画面。</value>
+  </data>
+  <data name="nav.catalogues" xml:space="preserve">
+    <value>目录</value>
+  </data>
+  <data name="nav.account" xml:space="preserve">
+    <value>本站与账户</value>
+  </data>
+  <data name="nav.browse" xml:space="preserve">
+    <value>浏览</value>
+  </data>
+  <data name="nav.learn" xml:space="preserve">
+    <value>了解</value>
+  </data>
+  <data name="nav.thisSite" xml:space="preserve">
+    <value>本站</value>
+  </data>
+  <data name="nav.menu" xml:space="preserve">
+    <value>菜单</value>
+  </data>
+  <data name="nav.games" xml:space="preserve">
+    <value>游戏</value>
+  </data>
+  <data name="nav.find" xml:space="preserve">
+    <value>查找</value>
+  </data>
+  <data name="nav.random" xml:space="preserve">
+    <value>随机</value>
+  </data>
+  <data name="nav.archive" xml:space="preserve">
+    <value>归档</value>
+  </data>
+  <data name="nav.reference" xml:space="preserve">
+    <value>参考</value>
+  </data>
+  <data name="nav.ecosystem" xml:space="preserve">
+    <value>生态</value>
+  </data>
+  <data name="nav.rankings" xml:space="preserve">
+    <value>排行</value>
+  </data>
+  <data name="nav.about" xml:space="preserve">
+    <value>关于</value>
+  </data>
+  <data name="nav.submit" xml:space="preserve">
+    <value>提交</value>
+  </data>
+  <data name="nav.submitGame" xml:space="preserve">
+    <value>提交游戏</value>
+  </data>
+  <data name="nav.signIn" xml:space="preserve">
+    <value>登录</value>
+  </data>
+  <data name="nav.yourGames" xml:space="preserve">
+    <value>我的游戏</value>
+  </data>
+  <data name="theme.label" xml:space="preserve">
+    <value>主题</value>
+  </data>
+  <data name="theme.auto" xml:space="preserve">
+    <value>自动</value>
+  </data>
+  <data name="theme.light" xml:space="preserve">
+    <value>浅色</value>
+  </data>
+  <data name="theme.dark" xml:space="preserve">
+    <value>深色</value>
+  </data>
+  <data name="banner.demo.lead" xml:space="preserve">
+    <value>演示数据。</value>
+  </data>
+  <data name="banner.demo" xml:space="preserve">
+    <value>未配置数据库，因此这是一份样例。此处没有任何内容经过实测。</value>
+  </data>
+  <data name="footer.allGames" xml:space="preserve">
+    <value>全部游戏</value>
+  </data>
+  <data name="footer.archive" xml:space="preserve">
+    <value>归档</value>
+  </data>
+  <data name="footer.declaredByGame" xml:space="preserve">
+    <value>游戏自述</value>
+  </data>
+  <data name="footer.whatChanged" xml:space="preserve">
+    <value>变更记录</value>
+  </data>
+  <data name="home.title" xml:space="preserve">
+    <value>MU* 爱好者的游戏目录</value>
+  </data>
+  <data name="home.lede" xml:space="preserve">
+    <value>每一项事实都由连入游戏的爬虫实测得出。</value>
+  </data>
+  <data name="home.search.label" xml:space="preserve">
+    <value>按名称、主题、代码库或主机搜索游戏</value>
+  </data>
+  <data name="home.search.placeholder" xml:space="preserve">
+    <value>按名称、主题、代码库或主机搜索</value>
+  </data>
+  <data name="home.search.submit" xml:space="preserve">
+    <value>搜索</value>
+  </data>
+  <data name="tile.gamesKnown" xml:space="preserve">
+    <value>已知游戏</value>
+  </data>
+  <data name="tile.connectedNow" xml:space="preserve">
+    <value>当前连接数</value>
+  </data>
+  <data name="tile.answeringUncounted" xml:space="preserve">
+    <value>有应答，未能计数</value>
+  </data>
+  <data name="tile.archived" xml:space="preserve">
+    <value>已归档</value>
+  </data>
+  <data name="feed.newlyDiscovered" xml:space="preserve">
+    <value>新发现</value>
+  </data>
+  <data name="feed.wentDark" xml:space="preserve">
+    <value>已失联——仍在探测</value>
+  </data>
+  <data name="feed.cameBack" xml:space="preserve">
+    <value>已恢复</value>
+  </data>
+  <data name="feed.nothingNew" xml:space="preserve">
+    <value>没有新发现。</value>
+  </data>
+  <data name="feed.nothingDark" xml:space="preserve">
+    <value>没有游戏失联。</value>
+  </data>
+  <data name="feed.nothingBack" xml:space="preserve">
+    <value>没有游戏恢复。我们仍会继续叩门。</value>
+  </data>
+  <data name="feed.live" xml:space="preserve">
+    <value>实时</value>
+  </data>
+  <data name="games.title" xml:space="preserve">
+    <value>游戏</value>
+  </data>
+  <data name="listing.sortedBy" xml:space="preserve">
+    <value>按{order}排序</value>
+  </data>
+  <data name="listing.random" xml:space="preserve">
+    <value>随机</value>
+  </data>
+  <data name="listing.columns" xml:space="preserve">
+    <value>连接数 · 连通</value>
+  </data>
+  <data name="listing.fromHere" xml:space="preserve">
+    <value>自本站</value>
+  </data>
+  <data name="listing.empty.head" xml:space="preserve">
+    <value>没有匹配结果。</value>
+  </data>
+  <data name="listing.empty.hint" xml:space="preserve">
+    <value>试试减少关键词，或去掉一个筛选条件。</value>
+  </data>
+  <data name="listing.clearFilters" xml:space="preserve">
+    <value>清除筛选</value>
+  </data>
+  <data name="listing.aboutCodebase" xml:space="preserve">
+    <value>关于 {codebase}</value>
+  </data>
+  <data name="listing.never" xml:space="preserve">
+    <value>从未</value>
+  </data>
+  <data name="listing.claimed" xml:space="preserve">
+    <value>已由所有者认领</value>
+  </data>
+  <data name="listing.unknownCodebase" xml:space="preserve">
+    <value>未知代码库</value>
+  </data>
+  <data name="listing.unknownCodebase.title" xml:space="preserve">
+    <value>我们无法识别该游戏运行的代码库</value>
+  </data>
+  <data name="listing.moreProtocols" xml:space="preserve">
+    <value>另有{count, plural, other {#项}}：{names}</value>
+  </data>
+  <data name="switch.order" xml:space="preserve">
+    <value>排序</value>
+  </data>
+  <data name="switch.window" xml:space="preserve">
+    <value>时间窗</value>
+  </data>
+  <data name="switch.now" xml:space="preserve">
+    <value>当前</value>
+  </data>
+  <data name="switch.typical" xml:space="preserve">
+    <value>典型值</value>
+  </data>
+  <data name="switch.peak" xml:space="preserve">
+    <value>峰值</value>
+  </data>
+  <data name="switch.name" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="switch.reached" xml:space="preserve">
+    <value>连通</value>
+  </data>
+  <data name="window.7" xml:space="preserve">
+    <value>7天</value>
+  </data>
+  <data name="window.30" xml:space="preserve">
+    <value>30天</value>
+  </data>
+  <data name="window.90" xml:space="preserve">
+    <value>90天</value>
+  </data>
+  <data name="filters.search.label" xml:space="preserve">
+    <value>搜索游戏</value>
+  </data>
+  <data name="filters.search.placeholder" xml:space="preserve">
+    <value>搜索游戏</value>
+  </data>
+  <data name="filters.summary" xml:space="preserve">
+    <value>筛选</value>
+  </data>
+  <data name="filters.showing" xml:space="preserve">
+    <value>当前显示</value>
+  </data>
+  <data name="filters.clearAll" xml:space="preserve">
+    <value>全部清除</value>
+  </data>
+  <data name="filters.stopFiltering" xml:space="preserve">
+    <value>——取消此项筛选</value>
+  </data>
+  <data name="facet.anyValue" xml:space="preserve">
+    <value>任意</value>
+  </data>
+  <data name="facet.more" xml:space="preserve">
+    <value>更多筛选（{count}）</value>
+  </data>
+  <data name="facet.moreValues" xml:space="preserve">
+    <value>{count, plural, other {另有#项}}</value>
+  </data>
+  <data name="facet.alsoShow" xml:space="preserve">
+    <value>同时显示</value>
+  </data>
+  <data name="facet.alsoShow.note" xml:space="preserve">
+    <value>默认关闭。两者都不是对游戏的评判。</value>
+  </data>
+  <data name="facet.archived" xml:space="preserve">
+    <value>已归档</value>
+  </data>
+  <data name="facet.adult" xml:space="preserve">
+    <value>成人</value>
+  </data>
+  <data name="facet.archived.state" xml:space="preserve">
+    <value>已归档游戏，{shown, select, true {显示} other {隐藏}}</value>
+  </data>
+  <data name="facet.adult.state" xml:space="preserve">
+    <value>自述含成人内容的游戏，{shown, select, true {显示} other {隐藏}}</value>
+  </data>
+  <data name="facet.countsNote" xml:space="preserve">
+    <value>计数均为我们实测到的游戏，绝非估算。</value>
+  </data>
+  <data name="facet.key.summary" xml:space="preserve">
+    <value>徽标与留空的含义</value>
+  </data>
+  <data name="facet.key.blank" xml:space="preserve">
+    <value>留空是我们测量中的缺口，而不是否定。每个分面各有说法：未识别、未自述、无协商结果。</value>
+  </data>
+  <data name="facet.key.zero" xml:space="preserve">
+    <value>实测到的零是一个计数。未知的计数不是零，排序时也绝不按零处理。</value>
+  </data>
+  <data name="facet.key.openEnded" xml:space="preserve">
+    <value>开放式分面只列出最常见的 {count} 个值。其余的可通过搜索和 URL 访问。</value>
+  </data>
+  <data name="facet.presence.note" xml:space="preserve">
+    <value>未勾选表示未实测，而不是游戏不具备该项。</value>
+  </data>
+  <data name="facet.group.band" xml:space="preserve">
+    <value>活跃度</value>
+  </data>
+  <data name="facet.group.seen" xml:space="preserve">
+    <value>最近可见</value>
+  </data>
+  <data name="facet.group.protocol" xml:space="preserve">
+    <value>提供的协议</value>
+  </data>
+  <data name="facet.group.tls" xml:space="preserve">
+    <value>加密</value>
+  </data>
+  <data name="facet.group.charset" xml:space="preserve">
+    <value>编码</value>
+  </data>
+  <data name="facet.group.codebase" xml:space="preserve">
+    <value>代码库</value>
+  </data>
+  <data name="facet.group.version" xml:space="preserve">
+    <value>版本</value>
+  </data>
+  <data name="facet.group.lineage" xml:space="preserve">
+    <value>谱系</value>
+  </data>
+  <data name="facet.group.family" xml:space="preserve">
+    <value>家族</value>
+  </data>
+  <data name="facet.group.genre" xml:space="preserve">
+    <value>题材</value>
+  </data>
+  <data name="facet.group.language" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="facet.band.playersNow" xml:space="preserve">
+    <value>当前有连接</value>
+  </data>
+  <data name="facet.band.activeThisWeek" xml:space="preserve">
+    <value>本周活跃</value>
+  </data>
+  <data name="facet.band.quiet" xml:space="preserve">
+    <value>未能计数</value>
+  </data>
+  <data name="facet.band.dark" xml:space="preserve">
+    <value>失联——一个月未连通</value>
+  </data>
+  <data name="facet.band.archived" xml:space="preserve">
+    <value>已归档</value>
+  </data>
+  <data name="facet.seen.day" xml:space="preserve">
+    <value>24 小时内</value>
+  </data>
+  <data name="facet.seen.week" xml:space="preserve">
+    <value>7 天内</value>
+  </data>
+  <data name="facet.seen.month" xml:space="preserve">
+    <value>30 天内</value>
+  </data>
+  <data name="facet.seen.older" xml:space="preserve">
+    <value>更早</value>
+  </data>
+  <data name="facet.seen.never" xml:space="preserve">
+    <value>从未连通</value>
+  </data>
+  <data name="facet.unknown.charset" xml:space="preserve">
+    <value>无协商结果</value>
+  </data>
+  <data name="facet.unknown.codebase" xml:space="preserve">
+    <value>未识别</value>
+  </data>
+  <data name="facet.unknown.other" xml:space="preserve">
+    <value>未自述</value>
+  </data>
+  <data name="facet.tls.yes" xml:space="preserve">
+    <value>已通过 TLS 连接</value>
+  </data>
+  <data name="facet.excluded" xml:space="preserve">
+    <value>非{value}</value>
+  </data>
+  <data name="facet.known.charset" xml:space="preserve">
+    <value>有协商结果</value>
+  </data>
+  <data name="facet.known.codebase" xml:space="preserve">
+    <value>已识别</value>
+  </data>
+  <data name="facet.known.other" xml:space="preserve">
+    <value>有自述</value>
+  </data>
+  <data name="evidence.measured.meaning" xml:space="preserve">
+    <value>我们亲眼观测到</value>
+  </data>
+  <data name="evidence.declared.meaning" xml:space="preserve">
+    <value>游戏这样说，我们未加核实</value>
+  </data>
+  <data name="evidence.derived.meaning" xml:space="preserve">
+    <value>我们对游戏所述内容做了归类</value>
+  </data>
+  <data name="sort.name" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="sort.players" xml:space="preserve">
+    <value>当前连接数</value>
+  </data>
+  <data name="sort.reached" xml:space="preserve">
+    <value>最近连通</value>
+  </data>
+  <data name="sort.medianWeek" xml:space="preserve">
+    <value>典型连接数 · 7天</value>
+  </data>
+  <data name="sort.medianMonth" xml:space="preserve">
+    <value>典型连接数 · 30天</value>
+  </data>
+  <data name="sort.medianQuarter" xml:space="preserve">
+    <value>典型连接数 · 90天</value>
+  </data>
+  <data name="sort.peakWeek" xml:space="preserve">
+    <value>同时最多连接 · 7天</value>
+  </data>
+  <data name="sort.peakMonth" xml:space="preserve">
+    <value>同时最多连接 · 30天</value>
+  </data>
+  <data name="sort.peakQuarter" xml:space="preserve">
+    <value>同时最多连接 · 90天</value>
+  </data>
+  <data name="sort.group.row" xml:space="preserve">
+    <value>当前行内</value>
+  </data>
+  <data name="sort.group.typical" xml:space="preserve">
+    <value>典型值</value>
+  </data>
+  <data name="sort.group.peak" xml:space="preserve">
+    <value>峰值</value>
+  </data>
+  <data name="sort.unranked.players" xml:space="preserve">
+    <value>未知计数</value>
+  </data>
+  <data name="sort.unranked.reached" xml:space="preserve">
+    <value>从未连通过——并非只是很久未连通</value>
+  </data>
+  <data name="sort.unranked.median" xml:space="preserve">
+    <value>窗口内计数少于 {minimum} 次，或完全没有——并非典型连接数为零</value>
+  </data>
+  <data name="sort.unranked.window" xml:space="preserve">
+    <value>窗口内没有任何我们能计到的数——并非无人连接的游戏</value>
+  </data>
+  <data name="sort.window.median" xml:space="preserve">
+    <value>中位 {value} · {days}天 · {count, plural, other {#次计数}}</value>
+  </data>
+  <data name="sort.window.peak" xml:space="preserve">
+    <value>同时最多 {value} · {days}天 · {count, plural, other {#次计数}}</value>
+  </data>
+  <data name="game.connectScreen" xml:space="preserve">
+    <value>连接画面</value>
+  </data>
+  <data name="game.connectionsByHour" xml:space="preserve">
+    <value>按小时的连接数</value>
+  </data>
+  <data name="game.howMany" xml:space="preserve">
+    <value>人数随时间变化</value>
+  </data>
+  <data name="game.reachable" xml:space="preserve">
+    <value>可连通</value>
+  </data>
+  <data name="game.whatChanged" xml:space="preserve">
+    <value>变更记录</value>
+  </data>
+  <data name="game.capabilities" xml:space="preserve">
+    <value>能力</value>
+  </data>
+  <data name="game.declaredByGame" xml:space="preserve">
+    <value>游戏自述</value>
+  </data>
+  <data name="game.referrals" xml:space="preserve">
+    <value>转介</value>
+  </data>
+  <data name="game.unclaimed" xml:space="preserve">
+    <value>无人认领——此处的一切均为实测。</value>
+  </data>
+  <data name="game.claimed" xml:space="preserve">
+    <value>已由所有者认领——下方的实测事实仍出自我们。</value>
+  </data>
+  <data name="game.claim" xml:space="preserve">
+    <value>认领此游戏</value>
+  </data>
+  <data name="game.answeringSince" xml:space="preserve">
+    <value>自 {date} 起有应答</value>
+  </data>
+  <data name="game.unknownCount" xml:space="preserve">
+    <value>未知计数</value>
+  </data>
+  <data name="game.readAsTextRows" xml:space="preserve">
+    <value>以文本形式阅读——{count, plural, other {#行}}</value>
+  </data>
+  <data name="capability.column" xml:space="preserve">
+    <value>能力</value>
+  </data>
+  <data name="capability.age" xml:space="preserve">
+    <value>距今</value>
+  </data>
+  <data name="capability.offered" xml:space="preserve">
+    <value>已提供</value>
+  </data>
+  <data name="capability.silent" xml:space="preserve">
+    <value>静默</value>
+  </data>
+  <data name="capability.absent" xml:space="preserve">
+    <value>缺失</value>
+  </data>
+  <data name="capability.denied" xml:space="preserve">
+    <value>已拒绝</value>
+  </data>
+  <data name="capability.claimed" xml:space="preserve">
+    <value>自述有</value>
+  </data>
+  <data name="capability.disagrees" xml:space="preserve">
+    <value>不一致</value>
+  </data>
+  <data name="capability.whereTheyDisagree" xml:space="preserve">
+    <value>不一致之处（{count}）</value>
+  </data>
+  <data name="locale.label" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="locale.submit" xml:space="preserve">
+    <value>切换语言</value>
   </data>
 </root>

@@ -42,89 +42,65 @@
   <resheader name="version"><value>2.0</value></resheader>
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
-  <data name="a11y.asciiBanner" xml:space="preserve">
-    <value>ASCIIバナー：{game}の接続画面。</value>
-  </data>
-  <data name="a11y.plainText" xml:space="preserve">
-    <value>プレーンテキスト</value>
-  </data>
-  <data name="a11y.readAsText" xml:space="preserve">
-    <value>テキストで読む</value>
-  </data>
-  <data name="a11y.skipToContent" xml:space="preserve">
-    <value>本文へスキップ</value>
-  </data>
-  <data name="capabilities.agree" xml:space="preserve">
-    <value>{disagreeing, plural, =0 {{total}件のうち不一致はなし。} other {{total}件のうち#件がゲームの自己申告と不一致。}}</value>
-  </data>
-  <data name="chart.basis" xml:space="preserve">
-    <value>{days, plural, other {#日間実測}} · {probes, plural, other {#回の探査}}</value>
-  </data>
-  <data name="facet.any" xml:space="preserve">
-    <value>{facet}を問わない、{count, plural, other {#件のゲーム}}</value>
-  </data>
   <data name="facet.count" xml:space="preserve">
     <value>{count, plural, other {#件のゲーム}}</value>
-  </data>
-  <data name="facet.value.choose" xml:space="preserve">
-    <value>{value}、{count, plural, other {#件のゲーム}}</value>
-  </data>
-  <data name="facet.value.exclude" xml:space="preserve">
-    <value>{value}、{count, plural, other {#件のゲーム}}、除外</value>
   </data>
   <data name="facet.value.include" xml:space="preserve">
     <value>{value}、{count, plural, other {#件のゲーム}}、のみ</value>
   </data>
-  <data name="kicker.declared" xml:space="preserve">
-    <value>自己申告</value>
+  <data name="facet.value.exclude" xml:space="preserve">
+    <value>{value}、{count, plural, other {#件のゲーム}}、除外</value>
   </data>
-  <data name="kicker.derived" xml:space="preserve">
-    <value>導出</value>
+  <data name="facet.value.choose" xml:space="preserve">
+    <value>{value}、{count, plural, other {#件のゲーム}}</value>
   </data>
-  <data name="kicker.measured" xml:space="preserve">
-    <value>実測</value>
+  <data name="facet.any" xml:space="preserve">
+    <value>{facet}を問わない、{count, plural, other {#件のゲーム}}</value>
   </data>
   <data name="listing.total" xml:space="preserve">
     <value>{count, plural, =0 {ゲームなし} other {#件のゲーム}}、すべての事実は実測。</value>
   </data>
-  <data name="locale.label" xml:space="preserve">
-    <value>言語</value>
+  <data name="chart.basis" xml:space="preserve">
+    <value>{days, plural, other {#日間実測}} · {probes, plural, other {#回の探査}}</value>
   </data>
-  <data name="locale.submit" xml:space="preserve">
-    <value>言語を変更</value>
+  <data name="window.samples" xml:space="preserve">
+    <value>{days}日 · {count, plural, other {#件の計数}}</value>
   </data>
-  <data name="mt.banner" xml:space="preserve">
-    <value>このページは機械翻訳されています。実測値は影響を受けていません。</value>
-  </data>
-  <data name="mt.original" xml:space="preserve">
-    <value>英語の原文を読む</value>
-  </data>
-  <data name="provenance.capability.declared" xml:space="preserve">
-    <value>自己申告</value>
-  </data>
-  <data name="provenance.capability.measured" xml:space="preserve">
-    <value>実測</value>
-  </data>
-  <data name="provenance.count.declared" xml:space="preserve">
-    <value>自己申告</value>
+  <data name="capabilities.agree" xml:space="preserve">
+    <value>{disagreeing, plural, =0 {{total}件のうち不一致はなし。} other {{total}件のうち#件がゲームの自己申告と不一致。}}</value>
   </data>
   <data name="provenance.count.measured" xml:space="preserve">
     <value>実測</value>
   </data>
-  <data name="provenance.derived" xml:space="preserve">
-    <value>導出</value>
-  </data>
-  <data name="provenance.game.declared" xml:space="preserve">
-    <value>自己申告</value>
-  </data>
   <data name="provenance.game.measured" xml:space="preserve">
+    <value>実測</value>
+  </data>
+  <data name="provenance.capability.measured" xml:space="preserve">
     <value>実測</value>
   </data>
   <data name="provenance.screen.measured" xml:space="preserve">
     <value>実測</value>
   </data>
-  <data name="state.notCounted" xml:space="preserve">
-    <value>読み取り不可</value>
+  <data name="kicker.measured" xml:space="preserve">
+    <value>実測</value>
+  </data>
+  <data name="provenance.count.declared" xml:space="preserve">
+    <value>自己申告</value>
+  </data>
+  <data name="provenance.game.declared" xml:space="preserve">
+    <value>自己申告</value>
+  </data>
+  <data name="provenance.capability.declared" xml:space="preserve">
+    <value>自己申告</value>
+  </data>
+  <data name="kicker.declared" xml:space="preserve">
+    <value>自己申告</value>
+  </data>
+  <data name="provenance.derived" xml:space="preserve">
+    <value>導出</value>
+  </data>
+  <data name="kicker.derived" xml:space="preserve">
+    <value>導出</value>
   </data>
   <data name="state.notMeasured" xml:space="preserve">
     <value>未計測</value>
@@ -135,14 +111,17 @@
   <data name="state.unreachable" xml:space="preserve">
     <value>到達不可</value>
   </data>
-  <data name="term.claimedByOwner" xml:space="preserve">
-    <value>所有者により申請済み</value>
+  <data name="state.notCounted" xml:space="preserve">
+    <value>読み取り不可</value>
   </data>
   <data name="term.connected" xml:space="preserve">
     <value>接続数</value>
   </data>
-  <data name="term.peak" xml:space="preserve">
-    <value>ピーク</value>
+  <data name="term.unclaimed" xml:space="preserve">
+    <value>所有者未申請</value>
+  </data>
+  <data name="term.claimedByOwner" xml:space="preserve">
+    <value>所有者により申請済み</value>
   </data>
   <data name="term.stillProbed" xml:space="preserve">
     <value>探査は継続中</value>
@@ -150,10 +129,511 @@
   <data name="term.typical" xml:space="preserve">
     <value>通常</value>
   </data>
-  <data name="term.unclaimed" xml:space="preserve">
-    <value>所有者未申請</value>
+  <data name="term.peak" xml:space="preserve">
+    <value>ピーク</value>
   </data>
-  <data name="window.samples" xml:space="preserve">
-    <value>{days}日 · {count, plural, other {#件の計数}}</value>
+  <data name="a11y.readAsText" xml:space="preserve">
+    <value>テキストで読む</value>
+  </data>
+  <data name="a11y.plainText" xml:space="preserve">
+    <value>プレーンテキスト</value>
+  </data>
+  <data name="a11y.skipToContent" xml:space="preserve">
+    <value>本文へスキップ</value>
+  </data>
+  <data name="a11y.asciiBanner" xml:space="preserve">
+    <value>ASCIIバナー：{game}の接続画面。</value>
+  </data>
+  <data name="nav.catalogues" xml:space="preserve">
+    <value>カタログ</value>
+  </data>
+  <data name="nav.account" xml:space="preserve">
+    <value>このサイトとアカウント</value>
+  </data>
+  <data name="nav.browse" xml:space="preserve">
+    <value>閲覧</value>
+  </data>
+  <data name="nav.learn" xml:space="preserve">
+    <value>学ぶ</value>
+  </data>
+  <data name="nav.thisSite" xml:space="preserve">
+    <value>このサイト</value>
+  </data>
+  <data name="nav.menu" xml:space="preserve">
+    <value>メニュー</value>
+  </data>
+  <data name="nav.games" xml:space="preserve">
+    <value>ゲーム</value>
+  </data>
+  <data name="nav.find" xml:space="preserve">
+    <value>探す</value>
+  </data>
+  <data name="nav.random" xml:space="preserve">
+    <value>ランダム</value>
+  </data>
+  <data name="nav.archive" xml:space="preserve">
+    <value>アーカイブ</value>
+  </data>
+  <data name="nav.reference" xml:space="preserve">
+    <value>リファレンス</value>
+  </data>
+  <data name="nav.ecosystem" xml:space="preserve">
+    <value>エコシステム</value>
+  </data>
+  <data name="nav.rankings" xml:space="preserve">
+    <value>ランキング</value>
+  </data>
+  <data name="nav.about" xml:space="preserve">
+    <value>概要</value>
+  </data>
+  <data name="nav.submit" xml:space="preserve">
+    <value>登録</value>
+  </data>
+  <data name="nav.submitGame" xml:space="preserve">
+    <value>ゲームを登録</value>
+  </data>
+  <data name="nav.signIn" xml:space="preserve">
+    <value>サインイン</value>
+  </data>
+  <data name="nav.yourGames" xml:space="preserve">
+    <value>自分のゲーム</value>
+  </data>
+  <data name="theme.label" xml:space="preserve">
+    <value>テーマ</value>
+  </data>
+  <data name="theme.auto" xml:space="preserve">
+    <value>自動</value>
+  </data>
+  <data name="theme.light" xml:space="preserve">
+    <value>ライト</value>
+  </data>
+  <data name="theme.dark" xml:space="preserve">
+    <value>ダーク</value>
+  </data>
+  <data name="banner.demo.lead" xml:space="preserve">
+    <value>デモデータ。</value>
+  </data>
+  <data name="banner.demo" xml:space="preserve">
+    <value>データベースが未設定のため、これはダミーデータ。ここにある値は実測ではない。</value>
+  </data>
+  <data name="footer.allGames" xml:space="preserve">
+    <value>すべてのゲーム</value>
+  </data>
+  <data name="footer.archive" xml:space="preserve">
+    <value>アーカイブ</value>
+  </data>
+  <data name="footer.declaredByGame" xml:space="preserve">
+    <value>ゲームの自己申告</value>
+  </data>
+  <data name="footer.whatChanged" xml:space="preserve">
+    <value>変更点</value>
+  </data>
+  <data name="home.title" xml:space="preserve">
+    <value>MU*ホビーのディレクトリ</value>
+  </data>
+  <data name="home.lede" xml:space="preserve">
+    <value>すべての事実は、ゲームに接続したクローラーが実測したもの。</value>
+  </data>
+  <data name="home.search.label" xml:space="preserve">
+    <value>名前・テーマ・コードベース・ホストでゲームを検索</value>
+  </data>
+  <data name="home.search.placeholder" xml:space="preserve">
+    <value>名前・テーマ・コードベース・ホストで検索</value>
+  </data>
+  <data name="home.search.submit" xml:space="preserve">
+    <value>検索</value>
+  </data>
+  <data name="tile.gamesKnown" xml:space="preserve">
+    <value>既知のゲーム</value>
+  </data>
+  <data name="tile.connectedNow" xml:space="preserve">
+    <value>現在の接続数</value>
+  </data>
+  <data name="tile.answeringUncounted" xml:space="preserve">
+    <value>応答あり・読み取り不可</value>
+  </data>
+  <data name="tile.archived" xml:space="preserve">
+    <value>アーカイブ済み</value>
+  </data>
+  <data name="feed.newlyDiscovered" xml:space="preserve">
+    <value>新規発見</value>
+  </data>
+  <data name="feed.wentDark" xml:space="preserve">
+    <value>消息不明 — 探査は継続中</value>
+  </data>
+  <data name="feed.cameBack" xml:space="preserve">
+    <value>復帰</value>
+  </data>
+  <data name="feed.nothingNew" xml:space="preserve">
+    <value>新規なし。</value>
+  </data>
+  <data name="feed.nothingDark" xml:space="preserve">
+    <value>消息不明になったゲームはなし。</value>
+  </data>
+  <data name="feed.nothingBack" xml:space="preserve">
+    <value>復帰したゲームはなし。探査は続ける。</value>
+  </data>
+  <data name="feed.live" xml:space="preserve">
+    <value>ライブ</value>
+  </data>
+  <data name="games.title" xml:space="preserve">
+    <value>ゲーム</value>
+  </data>
+  <data name="listing.sortedBy" xml:space="preserve">
+    <value>{order}順</value>
+  </data>
+  <data name="listing.random" xml:space="preserve">
+    <value>ランダム</value>
+  </data>
+  <data name="listing.columns" xml:space="preserve">
+    <value>接続数 · 到達</value>
+  </data>
+  <data name="listing.fromHere" xml:space="preserve">
+    <value>ここから</value>
+  </data>
+  <data name="listing.empty.head" xml:space="preserve">
+    <value>該当なし。</value>
+  </data>
+  <data name="listing.empty.hint" xml:space="preserve">
+    <value>語を減らすか、フィルターを外す。</value>
+  </data>
+  <data name="listing.clearFilters" xml:space="preserve">
+    <value>フィルターを解除</value>
+  </data>
+  <data name="listing.aboutCodebase" xml:space="preserve">
+    <value>{codebase}について</value>
+  </data>
+  <data name="listing.never" xml:space="preserve">
+    <value>到達なし</value>
+  </data>
+  <data name="listing.claimed" xml:space="preserve">
+    <value>所有者により申請済み</value>
+  </data>
+  <data name="listing.unknownCodebase" xml:space="preserve">
+    <value>コードベース不明</value>
+  </data>
+  <data name="listing.unknownCodebase.title" xml:space="preserve">
+    <value>このゲームのコードベースは特定できなかった</value>
+  </data>
+  <data name="listing.moreProtocols" xml:space="preserve">
+    <value>ほか{count, plural, other {#件}}：{names}</value>
+  </data>
+  <data name="switch.order" xml:space="preserve">
+    <value>並び順</value>
+  </data>
+  <data name="switch.window" xml:space="preserve">
+    <value>期間</value>
+  </data>
+  <data name="switch.now" xml:space="preserve">
+    <value>現在</value>
+  </data>
+  <data name="switch.typical" xml:space="preserve">
+    <value>通常</value>
+  </data>
+  <data name="switch.peak" xml:space="preserve">
+    <value>ピーク</value>
+  </data>
+  <data name="switch.name" xml:space="preserve">
+    <value>名前</value>
+  </data>
+  <data name="switch.reached" xml:space="preserve">
+    <value>到達</value>
+  </data>
+  <data name="window.7" xml:space="preserve">
+    <value>7日</value>
+  </data>
+  <data name="window.30" xml:space="preserve">
+    <value>30日</value>
+  </data>
+  <data name="window.90" xml:space="preserve">
+    <value>90日</value>
+  </data>
+  <data name="filters.search.label" xml:space="preserve">
+    <value>ゲームを検索</value>
+  </data>
+  <data name="filters.search.placeholder" xml:space="preserve">
+    <value>ゲームを検索</value>
+  </data>
+  <data name="filters.summary" xml:space="preserve">
+    <value>フィルター</value>
+  </data>
+  <data name="filters.showing" xml:space="preserve">
+    <value>表示中</value>
+  </data>
+  <data name="filters.clearAll" xml:space="preserve">
+    <value>すべて解除</value>
+  </data>
+  <data name="filters.stopFiltering" xml:space="preserve">
+    <value>— この絞り込みを解除</value>
+  </data>
+  <data name="facet.anyValue" xml:space="preserve">
+    <value>問わない</value>
+  </data>
+  <data name="facet.more" xml:space="preserve">
+    <value>他のフィルター（{count}）</value>
+  </data>
+  <data name="facet.moreValues" xml:space="preserve">
+    <value>{count, plural, other {他#件}}</value>
+  </data>
+  <data name="facet.alsoShow" xml:space="preserve">
+    <value>追加で表示</value>
+  </data>
+  <data name="facet.alsoShow.note" xml:space="preserve">
+    <value>既定ではオフ。どちらもゲームへの評価ではない。</value>
+  </data>
+  <data name="facet.archived" xml:space="preserve">
+    <value>アーカイブ済み</value>
+  </data>
+  <data name="facet.adult" xml:space="preserve">
+    <value>アダルト</value>
+  </data>
+  <data name="facet.archived.state" xml:space="preserve">
+    <value>アーカイブ済みのゲーム、{shown, select, true {表示} other {非表示}}</value>
+  </data>
+  <data name="facet.adult.state" xml:space="preserve">
+    <value>アダルト指定を自己申告したゲーム、{shown, select, true {表示} other {非表示}}</value>
+  </data>
+  <data name="facet.countsNote" xml:space="preserve">
+    <value>件数は実測したゲーム数であり、推定値ではない。</value>
+  </data>
+  <data name="facet.key.summary" xml:space="preserve">
+    <value>バッジと空欄の意味</value>
+  </data>
+  <data name="facet.key.blank" xml:space="preserve">
+    <value>空欄は実測の欠落であり、否定ではない。ファセットごとに表記が異なる：特定できず、申告なし、ネゴシエーションなし。</value>
+  </data>
+  <data name="facet.key.zero" xml:space="preserve">
+    <value>実測のゼロは計数である。接続数不明はゼロではなく、ゼロとして並べ替えられることもない。</value>
+  </data>
+  <data name="facet.key.openEnded" xml:space="preserve">
+    <value>値が定まらないファセットは最頻の{count}件の値のみを挙げる。残りは検索とURLから到達可能。</value>
+  </data>
+  <data name="facet.presence.note" xml:space="preserve">
+    <value>未チェックは未計測の意味 — ゲームに備わっていないという意味ではない。</value>
+  </data>
+  <data name="facet.group.band" xml:space="preserve">
+    <value>活動</value>
+  </data>
+  <data name="facet.group.seen" xml:space="preserve">
+    <value>最終確認</value>
+  </data>
+  <data name="facet.group.protocol" xml:space="preserve">
+    <value>提供プロトコル</value>
+  </data>
+  <data name="facet.group.tls" xml:space="preserve">
+    <value>暗号化</value>
+  </data>
+  <data name="facet.group.charset" xml:space="preserve">
+    <value>エンコーディング</value>
+  </data>
+  <data name="facet.group.codebase" xml:space="preserve">
+    <value>コードベース</value>
+  </data>
+  <data name="facet.group.version" xml:space="preserve">
+    <value>バージョン</value>
+  </data>
+  <data name="facet.group.lineage" xml:space="preserve">
+    <value>系統</value>
+  </data>
+  <data name="facet.group.family" xml:space="preserve">
+    <value>ファミリー</value>
+  </data>
+  <data name="facet.group.genre" xml:space="preserve">
+    <value>ジャンル</value>
+  </data>
+  <data name="facet.group.language" xml:space="preserve">
+    <value>言語</value>
+  </data>
+  <data name="facet.band.playersNow" xml:space="preserve">
+    <value>現在接続あり</value>
+  </data>
+  <data name="facet.band.activeThisWeek" xml:space="preserve">
+    <value>今週アクティブ</value>
+  </data>
+  <data name="facet.band.quiet" xml:space="preserve">
+    <value>接続数読み取り不可</value>
+  </data>
+  <data name="facet.band.dark" xml:space="preserve">
+    <value>消息不明 — 1か月間到達なし</value>
+  </data>
+  <data name="facet.band.archived" xml:space="preserve">
+    <value>アーカイブ済み</value>
+  </data>
+  <data name="facet.seen.day" xml:space="preserve">
+    <value>24時間以内</value>
+  </data>
+  <data name="facet.seen.week" xml:space="preserve">
+    <value>7日以内</value>
+  </data>
+  <data name="facet.seen.month" xml:space="preserve">
+    <value>30日以内</value>
+  </data>
+  <data name="facet.seen.older" xml:space="preserve">
+    <value>それ以前</value>
+  </data>
+  <data name="facet.seen.never" xml:space="preserve">
+    <value>一度も到達なし</value>
+  </data>
+  <data name="facet.unknown.charset" xml:space="preserve">
+    <value>ネゴシエーションなし</value>
+  </data>
+  <data name="facet.unknown.codebase" xml:space="preserve">
+    <value>特定できず</value>
+  </data>
+  <data name="facet.unknown.other" xml:space="preserve">
+    <value>申告なし</value>
+  </data>
+  <data name="facet.tls.yes" xml:space="preserve">
+    <value>TLSで接続</value>
+  </data>
+  <data name="facet.excluded" xml:space="preserve">
+    <value>{value}以外</value>
+  </data>
+  <data name="facet.known.charset" xml:space="preserve">
+    <value>ネゴシエーションあり</value>
+  </data>
+  <data name="facet.known.codebase" xml:space="preserve">
+    <value>特定済み</value>
+  </data>
+  <data name="facet.known.other" xml:space="preserve">
+    <value>申告あり</value>
+  </data>
+  <data name="evidence.measured.meaning" xml:space="preserve">
+    <value>実際に観測した</value>
+  </data>
+  <data name="evidence.declared.meaning" xml:space="preserve">
+    <value>ゲームの申告であり、検証はしていない</value>
+  </data>
+  <data name="evidence.derived.meaning" xml:space="preserve">
+    <value>ゲームの申告を分類したもの</value>
+  </data>
+  <data name="sort.name" xml:space="preserve">
+    <value>名前</value>
+  </data>
+  <data name="sort.players" xml:space="preserve">
+    <value>現在の接続数</value>
+  </data>
+  <data name="sort.reached" xml:space="preserve">
+    <value>最終到達</value>
+  </data>
+  <data name="sort.medianWeek" xml:space="preserve">
+    <value>通常の接続数 · 7日</value>
+  </data>
+  <data name="sort.medianMonth" xml:space="preserve">
+    <value>通常の接続数 · 30日</value>
+  </data>
+  <data name="sort.medianQuarter" xml:space="preserve">
+    <value>通常の接続数 · 90日</value>
+  </data>
+  <data name="sort.peakWeek" xml:space="preserve">
+    <value>同時接続ピーク · 7日</value>
+  </data>
+  <data name="sort.peakMonth" xml:space="preserve">
+    <value>同時接続ピーク · 30日</value>
+  </data>
+  <data name="sort.peakQuarter" xml:space="preserve">
+    <value>同時接続ピーク · 90日</value>
+  </data>
+  <data name="sort.group.row" xml:space="preserve">
+    <value>行の現在値</value>
+  </data>
+  <data name="sort.group.typical" xml:space="preserve">
+    <value>通常</value>
+  </data>
+  <data name="sort.group.peak" xml:space="preserve">
+    <value>ピーク</value>
+  </data>
+  <data name="sort.unranked.players" xml:space="preserve">
+    <value>接続数不明</value>
+  </data>
+  <data name="sort.unranked.reached" xml:space="preserve">
+    <value>一度も到達なし — 到達が古いのではない</value>
+  </data>
+  <data name="sort.unranked.median" xml:space="preserve">
+    <value>期間内の計数が{minimum}件未満、または皆無 — 通常の接続数がゼロなのではない</value>
+  </data>
+  <data name="sort.unranked.window" xml:space="preserve">
+    <value>期間内に計数を読み取れず — 誰も接続していなかったのではない</value>
+  </data>
+  <data name="sort.window.median" xml:space="preserve">
+    <value>中央値 {value} · {days}日 · {count, plural, other {#件の計数}}</value>
+  </data>
+  <data name="sort.window.peak" xml:space="preserve">
+    <value>同時最大 {value} · {days}日 · {count, plural, other {#件の計数}}</value>
+  </data>
+  <data name="game.connectScreen" xml:space="preserve">
+    <value>接続画面</value>
+  </data>
+  <data name="game.connectionsByHour" xml:space="preserve">
+    <value>時間帯別の接続数</value>
+  </data>
+  <data name="game.howMany" xml:space="preserve">
+    <value>接続数の推移</value>
+  </data>
+  <data name="game.reachable" xml:space="preserve">
+    <value>到達可能</value>
+  </data>
+  <data name="game.whatChanged" xml:space="preserve">
+    <value>変更点</value>
+  </data>
+  <data name="game.capabilities" xml:space="preserve">
+    <value>機能</value>
+  </data>
+  <data name="game.declaredByGame" xml:space="preserve">
+    <value>ゲームの自己申告</value>
+  </data>
+  <data name="game.referrals" xml:space="preserve">
+    <value>リファラル</value>
+  </data>
+  <data name="game.unclaimed" xml:space="preserve">
+    <value>所有者未申請 — ここにある情報はすべて実測。</value>
+  </data>
+  <data name="game.claimed" xml:space="preserve">
+    <value>所有者により申請済み — 以下の実測値は引き続き当サイトのもの。</value>
+  </data>
+  <data name="game.claim" xml:space="preserve">
+    <value>このゲームを申請する</value>
+  </data>
+  <data name="game.answeringSince" xml:space="preserve">
+    <value>{date}から応答</value>
+  </data>
+  <data name="game.unknownCount" xml:space="preserve">
+    <value>接続数不明</value>
+  </data>
+  <data name="game.readAsTextRows" xml:space="preserve">
+    <value>テキストで読む — {count, plural, other {#行}}</value>
+  </data>
+  <data name="capability.column" xml:space="preserve">
+    <value>機能</value>
+  </data>
+  <data name="capability.age" xml:space="preserve">
+    <value>経過</value>
+  </data>
+  <data name="capability.offered" xml:space="preserve">
+    <value>提供</value>
+  </data>
+  <data name="capability.silent" xml:space="preserve">
+    <value>無応答</value>
+  </data>
+  <data name="capability.absent" xml:space="preserve">
+    <value>なし</value>
+  </data>
+  <data name="capability.denied" xml:space="preserve">
+    <value>拒否</value>
+  </data>
+  <data name="capability.claimed" xml:space="preserve">
+    <value>自己申告</value>
+  </data>
+  <data name="capability.disagrees" xml:space="preserve">
+    <value>不一致</value>
+  </data>
+  <data name="capability.whereTheyDisagree" xml:space="preserve">
+    <value>不一致の箇所（{count}）</value>
+  </data>
+  <data name="locale.label" xml:space="preserve">
+    <value>言語</value>
+  </data>
+  <data name="locale.submit" xml:space="preserve">
+    <value>言語を変更</value>
   </data>
 </root>

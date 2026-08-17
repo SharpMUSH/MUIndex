@@ -325,6 +325,39 @@ public class LocalizationTests
         await Assert.That(LocaleRouting.Back(posted)).IsEqualTo(expected);
     }
 
+    /// <summary>
+    /// The document states the language it is written in, and it is the one the reader asked for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>lang</c> was the constant <c>"en"</c> while the whole page below it came back translated,
+    /// so a reader on <c>/ja/games</c> was handed a fully Japanese document that told the browser it
+    /// was English. That is not a tidiness point on the two locales this site shipped first: Unicode
+    /// unified thousands of Han characters across Chinese and Japanese, the correct drawn form
+    /// differs, and <c>lang</c> is the only thing that selects between the two font families. The
+    /// wrong one renders at exactly the same width, so nothing in the overflow audit could see it.
+    /// </para>
+    /// <para>
+    /// It is also what a screen reader switches voice on, and what the <c>hreflang</c> links in the
+    /// head are claiming about this document — three separate promises that were all being made in
+    /// the wrong language.
+    /// </para>
+    /// </remarks>
+    [Test]
+    [Arguments("/games", "en")]
+    [Arguments("/de/games", "de")]
+    [Arguments("/nl/games", "nl")]
+    [Arguments("/ja/games", "ja")]
+    [Arguments("/zh-Hans/games", "zh-Hans")]
+    public async Task TheDocumentDeclaresTheLanguageItIsAnsweredIn(string path, string expected)
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var markup = await site.Client.GetStringAsync(path);
+
+        await Assert.That(markup).Contains($"<html lang=\"{expected}\"");
+    }
+
     [Test]
     public async Task TheAlternatesNameEveryOfferedLocaleAndAnXDefault()
     {

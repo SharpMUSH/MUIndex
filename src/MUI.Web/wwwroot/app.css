@@ -675,6 +675,16 @@ header.site .menu-tail { display: flex; flex-direction: column; gap: 2px; }
 
 @media (max-width: 860px) {                     /* step 3 — one disclosure, every destination kept */
     header.site .site-nav { justify-content: flex-start; }
+
+    /*
+      And it stops being the bar's shock absorber. Above this width the nav holds seven links and
+      `flex: 1 1 auto; min-width: 0` is what lets it give room back to the two ends; below it the
+      nav is one word and a chevron, and the same rule let flexbox squeeze that word to 33px — the
+      German bar rendered "Men" with the chevron cut off, on the only control that reaches the other
+      six pages. The ends are sized by their content and the middle was the only thing that could
+      yield, so a longer word at either end came out of the one item that must never shrink.
+    */
+    header.site .site-nav { flex: 0 0 auto; min-width: max-content; }
 }
 
 /*
@@ -695,13 +705,32 @@ header.site .menu-tail { display: flex; flex-direction: column; gap: 2px; }
   decoration the bar has left to spend.
 */
 @media (max-width: 460px) {
-    header.site { padding: 0 10px; gap: 8px; }
+    header.site { padding: 0 8px; gap: 6px; }
     header.site .mark { font-size: 15px; }
-    header.site form.theme { gap: 5px; }
+    header.site form.theme { gap: 4px; }
     header.site form.theme button { font-size: 12px; }
-    header.site nav.account { gap: 8px; }
+    header.site nav.account { gap: 6px; }
     header.site nav.account a { font-size: 12.5px; }
-    header.site nav.account a.action { padding: 5px 9px; }
+    header.site nav.account a.action { padding: 5px 8px; }
+}
+
+/*
+  Step 6 — and the bar is measured in a language, not in English.
+
+  Every step above was tuned against a bar reading "menu · about · submit · sign in · auto light
+  dark", which is the shortest this chrome is ever going to be. The same bar in German is "Menü ·
+  über uns · anmelden · auto hell dunkel" and wanted seventeen more pixels than a 430px phone has;
+  Dutch was twelve pixels from the same wall. So the last step is a real one rather than a hedge,
+  and it spends the only thing left that is not a destination: the theme control's three words
+  become the row's tightest type, and the wordmark gives up a point with them. Nothing moves and
+  nothing is dropped — the German bar and the English bar hold the same seven pages either side of
+  it, which is the property the whole ladder exists to keep.
+*/
+@media (max-width: 480px) {
+    header.site .mark { font-size: 14px; letter-spacing: 0; }
+    header.site form.theme { gap: 4px; }
+    header.site form.theme button { font-size: 11.5px; }
+    header.site nav.account a { font-size: 12px; }
 }
 
 /* ── the reader's theme ────────────────────────────────────────────────────
@@ -1561,9 +1590,23 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
 @media (max-width: 900px) {
     .feeds { grid-template-columns: minmax(0, 1fr); }
 
-    /* The theme control is the one thing in the bar that goes nowhere, so it is what the bar gives
-       up its words for first: three buttons become their initials' worth of room. */
-    header.site form.theme .kick { display: none; }
+    /*
+      The theme control is the one thing in the bar that goes nowhere, so it is what the bar gives
+      up its words for first: three buttons become their initials' worth of room.
+
+      Taken out of the drawing and left in the accessibility tree, because the form names itself
+      with `aria-labelledby="theme-label"` and this is that label. `display: none` removed it from
+      both, so below 900px a screen reader met three buttons in a group with no name at all — the
+      one width where the surrounding words that would have explained them are gone too.
+    */
+    header.site form.theme .kick {
+        position: absolute;
+        width: 1px; height: 1px;
+        padding: 0; margin: -1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
 
     /*
       All 168 cells at 12px rather than a scrolling grid — the whole week at a glance is the reason

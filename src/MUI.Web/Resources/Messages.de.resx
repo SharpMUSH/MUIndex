@@ -42,89 +42,65 @@
   <resheader name="version"><value>2.0</value></resheader>
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
-  <data name="a11y.asciiBanner" xml:space="preserve">
-    <value>ASCII-Banner: der Verbindungsbildschirm von {game}.</value>
-  </data>
-  <data name="a11y.plainText" xml:space="preserve">
-    <value>Textfassung</value>
-  </data>
-  <data name="a11y.readAsText" xml:space="preserve">
-    <value>als Text lesen</value>
-  </data>
-  <data name="a11y.skipToContent" xml:space="preserve">
-    <value>zum Inhalt springen</value>
-  </data>
-  <data name="capabilities.agree" xml:space="preserve">
-    <value>{disagreeing, plural, =0 {Keine der {total} widerspricht.} one {# von {total} widerspricht dem, was das Spiel angibt.} other {# von {total} widersprechen dem, was das Spiel angibt.}}</value>
-  </data>
-  <data name="chart.basis" xml:space="preserve">
-    <value>{days, plural, one {# Tag} other {# Tage}} gemessen · {probes, plural, one {# Abfrage} other {# Abfragen}}</value>
-  </data>
-  <data name="facet.any" xml:space="preserve">
-    <value>{facet}: beliebig, {count, plural, one {# Spiel} other {# Spiele}}</value>
-  </data>
   <data name="facet.count" xml:space="preserve">
     <value>{count, plural, one {# Spiel} other {# Spiele}}</value>
-  </data>
-  <data name="facet.value.choose" xml:space="preserve">
-    <value>{value}, {count, plural, one {# Spiel} other {# Spiele}}</value>
-  </data>
-  <data name="facet.value.exclude" xml:space="preserve">
-    <value>{value}, {count, plural, one {# Spiel} other {# Spiele}}, ausgeschlossen</value>
   </data>
   <data name="facet.value.include" xml:space="preserve">
     <value>{value}, {count, plural, one {# Spiel} other {# Spiele}}, nur</value>
   </data>
-  <data name="kicker.declared" xml:space="preserve">
-    <value>angegeben</value>
+  <data name="facet.value.exclude" xml:space="preserve">
+    <value>{value}, {count, plural, one {# Spiel} other {# Spiele}}, ausgeschlossen</value>
   </data>
-  <data name="kicker.derived" xml:space="preserve">
-    <value>abgeleitet</value>
+  <data name="facet.value.choose" xml:space="preserve">
+    <value>{value}, {count, plural, one {# Spiel} other {# Spiele}}</value>
   </data>
-  <data name="kicker.measured" xml:space="preserve">
-    <value>gemessen</value>
+  <data name="facet.any" xml:space="preserve">
+    <value>{facet}: beliebig, {count, plural, one {# Spiel} other {# Spiele}}</value>
   </data>
   <data name="listing.total" xml:space="preserve">
     <value>{count, plural, =0 {Keine Spiele} one {# Spiel} other {# Spiele}}, jede Tatsache gemessen.</value>
   </data>
-  <data name="locale.label" xml:space="preserve">
-    <value>Sprache</value>
+  <data name="chart.basis" xml:space="preserve">
+    <value>{days, plural, one {# Tag} other {# Tage}} gemessen · {probes, plural, one {# Abfrage} other {# Abfragen}}</value>
   </data>
-  <data name="locale.submit" xml:space="preserve">
-    <value>Sprache wechseln</value>
+  <data name="window.samples" xml:space="preserve">
+    <value>{days}d · {count, plural, one {# Zählung} other {# Zählungen}}</value>
   </data>
-  <data name="mt.banner" xml:space="preserve">
-    <value>Diese Seite wurde maschinell übersetzt. Die gemessenen Werte sind davon nicht betroffen.</value>
-  </data>
-  <data name="mt.original" xml:space="preserve">
-    <value>Das englische Original lesen</value>
-  </data>
-  <data name="provenance.capability.declared" xml:space="preserve">
-    <value>angegeben</value>
-  </data>
-  <data name="provenance.capability.measured" xml:space="preserve">
-    <value>gemessen</value>
-  </data>
-  <data name="provenance.count.declared" xml:space="preserve">
-    <value>angegeben</value>
+  <data name="capabilities.agree" xml:space="preserve">
+    <value>{disagreeing, plural, =0 {Keine der {total} widerspricht.} one {# von {total} widerspricht dem, was das Spiel angibt.} other {# von {total} widersprechen dem, was das Spiel angibt.}}</value>
   </data>
   <data name="provenance.count.measured" xml:space="preserve">
     <value>gemessen</value>
   </data>
-  <data name="provenance.derived" xml:space="preserve">
-    <value>abgeleitet</value>
-  </data>
-  <data name="provenance.game.declared" xml:space="preserve">
-    <value>angegeben</value>
-  </data>
   <data name="provenance.game.measured" xml:space="preserve">
+    <value>gemessen</value>
+  </data>
+  <data name="provenance.capability.measured" xml:space="preserve">
     <value>gemessen</value>
   </data>
   <data name="provenance.screen.measured" xml:space="preserve">
     <value>gemessen</value>
   </data>
-  <data name="state.notCounted" xml:space="preserve">
-    <value>nicht gezählt</value>
+  <data name="kicker.measured" xml:space="preserve">
+    <value>gemessen</value>
+  </data>
+  <data name="provenance.count.declared" xml:space="preserve">
+    <value>angegeben</value>
+  </data>
+  <data name="provenance.game.declared" xml:space="preserve">
+    <value>angegeben</value>
+  </data>
+  <data name="provenance.capability.declared" xml:space="preserve">
+    <value>angegeben</value>
+  </data>
+  <data name="kicker.declared" xml:space="preserve">
+    <value>angegeben</value>
+  </data>
+  <data name="provenance.derived" xml:space="preserve">
+    <value>abgeleitet</value>
+  </data>
+  <data name="kicker.derived" xml:space="preserve">
+    <value>abgeleitet</value>
   </data>
   <data name="state.notMeasured" xml:space="preserve">
     <value>nicht gemessen</value>
@@ -135,14 +111,17 @@
   <data name="state.unreachable" xml:space="preserve">
     <value>nicht erreichbar</value>
   </data>
-  <data name="term.claimedByOwner" xml:space="preserve">
-    <value>vom Betreiber beansprucht</value>
+  <data name="state.notCounted" xml:space="preserve">
+    <value>nicht gezählt</value>
   </data>
   <data name="term.connected" xml:space="preserve">
     <value>Verbindungen</value>
   </data>
-  <data name="term.peak" xml:space="preserve">
-    <value>Spitze</value>
+  <data name="term.unclaimed" xml:space="preserve">
+    <value>nicht beansprucht</value>
+  </data>
+  <data name="term.claimedByOwner" xml:space="preserve">
+    <value>vom Betreiber beansprucht</value>
   </data>
   <data name="term.stillProbed" xml:space="preserve">
     <value>wird weiter abgefragt</value>
@@ -150,10 +129,511 @@
   <data name="term.typical" xml:space="preserve">
     <value>typisch</value>
   </data>
-  <data name="term.unclaimed" xml:space="preserve">
-    <value>nicht beansprucht</value>
+  <data name="term.peak" xml:space="preserve">
+    <value>Spitze</value>
   </data>
-  <data name="window.samples" xml:space="preserve">
-    <value>{days}d · {count, plural, one {# Zählung} other {# Zählungen}}</value>
+  <data name="a11y.readAsText" xml:space="preserve">
+    <value>als Text lesen</value>
+  </data>
+  <data name="a11y.plainText" xml:space="preserve">
+    <value>Textfassung</value>
+  </data>
+  <data name="a11y.skipToContent" xml:space="preserve">
+    <value>zum Inhalt springen</value>
+  </data>
+  <data name="a11y.asciiBanner" xml:space="preserve">
+    <value>ASCII-Banner: der Verbindungsbildschirm von {game}.</value>
+  </data>
+  <data name="nav.catalogues" xml:space="preserve">
+    <value>Kataloge</value>
+  </data>
+  <data name="nav.account" xml:space="preserve">
+    <value>Diese Website und das eigene Konto</value>
+  </data>
+  <data name="nav.browse" xml:space="preserve">
+    <value>stöbern</value>
+  </data>
+  <data name="nav.learn" xml:space="preserve">
+    <value>lernen</value>
+  </data>
+  <data name="nav.thisSite" xml:space="preserve">
+    <value>diese Website</value>
+  </data>
+  <data name="nav.menu" xml:space="preserve">
+    <value>Menü</value>
+  </data>
+  <data name="nav.games" xml:space="preserve">
+    <value>Spiele</value>
+  </data>
+  <data name="nav.find" xml:space="preserve">
+    <value>finden</value>
+  </data>
+  <data name="nav.random" xml:space="preserve">
+    <value>zufällig</value>
+  </data>
+  <data name="nav.archive" xml:space="preserve">
+    <value>Archiv</value>
+  </data>
+  <data name="nav.reference" xml:space="preserve">
+    <value>Referenz</value>
+  </data>
+  <data name="nav.ecosystem" xml:space="preserve">
+    <value>Ökosystem</value>
+  </data>
+  <data name="nav.rankings" xml:space="preserve">
+    <value>Ranglisten</value>
+  </data>
+  <data name="nav.about" xml:space="preserve">
+    <value>über uns</value>
+  </data>
+  <data name="nav.submit" xml:space="preserve">
+    <value>eintragen</value>
+  </data>
+  <data name="nav.submitGame" xml:space="preserve">
+    <value>Spiel eintragen</value>
+  </data>
+  <data name="nav.signIn" xml:space="preserve">
+    <value>anmelden</value>
+  </data>
+  <data name="nav.yourGames" xml:space="preserve">
+    <value>eigene Spiele</value>
+  </data>
+  <data name="theme.label" xml:space="preserve">
+    <value>Design</value>
+  </data>
+  <data name="theme.auto" xml:space="preserve">
+    <value>automatisch</value>
+  </data>
+  <data name="theme.light" xml:space="preserve">
+    <value>hell</value>
+  </data>
+  <data name="theme.dark" xml:space="preserve">
+    <value>dunkel</value>
+  </data>
+  <data name="banner.demo.lead" xml:space="preserve">
+    <value>Demodaten.</value>
+  </data>
+  <data name="banner.demo" xml:space="preserve">
+    <value>Es ist keine Datenbank konfiguriert, daher sind dies Beispieldaten. Nichts davon wurde gemessen.</value>
+  </data>
+  <data name="footer.allGames" xml:space="preserve">
+    <value>alle Spiele</value>
+  </data>
+  <data name="footer.archive" xml:space="preserve">
+    <value>Archiv</value>
+  </data>
+  <data name="footer.declaredByGame" xml:space="preserve">
+    <value>vom Spiel angegeben</value>
+  </data>
+  <data name="footer.whatChanged" xml:space="preserve">
+    <value>was sich geändert hat</value>
+  </data>
+  <data name="home.title" xml:space="preserve">
+    <value>Ein Verzeichnis des MU*-Hobbys</value>
+  </data>
+  <data name="home.lede" xml:space="preserve">
+    <value>Jede Tatsache wurde von einem Crawler gemessen, der sich mit dem Spiel verbunden hat.</value>
+  </data>
+  <data name="home.search.label" xml:space="preserve">
+    <value>Spiele nach Name, Thema, Codebase oder Host suchen</value>
+  </data>
+  <data name="home.search.placeholder" xml:space="preserve">
+    <value>nach Name, Thema, Codebase oder Host suchen</value>
+  </data>
+  <data name="home.search.submit" xml:space="preserve">
+    <value>suchen</value>
+  </data>
+  <data name="tile.gamesKnown" xml:space="preserve">
+    <value>bekannte Spiele</value>
+  </data>
+  <data name="tile.connectedNow" xml:space="preserve">
+    <value>jetzt verbunden</value>
+  </data>
+  <data name="tile.answeringUncounted" xml:space="preserve">
+    <value>antwortend, ungezählt</value>
+  </data>
+  <data name="tile.archived" xml:space="preserve">
+    <value>archiviert</value>
+  </data>
+  <data name="feed.newlyDiscovered" xml:space="preserve">
+    <value>neu entdeckt</value>
+  </data>
+  <data name="feed.wentDark" xml:space="preserve">
+    <value>verstummt — wird weiter abgefragt</value>
+  </data>
+  <data name="feed.cameBack" xml:space="preserve">
+    <value>wieder da</value>
+  </data>
+  <data name="feed.nothingNew" xml:space="preserve">
+    <value>Nichts Neues.</value>
+  </data>
+  <data name="feed.nothingDark" xml:space="preserve">
+    <value>Nichts ist verstummt.</value>
+  </data>
+  <data name="feed.nothingBack" xml:space="preserve">
+    <value>Nichts ist zurückgekehrt. Wir klopfen weiter.</value>
+  </data>
+  <data name="feed.live" xml:space="preserve">
+    <value>live</value>
+  </data>
+  <data name="games.title" xml:space="preserve">
+    <value>Spiele</value>
+  </data>
+  <data name="listing.sortedBy" xml:space="preserve">
+    <value>sortiert nach {order}</value>
+  </data>
+  <data name="listing.random" xml:space="preserve">
+    <value>zufällig</value>
+  </data>
+  <data name="listing.columns" xml:space="preserve">
+    <value>Verbindungen · erreicht</value>
+  </data>
+  <data name="listing.fromHere" xml:space="preserve">
+    <value>von hier aus</value>
+  </data>
+  <data name="listing.empty.head" xml:space="preserve">
+    <value>Keine Treffer.</value>
+  </data>
+  <data name="listing.empty.hint" xml:space="preserve">
+    <value>Weniger Wörter versuchen oder einen Filter entfernen.</value>
+  </data>
+  <data name="listing.clearFilters" xml:space="preserve">
+    <value>Filter zurücksetzen</value>
+  </data>
+  <data name="listing.aboutCodebase" xml:space="preserve">
+    <value>über {codebase}</value>
+  </data>
+  <data name="listing.never" xml:space="preserve">
+    <value>nie</value>
+  </data>
+  <data name="listing.claimed" xml:space="preserve">
+    <value>vom Betreiber beansprucht</value>
+  </data>
+  <data name="listing.unknownCodebase" xml:space="preserve">
+    <value>Unbekannte Codebase</value>
+  </data>
+  <data name="listing.unknownCodebase.title" xml:space="preserve">
+    <value>wir konnten die Codebase dieses Spiels nicht identifizieren</value>
+  </data>
+  <data name="listing.moreProtocols" xml:space="preserve">
+    <value>und {count, plural, one {# weiteres} other {# weitere}}: {names}</value>
+  </data>
+  <data name="switch.order" xml:space="preserve">
+    <value>Sortierung</value>
+  </data>
+  <data name="switch.window" xml:space="preserve">
+    <value>Zeitraum</value>
+  </data>
+  <data name="switch.now" xml:space="preserve">
+    <value>jetzt</value>
+  </data>
+  <data name="switch.typical" xml:space="preserve">
+    <value>typisch</value>
+  </data>
+  <data name="switch.peak" xml:space="preserve">
+    <value>Spitze</value>
+  </data>
+  <data name="switch.name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="switch.reached" xml:space="preserve">
+    <value>erreicht</value>
+  </data>
+  <data name="window.7" xml:space="preserve">
+    <value>7 Tage</value>
+  </data>
+  <data name="window.30" xml:space="preserve">
+    <value>30 Tage</value>
+  </data>
+  <data name="window.90" xml:space="preserve">
+    <value>90 Tage</value>
+  </data>
+  <data name="filters.search.label" xml:space="preserve">
+    <value>Spiele suchen</value>
+  </data>
+  <data name="filters.search.placeholder" xml:space="preserve">
+    <value>Spiele suchen</value>
+  </data>
+  <data name="filters.summary" xml:space="preserve">
+    <value>Filter</value>
+  </data>
+  <data name="filters.showing" xml:space="preserve">
+    <value>angezeigt</value>
+  </data>
+  <data name="filters.clearAll" xml:space="preserve">
+    <value>alle zurücksetzen</value>
+  </data>
+  <data name="filters.stopFiltering" xml:space="preserve">
+    <value>— nicht mehr danach filtern</value>
+  </data>
+  <data name="facet.anyValue" xml:space="preserve">
+    <value>beliebig</value>
+  </data>
+  <data name="facet.more" xml:space="preserve">
+    <value>weitere Filter ({count})</value>
+  </data>
+  <data name="facet.moreValues" xml:space="preserve">
+    <value>{count, plural, one {# weiterer} other {# weitere}}</value>
+  </data>
+  <data name="facet.alsoShow" xml:space="preserve">
+    <value>zusätzlich zeigen</value>
+  </data>
+  <data name="facet.alsoShow.note" xml:space="preserve">
+    <value>Standardmäßig aus. Keines von beiden ist ein Urteil über das Spiel.</value>
+  </data>
+  <data name="facet.archived" xml:space="preserve">
+    <value>archiviert</value>
+  </data>
+  <data name="facet.adult" xml:space="preserve">
+    <value>Erwachseneninhalte</value>
+  </data>
+  <data name="facet.archived.state" xml:space="preserve">
+    <value>archivierte Spiele, {shown, select, true {angezeigt} other {verborgen}}</value>
+  </data>
+  <data name="facet.adult.state" xml:space="preserve">
+    <value>Spiele, die Erwachseneninhalte angeben, {shown, select, true {angezeigt} other {verborgen}}</value>
+  </data>
+  <data name="facet.countsNote" xml:space="preserve">
+    <value>Zahlen sind gemessene Spiele, nie Schätzungen.</value>
+  </data>
+  <data name="facet.key.summary" xml:space="preserve">
+    <value>was die Kennzeichen und die Leerstellen bedeuten</value>
+  </data>
+  <data name="facet.key.blank" xml:space="preserve">
+    <value>Eine Leerstelle ist eine Lücke in unserer Messung, kein Nein. Jede Facette benennt ihre eigene: nicht identifiziert, nicht angegeben, nichts ausgehandelt.</value>
+  </data>
+  <data name="facet.key.zero" xml:space="preserve">
+    <value>Eine gemessene Null ist eine Zählung. Eine unbekannte Zählung ist keine Null und wird nie als solche sortiert.</value>
+  </data>
+  <data name="facet.key.openEnded" xml:space="preserve">
+    <value>Offene Facetten listen ihre {count} häufigsten Werte. Der Rest ist über die Suche und über die URL erreichbar.</value>
+  </data>
+  <data name="facet.presence.note" xml:space="preserve">
+    <value>Nicht angehakt heißt nicht gemessen — nicht, dass es dem Spiel fehlt.</value>
+  </data>
+  <data name="facet.group.band" xml:space="preserve">
+    <value>Aktivität</value>
+  </data>
+  <data name="facet.group.seen" xml:space="preserve">
+    <value>zuletzt gesehen</value>
+  </data>
+  <data name="facet.group.protocol" xml:space="preserve">
+    <value>angebotene Protokolle</value>
+  </data>
+  <data name="facet.group.tls" xml:space="preserve">
+    <value>verschlüsselt</value>
+  </data>
+  <data name="facet.group.charset" xml:space="preserve">
+    <value>Kodierung</value>
+  </data>
+  <data name="facet.group.codebase" xml:space="preserve">
+    <value>Codebase</value>
+  </data>
+  <data name="facet.group.version" xml:space="preserve">
+    <value>Version</value>
+  </data>
+  <data name="facet.group.lineage" xml:space="preserve">
+    <value>Abstammung</value>
+  </data>
+  <data name="facet.group.family" xml:space="preserve">
+    <value>Familie</value>
+  </data>
+  <data name="facet.group.genre" xml:space="preserve">
+    <value>Genre</value>
+  </data>
+  <data name="facet.group.language" xml:space="preserve">
+    <value>Sprache</value>
+  </data>
+  <data name="facet.band.playersNow" xml:space="preserve">
+    <value>jetzt verbunden</value>
+  </data>
+  <data name="facet.band.activeThisWeek" xml:space="preserve">
+    <value>diese Woche aktiv</value>
+  </data>
+  <data name="facet.band.quiet" xml:space="preserve">
+    <value>ungezählt</value>
+  </data>
+  <data name="facet.band.dark" xml:space="preserve">
+    <value>verstummt — seit einem Monat nicht erreicht</value>
+  </data>
+  <data name="facet.band.archived" xml:space="preserve">
+    <value>archiviert</value>
+  </data>
+  <data name="facet.seen.day" xml:space="preserve">
+    <value>in den letzten 24 Stunden</value>
+  </data>
+  <data name="facet.seen.week" xml:space="preserve">
+    <value>in den letzten 7 Tagen</value>
+  </data>
+  <data name="facet.seen.month" xml:space="preserve">
+    <value>in den letzten 30 Tagen</value>
+  </data>
+  <data name="facet.seen.older" xml:space="preserve">
+    <value>länger her</value>
+  </data>
+  <data name="facet.seen.never" xml:space="preserve">
+    <value>nie erreicht</value>
+  </data>
+  <data name="facet.unknown.charset" xml:space="preserve">
+    <value>nichts ausgehandelt</value>
+  </data>
+  <data name="facet.unknown.codebase" xml:space="preserve">
+    <value>nicht identifiziert</value>
+  </data>
+  <data name="facet.unknown.other" xml:space="preserve">
+    <value>nicht angegeben</value>
+  </data>
+  <data name="facet.tls.yes" xml:space="preserve">
+    <value>über TLS verbunden</value>
+  </data>
+  <data name="facet.excluded" xml:space="preserve">
+    <value>nicht {value}</value>
+  </data>
+  <data name="facet.known.charset" xml:space="preserve">
+    <value>etwas ausgehandelt</value>
+  </data>
+  <data name="facet.known.codebase" xml:space="preserve">
+    <value>überhaupt identifiziert</value>
+  </data>
+  <data name="facet.known.other" xml:space="preserve">
+    <value>überhaupt angegeben</value>
+  </data>
+  <data name="evidence.measured.meaning" xml:space="preserve">
+    <value>wir haben das selbst beobachtet</value>
+  </data>
+  <data name="evidence.declared.meaning" xml:space="preserve">
+    <value>das Spiel sagt es, und wir haben es nicht geprüft</value>
+  </data>
+  <data name="evidence.derived.meaning" xml:space="preserve">
+    <value>wir haben gruppiert, was das Spiel uns mitgeteilt hat</value>
+  </data>
+  <data name="sort.name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="sort.players" xml:space="preserve">
+    <value>jetzt verbunden</value>
+  </data>
+  <data name="sort.reached" xml:space="preserve">
+    <value>zuletzt erreicht</value>
+  </data>
+  <data name="sort.medianWeek" xml:space="preserve">
+    <value>typisch verbunden · 7 Tage</value>
+  </data>
+  <data name="sort.medianMonth" xml:space="preserve">
+    <value>typisch verbunden · 30 Tage</value>
+  </data>
+  <data name="sort.medianQuarter" xml:space="preserve">
+    <value>typisch verbunden · 90 Tage</value>
+  </data>
+  <data name="sort.peakWeek" xml:space="preserve">
+    <value>meiste gleichzeitig · 7 Tage</value>
+  </data>
+  <data name="sort.peakMonth" xml:space="preserve">
+    <value>meiste gleichzeitig · 30 Tage</value>
+  </data>
+  <data name="sort.peakQuarter" xml:space="preserve">
+    <value>meiste gleichzeitig · 90 Tage</value>
+  </data>
+  <data name="sort.group.row" xml:space="preserve">
+    <value>jetzt in der Zeile</value>
+  </data>
+  <data name="sort.group.typical" xml:space="preserve">
+    <value>typisch</value>
+  </data>
+  <data name="sort.group.peak" xml:space="preserve">
+    <value>Spitze</value>
+  </data>
+  <data name="sort.unranked.players" xml:space="preserve">
+    <value>Unbekannte Zählung</value>
+  </data>
+  <data name="sort.unranked.reached" xml:space="preserve">
+    <value>noch nie erreicht — nicht etwa vor langer Zeit erreicht</value>
+  </data>
+  <data name="sort.unranked.median" xml:space="preserve">
+    <value>weniger als {minimum} Zählungen im Zeitraum oder gar keine — nicht etwa eine typische Zählung von null</value>
+  </data>
+  <data name="sort.unranked.window" xml:space="preserve">
+    <value>nichts, was wir im Zeitraum zählen konnten — nicht etwa ein Spiel, mit dem niemand verbunden war</value>
+  </data>
+  <data name="sort.window.median" xml:space="preserve">
+    <value>Median {value} · {days}d · {count, plural, one {# Zählung} other {# Zählungen}}</value>
+  </data>
+  <data name="sort.window.peak" xml:space="preserve">
+    <value>meiste {value} gleichzeitig · {days}d · {count, plural, one {# Zählung} other {# Zählungen}}</value>
+  </data>
+  <data name="game.connectScreen" xml:space="preserve">
+    <value>Verbindungsbildschirm</value>
+  </data>
+  <data name="game.connectionsByHour" xml:space="preserve">
+    <value>Verbindungen nach Stunde</value>
+  </data>
+  <data name="game.howMany" xml:space="preserve">
+    <value>Wie viele, im Zeitverlauf</value>
+  </data>
+  <data name="game.reachable" xml:space="preserve">
+    <value>Erreichbar</value>
+  </data>
+  <data name="game.whatChanged" xml:space="preserve">
+    <value>Was sich geändert hat</value>
+  </data>
+  <data name="game.capabilities" xml:space="preserve">
+    <value>Fähigkeiten</value>
+  </data>
+  <data name="game.declaredByGame" xml:space="preserve">
+    <value>Vom Spiel angegeben</value>
+  </data>
+  <data name="game.referrals" xml:space="preserve">
+    <value>Verweise</value>
+  </data>
+  <data name="game.unclaimed" xml:space="preserve">
+    <value>Nicht beansprucht — alles hier wurde gemessen.</value>
+  </data>
+  <data name="game.claimed" xml:space="preserve">
+    <value>Vom Betreiber beansprucht — die gemessenen Tatsachen unten sind weiterhin unsere.</value>
+  </data>
+  <data name="game.claim" xml:space="preserve">
+    <value>Dieses Spiel beanspruchen</value>
+  </data>
+  <data name="game.answeringSince" xml:space="preserve">
+    <value>antwortet seit {date}</value>
+  </data>
+  <data name="game.unknownCount" xml:space="preserve">
+    <value>unbekannte Zählung</value>
+  </data>
+  <data name="game.readAsTextRows" xml:space="preserve">
+    <value>als Text lesen — {count, plural, one {# Zeile} other {# Zeilen}}</value>
+  </data>
+  <data name="capability.column" xml:space="preserve">
+    <value>Fähigkeit</value>
+  </data>
+  <data name="capability.age" xml:space="preserve">
+    <value>Alter</value>
+  </data>
+  <data name="capability.offered" xml:space="preserve">
+    <value>angeboten</value>
+  </data>
+  <data name="capability.silent" xml:space="preserve">
+    <value>stumm</value>
+  </data>
+  <data name="capability.absent" xml:space="preserve">
+    <value>fehlend</value>
+  </data>
+  <data name="capability.denied" xml:space="preserve">
+    <value>verweigert</value>
+  </data>
+  <data name="capability.claimed" xml:space="preserve">
+    <value>behauptet</value>
+  </data>
+  <data name="capability.disagrees" xml:space="preserve">
+    <value>widerspricht</value>
+  </data>
+  <data name="capability.whereTheyDisagree" xml:space="preserve">
+    <value>wo sie widersprechen ({count})</value>
+  </data>
+  <data name="locale.label" xml:space="preserve">
+    <value>Sprache</value>
+  </data>
+  <data name="locale.submit" xml:space="preserve">
+    <value>Sprache wechseln</value>
   </data>
 </root>

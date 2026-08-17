@@ -42,89 +42,65 @@
   <resheader name="version"><value>2.0</value></resheader>
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
-  <data name="a11y.asciiBanner" xml:space="preserve">
-    <value>ASCII-banner: het verbindingsscherm van {game}.</value>
-  </data>
-  <data name="a11y.plainText" xml:space="preserve">
-    <value>platte tekst</value>
-  </data>
-  <data name="a11y.readAsText" xml:space="preserve">
-    <value>als tekst lezen</value>
-  </data>
-  <data name="a11y.skipToContent" xml:space="preserve">
-    <value>naar de inhoud</value>
-  </data>
-  <data name="capabilities.agree" xml:space="preserve">
-    <value>{disagreeing, plural, =0 {Geen van de {total} wijkt af.} one {# van de {total} wijkt af van wat het spel opgeeft.} other {# van de {total} wijken af van wat het spel opgeeft.}}</value>
-  </data>
-  <data name="chart.basis" xml:space="preserve">
-    <value>{days, plural, one {# dag} other {# dagen}} gemeten · {probes, plural, one {# peiling} other {# peilingen}}</value>
-  </data>
-  <data name="facet.any" xml:space="preserve">
-    <value>ongeacht {facet}, {count, plural, one {# spel} other {# spellen}}</value>
-  </data>
   <data name="facet.count" xml:space="preserve">
     <value>{count, plural, one {# spel} other {# spellen}}</value>
-  </data>
-  <data name="facet.value.choose" xml:space="preserve">
-    <value>{value}, {count, plural, one {# spel} other {# spellen}}</value>
-  </data>
-  <data name="facet.value.exclude" xml:space="preserve">
-    <value>{value}, {count, plural, one {# spel} other {# spellen}}, uitgesloten</value>
   </data>
   <data name="facet.value.include" xml:space="preserve">
     <value>{value}, {count, plural, one {# spel} other {# spellen}}, alleen</value>
   </data>
-  <data name="kicker.declared" xml:space="preserve">
-    <value>opgegeven</value>
+  <data name="facet.value.exclude" xml:space="preserve">
+    <value>{value}, {count, plural, one {# spel} other {# spellen}}, uitgesloten</value>
   </data>
-  <data name="kicker.derived" xml:space="preserve">
-    <value>afgeleid</value>
+  <data name="facet.value.choose" xml:space="preserve">
+    <value>{value}, {count, plural, one {# spel} other {# spellen}}</value>
   </data>
-  <data name="kicker.measured" xml:space="preserve">
-    <value>gemeten</value>
+  <data name="facet.any" xml:space="preserve">
+    <value>ongeacht {facet}, {count, plural, one {# spel} other {# spellen}}</value>
   </data>
   <data name="listing.total" xml:space="preserve">
     <value>{count, plural, =0 {Geen spellen} one {# spel} other {# spellen}}, elk feit gemeten.</value>
   </data>
-  <data name="locale.label" xml:space="preserve">
-    <value>taal</value>
+  <data name="chart.basis" xml:space="preserve">
+    <value>{days, plural, one {# dag} other {# dagen}} gemeten · {probes, plural, one {# peiling} other {# peilingen}}</value>
   </data>
-  <data name="locale.submit" xml:space="preserve">
-    <value>taal wijzigen</value>
+  <data name="window.samples" xml:space="preserve">
+    <value>{days}d · {count, plural, one {# telling} other {# tellingen}}</value>
   </data>
-  <data name="mt.banner" xml:space="preserve">
-    <value>Deze pagina is machinaal vertaald. De gemeten waarden zijn onaangetast.</value>
-  </data>
-  <data name="mt.original" xml:space="preserve">
-    <value>Lees het Engelse origineel</value>
-  </data>
-  <data name="provenance.capability.declared" xml:space="preserve">
-    <value>opgegeven</value>
-  </data>
-  <data name="provenance.capability.measured" xml:space="preserve">
-    <value>gemeten</value>
-  </data>
-  <data name="provenance.count.declared" xml:space="preserve">
-    <value>opgegeven</value>
+  <data name="capabilities.agree" xml:space="preserve">
+    <value>{disagreeing, plural, =0 {Geen van de {total} wijkt af.} one {# van de {total} wijkt af van wat het spel opgeeft.} other {# van de {total} wijken af van wat het spel opgeeft.}}</value>
   </data>
   <data name="provenance.count.measured" xml:space="preserve">
     <value>gemeten</value>
   </data>
-  <data name="provenance.derived" xml:space="preserve">
-    <value>afgeleid</value>
-  </data>
-  <data name="provenance.game.declared" xml:space="preserve">
-    <value>opgegeven</value>
-  </data>
   <data name="provenance.game.measured" xml:space="preserve">
+    <value>gemeten</value>
+  </data>
+  <data name="provenance.capability.measured" xml:space="preserve">
     <value>gemeten</value>
   </data>
   <data name="provenance.screen.measured" xml:space="preserve">
     <value>gemeten</value>
   </data>
-  <data name="state.notCounted" xml:space="preserve">
-    <value>niet geteld</value>
+  <data name="kicker.measured" xml:space="preserve">
+    <value>gemeten</value>
+  </data>
+  <data name="provenance.count.declared" xml:space="preserve">
+    <value>opgegeven</value>
+  </data>
+  <data name="provenance.game.declared" xml:space="preserve">
+    <value>opgegeven</value>
+  </data>
+  <data name="provenance.capability.declared" xml:space="preserve">
+    <value>opgegeven</value>
+  </data>
+  <data name="kicker.declared" xml:space="preserve">
+    <value>opgegeven</value>
+  </data>
+  <data name="provenance.derived" xml:space="preserve">
+    <value>afgeleid</value>
+  </data>
+  <data name="kicker.derived" xml:space="preserve">
+    <value>afgeleid</value>
   </data>
   <data name="state.notMeasured" xml:space="preserve">
     <value>niet gemeten</value>
@@ -135,14 +111,17 @@
   <data name="state.unreachable" xml:space="preserve">
     <value>onbereikbaar</value>
   </data>
-  <data name="term.claimedByOwner" xml:space="preserve">
-    <value>geclaimd door de eigenaar</value>
+  <data name="state.notCounted" xml:space="preserve">
+    <value>niet geteld</value>
   </data>
   <data name="term.connected" xml:space="preserve">
     <value>verbonden</value>
   </data>
-  <data name="term.peak" xml:space="preserve">
-    <value>piek</value>
+  <data name="term.unclaimed" xml:space="preserve">
+    <value>niet geclaimd</value>
+  </data>
+  <data name="term.claimedByOwner" xml:space="preserve">
+    <value>geclaimd door de eigenaar</value>
   </data>
   <data name="term.stillProbed" xml:space="preserve">
     <value>wordt nog gepeild</value>
@@ -150,10 +129,511 @@
   <data name="term.typical" xml:space="preserve">
     <value>typisch</value>
   </data>
-  <data name="term.unclaimed" xml:space="preserve">
-    <value>niet geclaimd</value>
+  <data name="term.peak" xml:space="preserve">
+    <value>piek</value>
   </data>
-  <data name="window.samples" xml:space="preserve">
-    <value>{days}d · {count, plural, one {# telling} other {# tellingen}}</value>
+  <data name="a11y.readAsText" xml:space="preserve">
+    <value>als tekst lezen</value>
+  </data>
+  <data name="a11y.plainText" xml:space="preserve">
+    <value>platte tekst</value>
+  </data>
+  <data name="a11y.skipToContent" xml:space="preserve">
+    <value>naar de inhoud</value>
+  </data>
+  <data name="a11y.asciiBanner" xml:space="preserve">
+    <value>ASCII-banner: het verbindingsscherm van {game}.</value>
+  </data>
+  <data name="nav.catalogues" xml:space="preserve">
+    <value>Catalogi</value>
+  </data>
+  <data name="nav.account" xml:space="preserve">
+    <value>Deze site en je account</value>
+  </data>
+  <data name="nav.browse" xml:space="preserve">
+    <value>bladeren</value>
+  </data>
+  <data name="nav.learn" xml:space="preserve">
+    <value>uitleg</value>
+  </data>
+  <data name="nav.thisSite" xml:space="preserve">
+    <value>deze site</value>
+  </data>
+  <data name="nav.menu" xml:space="preserve">
+    <value>menu</value>
+  </data>
+  <data name="nav.games" xml:space="preserve">
+    <value>spellen</value>
+  </data>
+  <data name="nav.find" xml:space="preserve">
+    <value>zoeken</value>
+  </data>
+  <data name="nav.random" xml:space="preserve">
+    <value>willekeurig</value>
+  </data>
+  <data name="nav.archive" xml:space="preserve">
+    <value>archief</value>
+  </data>
+  <data name="nav.reference" xml:space="preserve">
+    <value>naslag</value>
+  </data>
+  <data name="nav.ecosystem" xml:space="preserve">
+    <value>ecosysteem</value>
+  </data>
+  <data name="nav.rankings" xml:space="preserve">
+    <value>ranglijsten</value>
+  </data>
+  <data name="nav.about" xml:space="preserve">
+    <value>over</value>
+  </data>
+  <data name="nav.submit" xml:space="preserve">
+    <value>aanmelden</value>
+  </data>
+  <data name="nav.submitGame" xml:space="preserve">
+    <value>een spel aanmelden</value>
+  </data>
+  <data name="nav.signIn" xml:space="preserve">
+    <value>inloggen</value>
+  </data>
+  <data name="nav.yourGames" xml:space="preserve">
+    <value>je spellen</value>
+  </data>
+  <data name="theme.label" xml:space="preserve">
+    <value>thema</value>
+  </data>
+  <data name="theme.auto" xml:space="preserve">
+    <value>automatisch</value>
+  </data>
+  <data name="theme.light" xml:space="preserve">
+    <value>licht</value>
+  </data>
+  <data name="theme.dark" xml:space="preserve">
+    <value>donker</value>
+  </data>
+  <data name="banner.demo.lead" xml:space="preserve">
+    <value>Demogegevens.</value>
+  </data>
+  <data name="banner.demo" xml:space="preserve">
+    <value>Er is geen database geconfigureerd, dus dit zijn testgegevens. Niets hiervan is gemeten.</value>
+  </data>
+  <data name="footer.allGames" xml:space="preserve">
+    <value>alle spellen</value>
+  </data>
+  <data name="footer.archive" xml:space="preserve">
+    <value>archief</value>
+  </data>
+  <data name="footer.declaredByGame" xml:space="preserve">
+    <value>opgegeven door het spel</value>
+  </data>
+  <data name="footer.whatChanged" xml:space="preserve">
+    <value>wat er veranderd is</value>
+  </data>
+  <data name="home.title" xml:space="preserve">
+    <value>Een gids voor de MU*-hobby</value>
+  </data>
+  <data name="home.lede" xml:space="preserve">
+    <value>Elk feit is gemeten door een crawler die verbinding maakte met het spel.</value>
+  </data>
+  <data name="home.search.label" xml:space="preserve">
+    <value>Spellen zoeken op naam, thema, codebase of host</value>
+  </data>
+  <data name="home.search.placeholder" xml:space="preserve">
+    <value>zoeken op naam, thema, codebase of host</value>
+  </data>
+  <data name="home.search.submit" xml:space="preserve">
+    <value>zoeken</value>
+  </data>
+  <data name="tile.gamesKnown" xml:space="preserve">
+    <value>bekende spellen</value>
+  </data>
+  <data name="tile.connectedNow" xml:space="preserve">
+    <value>nu verbonden</value>
+  </data>
+  <data name="tile.answeringUncounted" xml:space="preserve">
+    <value>antwoordt, ongeteld</value>
+  </data>
+  <data name="tile.archived" xml:space="preserve">
+    <value>gearchiveerd</value>
+  </data>
+  <data name="feed.newlyDiscovered" xml:space="preserve">
+    <value>nieuw ontdekt</value>
+  </data>
+  <data name="feed.wentDark" xml:space="preserve">
+    <value>stilgevallen — wordt nog gepeild</value>
+  </data>
+  <data name="feed.cameBack" xml:space="preserve">
+    <value>weer terug</value>
+  </data>
+  <data name="feed.nothingNew" xml:space="preserve">
+    <value>Niets nieuws.</value>
+  </data>
+  <data name="feed.nothingDark" xml:space="preserve">
+    <value>Er is niets stilgevallen.</value>
+  </data>
+  <data name="feed.nothingBack" xml:space="preserve">
+    <value>Er is niets teruggekomen. We blijven kloppen.</value>
+  </data>
+  <data name="feed.live" xml:space="preserve">
+    <value>live</value>
+  </data>
+  <data name="games.title" xml:space="preserve">
+    <value>Spellen</value>
+  </data>
+  <data name="listing.sortedBy" xml:space="preserve">
+    <value>gesorteerd op {order}</value>
+  </data>
+  <data name="listing.random" xml:space="preserve">
+    <value>willekeurig</value>
+  </data>
+  <data name="listing.columns" xml:space="preserve">
+    <value>verbonden · bereikt</value>
+  </data>
+  <data name="listing.fromHere" xml:space="preserve">
+    <value>van hieruit</value>
+  </data>
+  <data name="listing.empty.head" xml:space="preserve">
+    <value>Geen treffers.</value>
+  </data>
+  <data name="listing.empty.hint" xml:space="preserve">
+    <value>Probeer minder woorden, of laat een filter vallen.</value>
+  </data>
+  <data name="listing.clearFilters" xml:space="preserve">
+    <value>filters wissen</value>
+  </data>
+  <data name="listing.aboutCodebase" xml:space="preserve">
+    <value>over {codebase}</value>
+  </data>
+  <data name="listing.never" xml:space="preserve">
+    <value>nooit</value>
+  </data>
+  <data name="listing.claimed" xml:space="preserve">
+    <value>geclaimd door de eigenaar</value>
+  </data>
+  <data name="listing.unknownCodebase" xml:space="preserve">
+    <value>Onbekende codebase</value>
+  </data>
+  <data name="listing.unknownCodebase.title" xml:space="preserve">
+    <value>we konden niet vaststellen op welke codebase dit spel draait</value>
+  </data>
+  <data name="listing.moreProtocols" xml:space="preserve">
+    <value>en {count, plural, one {# meer} other {# meer}}: {names}</value>
+  </data>
+  <data name="switch.order" xml:space="preserve">
+    <value>Volgorde</value>
+  </data>
+  <data name="switch.window" xml:space="preserve">
+    <value>Periode</value>
+  </data>
+  <data name="switch.now" xml:space="preserve">
+    <value>nu</value>
+  </data>
+  <data name="switch.typical" xml:space="preserve">
+    <value>typisch</value>
+  </data>
+  <data name="switch.peak" xml:space="preserve">
+    <value>piek</value>
+  </data>
+  <data name="switch.name" xml:space="preserve">
+    <value>naam</value>
+  </data>
+  <data name="switch.reached" xml:space="preserve">
+    <value>bereikt</value>
+  </data>
+  <data name="window.7" xml:space="preserve">
+    <value>7 dagen</value>
+  </data>
+  <data name="window.30" xml:space="preserve">
+    <value>30 dagen</value>
+  </data>
+  <data name="window.90" xml:space="preserve">
+    <value>90 dagen</value>
+  </data>
+  <data name="filters.search.label" xml:space="preserve">
+    <value>Spellen zoeken</value>
+  </data>
+  <data name="filters.search.placeholder" xml:space="preserve">
+    <value>spellen zoeken</value>
+  </data>
+  <data name="filters.summary" xml:space="preserve">
+    <value>filters</value>
+  </data>
+  <data name="filters.showing" xml:space="preserve">
+    <value>getoond</value>
+  </data>
+  <data name="filters.clearAll" xml:space="preserve">
+    <value>alles wissen</value>
+  </data>
+  <data name="filters.stopFiltering" xml:space="preserve">
+    <value>— hier niet meer op filteren</value>
+  </data>
+  <data name="facet.anyValue" xml:space="preserve">
+    <value>alle</value>
+  </data>
+  <data name="facet.more" xml:space="preserve">
+    <value>meer filters ({count})</value>
+  </data>
+  <data name="facet.moreValues" xml:space="preserve">
+    <value>{count, plural, one {# meer} other {# meer}}</value>
+  </data>
+  <data name="facet.alsoShow" xml:space="preserve">
+    <value>ook tonen</value>
+  </data>
+  <data name="facet.alsoShow.note" xml:space="preserve">
+    <value>Standaard uit. Geen van beide is een oordeel over het spel.</value>
+  </data>
+  <data name="facet.archived" xml:space="preserve">
+    <value>gearchiveerd</value>
+  </data>
+  <data name="facet.adult" xml:space="preserve">
+    <value>voor volwassenen</value>
+  </data>
+  <data name="facet.archived.state" xml:space="preserve">
+    <value>gearchiveerde spellen, {shown, select, true {getoond} other {verborgen}}</value>
+  </data>
+  <data name="facet.adult.state" xml:space="preserve">
+    <value>spellen die inhoud voor volwassenen opgeven, {shown, select, true {getoond} other {verborgen}}</value>
+  </data>
+  <data name="facet.countsNote" xml:space="preserve">
+    <value>Aantallen zijn spellen die we gemeten hebben, nooit schattingen.</value>
+  </data>
+  <data name="facet.key.summary" xml:space="preserve">
+    <value>wat de badges en de lege plekken betekenen</value>
+  </data>
+  <data name="facet.key.blank" xml:space="preserve">
+    <value>Een lege plek is een gat in onze meting, geen nee. Elk facet zegt het op zijn eigen manier: niet vastgesteld, niet opgegeven, niets onderhandeld.</value>
+  </data>
+  <data name="facet.key.zero" xml:space="preserve">
+    <value>Een gemeten nul is een telling. Een onbekende telling is geen nul en wordt ook nooit als nul gesorteerd.</value>
+  </data>
+  <data name="facet.key.openEnded" xml:space="preserve">
+    <value>Open facetten tonen hun {count} meest voorkomende waarden. De rest is bereikbaar via zoeken en via URL.</value>
+  </data>
+  <data name="facet.presence.note" xml:space="preserve">
+    <value>Niet aangevinkt betekent niet gemeten — niet dat het spel het mist.</value>
+  </data>
+  <data name="facet.group.band" xml:space="preserve">
+    <value>activiteit</value>
+  </data>
+  <data name="facet.group.seen" xml:space="preserve">
+    <value>laatst gezien</value>
+  </data>
+  <data name="facet.group.protocol" xml:space="preserve">
+    <value>aangeboden protocollen</value>
+  </data>
+  <data name="facet.group.tls" xml:space="preserve">
+    <value>versleuteld</value>
+  </data>
+  <data name="facet.group.charset" xml:space="preserve">
+    <value>codering</value>
+  </data>
+  <data name="facet.group.codebase" xml:space="preserve">
+    <value>codebase</value>
+  </data>
+  <data name="facet.group.version" xml:space="preserve">
+    <value>versie</value>
+  </data>
+  <data name="facet.group.lineage" xml:space="preserve">
+    <value>afstamming</value>
+  </data>
+  <data name="facet.group.family" xml:space="preserve">
+    <value>familie</value>
+  </data>
+  <data name="facet.group.genre" xml:space="preserve">
+    <value>genre</value>
+  </data>
+  <data name="facet.group.language" xml:space="preserve">
+    <value>taal</value>
+  </data>
+  <data name="facet.band.playersNow" xml:space="preserve">
+    <value>nu verbonden</value>
+  </data>
+  <data name="facet.band.activeThisWeek" xml:space="preserve">
+    <value>actief deze week</value>
+  </data>
+  <data name="facet.band.quiet" xml:space="preserve">
+    <value>ongeteld</value>
+  </data>
+  <data name="facet.band.dark" xml:space="preserve">
+    <value>stil — een maand niet bereikt</value>
+  </data>
+  <data name="facet.band.archived" xml:space="preserve">
+    <value>gearchiveerd</value>
+  </data>
+  <data name="facet.seen.day" xml:space="preserve">
+    <value>in de laatste 24 uur</value>
+  </data>
+  <data name="facet.seen.week" xml:space="preserve">
+    <value>in de laatste 7 dagen</value>
+  </data>
+  <data name="facet.seen.month" xml:space="preserve">
+    <value>in de laatste 30 dagen</value>
+  </data>
+  <data name="facet.seen.older" xml:space="preserve">
+    <value>langer geleden</value>
+  </data>
+  <data name="facet.seen.never" xml:space="preserve">
+    <value>nooit bereikt</value>
+  </data>
+  <data name="facet.unknown.charset" xml:space="preserve">
+    <value>niets onderhandeld</value>
+  </data>
+  <data name="facet.unknown.codebase" xml:space="preserve">
+    <value>niet vastgesteld</value>
+  </data>
+  <data name="facet.unknown.other" xml:space="preserve">
+    <value>niet opgegeven</value>
+  </data>
+  <data name="facet.tls.yes" xml:space="preserve">
+    <value>verbonden via TLS</value>
+  </data>
+  <data name="facet.excluded" xml:space="preserve">
+    <value>niet {value}</value>
+  </data>
+  <data name="facet.known.charset" xml:space="preserve">
+    <value>iets onderhandeld</value>
+  </data>
+  <data name="facet.known.codebase" xml:space="preserve">
+    <value>wel vastgesteld</value>
+  </data>
+  <data name="facet.known.other" xml:space="preserve">
+    <value>wel opgegeven</value>
+  </data>
+  <data name="evidence.measured.meaning" xml:space="preserve">
+    <value>we hebben dit zien gebeuren</value>
+  </data>
+  <data name="evidence.declared.meaning" xml:space="preserve">
+    <value>het spel zegt het, en wij hebben het niet gecontroleerd</value>
+  </data>
+  <data name="evidence.derived.meaning" xml:space="preserve">
+    <value>we hebben gegroepeerd wat het spel ons vertelde</value>
+  </data>
+  <data name="sort.name" xml:space="preserve">
+    <value>naam</value>
+  </data>
+  <data name="sort.players" xml:space="preserve">
+    <value>nu verbonden</value>
+  </data>
+  <data name="sort.reached" xml:space="preserve">
+    <value>laatst bereikt</value>
+  </data>
+  <data name="sort.medianWeek" xml:space="preserve">
+    <value>typisch verbonden · 7 dagen</value>
+  </data>
+  <data name="sort.medianMonth" xml:space="preserve">
+    <value>typisch verbonden · 30 dagen</value>
+  </data>
+  <data name="sort.medianQuarter" xml:space="preserve">
+    <value>typisch verbonden · 90 dagen</value>
+  </data>
+  <data name="sort.peakWeek" xml:space="preserve">
+    <value>meeste tegelijk verbonden · 7 dagen</value>
+  </data>
+  <data name="sort.peakMonth" xml:space="preserve">
+    <value>meeste tegelijk verbonden · 30 dagen</value>
+  </data>
+  <data name="sort.peakQuarter" xml:space="preserve">
+    <value>meeste tegelijk verbonden · 90 dagen</value>
+  </data>
+  <data name="sort.group.row" xml:space="preserve">
+    <value>nu op de rij</value>
+  </data>
+  <data name="sort.group.typical" xml:space="preserve">
+    <value>typisch</value>
+  </data>
+  <data name="sort.group.peak" xml:space="preserve">
+    <value>piek</value>
+  </data>
+  <data name="sort.unranked.players" xml:space="preserve">
+    <value>Onbekende telling</value>
+  </data>
+  <data name="sort.unranked.reached" xml:space="preserve">
+    <value>nog nooit bereikt — niet dat het lang geleden bereikt is</value>
+  </data>
+  <data name="sort.unranked.median" xml:space="preserve">
+    <value>minder dan {minimum} tellingen in de periode, of helemaal geen — geen typische telling van nul</value>
+  </data>
+  <data name="sort.unranked.window" xml:space="preserve">
+    <value>niets dat we in de periode konden tellen — niet dat er niemand verbonden was</value>
+  </data>
+  <data name="sort.window.median" xml:space="preserve">
+    <value>mediaan {value} · {days}d · {count, plural, one {# telling} other {# tellingen}}</value>
+  </data>
+  <data name="sort.window.peak" xml:space="preserve">
+    <value>meeste {value} tegelijk · {days}d · {count, plural, one {# telling} other {# tellingen}}</value>
+  </data>
+  <data name="game.connectScreen" xml:space="preserve">
+    <value>Verbindingsscherm</value>
+  </data>
+  <data name="game.connectionsByHour" xml:space="preserve">
+    <value>Verbindingen per uur</value>
+  </data>
+  <data name="game.howMany" xml:space="preserve">
+    <value>Hoeveel, in de loop van de tijd</value>
+  </data>
+  <data name="game.reachable" xml:space="preserve">
+    <value>Bereikbaar</value>
+  </data>
+  <data name="game.whatChanged" xml:space="preserve">
+    <value>Wat er veranderd is</value>
+  </data>
+  <data name="game.capabilities" xml:space="preserve">
+    <value>Mogelijkheden</value>
+  </data>
+  <data name="game.declaredByGame" xml:space="preserve">
+    <value>Opgegeven door het spel</value>
+  </data>
+  <data name="game.referrals" xml:space="preserve">
+    <value>Verwijzingen</value>
+  </data>
+  <data name="game.unclaimed" xml:space="preserve">
+    <value>Niet geclaimd — alles hier is gemeten.</value>
+  </data>
+  <data name="game.claimed" xml:space="preserve">
+    <value>Geclaimd door de eigenaar — de gemeten feiten hieronder blijven van ons.</value>
+  </data>
+  <data name="game.claim" xml:space="preserve">
+    <value>Dit spel claimen</value>
+  </data>
+  <data name="game.answeringSince" xml:space="preserve">
+    <value>antwoordt sinds {date}</value>
+  </data>
+  <data name="game.unknownCount" xml:space="preserve">
+    <value>onbekende telling</value>
+  </data>
+  <data name="game.readAsTextRows" xml:space="preserve">
+    <value>als tekst lezen — {count, plural, one {# rij} other {# rijen}}</value>
+  </data>
+  <data name="capability.column" xml:space="preserve">
+    <value>mogelijkheid</value>
+  </data>
+  <data name="capability.age" xml:space="preserve">
+    <value>leeftijd</value>
+  </data>
+  <data name="capability.offered" xml:space="preserve">
+    <value>aangeboden</value>
+  </data>
+  <data name="capability.silent" xml:space="preserve">
+    <value>stil</value>
+  </data>
+  <data name="capability.absent" xml:space="preserve">
+    <value>afwezig</value>
+  </data>
+  <data name="capability.denied" xml:space="preserve">
+    <value>geweigerd</value>
+  </data>
+  <data name="capability.claimed" xml:space="preserve">
+    <value>geclaimd</value>
+  </data>
+  <data name="capability.disagrees" xml:space="preserve">
+    <value>wijkt af</value>
+  </data>
+  <data name="capability.whereTheyDisagree" xml:space="preserve">
+    <value>waar ze afwijken ({count})</value>
+  </data>
+  <data name="locale.label" xml:space="preserve">
+    <value>taal</value>
+  </data>
+  <data name="locale.submit" xml:space="preserve">
+    <value>taal wijzigen</value>
   </data>
 </root>
