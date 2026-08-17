@@ -1121,19 +1121,21 @@ fieldset.facets legend {
 */
 .facet-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
-    gap: 10px var(--cpad);
+    grid-template-columns: repeat(auto-fit, minmax(214px, 1fr));
+    gap: 22px var(--cpad);
     margin-top: var(--cpad);
+    align-items: start;
 }
 
-/* The control sits at the bottom of its cell, so a label that wraps grows upward and every select in
-   the row stays on one line. Left to itself the grid aligns the tops, and one long facet name puts
-   one control half a row below its neighbours. */
+/* A facet is a heading and a list of rows now, so it starts at the top of its cell and grows down.
+   (It used to be one select sitting at the bottom of the cell, so that a label wrapping to two lines
+   grew upward and left every control in the row on one line.) */
 .facet {
     min-width: 0;
-    display: grid;
-    grid-template-rows: 1fr auto;
-    align-content: end;
+    display: block;
+    border: 0;
+    padding: 0;
+    margin: 0;
 }
 
 .facet > label, .facet > legend {
@@ -1163,9 +1165,79 @@ select {
 
 .facet select { width: 100%; max-width: 100%; }
 
-/* A facet that is doing something says so at rest, and not only in colour — the chip row above the
-   results names it in words, and the select's own text is the value it is set to. */
-.facet select.chosen { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+/* ── the three-state facet row ─────────────────────────────────────────────
+   Off, only, anything but — one row per value, and the state legible without opening anything. The
+   two radios are hidden and the glyph is drawn, but they are real radios: the browser's own group
+   behaviour is what makes this work with no script, and every state is a word in the accessible
+   name as well as a shape and a tint.                                                          */
+
+.facet .rows { display: grid; gap: 2px; margin-top: 9px; }
+
+.facet-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 30px;
+    padding: 0 8px;
+    border-radius: 9px;
+    font-size: 13px;
+    color: var(--dim);
+}
+
+.facet-row .pick { display: flex; align-items: center; gap: 9px; flex: 1 1 auto; min-width: 0; cursor: pointer; }
+.facet-row .tick { width: 15px; flex: none; text-align: center; color: var(--faint); font-family: var(--mono); }
+.facet-row .row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.facet-row .count {
+    margin-left: auto; padding-left: 8px;
+    font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--faint);
+}
+
+/* The exclusion affordance, at the far edge where a "remove" belongs. Eighteen pixels wide and
+   quiet until it is the state the row is in. */
+.facet-row .drop {
+    width: 18px; flex: none; text-align: center; cursor: pointer;
+    color: var(--faint); font-family: var(--mono);
+}
+.facet-row .drop:hover { color: var(--text); }
+.facet-row input[type="radio"] { position: absolute; width: 1px; height: 1px; opacity: 0; margin: 0; }
+
+.facet-row:hover { background: var(--raised); }
+
+/* Included: the accent, as a tint and a ring, and the tick says it too. */
+.facet-row.on {
+    color: var(--text);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.facet-row.on .tick { color: var(--accent); }
+
+/* "Any" is the state a facet is in until somebody asks it something, so it is ticked and not tinted.
+   Six accent-ringed rows saying "any" is a panel shouting its own defaults, and it would leave the
+   tint meaning nothing by the time a reader reached the one row it should have marked. */
+.facet-row.any.on { background: none; box-shadow: none; color: var(--dim); }
+
+/* Excluded: amber, which on this site means "declared, unverified or ageing" everywhere else — so
+   it is not amber. It is the row struck through, ringed in the dim step and marked with ×, which
+   carries in greyscale and to a screen reader both. The word is in the control's accessible name. */
+.facet-row.excluded {
+    background: color-mix(in srgb, var(--dim) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dim) 40%, transparent);
+}
+.facet-row.excluded .row-name { text-decoration: line-through; color: var(--faint); }
+.facet-row.excluded .drop { color: var(--text); }
+
+/* The radios are hidden, so the focus ring belongs to the row that holds them. */
+.facet-row:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* The tail. A summary is a control, so it gets the row's own height and hit area. */
+.facet .facet-tail { margin-top: 2px; }
+.facet .facet-tail summary {
+    cursor: pointer; padding: 4px 8px; font-size: 12px; color: var(--faint); border-radius: 9px;
+}
+.facet .facet-tail summary:hover { color: var(--text); background: var(--raised); }
+
+/* Said once, under the groups it applies to. */
+.facet-hint { margin: 12px 0 0; font-size: 11.5px; color: var(--faint); }
 
 /* ── the presence facet ──────────────────────────────────────────────────── */
 

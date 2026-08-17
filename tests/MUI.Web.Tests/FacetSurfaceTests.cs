@@ -228,12 +228,20 @@ public class FacetSurfaceTests
         var listing = await Queries.SearchAsync(new GameFilter());
         var html = Render.Words(await PanelAsync(new GameFilter()));
 
+        // A row per value now, rather than an option per value twice over: the count is its own cell
+        // beside the name, and it is also in both radios' accessible names — the one that includes
+        // the value carries what including it returns, the one that excludes it carries what
+        // excluding it returns. A control offering a number the listing would not produce is the
+        // failure this guards against, in either direction.
         foreach (var group in listing.Facets.Where(g => g.Kind is FacetKind.Choice))
         {
             foreach (var value in group.Values)
             {
+                var name = FacetWords.Value(group.Key, value);
+
+                await Assert.That(html).Contains($"{name}, {value.Count} games, only");
                 await Assert.That(html)
-                    .Contains($"{FacetWords.Value(group.Key, value)} ({value.Count})");
+                    .Contains($"{name}, {group.Total - value.Count} games, excluded");
             }
         }
     }
@@ -469,6 +477,46 @@ public class FacetSurfaceTests
             await Assert.That(FacetWords.Sort(sort)).DoesNotContain("busiest");
             await Assert.That(FacetWords.Sort(sort)).DoesNotContain("popular");
         }
+    }
+
+    [Test]
+    public async Task AValueIsOneRowWithThreeStatesRatherThanTwoOptionsInTwoLists()
+    {
+        // Finding B3. Every value used to appear twice in one select — once under "only", once under
+        // "anything but" — so thirteen codebases were twenty-seven options, read out as near-identical
+        // pairs, and the state showed nothing at rest: a select sitting in its second group looks
+        // exactly like one sitting on "any" until it is opened.
+        //
+        // Two radios per row now, sharing the facet's key. No script: the browser's own group
+        // behaviour is what clears the other rows, and the querystring is the one the binding and the
+        // read API already parse.
+        var html = await PanelAsync(new GameFilter());
+
+        var grid = html[html.IndexOf("facet-grid", StringComparison.Ordinal)..];
+
+        // The sort control keeps its optgroups — grouping nine orders by what each one reads is a
+        // different job from listing one facet's values twice.
+        await Assert.That(grid).DoesNotContain("<optgroup");
+        await Assert.That(html).Contains("type=\"radio\" name=\"codebase\" value=\"Evennia\"");
+        await Assert.That(html).Contains("type=\"radio\" name=\"codebase\" value=\"!Evennia\"");
+
+        // And the whole facet is still one tab stop, as the select was: one radio group, arrow keys
+        // within it.
+        await Assert.That(html).Contains("Tick to include, − to exclude.");
+    }
+
+    [Test]
+    public async Task AnExcludedValueSaysSoInTheRowAndInTheControlsName()
+    {
+        // "PennMUSH, 23 games, excluded" — the value, the count excluding it returns, and the state,
+        // in the accessible name, because a reader arrowing through a radio group hears the control
+        // and not the row around it. The strike-through and the × are the drawing of the same fact,
+        // and neither of them is a colour.
+        var html = await PanelAsync(new GameFilter { Codebase = FacetChoice.Not("Evennia") });
+
+        await Assert.That(html).Contains("class=\"facet-row excluded\"");
+        await Assert.That(Render.Words(html)).Contains("games, excluded\"");
+        await Assert.That(html).Contains("value=\"!Evennia\" checked");
     }
 
     private static async Task<string> PanelAsync(GameFilter filter)
