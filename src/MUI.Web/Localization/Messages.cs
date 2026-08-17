@@ -62,6 +62,69 @@ public static class Messages
         ["window.samples"] = "{days}d · {count, plural, one {# count} other {# counts}}",
         ["capabilities.agree"] = "{disagreeing, plural, =0 {None of the {total} disagree.} one {# of {total} disagrees with what the game declares.} other {# of {total} disagree with what the game declares.}}",
 
+        // ── find a game, where the count is the whole point of the page ───────────────────────
+        // A sentence and not a bare number. The panel draws "19" at forty pixels for the eye; what
+        // reaches a screen reader has to say what the nineteen are, because a number announced on
+        // its own is the one thing on this page nobody can act on.
+        ["find.matching"] = "{count, plural, =0 {No games match every answer.} one {# game matches every answer.} other {# games match every answer.}}",
+        ["find.basis"] = "of {listed, plural, one {# listed game} other {# listed games}} · {answers, plural, =0 {no answers given} one {# answer given} other {# answers given}}",
+        ["find.show"] = "{count, plural, one {Show the one game} other {Show these # games}}",
+        ["find.drop"] = "drop \"{answer}\" — {count, plural, one {# game} other {# games}}",
+        ["find.clear"] = "clear answer to: {question}",
+
+        // The page's own copy. Every word of it is here rather than in the markup, including the six
+        // questions: this is the one surface written in a reader's language rather than in the
+        // catalogue's, so it is the surface with the most to translate and the least that a
+        // machine translator could be trusted with.
+        ["find.title"] = "Find a game",
+        ["find.kicker"] = "matching all answers",
+        ["find.noun"] = "{count, plural, one {game} other {games}}",
+        ["find.clearAll"] = "clear all answers",
+        ["find.startAgain"] = "start again",
+        ["find.more"] = "{count, plural, one {# more} other {# more}}",
+        ["find.answersGiven"] = "answers given",
+        ["find.wholeListing"] = "the whole listing",
+        ["find.refused"] = "that query was refused",
+        ["find.name.label"] = "a name, if you have one",
+        ["find.name.placeholder"] = "name, or part of one",
+        ["find.name.submit"] = "Search by name",
+
+        // The six questions, and the answer that un-asks each one.
+        ["find.q.band"] = "Is anyone playing right now?",
+        ["find.q.genre"] = "What do you want to play?",
+        ["find.q.lineage"] = "What kind of game?",
+        ["find.q.language"] = "In which language?",
+        ["find.q.client"] = "Anything your client needs?",
+        ["find.q.dark"] = "Include games that have gone dark?",
+        ["find.any.band"] = "doesn't matter",
+        ["find.any.genre"] = "any genre",
+        ["find.any.lineage"] = "any kind",
+        ["find.any.language"] = "any language",
+        ["find.any.client"] = "doesn't matter",
+        ["find.dark.no"] = "no, only live games",
+        ["find.dark.yes"] = "yes, show me those too",
+        ["find.dark.chip"] = "games that have gone dark",
+
+        // ── the client question's options ─────────────────────────────────────────────────────
+        // One id per capability, each carrying the whole label rather than a gloss to be glued to an
+        // acronym. The acronym is machine voice and the three words beside it are not, and a
+        // language that puts the gloss first has nowhere to say so if the two are concatenated.
+        // `other` is the one that takes the token as an argument, because it is the row for a
+        // capability this list has never heard of.
+        ["find.protocol.tls"] = "TLS — encrypted, handshake completed by us",
+        ["find.protocol.mssp"] = "MSSP — server self-description",
+        ["find.protocol.mccp"] = "MCCP — compressed output",
+        ["find.protocol.mxp"] = "MXP — clickable links",
+        ["find.protocol.gmcp"] = "GMCP — structured client data",
+        ["find.protocol.msdp"] = "MSDP — structured client data",
+        ["find.protocol.charset"] = "CHARSET — encoding negotiation",
+        ["find.protocol.utf8"] = "UTF-8 — non-Latin text renders",
+        ["find.protocol.ttype"] = "TTYPE — client tells its type",
+        ["find.protocol.atcp"] = "ATCP — structured client data",
+        ["find.protocol.msp"] = "MSP — sound triggers",
+        ["find.protocol.eor"] = "EOR — prompt marking",
+        ["find.protocol.other"] = "{token} — measured in the handshake",
+
         // ── the locked provenance words, one id per context ───────────────────────────────────
         ["provenance.count.measured"] = "measured",
         ["provenance.game.measured"] = "measured",

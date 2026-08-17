@@ -911,9 +911,20 @@ public static class FacetedSearch
     /// covers, capped, with the unknown bucket kept whatever it weighs.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The unknown bucket survives the cap deliberately. "Games whose codebase we could not
     /// identify" is a measurement of our own reach and one of the more useful things in the panel,
     /// and it is exactly the value a popularity cap would delete on a well-covered catalogue.
+    /// </para>
+    /// <para>
+    /// <b>So does the reader's own selection, at zero.</b> A value nothing matches is not offered —
+    /// and the exception <see cref="FacetValue"/> has always documented is the one already chosen,
+    /// because the domain a facet is counted over has that facet's own selection lifted: ask for
+    /// <c>genre=Historical&amp;language=Swedish</c> and no Swedish game is historical, so the value
+    /// the reader picked is not in the counts at all. It disappeared from the panel, taking with it
+    /// the only control that could undo it — the answer responsible for an empty listing was the one
+    /// answer the page would not show.
+    /// </para>
     /// </remarks>
     private static List<FacetValue> Open(
         IReadOnlyList<GameFacetRow> domain,
@@ -938,6 +949,13 @@ public static class FacetedSearch
             .OrderByDescending(v => v.Count)
             .ThenBy(v => v.Token, StringComparer.Ordinal)
             .ToList();
+
+        if (selection is { Value: { } chosen }
+            && !named.Any(v => string.Equals(v.Token, chosen, StringComparison.OrdinalIgnoreCase)))
+        {
+            named.Add(new FacetValue(
+                chosen, 0, IsSelected: true, IsUnknown: false, IsExcluded: selection.Exclude));
+        }
 
         var unknown = counts.GetValueOrDefault(FacetChoice.UnknownToken)?.Count ?? 0;
         var unknownSelected = selection?.IsUnknown ?? false;

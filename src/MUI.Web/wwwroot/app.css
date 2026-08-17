@@ -2413,3 +2413,283 @@ ol.events .faint { margin-right: 8px; }
 
 details.resign form { margin-top: 6px; }
 details.resign input[type="text"] { display: block; margin: 6px 0; max-width: 16ch; }
+
+/* ── find a game ───────────────────────────────────────────────────────────
+   The questions on the left, the count on the right, and the count still on
+   screen when the last question is answered — which is the whole premise of
+   this page. Until this block existed the page had no rule of its own at all:
+   it was the one surface left on user-agent form styling, drawn full-bleed
+   with 2px groove borders and 5px of padding.                              */
+
+.find-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 310px);
+    align-items: stretch;
+    gap: 0;
+    margin: 0;
+
+    /*
+      `clip`, never `hidden`. An ancestor with overflow: hidden is a scroll
+      container, and a sticky element can only travel inside its own — so the
+      panel would pin for a few hundred pixels and then scroll away for the
+      rest, leaving the count invisible while questions four to six were
+      answered. That is the exact failure this page was redrawn to fix, and
+      `clip` clips without establishing the container.
+    */
+    overflow: clip;
+}
+
+.find-questions { min-width: 0; grid-column: 1; }
+
+/* ── one question ─────────────────────────────────────────────────────────
+   24 above the heading, 14 under it, 24 to the next rule. Symmetric outside,
+   tighter inside, so the heading binds to the options it labels and the
+   questions separate from each other. The numbers are on the elements
+   themselves rather than on a container: a <legend> renders on the border
+   edge and outside the padding box, which is why the drawing's own first
+   attempt produced 13px above the heading and 2px below it.                */
+
+.find-q {
+    padding: 24px var(--gutter);
+    border-top: 1px solid var(--line-soft);
+}
+
+.find-q-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 14px;
+}
+
+/* The question is a heading, so a screen reader can jump between the six and
+   the page has an outline. h2's own rhythm belongs to prose sections and
+   would fight the 24/14 above. */
+.find-q-head h2 { font-size: 16px; font-weight: 600; margin: 0; color: var(--text); }
+
+.find-opts { display: flex; flex-wrap: wrap; gap: 10px 8px; }
+
+/*
+  An option chip. 40px is the floor, not the height: a long gloss wraps and
+  the chip grows rather than clipping it. The row gap is deliberately larger
+  than the column gap — equal gaps make wrapped rows read as a grid instead of
+  as rows.
+*/
+.find-opt {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 40px;
+    padding: 8px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--raised);
+    color: var(--dim);
+    font-size: 13.5px;
+    text-decoration: none;
+    transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.find-opt .tick { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+.find-opt .count { font-size: 12px; color: var(--faint); }
+.find-opt:hover { background: color-mix(in srgb, var(--accent) 8%, var(--raised)); }
+.find-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Chosen: the tint, the ring and the count in the accent, because the number
+   is the part of the chip that says what answering will return. */
+.find-opt.on {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.find-opt.on .tick, .find-opt.on .count { color: var(--accent); }
+
+/* The long tail. A summary is a control, so it gets a control's hit area. */
+.find-tail { margin-top: 10px; }
+.find-tail > summary {
+    cursor: pointer;
+    display: inline-block;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--faint);
+    border-radius: var(--radius);
+}
+.find-tail > summary:hover { color: var(--text); background: var(--raised); }
+.find-tail .find-opts { margin-top: 10px; }
+
+/* ── the name field ───────────────────────────────────────────────────────
+   Label above the field, not beside it: beside it the field lost half the
+   column and a typed name could not be read back.                          */
+
+.find-name { padding: 0 var(--gutter); margin: 0; }
+.find-name label { display: block; margin-bottom: 8px; }
+.find-name .search-field { max-width: 460px; }
+
+/* ── the count ────────────────────────────────────────────────────────────
+   The outer cell carries the fill and the edge at full row height; the inner
+   wrapper is what sticks. Splitting the two is what lets the column read as a
+   column even where the panel is short.                                    */
+
+.find-panel {
+    grid-column: 2;
+    background: var(--recessed);
+    border-left: 1px solid var(--line-soft);
+    min-width: 0;
+}
+
+.find-panel-inner {
+    position: sticky;
+    top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    /* 24 at the top so the first line lands on the first question's heading. */
+    padding: 24px 22px;
+}
+
+.find-count { display: flex; align-items: baseline; gap: 8px; margin: 0; }
+
+.find-n {
+    font-size: 40px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+}
+
+.find-noun { font-size: 13.5px; color: var(--dim); }
+.find-basis { margin: 0; font-size: 12px; color: var(--faint); }
+
+.find-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.find-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 11px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    background: var(--raised);
+    color: var(--dim);
+    font-size: 12px;
+    text-decoration: none;
+    max-width: 100%;
+}
+.find-chip .chip-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.find-chip .chip-x { color: var(--faint); }
+.find-chip:hover { color: var(--text); border-color: var(--dim); }
+
+/*
+  The way out of a combination that returned almost nothing. Quiet on purpose:
+  no amber, no warning box, no sentence about the result being narrow. The
+  reader can see the count; this is the one thing they cannot work out.
+*/
+.find-loosen {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 12px;
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+    color: var(--dim);
+    font-size: 12.5px;
+    text-decoration: none;
+}
+.find-loosen:hover { color: var(--text); border-color: var(--dim); background: var(--raised); }
+
+/* The one accented control on the page, and it is a link: it navigates to the
+   listing with this question asked, and nothing here is a form to fire. */
+.find-go {
+    display: block;
+    padding: 11px 16px;
+    border-radius: var(--radius);
+    border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    box-shadow: var(--glow);
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+}
+.find-go:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.find-go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.find-clear { margin: 0; font-size: 12px; }
+.find-clear a { color: var(--faint); }
+.find-clear a:hover { color: var(--text); }
+
+/*
+  ── the panel, narrow ─────────────────────────────────────────────────────
+  The drawing has no responsive treatment and cannot be followed here: at
+  430px its own grid crushes the question column to 139px while the panel
+  keeps all 310. So the panel stacks — above the questions, because the count
+  is the thing the page exists to show and putting it under six questions
+  would mean scrolling past every one of them to find out what they returned.
+  It stays sticky at the top of the viewport, which is the same promise the
+  side column makes at a width that has room for one.
+*/
+@media (max-width: 860px) {
+    .find-grid { grid-template-columns: minmax(0, 1fr); }
+    .find-questions, .find-panel { grid-column: 1; }
+
+    /*
+      Below the questions in the visual order because it is below them in the
+      DOM, and a column that disagrees with the tab order is a worse answer
+      than a long page. It sticks to the *bottom* instead of the top, which
+      keeps the same promise from the other end: the count and the submit are
+      on screen while the last question is being answered, without a reader
+      having to find them again afterwards.
+    */
+    .find-panel {
+        border-left: 0;
+        border-top: 1px solid var(--line-soft);
+        position: sticky;
+        bottom: 0;
+    }
+
+    /*
+      Laid across rather than down, because a bar pinned to the bottom of a
+      phone spends every pixel it takes: short controls share a line, so the
+      whole panel costs four rows with two answers given rather than seven.
+
+      A wrapping row *in document order*, and that part is not cosmetic. This
+      was a two-column bar with the call to action pinned right and spanning
+      three rows, which put it first to the eye and fourth to the keyboard:
+      tabbing ran chips, loosen, then 114px back up the screen to the button.
+      Flex-wrap packs the same controls in the order they are written, so the
+      focus ring only ever travels forwards.
+    */
+    .find-panel-inner {
+        position: static;
+        display: flex;
+        /* The base rule stacks; this is the one place the direction changes, and
+           leaving it out gives a centred column that reads as a broken card. */
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        padding: 12px var(--gutter);
+    }
+
+    /*
+      The kicker labels a column, and this is a bar. The sub-line beside the
+      count says the same thing in more words, and the sentence a screen reader
+      is given — "2 games match every answer" — is untouched, so nothing is
+      lost that was only being carried here.
+    */
+    .find-panel-inner > .kicker { display: none; }
+
+    .find-chips { flex: 0 1 auto; }
+    .find-go { padding: 9px 14px; }
+    .find-n { font-size: 28px; }
+
+    /*
+      The bar is pinned over the foot of the viewport, and a browser scrolling a
+      newly focused option into view does not know it is there — so tabbing down
+      the last question lands the focus ring behind the panel. `scroll-padding`
+      is the scriptless way to tell it, and `:has` is what keeps the rule on the
+      one page that has a bar rather than on every scroll on the site.
+    */
+    html:has(.find-page) { scroll-padding-bottom: 200px; }
+}

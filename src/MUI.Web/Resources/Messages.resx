@@ -80,6 +80,182 @@
     <value>{disagreeing, plural, =0 {None of the {total} disagree.} one {# of {total} disagrees with what the game declares.} other {# of {total} disagree with what the game declares.}}</value>
     <comment>counts, which is where the concatenations were</comment>
   </data>
+  <data name="find.matching" xml:space="preserve">
+    <value>{count, plural, =0 {No games match every answer.} one {# game matches every answer.} other {# games match every answer.}}</value>
+    <comment>find a game, where the count is the whole point of the page</comment>
+  </data>
+  <data name="find.basis" xml:space="preserve">
+    <value>of {listed, plural, one {# listed game} other {# listed games}} · {answers, plural, =0 {no answers given} one {# answer given} other {# answers given}}</value>
+    <comment>find a game, where the count is the whole point of the page</comment>
+  </data>
+  <data name="find.show" xml:space="preserve">
+    <value>{count, plural, one {Show the one game} other {Show these # games}}</value>
+    <comment>find a game, where the count is the whole point of the page</comment>
+  </data>
+  <data name="find.drop" xml:space="preserve">
+    <value>drop "{answer}" — {count, plural, one {# game} other {# games}}</value>
+    <comment>find a game, where the count is the whole point of the page</comment>
+  </data>
+  <data name="find.clear" xml:space="preserve">
+    <value>clear answer to: {question}</value>
+    <comment>find a game, where the count is the whole point of the page</comment>
+  </data>
+  <data name="find.title" xml:space="preserve">
+    <value>Find a game</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.kicker" xml:space="preserve">
+    <value>matching all answers</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.noun" xml:space="preserve">
+    <value>{count, plural, one {game} other {games}}</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.clearAll" xml:space="preserve">
+    <value>clear all answers</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.startAgain" xml:space="preserve">
+    <value>start again</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.more" xml:space="preserve">
+    <value>{count, plural, one {# more} other {# more}}</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.answersGiven" xml:space="preserve">
+    <value>answers given</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.wholeListing" xml:space="preserve">
+    <value>the whole listing</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.refused" xml:space="preserve">
+    <value>that query was refused</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.name.label" xml:space="preserve">
+    <value>a name, if you have one</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.name.placeholder" xml:space="preserve">
+    <value>name, or part of one</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.name.submit" xml:space="preserve">
+    <value>Search by name</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.q.band" xml:space="preserve">
+    <value>Is anyone playing right now?</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.q.genre" xml:space="preserve">
+    <value>What do you want to play?</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.q.lineage" xml:space="preserve">
+    <value>What kind of game?</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.q.language" xml:space="preserve">
+    <value>In which language?</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.q.client" xml:space="preserve">
+    <value>Anything your client needs?</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.q.dark" xml:space="preserve">
+    <value>Include games that have gone dark?</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.any.band" xml:space="preserve">
+    <value>doesn't matter</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.any.genre" xml:space="preserve">
+    <value>any genre</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.any.lineage" xml:space="preserve">
+    <value>any kind</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.any.language" xml:space="preserve">
+    <value>any language</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.any.client" xml:space="preserve">
+    <value>doesn't matter</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.dark.no" xml:space="preserve">
+    <value>no, only live games</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.dark.yes" xml:space="preserve">
+    <value>yes, show me those too</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.dark.chip" xml:space="preserve">
+    <value>games that have gone dark</value>
+    <comment>the find page's own copy, questions included</comment>
+  </data>
+  <data name="find.protocol.tls" xml:space="preserve">
+    <value>TLS — encrypted, handshake completed by us</value>
+    <comment>the client question's options</comment>
+  </data>
+  <data name="find.protocol.mssp" xml:space="preserve">
+    <value>MSSP — server self-description</value>
+    <comment>the client question's options</comment>
+  </data>
+  <data name="find.protocol.mccp" xml:space="preserve">
+    <value>MCCP — compressed output</value>
+    <comment>the client question's options</comment>
+  </data>
+  <data name="find.protocol.mxp" xml:space="preserve">
+    <value>MXP — clickable links</value>
+    <comment>the client question's options</comment>
+  </data>
+  <data name="find.protocol.gmcp" xml:space="preserve">
+    <value>GMCP — structured client data</value>
+    <comment>the client question's options</comment>
+  </data>
+  <data name="find.protocol.msdp" xml:space="preserve">
+    <value>MSDP — structured client data</value>
+    <comment>the client question's options</comment>
+  </data>
+  <data name="find.protocol.charset" xml:space="preserve">
+    <value>CHARSET — encoding negotiation</value>
+    <comment>the client question's options</comment>
+  </data>
+  <data name="find.protocol.utf8" xml:space="preserve">
+    <value>UTF-8 — non-Latin text renders</value>
+    <comment>the client question's options</comment>
+  </data>
+  <data name="find.protocol.ttype" xml:space="preserve">
+    <value>TTYPE — client tells its type</value>
+    <comment>the client question's options</comment>
+  </data>
+  <data name="find.protocol.atcp" xml:space="preserve">
+    <value>ATCP — structured client data</value>
+    <comment>the client question's options</comment>
+  </data>
+  <data name="find.protocol.msp" xml:space="preserve">
+    <value>MSP — sound triggers</value>
+    <comment>the client question's options</comment>
+  </data>
+  <data name="find.protocol.eor" xml:space="preserve">
+    <value>EOR — prompt marking</value>
+    <comment>the client question's options</comment>
+  </data>
+  <data name="find.protocol.other" xml:space="preserve">
+    <value>{token} — measured in the handshake</value>
+    <comment>the client question's options</comment>
+  </data>
   <data name="provenance.count.measured" xml:space="preserve">
     <value>measured</value>
     <comment>the locked provenance words, one id per context</comment>
