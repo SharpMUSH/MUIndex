@@ -251,7 +251,11 @@ public class EcosystemSurfaceTests
         var text = Render.Words(await RankingsAsync());
 
         await Assert.That(text).Contains("Median of the player counts we measured over the last 7 days");
-        await Assert.That(text).Contains("counted samples a median needs");
+
+        // The threshold, as a sentence rather than as arithmetic. Where nothing qualifies the page
+        // said "0 of 519 games listed produced the 24 counted samples a median needs, on at least 4
+        // days of the window", which is a subtraction the reader was left to do.
+        await Assert.That(text).Contains("24 samples across 4 days");
         await Assert.That(text).Contains("A measured zero counts; an unreadable count does not");
     }
 

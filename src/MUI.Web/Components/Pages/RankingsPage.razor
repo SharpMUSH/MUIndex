@@ -66,7 +66,8 @@ else
                 <table class="ranking">
                     <caption class="sr-only">
                         Games ranked by the median of the player counts we measured over the last
-                        @((int)Table.Window.TotalDays) days.
+                        @((int)Table.Window.TotalDays) days. Games on the same median share a place;
+                        nothing here breaks the tie.
                     </caption>
                     <thead>
                         <tr>
@@ -79,12 +80,10 @@ else
                         </tr>
                     </thead>
                     <tbody>
-                        @{ var place = 0; }
                         @foreach (var game in Table.Busiest)
                         {
-                            place++;
                             <tr>
-                                <td class="place mono">@place</td>
+                                <td class="place mono">@Place(Table.Busiest.Select(g => g.Median), game.Median)</td>
                                 <th scope="row"><a href="/g/@game.Slug">@game.Name</a></th>
                                 @* The rank is on the median, so the median is the emphasised cell and
                                    the peak sits beside it as context. A peak is one sample, and a game
@@ -117,7 +116,8 @@ else
             <div class="table-wrap">
                 <table class="ranking">
                     <caption class="sr-only">
-                        Games whose every probe since the date given found them reachable.
+                        Games whose every probe since the date given found them reachable. Games
+                        reachable since the same date share a place; nothing here breaks the tie.
                     </caption>
                     <thead>
                         <tr>
@@ -128,14 +128,20 @@ else
                         </tr>
                     </thead>
                     <tbody>
-                        @{ var place = 0; }
                         @foreach (var spell in Table.LongestUnbroken)
                         {
-                            place++;
                             <tr>
-                                <td class="place mono">@place</td>
+                                @*
+                                    Tied games share a place. Every one of the twenty rows here read
+                                    "31 July 2026" and they were numbered 1 to 20 — an order the
+                                    measurements do not contain, printed by a site whose whole
+                                    argument is that it prints only what it measured.
+                                *@
+                                <td class="place mono">
+                                    @Place(Table.LongestUnbroken.Select(s => s.Since.Ticks), spell.Since.Ticks)
+                                </td>
                                 <th scope="row"><a href="/g/@spell.Slug">@spell.Name</a></th>
-                                <td class="mono">@spell.Since.ToString("d MMMM yyyy")</td>
+                                <td class="mono">@Dates.Absolute(spell.Since)</td>
                                 <td class="mono state-present">@Wording.Duration(spell.LengthAt(Now))</td>
                             </tr>
                         }
@@ -171,6 +177,24 @@ else
     private RankingSpan Span => RankingSpans.Parse(WindowSlug);
 
     private Rankings Table = Rankings.Empty(default, TimeSpan.Zero, 0);
+
+    /// <summary>
+    /// Where a row places, with tied rows sharing a place.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Competition ranking: a row's place is one more than the number of rows strictly above it, so
+    /// four games on the same median are four number 4s and the next is a 8. Numbering them 4, 5, 6,
+    /// 7 would state an order the measurement does not contain — the whole of finding S5, and the
+    /// opposite of what every other surface here is careful about.
+    /// </para>
+    /// <para>
+    /// Rows are ordered as the query returned them, and the table's caption says the ties are ties
+    /// rather than leaving a reader to infer a tiebreaker we did not apply.
+    /// </para>
+    /// </remarks>
+    private static int Place<T>(IEnumerable<T> values, T value) where T : IComparable<T> =>
+        1 + values.Count(v => v.CompareTo(value) > 0);
 
     /// <summary>The address of one window, carrying plain mode through if that is how we arrived.</summary>
     private string Href(RankingSpan span) =>

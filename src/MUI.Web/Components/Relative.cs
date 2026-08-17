@@ -21,11 +21,21 @@ public static class Relative
     /// </remarks>
     public static string Ago(TimeSpan age) => Format(age) is "now" ? "just now" : Format(age) + " ago";
 
+    /// <summary>
+    /// One ladder, everywhere: minutes to ninety, hours to forty-eight, then days, then weeks, then
+    /// months and years.
+    /// </summary>
+    /// <remarks>
+    /// The rungs matter because a column of these is read by eye and <c>84m</c> sorts below
+    /// <c>1h</c> to anybody scanning it. Two days of hours rather than a day and a half is the
+    /// widest a rung can be before the number in it stops meaning anything — and it is where the
+    /// site's own probe cadence puts most ages that are not minutes.
+    /// </remarks>
     public static string Format(TimeSpan age) => age switch
     {
         { TotalSeconds: < 90 } => "now",
         { TotalMinutes: < 90 } => $"{(int)age.TotalMinutes}m",
-        { TotalHours: < 36 } => $"{(int)age.TotalHours}h",
+        { TotalHours: < 48 } => $"{(int)age.TotalHours}h",
         { TotalDays: < 14 } => $"{(int)age.TotalDays}d",
         { TotalDays: < 70 } => $"{(int)(age.TotalDays / 7)}w",
         { TotalDays: < 730 } => $"{(int)(age.TotalDays / 30)}mo",

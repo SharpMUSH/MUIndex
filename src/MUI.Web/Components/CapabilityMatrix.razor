@@ -45,7 +45,16 @@
                 </th>
                 <td class="mono">@((MarkupString)Cell(row.Measured, measured: true))</td>
                 <td class="mono">@((MarkupString)Cell(row.Declared, measured: false))</td>
-                <td class="mono faint">@Age(row)</td>
+                <td class="mono faint">
+                    @if (row.LastConfirmedAt is { } at)
+                    {
+                        <Moment At="at" Now="Now" Spoken="true" />
+                    }
+                    else
+                    {
+                        <text>never</text>
+                    }
+                </td>
             </tr>
         }
     </tbody>
@@ -100,9 +109,6 @@
         .ThenBy(r => r.Protocol, StringComparer.Ordinal);
 
     private IReadOnlyList<CapabilityRow> Disagreements => [.. Rows.Where(r => r.Disagrees).OrderBy(r => r.Protocol, StringComparer.Ordinal)];
-
-    private string Age(CapabilityRow row) =>
-        row.LastConfirmedAt is { } at ? Relative.Format(Now - at) : "never";
 
     /// <summary>
     /// Glyph and word together. The glyph is the state and the colour only reinforces it, so the

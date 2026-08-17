@@ -1,0 +1,46 @@
+@*
+    A relative age that can be resolved to a real time.
+
+    "19m" is the right length for a column and the wrong amount of information for somebody who
+    arrived on this page from a search result cached last Tuesday: relative to *what*? Every age on
+    the site is now a <time> carrying the machine-readable instant and, in its title, the absolute
+    one — "19m ago, 17 Aug 2026 14:02 UTC" — so the short form stays short and the long one is a
+    hover, a copy-paste or a reading-mode extraction away.
+
+    Spoken is off by default and on where a reader is weighing one fact rather than scanning five
+    hundred. A listing row that announced the absolute time of every age would be the wall of
+    repetition this whole pass exists to remove.
+*@
+
+<time datetime="@Dates.Machine(At)" title="@Title" class="@Class">@Text@if (Spoken)
+    {<span class="sr-only">, @Dates.Stamp(At)</span>}</time>
+
+@code {
+    /// <summary>The instant being dated.</summary>
+    [Parameter, EditorRequired] public DateTimeOffset At { get; set; }
+
+    [Parameter] public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// Whether the visible text reads as something that already happened — <c>19m ago</c> rather
+    /// than <c>19m</c>.
+    /// </summary>
+    /// <remarks>
+    /// Off in a column whose heading carries the verb, on in a sentence. <see cref="Relative.Ago"/>
+    /// owns the wording either way, because "now ago" was a real bug and it was fixed there.
+    /// </remarks>
+    [Parameter] public bool Ago { get; set; }
+
+    /// <summary>Whether a screen reader is given the absolute time as well as the age.</summary>
+    [Parameter] public bool Spoken { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    private string Text => Ago ? Relative.Ago(Now - At) : Relative.Format(Now - At);
+
+    /// <summary>
+    /// The age and the instant, in one string. Both, because a title reading only "17 Aug 2026
+    /// 14:02 UTC" makes a reader do the subtraction the page had already done for them.
+    /// </summary>
+    private string Title => $"{Relative.Ago(Now - At)}, {Dates.Stamp(At)}";
+}

@@ -20,7 +20,12 @@
     {
         <span class="glyph" aria-hidden="true">@Glyph</span>
     }
-    <span class="age">@Age</span>
+    @*
+        The age, as a <time> that can be resolved. Spoken where the chip is carrying its own value —
+        the game page's fields, where a reader is weighing one fact and "declared 3y ago" is exactly
+        the fact they are weighing — and short where it rides a row in a listing.
+    *@
+    <Moment At="Fact.LastConfirmedAt" Now="Now" Spoken="ValueShown" Class="age" />
 </span>
 
 @code {
@@ -56,11 +61,10 @@
 
     private string Class => Word + (Fact.IsStale ? " stale" : string.Empty);
 
-    private string Age => Relative.Format(Now - Fact.LastConfirmedAt);
-
     // The full record belongs in the title as well as the expanded view: a reader hovering wants
     // the absolute time, and a screen reader gets the source named rather than inferred from colour.
     private string Title =>
         $"{Fact.Value} — {Word} via {Fact.Source}, "
-        + $"last confirmed {Fact.LastConfirmedAt:u}{(Fact.IsStale ? " (past its expected refresh)" : string.Empty)}";
+        + $"last confirmed {Dates.Stamp(Fact.LastConfirmedAt)}"
+        + (Fact.IsStale ? " (past its expected refresh)" : string.Empty);
 }

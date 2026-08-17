@@ -41,8 +41,11 @@ public sealed record ArchiveEntry(
         ? Wording.Run(from, to)
         : null;
 
+    /// <summary>
+    /// When it last answered, in the site's one absolute format — see <see cref="Dates"/>.
+    /// </summary>
     public string LastAnswered => LastReachableAt is { } at
-        ? $"{at:d MMMM yyyy}"
+        ? Dates.Absolute(at)
         : "never, in anything we measured";
 
     /// <summary>

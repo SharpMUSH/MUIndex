@@ -67,7 +67,7 @@
                 @if (CapturedAt is { } at)
                 {
                     <span aria-hidden="true">·</span>
-                    <span>captured @Relative.Format(Now - at) ago</span>
+                    <span>captured <Moment At="at" Now="Now" Ago="true" Spoken="true" /></span>
                 }
                 @if (Frozen)
                 {

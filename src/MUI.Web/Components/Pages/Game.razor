@@ -130,13 +130,13 @@ else
                         }
                         @if (e.IsCurrent)
                         {
-                            <span class="faint">answering here since @e.FirstSeenAt.ToString("MMM yyyy")</span>
+                            <span class="faint">answering here since @Dates.Absolute(e.FirstSeenAt)</span>
                         }
                         else
                         {
                             @* Named as ours to have stopped reaching, never as theirs to have gone. *@
                             <span class="faint">
-                                @e.State — last answered @Relative.Ago(Now - e.LastSeenAt)
+                                @e.State — last answered <Moment At="e.LastSeenAt" Now="Now" Ago="true" Spoken="true" />
                             </span>
                         }
                     </p>
@@ -275,7 +275,7 @@ else
                                     @if (neighbour.Present)
                                     {
                                         <span class="faint">
-                                            since @neighbour.FirstSeenAt.ToString("MMM yyyy")
+                                            since @Dates.Absolute(neighbour.FirstSeenAt)
                                         </span>
                                     }
                                     else
@@ -283,7 +283,7 @@ else
                                         @* Dropped from the list, not deleted — the edge is kept. *@
                                         <span class="faint">
                                             no longer listed, last seen
-                                            @Relative.Ago(Now - neighbour.LastSeenAt)
+                                            <Moment At="neighbour.LastSeenAt" Now="Now" Ago="true" />
                                         </span>
                                     }
                                 </li>
@@ -298,7 +298,12 @@ else
                     <ol class="changes mono">
                         @foreach (var change in Page.Changes.OrderByDescending(c => c.At))
                         {
-                            <li><span class="faint">@change.At.ToString("yyyy-MM-dd")</span> @change.Summary</li>
+                            <li>
+                                @* One date format, site-wide: this list said 2026-08-17 while the
+                                   address line above it said Aug 2026 and the rankings said
+                                   31 July 2026. *@
+                                <span class="faint">@Dates.Absolute(change.At)</span> @change.Summary
+                            </li>
                         }
                     </ol>
                 }

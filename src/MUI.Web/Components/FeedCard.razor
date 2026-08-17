@@ -20,7 +20,7 @@
     }
     <div class="feed-name">
         <a href="/g/@Entry.Slug">@Entry.Name</a>
-        <span class="mono faint">@Relative.Format(Now - Entry.At)</span>
+        <Moment At="Entry.At" Now="Now" Class="mono faint" />
         @if (Kind is FeedKind.CameBack)
         {
             <span class="mono state-present">● live</span>

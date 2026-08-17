@@ -224,11 +224,19 @@ public static class EcosystemCopy
     {
         ArgumentNullException.ThrowIfNull(rankings);
 
-        return $"Median of the player counts we measured over the last "
-            + $"{(int)rankings.Window.TotalDays} days. {rankings.Eligible} of "
-            + $"{Games(rankings.ListedGames)} listed produced the {rankings.MinimumSamples} counted "
-            + $"samples a median needs, on at least {Days(rankings.MinimumDays)} of the window. "
-            + "A measured zero counts; an unreadable count does not.";
+        // "0 of 519 games listed produced the 24 counted samples a median needs, on at least 4 days
+        // of the window" is arithmetic where a sentence would do. Where nothing qualifies, say that;
+        // where something does, the count is the fact and the threshold follows it.
+        var basis = $"Median of the player counts we measured over the last "
+            + $"{(int)rankings.Window.TotalDays} days. ";
+
+        var eligible = rankings.Eligible == 0
+            ? $"No game yet has the {rankings.MinimumSamples} samples across "
+                + $"{Days(rankings.MinimumDays)} that a median needs. "
+            : $"{Games(rankings.Eligible)} of {rankings.ListedGames} have the "
+                + $"{rankings.MinimumSamples} samples across {Days(rankings.MinimumDays)} it needs. ";
+
+        return basis + eligible + "A measured zero counts; an unreadable count does not.";
     }
 
     /// <summary>
@@ -258,11 +266,18 @@ public static class EcosystemCopy
         + "socket from one host, and a game we cannot route to is perfectly alive. A spell cannot be "
         + "longer than we have been watching, so the date is the fact and the duration follows.";
 
-    /// <summary>Said on the rankings page, because §2 makes it permanent rather than pending.</summary>
+    /// <summary>
+    /// Said on the rankings page, because §2 makes it permanent rather than pending.
+    /// </summary>
+    /// <remarks>
+    /// Two sentences, not four. What vote-gaming did to the last directory that tried it is the
+    /// argument for the rule and it is told once, on /about, where the reasons live; here the rule
+    /// itself is the fact, and a reader who has arrived at a league table wants to know what it does
+    /// and does not measure before they want the history.
+    /// </remarks>
     public const string NoVote =
-        "Computed from measured data only. No votes, stars or ratings, ever — vote-gaming is what "
-        + "emptied the last directory that tried it. Nothing here ranks games by best; we have not "
-        + "measured that and nobody can.";
+        "Computed from measured data only. No votes, stars or ratings, ever. Nothing here ranks "
+        + "quality. We have not measured it.";
 
     private static string Games(int n) => n == 1 ? "1 game" : $"{n} games";
 
