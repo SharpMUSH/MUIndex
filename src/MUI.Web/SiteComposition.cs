@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Localization;
+
 using MUI.Catalog;
 using MUI.Crawler;
 using MUI.Web.Accounts;
@@ -52,6 +54,9 @@ public static class SiteComposition
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddRazorComponents();
+
+        // The chrome's own words, before anything that renders them.
+        services.AddMuiLocalization();
 
         // The read API (spec §10) reads through the same IGameQueries the pages do, so the two
         // surfaces cannot disagree about a fact. What it adds of its own — the dataset licence, the
@@ -114,6 +119,25 @@ public static class SiteComposition
     }
 
     /// <summary>
+    /// The resource set the chrome's strings are read from.
+    /// </summary>
+    /// <remarks>
+    /// The arrangement SharpMUSH's portal uses for its own chrome — <c>AddLocalization</c> over a
+    /// <c>Resources</c> folder, resolved through a marker class, with the SDK compiling one
+    /// satellite assembly per culture and no <c>&lt;EmbeddedResource&gt;</c> entries anywhere. What
+    /// differs is the values: theirs are composite-format strings and these are ICU patterns,
+    /// because <c>{0}</c> substitutes and cannot agree. See <see cref="Localization.Messages"/>.
+    /// </remarks>
+    public static IServiceCollection AddMuiLocalization(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddLocalization(options => options.ResourcesPath = "Resources");
+
+        return services;
+    }
+
+    /// <summary>
     /// The middleware and the routes, in the order they have to be in.
     /// </summary>
     /// <remarks>
@@ -129,6 +153,13 @@ public static class SiteComposition
         // a header anybody may write — and the one thing that reads a client address here is a rate
         // limit.
         app.UseSubmitterAddress();
+
+        // The lookup is static — a message is read from Razor markup, from the plain-text renderer
+        // and from a static helper alike — so the resource set is handed to it once, here, rather
+        // than injected into three call sites that have no other reason to know a host exists.
+        Localization.Messages.Use(
+            app.Services.GetRequiredService<IStringLocalizerFactory>()
+                .Create(typeof(Resources.Messages)));
 
         // Before anything routes, because the locale is a path segment and every @page directive is
         // written without it: the middleware moves the prefix into PathBase so one route table

@@ -345,3 +345,85 @@ mechanical step.
 | Nav geometry across four pages | byte-identical |
 | Locale routing | `/games` 200 · `/en/games` 301 → `/games` · `/qps-ploc/games` 200 · `/zz/games` 404 |
 | Tests | 680 Web · 499 Catalog · 346 Crawl · 250 Crawler · 267 Discovery · 13 I3 |
+
+---
+
+# Part four — full ICU
+
+The message layer was a deliberate subset. It is now MessageFormat 1.0 in full, and the storage
+underneath it is the arrangement SharpMUSH's portal already uses.
+
+## Why not a library
+
+Checked first, because hand-rolling a spec is normally the wrong answer:
+
+| Package | State |
+|---|---|
+| `ICU4N` | `60.1.0-alpha.440` — an alpha, pinned to ICU 60 (2017). Its CLDR data predates several of the rules below. |
+| `YellowDogMan.MessageFormat.net` | `0.1.0`, a fork of an abandoned project. |
+| `intelligenthack.MoonBuggy` | `0.1.3`, ~500 downloads. |
+
+.NET's own globalization is ICU-backed and has been since .NET 5, but it exposes collation and
+formatting and **not** MessageFormat or plural rules. So there is no maintained dependency to take,
+and the implementation stays in tree — which is also what CLAUDE.md's own argument about utility
+layers would say.
+
+## What "full" now means
+
+- **ICU's apostrophe quoting**, in the default DOUBLE_OPTIONAL mode. `doesn't` is a contraction,
+  `''` is one apostrophe, and `'{'` quotes a brace. This replaces a doubled-brace escape that was
+  ambiguous with the syntax it appeared in — every argument ends `...}}` when its last branch
+  closes, and a reader treating those as one literal walked off the end of the message.
+- **`selectordinal`**, with its own rule set. English cardinal has two forms; English ordinal has
+  four, and one table cannot produce both.
+- **`offset:`**, with ICU's split: `=n` matches the number as written, while `#` and the category
+  are taken after the offset is subtracted.
+- **`number`, `date`, `time`** with styles and skeletons. Nothing on the site calls them — counts
+  stay in Western digits and dates go through `Dates` — but supporting the grammar is different from
+  supporting the half we use.
+- **CLDR plural operands.** `1` is `one` and `1.0` is `other` in English, and the two are the same
+  quantity: only how the number is *written* separates them. An integer-only implementation cannot
+  express that, which is why `PluralOperands` carries `n i v w f t e`.
+- **Real refusals.** A selector with no `other`, a branch keyword no category uses, `choice`, an
+  unknown type, an unbalanced brace — all rejected at parse time, and every bundle is parsed by a
+  test. Enforcing ICU's mandatory `other` immediately caught three of my own patterns and one
+  canary bundle entry, which is the point.
+- **Cardinal and ordinal rules for 31 languages**, transcribed from CLDR 46 in the operands CLDR
+  states them in, with `LocalesCovered` asserted against the locales the site names.
+
+## resx underneath, ICU on top
+
+SharpMUSH's portal localizes through `.resx` + `IStringLocalizer` + `CompositeFormat`. Two of those
+three transfer directly and one cannot:
+
+- **Taken:** resx as the storage, a marker class in `Resources/`, `AddLocalization` over a
+  `ResourcesPath`, and the SDK compiling one satellite assembly per culture with no
+  `<EmbeddedResource>` entries. That is what a translator's software opens and what every
+  translation-management tool reads and writes.
+- **Not taken:** `CompositeFormat`. `{0}` substitutes and cannot agree, so "23 games" would still be
+  assembled from a number and a noun in C# — the exact concatenation the review names. The resx
+  *values* are ICU patterns instead.
+
+The English exists twice — in `Messages.resx` and compiled in — because the compiled-in copy is the
+fallback for every locale and every surface, including ones rendered with no host behind them, and a
+fallback that can fail to load is not one. A test reads the resx as XML and asserts the two agree in
+both directions, because two copies with no test between them is how one gets fixed and the other
+does not.
+
+## Not MessageFormat 2.0
+
+MF2 reached stable in CLDR 47 and is where this is going. Today it has a different syntax, no .NET
+implementation, and no translation tool that speaks it — choosing it now would trade a pipeline that
+works for a spec with nowhere to send the strings. The `MessagePattern` AST is the seam a second
+front end would sit behind.
+
+## Verified
+
+| Check | Result |
+|---|---|
+| ICU conformance cases | 727 web tests, including the apostrophe, offset, ordinal and fraction cases |
+| Every bundle parses | asserted for every locale × every id |
+| Every translation names only arguments the English supplies | asserted |
+| Every named locale has a CLDR rule | asserted against `LocalesCovered` |
+| resx ⇄ compiled-in English | asserted both ways |
+| Tests | 727 Web · 499 Catalog · 346 Crawl · 250 Crawler · 267 Discovery · 13 I3 |

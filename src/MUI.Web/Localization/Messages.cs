@@ -1,9 +1,21 @@
+using System.Globalization;
+
+using Microsoft.Extensions.Localization;
+
 namespace MUI.Web.Localization;
 
 /// <summary>
 /// Every string the chrome says, keyed by context, in ICU MessageFormat.
 /// </summary>
 /// <remarks>
+/// <para>
+/// <b>Stored in resx and rendered by ICU.</b> The two halves solve different problems and the usual
+/// .NET arrangement only has one of them. resx is where a translation belongs: the SDK compiles
+/// <c>Messages.&lt;culture&gt;.resx</c> into a satellite assembly on its own, every
+/// translation-management tool reads and writes the format, and a translator receives a file their
+/// software opens rather than a C# dictionary they must not break. What resx cannot do is
+/// agreement — <c>{0}</c> substitutes and nothing more — which is why the values are ICU patterns.
+/// </para>
 /// <para>
 /// <b>One message per fact, never a sentence assembled from parts.</b> The strings this replaces
 /// were concatenations — a number glued to an English fragment in English word order — and there is
@@ -27,7 +39,16 @@ namespace MUI.Web.Localization;
 /// </remarks>
 public static class Messages
 {
-    /// <summary>The source bundle. Complete by definition — everything else falls back to it.</summary>
+    /// <summary>
+    /// The source bundle, compiled in.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same strings as <c>Resources/Messages.resx</c>, and a test walks both to keep them
+    /// that way.</b> It is here as well because the English is the fallback for every locale and
+    /// every surface — including the ones rendered with no host behind them — and a fallback that
+    /// can fail to load is not one. resx is where a <em>translation</em> lives; this is where the
+    /// source text lives, and the pair is checked rather than trusted.
+    /// </remarks>
     private static readonly Dictionary<string, string> English = new(StringComparer.Ordinal)
     {
         // ── counts, which is where the concatenations were ───────────────────────────────────
@@ -97,20 +118,18 @@ public static class Messages
     /// build instead of reaching a reader.
     /// </para>
     /// </remarks>
-    private static readonly Dictionary<string, Dictionary<string, string>> Bundles =
+    private static readonly Dictionary<string, Dictionary<string, string>> TestBundles =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            [Locales.SourceTag] = English,
-
             // Every message, mechanically transformed. Generated rather than typed so it cannot
             // fall behind the source bundle it is derived from.
             ["qps-ploc"] = English.ToDictionary(e => e.Key, e => Pseudo(e.Value), StringComparer.Ordinal),
 
-            // Three plural categories, and one message that is missing its `few` branch on purpose.
-            // See LocaleCompletenessTests: that omission is the thing being asserted.
+            // Three plural categories, and one message that is missing its `few` and `many` branches
+            // on purpose. That omission is what the completeness test turns into a build failure.
             ["ru-x-canary"] = new(StringComparer.Ordinal)
             {
-                ["facet.count"] = "{count, plural, one {# игра} few {# игры} many {# игр}}",
+                ["facet.count"] = "{count, plural, one {# игра} few {# игры} many {# игр} other {# игры}}",
                 ["listing.total"] = "{count, plural, one {# игра} other {# игр}}, каждый факт измерен.",
                 ["provenance.count.measured"] = "измерена",
                 ["provenance.game.measured"] = "измерено",
@@ -146,17 +165,87 @@ public static class Messages
     /// <summary>The raw pattern a locale would use, English included, or null.</summary>
     public static string? Pattern(string tag, string id)
     {
-        if (Bundles.TryGetValue(tag, out var bundle) && bundle.TryGetValue(id, out var own))
-        {
-            return own;
-        }
+        ArgumentNullException.ThrowIfNull(tag);
+        ArgumentNullException.ThrowIfNull(id);
 
-        return English.GetValueOrDefault(id);
+        return Own(tag, id) ?? English.GetValueOrDefault(id);
     }
 
     /// <summary>Whether a locale carries its own text for an id, rather than falling back.</summary>
-    public static bool HasOwn(string tag, string id) =>
-        Bundles.TryGetValue(tag, out var bundle) && bundle.ContainsKey(id);
+    public static bool HasOwn(string tag, string id) => Own(tag, id) is not null;
+
+    /// <summary>
+    /// What a locale itself says for an id — from its resx, or from a test bundle — or null.
+    /// </summary>
+    /// <remarks>
+    /// <c>ResourceNotFound</c> is the load-bearing check. <see cref="IStringLocalizer"/> answers a
+    /// missing key with the key itself rather than with null, so a lookup that trusted the string it
+    /// got back would render <c>facet.count</c> to a reader and call it a translation.
+    /// </remarks>
+    private static string? Own(string tag, string id)
+    {
+        if (TestBundles.TryGetValue(tag, out var bundle))
+        {
+            return bundle.GetValueOrDefault(id);
+        }
+
+        // The source language reads its own compiled-in copy: it is the fallback for every other
+        // locale, and a fallback that depends on a satellite assembly having loaded is not one.
+        if (string.Equals(tag, Locales.SourceTag, StringComparison.OrdinalIgnoreCase))
+        {
+            return English.GetValueOrDefault(id);
+        }
+
+        if (Localizer is null || Culture(tag) is not { } culture)
+        {
+            return null;
+        }
+
+        var previous = CultureInfo.CurrentUICulture;
+
+        try
+        {
+            CultureInfo.CurrentUICulture = culture;
+
+            var found = Localizer[id];
+
+            return found.ResourceNotFound ? null : found.Value;
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previous;
+        }
+    }
+
+    private static CultureInfo? Culture(string tag)
+    {
+        try
+        {
+            return CultureInfo.GetCultureInfo(tag);
+        }
+        catch (CultureNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The source text for an id, which is what a resx has to agree with.</summary>
+    public static string? Source(string id) => English.GetValueOrDefault(id);
+
+    /// <summary>
+    /// The resource set, once the host has built one.
+    /// </summary>
+    /// <remarks>
+    /// Handed over at startup by <c>AddMuiLocalization</c>. Static rather than injected because a
+    /// message is read from Razor markup, from a plain-text renderer and from a static helper alike,
+    /// and threading a localizer through all three to reach a lookup with no per-request state would
+    /// be plumbing for its own sake. Null under a component test, where the compiled-in English is
+    /// the whole of it — which is what keeps those tests independent of a host.
+    /// </remarks>
+    private static IStringLocalizer? Localizer;
+
+    /// <summary>Hands the resource set to the lookup. Called once, from composition.</summary>
+    public static void Use(IStringLocalizer localizer) => Localizer = localizer;
 
     /// <summary>Every id the site says, in the order the source bundle declares them.</summary>
     public static IReadOnlyList<string> Ids { get; } = [.. English.Keys];

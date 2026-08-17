@@ -364,10 +364,21 @@ public class LocalizationTests
     /// The plural forms a locale needs for a message and does not declare.
     /// </summary>
     /// <remarks>
-    /// Read off the pattern the locale actually uses, which is the fallback's English where it has
-    /// none of its own — so a locale that has translated nothing reports nothing missing here. That
-    /// is correct and deliberate: an untranslated string is a fallback, and a half-translated plural
-    /// is a bug. They are different failures and only the second one is this test's.
+    /// <para>
+    /// Read off the parsed message rather than off the string, so a branch inside a nested selector
+    /// counts exactly as one at the top level does.
+    /// </para>
+    /// <para>
+    /// An <c>other</c> branch does not excuse a missing form, and that is the point: ICU will
+    /// happily route a Russian 2 through <c>other</c> and render a word no native speaker would
+    /// write, silently. A form the language distinguishes has to be declared rather than fallen
+    /// into.
+    /// </para>
+    /// <para>
+    /// Only what the locale itself carries is checked. A locale that has translated nothing reports
+    /// nothing missing here, which is correct: an untranslated string is a fallback and a
+    /// half-translated plural is a bug, and only the second is this test's business.
+    /// </para>
     /// </remarks>
     private static IReadOnlyList<string> Missing(string tag, string id)
     {
@@ -376,19 +387,136 @@ public class LocalizationTests
             return [];
         }
 
-        var pattern = Messages.Pattern(tag, id)!;
-        var needed = PluralRules.CategoriesOf(tag).Select(PluralRules.Keyword).ToList();
+        var pattern = IcuMessage.Compile(Messages.Pattern(tag, id)!);
 
         return
         [
-            // `other` is a legal catch-all in ICU and it is exactly the wrong thing to accept
-            // here: a Russian message that routes 2 through `other` renders a grammatical form no
-            // native speaker would write, and it does so silently. A form the language distinguishes
-            // has to be declared, not fallen into.
-            .. IcuMessage.PluralBranches(pattern)
-                .SelectMany(argument => needed
-                    .Where(form => form != "other" && !argument.Value.Contains(form))
-                    .Select(form => $"{argument.Key}:{form}")),
+            .. pattern.Arguments()
+                .Where(a => a.Kind is ArgumentKind.Plural or ArgumentKind.SelectOrdinal)
+                .SelectMany(a => PluralRules
+                    .CategoriesOf(tag, a.Kind is ArgumentKind.SelectOrdinal
+                        ? PluralKind.Ordinal
+                        : PluralKind.Cardinal)
+                    .Select(PluralRules.Keyword)
+                    .Where(form => form != "other" && !a.Branches.ContainsKey(form))
+                    .Select(form => $"{a.Name}:{form}")),
         ];
+    }
+
+    [Test]
+    public async Task EveryPatternInEveryBundleParses()
+    {
+        // The whole reason the pattern is parsed rather than interpreted: a message with a missing
+        // `other`, an unbalanced brace or a branch keyword no category uses is broken for exactly
+        // one reader — whichever one's count reaches it. Parsing every bundle here turns all three
+        // into a build failure.
+        foreach (var locale in Locales.All)
+        {
+            foreach (var id in Messages.Ids)
+            {
+                if (!Messages.HasOwn(locale.Tag, id))
+                {
+                    continue;
+                }
+
+                var pattern = Messages.Pattern(locale.Tag, id)!;
+
+                await Assert.That(() => IcuMessage.Compile(pattern))
+                    .ThrowsNothing()
+                    .Because($"{locale.Tag} / {id} does not parse: {pattern}");
+            }
+        }
+    }
+
+    [Test]
+    public async Task EveryTranslationReadsTheSameArgumentsTheEnglishDoes()
+    {
+        // A translator who drops {total} from a sentence leaves a fact off the page, and one who
+        // invents {name} writes a message the site will refuse to render at all. Both are caught
+        // here rather than by whoever opens that page in that language.
+        foreach (var locale in Locales.All.Where(l => l.Tag != Locales.SourceTag))
+        {
+            foreach (var id in Messages.Ids.Where(i => Messages.HasOwn(locale.Tag, i)))
+            {
+                var source = Names(Messages.Pattern(Locales.SourceTag, id)!);
+                var mine = Names(Messages.Pattern(locale.Tag, id)!);
+
+                await Assert.That(mine.Except(source))
+                    .IsEmpty()
+                    .Because($"{locale.Tag} / {id} names an argument the English does not supply");
+            }
+        }
+
+        static IReadOnlyList<string> Names(string pattern) =>
+            [.. IcuMessage.Compile(pattern).Arguments().Select(a => a.Name).Distinct()];
+    }
+
+    [Test]
+    public async Task EveryLocaleTheSiteNamesHasAPluralRuleWrittenForIt()
+    {
+        // An unlisted language answers `other` for every count — right for Chinese, wrong for
+        // German, and silent either way. This is the gate on adding one.
+        foreach (var locale in Locales.All)
+        {
+            await Assert.That(PluralRules.Covers(locale.Tag))
+                .IsTrue()
+                .Because($"{locale.Tag} has no plural rule transcribed from CLDR {PluralRules.CldrVersion}");
+        }
+    }
+
+    [Test]
+    public async Task TheResxAndTheCompiledInSourceSayTheSameThing()
+    {
+        // Two copies of the English exist on purpose — resx is where a translation lives and where
+        // every translation tool looks, and the compiled-in bundle is the fallback that must not
+        // depend on a satellite assembly having loaded. Two copies with no test between them is how
+        // a message gets fixed in one and not the other, and the reader who finds out is whichever
+        // one is served by the copy nobody updated.
+        var resx = ResxMessages();
+
+        await Assert.That(resx).IsNotEmpty();
+
+        foreach (var id in Messages.Ids)
+        {
+            await Assert.That(resx.ContainsKey(id))
+                .IsTrue()
+                .Because($"{id} is in the source bundle and not in Messages.resx");
+
+            await Assert.That(resx[id])
+                .IsEqualTo(Messages.Source(id))
+                .Because($"{id} differs between Messages.resx and the compiled-in source");
+        }
+
+        foreach (var id in resx.Keys)
+        {
+            await Assert.That(Messages.Ids)
+                .Contains(id)
+                .Because($"{id} is in Messages.resx and nothing on the site says it");
+        }
+    }
+
+    /// <summary>
+    /// The English resx, read as XML rather than through the resource manager.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not through <see cref="Microsoft.Extensions.Localization.IStringLocalizer"/>:
+    /// that would read whatever the build embedded, which is the thing being checked. Reading the
+    /// file compares what a translator would edit against what the site compiles.
+    /// </remarks>
+    private static IReadOnlyDictionary<string, string> ResxMessages()
+    {
+        var path = System.IO.Path.Combine(
+            System.AppContext.BaseDirectory,
+            "..", "..", "..", "..", "..", "src", "MUI.Web", "Resources", "Messages.resx");
+
+        var document = System.Xml.Linq.XDocument.Load(System.IO.Path.GetFullPath(path));
+
+        return document.Root!
+            .Elements("data")
+            .Where(e => e.Attribute("name") is not null)
+            .ToDictionary(
+                e => e.Attribute("name")!.Value,
+                e => e.Element("value")?.Value ?? string.Empty,
+                StringComparer.Ordinal);
     }
 }

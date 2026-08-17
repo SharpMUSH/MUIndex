@@ -1,38 +1,43 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
 
 namespace MUI.Web.Localization;
 
 /// <summary>
-/// One ICU MessageFormat message, rendered.
+/// ICU MessageFormat, rendered.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The subset, and why it is a subset.</b> Three constructs carry every string on this site:
-/// argument substitution (<c>{value}</c>), <c>plural</c> with <c>#</c>, and <c>select</c>. Dates go
-/// through <see cref="Components.Dates"/> and counts stay in Western digits by policy, so
-/// <c>date</c>, <c>time</c> and <c>number</c> skeletons would be machinery nothing calls — and a
-/// formatter that accepts syntax it does not implement is worse than one that refuses it, because
-/// the failure arrives as a wrong string rather than as a build error. Unknown constructs throw.
+/// <b>What it is for.</b> <c>545 on</c>, <c>23 games</c> and <c>7 days measured · 168 probes</c> each
+/// glue a number to an English fragment in English word order, and there is nowhere in that for a
+/// translator to intervene without editing markup. One message per fact, the count as a named
+/// argument and the plural clause written out in full is what gives them somewhere to stand — and
+/// it is what stopped this site rendering "1 games" on every accessible name in its facet panel.
 /// </para>
 /// <para>
-/// <b>Written here rather than taken from a package.</b> The rules are small, the site commits to
-/// nine locales, and this file is checkable against the CLDR chart in an afternoon. The same
-/// argument the stylesheet makes about utility frameworks: a dependency would bury the discipline
-/// that makes it work.
+/// <b>The whole of MessageFormat 1.0.</b> Simple arguments, <c>number</c>, <c>date</c> and
+/// <c>time</c> with styles and skeletons, <c>plural</c> and <c>selectordinal</c> with <c>offset:</c>
+/// and <c>=value</c> matches, <c>select</c>, arbitrary nesting, and ICU's apostrophe quoting in its
+/// default mode. See <see cref="MessagePattern"/> for the parse and for why <c>choice</c> is refused
+/// and MessageFormat 2.0 is not yet the target.
 /// </para>
 /// <para>
-/// <b>What it is for.</b> Not tidiness — <c>545 on</c>, <c>23 games</c> and
-/// <c>7 days measured · 168 probes</c> each glue a number to an English fragment in English word
-/// order, and there is nowhere in that for a translator to intervene without editing markup. One
-/// message per fact, the count as a named argument, and the plural clause written out in full is
-/// what gives them somewhere to stand.
+/// <b>Patterns are parsed once.</b> A message is rendered on every request that draws the surface it
+/// belongs to — the facet panel alone renders forty of them per page — and re-parsing a string that
+/// has not changed since startup is work nobody asked for. The cache is keyed on the pattern text
+/// because that is the only thing the parse depends on; the locale is applied at format time.
 /// </para>
 /// </remarks>
 public static class IcuMessage
 {
+    private static readonly ConcurrentDictionary<string, MessagePattern> Parsed = new(StringComparer.Ordinal);
+
+    private static readonly IReadOnlyDictionary<string, object?> NoArguments =
+        new Dictionary<string, object?>(StringComparer.Ordinal);
+
     /// <summary>Renders <paramref name="pattern"/> for <paramref name="tag"/>.</summary>
-    /// <exception cref="FormatException">The pattern is malformed or uses unimplemented syntax.</exception>
+    /// <exception cref="FormatException">The pattern is malformed, or an argument is missing.</exception>
     public static string Format(
         string pattern,
         string tag,
@@ -42,333 +47,270 @@ public static class IcuMessage
         ArgumentNullException.ThrowIfNull(tag);
 
         var b = new StringBuilder(pattern.Length);
-        var at = 0;
 
-        Render(pattern, ref at, tag, arguments ?? EmptyArguments, b, plural: null, stop: '\0');
+        Render(Compile(pattern), tag, arguments ?? NoArguments, b, hash: null);
 
         return b.ToString();
     }
 
-    private static readonly Dictionary<string, object?> EmptyArguments = [];
+    /// <summary>The parsed form of a pattern, from the cache or freshly parsed.</summary>
+    public static MessagePattern Compile(string pattern)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
 
-    /// <summary>
-    /// Renders until <paramref name="stop"/> or the end, appending into <paramref name="b"/>.
-    /// </summary>
-    /// <param name="plural">
-    /// The number a bare <c>#</c> stands for, or null outside a plural branch — where <c>#</c> is a
-    /// literal, exactly as ICU says it is.
-    /// </param>
+        return Parsed.GetOrAdd(pattern, MessagePattern.Parse);
+    }
+
     private static void Render(
-        string s,
-        ref int at,
+        MessagePattern message,
         string tag,
         IReadOnlyDictionary<string, object?> args,
         StringBuilder b,
-        int? plural,
-        char stop)
+        string? hash)
     {
-        while (at < s.Length)
+        foreach (var part in message.Parts)
         {
-            var c = s[at];
-
-            if (c == stop)
+            switch (part)
             {
-                return;
+                case LiteralPart literal:
+                    b.Append(literal.Text);
+                    break;
+
+                case HashPart:
+                    // Outside a plural branch the parser never produces one of these, so a `#` that
+                    // reaches here always has a number behind it.
+                    b.Append(hash);
+                    break;
+
+                case ArgumentPart argument:
+                    Argument(argument, tag, args, b, hash);
+                    break;
             }
-
-            switch (c)
-            {
-                case '{':
-                    at++;
-                    Argument(s, ref at, tag, args, b, plural);
-                    continue;
-
-                case '#' when plural is { } n:
-                    b.Append(n.ToString(CultureInfo.InvariantCulture));
-                    at++;
-                    continue;
-
-                default:
-                    b.Append(c);
-                    at++;
-                    continue;
-            }
-        }
-
-        if (stop != '\0')
-        {
-            throw new FormatException($"Unclosed '{stop}' in message: {s}");
         }
     }
 
-    /// <summary>One <c>{...}</c>, with <c>at</c> just past the opening brace.</summary>
     private static void Argument(
-        string s,
-        ref int at,
+        ArgumentPart argument,
         string tag,
         IReadOnlyDictionary<string, object?> args,
         StringBuilder b,
-        int? plural)
+        string? hash)
     {
-        var name = Word(s, ref at);
+        var culture = Culture(tag);
 
-        Skip(s, ref at);
-
-        // {value} — the whole of it.
-        if (Take(s, ref at, '}'))
+        if (!args.TryGetValue(argument.Name, out var value))
         {
-            b.Append(Lookup(args, name, s));
-            return;
+            throw new FormatException($"No argument named '{argument.Name}' was supplied.");
         }
 
-        if (!Take(s, ref at, ','))
+        switch (argument.Kind)
         {
-            throw new FormatException($"Expected ',' or '}}' after '{name}' in: {s}");
-        }
-
-        Skip(s, ref at);
-
-        var kind = Word(s, ref at);
-
-        Skip(s, ref at);
-
-        if (!Take(s, ref at, ','))
-        {
-            throw new FormatException($"Expected ',' after '{kind}' in: {s}");
-        }
-
-        switch (kind)
-        {
-            case "plural":
-                Plural(s, ref at, tag, args, b, name);
+            case ArgumentKind.None:
+                b.Append(Convert.ToString(value, culture));
                 return;
 
-            case "select":
-                Select(s, ref at, tag, args, b, name, plural);
+            case ArgumentKind.Number:
+                b.Append(Number(value, argument.Style, culture));
                 return;
 
-            default:
-                // Better a build that stops than a string that is quietly wrong. See the class
-                // remarks: the subset is the point.
-                throw new FormatException(
-                    $"'{kind}' is not implemented — this formatter carries plural and select only: {s}");
+            case ArgumentKind.Date:
+            case ArgumentKind.Time:
+                b.Append(Temporal(value, argument.Kind, argument.Style, culture));
+                return;
+
+            case ArgumentKind.Plural:
+            case ArgumentKind.SelectOrdinal:
+                Plural(argument, tag, args, b, value, culture);
+                return;
+
+            case ArgumentKind.Select:
+                var chosen = Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
+
+                Render(
+                    argument.Branches.GetValueOrDefault(chosen) ?? argument.Branches["other"],
+                    tag, args, b, hash);
+                return;
         }
     }
 
     private static void Plural(
-        string s,
-        ref int at,
+        ArgumentPart argument,
         string tag,
         IReadOnlyDictionary<string, object?> args,
         StringBuilder b,
-        string name)
+        object? value,
+        CultureInfo culture)
     {
-        var value = Lookup(args, name, s);
+        var operands = Operands(argument.Name, value);
+        var kind = argument.Kind is ArgumentKind.SelectOrdinal
+            ? PluralKind.Ordinal
+            : PluralKind.Cardinal;
 
-        if (value is not int count)
+        // An `=value` match is tested against the number as written, before the offset — ICU says
+        // so, and it is what lets "=0 {nobody}" work in a message that also subtracts one.
+        var exact = "=" + operands.Format(CultureInfo.InvariantCulture);
+
+        if (argument.Branches.TryGetValue(exact, out var matched))
         {
-            throw new FormatException($"'{name}' is a plural argument and must be an int: {s}");
+            Render(matched, tag, args, b, operands.Format(culture));
+            return;
         }
 
-        var wanted = PluralRules.Keyword(PluralRules.Of(tag, count));
-        var branches = Branches(s, ref at);
+        // The category, and `#`, are both taken from the offset-adjusted number. "{n, plural,
+        // offset:1 other {and # others}}" over three people is "and 2 others".
+        var adjusted = Offset(operands, argument.Offset);
+        var keyword = PluralRules.Keyword(PluralRules.Of(tag, adjusted, kind));
 
-        // `=0` and friends win over a category, which is what lets a message say "no games" for
-        // nothing and "1 game" for one without inventing a category CLDR does not have.
-        var body = branches.GetValueOrDefault($"={count}")
-            ?? branches.GetValueOrDefault(wanted)
-            ?? branches.GetValueOrDefault("other")
-            ?? throw new FormatException($"'{name}' has no '{wanted}' branch and no 'other': {s}");
+        var branch = argument.Branches.GetValueOrDefault(keyword) ?? argument.Branches["other"];
 
-        var inner = 0;
-        Render(body, ref inner, tag, args, b, count, '\0');
+        Render(branch, tag, args, b, adjusted.Format(culture));
     }
 
-    private static void Select(
-        string s,
-        ref int at,
-        string tag,
-        IReadOnlyDictionary<string, object?> args,
-        StringBuilder b,
-        string name,
-        int? plural)
+    private static PluralOperands Offset(PluralOperands operands, long offset) =>
+        offset == 0 ? operands : PluralOperands.Of(operands.N - offset, operands.V);
+
+    /// <summary>The operands of whatever a caller passed, or a refusal naming the argument.</summary>
+    private static PluralOperands Operands(string name, object? value) => value switch
     {
-        var chosen = Convert.ToString(Lookup(args, name, s), CultureInfo.InvariantCulture) ?? string.Empty;
-        var branches = Branches(s, ref at);
+        int i => PluralOperands.Of(i),
+        long l => PluralOperands.Of(l),
+        short s => PluralOperands.Of(s),
+        byte by => PluralOperands.Of(by),
+        decimal d => PluralOperands.Of(d),
+        double db => PluralOperands.Of((decimal)db),
+        float f => PluralOperands.Of((decimal)f),
+        PluralOperands o => o,
+        null => throw new FormatException($"'{name}' is a plural argument and was null."),
+        _ => throw new FormatException(
+            $"'{name}' is a plural argument and must be a number, not {value.GetType().Name}."),
+    };
 
-        var body = branches.GetValueOrDefault(chosen)
-            ?? branches.GetValueOrDefault("other")
-            ?? throw new FormatException($"'{name}' has no '{chosen}' branch and no 'other': {s}");
-
-        var inner = 0;
-        Render(body, ref inner, tag, args, b, plural, '\0');
-    }
-
-    /// <summary>Reads <c>key {body}</c> pairs up to the closing brace of the argument.</summary>
-    private static Dictionary<string, string> Branches(string s, ref int at)
+    /// <summary>
+    /// <c>{n, number, style}</c>, with ICU's named styles and its <c>::</c> skeletons.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nothing on this site calls it, and it is here anyway.</b> Counts, versions and ages are
+    /// machine output and stay in Western digits in every locale — Arabic-Indic digits have no
+    /// tabular figures in most faces, so a localized count column loses the alignment that is the
+    /// only reason it is a column. What this covers is prose: a percentage inside a sentence is a
+    /// number a reader reads rather than scans, and that one localizes.
+    /// </remarks>
+    private static string Number(object? value, string? style, CultureInfo culture)
     {
-        var branches = new Dictionary<string, string>(StringComparer.Ordinal);
+        var number = Convert.ToDecimal(value, CultureInfo.InvariantCulture);
 
-        while (true)
+        if (style is { Length: > 0 } && style.StartsWith("::", StringComparison.Ordinal))
         {
-            Skip(s, ref at);
-
-            if (at >= s.Length)
-            {
-                throw new FormatException($"Unclosed branch list in: {s}");
-            }
-
-            if (Take(s, ref at, '}'))
-            {
-                return branches;
-            }
-
-            var key = Word(s, ref at);
-
-            Skip(s, ref at);
-
-            if (!Take(s, ref at, '{'))
-            {
-                throw new FormatException($"Expected '{{' after branch '{key}' in: {s}");
-            }
-
-            branches[key] = Balanced(s, ref at);
+            return Skeleton(number, style[2..].Trim(), culture);
         }
+
+        return style switch
+        {
+            null or "" => number.ToString("#,##0.###", culture),
+            "integer" => Math.Round(number, MidpointRounding.ToEven).ToString("#,##0", culture),
+            // Built rather than "P0": .NET's percent pattern inserts a space before the sign in
+            // several cultures and ICU's does not, so the two disagree on en for no reason a
+            // message author could predict.
+            "percent" => (number * 100m).ToString("#,##0.###", culture) + culture.NumberFormat.PercentSymbol,
+            "currency" => number.ToString("C", culture),
+
+            // Anything else is a .NET format string, which is what ICU does with an unrecognised
+            // style too: it hands it to the underlying number formatter.
+            _ => number.ToString(style, culture),
+        };
+    }
+
+    /// <summary>The handful of number skeletons that mean anything without a full ICU behind them.</summary>
+    private static string Skeleton(decimal number, string skeleton, CultureInfo culture)
+    {
+        var parts = skeleton.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var format = "#,##0.###";
+        var percent = false;
+
+        foreach (var token in parts)
+        {
+            if (token is "percent")
+            {
+                percent = true;
+                continue;
+            }
+
+            // .00 / .0 / .### — the fraction-precision stem, which is the one anybody writes.
+            if (token.StartsWith('.'))
+            {
+                format = "#,##0" + token;
+                continue;
+            }
+
+            if (token is "group-off")
+            {
+                format = format.Replace("#,##0", "0", StringComparison.Ordinal);
+            }
+        }
+
+        var rendered = (percent ? number * 100m : number).ToString(format, culture);
+
+        return percent ? rendered + culture.NumberFormat.PercentSymbol : rendered;
     }
 
     /// <summary>
-    /// The text of one branch, with <c>at</c> just past its opening brace.
+    /// <c>{d, date, style}</c> and <c>{d, time, style}</c>.
     /// </summary>
     /// <remarks>
-    /// Counted rather than scanned to the first <c>}</c>, because a branch legitimately contains
-    /// nested arguments — <c>other {# games, {state}}</c> — and stopping at the first closing brace
-    /// would cut the branch in half and leave the parser reading the remainder as a key.
+    /// <b>Also uncalled, and also deliberate.</b> Every date this site prints goes through
+    /// <see cref="Components.Dates"/>, which states UTC explicitly and uses an abbreviated month
+    /// name rather than a numeric one — <c>08/17</c> means two different days on two continents.
+    /// This exists so a message <em>can</em> carry a date without the formatter refusing the
+    /// pattern, which is the difference between supporting the grammar and supporting the half of
+    /// it we happen to use.
     /// </remarks>
-    private static string Balanced(string s, ref int at)
+    private static string Temporal(object? value, ArgumentKind kind, string? style, CultureInfo culture)
     {
-        var start = at;
-        var depth = 1;
-
-        while (at < s.Length)
+        var when = value switch
         {
-            if (s[at] == '{') { depth++; }
-            else if (s[at] == '}' && --depth == 0) { return s[start..at++]; }
+            DateTimeOffset offset => offset,
+            DateTime dt => new DateTimeOffset(dt),
+            _ => throw new FormatException($"A {kind} argument must be a date, not {value?.GetType().Name ?? "null"}."),
+        };
 
-            at++;
+        var date = kind is ArgumentKind.Date;
+
+        if (style is { Length: > 0 } && style.StartsWith("::", StringComparison.Ordinal))
+        {
+            // A date skeleton names the fields it wants; .NET has no skeleton engine, so the
+            // closest honest thing is the culture's own long or short pattern.
+            style = style.Contains('y', StringComparison.Ordinal) ? "long" : "short";
         }
 
-        throw new FormatException($"Unclosed branch in: {s}");
+        return style switch
+        {
+            null or "" or "medium" => when.ToString(date ? "d MMM yyyy" : "HH:mm:ss", culture),
+            "short" => when.ToString(date ? "d" : "t", culture),
+            "long" => when.ToString(date ? "D" : "T", culture),
+            "full" => when.ToString(date ? "D" : "T", culture),
+            _ => when.ToString(style, culture),
+        };
     }
 
-    private static object? Lookup(IReadOnlyDictionary<string, object?> args, string name, string s) =>
-        args.TryGetValue(name, out var value)
-            ? value
-            : throw new FormatException($"No argument named '{name}' for: {s}");
-
-    private static string Word(string s, ref int at)
-    {
-        Skip(s, ref at);
-
-        var start = at;
-
-        while (at < s.Length && (char.IsLetterOrDigit(s[at]) || s[at] is '_' or '.' or '=' or '-'))
-        {
-            at++;
-        }
-
-        if (at == start)
-        {
-            throw new FormatException($"Expected a name at {start} in: {s}");
-        }
-
-        return s[start..at];
-    }
-
-    private static void Skip(string s, ref int at)
-    {
-        while (at < s.Length && char.IsWhiteSpace(s[at]))
-        {
-            at++;
-        }
-    }
-
-    private static bool Take(string s, ref int at, char c)
-    {
-        Skip(s, ref at);
-
-        if (at < s.Length && s[at] == c)
-        {
-            at++;
-            return true;
-        }
-
-        return false;
-    }
+    private static readonly ConcurrentDictionary<string, CultureInfo> Cultures = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Every plural argument in a pattern, and the branch keywords it declares.
+    /// The culture a tag names, or the invariant one where .NET has never heard of it.
     /// </summary>
     /// <remarks>
-    /// Read by the completeness check rather than by rendering. It is a scan and not a parse on
-    /// purpose: it has to answer for a message in <em>any</em> locale's bundle, including one whose
-    /// branches are wrong, and a parser that threw on the malformed case could not report it.
+    /// <c>qps-ploc</c> and <c>ru-x-canary</c> are ours rather than anybody's, and asking .NET for
+    /// them raises. The invariant culture is the right answer for both: neither is a language, and
+    /// what they exercise is the message machinery rather than a number format.
     /// </remarks>
-    public static IReadOnlyDictionary<string, IReadOnlyList<string>> PluralBranches(string pattern)
+    private static CultureInfo Culture(string tag) => Cultures.GetOrAdd(tag, static t =>
     {
-        ArgumentNullException.ThrowIfNull(pattern);
-
-        var found = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
-        var at = 0;
-
-        while ((at = pattern.IndexOf(", plural,", at, StringComparison.Ordinal)) >= 0)
+        try
         {
-            var open = pattern.LastIndexOf('{', at);
-
-            if (open < 0)
-            {
-                break;
-            }
-
-            var nameAt = open + 1;
-            var name = Word(pattern, ref nameAt);
-
-            at += ", plural,".Length;
-
-            var keys = new List<string>();
-            var scan = at;
-            var depth = 1;
-
-            while (scan < pattern.Length && depth > 0)
-            {
-                var c = pattern[scan];
-
-                if (c == '{')
-                {
-                    depth++;
-
-                    // The key is the word immediately before this brace.
-                    var back = scan - 1;
-                    while (back >= 0 && char.IsWhiteSpace(pattern[back])) { back--; }
-
-                    var end = back + 1;
-                    while (back >= 0 && (char.IsLetterOrDigit(pattern[back]) || pattern[back] is '=' or '_')) { back--; }
-
-                    if (depth == 2 && end > back + 1)
-                    {
-                        keys.Add(pattern[(back + 1)..end]);
-                    }
-                }
-                else if (c == '}')
-                {
-                    depth--;
-                }
-
-                scan++;
-            }
-
-            found[name] = keys;
+            return CultureInfo.GetCultureInfo(t);
         }
-
-        return found;
-    }
+        catch (CultureNotFoundException)
+        {
+            return CultureInfo.InvariantCulture;
+        }
+    });
 }

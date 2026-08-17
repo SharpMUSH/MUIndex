@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    The chrome's strings, in ICU MessageFormat.
+
+    resx because that is what .NET, every translation-management tool and every translator already
+    understand: the SDK compiles a Messages.<culture>.resx into a satellite assembly on its own, and
+    a translator receives a file their software opens rather than a C# dictionary they must not
+    break. The values are ICU patterns rather than composite-format strings, because {0} cannot
+    express agreement — see MessagePattern.
+
+    A locked id may only be changed by a maintainer. Glossary.cs says which, and why for each.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="facet.count" xml:space="preserve">
+    <value>{count, plural, one {# game} other {# games}}</value>
+    <comment>counts, which is where the concatenations were</comment>
+  </data>
+  <data name="facet.value.include" xml:space="preserve">
+    <value>{value}, {count, plural, one {# game} other {# games}}, only</value>
+    <comment>counts, which is where the concatenations were</comment>
+  </data>
+  <data name="facet.value.exclude" xml:space="preserve">
+    <value>{value}, {count, plural, one {# game} other {# games}}, excluded</value>
+    <comment>counts, which is where the concatenations were</comment>
+  </data>
+  <data name="facet.value.choose" xml:space="preserve">
+    <value>{value}, {count, plural, one {# game} other {# games}}</value>
+    <comment>counts, which is where the concatenations were</comment>
+  </data>
+  <data name="facet.any" xml:space="preserve">
+    <value>any {facet}, {count, plural, one {# game} other {# games}}</value>
+    <comment>counts, which is where the concatenations were</comment>
+  </data>
+  <data name="listing.total" xml:space="preserve">
+    <value>{count, plural, =0 {No games} one {# game} other {# games}}, every fact measured.</value>
+    <comment>counts, which is where the concatenations were</comment>
+  </data>
+  <data name="chart.basis" xml:space="preserve">
+    <value>{days, plural, one {# day} other {# days}} measured · {probes, plural, one {# probe} other {# probes}}</value>
+    <comment>counts, which is where the concatenations were</comment>
+  </data>
+  <data name="window.samples" xml:space="preserve">
+    <value>{days}d · {count, plural, one {# count} other {# counts}}</value>
+    <comment>counts, which is where the concatenations were</comment>
+  </data>
+  <data name="capabilities.agree" xml:space="preserve">
+    <value>{disagreeing, plural, =0 {None of the {total} disagree.} one {# of {total} disagrees with what the game declares.} other {# of {total} disagree with what the game declares.}}</value>
+    <comment>counts, which is where the concatenations were</comment>
+  </data>
+  <data name="provenance.count.measured" xml:space="preserve">
+    <value>measured</value>
+    <comment>the locked provenance words, one id per context</comment>
+  </data>
+  <data name="provenance.game.measured" xml:space="preserve">
+    <value>measured</value>
+    <comment>the locked provenance words, one id per context</comment>
+  </data>
+  <data name="provenance.capability.measured" xml:space="preserve">
+    <value>measured</value>
+    <comment>the locked provenance words, one id per context</comment>
+  </data>
+  <data name="provenance.screen.measured" xml:space="preserve">
+    <value>measured</value>
+    <comment>the locked provenance words, one id per context</comment>
+  </data>
+  <data name="kicker.measured" xml:space="preserve">
+    <value>measured</value>
+    <comment>the locked provenance words, one id per context</comment>
+  </data>
+  <data name="provenance.count.declared" xml:space="preserve">
+    <value>declared</value>
+    <comment>the locked provenance words, one id per context</comment>
+  </data>
+  <data name="provenance.game.declared" xml:space="preserve">
+    <value>declared</value>
+    <comment>the locked provenance words, one id per context</comment>
+  </data>
+  <data name="provenance.capability.declared" xml:space="preserve">
+    <value>declared</value>
+    <comment>the locked provenance words, one id per context</comment>
+  </data>
+  <data name="kicker.declared" xml:space="preserve">
+    <value>declared</value>
+    <comment>the locked provenance words, one id per context</comment>
+  </data>
+  <data name="provenance.derived" xml:space="preserve">
+    <value>derived</value>
+    <comment>the locked provenance words, one id per context</comment>
+  </data>
+  <data name="kicker.derived" xml:space="preserve">
+    <value>derived</value>
+    <comment>the locked provenance words, one id per context</comment>
+  </data>
+  <data name="state.notMeasured" xml:space="preserve">
+    <value>not measured</value>
+    <comment>the four kinds of absence</comment>
+  </data>
+  <data name="state.uncounted" xml:space="preserve">
+    <value>uncounted</value>
+    <comment>the four kinds of absence</comment>
+  </data>
+  <data name="state.unreachable" xml:space="preserve">
+    <value>unreachable</value>
+    <comment>the four kinds of absence</comment>
+  </data>
+  <data name="state.notCounted" xml:space="preserve">
+    <value>not counted</value>
+    <comment>the four kinds of absence</comment>
+  </data>
+  <data name="term.connected" xml:space="preserve">
+    <value>connected</value>
+    <comment>the words the product rests on</comment>
+  </data>
+  <data name="term.unclaimed" xml:space="preserve">
+    <value>unclaimed</value>
+    <comment>the words the product rests on</comment>
+  </data>
+  <data name="term.claimedByOwner" xml:space="preserve">
+    <value>claimed by its owner</value>
+    <comment>the words the product rests on</comment>
+  </data>
+  <data name="term.stillProbed" xml:space="preserve">
+    <value>still probed</value>
+    <comment>the words the product rests on</comment>
+  </data>
+  <data name="term.typical" xml:space="preserve">
+    <value>typical</value>
+    <comment>the words the product rests on</comment>
+  </data>
+  <data name="term.peak" xml:space="preserve">
+    <value>peak</value>
+    <comment>the words the product rests on</comment>
+  </data>
+  <data name="a11y.readAsText" xml:space="preserve">
+    <value>read as text</value>
+    <comment>the accessibility promises</comment>
+  </data>
+  <data name="a11y.plainText" xml:space="preserve">
+    <value>plain text</value>
+    <comment>the accessibility promises</comment>
+  </data>
+  <data name="a11y.skipToContent" xml:space="preserve">
+    <value>skip to content</value>
+    <comment>the accessibility promises</comment>
+  </data>
+  <data name="a11y.asciiBanner" xml:space="preserve">
+    <value>ASCII banner: the connect screen of {game}.</value>
+    <comment>the accessibility promises</comment>
+  </data>
+  <data name="locale.label" xml:space="preserve">
+    <value>language</value>
+    <comment>the switcher's own chrome, which has to read in the locale being left</comment>
+  </data>
+  <data name="locale.submit" xml:space="preserve">
+    <value>change language</value>
+    <comment>the switcher's own chrome, which has to read in the locale being left</comment>
+  </data>
+</root>
