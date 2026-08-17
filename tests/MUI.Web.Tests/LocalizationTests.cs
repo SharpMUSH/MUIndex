@@ -358,6 +358,94 @@ public class LocalizationTests
         await Assert.That(markup).Contains($"<html lang=\"{expected}\"");
     }
 
+    /// <summary>
+    /// A locale is a property of a document, so nothing else is ever moved to reach one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The locale was a one-way door, and the switcher out of it was the thing it shut.</b> The
+    /// middleware answered any unprefixed request from a reader with <c>mui_locale=de</c> with a
+    /// redirect to <c>/de/...</c> — including a POST. A browser follows a 302 as a GET and drops the
+    /// body, and <c>/de/theme</c> is served by nothing, so a German reader could not change the
+    /// theme; <c>POST /locale</c> went the same way, so they could not change the language back
+    /// either. Every control on this site is a form, which is what made one redirect reach all of
+    /// them.
+    /// </para>
+    /// <para>
+    /// The API and the crawler's own files are excluded for a different reason: they are not
+    /// documents in a language. <c>/api/…</c> answers the same JSON to everybody and
+    /// <c>robots.txt</c> has one canonical address, which is where a crawler looks for it.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AChoiceOfLocaleNeverMovesARequestThatIsNotADocument()
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        // The theme is written, rather than the request being bounced to a URL nothing serves.
+        var theme = new HttpRequestMessage(HttpMethod.Post, "/theme")
+        {
+            Content = new FormUrlEncodedContent([
+                new KeyValuePair<string, string>("theme", "light"),
+                new KeyValuePair<string, string>("return", "/games"),
+            ]),
+        };
+        theme.Headers.Add("Cookie", $"{Locales.CookieName}=de");
+
+        var themed = await site.Client.SendAsync(theme);
+
+        await Assert.That(themed.Headers.TryGetValues("Set-Cookie", out var themeCookies)).IsTrue();
+        await Assert.That(string.Join(' ', themeCookies!)).Contains("mui_theme=light");
+
+        // And the way out of German is still open from inside German.
+        var switched = new HttpRequestMessage(HttpMethod.Post, Locales.Path)
+        {
+            Content = new FormUrlEncodedContent([
+                new KeyValuePair<string, string>(Locales.Field, "nl"),
+                new KeyValuePair<string, string>(Locales.ReturnField, "/games"),
+            ]),
+        };
+        switched.Headers.Add("Cookie", $"{Locales.CookieName}=de");
+
+        var moved = await site.Client.SendAsync(switched);
+
+        await Assert.That(moved.Headers.TryGetValues("Set-Cookie", out var localeCookies)).IsTrue();
+        await Assert.That(string.Join(' ', localeCookies!)).Contains($"{Locales.CookieName}=nl");
+        await Assert.That(moved.Headers.Location?.OriginalString).IsEqualTo("/nl/games");
+    }
+
+    /// <summary>A document still follows the reader's choice, which is the rule the guard protects.</summary>
+    [Test]
+    public async Task AChoiceOfLocaleStillMovesADocument()
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var asked = new HttpRequestMessage(HttpMethod.Get, "/games");
+        asked.Headers.Add("Cookie", $"{Locales.CookieName}=de");
+
+        var answered = await site.Client.SendAsync(asked);
+
+        await Assert.That((int)answered.StatusCode).IsEqualTo(302);
+        await Assert.That(answered.Headers.Location?.OriginalString).IsEqualTo("/de/games");
+    }
+
+    /// <summary>The read API and the crawler's files have one address each, in every language.</summary>
+    [Test]
+    [Arguments("/api/games")]
+    [Arguments("/robots.txt")]
+    [Arguments("/sitemap.xml")]
+    public async Task AFileThatIsTheSameInEveryLanguageIsNotGivenALocalePrefix(string path)
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var asked = new HttpRequestMessage(HttpMethod.Get, path);
+        asked.Headers.Add("Cookie", $"{Locales.CookieName}=de");
+
+        var answered = await site.Client.SendAsync(asked);
+
+        await Assert.That((int)answered.StatusCode).IsNotEqualTo(302);
+    }
+
     [Test]
     public async Task TheAlternatesNameEveryOfferedLocaleAndAnXDefault()
     {

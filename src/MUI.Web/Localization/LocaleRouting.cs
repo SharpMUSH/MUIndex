@@ -67,10 +67,21 @@ public static class LocaleRouting
             if (Locales.Find(segment) is { } named)
             {
                 // The canonical English address carries no prefix, so /en/... is a second URL for a
-                // document that already has one. Permanent, because it always was one.
+                // document that already has one. Permanent, because it always was one — but only for
+                // a request a redirect can carry. A 301 answering a POST is followed as a GET with
+                // the body dropped, so /en/theme would lose the theme it was posted.
                 if (named.Tag == Locales.SourceTag)
                 {
-                    context.Response.Redirect(Rest(path) + context.Request.QueryString, permanent: true);
+                    if (Redirectable(context.Request))
+                    {
+                        context.Response.Redirect(Rest(path) + context.Request.QueryString, permanent: true);
+                        return;
+                    }
+
+                    context.Items[ItemKey] = LocaleContext.Default;
+                    context.Request.Path = Rest(path);
+
+                    await next(context);
                     return;
                 }
 
@@ -85,8 +96,18 @@ public static class LocaleRouting
                 return;
             }
 
-            // No prefix. A reader who has chosen is sent to their choice; a reader who has not is
-            // offered one exactly once, off the header their browser sends.
+            // No prefix, and nothing here may move this request. A locale is a property of a
+            // document, so only a request for a document is worth relocating.
+            if (!Redirectable(context.Request))
+            {
+                context.Items[ItemKey] = Remembered(context) ?? LocaleContext.Default;
+
+                await next(context);
+                return;
+            }
+
+            // A reader who has chosen is sent to their choice; a reader who has not is offered one
+            // exactly once, off the header their browser sends.
             var remembered = Locales.Find(context.Request.Cookies[Locales.CookieName]);
 
             if (remembered is { IsChoosable: true } && remembered.Tag != Locales.SourceTag)
@@ -106,6 +127,45 @@ public static class LocaleRouting
             await next(context);
         });
     }
+
+    /// <summary>
+    /// Whether this request is one a locale redirect may move.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The locale was a one-way door, and the switcher out of it was the thing it shut.</b> A 302
+    /// answering a POST is followed as a GET with the body discarded, and every control on this site
+    /// is a form: with <c>mui_locale=de</c> set, <c>POST /theme</c> was answered with a redirect to
+    /// <c>/de/theme</c>, which no endpoint serves, so a German reader could not change the theme —
+    /// and <c>POST /locale</c> went the same way, so they could not change the language back either.
+    /// </para>
+    /// <para>
+    /// The API and the crawler's own files are excluded for a different reason. They are not
+    /// documents in a language: <c>/api/games</c> answers the same JSON to every reader — it is
+    /// pinned to the source locale by name — and <c>robots.txt</c> and <c>sitemap.xml</c> have one
+    /// canonical address each, which is where a crawler looks and where the sitemap says they are.
+    /// Bouncing them through a prefix cost a round trip and published a second URL for a file that
+    /// is supposed to have exactly one.
+    /// </para>
+    /// </remarks>
+    private static bool Redirectable(HttpRequest request) =>
+        (HttpMethods.IsGet(request.Method) || HttpMethods.IsHead(request.Method))
+        && !IsUnlocalized(request.Path);
+
+    /// <summary>The paths that are the same in every language, so a prefix says nothing about them.</summary>
+    private static bool IsUnlocalized(PathString path) =>
+        path.StartsWithSegments(Api.ApiRoutes.Base, StringComparison.OrdinalIgnoreCase)
+        || path.Equals("/robots.txt", StringComparison.OrdinalIgnoreCase)
+        || path.Equals("/sitemap.xml", StringComparison.OrdinalIgnoreCase)
+        || path.Equals("/favicon.ico", StringComparison.OrdinalIgnoreCase)
+        || path.Equals("/favicon.svg", StringComparison.OrdinalIgnoreCase)
+        || path.Equals("/site.webmanifest", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The locale a reader has already chosen, where they have chosen one.</summary>
+    private static LocaleContext? Remembered(HttpContext context) =>
+        Locales.Find(context.Request.Cookies[Locales.CookieName]) is { IsChoosable: true } chosen
+            ? new LocaleContext(chosen, FromPath: false)
+            : null;
 
     /// <summary>The switcher's endpoint: remember a choice, and go back to the same page in it.</summary>
     public static IEndpointRouteBuilder MapMuiLocale(this IEndpointRouteBuilder endpoints)
