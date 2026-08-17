@@ -37,16 +37,18 @@ public class GamePlateTests
     }
 
     [Test]
-    public async Task EveryRowHasAPlateAndNoneOfThemPointsOffThisOrigin()
+    public async Task NoRowDrawsAPlateAndNoIconPointsOffThisOrigin()
     {
-        // The fixture holds no icon bytes, so every row is the monogram — which is exactly the state
-        // a deployment with an empty cache renders, and it has to be a plate rather than a hole.
+        // The handoff's listing row is identity, measurement and freshness and nothing else: a 36px
+        // square per row is a fourth column of furniture down a list five hundred long, and the face
+        // a game published is on its own page at a size that shows it. The component is unchanged
+        // and the game page still draws it.
         var html = await Render.PageAsync<Games>([]);
         var rows = html.Split("class=\"game-row").Length - 1;
         var plates = html.Split("class=\"plate").Length - 1;
 
         await Assert.That(rows).IsGreaterThan(0);
-        await Assert.That(plates).IsEqualTo(rows);
+        await Assert.That(plates).IsEqualTo(0);
 
         // §11. An icon is served from this origin or not at all: every src is the site's own route.
         foreach (var src in html.Split("<img").Skip(1))
@@ -61,7 +63,7 @@ public class GamePlateTests
         // The one thing the plate may not do. A placeholder, a broken image or a "logo unavailable"
         // would publish our failed fetch as a fact about somebody's game (rule 5) — and the second
         // and third of those states are indistinguishable from the first anywhere in the markup.
-        var html = await Render.PageAsync<Games>([]);
+        var html = await Render.PageAsync<Game>(new() { ["Slug"] = "m-u-s-h" });
 
         await Assert.That(html).DoesNotContain("no icon");
         await Assert.That(html).DoesNotContain("icon unavailable");
@@ -101,12 +103,12 @@ public class GamePlateTests
     public async Task TheGamePageAndTheListingDrawOneVocabularyAtTwoSizes()
     {
         // Two spellings of "the first letters of the name" is how a game comes to be MU on one page
-        // and M* on the next. Both surfaces render the same component.
+        // and M* on the next, so the monogram has one implementation — on the page that draws it.
         var page = await Render.PageAsync<Game>(new() { ["Slug"] = "m-u-s-h" });
         var listing = await Render.PageAsync<Games>([]);
 
         await Assert.That(page).Contains("class=\"plate mono\"");
         await Assert.That(Render.Words(page)).Contains(Monogram.Of("M*U*S*H"));
-        await Assert.That(listing).Contains("class=\"plate mono\"");
+        await Assert.That(listing).DoesNotContain("class=\"plate");
     }
 }

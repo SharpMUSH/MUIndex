@@ -794,11 +794,13 @@ ul.games > li.game-row { min-height: 46px; padding: var(--row-pad) var(--cpad); 
    five-hundred-row list a left edge the eye can run down — before it, every row began with a
    different-length name and the only way to find a game was to read them. `start` rather than
    `baseline` because a 36px box has no baseline worth aligning a name to. */
+/* Two zones on the row and a third under them: identity on the left, measurement on the right, and
+   the meta line spanning beneath the name. The handoff's geometry exactly. */
 .row-main {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 3px 20px;
-    align-items: start;
+    align-items: baseline;
 }
 
 /* The row's own plate. Same recessed square, same border, same monogram treatment as the game
@@ -1365,6 +1367,15 @@ select {
 
 /* Said once, under the groups it applies to. */
 .facet-hint { margin: 12px 0 0; font-size: 11.5px; color: var(--faint); }
+
+/* The facets a reader goes looking for, rather than the three they arrive with. */
+.facet-more-groups { margin-top: var(--cpad); border-top: 1px solid var(--line); padding-top: 10px; }
+.facet-more-groups > summary {
+    cursor: pointer; font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--faint); padding: 4px 0;
+}
+.facet-more-groups > summary:hover { color: var(--text); }
+.facet-more-groups .facet-grid { margin-top: 10px; }
 
 /* ── the presence facet ──────────────────────────────────────────────────── */
 

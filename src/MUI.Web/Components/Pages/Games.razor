@@ -108,14 +108,12 @@ else
                 <li class="game-row @(g.State is LifecycleState.Archived ? "archived" : null)">
                     <div class="row-main">
                         @*
-                            The game's own face where it published one, and its monogram otherwise —
-                            drawn identically for a game that declared no icon and one whose web
-                            server we could not reach, because only the first of those is a fact
-                            about the game. It is the row's left edge either way, which is what makes
-                            five hundred rows scannable by shape rather than only by reading them.
+                            No plate on a row. The handoff's listing is identity, measurement and
+                            freshness and nothing else — a 36px square per row is a fourth column of
+                            furniture down a list five hundred long, and the face a game published
+                            is on its own page at the size that shows it. It stays in GamePlate,
+                            which the game page draws.
                         *@
-                        <GamePlate Slug="@g.Slug" Name="@g.Name" HasIcon="g.HasIcon" />
-
                         <div class="row-text">
                             <p class="row-head">
                                 <a class="name" href="/g/@g.Slug">@g.Name</a>
@@ -136,11 +134,6 @@ else
                                     <span class="badge claimed">claimed</span>
                                 }
                             </p>
-
-                            @if (g.Tagline is { } t)
-                            {
-                                <p class="tagline">@t</p>
-                            }
 
                             <p class="meta mono">
                                 @*

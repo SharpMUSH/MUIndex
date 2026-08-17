@@ -91,60 +91,35 @@
             link is the one that clears it.
         *@
         <div class="facet-grid">
-            @foreach (var group in Facets.Where(g => g.Kind is FacetKind.Choice))
+            @foreach (var group in Primary)
             {
-                <fieldset class="facet choice @(group.IsFiltered ? "chosen" : null)">
-                    <legend>
-                        <span class="facet-name">@FacetWords.Group(group.Key)</span>
-                        @Evidence(group)
-                    </legend>
-
-                    <div class="rows">
-                        @*
-                            Always first, always empty: a facet you cannot un-choose is a trap. It
-                            is a row like the others rather than a "clear" button, because "any" is
-                            an answer to the same question the rows below it answer.
-                        *@
-                        <div class="facet-row any @(group.IsFiltered ? null : "on")">
-                            <a class="pick" href="@Href(group, null)"
-                               aria-current="@(group.IsFiltered ? null : "true")"
-                               aria-label="@($"any {FacetWords.Group(group.Key)}, {group.Total} games")">
-                                <span class="tick" aria-hidden="true">@(group.IsFiltered ? "☐" : "✓")</span>
-                                <span class="row-name">any</span>
-                                <span class="count">@group.Total</span>
-                            </a>
-                        </div>
-
-                        @foreach (var value in Shown(group))
-                        {
-                            @Row(group, value)
-                        }
-                    </div>
-
-                    @if (Rest(group) is { Count: > 0 } rest)
-                    {
-                        @*
-                            The tail, behind a native disclosure — open when the reader's own choice
-                            is in it, because a selection nothing shows is the defect this replaces.
-                            Closed or open, the controls are in the form and are submitted either
-                            way.
-                        *@
-                        <details class="facet-tail" open="@rest.Any(v => v.IsSelected)">
-                            <summary>@rest.Count more</summary>
-                            <div class="rows">
-                                @foreach (var value in rest)
-                                {
-                                    @Row(group, value)
-                                }
-                            </div>
-                        </details>
-                    }
-                </fieldset>
+                @Group(group)
             }
         </div>
 
         @* Said once, under the groups it applies to, rather than on each of them. *@
         <p class="hint facet-hint">Tick to include, − to exclude.</p>
+
+        @*
+            Everything else, behind one disclosure. Nine facets in a column is a column taller than
+            the listing it filters, and the handoff's panel is short because it is opinionated about
+            which questions belong in a sidebar: what is on now, what it runs, and what we could
+            measure. The rest are the ones a reader goes looking for — and it opens itself when one
+            of them is doing something, because a filter nothing shows is the defect this whole
+            control replaces.
+        *@
+        @if (Secondary is { Count: > 0 } more)
+        {
+            <details class="facet-more-groups" open="@more.Any(g => g.IsFiltered)">
+                <summary>more filters (@more.Count)</summary>
+                <div class="facet-grid">
+                    @foreach (var group in more)
+                    {
+                        @Group(group)
+                    }
+                </div>
+            </details>
+        }
 
         @foreach (var group in Facets.Where(g => g.Kind is FacetKind.Presence))
         {
@@ -240,6 +215,76 @@
 }
 
 @code {
+    /// <summary>
+    /// The three the handoff's panel leads with: what is on now, what it runs, what we could
+    /// measure — and, since this catalogue facets on more than the drawing does, everything else
+    /// behind one disclosure under them.
+    /// </summary>
+    private static readonly string[] Lead = [FacetKeys.Band, FacetKeys.Codebase, FacetKeys.LastSeen];
+
+    private IReadOnlyList<FacetGroup> Choices =>
+        [.. Facets.Where(g => g.Kind is FacetKind.Choice)];
+
+    private IReadOnlyList<FacetGroup> Primary =>
+        [.. Choices.Where(g => Lead.Contains(g.Key, StringComparer.Ordinal))
+            .OrderBy(g => Array.IndexOf(Lead, g.Key))];
+
+    private IReadOnlyList<FacetGroup> Secondary =>
+        [.. Choices.Where(g => !Lead.Contains(g.Key, StringComparer.Ordinal))];
+
+    /// <summary>One facet group, wherever it is drawn.</summary>
+    private RenderFragment Group(FacetGroup group) =>
+        @<text>
+                <fieldset class="facet choice @(group.IsFiltered ? "chosen" : null)">
+                        <legend>
+                            <span class="facet-name">@FacetWords.Group(group.Key)</span>
+                            @Evidence(group)
+                        </legend>
+    
+                        <div class="rows">
+                            @*
+                                Always first, always empty: a facet you cannot un-choose is a trap. It
+                                is a row like the others rather than a "clear" button, because "any" is
+                                an answer to the same question the rows below it answer.
+                            *@
+                            <div class="facet-row any @(group.IsFiltered ? null : "on")">
+                                <a class="pick" href="@Href(group, null)"
+                                   aria-current="@(group.IsFiltered ? null : "true")"
+                                   aria-label="@($"any {FacetWords.Group(group.Key)}, {group.Total} games")">
+                                    <span class="tick" aria-hidden="true">@(group.IsFiltered ? "☐" : "✓")</span>
+                                    <span class="row-name">any</span>
+                                    <span class="count">@group.Total</span>
+                                </a>
+                            </div>
+    
+                            @foreach (var value in Shown(group))
+                            {
+                                @Row(group, value)
+                            }
+                        </div>
+    
+                        @if (Rest(group) is { Count: > 0 } rest)
+                        {
+                            @*
+                                The tail, behind a native disclosure — open when the reader's own choice
+                                is in it, because a selection nothing shows is the defect this replaces.
+                                Closed or open, the controls are in the form and are submitted either
+                                way.
+                            *@
+                            <details class="facet-tail" open="@rest.Any(v => v.IsSelected)">
+                                <summary>@rest.Count more</summary>
+                                <div class="rows">
+                                    @foreach (var value in rest)
+                                    {
+                                        @Row(group, value)
+                                    }
+                                </div>
+                            </details>
+                        }
+                    </fieldset>
+    
+        </text>;
+
     /// <summary>
     /// How many values a facet shows before the rest go behind a disclosure.
     /// </summary>
