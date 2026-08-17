@@ -1,7 +1,6 @@
 @page "/g/{Slug}"
 @using MUI.Web.Data
 @using MUI.Catalog.Persistence
-@using MUI.Web.Icons
 @inject IGameQueries Queries
 @inject IAvailabilityHistory History
 @inject TimeProvider Clock
@@ -43,26 +42,12 @@ else
     <article class="game @(Archived ? "archived" : null)">
         <header class="game-head">
             @*
-                The icon a game publishes, where we hold one, and the monogram otherwise.
-
-                Served from this origin rather than the game's — hot-linking would hand every reader's
-                address, user-agent and referring URL to a third-party server for a decoration, which
-                §11 exists to prevent. And no element rather than a broken one where a fetch failed:
-                that we could not reach somebody's web server is our afternoon, not their game.
-
-                aria-hidden with the monogram, and alt="" here, for one reason: the game's name is the
-                <h1> immediately beside it, so a screen reader announcing the picture as well would
-                read the same thing twice.
+                The icon a game publishes, where we hold one, and the monogram otherwise — the same
+                component the listing draws, at this page's larger size. Two spellings of one plate is
+                how a game comes to be M*U*S*H's own logo on one surface and "MU" on the next.
             *@
-            @if (Icon is not null)
-            {
-                <img class="plate icon" alt="" src="@IconEndpoint.For(Page.Summary.Slug)"
-                     width="@Icon.Width" height="@Icon.Height" loading="lazy" decoding="async" />
-            }
-            else
-            {
-                <div class="plate mono" aria-hidden="true">@Initials</div>
-            }
+            <GamePlate Slug="@Page.Summary.Slug" Name="@Page.Summary.Name"
+                       HasIcon="Icon is not null" Size="68" />
             <div class="game-title">
                 <h1>@Page.Summary.Name</h1>
                 <p class="badges">
@@ -415,12 +400,6 @@ else
 
     /// <summary>The label on the live count, or null where there is no count to label.</summary>
     private ProvenanceChip? Counted => Page?.Summary.PlayersNowProvenance;
-
-    private string Initials => string.Concat(
-        (Page?.Summary.Name ?? "?")
-            .Split([' ', '*', '-'], StringSplitOptions.RemoveEmptyEntries)
-            .Take(2)
-            .Select(w => char.ToUpperInvariant(w[0])));
 
     protected override async Task OnParametersSetAsync()
     {

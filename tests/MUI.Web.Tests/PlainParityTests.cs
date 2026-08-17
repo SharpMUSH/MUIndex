@@ -243,6 +243,23 @@ public class PlainParityTests
     }
 
     [Test]
+    public async Task TheRenderedRowNamesTheFieldBecauseNothingElseOnItDoes()
+    {
+        // The two surfaces word this one state differently and that is deliberate. Plain text and
+        // the facet panel both print "codebase" as a heading and say "not identified" under it; a
+        // listing row has no heading, so its label has to name the field itself or read as an
+        // absence of nothing in particular.
+        var html = await Render.PageAsync<Games>([]);
+
+        await Assert.That(Render.Words(html)).Contains("Unknown Codebase");
+
+        // And the sentence saying whose limit this is survives on the element, because the short
+        // label does not carry it: an unidentified codebase is a fact about our parsers' reach and
+        // not about the game (rule 5).
+        await Assert.That(html).Contains("we could not identify the codebase this game runs");
+    }
+
+    [Test]
     public async Task TheListingSaysHowEachCountAndCodebaseWasObtainedAndHowOldItIs()
     {
         // §9's test of the whole system, applied to the listing: if provenance cannot survive in
@@ -296,8 +313,38 @@ public class PlainParityTests
         var html = await Render.PageAsync<Games>([]);
 
         // Razor encodes both glyphs, so the assertion reads them as the markup carries them.
-        await Assert.That(html).Contains("class=\"state-declared\" aria-hidden=\"true\">&#x25C7;");
-        await Assert.That(html).Contains("class=\"state-present\" aria-hidden=\"true\">&#x25CF;");
+        await Assert.That(html).Contains("class=\"pip state-declared\" aria-hidden=\"true\">&#x25C7;");
+        await Assert.That(html).Contains("class=\"pip state-present\" aria-hidden=\"true\">&#x25CF;");
+    }
+
+    [Test]
+    public async Task OneCountWearsOneGlyphAndNotTwo()
+    {
+        // The agreement above was reached by printing the glyph twice: the pip at the head of the
+        // figure and the chip's own, four characters apart, describing one number. A reader who
+        // counts glyphs to count facts was being told there were two, and on a declared count the
+        // row read "◇ 10 on ◇ 73m". The pip stays, because it is where the eye lands when scanning
+        // a column of numbers; the chip keeps the colour, the title and the word a screen reader
+        // hears, and drops the duplicate.
+        var html = await Render.PageAsync<Games>([]);
+        var figures = html.Split("class=\"row-figure").Skip(1);
+
+        foreach (var figure in figures)
+        {
+            var row = figure[..figure.IndexOf("</p>", StringComparison.Ordinal)];
+
+            await Assert.That(Glyphs(row))
+                .IsLessThanOrEqualTo(1)
+                .Because($"one count, one glyph: {row}");
+        }
+
+        // And the chip is still there carrying the rest of the label, so what went is the duplicate
+        // rather than the provenance.
+        await Assert.That(html).Contains("class=\"chip declared");
+        await Assert.That(Render.Words(html)).Contains("declared");
+
+        static int Glyphs(string markup) =>
+            markup.Split("&#x25C7;").Length - 1 + markup.Split("&#x25CF;").Length - 1;
     }
 
     [Test]

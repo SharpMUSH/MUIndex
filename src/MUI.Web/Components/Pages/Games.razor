@@ -81,6 +81,15 @@ else
                 }
                 <li class="game-row @(g.State is LifecycleState.Archived ? "archived" : null)">
                     <div class="row-main">
+                        @*
+                            The game's own face where it published one, and its monogram otherwise —
+                            drawn identically for a game that declared no icon and one whose web
+                            server we could not reach, because only the first of those is a fact
+                            about the game. It is the row's left edge either way, which is what makes
+                            five hundred rows scannable by shape rather than only by reading them.
+                        *@
+                        <GamePlate Slug="@g.Slug" Name="@g.Name" HasIcon="g.HasIcon" />
+
                         <div class="row-text">
                             <p class="row-head">
                                 <a class="name" href="/g/@g.Slug">@g.Name</a>
@@ -129,7 +138,27 @@ else
                                 }
                                 else
                                 {
-                                    <span class="state-unknown">codebase not identified</span>
+                                    @*
+                                        The commonest state in the catalogue, so it is the quietest
+                                        thing on the row — the same reasoning that demoted "unclaimed"
+                                        from a pill to a word. "Codebase not identified" was the
+                                        longest string on the meta line and appeared on more rows than
+                                        any codebase did, so the one row that <em>had</em> an
+                                        identified codebase was the one that looked emptiest.
+
+                                        Two words, and they name the field so the label stands on its
+                                        own — a row is read on its own, unlike the facet panel and the
+                                        plain listing, which both print "codebase" as a heading and go
+                                        on saying "not identified" underneath it.
+
+                                        The title carries the longer sentence for a reader who wants
+                                        it. It is the one place on this row that says whose limit
+                                        this is: an unidentified codebase is a fact about how far our
+                                        parsers reach and not about the game, and the shorter label
+                                        does not say so by itself.
+                                    *@
+                                    <span class="state-unknown"
+                                          title="we could not identify the codebase this game runs">Unknown Codebase</span>
                                 }
                                 @foreach (var p in g.MeasuredProtocols)
                                 {
@@ -144,35 +173,60 @@ else
                                 words — it is never rendered as a zero, and never left blank for a
                                 reader to guess at. A measured zero keeps the accent glyph every other
                                 count has, because it is every bit as much a measurement.
+
+                                This is the one fact on the row set larger than the rest, and that is
+                                the whole of how "players on now" is told apart from the protocol and
+                                codebase facts beside it. The glyph could not carry that difference:
+                                it means measured-or-declared everywhere on this site, and giving it a
+                                second meaning here would cost the first one. Scale and position are
+                                free of that constraint — nothing else in a row is 17px, so the count
+                                is what the eye lands on, and the vocabulary stays intact.
                             *@
                             @if (g.PlayersNow is { } n)
                             {
-                                <span class="players">
+                                <span class="players @(n > 0 ? "live" : "empty")">
                                     @*
                                         The glyph follows the provenance, the same way the game page's
                                         does. This row shipped a hard-coded measured dot beside the
                                         declared chip below it — a green ● and a ◇ chip describing one
                                         number, which is the disagreement the chip was added to end.
+
+                                        The chip's own glyph is off (GlyphShown) rather than this one
+                                        being dropped: one fact, one glyph, and it belongs at the head
+                                        of the figure where a reader scanning the column looks first.
                                     *@
-                                    <span class="@(g.PlayersNowProvenance?.IsMeasured is false ? "state-declared" : "state-present")" aria-hidden="true">@(g.PlayersNowProvenance?.IsMeasured is false ? "◇" : "●")</span> @n <span class="unit">on</span>
+                                    <span class="pip @(g.PlayersNowProvenance?.IsMeasured is false ? "state-declared" : "state-present")" aria-hidden="true">@(g.PlayersNowProvenance?.IsMeasured is false ? "◇" : "●")</span><span class="count">@n</span> <span class="unit">on</span>
 
                                     @*
                                         And how we know it. A number somebody read out of a WHO nine
                                         minutes ago and a number a game asserts about itself are
                                         different facts, and this row said the same thing for both.
-                                        The glyph and the age are the difference, in the vocabulary
+                                        The colour and the age are the difference, in the vocabulary
                                         the game page already uses — and the word is spelled out for
                                         a screen reader, because a glyph is not a fact.
                                     *@
                                     @if (g.PlayersNowProvenance is { } counted)
                                     {
-                                        <Chip Fact="counted" Now="Now" ValueShown="false" />
+                                        <Chip Fact="counted" Now="Now" ValueShown="false" GlyphShown="false" />
                                     }
                                 </span>
                             }
                             else
                             {
                                 <span class="players unknown"><span aria-hidden="true">–</span> count unknown</span>
+                            }
+
+                            @*
+                                What this order ranked the row on, where it ranked on something other
+                                than a fact already printed above. A listing sorted by an average that
+                                appears nowhere on its rows is one a reader has to take on trust, and
+                                the sample tally rides along because a mean is a mean of something
+                                (§15.7) — thirty counts and three hundred are not the same evidence
+                                and the row is where that shows.
+                            *@
+                            @if (g.PlayersOverWindow is { } window)
+                            {
+                                <span class="window">@FacetWords.Window(window, Filter.Sort)</span>
                             }
 
                             @*

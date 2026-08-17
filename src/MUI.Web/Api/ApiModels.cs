@@ -223,7 +223,36 @@ public sealed record GameSummaryView(
     // (spec §9) keeps them apart and a consumer reading only the listing has to be able to as well.
     DateTimeOffset? LastReachableAt,
     string Url,
-    string ApiUrl);
+    string ApiUrl,
+
+    // What a window sort ranked this row on, present only when one was asked for. It is the basis
+    // for the order rather than a standing fact about the game, and publishing it on every response
+    // would mean computing an aggregate over the presence series for consumers reading the alphabet.
+    PresenceWindowView? PlayersOverWindow = null);
+
+/// <summary>
+/// One game's counts over one window, as <c>?sort=medianWeek</c> and its neighbours rank on them.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <see cref="Median"/> and not a mean, which is the same choice <c>/rankings</c> makes: a mean is
+/// pulled around by the one evening a game was linked from somewhere. It is an <b>observed</b>
+/// count — the first value whose running frequency reaches the half-way position, never the average
+/// of two — so a consumer republishing it is republishing a number a server reported.
+/// </para>
+/// <para>
+/// <see cref="Samples"/> is published beside it and is not optional: a figure whose basis is hidden
+/// is exactly what §15.7 refuses, and it is the only thing here that tells a game measured three
+/// hundred times from one found on Friday. A consumer that ranks on <see cref="Median"/> without
+/// reading it will rank our crawl schedule.
+/// </para>
+/// <para>
+/// Both figures are over <b>counted</b> samples alone. A probe that got in and could not read a
+/// number contributes to neither (§5.4's middle state, rule 4), so a game with no countable probe in
+/// the window is absent from this field rather than present with zeroes in it.
+/// </para>
+/// </remarks>
+public sealed record PresenceWindowView(int WindowDays, int Median, int Peak, int Samples);
 
 public sealed record GameView(
     Guid Id,

@@ -40,7 +40,22 @@ public static class ApiMapper
         game.MeasuredProtocols,
         game.LastReachableAt,
         ApiRoutes.Page(game.Slug),
-        ApiRoutes.Game(game.Id));
+        ApiRoutes.Game(game.Id),
+        Window(game.PlayersOverWindow));
+
+    /// <summary>
+    /// A window's figures, carried across with the tally they were taken over.
+    /// </summary>
+    /// <remarks>
+    /// The span is published as whole days because that is what the three sorts offer and what a
+    /// consumer would otherwise have to reconstruct from a duration string. Null propagates: absent
+    /// means "this listing was not sorted on a window, or this game had nothing countable in it",
+    /// and the two are told apart by the <c>sort</c> the response echoes back.
+    /// </remarks>
+    private static PresenceWindowView? Window(PresenceWindow? window) => window is null
+        ? null
+        : new PresenceWindowView(
+            (int)window.Window.TotalDays, window.Median, window.Peak, window.Samples);
 
     /// <summary>
     /// One facet, carried across exactly as the catalogue counted it.
