@@ -254,6 +254,28 @@ public sealed record GameFilter
     public bool IncludeArchived { get; init; }
 
     /// <summary>
+    /// Whether games declaring adult content are in the answer (<see cref="AdultContent"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Defaults to <c>true</c>, which is the opposite way round from
+    /// <see cref="IncludeArchived"/>, and the difference is the point.</b> Archiving removes a game
+    /// from the default listing, the rankings and the "active today" figure — that is a
+    /// catalogue-wide rule (spec §7.5), so it belongs in the filter's own default. Hiding adult
+    /// games is a default of the <em>listing surface</em> and of nothing else, so it lives in
+    /// <c>GameFilterBinding</c>, which is the one parser <c>/games</c> and <c>/api/games</c> both
+    /// read their querystring through.
+    /// </para>
+    /// <para>
+    /// The consequence is that a filter built in code — the data dump, the home page's counts, the
+    /// per-codebase figures on the reference pages — is unaffected, which is what was wanted. Those
+    /// callers already include archived games while the listing hides them, so this is the treatment
+    /// they give the other exclusion rather than a new exception.
+    /// </para>
+    /// </remarks>
+    public bool IncludeAdult { get; init; } = true;
+
+    /// <summary>
     /// Protocols the handshake was observed offering, intersected. Never what MSSP declared —
     /// <c>capability.*.measured</c> and <c>capability.*.declared</c> are two fields for exactly this
     /// reason, and a facet reading the second would be the central lie of the project.

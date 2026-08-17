@@ -104,6 +104,12 @@ public static class ActiveFilters
                 "archived", "included", Href(ListingLinks.With(query, FacetKeys.Archived, null))));
         }
 
+        if (filter.IncludeAdult)
+        {
+            chips.Add(new ActiveFilter(
+                "adult", "included", Href(ListingLinks.With(query, FacetKeys.Adult, null))));
+        }
+
         return chips;
     }
 
