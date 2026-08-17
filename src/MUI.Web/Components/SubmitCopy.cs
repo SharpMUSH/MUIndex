@@ -31,9 +31,9 @@ namespace MUI.Web.Components;
 /// </remarks>
 public static class SubmitCopy
 {
-    public static string Title(string tag = Locales.SourceTag) => Say(tag, "submit.title");
+    public static string Title(string tag = Locales.SourceTag) => Messages.Say(tag, "submit.title");
 
-    public static string Lede(string tag = Locales.SourceTag) => Say(tag, "submit.lede");
+    public static string Lede(string tag = Locales.SourceTag) => Messages.Say(tag, "submit.lede");
 
     /// <summary>What happens to an address after it is submitted, in the order it happens.</summary>
     /// <remarks>
@@ -42,24 +42,24 @@ public static class SubmitCopy
     /// </remarks>
     public static IReadOnlyList<string> Points(string tag = Locales.SourceTag) =>
     [
-        Say(tag, "submit.what.resolve"),
-        Say(tag, "submit.what.optOut"),
-        Say(tag, "submit.what.schedule"),
-        Say(tag, "submit.what.claim"),
-        Say(tag, "submit.what.duplicate"),
+        Messages.Say(tag, "submit.what.resolve"),
+        Messages.Say(tag, "submit.what.optOut"),
+        Messages.Say(tag, "submit.what.schedule"),
+        Messages.Say(tag, "submit.what.claim"),
+        Messages.Say(tag, "submit.what.duplicate"),
     ];
 
     /// <summary>The label on each box, so the rendered form and the plain one cannot drift.</summary>
-    public static string HostLabel(string tag = Locales.SourceTag) => Say(tag, "submit.host.label");
+    public static string HostLabel(string tag = Locales.SourceTag) => Messages.Say(tag, "submit.host.label");
 
-    public static string PortLabel(string tag = Locales.SourceTag) => Say(tag, "submit.port.label");
+    public static string PortLabel(string tag = Locales.SourceTag) => Messages.Say(tag, "submit.port.label");
 
-    public static string HostHint(string tag = Locales.SourceTag) => Say(tag, "submit.host.hint");
+    public static string HostHint(string tag = Locales.SourceTag) => Messages.Say(tag, "submit.host.hint");
 
-    public static string SubmitLabel(string tag = Locales.SourceTag) => Say(tag, "submit.button");
+    public static string SubmitLabel(string tag = Locales.SourceTag) => Messages.Say(tag, "submit.button");
 
     /// <summary>What the site says when it has no database and therefore no registry to write into.</summary>
-    public static string NoCatalogue(string tag = Locales.SourceTag) => Say(tag, "submit.noCatalogue");
+    public static string NoCatalogue(string tag = Locales.SourceTag) => Messages.Say(tag, "submit.noCatalogue");
 
     /// <summary>The answer to one submission, or null when nothing has been submitted yet.</summary>
     public static SubmitAnswer? Answer(
@@ -72,33 +72,33 @@ public static class SubmitCopy
             null => null,
 
             SubmissionOutcome.Accepted => new SubmitAnswer(
-                Say(tag, "submit.accepted.heading"),
-                Say(tag, "submit.accepted.sentence", ("address", Named(tag, address)))),
+                Messages.Say(tag, "submit.accepted.heading"),
+                Messages.Say(tag, "submit.accepted.sentence", ("address", Named(tag, address)))),
 
             // Two arms, and the link is what differs. A game we list gets its page; a submitted one
             // nobody has claimed gets its claim page, because that is the only exit from hidden and
             // a person who has just told us the address is exactly who should be offered it.
             SubmissionOutcome.AlreadyListed when link?.IsClaim is true => new SubmitAnswer(
-                Say(tag, "submit.unclaimed.heading"),
-                Say(tag, "submit.unclaimed.sentence", ("address", Named(tag, address))),
+                Messages.Say(tag, "submit.unclaimed.heading"),
+                Messages.Say(tag, "submit.unclaimed.sentence", ("address", Named(tag, address))),
                 link),
 
             SubmissionOutcome.AlreadyListed when link is not null => new SubmitAnswer(
-                Say(tag, "submit.known.heading"),
-                Say(tag, "submit.known.sentence", ("address", Named(tag, address))),
+                Messages.Say(tag, "submit.known.heading"),
+                Messages.Say(tag, "submit.known.sentence", ("address", Named(tag, address))),
                 link),
 
             SubmissionOutcome.AlreadyListed => new SubmitAnswer(
-                Say(tag, "submit.knownAddress.heading"),
-                Say(tag, "submit.knownAddress.sentence", ("address", Named(tag, address)))),
+                Messages.Say(tag, "submit.knownAddress.heading"),
+                Messages.Say(tag, "submit.knownAddress.sentence", ("address", Named(tag, address)))),
 
             SubmissionOutcome.AlreadyQueued => new SubmitAnswer(
-                Say(tag, "submit.queued.heading"),
-                Say(tag, "submit.queued.sentence", ("address", Named(tag, address)))),
+                Messages.Say(tag, "submit.queued.heading"),
+                Messages.Say(tag, "submit.queued.sentence", ("address", Named(tag, address)))),
 
             SubmissionOutcome.Malformed => new SubmitAnswer(
-                Say(tag, "submit.malformed.heading"),
-                Say(tag, "submit.malformed.sentence")),
+                Messages.Say(tag, "submit.malformed.heading"),
+                Messages.Say(tag, "submit.malformed.sentence")),
 
             // ONE SENTENCE FOR ALL THREE, AND THE VAGUENESS IS THE POINT. §7.2 keeps "did not
             // resolve" and "resolved somewhere we will not go" apart because they are two facts and
@@ -115,12 +115,12 @@ public static class SubmitCopy
             SubmissionOutcome.RefusedNotRoutable
                 or SubmissionOutcome.Unresolvable
                 or SubmissionOutcome.RefusedOptOut => new SubmitAnswer(
-                Say(tag, "submit.undialable.heading"),
-                Say(tag, "submit.undialable.sentence", ("address", Named(tag, address)))),
+                Messages.Say(tag, "submit.undialable.heading"),
+                Messages.Say(tag, "submit.undialable.sentence", ("address", Named(tag, address)))),
 
             SubmissionOutcome.TooMany => new SubmitAnswer(
-                Say(tag, "submit.tooMany.heading"),
-                Say(tag, "submit.tooMany.sentence")),
+                Messages.Say(tag, "submit.tooMany.heading"),
+                Messages.Say(tag, "submit.tooMany.sentence")),
 
             _ => null,
         };
@@ -133,12 +133,7 @@ public static class SubmitCopy
     /// filling a hostname's slot, and it declines in the languages that decline.
     /// </remarks>
     private static string Named(string tag, string? address) =>
-        address is { Length: > 0 } ? address : Say(tag, "submit.answer.thatAddress");
-
-    private static string Say(string tag, string id) => Messages.For(tag, id);
-
-    private static string Say(string tag, string id, params (string Key, object? Value)[] args) =>
-        Messages.For(tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
+        address is { Length: > 0 } ? address : Messages.Say(tag, "submit.answer.thatAddress");
 }
 
 /// <summary>One answer, as both surfaces render it.</summary>

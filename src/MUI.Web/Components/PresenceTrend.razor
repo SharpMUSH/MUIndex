@@ -185,8 +185,9 @@ else
 
     private string L(string id) => Messages.For(Tag, id);
 
+    /// <summary>This component's tag, supplied once — the rendering is <see cref="Messages.Say"/>.</summary>
     private string L(string id, params (string Key, object? Value)[] args) =>
-        Messages.For(Tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
+        Messages.Say(Tag, id, args);
 
     private static string Box =>
         $"{N(TrendGeometry.Width)} {N(TrendGeometry.Height)}";

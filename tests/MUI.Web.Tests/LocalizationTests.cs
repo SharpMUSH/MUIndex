@@ -1,3 +1,7 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using MUI.Web.Localization;
 
 namespace MUI.Web.Tests;
@@ -61,6 +65,113 @@ public class LocalizationTests
         // bundles. Neither changes the arithmetic.
         await Assert.That(PluralRules.Of("zh-Hant", 5)).IsEqualTo(PluralRules.Of("zh", 5));
         await Assert.That(PluralRules.Of("ru-x-canary", 2)).IsEqualTo(PluralRules.Of("ru", 2));
+    }
+
+    // ── plural rules, checked against the CLDR 46 chart rather than against memory ────────────
+
+    [Test]
+    public async Task TurkishSaysOneForOneAndForNothingElse()
+    {
+        // CLDR 46 tr — one: n = 1. The table said `n = 0..1`, which is a real rule in CLDR and
+        // belongs to Akan and Punjabi, not to Turkish. It put zero in the form Turkish reserves
+        // for exactly one thing.
+        await Assert.That(PluralRules.Keyword(PluralRules.Of("tr", 0))).IsEqualTo("other");
+        await Assert.That(PluralRules.Keyword(PluralRules.Of("tr", 1))).IsEqualTo("one");
+        await Assert.That(PluralRules.Keyword(PluralRules.Of("tr", 2))).IsEqualTo("other");
+    }
+
+    [Test]
+    [Arguments("el", "one")]        // one: n = 1
+    [Arguments("no", "one")]        // one: n = 1
+    [Arguments("es", "one")]        // one: n = 1
+    [Arguments("tr", "one")]        // one: n = 1
+    [Arguments("da", "one")]        // one: n = 1 or t != 0 and i = 0,1
+    [Arguments("be", "one")]        // one: n % 10 = 1 and n % 100 != 11 — stated on n, no v guard
+    [Arguments("en", "other")]      // one: i = 1 and v = 0
+    [Arguments("de", "other")]      // one: i = 1 and v = 0
+    [Arguments("it", "other")]      // one: i = 1 and v = 0
+    [Arguments("ru", "other")]      // one: v = 0 and i % 10 = 1 and i % 100 != 11
+    public async Task OnePointZeroIsWhatSeparatesARuleStatedOnNFromOneStatedOnI(string tag, string expected)
+    {
+        // 1.0 is the only value that tells the two shapes apart, and transcribing every language
+        // into `i = 1 and v = 0` because English is written that way is wrong for six of the
+        // thirty-one here. It is also the exact error the operands in this file exist to catch.
+        var oneDotZero = PluralOperands.Of(1.0m, visibleFractionDigits: 1);
+
+        await Assert.That(PluralRules.Keyword(PluralRules.Of(tag, oneDotZero))).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task DanishSaysOneForAFractionBelowTwo()
+    {
+        // CLDR 46 da — one: n = 1 or t != 0 and i = 0,1. Danish is the only language in this table
+        // whose `one` reaches a value that is not 1, and a rule copied from Swedish loses it.
+        await Assert.That(PluralRules.Keyword(PluralRules.Of("da", PluralOperands.Of(0.5m)))).IsEqualTo("one");
+        await Assert.That(PluralRules.Keyword(PluralRules.Of("da", PluralOperands.Of(1.5m)))).IsEqualTo("one");
+        await Assert.That(PluralRules.Keyword(PluralRules.Of("da", PluralOperands.Of(2.5m)))).IsEqualTo("other");
+        await Assert.That(PluralRules.Keyword(PluralRules.Of("da", 0))).IsEqualTo("other");
+    }
+
+    [Test]
+    [Arguments("fr")]
+    [Arguments("pt")]
+    [Arguments("es")]
+    [Arguments("it")]
+    public async Task AMillionTakesItsOwnFormInEveryRomanceLanguageCldrStatesOneFor(string tag)
+    {
+        // many: e = 0 and i != 0 and i % 1000000 = 0 and v = 0 — "un millón de juegos" takes a
+        // preposition the other forms do not. fr and pt had it; es and it were given English's
+        // rule and so had no `many` at all.
+        await Assert.That(PluralRules.Keyword(PluralRules.Of(tag, 1_000_000))).IsEqualTo("many");
+        await Assert.That(PluralRules.Keyword(PluralRules.Of(tag, 2_000_000))).IsEqualTo("many");
+        await Assert.That(PluralRules.Keyword(PluralRules.Of(tag, 1_000_001))).IsEqualTo("other");
+    }
+
+    [Test]
+    public async Task HebrewLostItsManyFormAndAllOfItsOrdinalsBeforeCldr46()
+    {
+        // Both were removed upstream, and a table still carrying them selects a branch no
+        // translator was asked to write — the failure this file's `other` fallback cannot catch,
+        // because the branch exists and is simply wrong.
+        await Assert.That(PluralRules.Keyword(PluralRules.Of("he", 20))).IsEqualTo("other");
+        await Assert.That(PluralRules.Keyword(PluralRules.Of("he", 100))).IsEqualTo("other");
+
+        await Assert.That(PluralRules.CategoriesOf("he", PluralKind.Ordinal))
+            .IsEquivalentTo(new[] { PluralCategory.Other });
+
+        // one: i = 1 and v = 0 or i = 0 and v != 0 — the second clause was missing entirely.
+        await Assert.That(PluralRules.Keyword(PluralRules.Of("he", PluralOperands.Of(0.5m)))).IsEqualTo("one");
+    }
+
+    [Test]
+    [Arguments("sv", 1, "one")]     // one: n % 10 = 1,2 and n % 100 != 11,12
+    [Arguments("sv", 2, "one")]
+    [Arguments("sv", 3, "other")]
+    [Arguments("sv", 11, "other")]
+    [Arguments("sv", 12, "other")]
+    [Arguments("sv", 21, "one")]
+    [Arguments("be", 2, "few")]     // few: n % 10 = 2,3 and n % 100 != 12,13
+    [Arguments("be", 3, "few")]
+    [Arguments("be", 12, "other")]
+    [Arguments("be", 13, "other")]
+    [Arguments("vi", 1, "one")]     // one: n = 1
+    [Arguments("vi", 2, "other")]
+    [Arguments("ms", 1, "one")]     // one: n = 1
+    public async Task TheOrdinalTableStatesARuleForEveryLanguageCldrStatesOneFor(string tag, int n, string expected)
+    {
+        // An ordinal rule missing from the table is not a missing translation — it is every rank
+        // rendered in the `other` form, silently, in a language that inflects them.
+        await Assert.That(PluralRules.Keyword(PluralRules.Of(tag, n, PluralKind.Ordinal))).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task ACldrRangeMatchesAWholeNumberAndNothingElse()
+    {
+        // `n % 100 = 3..10` is a range over integers: 3.5 is not in it. Reading it as `i % 100`
+        // makes every fraction take the category of its integer part.
+        await Assert.That(PluralRules.Keyword(PluralRules.Of("ar", PluralOperands.Of(3.5m)))).IsEqualTo("other");
+        await Assert.That(PluralRules.Keyword(PluralRules.Of("ar", 3))).IsEqualTo("few");
+        await Assert.That(PluralRules.Keyword(PluralRules.Of("ar", 11))).IsEqualTo("many");
     }
 
     // ── ICU messages ─────────────────────────────────────────────────────────────────────────
@@ -429,6 +540,48 @@ public class LocalizationTests
         await Assert.That(answered.Headers.Location?.OriginalString).IsEqualTo("/de/games");
     }
 
+    /// <summary>
+    /// A redirect re-emits the address that was asked for, and not a decoded reading of it.
+    /// </summary>
+    /// <remarks>
+    /// <c>Request.Path.Value</c> is decoded, so writing it back into a <c>Location</c> header
+    /// changes what the URL means: <c>%2F</c> comes back as a separator and makes one segment into
+    /// two, <c>%23</c> comes back as a <c>#</c> and truncates everything after it, and a non-ASCII
+    /// character comes back raw into a header field that cannot carry one. A game whose slug
+    /// contains any of them is a game a reader cannot reach in any language but English.
+    /// </remarks>
+    [Test]
+    [Arguments("/g/a%2Fb")]
+    [Arguments("/g/caf%C3%A9")]
+    [Arguments("/g/one%23two")]
+    [Arguments("/g/what%3Fnow")]
+    public async Task AnEscapedPathSurvivesTheRedirectItIsSentThrough(string path)
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var asked = new HttpRequestMessage(HttpMethod.Get, path);
+        asked.Headers.Add("Cookie", $"{Locales.CookieName}=de");
+
+        var answered = await site.Client.SendAsync(asked);
+
+        await Assert.That((int)answered.StatusCode).IsEqualTo(302);
+        await Assert.That(answered.Headers.Location?.OriginalString).IsEqualTo("/de" + path);
+    }
+
+    /// <summary>And the same going the other way, off the /en prefix that redirects to no prefix.</summary>
+    [Test]
+    [Arguments("/en/g/a%2Fb", "/g/a%2Fb")]
+    [Arguments("/en/g/caf%C3%A9", "/g/caf%C3%A9")]
+    public async Task AnEscapedPathSurvivesTheRedirectOffTheEnglishPrefix(string asked, string expected)
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var answered = await site.Client.GetAsync(asked);
+
+        await Assert.That((int)answered.StatusCode).IsEqualTo(301);
+        await Assert.That(answered.Headers.Location?.OriginalString).IsEqualTo(expected);
+    }
+
     /// <summary>The read API and the crawler's files have one address each, in every language.</summary>
     [Test]
     [Arguments("/api/games")]
@@ -623,14 +776,18 @@ public class LocalizationTests
     /// Deliberately not through <see cref="Microsoft.Extensions.Localization.IStringLocalizer"/>:
     /// that would read whatever the build embedded, which is the thing being checked. Reading the
     /// file compares what a translator would edit against what the site compiles.
+    /// <para>
+    /// The file is copied beside the test binary by the project — see the comment on that item for
+    /// why, which is that counting <c>..</c> segments up from <see cref="AppContext.BaseDirectory"/>
+    /// only reaches the repository root at one exact output depth, and failed as a missing file in
+    /// a test whose subject is message content.
+    /// </para>
     /// </remarks>
     private static IReadOnlyDictionary<string, string> ResxMessages()
     {
-        var path = System.IO.Path.Combine(
-            System.AppContext.BaseDirectory,
-            "..", "..", "..", "..", "..", "src", "MUI.Web", "Resources", "Messages.resx");
+        var path = System.IO.Path.Combine(System.AppContext.BaseDirectory, "Messages.resx");
 
-        var document = System.Xml.Linq.XDocument.Load(System.IO.Path.GetFullPath(path));
+        var document = System.Xml.Linq.XDocument.Load(path);
 
         return document.Root!
             .Elements("data")
@@ -687,6 +844,50 @@ public class LocalizationTests
         // A planned locale is in neither: nothing is translated, so listing it would offer a page
         // that is still English under a name saying it is not.
         await Assert.That(review.Select(l => l.Tag)).DoesNotContain("ru");
+    }
+
+    [Test]
+    public async Task WhetherTheReviewLocalesAreListedIsAskedOfTheRequestAndNotOfTheProcess()
+    {
+        // It was a static flag that every host start wrote, and this suite starts hosts in both
+        // Development and Production inside one process — so the switcher listed whatever the last
+        // host to start had decided, on every request served by any of them. Two requests, two
+        // answers, and no dependency on which host began first.
+        var review = Request(Environments.Development);
+        var production = Request(Environments.Production);
+
+        await Assert.That(review.IsReviewBuild()).IsTrue();
+        await Assert.That(production.IsReviewBuild()).IsFalse();
+
+        await Assert.That(Locales.Switchable(review.IsReviewBuild()).Select(l => l.Tag)).Contains("qps-ploc");
+        await Assert.That(Locales.Switchable(production.IsReviewBuild()).Select(l => l.Tag)).DoesNotContain("qps-ploc");
+
+        // And a component rendered with no request behind it at all — which is every headless
+        // component test in this suite — is not a review build. That is the case that made taking
+        // IWebHostEnvironment as a dependency impossible, and it is why this is asked of the
+        // request rather than injected.
+        await Assert.That(((HttpContext?)null).IsReviewBuild()).IsFalse();
+    }
+
+    /// <summary>A request served by a host running in one named environment.</summary>
+    private static HttpContext Request(string environment)
+    {
+        var services = new ServiceCollection();
+
+        services.AddSingleton<IHostEnvironment>(new StubEnvironment { EnvironmentName = environment });
+
+        return new DefaultHttpContext { RequestServices = services.BuildServiceProvider() };
+    }
+
+    private sealed class StubEnvironment : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = string.Empty;
+
+        public string ApplicationName { get; set; } = "MUI.Web.Tests";
+
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 
     [Test]

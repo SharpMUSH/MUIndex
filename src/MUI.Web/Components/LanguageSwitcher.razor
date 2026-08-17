@@ -57,11 +57,11 @@
     /// What this switcher lists: the shipped locales, plus the review ones in a development build.
     /// </summary>
     /// <remarks>
-    /// Read from <see cref="Locales.Preview"/>, which composition sets from the environment. Not
-    /// injected: a component that required <c>IWebHostEnvironment</c> could not be rendered without
-    /// a web host, and every headless page test in this suite renders one.
+    /// Asked of the request rather than injected or read from a static: a component that required
+    /// <c>IWebHostEnvironment</c> could not be rendered without a web host, and every headless page
+    /// test in this suite renders one. See <see cref="LocaleRouting.IsReviewBuild"/>.
     /// </remarks>
-    private IReadOnlyList<Locale> Offered => Locales.Switchable();
+    private IReadOnlyList<Locale> Offered => Locales.Switchable(HttpContext.IsReviewBuild());
 
     private string Tag => HttpContext.LocaleOf().Tag;
 

@@ -27,4 +27,25 @@
     <ProjectReference Include="..\..\src\MUI.Web\MUI.Web.csproj" />
   </ItemGroup>
 
+  <!--
+    The English bundle as a translator edits it, copied beside the test binary.
+
+    A test here compares Messages.resx against the compiled-in source dictionary, and it has to read
+    the *file* to do it: going through the resource manager would read whatever the build embedded,
+    which is the thing under test. It used to find the file by counting five ".." segments up from
+    AppContext.BaseDirectory, which is only the repository root when the output sits at exactly
+    bin/<config>/<tfm> — so a redirected output path, an artifacts layout, a second target framework
+    or a different configuration nesting each turned a message-content test into a
+    FileNotFoundException naming a path nobody recognised.
+
+    MSBuild resolves this relative to the project file, which is a fixed relationship rather than a
+    guess about where the output landed, and the copy is the same bytes. Searching upward for the
+    repository root would have worked too and still assumes the output is inside the repository.
+  -->
+  <ItemGroup>
+    <None Include="..\..\src\MUI.Web\Resources\Messages.resx"
+          Link="Messages.resx"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

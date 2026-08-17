@@ -184,24 +184,16 @@ public static class Locales
     /// plural forms on purpose. Both are exactly what somebody reviewing the switcher, the routing
     /// and the 1.4x width budget wants to click.
     /// </para>
+    /// <para>
+    /// <b><paramref name="preview"/> is a parameter and never a flag on this class.</b> It was a
+    /// static one that composition wrote on every host start — and a test process starts many hosts,
+    /// in Development and in Production, so the switcher's contents came from whichever host had
+    /// started last rather than from the host answering the request. It is asked of the request
+    /// instead, by <see cref="LocaleRouting.IsReviewBuild"/>: that reaches the environment through
+    /// the request's own services, so a component with no request behind it — every headless
+    /// component test here — answers false without needing a web host to be told so.
+    /// </para>
     /// </remarks>
-    public static IReadOnlyList<Locale> Switchable() => Switchable(Preview);
-
-    /// <summary>
-    /// Whether this deployment is one somebody is reviewing.
-    /// </summary>
-    /// <remarks>
-    /// Set once from composition, like the resource set beside it, rather than injected into the
-    /// switcher. A component that took <c>IWebHostEnvironment</c> could not be rendered without a
-    /// web host behind it, and every headless page test in this suite renders one — so the coupling
-    /// would have been paid on hundreds of tests to answer one boolean.
-    /// </remarks>
-    public static bool Preview { get; private set; }
-
-    /// <summary>Turns the review locales on for this process. Called once, from composition.</summary>
-    public static void UsePreview(bool preview) => Preview = preview;
-
-    /// <summary>The switchable set for an explicit answer, which is what a test asks for.</summary>
     public static IReadOnlyList<Locale> Switchable(bool preview) =>
     [
         .. All.Where(l => l.IsOffered

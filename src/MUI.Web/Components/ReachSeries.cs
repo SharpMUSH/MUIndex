@@ -21,12 +21,12 @@ public sealed record ReachDay(DateOnly Date, ReachState State, FailureCause Caus
     /// </remarks>
     public string Label(string tag) => State switch
     {
-        ReachState.Reachable => Say(tag, "reach.day.reachable", ("d", Date)),
+        ReachState.Reachable => Messages.Say(tag, "reach.day.reachable", ("d", Date)),
         ReachState.Degraded =>
-            Say(tag, "reach.day.degraded", ("d", Date), ("cause", Wording.Cause(tag, Cause))),
+            Messages.Say(tag, "reach.day.degraded", ("d", Date), ("cause", Wording.Cause(tag, Cause))),
         ReachState.Unreachable =>
-            Say(tag, "reach.day.unreachable", ("d", Date), ("cause", Wording.Cause(tag, Cause))),
-        _ => Say(tag, "reach.day.notMeasured", ("d", Date)),
+            Messages.Say(tag, "reach.day.unreachable", ("d", Date), ("cause", Wording.Cause(tag, Cause))),
+        _ => Messages.Say(tag, "reach.day.notMeasured", ("d", Date)),
     };
 
     /// <summary>
@@ -45,9 +45,6 @@ public sealed record ReachDay(DateOnly Date, ReachState State, FailureCause Caus
         ReachState.Unreachable => "reach.word.unreachable",
         _ => "reach.word.notMeasured",
     });
-
-    private static string Say(string tag, string id, params (string Key, object? Value)[] args) =>
-        Messages.For(tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 }
 
 /// <summary>
@@ -98,7 +95,7 @@ public sealed record ReachSummary(
     {
         if (!HasAnyMeasurement)
         {
-            return Say(tag, "reach.none", ("days", Window));
+            return Messages.Say(tag, "reach.none", ("days", Window));
         }
 
         var parts = new List<string>(5);
@@ -117,19 +114,19 @@ public sealed record ReachSummary(
         // doing both jobs.
         parts.Add(ReachableFraction is { } f
             ? unmeasured == 0
-                ? Say(tag, "reach.fraction.window", ("percent", Wording.Percent(f)), ("days", Window))
-                : Say(tag, "reach.fraction.measured", ("percent", Wording.Percent(f)), ("days", measured))
-            : Say(tag, "reach.fraction.unknown", ("days", Window)));
+                ? Messages.Say(tag, "reach.fraction.window", ("percent", Wording.Percent(f)), ("days", Window))
+                : Messages.Say(tag, "reach.fraction.measured", ("percent", Wording.Percent(f)), ("days", measured))
+            : Messages.Say(tag, "reach.fraction.unknown", ("days", Window)));
 
         parts.Add(bad == 0
             ? Messages.For(tag, unmeasured == 0
                 ? "reach.unreachable.noneInWindow"
                 : "reach.unreachable.noneMeasured")
-            : Say(tag, "reach.unreachable.days", ("count", bad)));
+            : Messages.Say(tag, "reach.unreachable.days", ("count", bad)));
 
         if (degraded > 0)
         {
-            parts.Add(Say(tag, "reach.degraded.days", ("count", degraded)));
+            parts.Add(Messages.Say(tag, "reach.degraded.days", ("count", degraded)));
         }
 
         if (LongestOutage is { } outage)
@@ -137,8 +134,8 @@ public sealed record ReachSummary(
             // The longest outage's own cause, not the most recent one. They are different
             // intervals and pairing a duration with somebody else's cause invents an event.
             parts.Add(LongestOutageCause is FailureCause.None
-                ? Say(tag, "reach.longestOutage", ("duration", Wording.Duration(outage)))
-                : Say(
+                ? Messages.Say(tag, "reach.longestOutage", ("duration", Wording.Duration(outage)))
+                : Messages.Say(
                     tag,
                     "reach.longestOutage.cause",
                     ("duration", Wording.Duration(outage)),
@@ -149,7 +146,7 @@ public sealed record ReachSummary(
         {
             // Never "unreachable for N days", and never a cause. These are days before we knew the
             // game existed, which is a fact about our crawl.
-            parts.Add(Say(tag, "reach.predate", ("count", unmeasured)));
+            parts.Add(Messages.Say(tag, "reach.predate", ("count", unmeasured)));
         }
 
         return string.Join(' ', parts);
@@ -178,17 +175,17 @@ public sealed record ReachSummary(
 
             var days = i - start;
             var range = days == 1
-                ? Say(tag, "reach.spell.oneDay", ("d", Days[start].Date))
-                : Say(tag, "reach.spell.range", ("from", Days[start].Date), ("to", Days[i - 1].Date));
+                ? Messages.Say(tag, "reach.spell.oneDay", ("d", Days[start].Date))
+                : Messages.Say(tag, "reach.spell.range", ("from", Days[start].Date), ("to", Days[i - 1].Date));
 
             spells.Add(Days[start].Cause is FailureCause.None
-                ? Say(
+                ? Messages.Say(
                     tag,
                     "reach.spell",
                     ("range", range),
                     ("count", days),
                     ("word", Days[start].Word(tag)))
-                : Say(
+                : Messages.Say(
                     tag,
                     "reach.spell.cause",
                     ("range", range),
@@ -199,9 +196,6 @@ public sealed record ReachSummary(
 
         return spells;
     }
-
-    private static string Say(string tag, string id, params (string Key, object? Value)[] args) =>
-        Messages.For(tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 }
 
 public static class ReachSeries
