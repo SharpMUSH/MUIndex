@@ -130,8 +130,26 @@ else
                                     measurements do not contain, printed by a site whose whole
                                     argument is that it prints only what it measured.
                                 *@
+                                @*
+                                    Earliest first, because a spell that started sooner is the
+                                    longer one — and `Place` gives the first place to the *greatest*
+                                    value, so ranking on `Since.Ticks` ranked this table backwards:
+                                    Midnight Sun II, reachable on every probe since June, was
+                                    printed as seventh of seven under a heading that says longest,
+                                    while the `?plain=1` mirror numbered the same rows from a
+                                    counter and got them right. The page and its own text
+                                    alternative disagreed about a ranking.
+
+                                    On `Since` rather than on the duration, even though the duration
+                                    is what the heading names. `Now` is `Clock.GetUtcNow()` and each
+                                    read of it is a fresh instant, so `LengthAt(Now)` differs by
+                                    microseconds between the row and the sequence it is compared
+                                    against — which breaks every tie and invents a place. The start
+                                    date is the measurement; the duration is that date read against
+                                    a clock, and only one of the two is stable enough to sort on.
+                                *@
                                 <td class="place mono">
-                                    @Place(Table.LongestUnbroken.Select(s => s.Since.Ticks), spell.Since.Ticks)
+                                    @PlaceEarliest(Table.LongestUnbroken.Select(s => s.Since), spell.Since)
                                 </td>
                                 <th scope="row"><a href="/g/@spell.Slug">@spell.Name</a></th>
                                 <td class="mono">@Dates.Absolute(Tag, spell.Since)</td>
@@ -189,6 +207,18 @@ else
     /// </remarks>
     private static int Place<T>(IEnumerable<T> values, T value) where T : IComparable<T> =>
         1 + values.Count(v => v.CompareTo(value) > 0);
+
+    /// <summary>
+    /// The same place, for a column where the smallest value is the best one.
+    /// </summary>
+    /// <remarks>
+    /// The longest unbroken spell is the one that started earliest, and an earlier date is a smaller
+    /// number — so it needs the opposite comparison from a median or a peak, and sharing
+    /// <see cref="Place{T}"/> between them ranked it backwards. Ties still share a place, which is
+    /// the rule the whole column exists for.
+    /// </remarks>
+    private static int PlaceEarliest<T>(IEnumerable<T> values, T value) where T : IComparable<T> =>
+        1 + values.Count(v => v.CompareTo(value) < 0);
 
     /// <summary>The address of one window, carrying plain mode through if that is how we arrived.</summary>
     private string Href(RankingSpan span) =>

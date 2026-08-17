@@ -16,6 +16,65 @@ namespace MUI.Web.Tests;
 /// </remarks>
 public class PlainParityTests
 {
+    /// <summary>
+    /// The longest unbroken spell is first, on the page as well as in its text mirror.
+    /// </summary>
+    /// <remarks>
+    /// <b>The page and its own <c>?plain=1</c> alternative disagreed about a ranking.</b> The table
+    /// ranked by <c>Since.Ticks</c> and the place goes to the greatest value, but an earlier date is
+    /// a *smaller* number of ticks — so the longest spell on the site was printed as last of seven
+    /// under a heading that says longest, while the mirror numbered the same rows from a counter and
+    /// got them right. Ranking by the span the section is named for is what makes the two agree, and
+    /// this asserts the property rather than the arithmetic: whoever the plain renderer prints first
+    /// is whoever the table gives place 1.
+    /// </remarks>
+    [Test]
+    public async Task TheLongestSpellIsFirstOnThePageAndInTheMirror()
+    {
+        var rankings = await Queries.RankingsAsync(RankingSpan.Week);
+        var spells = rankings.LongestUnbroken;
+
+        await Assert.That(spells.Count).IsGreaterThan(1);
+
+        // The one the section is about: the longest span, not the earliest start.
+        var longest = spells.MaxBy(s => s.LengthAt(Now))!;
+
+        // The plain mirror numbers the rows from a counter, in the order the query returned them,
+        // so its first row is the first spell. Asserted against the list rather than by searching
+        // the rendered text: a game's name appears in the busiest table higher up the same page,
+        // and an index search finds that one instead.
+        await Assert.That(spells[0].Slug).IsEqualTo(longest.Slug);
+
+        // The mirror does print it first, which is the half of the parity that was already right.
+        var text = PlainText.RenderRankings(rankings, Now, Locales.SourceTag);
+        var section = text[text.LastIndexOf(spells[0].Name, StringComparison.Ordinal)..];
+
+        await Assert.That(section).StartsWith(spells[0].Name);
+
+        // And a shorter spell never outranks a longer one. The page's rule, on the page's value:
+        // the start date, which is the measurement, rather than the duration, which is that date
+        // read against a clock that moves between one comparison and the next.
+        var places = spells.Select(s => s.Since).ToList();
+
+        await Assert.That(PlaceEarliest(places, longest.Since)).IsEqualTo(1);
+
+        foreach (var spell in spells.Where(s => s.Since > longest.Since))
+        {
+            await Assert.That(PlaceEarliest(places, spell.Since)).IsGreaterThan(1);
+        }
+
+        // Ties share a place, which is the rule the column exists for: no row is numbered past the
+        // number of rows.
+        foreach (var spell in spells)
+        {
+            await Assert.That(PlaceEarliest(places, spell.Since)).IsLessThanOrEqualTo(spells.Count);
+        }
+    }
+
+    /// <summary>The page's own rule for a place where the earliest value wins.</summary>
+    private static int PlaceEarliest<T>(IEnumerable<T> values, T value) where T : IComparable<T> =>
+        1 + values.Count(v => v.CompareTo(value) < 0);
+
     private static readonly DateTimeOffset Now = FixtureGameQueries.Now;
     private static readonly FixtureGameQueries Queries = new();
 
