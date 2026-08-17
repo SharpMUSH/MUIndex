@@ -997,7 +997,7 @@
     <value>Wat we weten dat we fout doen</value>
   </data>
   <data name="about.limits.grace.lead" xml:space="preserve">
-    <value>Het archiefrespijt wordt gemeten vanaf de dag dat we een spel vonden.</value>
+    <value>Het archiefrespijt wordt gemeten vanaf de dag dat we je vonden.</value>
   </data>
   <data name="about.limits.grace.body" xml:space="preserve">
     <value>Een spel dat stopt met antwoorden verlaat de standaardlijst na zijn respijtperiode: een kwart van de bereikbare tijd die we gepeild hebben, met een ondergrens van 60 dagen en een bovengrens van 365. Een spel dat sinds 1995 draait, begint op de ondergrens op de dag dat we het ontdekken. We importeren niets om de jaren vóór onze komst in te vullen.</value>
@@ -1084,7 +1084,7 @@
     <value>Zeg stop, en we stoppen — op drie manieren.</value>
   </data>
   <data name="about.crawler.stop.body" xml:space="preserve">
-    <value>Publiceer {variable} 1 in het MSSP-rapport, en de peiling die dat leest is de laatste. Of publiceer een TXT-record op {label}.your.host met de inhoud ‘{value}’, waarvoor geen MSSP-ondersteuning en geen account hier nodig is. Of schrijf een mens aan. Alle drie worden binnen één crawlcyclus gehonoreerd, vastgelegd met de datum en met wat we lazen, en ook op het aanmeldformulier afgedwongen.</value>
+    <value>Publiceer {variable} 1 in je MSSP-rapport, en de peiling die dat leest is de laatste. Of publiceer een TXT-record op {label}.jouw.host met de inhoud ‘{value}’, waarvoor geen MSSP-ondersteuning en geen account hier nodig is. Of schrijf een mens aan. Alle drie worden binnen één crawlcyclus gehonoreerd, vastgelegd met de datum en met wat we lazen, en ook op het aanmeldformulier afgedwongen.</value>
   </data>
   <data name="about.crawler.scope.lead" xml:space="preserve">
     <value>Het MSSP-veld stopt die luisterpoort; het record stopt de host.</value>
@@ -1093,10 +1093,10 @@
     <value>MSSP wordt gepubliceerd door de poort die antwoordde, dus spreekt het voor die poort — bij MU*-hosting draaien routinematig ongerelateerde spellen op één domein, en het ene mag het andere niet het zwijgen opleggen. Een TXT-record geldt voor elke poort tenzij het er een noemt, als ‘{value}=4201’. Alles wat daar staat en wat we niet als poortenlijst kunnen lezen betekent de hele host, dus ‘{value}=all’ werkt.</value>
   </data>
   <data name="about.crawler.dns.lead" xml:space="preserve">
-    <value>De DNS-route is de enige die zonder ons ongedaan te maken is.</value>
+    <value>De DNS-route is de enige die je ongedaan kunt maken zonder het ons te vragen.</value>
   </data>
   <data name="about.crawler.dns.body" xml:space="preserve">
-    <value>Een TXT-record is leesbaar zonder verbinding te maken met een server die dat verboden heeft, dus we lezen het opnieuw voordat we aankloppen. Wordt het verwijderd, dan kloppen we binnen een week weer aan. Een MSSP-veld kan niet opnieuw gelezen worden zonder precies te doen wat ons gevraagd is te laten, dus afmeldingen via MSSP en schriftelijke verzoeken blijven staan tot iemand het tegendeel zegt. Die TXT-opzoeking is alles wat een afgemeld adres krijgt: ze raakt de nameserver, nooit het spel.</value>
+    <value>Een TXT-record is leesbaar zonder verbinding te maken met een server die dat verboden heeft, dus we lezen het opnieuw voordat we aankloppen. Verwijder het en we kloppen binnen een week weer aan. Een MSSP-veld kan niet opnieuw gelezen worden zonder precies te doen wat je ons gevraagd hebt te laten, dus afmeldingen via MSSP en schriftelijke verzoeken blijven staan tot je het tegendeel zegt. Die TXT-opzoeking is alles wat een afgemeld adres krijgt: ze raakt je nameserver, nooit je spel.</value>
   </data>
   <data name="about.crawler.stopping.lead" xml:space="preserve">
     <value>Stoppen is niet verwijderen, en het is geen downtime.</value>
@@ -1108,13 +1108,13 @@
     <value>Als stoppen niet genoeg is, kan de vermelding er ook af.</value>
   </data>
   <data name="about.crawler.unlist.body" xml:space="preserve">
-    <value>Zodra we gestopt zijn op elk adres waarop een spel antwoordt, biedt het dashboard nog één ding: het uit de lijst, de ranglijsten en het dagcijfer halen. De pagina en elk adres dat het ooit gehad heeft blijven antwoorden, en er wordt niets verwijderd — het houdt op een plek te zijn waar een lezer al bladerend aankomt. Er is een geverifieerde claim voor nodig, want het is een besluit over dat spel en we leggen vast wie het genomen heeft. En een peiling maakt het ongedaan: trek de afmelding in, en de eerstvolgende keer dat er aangeklopt wordt en er antwoord komt, staat het spel weer in de lijst zonder dat het ons nog eens gevraagd hoeft te worden.</value>
+    <value>Zodra we gestopt zijn op elk adres waarop je spel antwoordt, biedt je dashboard nog één ding: het uit de lijst, de ranglijsten en het dagcijfer halen. De pagina en elk adres dat het ooit gehad heeft blijven antwoorden, en er wordt niets verwijderd — het houdt op een plek te zijn waar een lezer al bladerend aankomt. Er is een geverifieerde claim voor nodig, want het is een besluit over je spel en we leggen vast wie het genomen heeft. En een peiling maakt het ongedaan: trek je afmelding in, en de eerstvolgende keer dat er aangeklopt wordt en er antwoord komt, sta je weer in de lijst zonder dat je het ons nog eens hoeft te vragen.</value>
   </data>
   <data name="about.identity.announced" xml:space="preserve">
     <value>De crawler noemt zichzelf {name} wanneer een server vraagt wat hij is.</value>
   </data>
   <data name="about.identity.unannounced" xml:space="preserve">
-    <value>De crawler is ingesteld om zichzelf {name} te noemen, maar kan dat nog niet zeggen. Zijn telnet-bibliotheek biedt een client geen manier om het terminaltype in te stellen, dus logboeken zien de standaardwaarde van die bibliotheek, en NEW-ENVIRON wordt beantwoord vanuit de omgeving van de crawlerhost. Beide zijn gaten in de bibliotheek en aan ons om ze daar te dichten. Tot die tijd: herken een peiling aan de vorm ervan — één verbinding, geen login, een korte set alleen-lezen-commando’s, weg.</value>
+    <value>De crawler is ingesteld om zichzelf {name} te noemen, maar kan dat nog niet zeggen. Zijn telnet-bibliotheek biedt een client geen manier om het terminaltype in te stellen, dus je logboeken zien de standaardwaarde van die bibliotheek, en NEW-ENVIRON wordt beantwoord vanuit de omgeving van de crawlerhost. Beide zijn gaten in de bibliotheek en aan ons om ze daar te dichten. Tot die tijd: herken een peiling aan de vorm ervan — één verbinding, geen login, een korte set alleen-lezen-commando’s, weg.</value>
   </data>
   <data name="about.identity.crawler" xml:space="preserve">
     <value>crawler</value>
@@ -1249,7 +1249,7 @@
     <value>We lossen het adres op voordat we aankloppen, en weigeren alles wat buiten het publieke internet uitkomt. Dat is een besluit over onze eigen socket, nooit een feit over een spel.</value>
   </data>
   <data name="submit.what.optOut" xml:space="preserve">
-    <value>Als degene die die host draait ons gevraagd heeft er niet te crawlen, nemen we het adres niet aan, door wie het ook wordt aangemeld. Een vreemde kan andermans spel niet terugzetten op deze site.</value>
+    <value>Als degene die die host draait ons gevraagd heeft er niet te crawlen, nemen we het adres niet aan, door wie het ook wordt aangemeld. Een vreemde kan je spel niet terugzetten op deze site.</value>
   </data>
   <data name="submit.what.schedule" xml:space="preserve">
     <value>Als het antwoordt, lezen we wat de server over zichzelf zegt en blijven we dat lezen op zijn eigen schema, voor altijd. Een adres hoeft maar één keer gegeven te worden.</value>
@@ -1267,13 +1267,13 @@
     <value>In het register.</value>
   </data>
   <data name="submit.accepted.sentence" xml:space="preserve">
-    <value>Bij {address} wordt in de volgende crawlcyclus aangeklopt, daarna op zijn eigen schema, voor altijd. Het verschijnt hier zodra iemand bewijst het te draaien — kom met hetzelfde adres terug naar dit formulier en het geeft de link.</value>
+    <value>Bij {address} wordt in de volgende crawlcyclus aangeklopt, daarna op zijn eigen schema, voor altijd. Het verschijnt hier zodra iemand bewijst het te draaien — kom met hetzelfde adres terug naar dit formulier en het geeft je de link.</value>
   </data>
   <data name="submit.unclaimed.heading" xml:space="preserve">
     <value>We hebben het, niet geclaimd.</value>
   </data>
   <data name="submit.unclaimed.sentence" xml:space="preserve">
-    <value>{address} is er een die we al meten. Het blijft van de site af tot iemand bewijst het te draaien. Voor wie dat is, is dit de weg naar binnen.</value>
+    <value>{address} is er een die we al meten. Het blijft van de site af tot iemand bewijst het te draaien. Ben jij dat, dan is dit de weg naar binnen.</value>
   </data>
   <data name="submit.known.heading" xml:space="preserve">
     <value>Die hebben we al.</value>
@@ -1309,7 +1309,7 @@
     <value>Genoeg voor nu.</value>
   </data>
   <data name="submit.tooMany.sentence" xml:space="preserve">
-    <value>Dit formulier is per afzender in snelheid beperkt, en die grens is bereikt. Kom over een uur terug. Er is niets verloren gegaan — alles wat we aangenomen hebben staat al in het register.</value>
+    <value>Dit formulier is per afzender in snelheid beperkt, en je hebt de grens bereikt. Kom over een uur terug. Er is niets verloren gegaan — alles wat we aangenomen hebben staat al in het register.</value>
   </data>
   <data name="submit.link.claim" xml:space="preserve">
     <value>dit spel claimen</value>
@@ -1318,7 +1318,7 @@
     <value>Inloggen</value>
   </data>
   <data name="account.signIn.preview" xml:space="preserve">
-    <value>Log in met een passkey om een eigen spel te claimen. Er is geen wachtwoord om kwijt te raken en geen om te stelen.</value>
+    <value>Log in met een passkey om een spel te claimen dat je zelf draait. Er is geen wachtwoord om kwijt te raken en geen om te stelen.</value>
   </data>
   <data name="account.signIn.noDatabase" xml:space="preserve">
     <value>Claimen vereist een database, en deze site draait op de demofixture. Er is niets om op in te loggen.</value>
@@ -1327,7 +1327,7 @@
     <value>Inloggen gaat met een passkey.</value>
   </data>
   <data name="account.signIn.passkey.body" xml:space="preserve">
-    <value>Het apparaat of de wachtwoordmanager houdt de privésleutel; wij houden alleen de publieke helft. Geen wachtwoord, geen e-mail.</value>
+    <value>Je apparaat of wachtwoordmanager houdt de privésleutel; wij houden alleen de publieke helft. Geen wachtwoord, geen e-mail.</value>
   </data>
   <data name="account.signIn.button" xml:space="preserve">
     <value>Inloggen met een passkey</value>
@@ -1339,7 +1339,7 @@
     <value>Nog geen account?</value>
   </data>
   <data name="account.register.lede" xml:space="preserve">
-    <value>Een account is alleen nodig om een eigen spel te claimen. Kies een naam om onder bekend te staan — een label naast de claim, geen echte naam.</value>
+    <value>Je hebt er alleen een nodig om een spel te claimen dat je zelf draait. Kies een naam om onder bekend te staan — een label naast je claim, geen echte naam.</value>
   </data>
   <data name="account.register.name.label" xml:space="preserve">
     <value>Naam</value>
@@ -1354,16 +1354,16 @@
     <value>Wat we opslaan</value>
   </data>
   <data name="account.store.name" xml:space="preserve">
-    <value>De gekozen naam.</value>
+    <value>De naam die je gekozen hebt.</value>
   </data>
   <data name="account.store.keys" xml:space="preserve">
-    <value>De publieke sleutel van elke geregistreerde passkey, en hoe het apparaat die noemde.</value>
+    <value>De publieke sleutel van elke passkey die je registreert, en hoe je apparaat die noemde.</value>
   </data>
   <data name="account.store.claims" xml:space="preserve">
-    <value>Welke spellen geclaimd zijn, en wanneer.</value>
+    <value>Welke spellen je geclaimd hebt, en wanneer.</value>
   </data>
   <data name="account.store.note" xml:space="preserve">
-    <value>Geen e-mailadres, geen wachtwoord, geen IP-log gekoppeld aan het account. Raakt elke passkey verloren, dan kan er een nieuw claimtoken op het spel gepubliceerd worden om opnieuw te beginnen: het spel is het bewijs, niet het account.</value>
+    <value>Geen e-mailadres, geen wachtwoord, geen IP-log gekoppeld aan je account. Raak je elke passkey kwijt, dan kun je een nieuw claimtoken op je spel publiceren en opnieuw beginnen: het spel is het bewijs, niet het account.</value>
   </data>
   <data name="date.absolute" xml:space="preserve">
     <value>{day} {month} {year}</value>

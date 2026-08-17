@@ -112,7 +112,7 @@
     <value>diese Anfrage wurde abgelehnt</value>
   </data>
   <data name="find.name.label" xml:space="preserve">
-    <value>ein Name, falls vorhanden</value>
+    <value>ein Name, falls Sie einen haben</value>
   </data>
   <data name="find.name.placeholder" xml:space="preserve">
     <value>Name oder Namensteil</value>
@@ -124,7 +124,7 @@
     <value>Spielt gerade jemand?</value>
   </data>
   <data name="find.q.genre" xml:space="preserve">
-    <value>Was soll gespielt werden?</value>
+    <value>Was möchten Sie spielen?</value>
   </data>
   <data name="find.q.lineage" xml:space="preserve">
     <value>Welche Art von Spiel?</value>
@@ -133,7 +133,7 @@
     <value>In welcher Sprache?</value>
   </data>
   <data name="find.q.client" xml:space="preserve">
-    <value>Was braucht der Client?</value>
+    <value>Braucht Ihr Client etwas?</value>
   </data>
   <data name="find.q.dark" xml:space="preserve">
     <value>Verstummte Spiele einbeziehen?</value>
@@ -280,7 +280,7 @@
     <value>Kataloge</value>
   </data>
   <data name="nav.account" xml:space="preserve">
-    <value>Diese Website und das eigene Konto</value>
+    <value>Diese Website und Ihr Konto</value>
   </data>
   <data name="nav.browse" xml:space="preserve">
     <value>stöbern</value>
@@ -328,7 +328,7 @@
     <value>anmelden</value>
   </data>
   <data name="nav.yourGames" xml:space="preserve">
-    <value>eigene Spiele</value>
+    <value>Ihre Spiele</value>
   </data>
   <data name="theme.label" xml:space="preserve">
     <value>Design</value>
@@ -997,7 +997,7 @@
     <value>Was wir falsch machen, soweit wir es wissen</value>
   </data>
   <data name="about.limits.grace.lead" xml:space="preserve">
-    <value>Die Schonfrist bis zum Archiv wird ab dem Tag gemessen, an dem wir ein Spiel gefunden haben.</value>
+    <value>Die Schonfrist bis zum Archiv wird ab dem Tag gemessen, an dem wir Sie gefunden haben.</value>
   </data>
   <data name="about.limits.grace.body" xml:space="preserve">
     <value>Ein Spiel, das nicht mehr antwortet, verlässt nach seiner Schonfrist das Standardverzeichnis: ein Viertel der erreichbaren Zeit, die wir abgefragt haben, mindestens 60 und höchstens 365 Tage. Ein Spiel, das seit 1995 läuft, beginnt am Tag seiner Entdeckung beim Minimum. Wir importieren nichts, um die Jahre vor unserer Ankunft aufzufüllen.</value>
@@ -1084,7 +1084,7 @@
     <value>Ein Stopp genügt, und wir hören auf — auf drei Wegen.</value>
   </data>
   <data name="about.crawler.stop.body" xml:space="preserve">
-    <value>{variable} 1 im MSSP-Bericht veröffentlichen, dann ist die Abfrage, die es liest, die letzte. Oder einen TXT-Eintrag unter {label}.your.host mit dem Inhalt „{value}“ veröffentlichen, was keine MSSP-Unterstützung und kein Konto hier braucht. Oder einer Person schreiben. Alle drei werden innerhalb eines Crawl-Zyklus befolgt, mit Datum und dem Gelesenen festgehalten und auch im Eintragungsformular durchgesetzt.</value>
+    <value>Veröffentlichen Sie {variable} 1 in Ihrem MSSP-Bericht, dann ist die Abfrage, die es liest, die letzte. Oder veröffentlichen Sie einen TXT-Eintrag unter {label}.your.host mit dem Inhalt „{value}“, wofür es keine MSSP-Unterstützung und kein Konto hier braucht. Oder schreiben Sie einer Person. Alle drei werden innerhalb eines Crawl-Zyklus befolgt, mit Datum und dem Gelesenen festgehalten und auch im Eintragungsformular durchgesetzt.</value>
   </data>
   <data name="about.crawler.scope.lead" xml:space="preserve">
     <value>Das MSSP-Feld stoppt diesen Listener; der TXT-Eintrag stoppt den Host.</value>
@@ -1093,10 +1093,10 @@
     <value>MSSP wird von dem Port veröffentlicht, der geantwortet hat, und spricht daher für diesen Port — beim MU*-Hosting laufen regelmäßig unabhängige Spiele auf einer Domain, und keines darf sein Nachbarspiel zum Schweigen bringen. Ein TXT-Eintrag umfasst jeden Port, sofern er nicht einen einzelnen nennt, etwa „{value}=4201“. Alles dort, was wir nicht als Portliste lesen können, meint den ganzen Host; deshalb funktioniert auch „{value}=all“.</value>
   </data>
   <data name="about.crawler.dns.lead" xml:space="preserve">
-    <value>Der Weg über DNS ist der, der sich ohne Rückfrage bei uns rückgängig machen lässt.</value>
+    <value>Der Weg über DNS ist der, den Sie ohne Rückfrage bei uns rückgängig machen können.</value>
   </data>
   <data name="about.crawler.dns.body" xml:space="preserve">
-    <value>Ein TXT-Eintrag lässt sich lesen, ohne sich mit einem Server zu verbinden, der uns das untersagt hat; deshalb lesen wir ihn vor jeder Anwahl neu. Wird er gelöscht, wählen wir binnen einer Woche wieder an. Ein MSSP-Feld lässt sich nicht neu lesen, ohne genau das zu tun, was untersagt wurde; deshalb gelten ein Ausschluss per MSSP und schriftliche Bitten so lange, bis etwas anderes gesagt wird. Dieser TXT-Abruf ist alles, was eine ausgeschlossene Adresse noch bekommt: Er berührt den Nameserver, nie das Spiel.</value>
+    <value>Ein TXT-Eintrag lässt sich lesen, ohne sich mit einem Server zu verbinden, der uns das untersagt hat; deshalb lesen wir ihn vor jeder Anwahl neu. Löschen Sie ihn, und wir wählen binnen einer Woche wieder an. Ein MSSP-Feld lässt sich nicht neu lesen, ohne genau das zu tun, was Sie uns untersagt haben; deshalb gelten ein Ausschluss per MSSP und schriftliche Bitten so lange, bis Sie etwas anderes sagen. Dieser TXT-Abruf ist alles, was eine ausgeschlossene Adresse noch bekommt: Er berührt Ihren Nameserver, nie Ihr Spiel.</value>
   </data>
   <data name="about.crawler.stopping.lead" xml:space="preserve">
     <value>Aufhören ist kein Löschen, und es ist keine Ausfallzeit.</value>
@@ -1108,13 +1108,13 @@
     <value>Wenn Aufhören nicht genügt, kann auch der Eintrag verschwinden.</value>
   </data>
   <data name="about.crawler.unlist.body" xml:space="preserve">
-    <value>Sobald wir für jede Adresse, unter der ein Spiel antwortet, aufgehört haben, bietet die eigene Übersicht eine weitere Möglichkeit: es aus dem Verzeichnis, aus den Ranglisten und aus der Tageszahl herauszunehmen. Die Seite und jede Adresse, die es je hatte, antworten weiterhin, und nichts wird gelöscht — es ist nur kein Ort mehr, an dem man beim Stöbern ankommt. Dafür braucht es einen bestätigten Anspruch, denn es ist eine Entscheidung über das eigene Spiel, und wir halten fest, wer sie getroffen hat. Und eine Abfrage macht sie rückgängig: Wird der Ausschluss zurückgenommen, bringt die nächste Anwahl, die eine Antwort erhält, das Spiel wieder ins Verzeichnis, ohne dass noch einmal gefragt werden muss.</value>
+    <value>Sobald wir für jede Adresse, unter der Ihr Spiel antwortet, aufgehört haben, bietet Ihre Übersicht eine weitere Möglichkeit: es aus dem Verzeichnis, aus den Ranglisten und aus der Tageszahl herauszunehmen. Die Seite und jede Adresse, die es je hatte, antworten weiterhin, und nichts wird gelöscht — es ist nur kein Ort mehr, an dem man beim Stöbern ankommt. Dafür braucht es einen bestätigten Anspruch, denn es ist eine Entscheidung über Ihr Spiel, und wir halten fest, wer sie getroffen hat. Und eine Abfrage macht sie rückgängig: Nehmen Sie Ihren Ausschluss zurück, dann bringt die nächste Anwahl, die eine Antwort erhält, Sie wieder ins Verzeichnis, ohne dass Sie uns ein zweites Mal fragen müssen.</value>
   </data>
   <data name="about.identity.announced" xml:space="preserve">
     <value>Der Crawler nennt sich {name}, wenn ein Server fragt, was er ist.</value>
   </data>
   <data name="about.identity.unannounced" xml:space="preserve">
-    <value>Der Crawler ist so konfiguriert, dass er sich {name} nennt, kann das aber noch nicht mitteilen. Seine Telnet-Bibliothek bietet einem Client keine Möglichkeit, den Terminaltyp zu setzen; deshalb steht in den Logs der Standardwert dieser Bibliothek, und NEW-ENVIRON wird aus der Umgebung des Crawler-Hosts beantwortet. Beides sind Lücken in der Bibliothek und von uns dort zu beheben. Bis dahin ist eine Abfrage an ihrer Form zu erkennen: eine Verbindung, keine Anmeldung, ein kurzer, nur lesender Befehlssatz, weg.</value>
+    <value>Der Crawler ist so konfiguriert, dass er sich {name} nennt, kann das aber noch nicht mitteilen. Seine Telnet-Bibliothek bietet einem Client keine Möglichkeit, den Terminaltyp zu setzen; deshalb steht in Ihren Logs der Standardwert dieser Bibliothek, und NEW-ENVIRON wird aus der Umgebung des Crawler-Hosts beantwortet. Beides sind Lücken in der Bibliothek und von uns dort zu beheben. Bis dahin erkennen Sie eine Abfrage an ihrer Form: eine Verbindung, keine Anmeldung, ein kurzer, nur lesender Befehlssatz, weg.</value>
   </data>
   <data name="about.identity.crawler" xml:space="preserve">
     <value>Crawler</value>
@@ -1249,7 +1249,7 @@
     <value>Wir lösen die Adresse auf, bevor wir sie anwählen, und lehnen alles ab, was außerhalb des öffentlichen Internets auflöst. Das ist eine Entscheidung über unseren eigenen Socket, nie eine Tatsache über ein Spiel.</value>
   </data>
   <data name="submit.what.optOut" xml:space="preserve">
-    <value>Wenn die Betreiber dieses Hosts uns gebeten haben, ihn nicht zu crawlen, nehmen wir die Adresse nicht an, gleich wer sie einträgt. Fremde können ein Spiel nicht zurück auf diese Website bringen.</value>
+    <value>Wenn die Betreiber dieses Hosts uns gebeten haben, ihn nicht zu crawlen, nehmen wir die Adresse nicht an, gleich wer sie einträgt. Fremde können Ihr Spiel nicht zurück auf diese Website bringen.</value>
   </data>
   <data name="submit.what.schedule" xml:space="preserve">
     <value>Antwortet sie, lesen wir, was der Server über sich selbst sagt, und lesen es nach seinem eigenen Zeitplan für immer weiter. Eine Adresse muss nur einmal genannt werden.</value>
@@ -1267,13 +1267,13 @@
     <value>Im Register.</value>
   </data>
   <data name="submit.accepted.sentence" xml:space="preserve">
-    <value>{address} wird im nächsten Crawl-Zyklus angewählt, danach für immer nach eigenem Zeitplan. Sobald jemand nachweist, dass er es betreibt, erscheint es hier — mit derselben Adresse zu diesem Formular zurückkehren, dann gibt es hier den Link dazu.</value>
+    <value>{address} wird im nächsten Crawl-Zyklus angewählt, danach für immer nach eigenem Zeitplan. Sobald jemand nachweist, dass er es betreibt, erscheint es hier — kommen Sie mit derselben Adresse zu diesem Formular zurück, dann bekommen Sie hier den Link dazu.</value>
   </data>
   <data name="submit.unclaimed.heading" xml:space="preserve">
     <value>Wir haben es, nicht beansprucht.</value>
   </data>
   <data name="submit.unclaimed.sentence" xml:space="preserve">
-    <value>{address} messen wir bereits. Es bleibt von der Website fern, bis jemand nachweist, dass er es betreibt. Für die Betreiber ist dies der Weg hinein.</value>
+    <value>{address} messen wir bereits. Es bleibt von der Website fern, bis jemand nachweist, dass er es betreibt. Sind Sie das, geht es hier hinein.</value>
   </data>
   <data name="submit.known.heading" xml:space="preserve">
     <value>Das haben wir schon.</value>
@@ -1309,7 +1309,7 @@
     <value>Genug für jetzt.</value>
   </data>
   <data name="submit.tooMany.sentence" xml:space="preserve">
-    <value>Dieses Formular ist pro Absender begrenzt, und die Grenze ist erreicht. In einer Stunde wiederkommen. Nichts ging verloren — was wir angenommen haben, steht bereits im Register.</value>
+    <value>Dieses Formular ist pro Absender begrenzt, und Sie haben die Grenze erreicht. Kommen Sie in einer Stunde wieder. Nichts ging verloren — was wir angenommen haben, steht bereits im Register.</value>
   </data>
   <data name="submit.link.claim" xml:space="preserve">
     <value>dieses Spiel beanspruchen</value>
@@ -1318,7 +1318,7 @@
     <value>Anmelden</value>
   </data>
   <data name="account.signIn.preview" xml:space="preserve">
-    <value>Mit einem Passkey anmelden, um ein selbst betriebenes Spiel zu beanspruchen. Es gibt kein Passwort, das verloren gehen, und keines, das gestohlen werden kann.</value>
+    <value>Melden Sie sich mit einem Passkey an, um ein Spiel zu beanspruchen, das Sie betreiben. Es gibt kein Passwort, das verloren gehen, und keines, das gestohlen werden kann.</value>
   </data>
   <data name="account.signIn.noDatabase" xml:space="preserve">
     <value>Das Beanspruchen braucht eine Datenbank, und diese Website läuft auf den Demodaten. Es gibt nichts, wo man sich anmelden könnte.</value>
@@ -1327,7 +1327,7 @@
     <value>Die Anmeldung ist ein Passkey.</value>
   </data>
   <data name="account.signIn.passkey.body" xml:space="preserve">
-    <value>Das Gerät oder der Passwortmanager hält den privaten Schlüssel; wir halten nur die öffentliche Hälfte. Kein Passwort, keine E-Mail.</value>
+    <value>Ihr Gerät oder Ihr Passwortmanager hält den privaten Schlüssel; wir halten nur die öffentliche Hälfte. Kein Passwort, keine E-Mail.</value>
   </data>
   <data name="account.signIn.button" xml:space="preserve">
     <value>Mit einem Passkey anmelden</value>
@@ -1339,7 +1339,7 @@
     <value>Noch kein Konto?</value>
   </data>
   <data name="account.register.lede" xml:space="preserve">
-    <value>Ein Konto wird nur gebraucht, um ein selbst betriebenes Spiel zu beanspruchen. Einen Namen wählen, unter dem man erscheint — eine Beschriftung neben dem Anspruch, kein echter Name.</value>
+    <value>Sie brauchen eines nur, um ein Spiel zu beanspruchen, das Sie betreiben. Wählen Sie einen Namen, unter dem Sie erscheinen — eine Beschriftung neben Ihrem Anspruch, kein echter Name.</value>
   </data>
   <data name="account.register.name.label" xml:space="preserve">
     <value>Name</value>
@@ -1354,16 +1354,16 @@
     <value>Was wir speichern</value>
   </data>
   <data name="account.store.name" xml:space="preserve">
-    <value>Den gewählten Namen.</value>
+    <value>Den Namen, den Sie gewählt haben.</value>
   </data>
   <data name="account.store.keys" xml:space="preserve">
-    <value>Den öffentlichen Schlüssel jedes registrierten Passkeys und den Namen, den das Gerät ihm gegeben hat.</value>
+    <value>Den öffentlichen Schlüssel jedes Passkeys, den Sie registrieren, und den Namen, den Ihr Gerät ihm gegeben hat.</value>
   </data>
   <data name="account.store.claims" xml:space="preserve">
-    <value>Welche Spiele beansprucht wurden und wann.</value>
+    <value>Welche Spiele Sie beansprucht haben und wann.</value>
   </data>
   <data name="account.store.note" xml:space="preserve">
-    <value>Keine E-Mail-Adresse, kein Passwort, kein an das Konto gebundenes IP-Protokoll. Sind alle Passkeys verloren, lässt sich ein frischer Anspruchs-Token im Spiel veröffentlichen und von vorn beginnen: Der Beweis ist das Spiel, nicht das Konto.</value>
+    <value>Keine E-Mail-Adresse, kein Passwort, kein an Ihr Konto gebundenes IP-Protokoll. Verlieren Sie alle Passkeys, können Sie einen frischen Anspruchs-Token in Ihrem Spiel veröffentlichen und von vorn beginnen: Der Beweis ist das Spiel, nicht das Konto.</value>
   </data>
   <data name="date.absolute" xml:space="preserve">
     <value>{day}. {month} {year}</value>
