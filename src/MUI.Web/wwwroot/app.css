@@ -275,6 +275,34 @@ header.site nav a:hover { color: var(--text); text-decoration: underline; text-u
    catalogues beside it. */
 header.site nav.account a { color: var(--text); }
 
+/* ── the reader's theme ────────────────────────────────────────────────────
+   Buttons drawn as the links beside them, because they belong to that row and a row of three real
+   buttons in a text bar reads as a toolbar bolted on. The one in force is underlined and not merely
+   brighter: a state carried by colour alone is a state a greyscale display does not carry, which is
+   the same rule the heatmap's hatch exists for.                                                  */
+
+form.theme { display: flex; align-items: baseline; gap: 8px; margin: 0; }
+form.theme .kick {
+    font: 10px/1 var(--kick);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
+}
+form.theme button {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: var(--dim);
+    cursor: pointer;
+}
+form.theme button:hover { color: var(--text); }
+form.theme button[aria-pressed="true"] {
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
 h3 { font-size: 15px; font-weight: 600; margin: var(--cpad) 0 4px; }
 p { margin: 0 0 8px; }
 

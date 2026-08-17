@@ -7,6 +7,7 @@ using MUI.Web.Data;
 using MUI.Web.Fixtures;
 using MUI.Web.Icons;
 using MUI.Web.Submissions;
+using MUI.Web.Theme;
 
 namespace MUI.Web;
 
@@ -162,6 +163,10 @@ public static class SiteComposition
             // database — the demo fixture has no icons and renders no element for them.
             app.MapMuiIcons();
         }
+
+        // Outside the guard above, because it writes a cookie and nothing else: a reader of the demo
+        // deployment has the same eyes as a reader of the real one.
+        app.MapMuiTheme();
 
         // §5.7, and before the route that would answer with "not found": a slug this game used to
         // have is a URL somebody is still holding, and it redirects to the page it has now —
