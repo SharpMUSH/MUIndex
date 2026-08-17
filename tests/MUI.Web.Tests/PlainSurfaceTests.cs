@@ -27,9 +27,17 @@ public class PlainSurfaceTests
     /// The three states that withhold a listing are three markers, not one.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// This is the surface a reader reaches with a script, so the marker is the whole answer. Folding
     /// `unlisted` into `[archived]` would put the wrong fact — "it stopped answering" — in the one
     /// field a parser reads, about a game that is running and simply not being dialled.
+    /// </para>
+    /// <para>
+    /// <b>The line endings are normalised before the split, and that is not tidiness.</b>
+    /// <c>StringBuilder.AppendLine</c> writes <see cref="Environment.NewLine"/>, so splitting on
+    /// <c>'\n'</c> leaves a carriage return on the end of every line on Windows and an assertion
+    /// about the end of one passes on Linux and fails there. This test did exactly that.
+    /// </para>
     /// </remarks>
     [Test]
     [Arguments(LifecycleState.Archived, "[archived]")]
@@ -42,7 +50,9 @@ public class PlainSurfaceTests
             page! with { Summary = page.Summary with { State = state } },
             Now);
 
-        await Assert.That(text.Split('\n')[0]).EndsWith(marker);
+        var firstLine = text.ReplaceLineEndings("\n").Split('\n')[0];
+
+        await Assert.That(firstLine).EndsWith(marker);
     }
 
     [Test]
