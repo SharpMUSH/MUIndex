@@ -58,13 +58,13 @@
     <value>{facet}: beliebig, {count, plural, one {# Spiel} other {# Spiele}}</value>
   </data>
   <data name="listing.total" xml:space="preserve">
-    <value>{count, plural, =0 {Keine Spiele} one {# Spiel} other {# Spiele}}, jede Tatsache gemessen.</value>
+    <value>{count, plural, =0 {Keine Spiele eingetragen.} one {# Spiel, jede Tatsache nennt ihre Herkunft.} other {# Spiele, jede Tatsache nennt ihre Herkunft.}}</value>
   </data>
   <data name="chart.basis" xml:space="preserve">
     <value>{days, plural, one {# Tag} other {# Tage}} gemessen · {probes, plural, one {# Abfrage} other {# Abfragen}}</value>
   </data>
   <data name="window.samples" xml:space="preserve">
-    <value>{days}d · {count, plural, one {# Zählung} other {# Zählungen}}</value>
+    <value>{days, plural, one {# Tag} other {# Tage}} · {count, plural, one {# Zählung} other {# Zählungen}}</value>
   </data>
   <data name="capabilities.agree" xml:space="preserve">
     <value>{disagreeing, plural, =0 {Keine der {total} widerspricht.} one {# von {total} widerspricht dem, was das Spiel angibt.} other {# von {total} widersprechen dem, was das Spiel angibt.}}</value>
@@ -246,6 +246,18 @@
   <data name="state.notCounted" xml:space="preserve">
     <value>nicht gezählt</value>
   </data>
+  <data name="listing.count.none" xml:space="preserve">
+    <value>keine Zählung</value>
+  </data>
+  <data name="listing.plain.fromHere" xml:space="preserve">
+    <value>von hier aus</value>
+  </data>
+  <data name="listing.plain.archived" xml:space="preserve">
+    <value>archiviert</value>
+  </data>
+  <data name="listing.plain.claimed" xml:space="preserve">
+    <value>beansprucht</value>
+  </data>
   <data name="term.connected" xml:space="preserve">
     <value>Verbindungen</value>
   </data>
@@ -364,7 +376,7 @@
     <value>Ein Verzeichnis des MU*-Hobbys</value>
   </data>
   <data name="home.lede" xml:space="preserve">
-    <value>Jede Tatsache wurde von einem Crawler gemessen, der sich mit dem Spiel verbunden hat.</value>
+    <value>Jede Tatsache nennt ihre Herkunft und ihr Alter: von unserem Crawler gemessen oder vom Spiel angegeben und als solche gekennzeichnet.</value>
   </data>
   <data name="home.search.label" xml:space="preserve">
     <value>Spiele nach Name, Thema, Codebase oder Host suchen</value>
@@ -688,10 +700,10 @@
     <value>nichts, was wir im Zeitraum zählen konnten — nicht etwa ein Spiel, mit dem niemand verbunden war</value>
   </data>
   <data name="sort.window.median" xml:space="preserve">
-    <value>Median {value} · {days}d · {count, plural, one {# Zählung} other {# Zählungen}}</value>
+    <value>Median {value} · {days, plural, one {# Tag} other {# Tage}} · {count, plural, one {# Zählung} other {# Zählungen}}</value>
   </data>
   <data name="sort.window.peak" xml:space="preserve">
-    <value>meiste {value} gleichzeitig · {days}d · {count, plural, one {# Zählung} other {# Zählungen}}</value>
+    <value>meiste {value} gleichzeitig · {days, plural, one {# Tag} other {# Tage}} · {count, plural, one {# Zählung} other {# Zählungen}}</value>
   </data>
   <data name="game.connectScreen" xml:space="preserve">
     <value>Verbindungsbildschirm</value>
@@ -728,9 +740,6 @@
   </data>
   <data name="game.answeringSince" xml:space="preserve">
     <value>antwortet seit {date}</value>
-  </data>
-  <data name="game.unknownCount" xml:space="preserve">
-    <value>unbekannte Zählung</value>
   </data>
   <data name="game.readAsTextRows" xml:space="preserve">
     <value>als Text lesen — {count, plural, one {# Zeile} other {# Zeilen}}</value>
@@ -2151,9 +2160,6 @@
   <data name="game.plain.playersNow" xml:space="preserve">
     <value>Jetzt verbunden: {count}</value>
   </data>
-  <data name="game.plain.playersUnknown" xml:space="preserve">
-    <value>Jetzt verbunden: unbekannt (keine Zählung messbar)</value>
-  </data>
   <data name="game.plain.capabilities" xml:space="preserve">
     <value>Fähigkeiten ({disagreeing} von {total} widersprechen)</value>
   </data>
@@ -2174,5 +2180,158 @@
   </data>
   <data name="game.plain.disagree" xml:space="preserve">
     <value>** widersprechen</value>
+  </data>
+  <data name="listing.row.connected" xml:space="preserve">
+    <value>Verbindungen</value>
+  </data>
+  <data name="listing.row.reached" xml:space="preserve">
+    <value>erreicht</value>
+  </data>
+  <data name="facet.group.search" xml:space="preserve">
+    <value>Suche</value>
+  </data>
+  <data name="facet.group.archived" xml:space="preserve">
+    <value>archiviert</value>
+  </data>
+  <data name="facet.group.adult" xml:space="preserve">
+    <value>Erwachseneninhalte</value>
+  </data>
+  <data name="facet.value.included" xml:space="preserve">
+    <value>einbezogen</value>
+  </data>
+  <data name="game.count.none" xml:space="preserve">
+    <value>keine Zählung</value>
+  </data>
+  <data name="game.count.none.why" xml:space="preserve">
+    <value>keine aktuelle Zählung, und nichts hier nennt einen Grund</value>
+  </data>
+  <data name="game.plain.playersNoCount" xml:space="preserve">
+    <value>Jetzt verbunden: keine Zählung (nichts hier nennt einen Grund)</value>
+  </data>
+  <data name="crawler.live" xml:space="preserve">
+    <value>Crawler aktiv · letzte Abfrage {age}</value>
+  </data>
+  <data name="crawler.quiet" xml:space="preserve">
+    <value>Crawler im Leerlauf · letzte Abfrage {age}</value>
+  </data>
+  <data name="crawler.noProbe" xml:space="preserve">
+    <value>hier ist noch keine Abfrage abgeschlossen</value>
+  </data>
+  <data name="crawler.cycle.nothingDue" xml:space="preserve">
+    <value>in diesem Zyklus nichts fällig</value>
+  </data>
+  <data name="crawler.cycle" xml:space="preserve">
+    <value>{considered, plural, one {# fällig} other {# fällig}} · {answered, plural, one {# geantwortet} other {# geantwortet}} · {failed, plural, one {# fehlgeschlagen} other {# fehlgeschlagen}}</value>
+  </data>
+  <data name="crawler.registry" xml:space="preserve">
+    <value>{targets, plural, one {# Adresse im Register} other {# Adressen im Register}}, {due, plural, one {# jetzt fällig} other {# jetzt fällig}}</value>
+  </data>
+  <data name="preview.documentTitle" xml:space="preserve">
+    <value>{page} — {site}</value>
+  </data>
+  <data name="preview.site" xml:space="preserve">
+    <value>Ein Verzeichnis des MU*-Hobbys — MUSHes, MUDs, MUCKs, MOOs — in dem jede Tatsache ihre Herkunft und ihr Alter nennt.</value>
+  </data>
+  <data name="preview.demo" xml:space="preserve">
+    <value>Demodaten — nichts davon wurde gemessen. {description}</value>
+  </data>
+  <data name="preview.cardAlt" xml:space="preserve">
+    <value>{site} — gemessen, nicht behauptet</value>
+  </data>
+  <data name="preview.cardAlt.named" xml:space="preserve">
+    <value>{title} auf {site}</value>
+  </data>
+  <data name="preview.title.games" xml:space="preserve">
+    <value>Spiele</value>
+  </data>
+  <data name="preview.title.archive" xml:space="preserve">
+    <value>Das Archiv</value>
+  </data>
+  <data name="preview.title.rankings" xml:space="preserve">
+    <value>Ranglisten</value>
+  </data>
+  <data name="preview.title.ecosystem" xml:space="preserve">
+    <value>Das Ökosystem</value>
+  </data>
+  <data name="preview.title.reference" xml:space="preserve">
+    <value>Referenz</value>
+  </data>
+  <data name="preview.title.about" xml:space="preserve">
+    <value>Über uns</value>
+  </data>
+  <data name="preview.title.notFound" xml:space="preserve">
+    <value>Nicht gefunden</value>
+  </data>
+  <data name="preview.title.random" xml:space="preserve">
+    <value>Zufälliges Spiel</value>
+  </data>
+  <data name="preview.title.account" xml:space="preserve">
+    <value>Ihre Spiele</value>
+  </data>
+  <data name="preview.title.claim" xml:space="preserve">
+    <value>{game} beanspruchen</value>
+  </data>
+  <data name="preview.desc.games" xml:space="preserve">
+    <value>Jedes MU*, das wir erreicht haben, gefiltert nach Gemessenem: Codebase, Protokolle aus dem Handshake, TLS, Kodierung, Sprache, letzter Zugang.</value>
+  </data>
+  <data name="preview.desc.archive" xml:space="preserve">
+    <value>Verstummte Spiele, aufbewahrt. Jedes behält Seite, Verlauf und URL, wird wöchentlich abgefragt und kehrt bei einer erfolgreichen Verbindung zurück.</value>
+  </data>
+  <data name="preview.desc.rankings" xml:space="preserve">
+    <value>Am belebtesten, am besten erreichbar, am längsten laufend — allein aus Messungen berechnet. Keine Stimmen, Sterne oder Bewertungen auf dieser Website.</value>
+  </data>
+  <data name="preview.desc.ecosystem" xml:space="preserve">
+    <value>Codebase-Anteile und Protokollverbreitung über die von uns gemessenen Spiele, das Angebotene neben dem Angegebenen. Anteile, niemals Gesamtzahlen.</value>
+  </data>
+  <data name="preview.desc.reference" xml:space="preserve">
+    <value>Von Hand geschriebene Seiten zu den Codebases, Clients und Protokollen des MU*-Hobbys, verlinkt mit Zahlen aus dem Crawl.</value>
+  </data>
+  <data name="preview.desc.about" xml:space="preserve">
+    <value>Wie dieser Katalog entsteht: was der Crawler tut, was er zu tun verweigert und wie er sich stoppen lässt.</value>
+  </data>
+  <data name="preview.desc.notFound" xml:space="preserve">
+    <value>Kein Spiel unter dieser Adresse. Hier wird nichts gelöscht, ein Spiel, das einmal unter dieser URL lag, liegt also weiterhin dort — Schreibweise prüfen.</value>
+  </data>
+  <data name="preview.desc.random" xml:space="preserve">
+    <value>Ein Spiel aus dem Katalog, zufällig gewählt und nie zweimal dasselbe.</value>
+  </data>
+  <data name="preview.desc.account" xml:space="preserve">
+    <value>Die Einträge, die Sie beansprucht haben, und was ein Anspruch Ihnen zu ändern erlaubt.</value>
+  </data>
+  <data name="preview.desc.claim" xml:space="preserve">
+    <value>Weisen Sie nach, dass Sie dieses Spiel betreiben, indem Sie einen Token dort veröffentlichen, wo nur sein Betreiber ihn hinstellen könnte.</value>
+  </data>
+  <data name="preview.game.archived" xml:space="preserve">
+    <value>Archiviert — zuletzt erreichbar {age}, wird weiter abgefragt</value>
+  </data>
+  <data name="preview.game.archived.undated" xml:space="preserve">
+    <value>Archiviert, wird weiter abgefragt</value>
+  </data>
+  <data name="preview.game.countUnknown" xml:space="preserve">
+    <value>Spielerzahl unbekannt — das Spiel antwortet und veröffentlicht keine Zahl, die wir lesen können</value>
+  </data>
+  <data name="preview.game.count" xml:space="preserve">
+    <value>{count, plural, one {# Spieler} other {# Spieler}}, {how} {age}</value>
+  </data>
+  <data name="feed.plain.newlyDiscovered" xml:space="preserve">
+    <value>Neu entdeckt</value>
+  </data>
+  <data name="feed.plain.wentDark" xml:space="preserve">
+    <value>Verstummt</value>
+  </data>
+  <data name="feed.plain.cameBack" xml:space="preserve">
+    <value>Wieder da</value>
+  </data>
+  <data name="home.plain.known" xml:space="preserve">
+    <value>{count, plural, one {# Spiel bekannt} other {# Spiele bekannt}}</value>
+  </data>
+  <data name="home.plain.connectedNow" xml:space="preserve">
+    <value>{count, plural, one {# jetzt verbunden (gemessen)} other {# jetzt verbunden (gemessen)}}</value>
+  </data>
+  <data name="home.plain.uncounted" xml:space="preserve">
+    <value>{count, plural, one {# antwortend, ungezählt} other {# antwortend, ungezählt}}</value>
+  </data>
+  <data name="home.plain.archived" xml:space="preserve">
+    <value>{count, plural, one {# archiviert, wird weiter abgefragt} other {# archiviert, werden weiter abgefragt}}</value>
   </data>
 </root>

@@ -58,13 +58,13 @@
     <value>任意{facet}，{count, plural, other {#个游戏}}</value>
   </data>
   <data name="listing.total" xml:space="preserve">
-    <value>{count, plural, =0 {无游戏} other {#个游戏}}，每项事实均为实测。</value>
+    <value>{count, plural, =0 {此处未列出任何游戏。} other {#个游戏，每项事实都标明它的来源。}}</value>
   </data>
   <data name="chart.basis" xml:space="preserve">
     <value>{days, plural, other {#天}}实测 · {probes, plural, other {#次探测}}</value>
   </data>
   <data name="window.samples" xml:space="preserve">
-    <value>{days}天 · {count, plural, other {#次计数}}</value>
+    <value>{days, plural, other {#天}} · {count, plural, other {#次计数}}</value>
   </data>
   <data name="capabilities.agree" xml:space="preserve">
     <value>{disagreeing, plural, =0 {全部{total}项均一致。} other {在{total}项中，有#项与游戏自述不符。}}</value>
@@ -246,6 +246,18 @@
   <data name="state.notCounted" xml:space="preserve">
     <value>未计数</value>
   </data>
+  <data name="listing.count.none" xml:space="preserve">
+    <value>无计数</value>
+  </data>
+  <data name="listing.plain.fromHere" xml:space="preserve">
+    <value>自本站</value>
+  </data>
+  <data name="listing.plain.archived" xml:space="preserve">
+    <value>已归档</value>
+  </data>
+  <data name="listing.plain.claimed" xml:space="preserve">
+    <value>已认领</value>
+  </data>
   <data name="term.connected" xml:space="preserve">
     <value>连接数</value>
   </data>
@@ -364,7 +376,7 @@
     <value>MU* 爱好者的游戏目录</value>
   </data>
   <data name="home.lede" xml:space="preserve">
-    <value>每一项事实都由连入游戏的爬虫实测得出。</value>
+    <value>每一项事实都标明它的来源与时间：由我们的爬虫实测，或由游戏自述并明确标出。</value>
   </data>
   <data name="home.search.label" xml:space="preserve">
     <value>按名称、主题、代码库或主机搜索游戏</value>
@@ -688,10 +700,10 @@
     <value>窗口内没有任何我们能计到的数——并非无人连接的游戏</value>
   </data>
   <data name="sort.window.median" xml:space="preserve">
-    <value>中位 {value} · {days}天 · {count, plural, other {#次计数}}</value>
+    <value>中位 {value} · {days, plural, other {#天}} · {count, plural, other {#次计数}}</value>
   </data>
   <data name="sort.window.peak" xml:space="preserve">
-    <value>同时最多 {value} · {days}天 · {count, plural, other {#次计数}}</value>
+    <value>同时最多 {value} · {days, plural, other {#天}} · {count, plural, other {#次计数}}</value>
   </data>
   <data name="game.connectScreen" xml:space="preserve">
     <value>连接画面</value>
@@ -728,9 +740,6 @@
   </data>
   <data name="game.answeringSince" xml:space="preserve">
     <value>自 {date} 起有应答</value>
-  </data>
-  <data name="game.unknownCount" xml:space="preserve">
-    <value>未知计数</value>
   </data>
   <data name="game.readAsTextRows" xml:space="preserve">
     <value>以文本形式阅读——{count, plural, other {#行}}</value>
@@ -2151,9 +2160,6 @@
   <data name="game.plain.playersNow" xml:space="preserve">
     <value>当前人数：{count}</value>
   </data>
-  <data name="game.plain.playersUnknown" xml:space="preserve">
-    <value>当前人数：未知（未能实测出计数）</value>
-  </data>
   <data name="game.plain.capabilities" xml:space="preserve">
     <value>能力（{total} 项中有 {disagreeing} 项不一致）</value>
   </data>
@@ -2174,5 +2180,158 @@
   </data>
   <data name="game.plain.disagree" xml:space="preserve">
     <value>** 不一致</value>
+  </data>
+  <data name="listing.row.connected" xml:space="preserve">
+    <value>连接数</value>
+  </data>
+  <data name="listing.row.reached" xml:space="preserve">
+    <value>连通</value>
+  </data>
+  <data name="facet.group.search" xml:space="preserve">
+    <value>搜索</value>
+  </data>
+  <data name="facet.group.archived" xml:space="preserve">
+    <value>已归档</value>
+  </data>
+  <data name="facet.group.adult" xml:space="preserve">
+    <value>成人</value>
+  </data>
+  <data name="facet.value.included" xml:space="preserve">
+    <value>已包含</value>
+  </data>
+  <data name="game.count.none" xml:space="preserve">
+    <value>无计数</value>
+  </data>
+  <data name="game.count.none.why" xml:space="preserve">
+    <value>当前无计数，此处也不指明原因</value>
+  </data>
+  <data name="game.plain.playersNoCount" xml:space="preserve">
+    <value>当前人数：无计数（此处不指明原因）</value>
+  </data>
+  <data name="crawler.live" xml:space="preserve">
+    <value>爬虫运行中 · 最近探测 {age}</value>
+  </data>
+  <data name="crawler.quiet" xml:space="preserve">
+    <value>爬虫空闲 · 最近探测 {age}</value>
+  </data>
+  <data name="crawler.noProbe" xml:space="preserve">
+    <value>此处尚未完成过任何探测</value>
+  </data>
+  <data name="crawler.cycle.nothingDue" xml:space="preserve">
+    <value>本周期无到期目标</value>
+  </data>
+  <data name="crawler.cycle" xml:space="preserve">
+    <value>{considered, plural, other {#个到期}} · {answered, plural, other {#个应答}} · {failed, plural, other {#个失败}}</value>
+  </data>
+  <data name="crawler.registry" xml:space="preserve">
+    <value>登记表中有{targets, plural, other {#个地址}}，{due, plural, other {其中#个已到期}}</value>
+  </data>
+  <data name="preview.documentTitle" xml:space="preserve">
+    <value>{page} — {site}</value>
+  </data>
+  <data name="preview.site" xml:space="preserve">
+    <value>MU* 爱好的游戏目录——MUSH、MUD、MUCK、MOO——每一项事实都标明它的来源与时间。</value>
+  </data>
+  <data name="preview.demo" xml:space="preserve">
+    <value>演示数据——此处没有任何内容经过实测。{description}</value>
+  </data>
+  <data name="preview.cardAlt" xml:space="preserve">
+    <value>{site}——实测，而非自述</value>
+  </data>
+  <data name="preview.cardAlt.named" xml:space="preserve">
+    <value>{site} 上的 {title}</value>
+  </data>
+  <data name="preview.title.games" xml:space="preserve">
+    <value>游戏</value>
+  </data>
+  <data name="preview.title.archive" xml:space="preserve">
+    <value>归档</value>
+  </data>
+  <data name="preview.title.rankings" xml:space="preserve">
+    <value>排行</value>
+  </data>
+  <data name="preview.title.ecosystem" xml:space="preserve">
+    <value>生态</value>
+  </data>
+  <data name="preview.title.reference" xml:space="preserve">
+    <value>参考</value>
+  </data>
+  <data name="preview.title.about" xml:space="preserve">
+    <value>关于</value>
+  </data>
+  <data name="preview.title.notFound" xml:space="preserve">
+    <value>未找到</value>
+  </data>
+  <data name="preview.title.random" xml:space="preserve">
+    <value>随机游戏</value>
+  </data>
+  <data name="preview.title.account" xml:space="preserve">
+    <value>我的游戏</value>
+  </data>
+  <data name="preview.title.claim" xml:space="preserve">
+    <value>认领 {game}</value>
+  </data>
+  <data name="preview.desc.games" xml:space="preserve">
+    <value>我们连通过的每一个 MU*，按实测结果分面：代码库、服务器在握手中提供的协议、TLS、编码、语言，以及我们最近一次连入的时间。</value>
+  </data>
+  <data name="preview.desc.archive" xml:space="preserve">
+    <value>已经失联的游戏，都保留下来。每个都保有自己的页面、历史和 URL，仍每周探测，一次成功连接即可回到列表。</value>
+  </data>
+  <data name="preview.desc.rankings" xml:space="preserve">
+    <value>最热闹、最可连通、运行最久——仅由实测数据算出。本站任何地方都没有投票、星级或评分。</value>
+  </data>
+  <data name="preview.desc.ecosystem" xml:space="preserve">
+    <value>我们实测的游戏中，代码库的占比与协议的采用情况，服务器提供的内容与它自述的内容并列呈现。只讲占比，绝不讲总量。</value>
+  </data>
+  <data name="preview.desc.reference" xml:space="preserve">
+    <value>关于 MU* 爱好中的代码库、客户端与协议的手写页面，并与爬取所得的计数相互链接。</value>
+  </data>
+  <data name="preview.desc.about" xml:space="preserve">
+    <value>这份目录是如何建成的：爬虫做什么、拒绝做什么，以及如何让它停下。</value>
+  </data>
+  <data name="preview.desc.notFound" xml:space="preserve">
+    <value>这个地址上没有游戏。本站任何内容都不会被删除，所以曾经在这个 URL 上的游戏如今依然在——请检查拼写。</value>
+  </data>
+  <data name="preview.desc.random" xml:space="preserve">
+    <value>从目录中随机挑出的一个游戏，绝不会连着两次相同。</value>
+  </data>
+  <data name="preview.desc.account" xml:space="preserve">
+    <value>你已认领的条目，以及一次认领能让你改动什么。</value>
+  </data>
+  <data name="preview.desc.claim" xml:space="preserve">
+    <value>在只有运营者才能放置的地方发布一个令牌，以此证明这个游戏由你运营。</value>
+  </data>
+  <data name="preview.game.archived" xml:space="preserve">
+    <value>已归档——最近连通 {age}，仍在探测</value>
+  </data>
+  <data name="preview.game.archived.undated" xml:space="preserve">
+    <value>已归档，仍在探测</value>
+  </data>
+  <data name="preview.game.countUnknown" xml:space="preserve">
+    <value>人数未知——游戏有应答，但没有发布我们能读出的数字</value>
+  </data>
+  <data name="preview.game.count" xml:space="preserve">
+    <value>{count, plural, other {#人连接}}，{age}{how}</value>
+  </data>
+  <data name="feed.plain.newlyDiscovered" xml:space="preserve">
+    <value>新发现</value>
+  </data>
+  <data name="feed.plain.wentDark" xml:space="preserve">
+    <value>已失联</value>
+  </data>
+  <data name="feed.plain.cameBack" xml:space="preserve">
+    <value>已恢复</value>
+  </data>
+  <data name="home.plain.known" xml:space="preserve">
+    <value>{count, plural, other {已知#个游戏}}</value>
+  </data>
+  <data name="home.plain.connectedNow" xml:space="preserve">
+    <value>{count, plural, other {当前#人连接（实测）}}</value>
+  </data>
+  <data name="home.plain.uncounted" xml:space="preserve">
+    <value>{count, plural, other {#个游戏有应答，未能计数}}</value>
+  </data>
+  <data name="home.plain.archived" xml:space="preserve">
+    <value>{count, plural, other {#个已归档，仍在探测}}</value>
   </data>
 </root>

@@ -58,13 +58,13 @@
     <value>ongeacht {facet}, {count, plural, one {# spel} other {# spellen}}</value>
   </data>
   <data name="listing.total" xml:space="preserve">
-    <value>{count, plural, =0 {Geen spellen} one {# spel} other {# spellen}}, elk feit gemeten.</value>
+    <value>{count, plural, =0 {Hier staan geen spellen.} one {# spel, waarvan elk feit vermeldt hoe het verkregen is.} other {# spellen, waarvan elk feit vermeldt hoe het verkregen is.}}</value>
   </data>
   <data name="chart.basis" xml:space="preserve">
     <value>{days, plural, one {# dag} other {# dagen}} gemeten · {probes, plural, one {# peiling} other {# peilingen}}</value>
   </data>
   <data name="window.samples" xml:space="preserve">
-    <value>{days}d · {count, plural, one {# telling} other {# tellingen}}</value>
+    <value>{days, plural, one {#d} other {#d}} · {count, plural, one {# telling} other {# tellingen}}</value>
   </data>
   <data name="capabilities.agree" xml:space="preserve">
     <value>{disagreeing, plural, =0 {Geen van de {total} wijkt af.} one {# van de {total} wijkt af van wat het spel opgeeft.} other {# van de {total} wijken af van wat het spel opgeeft.}}</value>
@@ -246,6 +246,18 @@
   <data name="state.notCounted" xml:space="preserve">
     <value>niet geteld</value>
   </data>
+  <data name="listing.count.none" xml:space="preserve">
+    <value>geen telling</value>
+  </data>
+  <data name="listing.plain.fromHere" xml:space="preserve">
+    <value>van hieruit</value>
+  </data>
+  <data name="listing.plain.archived" xml:space="preserve">
+    <value>gearchiveerd</value>
+  </data>
+  <data name="listing.plain.claimed" xml:space="preserve">
+    <value>geclaimd</value>
+  </data>
   <data name="term.connected" xml:space="preserve">
     <value>verbonden</value>
   </data>
@@ -364,7 +376,7 @@
     <value>Een gids voor de MU*-hobby</value>
   </data>
   <data name="home.lede" xml:space="preserve">
-    <value>Elk feit is gemeten door een crawler die verbinding maakte met het spel.</value>
+    <value>Elk feit vermeldt hoe het verkregen is en hoe oud het is: gemeten door onze crawler, of opgegeven door het spel en als zodanig gemarkeerd.</value>
   </data>
   <data name="home.search.label" xml:space="preserve">
     <value>Spellen zoeken op naam, thema, codebase of host</value>
@@ -688,10 +700,10 @@
     <value>niets dat we in de periode konden tellen — niet dat er niemand verbonden was</value>
   </data>
   <data name="sort.window.median" xml:space="preserve">
-    <value>mediaan {value} · {days}d · {count, plural, one {# telling} other {# tellingen}}</value>
+    <value>mediaan {value} · {days, plural, one {#d} other {#d}} · {count, plural, one {# telling} other {# tellingen}}</value>
   </data>
   <data name="sort.window.peak" xml:space="preserve">
-    <value>meeste {value} tegelijk · {days}d · {count, plural, one {# telling} other {# tellingen}}</value>
+    <value>meeste {value} tegelijk · {days, plural, one {#d} other {#d}} · {count, plural, one {# telling} other {# tellingen}}</value>
   </data>
   <data name="game.connectScreen" xml:space="preserve">
     <value>Verbindingsscherm</value>
@@ -728,9 +740,6 @@
   </data>
   <data name="game.answeringSince" xml:space="preserve">
     <value>antwoordt sinds {date}</value>
-  </data>
-  <data name="game.unknownCount" xml:space="preserve">
-    <value>onbekende telling</value>
   </data>
   <data name="game.readAsTextRows" xml:space="preserve">
     <value>als tekst lezen — {count, plural, one {# rij} other {# rijen}}</value>
@@ -2151,9 +2160,6 @@
   <data name="game.plain.playersNow" xml:space="preserve">
     <value>Spelers nu: {count}</value>
   </data>
-  <data name="game.plain.playersUnknown" xml:space="preserve">
-    <value>Spelers nu: onbekend (geen telling kon worden gemeten)</value>
-  </data>
   <data name="game.plain.capabilities" xml:space="preserve">
     <value>Mogelijkheden ({disagreeing} van {total} wijken af)</value>
   </data>
@@ -2174,5 +2180,158 @@
   </data>
   <data name="game.plain.disagree" xml:space="preserve">
     <value>** wijkt af</value>
+  </data>
+  <data name="listing.row.connected" xml:space="preserve">
+    <value>verbonden</value>
+  </data>
+  <data name="listing.row.reached" xml:space="preserve">
+    <value>bereikt</value>
+  </data>
+  <data name="facet.group.search" xml:space="preserve">
+    <value>zoeken</value>
+  </data>
+  <data name="facet.group.archived" xml:space="preserve">
+    <value>gearchiveerd</value>
+  </data>
+  <data name="facet.group.adult" xml:space="preserve">
+    <value>voor volwassenen</value>
+  </data>
+  <data name="facet.value.included" xml:space="preserve">
+    <value>opgenomen</value>
+  </data>
+  <data name="game.count.none" xml:space="preserve">
+    <value>geen telling</value>
+  </data>
+  <data name="game.count.none.why" xml:space="preserve">
+    <value>geen actuele telling, en niets hier zegt waarom</value>
+  </data>
+  <data name="game.plain.playersNoCount" xml:space="preserve">
+    <value>Spelers nu: geen telling (niets hier zegt waarom)</value>
+  </data>
+  <data name="crawler.live" xml:space="preserve">
+    <value>crawler actief · laatste peiling {age}</value>
+  </data>
+  <data name="crawler.quiet" xml:space="preserve">
+    <value>crawler wacht · laatste peiling {age}</value>
+  </data>
+  <data name="crawler.noProbe" xml:space="preserve">
+    <value>hier is nog geen peiling afgerond</value>
+  </data>
+  <data name="crawler.cycle.nothingDue" xml:space="preserve">
+    <value>niets aan de beurt deze cyclus</value>
+  </data>
+  <data name="crawler.cycle" xml:space="preserve">
+    <value>{considered, plural, one {# aan de beurt} other {# aan de beurt}} · {answered, plural, one {# beantwoord} other {# beantwoord}} · {failed, plural, one {# mislukt} other {# mislukt}}</value>
+  </data>
+  <data name="crawler.registry" xml:space="preserve">
+    <value>{targets, plural, one {# adres in het register} other {# adressen in het register}}, {due, plural, one {# nu aan de beurt} other {# nu aan de beurt}}</value>
+  </data>
+  <data name="preview.documentTitle" xml:space="preserve">
+    <value>{page} — {site}</value>
+  </data>
+  <data name="preview.site" xml:space="preserve">
+    <value>Een gids voor de MU*-hobby — MUSHes, MUDs, MUCKs, MOOs — waar elk feit vermeldt hoe het verkregen is en hoe oud het is.</value>
+  </data>
+  <data name="preview.demo" xml:space="preserve">
+    <value>Demogegevens — niets hiervan is gemeten. {description}</value>
+  </data>
+  <data name="preview.cardAlt" xml:space="preserve">
+    <value>{site} — gemeten, niet beweerd</value>
+  </data>
+  <data name="preview.cardAlt.named" xml:space="preserve">
+    <value>{title} op {site}</value>
+  </data>
+  <data name="preview.title.games" xml:space="preserve">
+    <value>Spellen</value>
+  </data>
+  <data name="preview.title.archive" xml:space="preserve">
+    <value>Het archief</value>
+  </data>
+  <data name="preview.title.rankings" xml:space="preserve">
+    <value>Ranglijsten</value>
+  </data>
+  <data name="preview.title.ecosystem" xml:space="preserve">
+    <value>Het ecosysteem</value>
+  </data>
+  <data name="preview.title.reference" xml:space="preserve">
+    <value>Naslag</value>
+  </data>
+  <data name="preview.title.about" xml:space="preserve">
+    <value>Over</value>
+  </data>
+  <data name="preview.title.notFound" xml:space="preserve">
+    <value>Niet gevonden</value>
+  </data>
+  <data name="preview.title.random" xml:space="preserve">
+    <value>Willekeurig spel</value>
+  </data>
+  <data name="preview.title.account" xml:space="preserve">
+    <value>Je spellen</value>
+  </data>
+  <data name="preview.title.claim" xml:space="preserve">
+    <value>{game} claimen</value>
+  </data>
+  <data name="preview.desc.games" xml:space="preserve">
+    <value>Elke MU* die we bereikt hebben, gefacetteerd op onze metingen: codebase, protocollen uit de handshake, TLS, codering, taal, laatst gezien.</value>
+  </data>
+  <data name="preview.desc.archive" xml:space="preserve">
+    <value>Stilgevallen spellen, bewaard. Elk houdt zijn pagina, geschiedenis en URL, wordt wekelijks gepeild en keert terug in de lijst bij één geslaagde verbinding.</value>
+  </data>
+  <data name="preview.desc.rankings" xml:space="preserve">
+    <value>Drukst, best bereikbaar, langst draaiend — alleen berekend uit metingen. Nergens op deze site stemmen, sterren of beoordelingen.</value>
+  </data>
+  <data name="preview.desc.ecosystem" xml:space="preserve">
+    <value>Aandeel per codebase en protocoladoptie over de spellen die we meten, met wat servers aanbieden naast wat ze opgeven. Aandelen, nooit totalen.</value>
+  </data>
+  <data name="preview.desc.reference" xml:space="preserve">
+    <value>Met de hand geschreven pagina’s over de codebases, clients en protocollen van de MU*-hobby, met verwijzingen naar tellingen uit de crawl.</value>
+  </data>
+  <data name="preview.desc.about" xml:space="preserve">
+    <value>Hoe deze catalogus gebouwd wordt: wat de crawler doet, wat hij weigert te doen, en hoe hij te stoppen is.</value>
+  </data>
+  <data name="preview.desc.notFound" xml:space="preserve">
+    <value>Geen spel op dit adres. Hier wordt nooit iets verwijderd, dus een spel dat ooit op deze URL stond, staat er nog — controleer de spelling.</value>
+  </data>
+  <data name="preview.desc.random" xml:space="preserve">
+    <value>Eén spel uit de catalogus, willekeurig gekozen en nooit twee keer hetzelfde.</value>
+  </data>
+  <data name="preview.desc.account" xml:space="preserve">
+    <value>De vermeldingen die je geclaimd hebt, en wat je met een claim kunt wijzigen.</value>
+  </data>
+  <data name="preview.desc.claim" xml:space="preserve">
+    <value>Bewijs dat je dit spel draait door een token te publiceren waar alleen wie het draait het kan neerzetten.</value>
+  </data>
+  <data name="preview.game.archived" xml:space="preserve">
+    <value>Gearchiveerd — laatst bereikbaar {age}, en wordt nog gepeild</value>
+  </data>
+  <data name="preview.game.archived.undated" xml:space="preserve">
+    <value>Gearchiveerd, en wordt nog gepeild</value>
+  </data>
+  <data name="preview.game.countUnknown" xml:space="preserve">
+    <value>Spelerstelling onbekend — het spel antwoordt en publiceert geen getal dat wij kunnen lezen</value>
+  </data>
+  <data name="preview.game.count" xml:space="preserve">
+    <value>{count, plural, one {# speler} other {# spelers}}, {how} {age}</value>
+  </data>
+  <data name="feed.plain.newlyDiscovered" xml:space="preserve">
+    <value>Nieuw ontdekt</value>
+  </data>
+  <data name="feed.plain.wentDark" xml:space="preserve">
+    <value>Stilgevallen</value>
+  </data>
+  <data name="feed.plain.cameBack" xml:space="preserve">
+    <value>Weer terug</value>
+  </data>
+  <data name="home.plain.known" xml:space="preserve">
+    <value>{count, plural, one {# bekend spel} other {# bekende spellen}}</value>
+  </data>
+  <data name="home.plain.connectedNow" xml:space="preserve">
+    <value>{count, plural, one {# nu verbonden (gemeten)} other {# nu verbonden (gemeten)}}</value>
+  </data>
+  <data name="home.plain.uncounted" xml:space="preserve">
+    <value>{count, plural, one {# antwoordt, ongeteld} other {# antwoorden, ongeteld}}</value>
+  </data>
+  <data name="home.plain.archived" xml:space="preserve">
+    <value>{count, plural, one {# gearchiveerd, wordt nog gepeild} other {# gearchiveerd, worden nog gepeild}}</value>
   </data>
 </root>
