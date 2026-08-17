@@ -954,4 +954,1225 @@
   <data name="locale.submit" xml:space="preserve">
     <value>Sprache wechseln</value>
   </data>
+  <data name="about.title" xml:space="preserve">
+    <value>Über mu*index</value>
+  </data>
+  <data name="about.lede" xml:space="preserve">
+    <value>Jedes Spiel hier wurde von einer Maschine gemessen, die sich mit ihm verbunden hat, und jeder Wert nennt seine Herkunft und seinen Zeitpunkt. Diese Seite behandelt, was das belegt, was wir falsch machen, wessen Verzeichnisse wir lesen und wie sich der Crawler stoppen lässt.</value>
+  </data>
+  <data name="about.measures.heading" xml:space="preserve">
+    <value>Was hier eine Tatsache ist</value>
+  </data>
+  <data name="about.measures.declared.lead" xml:space="preserve">
+    <value>Gemessen schlägt angegeben, und beides wird gezeigt.</value>
+  </data>
+  <data name="about.measures.declared.body" xml:space="preserve">
+    <value>Der MSSP-Bericht eines Spiels ist das Spiel, das sich selbst beschreibt. Der Telnet-Handshake ist das, was wir es haben tun sehen. Beides steht auf seiner Seite, versehen mit dem Wie und dem Wann. Wo beides sich widerspricht, zeigen wir den Widerspruch.</value>
+  </data>
+  <data name="about.measures.count.lead" xml:space="preserve">
+    <value>Eine Spielerzahl nennt ihre Herkunft.</value>
+  </data>
+  <data name="about.measures.count.body" xml:space="preserve">
+    <value>Entweder ein WHO oder DOING, am Verbindungsbildschirm gelesen und von uns gezählt, oder das MSSP-Feld PLAYERS des Spiels selbst, das es veröffentlicht hat. Niemals zusammengeführt.</value>
+  </data>
+  <data name="about.measures.unknown.lead" xml:space="preserve">
+    <value>Eine Antwort, die wir nicht lesen können, ist unbekannt, niemals null.</value>
+  </data>
+  <data name="about.measures.unknown.body" xml:space="preserve">
+    <value>Server passen ihre WHO-Kopfzeilen frei an, und ab einem gewissen Punkt kann unser Parser eine solche nicht mehr lesen. Das ist unzählbar, ein eigener Zustand. Eine gemessene Null — wir sind hineingekommen, und niemand war da — ist eine Zählung und wird als solche ausgegeben.</value>
+  </data>
+  <data name="about.measures.reachable.lead" xml:space="preserve">
+    <value>Erreichbar, niemals Uptime.</value>
+  </data>
+  <data name="about.measures.reachable.body" xml:space="preserve">
+    <value>Wir öffnen in Abständen einen Socket von einem einzigen Host aus. Ein Spiel, zu dem wir keine Route finden, ist nicht erreichbar und dennoch völlig lebendig. Nichts hier behauptet die Uptime eines Spiels, denn nichts hier hat sie gemessen.</value>
+  </data>
+  <data name="about.measures.hour.lead" xml:space="preserve">
+    <value>Eine Stunde ist gezählt, unzählbar oder nicht gemessen.</value>
+  </data>
+  <data name="about.measures.hour.body" xml:space="preserve">
+    <value>Das Aktivitätsraster hat drei Zustände. Der dritte ist leer und nennt keine Ursache: eine Stunde, die wir nicht erreichen konnten, und eine Stunde, die wir nie abgefragt haben, sind dieselbe Leerstelle, und keine von beiden ist die Ausfallzeit dieses Servers.</value>
+  </data>
+  <data name="about.limits.heading" xml:space="preserve">
+    <value>Was wir falsch machen, soweit wir es wissen</value>
+  </data>
+  <data name="about.limits.grace.lead" xml:space="preserve">
+    <value>Die Schonfrist bis zum Archiv wird ab dem Tag gemessen, an dem wir ein Spiel gefunden haben.</value>
+  </data>
+  <data name="about.limits.grace.body" xml:space="preserve">
+    <value>Ein Spiel, das nicht mehr antwortet, verlässt nach seiner Schonfrist das Standardverzeichnis: ein Viertel der erreichbaren Zeit, die wir abgefragt haben, mindestens 60 und höchstens 365 Tage. Ein Spiel, das seit 1995 läuft, beginnt am Tag seiner Entdeckung beim Minimum. Wir importieren nichts, um die Jahre vor unserer Ankunft aufzufüllen.</value>
+  </data>
+  <data name="about.limits.created.lead" xml:space="preserve">
+    <value>MSSP CREATED wird auf diese Schonfrist nicht angerechnet.</value>
+  </data>
+  <data name="about.limits.created.body" xml:space="preserve">
+    <value>Es ist eine von Hand getippte Zeile in einer Konfigurationsdatei; sie anzurechnen würde die Archivschwelle manipulierbar machen. Sie wird als Angabe gezeigt und bringt nichts ein.</value>
+  </data>
+  <data name="about.limits.claim.lead" xml:space="preserve">
+    <value>Ein beanspruchtes Spiel erhält das Maximum.</value>
+  </data>
+  <data name="about.limits.claim.body" xml:space="preserve">
+    <value>Der Nachweis von Serverzugriff ist das volle Jahr Schonfrist wert, gleich wie lange wir schon zusehen.</value>
+  </data>
+  <data name="about.limits.oneHost.lead" xml:space="preserve">
+    <value>Alles hier ist ein einziger Host, der in Abständen hinsieht.</value>
+  </data>
+  <data name="about.limits.oneHost.body" xml:space="preserve">
+    <value>Ein Prozentsatz erreichbarer Zeit ist ein Anteil des von uns beobachteten Zeitraums, nie eines anderen. Keine Grafik hier füllt den Rest auf.</value>
+  </data>
+  <data name="about.limits.deletion.lead" xml:space="preserve">
+    <value>Nichts wird jemals gelöscht.</value>
+  </data>
+  <data name="about.limits.deletion.body" xml:space="preserve">
+    <value>Das Archivieren nimmt ein Spiel aus dem Standardverzeichnis, aus den Ranglisten und aus der Zahl der heute aktiven Spiele heraus, und sonst nichts. Seine Seite, seine URL, seine Geschichte und seine Adresse bleiben, es wird weiter abgefragt, und eine einzige erfolgreiche Abfrage bringt es zurück.</value>
+  </data>
+  <data name="about.never.heading" xml:space="preserve">
+    <value>Was diese Website nicht tut</value>
+  </data>
+  <data name="about.never.votes.lead" xml:space="preserve">
+    <value>Keine Stimmen, Sterne, Bewertungen oder Empfehlungen.</value>
+  </data>
+  <data name="about.never.votes.body" xml:space="preserve">
+    <value>Ranglisten werden ausschließlich aus gemessenen Daten berechnet. Ein Verzeichnis, das danach sortiert, wer die meisten Klicks mobilisieren kann, beschreibt den Wahlkampf und nicht das Hobby — und genau daran sind die Vorgänger zugrunde gegangen.</value>
+  </data>
+  <data name="about.never.forums.lead" xml:space="preserve">
+    <value>Keine Foren, Rezensionen, Wikis, Kommentare oder Spielerprofile.</value>
+  </data>
+  <data name="about.never.forums.body" xml:space="preserve">
+    <value>Einführendes Material — was ein MUSH ist, welche Codebase zu gemeinsamem Rollenspiel passt — wird geschrieben, namentlich gezeichnet und versioniert wie der Rest der Website.</value>
+  </data>
+  <data name="about.never.names.lead" xml:space="preserve">
+    <value>Spielernamen werden nie gespeichert.</value>
+  </data>
+  <data name="about.never.names.body" xml:space="preserve">
+    <value>Eine WHO-Antwort wird im Arbeitsspeicher auf eine Zahl und die Form der Kopfzeile hin ausgewertet. Die Namen werden nicht festgehalten; Aggregate verwenden einen gesalzenen Hash mit rotierendem Salt.</value>
+  </data>
+  <data name="about.never.population.lead" xml:space="preserve">
+    <value>Es wird keine absolute Spielerzahl veröffentlicht.</value>
+  </data>
+  <data name="about.never.population.body" xml:space="preserve">
+    <value>Anteile pro Codebase und pro Protokoll werden veröffentlicht: Ein Verhältnis über die gemessene Menge übersteht die Spiele, die wir nicht zählen können. „Wie viele Menschen spielen MU*“ übersteht das nicht, denn diese Zahl würde es nicht überstehen, zitiert zu werden.</value>
+  </data>
+  <data name="about.crawler.heading" xml:space="preserve">
+    <value>Der Crawler und wie er sich stoppen lässt</value>
+  </data>
+  <data name="about.crawler.probe.lead" xml:space="preserve">
+    <value>Eine Abfrage ist eine Verbindung, die sich nie anmeldet.</value>
+  </data>
+  <data name="about.crawler.probe.body" xml:space="preserve">
+    <value>Sie öffnet einen Socket, handelt Telnet-Optionen aus, liest den Verbindungsbildschirm, fragt MSSP über Option 70 an, sendet {commands} und trennt die Verbindung. Kein Charakter, keine Anmeldung, nichts auf der Gegenseite verändert. Ein Timeout begrenzt die Sitzung, damit eine hängengebliebene Abfrage keinen Verbindungsplatz belegt.</value>
+  </data>
+  <data name="about.crawler.delay.lead" xml:space="preserve">
+    <value>CRAWL DELAY hat Vorrang.</value>
+  </data>
+  <data name="about.crawler.delay.body" xml:space="preserve">
+    <value>Ein Spiel, das in seinem MSSP-Bericht einen bevorzugten Mindestabstand nennt, bekommt ihn — in beide Richtungen vor unserem eigenen Zeitplan: 720 Stunden heißt monatlich, nicht wöchentlich. Ein verstummtes Spiel wird im längeren Abstand für immer weiter versucht; so trägt es sich selbst wieder ein, wenn es zurückkommt.</value>
+  </data>
+  <data name="about.crawler.referral.lead" xml:space="preserve">
+    <value>Eine per Verweis genannte Adresse wird geprüft, nie geglaubt.</value>
+  </data>
+  <data name="about.crawler.referral.body" xml:space="preserve">
+    <value>MSSP erlaubt es einem Spiel, andere Spiele zu nennen. Jeder Name wird aufgelöst, bevor irgendetwas angewählt wird, und abgelehnt, sofern nicht jede Adresse, auf die er auflöst, global routbar ist. Eine gemischte Antwort lehnt das ganze Ziel ab. Unsere Ablehnung wird als unsere verbucht und erscheint nie als Ausfallzeit im Datensatz eines Spiels.</value>
+  </data>
+  <data name="about.crawler.screens.lead" xml:space="preserve">
+    <value>Verbindungsbildschirme werden gezeigt, weil sie an alle gesendet werden.</value>
+  </data>
+  <data name="about.crawler.screens.body" xml:space="preserve">
+    <value>Ein Server malt seinen Verbindungsbildschirm ohne Anmeldung an jede anonyme Verbindung. Wir zeigen ihn als Beleg und kennzeichnen ihn. Auf Bitte hin verschwindet er.</value>
+  </data>
+  <data name="about.crawler.stop.lead" xml:space="preserve">
+    <value>Ein Stopp genügt, und wir hören auf — auf drei Wegen.</value>
+  </data>
+  <data name="about.crawler.stop.body" xml:space="preserve">
+    <value>{variable} 1 im MSSP-Bericht veröffentlichen, dann ist die Abfrage, die es liest, die letzte. Oder einen TXT-Eintrag unter {label}.your.host mit dem Inhalt „{value}“ veröffentlichen, was keine MSSP-Unterstützung und kein Konto hier braucht. Oder einer Person schreiben. Alle drei werden innerhalb eines Crawl-Zyklus befolgt, mit Datum und dem Gelesenen festgehalten und auch im Eintragungsformular durchgesetzt.</value>
+  </data>
+  <data name="about.crawler.scope.lead" xml:space="preserve">
+    <value>Das MSSP-Feld stoppt diesen Listener; der TXT-Eintrag stoppt den Host.</value>
+  </data>
+  <data name="about.crawler.scope.body" xml:space="preserve">
+    <value>MSSP wird von dem Port veröffentlicht, der geantwortet hat, und spricht daher für diesen Port — beim MU*-Hosting laufen regelmäßig unabhängige Spiele auf einer Domain, und keines darf sein Nachbarspiel zum Schweigen bringen. Ein TXT-Eintrag umfasst jeden Port, sofern er nicht einen einzelnen nennt, etwa „{value}=4201“. Alles dort, was wir nicht als Portliste lesen können, meint den ganzen Host; deshalb funktioniert auch „{value}=all“.</value>
+  </data>
+  <data name="about.crawler.dns.lead" xml:space="preserve">
+    <value>Der Weg über DNS ist der, der sich ohne Rückfrage bei uns rückgängig machen lässt.</value>
+  </data>
+  <data name="about.crawler.dns.body" xml:space="preserve">
+    <value>Ein TXT-Eintrag lässt sich lesen, ohne sich mit einem Server zu verbinden, der uns das untersagt hat; deshalb lesen wir ihn vor jeder Anwahl neu. Wird er gelöscht, wählen wir binnen einer Woche wieder an. Ein MSSP-Feld lässt sich nicht neu lesen, ohne genau das zu tun, was untersagt wurde; deshalb gelten ein Ausschluss per MSSP und schriftliche Bitten so lange, bis etwas anderes gesagt wird. Dieser TXT-Abruf ist alles, was eine ausgeschlossene Adresse noch bekommt: Er berührt den Nameserver, nie das Spiel.</value>
+  </data>
+  <data name="about.crawler.stopping.lead" xml:space="preserve">
+    <value>Aufhören ist kein Löschen, und es ist keine Ausfallzeit.</value>
+  </data>
+  <data name="about.crawler.stopping.body" xml:space="preserve">
+    <value>Ein Spiel, das sich ausschließen lässt, behält seine Seite, seine Adresse und alles, was wir vor der Bitte gemessen haben. Nur neue Daten hören auf: Das Aktivitätsraster gewinnt keine Stunden mehr hinzu und nennt keine Ursache, denn unsere Entscheidung, nicht mehr anzuklopfen, ist eine Tatsache über uns. Sie wird bei dem Crawl festgehalten, der nicht stattgefunden hat, und im Register derer, die darum gebeten haben.</value>
+  </data>
+  <data name="about.crawler.unlist.lead" xml:space="preserve">
+    <value>Wenn Aufhören nicht genügt, kann auch der Eintrag verschwinden.</value>
+  </data>
+  <data name="about.crawler.unlist.body" xml:space="preserve">
+    <value>Sobald wir für jede Adresse, unter der ein Spiel antwortet, aufgehört haben, bietet die eigene Übersicht eine weitere Möglichkeit: es aus dem Verzeichnis, aus den Ranglisten und aus der Tageszahl herauszunehmen. Die Seite und jede Adresse, die es je hatte, antworten weiterhin, und nichts wird gelöscht — es ist nur kein Ort mehr, an dem man beim Stöbern ankommt. Dafür braucht es einen bestätigten Anspruch, denn es ist eine Entscheidung über das eigene Spiel, und wir halten fest, wer sie getroffen hat. Und eine Abfrage macht sie rückgängig: Wird der Ausschluss zurückgenommen, bringt die nächste Anwahl, die eine Antwort erhält, das Spiel wieder ins Verzeichnis, ohne dass noch einmal gefragt werden muss.</value>
+  </data>
+  <data name="about.identity.announced" xml:space="preserve">
+    <value>Der Crawler nennt sich {name}, wenn ein Server fragt, was er ist.</value>
+  </data>
+  <data name="about.identity.unannounced" xml:space="preserve">
+    <value>Der Crawler ist so konfiguriert, dass er sich {name} nennt, kann das aber noch nicht mitteilen. Seine Telnet-Bibliothek bietet einem Client keine Möglichkeit, den Terminaltyp zu setzen; deshalb steht in den Logs der Standardwert dieser Bibliothek, und NEW-ENVIRON wird aus der Umgebung des Crawler-Hosts beantwortet. Beides sind Lücken in der Bibliothek und von uns dort zu beheben. Bis dahin ist eine Abfrage an ihrer Form zu erkennen: eine Verbindung, keine Anmeldung, ein kurzer, nur lesender Befehlssatz, weg.</value>
+  </data>
+  <data name="about.identity.crawler" xml:space="preserve">
+    <value>Crawler</value>
+  </data>
+  <data name="about.identity.contact" xml:space="preserve">
+    <value>Kontakt</value>
+  </data>
+  <data name="about.identity.crawler.line" xml:space="preserve">
+    <value>Crawler: {name}</value>
+  </data>
+  <data name="about.identity.contact.line" xml:space="preserve">
+    <value>Kontakt: {url}</value>
+  </data>
+  <data name="about.identity.placeholder" xml:space="preserve">
+    <value>— Platzhalter; diese Installation hat keine Kontaktadresse gesetzt</value>
+  </data>
+  <data name="about.identity.placeholder.plain" xml:space="preserve">
+    <value>Es ist keine Kontaktadresse konfiguriert; die obige ist daher ein Platzhalter und antwortet niemandem.</value>
+  </data>
+  <data name="about.sources.heading" xml:space="preserve">
+    <value>Woher die Liste der Spiele stammt</value>
+  </data>
+  <data name="about.sources.addresses.lead" xml:space="preserve">
+    <value>Wir übernehmen Adressen. Sonst nichts.</value>
+  </data>
+  <data name="about.sources.addresses.body" xml:space="preserve">
+    <value>Ein Backfill übernimmt einen Host und einen Port. Keine Spielerzahlen, keine Erreichbarkeitsverläufe, keine Beschreibungen, keine Felder und keinen Vermerk, von welcher Website eine Adresse stammt.</value>
+  </data>
+  <data name="about.sources.less.lead" xml:space="preserve">
+    <value>Bewusst weniger, als diese Websites hergeben.</value>
+  </data>
+  <data name="about.sources.less.body" xml:space="preserve">
+    <value>Mehrere davon halten jahrelange, datierte Spielerzahlen bereit. Diese zu importieren würde die Aktivitätsraster genau der Spiele füllen, die schon jemand anderes beobachtet hat, und die zentrale Behauptung dieser Website auf die Abfragen eines Dritten stützen.</value>
+  </data>
+  <data name="about.sources.origin.lead" xml:space="preserve">
+    <value>Die Herkunft eines Spiels ist keine einzelne Tatsache.</value>
+  </data>
+  <data name="about.sources.origin.body" xml:space="preserve">
+    <value>Jedes Spiel, das einen Eintrag wert ist, steht in mehreren dieser Verzeichnisse; „importiert aus“ würde also nur den Abruf nennen, der zuerst lief. Dass ein Spiel existiert, ist öffentlich bekannt; wo wir es gelesen haben, fügt nichts hinzu und ist der Teil fremder Arbeit, auf den wir am wenigsten Anspruch haben.</value>
+  </data>
+  <data name="about.sources.etiquette.lead" xml:space="preserve">
+    <value>Die Website eines anderen zu lesen bleibt: die Website eines anderen zu lesen.</value>
+  </data>
+  <data name="about.sources.etiquette.body" xml:space="preserve">
+    <value>Wir bitten vor dem Scrapen um einen Massenexport oder einen dokumentierten Endpunkt, lesen zuerst robots.txt und drosseln Scrapes stark. Eine Quelle, die das Einverständnis ihrer Betreuung braucht, wird erst abgerufen, wenn eine Person bestätigen kann, dass gefragt wurde.</value>
+  </data>
+  <data name="about.source.read" xml:space="preserve">
+    <value>gelesen — nur Adressen</value>
+  </data>
+  <data name="about.source.withheld" xml:space="preserve">
+    <value>nicht gelesen — Erlaubnis ausstehend</value>
+  </data>
+  <data name="about.source.tintinMssp.note" xml:space="preserve">
+    <value>Eine Seite, eine Anfrage. Veröffentlicht von einem Crawler, der sich mit jedem Spiel verbindet und ausgibt, was er gelesen hat.</value>
+  </data>
+  <data name="about.source.tintinMsdp.note" xml:space="preserve">
+    <value>Die MSDP-Liste desselben Crawlers. Fast eine Teilmenge ihres MSSP-Gegenstücks; gelesen wegen der wenigen Adressen, die sie erreicht und das andere nicht.</value>
+  </data>
+  <data name="about.source.mudConnector.note" xml:space="preserve">
+    <value>Veröffentlicht seinen gesamten Katalog auf einer Seite, das Lesen kostet also eine einzige Anfrage. Unsere größte Quelle für Adressen und für keinerlei Messungen.</value>
+  </data>
+  <data name="about.source.mudStats.note" xml:space="preserve">
+    <value>Eine Übersichtsseite und je eine Seite pro Welt, also ein Scrape statt eines Exports. Am 30. Juli 2026 haben wir 143 ihrer Seiten abgerufen, im Abstand von fünfzehn Sekunden und unter Beachtung von robots.txt, aber bevor ihnen jemand geschrieben hatte. Das hätte nicht geschehen dürfen. Die Sperre verlangt nun eine Person, die bestätigt, dass die Betreuung gefragt wurde.</value>
+  </data>
+  <data name="about.source.mudVerse.note" xml:space="preserve">
+    <value>Implementiert, getestet, nie ausgeführt. Die stärkste Quelle hier in jeder Hinsicht außer der Erlaubnis; es wird nichts abgerufen, bevor ihnen jemand geschrieben hat.</value>
+  </data>
+  <data name="about.licence.heading" xml:space="preserve">
+    <value>Lizenz</value>
+  </data>
+  <data name="about.licence.code.lead" xml:space="preserve">
+    <value>Der Code steht unter MIT.</value>
+  </data>
+  <data name="about.licence.code.body" xml:space="preserve">
+    <value>Die Website, der Crawler und die Parser sind Open Source unter der MIT-Lizenz.</value>
+  </data>
+  <data name="about.licence.open.lead" xml:space="preserve">
+    <value>Die Lizenz für die Daten ist eine offene Frage.</value>
+  </data>
+  <data name="about.licence.open.body" xml:space="preserve">
+    <value>Eine vom Code getrennte Entscheidung, und noch nicht getroffen. Die Bedingungen unten sind die derzeitige Antwort dieser Installation, nicht die feststehende Haltung des Projekts. Dass ein konkurrierendes Verzeichnis den gesamten Katalog übernimmt, gilt hier als Erfolg; was auch immer festgelegt wird, wird einem solchen nicht im Weg stehen.</value>
+  </data>
+  <data name="about.licence.codeLabel" xml:space="preserve">
+    <value>Code</value>
+  </data>
+  <data name="about.licence.dataLabel" xml:space="preserve">
+    <value>Daten, so wie diese Installation sie ausliefert</value>
+  </data>
+  <data name="about.licence.creditLabel" xml:space="preserve">
+    <value>Namensnennung als</value>
+  </data>
+  <data name="about.licence.code.line" xml:space="preserve">
+    <value>Code: {licence}</value>
+  </data>
+  <data name="about.licence.data.line" xml:space="preserve">
+    <value>Daten: {licence}</value>
+  </data>
+  <data name="about.licence.credit.line" xml:space="preserve">
+    <value>Namensnennung als: {credit}</value>
+  </data>
+  <data name="about.licence.deployment" xml:space="preserve">
+    <value>(was diese Installation ausliefert. Die eigene Antwort des Projekts ist noch offen.)</value>
+  </data>
+  <data name="submit.title" xml:space="preserve">
+    <value>Ein Spiel eintragen</value>
+  </data>
+  <data name="submit.lede" xml:space="preserve">
+    <value>Uns mitteilen, wo ein Spiel ist. Ein Host und ein Port sind das ganze Formular; alles andere auf dieser Website misst unser eigener Crawler.</value>
+  </data>
+  <data name="submit.host.label" xml:space="preserve">
+    <value>Host</value>
+  </data>
+  <data name="submit.port.label" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="submit.host.hint" xml:space="preserve">
+    <value>mud.example.org, oder mud.example.org:4201 einfügen und den Port leer lassen</value>
+  </data>
+  <data name="submit.button" xml:space="preserve">
+    <value>Eintragen</value>
+  </data>
+  <data name="submit.noCatalogue" xml:space="preserve">
+    <value>Das Eintragen braucht eine Datenbank, und diese Website läuft auf den Demodaten. Es gibt kein Crawl-Register zum Hineinschreiben, deshalb fehlt das Formular, statt still nichts zu tun.</value>
+  </data>
+  <data name="submit.notHere" xml:space="preserve">
+    <value>Nicht hier</value>
+  </data>
+  <data name="submit.what.heading" xml:space="preserve">
+    <value>Was mit einer Adresse geschieht</value>
+  </data>
+  <data name="submit.what.resolve" xml:space="preserve">
+    <value>Wir lösen die Adresse auf, bevor wir sie anwählen, und lehnen alles ab, was außerhalb des öffentlichen Internets auflöst. Das ist eine Entscheidung über unseren eigenen Socket, nie eine Tatsache über ein Spiel.</value>
+  </data>
+  <data name="submit.what.optOut" xml:space="preserve">
+    <value>Wenn die Betreiber dieses Hosts uns gebeten haben, ihn nicht zu crawlen, nehmen wir die Adresse nicht an, gleich wer sie einträgt. Fremde können ein Spiel nicht zurück auf diese Website bringen.</value>
+  </data>
+  <data name="submit.what.schedule" xml:space="preserve">
+    <value>Antwortet sie, lesen wir, was der Server über sich selbst sagt, und lesen es nach seinem eigenen Zeitplan für immer weiter. Eine Adresse muss nur einmal genannt werden.</value>
+  </data>
+  <data name="submit.what.claim" xml:space="preserve">
+    <value>Nichts erscheint auf der Website, bis jemand nachweist, dass er es betreibt. Ein Anspruch braucht einen Passkey und eine im Spiel selbst veröffentlichte Zeile.</value>
+  </data>
+  <data name="submit.what.duplicate" xml:space="preserve">
+    <value>Eine Adresse, die wir bereits haben, fällt mit dem bestehenden Eintrag zusammen. Zweimal senden erzeugt keinen zweiten Eintrag und zieht keine Abfrage vor.</value>
+  </data>
+  <data name="submit.answer.thatAddress" xml:space="preserve">
+    <value>diese Adresse</value>
+  </data>
+  <data name="submit.accepted.heading" xml:space="preserve">
+    <value>Im Register.</value>
+  </data>
+  <data name="submit.accepted.sentence" xml:space="preserve">
+    <value>{address} wird im nächsten Crawl-Zyklus angewählt, danach für immer nach eigenem Zeitplan. Sobald jemand nachweist, dass er es betreibt, erscheint es hier — mit derselben Adresse zu diesem Formular zurückkehren, dann gibt es hier den Link dazu.</value>
+  </data>
+  <data name="submit.unclaimed.heading" xml:space="preserve">
+    <value>Wir haben es, nicht beansprucht.</value>
+  </data>
+  <data name="submit.unclaimed.sentence" xml:space="preserve">
+    <value>{address} messen wir bereits. Es bleibt von der Website fern, bis jemand nachweist, dass er es betreibt. Für die Betreiber ist dies der Weg hinein.</value>
+  </data>
+  <data name="submit.known.heading" xml:space="preserve">
+    <value>Das haben wir schon.</value>
+  </data>
+  <data name="submit.known.sentence" xml:space="preserve">
+    <value>{address} ist ein Spiel, das wir bereits messen. Es wurde nichts angelegt und nichts geändert.</value>
+  </data>
+  <data name="submit.knownAddress.heading" xml:space="preserve">
+    <value>Diese Adresse haben wir schon.</value>
+  </data>
+  <data name="submit.knownAddress.sentence" xml:space="preserve">
+    <value>{address} ist uns bereits bekannt. Es wurde nichts angelegt und nichts geändert.</value>
+  </data>
+  <data name="submit.queued.heading" xml:space="preserve">
+    <value>Wartet bereits.</value>
+  </data>
+  <data name="submit.queued.sentence" xml:space="preserve">
+    <value>{address} steht im Crawl-Register und hat noch nicht geantwortet. Erneutes Senden zieht sie nicht vor: Ein Ziel behält seinen eigenen Zeitplan, damit niemand uns am Server eines anderen antreiben kann.</value>
+  </data>
+  <data name="submit.malformed.heading" xml:space="preserve">
+    <value>Keine Adresse, die wir anwählen können.</value>
+  </data>
+  <data name="submit.malformed.sentence" xml:space="preserve">
+    <value>Ein Host braucht einen Punkt oder einen Doppelpunkt, und ein Port ist eine Zahl zwischen 1 und 65535. Beide Felder ausfüllen oder mud.example.org:4201 in das erste einfügen.</value>
+  </data>
+  <data name="submit.undialable.heading" xml:space="preserve">
+    <value>Das können wir nicht anwählen.</value>
+  </data>
+  <data name="submit.undialable.sentence" xml:space="preserve">
+    <value>Für {address} führen drei Dinge zu dieser Antwort: Der Name löst womöglich nicht auf, er löst womöglich außerhalb des öffentlichen Internets auf, oder die Betreiber dieses Hosts haben uns gebeten, fernzubleiben. Wir sagen bewusst nicht, welches davon, denn das für Fremde zu beantworten kartiert ein Netz von außen. Über die Adresse wurde nichts festgehalten; die Entscheidung war unsere und ist als unsere verbucht.</value>
+  </data>
+  <data name="submit.tooMany.heading" xml:space="preserve">
+    <value>Genug für jetzt.</value>
+  </data>
+  <data name="submit.tooMany.sentence" xml:space="preserve">
+    <value>Dieses Formular ist pro Absender begrenzt, und die Grenze ist erreicht. In einer Stunde wiederkommen. Nichts ging verloren — was wir angenommen haben, steht bereits im Register.</value>
+  </data>
+  <data name="submit.link.claim" xml:space="preserve">
+    <value>dieses Spiel beanspruchen</value>
+  </data>
+  <data name="account.signIn.title" xml:space="preserve">
+    <value>Anmelden</value>
+  </data>
+  <data name="account.signIn.preview" xml:space="preserve">
+    <value>Mit einem Passkey anmelden, um ein selbst betriebenes Spiel zu beanspruchen. Es gibt kein Passwort, das verloren gehen, und keines, das gestohlen werden kann.</value>
+  </data>
+  <data name="account.signIn.noDatabase" xml:space="preserve">
+    <value>Das Beanspruchen braucht eine Datenbank, und diese Website läuft auf den Demodaten. Es gibt nichts, wo man sich anmelden könnte.</value>
+  </data>
+  <data name="account.signIn.passkey.lead" xml:space="preserve">
+    <value>Die Anmeldung ist ein Passkey.</value>
+  </data>
+  <data name="account.signIn.passkey.body" xml:space="preserve">
+    <value>Das Gerät oder der Passwortmanager hält den privaten Schlüssel; wir halten nur die öffentliche Hälfte. Kein Passwort, keine E-Mail.</value>
+  </data>
+  <data name="account.signIn.button" xml:space="preserve">
+    <value>Mit einem Passkey anmelden</value>
+  </data>
+  <data name="account.signIn.script" xml:space="preserve">
+    <value>Die einzige Seite hier, die JavaScript braucht. Passkeys funktionieren ohne es nicht.</value>
+  </data>
+  <data name="account.register.heading" xml:space="preserve">
+    <value>Noch kein Konto?</value>
+  </data>
+  <data name="account.register.lede" xml:space="preserve">
+    <value>Ein Konto wird nur gebraucht, um ein selbst betriebenes Spiel zu beanspruchen. Einen Namen wählen, unter dem man erscheint — eine Beschriftung neben dem Anspruch, kein echter Name.</value>
+  </data>
+  <data name="account.register.name.label" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="account.register.name.placeholder" xml:space="preserve">
+    <value>z. B. corvid-admin</value>
+  </data>
+  <data name="account.register.button" xml:space="preserve">
+    <value>Konto mit einem Passkey anlegen</value>
+  </data>
+  <data name="account.store.heading" xml:space="preserve">
+    <value>Was wir speichern</value>
+  </data>
+  <data name="account.store.name" xml:space="preserve">
+    <value>Den gewählten Namen.</value>
+  </data>
+  <data name="account.store.keys" xml:space="preserve">
+    <value>Den öffentlichen Schlüssel jedes registrierten Passkeys und den Namen, den das Gerät ihm gegeben hat.</value>
+  </data>
+  <data name="account.store.claims" xml:space="preserve">
+    <value>Welche Spiele beansprucht wurden und wann.</value>
+  </data>
+  <data name="account.store.note" xml:space="preserve">
+    <value>Keine E-Mail-Adresse, kein Passwort, kein an das Konto gebundenes IP-Protokoll. Sind alle Passkeys verloren, lässt sich ein frischer Anspruchs-Token im Spiel veröffentlichen und von vorn beginnen: Der Beweis ist das Spiel, nicht das Konto.</value>
+  </data>
+  <data name="date.absolute" xml:space="preserve">
+    <value>{day}. {month} {year}</value>
+  </data>
+  <data name="date.stamp" xml:space="preserve">
+    <value>{date} {time} UTC</value>
+  </data>
+  <data name="age.short.now" xml:space="preserve">
+    <value>jetzt</value>
+  </data>
+  <data name="age.short.minutes" xml:space="preserve">
+    <value>{count, plural, one {# Min} other {# Min}}</value>
+  </data>
+  <data name="age.short.hours" xml:space="preserve">
+    <value>{count, plural, one {# Std} other {# Std}}</value>
+  </data>
+  <data name="age.short.days" xml:space="preserve">
+    <value>{count, plural, one {# T} other {# T}}</value>
+  </data>
+  <data name="age.short.weeks" xml:space="preserve">
+    <value>{count, plural, one {# W} other {# W}}</value>
+  </data>
+  <data name="age.short.months" xml:space="preserve">
+    <value>{count, plural, one {# Mon} other {# Mon}}</value>
+  </data>
+  <data name="age.short.years" xml:space="preserve">
+    <value>{count, plural, one {# J} other {# J}}</value>
+  </data>
+  <data name="age.ago.now" xml:space="preserve">
+    <value>gerade eben</value>
+  </data>
+  <data name="age.ago.minutes" xml:space="preserve">
+    <value>{count, plural, one {vor # Min} other {vor # Min}}</value>
+  </data>
+  <data name="age.ago.hours" xml:space="preserve">
+    <value>{count, plural, one {vor # Std} other {vor # Std}}</value>
+  </data>
+  <data name="age.ago.days" xml:space="preserve">
+    <value>{count, plural, one {vor # T} other {vor # T}}</value>
+  </data>
+  <data name="age.ago.weeks" xml:space="preserve">
+    <value>{count, plural, one {vor # W} other {vor # W}}</value>
+  </data>
+  <data name="age.ago.months" xml:space="preserve">
+    <value>{count, plural, one {vor # Mon} other {vor # Mon}}</value>
+  </data>
+  <data name="age.ago.years" xml:space="preserve">
+    <value>{count, plural, one {vor # J} other {vor # J}}</value>
+  </data>
+  <data name="age.dark.now" xml:space="preserve">
+    <value>gerade eben</value>
+  </data>
+  <data name="age.dark.minutes" xml:space="preserve">
+    <value>{count, plural, one {vor # Min} other {vor # Min}}</value>
+  </data>
+  <data name="age.dark.hours" xml:space="preserve">
+    <value>{count, plural, one {vor # Std} other {vor # Std}}</value>
+  </data>
+  <data name="age.dark.days" xml:space="preserve">
+    <value>{count, plural, one {vor # T} other {vor # T}}</value>
+  </data>
+  <data name="age.dark.weeks" xml:space="preserve">
+    <value>{count, plural, one {vor # W} other {vor # W}}</value>
+  </data>
+  <data name="age.dark.months" xml:space="preserve">
+    <value>{count, plural, one {vor # Mon} other {vor # Mon}}</value>
+  </data>
+  <data name="age.dark.years" xml:space="preserve">
+    <value>{count, plural, one {vor # J} other {vor # J}}</value>
+  </data>
+  <data name="time.title" xml:space="preserve">
+    <value>{age}, {stamp}</value>
+  </data>
+  <data name="time.spoken" xml:space="preserve">
+    <value>, {stamp}</value>
+  </data>
+  <data name="chip.title" xml:space="preserve">
+    <value>{value} — {how}, Quelle: {source}, zuletzt bestätigt {date}</value>
+  </data>
+  <data name="chip.title.stale" xml:space="preserve">
+    <value>{value} — {how}, Quelle: {source}, zuletzt bestätigt {date} (Aktualisierung überfällig)</value>
+  </data>
+  <data name="chip.plain" xml:space="preserve">
+    <value>({how}, {age})</value>
+  </data>
+  <data name="chip.plain.stale" xml:space="preserve">
+    <value>({how}, {age}, überfällig)</value>
+  </data>
+  <data name="provenance.game.ownerDeclared" xml:space="preserve">
+    <value>vom Betreiber angegeben</value>
+  </data>
+  <data name="source.staff" xml:space="preserve">
+    <value>Redaktion</value>
+  </data>
+  <data name="source.handshake" xml:space="preserve">
+    <value>der Telnet-Handshake</value>
+  </data>
+  <data name="source.owner" xml:space="preserve">
+    <value>der Betreiber</value>
+  </data>
+  <data name="source.who" xml:space="preserve">
+    <value>WHO</value>
+  </data>
+  <data name="source.i3" xml:space="preserve">
+    <value>I3</value>
+  </data>
+  <data name="source.mssp" xml:space="preserve">
+    <value>MSSP</value>
+  </data>
+  <data name="source.info" xml:space="preserve">
+    <value>INFO</value>
+  </data>
+  <data name="source.i3Mudlist" xml:space="preserve">
+    <value>die I3-Mudlist</value>
+  </data>
+  <data name="source.banner" xml:space="preserve">
+    <value>der Verbindungsbildschirm</value>
+  </data>
+  <data name="ecosystem.title" xml:space="preserve">
+    <value>Das Ökosystem</value>
+  </data>
+  <data name="ecosystem.noTotals" xml:space="preserve">
+    <value>Anteile, niemals Gesamtzahlen. Wir veröffentlichen keine Zahl dazu, wie viele Menschen MU* spielen: Ein Verhältnis über die von uns gemessenen Spiele übersteht die, die wir nicht erreichen können; eine Kopfzahl nicht.</value>
+  </data>
+  <data name="ecosystem.listed" xml:space="preserve">
+    <value>{count, plural, one {{value} Spiel eingetragen} other {{value} Spiele eingetragen}}</value>
+  </data>
+  <data name="ecosystem.handshakes" xml:space="preserve">
+    <value>{count, plural, one {{value} Spiel, dessen Handshake wir abgeschlossen haben} other {{value} Spiele, deren Handshake wir abgeschlossen haben}}</value>
+  </data>
+  <data name="ecosystem.msspReports" xml:space="preserve">
+    <value>{count, plural, one {{value} Spiel, dessen MSSP-Bericht uns vorliegt} other {{value} Spiele, deren MSSP-Bericht uns vorliegt}}</value>
+  </data>
+  <data name="ecosystem.oldestHandshake" xml:space="preserve">
+    <value>Ältester Handshake hier: bestätigt vor {age}.</value>
+  </data>
+  <data name="ecosystem.share" xml:space="preserve">
+    <value>{count, number} von {total, number} ({fraction, number, ::percent .0})</value>
+  </data>
+  <data name="ecosystem.share.nothing" xml:space="preserve">
+    <value>{count, number} von {total, number} — noch nichts gemessen</value>
+  </data>
+  <data name="ecosystem.share.percent" xml:space="preserve">
+    <value>{fraction, number, ::percent .0}</value>
+  </data>
+  <data name="ecosystem.codebases.title" xml:space="preserve">
+    <value>Codebases</value>
+  </data>
+  <data name="ecosystem.codebases.basis" xml:space="preserve">
+    <value>Von {listed, plural, one {# eingetragenen Spiel} other {# eingetragenen Spielen}} haben uns {identified, number} mitgeteilt, was sie ausführen, und jeder Anteil unten bezieht sich auf diese {identified, number}. Eine Codebase, die wir nicht lesen konnten, bleibt aus dem Nenner heraus und wird nie als etwas anderes gezählt.</value>
+  </data>
+  <data name="ecosystem.codebases.none" xml:space="preserve">
+    <value>Noch kein eingetragenes Spiel hat uns seine Codebase mitgeteilt.</value>
+  </data>
+  <data name="ecosystem.soleUse" xml:space="preserve">
+    <value>{share} führen eine Codebase aus, die kein anderes eingetragenes Spiel ausführt — je ein Spiel, was ein Name ist und kein Anteil. Sie stecken im Nenner oben und sind aus den Balken herausgefaltet, nicht entfernt:</value>
+  </data>
+  <data name="ecosystem.lineages.title" xml:space="preserve">
+    <value>Abstammungen</value>
+  </data>
+  <data name="ecosystem.lineages.basis" xml:space="preserve">
+    <value>Dieselben Spiele, gruppiert nach der Tradition, von der ihr Server abstammt — unsere Lesart der Codebase, nicht etwas, das ein Spiel veröffentlicht hätte. Kein Spiel meldet „MUSH“: MSSP kennt keinen solchen Wert, und der größte Teil der MUSH-Welt veröffentlicht überhaupt kein MSSP, deshalb lässt sich die Frage nur so stellen.</value>
+  </data>
+  <data name="ecosystem.lineages.none" xml:space="preserve">
+    <value>Noch kein eingetragenes Spiel führt eine Codebase aus, die wir einer Abstammung zuordnen.</value>
+  </data>
+  <data name="ecosystem.lineages.notClassified" xml:space="preserve">
+    <value>{count, plural, one {# dieser Spiele führt eine Codebase aus} other {# dieser Spiele führen Codebases aus}}, die wir keiner Abstammung zuordnen — mehrere sagen das selbst und veröffentlichen {family}. Sie stecken im Nenner oben und in niemandes Anteil.</value>
+  </data>
+  <data name="ecosystem.protocols.title" xml:space="preserve">
+    <value>Protokolle</value>
+  </data>
+  <data name="ecosystem.protocols.floor" xml:space="preserve">
+    <value>Jede gemessene Zahl unten ist als Untergrenze zu lesen. MSSP fragen wir namentlich an, dort ist Schweigen also eine Antwort. Sonst wird hier nichts angefragt, und ein Server kann ein Protokoll unterstützen, ohne es je anzubieten.</value>
+  </data>
+  <data name="ecosystem.mssp.instrument" xml:space="preserve">
+    <value>{instrument} ist die einzige Zeile unten, die keine Untergrenze ist: Wir fragen jeden Server namentlich danach, die Spiele, die es nicht angeboten haben, wurden also gefragt und haben abgelehnt. Es ist zugleich die einzige ohne angegebene Zahl, denn jedes Spiel, dessen Bericht uns vorliegt, unterstützt es durch Vorführung, und eine Zählung derer, die es zusätzlich aufgeführt haben, würde daran nur eine Gewohnheit messen.</value>
+  </data>
+  <data name="ecosystem.mssp.gap" xml:space="preserve">
+    <value>Uns liegen {reports, number} Berichte vor, und {offered, plural, one {# Spiel bietet} other {# Spiele bieten}} MSSP heute an: Die übrigen {gap, number} haben nach unserem Lesen aufgehört, einen zu veröffentlichen, und ein Bericht wird nicht verworfen, weil er nicht mehr neu ausgegeben wird.</value>
+  </data>
+  <data name="ecosystem.protocols.caption" xml:space="preserve">
+    <value>Verbreitung der Protokolle. Gemessen ist, was ein Server in einem abgeschlossenen Handshake angeboten hat; angegeben ist, was sein MSSP behauptet. Zwei Mengen von Spielen, also zwei Nenner.</value>
+  </data>
+  <data name="ecosystem.column.protocol" xml:space="preserve">
+    <value>Protokoll</value>
+  </data>
+  <data name="ecosystem.column.measured" xml:space="preserve">
+    <value>gemessen — von {basis}</value>
+  </data>
+  <data name="ecosystem.column.declared" xml:space="preserve">
+    <value>angegeben — von {basis}</value>
+  </data>
+  <data name="ecosystem.measured.never" xml:space="preserve">
+    <value>nicht gemessen — nie beobachtet</value>
+  </data>
+  <data name="ecosystem.measured.declined" xml:space="preserve">
+    <value>{share} · {declined, plural, one {# Spiel hat} other {# Spiele haben}} auf Nachfrage abgelehnt</value>
+  </data>
+  <data name="ecosystem.measured.unasked" xml:space="preserve">
+    <value>{share} · bei {unobserved, plural, one {# Spiel} other {# Spielen}} weder angeboten noch nachgefragt</value>
+  </data>
+  <data name="ecosystem.measured.declinedAndUnasked" xml:space="preserve">
+    <value>{share} · {declined, plural, one {# Spiel hat} other {# Spiele haben}} auf Nachfrage abgelehnt · bei {unobserved, plural, one {# Spiel} other {# Spielen}} weder angeboten noch nachgefragt</value>
+  </data>
+  <data name="ecosystem.declared.none" xml:space="preserve">
+    <value>nicht nachgefragt — jeder Bericht hier ist die Antwort</value>
+  </data>
+  <data name="ecosystem.curve.title" xml:space="preserve">
+    <value>Verbreitung im Zeitverlauf</value>
+  </data>
+  <data name="ecosystem.curve.caveat" xml:space="preserve">
+    <value>Jeder Punkt ist ein Anteil an den Spielen, die wir an jenem Tag gemessen hatten; diese Linie bewegt sich also aus zwei Gründen: weil ein Spiel ändert, was es anbietet, und weil sich die Menge der messbaren Spiele darum herum ändert. Nur das Erste ist Verbreitung. Die Zahl der Wechsel unten ist der Teil, der rein aus Spielen besteht, die es sich anders überlegt haben.</value>
+  </data>
+  <data name="ecosystem.curve.caption" xml:space="preserve">
+    <value>Gemessener Anteil je Protokoll, älteste Messung zuerst</value>
+  </data>
+  <data name="ecosystem.curve.then" xml:space="preserve">
+    <value>damals</value>
+  </data>
+  <data name="ecosystem.curve.now" xml:space="preserve">
+    <value>jetzt</value>
+  </data>
+  <data name="ecosystem.curve.notMeasured" xml:space="preserve">
+    <value>nicht gemessen</value>
+  </data>
+  <data name="ecosystem.snapshot.title" xml:space="preserve">
+    <value>Eine Momentaufnahme, keine Kurve</value>
+  </data>
+  <data name="ecosystem.snapshot" xml:space="preserve">
+    <value>Eine Momentaufnahme dessen, was wir jetzt messen können. Eine Verbreitungskurve zeichnet Spiele, die es sich anders überlegen; wir halten eine Änderung fest, wenn sie geschieht, die Kurve wird also zeichenbar, sobald genug davon erfasst sind. Zu zeichnen, wann wir jedes Spiel zuerst erreicht haben, würde den Crawl messen und nicht das Hobby.</value>
+  </data>
+  <data name="ecosystem.transitions" xml:space="preserve">
+    <value>{count, plural, one {# geänderte Fähigkeit} other {# geänderte Fähigkeiten}} bisher erfasst — das Material, aus dem eine Kurve gezeichnet wird.</value>
+  </data>
+  <data name="ecosystem.transitions.none" xml:space="preserve">
+    <value>Noch hat sich keine gemessene Fähigkeit geändert, es gibt also nichts zu zeichnen.</value>
+  </data>
+  <data name="ecosystem.plain.denominators" xml:space="preserve">
+    <value>Gemessen bezieht sich auf {measured}; angegeben auf {declared}. Zwei Mengen von Spielen, also zwei Nenner.</value>
+  </data>
+  <data name="ecosystem.plain.counts" xml:space="preserve">
+    <value>{listed} · {handshakes} · {mssp}.</value>
+  </data>
+  <data name="ecosystem.plain.oldestHandshake" xml:space="preserve">
+    <value>Der älteste Handshake in diesem Bild wurde zuletzt vor {age} bestätigt.</value>
+  </data>
+  <data name="ecosystem.plain.lineages" xml:space="preserve">
+    <value>Dieselben Spiele, gruppiert nach der Tradition, von der ihr Server abstammt. Das ist {evidence} — {meaning} — und nicht etwas, das ein Spiel veröffentlicht hätte: Kein Spiel meldet „MUSH“, denn MSSP kennt keinen solchen Wert, und der größte Teil der MUSH-Welt veröffentlicht überhaupt kein MSSP.</value>
+  </data>
+  <data name="ecosystem.plain.measured" xml:space="preserve">
+    <value>gemessen: {value}</value>
+  </data>
+  <data name="ecosystem.plain.declared" xml:space="preserve">
+    <value>angegeben: {value}</value>
+  </data>
+  <data name="rankings.title" xml:space="preserve">
+    <value>Ranglisten</value>
+  </data>
+  <data name="rankings.noVote" xml:space="preserve">
+    <value>Ausschließlich aus gemessenen Daten berechnet. Keine Stimmen, Sterne oder Bewertungen, niemals. Nichts hier ordnet nach Qualität. Die haben wir nicht gemessen.</value>
+  </data>
+  <data name="rankings.busiest.title" xml:space="preserve">
+    <value>Am belebtesten, nach gemessenen gleichzeitigen Spielern</value>
+  </data>
+  <data name="rankings.window.label" xml:space="preserve">
+    <value>Zeitraum der Rangliste</value>
+  </data>
+  <data name="rankings.span" xml:space="preserve">
+    <value>{days, plural, one {# Tag} other {# Tage}}</value>
+  </data>
+  <data name="rankings.basis.median" xml:space="preserve">
+    <value>Median der Spielerzahlen, die wir in {days, plural, one {dem letzten # Tag} other {den letzten # Tagen}} gemessen haben.</value>
+  </data>
+  <data name="rankings.basis.none" xml:space="preserve">
+    <value>Noch kein Spiel hat die {samples, number} Zählungen über {days, plural, one {# Tag} other {# Tage}}, die ein Median braucht.</value>
+  </data>
+  <data name="rankings.basis.eligible" xml:space="preserve">
+    <value>{eligible, plural, one {# von {listed, number} Spielen hat} other {# von {listed, number} Spielen haben}} die nötigen {samples, number} Zählungen über {days, plural, one {# Tag} other {# Tage}}.</value>
+  </data>
+  <data name="rankings.basis.zero" xml:space="preserve">
+    <value>Eine gemessene Null zählt; eine unlesbare Zählung nicht.</value>
+  </data>
+  <data name="rankings.spanChoice" xml:space="preserve">
+    <value>Eine Woche sagt, wer jetzt belebt ist; ein Quartal sagt, wer belebt gewesen ist. Das sind verschiedene Fragen, und ein Spiel kann die eine anführen und die andere nicht. Tage sind ganze Tage, in UTC.</value>
+  </data>
+  <data name="rankings.busiest.empty" xml:space="preserve">
+    <value>Noch hat kein eingetragenes Spiel genug Zählungen für eine Rangfolge — eine Aussage darüber, wie lange wir schon messen, nicht darüber, wie belebt irgendjemand ist.</value>
+  </data>
+  <data name="rankings.busiest.caption" xml:space="preserve">
+    <value>Spiele, geordnet nach dem Median der Spielerzahlen, die wir in {days, plural, one {dem letzten # Tag} other {den letzten # Tagen}} gemessen haben. Spiele mit demselben Median teilen sich einen Platz; nichts hier entscheidet den Gleichstand.</value>
+  </data>
+  <data name="rankings.column.place" xml:space="preserve">
+    <value>#</value>
+  </data>
+  <data name="rankings.column.game" xml:space="preserve">
+    <value>Spiel</value>
+  </data>
+  <data name="rankings.column.median" xml:space="preserve">
+    <value>Median</value>
+  </data>
+  <data name="rankings.column.peak" xml:space="preserve">
+    <value>Spitze</value>
+  </data>
+  <data name="rankings.column.samples" xml:space="preserve">
+    <value>Zählungen</value>
+  </data>
+  <data name="rankings.column.days" xml:space="preserve">
+    <value>gemessene Tage</value>
+  </data>
+  <data name="rankings.spells.title" xml:space="preserve">
+    <value>Längste durchgehende Erreichbarkeit</value>
+  </data>
+  <data name="rankings.spells.basis" xml:space="preserve">
+    <value>Jede Abfrage seit dem genannten Datum hat das Spiel erreichbar vorgefunden. Erreichbar, nicht online: Wir messen einen Socket von einem einzigen Host aus, und ein Spiel, zu dem wir keine Route finden, ist dennoch völlig lebendig. Eine solche Strecke kann nicht länger sein, als wir zusehen, deshalb ist das Datum die Tatsache und die Dauer folgt daraus.</value>
+  </data>
+  <data name="rankings.spells.empty" xml:space="preserve">
+    <value>Zurzeit ist kein eingetragenes Spiel durchgehend erreichbar.</value>
+  </data>
+  <data name="rankings.spells.caption" xml:space="preserve">
+    <value>Spiele, bei denen jede Abfrage seit dem genannten Datum sie erreichbar vorgefunden hat. Spiele, die seit demselben Datum erreichbar sind, teilen sich einen Platz; nichts hier entscheidet den Gleichstand.</value>
+  </data>
+  <data name="rankings.column.since" xml:space="preserve">
+    <value>erreichbar seit</value>
+  </data>
+  <data name="rankings.column.duration" xml:space="preserve">
+    <value>das sind</value>
+  </data>
+  <data name="rankings.archivedNote" xml:space="preserve">
+    <value>Archivierte Spiele sind aus beiden Tabellen heraus und aus sonst nichts; eine einzige erfolgreiche Abfrage bringt sie zurück.</value>
+  </data>
+  <data name="rankings.plain.busiest" xml:space="preserve">
+    <value>Am belebtesten — Median der gemessenen Spieler, {days, plural, one {letzter # Tag} other {letzte # Tage}}</value>
+  </data>
+  <data name="rankings.plain.windows" xml:space="preserve">
+    <value>Zeiträume:</value>
+  </data>
+  <data name="rankings.plain.thisOne" xml:space="preserve">
+    <value>dieser</value>
+  </data>
+  <data name="rankings.plain.row" xml:space="preserve">
+    <value>Median {median, number} · Spitze {peak, number} · {samples, plural, one {# Zählung} other {# Zählungen}} an {days, number} von {window, number} Tagen</value>
+  </data>
+  <data name="rankings.plain.spellRow" xml:space="preserve">
+    <value>bei jeder Abfrage seit {date} erreichbar · {duration}</value>
+  </data>
+  <data name="archive.title" xml:space="preserve">
+    <value>Das Archiv</value>
+  </data>
+  <data name="archive.lede" xml:space="preserve">
+    <value>Spiele, die nicht mehr antworten. Nichts wurde gelöscht. Sie werden weiterhin wöchentlich abgefragt, und eine einzige erfolgreiche Abfrage bringt ein Spiel noch am selben Tag zurück ins Verzeichnis.</value>
+  </data>
+  <data name="archive.search.legend" xml:space="preserve">
+    <value>das Archiv durchsuchen</value>
+  </data>
+  <data name="archive.search.label" xml:space="preserve">
+    <value>Archivierte Spiele suchen</value>
+  </data>
+  <data name="archive.search.placeholder" xml:space="preserve">
+    <value>Name, Codebase oder Beschreibung</value>
+  </data>
+  <data name="archive.search.submit" xml:space="preserve">
+    <value>zeigen</value>
+  </data>
+  <data name="archive.count" xml:space="preserve">
+    <value>{count, plural, =0 {Keine archivierten Spiele} one {# archiviertes Spiel} other {# archivierte Spiele}}</value>
+  </data>
+  <data name="archive.badge" xml:space="preserve">
+    <value>archiviert</value>
+  </data>
+  <data name="archive.lastReachable" xml:space="preserve">
+    <value>zuletzt erreichbar</value>
+  </data>
+  <data name="archive.knownLive" xml:space="preserve">
+    <value>nachweislich aktiv</value>
+  </data>
+  <data name="archive.darkFor" xml:space="preserve">
+    <value>(vor {age})</value>
+  </data>
+  <data name="archive.empty" xml:space="preserve">
+    <value>Keine Treffer.</value>
+  </data>
+  <data name="archive.neverReachable" xml:space="preserve">
+    <value>nie, in nichts, was wir gemessen haben</value>
+  </data>
+  <data name="archive.noReachableTime" xml:space="preserve">
+    <value>keine erreichbare Zeit gemessen</value>
+  </data>
+  <data name="archive.darkFor.unknown" xml:space="preserve">
+    <value>unbekannt</value>
+  </data>
+  <data name="archive.knownLive.years" xml:space="preserve">
+    <value>{years, number, ::.#} Jahre</value>
+  </data>
+  <data name="archive.knownLive.days" xml:space="preserve">
+    <value>{days, plural, one {# Tag} other {# Tage}}</value>
+  </data>
+  <data name="archive.run" xml:space="preserve">
+    <value>{from} – {to} · {span}</value>
+  </data>
+  <data name="archive.run.months" xml:space="preserve">
+    <value>{count, plural, one {# Monat} other {# Monate}}</value>
+  </data>
+  <data name="archive.run.years" xml:space="preserve">
+    <value>{count, plural, one {# Jahr} other {# Jahre}}</value>
+  </data>
+  <data name="archive.plain.matching" xml:space="preserve">
+    <value>{count, plural, one {# Spiel passt} other {# Spiele passen}} zu „{query}“</value>
+  </data>
+  <data name="archive.plain.count" xml:space="preserve">
+    <value>{count, plural, one {# Spiel} other {# Spiele}}</value>
+  </data>
+  <data name="archive.plain.lastReachable" xml:space="preserve">
+    <value>Zuletzt erreichbar:</value>
+  </data>
+  <data name="archive.plain.knownLive" xml:space="preserve">
+    <value>Nachweislich aktiv:</value>
+  </data>
+  <data name="archive.plain.knownLiveValue" xml:space="preserve">
+    <value>{value} gemessener erreichbarer Zeit</value>
+  </data>
+  <data name="archive.plain.run" xml:space="preserve">
+    <value>Laufzeit:</value>
+  </data>
+  <data name="archive.plain.codebase" xml:space="preserve">
+    <value>Codebase:</value>
+  </data>
+  <data name="footer.randomGame" xml:space="preserve">
+    <value>zufälliges Spiel</value>
+  </data>
+  <data name="trend.day.counted" xml:space="preserve">
+    <value>{d, date, medium} — durchschnittlich {typical}, {low}–{high} über {probes, plural, one {# Abfrage} other {# Abfragen}}</value>
+  </data>
+  <data name="trend.day.flat" xml:space="preserve">
+    <value>{d, date, medium} — {count, plural, =0 {0 Spieler} one {# Spieler} other {# Spieler}}, in jeder von {probes, plural, one {# Abfrage} other {# Abfragen}}</value>
+  </data>
+  <data name="trend.day.notCounted" xml:space="preserve">
+    <value>{d, date, medium} — abgefragt, keine Zählung ablesbar</value>
+  </data>
+  <data name="trend.day.notMeasured" xml:space="preserve">
+    <value>{d, date, medium} — keine Messung</value>
+  </data>
+  <data name="trend.summary" xml:space="preserve">
+    <value>Typischerweise {typical} verbunden, Spitze {peak}, an {counted} von {days, plural, one {# Tag} other {# Tagen}}.</value>
+  </data>
+  <data name="trend.direction.steady" xml:space="preserve">
+    <value>Über den Zeitraum hinweg gleichbleibend.</value>
+  </data>
+  <data name="trend.direction.up" xml:space="preserve">
+    <value>Vom Anfang des Zeitraums bis zum Ende um etwa {change, number, percent} gestiegen.</value>
+  </data>
+  <data name="trend.direction.down" xml:space="preserve">
+    <value>Vom Anfang des Zeitraums bis zum Ende um etwa {change, number, percent} gefallen.</value>
+  </data>
+  <data name="trend.none.probed" xml:space="preserve">
+    <value>In diesem Zeitraum abgefragt, und aus nichts davon war eine Spielerzahl ablesbar.</value>
+  </data>
+  <data name="trend.none.notMeasured" xml:space="preserve">
+    <value>Keine Messung in diesem Zeitraum.</value>
+  </data>
+  <data name="trend.empty" xml:space="preserve">
+    <value>In diesem Zeitraum nichts gezählt.</value>
+  </data>
+  <data name="trend.week.span" xml:space="preserve">
+    <value>{from, date, d MMM}–{to, date, d MMM}</value>
+  </data>
+  <data name="trend.week.oneDay" xml:space="preserve">
+    <value>{d, date, d MMM}</value>
+  </data>
+  <data name="trend.week.counted" xml:space="preserve">
+    <value>{span}: typischerweise {typical}, Spitze {peak}, {days, plural, one {# Tag} other {# Tage}} gezählt</value>
+  </data>
+  <data name="trend.week.notCounted" xml:space="preserve">
+    <value>{span}: abgefragt, keine Zählung ablesbar</value>
+  </data>
+  <data name="trend.week.notMeasured" xml:space="preserve">
+    <value>{span}: nicht gemessen</value>
+  </data>
+  <data name="trend.week.uncounted" xml:space="preserve">
+    <value>{count, plural, one {# Tag ohne Zählung abgefragt} other {# Tage ohne Zählung abgefragt}}</value>
+  </data>
+  <data name="trend.week.unmeasured" xml:space="preserve">
+    <value>{count, plural, one {# Tag nicht gemessen} other {# Tage nicht gemessen}}</value>
+  </data>
+  <data name="trend.week.and" xml:space="preserve">
+    <value>{line}, {clause}</value>
+  </data>
+  <data name="trend.range" xml:space="preserve">
+    <value>Tage in UTC · {from, date, medium} – {to, date, medium}</value>
+  </data>
+  <data name="trend.ceiling" xml:space="preserve">
+    <value>{value} ganz oben</value>
+  </data>
+  <data name="trend.counted" xml:space="preserve">
+    <value>{counted} von {days, plural, one {# Tag} other {# Tagen}} gezählt</value>
+  </data>
+  <data name="trend.axis.month" xml:space="preserve">
+    <value>{d, date, MMM}</value>
+  </data>
+  <data name="trend.axis.monthYear" xml:space="preserve">
+    <value>{d, date, MMM yyyy}</value>
+  </data>
+  <data name="trend.legend.mean" xml:space="preserve">
+    <value>Mittel der an dem Tag gelesenen Zählungen</value>
+  </data>
+  <data name="trend.legend.peak" xml:space="preserve">
+    <value>bis zur höchsten Zählung des Tages</value>
+  </data>
+  <data name="trend.legend.band" xml:space="preserve">
+    <value>niedrigste bis höchste Zählung des Tages</value>
+  </data>
+  <data name="trend.legend.notCounted" xml:space="preserve">
+    <value>abgefragt, keine Zählung ablesbar</value>
+  </data>
+  <data name="trend.legend.notMeasured.bar" xml:space="preserve">
+    <value>nicht gemessen — gar kein Balken</value>
+  </data>
+  <data name="trend.legend.notMeasured.line" xml:space="preserve">
+    <value>nicht gemessen — eine Lücke in der Linie</value>
+  </data>
+  <data name="trend.spans.label" xml:space="preserve">
+    <value>Zeitraum des Verlaufs</value>
+  </data>
+  <data name="trend.shapes.label" xml:space="preserve">
+    <value>Form des Verlaufs</value>
+  </data>
+  <data name="trend.preset" xml:space="preserve">
+    <value>{days, plural, one {# Tag} other {# Tage}}</value>
+  </data>
+  <data name="trend.earlier" xml:space="preserve">
+    <value>← früher</value>
+  </data>
+  <data name="trend.later" xml:space="preserve">
+    <value>später →</value>
+  </data>
+  <data name="trend.shape.line" xml:space="preserve">
+    <value>Linie</value>
+  </data>
+  <data name="trend.shape.bar" xml:space="preserve">
+    <value>Balken</value>
+  </data>
+  <data name="trend.plain.heading" xml:space="preserve">
+    <value>Wie viele, im Zeitverlauf</value>
+  </data>
+  <data name="trend.plain.range" xml:space="preserve">
+    <value>{from, date, medium} – {to, date, medium}, UTC</value>
+  </data>
+  <data name="trend.plain.earlier" xml:space="preserve">
+    <value>früher</value>
+  </data>
+  <data name="trend.plain.note" xml:space="preserve">
+    <value>eine Woche wird über die in ihr gezählten Tage zusammengefasst; eine Woche ohne solche sagt das</value>
+  </data>
+  <data name="reach.kicker" xml:space="preserve">
+    <value>erreichbar · {days, plural, one {letzter # Tag} other {letzte # Tage}}</value>
+  </data>
+  <data name="reach.stat.reachable" xml:space="preserve">
+    <value>erreichbar</value>
+  </data>
+  <data name="reach.stat.longestOutage" xml:space="preserve">
+    <value>längste Unterbrechung</value>
+  </data>
+  <data name="reach.stat.lastCause" xml:space="preserve">
+    <value>letzte Ursache</value>
+  </data>
+  <data name="reach.noOutage" xml:space="preserve">
+    <value>keine im Zeitraum</value>
+  </data>
+  <data name="reach.noCause" xml:space="preserve">
+    <value>nichts festgehalten</value>
+  </data>
+  <data name="reach.scale.ago" xml:space="preserve">
+    <value>{days, plural, one {vor # Tag} other {vor # Tagen}}</value>
+  </data>
+  <data name="reach.scale.today" xml:space="preserve">
+    <value>heute</value>
+  </data>
+  <data name="reach.legend.reachable" xml:space="preserve">
+    <value>erreichbar</value>
+  </data>
+  <data name="reach.legend.degraded" xml:space="preserve">
+    <value>eingeschränkt — geantwortet, nicht abgeschlossen</value>
+  </data>
+  <data name="reach.legend.unreachable" xml:space="preserve">
+    <value>nicht erreichbar</value>
+  </data>
+  <data name="reach.legend.notMeasured" xml:space="preserve">
+    <value>nicht gemessen</value>
+  </data>
+  <data name="reach.word.reachable" xml:space="preserve">
+    <value>erreichbar</value>
+  </data>
+  <data name="reach.word.degraded" xml:space="preserve">
+    <value>eingeschränkt</value>
+  </data>
+  <data name="reach.word.unreachable" xml:space="preserve">
+    <value>nicht erreichbar</value>
+  </data>
+  <data name="reach.word.notMeasured" xml:space="preserve">
+    <value>nicht gemessen</value>
+  </data>
+  <data name="reach.day.reachable" xml:space="preserve">
+    <value>{d, date, d MMM} — den ganzen Tag erreichbar</value>
+  </data>
+  <data name="reach.day.degraded" xml:space="preserve">
+    <value>{d, date, d MMM} — eingeschränkt ({cause}): geantwortet, nicht abgeschlossen</value>
+  </data>
+  <data name="reach.day.unreachable" xml:space="preserve">
+    <value>{d, date, d MMM} — nicht erreichbar ({cause})</value>
+  </data>
+  <data name="reach.day.notMeasured" xml:space="preserve">
+    <value>{d, date, d MMM} — nicht gemessen; wir haben dieses Spiel damals noch nicht beobachtet</value>
+  </data>
+  <data name="reach.none" xml:space="preserve">
+    <value>{days, plural, one {Für den letzten # Tag noch nicht gemessen.} other {Für die letzten # Tage noch nicht gemessen.}}</value>
+  </data>
+  <data name="reach.fraction.window" xml:space="preserve">
+    <value>{days, plural, one {Erreichbar in {percent} des letzten Tages.} other {Erreichbar in {percent} der letzten # Tage.}}</value>
+  </data>
+  <data name="reach.fraction.measured" xml:space="preserve">
+    <value>{days, plural, one {Erreichbar in {percent} des einen Tages, den wir gemessen haben.} other {Erreichbar in {percent} der # Tage, die wir gemessen haben.}}</value>
+  </data>
+  <data name="reach.fraction.unknown" xml:space="preserve">
+    <value>{days, plural, one {Die Erreichbarkeit des letzten Tages ist noch nicht gemessen.} other {Die Erreichbarkeit der letzten # Tage ist noch nicht gemessen.}}</value>
+  </data>
+  <data name="reach.unreachable.noneInWindow" xml:space="preserve">
+    <value>An keinem Tag im Zeitraum war das Spiel nicht erreichbar.</value>
+  </data>
+  <data name="reach.unreachable.noneMeasured" xml:space="preserve">
+    <value>An keinem von uns gemessenen Tag war das Spiel nicht erreichbar.</value>
+  </data>
+  <data name="reach.unreachable.days" xml:space="preserve">
+    <value>{count, plural, one {# Tag nicht erreichbar.} other {# Tage nicht erreichbar.}}</value>
+  </data>
+  <data name="reach.degraded.days" xml:space="preserve">
+    <value>{count, plural, one {# Tag eingeschränkt — wir sind hineingekommen und konnten nicht abschließen.} other {# Tage eingeschränkt — wir sind hineingekommen und konnten nicht abschließen.}}</value>
+  </data>
+  <data name="reach.longestOutage" xml:space="preserve">
+    <value>Längste Unterbrechung {duration}.</value>
+  </data>
+  <data name="reach.longestOutage.cause" xml:space="preserve">
+    <value>Längste Unterbrechung {duration} ({cause}).</value>
+  </data>
+  <data name="reach.predate" xml:space="preserve">
+    <value>{count, plural, one {# Tag liegt vor allem, was wir gemessen haben.} other {# Tage liegen vor allem, was wir gemessen haben.}}</value>
+  </data>
+  <data name="reach.spell.range" xml:space="preserve">
+    <value>{from, date, d MMM} – {to, date, d MMM}</value>
+  </data>
+  <data name="reach.spell.oneDay" xml:space="preserve">
+    <value>{d, date, d MMM}</value>
+  </data>
+  <data name="reach.spell" xml:space="preserve">
+    <value>{range}: {count, plural, one {# Tag} other {# Tage}} {word}</value>
+  </data>
+  <data name="reach.spell.cause" xml:space="preserve">
+    <value>{range}: {count, plural, one {# Tag} other {# Tage}} {word} ({cause})</value>
+  </data>
+  <data name="reach.plain.heading" xml:space="preserve">
+    <value>Erreichbar</value>
+  </data>
+  <data name="reach.plain.window" xml:space="preserve">
+    <value>{days, plural, one {letzter # Tag} other {letzte # Tage}}</value>
+  </data>
+  <data name="reach.plain.fraction" xml:space="preserve">
+    <value>Erreichbar: {percent} {days, plural, one {des letzten Tages} other {der letzten # Tage}}</value>
+  </data>
+  <data name="reach.plain.longestOutage" xml:space="preserve">
+    <value>Längste Unterbrechung: {duration}</value>
+  </data>
+  <data name="cause.dns" xml:space="preserve">
+    <value>dns hat nicht aufgelöst</value>
+  </data>
+  <data name="cause.refused" xml:space="preserve">
+    <value>Verbindung abgelehnt</value>
+  </data>
+  <data name="cause.tls" xml:space="preserve">
+    <value>tls fehlgeschlagen</value>
+  </data>
+  <data name="cause.timeout" xml:space="preserve">
+    <value>Zeitüberschreitung</value>
+  </data>
+  <data name="cause.handshakeStalled" xml:space="preserve">
+    <value>Handshake hängen geblieben</value>
+  </data>
+  <data name="cause.none" xml:space="preserve">
+    <value>keine Ursache festgehalten</value>
+  </data>
+  <data name="ansi.suppressed" xml:space="preserve">
+    <value>Der Betreiber hat uns gebeten, den Verbindungsbildschirm dieses Spiels nicht erneut zu veröffentlichen.</value>
+  </data>
+  <data name="ansi.absent" xml:space="preserve">
+    <value>Von diesem Spiel wurde kein Verbindungsbildschirm aufgezeichnet.</value>
+  </data>
+  <data name="ansi.tooSmall" xml:space="preserve">
+    <value>{count, plural, one {Nur # Zeile kam zurück — zu wenig zum Anzeigen.} other {Nur # Zeilen kamen zurück — zu wenig zum Anzeigen.}}</value>
+  </data>
+  <data name="ansi.asSent" xml:space="preserve">
+    <value>so, wie der Server ihn gesendet hat</value>
+  </data>
+  <data name="ansi.size" xml:space="preserve">
+    <value>{columns}×{rows}</value>
+  </data>
+  <data name="ansi.size.doubleWidth" xml:space="preserve">
+    <value>{columns}×{rows}, doppelte Breite</value>
+  </data>
+  <data name="ansi.depth.colour" xml:space="preserve">
+    <value>16-Farben-SGR</value>
+  </data>
+  <data name="ansi.depth.plain" xml:space="preserve">
+    <value>keine Farbe</value>
+  </data>
+  <data name="ansi.readAs" xml:space="preserve">
+    <value>gelesen als {charset}</value>
+  </data>
+  <data name="ansi.captured" xml:space="preserve">
+    <value>aufgezeichnet</value>
+  </data>
+  <data name="ansi.frozen" xml:space="preserve">
+    <value>eingefroren — der letzte Bildschirm, den wir gesehen haben</value>
+  </data>
+  <data name="ansi.alt.named" xml:space="preserve">
+    <value>ASCII-Grafik: der Verbindungsbildschirm von {game}. Sein Text steht unten unter „als Text lesen“.</value>
+  </data>
+  <data name="ansi.alt" xml:space="preserve">
+    <value>ASCII-Grafik: der Verbindungsbildschirm dieses Spiels. Sein Text steht unten unter „als Text lesen“.</value>
+  </data>
+  <data name="ansi.plain.rows" xml:space="preserve">
+    <value>{count, plural, one {Verbindungsbildschirm: # Zeile, nur Text} other {Verbindungsbildschirm: # Zeilen, nur Text}}</value>
+  </data>
+  <data name="ansi.plain.rows.readAs" xml:space="preserve">
+    <value>{count, plural, one {Verbindungsbildschirm: # Zeile, nur Text, gelesen als {charset}} other {Verbindungsbildschirm: # Zeilen, nur Text, gelesen als {charset}}}</value>
+  </data>
+  <data name="capability.disagree.declaredNotOffered" xml:space="preserve">
+    <value>das Spiel gibt es an, und der Server hat es in keinem Handshake je angeboten.</value>
+  </data>
+  <data name="capability.disagree.offeredNotDeclared" xml:space="preserve">
+    <value>der Server bietet es an, und die eigene Angabe des Spiels sagt, dass er es nicht tut.</value>
+  </data>
+  <data name="capability.disagree.note" xml:space="preserve">
+    <value>Meist ein veraltetes, von Hand getipptes Feld und keine Lüge. Gezeigt, weil ein Client sich auf das, worin beide sich widersprechen, nicht verlassen sollte.</value>
+  </data>
+  <data name="game.notFound" xml:space="preserve">
+    <value>Nicht gefunden</value>
+  </data>
+  <data name="game.notFound.hint" xml:space="preserve">
+    <value>Kein Spiel unter dieser Adresse. Schreibweise prüfen.</value>
+  </data>
+  <data name="game.endpoint.lastAnswered" xml:space="preserve">
+    <value>zuletzt geantwortet</value>
+  </data>
+  <data name="game.stale" xml:space="preserve">
+    <value>{count, plural, one {# ist über das Aktualisierungsfenster hinaus. Alt, nicht falsch.} other {# sind über das Aktualisierungsfenster hinaus. Alt, nicht falsch.}}</value>
+  </data>
+  <data name="game.referrals.lists" xml:space="preserve">
+    <value>Die eigene Verweisliste dieses Spiels nennt:</value>
+  </data>
+  <data name="game.referrals.listedBy" xml:space="preserve">
+    <value>Genannt von der Verweisliste von:</value>
+  </data>
+  <data name="game.referral.since" xml:space="preserve">
+    <value>seit {date}</value>
+  </data>
+  <data name="game.referral.dropped" xml:space="preserve">
+    <value>nicht mehr gelistet, zuletzt gesehen</value>
+  </data>
+  <data name="game.archived.lastAnswered" xml:space="preserve">
+    <value>Zuletzt geantwortet am {date}, vor {ago}.</value>
+  </data>
+  <data name="game.archived.stillProbed" xml:space="preserve">
+    <value>Wird weiterhin wöchentlich abgefragt; diese Seite aktualisiert sich an dem Tag, an dem es antwortet.</value>
+  </data>
+  <data name="game.archived.knownLive" xml:space="preserve">
+    <value>{span} nachweislich aktiv</value>
+  </data>
+  <data name="game.excluded" xml:space="preserve">
+    <value>Nicht im Verzeichnis, nicht in den Ranglisten und nicht in der Tageszahl: Wir halten diese Adresse nicht für ein Spiel, das sich spielen lässt. Alles unten ist das, was sie uns mitgeteilt hat, unverändert.</value>
+  </data>
+  <data name="game.excluded.reason" xml:space="preserve">
+    <value>Unser Grund: {why}</value>
+  </data>
+  <data name="game.unlisted" xml:space="preserve">
+    <value>Nicht im Verzeichnis, nicht in den Ranglisten und nicht in der Tageszahl, auf Bitte der Leute, die es betreiben. Alles unten bleibt erhalten, wie es war, diese Seite und jede Adresse, die es je hatte, antworten weiterhin, und wir wählen es nicht an.</value>
+  </data>
+  <data name="game.plain.playersNow" xml:space="preserve">
+    <value>Jetzt verbunden: {count}</value>
+  </data>
+  <data name="game.plain.playersUnknown" xml:space="preserve">
+    <value>Jetzt verbunden: unbekannt (keine Zählung messbar)</value>
+  </data>
+  <data name="game.plain.capabilities" xml:space="preserve">
+    <value>Fähigkeiten ({disagreeing} von {total} widersprechen)</value>
+  </data>
+  <data name="game.plain.declared" xml:space="preserve">
+    <value>Vom Spiel angegeben</value>
+  </data>
+  <data name="game.plain.connectScreen" xml:space="preserve">
+    <value>Verbindungsbildschirm</value>
+  </data>
+  <data name="game.plain.whatChanged" xml:space="preserve">
+    <value>Was sich geändert hat</value>
+  </data>
+  <data name="game.plain.measured" xml:space="preserve">
+    <value>gemessen</value>
+  </data>
+  <data name="game.plain.declared.column" xml:space="preserve">
+    <value>angegeben</value>
+  </data>
+  <data name="game.plain.disagree" xml:space="preserve">
+    <value>** widersprechen</value>
+  </data>
 </root>

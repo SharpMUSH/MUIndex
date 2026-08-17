@@ -67,8 +67,20 @@ public class TimeSurfaceTests
     {
         var july = new DateTimeOffset(2026, 7, 30, 18, 0, 0, TimeSpan.Zero);
 
-        await Assert.That(Dates.Absolute(German, july)).IsEqualTo("30 Juli 2026");
-        await Assert.That(Dates.Stamp(German, july)).IsEqualTo("30 Juli 2026 18:00 UTC");
+        // The word, not the whole string: the order of the three parts is `date.absolute`'s to
+        // decide, and German's translation of it supplies the ordinal point that English has no use
+        // for — "30. Juli 2026". Pinning the assembled sentence here would have made a correct
+        // translation fail, which is the test asserting its own English word order as if it were a
+        // fact about dates.
+        await Assert.That(Dates.Absolute(German, july)).Contains("Juli");
+        await Assert.That(Dates.Absolute(German, july)).Contains("30");
+        await Assert.That(Dates.Absolute(German, july)).Contains("2026");
+        await Assert.That(Dates.Absolute(German, july)).DoesNotContain("Jul ");
+
+        // The stamp is the date with the clock on it, in whatever order that locale puts them.
+        await Assert.That(Dates.Stamp(German, july)).Contains(Dates.Absolute(German, july));
+        await Assert.That(Dates.Stamp(German, july)).Contains("18:00");
+        await Assert.That(Dates.Stamp(German, july)).Contains("UTC");
 
         await Assert.That(Dates.Absolute(German, july)).IsNotEqualTo(Dates.Absolute(English, july));
     }

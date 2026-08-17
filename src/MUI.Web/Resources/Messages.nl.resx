@@ -954,4 +954,1225 @@
   <data name="locale.submit" xml:space="preserve">
     <value>taal wijzigen</value>
   </data>
+  <data name="about.title" xml:space="preserve">
+    <value>Over mu*index</value>
+  </data>
+  <data name="about.lede" xml:space="preserve">
+    <value>Elk spel hier is gemeten door een machine die er verbinding mee maakte, en elke waarde vermeldt waar hij vandaan komt en wanneer. Deze pagina behandelt wat dat bewijst, wat we fout doen, wiens gidsen we lezen, en hoe de crawler te stoppen is.</value>
+  </data>
+  <data name="about.measures.heading" xml:space="preserve">
+    <value>Wat een feit hier is</value>
+  </data>
+  <data name="about.measures.declared.lead" xml:space="preserve">
+    <value>Gemeten wint van opgegeven, en beide worden getoond.</value>
+  </data>
+  <data name="about.measures.declared.body" xml:space="preserve">
+    <value>Het MSSP-rapport van een spel is het spel dat zichzelf beschrijft. De telnet-handshake is wat we het hebben zien doen. Beide staan op zijn pagina, gelabeld met hoe en wanneer. Waar ze van elkaar afwijken, tonen we de afwijking.</value>
+  </data>
+  <data name="about.measures.count.lead" xml:space="preserve">
+    <value>Een spelerstelling vermeldt waar hij vandaan komt.</value>
+  </data>
+  <data name="about.measures.count.body" xml:space="preserve">
+    <value>Ofwel een WHO of DOING die bij het verbindingsscherm gelezen is en door ons geteld, ofwel het eigen MSSP PLAYERS-veld van het spel, dat het zelf publiceerde. Nooit samengevoegd.</value>
+  </data>
+  <data name="about.measures.unknown.lead" xml:space="preserve">
+    <value>Een antwoord dat we niet kunnen lezen is onbekend, nooit nul.</value>
+  </data>
+  <data name="about.measures.unknown.body" xml:space="preserve">
+    <value>Servers passen hun WHO-koppen naar believen aan, en voorbij een zeker punt kan onze parser er geen meer lezen. Dat is niet telbaar, een toestand op zichzelf. Een gemeten nul — we kwamen binnen, er was niemand — is een telling, en wordt ook als telling weergegeven.</value>
+  </data>
+  <data name="about.measures.reachable.lead" xml:space="preserve">
+    <value>Bereikbaar, nooit uptime.</value>
+  </data>
+  <data name="about.measures.reachable.body" xml:space="preserve">
+    <value>We openen met tussenpozen een socket vanaf één host. Een spel waarheen we geen route hebben is onbereikbaar en volkomen springlevend. Niets hier beweert iets over de uptime van een spel, omdat niets hier die gemeten heeft.</value>
+  </data>
+  <data name="about.measures.hour.lead" xml:space="preserve">
+    <value>Een uur is geteld, niet telbaar, of niet gemeten.</value>
+  </data>
+  <data name="about.measures.hour.body" xml:space="preserve">
+    <value>Het activiteitenraster heeft drie toestanden. De derde is leeg en noemt geen oorzaak: een uur dat we niet konden bereiken en een uur dat we nooit gepeild hebben zijn dezelfde afwezigheid, en geen van beide is downtime van die server.</value>
+  </data>
+  <data name="about.limits.heading" xml:space="preserve">
+    <value>Wat we weten dat we fout doen</value>
+  </data>
+  <data name="about.limits.grace.lead" xml:space="preserve">
+    <value>Het archiefrespijt wordt gemeten vanaf de dag dat we een spel vonden.</value>
+  </data>
+  <data name="about.limits.grace.body" xml:space="preserve">
+    <value>Een spel dat stopt met antwoorden verlaat de standaardlijst na zijn respijtperiode: een kwart van de bereikbare tijd die we gepeild hebben, met een ondergrens van 60 dagen en een bovengrens van 365. Een spel dat sinds 1995 draait, begint op de ondergrens op de dag dat we het ontdekken. We importeren niets om de jaren vóór onze komst in te vullen.</value>
+  </data>
+  <data name="about.limits.created.lead" xml:space="preserve">
+    <value>We laten MSSP CREATED niet meetellen voor dat respijt.</value>
+  </data>
+  <data name="about.limits.created.body" xml:space="preserve">
+    <value>Het is één met de hand ingetypte regel in een configuratiebestand, dus meetellen zou de archiefdrempel manipuleerbaar maken. Het wordt als opgave getoond en koopt niets.</value>
+  </data>
+  <data name="about.limits.claim.lead" xml:space="preserve">
+    <value>Een spel claimen levert de bovengrens op.</value>
+  </data>
+  <data name="about.limits.claim.body" xml:space="preserve">
+    <value>Aantonen dat er servertoegang is, is het volle jaar respijt waard, hoe lang we ook al meekijken.</value>
+  </data>
+  <data name="about.limits.oneHost.lead" xml:space="preserve">
+    <value>Alles hier is één host die met tussenpozen kijkt.</value>
+  </data>
+  <data name="about.limits.oneHost.body" xml:space="preserve">
+    <value>Een percentage bereikbare tijd is een deel van de periode die we waarnamen, nooit van een periode die we niet waarnamen. Geen enkele grafiek hier vult de rest in.</value>
+  </data>
+  <data name="about.limits.deletion.lead" xml:space="preserve">
+    <value>Er wordt nooit iets verwijderd.</value>
+  </data>
+  <data name="about.limits.deletion.body" xml:space="preserve">
+    <value>Archiveren haalt een spel uit de standaardlijst, de ranglijsten en het cijfer van vandaag actief, en verder niets. Zijn pagina, URL, geschiedenis en adres blijven bestaan, het wordt nog gepeild, en één geslaagde peiling zet het terug.</value>
+  </data>
+  <data name="about.never.heading" xml:space="preserve">
+    <value>Wat deze site niet zal doen</value>
+  </data>
+  <data name="about.never.votes.lead" xml:space="preserve">
+    <value>Geen stemmen, sterren, beoordelingen of aanbevelingen.</value>
+  </data>
+  <data name="about.never.votes.body" xml:space="preserve">
+    <value>Ranglijsten worden alleen uit gemeten gegevens berekend. Een gids die gerangschikt is naar wie de meeste klikken kan mobiliseren, beschrijft de campagne en niet de hobby, en daaraan zijn de gevestigde gidsen ten onder gegaan.</value>
+  </data>
+  <data name="about.never.forums.lead" xml:space="preserve">
+    <value>Geen forums, recensies, wiki’s, reacties of spelersprofielen.</value>
+  </data>
+  <data name="about.never.forums.body" xml:space="preserve">
+    <value>Oriënterend materiaal — wat een MUSH is, welke codebase past bij gezamenlijk rollenspel — wordt geschreven, ondertekend en van versies voorzien zoals de rest van de site.</value>
+  </data>
+  <data name="about.never.names.lead" xml:space="preserve">
+    <value>Spelersnamen worden nooit bewaard.</value>
+  </data>
+  <data name="about.never.names.body" xml:space="preserve">
+    <value>Een WHO-antwoord wordt in het geheugen ontleed op een telling en de vorm van de kop. De namen worden niet vastgelegd; aggregaten gebruiken een gezouten hash met een roulerende salt.</value>
+  </data>
+  <data name="about.never.population.lead" xml:space="preserve">
+    <value>Er wordt geen absoluut spelersaantal gepubliceerd.</value>
+  </data>
+  <data name="about.never.population.body" xml:space="preserve">
+    <value>Aandelen per codebase en per protocol gaan wel de deur uit: een verhouding over de gemeten verzameling overleeft de spellen die we niet kunnen tellen. ‘Hoeveel mensen spelen MU*’ overleeft dat niet, want dat getal zou het niet houden zodra het geciteerd werd.</value>
+  </data>
+  <data name="about.crawler.heading" xml:space="preserve">
+    <value>De crawler, en hoe die te stoppen is</value>
+  </data>
+  <data name="about.crawler.probe.lead" xml:space="preserve">
+    <value>Een peiling is één verbinding die nooit inlogt.</value>
+  </data>
+  <data name="about.crawler.probe.body" xml:space="preserve">
+    <value>Die opent een socket, onderhandelt over telnet-opties, leest het verbindingsscherm, vraagt om MSSP door optie 70 te onderhandelen, stuurt {commands} en verbreekt de verbinding. Geen personage, geen login, niets veranderd aan de andere kant. Een time-out begrenst de sessie, zodat een vastgelopen peiling geen verbindingsplek bezet kan houden.</value>
+  </data>
+  <data name="about.crawler.delay.lead" xml:space="preserve">
+    <value>CRAWL DELAY wint.</value>
+  </data>
+  <data name="about.crawler.delay.body" xml:space="preserve">
+    <value>Een spel dat in zijn MSSP-rapport een gewenste minimale tussenpoos opgeeft, krijgt die, boven ons eigen schema in beide richtingen: 720 uur betekent maandelijks, niet wekelijks. Bij een stilgevallen spel wordt voor altijd op de langere tussenpoos aangeklopt, en zo zet het zichzelf weer in de lijst wanneer het terugkomt.</value>
+  </data>
+  <data name="about.crawler.referral.lead" xml:space="preserve">
+    <value>Een doorverwezen adres wordt geverifieerd, nooit vertrouwd.</value>
+  </data>
+  <data name="about.crawler.referral.body" xml:space="preserve">
+    <value>Met MSSP kan een spel andere spellen noemen. Elke naam wordt opgelost voordat er ergens wordt aangeklopt, en geweigerd tenzij elk adres waarnaar hij oplost wereldwijd routeerbaar is. Een gemengd antwoord weigert het hele doel. Onze weigering wordt als de onze vastgelegd en verschijnt nooit als downtime in het dossier van een spel.</value>
+  </data>
+  <data name="about.crawler.screens.lead" xml:space="preserve">
+    <value>Verbindingsschermen worden getoond omdat ze naar iedereen gestuurd worden.</value>
+  </data>
+  <data name="about.crawler.screens.body" xml:space="preserve">
+    <value>Een server tekent zijn verbindingsscherm, zonder authenticatie, naar elke anonieme verbinding. We tonen het als bewijs en labelen het. Eén verzoek en het gaat eraf.</value>
+  </data>
+  <data name="about.crawler.stop.lead" xml:space="preserve">
+    <value>Zeg stop, en we stoppen — op drie manieren.</value>
+  </data>
+  <data name="about.crawler.stop.body" xml:space="preserve">
+    <value>Publiceer {variable} 1 in het MSSP-rapport, en de peiling die dat leest is de laatste. Of publiceer een TXT-record op {label}.your.host met de inhoud ‘{value}’, waarvoor geen MSSP-ondersteuning en geen account hier nodig is. Of schrijf een mens aan. Alle drie worden binnen één crawlcyclus gehonoreerd, vastgelegd met de datum en met wat we lazen, en ook op het aanmeldformulier afgedwongen.</value>
+  </data>
+  <data name="about.crawler.scope.lead" xml:space="preserve">
+    <value>Het MSSP-veld stopt die luisterpoort; het record stopt de host.</value>
+  </data>
+  <data name="about.crawler.scope.body" xml:space="preserve">
+    <value>MSSP wordt gepubliceerd door de poort die antwoordde, dus spreekt het voor die poort — bij MU*-hosting draaien routinematig ongerelateerde spellen op één domein, en het ene mag het andere niet het zwijgen opleggen. Een TXT-record geldt voor elke poort tenzij het er een noemt, als ‘{value}=4201’. Alles wat daar staat en wat we niet als poortenlijst kunnen lezen betekent de hele host, dus ‘{value}=all’ werkt.</value>
+  </data>
+  <data name="about.crawler.dns.lead" xml:space="preserve">
+    <value>De DNS-route is de enige die zonder ons ongedaan te maken is.</value>
+  </data>
+  <data name="about.crawler.dns.body" xml:space="preserve">
+    <value>Een TXT-record is leesbaar zonder verbinding te maken met een server die dat verboden heeft, dus we lezen het opnieuw voordat we aankloppen. Wordt het verwijderd, dan kloppen we binnen een week weer aan. Een MSSP-veld kan niet opnieuw gelezen worden zonder precies te doen wat ons gevraagd is te laten, dus afmeldingen via MSSP en schriftelijke verzoeken blijven staan tot iemand het tegendeel zegt. Die TXT-opzoeking is alles wat een afgemeld adres krijgt: ze raakt de nameserver, nooit het spel.</value>
+  </data>
+  <data name="about.crawler.stopping.lead" xml:space="preserve">
+    <value>Stoppen is niet verwijderen, en het is geen downtime.</value>
+  </data>
+  <data name="about.crawler.stopping.body" xml:space="preserve">
+    <value>Een spel dat zich afmeldt, houdt zijn pagina, zijn adres en alles wat we gemeten hebben voordat het erom vroeg. Alleen nieuwe gegevens stoppen: het activiteitenraster krijgt er geen uren meer bij en noemt geen oorzaak, want ons besluit om te stoppen met kloppen is een feit over ons. Het wordt vastgelegd bij de crawl die niet plaatsvond, en in het register van wie erom vroeg.</value>
+  </data>
+  <data name="about.crawler.unlist.lead" xml:space="preserve">
+    <value>Als stoppen niet genoeg is, kan de vermelding er ook af.</value>
+  </data>
+  <data name="about.crawler.unlist.body" xml:space="preserve">
+    <value>Zodra we gestopt zijn op elk adres waarop een spel antwoordt, biedt het dashboard nog één ding: het uit de lijst, de ranglijsten en het dagcijfer halen. De pagina en elk adres dat het ooit gehad heeft blijven antwoorden, en er wordt niets verwijderd — het houdt op een plek te zijn waar een lezer al bladerend aankomt. Er is een geverifieerde claim voor nodig, want het is een besluit over dat spel en we leggen vast wie het genomen heeft. En een peiling maakt het ongedaan: trek de afmelding in, en de eerstvolgende keer dat er aangeklopt wordt en er antwoord komt, staat het spel weer in de lijst zonder dat het ons nog eens gevraagd hoeft te worden.</value>
+  </data>
+  <data name="about.identity.announced" xml:space="preserve">
+    <value>De crawler noemt zichzelf {name} wanneer een server vraagt wat hij is.</value>
+  </data>
+  <data name="about.identity.unannounced" xml:space="preserve">
+    <value>De crawler is ingesteld om zichzelf {name} te noemen, maar kan dat nog niet zeggen. Zijn telnet-bibliotheek biedt een client geen manier om het terminaltype in te stellen, dus logboeken zien de standaardwaarde van die bibliotheek, en NEW-ENVIRON wordt beantwoord vanuit de omgeving van de crawlerhost. Beide zijn gaten in de bibliotheek en aan ons om ze daar te dichten. Tot die tijd: herken een peiling aan de vorm ervan — één verbinding, geen login, een korte set alleen-lezen-commando’s, weg.</value>
+  </data>
+  <data name="about.identity.crawler" xml:space="preserve">
+    <value>crawler</value>
+  </data>
+  <data name="about.identity.contact" xml:space="preserve">
+    <value>contact</value>
+  </data>
+  <data name="about.identity.crawler.line" xml:space="preserve">
+    <value>Crawler: {name}</value>
+  </data>
+  <data name="about.identity.contact.line" xml:space="preserve">
+    <value>Contact: {url}</value>
+  </data>
+  <data name="about.identity.placeholder" xml:space="preserve">
+    <value>— tijdelijke aanduiding; deze installatie heeft geen contactadres ingesteld</value>
+  </data>
+  <data name="about.identity.placeholder.plain" xml:space="preserve">
+    <value>Er is geen contactadres ingesteld, dus het adres hierboven is een tijdelijke aanduiding en beantwoordt niemand.</value>
+  </data>
+  <data name="about.sources.heading" xml:space="preserve">
+    <value>Waar de lijst met spellen vandaan komt</value>
+  </data>
+  <data name="about.sources.addresses.lead" xml:space="preserve">
+    <value>We nemen adressen over. Verder niets.</value>
+  </data>
+  <data name="about.sources.addresses.body" xml:space="preserve">
+    <value>Een backfill haalt een host en een poort op. Geen spelerstellingen, geen bereikbaarheidsgeschiedenis, geen beschrijvingen, geen velden, en geen aantekening van welke site een adres kwam.</value>
+  </data>
+  <data name="about.sources.less.lead" xml:space="preserve">
+    <value>Bewust minder dan die sites kunnen geven.</value>
+  </data>
+  <data name="about.sources.less.body" xml:space="preserve">
+    <value>Verschillende bewaren jaren aan gedateerde spelerstellingen. Dat importeren zou de heatmaps vullen van de spellen die iemand anders al in de gaten hield, en de centrale claim van deze site laten steunen op de peilingen van een ander.</value>
+  </data>
+  <data name="about.sources.origin.lead" xml:space="preserve">
+    <value>De herkomst van een spel is niet één feit.</value>
+  </data>
+  <data name="about.sources.origin.body" xml:space="preserve">
+    <value>Elk spel dat het vermelden waard is, staat in meerdere van deze gidsen, dus ‘geïmporteerd uit’ zou noemen welke ophaalronde toevallig het eerst liep. Dat een spel bestaat is openbare informatie; waar we het gelezen hebben voegt niets toe en is het deel van andermans werk waarop wij de minste aanspraak hebben.</value>
+  </data>
+  <data name="about.sources.etiquette.lead" xml:space="preserve">
+    <value>Andermans site lezen blijft andermans site lezen.</value>
+  </data>
+  <data name="about.sources.etiquette.body" xml:space="preserve">
+    <value>We vragen om een bulkexport of een gedocumenteerd endpoint voordat we scrapen, lezen eerst robots.txt, en beperken de snelheid van scrapes streng. Een bron waarvoor toestemming van de beheerder nodig is, wordt niet opgehaald tot een mens kan verklaren dat het gevraagd is.</value>
+  </data>
+  <data name="about.source.read" xml:space="preserve">
+    <value>gelezen — alleen adressen</value>
+  </data>
+  <data name="about.source.withheld" xml:space="preserve">
+    <value>niet gelezen — wacht op toestemming</value>
+  </data>
+  <data name="about.source.tintinMssp.note" xml:space="preserve">
+    <value>Eén pagina, één verzoek. Gepubliceerd door een crawler die met elk spel verbinding maakt en afdrukt wat hij las.</value>
+  </data>
+  <data name="about.source.tintinMsdp.note" xml:space="preserve">
+    <value>De MSDP-lijst van dezelfde crawler. Bijna een deelverzameling van zijn MSSP-tegenhanger, gelezen om de paar adressen die hij wel bereikt en de andere niet.</value>
+  </data>
+  <data name="about.source.mudConnector.note" xml:space="preserve">
+    <value>Publiceert zijn hele catalogus op één pagina, dus het lezen ervan kost één verzoek. Onze grootste bron van adressen, en van geen enkele meting.</value>
+  </data>
+  <data name="about.source.mudStats.note" xml:space="preserve">
+    <value>Eén indexpagina en één pagina per wereld, dus een scrape in plaats van een export. Op 30 juli 2026 hebben we 143 van hun pagina’s opgehaald, met vijftien seconden ertussen en met inachtneming van robots.txt, maar voordat iemand hun geschreven had. Dat had niet mogen gebeuren. De poort vraagt nu om een mens die wil verklaren dat de beheerder gevraagd is.</value>
+  </data>
+  <data name="about.source.mudVerse.note" xml:space="preserve">
+    <value>Geïmplementeerd, getest, nooit uitgevoerd. De sterkste bron hier op elke as behalve toestemming, en er wordt niets opgehaald tot iemand hun geschreven heeft.</value>
+  </data>
+  <data name="about.licence.heading" xml:space="preserve">
+    <value>Licentie</value>
+  </data>
+  <data name="about.licence.code.lead" xml:space="preserve">
+    <value>De code is MIT.</value>
+  </data>
+  <data name="about.licence.code.body" xml:space="preserve">
+    <value>De site, de crawler en de parsers zijn opensource onder de MIT-licentie.</value>
+  </data>
+  <data name="about.licence.open.lead" xml:space="preserve">
+    <value>De licentie voor de gegevens is een open vraag.</value>
+  </data>
+  <data name="about.licence.open.body" xml:space="preserve">
+    <value>Een besluit los van dat over de code, en nog niet genomen. Lees de voorwaarden hieronder als het huidige antwoord van deze installatie, niet als het vastgelegde standpunt van het project. Dat een concurrerende gids de hele catalogus overneemt geldt hier als succes, dus wat er ook wordt vastgelegd, het zal zo’n gids niet in de weg staan.</value>
+  </data>
+  <data name="about.licence.codeLabel" xml:space="preserve">
+    <value>code</value>
+  </data>
+  <data name="about.licence.dataLabel" xml:space="preserve">
+    <value>gegevens, zoals deze installatie ze aanbiedt</value>
+  </data>
+  <data name="about.licence.creditLabel" xml:space="preserve">
+    <value>vermelden als</value>
+  </data>
+  <data name="about.licence.code.line" xml:space="preserve">
+    <value>Code: {licence}</value>
+  </data>
+  <data name="about.licence.data.line" xml:space="preserve">
+    <value>Gegevens: {licence}</value>
+  </data>
+  <data name="about.licence.credit.line" xml:space="preserve">
+    <value>Vermelden als: {credit}</value>
+  </data>
+  <data name="about.licence.deployment" xml:space="preserve">
+    <value>(wat deze installatie aanbiedt. Het antwoord van het project zelf ligt nog open.)</value>
+  </data>
+  <data name="submit.title" xml:space="preserve">
+    <value>Een spel aanmelden</value>
+  </data>
+  <data name="submit.lede" xml:space="preserve">
+    <value>Vertel ons waar een spel staat. Een host en een poort zijn het hele formulier; al het andere op deze site wordt door onze eigen crawler gemeten.</value>
+  </data>
+  <data name="submit.host.label" xml:space="preserve">
+    <value>Host</value>
+  </data>
+  <data name="submit.port.label" xml:space="preserve">
+    <value>Poort</value>
+  </data>
+  <data name="submit.host.hint" xml:space="preserve">
+    <value>mud.example.org, of plak mud.example.org:4201 en laat de poort leeg</value>
+  </data>
+  <data name="submit.button" xml:space="preserve">
+    <value>Aanmelden</value>
+  </data>
+  <data name="submit.noCatalogue" xml:space="preserve">
+    <value>Aanmelden vereist een database, en deze site draait op de demofixture. Er is geen crawlregister om in te schrijven, dus het formulier ontbreekt in plaats van stilletjes niets te doen.</value>
+  </data>
+  <data name="submit.notHere" xml:space="preserve">
+    <value>Niet hier</value>
+  </data>
+  <data name="submit.what.heading" xml:space="preserve">
+    <value>Wat er met een adres gebeurt</value>
+  </data>
+  <data name="submit.what.resolve" xml:space="preserve">
+    <value>We lossen het adres op voordat we aankloppen, en weigeren alles wat buiten het publieke internet uitkomt. Dat is een besluit over onze eigen socket, nooit een feit over een spel.</value>
+  </data>
+  <data name="submit.what.optOut" xml:space="preserve">
+    <value>Als degene die die host draait ons gevraagd heeft er niet te crawlen, nemen we het adres niet aan, door wie het ook wordt aangemeld. Een vreemde kan andermans spel niet terugzetten op deze site.</value>
+  </data>
+  <data name="submit.what.schedule" xml:space="preserve">
+    <value>Als het antwoordt, lezen we wat de server over zichzelf zegt en blijven we dat lezen op zijn eigen schema, voor altijd. Een adres hoeft maar één keer gegeven te worden.</value>
+  </data>
+  <data name="submit.what.claim" xml:space="preserve">
+    <value>Er verschijnt niets op de site voordat iemand bewezen heeft het te draaien. Claimen vereist een passkey en één regel die op het spel zelf gepubliceerd wordt.</value>
+  </data>
+  <data name="submit.what.duplicate" xml:space="preserve">
+    <value>Een adres dat we al hebben valt samen met de bestaande vermelding. Het twee keer sturen levert geen tweede vermelding op en haalt geen peiling naar voren.</value>
+  </data>
+  <data name="submit.answer.thatAddress" xml:space="preserve">
+    <value>dat adres</value>
+  </data>
+  <data name="submit.accepted.heading" xml:space="preserve">
+    <value>In het register.</value>
+  </data>
+  <data name="submit.accepted.sentence" xml:space="preserve">
+    <value>Bij {address} wordt in de volgende crawlcyclus aangeklopt, daarna op zijn eigen schema, voor altijd. Het verschijnt hier zodra iemand bewijst het te draaien — kom met hetzelfde adres terug naar dit formulier en het geeft de link.</value>
+  </data>
+  <data name="submit.unclaimed.heading" xml:space="preserve">
+    <value>We hebben het, niet geclaimd.</value>
+  </data>
+  <data name="submit.unclaimed.sentence" xml:space="preserve">
+    <value>{address} is er een die we al meten. Het blijft van de site af tot iemand bewijst het te draaien. Voor wie dat is, is dit de weg naar binnen.</value>
+  </data>
+  <data name="submit.known.heading" xml:space="preserve">
+    <value>Die hebben we al.</value>
+  </data>
+  <data name="submit.known.sentence" xml:space="preserve">
+    <value>{address} is een spel dat we al meten. Er is niets aangemaakt en niets gewijzigd.</value>
+  </data>
+  <data name="submit.knownAddress.heading" xml:space="preserve">
+    <value>Dat adres hebben we al.</value>
+  </data>
+  <data name="submit.knownAddress.sentence" xml:space="preserve">
+    <value>{address} is bij ons al bekend. Er is niets aangemaakt en niets gewijzigd.</value>
+  </data>
+  <data name="submit.queued.heading" xml:space="preserve">
+    <value>Staat al te wachten.</value>
+  </data>
+  <data name="submit.queued.sentence" xml:space="preserve">
+    <value>{address} staat in het crawlregister en heeft nog niet geantwoord. Het opnieuw sturen haalt het niet naar voren: een doel houdt zijn eigen schema aan, dus niemand kan ons opjagen bij andermans server.</value>
+  </data>
+  <data name="submit.malformed.heading" xml:space="preserve">
+    <value>Geen adres waar we kunnen aankloppen.</value>
+  </data>
+  <data name="submit.malformed.sentence" xml:space="preserve">
+    <value>Een host heeft een punt of een dubbele punt nodig, en een poort is een getal tussen 1 en 65535. Vul beide velden in, of plak mud.example.org:4201 in het eerste.</value>
+  </data>
+  <data name="submit.undialable.heading" xml:space="preserve">
+    <value>Daar kunnen we niet aankloppen.</value>
+  </data>
+  <data name="submit.undialable.sentence" xml:space="preserve">
+    <value>Drie dingen leveren dit antwoord op voor {address}: de naam wordt misschien niet opgelost, hij komt misschien buiten het publieke internet uit, of degene die die host draait heeft ons misschien gevraagd weg te blijven. We zeggen bewust niet welke, want dat voor een vreemde beantwoorden brengt een netwerk van buitenaf in kaart. Er is niets over het adres vastgelegd; het besluit was het onze en het is als het onze vastgelegd.</value>
+  </data>
+  <data name="submit.tooMany.heading" xml:space="preserve">
+    <value>Genoeg voor nu.</value>
+  </data>
+  <data name="submit.tooMany.sentence" xml:space="preserve">
+    <value>Dit formulier is per afzender in snelheid beperkt, en die grens is bereikt. Kom over een uur terug. Er is niets verloren gegaan — alles wat we aangenomen hebben staat al in het register.</value>
+  </data>
+  <data name="submit.link.claim" xml:space="preserve">
+    <value>dit spel claimen</value>
+  </data>
+  <data name="account.signIn.title" xml:space="preserve">
+    <value>Inloggen</value>
+  </data>
+  <data name="account.signIn.preview" xml:space="preserve">
+    <value>Log in met een passkey om een eigen spel te claimen. Er is geen wachtwoord om kwijt te raken en geen om te stelen.</value>
+  </data>
+  <data name="account.signIn.noDatabase" xml:space="preserve">
+    <value>Claimen vereist een database, en deze site draait op de demofixture. Er is niets om op in te loggen.</value>
+  </data>
+  <data name="account.signIn.passkey.lead" xml:space="preserve">
+    <value>Inloggen gaat met een passkey.</value>
+  </data>
+  <data name="account.signIn.passkey.body" xml:space="preserve">
+    <value>Het apparaat of de wachtwoordmanager houdt de privésleutel; wij houden alleen de publieke helft. Geen wachtwoord, geen e-mail.</value>
+  </data>
+  <data name="account.signIn.button" xml:space="preserve">
+    <value>Inloggen met een passkey</value>
+  </data>
+  <data name="account.signIn.script" xml:space="preserve">
+    <value>De enige pagina hier die JavaScript nodig heeft. Passkeys werken er niet zonder.</value>
+  </data>
+  <data name="account.register.heading" xml:space="preserve">
+    <value>Nog geen account?</value>
+  </data>
+  <data name="account.register.lede" xml:space="preserve">
+    <value>Een account is alleen nodig om een eigen spel te claimen. Kies een naam om onder bekend te staan — een label naast de claim, geen echte naam.</value>
+  </data>
+  <data name="account.register.name.label" xml:space="preserve">
+    <value>Naam</value>
+  </data>
+  <data name="account.register.name.placeholder" xml:space="preserve">
+    <value>bijv. corvid-admin</value>
+  </data>
+  <data name="account.register.button" xml:space="preserve">
+    <value>Een account aanmaken met een passkey</value>
+  </data>
+  <data name="account.store.heading" xml:space="preserve">
+    <value>Wat we opslaan</value>
+  </data>
+  <data name="account.store.name" xml:space="preserve">
+    <value>De gekozen naam.</value>
+  </data>
+  <data name="account.store.keys" xml:space="preserve">
+    <value>De publieke sleutel van elke geregistreerde passkey, en hoe het apparaat die noemde.</value>
+  </data>
+  <data name="account.store.claims" xml:space="preserve">
+    <value>Welke spellen geclaimd zijn, en wanneer.</value>
+  </data>
+  <data name="account.store.note" xml:space="preserve">
+    <value>Geen e-mailadres, geen wachtwoord, geen IP-log gekoppeld aan het account. Raakt elke passkey verloren, dan kan er een nieuw claimtoken op het spel gepubliceerd worden om opnieuw te beginnen: het spel is het bewijs, niet het account.</value>
+  </data>
+  <data name="date.absolute" xml:space="preserve">
+    <value>{day} {month} {year}</value>
+  </data>
+  <data name="date.stamp" xml:space="preserve">
+    <value>{date} {time} UTC</value>
+  </data>
+  <data name="age.short.now" xml:space="preserve">
+    <value>nu</value>
+  </data>
+  <data name="age.short.minutes" xml:space="preserve">
+    <value>{count, plural, one {#m} other {#m}}</value>
+  </data>
+  <data name="age.short.hours" xml:space="preserve">
+    <value>{count, plural, one {#u} other {#u}}</value>
+  </data>
+  <data name="age.short.days" xml:space="preserve">
+    <value>{count, plural, one {#d} other {#d}}</value>
+  </data>
+  <data name="age.short.weeks" xml:space="preserve">
+    <value>{count, plural, one {#w} other {#w}}</value>
+  </data>
+  <data name="age.short.months" xml:space="preserve">
+    <value>{count, plural, one {#mnd} other {#mnd}}</value>
+  </data>
+  <data name="age.short.years" xml:space="preserve">
+    <value>{count, plural, one {#j} other {#j}}</value>
+  </data>
+  <data name="age.ago.now" xml:space="preserve">
+    <value>zojuist</value>
+  </data>
+  <data name="age.ago.minutes" xml:space="preserve">
+    <value>{count, plural, one {#m geleden} other {#m geleden}}</value>
+  </data>
+  <data name="age.ago.hours" xml:space="preserve">
+    <value>{count, plural, one {#u geleden} other {#u geleden}}</value>
+  </data>
+  <data name="age.ago.days" xml:space="preserve">
+    <value>{count, plural, one {#d geleden} other {#d geleden}}</value>
+  </data>
+  <data name="age.ago.weeks" xml:space="preserve">
+    <value>{count, plural, one {#w geleden} other {#w geleden}}</value>
+  </data>
+  <data name="age.ago.months" xml:space="preserve">
+    <value>{count, plural, one {#mnd geleden} other {#mnd geleden}}</value>
+  </data>
+  <data name="age.ago.years" xml:space="preserve">
+    <value>{count, plural, one {#j geleden} other {#j geleden}}</value>
+  </data>
+  <data name="age.dark.now" xml:space="preserve">
+    <value>zojuist</value>
+  </data>
+  <data name="age.dark.minutes" xml:space="preserve">
+    <value>{count, plural, one {#m geleden} other {#m geleden}}</value>
+  </data>
+  <data name="age.dark.hours" xml:space="preserve">
+    <value>{count, plural, one {#u geleden} other {#u geleden}}</value>
+  </data>
+  <data name="age.dark.days" xml:space="preserve">
+    <value>{count, plural, one {#d geleden} other {#d geleden}}</value>
+  </data>
+  <data name="age.dark.weeks" xml:space="preserve">
+    <value>{count, plural, one {#w geleden} other {#w geleden}}</value>
+  </data>
+  <data name="age.dark.months" xml:space="preserve">
+    <value>{count, plural, one {#mnd geleden} other {#mnd geleden}}</value>
+  </data>
+  <data name="age.dark.years" xml:space="preserve">
+    <value>{count, plural, one {#j geleden} other {#j geleden}}</value>
+  </data>
+  <data name="time.title" xml:space="preserve">
+    <value>{age}, {stamp}</value>
+  </data>
+  <data name="time.spoken" xml:space="preserve">
+    <value>, {stamp}</value>
+  </data>
+  <data name="chip.title" xml:space="preserve">
+    <value>{value} — {how} via {source}, laatst bevestigd {date}</value>
+  </data>
+  <data name="chip.title.stale" xml:space="preserve">
+    <value>{value} — {how} via {source}, laatst bevestigd {date} (voorbij de verwachte verversing)</value>
+  </data>
+  <data name="chip.plain" xml:space="preserve">
+    <value>({how}, {age})</value>
+  </data>
+  <data name="chip.plain.stale" xml:space="preserve">
+    <value>({how}, {age}, verouderd)</value>
+  </data>
+  <data name="provenance.game.ownerDeclared" xml:space="preserve">
+    <value>opgegeven door de eigenaar</value>
+  </data>
+  <data name="source.staff" xml:space="preserve">
+    <value>de redactie</value>
+  </data>
+  <data name="source.handshake" xml:space="preserve">
+    <value>de telnet-handshake</value>
+  </data>
+  <data name="source.owner" xml:space="preserve">
+    <value>de eigenaar</value>
+  </data>
+  <data name="source.who" xml:space="preserve">
+    <value>WHO</value>
+  </data>
+  <data name="source.i3" xml:space="preserve">
+    <value>I3</value>
+  </data>
+  <data name="source.mssp" xml:space="preserve">
+    <value>MSSP</value>
+  </data>
+  <data name="source.info" xml:space="preserve">
+    <value>INFO</value>
+  </data>
+  <data name="source.i3Mudlist" xml:space="preserve">
+    <value>de I3-mudlist</value>
+  </data>
+  <data name="source.banner" xml:space="preserve">
+    <value>het verbindingsscherm</value>
+  </data>
+  <data name="ecosystem.title" xml:space="preserve">
+    <value>Het ecosysteem</value>
+  </data>
+  <data name="ecosystem.noTotals" xml:space="preserve">
+    <value>Aandelen, nooit totalen. We publiceren geen cijfer voor hoeveel mensen MU* spelen: een verhouding over de spellen die we gemeten hebben overleeft de spellen die we niet kunnen bereiken, en een koppentelling niet.</value>
+  </data>
+  <data name="ecosystem.listed" xml:space="preserve">
+    <value>{count, plural, one {{value} spel vermeld} other {{value} spellen vermeld}}</value>
+  </data>
+  <data name="ecosystem.handshakes" xml:space="preserve">
+    <value>{count, plural, one {{value} spel waarvan we de handshake voltooiden} other {{value} spellen waarvan we de handshake voltooiden}}</value>
+  </data>
+  <data name="ecosystem.msspReports" xml:space="preserve">
+    <value>{count, plural, one {{value} spel waarvan we het MSSP-rapport hebben} other {{value} spellen waarvan we het MSSP-rapport hebben}}</value>
+  </data>
+  <data name="ecosystem.oldestHandshake" xml:space="preserve">
+    <value>Oudste handshake hier: {age} geleden bevestigd.</value>
+  </data>
+  <data name="ecosystem.share" xml:space="preserve">
+    <value>{count, number} van {total, number} ({fraction, number, ::percent .0})</value>
+  </data>
+  <data name="ecosystem.share.nothing" xml:space="preserve">
+    <value>{count, number} van {total, number} — nog niets gemeten</value>
+  </data>
+  <data name="ecosystem.share.percent" xml:space="preserve">
+    <value>{fraction, number, ::percent .0}</value>
+  </data>
+  <data name="ecosystem.codebases.title" xml:space="preserve">
+    <value>Codebases</value>
+  </data>
+  <data name="ecosystem.codebases.basis" xml:space="preserve">
+    <value>Van de {listed, plural, one {# vermelde spel} other {# vermelde spellen}} hebben er {identified, number} ons verteld waarop ze draaien, en elk aandeel hieronder gaat over die {identified, number}. Een codebase die we niet konden lezen valt buiten de noemer, en wordt nooit als iets anders geteld.</value>
+  </data>
+  <data name="ecosystem.codebases.none" xml:space="preserve">
+    <value>Nog geen vermeld spel heeft ons zijn codebase verteld.</value>
+  </data>
+  <data name="ecosystem.soleUse" xml:space="preserve">
+    <value>{share} draait op een codebase die geen enkel ander vermeld spel draait — één spel per stuk, wat een naam is en geen aandeel. Ze vallen binnen de noemer hierboven en zijn uit de balken gevouwen, niet weggelaten:</value>
+  </data>
+  <data name="ecosystem.lineages.title" xml:space="preserve">
+    <value>Afstammingen</value>
+  </data>
+  <data name="ecosystem.lineages.basis" xml:space="preserve">
+    <value>Dezelfde spellen, gegroepeerd naar de traditie waar hun server van afstamt — onze lezing van de codebase, niet iets wat een spel gepubliceerd heeft. Geen enkel spel meldt ‘MUSH’: MSSP kent die waarde niet, en het grootste deel van de MUSH-wereld publiceert helemaal geen MSSP, dus alleen zo kan de vraag gesteld worden.</value>
+  </data>
+  <data name="ecosystem.lineages.none" xml:space="preserve">
+    <value>Nog geen vermeld spel draait op een codebase die we in een afstamming plaatsen.</value>
+  </data>
+  <data name="ecosystem.lineages.notClassified" xml:space="preserve">
+    <value>{count, plural, one {# van die spellen draait op een codebase} other {# van die spellen draaien op codebases}} die we in geen enkele afstamming plaatsen — verschillende zeggen dat zelf ook, door {family} te publiceren. Ze vallen binnen de noemer hierboven en in niemands aandeel.</value>
+  </data>
+  <data name="ecosystem.protocols.title" xml:space="preserve">
+    <value>Protocollen</value>
+  </data>
+  <data name="ecosystem.protocols.floor" xml:space="preserve">
+    <value>Lees elk gemeten cijfer hieronder als een ondergrens. We vragen MSSP met name aan, dus stilte daar is een antwoord. Om de rest hier wordt niet gevraagd, en een server kan een protocol ondersteunen zonder het ooit aan te bieden.</value>
+  </data>
+  <data name="ecosystem.mssp.instrument" xml:space="preserve">
+    <value>{instrument} is de enige rij hieronder die geen ondergrens is: we vragen elke server er met name om, dus de spellen die het niet aanboden zijn gevraagd en hebben geweigerd. Het is ook de enige zonder opgegeven cijfer, want elk spel waarvan we het rapport hebben ondersteunt het bij wijze van bewijs, en een telling van de spellen die het ook vermeldden zou daartegen een gewoonte meten.</value>
+  </data>
+  <data name="ecosystem.mssp.gap" xml:space="preserve">
+    <value>We hebben {reports, number} rapporten en {offered, plural, one {# spel biedt} other {# spellen bieden}} MSSP vandaag aan: de andere {gap, number} zijn gestopt met publiceren nadat we het gelezen hadden, en een rapport wordt niet weggegooid omdat het niet meer opnieuw uitgegeven wordt.</value>
+  </data>
+  <data name="ecosystem.protocols.caption" xml:space="preserve">
+    <value>Protocoladoptie. Gemeten is wat een server aanbood in een voltooide handshake; opgegeven is wat zijn MSSP beweert. Twee verzamelingen spellen, dus twee noemers.</value>
+  </data>
+  <data name="ecosystem.column.protocol" xml:space="preserve">
+    <value>protocol</value>
+  </data>
+  <data name="ecosystem.column.measured" xml:space="preserve">
+    <value>gemeten — van {basis}</value>
+  </data>
+  <data name="ecosystem.column.declared" xml:space="preserve">
+    <value>opgegeven — van {basis}</value>
+  </data>
+  <data name="ecosystem.measured.never" xml:space="preserve">
+    <value>niet gemeten — nooit waargenomen</value>
+  </data>
+  <data name="ecosystem.measured.declined" xml:space="preserve">
+    <value>{share} · {declined, plural, one {# spel weigerde toen we het vroegen} other {# spellen weigerden toen we het vroegen}}</value>
+  </data>
+  <data name="ecosystem.measured.unasked" xml:space="preserve">
+    <value>{share} · {unobserved, plural, one {bij # spel niet aangeboden en niet gevraagd} other {bij # spellen niet aangeboden en niet gevraagd}}</value>
+  </data>
+  <data name="ecosystem.measured.declinedAndUnasked" xml:space="preserve">
+    <value>{share} · {declined, plural, one {# spel weigerde toen we het vroegen} other {# spellen weigerden toen we het vroegen}} · {unobserved, plural, one {bij # spel niet aangeboden en niet gevraagd} other {bij # spellen niet aangeboden en niet gevraagd}}</value>
+  </data>
+  <data name="ecosystem.declared.none" xml:space="preserve">
+    <value>niet gevraagd — elk rapport hier is het antwoord</value>
+  </data>
+  <data name="ecosystem.curve.title" xml:space="preserve">
+    <value>Adoptie, in de loop van de tijd</value>
+  </data>
+  <data name="ecosystem.curve.caveat" xml:space="preserve">
+    <value>Elk punt is een aandeel over de spellen die we die dag gemeten hadden, dus deze lijn beweegt om twee redenen: doordat een spel verandert wat het aanbiedt, en doordat de verzameling spellen die we kunnen meten eromheen verandert. Alleen het eerste is adoptie. De telling van veranderingen hieronder is het deel dat puur spellen zijn die van gedachten veranderen.</value>
+  </data>
+  <data name="ecosystem.curve.caption" xml:space="preserve">
+    <value>Gemeten aandeel van elk protocol, oudste meting eerst</value>
+  </data>
+  <data name="ecosystem.curve.then" xml:space="preserve">
+    <value>toen</value>
+  </data>
+  <data name="ecosystem.curve.now" xml:space="preserve">
+    <value>nu</value>
+  </data>
+  <data name="ecosystem.curve.notMeasured" xml:space="preserve">
+    <value>niet gemeten</value>
+  </data>
+  <data name="ecosystem.snapshot.title" xml:space="preserve">
+    <value>Een momentopname, geen curve</value>
+  </data>
+  <data name="ecosystem.snapshot" xml:space="preserve">
+    <value>Een momentopname van wat we nu kunnen meten. Een adoptiecurve zet spellen uit die van gedachten veranderen, en we leggen een verandering vast wanneer die gebeurt, dus de curve wordt tekenbaar zodra er genoeg vastgelegd zijn. Uitzetten wanneer we elk spel voor het eerst bereikten zou de crawl meten, niet de hobby.</value>
+  </data>
+  <data name="ecosystem.transitions" xml:space="preserve">
+    <value>{count, plural, one {# wijziging in mogelijkheden} other {# wijzigingen in mogelijkheden}} tot nu toe vastgelegd — het materiaal waaruit een curve getekend wordt.</value>
+  </data>
+  <data name="ecosystem.transitions.none" xml:space="preserve">
+    <value>Er is nog geen gemeten mogelijkheid veranderd, dus er valt niets uit te zetten.</value>
+  </data>
+  <data name="ecosystem.plain.denominators" xml:space="preserve">
+    <value>Gemeten is van {measured}; opgegeven is van {declared}. Twee verzamelingen spellen, dus twee noemers.</value>
+  </data>
+  <data name="ecosystem.plain.counts" xml:space="preserve">
+    <value>{listed} · {handshakes} · {mssp}.</value>
+  </data>
+  <data name="ecosystem.plain.oldestHandshake" xml:space="preserve">
+    <value>De oudste handshake in dit beeld is {age} geleden voor het laatst bevestigd.</value>
+  </data>
+  <data name="ecosystem.plain.lineages" xml:space="preserve">
+    <value>Dezelfde spellen, gegroepeerd naar de traditie waar hun server van afstamt. Dit is {evidence} — {meaning} — en niet iets wat een spel gepubliceerd heeft: geen enkel spel meldt ‘MUSH’, want MSSP kent die waarde niet en het grootste deel van de MUSH-wereld publiceert helemaal geen MSSP.</value>
+  </data>
+  <data name="ecosystem.plain.measured" xml:space="preserve">
+    <value>gemeten: {value}</value>
+  </data>
+  <data name="ecosystem.plain.declared" xml:space="preserve">
+    <value>opgegeven: {value}</value>
+  </data>
+  <data name="rankings.title" xml:space="preserve">
+    <value>Ranglijsten</value>
+  </data>
+  <data name="rankings.noVote" xml:space="preserve">
+    <value>Alleen berekend uit gemeten gegevens. Nooit stemmen, sterren of beoordelingen. Niets hier rangschikt kwaliteit. Die hebben we niet gemeten.</value>
+  </data>
+  <data name="rankings.busiest.title" xml:space="preserve">
+    <value>Drukst, naar gemeten gelijktijdige spelers</value>
+  </data>
+  <data name="rankings.window.label" xml:space="preserve">
+    <value>Ranglijstperiode</value>
+  </data>
+  <data name="rankings.span" xml:space="preserve">
+    <value>{days, plural, one {# dag} other {# dagen}}</value>
+  </data>
+  <data name="rankings.basis.median" xml:space="preserve">
+    <value>Mediaan van de spelerstellingen die we over de laatste {days, plural, one {# dag} other {# dagen}} gemeten hebben.</value>
+  </data>
+  <data name="rankings.basis.none" xml:space="preserve">
+    <value>Nog geen spel heeft de {samples, number} tellingen over {days, plural, one {# dag} other {# dagen}} die een mediaan nodig heeft.</value>
+  </data>
+  <data name="rankings.basis.eligible" xml:space="preserve">
+    <value>Van de {listed, number} spellen {eligible, plural, one {heeft # spel} other {hebben # spellen}} de {samples, number} tellingen over {days, plural, one {# dag} other {# dagen}} die daarvoor nodig zijn.</value>
+  </data>
+  <data name="rankings.basis.zero" xml:space="preserve">
+    <value>Een gemeten nul telt mee; een onleesbare telling niet.</value>
+  </data>
+  <data name="rankings.spanChoice" xml:space="preserve">
+    <value>Een week zegt wie er nu druk is; een kwartaal zegt wie druk is geweest. Dat zijn verschillende vragen, en een spel kan de ene aanvoeren en de andere niet. Dagen zijn hele dagen, UTC.</value>
+  </data>
+  <data name="rankings.busiest.empty" xml:space="preserve">
+    <value>Nog geen vermeld spel heeft genoeg tellingen om te rangschikken — een uitspraak over hoe lang we al meten, niet over hoe druk het ergens is.</value>
+  </data>
+  <data name="rankings.busiest.caption" xml:space="preserve">
+    <value>Spellen gerangschikt naar de mediaan van de spelerstellingen die we over de laatste {days, plural, one {# dag} other {# dagen}} gemeten hebben. Spellen met dezelfde mediaan delen een plaats; niets hier breekt de gelijkstand.</value>
+  </data>
+  <data name="rankings.column.place" xml:space="preserve">
+    <value>#</value>
+  </data>
+  <data name="rankings.column.game" xml:space="preserve">
+    <value>spel</value>
+  </data>
+  <data name="rankings.column.median" xml:space="preserve">
+    <value>mediaan</value>
+  </data>
+  <data name="rankings.column.peak" xml:space="preserve">
+    <value>piek</value>
+  </data>
+  <data name="rankings.column.samples" xml:space="preserve">
+    <value>tellingen</value>
+  </data>
+  <data name="rankings.column.days" xml:space="preserve">
+    <value>gemeten dagen</value>
+  </data>
+  <data name="rankings.spells.title" xml:space="preserve">
+    <value>Langste ononderbroken bereikbaarheid</value>
+  </data>
+  <data name="rankings.spells.basis" xml:space="preserve">
+    <value>Elke peiling sinds de genoemde datum trof het spel bereikbaar aan. Bereikbaar, niet ‘up’: we meten een socket vanaf één host, en een spel waarheen we geen route hebben is volkomen springlevend. Zo’n reeks kan niet langer zijn dan we al meekijken, dus de datum is het feit en de duur volgt daaruit.</value>
+  </data>
+  <data name="rankings.spells.empty" xml:space="preserve">
+    <value>Geen vermeld spel zit op dit moment in een ononderbroken reeks bereikbaarheid.</value>
+  </data>
+  <data name="rankings.spells.caption" xml:space="preserve">
+    <value>Spellen die bij elke peiling sinds de genoemde datum bereikbaar waren. Spellen die sinds dezelfde datum bereikbaar zijn delen een plaats; niets hier breekt de gelijkstand.</value>
+  </data>
+  <data name="rankings.column.since" xml:space="preserve">
+    <value>bereikbaar sinds</value>
+  </data>
+  <data name="rankings.column.duration" xml:space="preserve">
+    <value>dat is</value>
+  </data>
+  <data name="rankings.archivedNote" xml:space="preserve">
+    <value>Gearchiveerde spellen staan buiten beide tabellen en verder niets; één geslaagde peiling zet ze terug.</value>
+  </data>
+  <data name="rankings.plain.busiest" xml:space="preserve">
+    <value>Drukst — mediaan gemeten spelers, laatste {days, plural, one {# dag} other {# dagen}}</value>
+  </data>
+  <data name="rankings.plain.windows" xml:space="preserve">
+    <value>periodes:</value>
+  </data>
+  <data name="rankings.plain.thisOne" xml:space="preserve">
+    <value>deze</value>
+  </data>
+  <data name="rankings.plain.row" xml:space="preserve">
+    <value>mediaan {median, number} · piek {peak, number} · {samples, plural, one {# telling} other {# tellingen}} over {days, number} van {window, number} dagen</value>
+  </data>
+  <data name="rankings.plain.spellRow" xml:space="preserve">
+    <value>bereikbaar bij elke peiling sinds {date} · {duration}</value>
+  </data>
+  <data name="archive.title" xml:space="preserve">
+    <value>Het archief</value>
+  </data>
+  <data name="archive.lede" xml:space="preserve">
+    <value>Spellen die gestopt zijn met antwoorden. Er is niets verwijderd. Ze worden nog wekelijks gepeild, en één geslaagde peiling zet een spel diezelfde dag terug in de lijst.</value>
+  </data>
+  <data name="archive.search.legend" xml:space="preserve">
+    <value>het archief doorzoeken</value>
+  </data>
+  <data name="archive.search.label" xml:space="preserve">
+    <value>Gearchiveerde spellen zoeken</value>
+  </data>
+  <data name="archive.search.placeholder" xml:space="preserve">
+    <value>naam, codebase of beschrijving</value>
+  </data>
+  <data name="archive.search.submit" xml:space="preserve">
+    <value>tonen</value>
+  </data>
+  <data name="archive.count" xml:space="preserve">
+    <value>{count, plural, =0 {Geen gearchiveerde spellen} one {# gearchiveerd spel} other {# gearchiveerde spellen}}</value>
+  </data>
+  <data name="archive.badge" xml:space="preserve">
+    <value>gearchiveerd</value>
+  </data>
+  <data name="archive.lastReachable" xml:space="preserve">
+    <value>laatst bereikbaar</value>
+  </data>
+  <data name="archive.knownLive" xml:space="preserve">
+    <value>bekend live</value>
+  </data>
+  <data name="archive.darkFor" xml:space="preserve">
+    <value>({age} geleden)</value>
+  </data>
+  <data name="archive.empty" xml:space="preserve">
+    <value>Geen treffers.</value>
+  </data>
+  <data name="archive.neverReachable" xml:space="preserve">
+    <value>nooit, in niets wat we gemeten hebben</value>
+  </data>
+  <data name="archive.noReachableTime" xml:space="preserve">
+    <value>geen bereikbare tijd gemeten</value>
+  </data>
+  <data name="archive.darkFor.unknown" xml:space="preserve">
+    <value>onbekend</value>
+  </data>
+  <data name="archive.knownLive.years" xml:space="preserve">
+    <value>{years, number, ::.#} jaar</value>
+  </data>
+  <data name="archive.knownLive.days" xml:space="preserve">
+    <value>{days, plural, one {# dag} other {# dagen}}</value>
+  </data>
+  <data name="archive.run" xml:space="preserve">
+    <value>{from} – {to} · {span}</value>
+  </data>
+  <data name="archive.run.months" xml:space="preserve">
+    <value>{count, plural, one {# maand} other {# maanden}}</value>
+  </data>
+  <data name="archive.run.years" xml:space="preserve">
+    <value>{count, plural, one {# jaar} other {# jaar}}</value>
+  </data>
+  <data name="archive.plain.matching" xml:space="preserve">
+    <value>{count, plural, one {# spel dat overeenkomt met ‘{query}’} other {# spellen die overeenkomen met ‘{query}’}}</value>
+  </data>
+  <data name="archive.plain.count" xml:space="preserve">
+    <value>{count, plural, one {# spel} other {# spellen}}</value>
+  </data>
+  <data name="archive.plain.lastReachable" xml:space="preserve">
+    <value>Laatst bereikbaar:</value>
+  </data>
+  <data name="archive.plain.knownLive" xml:space="preserve">
+    <value>Bekend live:</value>
+  </data>
+  <data name="archive.plain.knownLiveValue" xml:space="preserve">
+    <value>{value} van de gemeten bereikbare tijd</value>
+  </data>
+  <data name="archive.plain.run" xml:space="preserve">
+    <value>Looptijd:</value>
+  </data>
+  <data name="archive.plain.codebase" xml:space="preserve">
+    <value>Codebase:</value>
+  </data>
+  <data name="footer.randomGame" xml:space="preserve">
+    <value>willekeurig spel</value>
+  </data>
+  <data name="trend.day.counted" xml:space="preserve">
+    <value>{d, date, medium} — gemiddeld {typical}, {low}–{high} over {probes, plural, one {# peiling} other {# peilingen}}</value>
+  </data>
+  <data name="trend.day.flat" xml:space="preserve">
+    <value>{d, date, medium} — {count, plural, =0 {0 spelers} one {# speler} other {# spelers}}, bij elk van {probes, plural, one {# peiling} other {# peilingen}}</value>
+  </data>
+  <data name="trend.day.notCounted" xml:space="preserve">
+    <value>{d, date, medium} — gepeild, geen telling kon worden gelezen</value>
+  </data>
+  <data name="trend.day.notMeasured" xml:space="preserve">
+    <value>{d, date, medium} — geen meting</value>
+  </data>
+  <data name="trend.summary" xml:space="preserve">
+    <value>Typisch {typical} verbonden, met een piek van {peak}, over {counted} van {days, plural, one {# dag} other {# dagen}}.</value>
+  </data>
+  <data name="trend.direction.steady" xml:space="preserve">
+    <value>Gelijkmatig over het hele bereik.</value>
+  </data>
+  <data name="trend.direction.up" xml:space="preserve">
+    <value>Ongeveer {change, number, percent} omhoog van het begin van het bereik tot het eind.</value>
+  </data>
+  <data name="trend.direction.down" xml:space="preserve">
+    <value>Ongeveer {change, number, percent} omlaag van het begin van het bereik tot het eind.</value>
+  </data>
+  <data name="trend.none.probed" xml:space="preserve">
+    <value>In dit bereik gepeild, en uit niets ervan kon een spelerstelling worden gelezen.</value>
+  </data>
+  <data name="trend.none.notMeasured" xml:space="preserve">
+    <value>Geen meting in dit bereik.</value>
+  </data>
+  <data name="trend.empty" xml:space="preserve">
+    <value>Niets geteld in dit bereik.</value>
+  </data>
+  <data name="trend.week.span" xml:space="preserve">
+    <value>{from, date, d MMM}–{to, date, d MMM}</value>
+  </data>
+  <data name="trend.week.oneDay" xml:space="preserve">
+    <value>{d, date, d MMM}</value>
+  </data>
+  <data name="trend.week.counted" xml:space="preserve">
+    <value>{span}: typisch {typical}, piek {peak}, {days, plural, one {# dag} other {# dagen}} geteld</value>
+  </data>
+  <data name="trend.week.notCounted" xml:space="preserve">
+    <value>{span}: gepeild, geen telling kon worden gelezen</value>
+  </data>
+  <data name="trend.week.notMeasured" xml:space="preserve">
+    <value>{span}: niet gemeten</value>
+  </data>
+  <data name="trend.week.uncounted" xml:space="preserve">
+    <value>{count, plural, one {# dag gepeild zonder telling} other {# dagen gepeild zonder telling}}</value>
+  </data>
+  <data name="trend.week.unmeasured" xml:space="preserve">
+    <value>{count, plural, one {# dag niet gemeten} other {# dagen niet gemeten}}</value>
+  </data>
+  <data name="trend.week.and" xml:space="preserve">
+    <value>{line}, {clause}</value>
+  </data>
+  <data name="trend.range" xml:space="preserve">
+    <value>dagen in UTC · {from, date, medium} – {to, date, medium}</value>
+  </data>
+  <data name="trend.ceiling" xml:space="preserve">
+    <value>{value} bovenaan</value>
+  </data>
+  <data name="trend.counted" xml:space="preserve">
+    <value>{counted} van {days, plural, one {# dag} other {# dagen}} geteld</value>
+  </data>
+  <data name="trend.axis.month" xml:space="preserve">
+    <value>{d, date, MMM}</value>
+  </data>
+  <data name="trend.axis.monthYear" xml:space="preserve">
+    <value>{d, date, MMM yyyy}</value>
+  </data>
+  <data name="trend.legend.mean" xml:space="preserve">
+    <value>gemiddelde van de tellingen die we die dag lazen</value>
+  </data>
+  <data name="trend.legend.peak" xml:space="preserve">
+    <value>tot aan de drukste telling van die dag</value>
+  </data>
+  <data name="trend.legend.band" xml:space="preserve">
+    <value>laagste tot hoogste telling van die dag</value>
+  </data>
+  <data name="trend.legend.notCounted" xml:space="preserve">
+    <value>gepeild, geen telling kon worden gelezen</value>
+  </data>
+  <data name="trend.legend.notMeasured.bar" xml:space="preserve">
+    <value>niet gemeten — helemaal geen balk</value>
+  </data>
+  <data name="trend.legend.notMeasured.line" xml:space="preserve">
+    <value>niet gemeten — een onderbreking in de lijn</value>
+  </data>
+  <data name="trend.spans.label" xml:space="preserve">
+    <value>Trendbereik</value>
+  </data>
+  <data name="trend.shapes.label" xml:space="preserve">
+    <value>Trendvorm</value>
+  </data>
+  <data name="trend.preset" xml:space="preserve">
+    <value>{days, plural, one {# dag} other {# dagen}}</value>
+  </data>
+  <data name="trend.earlier" xml:space="preserve">
+    <value>← eerder</value>
+  </data>
+  <data name="trend.later" xml:space="preserve">
+    <value>later →</value>
+  </data>
+  <data name="trend.shape.line" xml:space="preserve">
+    <value>lijn</value>
+  </data>
+  <data name="trend.shape.bar" xml:space="preserve">
+    <value>staven</value>
+  </data>
+  <data name="trend.plain.heading" xml:space="preserve">
+    <value>Hoeveel, in de loop van de tijd</value>
+  </data>
+  <data name="trend.plain.range" xml:space="preserve">
+    <value>{from, date, medium} – {to, date, medium}, UTC</value>
+  </data>
+  <data name="trend.plain.earlier" xml:space="preserve">
+    <value>eerder</value>
+  </data>
+  <data name="trend.plain.note" xml:space="preserve">
+    <value>een week wordt samengevat over de dagen erin die we geteld hebben; een week zonder zegt dat</value>
+  </data>
+  <data name="reach.kicker" xml:space="preserve">
+    <value>bereikbaar · laatste {days, plural, one {# dag} other {# dagen}}</value>
+  </data>
+  <data name="reach.stat.reachable" xml:space="preserve">
+    <value>bereikbaar</value>
+  </data>
+  <data name="reach.stat.longestOutage" xml:space="preserve">
+    <value>langste onderbreking</value>
+  </data>
+  <data name="reach.stat.lastCause" xml:space="preserve">
+    <value>laatste oorzaak</value>
+  </data>
+  <data name="reach.noOutage" xml:space="preserve">
+    <value>geen in de periode</value>
+  </data>
+  <data name="reach.noCause" xml:space="preserve">
+    <value>niets vastgelegd</value>
+  </data>
+  <data name="reach.scale.ago" xml:space="preserve">
+    <value>{days, plural, one {# dag geleden} other {# dagen geleden}}</value>
+  </data>
+  <data name="reach.scale.today" xml:space="preserve">
+    <value>vandaag</value>
+  </data>
+  <data name="reach.legend.reachable" xml:space="preserve">
+    <value>bereikbaar</value>
+  </data>
+  <data name="reach.legend.degraded" xml:space="preserve">
+    <value>haperend — antwoordde, kon niet afronden</value>
+  </data>
+  <data name="reach.legend.unreachable" xml:space="preserve">
+    <value>onbereikbaar</value>
+  </data>
+  <data name="reach.legend.notMeasured" xml:space="preserve">
+    <value>niet gemeten</value>
+  </data>
+  <data name="reach.word.reachable" xml:space="preserve">
+    <value>bereikbaar</value>
+  </data>
+  <data name="reach.word.degraded" xml:space="preserve">
+    <value>haperend</value>
+  </data>
+  <data name="reach.word.unreachable" xml:space="preserve">
+    <value>onbereikbaar</value>
+  </data>
+  <data name="reach.word.notMeasured" xml:space="preserve">
+    <value>niet gemeten</value>
+  </data>
+  <data name="reach.day.reachable" xml:space="preserve">
+    <value>{d, date, d MMM} — de hele dag bereikbaar</value>
+  </data>
+  <data name="reach.day.degraded" xml:space="preserve">
+    <value>{d, date, d MMM} — haperend ({cause}): antwoordde, kon niet afronden</value>
+  </data>
+  <data name="reach.day.unreachable" xml:space="preserve">
+    <value>{d, date, d MMM} — onbereikbaar ({cause})</value>
+  </data>
+  <data name="reach.day.notMeasured" xml:space="preserve">
+    <value>{d, date, d MMM} — niet gemeten; we volgden dit spel toen nog niet</value>
+  </data>
+  <data name="reach.none" xml:space="preserve">
+    <value>{days, plural, one {Nog niet gemeten over de laatste # dag.} other {Nog niet gemeten over de laatste # dagen.}}</value>
+  </data>
+  <data name="reach.fraction.window" xml:space="preserve">
+    <value>Bereikbaar {percent} van de laatste {days, plural, one {# dag} other {# dagen}}.</value>
+  </data>
+  <data name="reach.fraction.measured" xml:space="preserve">
+    <value>Bereikbaar {percent} van de {days, plural, one {# dag} other {# dagen}} die we gemeten hebben.</value>
+  </data>
+  <data name="reach.fraction.unknown" xml:space="preserve">
+    <value>{days, plural, one {De bereikbaarheid over de laatste # dag is nog niet gemeten.} other {De bereikbaarheid over de laatste # dagen is nog niet gemeten.}}</value>
+  </data>
+  <data name="reach.unreachable.noneInWindow" xml:space="preserve">
+    <value>Geen enkele dag in de periode was onbereikbaar.</value>
+  </data>
+  <data name="reach.unreachable.noneMeasured" xml:space="preserve">
+    <value>Geen enkele dag die we gemeten hebben was onbereikbaar.</value>
+  </data>
+  <data name="reach.unreachable.days" xml:space="preserve">
+    <value>{count, plural, one {# dag onbereikbaar.} other {# dagen onbereikbaar.}}</value>
+  </data>
+  <data name="reach.degraded.days" xml:space="preserve">
+    <value>{count, plural, one {# dag haperend — we kwamen binnen en konden niet afronden.} other {# dagen haperend — we kwamen binnen en konden niet afronden.}}</value>
+  </data>
+  <data name="reach.longestOutage" xml:space="preserve">
+    <value>Langste onderbreking {duration}.</value>
+  </data>
+  <data name="reach.longestOutage.cause" xml:space="preserve">
+    <value>Langste onderbreking {duration} ({cause}).</value>
+  </data>
+  <data name="reach.predate" xml:space="preserve">
+    <value>{count, plural, one {# dag ligt vóór alles wat we gemeten hebben.} other {# dagen liggen vóór alles wat we gemeten hebben.}}</value>
+  </data>
+  <data name="reach.spell.range" xml:space="preserve">
+    <value>{from, date, d MMM} – {to, date, d MMM}</value>
+  </data>
+  <data name="reach.spell.oneDay" xml:space="preserve">
+    <value>{d, date, d MMM}</value>
+  </data>
+  <data name="reach.spell" xml:space="preserve">
+    <value>{range}: {count, plural, one {# dag} other {# dagen}} {word}</value>
+  </data>
+  <data name="reach.spell.cause" xml:space="preserve">
+    <value>{range}: {count, plural, one {# dag} other {# dagen}} {word} ({cause})</value>
+  </data>
+  <data name="reach.plain.heading" xml:space="preserve">
+    <value>Bereikbaar</value>
+  </data>
+  <data name="reach.plain.window" xml:space="preserve">
+    <value>{days, plural, one {laatste # dag} other {laatste # dagen}}</value>
+  </data>
+  <data name="reach.plain.fraction" xml:space="preserve">
+    <value>Bereikbaar: {percent} van de {days, plural, one {laatste # dag} other {laatste # dagen}}</value>
+  </data>
+  <data name="reach.plain.longestOutage" xml:space="preserve">
+    <value>Langste onderbreking: {duration}</value>
+  </data>
+  <data name="cause.dns" xml:space="preserve">
+    <value>dns loste niet op</value>
+  </data>
+  <data name="cause.refused" xml:space="preserve">
+    <value>verbinding geweigerd</value>
+  </data>
+  <data name="cause.tls" xml:space="preserve">
+    <value>tls mislukt</value>
+  </data>
+  <data name="cause.timeout" xml:space="preserve">
+    <value>time-out</value>
+  </data>
+  <data name="cause.handshakeStalled" xml:space="preserve">
+    <value>handshake liep vast</value>
+  </data>
+  <data name="cause.none" xml:space="preserve">
+    <value>geen oorzaak vastgelegd</value>
+  </data>
+  <data name="ansi.suppressed" xml:space="preserve">
+    <value>De eigenaar heeft ons gevraagd het verbindingsscherm van dit spel niet opnieuw te publiceren.</value>
+  </data>
+  <data name="ansi.absent" xml:space="preserve">
+    <value>Van dit spel is geen verbindingsscherm vastgelegd.</value>
+  </data>
+  <data name="ansi.tooSmall" xml:space="preserve">
+    <value>{count, plural, one {Er kwam maar # rij terug — te weinig om te tonen.} other {Er kwamen maar # rijen terug — te weinig om te tonen.}}</value>
+  </data>
+  <data name="ansi.asSent" xml:space="preserve">
+    <value>zoals verzonden door de server</value>
+  </data>
+  <data name="ansi.size" xml:space="preserve">
+    <value>{columns}×{rows}</value>
+  </data>
+  <data name="ansi.size.doubleWidth" xml:space="preserve">
+    <value>{columns}×{rows}, dubbele breedte</value>
+  </data>
+  <data name="ansi.depth.colour" xml:space="preserve">
+    <value>16-kleuren SGR</value>
+  </data>
+  <data name="ansi.depth.plain" xml:space="preserve">
+    <value>geen kleur</value>
+  </data>
+  <data name="ansi.readAs" xml:space="preserve">
+    <value>gelezen als {charset}</value>
+  </data>
+  <data name="ansi.captured" xml:space="preserve">
+    <value>vastgelegd</value>
+  </data>
+  <data name="ansi.frozen" xml:space="preserve">
+    <value>bevroren — het laatste scherm dat we zagen</value>
+  </data>
+  <data name="ansi.alt.named" xml:space="preserve">
+    <value>ASCII-kunst: het verbindingsscherm van {game}. De tekst ervan staat onder ‘als tekst lezen’, hieronder.</value>
+  </data>
+  <data name="ansi.alt" xml:space="preserve">
+    <value>ASCII-kunst: het verbindingsscherm van dit spel. De tekst ervan staat onder ‘als tekst lezen’, hieronder.</value>
+  </data>
+  <data name="ansi.plain.rows" xml:space="preserve">
+    <value>{count, plural, one {verbindingsscherm: # regel, alleen tekst} other {verbindingsscherm: # regels, alleen tekst}}</value>
+  </data>
+  <data name="ansi.plain.rows.readAs" xml:space="preserve">
+    <value>{count, plural, one {verbindingsscherm: # regel, alleen tekst, gelezen als {charset}} other {verbindingsscherm: # regels, alleen tekst, gelezen als {charset}}}</value>
+  </data>
+  <data name="capability.disagree.declaredNotOffered" xml:space="preserve">
+    <value>het spel geeft het op, en de server heeft het nooit aangeboden in een handshake.</value>
+  </data>
+  <data name="capability.disagree.offeredNotDeclared" xml:space="preserve">
+    <value>de server biedt het aan, en het spel zegt in zijn eigen opgave van niet.</value>
+  </data>
+  <data name="capability.disagree.note" xml:space="preserve">
+    <value>Meestal een verouderd, met de hand ingetypt veld, geen leugen. Getoond omdat een client niet moet vertrouwen op datgene waarover de twee van elkaar afwijken.</value>
+  </data>
+  <data name="game.notFound" xml:space="preserve">
+    <value>Niet gevonden</value>
+  </data>
+  <data name="game.notFound.hint" xml:space="preserve">
+    <value>Geen spel op dit adres. Controleer de spelling.</value>
+  </data>
+  <data name="game.endpoint.lastAnswered" xml:space="preserve">
+    <value>laatst geantwoord</value>
+  </data>
+  <data name="game.stale" xml:space="preserve">
+    <value>{count, plural, one {# is voorbij zijn verversingstermijn. Oud, niet fout.} other {# zijn voorbij hun verversingstermijn. Oud, niet fout.}}</value>
+  </data>
+  <data name="game.referrals.lists" xml:space="preserve">
+    <value>De eigen verwijzingslijst van dit spel noemt:</value>
+  </data>
+  <data name="game.referrals.listedBy" xml:space="preserve">
+    <value>Genoemd door de verwijzingslijst van:</value>
+  </data>
+  <data name="game.referral.since" xml:space="preserve">
+    <value>sinds {date}</value>
+  </data>
+  <data name="game.referral.dropped" xml:space="preserve">
+    <value>niet meer vermeld, laatst gezien</value>
+  </data>
+  <data name="game.archived.lastAnswered" xml:space="preserve">
+    <value>Laatst geantwoord op {date}, {ago} geleden.</value>
+  </data>
+  <data name="game.archived.stillProbed" xml:space="preserve">
+    <value>Wordt nog wekelijks gepeild; deze pagina wordt bijgewerkt op de dag dat het antwoordt.</value>
+  </data>
+  <data name="game.archived.knownLive" xml:space="preserve">
+    <value>{span} bekend live</value>
+  </data>
+  <data name="game.excluded" xml:space="preserve">
+    <value>Niet in de lijst, de ranglijsten of het dagcijfer: we denken niet dat dit adres een spel is dat iemand kan spelen. Alles hieronder is wat het ons vertelde, ongewijzigd.</value>
+  </data>
+  <data name="game.excluded.reason" xml:space="preserve">
+    <value>Onze reden: {why}</value>
+  </data>
+  <data name="game.unlisted" xml:space="preserve">
+    <value>Niet in de lijst, de ranglijsten of het dagcijfer, op verzoek van de mensen die het draaien. Alles hieronder is bewaard zoals het was, deze pagina en elk adres dat het ooit gehad heeft blijven antwoorden, en we kloppen er niet aan.</value>
+  </data>
+  <data name="game.plain.playersNow" xml:space="preserve">
+    <value>Spelers nu: {count}</value>
+  </data>
+  <data name="game.plain.playersUnknown" xml:space="preserve">
+    <value>Spelers nu: onbekend (geen telling kon worden gemeten)</value>
+  </data>
+  <data name="game.plain.capabilities" xml:space="preserve">
+    <value>Mogelijkheden ({disagreeing} van {total} wijken af)</value>
+  </data>
+  <data name="game.plain.declared" xml:space="preserve">
+    <value>Opgegeven door het spel</value>
+  </data>
+  <data name="game.plain.connectScreen" xml:space="preserve">
+    <value>Verbindingsscherm</value>
+  </data>
+  <data name="game.plain.whatChanged" xml:space="preserve">
+    <value>Wat er veranderd is</value>
+  </data>
+  <data name="game.plain.measured" xml:space="preserve">
+    <value>gemeten</value>
+  </data>
+  <data name="game.plain.declared.column" xml:space="preserve">
+    <value>opgegeven</value>
+  </data>
+  <data name="game.plain.disagree" xml:space="preserve">
+    <value>** wijkt af</value>
+  </data>
 </root>

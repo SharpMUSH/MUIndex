@@ -954,4 +954,1225 @@
   <data name="locale.submit" xml:space="preserve">
     <value>切换语言</value>
   </data>
+  <data name="about.title" xml:space="preserve">
+    <value>关于 mu*index</value>
+  </data>
+  <data name="about.lede" xml:space="preserve">
+    <value>这里的每一个游戏，都由一台连入其中的机器实测得出，每一项数值都标明它的来源与时间。本页说明这能证明什么、我们哪里会出错、我们读了谁的目录，以及如何让爬虫停下。</value>
+  </data>
+  <data name="about.measures.heading" xml:space="preserve">
+    <value>本站所说的事实是什么</value>
+  </data>
+  <data name="about.measures.declared.lead" xml:space="preserve">
+    <value>实测优先于自述，两者都会呈现。</value>
+  </data>
+  <data name="about.measures.declared.body" xml:space="preserve">
+    <value>游戏的 MSSP 报告是它对自己的描述，telnet 握手则是我们亲眼看到它做了什么。两者都会出现在它的页面上，并标注来源与时间。两者不一致时，我们把这份不一致本身呈现出来。</value>
+  </data>
+  <data name="about.measures.count.lead" xml:space="preserve">
+    <value>每一项人数计数都标明它从何而来。</value>
+  </data>
+  <data name="about.measures.count.body" xml:space="preserve">
+    <value>要么是我们在连接画面上读到并数出的 WHO 或 DOING，要么是游戏自己发布的 MSSP PLAYERS 字段。二者从不合并。</value>
+  </data>
+  <data name="about.measures.unknown.lead" xml:space="preserve">
+    <value>读不出来的回应是未知，绝不是零。</value>
+  </data>
+  <data name="about.measures.unknown.body" xml:space="preserve">
+    <value>服务器可以随意定制自己的 WHO 表头，超过一定程度，我们的解析器就读不出来了。那是无法计数，自成一种状态。而实测到的零——我们连上了，里面没有人——是一个计数，也按计数显示。</value>
+  </data>
+  <data name="about.measures.reachable.lead" xml:space="preserve">
+    <value>只说可连通，从不说在线率。</value>
+  </data>
+  <data name="about.measures.reachable.body" xml:space="preserve">
+    <value>我们从一台主机上按间隔打开一个套接字。路由不到的游戏是无法连通，而它完全可能好好活着。本站不宣称任何游戏的在线率，因为本站没有测过它。</value>
+  </data>
+  <data name="about.measures.hour.lead" xml:space="preserve">
+    <value>一个小时要么已计数，要么无法计数，要么未实测。</value>
+  </data>
+  <data name="about.measures.hour.body" xml:space="preserve">
+    <value>活跃度网格有三种状态。第三种是空白，并且不指明原因：我们连不上的那个小时，和我们从未探测过的那个小时，是同一种缺失，两者都不是那台服务器的停机时间。</value>
+  </data>
+  <data name="about.limits.heading" xml:space="preserve">
+    <value>我们知道自己哪里会出错</value>
+  </data>
+  <data name="about.limits.grace.lead" xml:space="preserve">
+    <value>归档宽限期从我们发现你的那天算起。</value>
+  </data>
+  <data name="about.limits.grace.body" xml:space="preserve">
+    <value>游戏停止应答后，会在宽限期结束时离开默认列表：宽限期是我们探测到的可连通时长的四分之一，下限 60 天，上限 365 天。一个从 1995 年就在运行的游戏，在我们发现它的那天也只从下限起算。我们不会导入任何数据，去填补我们到来之前的那些年。</value>
+  </data>
+  <data name="about.limits.created.lead" xml:space="preserve">
+    <value>MSSP CREATED 不计入这段宽限期。</value>
+  </data>
+  <data name="about.limits.created.body" xml:space="preserve">
+    <value>它只是配置文件里手打的一行，若予采信，归档门槛就会变得可以操纵。它以自述的身份显示，换不来任何东西。</value>
+  </data>
+  <data name="about.limits.claim.lead" xml:space="preserve">
+    <value>认领游戏可以拿到上限。</value>
+  </data>
+  <data name="about.limits.claim.body" xml:space="preserve">
+    <value>只要证明拥有服务器访问权，无论我们观察了多久，都值整整一年的宽限期。</value>
+  </data>
+  <data name="about.limits.oneHost.lead" xml:space="preserve">
+    <value>本站的一切，都出自一台主机的间隔观测。</value>
+  </data>
+  <data name="about.limits.oneHost.body" xml:space="preserve">
+    <value>可连通时间的百分比，是我们观测过的那段窗口内的比例，绝不是我们没观测过的窗口的比例。本站的任何图形都不会替其余部分补上数据。</value>
+  </data>
+  <data name="about.limits.deletion.lead" xml:space="preserve">
+    <value>任何内容都不会被删除。</value>
+  </data>
+  <data name="about.limits.deletion.body" xml:space="preserve">
+    <value>归档只是把游戏移出默认列表、排行和今日活跃数字，仅此而已。它的页面、URL、历史和地址都保留，我们仍会继续探测，一次成功的探测就能让它回来。</value>
+  </data>
+  <data name="about.never.heading" xml:space="preserve">
+    <value>本站不会做的事</value>
+  </data>
+  <data name="about.never.votes.lead" xml:space="preserve">
+    <value>没有投票、星级、评分或推荐。</value>
+  </data>
+  <data name="about.never.votes.body" xml:space="preserve">
+    <value>排行仅由实测数据算出。一个按谁能动员最多点击来排名的目录，描述的是拉票活动，而不是这个爱好本身——前辈们正是这样倒下的。</value>
+  </data>
+  <data name="about.never.forums.lead" xml:space="preserve">
+    <value>没有论坛、评测、维基、评论或玩家资料页。</value>
+  </data>
+  <data name="about.never.forums.body" xml:space="preserve">
+    <value>入门资料——什么是 MUSH、哪种代码库适合协作扮演——和本站其余内容一样，由人撰写、署名，并纳入版本管理。</value>
+  </data>
+  <data name="about.never.names.lead" xml:space="preserve">
+    <value>玩家名称从不留存。</value>
+  </data>
+  <data name="about.never.names.body" xml:space="preserve">
+    <value>WHO 的回复只在内存中解析，取出一个计数和表头的形状。名称不会被记录下来；汇总使用加盐哈希，盐值会轮换。</value>
+  </data>
+  <data name="about.never.population.lead" xml:space="preserve">
+    <value>不发布任何绝对人口数字。</value>
+  </data>
+  <data name="about.never.population.body" xml:space="preserve">
+    <value>我们发布按代码库和按协议的占比：在实测集合上算出的比例，即使还有我们数不出来的游戏也依然成立。“有多少人在玩 MU*”则不然，因为那个数字一经引用就站不住脚。</value>
+  </data>
+  <data name="about.crawler.heading" xml:space="preserve">
+    <value>爬虫，以及如何让它停下</value>
+  </data>
+  <data name="about.crawler.probe.lead" xml:space="preserve">
+    <value>一次探测就是一个从不登录的连接。</value>
+  </data>
+  <data name="about.crawler.probe.body" xml:space="preserve">
+    <value>它打开一个套接字，协商 telnet 选项，读取连接画面，通过协商选项 70 索取 MSSP，发送 {commands}，然后断开。不建角色，不登录，对端没有任何改动。会话有超时上限，卡住的探测不会一直占着一个连接位。</value>
+  </data>
+  <data name="about.crawler.delay.lead" xml:space="preserve">
+    <value>CRAWL DELAY 说了算。</value>
+  </data>
+  <data name="about.crawler.delay.body" xml:space="preserve">
+    <value>游戏若在 MSSP 报告中给出希望的最小间隔，我们就照办，并在两个方向上都优先于我们自己的排期：720 小时就是每月一次，而不是每周一次。失联的游戏仍会按这个更长的间隔被一直尝试下去，它恢复之后，正是这样重新回到列表的。</value>
+  </data>
+  <data name="about.crawler.referral.lead" xml:space="preserve">
+    <value>转介来的地址只做核验，从不轻信。</value>
+  </data>
+  <data name="about.crawler.referral.body" xml:space="preserve">
+    <value>MSSP 允许一个游戏点名其他游戏。任何拨号之前，每个名称都先做解析；除非它解析出的每一个地址都是全球可路由的，否则一律拒绝。解析结果混杂时，整个目标都被拒绝。这种拒绝记在我们自己名下，绝不会作为停机出现在某个游戏的记录里。</value>
+  </data>
+  <data name="about.crawler.screens.lead" xml:space="preserve">
+    <value>展示连接画面，是因为它本来就发给所有人。</value>
+  </data>
+  <data name="about.crawler.screens.body" xml:space="preserve">
+    <value>服务器会向每一个匿名连接、无需认证地绘出自己的连接画面。我们把它作为证据展示，并加以标注。你若开口，我们就撤下。</value>
+  </data>
+  <data name="about.crawler.stop.lead" xml:space="preserve">
+    <value>说停我们就停——有三种方式。</value>
+  </data>
+  <data name="about.crawler.stop.body" xml:space="preserve">
+    <value>在你的 MSSP 报告中发布 {variable} 1，读到它的那次探测就是最后一次。或者在 {label}.your.host 上发布一条内容为“{value}”的 TXT 记录，这既不需要支持 MSSP，也不需要在本站注册账户。再或者，写信给一个人。这三种方式都会在一个爬取周期之内生效，并连同日期和我们读到的内容一起记录，提交表单上同样照此执行。</value>
+  </data>
+  <data name="about.crawler.scope.lead" xml:space="preserve">
+    <value>MSSP 字段停的是那个监听端口，TXT 记录停的是整台主机。</value>
+  </data>
+  <data name="about.crawler.scope.body" xml:space="preserve">
+    <value>MSSP 由应答的那个端口发布，因此它只代表那个端口——MU* 托管商常常在同一个域名下运行互不相关的游戏，谁也不该替邻居闭嘴。TXT 记录默认覆盖所有端口，除非它指名某一个，写作“{value}=4201”。凡是我们读不出端口清单的写法，都按整台主机处理，所以“{value}=all”也是有效的。</value>
+  </data>
+  <data name="about.crawler.dns.lead" xml:space="preserve">
+    <value>DNS 这条路，你不用问我们就能撤销。</value>
+  </data>
+  <data name="about.crawler.dns.body" xml:space="preserve">
+    <value>读一条 TXT 记录，不必连上那台叫我们别来的服务器，所以我们在每次拨号前都会重新读它。你把它删掉，一周之内我们就会再次拨号。而 MSSP 字段不做你叫我们别做的那件事就无法重读，所以通过 MSSP 提出的退出和书面请求会一直有效，直到你另行告知。已退出的地址只会得到这一次 TXT 查询：它触及的是你的域名服务器，绝不会触及你的游戏。</value>
+  </data>
+  <data name="about.crawler.stopping.lead" xml:space="preserve">
+    <value>停下不是删除，也不是停机。</value>
+  </data>
+  <data name="about.crawler.stopping.body" xml:space="preserve">
+    <value>选择退出的游戏保留它的页面、它的地址，以及它开口之前我们实测到的一切。停下的只有新数据：活跃度网格不再增加小时，并且不指明原因，因为不再叩门是我们的决定，那是关于我们的事实。它记录在那次没有发生的爬取上，也记录在提出请求者的名册里。</value>
+  </data>
+  <data name="about.crawler.unlist.lead" xml:space="preserve">
+    <value>如果只是停下还不够，列表条目也可以撤下。</value>
+  </data>
+  <data name="about.crawler.unlist.body" xml:space="preserve">
+    <value>当我们在你游戏应答的每一个地址上都已停手之后，你的控制台会多出一项：把它移出列表、排行和每日数字。页面和它曾用过的每一个地址仍然照常应答，任何内容都不会被删除——它只是不再是读者靠浏览就能走到的地方。这需要一次经过验证的认领，因为这是关于你游戏的决定，我们会记录是谁做的。而一次探测就能撤销它：收回你的退出声明，下一次拨号只要得到应答，你就会重新回到列表，不必再来问我们第二次。</value>
+  </data>
+  <data name="about.identity.announced" xml:space="preserve">
+    <value>服务器询问来者何人时，爬虫自报为 {name}。</value>
+  </data>
+  <data name="about.identity.unannounced" xml:space="preserve">
+    <value>爬虫已配置为自称 {name}，但目前还说不出口。它使用的 telnet 库没有给客户端设置终端类型的途径，所以你的日志里看到的是那个库的默认值，而 NEW-ENVIRON 是用爬虫主机的环境作答的。这两处都是那个库的缺口，该由我们去那里修补。在此之前，请靠形态辨认一次探测：一个连接，不登录，一组简短的只读命令，然后就走。</value>
+  </data>
+  <data name="about.identity.crawler" xml:space="preserve">
+    <value>爬虫</value>
+  </data>
+  <data name="about.identity.contact" xml:space="preserve">
+    <value>联系方式</value>
+  </data>
+  <data name="about.identity.crawler.line" xml:space="preserve">
+    <value>爬虫：{name}</value>
+  </data>
+  <data name="about.identity.contact.line" xml:space="preserve">
+    <value>联系方式：{url}</value>
+  </data>
+  <data name="about.identity.placeholder" xml:space="preserve">
+    <value>——占位值；本部署未设置联系地址</value>
+  </data>
+  <data name="about.identity.placeholder.plain" xml:space="preserve">
+    <value>未配置联系地址，因此上面那个只是占位值，不会有人回应。</value>
+  </data>
+  <data name="about.sources.heading" xml:space="preserve">
+    <value>游戏名单从何而来</value>
+  </data>
+  <data name="about.sources.addresses.lead" xml:space="preserve">
+    <value>我们只取地址，别的都不取。</value>
+  </data>
+  <data name="about.sources.addresses.body" xml:space="preserve">
+    <value>一次回填只取一个主机和一个端口。不取人数计数，不取连通历史，不取简介，不取字段，也不记录某个地址来自哪个站点。</value>
+  </data>
+  <data name="about.sources.less.lead" xml:space="preserve">
+    <value>刻意少于那些站点能给的。</value>
+  </data>
+  <data name="about.sources.less.body" xml:space="preserve">
+    <value>其中有几家存着多年的带日期人数计数。把它们导进来，会用别人早已在观测的游戏去填满热力图，也会把本站最核心的主张，架在别人的探测器上。</value>
+  </data>
+  <data name="about.sources.origin.lead" xml:space="preserve">
+    <value>一个游戏的出处不是单一事实。</value>
+  </data>
+  <data name="about.sources.origin.body" xml:space="preserve">
+    <value>凡是值得列出的游戏，都会同时出现在其中好几个目录里，所以“导入自”只会写上先跑完的那次抓取。某个游戏存在，这是公开信息；我们从哪里读到的，既不增添任何东西，也是别人劳动成果里最没理由算作我们的那一部分。</value>
+  </data>
+  <data name="about.sources.etiquette.lead" xml:space="preserve">
+    <value>读别人的站点，终究是在读别人的站点。</value>
+  </data>
+  <data name="about.sources.etiquette.body" xml:space="preserve">
+    <value>抓取之前，我们先索要批量导出或有文档的接口，先读 robots.txt，并对抓取严格限速。凡是需要维护者点头的来源，在有人能声明已经征询过之前，一律不抓。</value>
+  </data>
+  <data name="about.source.read" xml:space="preserve">
+    <value>已读取——仅地址</value>
+  </data>
+  <data name="about.source.withheld" xml:space="preserve">
+    <value>未读取——等待许可</value>
+  </data>
+  <data name="about.source.tintinMssp.note" xml:space="preserve">
+    <value>一个页面，一次请求。由一个逐个连入游戏、并打印所读内容的爬虫发布。</value>
+  </data>
+  <data name="about.source.tintinMsdp.note" xml:space="preserve">
+    <value>同一个爬虫的 MSDP 列表。几乎是其 MSSP 版本的子集，读取它只为那少数几个另一份没有覆盖到的地址。</value>
+  </data>
+  <data name="about.source.mudConnector.note" xml:space="preserve">
+    <value>在一个页面上发布整份目录，因此读一次只花一个请求。它是我们最大的地址来源，而不是任何实测数据的来源。</value>
+  </data>
+  <data name="about.source.mudStats.note" xml:space="preserve">
+    <value>一个索引页，外加每个世界一个页面，所以只能抓取，而不能导出。2026 年 7 月 30 日，我们以十五秒的间隔、遵守 robots.txt 抓取了他们的 143 个页面，但当时还没有人写信联系过他们。这本不该发生。现在这道闸门需要有人愿意声明已经征询过维护者才会打开。</value>
+  </data>
+  <data name="about.source.mudVerse.note" xml:space="preserve">
+    <value>已实现，已测试，从未运行。除许可这一项之外，它在各方面都是这里最强的来源；在有人写信联系他们之前，我们不会抓取任何内容。</value>
+  </data>
+  <data name="about.licence.heading" xml:space="preserve">
+    <value>许可协议</value>
+  </data>
+  <data name="about.licence.code.lead" xml:space="preserve">
+    <value>代码采用 MIT 许可协议。</value>
+  </data>
+  <data name="about.licence.code.body" xml:space="preserve">
+    <value>本站、爬虫和各个解析器，均在 MIT 许可协议下开源。</value>
+  </data>
+  <data name="about.licence.open.lead" xml:space="preserve">
+    <value>数据的许可协议尚无定论。</value>
+  </data>
+  <data name="about.licence.open.body" xml:space="preserve">
+    <value>这是与代码分开的一项决定，目前尚未作出。请把下面的条款当作本部署当前的答复，而不是本项目已定的立场。竞争的目录把整份名录拿走，在这里算作一项成功，所以无论最终如何定夺，都不会挡它的路。</value>
+  </data>
+  <data name="about.licence.codeLabel" xml:space="preserve">
+    <value>代码</value>
+  </data>
+  <data name="about.licence.dataLabel" xml:space="preserve">
+    <value>数据，按本部署提供的形式</value>
+  </data>
+  <data name="about.licence.creditLabel" xml:space="preserve">
+    <value>署名为</value>
+  </data>
+  <data name="about.licence.code.line" xml:space="preserve">
+    <value>代码：{licence}</value>
+  </data>
+  <data name="about.licence.data.line" xml:space="preserve">
+    <value>数据：{licence}</value>
+  </data>
+  <data name="about.licence.credit.line" xml:space="preserve">
+    <value>署名为：{credit}</value>
+  </data>
+  <data name="about.licence.deployment" xml:space="preserve">
+    <value>（这是本部署提供的形式。本项目自己的答复仍未定。）</value>
+  </data>
+  <data name="submit.title" xml:space="preserve">
+    <value>提交游戏</value>
+  </data>
+  <data name="submit.lede" xml:space="preserve">
+    <value>告诉我们某个游戏在哪里。一个主机加一个端口就是整张表单；本站其余的一切，都由我们自己的爬虫实测得出。</value>
+  </data>
+  <data name="submit.host.label" xml:space="preserve">
+    <value>主机</value>
+  </data>
+  <data name="submit.port.label" xml:space="preserve">
+    <value>端口</value>
+  </data>
+  <data name="submit.host.hint" xml:space="preserve">
+    <value>mud.example.org，或者粘贴 mud.example.org:4201 并把端口留空</value>
+  </data>
+  <data name="submit.button" xml:space="preserve">
+    <value>提交</value>
+  </data>
+  <data name="submit.noCatalogue" xml:space="preserve">
+    <value>提交需要数据库，而本站正运行在演示数据上。没有可写入的爬取登记表，所以这里干脆不放表单，而不是放一个悄悄什么也不做的表单。</value>
+  </data>
+  <data name="submit.notHere" xml:space="preserve">
+    <value>此处没有</value>
+  </data>
+  <data name="submit.what.heading" xml:space="preserve">
+    <value>一个地址会经历什么</value>
+  </data>
+  <data name="submit.what.resolve" xml:space="preserve">
+    <value>拨号之前我们先解析地址，凡是解析到公网之外的一律拒绝。那是关于我们自己套接字的决定，绝不是关于某个游戏的事实。</value>
+  </data>
+  <data name="submit.what.optOut" xml:space="preserve">
+    <value>如果运行那台主机的人已经要求我们不要爬取，那么无论谁提交，我们都不会接受这个地址。陌生人无法把你的游戏重新放上本站。</value>
+  </data>
+  <data name="submit.what.schedule" xml:space="preserve">
+    <value>如果它有应答，我们就读取服务器对自己的说法，并按它自己的节奏一直读下去。一个地址只需要给我们一次。</value>
+  </data>
+  <data name="submit.what.claim" xml:space="preserve">
+    <value>在有人证明自己是运营者之前，站上不会出现任何内容。认领需要一个通行密钥，以及在游戏本身上发布的一行文字。</value>
+  </data>
+  <data name="submit.what.duplicate" xml:space="preserve">
+    <value>我们已经有的地址会并入现有条目。重复提交不会产生第二个条目，也不会让探测提前。</value>
+  </data>
+  <data name="submit.answer.thatAddress" xml:space="preserve">
+    <value>那个地址</value>
+  </data>
+  <data name="submit.accepted.heading" xml:space="preserve">
+    <value>已进入登记表。</value>
+  </data>
+  <data name="submit.accepted.sentence" xml:space="preserve">
+    <value>{address} 会在下一个爬取周期被拨号，此后一直按它自己的节奏进行。等有人证明自己是运营者，它就会出现在这里——带着同一个地址回到这张表单，它会把链接交给你。</value>
+  </data>
+  <data name="submit.unclaimed.heading" xml:space="preserve">
+    <value>我们有它，尚无人认领。</value>
+  </data>
+  <data name="submit.unclaimed.sentence" xml:space="preserve">
+    <value>{address} 是我们已经在实测的地址。在有人证明自己是运营者之前，它不会出现在站上。如果那个人就是你，这里就是入口。</value>
+  </data>
+  <data name="submit.known.heading" xml:space="preserve">
+    <value>这个我们已经有了。</value>
+  </data>
+  <data name="submit.known.sentence" xml:space="preserve">
+    <value>{address} 是我们已经在实测的游戏。没有创建任何内容，也没有改动任何内容。</value>
+  </data>
+  <data name="submit.knownAddress.heading" xml:space="preserve">
+    <value>这个地址我们已经有了。</value>
+  </data>
+  <data name="submit.knownAddress.sentence" xml:space="preserve">
+    <value>{address} 我们已经知道了。没有创建任何内容，也没有改动任何内容。</value>
+  </data>
+  <data name="submit.queued.heading" xml:space="preserve">
+    <value>已经在等了。</value>
+  </data>
+  <data name="submit.queued.sentence" xml:space="preserve">
+    <value>{address} 已在爬取登记表中，尚未应答。再次提交不会让它提前：每个目标都按自己的节奏来，所以谁也不能借我们去催别人的服务器。</value>
+  </data>
+  <data name="submit.malformed.heading" xml:space="preserve">
+    <value>这不是我们能拨号的地址。</value>
+  </data>
+  <data name="submit.malformed.sentence" xml:space="preserve">
+    <value>主机名里需要有一个点或一个冒号，端口是 1 到 65535 之间的数字。请把两个框都填上，或者把 mud.example.org:4201 粘贴到第一个框里。</value>
+  </data>
+  <data name="submit.undialable.heading" xml:space="preserve">
+    <value>我们无法拨号到那里。</value>
+  </data>
+  <data name="submit.undialable.sentence" xml:space="preserve">
+    <value>对 {address} 给出这个答复有三种可能：名称可能解析不了，可能解析到公网之外，也可能运行那台主机的人已经要求我们别去。我们刻意不说是哪一种，因为向陌生人回答这个问题，等于从外部把一张网络画出来。关于该地址没有记录任何内容；这个决定是我们做的，也记在我们自己名下。</value>
+  </data>
+  <data name="submit.tooMany.heading" xml:space="preserve">
+    <value>暂时够了。</value>
+  </data>
+  <data name="submit.tooMany.sentence" xml:space="preserve">
+    <value>这张表单按提交者限速，你已经到上限了。请一小时后再来。没有丢失任何东西——我们收下的内容都已经在登记表里。</value>
+  </data>
+  <data name="submit.link.claim" xml:space="preserve">
+    <value>认领此游戏</value>
+  </data>
+  <data name="account.signIn.title" xml:space="preserve">
+    <value>登录</value>
+  </data>
+  <data name="account.signIn.preview" xml:space="preserve">
+    <value>用通行密钥登录，即可认领你运营的游戏。没有密码可丢，也没有密码可偷。</value>
+  </data>
+  <data name="account.signIn.noDatabase" xml:space="preserve">
+    <value>认领需要数据库，而本站正运行在演示数据上。这里没有可登录的东西。</value>
+  </data>
+  <data name="account.signIn.passkey.lead" xml:space="preserve">
+    <value>登录就是一个通行密钥。</value>
+  </data>
+  <data name="account.signIn.passkey.body" xml:space="preserve">
+    <value>私钥保存在你的设备或密码管理器里；我们只保存公钥那一半。没有密码，没有电子邮箱。</value>
+  </data>
+  <data name="account.signIn.button" xml:space="preserve">
+    <value>用通行密钥登录</value>
+  </data>
+  <data name="account.signIn.script" xml:space="preserve">
+    <value>本站唯一需要 JavaScript 的页面。没有它，通行密钥无法工作。</value>
+  </data>
+  <data name="account.register.heading" xml:space="preserve">
+    <value>还没有账户？</value>
+  </data>
+  <data name="account.register.lede" xml:space="preserve">
+    <value>只有在认领你运营的游戏时才需要账户。取一个对外显示的名字——它是认领旁边的一个标签，不是真名。</value>
+  </data>
+  <data name="account.register.name.label" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="account.register.name.placeholder" xml:space="preserve">
+    <value>例如 corvid-admin</value>
+  </data>
+  <data name="account.register.button" xml:space="preserve">
+    <value>用通行密钥创建账户</value>
+  </data>
+  <data name="account.store.heading" xml:space="preserve">
+    <value>我们存什么</value>
+  </data>
+  <data name="account.store.name" xml:space="preserve">
+    <value>你选择的名称。</value>
+  </data>
+  <data name="account.store.keys" xml:space="preserve">
+    <value>你注册的每个通行密钥的公钥，以及你的设备给它取的名字。</value>
+  </data>
+  <data name="account.store.claims" xml:space="preserve">
+    <value>你认领了哪些游戏，以及认领的时间。</value>
+  </data>
+  <data name="account.store.note" xml:space="preserve">
+    <value>不存电子邮箱，不存密码，也不把 IP 日志与你的账户关联。即使丢失了全部通行密钥，你也可以在自己的游戏上发布一个新的认领令牌，重新来过：凭据是游戏，不是账户。</value>
+  </data>
+  <data name="date.absolute" xml:space="preserve">
+    <value>{year}年{month}{day}日</value>
+  </data>
+  <data name="date.stamp" xml:space="preserve">
+    <value>{date} {time} UTC</value>
+  </data>
+  <data name="age.short.now" xml:space="preserve">
+    <value>刚刚</value>
+  </data>
+  <data name="age.short.minutes" xml:space="preserve">
+    <value>{count, plural, other {#分钟}}</value>
+  </data>
+  <data name="age.short.hours" xml:space="preserve">
+    <value>{count, plural, other {#小时}}</value>
+  </data>
+  <data name="age.short.days" xml:space="preserve">
+    <value>{count, plural, other {#天}}</value>
+  </data>
+  <data name="age.short.weeks" xml:space="preserve">
+    <value>{count, plural, other {#周}}</value>
+  </data>
+  <data name="age.short.months" xml:space="preserve">
+    <value>{count, plural, other {#个月}}</value>
+  </data>
+  <data name="age.short.years" xml:space="preserve">
+    <value>{count, plural, other {#年}}</value>
+  </data>
+  <data name="age.ago.now" xml:space="preserve">
+    <value>刚刚</value>
+  </data>
+  <data name="age.ago.minutes" xml:space="preserve">
+    <value>{count, plural, other {#分钟前}}</value>
+  </data>
+  <data name="age.ago.hours" xml:space="preserve">
+    <value>{count, plural, other {#小时前}}</value>
+  </data>
+  <data name="age.ago.days" xml:space="preserve">
+    <value>{count, plural, other {#天前}}</value>
+  </data>
+  <data name="age.ago.weeks" xml:space="preserve">
+    <value>{count, plural, other {#周前}}</value>
+  </data>
+  <data name="age.ago.months" xml:space="preserve">
+    <value>{count, plural, other {#个月前}}</value>
+  </data>
+  <data name="age.ago.years" xml:space="preserve">
+    <value>{count, plural, other {#年前}}</value>
+  </data>
+  <data name="age.dark.now" xml:space="preserve">
+    <value>刚刚</value>
+  </data>
+  <data name="age.dark.minutes" xml:space="preserve">
+    <value>{count, plural, other {#分钟前}}</value>
+  </data>
+  <data name="age.dark.hours" xml:space="preserve">
+    <value>{count, plural, other {#小时前}}</value>
+  </data>
+  <data name="age.dark.days" xml:space="preserve">
+    <value>{count, plural, other {#天前}}</value>
+  </data>
+  <data name="age.dark.weeks" xml:space="preserve">
+    <value>{count, plural, other {#周前}}</value>
+  </data>
+  <data name="age.dark.months" xml:space="preserve">
+    <value>{count, plural, other {#个月前}}</value>
+  </data>
+  <data name="age.dark.years" xml:space="preserve">
+    <value>{count, plural, other {#年前}}</value>
+  </data>
+  <data name="time.title" xml:space="preserve">
+    <value>{age}，{stamp}</value>
+  </data>
+  <data name="time.spoken" xml:space="preserve">
+    <value>，{stamp}</value>
+  </data>
+  <data name="chip.title" xml:space="preserve">
+    <value>{value}——经{source}{how}，最近确认于 {date}</value>
+  </data>
+  <data name="chip.title.stale" xml:space="preserve">
+    <value>{value}——经{source}{how}，最近确认于 {date}（已过预期刷新期）</value>
+  </data>
+  <data name="chip.plain" xml:space="preserve">
+    <value>（{how}，{age}）</value>
+  </data>
+  <data name="chip.plain.stale" xml:space="preserve">
+    <value>（{how}，{age}，已过刷新期）</value>
+  </data>
+  <data name="provenance.game.ownerDeclared" xml:space="preserve">
+    <value>所有者自述</value>
+  </data>
+  <data name="source.staff" xml:space="preserve">
+    <value>本站工作人员</value>
+  </data>
+  <data name="source.handshake" xml:space="preserve">
+    <value>telnet 握手</value>
+  </data>
+  <data name="source.owner" xml:space="preserve">
+    <value>游戏所有者</value>
+  </data>
+  <data name="source.who" xml:space="preserve">
+    <value>WHO</value>
+  </data>
+  <data name="source.i3" xml:space="preserve">
+    <value>I3</value>
+  </data>
+  <data name="source.mssp" xml:space="preserve">
+    <value>MSSP</value>
+  </data>
+  <data name="source.info" xml:space="preserve">
+    <value>INFO</value>
+  </data>
+  <data name="source.i3Mudlist" xml:space="preserve">
+    <value>I3 的游戏列表</value>
+  </data>
+  <data name="source.banner" xml:space="preserve">
+    <value>连接画面</value>
+  </data>
+  <data name="ecosystem.title" xml:space="preserve">
+    <value>生态</value>
+  </data>
+  <data name="ecosystem.noTotals" xml:space="preserve">
+    <value>只讲占比，绝不讲总量。我们不发布有多少人在玩 MU* 的数字：在我们实测过的游戏上算出的比例，即使还有连不上的游戏也依然成立，人头总数则不然。</value>
+  </data>
+  <data name="ecosystem.listed" xml:space="preserve">
+    <value>{count, plural, other {已列出的游戏 {value} 个}}</value>
+  </data>
+  <data name="ecosystem.handshakes" xml:space="preserve">
+    <value>{count, plural, other {已完成握手的游戏 {value} 个}}</value>
+  </data>
+  <data name="ecosystem.msspReports" xml:space="preserve">
+    <value>{count, plural, other {已持有 MSSP 报告的游戏 {value} 个}}</value>
+  </data>
+  <data name="ecosystem.oldestHandshake" xml:space="preserve">
+    <value>此处最早的握手：{age}前确认。</value>
+  </data>
+  <data name="ecosystem.share" xml:space="preserve">
+    <value>{total, number} 个中的 {count, number}（{fraction, number, ::percent .0}）</value>
+  </data>
+  <data name="ecosystem.share.nothing" xml:space="preserve">
+    <value>{total, number} 个中的 {count, number}——尚无实测</value>
+  </data>
+  <data name="ecosystem.share.percent" xml:space="preserve">
+    <value>{fraction, number, ::percent .0}</value>
+  </data>
+  <data name="ecosystem.codebases.title" xml:space="preserve">
+    <value>代码库</value>
+  </data>
+  <data name="ecosystem.codebases.basis" xml:space="preserve">
+    <value>在已列出的{listed, plural, other {#个游戏}}中，有 {identified, number} 个告诉了我们它们运行的是什么，下面每一项占比都是相对这 {identified, number} 个算出来的。读不出代码库的游戏被排除在分母之外，绝不会被算作别的东西。</value>
+  </data>
+  <data name="ecosystem.codebases.none" xml:space="preserve">
+    <value>还没有已列出的游戏告诉过我们它的代码库。</value>
+  </data>
+  <data name="ecosystem.soleUse" xml:space="preserve">
+    <value>{share} 运行的代码库，没有任何其他已列出的游戏在用——每种各一个游戏，那是一个名字，而不是一份占比。它们计入上面的分母，只是从条形图中折叠起来，并没有被丢弃：</value>
+  </data>
+  <data name="ecosystem.lineages.title" xml:space="preserve">
+    <value>谱系</value>
+  </data>
+  <data name="ecosystem.lineages.basis" xml:space="preserve">
+    <value>还是这些游戏，按其服务器所承袭的传统分组——这是我们对代码库的判读，而不是任何游戏发布过的东西。没有游戏会报告“MUSH”：MSSP 里没有这个取值，而 MUSH 世界的大多数根本不发布 MSSP，所以只有这样，这个问题才问得出来。</value>
+  </data>
+  <data name="ecosystem.lineages.none" xml:space="preserve">
+    <value>还没有已列出的游戏运行我们能归入某个谱系的代码库。</value>
+  </data>
+  <data name="ecosystem.lineages.notClassified" xml:space="preserve">
+    <value>{count, plural, other {其中#个游戏运行的代码库}}我们没有归入任何谱系——有几个自己也这么说，它们发布的是 {family}。它们计入上面的分母，但不属于任何一份占比。</value>
+  </data>
+  <data name="ecosystem.protocols.title" xml:space="preserve">
+    <value>协议</value>
+  </data>
+  <data name="ecosystem.protocols.floor" xml:space="preserve">
+    <value>下面每一个实测数字都应读作下限。MSSP 是我们指名索取的，所以在这一项上，沉默本身就是一种回答。其余各项我们都不索取，服务器可能支持某个协议，却从不主动提供。</value>
+  </data>
+  <data name="ecosystem.mssp.instrument" xml:space="preserve">
+    <value>{instrument} 是下面唯一不算下限的一行：我们向每台服务器指名索取它，所以没有提供它的游戏，是被问过之后拒绝的。它也是唯一没有自述数字的一项，因为凡是我们持有其报告的游戏，都已用行动证明支持它，再去数其中有多少同时把它列了出来，量到的只是一种习惯。</value>
+  </data>
+  <data name="ecosystem.mssp.gap" xml:space="preserve">
+    <value>我们持有 {reports, number} 份报告，而今天提供 MSSP 的有{offered, plural, other {#个游戏}}：另外 {gap, number} 个在我们读过之后就不再发布了，一份报告不会因为不再重发而被丢弃。</value>
+  </data>
+  <data name="ecosystem.protocols.caption" xml:space="preserve">
+    <value>协议采用情况。实测是服务器在一次完成的握手中提供的内容，自述是它的 MSSP 所声称的内容。两组不同的游戏，因此有两个分母。</value>
+  </data>
+  <data name="ecosystem.column.protocol" xml:space="preserve">
+    <value>协议</value>
+  </data>
+  <data name="ecosystem.column.measured" xml:space="preserve">
+    <value>实测——占 {basis}</value>
+  </data>
+  <data name="ecosystem.column.declared" xml:space="preserve">
+    <value>自述——占 {basis}</value>
+  </data>
+  <data name="ecosystem.measured.never" xml:space="preserve">
+    <value>未实测——从未观测到</value>
+  </data>
+  <data name="ecosystem.measured.declined" xml:space="preserve">
+    <value>{share} · {declined, plural, other {#个游戏}}被问及时拒绝</value>
+  </data>
+  <data name="ecosystem.measured.unasked" xml:space="preserve">
+    <value>{share} · {unobserved, plural, other {#个游戏}}既未提供也未被问及</value>
+  </data>
+  <data name="ecosystem.measured.declinedAndUnasked" xml:space="preserve">
+    <value>{share} · {declined, plural, other {#个游戏}}被问及时拒绝 · {unobserved, plural, other {#个游戏}}既未提供也未被问及</value>
+  </data>
+  <data name="ecosystem.declared.none" xml:space="preserve">
+    <value>未索取——这里的每一份报告本身就是回答</value>
+  </data>
+  <data name="ecosystem.curve.title" xml:space="preserve">
+    <value>采用情况随时间的变化</value>
+  </data>
+  <data name="ecosystem.curve.caveat" xml:space="preserve">
+    <value>每个点都是当天我们已实测的那些游戏上的占比，所以这条线会因两件事而移动：某个游戏改变了它提供的内容，以及我们能实测的游戏集合在它周围发生了变化。只有前者才是采用。下面的变更次数，才是纯粹由游戏改变主意构成的那一部分。</value>
+  </data>
+  <data name="ecosystem.curve.caption" xml:space="preserve">
+    <value>各协议的实测占比，最早的读数在前</value>
+  </data>
+  <data name="ecosystem.curve.then" xml:space="preserve">
+    <value>当时</value>
+  </data>
+  <data name="ecosystem.curve.now" xml:space="preserve">
+    <value>现在</value>
+  </data>
+  <data name="ecosystem.curve.notMeasured" xml:space="preserve">
+    <value>未实测</value>
+  </data>
+  <data name="ecosystem.snapshot.title" xml:space="preserve">
+    <value>这是快照，不是曲线</value>
+  </data>
+  <data name="ecosystem.snapshot" xml:space="preserve">
+    <value>这是我们现在能实测到的情况的一张快照。采用曲线画的是游戏改变主意，而我们在变化发生时才记录它，所以等记录得足够多，曲线才画得出来。若改用我们首次连通各个游戏的时间来作图，量到的将是这次爬取，而不是这个爱好。</value>
+  </data>
+  <data name="ecosystem.transitions" xml:space="preserve">
+    <value>{count, plural, other {迄今已记录#次能力变更}}——曲线正是用这些材料画出来的。</value>
+  </data>
+  <data name="ecosystem.transitions.none" xml:space="preserve">
+    <value>还没有任何实测能力发生过变化，因此无从作图。</value>
+  </data>
+  <data name="ecosystem.plain.denominators" xml:space="preserve">
+    <value>实测的分母是 {measured}，自述的分母是 {declared}。两组不同的游戏，因此有两个分母。</value>
+  </data>
+  <data name="ecosystem.plain.counts" xml:space="preserve">
+    <value>{listed} · {handshakes} · {mssp}。</value>
+  </data>
+  <data name="ecosystem.plain.oldestHandshake" xml:space="preserve">
+    <value>这张图里最早的握手，最近一次确认是在 {age}前。</value>
+  </data>
+  <data name="ecosystem.plain.lineages" xml:space="preserve">
+    <value>还是这些游戏，按其服务器所承袭的传统分组。这是{evidence}——{meaning}——而不是任何游戏发布过的东西：没有游戏会报告“MUSH”，因为 MSSP 里没有这个取值，而 MUSH 世界的大多数根本不发布 MSSP。</value>
+  </data>
+  <data name="ecosystem.plain.measured" xml:space="preserve">
+    <value>实测：{value}</value>
+  </data>
+  <data name="ecosystem.plain.declared" xml:space="preserve">
+    <value>自述：{value}</value>
+  </data>
+  <data name="rankings.title" xml:space="preserve">
+    <value>排行</value>
+  </data>
+  <data name="rankings.noVote" xml:space="preserve">
+    <value>仅由实测数据算出。永远没有投票、星级或评分。这里没有任何东西是对质量的排名。我们没有测过质量。</value>
+  </data>
+  <data name="rankings.busiest.title" xml:space="preserve">
+    <value>最热闹——按实测的同时连接人数</value>
+  </data>
+  <data name="rankings.window.label" xml:space="preserve">
+    <value>排行时间窗</value>
+  </data>
+  <data name="rankings.span" xml:space="preserve">
+    <value>{days, plural, other {#天}}</value>
+  </data>
+  <data name="rankings.basis.median" xml:space="preserve">
+    <value>最近{days, plural, other {#天}}内我们实测到的人数的中位数。</value>
+  </data>
+  <data name="rankings.basis.none" xml:space="preserve">
+    <value>还没有游戏在{days, plural, other {#天}}内取得中位数所需的 {samples, number} 个样本。</value>
+  </data>
+  <data name="rankings.basis.eligible" xml:space="preserve">
+    <value>{listed, number} 个已列出的游戏中，有{eligible, plural, other {#个}}在{days, plural, other {#天}}内取得了所需的 {samples, number} 个样本。</value>
+  </data>
+  <data name="rankings.basis.zero" xml:space="preserve">
+    <value>实测到的零算数；读不出来的计数不算。</value>
+  </data>
+  <data name="rankings.spanChoice" xml:space="preserve">
+    <value>一周说的是现在谁热闹，一个季度说的是一直以来谁热闹。这是两个不同的问题，一个游戏可能在其中一项领先，而在另一项不然。天数按整天计，时间为 UTC。</value>
+  </data>
+  <data name="rankings.busiest.empty" xml:space="preserve">
+    <value>还没有已列出的游戏拥有足以参与排行的已计数样本——这说的是我们测了多久，而不是谁有多热闹。</value>
+  </data>
+  <data name="rankings.busiest.caption" xml:space="preserve">
+    <value>按最近{days, plural, other {#天}}内我们实测到的人数的中位数为游戏排名。中位数相同的游戏并列同一名次，这里不做任何附加排序来分先后。</value>
+  </data>
+  <data name="rankings.column.place" xml:space="preserve">
+    <value>#</value>
+  </data>
+  <data name="rankings.column.game" xml:space="preserve">
+    <value>游戏</value>
+  </data>
+  <data name="rankings.column.median" xml:space="preserve">
+    <value>中位数</value>
+  </data>
+  <data name="rankings.column.peak" xml:space="preserve">
+    <value>峰值</value>
+  </data>
+  <data name="rankings.column.samples" xml:space="preserve">
+    <value>已计数样本</value>
+  </data>
+  <data name="rankings.column.days" xml:space="preserve">
+    <value>实测天数</value>
+  </data>
+  <data name="rankings.spells.title" xml:space="preserve">
+    <value>连续可连通时间最长</value>
+  </data>
+  <data name="rankings.spells.basis" xml:space="preserve">
+    <value>自所给日期起的每一次探测，都发现该游戏可连通。是可连通，不是在线：我们从一台主机上测一个套接字，路由不到的游戏完全可能好好活着。一段连续时长不可能超过我们观察的时长，所以日期才是事实，时长由它推出。</value>
+  </data>
+  <data name="rankings.spells.empty" xml:space="preserve">
+    <value>目前没有已列出的游戏处在连续可连通的时段中。</value>
+  </data>
+  <data name="rankings.spells.caption" xml:space="preserve">
+    <value>自所给日期起每一次探测都可连通的游戏。自同一日期起可连通的游戏并列同一名次，这里不做任何附加排序来分先后。</value>
+  </data>
+  <data name="rankings.column.since" xml:space="preserve">
+    <value>可连通起始</value>
+  </data>
+  <data name="rankings.column.duration" xml:space="preserve">
+    <value>即</value>
+  </data>
+  <data name="rankings.archivedNote" xml:space="preserve">
+    <value>已归档的游戏只是不在这两张表里，仅此而已；一次成功的探测就能让它们回来。</value>
+  </data>
+  <data name="rankings.plain.busiest" xml:space="preserve">
+    <value>最热闹——最近{days, plural, other {#天}}实测人数中位数</value>
+  </data>
+  <data name="rankings.plain.windows" xml:space="preserve">
+    <value>时间窗：</value>
+  </data>
+  <data name="rankings.plain.thisOne" xml:space="preserve">
+    <value>当前这个</value>
+  </data>
+  <data name="rankings.plain.row" xml:space="preserve">
+    <value>中位数 {median, number} · 峰值 {peak, number} · {window, number} 天中的 {days, number} 天里共有{samples, plural, other {#个已计数样本}}</value>
+  </data>
+  <data name="rankings.plain.spellRow" xml:space="preserve">
+    <value>自 {date} 起每次探测均可连通 · {duration}</value>
+  </data>
+  <data name="archive.title" xml:space="preserve">
+    <value>归档</value>
+  </data>
+  <data name="archive.lede" xml:space="preserve">
+    <value>已经停止应答的游戏。没有删除任何内容。我们仍每周探测，一次成功的探测当天就能把游戏放回列表。</value>
+  </data>
+  <data name="archive.search.legend" xml:space="preserve">
+    <value>搜索归档</value>
+  </data>
+  <data name="archive.search.label" xml:space="preserve">
+    <value>搜索已归档的游戏</value>
+  </data>
+  <data name="archive.search.placeholder" xml:space="preserve">
+    <value>名称、代码库或简介</value>
+  </data>
+  <data name="archive.search.submit" xml:space="preserve">
+    <value>显示</value>
+  </data>
+  <data name="archive.count" xml:space="preserve">
+    <value>{count, plural, =0 {没有已归档的游戏} other {#个已归档的游戏}}</value>
+  </data>
+  <data name="archive.badge" xml:space="preserve">
+    <value>已归档</value>
+  </data>
+  <data name="archive.lastReachable" xml:space="preserve">
+    <value>最近连通</value>
+  </data>
+  <data name="archive.knownLive" xml:space="preserve">
+    <value>已知存活</value>
+  </data>
+  <data name="archive.darkFor" xml:space="preserve">
+    <value>（{age}前）</value>
+  </data>
+  <data name="archive.empty" xml:space="preserve">
+    <value>没有匹配结果。</value>
+  </data>
+  <data name="archive.neverReachable" xml:space="preserve">
+    <value>在我们实测过的范围内从未连通</value>
+  </data>
+  <data name="archive.noReachableTime" xml:space="preserve">
+    <value>未实测到可连通时长</value>
+  </data>
+  <data name="archive.darkFor.unknown" xml:space="preserve">
+    <value>未知</value>
+  </data>
+  <data name="archive.knownLive.years" xml:space="preserve">
+    <value>{years, number, ::.#} 年</value>
+  </data>
+  <data name="archive.knownLive.days" xml:space="preserve">
+    <value>{days, plural, other {#天}}</value>
+  </data>
+  <data name="archive.run" xml:space="preserve">
+    <value>{from} – {to} · {span}</value>
+  </data>
+  <data name="archive.run.months" xml:space="preserve">
+    <value>{count, plural, other {#个月}}</value>
+  </data>
+  <data name="archive.run.years" xml:space="preserve">
+    <value>{count, plural, other {#年}}</value>
+  </data>
+  <data name="archive.plain.matching" xml:space="preserve">
+    <value>{count, plural, other {有#个游戏}}匹配“{query}”</value>
+  </data>
+  <data name="archive.plain.count" xml:space="preserve">
+    <value>{count, plural, other {#个游戏}}</value>
+  </data>
+  <data name="archive.plain.lastReachable" xml:space="preserve">
+    <value>最近连通：</value>
+  </data>
+  <data name="archive.plain.knownLive" xml:space="preserve">
+    <value>已知存活：</value>
+  </data>
+  <data name="archive.plain.knownLiveValue" xml:space="preserve">
+    <value>实测可连通时长 {value}</value>
+  </data>
+  <data name="archive.plain.run" xml:space="preserve">
+    <value>运行期：</value>
+  </data>
+  <data name="archive.plain.codebase" xml:space="preserve">
+    <value>代码库：</value>
+  </data>
+  <data name="footer.randomGame" xml:space="preserve">
+    <value>随机游戏</value>
+  </data>
+  <data name="trend.day.counted" xml:space="preserve">
+    <value>{d, date, medium}——平均 {typical}，{probes, plural, other {#次探测}}中介于 {low}–{high}</value>
+  </data>
+  <data name="trend.day.flat" xml:space="preserve">
+    <value>{d, date, medium}——{count, plural, =0 {0 人} other {#人}}，{probes, plural, other {#次探测}}次次如此</value>
+  </data>
+  <data name="trend.day.notCounted" xml:space="preserve">
+    <value>{d, date, medium}——已探测，未能读取计数</value>
+  </data>
+  <data name="trend.day.notMeasured" xml:space="preserve">
+    <value>{d, date, medium}——无实测</value>
+  </data>
+  <data name="trend.summary" xml:space="preserve">
+    <value>在{days, plural, other {#天}}中的 {counted} 天里，典型有 {typical} 人在线，峰值 {peak}。</value>
+  </data>
+  <data name="trend.direction.steady" xml:space="preserve">
+    <value>整个区间内保持平稳。</value>
+  </data>
+  <data name="trend.direction.up" xml:space="preserve">
+    <value>从区间开始到结束，约上升 {change, number, percent}。</value>
+  </data>
+  <data name="trend.direction.down" xml:space="preserve">
+    <value>从区间开始到结束，约下降 {change, number, percent}。</value>
+  </data>
+  <data name="trend.none.probed" xml:space="preserve">
+    <value>本区间内有过探测，其中任何一次都未能读出在线人数。</value>
+  </data>
+  <data name="trend.none.notMeasured" xml:space="preserve">
+    <value>本区间内没有实测。</value>
+  </data>
+  <data name="trend.empty" xml:space="preserve">
+    <value>本区间内没有计到任何数。</value>
+  </data>
+  <data name="trend.week.span" xml:space="preserve">
+    <value>{from, date, d MMM}–{to, date, d MMM}</value>
+  </data>
+  <data name="trend.week.oneDay" xml:space="preserve">
+    <value>{d, date, d MMM}</value>
+  </data>
+  <data name="trend.week.counted" xml:space="preserve">
+    <value>{span}：典型 {typical}，峰值 {peak}，已计数{days, plural, other {#天}}</value>
+  </data>
+  <data name="trend.week.notCounted" xml:space="preserve">
+    <value>{span}：已探测，未能读取计数</value>
+  </data>
+  <data name="trend.week.notMeasured" xml:space="preserve">
+    <value>{span}：未实测</value>
+  </data>
+  <data name="trend.week.uncounted" xml:space="preserve">
+    <value>{count, plural, other {#天已探测但没有计数}}</value>
+  </data>
+  <data name="trend.week.unmeasured" xml:space="preserve">
+    <value>{count, plural, other {#天未实测}}</value>
+  </data>
+  <data name="trend.week.and" xml:space="preserve">
+    <value>{line}，{clause}</value>
+  </data>
+  <data name="trend.range" xml:space="preserve">
+    <value>按 UTC 计日 · {from, date, medium} – {to, date, medium}</value>
+  </data>
+  <data name="trend.ceiling" xml:space="preserve">
+    <value>顶端为 {value}</value>
+  </data>
+  <data name="trend.counted" xml:space="preserve">
+    <value>{days, plural, other {#天}}中已计数 {counted} 天</value>
+  </data>
+  <data name="trend.axis.month" xml:space="preserve">
+    <value>{d, date, MMM}</value>
+  </data>
+  <data name="trend.axis.monthYear" xml:space="preserve">
+    <value>{d, date, MMM yyyy}</value>
+  </data>
+  <data name="trend.legend.mean" xml:space="preserve">
+    <value>当天我们读到的各次计数的平均值</value>
+  </data>
+  <data name="trend.legend.peak" xml:space="preserve">
+    <value>直到当天最热闹的那次计数</value>
+  </data>
+  <data name="trend.legend.band" xml:space="preserve">
+    <value>当天最低到最高的计数</value>
+  </data>
+  <data name="trend.legend.notCounted" xml:space="preserve">
+    <value>已探测，未能读取计数</value>
+  </data>
+  <data name="trend.legend.notMeasured.bar" xml:space="preserve">
+    <value>未实测——完全没有条形</value>
+  </data>
+  <data name="trend.legend.notMeasured.line" xml:space="preserve">
+    <value>未实测——线条断开一段</value>
+  </data>
+  <data name="trend.spans.label" xml:space="preserve">
+    <value>趋势区间</value>
+  </data>
+  <data name="trend.shapes.label" xml:space="preserve">
+    <value>趋势图形</value>
+  </data>
+  <data name="trend.preset" xml:space="preserve">
+    <value>{days, plural, other {#天}}</value>
+  </data>
+  <data name="trend.earlier" xml:space="preserve">
+    <value>← 更早</value>
+  </data>
+  <data name="trend.later" xml:space="preserve">
+    <value>更近 →</value>
+  </data>
+  <data name="trend.shape.line" xml:space="preserve">
+    <value>折线</value>
+  </data>
+  <data name="trend.shape.bar" xml:space="preserve">
+    <value>条形</value>
+  </data>
+  <data name="trend.plain.heading" xml:space="preserve">
+    <value>人数随时间变化</value>
+  </data>
+  <data name="trend.plain.range" xml:space="preserve">
+    <value>{from, date, medium} – {to, date, medium}，UTC</value>
+  </data>
+  <data name="trend.plain.earlier" xml:space="preserve">
+    <value>更早</value>
+  </data>
+  <data name="trend.plain.note" xml:space="preserve">
+    <value>一周的概况按其中我们计到数的那些天汇总；一天也没有的那一周会明确说明</value>
+  </data>
+  <data name="reach.kicker" xml:space="preserve">
+    <value>可连通 · 最近{days, plural, other {#天}}</value>
+  </data>
+  <data name="reach.stat.reachable" xml:space="preserve">
+    <value>可连通</value>
+  </data>
+  <data name="reach.stat.longestOutage" xml:space="preserve">
+    <value>最长中断</value>
+  </data>
+  <data name="reach.stat.lastCause" xml:space="preserve">
+    <value>最近原因</value>
+  </data>
+  <data name="reach.noOutage" xml:space="preserve">
+    <value>窗口内没有</value>
+  </data>
+  <data name="reach.noCause" xml:space="preserve">
+    <value>未记录</value>
+  </data>
+  <data name="reach.scale.ago" xml:space="preserve">
+    <value>{days, plural, other {#天前}}</value>
+  </data>
+  <data name="reach.scale.today" xml:space="preserve">
+    <value>今天</value>
+  </data>
+  <data name="reach.legend.reachable" xml:space="preserve">
+    <value>可连通</value>
+  </data>
+  <data name="reach.legend.degraded" xml:space="preserve">
+    <value>降级——有应答，未能完成</value>
+  </data>
+  <data name="reach.legend.unreachable" xml:space="preserve">
+    <value>无法连通</value>
+  </data>
+  <data name="reach.legend.notMeasured" xml:space="preserve">
+    <value>未实测</value>
+  </data>
+  <data name="reach.word.reachable" xml:space="preserve">
+    <value>可连通</value>
+  </data>
+  <data name="reach.word.degraded" xml:space="preserve">
+    <value>降级</value>
+  </data>
+  <data name="reach.word.unreachable" xml:space="preserve">
+    <value>无法连通</value>
+  </data>
+  <data name="reach.word.notMeasured" xml:space="preserve">
+    <value>未实测</value>
+  </data>
+  <data name="reach.day.reachable" xml:space="preserve">
+    <value>{d, date, d MMM}——全天可连通</value>
+  </data>
+  <data name="reach.day.degraded" xml:space="preserve">
+    <value>{d, date, d MMM}——降级（{cause}）：有应答，未能完成</value>
+  </data>
+  <data name="reach.day.unreachable" xml:space="preserve">
+    <value>{d, date, d MMM}——无法连通（{cause}）</value>
+  </data>
+  <data name="reach.day.notMeasured" xml:space="preserve">
+    <value>{d, date, d MMM}——未实测；当时我们还没有开始观测这个游戏</value>
+  </data>
+  <data name="reach.none" xml:space="preserve">
+    <value>{days, plural, other {最近#天尚未实测。}}</value>
+  </data>
+  <data name="reach.fraction.window" xml:space="preserve">
+    <value>最近{days, plural, other {#天}}中，有 {percent} 的时间可连通。</value>
+  </data>
+  <data name="reach.fraction.measured" xml:space="preserve">
+    <value>在我们已实测的{days, plural, other {#天}}中，有 {percent} 的时间可连通。</value>
+  </data>
+  <data name="reach.fraction.unknown" xml:space="preserve">
+    <value>{days, plural, other {最近#天的可连通情况尚未实测。}}</value>
+  </data>
+  <data name="reach.unreachable.noneInWindow" xml:space="preserve">
+    <value>窗口内没有哪一天是无法连通的。</value>
+  </data>
+  <data name="reach.unreachable.noneMeasured" xml:space="preserve">
+    <value>我们实测过的日子里，没有哪一天是无法连通的。</value>
+  </data>
+  <data name="reach.unreachable.days" xml:space="preserve">
+    <value>{count, plural, other {#天无法连通。}}</value>
+  </data>
+  <data name="reach.degraded.days" xml:space="preserve">
+    <value>{count, plural, other {#天降级——我们连上了，但未能完成。}}</value>
+  </data>
+  <data name="reach.longestOutage" xml:space="preserve">
+    <value>最长中断 {duration}。</value>
+  </data>
+  <data name="reach.longestOutage.cause" xml:space="preserve">
+    <value>最长中断 {duration}（{cause}）。</value>
+  </data>
+  <data name="reach.predate" xml:space="preserve">
+    <value>{count, plural, other {有#天早于我们的任何实测。}}</value>
+  </data>
+  <data name="reach.spell.range" xml:space="preserve">
+    <value>{from, date, d MMM} – {to, date, d MMM}</value>
+  </data>
+  <data name="reach.spell.oneDay" xml:space="preserve">
+    <value>{d, date, d MMM}</value>
+  </data>
+  <data name="reach.spell" xml:space="preserve">
+    <value>{range}：{word}{count, plural, other {#天}}</value>
+  </data>
+  <data name="reach.spell.cause" xml:space="preserve">
+    <value>{range}：{word}{count, plural, other {#天}}（{cause}）</value>
+  </data>
+  <data name="reach.plain.heading" xml:space="preserve">
+    <value>可连通</value>
+  </data>
+  <data name="reach.plain.window" xml:space="preserve">
+    <value>{days, plural, other {最近#天}}</value>
+  </data>
+  <data name="reach.plain.fraction" xml:space="preserve">
+    <value>可连通：{days, plural, other {最近#天}}中的 {percent}</value>
+  </data>
+  <data name="reach.plain.longestOutage" xml:space="preserve">
+    <value>最长中断：{duration}</value>
+  </data>
+  <data name="cause.dns" xml:space="preserve">
+    <value>dns 未能解析</value>
+  </data>
+  <data name="cause.refused" xml:space="preserve">
+    <value>连接被拒绝</value>
+  </data>
+  <data name="cause.tls" xml:space="preserve">
+    <value>tls 失败</value>
+  </data>
+  <data name="cause.timeout" xml:space="preserve">
+    <value>超时</value>
+  </data>
+  <data name="cause.handshakeStalled" xml:space="preserve">
+    <value>握手停滞</value>
+  </data>
+  <data name="cause.none" xml:space="preserve">
+    <value>未记录原因</value>
+  </data>
+  <data name="ansi.suppressed" xml:space="preserve">
+    <value>所有者要求我们不要再发布这个游戏的连接画面。</value>
+  </data>
+  <data name="ansi.absent" xml:space="preserve">
+    <value>尚未从这个游戏捕获到连接画面。</value>
+  </data>
+  <data name="ansi.tooSmall" xml:space="preserve">
+    <value>{count, plural, other {只回来了#行——太少，无法显示。}}</value>
+  </data>
+  <data name="ansi.asSent" xml:space="preserve">
+    <value>按服务器发送的原样</value>
+  </data>
+  <data name="ansi.size" xml:space="preserve">
+    <value>{columns}×{rows}</value>
+  </data>
+  <data name="ansi.size.doubleWidth" xml:space="preserve">
+    <value>{columns}×{rows}，双倍宽</value>
+  </data>
+  <data name="ansi.depth.colour" xml:space="preserve">
+    <value>16 色 SGR</value>
+  </data>
+  <data name="ansi.depth.plain" xml:space="preserve">
+    <value>无颜色</value>
+  </data>
+  <data name="ansi.readAs" xml:space="preserve">
+    <value>按 {charset} 解读</value>
+  </data>
+  <data name="ansi.captured" xml:space="preserve">
+    <value>已捕获</value>
+  </data>
+  <data name="ansi.frozen" xml:space="preserve">
+    <value>已冻结——我们最后看到的画面</value>
+  </data>
+  <data name="ansi.alt.named" xml:space="preserve">
+    <value>ASCII 图画：{game} 的连接画面。它的文本在下方的“以文本形式阅读”中。</value>
+  </data>
+  <data name="ansi.alt" xml:space="preserve">
+    <value>ASCII 图画：这个游戏的连接画面。它的文本在下方的“以文本形式阅读”中。</value>
+  </data>
+  <data name="ansi.plain.rows" xml:space="preserve">
+    <value>{count, plural, other {连接画面：#行，仅文本}}</value>
+  </data>
+  <data name="ansi.plain.rows.readAs" xml:space="preserve">
+    <value>{count, plural, other {连接画面：#行，仅文本，按 {charset} 解读}}</value>
+  </data>
+  <data name="capability.disagree.declaredNotOffered" xml:space="preserve">
+    <value>游戏自述具备该项，而服务器在握手中从未提供过它。</value>
+  </data>
+  <data name="capability.disagree.offeredNotDeclared" xml:space="preserve">
+    <value>服务器提供该项，而游戏自己的记录说它没有。</value>
+  </data>
+  <data name="capability.disagree.note" xml:space="preserve">
+    <value>通常只是一个久未更新的手打字段，而不是谎言。之所以显示出来，是因为客户端不该依赖两者不一致的部分。</value>
+  </data>
+  <data name="game.notFound" xml:space="preserve">
+    <value>未找到</value>
+  </data>
+  <data name="game.notFound.hint" xml:space="preserve">
+    <value>这个地址上没有游戏。请检查拼写。</value>
+  </data>
+  <data name="game.endpoint.lastAnswered" xml:space="preserve">
+    <value>最近应答</value>
+  </data>
+  <data name="game.stale" xml:space="preserve">
+    <value>{count, plural, other {有#项已超过刷新窗口。是旧，不是错。}}</value>
+  </data>
+  <data name="game.referrals.lists" xml:space="preserve">
+    <value>这个游戏自己的转介列表点名了：</value>
+  </data>
+  <data name="game.referrals.listedBy" xml:space="preserve">
+    <value>被以下游戏的转介列表点名：</value>
+  </data>
+  <data name="game.referral.since" xml:space="preserve">
+    <value>自 {date} 起</value>
+  </data>
+  <data name="game.referral.dropped" xml:space="preserve">
+    <value>已不再列出，最后一次见于</value>
+  </data>
+  <data name="game.archived.lastAnswered" xml:space="preserve">
+    <value>最近一次应答是 {date}，距今 {ago}。</value>
+  </data>
+  <data name="game.archived.stillProbed" xml:space="preserve">
+    <value>仍每周探测；它一应答，本页当天就会更新。</value>
+  </data>
+  <data name="game.archived.knownLive" xml:space="preserve">
+    <value>已知存活 {span}</value>
+  </data>
+  <data name="game.excluded" xml:space="preserve">
+    <value>不在列表、排行或每日数字中：我们认为这个地址不是一个可供人游玩的游戏。下面的一切都是它告诉我们的内容，原样未改。</value>
+  </data>
+  <data name="game.excluded.reason" xml:space="preserve">
+    <value>我们的理由：{why}</value>
+  </data>
+  <data name="game.unlisted" xml:space="preserve">
+    <value>应运营者的要求，不在列表、排行或每日数字中。下面的一切按原样保留，本页和它曾用过的每一个地址都继续应答，而我们不再向它拨号。</value>
+  </data>
+  <data name="game.plain.playersNow" xml:space="preserve">
+    <value>当前人数：{count}</value>
+  </data>
+  <data name="game.plain.playersUnknown" xml:space="preserve">
+    <value>当前人数：未知（未能实测出计数）</value>
+  </data>
+  <data name="game.plain.capabilities" xml:space="preserve">
+    <value>能力（{total} 项中有 {disagreeing} 项不一致）</value>
+  </data>
+  <data name="game.plain.declared" xml:space="preserve">
+    <value>游戏自述</value>
+  </data>
+  <data name="game.plain.connectScreen" xml:space="preserve">
+    <value>连接画面</value>
+  </data>
+  <data name="game.plain.whatChanged" xml:space="preserve">
+    <value>变更记录</value>
+  </data>
+  <data name="game.plain.measured" xml:space="preserve">
+    <value>实测</value>
+  </data>
+  <data name="game.plain.declared.column" xml:space="preserve">
+    <value>自述</value>
+  </data>
+  <data name="game.plain.disagree" xml:space="preserve">
+    <value>** 不一致</value>
+  </data>
 </root>
