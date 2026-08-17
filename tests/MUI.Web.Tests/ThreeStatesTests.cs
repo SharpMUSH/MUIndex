@@ -36,7 +36,17 @@ public class ThreeStatesTests
         var probed = Messages.For(Locales.SourceTag, "state.notCounted");
 
         // Two different facts, so two different strings — in every language, not just this one.
-        foreach (var locale in Locales.All.Where(l => l.IsChoosable))
+        //
+        // Walked over every locale the site has a bundle for, not the choosable ones. The filtered
+        // set can shrink to English alone — a locale that is not yet complete is not offered — and
+        // then this loop proves nothing while still passing, which is the failure mode a
+        // cross-locale claim is most prone to. The count is asserted so it cannot go quiet.
+        var locales = Locales.All.Where(l => l.Tag != Locales.SourceTag).ToList();
+
+        await Assert.That(locales.Count).IsGreaterThan(1)
+            .Because("a claim about every language needs more than one language to be a claim");
+
+        foreach (var locale in locales.Append(Locales.Source))
         {
             await Assert.That(Messages.For(locale.Tag, "listing.count.none"))
                 .IsNotEqualTo(Messages.For(locale.Tag, "state.notCounted"))

@@ -54,10 +54,19 @@ public class GameAnchorsTests
     {
         var html = await RenderAsync(strip);
 
-        foreach (var target in System.Text.RegularExpressions.Regex
+        var targets = System.Text.RegularExpressions.Regex
             .Matches(html, "href=\"#([^\"]+)\"")
             .Select(m => m.Groups[1].Value)
-            .Distinct(StringComparer.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        // A sweep over "every in-page link" asserts nothing when the page renders none, and passes
+        // anyway. The page under test has them; if it stops having them this should fail rather
+        // than quietly become a test of nothing.
+        await Assert.That(targets).IsNotEmpty()
+            .Because("the game page carries in-page links, and a sweep over none proves none of them");
+
+        foreach (var target in targets)
         {
             await Assert.That(html)
                 .Contains($"id=\"{target}\"")
