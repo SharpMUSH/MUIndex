@@ -1,4 +1,5 @@
 @page "/"
+@using MUI.Web.Localization
 @inject IGameQueries Queries
 @inject ICrawlerPulse Crawler
 @inject TimeProvider Clock
@@ -36,8 +37,8 @@ else
             the one thing a stranger needs before they read a count.
         *@
         <div class="hero-head">
-            <h1>A directory of the MU* hobby</h1>
-            <p class="lede">Every fact was measured by a crawler that connected to the game.</p>
+            <h1>@L("home.title")</h1>
+            <p class="lede">@L("home.lede")</p>
         </div>
 
         @*
@@ -46,13 +47,13 @@ else
             only as a keystroke is one a reader using a switch or a pointer cannot reach.
         *@
         <form class="search" method="get" action="/games" role="search">
-            <label for="q" class="sr-only">Search games by name, theme, codebase or host</label>
+            <label for="q" class="sr-only">@L("home.search.label")</label>
             <span class="search-field">
                 <span class="search-glyph mono" aria-hidden="true">⌕</span>
                 <input id="q" type="search" name="q"
-                       placeholder="search by name, theme, codebase or host" />
+                       placeholder="@L("home.search.placeholder")" />
             </span>
-            <button type="submit">search</button>
+            <button type="submit">@L("home.search.submit")</button>
         </form>
 
         @*
@@ -72,19 +73,19 @@ else
         *@
         <ul class="tiles">
             <li>
-                <span class="kicker">games known</span>
+                <span class="kicker">@L("tile.gamesKnown")</span>
                 <span class="figure mono">@Counts.Known</span>
             </li>
             <li>
-                <span class="kicker">connected now</span>
+                <span class="kicker">@L("tile.connectedNow")</span>
                 <span class="figure mono state-present">@Counts.WithPlayersOn</span>
             </li>
             <li>
-                <span class="kicker">answering, uncounted</span>
+                <span class="kicker">@L("tile.answeringUncounted")</span>
                 <span class="figure mono">@Counts.CountUnknown</span>
             </li>
             <li>
-                <a href="/archive"><span class="kicker">archived</span>
+                <a href="/archive"><span class="kicker">@L("tile.archived")</span>
                 <span class="figure mono">@Counts.Archived</span></a>
             </li>
         </ul>
@@ -102,10 +103,10 @@ else
     *@
     <div class="feeds">
         <section class="feed feed-lit" aria-labelledby="feed-new">
-            <h2 id="feed-new" class="kicker">newly discovered</h2>
+            <h2 id="feed-new" class="kicker">@L("feed.newlyDiscovered")</h2>
             @if (Feeds.NewlyDiscovered.Count == 0)
             {
-                <p class="faint">Nothing new.</p>
+                <p class="faint">@L("feed.nothingNew")</p>
             }
             @foreach (var entry in Feeds.NewlyDiscovered)
             {
@@ -116,10 +117,10 @@ else
         <section class="feed feed-dark" aria-labelledby="feed-dark">
             @* "Still probed" belongs here, once, rather than under every row as "we keep knocking".
                Nothing is ever deleted (§7.5) and this is where that promise is made. *@
-            <h2 id="feed-dark" class="kicker">went dark — still probed</h2>
+            <h2 id="feed-dark" class="kicker">@L("feed.wentDark")</h2>
             @if (Feeds.WentDark.Count == 0)
             {
-                <p class="faint">Nothing went dark.</p>
+                <p class="faint">@L("feed.nothingDark")</p>
             }
             @foreach (var entry in Feeds.WentDark)
             {
@@ -128,10 +129,10 @@ else
         </section>
 
         <section class="feed feed-lit" aria-labelledby="feed-back">
-            <h2 id="feed-back" class="kicker">came back</h2>
+            <h2 id="feed-back" class="kicker">@L("feed.cameBack")</h2>
             @if (Feeds.CameBack.Count == 0)
             {
-                <p class="faint">Nothing came back. We keep knocking.</p>
+                <p class="faint">@L("feed.nothingBack")</p>
             }
             @foreach (var entry in Feeds.CameBack)
             {
@@ -141,13 +142,13 @@ else
     </div>
 
     <div class="card-footer">
-        <a href="/games">all games</a>
+        <a href="/games">@L("footer.allGames")</a>
         <span class="sep" aria-hidden="true">·</span>
-        <a href="/archive">archive</a>
+        <a href="/archive">@L("footer.archive")</a>
         <span class="sep" aria-hidden="true">·</span>
-        <a href="/submit">submit a game</a>
+        <a href="/submit">@L("nav.submitGame")</a>
         <span class="sep" aria-hidden="true">·</span>
-        <a href="?plain=1">plain text</a>
+        <a href="?plain=1">@L("a11y.plainText")</a>
             <LanguageSwitcher />
     </div>
 
@@ -176,4 +177,9 @@ else
         // or a failed query alike, so the strip going quiet never costs a reader the front page.
         Pulse = await Crawler.ReadAsync(Now);
     }
+
+    /// <summary>The locale this page is being answered in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string L(string id) => Messages.For(Http.LocaleOf().Tag, id);
 }

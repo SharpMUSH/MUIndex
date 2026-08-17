@@ -1,3 +1,4 @@
+@using MUI.Web.Localization
 @using MUI.Web.Theme
 
 @*
@@ -13,11 +14,11 @@
     set. A radio group would have been the other honest shape and costs two.
 *@
 <form class="theme" method="post" action="@ReaderTheme.Path" aria-labelledby="theme-label">
-    <span id="theme-label" class="kick">theme</span>
+    <span id="theme-label" class="kick">@Messages.For(Tag, "theme.label")</span>
     <input type="hidden" name="@ReaderTheme.ReturnField" value="@Here" />
     @foreach (var choice in ReaderTheme.Choices)
     {
-        <button type="submit" name="@ReaderTheme.Field" value="@ReaderTheme.Word(choice)" aria-pressed="@Pressed(choice)">@ReaderTheme.Word(choice)</button>
+        <button type="submit" name="@ReaderTheme.Field" value="@ReaderTheme.Word(choice)" aria-pressed="@Pressed(choice)">@Messages.For(Tag, "theme." + ReaderTheme.Word(choice))</button>
     }
 </form>
 
@@ -27,6 +28,8 @@
     private HttpContext? HttpContext { get; set; }
 
     private ThemeChoice InForce => ReaderTheme.Of(HttpContext);
+
+    private string Tag => HttpContext.LocaleOf().Tag;
 
     /// <summary>
     /// The page this control was rendered on, so choosing does not lose the reader's place.

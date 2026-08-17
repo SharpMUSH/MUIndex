@@ -1,10 +1,11 @@
 @inherits LayoutComponentBase
 @using MUI.Web.Data
+@using MUI.Web.Localization
 @inject CatalogueSource Catalogue
 
 @* A connect screen is a figure a reader may want past in one keystroke, so the page needs somewhere
    for that keystroke to land. *@
-<a class="skip" href="#content">skip to content</a>
+<a class="skip" href="#content">@L("a11y.skipToContent")</a>
 
 @*
     A site whose whole claim is that its data is measured may not show invented data silently. This
@@ -14,17 +15,9 @@
 @if (!Catalogue.IsMeasured)
 {
     <p class="demo-banner" role="status">
-        <strong>Demo data.</strong> No database is configured, so this is a fixture. Nothing here was
-        measured.
+        <strong>@L("banner.demo.lead")</strong> @L("banner.demo")
     </p>
 }
-
-@*
-    A page whose words a machine wrote says so, above the chrome and before anything it translated —
-    the same place and the same reasoning as the demo banner: a reader who cannot tell a translated
-    sentence from a written one is being misled by exactly the mechanism this site exists to replace.
-*@
-<MachineTranslated />
 
 @*
     Nine links in one flat row, in no order anybody could name, and no mark on the one you were
@@ -53,23 +46,23 @@
         width the summary is hidden and the disclosure's content is forced visible, so one markup is
         a bar on a laptop and a menu on a phone with no script and no second rendering.
     *@
-    <nav class="site-nav" aria-label="Catalogues">
+    <nav class="site-nav" aria-label="@L("nav.catalogues")">
         <details class="nav-menu">
-            <summary>menu <span aria-hidden="true">▾</span></summary>
+            <summary>@L("nav.menu") <span aria-hidden="true">▾</span></summary>
             <div class="menu-panel">
-                <span class="nav-group" role="group" aria-label="Browse">
-                    <span class="nav-label" aria-hidden="true">browse</span>
-                    @Item("/games", "games")
-                    @Item("/find", "find")
-                    @Item("/games/random", "random")
-                    @Item("/archive", "archive")
+                <span class="nav-group" role="group" aria-label="@L("nav.browse")">
+                    <span class="nav-label" aria-hidden="true">@L("nav.browse")</span>
+                    @Item("/games", L("nav.games"))
+                    @Item("/find", L("nav.find"))
+                    @Item("/games/random", L("nav.random"))
+                    @Item("/archive", L("nav.archive"))
                 </span>
                 <span class="nav-rule" aria-hidden="true"></span>
-                <span class="nav-group" role="group" aria-label="Learn">
-                    <span class="nav-label" aria-hidden="true">learn</span>
-                    @Item("/reference", "reference")
-                    @Item("/ecosystem", "ecosystem")
-                    @Item("/rankings", "rankings")
+                <span class="nav-group" role="group" aria-label="@L("nav.learn")">
+                    <span class="nav-label" aria-hidden="true">@L("nav.learn")</span>
+                    @Item("/reference", L("nav.reference"))
+                    @Item("/ecosystem", L("nav.ecosystem"))
+                    @Item("/rankings", L("nav.rankings"))
                 </span>
 
                 @*
@@ -80,8 +73,8 @@
                     will let a reader do.
                 *@
                 <span class="menu-tail">
-                    <span class="nav-label" aria-hidden="true">this site</span>
-                    <a href="/submit">submit a game</a>
+                    <span class="nav-label" aria-hidden="true">@L("nav.thisSite")</span>
+                    <a href="/submit">@L("nav.submitGame")</a>
                 </span>
             </div>
         </details>
@@ -95,16 +88,16 @@
         connect-screen decision, the opt-out. All of them rendered, tested and reachable only by
         somebody who remembered to type /account.
     *@
-    <nav class="account" aria-label="This site and your account">
-        @Item("/about", "about")
-        <a class="action" href="/submit">submit</a>
+    <nav class="account" aria-label="@L("nav.account")">
+        @Item("/about", L("nav.about"))
+        <a class="action" href="/submit">@L("nav.submit")</a>
         @if (HttpContext?.User is { Identity.IsAuthenticated: true })
         {
-            <a class="action primary" href="/account">your games</a>
+            <a class="action primary" href="/account">@L("nav.yourGames")</a>
         }
         else
         {
-            <a class="action primary" href="/account/sign-in">sign in</a>
+            <a class="action primary" href="/account/sign-in">@L("nav.signIn")</a>
         }
     </nav>
     @*
@@ -162,4 +155,7 @@
     /// </remarks>
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }
+
+    /// <summary>One message, in the locale this request is being answered in.</summary>
+    private string L(string id) => Messages.For(HttpContext.LocaleOf().Tag, id);
 }

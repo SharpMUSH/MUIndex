@@ -23,14 +23,11 @@ public enum LocaleStatus
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The handoff's own third tier, and the banner is the whole of what makes it honest.</b>
-    /// Long-form prose may be machine-translated behind a label; what may not be is the accessibility
-    /// strings, because a sighted reader who meets a garbled label can look at the graphic and
-    /// correct for it and a blind reader has only the label. So a locale in this state carries the
-    /// <c>◆</c> notice on every page — the glyph that already means <em>derived</em>, so a returning
-    /// reader recognises the claim without learning a symbol — and the notice's second clause is
-    /// load-bearing: the measured values are unaffected, which is only true because the machine voice
-    /// carries <c>translate="no"</c> and never enters the pipeline.
+    /// <b>The status is the record, and it is the gate.</b> A locale here has words but nobody has
+    /// read them, so it is reachable and never <em>offered</em>: no <c>Accept-Language</c> answer, no
+    /// <c>hreflang</c> alternate and no default sends anybody to one. It says so nowhere on the page
+    /// — the notice this tier used to carry was removed at the user's request — so the honesty this
+    /// enum represents now lives entirely in what the site declines to do with it.
     /// </para>
     /// <para>
     /// It is <see cref="Locale.IsChoosable"/> and not <see cref="Locale.IsOffered"/>: a reader can
@@ -79,8 +76,6 @@ public sealed record Locale(string Tag, string Endonym, LocaleStatus Status)
     public bool IsChoosable =>
         Status is LocaleStatus.Shipped or LocaleStatus.MachineTranslated or LocaleStatus.TestOnly;
 
-    /// <summary>Whether every page in this locale has to say a machine wrote its words.</summary>
-    public bool IsMachineTranslated => Status is LocaleStatus.MachineTranslated;
 }
 
 /// <summary>

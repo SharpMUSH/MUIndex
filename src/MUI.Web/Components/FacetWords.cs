@@ -1,6 +1,7 @@
 using System.Globalization;
 
 using MUI.Catalog;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Components;
 
@@ -24,29 +25,30 @@ namespace MUI.Web.Components;
 public static class FacetWords
 {
     /// <summary>What a facet is called on the page.</summary>
-    public static string Group(string key) => key switch
+    public static string Group(string tag, string key) => Messages.For(tag, key switch
     {
-        FacetKeys.Band => "activity",
-        FacetKeys.LastSeen => "last seen",
-        FacetKeys.Protocol => "protocols offered",
-        FacetKeys.Tls => "encrypted",
+        FacetKeys.Band => "facet.group.band",
+        FacetKeys.LastSeen => "facet.group.seen",
+        FacetKeys.Protocol => "facet.group.protocol",
+        FacetKeys.Tls => "facet.group.tls",
+
         // "encoding", not "encoding negotiated": the evidence chip beside it already says measured,
         // and the two words together wrapped the label and knocked its control out of line with the
         // rest of the row. What negotiation has to do with it is in the values — "nothing negotiated"
         // is what this facet calls a game it has no answer for.
-        FacetKeys.Charset => "encoding",
-        FacetKeys.Codebase => "codebase",
+        FacetKeys.Charset => "facet.group.charset",
+        FacetKeys.Codebase => "facet.group.codebase",
 
         // "version" alone, because it sits directly under the codebase it is a version of and the
         // pair reads as one column. "codebase version" repeated the word the row above it already
         // said and wrapped the label onto two lines for the sake of it.
-        FacetKeys.CodebaseVersion => "version",
-        FacetKeys.Lineage => "lineage",
-        FacetKeys.Family => "family",
-        FacetKeys.Genre => "genre",
-        FacetKeys.Language => "language",
+        FacetKeys.CodebaseVersion => "facet.group.version",
+        FacetKeys.Lineage => "facet.group.lineage",
+        FacetKeys.Family => "facet.group.family",
+        FacetKeys.Genre => "facet.group.genre",
+        FacetKeys.Language => "facet.group.language",
         _ => key,
-    };
+    });
 
     /// <summary>
     /// What kind of statement a facet is, in one word.
@@ -65,12 +67,12 @@ public static class FacetWords
     /// key rather than as commentary.
     /// </para>
     /// </remarks>
-    public static string Evidence(FacetEvidence evidence) => evidence switch
+    public static string Evidence(string tag, FacetEvidence evidence) => Messages.For(tag, evidence switch
     {
-        FacetEvidence.Measured => "measured",
-        FacetEvidence.Derived => "derived",
-        _ => "declared",
-    };
+        FacetEvidence.Measured => "kicker.measured",
+        FacetEvidence.Derived => "kicker.derived",
+        _ => "kicker.declared",
+    });
 
     /// <summary>What each of those words means, said once per surface rather than once per facet.</summary>
     /// <remarks>
@@ -79,12 +81,12 @@ public static class FacetWords
     /// would be the only fact on the site whose author had gone missing, which is precisely the one
     /// where it matters.
     /// </remarks>
-    public static string EvidenceMeaning(FacetEvidence evidence) => evidence switch
+    public static string EvidenceMeaning(string tag, FacetEvidence evidence) => Messages.For(tag, evidence switch
     {
-        FacetEvidence.Measured => "we watched this happen",
-        FacetEvidence.Derived => "we grouped what the game told us",
-        _ => "the game says so, and we did not check",
-    };
+        FacetEvidence.Measured => "evidence.measured.meaning",
+        FacetEvidence.Derived => "evidence.derived.meaning",
+        _ => "evidence.declared.meaning",
+    });
 
     /// <summary>What each sort order is called on the control.</summary>
     /// <remarks>
@@ -101,18 +103,18 @@ public static class FacetWords
     /// word "median", so nothing is hidden by the plainer label.
     /// </para>
     /// </remarks>
-    public static string Sort(GameSort sort) => sort switch
+    public static string Sort(string tag, GameSort sort) => Messages.For(tag, sort switch
     {
-        GameSort.Players => "connected now",
-        GameSort.Reached => "last reached",
-        GameSort.MedianWeek => "typically on · 7 days",
-        GameSort.MedianMonth => "typically on · 30 days",
-        GameSort.MedianQuarter => "typically on · 90 days",
-        GameSort.PeakWeek => "most on at once · 7 days",
-        GameSort.PeakMonth => "most on at once · 30 days",
-        GameSort.PeakQuarter => "most on at once · 90 days",
-        _ => "name",
-    };
+        GameSort.Players => "sort.players",
+        GameSort.Reached => "sort.reached",
+        GameSort.MedianWeek => "sort.medianWeek",
+        GameSort.MedianMonth => "sort.medianMonth",
+        GameSort.MedianQuarter => "sort.medianQuarter",
+        GameSort.PeakWeek => "sort.peakWeek",
+        GameSort.PeakMonth => "sort.peakMonth",
+        GameSort.PeakQuarter => "sort.peakQuarter",
+        _ => "sort.name",
+    });
 
     /// <summary>
     /// Which group of the sort control an order belongs in.
@@ -122,13 +124,13 @@ public static class FacetWords
     /// each order reads — a fact on the row, or a statistic over a span — which is also the
     /// difference a reader most needs to see before choosing one.
     /// </remarks>
-    public static string SortGroup(GameSort sort) => SortWindows.Of(sort) is null
-        ? "on the row now"
+    public static string SortGroup(string tag, GameSort sort) => Messages.For(tag,
+        SortWindows.Of(sort) is null ? "sort.group.row"
 
         // Two words, because each option under them already names its own window: "typically on ·
         // 7 days" under a heading reading "typical over a window" said the window twice and the
         // word once.
-        : SortWindows.IsMedian(sort) ? "typical" : "peak";
+        : SortWindows.IsMedian(sort) ? "sort.group.typical" : "sort.group.peak");
 
     /// <summary>
     /// How a window figure is spelled where it is shown beside the row it ranked.
@@ -147,16 +149,21 @@ public static class FacetWords
     /// it off the row rather than the documentation.
     /// </para>
     /// </remarks>
-    public static string Window(PresenceWindow window, GameSort sort)
+    public static string Window(string tag, PresenceWindow window, GameSort sort)
     {
         ArgumentNullException.ThrowIfNull(window);
 
-        var span = $"{window.Window.TotalDays:0}d";
-        var counts = $"{window.Samples} count{(window.Samples == 1 ? string.Empty : "s")}";
-
-        return SortWindows.IsMedian(sort)
-            ? $"median {window.Median.ToString(CultureInfo.InvariantCulture)} · {span} · {counts}"
-            : $"most {window.Peak} at once · {span} · {counts}";
+        return Messages.For(
+            tag,
+            SortWindows.IsMedian(sort) ? "sort.window.median" : "sort.window.peak",
+            new Dictionary<string, object?>
+            {
+                ["value"] = SortWindows.IsMedian(sort)
+                    ? window.Median.ToString(CultureInfo.InvariantCulture)
+                    : window.Peak.ToString(CultureInfo.InvariantCulture),
+                ["days"] = ((int)window.Window.TotalDays).ToString(CultureInfo.InvariantCulture),
+                ["count"] = window.Samples,
+            });
     }
 
     /// <summary>
@@ -169,37 +176,39 @@ public static class FacetWords
     /// that runs 54, 11, 2, 0, and then a long tail of games showing no number, which is a list that
     /// looks exactly like the lie.
     /// </remarks>
-    public static string Unranked(GameSort sort) => sort switch
+    public static string Unranked(string tag, GameSort sort) => sort switch
     {
-        GameSort.Players => "Unknown count",
-        GameSort.Reached => "never once reached — not reached long ago",
+        GameSort.Players => Messages.For(tag, "sort.unranked.players"),
+        GameSort.Reached => Messages.For(tag, "sort.unranked.reached"),
 
         // Two reasons in one group, and the sentence names both: nothing countable in the window, or
         // too few counts to take a median of. Neither is "nobody plays here", and a tail rendered as
         // a run of noughts would say exactly that.
-        _ when SortWindows.IsMedian(sort) =>
-            $"fewer than {SortWindows.MinimumSamples} counts in the window, or none at all "
-            + "— not a typical count of zero",
-        _ when SortWindows.Of(sort) is not null =>
-            "nothing we could count in the window — not a game nobody was on",
+        _ when SortWindows.IsMedian(sort) => Messages.For(tag, "sort.unranked.median",
+            new Dictionary<string, object?> { ["minimum"] = SortWindows.MinimumSamples }),
+        _ when SortWindows.Of(sort) is not null => Messages.For(tag, "sort.unranked.window"),
         _ => string.Empty,
     };
 
     /// <summary>One value's label. Open-ended facets are their own labels; the derived ones are not.</summary>
-    public static string Value(string key, FacetValue value)
+    public static string Value(string tag, string key, FacetValue value)
     {
         ArgumentNullException.ThrowIfNull(value);
 
         if (value.IsUnknown)
         {
-            return Unknown(key);
+            return Unknown(tag, key);
         }
 
         return key switch
         {
-            FacetKeys.Band => Band(value.Token),
-            FacetKeys.LastSeen => LastSeen(value.Token),
-            FacetKeys.Tls => "connected over TLS",
+            FacetKeys.Band => Band(tag, value.Token),
+            FacetKeys.LastSeen => LastSeen(tag, value.Token),
+            FacetKeys.Tls => Messages.For(tag, "facet.tls.yes"),
+
+            // Everything else IS the value: a codebase name, a version string, a protocol acronym.
+            // Machine voice — it is what a game said about itself, and translating it would destroy
+            // the evidence rather than localize anything.
             _ => value.Token,
         };
     }
@@ -214,20 +223,29 @@ public static class FacetWords
     /// codebase we could not read, and nobody has ever parsed that phrase on the first try. The
     /// absences get the positive sentence they are the absence of.
     /// </remarks>
-    public static string Excluded(string key, FacetValue value)
+    public static string Excluded(string tag, string key, FacetValue value)
     {
         ArgumentNullException.ThrowIfNull(value);
 
-        return value.IsUnknown ? Known(key) : "not " + Value(key, value);
+        return value.IsUnknown
+            ? Known(tag, key)
+
+            // A message rather than "not " + the value: the negation goes before the noun in
+            // English and after it in several other languages, and a caller concatenating it here
+            // has taken that word order away from every translator at once.
+            : Messages.For(tag, "facet.excluded", new Dictionary<string, object?>
+            {
+                ["value"] = Value(tag, key, value),
+            });
     }
 
     /// <summary>The opposite of <see cref="Unknown"/> — the games this facet has any value for.</summary>
-    private static string Known(string key) => key switch
+    private static string Known(string tag, string key) => Messages.For(tag, key switch
     {
-        FacetKeys.Charset => "something negotiated",
-        FacetKeys.Codebase => "identified at all",
-        _ => "declared at all",
-    };
+        FacetKeys.Charset => "facet.known.charset",
+        FacetKeys.Codebase => "facet.known.codebase",
+        _ => "facet.known.other",
+    });
 
     /// <summary>
     /// What "we have no value for this game" is called, per facet.
@@ -238,12 +256,12 @@ public static class FacetWords
     /// published; an encoding nothing negotiated is a limit of the handshake. Rendering all three as
     /// "unknown" would be true and would throw away the only part of the answer worth having.
     /// </remarks>
-    public static string Unknown(string key) => key switch
+    public static string Unknown(string tag, string key) => Messages.For(tag, key switch
     {
-        FacetKeys.Charset => "nothing negotiated",
-        FacetKeys.Codebase => "not identified",
-        _ => "not declared",
-    };
+        FacetKeys.Charset => "facet.unknown.charset",
+        FacetKeys.Codebase => "facet.unknown.codebase",
+        _ => "facet.unknown.other",
+    });
 
     /// <summary>
     /// Whether a facet's values are points on one ordered scale rather than alternatives.
@@ -275,27 +293,27 @@ public static class FacetWords
     /// words for the band, and then the listing shortened the band to "uncounted" and the two
     /// drifted — which is the whole failure the comment was written to prevent.
     /// </remarks>
-    public static string BandWord(string token) => Band(token);
+    public static string BandWord(string tag, string token) => Band(tag, token);
 
-    private static string Band(string token) => token switch
+    private static string Band(string tag, string token) => Messages.For(tag, token switch
     {
-        "playersNow" => "connected now",
-        "activeThisWeek" => "active this week",
-        "quiet" => "uncounted",
-        "dark" => "dark — not reached in a month",
-        _ => "archived",
-    };
+        "playersNow" => "facet.band.playersNow",
+        "activeThisWeek" => "facet.band.activeThisWeek",
+        "quiet" => "facet.band.quiet",
+        "dark" => "facet.band.dark",
+        _ => "facet.band.archived",
+    });
 
-    private static string LastSeen(string token) => token switch
+    private static string LastSeen(string tag, string token) => Messages.For(tag, token switch
     {
-        "day" => "in the last 24 hours",
-        "week" => "in the last 7 days",
-        "month" => "in the last 30 days",
-        "older" => "longer ago",
+        "day" => "facet.seen.day",
+        "week" => "facet.seen.week",
+        "month" => "facet.seen.month",
+        "older" => "facet.seen.older",
 
         // Never reached, and deliberately not the oldest bucket: a game we have listed and never
         // once got an answer from has no last-seen date at all, and dating it from our own ignorance
         // would read as its outage.
-        _ => "never reached",
-    };
+        _ => "facet.seen.never",
+    });
 }

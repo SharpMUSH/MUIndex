@@ -1,4 +1,5 @@
 @page "/g/{Slug}"
+@using MUI.Web.Localization
 @using MUI.Web.Data
 @using MUI.Catalog.Persistence
 @inject IGameQueries Queries
@@ -55,7 +56,7 @@ else
                 <h1><GameName Name="@Page.Summary.Name" /></h1>
                 @if (Archived)
                 {
-                    <p class="badges"><span class="badge archived">archived</span></p>
+                    <p class="badges"><span class="badge archived">@L("facet.archived")</span></p>
                 }
                 @if (Page.Summary.Tagline is { } tagline)
                 {
@@ -75,16 +76,16 @@ else
                 @if (Page.Summary.IsClaimed)
                 {
                     <p class="claim-line dim">
-                        Claimed by its owner — measured facts below are still ours.
+                        @L("game.claimed")
                     </p>
                 }
                 else if (!Archived)
                 {
                     <p class="claim-line dim">
-                        Unclaimed — everything here was measured.
+                        @L("game.unclaimed")
                         @if (Claimable)
                         {
-                            <a href="/g/@Page.Summary.Slug/claim">Claim this game</a>
+                            <a href="/g/@Page.Summary.Slug/claim">@L("game.claim")</a>
                         }
                     </p>
                 }
@@ -117,7 +118,7 @@ else
                         }
                         @if (e.IsCurrent)
                         {
-                            <span class="faint">answering since @Dates.Absolute(e.FirstSeenAt)</span>
+                            <span class="faint">@L("game.answeringSince", ("date", Dates.Absolute(e.FirstSeenAt)))</span>
                         }
                         else
                         {
@@ -144,10 +145,10 @@ else
                 @if (Page.Summary.PlayersNow is { } n)
                 {
                     <p class="figure-count mono @(Counted?.IsMeasured is false ? "declared" : null)">
-                        @n <span class="unit">connected</span>
+                        @n <span class="unit">@L("term.connected")</span>
                     </p>
                     <p class="kicker figure-age">
-                        @(Counted?.IsMeasured is false ? "declared" : "measured")
+                        @L(Counted?.IsMeasured is false ? "kicker.declared" : "kicker.measured")
                         <Moment At="@(Counted?.LastConfirmedAt ?? Now)" Now="Now" Ago="true" Spoken="true" />
                     </p>
                 }
@@ -155,8 +156,8 @@ else
                 {
                     @* Never a zero and never a blank: those are different facts and only one of
                        them is a measurement. *@
-                    <p class="figure-count mono unknown">not counted</p>
-                    <p class="kicker figure-age">unknown count</p>
+                    <p class="figure-count mono unknown">@L("state.notCounted")</p>
+                    <p class="kicker figure-age">@L("game.unknownCount")</p>
                 }
             </div>
         </header>
@@ -219,7 +220,7 @@ else
         <div class="game-body">
 
         <section aria-labelledby="screen-heading">
-            <h2 id="screen-heading">Connect screen</h2>
+            <h2 id="screen-heading">@L("game.connectScreen")</h2>
             <AnsiQuote Screen="ConnectScreen" CapturedAt="Captured" Now="Now"
                        Name="@Page.Summary.Name"
                        Frozen="@(Archived || Unlisted)"
@@ -232,7 +233,7 @@ else
                     which is what the crawler can see, and naming it for people is a claim about who
                     is behind them that no probe can make.
                 *@
-                <h2 id="activity-heading">Connections by hour</h2>
+                <h2 id="activity-heading">@L("game.connectionsByHour")</h2>
                 <ActivityHeatmap Cells="Page.Activity" />
 
                 @*
@@ -242,7 +243,7 @@ else
                 *@
                 @if (Trend is not null)
                 {
-                    <h2 id="trend-heading">How many, over time</h2>
+                    <h2 id="trend-heading">@L("game.howMany")</h2>
                     <PresenceTrend Series="Trend" Shape="Shape" />
 
                     @* The range is in the address, so seeking is links and needs no script. *@
@@ -291,7 +292,7 @@ else
                     </nav>
                 }
 
-                <h2>Reachable</h2>
+                <h2>@L("game.reachable")</h2>
                 <AvailabilityStrip Summary="Reach" />
 
                 @*
@@ -303,7 +304,7 @@ else
                 *@
                 @if (Page.Referrals.Count > 0)
                 {
-                    <h2>Referrals</h2>
+                    <h2>@L("game.referrals")</h2>
 
                     @foreach (var group in Page.Referrals.GroupBy(n => n.Direction))
                     {
@@ -339,7 +340,7 @@ else
 
                 @if (Page.Changes.Count > 0)
                 {
-                    <h2 id="changed">What changed</h2>
+                    <h2 id="changed">@L("game.whatChanged")</h2>
                     <ol class="changes mono">
                         @foreach (var change in Page.Changes.OrderByDescending(c => c.At))
                         {
@@ -357,7 +358,7 @@ else
             <section aria-labelledby="capabilities" class="cap-section">
                 <CapabilityMatrix Rows="Page.Capabilities" Now="Now" />
 
-                <h2 id="declared">Declared by the game</h2>
+                <h2 id="declared">@L("game.declaredByGame")</h2>
                 <dl class="declared">
                     @foreach (var (name, chip) in Page.Declared)
                     {
@@ -376,11 +377,11 @@ else
         </div>
 
         <div class="card-footer">
-            <a href="#declared">declared by the game</a>
+            <a href="#declared">@L("footer.declaredByGame")</a>
             <span class="sep" aria-hidden="true">·</span>
-            <a href="#changed">what changed</a>
+            <a href="#changed">@L("footer.whatChanged")</a>
             <span class="sep" aria-hidden="true">·</span>
-            <a href="?plain=1">plain text</a>
+            <a href="?plain=1">@L("a11y.plainText")</a>
                     <LanguageSwitcher />
         </div>
     </article>
@@ -541,4 +542,12 @@ else
         Entry = ArchiveEntry.For(Page.Summary, intervals, Now);
         ConnectScreen = Ansi.Parse(Page.ConnectScreen, Page.ConnectScreenSuppressed);
     }
+
+    /// <summary>The locale this page is being answered in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string L(string id) => Messages.For(Http.LocaleOf().Tag, id);
+
+    private string L(string id, params (string Key, object? Value)[] args) =>
+        Messages.For(Http.LocaleOf().Tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 }

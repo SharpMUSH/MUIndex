@@ -1592,28 +1592,6 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
     color: var(--text);
 }
 
-/*
-  The machine-translation notice. The same band as the demo banner and deliberately the same shape —
-  both say "what you are about to read is not what this site normally promises" — but in the derived
-  hue rather than the declared one, because a translation is something we computed and not something
-  anybody claimed.
-*/
-.mt-banner {
-    margin: 0;
-    padding: 12px var(--gutter);
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 10px;
-    background: color-mix(in srgb, var(--derived) 14%, transparent);
-    border-bottom: 1px solid color-mix(in srgb, var(--derived) 45%, transparent);
-    color: var(--text);
-    font-size: 13.5px;
-}
-
-.mt-banner .glyph { color: var(--derived); }
-.mt-banner a { color: var(--text); }
-
 /* ── about ─────────────────────────────────────────────────────────────────
    Prose measure and nothing else. The one page whose whole job is to say what the rest of the site
    can and cannot prove is the wrong place to spend the accent on decoration, so it carries no

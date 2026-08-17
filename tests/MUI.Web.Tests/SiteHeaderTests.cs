@@ -72,8 +72,8 @@ public class SiteHeaderTests
         // rather than a category, and about is site meta. Both moved to the far end, beside sign in.
         var markup = await HeaderAsync(signedIn: false);
 
-        await Assert.That(markup).Contains("aria-label=\"Browse\"");
-        await Assert.That(markup).Contains("aria-label=\"Learn\"");
+        await Assert.That(markup).Contains("aria-label=\"browse\"");
+        await Assert.That(markup).Contains("aria-label=\"learn\"");
 
         var catalogues = markup[markup.IndexOf("site-nav", StringComparison.Ordinal)..
             markup.IndexOf("nav class=\"account", StringComparison.Ordinal)];

@@ -1,5 +1,6 @@
 using System.Text;
 using MUI.Catalog;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Components;
 
@@ -307,7 +308,8 @@ public static class PlainText
     /// URL. A panel that only worked as a widget would fail §9's own test of itself: if a fact
     /// cannot survive in plain text, its graphic on the main site is decoration.
     /// </remarks>
-    public static string RenderListing(GameListing listing, GameFilter filter, DateTimeOffset now)
+    public static string RenderListing(
+        GameListing listing, GameFilter filter, DateTimeOffset now, string tag = Locales.SourceTag)
     {
         ArgumentNullException.ThrowIfNull(listing);
         ArgumentNullException.ThrowIfNull(filter);
@@ -327,7 +329,7 @@ public static class PlainText
         // The order, stated. A sorted list that does not say what it is sorted by is one a reader has
         // to reverse-engineer from the first few rows — and that is exactly how a tail of games
         // showing no number gets read as a tail of games with no players.
-        b.AppendLine($"Sorted by {FacetWords.Sort(filter.Sort)}");
+        b.AppendLine($"Sorted by {FacetWords.Sort(tag, filter.Sort)}");
 
         // And every order it could have been in, wrapped rather than run on: a text browser cannot
         // operate a <select> but can perfectly well edit a URL, and nine sort tokens on one line is
@@ -336,7 +338,7 @@ public static class PlainText
         // plain surface has that the rendered one does not.
         Wrap(b, $"?{FacetKeys.Sort}={string.Join(" / ", FacetTokens.Sorts)}", "  ");
 
-        AppendFacets(b, listing.Facets);
+        AppendFacets(tag, b, listing.Facets);
         b.AppendLine();
 
         if (games.Count == 0)
@@ -355,7 +357,7 @@ public static class PlainText
             if (!broken && GameSorting.IsUnranked(g, filter.Sort))
             {
                 broken = true;
-                b.AppendLine($"-- from here: {FacetWords.Unranked(filter.Sort)}");
+                b.AppendLine($"-- from here: {FacetWords.Unranked(tag, filter.Sort)}");
                 b.AppendLine();
             }
 
@@ -380,7 +382,7 @@ public static class PlainText
             // "over 7 days: —" on every row of an alphabetical listing is a column of nothing.
             if (g.PlayersOverWindow is { } window)
             {
-                b.AppendLine($"  Ranked on:   {FacetWords.Window(window, filter.Sort)}");
+                b.AppendLine($"  Ranked on:   {FacetWords.Window(tag, window, filter.Sort)}");
             }
 
             // Never blank. "We could not identify it" is a measurement and a missing line is not.
@@ -419,7 +421,7 @@ public static class PlainText
     /// a game is not a no — those are the two readings this whole design exists to prevent, and a
     /// surface that leaves them to be inferred has left the important half out.
     /// </remarks>
-    private static void AppendFacets(StringBuilder b, IReadOnlyList<FacetGroup> facets)
+    private static void AppendFacets(string tag, StringBuilder b, IReadOnlyList<FacetGroup> facets)
     {
         if (facets.Count == 0)
         {
@@ -432,7 +434,7 @@ public static class PlainText
         // surface where the key is the only place the distinction is ever made.
         Wrap(b, "Each facet is marked "
             + string.Join(", ", Enum.GetValues<FacetEvidence>()
-                .Select(e => $"{FacetWords.Evidence(e)} ({FacetWords.EvidenceMeaning(e)})"))
+                .Select(e => $"{FacetWords.Evidence(tag, e)} ({FacetWords.EvidenceMeaning(tag, e)})"))
             + ".");
         b.AppendLine();
         Wrap(b, "Counts are exact, from the same query as the list below. A blank is a gap in our "
@@ -442,12 +444,12 @@ public static class PlainText
         foreach (var group in facets)
         {
             b.AppendLine();
-            b.AppendLine($"  {FacetWords.Group(group.Key)}"
-                + $" — {FacetWords.Evidence(group.Evidence)}  (?{group.Key}=…)");
+            b.AppendLine($"  {FacetWords.Group(tag, group.Key)}"
+                + $" — {FacetWords.Evidence(tag, group.Evidence)}  (?{group.Key}=…)");
 
             foreach (var value in group.Values)
             {
-                var words = FacetWords.Value(group.Key, value);
+                var words = FacetWords.Value(tag, group.Key, value);
                 var gloss = string.Equals(words, value.Token, StringComparison.Ordinal)
                     ? string.Empty
                     : "  " + words;
@@ -662,7 +664,8 @@ public static class PlainText
     /// 122 of 310 (39.4%)" is the fact, and the bar is a way of seeing several of them at once.
     /// Nothing is lost here but the seeing-at-once, which is the test §9 sets for a graphic.
     /// </remarks>
-    public static string RenderEcosystem(EcosystemDashboard dashboard, DateTimeOffset now)
+    public static string RenderEcosystem(
+        EcosystemDashboard dashboard, DateTimeOffset now, string tag = Locales.SourceTag)
     {
         ArgumentNullException.ThrowIfNull(dashboard);
 
@@ -713,8 +716,8 @@ public static class PlainText
 
         Heading(b, "LINEAGES");
         Wrap(b, "The same games, grouped by the tradition their server descends from. This is "
-            + $"{FacetWords.Evidence(FacetEvidence.Derived)} — "
-            + $"{FacetWords.EvidenceMeaning(FacetEvidence.Derived)} — and not anything a game "
+            + $"{FacetWords.Evidence(tag, FacetEvidence.Derived)} — "
+            + $"{FacetWords.EvidenceMeaning(tag, FacetEvidence.Derived)} — and not anything a game "
             + "published: no game reports \"MUSH\", because MSSP has no such value and most of the "
             + "MUSH world publishes no MSSP at all.");
         b.AppendLine();
@@ -832,7 +835,7 @@ public static class PlainText
     /// A guarantee with two exceptions is not one.
     /// </para>
     /// </remarks>
-    public static string RenderFind(GameListing? listing)
+    public static string RenderFind(GameListing? listing, string tag = Locales.SourceTag)
     {
         var b = new StringBuilder();
 
@@ -854,13 +857,13 @@ public static class PlainText
 
         foreach (var group in listing.Facets)
         {
-            Heading(b, FacetWords.Group(group.Key).ToUpperInvariant()
+            Heading(b, FacetWords.Group(tag, group.Key).ToUpperInvariant()
                 + $"  ({group.Key}=)");
 
             foreach (var value in group.Values)
             {
                 b.AppendLine($"  {group.Key}={value.Token,-24} "
-                    + $"{FacetWords.Value(group.Key, value)} ({value.Count})");
+                    + $"{FacetWords.Value(tag, group.Key, value)} ({value.Count})");
             }
         }
 

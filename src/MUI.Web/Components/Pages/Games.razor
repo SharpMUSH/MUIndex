@@ -1,4 +1,5 @@
 @page "/games"
+@using MUI.Web.Localization
 @using System.Globalization
 @using Microsoft.AspNetCore.WebUtilities
 @using MUI.Web.Api
@@ -8,7 +9,7 @@
 
 @if (Plain)
 {
-    <pre class="mono plain">@PlainText.RenderListing(Listing, Filter, Now)</pre>
+    <pre class="mono plain">@PlainText.RenderListing(Listing, Filter, Now, Tag)</pre>
 }
 else
 {
@@ -27,7 +28,7 @@ else
         site makes rather than a fact about this page.
     *@
     <header class="listing-head">
-        <h1>Games</h1>
+        <h1>@Messages.For(Tag, "games.title")</h1>
     </header>
 
     @if (Error is { } problem)
@@ -38,10 +39,10 @@ else
             somebody's question — the same rule that stops an unparseable WHO reading as zero.
         *@
         <p class="problem" role="alert">@problem</p>
-        <p><a href="/games">clear filters</a></p>
+        <p><a href="/games">@Messages.For(Tag, "listing.clearFilters")</a></p>
         @* The text mirror is offered from here too: a reader who cannot read the refusal is exactly
            the one who wants the other surface. *@
-        <p class="faint"><a href="@PlainHref">plain text</a></p>
+        <p class="faint"><a href="@PlainHref">@Messages.For(Tag, "a11y.plainText")</a></p>
     }
     else
     {
@@ -71,7 +72,7 @@ else
                 chip cannot carry: the page explaining the thing being filtered on.
             *@
             <p class="kicker">
-                <a href="/reference/codebases/@(family.ToLowerInvariant())">about @family</a>
+                <a href="/reference/codebases/@(family.ToLowerInvariant())">@Messages.For(Tag, "listing.aboutCodebase", new Dictionary<string, object?> { ["codebase"] = family })</a>
             </p>
         }
 
@@ -91,17 +92,20 @@ else
         *@
         <div class="listing-bar">
             <p class="listing-order">
-                sorted by <span class="order-name">@FacetWords.Sort(Filter.Sort)</span>
+                @((MarkupString)Messages.For(Tag, "listing.sortedBy", new Dictionary<string, object?>
+                {
+                    ["order"] = $"<span class=\"order-name\">{System.Net.WebUtility.HtmlEncode(FacetWords.Sort(Tag, Filter.Sort))}</span>",
+                }))
                 @if (Listing.Games.Count > 0)
                 {
                     @* Only where there is something to be random among. An affordance that cannot do
                        what it offers is worse than one that is not there. *@
-                    <span class="sep" aria-hidden="true">·</span><a href="@RandomHref">random</a>
+                    <span class="sep" aria-hidden="true">·</span><a href="@RandomHref">@Messages.For(Tag, "listing.random")</a>
                 }
             </p>
 
             <div class="listing-tools">
-                <nav class="switch" aria-label="Order">
+                <nav class="switch" aria-label="@Messages.For(Tag, "switch.order")">
                     @foreach (var option in SortOptions)
                     {
                         @if (option.Rule)
@@ -126,7 +130,7 @@ else
                     lives here rather than on 515 rows: "CONNECTED" said once is also one string per
                     locale instead of five hundred.
                 *@
-                <p class="kicker column-head" aria-hidden="true">connected · reached</p>
+                <p class="kicker column-head" aria-hidden="true">@Messages.For(Tag, "listing.columns")</p>
             </div>
         </div>
 
@@ -138,7 +142,7 @@ else
         *@
         @if (SortWindows.Of(Filter.Sort) is not null)
         {
-            <nav class="switch windows" aria-label="Window">
+            <nav class="switch windows" aria-label="@Messages.For(Tag, "switch.window")">
                 @foreach (var (sort, label) in WindowOptions)
                 {
                     @if (Filter.Sort == sort)
@@ -166,8 +170,8 @@ else
                 @if (BreakBefore(g))
                 {
                     <li class="unranked-break">
-                        <span class="kicker">from here</span>
-                        <span>@FacetWords.Unranked(Filter.Sort)</span>
+                        <span class="kicker">@Messages.For(Tag, "listing.fromHere")</span>
+                        <span>@FacetWords.Unranked(Tag, Filter.Sort)</span>
                     </li>
                 }
                 <li class="game-row @(g.State is LifecycleState.Archived ? "archived" : null)">
@@ -214,8 +218,8 @@ else
                                         shortening.
                                     *@
                                     <span class="claim-ring" role="img"
-                                          aria-label="claimed by its owner"
-                                          title="claimed by its owner">✓</span>
+                                          aria-label="@Messages.For(Tag, "listing.claimed")"
+                                          title="@Messages.For(Tag, "listing.claimed")">✓</span>
                                 }
                             </p>
 
@@ -260,7 +264,7 @@ else
                                         does not say so by itself.
                                     *@
                                     <span class="state-unknown"
-                                          title="we could not identify the codebase this game runs">Unknown Codebase</span>
+                                          title="@Messages.For(Tag, "listing.unknownCodebase.title")">@Messages.For(Tag, "listing.unknownCodebase")</span>
                                 }
                                 @*
                                     The protocols, and no dot beside each of them. Every one of these
@@ -332,7 +336,7 @@ else
                             }
                             else
                             {
-                                <span class="state-unknown">never</span>
+                                <span class="state-unknown">@Messages.For(Tag, "listing.never")</span>
                             }
                         </p>
                     </div>
@@ -343,10 +347,10 @@ else
         @if (Listing.Games.Count == 0)
         {
             <div class="empty-state">
-                <p class="empty-head">Nothing matched.</p>
-                <p class="dim">Try fewer words, or drop a filter.</p>
+                <p class="empty-head">@Messages.For(Tag, "listing.empty.head")</p>
+                <p class="dim">@Messages.For(Tag, "listing.empty.hint")</p>
                 <p class="kicker">
-                    <a href="/games">clear filters</a> · <a href="/archive">archive</a>
+                    <a href="/games">@Messages.For(Tag, "listing.clearFilters")</a> · <a href="/archive">@Messages.For(Tag, "footer.archive")</a>
                 </p>
             </div>
         }
@@ -360,13 +364,13 @@ else
             footer" fix.
         *@
         <div class="card-footer">
-            <a href="/games">all games</a>
+            <a href="/games">@Messages.For(Tag, "footer.allGames")</a>
             <span class="sep" aria-hidden="true">·</span>
-            <a href="/archive">archive</a>
+            <a href="/archive">@Messages.For(Tag, "footer.archive")</a>
             <span class="sep" aria-hidden="true">·</span>
-            <a href="/submit">submit a game</a>
+            <a href="/submit">@Messages.For(Tag, "nav.submitGame")</a>
             <span class="sep" aria-hidden="true">·</span>
-            <a href="@PlainHref">plain text</a>
+            <a href="@PlainHref">@Messages.For(Tag, "a11y.plainText")</a>
                     <LanguageSwitcher />
         </div>
     }
@@ -452,13 +456,13 @@ else
     /// had one would be trading a feature for a picture.
     /// </para>
     /// </remarks>
-    private static readonly SortOption[] SortOptions =
+    private SortOption[] SortOptions =>
     [
-        new(GameSort.Players, "now"),
-        new(GameSort.MedianWeek, "typical"),
-        new(GameSort.PeakWeek, "peak"),
-        new(GameSort.Name, "name", Rule: true),
-        new(GameSort.Reached, "reached"),
+        new(GameSort.Players, Messages.For(Tag, "switch.now")),
+        new(GameSort.MedianWeek, Messages.For(Tag, "switch.typical")),
+        new(GameSort.PeakWeek, Messages.For(Tag, "switch.peak")),
+        new(GameSort.Name, Messages.For(Tag, "switch.name"), Rule: true),
+        new(GameSort.Reached, Messages.For(Tag, "switch.reached")),
     ];
 
     /// <summary>
@@ -470,8 +474,8 @@ else
     /// </remarks>
     private IEnumerable<(GameSort Sort, string Label)> WindowOptions =>
         SortWindows.IsMedian(Filter.Sort)
-            ? [(GameSort.MedianWeek, "7 days"), (GameSort.MedianMonth, "30 days"), (GameSort.MedianQuarter, "90 days")]
-            : [(GameSort.PeakWeek, "7 days"), (GameSort.PeakMonth, "30 days"), (GameSort.PeakQuarter, "90 days")];
+            ? [(GameSort.MedianWeek, Messages.For(Tag, "window.7")), (GameSort.MedianMonth, Messages.For(Tag, "window.30")), (GameSort.MedianQuarter, Messages.For(Tag, "window.90"))]
+            : [(GameSort.PeakWeek, Messages.For(Tag, "window.7")), (GameSort.PeakMonth, Messages.For(Tag, "window.30")), (GameSort.PeakQuarter, Messages.For(Tag, "window.90"))];
 
     /// <summary>This listing in one other order, keeping every other thing it was asked.</summary>
     private string SortHref(GameSort sort) =>
@@ -541,4 +545,9 @@ else
         Filter = query.Filter;
         Listing = await Queries.SearchAsync(Filter);
     }
+
+    /// <summary>The locale this page is being answered in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
 }

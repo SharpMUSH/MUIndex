@@ -180,6 +180,654 @@
     <value>ASCII banner: the connect screen of {game}.</value>
     <comment>the accessibility promises</comment>
   </data>
+  <data name="nav.catalogues" xml:space="preserve">
+    <value>Catalogues</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.account" xml:space="preserve">
+    <value>This site and your account</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.browse" xml:space="preserve">
+    <value>browse</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.learn" xml:space="preserve">
+    <value>learn</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.thisSite" xml:space="preserve">
+    <value>this site</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.menu" xml:space="preserve">
+    <value>menu</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.games" xml:space="preserve">
+    <value>games</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.find" xml:space="preserve">
+    <value>find</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.random" xml:space="preserve">
+    <value>random</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.archive" xml:space="preserve">
+    <value>archive</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.reference" xml:space="preserve">
+    <value>reference</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.ecosystem" xml:space="preserve">
+    <value>ecosystem</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.rankings" xml:space="preserve">
+    <value>rankings</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.about" xml:space="preserve">
+    <value>about</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.submit" xml:space="preserve">
+    <value>submit</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.submitGame" xml:space="preserve">
+    <value>submit a game</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.signIn" xml:space="preserve">
+    <value>sign in</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="nav.yourGames" xml:space="preserve">
+    <value>your games</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="theme.label" xml:space="preserve">
+    <value>theme</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="theme.auto" xml:space="preserve">
+    <value>auto</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="theme.light" xml:space="preserve">
+    <value>light</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="theme.dark" xml:space="preserve">
+    <value>dark</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="banner.demo.lead" xml:space="preserve">
+    <value>Demo data.</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="banner.demo" xml:space="preserve">
+    <value>No database is configured, so this is a fixture. Nothing here was measured.</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="footer.allGames" xml:space="preserve">
+    <value>all games</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="footer.archive" xml:space="preserve">
+    <value>archive</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="footer.declaredByGame" xml:space="preserve">
+    <value>declared by the game</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="footer.whatChanged" xml:space="preserve">
+    <value>what changed</value>
+    <comment>site chrome</comment>
+  </data>
+  <data name="home.title" xml:space="preserve">
+    <value>A directory of the MU* hobby</value>
+    <comment>home</comment>
+  </data>
+  <data name="home.lede" xml:space="preserve">
+    <value>Every fact was measured by a crawler that connected to the game.</value>
+    <comment>home</comment>
+  </data>
+  <data name="home.search.label" xml:space="preserve">
+    <value>Search games by name, theme, codebase or host</value>
+    <comment>home</comment>
+  </data>
+  <data name="home.search.placeholder" xml:space="preserve">
+    <value>search by name, theme, codebase or host</value>
+    <comment>home</comment>
+  </data>
+  <data name="home.search.submit" xml:space="preserve">
+    <value>search</value>
+    <comment>home</comment>
+  </data>
+  <data name="tile.gamesKnown" xml:space="preserve">
+    <value>games known</value>
+    <comment>home</comment>
+  </data>
+  <data name="tile.connectedNow" xml:space="preserve">
+    <value>connected now</value>
+    <comment>home</comment>
+  </data>
+  <data name="tile.answeringUncounted" xml:space="preserve">
+    <value>answering, uncounted</value>
+    <comment>home</comment>
+  </data>
+  <data name="tile.archived" xml:space="preserve">
+    <value>archived</value>
+    <comment>home</comment>
+  </data>
+  <data name="feed.newlyDiscovered" xml:space="preserve">
+    <value>newly discovered</value>
+    <comment>home</comment>
+  </data>
+  <data name="feed.wentDark" xml:space="preserve">
+    <value>went dark — still probed</value>
+    <comment>home</comment>
+  </data>
+  <data name="feed.cameBack" xml:space="preserve">
+    <value>came back</value>
+    <comment>home</comment>
+  </data>
+  <data name="feed.nothingNew" xml:space="preserve">
+    <value>Nothing new.</value>
+    <comment>home</comment>
+  </data>
+  <data name="feed.nothingDark" xml:space="preserve">
+    <value>Nothing went dark.</value>
+    <comment>home</comment>
+  </data>
+  <data name="feed.nothingBack" xml:space="preserve">
+    <value>Nothing came back. We keep knocking.</value>
+    <comment>home</comment>
+  </data>
+  <data name="feed.live" xml:space="preserve">
+    <value>live</value>
+    <comment>home</comment>
+  </data>
+  <data name="games.title" xml:space="preserve">
+    <value>Games</value>
+    <comment>the listing</comment>
+  </data>
+  <data name="listing.sortedBy" xml:space="preserve">
+    <value>sorted by {order}</value>
+    <comment>the listing</comment>
+  </data>
+  <data name="listing.random" xml:space="preserve">
+    <value>random</value>
+    <comment>the listing</comment>
+  </data>
+  <data name="listing.columns" xml:space="preserve">
+    <value>connected · reached</value>
+    <comment>the listing</comment>
+  </data>
+  <data name="listing.fromHere" xml:space="preserve">
+    <value>from here</value>
+    <comment>the listing</comment>
+  </data>
+  <data name="listing.empty.head" xml:space="preserve">
+    <value>Nothing matched.</value>
+    <comment>the listing</comment>
+  </data>
+  <data name="listing.empty.hint" xml:space="preserve">
+    <value>Try fewer words, or drop a filter.</value>
+    <comment>the listing</comment>
+  </data>
+  <data name="listing.clearFilters" xml:space="preserve">
+    <value>clear filters</value>
+    <comment>the listing</comment>
+  </data>
+  <data name="listing.aboutCodebase" xml:space="preserve">
+    <value>about {codebase}</value>
+    <comment>the listing</comment>
+  </data>
+  <data name="listing.never" xml:space="preserve">
+    <value>never</value>
+    <comment>the listing</comment>
+  </data>
+  <data name="listing.claimed" xml:space="preserve">
+    <value>claimed by its owner</value>
+    <comment>the listing</comment>
+  </data>
+  <data name="listing.unknownCodebase" xml:space="preserve">
+    <value>Unknown Codebase</value>
+    <comment>the listing</comment>
+  </data>
+  <data name="listing.unknownCodebase.title" xml:space="preserve">
+    <value>we could not identify the codebase this game runs</value>
+    <comment>the listing</comment>
+  </data>
+  <data name="listing.moreProtocols" xml:space="preserve">
+    <value>and {count, plural, one {# more} other {# more}}: {names}</value>
+    <comment>the listing</comment>
+  </data>
+  <data name="switch.order" xml:space="preserve">
+    <value>Order</value>
+    <comment>the order switch</comment>
+  </data>
+  <data name="switch.window" xml:space="preserve">
+    <value>Window</value>
+    <comment>the order switch</comment>
+  </data>
+  <data name="switch.now" xml:space="preserve">
+    <value>now</value>
+    <comment>the order switch</comment>
+  </data>
+  <data name="switch.typical" xml:space="preserve">
+    <value>typical</value>
+    <comment>the order switch</comment>
+  </data>
+  <data name="switch.peak" xml:space="preserve">
+    <value>peak</value>
+    <comment>the order switch</comment>
+  </data>
+  <data name="switch.name" xml:space="preserve">
+    <value>name</value>
+    <comment>the order switch</comment>
+  </data>
+  <data name="switch.reached" xml:space="preserve">
+    <value>reached</value>
+    <comment>the order switch</comment>
+  </data>
+  <data name="window.7" xml:space="preserve">
+    <value>7 days</value>
+    <comment>the order switch</comment>
+  </data>
+  <data name="window.30" xml:space="preserve">
+    <value>30 days</value>
+    <comment>the order switch</comment>
+  </data>
+  <data name="window.90" xml:space="preserve">
+    <value>90 days</value>
+    <comment>the order switch</comment>
+  </data>
+  <data name="filters.search.label" xml:space="preserve">
+    <value>Search games</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="filters.search.placeholder" xml:space="preserve">
+    <value>search games</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="filters.summary" xml:space="preserve">
+    <value>filters</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="filters.showing" xml:space="preserve">
+    <value>showing</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="filters.clearAll" xml:space="preserve">
+    <value>clear all</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="filters.stopFiltering" xml:space="preserve">
+    <value>— stop filtering by this</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.anyValue" xml:space="preserve">
+    <value>any</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.more" xml:space="preserve">
+    <value>more filters ({count})</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.moreValues" xml:space="preserve">
+    <value>{count, plural, one {# more} other {# more}}</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.alsoShow" xml:space="preserve">
+    <value>also show</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.alsoShow.note" xml:space="preserve">
+    <value>Off by default. Neither is a judgement about the game.</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.archived" xml:space="preserve">
+    <value>archived</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.adult" xml:space="preserve">
+    <value>adult</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.archived.state" xml:space="preserve">
+    <value>archived games, {shown, select, true {shown} other {hidden}}</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.adult.state" xml:space="preserve">
+    <value>games declaring adult content, {shown, select, true {shown} other {hidden}}</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.countsNote" xml:space="preserve">
+    <value>Counts are games we measured, never estimates.</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.key.summary" xml:space="preserve">
+    <value>what the badges and the blanks mean</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.key.blank" xml:space="preserve">
+    <value>A blank is a gap in our measurement, not a no. Each facet spells its own: not identified, not declared, nothing negotiated.</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.key.zero" xml:space="preserve">
+    <value>A measured zero is a count. An unknown count is not a zero and never sorts as one.</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.key.openEnded" xml:space="preserve">
+    <value>Open-ended facets list their {count} commonest values. The rest are reachable by search and by URL.</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.presence.note" xml:space="preserve">
+    <value>Unticked means not measured — not that the game lacks it.</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.group.band" xml:space="preserve">
+    <value>activity</value>
+    <comment>facet groups</comment>
+  </data>
+  <data name="facet.group.seen" xml:space="preserve">
+    <value>last seen</value>
+    <comment>facet groups</comment>
+  </data>
+  <data name="facet.group.protocol" xml:space="preserve">
+    <value>protocols offered</value>
+    <comment>facet groups</comment>
+  </data>
+  <data name="facet.group.tls" xml:space="preserve">
+    <value>encrypted</value>
+    <comment>facet groups</comment>
+  </data>
+  <data name="facet.group.charset" xml:space="preserve">
+    <value>encoding</value>
+    <comment>facet groups</comment>
+  </data>
+  <data name="facet.group.codebase" xml:space="preserve">
+    <value>codebase</value>
+    <comment>facet groups</comment>
+  </data>
+  <data name="facet.group.version" xml:space="preserve">
+    <value>version</value>
+    <comment>facet groups</comment>
+  </data>
+  <data name="facet.group.lineage" xml:space="preserve">
+    <value>lineage</value>
+    <comment>facet groups</comment>
+  </data>
+  <data name="facet.group.family" xml:space="preserve">
+    <value>family</value>
+    <comment>facet groups</comment>
+  </data>
+  <data name="facet.group.genre" xml:space="preserve">
+    <value>genre</value>
+    <comment>facet groups</comment>
+  </data>
+  <data name="facet.group.language" xml:space="preserve">
+    <value>language</value>
+    <comment>facet groups</comment>
+  </data>
+  <data name="facet.band.playersNow" xml:space="preserve">
+    <value>connected now</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.band.activeThisWeek" xml:space="preserve">
+    <value>active this week</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.band.quiet" xml:space="preserve">
+    <value>uncounted</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.band.dark" xml:space="preserve">
+    <value>dark — not reached in a month</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.band.archived" xml:space="preserve">
+    <value>archived</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.seen.day" xml:space="preserve">
+    <value>in the last 24 hours</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.seen.week" xml:space="preserve">
+    <value>in the last 7 days</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.seen.month" xml:space="preserve">
+    <value>in the last 30 days</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.seen.older" xml:space="preserve">
+    <value>longer ago</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.seen.never" xml:space="preserve">
+    <value>never reached</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.unknown.charset" xml:space="preserve">
+    <value>nothing negotiated</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.unknown.codebase" xml:space="preserve">
+    <value>not identified</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.unknown.other" xml:space="preserve">
+    <value>not declared</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.tls.yes" xml:space="preserve">
+    <value>connected over TLS</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.excluded" xml:space="preserve">
+    <value>not {value}</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.known.charset" xml:space="preserve">
+    <value>something negotiated</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.known.codebase" xml:space="preserve">
+    <value>identified at all</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="facet.known.other" xml:space="preserve">
+    <value>declared at all</value>
+    <comment>facet values</comment>
+  </data>
+  <data name="evidence.measured.meaning" xml:space="preserve">
+    <value>we watched this happen</value>
+    <comment>evidence, and what each word means</comment>
+  </data>
+  <data name="evidence.declared.meaning" xml:space="preserve">
+    <value>the game says so, and we did not check</value>
+    <comment>evidence, and what each word means</comment>
+  </data>
+  <data name="evidence.derived.meaning" xml:space="preserve">
+    <value>we grouped what the game told us</value>
+    <comment>evidence, and what each word means</comment>
+  </data>
+  <data name="sort.name" xml:space="preserve">
+    <value>name</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.players" xml:space="preserve">
+    <value>connected now</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.reached" xml:space="preserve">
+    <value>last reached</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.medianWeek" xml:space="preserve">
+    <value>typically on · 7 days</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.medianMonth" xml:space="preserve">
+    <value>typically on · 30 days</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.medianQuarter" xml:space="preserve">
+    <value>typically on · 90 days</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.peakWeek" xml:space="preserve">
+    <value>most on at once · 7 days</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.peakMonth" xml:space="preserve">
+    <value>most on at once · 30 days</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.peakQuarter" xml:space="preserve">
+    <value>most on at once · 90 days</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.group.row" xml:space="preserve">
+    <value>on the row now</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.group.typical" xml:space="preserve">
+    <value>typical</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.group.peak" xml:space="preserve">
+    <value>peak</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.unranked.players" xml:space="preserve">
+    <value>Unknown count</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.unranked.reached" xml:space="preserve">
+    <value>never once reached — not reached long ago</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.unranked.median" xml:space="preserve">
+    <value>fewer than {minimum} counts in the window, or none at all — not a typical count of zero</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.unranked.window" xml:space="preserve">
+    <value>nothing we could count in the window — not a game nobody was on</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.window.median" xml:space="preserve">
+    <value>median {value} · {days}d · {count, plural, one {# count} other {# counts}}</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.window.peak" xml:space="preserve">
+    <value>most {value} at once · {days}d · {count, plural, one {# count} other {# counts}}</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="game.connectScreen" xml:space="preserve">
+    <value>Connect screen</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="game.connectionsByHour" xml:space="preserve">
+    <value>Connections by hour</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="game.howMany" xml:space="preserve">
+    <value>How many, over time</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="game.reachable" xml:space="preserve">
+    <value>Reachable</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="game.whatChanged" xml:space="preserve">
+    <value>What changed</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="game.capabilities" xml:space="preserve">
+    <value>Capabilities</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="game.declaredByGame" xml:space="preserve">
+    <value>Declared by the game</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="game.referrals" xml:space="preserve">
+    <value>Referrals</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="game.unclaimed" xml:space="preserve">
+    <value>Unclaimed — everything here was measured.</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="game.claimed" xml:space="preserve">
+    <value>Claimed by its owner — measured facts below are still ours.</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="game.claim" xml:space="preserve">
+    <value>Claim this game</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="game.answeringSince" xml:space="preserve">
+    <value>answering since {date}</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="game.unknownCount" xml:space="preserve">
+    <value>unknown count</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="game.readAsTextRows" xml:space="preserve">
+    <value>read as text — {count, plural, one {# row} other {# rows}}</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="capability.column" xml:space="preserve">
+    <value>capability</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="capability.age" xml:space="preserve">
+    <value>age</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="capability.offered" xml:space="preserve">
+    <value>offered</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="capability.silent" xml:space="preserve">
+    <value>silent</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="capability.absent" xml:space="preserve">
+    <value>absent</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="capability.denied" xml:space="preserve">
+    <value>denied</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="capability.claimed" xml:space="preserve">
+    <value>claimed</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="capability.disagrees" xml:space="preserve">
+    <value>disagrees</value>
+    <comment>the game page's own headings</comment>
+  </data>
+  <data name="capability.whereTheyDisagree" xml:space="preserve">
+    <value>where they disagree ({count})</value>
+    <comment>the game page's own headings</comment>
+  </data>
   <data name="locale.label" xml:space="preserve">
     <value>language</value>
     <comment>the switcher's own chrome, which has to read in the locale being left</comment>
@@ -187,13 +835,5 @@
   <data name="locale.submit" xml:space="preserve">
     <value>change language</value>
     <comment>the switcher's own chrome, which has to read in the locale being left</comment>
-  </data>
-  <data name="mt.banner" xml:space="preserve">
-    <value>This page was translated by machine. The measured values are unaffected.</value>
-    <comment>the machine-translation notice</comment>
-  </data>
-  <data name="mt.original" xml:space="preserve">
-    <value>Read the English original</value>
-    <comment>the machine-translation notice</comment>
   </data>
 </root>

@@ -1,3 +1,5 @@
+@using MUI.Web.Localization
+
 @*
     A row in one of the three change lists: the game's name, and one right-aligned cell holding what
     happened and when.
@@ -31,7 +33,7 @@
     <span class="feed-state mono">
         @if (Kind is FeedKind.CameBack)
         {
-            <span class="state-present">live</span>
+            <span class="state-present">@Messages.For(Tag, "feed.live")</span>
             <span class="sep" aria-hidden="true">·</span>
         }
         else if (Cause is { Length: > 0 } cause)
@@ -51,6 +53,10 @@
     [Parameter] public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
 
     [Parameter] public bool ShowRegister { get; set; } = true;
+
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
 
     /// <summary>
     /// Why a game went dark, where the feed knows — and nothing at all on the other two registers.
@@ -76,10 +82,10 @@
         _ => "neutral",
     };
 
-    private string Heading => Kind switch
+    private string Heading => Messages.For(Tag, Kind switch
     {
-        FeedKind.WentDark => "went dark",
-        FeedKind.CameBack => "came back",
-        _ => "newly discovered",
-    };
+        FeedKind.WentDark => "feed.wentDark",
+        FeedKind.CameBack => "feed.cameBack",
+        _ => "feed.newlyDiscovered",
+    });
 }

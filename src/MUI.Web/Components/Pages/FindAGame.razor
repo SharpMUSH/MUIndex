@@ -1,4 +1,5 @@
 @page "/find"
+@using MUI.Web.Localization
 @using MUI.Catalog
 @using MUI.Web.Api
 @using MUI.Web.Reference
@@ -167,7 +168,7 @@ else
         // spelled again here — a reader who ticks it and lands there should meet the same word, and
         // two copies of a string are two places for it to drift. It did: the listing shortened this
         // to "uncounted" and this page went on saying "reachable, count unknown".
-        _ => FacetWords.BandWord(FacetTokens.Of(band)),
+        _ => FacetWords.BandWord(Locales.SourceTag, FacetTokens.Of(band)),
     };
 
     /// <summary>

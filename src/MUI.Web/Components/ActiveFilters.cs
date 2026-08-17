@@ -30,6 +30,7 @@ public sealed record ActiveFilter(string Facet, string Value, string RemoveHref)
 public static class ActiveFilters
 {
     public static IReadOnlyList<ActiveFilter> For(
+        string tag,
         IReadOnlyList<FacetGroup> facets,
         GameFilter filter,
         string? query)
@@ -54,10 +55,10 @@ public static class ActiveFilters
                 drawn.Add(group.Key);
 
                 chips.Add(new ActiveFilter(
-                    FacetWords.Group(group.Key),
+                    FacetWords.Group(tag, group.Key),
                     value.State is FacetState.Excluded
-                        ? FacetWords.Excluded(group.Key, value)
-                        : FacetWords.Value(group.Key, value),
+                        ? FacetWords.Excluded(tag, group.Key, value)
+                        : FacetWords.Value(tag, group.Key, value),
 
                     // A choice facet holds one selection, so removing it drops the parameter; a
                     // presence facet holds several in one repeatable, comma-separated parameter, so
@@ -90,8 +91,8 @@ public static class ActiveFilters
                 IsExcluded: choice.Exclude);
 
             chips.Add(new ActiveFilter(
-                FacetWords.Group(key),
-                choice.Exclude ? FacetWords.Excluded(key, stand) : FacetWords.Value(key, stand),
+                FacetWords.Group(tag, key),
+                choice.Exclude ? FacetWords.Excluded(tag, key, stand) : FacetWords.Value(tag, key, stand),
                 Href(ListingLinks.With(query, key, null))));
         }
 

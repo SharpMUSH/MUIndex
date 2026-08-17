@@ -10,7 +10,7 @@
 *@
 
 <div class="section-head">
-    <h2 id="@Id">Capabilities</h2>
+    <h2 id="@Id">@Messages.For(Tag, "game.capabilities")</h2>
 </div>
 
 @* Six columns of nowrap cells do not fit a phone, and the page body may never scroll sideways —
@@ -38,10 +38,10 @@
     </caption>
     <thead>
         <tr>
-            <th scope="col">capability</th>
-            <th scope="col">measured</th>
-            <th scope="col">declared</th>
-            <th scope="col">age</th>
+            <th scope="col">@Messages.For(Tag, "capability.column")</th>
+            <th scope="col">@Messages.For(Tag, "kicker.measured")</th>
+            <th scope="col">@Messages.For(Tag, "kicker.declared")</th>
+            <th scope="col">@Messages.For(Tag, "capability.age")</th>
         </tr>
     </thead>
     <tbody>
@@ -54,7 +54,7 @@
                     {
                         @* The mark is a word in the row, not a background tint. A tint is invisible
                            in greyscale, to a screen reader, and to anyone who prints the page. *@
-                        <span class="mark warn">disagrees</span>
+                        <span class="mark warn">@Messages.For(Tag, "capability.disagrees")</span>
                     }
                 </th>
                 <td class="mono">@((MarkupString)Cell(row.Measured, measured: true))</td>
@@ -66,7 +66,7 @@
                     }
                     else
                     {
-                        <text>never</text>
+                        <text>@Messages.For(Tag, "listing.never")</text>
                     }
                 </td>
             </tr>
@@ -78,7 +78,7 @@
 @if (Disagreements.Count > 0)
 {
     <details class="disagreement">
-        <summary>where they disagree (@Disagreements.Count)</summary>
+        <summary>@Messages.For(Tag, "capability.whereTheyDisagree", new Dictionary<string, object?> { ["count"] = Disagreements.Count })</summary>
         @foreach (var row in Disagreements)
         {
             <p>

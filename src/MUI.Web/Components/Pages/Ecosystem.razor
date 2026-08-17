@@ -1,4 +1,5 @@
 @page "/ecosystem"
+@using MUI.Web.Localization
 @using MUI.Catalog.Persistence
 @inject IGameQueries Queries
 @inject TimeProvider Clock
@@ -100,7 +101,7 @@ else
             and most of the MUSH world publishes no MSSP at all, so this is the only way the question
             can be asked.
             <span class="evidence derived">
-                <span aria-hidden="true">◆</span> @FacetWords.Evidence(FacetEvidence.Derived)
+                <span aria-hidden="true">◆</span> @FacetWords.Evidence(Http.LocaleOf().Tag, FacetEvidence.Derived)
             </span>
         </p>
 
@@ -301,4 +302,7 @@ else
     private static string Percent(double? fraction) => fraction is { } f
         ? FormattableString.Invariant($"{f * 100:0.0}%")
         : "0%";
+
+    /// <summary>The locale this page is being answered in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
 }

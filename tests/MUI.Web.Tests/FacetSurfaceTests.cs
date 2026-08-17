@@ -1,3 +1,4 @@
+using MUI.Web.Localization;
 using System.Reflection;
 
 using MUI.Catalog;
@@ -246,7 +247,7 @@ public class FacetSurfaceTests
 
             foreach (var value in group.Values)
             {
-                var name = FacetWords.Value(group.Key, value);
+                var name = FacetWords.Value(Locales.SourceTag, group.Key, value);
 
                 // "only" is on the tri-state groups alone. Activity and last-seen are one ordered
                 // scale — a radio group — so their rows say what choosing returns and nothing about
@@ -290,7 +291,7 @@ public class FacetSurfaceTests
         {
             foreach (var value in group.Values)
             {
-                var excluded = $"{FacetWords.Value(group.Key, value)}, {Plural(group.Total - value.Count)}, excluded";
+                var excluded = $"{FacetWords.Value(Locales.SourceTag, group.Key, value)}, {Plural(group.Total - value.Count)}, excluded";
 
                 if (FacetWords.IsSingleChoice(group.Key))
                 {
@@ -349,9 +350,9 @@ public class FacetSurfaceTests
         await Assert.That(words).Contains("not declared");
         await Assert.That(words).Contains("nothing negotiated");
 
-        await Assert.That(FacetWords.Unknown(FacetKeys.Codebase)).IsNotEqualTo("no");
-        await Assert.That(FacetWords.Unknown(FacetKeys.Genre))
-            .IsNotEqualTo(FacetWords.Unknown(FacetKeys.Charset));
+        await Assert.That(FacetWords.Unknown(Locales.SourceTag, FacetKeys.Codebase)).IsNotEqualTo("no");
+        await Assert.That(FacetWords.Unknown(Locales.SourceTag, FacetKeys.Genre))
+            .IsNotEqualTo(FacetWords.Unknown(Locales.SourceTag, FacetKeys.Charset));
     }
 
     [Test]
@@ -370,16 +371,16 @@ public class FacetSurfaceTests
         // likely to guess at and the one it would matter most to leave unexplained.
         foreach (var evidence in Enum.GetValues<FacetEvidence>())
         {
-            await Assert.That(words).Contains(FacetWords.Evidence(evidence));
-            await Assert.That(words).Contains(FacetWords.EvidenceMeaning(evidence));
+            await Assert.That(words).Contains(FacetWords.Evidence(Locales.SourceTag, evidence));
+            await Assert.That(words).Contains(FacetWords.EvidenceMeaning(Locales.SourceTag, evidence));
         }
 
         // And no two of them say the same thing, or the panel has a distinction it cannot draw.
         var registers = Enum.GetValues<FacetEvidence>().Length;
-        await Assert.That(Enum.GetValues<FacetEvidence>().Select(FacetWords.Evidence).Distinct().Count())
+        await Assert.That(Enum.GetValues<FacetEvidence>().Select(e => FacetWords.Evidence(Locales.SourceTag, e)).Distinct().Count())
             .IsEqualTo(registers);
         await Assert.That(
-            Enum.GetValues<FacetEvidence>().Select(FacetWords.EvidenceMeaning).Distinct().Count())
+            Enum.GetValues<FacetEvidence>().Select(e => FacetWords.EvidenceMeaning(Locales.SourceTag, e)).Distinct().Count())
             .IsEqualTo(registers);
     }
 
@@ -397,7 +398,7 @@ public class FacetSurfaceTests
             // Read off the label element itself rather than off an offset into the page: the facet
             // names are ordinary English words and several of them occur in the option text of other
             // facets, so anything positional here measures the wrong thing.
-            var marker = $"<span class=\"facet-name\">{FacetWords.Group(group.Key)}</span>";
+            var marker = $"<span class=\"facet-name\">{FacetWords.Group(Locales.SourceTag, group.Key)}</span>";
             var at = html.IndexOf(marker, StringComparison.Ordinal);
 
             await Assert.That(at).IsGreaterThanOrEqualTo(0).Because($"{group.Key} has no name of its own");
@@ -412,7 +413,7 @@ public class FacetSurfaceTests
             // The class and the word are the same string on purpose: a second copy of the mapping
             // here is a place for the test and the panel to drift apart, and it did — a register
             // added to the enum arrived in this helper as "declared".
-            await Assert.That(label).Contains($"evidence {FacetWords.Evidence(group.Evidence)}")
+            await Assert.That(label).Contains($"evidence {FacetWords.Evidence(Locales.SourceTag, group.Evidence)}")
                 .Because($"{group.Key} has no evidence chip beside its own name");
         }
     }
@@ -480,7 +481,7 @@ public class FacetSurfaceTests
 
         await Assert.That(GameFilterBinding.TryRead(Url, out var query, out _)).IsTrue();
         var listing = await Queries.SearchAsync(query.Filter);
-        var chips = ActiveFilters.For(listing.Facets, query.Filter, Url);
+        var chips = ActiveFilters.For(Locales.SourceTag, listing.Facets, query.Filter, Url);
 
         await Assert.That(chips.Select(c => c.Value)).Contains("not Evennia");
         await Assert.That(chips.Select(c => c.Value)).Contains("sun");
@@ -504,7 +505,7 @@ public class FacetSurfaceTests
 
         var listing = await Queries.SearchAsync(query.Filter);
 
-        await Assert.That(ActiveFilters.For(listing.Facets, query.Filter, string.Empty)).IsEmpty();
+        await Assert.That(ActiveFilters.For(Locales.SourceTag, listing.Facets, query.Filter, string.Empty)).IsEmpty();
     }
 
     [Test]
@@ -531,7 +532,7 @@ public class FacetSurfaceTests
         // Every order is still a parameter, and still named, wherever it is drawn.
         foreach (var sort in Enum.GetValues<GameSort>())
         {
-            await Assert.That(FacetWords.Sort(sort)).IsNotEmpty();
+            await Assert.That(FacetWords.Sort(Locales.SourceTag, sort)).IsNotEmpty();
             await Assert.That(FacetTokens.Of(sort)).IsNotEmpty();
         }
     }
@@ -544,8 +545,8 @@ public class FacetSurfaceTests
         // answering to one name on one site is how a reader ends up comparing them.
         foreach (var sort in Enum.GetValues<GameSort>())
         {
-            await Assert.That(FacetWords.Sort(sort)).DoesNotContain("busiest");
-            await Assert.That(FacetWords.Sort(sort)).DoesNotContain("popular");
+            await Assert.That(FacetWords.Sort(Locales.SourceTag, sort)).DoesNotContain("busiest");
+            await Assert.That(FacetWords.Sort(Locales.SourceTag, sort)).DoesNotContain("popular");
         }
     }
 

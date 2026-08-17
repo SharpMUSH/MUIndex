@@ -35,17 +35,17 @@
         with no script.
     *@
     <div class="filter-bar">
-        <label for="q" class="sr-only">Search games</label>
+        <label for="q" class="sr-only">@Messages.For(Tag, "filters.search.label")</label>
         <span class="search-field">
             <span class="search-glyph mono" aria-hidden="true">⌕</span>
             <input id="q" type="search" name="@FacetKeys.Text" value="@Filter.Text"
-                   placeholder="search games" />
+                   placeholder="@Messages.For(Tag, "filters.search.placeholder")" />
             @*
                 Inside the field rather than beside it. The column is 268px and a second box on that
                 row leaves the field too narrow to read a typed name in — and a submit that exists
                 only as the return key is one a pointer-only reader cannot press.
             *@
-            <button type="submit" class="search-go" aria-label="Search games">
+            <button type="submit" class="search-go" aria-label="@Messages.For(Tag, "filters.search.label")">
                 <span aria-hidden="true">→</span>
             </button>
         </span>
@@ -62,7 +62,7 @@
     *@
     <details class="facet-collapse" open="@AnyFiltered">
         <summary>
-            <span class="summary-word">filters</span>
+            <span class="summary-word">@Messages.For(Tag, "filters.summary")</span>
             @if (Chips.Count > 0)
             {
                 <span class="summary-count">@Chips.Count</span>
@@ -107,7 +107,7 @@
         @if (Secondary is { Count: > 0 } more)
         {
             <details class="facet-more-groups" open="@more.Any(g => g.IsFiltered)">
-                <summary>more filters (@more.Count)</summary>
+                <summary>@Messages.For(Tag, "facet.more", new Dictionary<string, object?> { ["count"] = more.Count })</summary>
                 <div class="facet-grid">
                     @foreach (var group in more)
                     {
@@ -122,8 +122,8 @@
             <fieldset class="facet presence">
                 <legend>
                     <span class="facet-head">
-                        <span class="facet-name">@FacetWords.Group(group.Key)</span>
-                        @Evidence(group)
+                        <span class="facet-name">@FacetWords.Group(Tag, group.Key)</span>
+                        @Evidence(Tag, group)
                     </span>
                 </legend>
                 <div class="checks">
@@ -132,7 +132,7 @@
                         <label class="check">
                             <input type="checkbox" name="@group.Key" value="@value.Token"
                                    checked="@value.IsSelected" />
-                            <span class="check-name">@FacetWords.Value(group.Key, value)</span>
+                            <span class="check-name">@FacetWords.Value(Tag, group.Key, value)</span>
                             <span class="count">@value.Count</span>
                         </label>
                     }
@@ -158,25 +158,25 @@
     <fieldset class="facet also">
         <legend>
             <span class="facet-head">
-                <span class="facet-name">also show</span>
+                <span class="facet-name">@Messages.For(Tag, "facet.alsoShow")</span>
             </span>
-            <span class="facet-note">Off by default. Neither is a judgement about the game.</span>
+            <span class="facet-note">@Messages.For(Tag, "facet.alsoShow.note")</span>
         </legend>
         <div class="rows">
             <div class="facet-row @(Filter.IncludeArchived ? "on" : null)">
                 <a class="pick" href="@Toggled(FacetKeys.Archived, Filter.IncludeArchived)"
                    aria-current="@(Filter.IncludeArchived ? "true" : null)"
-                   aria-label="@($"archived games, {(Filter.IncludeArchived ? "shown" : "hidden")}")">
+                   aria-label="@Messages.For(Tag, "facet.archived.state", new Dictionary<string, object?> { ["shown"] = Filter.IncludeArchived ? "true" : "false" })">
                     <span class="tick" aria-hidden="true">@(Filter.IncludeArchived ? "✓" : "☐")</span>
-                    <span class="row-name">archived</span>
+                    <span class="row-name">@Messages.For(Tag, "facet.archived")</span>
                 </a>
             </div>
             <div class="facet-row @(Filter.IncludeAdult ? "on" : null)">
                 <a class="pick" href="@Toggled(FacetKeys.Adult, Filter.IncludeAdult)"
                    aria-current="@(Filter.IncludeAdult ? "true" : null)"
-                   aria-label="@($"games declaring adult content, {(Filter.IncludeAdult ? "shown" : "hidden")}")">
+                   aria-label="@Messages.For(Tag, "facet.adult.state", new Dictionary<string, object?> { ["shown"] = Filter.IncludeAdult ? "true" : "false" })">
                     <span class="tick" aria-hidden="true">@(Filter.IncludeAdult ? "✓" : "☐")</span>
-                    <span class="row-name">adult</span>
+                    <span class="row-name">@Messages.For(Tag, "facet.adult")</span>
                 </a>
             </div>
         </div>
@@ -189,34 +189,26 @@
         needed — before a filter is applied rather than after the panel has been read to the bottom.
     *@
     <div class="facet-key">
-        <p class="facet-note">Counts are games we measured, never estimates.</p>
+        <p class="facet-note">@Messages.For(Tag, "facet.countsNote")</p>
 
         <details class="facet-more">
-            <summary>what the badges and the blanks mean</summary>
+            <summary>@Messages.For(Tag, "facet.key.summary")</summary>
             <ul>
                 <li>
-                    <span class="evidence measured"><span aria-hidden="true">●</span> @FacetWords.Evidence(FacetEvidence.Measured)</span>
-                    — @FacetWords.EvidenceMeaning(FacetEvidence.Measured).
+                    <span class="evidence measured"><span aria-hidden="true">●</span> @FacetWords.Evidence(Tag, FacetEvidence.Measured)</span>
+                    — @FacetWords.EvidenceMeaning(Tag, FacetEvidence.Measured).
                 </li>
                 <li>
-                    <span class="evidence declared"><span aria-hidden="true">◇</span> @FacetWords.Evidence(FacetEvidence.Declared)</span>
-                    — @FacetWords.EvidenceMeaning(FacetEvidence.Declared).
+                    <span class="evidence declared"><span aria-hidden="true">◇</span> @FacetWords.Evidence(Tag, FacetEvidence.Declared)</span>
+                    — @FacetWords.EvidenceMeaning(Tag, FacetEvidence.Declared).
                 </li>
                 <li>
-                    <span class="evidence derived"><span aria-hidden="true">◆</span> @FacetWords.Evidence(FacetEvidence.Derived)</span>
-                    — @FacetWords.EvidenceMeaning(FacetEvidence.Derived).
+                    <span class="evidence derived"><span aria-hidden="true">◆</span> @FacetWords.Evidence(Tag, FacetEvidence.Derived)</span>
+                    — @FacetWords.EvidenceMeaning(Tag, FacetEvidence.Derived).
                 </li>
-                <li>
-                    A blank is a gap in our measurement, not a no. Each facet spells its own:
-                    <em>not identified</em>, <em>not declared</em>, <em>nothing negotiated</em>.
-                </li>
-                <li>
-                    A measured zero is a count. An unknown count is not a zero and never sorts as one.
-                </li>
-                <li>
-                    Open-ended facets list their @FacetedSearch.MaxValues commonest values. The rest
-                    are reachable by search and by URL.
-                </li>
+                <li>@Messages.For(Tag, "facet.key.blank")</li>
+                <li>@Messages.For(Tag, "facet.key.zero")</li>
+                <li>@Messages.For(Tag, "facet.key.openEnded", new Dictionary<string, object?> { ["count"] = FacetedSearch.MaxValues })</li>
             </ul>
         </details>
     </div>
@@ -236,17 +228,17 @@
 @if (Chips.Count > 0)
 {
     <div class="active-filters">
-        <span class="kicker">showing</span>
+        <span class="kicker">@Messages.For(Tag, "filters.showing")</span>
         @foreach (var chip in Chips)
         {
             <a class="filter-chip" href="@chip.RemoveHref">
                 <span class="chip-facet">@chip.Facet</span>
                 <span class="chip-value">@chip.Value</span>
                 <span class="chip-x" aria-hidden="true">✕</span>
-                <span class="sr-only">— stop filtering by this</span>
+                <span class="sr-only">@Messages.For(Tag, "filters.stopFiltering")</span>
             </a>
         }
-        <a class="clear-all" href="/games">clear all</a>
+        <a class="clear-all" href="/games">@Messages.For(Tag, "filters.clearAll")</a>
     </div>
 }
 
@@ -282,8 +274,8 @@
                         *@
                         <legend>
                             <span class="facet-head">
-                                <span class="facet-name">@FacetWords.Group(group.Key)</span>
-                                @Evidence(group)
+                                <span class="facet-name">@FacetWords.Group(Tag, group.Key)</span>
+                                @Evidence(Tag, group)
                             </span>
                         </legend>
 
@@ -296,9 +288,9 @@
                             <div class="@AnyRowClass(group)">
                                 <a class="pick" href="@Href(group, null)"
                                    aria-current="@(group.IsFiltered ? null : "true")"
-                                   aria-label="@Name("facet.any", group.Total, ("facet", FacetWords.Group(group.Key)))">
+                                   aria-label="@Name("facet.any", group.Total, ("facet", FacetWords.Group(Tag, group.Key)))">
                                     <span class="tick" aria-hidden="true">@AnyGlyph(group)</span>
-                                    <span class="row-name">any</span>
+                                    <span class="row-name">@Messages.For(Tag, "facet.anyValue")</span>
                                     <span class="count">@group.Total</span>
                                 </a>
                             </div>
@@ -318,7 +310,7 @@
                                 way.
                             *@
                             <details class="facet-tail" open="@rest.Any(v => v.IsSelected)">
-                                <summary>@rest.Count more</summary>
+                                <summary>@Messages.For(Tag, "facet.moreValues", new Dictionary<string, object?> { ["count"] = rest.Count })</summary>
                                 <div class="rows">
                                     @foreach (var value in rest)
                                     {
@@ -381,9 +373,9 @@
         @<div class="@RowClass(group, value)">
             <a class="pick" href="@Href(group, value.State is FacetState.Included ? null : value.Token)"
                aria-current="@(value.State is FacetState.Included ? "true" : null)"
-               aria-label="@Name(Single(group) ? "facet.value.choose" : "facet.value.include", value.Count, ("value", FacetWords.Value(group.Key, value)))">
+               aria-label="@Name(Single(group) ? "facet.value.choose" : "facet.value.include", value.Count, ("value", FacetWords.Value(Tag, group.Key, value)))">
                 <span class="tick" aria-hidden="true">@PickGlyph(group, value)</span>
-                <span class="row-name">@FacetWords.Value(group.Key, value)</span>
+                <span class="row-name">@FacetWords.Value(Tag, group.Key, value)</span>
                 <span class="count">@value.Count</span>
             </a>
             @*
@@ -397,7 +389,7 @@
                 <a class="drop"
                    href="@Href(group, value.State is FacetState.Excluded ? null : Excluded(value).Token)"
                    aria-current="@(value.State is FacetState.Excluded ? "true" : null)"
-                   aria-label="@Name("facet.value.exclude", group.Total - value.Count, ("value", FacetWords.Value(group.Key, value)))">
+                   aria-label="@Name("facet.value.exclude", group.Total - value.Count, ("value", FacetWords.Value(Tag, group.Key, value)))">
                     <span aria-hidden="true">@(value.State is FacetState.Excluded ? "×" : "−")</span>
                 </a>
             }
@@ -548,7 +540,7 @@
     /// </remarks>
     [Parameter] public string Query { get; set; } = string.Empty;
 
-    private IReadOnlyList<ActiveFilter> Chips => ActiveFilters.For(Facets, Filter, Query);
+    private IReadOnlyList<ActiveFilter> Chips => ActiveFilters.For(Tag, Facets, Filter, Query);
 
     /// <summary>Whether this listing is answering anything narrower than "all of them".</summary>
     /// <remarks>
@@ -571,9 +563,9 @@
     /// ink at all, which is also why the third glyph is the second one filled in rather than a shape
     /// nobody has seen before — derived is a declaration with our hand on it, and reads as one.
     /// </remarks>
-    private static RenderFragment Evidence(FacetGroup group) => @<span class="evidence @Kind(group)">
+    private static RenderFragment Evidence(string tag, FacetGroup group) => @<span class="evidence @Kind(group)">
         <span aria-hidden="true">@Glyph(group.Evidence)</span>
-        @FacetWords.Evidence(group.Evidence)
+        @FacetWords.Evidence(tag, group.Evidence)
     </span>;
 
     private static string Glyph(FacetEvidence evidence) => evidence switch

@@ -1,3 +1,4 @@
+using MUI.Web.Localization;
 using MUI.Catalog;
 using MUI.Web.Api;
 using MUI.Web.Components;
@@ -110,7 +111,7 @@ public class AdultSurfaceTests
 
         var filter = Listing(Query);
         var listing = await Queries.SearchAsync(filter);
-        var chip = ActiveFilters.For(listing.Facets, filter, Query).Single(c => c.Facet is "adult");
+        var chip = ActiveFilters.For(Locales.SourceTag, listing.Facets, filter, Query).Single(c => c.Facet is "adult");
 
         await Assert.That(chip.Value).IsEqualTo("included");
         await Assert.That(chip.RemoveHref).DoesNotContain(FacetKeys.Adult);

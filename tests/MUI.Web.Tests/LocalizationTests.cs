@@ -586,34 +586,6 @@ public class LocalizationTests
     }
 
     [Test]
-    public async Task AMachineTranslatedLocaleSaysSoOnEveryPage()
-    {
-        // The notice is the whole of what makes the tier honest, and its second clause — that the
-        // measured values are unaffected — is only true because the machine voice carries
-        // translate="no" and never enters the pipeline. If that stopped being true this would be the
-        // most damaging sentence on the site, so it is asserted rather than trusted.
-        var machine = Locales.All.Where(l => l.Status is LocaleStatus.MachineTranslated).ToList();
-
-        await Assert.That(machine).IsNotEmpty();
-
-        foreach (var locale in machine)
-        {
-            await Assert.That(locale.IsMachineTranslated).IsTrue();
-            await Assert.That(locale.IsOffered).IsFalse().Because($"{locale.Tag} is unreviewed");
-
-            // The notice reads in the locale it is warning about, so both its strings have to exist
-            // there or the warning arrives in the language the reader could not read.
-            foreach (var id in new[] { "mt.banner", "mt.original" })
-            {
-                await Assert.That(Messages.For(locale.Tag, id)).IsNotEmpty();
-            }
-        }
-
-        // And a shipped locale carries no notice, because nothing about it was guessed.
-        await Assert.That(Locales.Source.IsMachineTranslated).IsFalse();
-    }
-
-    [Test]
     public async Task EveryMachineTranslatedLocaleTranslatedTheWholeGlossary()
     {
         // Not the review gate — that is a person reading them. This is the weaker thing worth
