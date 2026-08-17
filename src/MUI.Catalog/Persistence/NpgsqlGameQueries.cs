@@ -532,19 +532,22 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// The encoding the connect screen was read with, or null when nothing needed saying.
     /// </summary>
     /// <remarks>
-    /// The staff override first and by name rather than through <see cref="FieldPrecedence"/>: the
-    /// ladder's other rungs on <c>CHARSET</c> are the game's own claim and the handshake's result,
-    /// and neither of those is a statement about how these bytes were read. Where there is no
-    /// override the crawler's own answer stands. Both are suppressed when they are UTF-8, which is
-    /// the ordinary case and worth no caption — there is nothing surprising to tell a reader, and a
-    /// line of provenance on every screen in the catalogue would bury the thirteen where it matters.
+    /// <b>Read from <c>charset.read</c> and from nothing else — never from the <c>CHARSET</c>
+    /// override an operator typed.</b> Those are two different facts and only one of them is about
+    /// this screen: the override is what somebody asked for, and <c>charset.read</c> is what the
+    /// probe applied. They come apart whenever the override names an encoding this runtime does not
+    /// have, which <c>WireEncoding.Override</c> ignores — reading the raw staff row would then
+    /// caption a Latin-1 screen "read as not-an-encoding", a sentence about the screen that is not
+    /// true of it. A row exists here only where the encoding was determined, so an unusable override
+    /// correctly produces no caption at all rather than a confident wrong one.
+    ///
+    /// UTF-8 is suppressed because it is the ordinary case and worth no caption: there is nothing
+    /// surprising to tell a reader, and a line of provenance on every screen in the catalogue would
+    /// bury the thirteen where it matters.
     /// </remarks>
     private static string? ScreenCharset(IReadOnlyList<GameField> fields)
     {
-        var charset = fields.FirstOrDefault(f =>
-                string.Equals(f.Field, "CHARSET", StringComparison.Ordinal)
-                && f.Source is FieldSource.Staff)?.Value
-            ?? Winner(fields, InternalFields.CharsetRead)?.Value;
+        var charset = Winner(fields, InternalFields.CharsetRead)?.Value;
 
         return string.IsNullOrWhiteSpace(charset)
             || string.Equals(charset, "utf-8", StringComparison.OrdinalIgnoreCase)

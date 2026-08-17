@@ -249,14 +249,38 @@ public static class FieldObservations
                 CapabilityFields.Measured(MsspCapability), FieldSource.Handshake, "false");
         }
 
-        // What the bytes turned out to be, which is a different question from what the session
-        // agreed to and is answered by a strict decoder rather than by anybody's say-so. Emitted
-        // only when we worked it out ourselves: where an operator has set the override, the
-        // CHARSET/staff row they set IS the record, and the crawler writing a second copy of it
-        // would be manufacturing a staff assertion out of a measurement.
-        if (!result.CharsetOverridden && result.ReadAs is { Length: > 0 } readAs)
+        // What the bytes turned out to be — a different question from what the session agreed to,
+        // and answered by a strict decoder rather than by anybody's say-so.
+        //
+        // NOTHING IS WRITTEN WHEN THE ENCODING IS UNDETERMINED, and that is the point of consulting
+        // the source rather than the name. A screen that is not UTF-8 and that nobody has explained
+        // is read with Latin-1 to keep its bytes whole — a way of holding them, not a reading of
+        // them. Storing "iso-8859-1" for it would put our own fallback into the game's record as
+        // something we measured about the game, which is rule 4 producing a value where the honest
+        // answer is unknown, and rule 5 signing it with a measured source. The screen still renders;
+        // it simply carries no claim about its encoding, which is exactly what we know.
+        //
+        // The two determined cases carry the source of the determination, because they genuinely
+        // have different ones: the bytes proved UTF-8 to a decoder that cannot be talked round, and
+        // an override is a person's assertion. A staff row here outranks the handshake one, so an
+        // override that is later withdrawn must be deleted by hand — the same as every other staff
+        // override in this catalogue (see the NAME overrides), and for the same reason.
+        if (result.ReadAs is { Length: > 0 } readAs)
         {
-            yield return new FieldObservation(CharsetReadField, FieldSource.Handshake, readAs);
+            switch (result.CharsetSource)
+            {
+                case WireCharset.Proven:
+                    yield return new FieldObservation(CharsetReadField, FieldSource.Handshake, readAs);
+                    break;
+
+                case WireCharset.Overridden:
+                    yield return new FieldObservation(CharsetReadField, FieldSource.Staff, readAs);
+                    break;
+
+                case WireCharset.Undetermined:
+                default:
+                    break;
+            }
         }
 
         if (!result.Negotiation.CharsetNegotiated || result.Negotiation.Charset is not { Length: > 0 } charset)

@@ -45,8 +45,18 @@ public sealed record ProbeResult
     /// </remarks>
     public string? ReadAs { get; init; }
 
-    /// <summary>Whether <see cref="ReadAs"/> came from an operator's override rather than from the bytes.</summary>
-    public bool CharsetOverridden { get; init; }
+    /// <summary>
+    /// How much is known about <see cref="ReadAs"/> — proven from the bytes, chosen by an operator,
+    /// or undetermined.
+    /// </summary>
+    /// <remarks>
+    /// <b>A writer must consult this before storing <see cref="ReadAs"/> anywhere.</b>
+    /// <see cref="WireCharset.Undetermined"/> means the bytes are not UTF-8 and nothing has said
+    /// what they are; the Latin-1 that produced the text is a way of keeping them, not a reading of
+    /// them, and storing it as though it were the latter records our own fallback as a fact about
+    /// the game.
+    /// </remarks>
+    public WireCharset CharsetSource { get; init; } = WireCharset.Proven;
 
     /// <summary>Layer 2 — the connect screen, ANSI intact. Display asset and codebase fingerprint both.</summary>
     public string? Banner { get; init; }

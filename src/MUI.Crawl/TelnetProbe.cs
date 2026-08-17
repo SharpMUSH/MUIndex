@@ -220,7 +220,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 OfferedOptions = seen.Supported,
                 Negotiation = seen.ToNegotiation(),
                 ReadAs = reading.Charset,
-                CharsetOverridden = reading.Overridden,
+                CharsetSource = reading.Source,
                 Banner = banner,
 
                 // Every phase, not just the banner: a server may answer the connect screen in plain

@@ -104,15 +104,15 @@ public static class WireEncoding
 
         if (Override(overrideName) is { } forced)
         {
-            return new WireReading(Decode(lines, forced), forced.WebName, Overridden: true);
+            return new WireReading(Decode(lines, forced), forced.WebName, WireCharset.Overridden);
         }
 
         if (IsUtf8(lines))
         {
-            return new WireReading(Decode(lines, Utf8), Utf8.WebName, Overridden: false);
+            return new WireReading(Decode(lines, Utf8), Utf8.WebName, WireCharset.Proven);
         }
 
-        return new WireReading(Decode(lines, Fallback), Fallback.WebName, Overridden: false);
+        return new WireReading(Decode(lines, Fallback), Fallback.WebName, WireCharset.Undetermined);
     }
 
     /// <summary>Whether every line is well-formed UTF-8.</summary>
@@ -148,14 +148,47 @@ public static class WireEncoding
 }
 
 /// <summary>
+/// How much is actually known about the encoding a session's bytes were read with.
+/// </summary>
+/// <remarks>
+/// <b>Three states, because two of them are knowledge and one is the absence of it</b> — and a
+/// caller that cannot tell them apart will write our fallback down as a fact about the game. The
+/// distinction is on the type rather than inferred from the charset name so that it cannot be lost.
+/// </remarks>
+public enum WireCharset
+{
+    /// <summary>A strict UTF-8 decoder accepted every byte. Evidence, not preference.</summary>
+    Proven,
+
+    /// <summary>An operator said what these bytes are, and we read them that way.</summary>
+    Overridden,
+
+    /// <summary>
+    /// The bytes are not UTF-8 and nothing has said what they are, so they were read with the
+    /// reversible fallback to keep them whole.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is not a measurement of ISO-8859-1 and must never be recorded as one.</b> Latin-1 was
+    /// chosen because it is total over all 256 byte values and round-trips, so the screen survives
+    /// until somebody says what it is — the encoding is <em>undetermined</em>, and an undetermined
+    /// value stored as a determined one is rule 4 twice over: it fabricates an answer, and it does
+    /// it under a source that says we measured it.
+    /// </remarks>
+    Undetermined,
+}
+
+/// <summary>
 /// A session's text and the encoding it was read with.
 /// </summary>
 /// <param name="Lines">The decoded lines, in arrival order.</param>
 /// <param name="Charset">
-/// The encoding's <see cref="Encoding.WebName"/> — what was actually used, never what was declared.
+/// The encoding's <see cref="Encoding.WebName"/> — what was actually used, never what was declared
+/// and never what an operator typed. <c>gbk</c>, <c>GBK</c> and <c>gb2312</c> all resolve to code
+/// page 936 and are recorded as <c>gb2312</c>, so one encoding is one value in the catalogue.
 /// </param>
-/// <param name="Overridden">
-/// Whether an operator chose it. Kept apart because the two are different claims: one is a staff
-/// assertion and the other is what a strict decoder proved about the bytes.
-/// </param>
-public sealed record WireReading(IReadOnlyList<string> Lines, string Charset, bool Overridden);
+/// <param name="Source">How much is known about that choice. Read this before storing anything.</param>
+public sealed record WireReading(IReadOnlyList<string> Lines, string Charset, WireCharset Source)
+{
+    /// <summary>Whether an operator's override drove the decode, rather than the bytes or a fallback.</summary>
+    public bool Overridden => Source is WireCharset.Overridden;
+}

@@ -65,7 +65,7 @@ public class WireEncodingTests
         var reading = WireEncoding.Read([PkuxkxTitle]);
 
         await Assert.That(reading.Charset).IsEqualTo("iso-8859-1");
-        await Assert.That(reading.Overridden).IsFalse();
+        await Assert.That(reading.Source).IsEqualTo(WireCharset.Undetermined);
 
         // The whole point of Latin-1 rather than windows-1252: every byte survives the round trip,
         // so the original wire bytes are still in the stored string.
@@ -86,14 +86,14 @@ public class WireEncodingTests
     {
         var reading = WireEncoding.Read([PkuxkxTitle], "gbk");
 
-        await Assert.That(reading.Overridden).IsTrue();
+        await Assert.That(reading.Source).IsEqualTo(WireCharset.Overridden);
         await Assert.That(reading.Charset).IsEqualTo("gb2312");
         await Assert.That(WireEncoding.Read([PkuxkxTitle], "GB2312").Charset).IsEqualTo("gb2312");
         await Assert.That(reading.Lines[0]).Contains("北  大  侠  客  行");
 
         // The SGR is content and survives the decode, because the connect screen is rendered as the
         // game sent it.
-        await Assert.That(reading.Lines[0]).StartsWith("[1;36m");
+        await Assert.That(reading.Lines[0]).StartsWith("\u001b[1;36m");
     }
 
     /// <summary>
@@ -158,7 +158,7 @@ public class WireEncodingTests
 
         var reading = WireEncoding.Read([PkuxkxTitle], "not-an-encoding");
 
-        await Assert.That(reading.Overridden).IsFalse();
+        await Assert.That(reading.Source).IsEqualTo(WireCharset.Undetermined);
         await Assert.That(reading.Charset).IsEqualTo("iso-8859-1");
     }
 

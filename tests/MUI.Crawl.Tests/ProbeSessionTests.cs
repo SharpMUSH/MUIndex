@@ -94,13 +94,13 @@ public class ProbeSessionTests
         await Assert.That(asSent.Outcome).IsEqualTo(ProbeOutcome.Answered);
         await Assert.That(asSent.Banner).DoesNotContain("\ufffd");
         await Assert.That(asSent.ReadAs).IsEqualTo("iso-8859-1");
-        await Assert.That(asSent.CharsetOverridden).IsFalse();
+        await Assert.That(asSent.CharsetSource).IsEqualTo(WireCharset.Undetermined);
 
         var told = await new TelnetProbe(Fast()).ProbeAsync(game.Target with { Charset = "gbk" });
 
         await Assert.That(told.Banner).Contains("北  大  侠  客  行");
         await Assert.That(told.ReadAs).IsEqualTo("gb2312");
-        await Assert.That(told.CharsetOverridden).IsTrue();
+        await Assert.That(told.CharsetSource).IsEqualTo(WireCharset.Overridden);
     }
 
     [Test]
