@@ -599,6 +599,36 @@ public class LocalizationTests
         await Assert.That((int)answered.StatusCode).IsNotEqualTo(302);
     }
 
+    /// <summary>
+    /// A sentence with links in it is one message, and what a translator writes is never markup.
+    /// </summary>
+    /// <remarks>
+    /// The random-game empty state is "No game matches that filter. Try {listing}, or {archive}." —
+    /// two anchors inside one sentence. Gluing English round the anchors would give a language that
+    /// wants the archive named first, or a different preposition before each, nowhere to say so; but
+    /// formatting the anchors *into* the string and trusting the result through a
+    /// <c>MarkupString</c> would make every bundle a place a tag could be put. The message places
+    /// two private-use markers and the page walks them, so the bundle holds text either way.
+    /// </remarks>
+    [Test]
+    public async Task ASentenceWithLinksInItPlacesThemWithoutCarryingMarkup()
+    {
+        foreach (var id in new[] { "random.empty.title", "random.empty.body", "random.empty.listing", "random.empty.archive" })
+        {
+            await Assert.That(Messages.Ids).Contains(id);
+        }
+
+        // The body places both links and holds no markup of its own, in every locale.
+        foreach (var locale in Locales.All.Where(l => l.IsChoosable))
+        {
+            var body = Messages.Pattern(locale.Tag, "random.empty.body");
+
+            await Assert.That(body).Contains("{listing}").Because($"{locale.Tag} must place the listing link");
+            await Assert.That(body).Contains("{archive}").Because($"{locale.Tag} must place the archive link");
+            await Assert.That(body).DoesNotContain("<").Because($"{locale.Tag} must carry no markup");
+        }
+    }
+
     [Test]
     public async Task TheAlternatesNameEveryOfferedLocaleAndAnXDefault()
     {

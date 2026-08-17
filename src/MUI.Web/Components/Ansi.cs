@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Globalization;
 using System.Text;
 
@@ -153,7 +154,7 @@ public static class Ansi
                     var stop = ((column / 8) + 1) * 8;
                     while (column < stop && column < Columns)
                     {
-                        Append(' ');
+                        Append(" ", 1);
                     }
 
                     continue;
@@ -164,7 +165,25 @@ public static class Ansi
             // part of the picture and are dropped rather than rendered as replacement glyphs.
             if (!char.IsControl(c))
             {
-                Append(c);
+                // A rune at a time, not a UTF-16 unit at a time. The width model beside this counts
+                // terminal cells — two for a wide glyph, none for a combining mark — and a loop that
+                // advanced once per char disagreed with it three ways: a CJK screen wrapped after
+                // eighty runes, which is a hundred and sixty cells; an astral rune counted twice for
+                // the two units it is stored in; and a combining mark claimed a cell it never draws
+                // in. The wrap has to be where the terminal put it or the picture is not the one the
+                // game sent.
+                if (Rune.DecodeFromUtf16(raw.AsSpan(i), out var rune, out var consumed)
+                    is OperationStatus.Done)
+                {
+                    Append(raw.AsSpan(i, consumed), CellWidth(rune));
+                    i += consumed - 1;
+                }
+                else
+                {
+                    // Lone surrogate: not a rune, so it has no width the terminal agrees on. Kept
+                    // as the byte the game sent rather than dropped or replaced (rule 5).
+                    Append(raw.AsSpan(i, 1), 1);
+                }
             }
         }
 
@@ -178,7 +197,7 @@ public static class Ansi
 
         return rows;
 
-        void Append(char ch)
+        void Append(ReadOnlySpan<char> glyph, int cells)
         {
             if (style != emitted)
             {
@@ -186,8 +205,15 @@ public static class Ansi
                 emitted = style;
             }
 
-            text.Append(ch);
-            column++;
+            // A wide glyph that will not fit in the last cell of a row is put on the next one, which
+            // is what a terminal does: it does not split a character across the wrap.
+            if (cells > 1 && column + cells > Columns)
+            {
+                FlushRow();
+            }
+
+            text.Append(glyph);
+            column += cells;
 
             // Wrap exactly where a terminal would. The wrapped row is a real row and is counted as
             // one, because the reader has to scroll past it either way.

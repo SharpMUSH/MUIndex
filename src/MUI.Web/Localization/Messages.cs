@@ -163,6 +163,10 @@ public static class Messages
         ["listing.plain.fromHere"] = "from here",
         ["listing.plain.archived"] = "archived",
         ["listing.plain.claimed"] = "claimed",
+        ["random.empty.title"] = "Nothing to pick from",
+        ["random.empty.body"] = "No game matches that filter. Try {listing}, or {archive}.",
+        ["random.empty.listing"] = "the whole listing",
+        ["random.empty.archive"] = "include the archive",
 
         // ── the words the product rests on ────────────────────────────────────────────────────
         ["term.connected"] = "connected",

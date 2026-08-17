@@ -107,16 +107,27 @@ public class AnsiTests
     [Test]
     public async Task AWidthIsCountedInTerminalCellsAndPerRowRatherThanPerScreen()
     {
-        // The row that made a screen-wide flag wrong: seventy-nine ASCII characters and one Han
-        // glyph. Eighty characters, eighty-one cells — and the caption used to halve the whole
+        // The row that made a screen-wide flag wrong: seventy-eight ASCII characters and one Han
+        // glyph. Seventy-nine characters, eighty cells — and the caption used to halve the whole
         // screen the moment any wide rune appeared anywhere, and report forty for this.
-        var mixed = new string('x', 79) + "漢";
+        var mixed = new string('x', 78) + "漢";
         var screen = Ansi.Parse($"{mixed}\nplain\nplain", suppressedByOwner: false);
 
-        await Assert.That(screen.Rows[0].Text.Length).IsEqualTo(80);
-        await Assert.That(screen.Rows[0].Cells).IsEqualTo(81);
-        await Assert.That(screen.CellColumns).IsEqualTo(81);
+        await Assert.That(screen.Rows[0].Text.Length).IsEqualTo(79);
+        await Assert.That(screen.Rows[0].Cells).IsEqualTo(80);
+        await Assert.That(screen.CellColumns).IsEqualTo(80);
         await Assert.That(screen.HasWideRunes).IsTrue();
+
+        // And eighty-one cells cannot be one row of an eighty-column terminal. A double-width glyph
+        // that would straddle the right margin is moved whole to the next line rather than split
+        // across it, which is what a terminal does — so seventy-nine ASCII plus one Han glyph is two
+        // rows, not one over-wide one. The layout counts cells and the caption reads them; before
+        // this the layout counted UTF-16 units, so a screen of wide glyphs wrapped after eighty
+        // runes, which is a hundred and sixty cells.
+        var straddling = Ansi.Parse(new string('x', 79) + "漢\nplain", suppressedByOwner: false);
+
+        await Assert.That(straddling.Rows[0].Cells).IsEqualTo(79);
+        await Assert.That(straddling.Rows[1].Text).IsEqualTo("漢");
 
         // And a screen drawn entirely out of wide glyphs is twice its character count, which is the
         // case the halving was written for and the only one it got right.
@@ -200,13 +211,15 @@ public class AnsiTests
     [Test]
     public async Task TheCaptionStatesTheWidestRowInCellsRatherThanAHalvedGrid()
     {
-        // Seventy-nine ASCII characters and one Han glyph: eighty-one cells. The caption said forty.
+        // Seventy-eight ASCII characters and one Han glyph: eighty cells, the widest a row of an
+        // eighty-column terminal can be. The caption said forty, because one wide rune anywhere
+        // halved the whole screen.
         var html = Render.Words(await Render.ComponentAsync<AnsiQuote>(new()
         {
-            ["Screen"] = Ansi.Parse(new string('x', 79) + "漢\nplain\nplain", suppressedByOwner: false),
+            ["Screen"] = Ansi.Parse(new string('x', 78) + "漢\nplain\nplain", suppressedByOwner: false),
         }));
 
-        await Assert.That(html).Contains("81×");
+        await Assert.That(html).Contains("80×");
         await Assert.That(html).DoesNotContain("40×");
     }
 

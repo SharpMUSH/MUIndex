@@ -332,6 +332,22 @@
     <value>claimed</value>
     <comment>the listing's own absences, which are not the game page's</comment>
   </data>
+  <data name="random.empty.title" xml:space="preserve">
+    <value>Nothing to pick from</value>
+    <comment>the listing's own absences, which are not the game page's</comment>
+  </data>
+  <data name="random.empty.body" xml:space="preserve">
+    <value>No game matches that filter. Try {listing}, or {archive}.</value>
+    <comment>the listing's own absences, which are not the game page's</comment>
+  </data>
+  <data name="random.empty.listing" xml:space="preserve">
+    <value>the whole listing</value>
+    <comment>the listing's own absences, which are not the game page's</comment>
+  </data>
+  <data name="random.empty.archive" xml:space="preserve">
+    <value>include the archive</value>
+    <comment>the listing's own absences, which are not the game page's</comment>
+  </data>
   <data name="term.connected" xml:space="preserve">
     <value>connected</value>
     <comment>the words the product rests on</comment>
