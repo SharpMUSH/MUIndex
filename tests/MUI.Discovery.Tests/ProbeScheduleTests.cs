@@ -24,20 +24,41 @@ public class ProbeScheduleTests
     }
 
     [Test]
-    [Arguments(1, 6)]
-    [Arguments(2, 12)]
-    [Arguments(3, 24)]
-    [Arguments(4, 48)]
-    [Arguments(5, 96)]
-    public async Task EachFailureDoublesTheInterval(int failures, int expectedHours)
+    public async Task AFirstFailureIsRecheckedSoonRatherThanBackedOffForHours()
     {
+        // The measured defect (2026-08-18): 173 of 182 dark episodes in four days were one failed
+        // probe followed immediately by a successful one, and the six-hour backoff is what turned
+        // each blip into six hours of published downtime. A single failure is a question, not an
+        // answer, so it buys a recheck rather than a retreat.
+        await Assert.That(ProbeSchedule.Next(1, null)).IsEqualTo(ProbeSchedule.RecheckInterval);
+        await Assert.That(ProbeSchedule.RecheckInterval).IsEqualTo(TimeSpan.FromMinutes(10));
+    }
+
+    [Test]
+    public async Task TheRecheckIsNotAnExcuseToIgnoreWhatTheServerAskedFor()
+    {
+        // §7.7 again: the recheck shortens *our* backoff and is not licence to knock every ten
+        // minutes at a server that asked for an hour. max(CRAWL DELAY, interval) still holds.
+        await Assert.That(ProbeSchedule.Next(1, TimeSpan.FromHours(1))).IsEqualTo(TimeSpan.FromHours(1));
+    }
+
+    [Test]
+    [Arguments(2, 6)]
+    [Arguments(3, 12)]
+    [Arguments(4, 24)]
+    [Arguments(5, 48)]
+    [Arguments(6, 96)]
+    public async Task EachConfirmedFailureDoublesTheInterval(int failures, int expectedHours)
+    {
+        // The ladder starts at the *second* failure, which is the first one we believe. Its rungs
+        // are unchanged; only their entry point moved.
         await Assert.That(ProbeSchedule.Next(failures, null)).IsEqualTo(TimeSpan.FromHours(expectedHours));
     }
 
     [Test]
     public async Task ActivityDoesNotTightenAFailingGameBecauseThereWasNoActivityToRead()
     {
-        await Assert.That(ProbeSchedule.Next(3, null, ActivityBand.Busy)).IsEqualTo(TimeSpan.FromHours(24));
+        await Assert.That(ProbeSchedule.Next(4, null, ActivityBand.Busy)).IsEqualTo(TimeSpan.FromHours(24));
     }
 
     [Test]
@@ -45,7 +66,7 @@ public class ProbeScheduleTests
     {
         // The whole product differentiator. A game dark for two years is still probed weekly, and after
         // a decade of failures it is still probed weekly — there is no retirement and no "never".
-        await Assert.That(ProbeSchedule.Next(6, null)).IsEqualTo(ProbeSchedule.LongestInterval);
+        await Assert.That(ProbeSchedule.Next(7, null)).IsEqualTo(ProbeSchedule.LongestInterval);
         await Assert.That(ProbeSchedule.Next(50, null)).IsEqualTo(ProbeSchedule.LongestInterval);
         await Assert.That(ProbeSchedule.Next(100_000, null)).IsEqualTo(ProbeSchedule.LongestInterval);
         await Assert.That(ProbeSchedule.LongestInterval).IsEqualTo(TimeSpan.FromDays(7));
@@ -104,7 +125,7 @@ public class ProbeScheduleTests
     [Test]
     public async Task NextProbeAtIsJustNowPlusTheInterval()
     {
-        await Assert.That(ProbeSchedule.NextProbeAt(Now, 2, null)).IsEqualTo(Now + TimeSpan.FromHours(12));
+        await Assert.That(ProbeSchedule.NextProbeAt(Now, 2, null)).IsEqualTo(Now + TimeSpan.FromHours(6));
     }
 
     [Test]

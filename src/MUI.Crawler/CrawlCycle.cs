@@ -7,6 +7,9 @@ using Microsoft.Extensions.Logging;
 
 using SchedulerBand = MUI.Discovery.ActivityBand;
 
+using Polly;
+using Polly.Retry;
+
 namespace MUI.Crawler;
 
 /// <summary>
@@ -153,34 +156,96 @@ public sealed class CrawlCycle(
         }
     }
 
+    /// <summary>
+    /// One retry around one dial, so a failure is confirmed before it is published.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The measurement this fixes.</b> Over four days of production ending 2026-08-18, 182 dark
+    /// episodes were published across 171 of 538 listed games, and 173 of them were a single failed
+    /// probe followed immediately by a successful one — 86% of all downtime the site reported. The
+    /// games were fine. What failed was one dial: a cold DNS lookup that took five seconds and gave
+    /// up, a reset, a momentary refusal. Publishing that as the game's reachability is rule 5 —
+    /// a limitation of ours recorded as a fact about them.
+    /// </para>
+    /// <para>
+    /// <b>What is inside the retried region and why.</b> Resolution as well as the dial, because a
+    /// transient lookup failure was the largest single share of the blips and the guard fails closed
+    /// on one. The rate limiter too, so a confirming dial waits its turn like any other. Outside it:
+    /// the opt-out check, which is a standing answer rather than a measurement, and the scope
+    /// guard's <em>refusal</em>, which is our policy and does not become true by being asked twice.
+    /// </para>
+    /// <para>
+    /// Only failures retry, so the common path pays nothing at all.
+    /// </para>
+    /// </remarks>
+    private ResiliencePipeline<Attempt> Confirming { get; } = options.ConfirmationAttempts == 0
+        ? ResiliencePipeline<Attempt>.Empty
+        : new ResiliencePipelineBuilder<Attempt>()
+            .AddRetry(new RetryStrategyOptions<Attempt>
+            {
+                ShouldHandle = new PredicateBuilder<Attempt>().HandleResult(attempt => attempt.Failed),
+                MaxRetryAttempts = options.ConfirmationAttempts,
+                Delay = options.ConfirmationDelay,
+                BackoffType = DelayBackoffType.Constant,
+            })
+            .Build();
+
     private async Task ProbeOneAsync(CrawlTarget target, Tally tally, CancellationToken cancellationToken)
     {
         // §11, and before the scope gate on purpose: somebody who has asked us to stop should not
-        // have their name resolved either.
+        // have their name resolved either. Never retried — a "no" does not become a "maybe" because
+        // we asked twice.
         if (await optOut.RuleOnAsync(target, cancellationToken) is { } asked)
         {
             await RefuseAsync(target, DialRefusal.OptedOut, asked.Wording, tally, cancellationToken);
             return;
         }
 
+        var attempt = await Confirming.ExecuteAsync(
+            async token => await AttemptAsync(target, token), cancellationToken);
+
+        if (attempt.Refusal is { } refusal)
+        {
+            await RefuseAsync(target, DialRefusal.OutOfScope, refusal, tally, cancellationToken);
+            return;
+        }
+
+        var result = attempt.Result!;
+
+        // Nothing measured while this host was being taken down is a fact about the far end, and the
+        // writes below are fast enough against a Postgres on the same network to land before Npgsql
+        // ever looks at the token. TelnetProbe already refuses to dress our cancellation as a
+        // timeout, so this is the second lock on the same door rather than the only one — and it is
+        // worth having, because the failure it prevents is silent, permanent (rule 3) and published.
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // Read before anything is stored, so that a game which used this reply to ask us to stop is
+        // never dialled again — including by the rest of this same cycle (§11's "within one cycle").
+        // What this probe measured is still stored: the reply was sent to a connection already made,
+        // nothing here is ever deleted, and the about page says as much.
+        await optOut.HearAsync(target, result, cancellationToken);
+
+        await StoreAsync(target, result, tally, cancellationToken);
+    }
+
+    /// <summary>One resolution and one dial — the thing a confirmation repeats.</summary>
+    private async Task<Attempt> AttemptAsync(CrawlTarget target, CancellationToken cancellationToken)
+    {
         var decision = await scope.RuleOnAsync(target, cancellationToken);
 
         switch (decision.Ruling)
         {
             case HostScopeRuling.RefusedNonGlobal:
-                await RefuseAsync(
-                    target,
-                    DialRefusal.OutOfScope,
-                    decision.Detail ?? "resolved somewhere we will not dial",
-                    tally,
-                    cancellationToken);
-                return;
+                return new Attempt(null, decision.Detail ?? "resolved somewhere we will not dial");
 
             case HostScopeRuling.Unresolvable:
-                await UnresolvableAsync(target, decision, tally, cancellationToken);
-                return;
+                return new Attempt(Unresolved(target, decision), null);
         }
 
+        // Politeness applies to a confirming dial exactly as it does to a first one, which is why
+        // this is inside the retried region: PerHostInterval is the floor under the gap between two
+        // dials at one host, and being unsure about a game is not a reason to knock harder.
         await limiter.WaitForTurnAsync(target.Host, cancellationToken);
 
         // The loop's own bound, on top of ProbeOptions.Timeout. Linked, so a stopping host cancels a
@@ -202,22 +267,32 @@ public sealed class CrawlCycle(
         budget.CancelAfter(options.ProbeTimeout);
 
         var result = await probe.ProbeAsync(
-            new ProbeTarget(target.Host, target.Port) { Charset = target.Charset }, budget.Token);
+            new ProbeTarget(target.Host, target.Port)
+            {
+                Charset = target.Charset,
 
-        // Nothing measured while this host was being taken down is a fact about the far end, and the
-        // writes below are fast enough against a Postgres on the same network to land before Npgsql
-        // ever looks at the token. TelnetProbe already refuses to dress our cancellation as a
-        // timeout, so this is the second lock on the same door rather than the only one — and it is
-        // worth having, because the failure it prevents is silent, permanent (rule 3) and published.
-        cancellationToken.ThrowIfCancellationRequested();
+                // The addresses the guard just vetted, so the dial reaches what was ruled on and the
+                // name is resolved once rather than twice. See ProbeTarget.Addresses.
+                Addresses = decision.Addresses,
+            },
+            budget.Token);
 
-        // Read before anything is stored, so that a game which used this reply to ask us to stop is
-        // never dialled again — including by the rest of this same cycle (§11's "within one cycle").
-        // What this probe measured is still stored: the reply was sent to a connection already made,
-        // nothing here is ever deleted, and the about page says as much.
-        await optOut.HearAsync(target, result, cancellationToken);
+        return new Attempt(result, null);
+    }
 
-        await StoreAsync(target, result, tally, cancellationToken);
+    /// <summary>
+    /// What one attempt produced: a probe result, or the scope guard's reason for not dialling.
+    /// </summary>
+    /// <remarks>
+    /// The two are kept apart rather than folded into one <c>ProbeResult</c>, and
+    /// <see cref="DialRefusal"/> says why: a refusal happens before a probe exists, and dressing our
+    /// own policy as a measured failure puts it into a game's public reachability history where
+    /// nothing downstream can tell the two apart again.
+    /// </remarks>
+    private sealed record Attempt(ProbeResult? Result, string? Refusal)
+    {
+        /// <summary>Whether this is a dial worth confirming before anybody believes it.</summary>
+        public bool Failed => Result is { Outcome: ProbeOutcome.Failed };
     }
 
     /// <summary>
@@ -288,25 +363,14 @@ public sealed class CrawlCycle(
     /// and is forbidden; see <see cref="HostScopeGuard"/>'s remarks for why the two can never be
     /// allowed to look alike downstream.
     /// </remarks>
-    private async Task UnresolvableAsync(
-        CrawlTarget target,
-        HostScopeDecision decision,
-        Tally tally,
-        CancellationToken cancellationToken)
+    private ProbeResult Unresolved(CrawlTarget target, HostScopeDecision decision) => new()
     {
-        var now = time.GetUtcNow();
-
-        var result = new ProbeResult
-        {
-            Host = target.Host,
-            Port = target.Port,
-            ObservedAt = now,
-            Outcome = ProbeOutcome.Failed,
-            Failure = new FailureDetail("dns", decision.Detail),
-        };
-
-        await StoreAsync(target, result, tally, cancellationToken);
-    }
+        Host = target.Host,
+        Port = target.Port,
+        ObservedAt = time.GetUtcNow(),
+        Outcome = ProbeOutcome.Failed,
+        Failure = new FailureDetail("dns", decision.Detail),
+    };
 
     /// <summary>
     /// Offers whatever claim beacon this probe carried to the claim store (spec §8.1).
@@ -384,9 +448,14 @@ public sealed class CrawlCycle(
 
         if (!answered)
         {
+            // The message as well as the word. The cause vocabulary is six words wide and three of
+            // them are wastebaskets, so "timeout" alone has never been enough to act on.
             logger?.LogInformation(
-                "{Host}:{Port} did not answer — {Cause}",
-                result.Host, result.Port, result.Failure?.Cause ?? "unknown");
+                "{Host}:{Port} did not answer — {Cause}: {Detail}",
+                result.Host,
+                result.Port,
+                result.Failure?.Cause ?? "unknown",
+                result.Failure?.Detail ?? "no detail recorded");
         }
 
         // Last, because it is computed from what the probe found: max(CRAWL DELAY, backoff), with the

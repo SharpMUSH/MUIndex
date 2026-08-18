@@ -16,6 +16,7 @@ public sealed class AvailabilityWriter(IAvailabilityStore store) : IAvailability
         AvailabilityState state,
         FailureCause cause,
         DateTimeOffset at,
+        string? detail = null,
         CancellationToken cancellationToken = default)
     {
         // 'none' is what a reachable interval carries; a failure that reported no cause would be a
@@ -24,6 +25,15 @@ public sealed class AvailabilityWriter(IAvailabilityStore store) : IAvailability
         {
             throw new ArgumentException(
                 "A reachable interval carries no failure cause.", nameof(cause));
+        }
+
+        // The same rule for the evidence as for the cause. `detail` is what a failed dial said, so on
+        // a reachable interval there is no dial it could be about: a non-null one here is another
+        // probe's message filed under this one, which is a fabricated fact about a game (rule 5).
+        if (state is AvailabilityState.Reachable && detail is not null)
+        {
+            throw new ArgumentException(
+                "A reachable interval carries no failure detail.", nameof(detail));
         }
 
         if (state is not AvailabilityState.Reachable && cause is FailureCause.None)
@@ -37,7 +47,7 @@ public sealed class AvailabilityWriter(IAvailabilityStore store) : IAvailability
         if (open is null)
         {
             await store.OpenAsync(
-                new AvailabilityInterval { GameId = gameId, State = state, FromAt = at, Cause = cause },
+                new AvailabilityInterval { GameId = gameId, State = state, FromAt = at, Cause = cause, Detail = detail },
                 cancellationToken);
 
             return AvailabilityOutcome.Opened;
@@ -53,7 +63,7 @@ public sealed class AvailabilityWriter(IAvailabilityStore store) : IAvailability
 
         await store.CloseAsync(gameId, at, cancellationToken);
         await store.OpenAsync(
-            new AvailabilityInterval { GameId = gameId, State = state, FromAt = at, Cause = cause },
+            new AvailabilityInterval { GameId = gameId, State = state, FromAt = at, Cause = cause, Detail = detail },
             cancellationToken);
 
         return AvailabilityOutcome.Transitioned;

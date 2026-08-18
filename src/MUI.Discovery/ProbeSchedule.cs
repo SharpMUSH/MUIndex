@@ -40,6 +40,19 @@ public static class ProbeSchedule
     public static readonly TimeSpan BusyInterval = TimeSpan.FromHours(2);
 
     /// <summary>
+    /// The gap after a first, unconfirmed failure — a question rather than a retreat.
+    /// </summary>
+    /// <remarks>
+    /// One failed probe is not evidence that a game is gone, and until 2026-08-18 it was treated as
+    /// if it were: the ladder below started at <see cref="BaseInterval"/>, so a single blip took the
+    /// next look six hours away and the game read as dark for all six. Measured over four days of
+    /// production, 173 of 182 dark episodes were exactly that — one failure, then an answer — and
+    /// they accounted for 86% of all published downtime. The ladder is unchanged; it now begins at
+    /// the second consecutive failure, which is the first one anything has confirmed.
+    /// </remarks>
+    public static readonly TimeSpan RecheckInterval = TimeSpan.FromMinutes(10);
+
+    /// <summary>
     /// The longest gap the backoff may produce: §7.4's permanent weekly probe, expressed as a ceiling
     /// on the interval rather than a floor under it. See the type's remarks.
     /// </summary>
@@ -56,9 +69,12 @@ public static class ProbeSchedule
     {
         ArgumentOutOfRangeException.ThrowIfNegative(consecutiveFailures);
 
-        var interval = consecutiveFailures == 0
-            ? activity is ActivityBand.Busy ? BusyInterval : BaseInterval
-            : BaseInterval * Math.Pow(2, Math.Min(consecutiveFailures - 1, MaxDoublings));
+        var interval = consecutiveFailures switch
+        {
+            0 => activity is ActivityBand.Busy ? BusyInterval : BaseInterval,
+            1 => RecheckInterval,
+            _ => BaseInterval * Math.Pow(2, Math.Min(consecutiveFailures - 2, MaxDoublings)),
+        };
 
         if (interval > LongestInterval)
         {

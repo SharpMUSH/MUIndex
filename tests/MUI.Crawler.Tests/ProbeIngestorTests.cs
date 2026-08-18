@@ -33,6 +33,43 @@ public class ProbeIngestorTests
     }
 
     [Test]
+    public async Task AFailedProbeKeepsWhatTheDialActuallySaid()
+    {
+        // The cause vocabulary is six words wide and three of them are wastebaskets: "timeout"
+        // carries a socket timeout, an exhausted probe budget and every error with no word of its
+        // own. Four days of production had 157 dark episodes labelled "timeout" or
+        // "handshake_stalled" and nothing else recorded anywhere, because the message was computed
+        // in DialFailure and dropped on the way here — and the container keeps half an hour of logs.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed();
+
+        await catalogue.Ingestor().IngestAsync(
+            game, Probes.Failed(cause: "timeout", detail: "Network is unreachable [203.0.113.9]:4000"));
+
+        var interval = catalogue.Availability.Intervals.Single();
+
+        await Assert.That(interval.Cause).IsEqualTo(FailureCause.Timeout);
+        await Assert.That(interval.Detail).IsEqualTo("Network is unreachable [203.0.113.9]:4000");
+    }
+
+    [Test]
+    public async Task ADetailThatChangedIsNotATransition()
+    {
+        // §5.3's invariant survives the new column. Two timeouts whose messages differ — a different
+        // address in the text, say — are still one interval, or the table this exists for becomes a
+        // sample series again.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed();
+        var ingestor = catalogue.Ingestor();
+
+        await ingestor.IngestAsync(game, Probes.Failed(cause: "timeout", detail: "first"));
+        var second = await ingestor.IngestAsync(game, Probes.Failed(cause: "timeout", detail: "second"));
+
+        await Assert.That(second.Availability).IsEqualTo(AvailabilityOutcome.Extended);
+        await Assert.That(catalogue.Availability.Intervals.Single().Detail).IsEqualTo("first");
+    }
+
+    [Test]
     public async Task AMeasuredZeroIsAStoredCountAndNotAnAbsence()
     {
         // We got in and nobody was there. That is a real and useful fact about a game, and it is a

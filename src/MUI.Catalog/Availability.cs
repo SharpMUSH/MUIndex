@@ -20,6 +20,19 @@ public sealed record AvailabilityInterval
 
     public FailureCause Cause { get; init; } = FailureCause.None;
 
+    /// <summary>
+    /// What the dial actually said, when it said anything. Null on a reachable interval.
+    /// </summary>
+    /// <remarks>
+    /// <b>Evidence, never a key.</b> <see cref="Cause"/> is the vocabulary the site reasons about
+    /// and three of its six words are wastebaskets — "timeout" carries a socket timeout, an
+    /// exhausted probe budget and every error that has no word of its own. This is the sentence
+    /// underneath it, kept because the container's logs last half an hour and a dark game outlives
+    /// them. It takes no part in deciding whether an interval transitions: a message that changed
+    /// while the cause did not is the same interval (§5.3).
+    /// </remarks>
+    public string? Detail { get; init; }
+
     public bool IsOpen => ToAt is null;
 
     public TimeSpan DurationAt(DateTimeOffset now) => (ToAt ?? now) - FromAt;
@@ -50,6 +63,7 @@ public interface IAvailabilityWriter
         AvailabilityState state,
         FailureCause cause,
         DateTimeOffset at,
+        string? detail = null,
         CancellationToken cancellationToken = default);
 }
 

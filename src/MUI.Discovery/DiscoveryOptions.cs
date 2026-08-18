@@ -75,6 +75,33 @@ public sealed record DiscoveryOptions
     /// </summary>
     public TimeSpan ProbeTimeout { get; init; } = TimeSpan.FromSeconds(60);
 
+    /// <summary>
+    /// How many extra dials a failing target gets before the failure is believed.
+    /// </summary>
+    /// <remarks>
+    /// <b>One dial is a measurement of one dial.</b> Until 2026-08-18 the loop published the first
+    /// one as the game's reachability, and four days of production said what that costs: 173 of 182
+    /// dark episodes were a single failed probe followed immediately by a successful one, 86% of all
+    /// published downtime, across 171 of 538 listed games. Nothing was wrong with those games.
+    /// <para>
+    /// One extra dial, because the measured failures are transient — a cold DNS lookup that took
+    /// five seconds and gave up, a connection reset — and a second attempt is enough to tell those
+    /// from a game that has gone. Zero restores the old behaviour and is what the CLI's single-shot
+    /// mode wants. It costs nothing on the common path: only a failing target ever retries, and in
+    /// production that is about one target in a hundred.
+    /// </para>
+    /// </remarks>
+    public int ConfirmationAttempts { get; init; } = 1;
+
+    /// <summary>How long to wait before a confirming dial.</summary>
+    /// <remarks>
+    /// The floor, not the gap. <see cref="PerHostInterval"/> applies to the confirming dial like any
+    /// other — politeness does not lapse because we are unsure — so the real pause in production is
+    /// the larger of the two. Long enough to outlast a momentary fault, short enough that a game
+    /// which really has gone is published within the same cycle.
+    /// </remarks>
+    public TimeSpan ConfirmationDelay { get; init; } = TimeSpan.FromSeconds(5);
+
     /// <summary>At or above this score the probe is merged into the candidate game (spec §7.3).</summary>
     public double AutoMergeThreshold { get; init; } = IdentityWeights.AutoMergeThreshold;
 
@@ -110,6 +137,16 @@ public sealed record DiscoveryOptions
         if (GlobalInterval < TimeSpan.Zero || PerHostInterval < TimeSpan.Zero)
         {
             throw new ArgumentException("Rate-limit intervals cannot be negative.");
+        }
+
+        if (ConfirmationAttempts < 0)
+        {
+            throw new ArgumentException("ConfirmationAttempts cannot be negative.");
+        }
+
+        if (ConfirmationDelay < TimeSpan.Zero)
+        {
+            throw new ArgumentException("ConfirmationDelay cannot be negative.");
         }
 
         if (ProbeTimeout <= TimeSpan.Zero)

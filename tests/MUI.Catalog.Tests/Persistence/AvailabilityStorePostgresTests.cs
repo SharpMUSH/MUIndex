@@ -37,6 +37,48 @@ public class AvailabilityStorePostgresTests
     }
 
     [Test]
+    public async Task WhatTheDialSaidSurvivesTheRoundTrip()
+    {
+        // The cause is six words and the message is what was underneath one of them. It has to live
+        // in the row, because the only other copy is in a container that keeps half an hour of logs
+        // and a dark game outlives that by days.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlAvailabilityStore(db.DataSource);
+        var writer = new AvailabilityWriter(store);
+
+        await writer.ObserveAsync(
+            game,
+            AvailabilityState.Unreachable,
+            FailureCause.Dns,
+            Now,
+            "No such host is known (realms.example.net:4000)");
+
+        var open = await store.OpenIntervalAsync(game);
+
+        await Assert.That(open!.Detail).IsEqualTo("No such host is known (realms.example.net:4000)");
+    }
+
+    [Test]
+    public async Task ADetailThatChangedDoesNotWriteATransition()
+    {
+        // §5.3 is about state and cause. The message rides along as evidence and must not become a
+        // seventh thing that can split an interval — a socket message carrying a port number or a
+        // rotated address would otherwise turn one outage into a row per probe.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlAvailabilityStore(db.DataSource);
+        var writer = new AvailabilityWriter(store);
+
+        await writer.ObserveAsync(game, AvailabilityState.Unreachable, FailureCause.Timeout, Now, "first");
+        var second = await writer.ObserveAsync(
+            game, AvailabilityState.Unreachable, FailureCause.Timeout, Now.AddHours(1), "second");
+
+        await Assert.That(second).IsEqualTo(AvailabilityOutcome.Extended);
+        await Assert.That((await store.OpenIntervalAsync(game))!.Detail).IsEqualTo("first");
+    }
+
+    [Test]
     public async Task OnlyAChangeOfCauseWritesATransition()
     {
         await using var db = await PostgresFixture.MigratedAsync();

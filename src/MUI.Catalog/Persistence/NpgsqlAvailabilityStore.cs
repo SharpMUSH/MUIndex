@@ -14,7 +14,7 @@ namespace MUI.Catalog.Persistence;
 public sealed class NpgsqlAvailabilityStore(NpgsqlDataSource source) : IAvailabilityStore, IReachableHistory
 {
     private const string Columns = """
-        game_id AS GameId, state AS State, from_at AS FromAt, to_at AS ToAt, cause AS Cause
+        game_id AS GameId, state AS State, from_at AS FromAt, to_at AS ToAt, cause AS Cause, detail AS Detail
         """;
 
     public async Task<AvailabilityInterval?> OpenIntervalAsync(
@@ -49,8 +49,8 @@ public sealed class NpgsqlAvailabilityStore(NpgsqlDataSource source) : IAvailabi
 
         await connection.ExecuteAsync(new CommandDefinition(
             """
-            INSERT INTO availability_interval (game_id, state, from_at, to_at, cause, origin)
-            VALUES (@gameId, @state, @fromAt, @toAt, @cause, @origin)
+            INSERT INTO availability_interval (game_id, state, from_at, to_at, cause, origin, detail)
+            VALUES (@gameId, @state, @fromAt, @toAt, @cause, @origin, @detail)
             """,
             new
             {
@@ -60,6 +60,7 @@ public sealed class NpgsqlAvailabilityStore(NpgsqlDataSource source) : IAvailabi
                 toAt = interval.ToAt?.ToUniversalTime(),
                 cause = SqlEnums.ToDb(interval.Cause),
                 origin = SqlEnums.ToDb(origin),
+                detail = interval.Detail,
             },
             cancellationToken: cancellationToken));
     }
@@ -131,6 +132,8 @@ public sealed class NpgsqlAvailabilityStore(NpgsqlDataSource source) : IAvailabi
 
         public string Cause { get; init; } = string.Empty;
 
+        public string? Detail { get; init; }
+
         public AvailabilityInterval ToRecord() => new()
         {
             GameId = GameId,
@@ -138,6 +141,7 @@ public sealed class NpgsqlAvailabilityStore(NpgsqlDataSource source) : IAvailabi
             FromAt = FromAt,
             ToAt = ToAt,
             Cause = SqlEnums.ToFailureCause(Cause),
+            Detail = Detail,
         };
     }
 }

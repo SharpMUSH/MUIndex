@@ -783,6 +783,26 @@ A single scheduler picks due targets by `next_probe_at`, feeding a bounded worke
 Archiving does not change the schedule. Per-host serialisation prevents a multi-port game from being
 hit concurrently.
 
+**One dial is not a measurement of a game's reachability; it is a measurement of one dial.** A failed
+probe is dialled once more before anything is written down, and only a failure the second dial agrees
+with is published as the game being unreachable. This was learned from production rather than designed
+in: over the four days ending 2026-08-18 the site published 182 dark episodes across 171 of its 538
+listed games, and **173 of them were a single failed probe followed immediately by a successful one** —
+86% of all the downtime the site reported, about games that were fine throughout. The failures were
+transient and ours as often as theirs: cold DNS lookups for these domains take 1.6 to 10 seconds from
+the production host and sometimes do not return, and a resolver that gave up was being recorded as a
+game that did not answer. That is rule 5 — our limitation published as a fact about them.
+
+The confirming dial waits its turn at the rate limiter like any other, so politeness does not lapse
+because we are unsure, and only a failure ever pays for it.
+
+**The backoff ladder starts at the second consecutive failure, not the first.** A single failure buys a
+recheck in minutes; the six-hour base interval and its doublings begin once a failure has been seen
+twice. The old schedule was the amplifier that turned each of those 173 blips into six hours of
+published darkness — which is why every dark span in the production data is a clean multiple of six
+hours. `max(CRAWL DELAY, interval)` still governs the recheck, so a server that asked for an hour gets
+an hour.
+
 **When `CRAWL DELAY` and the permanent floor disagree, politeness wins.** §7.4's "still probed weekly,
 forever" is a bound on how far *our own backoff* may lengthen — it is not a promise to knock weekly at a
 server that asked for less. A game stating `CRAWL DELAY 720` is probed monthly, and the two rules

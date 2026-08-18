@@ -1,8 +1,26 @@
+using System.Net;
+
 namespace MUI.Crawl;
 
 /// <summary>What the crawler was asked to dial.</summary>
 public sealed record ProbeTarget(string Host, int Port)
 {
+    /// <summary>
+    /// The addresses the scope guard already resolved and vetted, when there are any.
+    /// </summary>
+    /// <remarks>
+    /// Empty means "resolve the name yourself", which is what the on-demand and CLI paths want.
+    /// <para>
+    /// The crawl loop fills it, and that is not an optimisation. <c>HostScopeGuard</c> checks that
+    /// every address a name resolves to is globally routable, and a dial that resolves the name a
+    /// second time is free to reach an address the guard never ruled on — so the guard was checking
+    /// one answer and the socket was using another. Carrying the vetted list forward closes that,
+    /// and it also halves the lookups: a probe used to resolve twice, and a transient failure in
+    /// either one is published as the game going dark.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<IPAddress> Addresses { get; init; } = [];
+
     /// <summary>
     /// The encoding an operator has said this game's bytes are in, overriding what it declares.
     /// </summary>
