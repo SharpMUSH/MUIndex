@@ -41,6 +41,15 @@ public sealed class CatalogueEndpointDirectory(IEndpointStore endpoints) : IEndp
                 endpoint.GameId, endpoint.Host, endpoint.Port, endpoint.FirstSeenAt, endpoint.LastSeenAt);
     }
 
+    public async Task<IReadOnlyList<KnownEndpoint>> ForGameAsync(Guid gameId, CancellationToken ct)
+    {
+        var rows = await endpoints.ForGameAsync(gameId, ct);
+
+        return rows
+            .Select(row => new KnownEndpoint(row.GameId, row.Host, row.Port, row.FirstSeenAt, row.LastSeenAt))
+            .ToList();
+    }
+
     public Task UpsertAsync(KnownEndpoint endpoint, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(endpoint);

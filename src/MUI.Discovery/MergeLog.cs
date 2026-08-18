@@ -17,7 +17,8 @@ public sealed record MergeRecord(
     double Score,
     string SignalsJson,
     DateTimeOffset At,
-    DateTimeOffset? RevertedAt)
+    DateTimeOffset? RevertedAt,
+    string? Reason = null)
 {
     /// <summary>Whether this merge is still in force.</summary>
     public bool IsInForce => RevertedAt is null;

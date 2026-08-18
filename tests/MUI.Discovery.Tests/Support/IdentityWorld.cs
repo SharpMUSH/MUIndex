@@ -1,4 +1,5 @@
 using MUI.Catalog;
+using MUI.Crawl;
 
 namespace MUI.Discovery.Tests.Support;
 
@@ -19,7 +20,14 @@ public sealed class IdentityWorld
 
     public DiscoveryOptions Options { get; init; } = new();
 
-    public IdentityMatcher Matcher => new(Games, Endpoints, Fields, Fields, Options);
+    /// <summary>
+    /// Null on every test that does not set it, matching every production caller that has not wired
+    /// one yet — <see cref="IdentityWeights.ResolvedEndpoint"/> never fires and the rest of this suite
+    /// is unaffected by its existence.
+    /// </summary>
+    public IHostResolver? Resolver { get; set; }
+
+    public IdentityMatcher Matcher => new(Games, Endpoints, Fields, Fields, Options, Resolver);
 
     /// <summary>A game with the stored fields a probe will be scored against.</summary>
     public async Task<Guid> GameAsync(params (string Field, string Value)[] fields)

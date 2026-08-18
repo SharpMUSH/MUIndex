@@ -253,6 +253,64 @@ if (arguments.MintNow)
     return 0;
 }
 
+// §7.3's operator surface: duplicate_review accumulates and nothing before this drained it. A person
+// names the winner and the loser; an open review row for exactly this pair carries its score and
+// signals onto the merge log and is closed, and a pair with no open review is still mergeable as a
+// judgement with no signals (migration 0018).
+if (arguments.Merge is { } mergeRequest)
+{
+    var gameDirectory = new CatalogueGameDirectory(games);
+    var mergeService = new ReviewMergeService(
+        gameDirectory,
+        new NpgsqlDuplicateReviewRepository(source),
+        new MergeApplier(
+            new CatalogueEndpointDirectory(endpoints), fields, new NpgsqlMergeLog(source), time),
+        time);
+
+    Guid? winnerId = null;
+    Guid? loserId = null;
+
+    try
+    {
+        winnerId = await ResolveGameIdAsync(games, mergeRequest.Winner, CancellationToken.None);
+        loserId = await ResolveGameIdAsync(games, mergeRequest.Loser, CancellationToken.None);
+
+        if (winnerId is not { } winner)
+        {
+            Console.Error.WriteLine($"merge         '{mergeRequest.Winner}' is not a known slug or game id.");
+            return 1;
+        }
+
+        if (loserId is not { } loser)
+        {
+            Console.Error.WriteLine($"merge         '{mergeRequest.Loser}' is not a known slug or game id.");
+            return 1;
+        }
+
+        var result = await mergeService.MergeAsync(winner, loser, arguments.Because!, CancellationToken.None);
+
+        Console.WriteLine($"merge         {mergeRequest.Loser} -> {mergeRequest.Winner}  merge id {result.MergeId}");
+        Console.WriteLine(result.ResolvedReviewId is { } reviewId
+            ? $"review        {reviewId} resolved, score {result.Score:F2}"
+            : "review        no open review named this pair; recorded as a judgement with no signals");
+
+        return 0;
+    }
+    catch (Exception error) when (error is ArgumentException or InvalidOperationException)
+    {
+        Console.Error.WriteLine($"merge         refused: {error.Message}");
+        return 1;
+    }
+    catch (PostgresException error)
+    {
+        // merge_log's own guards: a game already absorbed elsewhere, or a redirect chain. Both are
+        // the schema refusing at the moment somebody would create the shape, exactly as designed —
+        // the message it raised is more specific than anything worth restating here.
+        Console.Error.WriteLine($"merge         refused by the database: {error.MessageText}");
+        return 1;
+    }
+}
+
 var planted = await CrawlSeeds.PlantAsync(targets, arguments.Seeds, time);
 Console.WriteLine($"seeds         {arguments.Seeds.Count} configured, {planted} new in the registry");
 
@@ -265,13 +323,19 @@ if (!arguments.DryRun && arguments.InfoUrl == new ProbeOptions().InfoUrl)
         + "answers nobody. Set MUI_CRAWL_INFO_URL, or pass --info-url.");
 }
 
+// One resolver, shared: HostScopeGuard is where live DNS is meant to be reached from, and the
+// identity matcher's ResolvedEndpoint signal (spec §7.3) reads the same answers rather than standing
+// up a second lookup path — see IdentityMatcher's own remarks on why this is scoring, not the address
+// matching I3Cycle deliberately refuses to do.
+var hostResolver = new SystemHostResolver();
+
 var cycle = new CrawlCycle(
     targets,
     new TelnetProbe(
         new ProbeOptions { InfoUrl = arguments.InfoUrl },
         loggerFactory.CreateLogger<TelnetProbe>()),
     optOut,
-    new HostScopeGuard(new SystemHostResolver()),
+    new HostScopeGuard(hostResolver),
     new ProbeIngestor(
         new PresenceWriter(new NpgsqlPresenceStore(source)),
         new AvailabilityWriter(availability),
@@ -290,7 +354,8 @@ var cycle = new CrawlCycle(
             new CatalogueEndpointDirectory(endpoints),
             fields,
             new NpgsqlGameFieldIndex(source),
-            discovery),
+            discovery,
+            hostResolver),
         new NpgsqlDuplicateReviewRepository(source),
         time,
         loggerFactory.CreateLogger<CatalogueBinder>()),
@@ -340,3 +405,18 @@ for (var pass = 1; pass <= arguments.Cycles && !stopping.IsCancellationRequested
 await CrawlSummary.PrintAsync(source);
 
 return 0;
+
+/// <summary>
+/// A game id, read the way an operator would type it: the slug on the page, or the id itself. Null
+/// when neither names a game — never thrown, so a caller can say which of two arguments was wrong
+/// rather than which parsed first.
+/// </summary>
+static async Task<Guid?> ResolveGameIdAsync(IGameStore games, string identifier, CancellationToken ct)
+{
+    if (Guid.TryParse(identifier, out var id))
+    {
+        return await games.ByIdAsync(id, ct) is not null ? id : null;
+    }
+
+    return await games.BySlugAsync(identifier, ct) is { } bySlug ? bySlug.Id : null;
+}

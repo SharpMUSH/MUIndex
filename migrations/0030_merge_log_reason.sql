@@ -1,0 +1,23 @@
+-- Give a merge somewhere to carry the operator's own words, not just a score (spec §7.3).
+--
+-- `--merge` requires `--because` at the argument parser and the CLI's own remarks say why: "a
+-- judgement nobody wrote down beside the row is one nobody can review later" — the same reasoning
+-- `--opt-out` and `--release` already follow. But `merge_log` had nowhere to put it, so
+-- `ReviewMergeService` was throwing the operator's stated reason away the moment there was no open
+-- `duplicate_review` row to fold it into: the review-backed path wrote it onto `duplicate_review.
+-- resolution`, and the hand-judgement path — a pair the matcher never flagged, an operator spotting a
+-- duplicate on their own — recorded nothing at all. Confirmed by CodeRabbit's review of PR #108 before
+-- this was ever run against production.
+--
+-- Nullable, honestly. The ten rows already in this table predate the CLI entirely — merge_log's own
+-- migration comment says a merge today is "a row inserted by hand at a psql prompt", which carried no
+-- reason column to fill in because there wasn't one. Backfilling them with an invented explanation
+-- would be exactly the kind of fabrication rule 4 forbids for a parser and this schema forbids
+-- everywhere else; leaving them null says truthfully that nobody recorded why at the time. Every
+-- merge from this CLI onward always has one, because the argument parser already refuses `--merge`
+-- without `--because`.
+--
+-- No BEGIN/COMMIT: MigrationRunner opens a transaction around each script and writes the ledger entry
+-- inside it, so a script opening its own commits half the work and then fails the ledger insert.
+
+ALTER TABLE merge_log ADD COLUMN reason text;

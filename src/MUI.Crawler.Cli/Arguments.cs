@@ -51,6 +51,15 @@ public sealed record Arguments
                                   never declared, a codebase default and an owner's override are
                                   refused here exactly as they are on a normal cycle. Needs
                                   --because. Every slug it retires still redirects for ever.
+          --merge <winner> <loser>
+                                  Resolve a suspected-duplicate pair by hand: absorb <loser> into
+                                  <winner> and exit. Each may be a slug or a game id. If an open
+                                  duplicate_review row names this pair its score and signals carry
+                                  onto the merge log and the row is closed; otherwise the merge is
+                                  recorded as a judgement with no signals (spec §7.3, migration
+                                  0018). Reversible later by hand against merge_log — nothing here
+                                  moves an endpoint, a field or any history, only the redirect.
+                                  Needs --because.
           -v, --verbose           Debug logging.
           -h, --help              This.
 
@@ -137,6 +146,11 @@ public sealed record Arguments
     /// refused here exactly as they are on a cycle.
     /// </remarks>
     public bool MintNow { get; init; }
+
+    /// <summary>
+    /// The pair to resolve by hand, winner named first (spec §7.3). Null when nothing was asked.
+    /// </summary>
+    public MergeRequest? Merge { get; init; }
 
     /// <summary>An address to ask DNS about, without touching a database or a game server.</summary>
     public CrawlAddress? OptOutCheck { get; init; }
@@ -227,6 +241,12 @@ public sealed record Arguments
                     parsed = parsed with { MintNow = true };
                     break;
 
+                case "--merge":
+                    var winner = Next(args, ref i, "--merge");
+                    var loser = Next(args, ref i, "--merge");
+                    parsed = parsed with { Merge = new MergeRequest(winner, loser) };
+                    break;
+
                 case "--because":
                     parsed = parsed with { Because = Next(args, ref i, "--because") };
                     break;
@@ -262,6 +282,14 @@ public sealed record Arguments
         {
             throw new ArgumentException(
                 $"--mint-now needs --because: say what settled these names.{Environment.NewLine}{Usage}");
+        }
+
+        // The fourth. A merge folds a live listing into another and is not a thing anybody undoes
+        // lightly; the reason belongs on the row next to the score and signals it may be carrying.
+        if (parsed.Merge is not null && string.IsNullOrWhiteSpace(parsed.Because))
+        {
+            throw new ArgumentException(
+                $"--merge needs --because: say what convinced you these are one game.{Environment.NewLine}{Usage}");
         }
 
         // Before a socket rather than after one: an address nobody can open is worth catching while
@@ -325,3 +353,9 @@ public sealed record CrawlAddress(string Host, int? Port)
 {
     public override string ToString() => Port is { } port ? $"{Host}:{port}" : $"{Host} (every port)";
 }
+
+/// <summary>
+/// A pair to resolve by hand, exactly as typed — a slug or a game id, either identifier read the same
+/// way <see cref="Program"/> already reads one for any other operator surface.
+/// </summary>
+public sealed record MergeRequest(string Winner, string Loser);
