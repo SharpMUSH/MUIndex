@@ -83,7 +83,44 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 : client.ConnectAsync(target.Host, target.Port, budget.Token));
 
             var built = await Build(seen, lines).BuildAndStartAsync(client, budget.Token);
-            var telnet = built.Item1;
+
+            // Disposed, and disposed *before* the socket it reads. The interpreter is not a view
+            // onto the connection: it owns a byte channel, the task draining it, the inbound and
+            // outbound byte transforms, and every plugin registered in Build — and MCCP's plugin
+            // holds zlib streams, which no collection reclaims on our behalf. Nothing here used to
+            // dispose it at all, so each probe abandoned one whole set, which is the six megabytes
+            // an hour of drift the deployment was carrying.
+            //
+            // Declared here rather than beside `client` so that the interpreter goes first: this
+            // block ends on the return below and on every exception that leaves it, while `client`
+            // is scoped to the whole method and is disposed after. DisposeAsync completes the byte
+            // channel and then *waits* for the processing task, so the interpreter is the party
+            // still doing work during teardown and the transport it was handed should outlive it —
+            // shutting a thing down while demolishing what it was built on is the wrong way round
+            // whether or not it happens to survive it.
+            //
+            // It does happen to survive it, measured: with the two disposals swapped by hand the
+            // transcript is identical and nothing faults, because the processing task is fed from a
+            // channel rather than from the socket and never touches the transport on the way out.
+            // That is a detail of how the library is put together today and not a promise, so this
+            // is written as the order that cannot go wrong rather than as the only one that works.
+            await using var telnet = built.Interpreter;
+
+            // The read loop is observed rather than awaited, and awaiting it here is not an option.
+            // It ends when the budget is cancelled or when the pipe under it completes, and on a
+            // server that is simply sitting there — which is most of them, since the probe stops
+            // asking long before the far end stops listening — that means when `client` is disposed
+            // on the way out of this method, after this block. Waiting for it here would be waiting
+            // for something only our own exit can cause.
+            //
+            // Dropping it entirely, which is what happened before, is the other half of the same
+            // omission: a read loop that dies of a defect in the interpreter looks from out here
+            // exactly like one that died of the socket being torn down under it, and only the second
+            // is ordinary. The teardown shapes are the ones HungUp already names — a write racing
+            // the transport's own disposal surfaces as ObjectDisposedException rather than as a
+            // socket error — so those are expected and stay quiet; anything else is a fault that was
+            // previously reaching nobody, and it is written down.
+            _ = ObserveReadLoopAsync(built.ReadTask, target);
 
             int Arrived()
             {
@@ -296,6 +333,44 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Failure = DialFailure.Classify(error),
                 Elapsed = Stopwatch.GetElapsedTime(started),
             };
+        }
+    }
+
+    /// <summary>
+    /// Waits for the interpreter's network read loop to end, so that a fault in it is written down
+    /// somewhere instead of being collected in silence.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is fire-and-forget on purpose and it outlives <c>ProbeAsync</c> by design — the loop
+    /// only ends once the socket goes, which is the last thing the probe does. Nothing downstream
+    /// waits on it and nothing it finds can change a <see cref="ProbeResult"/>: by the time it has
+    /// anything to say, the measurement is already made and returned. It exists so the ending is
+    /// visible, not so it can be acted on.
+    /// </para>
+    /// <para>
+    /// The ordinary ending is the connection being torn down under the loop, which arrives as one
+    /// of the <see cref="HungUp"/> shapes or as the probe's budget being cancelled, and neither is
+    /// a fact about anything. Everything else is a defect — in the interpreter, in a plugin, or in
+    /// how this class drives them — and it is logged at debug against the host it happened on,
+    /// which is where a leak or a stall would first show a symptom.
+    /// </para>
+    /// </remarks>
+    private async Task ObserveReadLoopAsync(Task readLoop, ProbeTarget target)
+    {
+        try
+        {
+            await readLoop;
+        }
+        catch (Exception error) when (HungUp(error) || error is OperationCanceledException)
+        {
+        }
+        catch (Exception error)
+        {
+            _logger.LogDebug(
+                error,
+                "{Host}:{Port} read loop ended badly after the session was over",
+                target.Host, target.Port);
         }
     }
 
