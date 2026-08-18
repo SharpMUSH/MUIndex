@@ -27,9 +27,8 @@ public sealed class AvailabilityWriter(IAvailabilityStore store) : IAvailability
                 "A reachable interval carries no failure cause.", nameof(cause));
         }
 
-        // The same rule for the evidence as for the cause. `detail` is what a failed dial said, so on
-        // a reachable interval there is no dial it could be about: a non-null one here is another
-        // probe's message filed under this one, which is a fabricated fact about a game (rule 5).
+        // Same rule for the evidence as for the cause: `detail` is what a failed dial said, and a
+        // reachable interval has no dial it could be about (rule 5).
         if (state is AvailabilityState.Reachable && detail is not null)
         {
             throw new ArgumentException(
@@ -55,9 +54,7 @@ public sealed class AvailabilityWriter(IAvailabilityStore store) : IAvailability
 
         if (open.State == state && open.Cause == cause)
         {
-            // Nothing is written. The open interval already says this, and re-stating it every hour
-            // would turn the one property this table exists for into a sample series with extra
-            // steps.
+            // Nothing is written: the open interval already says this.
             return AvailabilityOutcome.Extended;
         }
 

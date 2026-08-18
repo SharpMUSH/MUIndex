@@ -7,9 +7,6 @@ namespace MUI.Crawl.Tests;
 /// </summary>
 public class MxpSignalTests
 {
-    /// <summary>
-    /// The line that started this: tirradyn.com opens with a bare version request and nothing else.
-    /// </summary>
     [Test]
     public async Task ALineModeSequenceIsMxp()
     {
@@ -62,9 +59,8 @@ public class MxpSignalTests
     }
 
     /// <summary>
-    /// The fingerprint half. A connect screen that is only a version request must flatten to nothing,
-    /// so that two unrelated servers answering the same way stop sharing a banner hash — which is
-    /// exactly what put tirradyn up as a duplicate of an unrelated game.
+    /// A connect screen that is only a version request must flatten to nothing, or two unrelated
+    /// servers answering the same way share a banner hash — this caused a real duplicate.
     /// </summary>
     [Test]
     public async Task AVersionRequestIsNotABanner()

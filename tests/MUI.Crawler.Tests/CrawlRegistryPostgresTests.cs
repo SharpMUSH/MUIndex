@@ -37,10 +37,9 @@ public class CrawlRegistryPostgresTests
     [Test]
     public async Task NothingInTheRegistryCanRetireATarget()
     {
-        // The worst regression this repository could ship: a game dark for two years is still probed
-        // weekly, for ever, including after archiving, because a returning game re-listing itself with
-        // no human involved is the thing every incumbent failed at. The interface holds this by
-        // reflection; the table holds it by having no column for it.
+        // The worst regression this repository could ship: a game dark for two years must still be
+        // probed weekly forever. The interface holds this by reflection; the table by having no
+        // column for it.
         await using var database = await PostgresFixture.MigratedAsync();
 
         await using var connection = await database.DataSource.OpenConnectionAsync();

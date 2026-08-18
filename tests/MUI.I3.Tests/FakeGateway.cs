@@ -9,12 +9,8 @@ namespace MUI.I3.Tests;
 /// A gateway that answers on a real loopback socket, scripted per test.
 /// </summary>
 /// <remarks>
-/// <b>A real socket rather than a stream double, on purpose.</b> The two things most likely to be
-/// wrong in <see cref="GatewayClient"/> are framing and ordering — whether a newline terminates every
-/// request, and whether an event that arrives before, between or after a response is matched to the
-/// right waiter. A hand-fed stream proves neither, because the test author decides the interleaving.
-/// Here the client writes to a socket and reads what a separate task chose to send, so the ordering
-/// is the ordering.
+/// A real socket rather than a stream double: a hand-fed stream can't prove framing/ordering bugs
+/// in <see cref="GatewayClient"/> because the test author controls the interleaving.
 /// </remarks>
 internal sealed class FakeGateway : IAsyncDisposable
 {

@@ -10,17 +10,11 @@ namespace MUI.Crawler.Persistence;
 /// The <c>crawl_opt_out</c> table (spec §11).
 /// </summary>
 /// <remarks>
-/// <para>
 /// <b>There is no delete here and there must never be one.</b> An opt-out taken back is withdrawn and
-/// keeps its row: "they asked us to stop, and later asked us back" is a thing the record has to be
-/// able to say, and a deletion is the one edit nobody can review afterwards.
-/// </para>
-/// <para>
-/// Hosts are canonicalised on the way in and on every lookup with <see cref="CanonicalHost.Normalize"/>,
-/// the same rule the crawl registry obeys — an opt-out filed under a spelling the crawl loop never
-/// looks up is an opt-out that stops nothing, and the table's own CHECK refuses the other spellings
-/// rather than trusting this class.
-/// </para>
+/// keeps its row — "they asked us to stop, and later asked us back" is a thing the record has to be
+/// able to say. Hosts are canonicalised on the way in and on every lookup with
+/// <see cref="CanonicalHost.Normalize"/>, the same rule the crawl registry obeys, since an opt-out
+/// filed under a spelling the crawl loop never looks up stops nothing.
 /// </remarks>
 public sealed class NpgsqlCrawlOptOutRepository(NpgsqlDataSource source) : ICrawlOptOutRepository
 {
@@ -33,9 +27,9 @@ public sealed class NpgsqlCrawlOptOutRepository(NpgsqlDataSource source) : ICraw
     /// The standing opt-out covering this address, or null.
     /// </summary>
     /// <remarks>
-    /// <c>port IS NULL</c> is "every port on this host", so the predicate matches both shapes.
-    /// Ordered by when they first asked, because where two routes stand for one address the honest
-    /// thing to report is the first time somebody told us.
+    /// <c>port IS NULL</c> means "every port on this host". Ordered by when they first asked, since
+    /// where two routes stand for one address, the honest thing to report is the first time somebody
+    /// told us.
     /// </remarks>
     public async Task<CrawlOptOut?> StandingAsync(string host, int port, CancellationToken ct)
     {
@@ -61,18 +55,13 @@ public sealed class NpgsqlCrawlOptOutRepository(NpgsqlDataSource source) : ICraw
     /// Records an opt-out, or confirms one already held, and returns the row as it now stands.
     /// </summary>
     /// <remarks>
-    /// <b><c>recorded_at</c> is not in the update list, and that is the point.</b> When they asked and
-    /// when we last heard it are two facts; a confirmation may move the second only. Clearing
-    /// <c>withdrawn_at</c> is the same event read forwards: a record that came back is somebody asking
-    /// again. One statement, so two workers meeting the same TXT record cannot both insert.
-    /// <para>
-    /// <b><c>xmax = 0</c> is how the statement says which arm it took</b> — the system column is zero
-    /// on a freshly inserted tuple and holds the updating transaction on the conflict arm. The obvious
-    /// alternative, comparing the returned <c>recorded_at</c> against the clock the caller passed, is
-    /// wrong: <c>timestamptz</c> keeps microseconds and <c>DateTimeOffset</c> counts 100ns ticks, so
-    /// the value that comes back is not the value that went in and every write would read as a
-    /// confirmation.
-    /// </para>
+    /// <c>recorded_at</c> is not in the update list on purpose: when they asked and when we last heard
+    /// it are two facts, and a confirmation may only move the second. One statement, so two workers
+    /// meeting the same TXT record can't both insert. <c>xmax = 0</c> is how the statement reports
+    /// which arm it took (zero on a fresh insert, the updating transaction id on conflict) — comparing
+    /// the returned <c>recorded_at</c> against the caller's clock instead would be wrong, since
+    /// <c>timestamptz</c> keeps microseconds and <c>DateTimeOffset</c> counts 100ns ticks, so the
+    /// round-tripped value never equals what went in.
     /// </remarks>
     public async Task<OptOutRecording> RecordAsync(CrawlOptOut optOut, CancellationToken ct)
     {

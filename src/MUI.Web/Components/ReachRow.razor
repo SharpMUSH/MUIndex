@@ -1,13 +1,11 @@
 @*
     The ways to reach a game's people, beside its name.
 
-    Icons rather than a list of URLs, because this sits under an <h1> and nine addresses would push
-    the page's actual content below the fold. Every one of them is also printed in full, with its
-    provenance chip, under "declared by the game" — these are navigation and that list is the record.
+    Icons rather than a URL list, because nine addresses under an <h1> would push real content below
+    the fold — the full addresses are printed elsewhere, under "declared by the game".
 
-    Nothing here is measured. A website, an invite and an inbox are all hand-typed by somebody, so
-    the row carries no measured glyph: the chip below says "declared" for each of them, and a second
-    vocabulary up here would be a second thing to keep in step with it.
+    Nothing here is measured: these are all hand-typed by somebody, so the row carries no measured
+    glyph.
 *@
 
 @if (Links.Count > 0)
@@ -17,16 +15,12 @@
         {
             <li>
                 @*
-                    rel is three separate promises and all three are load-bearing. noopener stops the
-                    opened page reaching back through window.opener; nofollow says we are not voting
-                    for a destination we did not choose; ugc says who did choose it — these addresses
-                    are published by the games themselves, and a directory that let anybody mint
-                    followed links by editing their own mush.cnf would be a link farm with measurements
-                    on it.
+                    rel: noopener stops the opened page reaching back through window.opener;
+                    nofollow says we aren't voting for a destination we didn't choose; ugc says who
+                    did — these addresses are game-published, and a directory that followed them by
+                    default would be a link farm with measurements on it.
 
-                    No target=_blank. Deciding on somebody's behalf that a link opens a window is a
-                    decision their browser is better placed to make, and it is the one thing that
-                    makes the back button stop working.
+                    No target=_blank: it's the one thing that breaks the back button.
                 *@
                 <a class="reach-@Slug(link.Kind)"
                    href="@link.Href"
@@ -57,10 +51,8 @@
     /// The accessible name for one link.
     /// </summary>
     /// <remarks>
-    /// The platform's own name is an argument rather than part of the translated string, and it is
-    /// never translated: Mastodon is Mastodon in every language, and a message id per platform would
-    /// be nine ids saying one thing. <c>links.to</c> carries the preposition, which is the part that
-    /// moves.
+    /// The platform name is an argument, never translated — Mastodon is Mastodon in every language.
+    /// <c>links.to</c> carries the preposition, which is the part that moves.
     /// </remarks>
     private string Label(QuickLink link) => link.Kind switch
     {
@@ -75,10 +67,7 @@
     /// The label, then how we know it and how old it is — the chip's sentence, in a tooltip.
     /// </summary>
     /// <remarks>
-    /// The provenance travels with the link even though the chip stays below, because this row is
-    /// the one an owner's override and their game's own report reach identically. A reader hovering
-    /// a website icon that points somewhere unexpected is owed the answer to "who said so", and the
-    /// wording is <c>PlainText.Label</c>'s so the tooltip and the plain surface cannot drift.
+    /// Uses <c>PlainText.Label</c>'s wording so the tooltip and the plain surface cannot drift.
     /// </remarks>
     private string Title(QuickLink link) =>
         $"{Label(link)} — {link.Shown} — "

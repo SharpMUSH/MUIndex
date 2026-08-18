@@ -15,45 +15,27 @@ else
 {
     <SitePreview Title="@PreviewCopy.Titles.Games(Tag)" Description="@PreviewCopy.Pages.Games(Tag)" />
 
-    @*
-        A card page: the blocks bleed to the card's edges and pad themselves, so the rule under the
-        header and the filter column's own fill run the full width they are supposed to. Inside
-        main's padding neither could.
-    *@
+    @* Card page: blocks bleed to the card's edges and pad themselves, so the header rule and the
+       filter column's fill run full width — inside main's padding neither could. *@
     <div class="card-page">
 
-    @*
-        The heading, and nothing under it. The count was restated here and again in the toolbar's
-        own "sorted by" line a few pixels below, and "every fact measured" is the claim the whole
-        site makes rather than a fact about this page.
-    *@
+    @* No count restated here; it already appears in the toolbar's "sorted by" line below. *@
     <header class="listing-head">
         <h1>@Messages.For(Tag, "games.title")</h1>
     </header>
 
     @if (Error is { } problem)
     {
-        @*
-            A filter we cannot read is refused rather than dropped. Listing the whole catalogue under
-            a filter that did not apply would present our own parse failure as the answer to
-            somebody's question — the same rule that stops an unparseable WHO reading as zero.
-        *@
+        @* An unreadable filter is refused, not dropped: listing the whole catalogue under a filter
+           that silently failed would present our parse failure as the answer to the question. *@
         <p class="problem" role="alert">@problem</p>
         <p><a href="@Http.Link("/games")">@Messages.For(Tag, "listing.clearFilters")</a></p>
     }
     else
     {
-        @*
-            Two columns: what you are asking on the left, what came back on the right, and the
-            filters' own edge running the full height of the card rather than stopping short and
-            leaving a well under a short panel. The filters used to be a wide band above the rows,
-            which pushed the first game below the fold on every visit and gave nine facets a shape
-            — a horizontal grid — that reads as a toolbar rather than as a question.
-
-            Source order is filters, then listing: on a narrow screen the column becomes a block
-            above the rows, and that is also the order a screen reader and the tab key take. A
-            visual order that disagrees with the DOM would be a worse answer than a long panel.
-        *@
+        @* Two columns: filters left, results right, filter edge running the card's full height.
+           Source order is filters then listing, so a narrow screen and a screen reader agree
+           with the visual layout. *@
         <div class="listing-grid">
         <FacetPanel Facets="Listing.Facets" Filter="Filter" Query="@Query" />
 
@@ -61,32 +43,15 @@ else
 
         @if (Filter.Codebase is { Exclude: false, Value: { } family })
         {
-            @*
-                Only what the chip above does not already say. It read "codebase PennMUSH · about
-                PennMUSH · all games" directly under a chip reading "codebase PennMUSH ×" and a
-                "clear all" beside it — the filter named twice and the way out offered twice, on the
-                one page whose whole edit is about saying things once. What is left is the link the
-                chip cannot carry: the page explaining the thing being filtered on.
-            *@
+            @* Only what the facet chip above doesn't already say: the link to the codebase's own page. *@
             <p class="kicker">
                 <a href="@Http.Link($"/reference/codebases/{family.ToLowerInvariant()}")">@Messages.For(Tag, "listing.aboutCodebase", new Dictionary<string, object?> { ["codebase"] = family })</a>
             </p>
         }
 
-        @*
-            The toolbar: what order this is in, on the left; the control that changes it and the two
-            column names on the right.
-
-            The order used to be a <select> plus a "show" button in the filter column — a control
-            that armed itself and waited. This is a pressed-state toggle group of links, so a choice
-            applies on click with no script, the current one is a <span> rather than a link to the
-            page you are reading, and the address bar carries the answer.
-
-            Five options and not the drawing's three. `now / typical / peak` is the drawing, and the
-            two after the rule are the orders that read a spelling and a date rather than a count —
-            they had a control before this change and dropping them to match a mockup that never
-            had them would be losing a feature to a picture.
-        *@
+        @* Toolbar: current order on the left, the order switch and column names on the right. A
+           toggle group of links rather than a <select>+button, so a choice applies on click with
+           no script and the address bar carries the answer. *@
         <div class="listing-bar">
             <p class="listing-order">
                 @((MarkupString)Messages.For(Tag, "listing.sortedBy", new Dictionary<string, object?>
@@ -95,8 +60,7 @@ else
                 }))
                 @if (Listing.Games.Count > 0)
                 {
-                    @* Only where there is something to be random among. An affordance that cannot do
-                       what it offers is worse than one that is not there. *@
+                    @* Only where there is something to be random among. *@
                     <span class="sep" aria-hidden="true">·</span><a href="@RandomHref">@Messages.For(Tag, "listing.random")</a>
                 }
             </p>
@@ -120,23 +84,13 @@ else
                     }
                 </nav>
 
-                @*
-                    The two column names, once, over the columns they belong to. Every row used to
-                    carry the verb — "reached 2w ago" beside a count that already wore the same age
-                    — so the age was on the row twice and the word 515 times. And the count's unit
-                    lives here rather than on 515 rows: "CONNECTED" said once is also one string per
-                    locale instead of five hundred.
-                *@
+                @* Column names said once, here, rather than repeated on every row. *@
                 <p class="kicker column-head" aria-hidden="true">@Messages.For(Tag, "listing.columns")</p>
             </div>
         </div>
 
-        @*
-            The window the two statistical orders are computed over, and only while one of them is
-            the order in force — three more pressed-state options under the switch that produced
-            them. A median is a median *of* something (§15.7), so the span it was taken over is part
-            of the order's name and not a preference hidden somewhere else.
-        *@
+        @* A median is a median *of* something (§15.7): the window it's computed over is part of
+           the order's name, shown only while a statistical order is in force. *@
         @if (SortWindows.Of(Filter.Sort) is not null)
         {
             <nav class="switch windows" aria-label="@Messages.For(Tag, "switch.window")">
@@ -157,13 +111,9 @@ else
         <ul class="games">
             @foreach (var g in Listing.Games)
             {
-                @*
-                    Where a sort runs out of things it can rank, the list says so before it goes on.
-                    Sorted by players, the counted games end and the ones we reached but could not
-                    count begin — and without this break the page reads 54, 11, 2, 0, and then a long
-                    tail showing no number, which looks exactly like a tail of empty games. It is a
-                    real list item so it survives in the accessibility tree and in plain text.
-                *@
+                @* Marks where a sort runs out of things it can rank — e.g. counted games end and
+                   uncountable ones begin — so an unbroken run of blanks doesn't read as a tail of
+                   empty games. A real list item, so it survives in the a11y tree and plain text. *@
                 @if (BreakBefore(g))
                 {
                     <li class="unranked-break">
@@ -172,48 +122,23 @@ else
                     </li>
                 }
                 <li class="game-row @(g.State is LifecycleState.Archived ? "archived" : null)">
-                    @*
-                        Three zones on one grid — identity · measurement · freshness — and the
-                        metadata spanning underneath. The count and the age are siblings on the
-                        first line rather than a nested column stacking one over the other, which is
-                        what put the age on a line of its own and left the two right-hand columns
-                        unable to line up down the page.
-
-                        No plate on a row. The handoff's listing is identity, measurement and
-                        freshness and nothing else — a 36px square per row is a fourth column of
-                        furniture down a list five hundred long, and the face a game published
-                        is on its own page at the size that shows it. It stays in GamePlate,
-                        which the game page draws.
-                    *@
+                    @* Three zones — identity · measurement · freshness — with metadata spanning
+                       underneath. No plate/icon on a row: that lives on the game page (GamePlate). *@
                     <div class="row-main">
                         <div class="row-text">
                             <p class="row-head">
                                 <a class="name" href="@Http.Link($"/g/{g.Slug}")"><GameName Name="@g.Name" /></a>
-                                @*
-                                    Archived and claimed are the two states worth saying. Unclaimed
-                                    is the majority state of the catalogue — it was on all 515 rows,
-                                    an administrative fact about our records repeated 515 times to a
-                                    reader looking for a game to play, and a mark every row wears
-                                    distinguishes no row from any other. It stays on the game page,
-                                    where it comes with the invitation to claim, and in the API.
-                                *@
+                                @* Archived and claimed are the two states worth marking here.
+                                   Unclaimed is the majority state, so marking it on every row would
+                                   distinguish nothing; it stays on the game page and in the API. *@
                                 @if (g.State is LifecycleState.Archived)
                                 {
                                     <span class="badge archived">archived</span>
                                 }
                                 else if (g.IsClaimed)
                                 {
-                                    @*
-                                        A ring with a tick in it, and no visible word. The word was
-                                        a pill the width of "claimed" on the handful of rows that
-                                        carry it, which is furniture for a fact a browsing reader
-                                        did not come for; the name it needs is on the control, where
-                                        a screen reader and a tooltip both reach it.
-
-                                        "claimed by its owner" names no person and assumes no
-                                        gender — the passive is the point (i18n S7), not a
-                                        shortening.
-                                    *@
+                                    @* Ring with a tick, no visible word — the label reaches a
+                                       screen reader and tooltip via aria-label/title instead. *@
                                     <span class="claim-ring" role="img"
                                           aria-label="@Messages.For(Tag, "listing.claimed")"
                                           title="@Messages.For(Tag, "listing.claimed")">✓</span>
@@ -221,13 +146,8 @@ else
                             </p>
 
                             <p class="meta mono" translate="no">
-                                @*
-                                    The codebase wears the same chip the game page puts on it — value,
-                                    glyph, age — rather than a bare string. A row that showed
-                                    "PennMUSH 1.8.5" with nothing beside it cannot tell a reader that
-                                    nobody has confirmed it since 2023, and a directory that reads the
-                                    same either way is the one this project exists to replace.
-                                *@
+                                @* Same provenance chip the game page uses (value, glyph, age) rather
+                                   than a bare string, so staleness is visible here too. *@
                                 @if (g.CodebaseProvenance is { } codebase)
                                 {
                                     @* No age on the chip: the row's own freshness column dates the
@@ -241,36 +161,14 @@ else
                                 }
                                 else
                                 {
-                                    @*
-                                        The commonest state in the catalogue, so it is the quietest
-                                        thing on the row — the same reasoning that demoted "unclaimed"
-                                        from a pill to a word. "Codebase not identified" was the
-                                        longest string on the meta line and appeared on more rows than
-                                        any codebase did, so the one row that <em>had</em> an
-                                        identified codebase was the one that looked emptiest.
-
-                                        Two words, and they name the field so the label stands on its
-                                        own — a row is read on its own, unlike the facet panel and the
-                                        plain listing, which both print "codebase" as a heading and go
-                                        on saying "not identified" underneath it.
-
-                                        The title carries the longer sentence for a reader who wants
-                                        it. It is the one place on this row that says whose limit
-                                        this is: an unidentified codebase is a fact about how far our
-                                        parsers reach and not about the game, and the shorter label
-                                        does not say so by itself.
-                                    *@
+                                    @* An unidentified codebase is a fact about how far our parsers
+                                       reach, not about the game — the title attribute says so; the
+                                       short label alone would not (rule 5). *@
                                     <span class="state-unknown"
                                           title="@Messages.For(Tag, "listing.unknownCodebase.title")">@Messages.For(Tag, "listing.unknownCodebase")</span>
                                 }
-                                @*
-                                    The protocols, and no dot beside each of them. Every one of these
-                                    is measured — that is what puts it on the line — so six accent
-                                    dots per row said one thing six times and gave the row six marks
-                                    to read past. Three, then a count of the rest: a row is a hint at
-                                    what a game is, and the game's page lists all of them with the
-                                    handshake each came from.
-                                *@
+                                @* All measured; shown as three then a "+N more" rather than a dot
+                                   per protocol. Full list with handshake provenance is on the game page. *@
                                 @foreach (var p in g.MeasuredProtocols.Take(ProtocolsShown))
                                 {
                                     <text> · </text><span class="protocol">@p</span>
@@ -279,10 +177,8 @@ else
                                 {
                                     var rest = g.MeasuredProtocols.Count - ProtocolsShown;
                                     <text> </text>
-                                    @* The one tooltip on this row that was still being built in
-                                       markup, beside an id that already said the same thing in four
-                                       languages. The protocol names inside it are machine voice and
-                                       pass through; the "and … more" around them is ours. *@
+                                    @* Protocol names inside are machine voice and pass through
+                                       untranslated; the "and … more" wrapper is ours. *@
                                     <span class="protocol more"
                                           title="@Messages.For(Tag, "listing.moreProtocols", new Dictionary<string, object?>(StringComparer.Ordinal)
                                           {
@@ -292,14 +188,8 @@ else
                                         +@rest
                                     </span>
                                 }
-                                @*
-                                    What the count column is showing, when it is showing a statistic
-                                    rather than the last reading. A median is a median *of*
-                                    something (§15.7) — thirty counts and three hundred are not the
-                                    same evidence — so the span and the sample tally ride with the
-                                    number they produced, on the line the row keeps its machine
-                                    facts on.
-                                *@
+                                @* A median is a median *of* something (§15.7): the span and sample
+                                   tally ride along with the statistic. *@
                                 @if (g.PlayersOverWindow is { } window && SortWindows.Of(Filter.Sort) is not null)
                                 {
                                     <text> · </text><span class="window">@Sampled(window)</span>
@@ -307,46 +197,19 @@ else
                             </p>
                         </div>
 
-                        @*
-                            The measurement. Three states, spelled rather than implied: a missing
-                            count says so in words, is never rendered as a zero, and is never left
-                            blank for a reader to guess at. A measured zero is a number like any
-                            other — we got in and nobody was there is a result.
-
-                            **No provenance glyph.** It was a ● or a ◇ before every count and the
-                            word "declared" after some of them, on all 515 rows, with the legend for
-                            it somewhere else on the page. Where a number came from is what you
-                            weigh when choosing between two games, not while scanning five hundred
-                            — so it lives on the game page, and on the facet groups' own badges
-                            where it tells a reader whether a filter is trustworthy before they
-                            apply it. Rule 1 is intact: both kinds of number are still shown, and
-                            both still say which they are, one surface along.
-
-                            **And no unit.** "on" after every count is one English word repeated
-                            515 times; the column is named once, above, which is also one string
-                            per locale instead of five hundred.
-                        *@
-                        @*
-                            **And the label a column head cannot carry.** The visible head above is
-                            `aria-hidden`, correctly — a reader who can see it does not want it
-                            repeated 515 times — but that left the row exposing a bare "12" beside a
-                            bare "2h ago" with nothing saying which was the count and which the age.
-                            The fix is a label in the row rather than a second visible head: hidden
-                            to the eye, spoken once per row, and the visual head stays hidden
-                            because the sighted reader already has the column.
-                        *@
+                        @* Three states, spelled rather than implied: a missing count says so in
+                           words, never rendered as zero and never left blank (rules 2/4). No
+                           provenance glyph or unit per row — those live on the game page and the
+                           column head, so 500 rows don't repeat one string 500 times. *@
+                        @* The column head above is aria-hidden, so a screen reader needs a label
+                           in the row itself to say which bare number is the count. *@
                         @* The trailing space is an entity because Razor collapses a literal one,
                            and without it the row is announced as "connected219". *@
                         <p class="row-count mono @CountState(g)">
                             <span class="sr-only">@Messages.For(Tag, "listing.row.connected")&#160;</span>@CountText(g)
                         </p>
 
-                        @*
-                            Freshness. The bare age, under a column head that carries the verb — the
-                            row used to print the age here and again inside the codebase chip beside
-                            it, so one probe was dated twice per row. Never reached is its own
-                            sentence and is never dated from our own first sighting.
-                        *@
+                        @* Never-reached is its own sentence, never dated from our first sighting. *@
                         <p class="row-seen mono">
                             <span class="sr-only">@Messages.For(Tag, "listing.row.reached")&#160;</span>
                             @if (g.LastReachableAt is { } seen)
@@ -396,29 +259,12 @@ else
     private bool Plain => Truthy.Is(
         QueryHelpers.ParseQuery(Query).TryGetValue("plain", out var flag) ? flag.ToString() : null);
 
-    /// <summary>
-    /// Random, within whatever is on screen (spec §9). The filters ride along, because "surprise me"
-    /// after narrowing to Evennia games means surprise me among those.
-    /// </summary>
+    /// <summary>Random, within whatever is on screen (spec §9) — filters ride along.</summary>
     private string RandomHref => Http.Link("/games/random" + ListingLinks.With(Query, "plain", null));
 
-    /// <summary>
-    /// The first game this sort had nothing to rank, which is where the list says so.
-    /// </summary>
-    /// <remarks>
-    /// Held as the game rather than as an index because the loop has the game and not its position,
-    /// and resolved once per render rather than per row. Null when the sort ranks everything it was
-    /// given — including when it ranks nothing, which is the case where the break is the first thing
-    /// on the list and is exactly as worth drawing.
-    /// </remarks>
-    /// <summary>
-    /// How many protocol names a row prints before it counts the rest.
-    /// </summary>
-    /// <remarks>
-    /// A game offering nine of them turned the meta line into the longest thing on the row and
-    /// pushed the tagline out of it. Three is enough to tell one kind of game from another at a
-    /// glance; the game's own page lists every one with the handshake it came from.
-    /// </remarks>
+    /// <summary>The first game this sort had nothing to rank, where the list says so.</summary>
+    /// <remarks>Held as the game rather than an index, since the loop has the game, not its position.</remarks>
+    /// <summary>How many protocol names a row prints before it counts the rest.</summary>
     private const int ProtocolsShown = 3;
 
     private GameSummary? FirstUnranked => Listing.Games
@@ -429,24 +275,12 @@ else
     /// <summary>One option on the order switch: what it says, and whether a rule precedes it.</summary>
     private sealed record SortOption(GameSort Sort, string Label, bool Rule = false);
 
-    /// <summary>
-    /// The order switch, as the handoff draws it plus the two orders it never had to draw.
-    /// </summary>
+    /// <summary>The order switch, as the handoff draws it plus the two orders it never had to draw.</summary>
     /// <remarks>
-    /// <para>
-    /// <b>The switch chooses which measurement the count column shows</b>, not merely how the rows
-    /// are stacked — <c>now</c> is the last reading, <c>typical</c> is a median over a window and
-    /// <c>peak</c> is the highest count seen in one. That is why they are three words rather than
-    /// nine: the window is a second, smaller choice that only exists once one of the two statistics
-    /// is in force, and the column head says what the numbers under it are.
-    /// </para>
-    /// <para>
-    /// <c>name</c> and <c>reached</c> follow a rule, because they are a different kind of order —
-    /// they read a spelling and a date rather than a count, and the column does not change under
-    /// them. They are not in the drawing; they were in the control the drawing replaces, and losing
-    /// a way to sort a five-hundred-row list alphabetically in order to match a mockup that never
-    /// had one would be trading a feature for a picture.
-    /// </para>
+    /// The switch chooses which measurement the count column shows (now / median / peak), not just
+    /// row order. <c>name</c> and <c>reached</c> follow a rule because they're a different kind of
+    /// order — a spelling and a date rather than a count — kept from the old control though absent
+    /// from the mockup.
     /// </remarks>
     private SortOption[] SortOptions =>
     [
@@ -473,21 +307,12 @@ else
     private string SortHref(GameSort sort) =>
         Http.Link("/games" + ListingLinks.With(Query, FacetKeys.Sort, FacetTokens.Of(sort)));
 
-    /// <summary>
-    /// What goes in the count column, which is whichever measurement the switch is showing.
-    /// </summary>
+    /// <summary>What goes in the count column, whichever measurement the switch is showing.</summary>
     /// <remarks>
-    /// <para>
-    /// Never a zero standing in for an unknown. A game we reached and could not count says so in
-    /// words — the one string on this row that is not a number, so it cannot be misread as one.
-    /// </para>
-    /// <para>
-    /// And never <c>state.notCounted</c>, which is the glossary's word for a probe that answered
-    /// without a number. A null here is three things — that, a window we never measured in, and a
-    /// game with no rows at all — and printing the first of them as the name of all three files our
-    /// crawl schedule as a fact about somebody's game (rule 5). The word says the count is absent
-    /// and stops, which is what rule 2's third state is: not measured, naming no cause.
-    /// </para>
+    /// Never a zero standing in for an unknown: an unreadable count says so in words. That word is
+    /// deliberately generic — a null here can mean an unreadable count, an unmeasured window, or no
+    /// rows at all, and naming a specific cause would record our crawl schedule as a fact about the
+    /// game (rule 5).
     /// </remarks>
     private string CountText(GameSummary game)
     {

@@ -9,19 +9,10 @@ namespace MUI.Web.Tests;
 /// The graph a search engine reads, which is the one surface with no room for a chip.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Structured data is where this project's central rule is easiest to break by accident, because
-/// the vocabulary invites it: <c>userInteractionCount</c> is a bare integer with nowhere to put
-/// "and we read it four minutes ago". A number published there without its timestamp is precisely
-/// the unlabelled fact §10.1 called the one place the API could contradict the whole project — so
-/// the rule enforced here is that no measured value enters the graph unless something beside it
-/// carries when it was taken.
-/// </para>
-/// <para>
-/// <b>And a game's name is a stranger's bytes.</b> It comes off MSSP or a connect screen on a host
-/// we do not control, and it lands inside a <c>&lt;script&gt;</c> element, which is the one context
-/// in HTML where ordinary attribute escaping does not save you.
-/// </para>
+/// <c>userInteractionCount</c> is a bare integer with nowhere for "and we read it four minutes ago",
+/// so no measured value may enter the graph unless something beside it carries when it was taken.
+/// A game's name is a stranger's bytes (from MSSP or a connect screen) landing inside a
+/// <c>&lt;script&gt;</c> element — the one HTML context ordinary attribute escaping doesn't save you from.
 /// </remarks>
 public class GameStructuredDataTests
 {
@@ -48,10 +39,8 @@ public class GameStructuredDataTests
     [Test]
     public async Task ACountTheGameDeclaredDoesNotEnterTheGraphAtAll()
     {
-        // There is no schema.org property for "they said so and we could not check", and the
-        // nearest one reads as an observation. Rule 5 says our inability to verify a number may not
-        // be republished as our having verified it — so the number stays on the page, where it is
-        // labelled, and out of the graph, where it could not be.
+        // No schema.org property for "they said so and we couldn't check" exists; rule 5 forbids
+        // republishing an unverified claim as a verified one, so it stays on the page and out of the graph.
         var page = Page(count: 9, source: FieldSource.Mssp, at: Now.AddMinutes(-9));
 
         var json = GameStructuredData.For(page, Origin);
@@ -87,8 +76,7 @@ public class GameStructuredDataTests
     [Test]
     public async Task AGameNameCannotCloseTheScriptElementItIsWrittenInto()
     {
-        // A stranger's server names itself. If that name reaches the document unescaped, every
-        // reader of every page for that game is running whatever it said.
+        // If a game's own self-reported name reaches the document unescaped, every reader runs whatever it said.
         var page = Page(
             count: 1,
             source: FieldSource.Who,
@@ -114,9 +102,8 @@ public class GameStructuredDataTests
     [Test]
     public async Task AnOriginWithAPathBaseKeepsIt()
     {
-        // Uri's relative-reference rules would throw the path base away — "/g/x" against
-        // https://h/mui resolves to https://h/g/x, which is a page that exists only where the site
-        // is mounted at the root. Every URL in this graph is one a search engine will fetch.
+        // Uri's relative-reference rules would throw the path base away — "/g/x" against https://h/mui
+        // resolves to https://h/g/x, a page that only exists when mounted at the root.
         var page = Page(count: 15, source: FieldSource.Who, at: Now);
 
         var json = GameStructuredData.For(page, new Uri("https://muindex.test/mui"));

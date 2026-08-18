@@ -13,11 +13,8 @@ namespace MUI.Web.Tests;
 /// what they are.
 /// </summary>
 /// <remarks>
-/// The page and the read API share <see cref="GameFilterBinding"/>, so most of what could go wrong
-/// between them is a naming slip rather than a logic error — which is why the first tests here walk
-/// <see cref="FacetKeys"/> by reflection instead of listing the facets by hand. A facet added to the
-/// query and forgotten in the parser is exactly the drift the shared vocabulary exists to prevent,
-/// and it is invisible to any test that only exercises the facets somebody remembered.
+/// The first tests walk <see cref="FacetKeys"/> by reflection rather than listing facets by hand, so
+/// a facet added to the query and forgotten in the parser can't hide behind a hand-picked list.
 /// </remarks>
 public class FacetSurfaceTests
 {
@@ -136,11 +133,9 @@ public class FacetSurfaceTests
 
     /// <summary>The old spelling of the codebase question still asks it.</summary>
     /// <remarks>
-    /// <c>codebase-family</c> named a filter that ran beside a <c>codebase</c> facet over raw
-    /// versioned strings; the two are now one question under one key. Every codebase reference page
-    /// has been linking here with the old spelling and readers have bookmarked those links, and a URL
-    /// that used to filter and now silently returns the whole catalogue is worse than one that
-    /// errors — it looks like an answer.
+    /// <c>codebase-family</c> is now one question under <c>codebase</c>, but reference pages and
+    /// bookmarks still link with the old key — a URL that silently stopped filtering would look like
+    /// an answer rather than an error.
     /// </remarks>
     [Test]
     public async Task TheOldCodebaseFamilyKeyStillFilters()
@@ -176,10 +171,8 @@ public class FacetSurfaceTests
 
     /// <summary>Clearing the codebase clears it under either spelling.</summary>
     /// <remarks>
-    /// The chip the panel draws for a selected codebase removes <c>codebase</c>. A reader who
-    /// arrived from a reference page has <c>codebase-family</c> in their URL instead, so a removal
-    /// that only knew the new key would leave the filter in place — the one gesture on the page whose
-    /// whole job is to undo something, doing nothing, for exactly the readers who did not choose it.
+    /// A reader arriving from a reference page has <c>codebase-family</c> in their URL instead of
+    /// <c>codebase</c>; a removal that only knew the new key would leave the filter in place.
     /// </remarks>
     [Test]
     public async Task RemovingTheCodebaseChipDropsTheOldKeyToo()
@@ -315,14 +308,10 @@ public class FacetSurfaceTests
     [Test]
     public async Task ThePanelSaysInWordsThatAnUnknownIsNotANo()
     {
-        // Said in the markup, not only in a comment. A reader who reads an unticked box as the game
-        // declining a protocol has been told something the site never measured.
-        //
-        // The three lines that used to sit under each group header are gone at the user's direction,
-        // so the reading now has one home rather than several: the disclosure at the foot of the
-        // panel. What may not change is that it is still in the document — a <details> keeps its
-        // contents in the accessibility tree and in what a text browser is served, which is what
-        // makes it a fair place to put the long form of a rule and not a place to hide one.
+        // Said in the markup, not only in a comment — an unticked box must not read as the game
+        // declining a protocol. The per-group notes moved into one disclosure at the panel's foot; a
+        // <details> keeps its contents in the accessibility tree, so it's still a fair place for the
+        // long form of the rule rather than a place to hide it.
         var words = Render.Words(await PanelAsync(new GameFilter()));
 
         await Assert.That(words).Contains("A blank is a gap in our measurement, not a no");
@@ -428,12 +417,9 @@ public class FacetSurfaceTests
     /// The heading a facet's rows are actually drawn under, which is its own name for all but two.
     /// </summary>
     /// <remarks>
-    /// <c>uncounted</c> and <c>unreachable</c> share one legend, because they are one question with
-    /// two independent answers rather than two facets that happen to be adjacent — see the panel.
-    /// The guarantee this test exists for is unweakened by that: the evidence chip is on the legend
-    /// both rows sit under, so a reader still cannot reach either count without having been told
-    /// what kind of statement it is. What would weaken it is a group drawn with no heading at all,
-    /// and that is still what this fails on.
+    /// <c>uncounted</c> and <c>unreachable</c> share one legend — one question, two independent
+    /// answers — but the evidence chip still sits on that shared heading, so neither count is
+    /// reachable without being told what kind of statement it is.
     /// </remarks>
     private static string DrawnUnder(string key) =>
         key is FacetKeys.Uncounted or FacetKeys.Unreachable
@@ -517,11 +503,10 @@ public class FacetSurfaceTests
 
     /// <summary>Every chip is a translated word, including the four the panel does not supply.</summary>
     /// <remarks>
-    /// Three chips are built by <see cref="ActiveFilters"/> itself rather than read off a facet
-    /// group — a typed name, and the two widenings — and all three, plus the word "included", were
-    /// still literal English after the rest of the site was localized. A translated listing rendered
-    /// them beside translated chips, so one row mixed two languages. Asserted by asking the bundle
-    /// what each says rather than by repeating the English, which is the whole point of the fix.
+    /// Three chips (a typed name, two widenings) plus "included" are built by
+    /// <see cref="ActiveFilters"/> rather than read off a facet group, and were still literal English
+    /// after the rest of the site was localized. Asserted against the bundle rather than the English
+    /// text.
     /// </remarks>
     [Test]
     public async Task EveryChipIsAWordFromTheBundleAndNotALiteral()
@@ -619,14 +604,9 @@ public class FacetSurfaceTests
     [Test]
     public async Task AValueIsOneRowWithThreeStatesRatherThanTwoOptionsInTwoLists()
     {
-        // Finding B3. Every value used to appear twice in one select — once under "only", once under
-        // "anything but" — so thirteen codebases were twenty-seven options, read out as near-identical
-        // pairs, and the state showed nothing at rest: a select sitting in its second group looks
-        // exactly like one sitting on "any" until it is opened.
-        //
-        // Two radios per row now, sharing the facet's key. No script: the browser's own group
-        // behaviour is what clears the other rows, and the querystring is the one the binding and the
-        // read API already parse.
+        // Finding B3: values used to appear twice in one select ("only" and "anything but"), showing
+        // no state at rest. Two radios per row now, sharing the facet's key; no script — the
+        // browser's own group behaviour clears the other rows.
         var html = await PanelAsync(new GameFilter());
 
         var grid = html[html.IndexOf("facet-grid", StringComparison.Ordinal)..];
@@ -639,12 +619,8 @@ public class FacetSurfaceTests
         await Assert.That(html).Contains("href=\"/games?codebase=Evennia\"");
         await Assert.That(html).Contains("href=\"/games?codebase=%21Evennia\"");
 
-        // And the whole facet is still one tab stop, as the select was: one radio group, arrow keys
-        // within it.
-        // And no prose under the group headers. The three notes that lived there — "tick to
-        // include", "pick one", "unticked means not measured" — are gone at the user's direction:
-        // the control's shape says what it does, and a panel explaining itself once per group is a
-        // panel nobody reads once.
+        // One tab stop per facet, as the select was. No prose under the group headers either — the
+        // control's shape says what it does.
         await Assert.That(Render.Words(html)).DoesNotContain("Tick to include");
         await Assert.That(Render.Words(html)).DoesNotContain("Pick one.");
         await Assert.That(Render.Words(html)).DoesNotContain("Unticked means not measured");
@@ -671,10 +647,8 @@ public class FacetSurfaceTests
     [Test]
     public async Task TheDemoTellsAMeasuredZeroFromAnUnreadableCountFromAGameWeNeverReached()
     {
-        // The fixture's own three-way split, asserted before anything renders. All three of these
-        // games are on the listing and none of them is "a game with players on"; Eldertale was
-        // counted and found empty, Midnight Sun answered and could not be counted, and Hollow Bell
-        // did not answer. A demo that could not tell them apart would be a demo of the wrong site.
+        // The fixture's three-way split: Eldertale was counted and found empty, Midnight Sun answered
+        // but couldn't be counted, and Hollow Bell never answered — none of the three is "empty".
         var listing = await Queries.SearchAsync(new GameFilter());
 
         var uncounted = await Queries.ListAsync(
@@ -691,7 +665,6 @@ public class FacetSurfaceTests
         await Assert.That(eldertale.PlayersNow).IsEqualTo(0);
         await Assert.That(uncounted.Any(g => g.Slug == "eldertale")).IsFalse();
 
-        // And Hollow Bell is the other one: no number, and not because we failed to read one.
         await Assert.That(uncounted.Any(g => g.Slug == "hollow-bell")).IsFalse();
     }
 
@@ -861,19 +834,10 @@ public class FacetSurfaceTests
     /// A filter as one comparable string, so two of them can be compared for having read anything.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Record equality would compare <see cref="GameFilter.MeasuredProtocols"/> by reference and so
-    /// call every parsed filter different from every other — which would make the test above pass
-    /// whatever the parser did with a key.
-    /// </para>
-    /// <para>
-    /// <b>Read off the type rather than listed here, and that is the fix rather than tidying.</b>
-    /// This was a hand-written roll-call of sixteen members, in a test whose entire job is to catch a
-    /// facet that was added in one place and forgotten in another — so a new member reached it as
-    /// silence: the binding read the parameter correctly, the fingerprint could not see it, and the
-    /// failure said "nothing reads it" about the one thing that did. A list maintained by hand
-    /// cannot be the check on a list maintained by hand.
-    /// </para>
+    /// Record equality would compare <see cref="GameFilter.MeasuredProtocols"/> by reference, making
+    /// every parsed filter look different regardless of content. Read off the type via reflection
+    /// rather than a hand-maintained member list — a list maintained by hand can't be the check on a
+    /// list maintained by hand; a previous hand-written version missed a facet added elsewhere.
     /// </remarks>
     private static string Describe(GameFilter f) => string.Join(
         '|',

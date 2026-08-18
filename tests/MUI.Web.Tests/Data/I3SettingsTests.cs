@@ -8,11 +8,7 @@ namespace MUI.Web.Tests.Data;
 /// <summary>
 /// The Intermud-3 settings, which are refused rather than shrugged at.
 /// </summary>
-/// <remarks>
-/// Turning this on connects a container to a public network and registers a name there permanently,
-/// so a deployment that believes it configured the pass and did not is the failure worth catching —
-/// the same reasoning that makes <c>MUI_CRAWL_ENABLED=no</c> an error rather than a shrug.
-/// </remarks>
+/// <remarks>Turning this on registers a name on a public network permanently, so a deployment that believes it configured the pass and didn't is the failure worth catching.</remarks>
 public class I3SettingsTests
 {
     private static CrawlerOptionsBuilder Apply(params (string Key, string Value)[] settings)
@@ -61,10 +57,7 @@ public class I3SettingsTests
             .Throws<ArgumentException>();
     }
 
-    /// <summary>
-    /// Enabled with no key fails at startup rather than as an authentication failure every five
-    /// minutes, which would read like a broken sidecar rather than an unfinished deployment.
-    /// </summary>
+    /// <summary>Enabled with no key fails at startup rather than as a recurring auth failure that reads like a broken sidecar.</summary>
     [Test]
     public async Task ThePassCannotBeEnabledWithoutAKey()
     {

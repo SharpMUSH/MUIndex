@@ -14,10 +14,8 @@ public sealed record ReachDay(DateOnly Date, ReachState State, FailureCause Caus
     /// One bar's title, in the reader's language. Ninety of these are drawn per game.
     /// </summary>
     /// <remarks>
-    /// The fourth arm is the one that carries the rule: a day before we knew this game existed says
-    /// so about <em>us</em> and never that the game was down. Painting seventy-eight such days as
-    /// unreachable would record a decision of ours as a measurement of theirs, so it is its own id
-    /// rather than a shade of the unreachable one, and nothing in it can be translated into a cause.
+    /// A day before we knew this game existed says so about us, never that the game was down — it
+    /// gets its own id rather than a shade of "unreachable", so it never carries a cause.
     /// </remarks>
     public string Label(string tag) => State switch
     {
@@ -33,10 +31,9 @@ public sealed record ReachDay(DateOnly Date, ReachState State, FailureCause Caus
     /// The state as a noun, for the middle of a spell — "3 days unreachable".
     /// </summary>
     /// <remarks>
-    /// Its own four ids rather than the legend's, though the English is the same two words twice:
-    /// the legend is a caption beside a swatch and this declines inside a sentence, and a language
-    /// with cases needs them in different ones. Collapsing them because English cannot tell them
-    /// apart is how a translation ends up ungrammatical in one of the two places.
+    /// Own ids, separate from the legend's, even though the English matches: the legend is a caption
+    /// beside a swatch and this declines inside a sentence, which languages with grammatical case
+    /// need in different forms.
     /// </remarks>
     public string Word(string tag) => Messages.For(tag, State switch
     {
@@ -51,11 +48,9 @@ public sealed record ReachDay(DateOnly Date, ReachState State, FailureCause Caus
 /// What the worst thing that happened in a day was.
 /// </summary>
 /// <remarks>
-/// Four, not three. The design names three bar states, and a game we have watched for ninety days
-/// only ever needs those — but the strip is ninety days wide for every game, including one found
-/// last Tuesday. Painting the seventy-eight days before we knew it existed as "unreachable" would
-/// record a decision of ours as a measurement of theirs, which is the one thing this site may never
-/// do. So a day nobody watched is its own state and says so.
+/// Four states, not three: the strip is always ninety days wide, even for a game found last week, so
+/// the days before we knew it existed need their own state rather than being painted "unreachable" —
+/// recording a decision of ours as a measurement of theirs is the one thing this site may never do.
 /// </remarks>
 public enum ReachState
 {
@@ -74,10 +69,9 @@ public enum ReachState
 /// The 90-day strip, and the three figures under it, derived from availability intervals.
 /// </summary>
 /// <remarks>
-/// The strip follows status-page convention — ninety bars, oldest at the left — because readers
-/// already know how to read one. It diverges in the two places the design names: degraded is a
-/// <em>short</em> bar rather than only a different colour, and unreachable is hatched and outlined
-/// so it reads as absent rather than as an alarm.
+/// Ninety bars, oldest at the left, following status-page convention. Degraded renders as a
+/// <em>short</em> bar rather than only a different colour; unreachable is hatched and outlined so it
+/// reads as absent rather than as an alarm.
 /// </remarks>
 public sealed record ReachSummary(
     IReadOnlyList<ReachDay> Days,
@@ -105,22 +99,14 @@ public sealed record ReachSummary(
         var unmeasured = Days.Count(d => d.State is ReachState.Unmeasured);
         var measured = Window - unmeasured;
 
-        // Two different admissions, and only the first was ever being made. Days at the head of the
-        // strip come before we had heard of the game — a fact about how long we have been looking.
-        // Unmeasured days after that are a stretch we stopped looking during, which is a fact about
-        // our crawl having a hole in it. Splitting on the leading run works because the strip is
-        // ordered oldest first, and a trailing run belongs with the second: not looking lately is
-        // still not looking.
+        // Leading run of unmeasured days = before we knew the game existed (a fact about us).
+        // Unmeasured days after that = a gap in our crawl (also a fact about us, different cause).
         var predating = Days.TakeWhile(d => d.State is ReachState.Unmeasured).Count();
         var unwatched = unmeasured - predating;
 
-        // The percentage's denominator is *observed* time, not the window (Reachability
-        // .FractionReachable). The sentence has to say so, or a game found an hour ago reads
-        // "Reachable 100.0% of the last 90 days" off a single successful probe — a true number
-        // wearing a claim eighty-nine days wider than the evidence. Only when the window is
-        // fully measured do the two denominators coincide and the shorter phrasing become true.
-        // Two ids and not one with a substituted noun, so no locale can end up with one sentence
-        // doing both jobs.
+        // Denominator is *observed* time, not the window (Reachability.FractionReachable) — a game
+        // found an hour ago must not read "Reachable 100.0% of the last 90 days" off one probe.
+        // Separate ids rather than a substituted noun, so no locale has to make one sentence do both.
         parts.Add(ReachableFraction is { } f
             ? unmeasured == 0
                 ? Messages.Say(tag, "reach.fraction.window", ("percent", Wording.Percent(f)), ("days", Window))
@@ -140,8 +126,8 @@ public sealed record ReachSummary(
 
         if (LongestOutage is { } outage)
         {
-            // The longest outage's own cause, not the most recent one. They are different
-            // intervals and pairing a duration with somebody else's cause invents an event.
+            // The longest outage's own cause, not the most recent one — pairing a duration with a
+            // different interval's cause would invent an event.
             parts.Add(LongestOutageCause is FailureCause.None
                 ? Messages.Say(tag, "reach.longestOutage", ("duration", Wording.Duration(outage)))
                 : Messages.Say(
@@ -151,8 +137,8 @@ public sealed record ReachSummary(
                     ("cause", Wording.Cause(tag, LongestOutageCause))));
         }
 
-        // Never "unreachable for N days", and never a cause, on either of these. Both are facts
-        // about our crawl, and attaching a cause would turn one into a fact about the game.
+        // Never "unreachable for N days" and never a cause here — both are facts about our crawl,
+        // and attaching a cause would turn one into a fact about the game.
         if (predating > 0)
         {
             parts.Add(Messages.Say(tag, "reach.predate", ("count", predating)));
@@ -250,9 +236,8 @@ public static class ReachSeries
                     continue;
                 }
 
-                // The worst thing that happened in a day is what the day's bar says. A game that was
-                // down for an hour was not "reachable that day"; a reader scanning ninety bars for
-                // trouble has to be able to find it.
+                // The worst thing that happened in a day is what the bar says — an hour of downtime
+                // must not disappear into "reachable that day".
                 var observed = interval.State switch
                 {
                     AvailabilityState.Reachable => ReachState.Reachable,
@@ -282,8 +267,8 @@ public static class ReachSeries
     }
 
     /// <summary>
-    /// The cause recorded against the interval that <em>is</em> the longest outage. Reading the
-    /// most recent cause instead would pair a real duration with an unrelated event.
+    /// The cause recorded against the interval that <em>is</em> the longest outage, rather than the
+    /// most recent one — which would pair a real duration with an unrelated event.
     /// </summary>
     private static FailureCause CauseOfLongest(
         IReadOnlyList<AvailabilityInterval> intervals,
@@ -351,9 +336,8 @@ public static class Wording
     /// Why a dial did not complete, in the reader's language.
     /// </summary>
     /// <remarks>
-    /// What our socket saw and never a judgement of the game: "connection refused" is an event on a
-    /// wire, and a locale that rendered it as "the game was down" would turn our measurement into
-    /// their obituary. The acronyms inside — dns, tls — are machine voice and stay put.
+    /// What our socket saw, never a judgement of the game: "connection refused" is an event on a
+    /// wire, not "the game was down".
     /// </remarks>
     public static string Cause(string tag, FailureCause cause) => Messages.For(tag, cause switch
     {

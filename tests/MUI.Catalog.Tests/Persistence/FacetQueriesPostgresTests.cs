@@ -8,11 +8,9 @@ namespace MUI.Catalog.Tests.Persistence;
 /// </summary>
 /// <remarks>
 /// <see cref="FacetedSearchTests"/> covers the arithmetic with no I/O. What can only be checked here
-/// is the half that reads rows: that <c>capability.gmcp.measured</c> and
-/// <c>capability.gmcp.declared</c> are two columns and the facet reads the first, that a CHARSET
-/// row's <em>source</em> decides whether it counts, and that TLS comes off an endpoint rather than
-/// off a claim. Every one of those is a place where the honest column and the convenient one sit
-/// side by side under nearly the same name.
+/// is that the facets read the right column when a measured and a declared one sit side by side under
+/// nearly the same name — e.g. that the protocol facet reads <c>capability.gmcp.measured</c> and not
+/// <c>.declared</c>, and TLS comes off an endpoint rather than a claim.
 /// </remarks>
 public class FacetQueriesPostgresTests
 {
@@ -27,9 +25,6 @@ public class FacetQueriesPostgresTests
     [Test]
     public async Task TheProtocolFacetCountsWhatWasMeasuredAndNotWhatWasClaimed()
     {
-        // The central one. Both games "have GMCP" in the loose sense; only one of them was seen
-        // offering it, and a facet that read the declared column would return the pair and call it
-        // measurement — which is the lie the whole schema is shaped to prevent.
         await using var db = await PostgresFixture.MigratedAsync();
         var measured = await Seed.GameAsync(db, "measured", "Measured", lastReachableAt: Now);
         var claimed = await Seed.GameAsync(db, "claimed", "Claimed", lastReachableAt: Now);
@@ -53,9 +48,6 @@ public class FacetQueriesPostgresTests
     [Test]
     public async Task AGameThatOnlyDeclaredAProtocolIsNotFoldedIntoAnyProtocolAnswer()
     {
-        // And it is not the other error either: the declaring game is neither counted as offering
-        // GMCP nor recorded anywhere as refusing it. It is simply a game we have not measured, and
-        // the facet has no vocabulary for saying otherwise.
         await using var db = await PostgresFixture.MigratedAsync();
         var claimed = await Seed.GameAsync(db, "claimed", "Claimed", lastReachableAt: Now);
         await new NpgsqlGameFieldStore(db.DataSource).UpsertAsync(new GameField(
@@ -70,10 +62,8 @@ public class FacetQueriesPostgresTests
     [Test]
     public async Task TheAdultDefaultReadsBothDeclarationsOffRealRows()
     {
-        // The half no in-memory test reaches: which columns the rule is actually wired to. GENRE
-        // and ADULT MATERIAL are two separate variables and they catch different games — the flag
-        // is the only way a game whose setting is Fantasy can say so, and one of the four games
-        // this catches in production does exactly that.
+        // GENRE and ADULT MATERIAL are two separate variables, catching different games — the flag is
+        // the only way a game whose GENRE is Fantasy can still declare adult content.
         await using var db = await PostgresFixture.MigratedAsync();
         var byGenre = await Seed.GameAsync(db, "by-genre", "By Genre", lastReachableAt: Now);
         var byFlag = await Seed.GameAsync(db, "by-flag", "By Flag", lastReachableAt: Now);
@@ -88,8 +78,7 @@ public class FacetQueriesPostgresTests
         await fields.UpsertAsync(new GameField(
             byFlag, AdultContent.Field, FieldSource.Mssp, "1", Now, Now));
 
-        // A game that answered the question with a no is not a game that declared adult content —
-        // and neither is one that never answered it. Both stay in the default listing.
+        // A "no" and a never-answered game are both not "declared adult content"; both stay listed.
         await fields.UpsertAsync(new GameField(
             says, AdultContent.Field, FieldSource.Mssp, "0", Now, Now));
 
@@ -104,9 +93,6 @@ public class FacetQueriesPostgresTests
     [Test]
     public async Task AnOwnerCanCorrectTheFlagTheirServerNeverSent()
     {
-        // game_field is keyed (game, field, source) so both sides of a disagreement can be held,
-        // and the listing has to read the winner rather than the original. An owner adding the flag
-        // their MSSP omits is the whole reason owner enrichment exists.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db, "corrected", "Corrected", lastReachableAt: Now);
         var fields = new NpgsqlGameFieldStore(db.DataSource);
@@ -126,9 +112,6 @@ public class FacetQueriesPostgresTests
     [Test]
     public async Task TheCharsetFacetReadsWhatWasNegotiatedAndNotWhatMsspClaimed()
     {
-        // CHARSET is one of the few fields both a handshake and MSSP write, so the precedence winner
-        // is the handshake's when there is one and the game's own assertion when there is not. A
-        // facet labelled "we measured this" must not quietly answer from the second.
         await using var db = await PostgresFixture.MigratedAsync();
         var negotiated = await Seed.GameAsync(db, "negotiated", "Negotiated", lastReachableAt: Now);
         var asserted = await Seed.GameAsync(db, "asserted", "Asserted", lastReachableAt: Now);
@@ -166,11 +149,8 @@ public class FacetQueriesPostgresTests
     [Test]
     public async Task TlsIsAnEndpointWeOpenedAndNeverAnSslLineInMssp()
     {
-        // capability.tls.declared says somebody typed SSL 4202 into their configuration — MSSP's own
-        // variable is SSL and CapabilityFields folds it onto TLS, because two names for an encrypted
-        // port are not two capabilities. An endpoint of kind tls says a socket was opened. Only the
-        // second is a measurement, and the facet reads only the second — which is also why it
-        // renders nothing today: the crawler dials plaintext, so nothing writes a TLS endpoint yet.
+        // MSSP's SSL variable folds onto capability.tls.declared, but only an endpoint of kind Tls —
+        // a socket we actually opened — is a measurement, and the facet reads only that.
         await using var db = await PostgresFixture.MigratedAsync();
         var secure = await Seed.GameAsync(db, "secure", "Secure", lastReachableAt: Now);
         var boastful = await Seed.GameAsync(db, "boastful", "Boastful", lastReachableAt: Now);
@@ -191,9 +171,8 @@ public class FacetQueriesPostgresTests
     [Test]
     public async Task ACodebaseWeCouldNotIdentifyIsItsOwnBucketAndCanBeAskedFor()
     {
-        // A measurement of our own reach, and one of the more useful filters in the panel. It also
-        // survives the cap on open-ended facets, because it is exactly the value a popularity cut
-        // would delete on a well-covered catalogue.
+        // Survives the cap on open-ended facets: it's exactly the value a popularity cut would
+        // otherwise delete on a well-covered catalogue.
         await using var db = await PostgresFixture.MigratedAsync();
         var known = await Seed.GameAsync(db, "known", "Known", lastReachableAt: Now);
         await Seed.GameAsync(db, "mystery", "Mystery", lastReachableAt: Now);
@@ -215,9 +194,6 @@ public class FacetQueriesPostgresTests
     [Test]
     public async Task TheArchivedBandLiftsTheArchiveExclusionInTheDatabaseToo()
     {
-        // This is the divergence the shared search was extracted to close: the demo fixture read
-        // band=archived as asking for the archive and this class read it as a filter over a listing
-        // the archive had already left, so one filter had two answers.
         await using var db = await PostgresFixture.MigratedAsync();
         await Seed.GameAsync(db, "corvid", "Corvid", lastReachableAt: Now);
         await Seed.GameAsync(db, "gaslight-row", "Gaslight Row", LifecycleState.Archived);
@@ -230,8 +206,7 @@ public class FacetQueriesPostgresTests
     [Test]
     public async Task TheLastSeenFacetCarriesTheDateItFilteredOnOntoTheRowsItReturned()
     {
-        // A facet whose value cannot be read off its own results is one a reader has to take on
-        // trust. Never reached stays null rather than being dated from our first sighting.
+        // Never reached stays null rather than being dated from our first sighting.
         await using var db = await PostgresFixture.MigratedAsync();
         await Seed.GameAsync(db, "fresh", "Fresh", lastReachableAt: Now.AddHours(-2));
         await Seed.GameAsync(db, "silent", "Silent");
@@ -249,8 +224,6 @@ public class FacetQueriesPostgresTests
     [Test]
     public async Task EveryCountTheDatabasePublishesIsWhatChoosingThatValueReturns()
     {
-        // The panel's promise, kept end to end: run every advertised choice back through the real
-        // query and check the listing is the size the facet said it would be.
         await using var db = await PostgresFixture.MigratedAsync();
         var penn = await Seed.GameAsync(db, "penn", "Penn", lastReachableAt: Now);
         var evennia = await Seed.GameAsync(db, "evennia", "Evennia game", lastReachableAt: Now.AddDays(-10));
@@ -283,19 +256,14 @@ public class FacetQueriesPostgresTests
     [Test]
     public async Task AMeasuredZeroIsNotUncountedAndTheBandCannotTellThemApart()
     {
-        // The one this facet exists for, against the reader that actually computes it.
-        //
-        // Both games are reachable, both have no count above nought this week, and both therefore
-        // land in `quiet` — the band is one threshold and cannot say why. `empty` was probed and
-        // answered nought, which is a measurement of theirs; `unreadable` was probed and produced no
-        // number, which is a limit of ours. Returning the first under a word meaning the second is
-        // rules 2, 4 and 5 in one control, and the digest threw the distinction away until now.
+        // Both games land in `quiet` — the band is one threshold and cannot say why. `empty` was
+        // probed and answered nought (a measurement); `unreadable` was probed and produced no number
+        // (a limit of ours). Conflating them is rules 2, 4 and 5 in one control.
         await using var db = await PostgresFixture.MigratedAsync();
         var empty = await Seed.GameAsync(db, "empty", "Measured empty", lastReachableAt: Now);
         var unreadable = await Seed.GameAsync(db, "unreadable", "Unreadable", lastReachableAt: Now);
         var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
 
-        // Three probes each, over the same hours, differing only in what came back.
         foreach (var hours in new[] { 1, 20, 60 })
         {
             await writer.WriteAsync(
@@ -315,7 +283,6 @@ public class FacetQueriesPostgresTests
             new GameFilter { Uncounted = FacetChoice.Of(FacetTokens.Yes) });
         await Assert.That(uncounted.Select(g => g.Slug)).IsEquivalentTo(new[] { "unreadable" });
 
-        // And the count each game's row carries agrees: nought is a number, and the other is null.
         var listed = await queries.ListAsync(new GameFilter());
         await Assert.That(listed.Single(g => g.Id == empty).PlayersNow).IsEqualTo(0);
         await Assert.That(listed.Single(g => g.Id == unreadable).PlayersNow).IsNull();
@@ -324,10 +291,8 @@ public class FacetQueriesPostgresTests
     [Test]
     public async Task AGameWithNoPresenceRowsAtAllIsNotUncounted()
     {
-        // §5.4's third state. A probe that failed writes no presence row (`PresenceWriter`), so a
-        // game with nothing stored is one we did not measure — and "we tried and could not read it"
-        // is a cause, which that state may not be given. It is unreachable instead, from the
-        // availability series, which can tell the two apart.
+        // §5.4's third state: a probe that failed writes no presence row, so a game with nothing
+        // stored was not measured, not "tried and failed to read". It is unreachable instead.
         await using var db = await PostgresFixture.MigratedAsync();
         await Seed.GameAsync(db, "never", "Never answered", lastReachableAt: null);
         var probed = await Seed.GameAsync(db, "probed", "Probed", lastReachableAt: Now);
@@ -352,8 +317,6 @@ public class FacetQueriesPostgresTests
     [Test]
     public async Task TheTwoSwitchesNarrowTogetherAndTheCountsSayWhatTheyReturn()
     {
-        // Orthogonal, and orthogonal to the rest of the panel: excluding both leaves the games we
-        // measured, with the two controls still drawn so the reader can undo what they did.
         await using var db = await PostgresFixture.MigratedAsync();
         var counted = await Seed.GameAsync(db, "counted", "Counted", lastReachableAt: Now);
         var unreadable = await Seed.GameAsync(db, "unreadable", "Unreadable", lastReachableAt: Now);
@@ -400,9 +363,8 @@ public class FacetQueriesPostgresTests
         FacetKeys.Genre => new GameFilter { Genre = FacetChoice.Parse(token) },
         FacetKeys.Language => new GameFilter { Language = FacetChoice.Parse(token) },
 
-        // Never a catch-all. A facet added to the panel and not to this switch used to arrive here
-        // as a language filter, which does not narrow on a codebase token — so the test failed
-        // saying the count was wrong when the count was right and the test was.
+        // Never a catch-all: a facet missing from this switch would silently fall through as a
+        // language filter and fail with a misleading "count was wrong" instead.
         _ => throw new ArgumentOutOfRangeException(nameof(key), key, "no filter for this facet"),
     };
 

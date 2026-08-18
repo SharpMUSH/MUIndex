@@ -10,18 +10,10 @@
 @inject NavigationManager Nav
 
 @*
-    Submit a game: a host, a port, and nothing else (spec §7.6, §9).
-
-    A submitter asserts nothing. There is no name box, no description box, no codebase dropdown and
-    no player count, because every fact on this site is measured by our own crawler and a field here
-    would be a field somebody could fill in with anything. What we take from a stranger is the same
-    thing the backfill takes from a directory: an address to dial.
-
-    The form is a real POST with an antiforgery token and no script, so it works in a text browser
-    exactly as it works anywhere else — which is why plain mode renders the prose as text and then
-    keeps the same form beneath it rather than describing one. The answer arrives back as a
-    querystring — post, redirect, get — so a reload does not resubmit and this page never has to set
-    a cookie to remember what it just did.
+    Submit a game: a host, a port, and nothing else (spec §7.6, §9). No name/description/codebase/
+    player-count fields — every fact here is measured by our own crawler, never asserted by a
+    submitter. A real POST + antiforgery token, no script; the answer comes back as a querystring
+    (post/redirect/get) so a reload never resubmits.
 *@
 
 <SitePreview Title="@SubmitCopy.Title(Tag)" Description="@SubmitCopy.Lede(Tag)" Data="false" />
@@ -88,9 +80,8 @@ else
 }
 
 @code {
-    // Read off the URL rather than bound parameter by parameter, for the reason Games.razor is: the
-    // answer arrives as a redirect this page did not model, and one parser over the whole querystring
-    // is what lets it be rendered and asserted without a request pipeline underneath it.
+    // Parsed from the raw querystring (as in Games.razor) rather than bound parameter by parameter,
+    // since the answer arrives as a redirect this page didn't model.
     private Dictionary<string, Microsoft.Extensions.Primitives.StringValues> Query { get; set; } = [];
 
     private string? Value(string key) =>
@@ -104,22 +95,12 @@ else
 
     private SubmitAnswer? Answer { get; set; }
 
-    /// <summary>
-    /// Reads the answer back out of the URL, trusting none of it.
-    /// </summary>
+    /// <summary>Reads the answer back out of the URL, trusting none of it.</summary>
     /// <remarks>
-    /// <para>
-    /// The outcome has to be one of a fixed set of words, and the slug is looked up again here — so a
-    /// hand-made link cannot make this page point at a game that does not exist, and the row decides
-    /// whether the link is the game's page or its claim page rather than the URL doing so.
-    /// </para>
-    /// <para>
-    /// <b>One row, through <see cref="IGameStore"/>, not <c>IGameQueries.FindAsync</c>.</b> That call
-    /// assembles a whole game page — fields, presence digest, availability intervals, endpoints, the
-    /// change feed and a 7×24 activity grid — which is six extra round trips to decide whether a
-    /// string names a game. On an unauthenticated GET with an attacker-supplied slug that is a
-    /// request amplifier, and it is the wrong question besides.
-    /// </para>
+    /// The slug is looked up again here so a hand-made link can't point this page at a nonexistent
+    /// game; the lookup goes through <see cref="IGameStore"/> rather than <c>IGameQueries.FindAsync</c>,
+    /// which assembles a whole game page (fields, presence, intervals, change feed, activity grid) —
+    /// needless amplification on an unauthenticated GET with an attacker-supplied slug.
     /// </remarks>
     protected override async Task OnParametersSetAsync()
     {
@@ -135,8 +116,7 @@ else
             && Services.GetService<IGameStore>() is { } games
             && await games.BySlugAsync(slug) is { } game)
         {
-            // Hidden means submitted and unclaimed — the state whose only exit is a claim, so that
-            // is what the link offers. Everything else gets its public page.
+            // Submitted-and-unclaimed's only exit is a claim, so that's what the link offers.
             link = game.SubmittedAt is not null && !game.IsClaimed
                 ? SubmitLink.Claim(game.Slug, Tag)
                 : SubmitLink.Game(game.Slug);
@@ -145,7 +125,6 @@ else
         Answer = SubmitCopy.Answer(outcome, SubmitLinks.Address(Host, Port), link, Tag);
     }
 
-    /// <summary>The locale this page is being answered in.</summary>
     [CascadingParameter] private HttpContext? Http { get; set; }
 
     private string Tag => Http.LocaleOf().Tag;

@@ -53,9 +53,8 @@ public class MuckNamingTests
     [Test]
     public async Task AnotherFamilyNamedAnywhereWithdrawsTheAssumption()
     {
-        // mud.stick.org:9000, listed as Stick in the Mud: a ROM/Merc/Diku derivative whose ASCII art
-        // says "in da Muck" nine lines above the credit that says what it actually runs. The word is
-        // there, the game is not a MUCK, and this is the only thing standing between the two.
+        // A real ROM/Merc/Diku derivative whose ASCII art says "in da Muck" above the credit line
+        // naming what it actually runs. The word is there, the game is not a MUCK.
         var banner = """
             "Don't get Stuck...  in da Muck"
                      STICK Version: 2.3 mud.stick.org 9000
@@ -83,9 +82,8 @@ public class MuckNamingTests
         await Assert.That(MuckNaming.Assumed("This tinymuck is an adventure land")).IsEqualTo("MUCK");
         await Assert.That(MuckNaming.Assumed("kitsumuck.com runs ProtoMUCK")).IsEqualTo("MUCK");
 
-        // feathermuck.avians.net, which recounts its own history on the way in. Fuzzball is what a
-        // MUCK runs, and reading it as a competing family lost the assumption on the most
-        // MUCK-shaped connect screen there is.
+        // Fuzzball is what a MUCK runs; reading it as a competing family would lose the assumption
+        // on the most MUCK-shaped connect screen there is.
         await Assert.That(MuckNaming.Assumed(
                 "* Originally we ran the *Tiny-Muck *2.2* fb5.60,* now Fuzzball on UNIX box"))
             .IsEqualTo("MUCK");

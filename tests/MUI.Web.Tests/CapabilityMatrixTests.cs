@@ -34,8 +34,7 @@ public class CapabilityMatrixTests
     [Test]
     public async Task ADisagreementIsMarkedInTheRowAndNotOnlyByATint()
     {
-        // A background tint is invisible in greyscale, to a screen reader, and to anyone who prints
-        // the page. The word is in the row.
+        // A background tint is invisible in greyscale, to a screen reader, and in print.
         var html = await MatrixAsync();
 
         await Assert.That(html).Contains("class=\"mark warn\">disagrees</span>");
@@ -44,33 +43,27 @@ public class CapabilityMatrixTests
     [Test]
     public async Task TheTallyIsTheTablesCaptionAndIsSaidExactlyOnce()
     {
-        // It used to be the section's heading text and, verbatim, the table's sr-only caption — so a
-        // screen reader heard the same sentence twice on the way to the first row. As the caption it
-        // is the table's own description, it is on screen for everybody, and it is there once.
-        // The wording is the short form the handoff's copy table asks for. "capabilities" was the
-        // word the heading directly above already says, so the caption no longer repeats it.
+        // The tally is stated once, as the table's on-screen caption, not duplicated in the heading —
+        // a screen reader must not hear the same sentence twice.
         var html = await MatrixAsync();
         var head = html[..html.IndexOf("<table", StringComparison.Ordinal)];
 
         await Assert.That(html).Contains("<caption class=\"count");
 
-        // "disagrees" and not "disagree": the caption is an ICU message with a real plural clause,
-        // so one disagreement agrees with its verb. It read "1 of 4 disagree" for as long as the
-        // sentence was assembled by hand.
+        // "disagrees", not "disagree": a real ICU plural clause, so one disagreement agrees with its
+        // verb.
         await Assert.That(Render.Words(html)).Contains("1 of 4 disagrees with what the game declares.");
         await Assert.That(head).DoesNotContain("1 of 4");
 
         var occurrences = Render.Words(html).Split("1 of 4").Length - 1;
         await Assert.That(occurrences).IsEqualTo(1);
 
-        // The heading is just the noun, which is the other half of saying it once.
         await Assert.That(Render.Words(head)).Contains("Capabilities");
     }
 
     [Test]
     public async Task MeasuredAndDeclaredStayInSeparateColumns()
     {
-        // Two claims, and merging them throws away the only interesting case.
         var html = await MatrixAsync();
 
         await Assert.That(html).Contains(">measured</th>");
@@ -82,8 +75,7 @@ public class CapabilityMatrixTests
     [Test]
     public async Task EveryStateCarriesAWordAsWellAsAGlyph()
     {
-        // Colour is never the sole carrier, and neither is a glyph: greyscale printing is a valid
-        // rendering and so is a terminal that draws no symbols.
+        // Colour is never the sole carrier, and neither is a glyph alone (greyscale printing, no-symbol terminals).
         var html = await MatrixAsync();
 
         await Assert.That(html).Contains("offered");
@@ -95,8 +87,7 @@ public class CapabilityMatrixTests
     [Test]
     public async Task UnknownIsNeverRenderedAsAbsent()
     {
-        // "We did not observe it" and "it is not there" are different facts and only one of them is
-        // a measurement.
+        // "Not observed" and "not there" are different facts.
         var html = await MatrixAsync();
         var mxpRow = html[html.IndexOf("MXP", StringComparison.Ordinal)..];
 

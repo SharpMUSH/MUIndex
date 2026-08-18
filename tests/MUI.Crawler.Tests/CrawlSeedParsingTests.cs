@@ -4,19 +4,9 @@ namespace MUI.Crawler.Tests;
 /// What counts as an address, for <c>mui-crawl --seed</c> and for a deployment's seed list alike.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The half worth reading is <see cref="AnAmbiguousAddressIsRefusedRatherThanGuessedAt"/>. The first
-/// version of this parser fell back to the last colon whenever the brackets did not match, so
-/// <c>[2001:db8::1:4201</c> came out as <c>2001:db8::1</c> port 4201 — the parser deciding what a
-/// typo meant.
-/// </para>
-/// <para>
-/// It was never a way past §7.2: every target is resolved and ruled on by <c>HostScopeGuard</c>
-/// before <c>CrawlCycle</c> dials it, the string this parser returns is the string that gets ruled
-/// on, and <c>IsOperatorSeed</c> comes from the caller rather than from the text — so no spelling of
-/// a seed can exempt itself. What it could do is dial a host nobody wrote down, which rule 4 says a
-/// parser does not get to do.
-/// </para>
+/// The half worth reading is <see cref="AnAmbiguousAddressIsRefusedRatherThanGuessedAt"/>: an
+/// ambiguous address could never bypass §7.2 (every target is still resolved and ruled on by
+/// <c>HostScopeGuard</c>), but it could dial a host nobody wrote down, which rule 4 forbids.
 /// </remarks>
 public class CrawlSeedParsingTests
 {
@@ -56,8 +46,7 @@ public class CrawlSeedParsingTests
     [Test]
     public async Task TheExemptionComesFromTheCallerAndNeverFromTheText()
     {
-        // §7.2: "operator-supplied seeds may be exempted" is not "configured therefore exempt", and
-        // no spelling of an address may claim the exemption for itself.
+        // §7.2: no spelling of an address may claim the exemption for itself.
         await Assert.That(CrawlSeed.Parse("127.0.0.1:4201").IsOperatorSeed).IsFalse();
         await Assert.That(CrawlSeed.Parse("[::1]:4201").IsOperatorSeed).IsFalse();
         await Assert.That(CrawlSeed.Parse("127.0.0.1:4201", isOperatorSeed: true).IsOperatorSeed).IsTrue();

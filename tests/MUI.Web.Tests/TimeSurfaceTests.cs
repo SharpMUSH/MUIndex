@@ -11,18 +11,10 @@ namespace MUI.Web.Tests;
 /// One date format, one age ladder, and an age a reader can resolve to a time — in any language.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The site printed three absolute formats — <c>2026-08-17</c> on a game page, <c>31 July 2026</c>
-/// in the rankings, <c>Aug 2026</c> beside an address — and its relative ages carried no absolute
-/// value at all, so a reader arriving from a cached page or a search result could not tell what
-/// "19m ago" was 19 minutes before.
-/// </para>
-/// <para>
-/// Then it printed the one format under <see cref="CultureInfo.InvariantCulture"/>, which is the
-/// same defect wearing a different hat: a German page said <c>30 Jul 2026</c>, and the month name
-/// was not in any file a translator is ever sent. These now assert the fact through the bundle
-/// rather than the English literal, because a literal passes on the day the German is wrong.
-/// </para>
+/// The site once printed three different absolute formats with relative ages carrying no absolute
+/// value, and then the one unified format under <see cref="CultureInfo.InvariantCulture"/> — a
+/// German page saying <c>30 Jul 2026</c>, the month name in no file any translator is sent. These
+/// assert through the bundle rather than the English literal, which passes even when German is wrong.
 /// </remarks>
 public class TimeSurfaceTests
 {
@@ -34,11 +26,7 @@ public class TimeSurfaceTests
     /// <summary>
     /// The locales that claim to be languages.
     /// </summary>
-    /// <remarks>
-    /// The pseudolocale accents every letter it is handed, so it renders UTC as ÚTÇ and MSSP inside
-    /// brackets. That is the pseudolocale doing its one job — proving a string came through the
-    /// pipeline — and it is never offered to a reader, so it is not the thing these two assert on.
-    /// </remarks>
+    /// <remarks>The pseudolocale accents everything it's handed (UTC becomes ÚTÇ) to prove a string came through the pipeline; it's never offered to a reader, so it's excluded here.</remarks>
     private static IEnumerable<Locale> Languages =>
         Locales.All.Where(l => l.Status is not LocaleStatus.TestOnly);
 
@@ -55,23 +43,15 @@ public class TimeSurfaceTests
     /// <summary>
     /// The month is CLDR's, not an array here and not the invariant culture's.
     /// </summary>
-    /// <remarks>
-    /// The same finding as the heatmap's seven English day names, one file over: no translator could
-    /// have fixed <c>Jul</c> on a German page, because the word was never in a file they are sent.
-    /// July is the case worth pinning — German writes <c>Juli</c> in a date and .NET's *standalone*
-    /// abbreviation is the legacy <c>Jul</c>, so a plausible-looking call to
-    /// <c>GetAbbreviatedMonthName</c> would leave this passing in English and wrong in German.
-    /// </remarks>
+    /// <remarks>July is the case worth pinning: German writes <c>Juli</c>, but .NET's *standalone* abbreviation is the legacy <c>Jul</c> — a plausible <c>GetAbbreviatedMonthName</c> call would pass in English and be wrong in German.</remarks>
     [Test]
     public async Task AGermanPageNamesTheMonthInGerman()
     {
         var july = new DateTimeOffset(2026, 7, 30, 18, 0, 0, TimeSpan.Zero);
 
-        // The word, not the whole string: the order of the three parts is `date.absolute`'s to
-        // decide, and German's translation of it supplies the ordinal point that English has no use
-        // for — "30. Juli 2026". Pinning the assembled sentence here would have made a correct
-        // translation fail, which is the test asserting its own English word order as if it were a
-        // fact about dates.
+        // The word, not the whole string — part order is `date.absolute`'s to decide (German adds an
+        // ordinal point English has no use for). Pinning the assembled sentence would fail a correct
+        // translation.
         await Assert.That(Dates.Absolute(German, july)).Contains("Juli");
         await Assert.That(Dates.Absolute(German, july)).Contains("30");
         await Assert.That(Dates.Absolute(German, july)).Contains("2026");
@@ -86,12 +66,7 @@ public class TimeSurfaceTests
     }
 
     /// <summary>Every month of the year, and not one of them still in English.</summary>
-    /// <remarks>
-    /// One month passing is a coincidence — <c>Feb</c>, <c>Aug</c> and <c>Sep</c> are nearly the
-    /// same word in both languages, and the sweep that found this was run against a fixture whose
-    /// dates are all in July. Walking twelve is what proves the name came out of CLDR rather than
-    /// out of a lucky abbreviation.
-    /// </remarks>
+    /// <remarks>One month passing is a coincidence — <c>Feb</c>/<c>Aug</c>/<c>Sep</c> are nearly the same word in both languages. Walking all twelve proves the name came from CLDR, not a lucky abbreviation.</remarks>
     [Test]
     public async Task NoMonthOfTheGermanYearComesBackInEnglish()
     {
@@ -108,11 +83,7 @@ public class TimeSurfaceTests
     /// <summary>
     /// UTC is a zone and not a word, and the clock is the site's rather than the locale's.
     /// </summary>
-    /// <remarks>
-    /// Every time here is UTC because a crawler's clock is the only one it has. A locale that
-    /// rendered <c>2:02 PM</c>, or one that translated the suffix, would be describing a different
-    /// instant to a reader who has no way to tell.
-    /// </remarks>
+    /// <remarks>Every time is UTC because the crawler's clock is the only one it has; a locale rendering <c>2:02 PM</c> would describe a different instant with no way for the reader to tell.</remarks>
     [Test]
     public async Task TheZoneIsNamedInEveryLanguageAndTheClockDoesNotMove()
     {
@@ -141,16 +112,9 @@ public class TimeSurfaceTests
     /// Every rung of every family is a real ICU plural, with the branches its language has.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <c>n + "w ago"</c> is a sentence assembled in English word order with nowhere for a
-    /// translator to stand. The rungs are patterns instead, so a language selects its own category
-    /// — and this walks every locale the site names against the CLDR rules it transcribes, because
-    /// a pattern that parses in English can still be missing the branch Russian needs.
-    /// </para>
-    /// <para>
-    /// <c>other</c> is mandatory everywhere, including in Japanese and Chinese, which have nothing
-    /// else. A branch keyword a language does not have is rejected rather than ignored.
-    /// </para>
+    /// Rungs are ICU patterns, not <c>n + "w ago"</c> assembled in English word order, so each
+    /// language selects its own plural category — a pattern valid in English can still be missing
+    /// the branch Russian needs. <c>other</c> is mandatory everywhere, including Japanese and Chinese.
     /// </remarks>
     [Test]
     public async Task EveryRungIsAPluralWithTheCategoriesItsLanguageActuallyHas()
@@ -201,11 +165,7 @@ public class TimeSurfaceTests
     /// <summary>
     /// "How fresh is this measurement" and "how long has this game been dark" are two questions.
     /// </summary>
-    /// <remarks>
-    /// English answers both with "2w ago" and several languages will not. The ids are separate so a
-    /// translator can reach each one at all — collapsing them because the source language cannot
-    /// tell them apart is how three cases in four end up ungrammatical.
-    /// </remarks>
+    /// <remarks>English answers both with "2w ago"; several languages won't. The ids are kept separate so a translator can reach each — collapsing them on the source language's inability to distinguish is how translations end up ungrammatical.</remarks>
     [Test]
     public async Task AFreshMeasurementAndADarkGameAreTwoIdsEvenWhereTheEnglishIsOne()
     {
@@ -226,11 +186,7 @@ public class TimeSurfaceTests
     /// <summary>
     /// The dark register never names a cause, in any language.
     /// </summary>
-    /// <remarks>
-    /// We measured a socket from one vantage point at intervals. A game with a routing problem to
-    /// our host is unreachable and perfectly alive, and "offline" would file our vantage point as a
-    /// fact about their game (rule 5).
-    /// </remarks>
+    /// <remarks>We measured a socket from one vantage point; a game with a routing problem to our host is unreachable and perfectly alive. "Offline" would file our vantage point as a fact about their game (rule 5).</remarks>
     [Test]
     public async Task ADarkGameIsNeverCalledOfflineOrDown()
     {
@@ -269,9 +225,8 @@ public class TimeSurfaceTests
     [Test]
     public async Task TheAbsoluteTimeIsSpokenWhereAReaderIsWeighingOneFactAndNotWhereTheyAreScanning()
     {
-        // A listing row that announced the absolute time of every age would be the wall of
-        // repetition this whole pass exists to remove; a game page's field, where the age is the
-        // fact being weighed, is exactly where it belongs.
+        // A listing row announcing the absolute time of every age is repetition; a game page's field,
+        // where the age is the fact being weighed, is where it belongs.
         var parameters = new Dictionary<string, object?>
         {
             ["At"] = new DateTimeOffset(2026, 8, 17, 14, 2, 0, TimeSpan.Zero),
@@ -289,10 +244,7 @@ public class TimeSurfaceTests
     /// <summary>
     /// Which of the age and the instant comes first is a language's decision.
     /// </summary>
-    /// <remarks>
-    /// It was a comma in an interpolated string, which is a word order chosen for English and
-    /// offered to nobody else.
-    /// </remarks>
+    /// <remarks>Was a comma in an interpolated string — a word order chosen for English and offered to nobody else.</remarks>
     [Test]
     public async Task TheTitleIsAMessageAndNotAComma()
     {
@@ -313,12 +265,7 @@ public class TimeSurfaceTests
     /// <summary>
     /// <b>MSSP, not <c>Mssp</c>.</b>
     /// </summary>
-    /// <remarks>
-    /// The chip's tooltip interpolated <see cref="FieldSource"/> straight into a sentence and told
-    /// readers a value arrived "via Mssp" — an acronym mis-cased by C#'s naming convention, in a
-    /// string no translator could reach. Upper-casing at the call site would have fixed four letters
-    /// and left the next member to leak the same way, which is what the exhaustive map prevents.
-    /// </remarks>
+    /// <remarks>The chip's tooltip once interpolated <see cref="FieldSource"/> straight into a sentence, showing "via Mssp" — mis-cased by C#'s convention. An exhaustive map, not a call-site fix, stops the next member leaking the same way.</remarks>
     [Test]
     public async Task AProtocolAcronymIsSpeltAsTheProtocolSpellsIt()
     {
@@ -327,7 +274,7 @@ public class TimeSurfaceTests
         await Assert.That(WebProvenance.Via(English, FieldSource.Info)).IsEqualTo("INFO");
         await Assert.That(WebProvenance.Via(English, FieldSource.I3)).IsEqualTo("I3");
 
-        // And an acronym is the same acronym in every language: it is evidence, not a word.
+        // An acronym is the same acronym in every language: it's evidence, not a word.
         foreach (var locale in Languages)
         {
             await Assert.That(WebProvenance.Via(locale.Tag, FieldSource.Mssp))
@@ -348,10 +295,8 @@ public class TimeSurfaceTests
                 .IsFalse()
                 .Because($"{source} has no display name");
 
-            // I3 is the one member whose C# spelling is already the reader's — an initial and a
-            // digit, with no casing for PascalCase to get wrong. Every other member's ToString
-            // would be a defect on the page: Mssp for an acronym, Who for a command, I3Mudlist for
-            // two words and a missing space.
+            // I3 is the one member whose C# spelling is already the reader's; every other member's
+            // ToString would be a defect on the page (Mssp, Who, I3Mudlist).
             if (source is FieldSource.I3)
             {
                 continue;
@@ -366,10 +311,7 @@ public class TimeSurfaceTests
     /// <summary>
     /// The chip's tooltip, whole: machine voice through, our words from the bundle.
     /// </summary>
-    /// <remarks>
-    /// "last confirmed" is the load-bearing phrase and it is a fact about our crawl. It is the day
-    /// <em>we</em> last saw the value, and it must never be read as a day the game did anything.
-    /// </remarks>
+    /// <remarks>"last confirmed" is the day <em>we</em> last saw the value — a fact about our crawl, never to be read as a day the game did anything.</remarks>
     [Test]
     public async Task TheChipTooltipSaysTheSourceTheDateAndWhoseFactTheDateIs()
     {
@@ -389,8 +331,7 @@ public class TimeSurfaceTests
         await Assert.That(english)
             .IsEqualTo("PennMUSH 1.8.8p0 — declared via MSSP, last confirmed 30 Jul 2026 18:00 UTC");
 
-        // The same tooltip asked for in German is not the same string. It was, and that is the
-        // defect this pass exists to close.
+        // The same tooltip asked for in German is not the same string.
         var german = Messages.For(
             German,
             "chip.title",
@@ -410,10 +351,7 @@ public class TimeSurfaceTests
     /// <summary>
     /// Measured, declared and owner-declared stay three words in every locale.
     /// </summary>
-    /// <remarks>
-    /// The provenance tooltip is the string that says which of the two a reader is looking at, so
-    /// collapsing them into one word is the one failure that makes this site say something false.
-    /// </remarks>
+    /// <remarks>Collapsing measured and declared into one word is the failure that makes this site say something false.</remarks>
     [Test]
     public async Task TheChipNeverCollapsesMeasuredAndDeclaredIntoOneWord()
     {

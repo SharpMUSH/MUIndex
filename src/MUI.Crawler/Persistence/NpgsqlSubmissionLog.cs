@@ -10,18 +10,11 @@ namespace MUI.Crawler.Persistence;
 /// The <c>game_submission</c> table (migration 0010).
 /// </summary>
 /// <remarks>
-/// <para>
-/// The rate limit reads and writes this and nothing else, which is why the bound is a table rather
-/// than a counter: several web replicas share one database and would not share an in-memory count,
-/// and a burst of submissions is a thing somebody will want to look at afterwards. A number that
-/// only went up could not be looked at.
-/// </para>
-/// <para>
-/// <b>There is no game id here and there must never be one.</b> A submission — including one we
-/// refused under §7.2 — is a thing somebody did to us and a decision of ours about it. Attaching
-/// either to a game would put our own security policy into that game's public record, which is the
-/// same class of lie as recording a scope refusal as downtime.
-/// </para>
+/// The rate limit reads and writes this table rather than an in-memory counter, since several web
+/// replicas share one database and a burst of submissions is worth being able to look at afterwards.
+/// <b>There is no game id here and there must never be one.</b> A submission — including one refused
+/// under §7.2 — is a decision of ours about something somebody did to us; attaching it to a game
+/// would put our own security policy into that game's public record.
 /// </remarks>
 public sealed class NpgsqlSubmissionLog(NpgsqlDataSource dataSource) : ISubmissionLog
 {
@@ -29,18 +22,11 @@ public sealed class NpgsqlSubmissionLog(NpgsqlDataSource dataSource) : ISubmissi
     /// Takes one of this source's slots, or none.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>A transaction and an advisory lock, because counting and then inserting is not a bound.</b>
-    /// Under <c>READ COMMITTED</c> two concurrent requests both read a count that neither has yet
-    /// written to, and both pass — so on a public form the limit holds only for traffic that was
-    /// never trying. <c>pg_advisory_xact_lock</c> keyed on the source serialises the count and the
-    /// insert against every other caller of this method, in this process and in every replica, and
-    /// releases when the transaction ends whichever way it ends.
-    /// </para>
-    /// <para>
-    /// The lock is per source rather than global: two different submitters never wait on each other,
-    /// and one submitter racing themselves is exactly the case being serialised.
-    /// </para>
+    /// A transaction and an advisory lock, because counting then inserting is not a bound: under
+    /// <c>READ COMMITTED</c>, two concurrent requests can both read a count that neither has written
+    /// to yet and both pass. <c>pg_advisory_xact_lock</c> keyed on the source serialises the count and
+    /// insert against every other caller, in this process and every replica, and releases when the
+    /// transaction ends. Per source rather than global, so unrelated submitters never wait on each other.
     /// </remarks>
     public async Task<bool> TryBeginAsync(
         Guid id,
@@ -73,8 +59,8 @@ public sealed class NpgsqlSubmissionLog(NpgsqlDataSource dataSource) : ISubmissi
 
         if (taken >= perSource)
         {
-            // No row at all. A refusal recorded here would slide the window forward for as long as
-            // somebody kept knocking, and a bound that lengthens under load is not a bound.
+            // No row at all: recording a refusal would slide the window forward for as long as
+            // somebody kept knocking.
             await transaction.RollbackAsync(ct);
             return false;
         }
@@ -123,9 +109,9 @@ public sealed class NpgsqlSubmissionLog(NpgsqlDataSource dataSource) : ISubmissi
     /// The vocabulary the table's own CHECK carries, spelled here once.
     /// </summary>
     /// <remarks>
-    /// <see cref="SubmissionOutcome.TooMany"/> throws rather than mapping, and that is the point: a
-    /// source already at its bound never reserved a row, so there is nothing to complete. A caller
-    /// that reaches here with it has a bug, and the table would refuse the value anyway.
+    /// <see cref="SubmissionOutcome.TooMany"/> throws rather than mapping: a source already at its
+    /// bound never reserved a row, so there's nothing to complete, and a caller that reaches here
+    /// with it has a bug.
     /// </remarks>
     private static string ToDb(SubmissionOutcome outcome) => outcome switch
     {
@@ -144,17 +130,12 @@ public sealed class NpgsqlSubmissionLog(NpgsqlDataSource dataSource) : ISubmissi
 /// §11's rotating salt, in the one place every replica can agree about (migration 0010).
 /// </summary>
 /// <remarks>
-/// <para>
-/// The epoch is computed from the clock rather than looked up, so no replica has to ask which salt
-/// is current; the first one to need a new epoch inserts it and everybody else takes what is there.
-/// <c>ON CONFLICT DO NOTHING</c> followed by a read, rather than <c>RETURNING</c>, because two
-/// replicas crossing an epoch boundary together must end up with the same bytes and only the loser
-/// of that race would see nothing returned.
-/// </para>
-/// <para>
-/// Cached per epoch, because this is read on every submission and a salt is immutable for the length
-/// of one. The cache holds one epoch: crossing a boundary replaces it rather than accumulating.
-/// </para>
+/// The epoch is computed from the clock rather than looked up, so no replica has to ask which salt is
+/// current — the first to need a new epoch inserts it and everybody else takes what's there.
+/// <c>ON CONFLICT DO NOTHING</c> followed by a read, not <c>RETURNING</c>, since two replicas crossing
+/// an epoch boundary together must end up with the same bytes, and only the loser of that race would
+/// see nothing returned. Cached per epoch: crossing a boundary replaces the cache rather than
+/// accumulating.
 /// </remarks>
 public sealed class NpgsqlSubmissionSalt(
     NpgsqlDataSource dataSource,

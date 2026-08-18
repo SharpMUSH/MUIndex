@@ -10,28 +10,13 @@ namespace MUI.Web.Components;
 /// unfurling a pasted link, a bookmark.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>The five rules do not stop at the edge of the body.</b> A preview is a surface: it is
-/// generated from the same measurements, read by more people than the page in some cases, and read
-/// by people with no way at all to check it. So the count it quotes carries how it was obtained and
-/// how old it is, exactly as the chip beside it on the page does; an unknown count is omitted
-/// rather than rounded to zero; and a number a game asserted about itself is never described as one
-/// we took.
-/// </para>
-/// <para>
-/// <b>And the demo banner cannot follow it.</b> <c>MainLayout</c> writes "nothing here was
-/// measured" into the body, and no unfurler renders a body. Over the fixture the confession has to
-/// be in the metadata itself, which is what <see cref="Demo"/> is for — otherwise a pasted demo
-/// link is indistinguishable from a measured one in the context where a reader can check least.
-/// </para>
-/// <para>
-/// <b>And a preview localizes, because a page does.</b> These were English constants passed to
-/// <c>SitePreview</c> from every page, so a German page had a German body and an English
-/// <c>&lt;title&gt;</c>, description and Open Graph card — it advertised itself in a language its
-/// reader had not chosen, to a reader, a search engine and every client that unfurls a pasted link.
-/// A sweep that walks visible text and <c>title</c>/<c>aria-label</c>/<c>placeholder</c> never sees
-/// a <c>&lt;meta&gt;</c>, which is why this outlived four locales shipping.
-/// </para>
+/// The five rules do not stop at the edge of the body: a count here carries how it was obtained and
+/// its age, an unknown count is omitted rather than rounded to zero, and an asserted number is never
+/// described as measured. The demo banner cannot follow it here — no unfurler renders a body — so
+/// <see cref="Demo"/> puts the confession in the metadata itself. And previews localize, because a
+/// page does: these used to be English constants passed from every page, so a German page had a
+/// German body and an English title/description/OG card, invisible to any sweep that only checks
+/// visible text and attributes.
 /// </remarks>
 public static class PreviewCopy
 {
@@ -39,9 +24,8 @@ public static class PreviewCopy
     /// The wordmark, as an unfurler prints it beside the title.
     /// </summary>
     /// <remarks>
-    /// Not a message id and never one. The site's name is machine voice, like a hostname or a
-    /// codebase string; it is handed to the bundle as an argument so a translator can move it
-    /// within a sentence and cannot translate it.
+    /// Never a message id: the site's name is machine voice, handed to the bundle as an argument so
+    /// a translator can move it but not translate it.
     /// </remarks>
     public const string SiteName = "mu*index";
 
@@ -56,11 +40,9 @@ public static class PreviewCopy
     /// One sentence per surface, kept together rather than inline in fifteen components.
     /// </summary>
     /// <remarks>
-    /// A description repeated across a site is one a search engine discards, and a page with none
-    /// is summarised from whatever text happens to come first in its body — which on this site is
-    /// the demo banner or a facet panel. These are the ids rather than the sentences now — the text
-    /// is in <c>Messages</c> with the rest of the site's copy — and they stay gathered here so that
-    /// a page names one thing and so that the set can still be read as prose in one place.
+    /// A description repeated across a site is one a search engine discards, and a page with none is
+    /// summarised from whatever text comes first in its body — the demo banner, on this site. These
+    /// are ids into <c>Messages</c>, gathered here so a page names one thing.
     /// </remarks>
     public static class Pages
     {
@@ -88,9 +70,8 @@ public static class PreviewCopy
     /// <summary>The title each page puts before the wordmark.</summary>
     /// <remarks>
     /// Separate ids from the <c>&lt;h1&gt;</c> the same page draws, even where the English is the
-    /// same word. A title is a noun phrase in a browser tab and a heading is the first line of a
-    /// document; the languages that decline the two differently have nowhere to stand if they share
-    /// an id, which is S7's whole argument for granularity the source language does not need.
+    /// same word: a title is a browser-tab noun phrase, a heading is a document's first line, and
+    /// languages that decline the two differently need separate ids to say so.
     /// </remarks>
     public static class Titles
     {
@@ -121,9 +102,9 @@ public static class PreviewCopy
     /// A game, in the two or three facts worth having before you click.
     /// </summary>
     /// <remarks>
-    /// In order: what the game says it is, how many people were on it and how we know, and where to
-    /// connect. An unfurler truncates, so the ordering is the design — the address survives being
-    /// cut, and the sentence that identifies the game does not.
+    /// In order: what the game says it is, how many were on it and how we know, and where to
+    /// connect. An unfurler truncates, so the address survives being cut and the identifying
+    /// sentence does not.
     /// </remarks>
     public static string ForGame(string tag, GamePage page, DateTimeOffset now)
     {
@@ -141,8 +122,7 @@ public static class PreviewCopy
         if (summary.State is LifecycleState.Archived)
         {
             // A count on an archived game would be a stale number given equal billing with a live
-            // one. What matters is that it went dark and roughly when — and §7.4's promise that it
-            // is still here, which is the thing no incumbent directory can say.
+            // one; what matters is that it went dark and roughly when.
             sentences.Add(summary.LastReachableAt is { } last
                 ? Messages.For(
                     tag,
@@ -169,10 +149,9 @@ public static class PreviewCopy
     /// The count and its provenance, or nothing.
     /// </summary>
     /// <remarks>
-    /// <b>Null is a first-class answer here and is never a zero.</b> A game that answers and
-    /// publishes nothing we can parse has an unknown count, and rendering that as "0 players" in a
-    /// preview states our parser's limit as a fact about their game (rule 4, rule 5). A measured
-    /// zero is the opposite case and is published: we got in and nobody was there.
+    /// Null is never a zero: a game that publishes nothing we can parse has an unknown count, and
+    /// rendering that as "0 players" states our parser's limit as a fact about their game (rule 4,
+    /// rule 5). A measured zero — we got in and nobody was there — is published.
     /// </remarks>
     private static string? Count(string tag, GameSummary summary, DateTimeOffset now)
     {
@@ -183,15 +162,13 @@ public static class PreviewCopy
 
         if (summary.PlayersNowProvenance is not { } chip)
         {
-            // A value with no chip is a value nobody labelled, and the whole site's claim is that
-            // there are none of those. Saying the number without the label would be the one thing
-            // §10.1 named as the API's way of contradicting the project.
+            // A value with no chip is a value nobody labelled — publishing the number without the
+            // label would contradict the whole site's claim (§10.1).
             return null;
         }
 
-        // The noun agrees with the count inside the message rather than being chosen here: picking
-        // "player" or "players" in C# is an English plural rule compiled into a component, and the
-        // languages with three forms have nowhere to put the other two.
+        // The noun agrees with the count inside the message rather than being chosen here: an
+        // English plural rule compiled into C# has nowhere for a three-form language to fit.
         return Messages.For(
             tag,
             "preview.game.count",
@@ -220,9 +197,9 @@ public static class PreviewCopy
     /// The game's own one-liner, or its own paragraph cut to one sentence.
     /// </summary>
     /// <remarks>
-    /// The tagline first because it was written to be short. The self-description is a paragraph and
-    /// gets truncated on a word boundary rather than mid-word — an unfurler will cut it again
-    /// anyway, and being cut twice is fine while being cut mid-word looks like corruption.
+    /// Tagline first, since it was written to be short. The self-description is truncated on a word
+    /// boundary rather than mid-word — an unfurler cutting it again is fine, mid-word looks like
+    /// corruption.
     /// </remarks>
     private static string? Lede(GamePage page)
     {
@@ -260,9 +237,8 @@ public static class PreviewCopy
 
     /// <summary>The document title, with the wordmark the site is known by.</summary>
     /// <remarks>
-    /// The front page is the bare wordmark and goes nowhere near the bundle: there is no sentence
-    /// there, only the name. Every other page is a page name joined to that name, and the joining
-    /// is a message because the order and the separator are not English's to fix.
+    /// The front page is the bare wordmark. Every other page joins a page name to it via a message,
+    /// since the order and separator are not English's to fix.
     /// </remarks>
     public static string Title(string tag, string? page) =>
         page is null

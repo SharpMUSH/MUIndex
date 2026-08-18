@@ -4,13 +4,10 @@ namespace MUI.Catalog.Tests;
 /// The rules the facet panel is built on, asserted with no database and no markup in the way.
 /// </summary>
 /// <remarks>
-/// Two of these are the design and not a detail. <b>A count is what a click returns</b> — the whole
-/// justification for computing the counts in the same pass as the listing — so each one is checked
-/// by running the filter it advertises and comparing sizes, which is the only assertion that would
-/// have caught a denominator quietly borrowed from somewhere broader. And <b>an unknown is not a
-/// no</b>: a game we have no genre for must be findable as such and must never be returned by a
-/// choice of some other genre, because folding the two is the single failure this site exists to
-/// stop making about everything else.
+/// Two design rules drive most of these: <b>a count is what a click returns</b>, so each count is
+/// checked by actually running the filter it advertises and comparing sizes; and <b>an unknown is not
+/// a no</b> — a game with no value for a facet must be findable as such and never returned by a choice
+/// of some other value.
 /// </remarks>
 public class FacetedSearchTests
 {
@@ -43,12 +40,10 @@ public class FacetedSearchTests
             Family: null,
             genre,
 
-            // Adult content has its own suite (AdultListingTests). Every row here declares none, so
-            // these counts are taken over the whole set and are not quietly shaped by that default.
+            // Adult content has its own suite (AdultListingTests); every row here declares none.
             IsAdult: false,
 
-            // Both default to false, so a row is a game we reached and counted unless a test says
-            // otherwise — the ordinary case, and the one every count in this file is taken over.
+            // Default false: a row is reached and counted unless a test says otherwise.
             uncounted,
             unreachable);
     }
@@ -62,8 +57,6 @@ public class FacetedSearchTests
     [Test]
     public async Task EveryCountIsExactlyWhatChoosingThatValueReturns()
     {
-        // The claim the panel makes, checked by making the panel's own promise and then keeping it.
-        // Nothing else here would notice a count measured against a wider set than the click lands on.
         GameFacetRow[] rows =
         [
             Row("a", genre: "Fantasy", codebase: "Evennia", protocols: ["GMCP"]),
@@ -90,9 +83,8 @@ public class FacetedSearchTests
     [Test]
     public async Task ACountStaysTrueWhenAnotherFacetIsAlreadyChosen()
     {
-        // The harder half: a facet's values are counted against the rest of the filter, so the
-        // number beside "Evennia" while genre=Fantasy is chosen is the intersection and not the
-        // total. Counting against everything would over-promise on exactly the second click.
+        // A facet's values are counted against the rest of the filter, so the number beside
+        // "Evennia" while genre=Fantasy is chosen is the intersection, not the total.
         GameFacetRow[] rows =
         [
             Row("a", genre: "Fantasy", codebase: "Evennia"),
@@ -113,9 +105,8 @@ public class FacetedSearchTests
     [Test]
     public async Task AFacetsOwnSelectionIsLiftedSoTheOtherValuesAreStillReachable()
     {
-        // A choice facet replaces rather than intersects, so its siblings have to be counted with it
-        // out of the way — counted against the results they would all read zero and the panel would
-        // be a one-way door.
+        // A choice facet replaces rather than intersects, so its siblings must be counted with its
+        // own selection lifted, or they'd all read zero and the panel would be a one-way door.
         GameFacetRow[] rows =
         [
             Row("a", genre: "Fantasy"),
@@ -133,8 +124,6 @@ public class FacetedSearchTests
     [Test]
     public async Task AGameWithNoValueIsUnknownAndIsNeverReturnedByAnotherValue()
     {
-        // "We have no genre for this game" and "this game's genre is not Fantasy" are different
-        // facts. The first is askable, and asking the second must not hand back the first.
         GameFacetRow[] rows =
         [
             Row("known", genre: "Fantasy"),
@@ -157,8 +146,6 @@ public class FacetedSearchTests
     [Test]
     public async Task AProtocolNobodyWasSeenOfferingIsNotOfferedAsAChoice()
     {
-        // A facet that can be clicked into an empty listing is a facet lying about the catalogue.
-        // Not drawing the click is the cheapest way to make that impossible.
         var listing = FacetedSearch.Search([Row("a", protocols: ["GMCP"])], new GameFilter());
         var protocols = Group(listing, FacetKeys.Protocol).Values.Select(v => v.Token).ToList();
 
@@ -168,9 +155,8 @@ public class FacetedSearchTests
     [Test]
     public async Task ProtocolsIntersectAndTheTickBoxNeverMeansTheGameLacksIt()
     {
-        // Ticking two asks for games seen offering both. There is deliberately no way to ask for the
-        // complement: a capability is written only when observed, so "not listed" covers a game we
-        // never measured as well as one that declined, and only one of those is a fact about them.
+        // No way to ask for the complement: a capability is written only when observed, so "not
+        // listed" covers an unmeasured game as well as one that declined, and only one is a fact.
         GameFacetRow[] rows =
         [
             Row("both", protocols: ["GMCP", "MSSP"]),
@@ -181,7 +167,6 @@ public class FacetedSearchTests
 
         await Assert.That(listing.Games.Select(g => g.Slug).ToList()).IsEquivalentTo(new[] { "both" });
 
-        // With GMCP ticked, MSSP's count is the listing itself — what unticking MSSP would leave.
         var mssp = Value(FacetedSearch.Search(rows, new GameFilter { MeasuredProtocols = ["GMCP"] }),
             FacetKeys.Protocol, "MSSP");
         await Assert.That(mssp.Count).IsEqualTo(1);
@@ -190,9 +175,8 @@ public class FacetedSearchTests
     [Test]
     public async Task AskingForTheArchivedBandLiftsTheArchiveExclusionByItself()
     {
-        // The one filter the database and the demo fixture used to answer differently, which is why
-        // both now come through this function. Archived games leave the default listing and nothing
-        // else (spec §7.5), and choosing the band that names them is not the default listing.
+        // Archived games leave the default listing and nothing else (spec §7.5); choosing the band
+        // that names them is not the default listing.
         GameFacetRow[] rows =
         [
             Row("live"),
@@ -208,8 +192,8 @@ public class FacetedSearchTests
     [Test]
     public async Task NeverReachedIsItsOwnBandAndNotTheOldestOne()
     {
-        // A game we have listed and never once got an answer from has no last-seen date. Dating it
-        // from our own first sighting would publish our ignorance as its outage.
+        // A game never once answered has no last-seen date; dating it from our first sighting would
+        // publish our ignorance as its outage.
         GameFacetRow[] rows =
         [
             Row("fresh", lastReachableAt: Now.AddHours(-2)),
@@ -269,9 +253,7 @@ public class FacetedSearchTests
     [Test]
     public async Task EveryTokenAFacetOffersIsOneTheFilterVocabularyCanReadBack()
     {
-        // The panel emits these and the querystring binding reads them. If the two tables were
-        // separate, a facet could offer a value its own parser would refuse — which is a dead end a
-        // reader would find by clicking, and nothing else would.
+        // If emit and parse were separate tables, a facet could offer a value its own parser refuses.
         foreach (var token in FacetTokens.Bands)
         {
             await Assert.That(FacetTokens.TryBand(token, out var band)).IsTrue();
@@ -289,12 +271,10 @@ public class FacetedSearchTests
     public async Task ANumberIsNotAFacetValueHoweverTheEnumIsOrdered()
     {
         // Enum.TryParse accepts the underlying number, which would make band=0 a synonym for
-        // whichever member is declared first — a facet that silently re-points itself the day
-        // somebody reorders the enum.
+        // whichever member is declared first and silently re-point on an enum reorder.
         await Assert.That(FacetTokens.TryBand("0", out _)).IsFalse();
         await Assert.That(FacetTokens.TryLastSeen("4", out _)).IsFalse();
 
-        // Separators are forgiven, because all three spellings are what people type.
         await Assert.That(FacetTokens.TryBand("active-this-week", out var band)).IsTrue();
         await Assert.That(band).IsEqualTo(ActivityBand.ActiveThisWeek);
     }
@@ -303,12 +283,6 @@ public class FacetedSearchTests
     /// The codebase facet counts families, so one codebase is one value however many patchlevels of
     /// it are running.
     /// </summary>
-    /// <remarks>
-    /// This shipped counting the raw <c>CODEBASE</c> string and was only visible against a real
-    /// crawl, where the panel offered <c>PennMUSH 1.8.8p0</c>, <c>PennMUSH 1.8.7p0</c> and
-    /// <c>PennMUSH 1.8.6p1</c> as three unrelated choices and spent a quarter of its twelve slots
-    /// doing it.
-    /// </remarks>
     [Test]
     public async Task OneCodebaseIsOneValueWhateverItsPatchlevel()
     {
@@ -326,17 +300,11 @@ public class FacetedSearchTests
         await Assert.That(Group(listing, FacetKeys.Codebase).Values.Select(v => v.Token))
             .IsEquivalentTo(new[] { "PennMUSH", "Evennia" });
 
-        // And the exact strings are still all there, one facet down.
         await Assert.That(Group(listing, FacetKeys.CodebaseVersion).Values.Select(v => v.Token))
             .IsEquivalentTo(new[] { "PennMUSH 1.8.8p0", "PennMUSH 1.8.7p0", "PennMUSH 1.8.6p1", "Evennia" });
     }
 
     /// <summary>The lineage facet gathers codebases that share no name and no MSSP.</summary>
-    /// <remarks>
-    /// The question this whole facet exists for: the MUSH codebases are five separate answers to
-    /// <c>CODEBASE</c>, all but one of them publish no MSSP at all, and MSSP's <c>FAMILY</c> has no
-    /// <c>MUSH</c> in it even for the one that does. Nothing a game says can group them.
-    /// </remarks>
     [Test]
     public async Task TheLineageFacetGathersWhatNoDeclarationCould()
     {
@@ -355,16 +323,13 @@ public class FacetedSearchTests
         await Assert.That(Value(listing, FacetKeys.Lineage, CodebaseLineage.Mush).Count).IsEqualTo(4);
         await Assert.That(Value(listing, FacetKeys.Lineage, CodebaseLineage.Diku).Count).IsEqualTo(1);
 
-        // Its evidence is neither of the other two words, and the panel has to be able to say so.
         await Assert.That(Group(listing, FacetKeys.Lineage).Evidence).IsEqualTo(FacetEvidence.Derived);
     }
 
     /// <summary>A value's label is the commonest spelling, not whichever row was read first.</summary>
     /// <remarks>
-    /// Values group case-insensitively, so the label is a choice rather than a given. Taking the
-    /// first one seen makes it a function of the sort order — the same catalogue could name a facet
-    /// two different things on two renders — and it lets one game's stray capitalisation put a
-    /// codebase on a public page under a spelling nobody uses.
+    /// Values group case-insensitively, so the label is a choice. Taking the first one seen would
+    /// make it a function of sort order, and let one game's stray capitalisation name the value.
     /// </remarks>
     [Test]
     public async Task OneGamesCapitalisationDoesNotNameAValue()
@@ -389,11 +354,9 @@ public class FacetedSearchTests
     /// The set these four rows describe, once, so every assertion below is about the same catalogue.
     /// </summary>
     /// <remarks>
-    /// <b>The first two are the whole point.</b> <c>zero</c> is a game we got into and counted
-    /// nobody in, and <c>unreadable</c> is a game we got into and could not count at all. Both sit in
-    /// <see cref="ActivityBand.Quiet"/> — the band cannot tell them apart, which is why these facets
-    /// exist — and only the second is uncounted. <c>gone</c> is the third state twice over: never
-    /// reached, and with nothing measured to be uncounted about.
+    /// <c>zero</c> is a game we got into and counted nobody in; <c>unreadable</c> is a game we got
+    /// into and could not count. Both sit in <see cref="ActivityBand.Quiet"/> — the band cannot tell
+    /// them apart — and only the second is uncounted. <c>gone</c> is the third state: never reached.
     /// </remarks>
     private static GameFacetRow[] Measured() =>
     [
@@ -407,18 +370,14 @@ public class FacetedSearchTests
     [Test]
     public async Task AGameMeasuredAtZeroIsNotUncounted()
     {
-        // The failure this facet was written to make impossible. A measured nought is a count — we
-        // got in and nobody was there (rule 2) — and it shares an activity band with a game whose
-        // every WHO was past our parser. A filter that returned both under a word meaning the second
-        // would publish our own parser's limits as somebody's empty game.
+        // A measured nought is a count (rule 2), even though it shares an activity band with a game
+        // whose every WHO was unreadable.
         var rows = Measured();
 
         var uncounted = FacetedSearch.Search(rows, new GameFilter { Uncounted = FacetChoice.Of(FacetTokens.Yes) });
 
         await Assert.That(uncounted.Games.Select(g => g.Slug)).IsEquivalentTo(new[] { "unreadable" });
 
-        // And both are still in the band, which is the band being right rather than the facet being
-        // redundant with it.
         var quiet = FacetedSearch.Search(rows, new GameFilter { Band = ActivityBand.Quiet });
 
         await Assert.That(quiet.Games.Select(g => g.Slug)).IsEquivalentTo(new[] { "zero", "unreadable" });
@@ -427,9 +386,8 @@ public class FacetedSearchTests
     [Test]
     public async Task AGameWeHaveNotMeasuredIsNeitherUncountedNorCounted()
     {
-        // §5.4's third state, which names no cause. `gone` has no presence rows at all, so it is not
-        // uncounted — the facet says "we tried and could not read", and claiming that of a game we
-        // never got into would be the same fabrication in the other direction.
+        // §5.4's third state, which names no cause. `gone` has no presence rows at all, so "uncounted"
+        // (we tried and could not read) would be a fabrication in the other direction.
         var rows = Measured();
 
         var uncounted = FacetedSearch.Search(rows, new GameFilter { Uncounted = FacetChoice.Of(FacetTokens.Yes) });
@@ -442,9 +400,8 @@ public class FacetedSearchTests
     [Test]
     public async Task TheTwoSwitchesComposeWithEachOtherAndWithAnUnrelatedFacet()
     {
-        // The reason they are two FacetChoices rather than two values of `band`: a reader narrowing
-        // by genre has to be able to drop both kinds of unmeasured game without spending the one
-        // selection `band` has. Three questions at once, and all three applied.
+        // Two separate FacetChoices, not two values of `band`, so a reader can drop both kinds of
+        // unmeasured game without spending the one selection `band` has.
         var rows = Measured();
 
         var listing = FacetedSearch.Search(rows, new GameFilter
@@ -454,17 +411,14 @@ public class FacetedSearchTests
             Unreachable = FacetChoice.Not(FacetTokens.Yes),
         });
 
-        // Fantasy, minus the one we could not read and the one we could not reach — leaving the
-        // measured nought, which is a game we counted and must survive both exclusions.
         await Assert.That(listing.Games.Select(g => g.Slug)).IsEquivalentTo(new[] { "zero" });
     }
 
     [Test]
     public async Task ExcludingBothStillLeavesAListingThatExplainsItself()
     {
-        // Hiding is a decision about the listing, so the controls that made it have to stay
-        // reachable — a selection whose only affordance has vanished is the defect the whole panel
-        // was rebuilt to remove. Both rows survive at the count their own selection returns.
+        // Hiding is a decision about the listing, so the controls that made it must stay reachable —
+        // a selection whose only affordance has vanished is what this test guards against.
         var rows = Measured();
 
         var listing = FacetedSearch.Search(rows, new GameFilter
@@ -487,9 +441,6 @@ public class FacetedSearchTests
     [Test]
     public async Task TheCountBesideEachSwitchIsWhatChoosingItReturns()
     {
-        // The panel's own promise, made over the set that has both hard states in it. The generic
-        // walk above covers this too; this one names the facets, so a change that made the counts
-        // fall out of a wider denominator fails here with the right words on it.
         var rows = Measured();
         var listing = FacetedSearch.Search(rows, new GameFilter());
 
@@ -506,10 +457,8 @@ public class FacetedSearchTests
     [Test]
     public async Task ASwitchNothingMatchesIsNotDrawnAtAll()
     {
-        // A bounded facet keeps every rung of a scale, because a scale with a rung missing is not
-        // the same scale. This is not a scale — it is one fact, held or not — so a catalogue we
-        // could count and reach in full offers no control, which is the honest rendering of a
-        // measurement with nothing in it.
+        // Unlike a bounded scale, this is one fact held or not — a catalogue fully counted and
+        // reached offers no control for it.
         var listing = FacetedSearch.Search([Row("busy"), Row("also")], new GameFilter());
 
         await Assert.That(listing.Facets.Any(f => f.Key == FacetKeys.Uncounted)).IsFalse();

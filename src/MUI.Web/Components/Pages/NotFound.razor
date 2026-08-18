@@ -3,24 +3,19 @@
 @using MUI.Web.Localization
 
 @*
-    The site's one not-found page, and the status line says so as well as the sentence.
+    The site's one not-found page. It's a routable page rather than the <Router>'s <NotFound>
+    fragment because that fragment renders nothing under static server rendering, producing an
+    empty 404. The layout is named explicitly since this page is also rendered when nothing routed
+    at all, so DefaultLayout wouldn't otherwise apply.
 
-    It is a page rather than the <NotFound> fragment inside <Router> because that fragment renders
-    nothing under static server rendering — which is how a reader who mistyped a URL came to be
-    handed an empty 404 with this paragraph nowhere in it. The layout is named rather than inherited
-    for the same class of reason: the router applies DefaultLayout to a page it routed to, and this
-    one is also rendered when nothing was routed at all, so without it the two ways of arriving here
-    would hand a reader two different-looking sites.
-
-    A slug a game used to have never reaches here — it is redirected before the route is matched
-    (spec §5.7). Arriving here means no game ever answered to this URL.
+    A slug a game used to have never reaches here — redirected before the route is matched (spec
+    §5.7). Arriving here means no game ever answered to this URL.
 *@
 
 <SitePreview Title="@PreviewCopy.Titles.NotFound(Tag)" Description="@PreviewCopy.Pages.NotFound(Tag)"
              Data="false" />
 
-@* The two ids the game page's own not-found state already says, rather than a second English
-   spelling of the same two sentences sitting in this template. *@
+@* Reuses the game page's own not-found message ids instead of duplicating the copy here. *@
 <h1>@Messages.For(Tag, "game.notFound")</h1>
 <p class="dim">@Messages.For(Tag, "game.notFound.hint")</p>
 <p class="faint"><a href="@Http.Link("/games")">@Messages.For(Tag, "nav.games")</a></p>

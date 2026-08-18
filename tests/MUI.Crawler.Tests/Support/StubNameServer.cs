@@ -9,20 +9,11 @@ namespace MUI.Crawler.Tests.Support;
 /// A nameserver, in about a hundred lines, so the TXT reader can be tested over real UDP.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Why a stub rather than a public name.</b> A resolver tested against somebody's real zone asserts
-/// what their zone file says today and goes red for reasons that have nothing to do with this code —
-/// the objection <c>FakeHostResolver</c> already makes about live lookups. But a resolver tested only
-/// against a fake never exercises the wire format at all, and the wire format is where the surprises
-/// are: TXT records are chopped into 255-byte strings, the answer's name is usually a compression
-/// pointer, and "no such name" arrives as an error code rather than as an empty list. So the zone is
-/// ours and everything between the query and the answer is real.
-/// </para>
-/// <para>
-/// It speaks exactly enough DNS to answer one TXT question over UDP: header, one echoed question, and
-/// an answer per published string. Anything else — TCP, EDNS, compression in the question, more than
-/// one question — is not implemented, because nothing here asks for it.
-/// </para>
+/// A resolver tested only against a fake never exercises the wire format, and that's where the
+/// surprises are: TXT records chopped into 255-byte strings, an answer name that's usually a
+/// compression pointer, "no such name" arriving as an error code rather than an empty list. Speaks
+/// exactly enough DNS to answer one TXT question over UDP; TCP, EDNS and multi-question support are
+/// not implemented, since nothing here asks for them.
 /// </remarks>
 public sealed class StubNameServer : IDisposable
 {

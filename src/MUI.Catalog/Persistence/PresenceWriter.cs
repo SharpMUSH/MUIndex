@@ -16,13 +16,13 @@ namespace MUI.Catalog.Persistence;
 /// <para>
 /// Collapsing the middle case into either neighbour is the worst bug this codebase could ship: a game
 /// whose <c>DOING</c> header is customised past our parser would render as permanently dark while
-/// running perfectly well. It is also the bug the first cut of the spec actually shipped.
+/// running perfectly well.
 /// </para>
 /// <para>
 /// One row per game per instant — <c>presence_sample</c>'s primary key is <c>(game_id, at)</c>. A
-/// probe that read a count from both <c>WHO</c> and MSSP must therefore have chosen between them
-/// before it gets here, which is where §5.2's "who outranks mssp" is applied; a second call at the
-/// same timestamp is discarded rather than allowed to overwrite the better source.
+/// probe that read a count from both <c>WHO</c> and MSSP must choose between them (§5.2's "who
+/// outranks mssp") before calling this; a second call at the same timestamp is discarded rather than
+/// allowed to overwrite the better source.
 /// </para>
 /// </remarks>
 public sealed class PresenceWriter(IPresenceStore store) : IPresenceWriter

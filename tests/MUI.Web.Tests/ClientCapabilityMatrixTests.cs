@@ -7,12 +7,7 @@ namespace MUI.Web.Tests;
 /// <summary>
 /// The client matrix, read off a rendered frame.
 /// </summary>
-/// <remarks>
-/// The rule this holds is the one this project already spent a week enforcing on its heatmap: an
-/// unknown that looks like a no is the same defect wearing different clothes. There it was an
-/// unmeasured hour rendered as a dark cell; here it is a capability nobody established rendered as
-/// an absence. Both state our own gap as a fact about somebody else's software.
-/// </remarks>
+/// <remarks>The same rule as the presence heatmap: an unknown that looks like a no would state our own gap as a fact about somebody else's software.</remarks>
 public class ClientCapabilityMatrixTests
 {
     private static Task<string> RenderAsync(params CapabilityClaim[] claims) =>
@@ -35,9 +30,7 @@ public class ClientCapabilityMatrixTests
     [Test]
     public async Task AClaimWrittenWithoutASourceIsDemotedRatherThanPublished()
     {
-        // The demotion is in the type, so an author who writes a yes and forgets the citation
-        // publishes an unknown rather than an unsourced assertion. The content test is what tells
-        // them; the reader is never shown the claim.
+        // The demotion is in the type: a yes without a citation publishes as unknown, never an unsourced claim.
         var claim = CapabilityClaim.Read("GMCP", "yes", null);
 
         await Assert.That(claim.State).IsEqualTo(CapabilityState.Unknown);
@@ -53,8 +46,6 @@ public class ClientCapabilityMatrixTests
     [Test]
     public async Task ADocumentedAbsenceIsDistinctFromAnUnknownOnTheSameTable()
     {
-        // Three states, three words. A sourced "no" — a project saying its own feature does not
-        // work — is a real finding and must not read the same as silence.
         var html = Render.Words(await RenderAsync(
             new CapabilityClaim("scripting", CapabilityState.Absent, "https://example.invalid/history"),
             new CapabilityClaim("MSDP", CapabilityState.Unknown, null)));
@@ -66,8 +57,6 @@ public class ClientCapabilityMatrixTests
     [Test]
     public async Task EveryStateIsAWordAndNotOnlyAColour()
     {
-        // No glyph carries a state on its own here. In greyscale, through a screen reader and on a
-        // printout the cell still says which of the three it is.
         var html = await RenderAsync(
             new CapabilityClaim("TLS", CapabilityState.Present, "https://example.invalid/tls"),
             new CapabilityClaim("MXP", CapabilityState.Unknown, null));
@@ -81,8 +70,6 @@ public class ClientCapabilityMatrixTests
     [Test]
     public async Task TheTableSaysHowMuchOfItselfIsEstablished()
     {
-        // The count sits in the section head so it survives a collapsed section and a screen reader
-        // alike, the same reasoning as the game pages' disagreement count.
         var html = Render.Words(await RenderAsync(
             new CapabilityClaim("TLS", CapabilityState.Present, "https://example.invalid/tls"),
             new CapabilityClaim("MXP", CapabilityState.Unknown, null),

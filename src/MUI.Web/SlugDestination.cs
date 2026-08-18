@@ -9,31 +9,16 @@ namespace MUI.Web;
 /// (spec §5.7, §7.3).
 /// </summary>
 /// <remarks>
-/// <para>
 /// <b>Two records move a URL and they compose, which is the whole reason this is one function.</b> A
-/// rename retires a slug into <c>game_slug_history</c>; a merge points a game at another game. Each
-/// was handled where it was introduced — history in the middleware and the API, merges in the
-/// middleware only — and neither knew about the other. That produced two failures the moment the
-/// first real merges were recorded:
-/// </para>
-/// <para>
-/// A game renamed and <em>then</em> absorbed stranded every URL it used to have. The history said
-/// "that slug belongs to this game", the game was no longer a public read, the guard against
-/// redirecting onto a 404 fired correctly, and the redirect was refused — so five URLs that had
-/// worked that morning answered 404, which is §5.7's "for ever" broken by §7.3. The guard was right
-/// and the answer was wrong: the destination exists, one hop further on.
-/// </para>
-/// <para>
-/// And the API did not know about merges at all, so <c>/g/{slug}</c> sent a reader on while
-/// <c>/api/games/{key}</c> answered 404 for the same game — one promise with two answers, and the
-/// consumer following the API would have concluded the game was gone.
-/// </para>
-/// <para>
-/// <b>The hops are bounded by construction and this does not walk a chain.</b> A merge whose survivor
-/// is itself absorbed cannot be recorded (<c>merge_log_no_chains</c>), and a former slug points at a
-/// game rather than at another slug, so there is nothing to walk: history is one hop, merge is one
-/// hop, and the two together are two.
-/// </para>
+/// rename retires a slug into <c>game_slug_history</c>; a merge points a game at another game. Handled
+/// separately, a game renamed and then absorbed stranded every URL it used to have — the history
+/// pointed at a game that was no longer a public read, the anti-404 guard correctly refused, and
+/// working URLs answered 404 instead of following one more hop to the merge survivor. The API not
+/// knowing about merges at all meant <c>/g/{slug}</c> and <c>/api/games/{key}</c> disagreed about
+/// whether the same game existed.
+/// <b>The hops are bounded by construction.</b> A merge whose survivor is itself absorbed can't be
+/// recorded (<c>merge_log_no_chains</c>), and a former slug points at a game, not another slug — history
+/// is one hop, merge is one hop, the two together are two, and nothing here walks a chain.
 /// </remarks>
 internal static class SlugDestination
 {
@@ -60,18 +45,15 @@ internal static class SlugDestination
             return null;
         }
 
-        // The former slug's game has since been absorbed. Sending the reader to the survivor is the
-        // only answer that keeps both promises at once; sending them to `current` would be a redirect
-        // onto a page the catalogue no longer offers, and refusing is the 404 this exists to stop.
+        // The former slug's game has since been absorbed; send the reader on to the survivor rather
+        // than to `current`, which the catalogue no longer offers.
         if (await AbsorbedAsync(merges, current, cancellationToken) is { } onward)
         {
             return onward;
         }
 
-        // A slug some game still wears is never a former slug, whatever the record says, and a record
-        // naming a game that is not there is not a destination. Both are only reachable through a
-        // hand-written alias — the table's own query excludes live slugs and cannot name a missing
-        // game — and a reader pays for either in a permanent redirect their browser caches.
+        // A slug some game still wears is never a former slug, and a record naming a missing game is
+        // not a destination — a reader would otherwise pay for either in a redirect their browser caches.
         return await games.FindAsync(slug, cancellationToken) is not null
             || await games.FindAsync(current, cancellationToken) is null
             ? null

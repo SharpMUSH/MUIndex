@@ -20,9 +20,8 @@ public class MsspLintTests
     /// No report is not a bad report, and must never be rendered as twenty-seven faults.
     /// </summary>
     /// <remarks>
-    /// A game we have never read MSSP from has an empty scorecard and <c>HasReport</c> false. The
-    /// alternative — treating every variable as missing — publishes our own gap as somebody's
-    /// neglect on the page of the one person who could tell the difference, which is rule 5 exactly.
+    /// A game we never read MSSP from gets an empty scorecard and <c>HasReport</c> false. Treating
+    /// every variable as missing would publish our own gap as the operator's neglect (rule 5).
     /// </remarks>
     [Test]
     public async Task AGameWeHoldNoMsspReportForIsNotACriticisedGame()
@@ -69,9 +68,8 @@ public class MsspLintTests
     /// The most useful lint there is: the name is still the codebase's.
     /// </summary>
     /// <remarks>
-    /// The second real server this crawler probed publishes <c>NAME "PennMUSH"</c> because nobody
-    /// edited that line. It is carried, it is well-formed, and it answers nothing — which is a
-    /// different finding from missing and is worth its own kind.
+    /// A default like <c>NAME "PennMUSH"</c>, carried and well-formed but answering nothing, is a
+    /// different finding from missing and gets its own kind.
     /// </remarks>
     [Test]
     public async Task ACodebaseDefaultLeftInPlaceIsUnansweredRatherThanPresent()
@@ -106,10 +104,8 @@ public class MsspLintTests
 
     /// <summary>A number MSSP calls a count may not be negative, or culture-shaped.</summary>
     /// <remarks>
-    /// A bare <c>int.TryParse</c> accepted both: “-3” parses perfectly well and means nothing MSSP
-    /// can express, and a current-culture parse makes the grouped “1,024” a pass or a fault
-    /// depending on which machine the deployment happens to be running on — a scorecard that
-    /// disagrees with itself across hosts is worse than one that is merely strict.
+    /// A bare <c>int.TryParse</c> accepts both: "-3" parses but means nothing MSSP can express, and a
+    /// current-culture parse makes "1,024" pass or fault depending on the host's locale.
     /// </remarks>
     [Test]
     public async Task ACountIsReadTheSameEverywhereAndCannotBeNegative()
@@ -141,9 +137,9 @@ public class MsspLintTests
     /// A value outside MSSP's list is reported by its consequence, not as an error.
     /// </summary>
     /// <remarks>
-    /// MSSP's enumerations are not exhaustive in practice, and a game running a genre nobody wrote
-    /// down in 2011 is not doing anything wrong. What is true and useful is the effect: our facets
-    /// do not recognise it, so the game lands in the unknown bucket. The message says that.
+    /// MSSP's enumerations aren't exhaustive in practice, so an unlisted genre isn't wrong. The
+    /// useful, true thing is the effect: our facets don't recognise it, so it lands in the unknown
+    /// bucket — and the message says that.
     /// </remarks>
     [Test]
     public async Task AnUnlistedEnumeratedValueIsReportedByWhatItCostsRatherThanAsAFault()
@@ -174,9 +170,9 @@ public class MsspLintTests
     /// It reads what a game declared, and never what we measured.
     /// </summary>
     /// <remarks>
-    /// A scorecard is about the operator's MSSP configuration, so an owner's enrichment and a
-    /// handshake observation are both none of its business. Linting a measured row would also be
-    /// telling an operator to go and edit something they cannot edit.
+    /// A scorecard is about the operator's MSSP configuration; an owner's enrichment and a handshake
+    /// observation are none of its business. Linting a measured row would tell an operator to edit
+    /// something they cannot edit.
     /// </remarks>
     [Test]
     public async Task OnlyMsspRowsAreLinted()
@@ -232,10 +228,8 @@ public class MsspLintTests
     /// The scorecard is a view and stores nothing — asserted by it having nowhere to store to.
     /// </summary>
     /// <remarks>
-    /// <see cref="MsspLint.Inspect"/> is a static over a list with no store, no writer and no clock
-    /// in reach, so "continuous rather than one-shot" (§8.5) is a property of the type rather than a
-    /// discipline somebody keeps. A stored score would be a number that goes stale against the
-    /// report it describes.
+    /// <see cref="MsspLint.Inspect"/> is a static over a list with no store, writer or clock in
+    /// reach, so "continuous rather than one-shot" (§8.5) is a property of the type, not a discipline.
     /// </remarks>
     [Test]
     public async Task TheLinterHasNothingToWriteWith()
@@ -256,10 +250,8 @@ public class MsspLintTests
     /// which.
     /// </summary>
     /// <remarks>
-    /// The failure this exists to prevent is quiet: an owner fixes their genre here, the site shows
-    /// the right one, and nobody ever tells them that every other crawler on the internet still
-    /// reads the wrong one out of their config. MUIndex becoming the only place a game is described
-    /// correctly is a worse outcome for the hobby than the wrong description.
+    /// Prevents a quiet failure: an owner fixes their genre here, but every other crawler still reads
+    /// the wrong one from their config, and nobody tells them.
     /// </remarks>
     [Test]
     public async Task WhereAnOwnerHasAnsweredOverTheReportTheScorecardSaysWhichIsWhich()
@@ -285,12 +277,10 @@ public class MsspLintTests
     /// A field can be both malformed and overridden, and an operator hears about both.
     /// </summary>
     /// <remarks>
-    /// The defect ladder reports one finding per variable because its findings are competing
-    /// descriptions of the same fault — a value cannot usefully be called both malformed and
-    /// non-standard. An override does not compete with a defect: a <c>GENRE</c> outside MSSP's
-    /// listed values <em>and</em> answered here gives an operator two separate things to do, one in
-    /// their config and one about what this site shows. Written inside the ladder, the second was
-    /// silently swallowed by the first — which is what this test caught.
+    /// The defect ladder reports one finding per variable (its findings compete for the same fault),
+    /// but an override doesn't compete with a defect — a non-standard, answered <c>GENRE</c> gives an
+    /// operator two separate things to do. Written inside the ladder, the override was silently
+    /// swallowed by the defect; this test caught it.
     /// </remarks>
     [Test]
     public async Task AMalformedValueAndAnOverrideAreBothWorthSaying()
@@ -314,9 +304,8 @@ public class MsspLintTests
     /// An override is not a defect in the report, and may not stop one meeting the standard.
     /// </summary>
     /// <remarks>
-    /// <c>NAME</c> is one of MSSP's three required variables, so an owner answering it over a
-    /// perfectly good report would otherwise flip <c>MeetsTheStandard</c> to false — the scorecard
-    /// telling an operator their config is broken because of something they did on our site.
+    /// <c>NAME</c> is one of MSSP's three required variables; an owner override must not flip
+    /// <c>MeetsTheStandard</c> to false over something they did on our site, not in their config.
     /// </remarks>
     [Test]
     public async Task AnOverrideIsNotAFaultInTheReportItOverrides()
@@ -337,10 +326,7 @@ public class MsspLintTests
     /// <summary>
     /// An owner who typed exactly what their report says has not overridden anything.
     /// </summary>
-    /// <remarks>
-    /// It is the same value, so there is nothing to tell them and nothing to fix in their config.
-    /// A finding here would be the scorecard inventing a disagreement to report.
-    /// </remarks>
+    /// <remarks>Same value, nothing to fix — a finding here would invent a disagreement.</remarks>
     [Test]
     public async Task AnOverrideThatAgreesWithTheReportIsNotADisagreement()
     {
@@ -359,9 +345,8 @@ public class MsspLintTests
     /// A withdrawn override is not an override, because withdrawing writes an empty value.
     /// </summary>
     /// <remarks>
-    /// Nothing is ever deleted, so the row survives the withdrawal and the linter has to read the
-    /// value rather than the row's existence. Otherwise a field somebody once answered and then gave
-    /// up would go on being reported as overridden for ever.
+    /// Nothing is ever deleted (rule 3), so the row survives withdrawal; the linter must read the
+    /// value, not the row's existence, or a withdrawn field would report as overridden forever.
     /// </remarks>
     [Test]
     public async Task AWithdrawnOverrideIsNotReportedAsOne()

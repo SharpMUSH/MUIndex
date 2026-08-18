@@ -6,10 +6,8 @@ namespace MUI.Crawl.Tests;
 /// A probe settles on a quiet period rather than sleeping through a fixed one.
 /// </summary>
 /// <remarks>
-/// Two flat three-second delays made every probe cost six seconds whether the game answered in
-/// eighty milliseconds or not at all — fine for one server and wrong for a fleet. Measured against
-/// the reference set after the change, a probe costs between 1.9s and 5.8s, and the servers that
-/// still cost the most are the ones that genuinely say nothing.
+/// Two flat three-second delays made every probe cost six seconds regardless of how fast the game
+/// answered — fine for one server, wrong for a fleet.
 /// </remarks>
 public class ProbeTimingTests
 {
@@ -28,8 +26,6 @@ public class ProbeTimingTests
     [Test]
     public async Task ATypicalProbeCostsFarLessThanTheOldFixedSixSeconds()
     {
-        // The whole point of the change, expressed as the bound it has to beat: a server that
-        // answers both phases promptly settles on quiet periods, not on stopwatches.
         var options = new ProbeOptions();
         var promptCase = options.QuietPeriod + options.QuietPeriod + options.QuietPeriod;
 

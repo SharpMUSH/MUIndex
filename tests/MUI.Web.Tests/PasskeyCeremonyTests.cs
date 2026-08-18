@@ -22,27 +22,15 @@ namespace MUI.Web.Tests;
 /// The whole WebAuthn ceremony, both halves, driven by an authenticator written here.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Registering and signing in were never tested together, and that is exactly where the defect
-/// was.</b> <c>/passkey/register</c> signs the operator in itself, so a suite that stops at "the
-/// credential was stored" watches the door being held open by the hand that just came through it.
-/// The first request that actually needed the passkey was the one after the process restarted, in
-/// production, and it answered 401: the user handle burned into the credential at
-/// <c>registration-options</c> was a GUID that no account ever had.
-/// </para>
-/// <para>
-/// So the assertion here is the one property no single-endpoint test can state — <b>a passkey
-/// registered on this site signs in on this site</b> — and the cookie jar is emptied between the two
-/// halves, because a restart is precisely the event that removes the session and leaves the
-/// credential.
-/// </para>
-/// <para>
-/// <see cref="SoftwareAuthenticator"/> is a real authenticator in the only sense that matters here:
-/// it holds a P-256 key, it signs what WebAuthn says to sign, and — the part under test — it hands
-/// back the user handle it was given at registration, months later, exactly as a phone would. No
-/// database: the store is in-memory, because what is under test is which identifier the endpoints
-/// agree on and not the SQL that persists it, and <see cref="DapperUserStore"/> has its own coverage.
-/// </para>
+/// <b>Registering and signing in were never tested together, and that's exactly where the defect
+/// was:</b> <c>/passkey/register</c> signs the operator in itself, so a suite that stops at "the
+/// credential was stored" misses that the user handle burned into the credential at
+/// <c>registration-options</c> was a GUID no account ever had — it 401'd in production on the first
+/// request after a restart. So the property under test is <b>a passkey registered on this site
+/// signs in on this site</b>, with the cookie jar emptied between the two halves to simulate that
+/// restart. <see cref="SoftwareAuthenticator"/> is a real P-256 authenticator, not a mock; the store
+/// is in-memory since what's under test is the identifier, not the SQL (<see cref="DapperUserStore"/>
+/// has its own coverage).
 /// </remarks>
 public class PasskeyCeremonyTests
 {
@@ -81,12 +69,7 @@ public class PasskeyCeremonyTests
     /// <summary>
     /// The account's identifier is the user handle the authenticator was given, and not a second one.
     /// </summary>
-    /// <remarks>
-    /// The test above fails for this reason and would also fail for a dozen others, so this one names
-    /// it: a WebAuthn user handle is written into the credential once and is not renegotiable, which
-    /// makes the identifier minted at <c>registration-options</c> the account's identifier rather
-    /// than a placeholder standing in until a real one exists.
-    /// </remarks>
+    /// <remarks>A WebAuthn user handle is written into the credential once and is not renegotiable, so the identifier minted at <c>registration-options</c> is the account's identifier, not a placeholder.</remarks>
     [Test]
     public async Task TheAccountKeepsTheUserHandleTheAuthenticatorWasGiven()
     {
@@ -147,9 +130,8 @@ public class PasskeyCeremonyTests
             builder.Logging.ClearProviders();
             builder.WebHost.UseUrls("http://127.0.0.1:0");
 
-            // Stated rather than inferred from the host header, as the deployment states it — and it
-            // has to be, because the origin the authenticator below signs is a name and the loopback
-            // address this host binds is not one.
+            // Stated rather than inferred from the host header: the origin the authenticator signs is
+            // a name, and the loopback address this host binds is not one.
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Passkeys:ServerDomain"] = SoftwareAuthenticator.ServerDomain,
@@ -185,10 +167,8 @@ public class PasskeyCeremonyTests
                 BaseAddress = new Uri(address),
             };
 
-            // Identity checks the origin the authenticator signed against the request's own Origin
-            // header, which is a browser's word for the page the ceremony was started from. A client
-            // that omits it is refused before any signature is looked at, so the harness sends what
-            // a browser on the configured domain would send.
+            // Identity checks the signed origin against the request's Origin header and refuses a
+            // client that omits it before looking at any signature.
             client.DefaultRequestHeaders.Add("Origin", $"https://{SoftwareAuthenticator.ServerDomain}");
 
             return new CeremonyHost(app, client, cookies, store);
@@ -221,13 +201,7 @@ public class PasskeyCeremonyTests
     /// <summary>
     /// An authenticator, in software: one P-256 key, one credential, and the user handle it was told.
     /// </summary>
-    /// <remarks>
-    /// Deliberately not a mock. Every byte the endpoints verify is produced here the way a real
-    /// authenticator produces it — the authenticator data with its RP-ID hash and flags, the
-    /// self-attested credential with no attestation statement, and an ECDSA signature over the
-    /// concatenation WebAuthn §7.2 names — so a test passing here says the server's verification
-    /// accepted a credential rather than that a fake said it should.
-    /// </remarks>
+    /// <remarks>Deliberately not a mock — every byte the endpoints verify (RP-ID hash, flags, self-attested credential, ECDSA signature) is produced the way a real authenticator produces it.</remarks>
     private sealed class SoftwareAuthenticator
     {
         public const string ServerDomain = "localhost";
@@ -319,10 +293,8 @@ public class PasskeyCeremonyTests
 
         private byte[] AuthenticatorData(bool includeCredential)
         {
-            // UserPresent and UserVerified always — the site asks for verification — and
-            // AttestedCredentialData only when the credential is being created. BackupEligible and
-            // BackedUp stay clear in both halves: the server checks the two agree, so a single-device
-            // credential has to look like one at sign-in too.
+            // UserPresent/UserVerified always; AttestedCredentialData only when the credential is
+            // created. BackupEligible/BackedUp stay clear in both halves — the server checks they agree.
             var flags = (byte)(0x01 | 0x04 | (includeCredential ? 0x40 : 0x00));
 
             var data = new List<byte>(SHA256.HashData(Encoding.UTF8.GetBytes(ServerDomain)))
@@ -360,11 +332,7 @@ public class PasskeyCeremonyTests
     /// <summary>
     /// Enough CBOR to write an attestation object and a COSE key, and no more.
     /// </summary>
-    /// <remarks>
-    /// Hand-written rather than a package reference: the shapes are two fixed maps of small integers,
-    /// byte strings and text strings, and a test project taking a dependency to emit forty bytes is
-    /// a worse trade than thirty lines that can be read in one sitting.
-    /// </remarks>
+    /// <remarks>Hand-written rather than a package dependency, for two fixed maps of small integers and byte/text strings.</remarks>
     private sealed class CborWriter
     {
         private readonly List<byte> _bytes = [];
@@ -425,11 +393,7 @@ public class PasskeyCeremonyTests
     /// <summary>
     /// <see cref="DapperUserStore"/>'s two interfaces over dictionaries.
     /// </summary>
-    /// <remarks>
-    /// The SQL store is tested against a real Postgres elsewhere. What this suite needs from a store
-    /// is that it answers the same questions in the same order, so the property under test is the
-    /// identifier the endpoints agree on rather than the availability of a database.
-    /// </remarks>
+    /// <remarks>The SQL store is tested against real Postgres elsewhere; this suite's property under test is the identifier the endpoints agree on, not database availability.</remarks>
     private sealed class InMemoryUserStore : IUserStore<MuiUser>, IUserPasskeyStore<MuiUser>
     {
         private readonly List<MuiUser> _users = [];

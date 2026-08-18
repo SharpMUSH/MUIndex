@@ -26,8 +26,7 @@ public class DiscoveryOptionsTests
     [Test]
     public async Task TheThresholdsDefaultToTheWeightsSoThereIsOneSourceOfTheDefault()
     {
-        // Spec §15.5: the auto-merge threshold needs calibration against real data. It ships as a
-        // configurable option so it can be tuned without a redeploy of the constants, and it defaults
+        // Spec §15.5: ships as a configurable option so it can be tuned without a redeploy, defaulting
         // to the conservative constant.
         var defaults = new DiscoveryOptions();
 

@@ -8,9 +8,8 @@ namespace MUI.Catalog.Tests.Persistence;
 /// <c>last_confirmed_at</c> and writes nothing else; only a <b>change</b> reaches the change feed.
 /// </summary>
 /// <remarks>
-/// This is what makes a game whose <c>GENRE</c> never moves cost one row per source for ever rather
-/// than one per probe, and it is what makes the change feed a table of events that actually happened
-/// rather than a log of the crawler having run.
+/// A game whose <c>GENRE</c> never moves costs one row per source forever, not one per probe, and the
+/// change feed stays a table of events that actually happened rather than a log of the crawler running.
 /// </remarks>
 public class FieldReconcilerTests
 {
@@ -97,9 +96,8 @@ public class FieldReconcilerTests
     [Test]
     public async Task AReflowedLineWrapIsNotAChange()
     {
-        // Found on beutelland's DESCRIPTION-DE: its MSSP report toggled a mid-sentence line wrap in
-        // and out of the value on alternating probes — same words, different whitespace — and that
-        // is not an event about the game.
+        // A line wrap toggling in and out of a value between probes — same words, different
+        // whitespace — must not read as a change.
         var store = new InMemoryGameFieldStore();
         var reconciler = new FieldReconciler(store);
         var wrapped = new FieldObservation(
@@ -138,9 +136,8 @@ public class FieldReconcilerTests
     [Test]
     public async Task MeasuredAndDeclaredDoNotContendForOneRow()
     {
-        // The capability matrix is the reason the key carries the source. A handshake that did not
-        // offer GMCP and an MSSP that claims it must both survive, each with its own age — the
-        // disagreement is the interesting fact and hiding it is the failure §5.1 was rewritten over.
+        // The key carries the source because a handshake and an MSSP claim for the same field must
+        // both survive, each with its own age — the disagreement itself is the fact (spec §5.1).
         var store = new InMemoryGameFieldStore();
         var reconciler = new FieldReconciler(store);
 
@@ -184,9 +181,8 @@ public class FieldReconcilerTests
     [Test]
     public async Task TheVolatileMsspVariablesAreNeverStoredAsDescriptiveFields()
     {
-        // PLAYERS and UPTIME move between one probe and the next. Reconciling them would write a
-        // change row per probe per game — the exact cost §5.1 exists to avoid — and would bury every
-        // real event in the feed. PLAYERS is presence (§5.2); UPTIME is a counter.
+        // PLAYERS and UPTIME move every probe; reconciling them would write a change row per probe
+        // and bury every real event in the feed. PLAYERS is presence (§5.2); UPTIME is a counter.
         var store = new InMemoryGameFieldStore();
         var reconciler = new FieldReconciler(store);
 

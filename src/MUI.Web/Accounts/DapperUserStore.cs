@@ -11,21 +11,11 @@ namespace MUI.Web.Accounts;
 /// else here.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Identity's default store is EF Core, and bringing EF Core in for four tables would be the
-/// wrong trade in a codebase that has deliberately kept its SQL visible and its migrations
-/// hand-numbered.</b> The whole of what Identity needs from us is the interfaces below; implementing
-/// them is a page of SQL, and it keeps `migrations/0007_ownership.sql` the single description of
-/// these tables.
-/// </para>
-/// <para>
-/// Only the interfaces this app actually uses are implemented. There is no
-/// <c>IUserPasswordStore</c>, no <c>IUserEmailStore</c>, no lockout and no two-factor store, because
-/// there are no passwords, no email addresses and no second factor — a passkey is a primary factor
-/// (§8.2). An unimplemented interface here is a feature we do not have, not a gap: adding
-/// <c>IUserPasswordStore</c> would make <see cref="UserManager{TUser}"/> start offering password
-/// flows this site has no pages for.
-/// </para>
+/// EF Core is Identity's default store; this codebase keeps SQL visible and migrations
+/// hand-numbered, so these interfaces are implemented directly over Dapper instead. Only the
+/// interfaces this app uses are implemented — no <c>IUserPasswordStore</c>, no email, no lockout, no
+/// two-factor — because passkeys are the only, primary factor (§8.2); adding one would make
+/// <see cref="UserManager{TUser}"/> start offering flows this site has no pages for.
 /// </remarks>
 public sealed class DapperUserStore(NpgsqlDataSource source, TimeProvider time)
     : IUserStore<MuiUser>, IUserPasskeyStore<MuiUser>
@@ -108,9 +98,7 @@ public sealed class DapperUserStore(NpgsqlDataSource source, TimeProvider time)
         }
         catch (PostgresException error) when (error.SqlState == "23505")
         {
-            // The unique index on the normalised name, which is the only way two accounts can
-            // collide. Reported as a validation failure rather than thrown, because it is a thing a
-            // person did and not a thing that went wrong.
+            // The unique index on normalised name — a validation failure, not an error.
             return IdentityResult.Failed(new IdentityError
             {
                 Code = "DuplicateUserName",
@@ -127,9 +115,8 @@ public sealed class DapperUserStore(NpgsqlDataSource source, TimeProvider time)
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
-        // Guarded on the concurrency stamp we read, and a new one written in the same statement.
-        // Identity's own contract: a lost update here would silently discard whatever the other
-        // writer did.
+        // Guarded on the concurrency stamp read plus a new one written in the same statement, per
+        // Identity's optimistic-concurrency contract.
         var previous = user.ConcurrencyStamp;
         user.ConcurrencyStamp = Guid.NewGuid().ToString();
 
@@ -170,9 +157,9 @@ public sealed class DapperUserStore(NpgsqlDataSource source, TimeProvider time)
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
-        // Passkeys cascade. Claims do not, and the foreign key refuses the delete while any exist —
-        // deliberately, because a claim is what tells the world a game is owned, and dropping the
-        // account behind it would leave `game.is_claimed` true with nobody attached. Revoke first.
+        // Passkeys cascade; claims don't — the FK refuses the delete while any exist, since a claim
+        // marks a game owned and dropping the account behind it would orphan `game.is_claimed`.
+        // Revoke first.
         await connection.ExecuteAsync(new CommandDefinition(
             "DELETE FROM app_user WHERE id = @Id",
             new { user.Id },
@@ -218,9 +205,8 @@ public sealed class DapperUserStore(NpgsqlDataSource source, TimeProvider time)
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
-        // Upsert, because Identity calls this both to register a credential and to write back the
-        // signature counter after every sign-in. Two methods here would mean a caller could update
-        // the counter of a credential that no longer exists, or register one twice.
+        // Upsert: Identity calls this both to register a credential and to write back the signature
+        // counter after every sign-in.
         await connection.ExecuteAsync(new CommandDefinition(
             """
             INSERT INTO user_passkey (

@@ -6,11 +6,9 @@ namespace MUI.Crawl.Tests;
 /// What the login-prompt veto may and may not suppress.
 /// </summary>
 /// <remarks>
-/// <b>Written from a production regression.</b> The veto exists to stop a refusal — "No character by
-/// that name found." — being read as a measured zero for a game with hundreds of players on it. It
-/// was applied to the whole payload before any count was attempted, so widening its vocabulary
-/// silently suppressed counts that games had volunteered: `the-burbs` had been reporting three
-/// players and went dark on the first crawl after the change.
+/// The veto exists to stop a refusal — "No character by that name found." — being read as a measured
+/// zero for a game with hundreds of players on it. Widening its vocabulary carelessly can suppress
+/// counts games actually volunteered, which regressed in production once already.
 /// </remarks>
 public class WhoParserVetoTests
 {

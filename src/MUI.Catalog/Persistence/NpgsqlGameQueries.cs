@@ -7,28 +7,15 @@ using Npgsql;
 namespace MUI.Catalog.Persistence;
 
 /// <summary>
-/// <see cref="IGameQueries"/> against PostgreSQL — the read side the site was built against a
-/// fixture to wait for.
+/// <see cref="IGameQueries"/> against PostgreSQL.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Returns view models rather than rows, for the same reason the plain-text surface exists: if a page
-/// had to assemble a fact from three tables, the plain renderer would have to repeat that assembly
-/// and the two would drift.
-/// </para>
-/// <para>
-/// The §5.1 precedence ladder is <b>not</b> rewritten in SQL here. Rows come back per source and
-/// <see cref="FieldPrecedence.Winner"/> picks, so the ladder has exactly one spelling — the declared
-/// order of <see cref="FieldSource"/> — and a `CASE source WHEN …` in a query cannot drift from it.
-/// </para>
-/// <para>
-/// The two aggregate reads are the one exception, and they keep the rule while breaking the shape:
-/// the ecosystem dashboard resolves a winner per <c>(game, field)</c> across the whole catalogue, and
-/// dragging every capability row of every game into memory to do it would be a scan for a page. They
-/// use <c>DISTINCT ON … ORDER BY array_position(@ladder, source)</c> instead — where
-/// <see cref="SourceLadder"/> is generated from the enum's declared order, so the ladder still has
-/// exactly one spelling and a hand-written <c>CASE</c> still cannot drift from it.
-/// </para>
+/// Returns view models rather than rows, so assembly logic isn't repeated (and drifting) between this
+/// and the plain-text surface. The §5.1 precedence ladder is never rewritten as SQL `CASE` logic: rows
+/// come back per source and <see cref="FieldPrecedence.Winner"/> picks, using the declared order of
+/// <see cref="FieldSource"/> as the one spelling of the ladder. The two aggregate reads instead sort
+/// by <c>array_position(@ladder, source)</c> using <see cref="SourceLadder"/>, generated from the same
+/// enum order, for the same reason.
 /// </remarks>
 public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? registry = null)
     : IGameQueries
@@ -38,35 +25,16 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// migration 0010) and not absorbed by a merge (spec §7.3, migration 0018).
     /// </summary>
     /// <remarks>
+    /// A game is public if nobody submitted it, if it has been claimed, or if a probe has
+    /// corroborated it (§7.8, migration 0022) — waiting on a claim alone would strand a game whose
+    /// operator has no reason to know this site exists. A game absorbed by a merge in force is never
+    /// offered separately: the absorbed game keeps its rows, only the listing stops presenting it as
+    /// a second game.
     /// <para>
-    /// <b>A game is public if nobody submitted it, if it has been claimed, or if a probe has shown
-    /// it to be a game.</b> Anything the crawler found for itself is listed on sight exactly as §7.1
-    /// says; an address a stranger handed us waits until the server itself corroborates it (§7.8,
-    /// migration 0022) or somebody proves they run it.
-    /// </para>
-    /// <para>
-    /// <b>The third clause is not a loosening of the second, it is the second one's missing half.</b>
-    /// Waiting for a claim meant waiting for an operator who had no reason to know this site exists,
-    /// and it was measured: of 432 games, exactly one was excluded by this rule, having answered
-    /// every probe for a fortnight with its engine's name and sixty-seven connected players.
-    /// </para>
-    /// <para>
-    /// <b>And a game absorbed by a merge in force is not offered separately.</b> That is the whole
-    /// public effect of a merge: nothing moves between the two games, the absorbed one keeps every row
-    /// it ever had, and the reads stop presenting it as a second game. Reverting clears the pointer
-    /// and the listing has it back, with no rows to carry either way.
-    /// </para>
-    /// <para>
-    /// It is one constant because it has to hold on <em>every</em> read, and the count of reads is
-    /// larger than it looks: the listing, the faceted search, all three liveness feeds, both halves of
-    /// the rankings, six separate subqueries behind the ecosystem dashboard, and both lookups. The
-    /// first cut of the submission half covered the six queries that name <c>game</c> directly and
-    /// missed every one that reaches it through <c>JOIN game g</c> — so an unclaimed submission stayed
-    /// off the listing and turned up in the rankings. A predicate written out per query is a predicate
-    /// that will be forgotten on the next query somebody adds, and the failure mode is a game on a
-    /// public page that nobody vouched for. <b>The merge half is composed in here rather than added at
-    /// call sites for exactly that reason</b> — its failure mode is the same shape, a duplicate the
-    /// listing hides and the rankings show.
+    /// Composed once here rather than added at each call site: a predicate written out per query is
+    /// one that gets missed on the next query someone adds — which happened once, via
+    /// <c>JOIN game g</c> call sites that didn't repeat the direct-table check, letting an unclaimed
+    /// submission stay off the listing but show up in the rankings.
     /// </para>
     /// </remarks>
     private const string Public =
@@ -76,19 +44,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// The states a game is counted and listed in.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Three states withhold a game from the listing and no two of them are the same statement.</b>
-    /// <c>archived</c> says it stopped answering and is reversed by the next probe that gets an
-    /// answer; <c>excluded</c> says we decided it is not a game for players and is reversed only by a
-    /// person; <c>unlisted</c> says the people who run it asked to come out, and is reversed by
-    /// either of them (§11). All three keep the page, the URL, the history and the crawl. Named once
-    /// here so that a count added later cannot quietly include one of them — the same reasoning as
-    /// <c>Public</c> below, which arrived after a lookup had already forgotten it once.
-    /// </para>
-    /// <para>
-    /// <b>It was named once and then written out eleven times</b>, which is how a constant fails at
-    /// the job it was added for. Every predicate now reads it, so the state added next is added here.
-    /// </para>
+    /// <c>archived</c> (stopped answering, reversed by the next successful probe), <c>excluded</c>
+    /// (not a game, reversed only by a person), and <c>unlisted</c> (operator asked out, reversed by
+    /// either — §11) are three different statements, not synonyms. All three keep the page, URL,
+    /// history and crawl; only the listing withholds them. Named once so a count added later can't
+    /// silently omit one.
     /// </remarks>
     private const string ListedStates = "('archived', 'excluded', 'unlisted')";
 
@@ -96,20 +56,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// The states no browsing surface may reach, whatever it is asking about.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>`archived` is deliberately not in here, and that is the whole distinction.</b> The archive
-    /// is a browsable section in its own right (§7.5) with its own facet and its own feed entry when
-    /// a game comes back. The other two are not sections: "we decided this is not a game somebody can
-    /// play" and "the people who run it asked to come out" both mean *nothing that walks the site
-    /// arrives here*. Only the address does.
-    /// </para>
-    /// <para>
-    /// <b>It exists because the listing was not the only way in.</b> The liveness feeds and the
-    /// referral neighbours both read <c>Public</c> alone, which says who vouched for a game and
-    /// nothing about its lifecycle — so a game taken out of the listing went on being offered as a
-    /// *newly discovered* entry and as a link on its neighbour's page. Excluding it from the listing
-    /// and then linking to it from the listing's own pages is not excluding it.
-    /// </para>
+    /// <c>archived</c> is deliberately not included — the archive is a browsable section in its own
+    /// right (§7.5). <c>excluded</c> and <c>unlisted</c> mean nothing that walks the site may arrive
+    /// here; only the address does. Needed because <c>Public</c> alone says who vouched for a game,
+    /// not its lifecycle state — the liveness feeds and referral neighbours read it directly and
+    /// would otherwise keep linking to a game the listing had withdrawn.
     /// </remarks>
     private const string NeverBrowsable = "('excluded', 'unlisted')";
 
@@ -143,10 +94,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// §5.2's "reachable recently", which separates <c>quiet</c> from <c>dark</c>.
     /// </summary>
     /// <remarks>
-    /// The catalogue's own constant rather than a second copy of thirty days. The
-    /// <c>unreachable</c> facet turns on the same threshold and is computed by the demo fixture too,
-    /// so a number written twice would let the two implementations disagree about whether a game is
-    /// still answering — which is the failure that put the filtering itself into one shared function.
+    /// Shared with <see cref="FacetedSearch"/> and the demo fixture so the threshold can't drift
+    /// between implementations.
     /// </remarks>
     public static readonly TimeSpan RecentlyReachable = FacetedSearch.RecentlyReachable;
 
@@ -157,10 +106,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// The window the busiest ranking is measured over, and named on the page.
     /// </summary>
     /// <remarks>
-    /// A week, because a MU* has a weekly shape — §5.2's heatmap is a day × hour grid for exactly that
-    /// reason — and a ranking over anything shorter would rank Saturday's games above Tuesday's. It
-    /// is the floor and the default rather than the only window: <see cref="RankingSpan"/> offers a
-    /// month and a quarter beside it, which the day rollup's distribution made affordable.
+    /// A week: a MU* has a weekly shape, and a shorter window would rank Saturday's games above
+    /// Tuesday's. <see cref="RankingSpan"/> offers longer windows beside it.
     /// </remarks>
     public static readonly TimeSpan RankingWindow = RankingSpan.Week.Window();
 
@@ -168,12 +115,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// How many counted samples a game needs before it can be ranked.
     /// </summary>
     /// <remarks>
-    /// A day's worth of hourly probes. A median over three samples is not a median, and a game found
-    /// on Friday would otherwise take the top of the table off one lucky evening probe — which is
-    /// ranking our crawl schedule rather than the game. It is <see cref="SortWindows.MinimumSamples"/>
-    /// rather than a second literal, because the listing's average sorts put the same floor under the
-    /// same kind of statistic and two constants would eventually disagree about how much evidence is
-    /// enough.
+    /// A day's worth of hourly probes — fewer would rank a lucky evening probe rather than the game.
+    /// Shared with <see cref="SortWindows.MinimumSamples"/> so the listing's average sorts use the
+    /// same floor.
     /// </remarks>
     public const int MinimumRankingSamples = SortWindows.MinimumSamples;
 
@@ -203,22 +147,10 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// The listing and its facets (spec §9), from one pass over one set of games.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The database narrows on the one thing that is not a facet — the archive toggle — and
-    /// everything else is decided by <see cref="FacetedSearch"/> over <see cref="GameFacetRow"/>.
-    /// That is deliberate rather than laziness about SQL: a facet count has to be measured against
-    /// the same set the listing came from, and a <c>WHERE</c> clause that filtered here beside a
-    /// <c>GROUP BY</c> that counted there would be two answers to one question. Sharing the
-    /// arithmetic also means the demo fixture and this class cannot disagree about what a filter
-    /// means, which they already did for <c>band=archived</c>.
-    /// </para>
-    /// <para>
-    /// The cost is a pass over the unarchived catalogue and its fields per listing request — the
-    /// same order as before, since <c>FieldsForAsync</c> already read every field of every listed
-    /// game. The point at which that stops being affordable is aggregation in the database, and the
-    /// counts would then need pinning against the listing rather than being the same arithmetic by
-    /// construction.
-    /// </para>
+    /// The database narrows only on the archive toggle; every other facet is decided by
+    /// <see cref="FacetedSearch"/> over <see cref="GameFacetRow"/> so the listing and its facet counts
+    /// are always the same arithmetic — a separate `WHERE` here and `GROUP BY` there already
+    /// disagreed once, for <c>band=archived</c>.
     /// </remarks>
     public async Task<GameListing> SearchAsync(
         GameFilter filter,
@@ -230,17 +162,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
-        // Archived games leave the default listing and nothing else (spec §7.5) — and asking for the
-        // archived band is asking for them, so it lifts the exclusion by itself. Without that the one
-        // facet value naming the archive returned nothing at all, while the fixture returned the
-        // archive: one filter, two answers, and only one of them was tested.
-        //
-        // **The toggle lifts `archived` and only `archived`**, which it did not until now: the
-        // predicate read `@includeArchived OR state NOT IN (archived, excluded)`, so a reader ticking
-        // "show me the archive" was also handed every stock `Your MUD Name` instance an editor had
-        // ruled out. Each of the other two states answers a question the archive checkbox does not
-        // ask — and for `unlisted` there is no checkbox to add, because a game that asked to come out
-        // of the listing is not served by a control that puts it back in.
+        // Archived games leave the default listing (spec §7.5); requesting the archived band lifts
+        // just that exclusion. Must lift `archived` only — not `excluded` or `unlisted`, which answer
+        // different questions the archive checkbox doesn't ask.
         var includeArchived = filter.IncludeArchived || filter.Band is ActivityBand.Archived;
 
         var rows = (await connection.QueryAsync<GameRow>(new CommandDefinition(
@@ -311,19 +235,16 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 Family: Winner(forGame, "FAMILY")?.Value,
                 Genre: genre,
 
-                // Whichever source won each variable, since an owner correcting their own MSSP is
-                // the case the field table exists for — an owner may add the flag their server
-                // never sent, and the listing has to read the correction rather than the original.
+                // Winner's value, not the raw MSSP claim — an owner may add a flag their server never
+                // sent, and the listing must read the correction.
                 IsAdult: AdultContent.Declared(
                     genre, Winner(forGame, AdultContent.Field)?.Value),
 
-                // The two facts the digest above exists to keep apart. Neither is BandOf's `Quiet`,
-                // which holds a game measured at nought all week beside one whose every count was
-                // unreadable — see PresenceDigest.Uncounted.
+                // Distinct from BandOf's `Quiet`: a measured zero all week vs. every count unreadable.
                 Uncounted: digest.Uncounted,
 
-                // From the availability series and never from a hole in the presence one, which
-                // could not tell an hour we missed from an hour we could not reach (rule 2).
+                // From the availability series, never the presence one — a hole there can't tell an
+                // hour we missed from an hour we could not reach (rule 2).
                 Unreachable: FacetedSearch.NotReachedRecently(row.LastReachableAt, now)));
         }
 
@@ -340,12 +261,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// The encoding CHARSET settled on, and never the game's MSSP claim about one.
     /// </summary>
     /// <remarks>
-    /// Deliberately not the precedence winner. <c>CHARSET</c> is one of the few fields both a
-    /// handshake and MSSP write, so the winner is the handshake's <em>when there is one</em> and
-    /// silently the game's own assertion when there is not — which would make a facet advertised as
-    /// measured answer from the declared column for every server that never negotiates, without
-    /// saying so anywhere. Games with no measurement belong in the unknown bucket, which is a
-    /// different answer and an honest one.
+    /// Deliberately not the precedence winner: the winner would silently fall back to the game's own
+    /// assertion when there's no handshake measurement, making a facet advertised as measured answer
+    /// from declared data. Unmeasured games belong in the unknown bucket instead.
     /// </remarks>
     private static string? NegotiatedCharset(IReadOnlyList<GameField> fields) =>
         fields.FirstOrDefault(f =>
@@ -356,12 +274,10 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// The games we have completed a TLS connection to.
     /// </summary>
     /// <remarks>
-    /// An endpoint row, not a capability claim. <c>capability.ssl.declared</c> exists and says only
-    /// that somebody typed <c>SSL 4202</c> into their configuration; an endpoint of kind <c>tls</c>
-    /// says a socket was opened. Nothing writes one yet — <c>CatalogueBinder</c> records what it
-    /// dialled and the crawler dials plaintext — so this comes back empty and the facet does not
-    /// render at all, which is the honest rendering of a measurement nobody has taken. It becomes a
-    /// real facet the day the crawler takes it, with no change here.
+    /// An endpoint row, not a capability claim: <c>capability.ssl.declared</c> only means a server
+    /// configured a port, an endpoint of kind <c>tls</c> means a socket was opened. Nothing writes one
+    /// yet (the crawler dials plaintext), so this returns empty and the facet doesn't render — the
+    /// honest rendering of a measurement nobody has taken.
     /// </remarks>
     private static async Task<HashSet<Guid>> TlsEndpointsAsync(
         NpgsqlConnection connection,
@@ -384,19 +300,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// Which of these games we hold icon bytes for.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The flag and never the bytes. A listing row needs to know which of two elements to draw — the
-    /// game's own picture, served from this origin, or the monogram — and 500 images in a listing
-    /// query would be a hundred megabytes to answer a yes-or-no question per row. The image itself
-    /// arrives on its own request at <c>/g/{slug}/icon</c>, which is cached for a day and served with
-    /// the type we determined from the bytes.
-    /// </para>
-    /// <para>
-    /// <b>False carries no cause and must never be given one.</b> A game whose <c>ICON</c> names
-    /// nothing, one whose web server we could not reach, and every game on a deployment with an empty
-    /// cache are indistinguishable here on purpose: only the first is a fact about the game, and rule
-    /// 5 forbids publishing the other two as though they were.
-    /// </para>
+    /// A flag, never the bytes — the image itself is served separately from <c>/g/{slug}/icon</c>.
+    /// <b>False carries no cause and must never be given one</b>: a game whose <c>ICON</c> names
+    /// nothing, one whose web server we could not reach, and an empty cache are indistinguishable
+    /// here on purpose — only the first is a fact about the game, and rule 5 forbids publishing the
+    /// other two as though they were.
     /// </remarks>
     private static async Task<HashSet<Guid>> IconsForAsync(
         NpgsqlConnection connection,
@@ -416,49 +324,26 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Read from the daily rollup below the watermark and from raw samples above it</b>, exactly as
-    /// <see cref="ActivityAsync"/> reads the hourly pair, and for the same two reasons. The rollup is
-    /// the copy that survives retention dropping raw partitions (§5.2), so reading raw alone would
-    /// silently shorten the ninety-day window on any deployment that has ever configured retention;
-    /// and the rollup consumes only whole elapsed days, so reading it alone would leave out every
-    /// probe taken since midnight — which on a seven-day window is a seventh of the evidence and on a
-    /// listing sorted at nine in the evening is the part a reader most expects to be in there.
+    /// Reads the daily rollup below the retention watermark and raw samples above it, same as
+    /// <see cref="ActivityAsync"/>: the rollup survives retention dropping raw partitions (§5.2), and
+    /// raw samples cover probes taken since the last completed day.
     /// </para>
     /// <para>
-    /// <b>The typical count is a median, walked out of migration 0019's distributions</b>, and it is
-    /// the same walk <see cref="RankingsAsync"/> does — summed frequencies in ascending count order,
-    /// and the first value whose running total reaches <c>ceil(n / 2.0)</c>. A mean was the obvious
-    /// thing to compute from <c>sum_count</c> and is the wrong statistic: it is pulled around by the
-    /// one evening a game was linked from somewhere, which is exactly what 0019 was written about.
-    /// The number that comes out is a count a server actually reported and never the average of two.
+    /// The typical count is a median (same walk as <see cref="RankingsAsync"/>: summed frequencies in
+    /// ascending order, first value whose running total reaches <c>ceil(n / 2.0)</c>), not a mean —
+    /// a mean is pulled around by one busy evening. <c>ceil(n / 2.0)</c> rather than <c>(n + 1) / 2</c>
+    /// because <c>sum()</c> over bigint returns exact <c>numeric</c>, so an even sample count needs the
+    /// element after the true midpoint; this is pinned by equality with <c>percentile_disc</c>.
     /// </para>
     /// <para>
-    /// <c>ceil(n / 2.0)</c> and not <c>(n + 1) / 2</c> — <c>sum()</c> over a bigint returns
-    /// <c>numeric</c>, so the division is exact and an even sample count asks for element 15.5, which
-    /// no row satisfies until the one after the median. That off-by-one shipped once already on the
-    /// rankings and is pinned there by equality with <c>percentile_disc</c>.
+    /// A rolled-up day with no distribution is excluded from all three figures, not just one, so the
+    /// printed tally matches what the median was taken over. A NULL count is excluded rather than read
+    /// as a zero (rule 4) — an unparseable probe contributes to neither sum nor tally.
     /// </para>
     /// <para>
-    /// <b>A rolled-up day with no distribution is excluded from all three figures rather than from
-    /// one</b>, so the tally printed on the row is the tally the median was taken over. Those are the
-    /// buckets 0019 could not rebuild on a deployment that had already dropped raw; counting their
-    /// samples while their counts could not reach the walk would publish a basis the arithmetic never
-    /// used. Raw samples above the watermark are individual counts and always participate.
-    /// </para>
-    /// <para>
-    /// <b>A NULL count is excluded rather than read as a zero</b> (rule 4). A probe that got in and
-    /// could not read a number is §5.4's middle state; it contributes to neither the sum nor the
-    /// tally, so a game whose <c>DOING</c> header is past our parser has no average rather than an
-    /// average of nothing. The <c>HAVING</c> drops such a game from the result entirely, and the
-    /// listing puts it below the break with a sentence saying which of the two it is.
-    /// </para>
-    /// <para>
-    /// <b>The far end of the window is snapped back to a whole UTC day</b>, so the window covers at
-    /// least the span it names and never less. The rollup is bucketed by day and a bucket is all or
-    /// nothing: a cutoff at midday would drop the whole day it fell in, which on a seven-day window
-    /// is a seventh of the evidence discarded to make the label exact. Of the two errors available,
-    /// reading a few hours more than the label says is the one that does not throw away measurements
-    /// we took — and the label reads "7 days" rather than "168 hours" for that reason.
+    /// The window's far end is snapped back to a whole UTC day, since the rollup buckets by day and a
+    /// partial day can't be read — reading a few hours extra is preferred over discarding a day's
+    /// evidence to make the label exact.
     /// </para>
     /// </remarks>
     private static async Task<Dictionary<Guid, PresenceWindow>> PlayersOverWindowAsync(
@@ -480,10 +365,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             span AS (
                 SELECT date_trunc('day', @from AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS from_at
             ),
-            -- One frequency table over both halves: a raw sample is one occurrence of the count it
-            -- read, and a rolled-up day is however many occurrences its distribution records. The
-            -- median, the tally and the peak all come off this, so they cannot describe three
-            -- different sets of probes.
+            -- One frequency table over both halves, so the median, tally and peak all describe the
+            -- same set of probes.
             frequency AS (
                 SELECT p.game_id, p.count AS value, count(*)::bigint AS times
                   FROM presence_sample p
@@ -537,22 +420,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// §9's referral neighbours, in both directions, resolved to games we can name.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The reverse index migration 0006 created for exactly this question had no reader until now.
-    /// Both arrows come back in one pass with a <c>direction</c> column rather than as two queries,
-    /// because they are the same join read from the two ends and two statements would drift.
-    /// </para>
-    /// <para>
-    /// <b><see cref="PublicG"/> applies here as everywhere.</b> An unclaimed submission is off every
-    /// public surface, and a neighbour list is a public surface — being named by somebody else's
-    /// referral must not be a way onto a page that the listing itself refuses.
-    /// </para>
-    /// <para>
-    /// Deduplicated by game and direction, because a game answering on two ports would otherwise be
-    /// named twice for one relationship — the edge is about the game rather than about which of its
-    /// addresses somebody wrote down. Done here rather than with <c>DISTINCT ON</c>, which cannot
-    /// see an output alias and would tie the query to an <c>ORDER BY</c> the presentation owns.
-    /// </para>
+    /// Both directions come back in one pass with a <c>direction</c> column, same join read from both
+    /// ends, so the two can't drift apart. <see cref="PublicG"/> applies here too — being named by
+    /// somebody else's referral must not be a way onto a page the listing itself refuses. Deduplicated
+    /// in code rather than <c>DISTINCT ON</c>, which can't see an output alias and would tie the query
+    /// to the presentation's <c>ORDER BY</c>.
     /// </remarks>
     private static async Task<IReadOnlyList<ReferralNeighbour>> NeighboursAsync(
         NpgsqlConnection connection,
@@ -603,15 +475,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// </summary>
     /// <remarks>
     /// Written once so the three keys a game answers to (spec §5.7) cannot come back as three
-    /// different rows — the key is the only thing that differs between them, and it is a literal at
-    /// each call site rather than a string this class assembles.
-    /// <para>
-    /// <b><see cref="Public"/> is baked in rather than appended per call site</b>, so a lookup added
-    /// on top of this projection cannot forget it. That is not hypothetical: this constant and the
-    /// visibility rule arrived on separate branches, and the id lookup written against the constant
-    /// would have served an unclaimed submission to anyone who had its identifier while the slug
-    /// lookup beside it refused.
-    /// </para>
+    /// different rows. <see cref="Public"/> is baked in rather than appended per call site, so a
+    /// lookup added on top of this projection cannot forget it.
     /// </remarks>
     private const string GameSelect =
         $"""
@@ -764,18 +629,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// The encoding the connect screen was read with, or null when nothing needed saying.
     /// </summary>
     /// <remarks>
-    /// <b>Read from <c>charset.read</c> and from nothing else — never from the <c>CHARSET</c>
-    /// override an operator typed.</b> Those are two different facts and only one of them is about
-    /// this screen: the override is what somebody asked for, and <c>charset.read</c> is what the
-    /// probe applied. They come apart whenever the override names an encoding this runtime does not
-    /// have, which <c>WireEncoding.Override</c> ignores — reading the raw staff row would then
-    /// caption a Latin-1 screen "read as not-an-encoding", a sentence about the screen that is not
-    /// true of it. A row exists here only where the encoding was determined, so an unusable override
-    /// correctly produces no caption at all rather than a confident wrong one.
-    ///
-    /// UTF-8 is suppressed because it is the ordinary case and worth no caption: there is nothing
-    /// surprising to tell a reader, and a line of provenance on every screen in the catalogue would
-    /// bury the thirteen where it matters.
+    /// Read from <c>charset.read</c> only, never the operator's <c>CHARSET</c> override — those are
+    /// different facts, and an override naming an encoding this runtime doesn't have (which
+    /// <c>WireEncoding.Override</c> ignores) would otherwise caption a screen with an encoding that
+    /// was never actually applied. UTF-8 is suppressed since it's the ordinary case, not worth a
+    /// caption.
     /// </remarks>
     private static string? ScreenCharset(IReadOnlyList<GameField> fields)
     {
@@ -794,8 +652,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
-        // §9's three liveness feeds — the differentiator no incumbent can publish, because none of
-        // them measured continuously enough to know when a game came back.
+        // §9's three liveness feeds.
         var discovered = await connection.QueryAsync<FeedRow>(new CommandDefinition(
             $"""
             SELECT id AS Id, slug AS Slug, name AS Name, first_seen_at AS At, NULL AS Cause
@@ -839,11 +696,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             new { since = since.ToUniversalTime(), limit = FeedLimit },
             cancellationToken: cancellationToken));
 
-        // The detail is what this row adds to the heading it sits under, and nothing else. "first
-        // seen" under "newly discovered" and "answered again" under "came back" were the heading
-        // said twice — ten rows of it on the front page, ten extra announcements for a screen
-        // reader — and "we keep knocking" was a promise about the crawler repeated once per dark
-        // game, which the section heading now makes once. A cause is a measurement and stays.
+        // The detail is only what the heading doesn't already say — a cause is a measurement and
+        // stays, but restating "newly discovered" or "came back" in every row would be noise
+        // (including for a screen reader).
         return new LivenessFeeds(
             discovered.Select(r => new FeedEntry(r.Id, r.Slug, r.Name, r.At, string.Empty)).ToList(),
             wentDark.Select(r => new FeedEntry(
@@ -855,26 +710,12 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// Codebase share and protocol adoption over the listed games (spec §9).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Every figure here is a count of <em>games</em>, and nothing sums a player count. §15.7 withholds
-    /// the absolute "how many people play MU*" number because a share over the measured set survives
-    /// the unclaimed and unreachable biases and a total does not — so this method has no access to
-    /// presence at all, which is the cheapest way to keep a total from ever being computed here.
-    /// </para>
-    /// <para>
-    /// <b>The protocol denominator is games we have completed a session with, and it is read off
-    /// availability rather than off the capability rows themselves.</b> A <c>reachable</c> interval
-    /// means a probe of ours got in and finished (a session that answered and could not finish is
-    /// <c>degraded</c>, §5.3), which is exactly the set a protocol share is a share of. Counting games
-    /// that <em>have</em> capability rows instead would define the denominator out of the numerator:
-    /// a game whose handshake completed and offered nothing measurable would drop out of the bottom of
-    /// the fraction and quietly raise every share on the page.
-    /// </para>
-    /// <para>
-    /// Archived games are excluded, which is the one presentation change archiving makes (§7.5). A
-    /// game that stopped answering in 2019 is a fact about 2019 and its handshake is not evidence
-    /// about what the hobby runs now.
-    /// </para>
+    /// Every figure is a count of <em>games</em>; this method has no access to presence at all, so a
+    /// player total can never be computed here (§15.7 forbids publishing one). The protocol
+    /// denominator is games with a completed session (<c>reachable</c> interval), read off
+    /// availability rather than off capability rows — counting games that merely have capability rows
+    /// would let a handshake that measured nothing quietly raise every share. Archived games are
+    /// excluded (§7.5): a handshake from 2019 isn't evidence about what the hobby runs now.
     /// </remarks>
     public async Task<EcosystemDashboard> EcosystemAsync(CancellationToken cancellationToken = default)
     {
@@ -893,15 +734,13 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                  JOIN game g ON g.id = a.game_id
                 WHERE {PublicG} AND g.state NOT IN {ListedStates} AND a.state = 'reachable') AS Handshakes,
 
-              -- Games whose MSSP report we hold. A different set from the one above, and the whole
-              -- reason the declared column carries its own denominator.
+              -- Games whose MSSP report we hold — a different set, hence its own denominator.
               (SELECT count(DISTINCT f.game_id)::int
                  FROM game_field f
                  JOIN game g ON g.id = f.game_id
                 WHERE {PublicG} AND g.state NOT IN {ListedStates} AND f.source = 'mssp') AS MsspReports,
 
-              -- How stale the stalest handshake in this snapshot is, so the page can say how old the
-              -- picture is rather than implying it is of this minute.
+              -- How stale the stalest handshake is, so the page can say how old the picture is.
               (SELECT min(f.last_confirmed_at)
                  FROM game_field f
                  JOIN game g ON g.id = f.game_id
@@ -959,23 +798,20 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The busiest table ranks on a <em>median of measured concurrent counts</em> over the
-    /// <paramref name="span"/> asked for. A NULL count is a probe that got in and could not read a
-    /// number (§5.4) and is excluded rather than read as a zero, which is rule 4 in the one place it
-    /// would be most tempting to break: a game whose <c>DOING</c> header we cannot parse would
-    /// otherwise sink to the bottom of a league table while running perfectly well. A measured zero
-    /// is a count and stays in.
+    /// The busiest table ranks on a <em>median of measured concurrent counts</em>. A NULL count
+    /// (unparseable probe, §5.4) is excluded rather than read as a zero (rule 4) — otherwise a game
+    /// whose <c>DOING</c> header we can't parse would sink to the bottom while running perfectly well.
+    /// A measured zero is a count and stays in.
     /// </para>
     /// <para>
-    /// Eligibility has two clauses and needs both. <see cref="MinimumRankingSamples"/> is a floor on
-    /// how many probes a median may be taken over; <see cref="RankingSpans.MinimumDays"/> is a floor
-    /// on how much of the window they came from. Without the second, a game probed hard for a
-    /// weekend clears the first and ranks in a table describing a quarter.
+    /// Eligibility needs both clauses: <see cref="MinimumRankingSamples"/> floors how many probes a
+    /// median may be taken over, and <see cref="RankingSpans.MinimumDays"/> floors how much of the
+    /// window they came from — without the second, a game probed hard for one weekend would rank in
+    /// a table describing a quarter.
     /// </para>
     /// <para>
-    /// The second table is the current unbroken run of reachability, which is one open interval per
-    /// game and therefore arithmetic over a handful of rows (§5.3). It carries the date the spell
-    /// began rather than a duration, because a spell cannot be longer than we have been watching.
+    /// The second table is the current unbroken run of reachability — one open interval per game
+    /// (§5.3) — and carries the date the spell began rather than a duration.
     /// </para>
     /// </remarks>
     public async Task<Rankings> RankingsAsync(
@@ -990,28 +826,13 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             $"SELECT count(*)::int FROM game WHERE state NOT IN {ListedStates} AND {Public}",
             cancellationToken: cancellationToken));
 
-        // The median comes out of `presence_rollup_day`'s distribution (migration 0019) rather than
-        // out of `presence_sample`, because §5.2 lets retention drop raw partitions once they have
-        // been rolled up and a ranking read off raw would quietly shorten its own window as a
-        // deployment aged — silently, and worst at the widest span, which is the one whose whole
-        // point is depth. The rollup is the copy that outlives raw.
-        //
-        // It is the same number. `walked` reproduces `percentile_disc(0.5)` exactly: the summed
-        // frequencies are walked in ascending count order and the first value whose running total
-        // reaches ceil(n / 2) is taken — an observed count, and never the average of two.
-        //
-        // `ceil(n / 2.0)` and not `(n + 1) / 2`, which is the same arithmetic in every language this
-        // codebase is written in and not in this one: `sum()` over a bigint returns **numeric**, so
-        // the division is exact rather than integer and an even number of samples asks for element
-        // 15.5 — which no row satisfies until the one after the median. It shipped as a median one
-        // element too high on every game with an even sample count, and
-        // `PresenceHistogramPostgresTests` caught it by asserting equality with `percentile_disc`
-        // over distributions chosen for exactly this off-by-one.
-        //
-        // Buckets without a distribution are excluded by the JOIN rather than counted as empty. On a
-        // deployment that dropped raw before 0019 they are the buckets the migration could not
-        // rebuild, and `samples` and `days` are computed over the same set the median was taken
-        // from — so the basis printed on the page is always the basis of the arithmetic.
+        // Read from the rollup rather than raw samples: §5.2 lets retention drop raw once rolled up,
+        // so reading raw here would silently shorten the window as a deployment ages. Reproduces
+        // `percentile_disc(0.5)` exactly via `ceil(n / 2.0)` — not `(n + 1) / 2` — because `sum()`
+        // over bigint returns exact `numeric`; the naive integer form shipped as a median one element
+        // too high on every even sample count, caught by `PresenceHistogramPostgresTests`. Buckets
+        // without a distribution are excluded by the JOIN, so `samples` and `days` describe the same
+        // set the median was taken from.
         var busiest = (await connection.QueryAsync<BusiestRow>(new CommandDefinition(
             $"""
             WITH bucket AS (
@@ -1093,11 +914,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// The first day bucket a span covers: midnight UTC, <c>days - 1</c> whole days before today.
     /// </summary>
     /// <remarks>
-    /// A span of seven therefore covers seven day buckets — six complete and today's, which is still
-    /// filling. Aligning to the bucket rather than rolling back from the instant is forced by the
-    /// grain the median is summed at: half of a day bucket cannot be read out of it, so a window
-    /// that asked for one would either drop the oldest day or take all of it and describe itself
-    /// wrongly. The page says "the last N days" and means N buckets.
+    /// Aligned to the bucket rather than rolled back from the instant, since half a day bucket can't
+    /// be read out of the median's grain — the page says "the last N days" and means N buckets.
     /// </remarks>
     internal static DateTimeOffset DayAlignedStart(DateTimeOffset now, RankingSpan span)
     {
@@ -1111,19 +929,10 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// One row per capability worth reporting, measured beside declared.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// A capability nothing offered is reported as <b>unmeasured</b> rather than as nought per cent,
-    /// and that is derived from the tally rather than compiled in: if no listed game has ever been
-    /// observed to offer a protocol, the honest reading is that our handshake does not reach it — TLS
-    /// is the standing example, because the probe dials plain telnet and TLS is not a telnet option.
-    /// The day the first measurement lands the column starts reporting a share on its own.
-    /// </para>
-    /// <para>
-    /// §9's headline four are listed whether or not anything is known about them, because "we have not
-    /// measured TLS yet" is only visible if the row exists. Everything else appears when there is
-    /// something to say, including capabilities no registry lists — a server naming a protocol we do
-    /// not carry a column for is still a measurement (see <c>FieldObservations</c>).
-    /// </para>
+    /// A capability nothing offered is reported as <b>unmeasured</b>, never nought per cent — derived
+    /// from the tally, not compiled in, so a column starts reporting a share the day the first
+    /// measurement lands (TLS is the standing example: the probe dials plaintext). §9's headline four
+    /// are always listed, even unmeasured, since "not measured yet" is only visible if the row exists.
     /// </remarks>
     private static IReadOnlyList<ProtocolAdoption> ProtocolsOf(
         IReadOnlyList<CapabilityTallyRow> tallies,
@@ -1157,9 +966,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             bucket[name] = bucket.GetValueOrDefault(name) + tally.Games;
         }
 
-        // A protocol we have observed at all — in either direction — has a measurable column. One we
-        // have never observed has none, and saying "0%" of it would be our own reach reported as the
-        // hobby's.
+        // A protocol observed at all (either direction) gets a measurable column; one never observed
+        // gets none — "0%" would be our own reach reported as the hobby's.
         var measurable = offered.Keys.Concat(declined.Keys).ToHashSet(StringComparer.Ordinal);
 
         var names = EcosystemProtocols.Headline
@@ -1182,10 +990,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// One change as a sentence. An emptied value is <em>cleared</em>, and still an event.
     /// </summary>
     /// <remarks>
-    /// A field an owner clears keeps its row and gains a change entry — nothing is ever deleted, and
-    /// the withdrawal of a fact is as much a thing that happened as its arrival. Rendering the empty
-    /// string as itself would print "FANDOM changed from Exalted to" and lose the event in the
-    /// punctuation.
+    /// Rendering the empty string as itself would print "FANDOM changed from Exalted to" and lose
+    /// the event in the punctuation.
     /// </remarks>
     private static ChangeEntry Describe(FieldChange change) => new(
         change.At,
@@ -1259,16 +1065,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             .Where(f => !f.Field.StartsWith(CapabilityFields.Prefix, StringComparison.Ordinal)
                 && !InternalFields.IsInternal(f.Field)
 
-                // A cleared field is a row with an empty value, not a missing row (see
-                // OwnerEnrichment) — so it is filtered HERE, before the ladder, because an empty
-                // row is an absence and an absence does not get to win.
-                //
-                // Filtering after the winner was chosen silenced whatever was underneath: `owner`
-                // outranks `mssp` for enrichment fields, so a cleared owner row won its group and
-                // then dropped the group for being empty. A game publishing its own unofficial
-                // FANDOM could have had it removed from the page, the plain surface and the API by
-                // its owner typing a space into a box — an owner editing a measurement by the back
-                // door, which §8.5 forbids outright.
+                // A cleared field is a row with an empty value, not a missing row — filtered HERE,
+                // before the ladder, because an absence must not win. Filtering after the winner was
+                // chosen let a cleared `owner` row (which outranks `mssp`) silently drop the whole
+                // group instead of exposing what was underneath — an owner editing a measurement by
+                // the back door, which §8.5 forbids.
                 && f.Value.Length > 0)
             .GroupBy(f => f.Field, StringComparer.Ordinal))
         {
@@ -1310,11 +1111,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// counted this week, and — separately — whether the week holds any readable count at all.
     /// </summary>
     /// <remarks>
-    /// <b>The last pair is what tells a measured zero from an unreadable one.</b> The digest used to
-    /// return "was anybody counted above nought" and nothing else, so a game measured at nought every
-    /// hour and a game whose every <c>WHO</c> was past our parser arrived here identical and left as
-    /// one activity band. The fact was always in the table — <c>presence_sample.count IS NULL</c>
-    /// beside a reason (§5.4's middle state) — and only this projection was throwing it away.
+    /// The last pair distinguishes a measured zero from an unreadable one — a game at nought all
+    /// week and a game whose every <c>WHO</c> failed to parse must not collapse into one activity
+    /// band.
     /// </remarks>
     private async Task<Dictionary<Guid, PresenceDigest>> PresenceDigestAsync(
         NpgsqlConnection connection,
@@ -1326,10 +1125,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         // the API age out at the same moment and neither invents its own idea of fresh.
         var nowWindow = _registry.Find("PLAYERS")?.ExpectedRefresh ?? TimeSpan.FromHours(2);
 
-        // The sample's own instant and source come back with the count, because a count is published
-        // with a label on it (§10.1) and the label has to describe the row the number came from —
-        // `who` is a reading of ours, `mssp` is the game's own claim about itself, and re-deriving
-        // either from anything else here would be inventing it.
+        // The sample's own instant and source come back with the count, since the label (§10.1) must
+        // describe the row the number actually came from, not a re-derived guess.
         var rows = await connection.QueryAsync<DigestRow>(new CommandDefinition(
             """
             SELECT g.id AS GameId, recent.count AS CountNow, recent.at AS CountedAt,
@@ -1344,13 +1141,10 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                     ORDER BY p.at DESC
                     LIMIT 1) recent ON true
 
-              -- Three tallies over one scan of the same week, because they are three different
-              -- questions about it. `count(p.count)` counts the rows with a number, which is a
-              -- measured nought included; `count(*) FILTER (count IS NULL)` counts the rows that
-              -- answered and could not be read. A row exists at all only where a probe got far
-              -- enough to try (`PresenceWriter`), so no tally here ever speaks for an hour we did
-              -- not measure — the absence of every one of them is §5.4's third state and names no
-              -- cause.
+              -- Three tallies, one scan: `count(p.count)` includes a measured nought;
+              -- `count(*) FILTER (count IS NULL)` is answered-but-unreadable. A row exists only
+              -- where a probe got far enough to try, so no tally here speaks for an hour we never
+              -- measured (§5.4's third state, which names no cause).
               LEFT JOIN LATERAL (
                    SELECT count(*) FILTER (WHERE p.count > 0) AS nonzero,
                           count(p.count) AS counted,
@@ -1381,10 +1175,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// The count as a labelled fact, or null where there is no count to label.
     /// </summary>
     /// <remarks>
-    /// Staleness is asked of the registry under <c>PLAYERS</c> rather than assumed, even though the
-    /// digest only returns a sample inside that same window and so cannot presently produce a stale
-    /// one. The window is declared in exactly one place (spec §5.6); a <c>false</c> compiled in here
-    /// would be a second opinion about it, and would be wrong the day the window moves.
+    /// Staleness is asked of the registry rather than assumed, even though the digest can't currently
+    /// produce a stale sample — a <c>false</c> compiled in here would be a second opinion on the
+    /// window declared once in spec §5.6, wrong the day that window moves.
     /// </remarks>
     private ProvenanceChip? CountChip(PresenceDigest digest, DateTimeOffset now) =>
         digest is { CountNow: { } count, CountedAt: { } at, CountSource: { } source }
@@ -1418,16 +1211,10 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         var rows = await connection.QueryAsync<ActivityRow>(new CommandDefinition(
             """
             WITH boundary AS (
-                -- Where the raw table stops being the copy that answers. The hourly rollup has
-                -- consumed everything below its watermark, and §5.2 lets retention drop those raw
-                -- partitions afterwards — so reading raw alone loses the far end of the grid the
-                -- moment a deployment configures any retention at all. Above the watermark only the
-                -- raw rows exist: the rollup consumes whole elapsed hours, so the newest hours are
-                -- always ahead of it, and reading the rollup alone would render the probe we took
-                -- ten minutes ago as an hour nobody measured.
-                --
-                -- No watermark means nothing has ever been rolled up, and -infinity makes that the
-                -- read it used to be: raw for the whole window, rollup for none of it.
+                -- Where the raw table stops answering: below the watermark, retention may have
+                -- dropped raw partitions (§5.2), so read the rollup; above it only raw rows exist
+                -- (the rollup only consumes whole elapsed hours). No watermark means nothing has
+                -- been rolled up yet, so -infinity reads raw for the whole window.
                 SELECT coalesce(
                     (SELECT rolled_up_through FROM presence_rollup_state WHERE scope = 'hour'),
                     '-infinity'::timestamptz) AS at
@@ -1517,12 +1304,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             return ActivityBand.ActiveThisWeek;
         }
 
-        // Reachable recently but nobody counted — including a game every one of whose counts was
-        // unmeasurable. Quiet, never dark: being uncountable is not being absent.
-        //
-        // **And the band cannot say which of those two a game is**, which is why it is not the whole
-        // story: `uncounted` is its own facet, off the digest's own tallies, precisely because this
-        // rung holds a measured nought and an unreadable WHO alike.
+        // Reachable recently but nobody counted, including a game every count of which was
+        // unmeasurable — quiet, never dark. This band can't say which of the two it is; `Uncounted`
+        // is its own facet for exactly that reason.
         return FacetedSearch.NotReachedRecently(lastReachableAt, now)
             ? ActivityBand.Dark
             : ActivityBand.Quiet;

@@ -6,11 +6,10 @@ namespace MUI.Crawl.Tests;
 /// A server that states its population and its licence in one sentence.
 /// </summary>
 /// <remarks>
-/// <b>Read backwards, this is worse than unreadable.</b> An unreadable line is a hatched cell that
-/// says so; a line read backwards arrives looking like a measurement and sits in the catalogue as
-/// one. <c>retromud.org:3000</c> was recorded as having 200 players for as long as it has been
-/// listed, on the strength of "There are currently 11 out of 200 users playing." — 200 is what the
-/// game is licensed for.
+/// Read backwards, this is worse than unreadable: an unreadable line is a hatched cell that says so,
+/// but a line read backwards arrives looking like a real measurement. A real game was once recorded
+/// as having 200 players — its licence ceiling — off "There are currently 11 out of 200 users
+/// playing."
 /// </remarks>
 public class WhoParserCeilingTests
 {
@@ -56,17 +55,12 @@ public class WhoParserCeilingTests
     }
 
     /// <summary>
-    /// <b>A bare "of" is left alone, and this is the judgement the whole change turns on.</b>
-    /// "one of three players are active" means three are connected and one of them is doing
-    /// something — the opposite of retromud's sentence, in identical grammar. Only an explicit
-    /// marker separates them, so only an explicit marker is honoured.
+    /// "one of three players are active" means three are connected — the opposite of the ceiling
+    /// sentence, in identical grammar. Only an explicit marker separates them.
     /// </summary>
     [Test]
     public async Task ABareOfStillMeansThePopulationIsTheSecondNumber()
     {
-        // The one observed sentence of this shape, and nothing invented beside it: the numbered
-        // variants interact with three other patterns, and a made-up string proves only what its
-        // author already believed.
         var reading = new WhoParser().Parse("one of three players are active.");
 
         await Assert.That(reading.Count).IsEqualTo(3);

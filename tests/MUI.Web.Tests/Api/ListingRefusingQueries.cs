@@ -6,22 +6,10 @@ namespace MUI.Web.Tests.Api;
 /// A catalogue that answers only what these routes are entitled to ask, and throws at the rest.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The refusal is the assertion. Two routes used to answer by reading the whole listing and picking
-/// a row out of it — the feeds, to put an id beside a slug, and a lookup by GUID, because
-/// <see cref="IGameQueries"/> had no way to ask for one game's <em>page</em> by id. Both are single
-/// lookups now, and the only way to prove a scan is gone is to make the scan throw.
-/// </para>
-/// <para>
-/// <see cref="FindByIdAsync"/> refuses too. It is a real method with real callers — the owner
-/// surfaces address a game by id and want exactly a summary — but no route in this API does, and it
-/// was the second half of the GUID workaround: assemble a whole summary, fields and presence digest
-/// and all, then use its slug and discard the rest. Refusing it here is what stops that coming back.
-/// </para>
-/// <para>
-/// A counter would not do: it would pass a version of this code that read the catalogue once and
-/// cached it, which is the same scan with a lifetime bolted on.
-/// </para>
+/// The refusal is the assertion: the only way to prove a scan is gone is to make the scan throw. A
+/// counter would not do — it would pass code that scans once and caches, the same scan with a
+/// lifetime bolted on. <see cref="FindByIdAsync"/> refuses too, since no API route uses it even
+/// though it has real callers elsewhere.
 /// </remarks>
 internal sealed class ListingRefusingQueries(IGameQueries inner) : IGameQueries
 {

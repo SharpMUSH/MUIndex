@@ -43,11 +43,9 @@ public enum SubmissionOutcome
     /// §11 — the address has a standing opt-out, so we will not dial it whoever asks.
     /// </summary>
     /// <remarks>
-    /// <b>Its own member here and the generic refusal on the surface.</b> The record is ours and has
-    /// to say what actually happened; the page must not, because a second refusal word is a second
-    /// thing a stranger can enumerate the crawler's view with. That vocabulary was collapsed once
-    /// already to close a split-horizon DNS oracle, and splitting it again for a different fact
-    /// re-opens the same surface.
+    /// Its own member here, but a generic refusal on the surface: the record must say what actually
+    /// happened, but the page must not, because a second distinct refusal word is a second thing a
+    /// stranger could use to enumerate the crawler's view of DNS (a split-horizon oracle).
     /// </remarks>
     RefusedOptOut,
 
@@ -82,18 +80,12 @@ public sealed record SubmissionReceipt(
 /// The submissions we have taken, and the bound on how many one source may make.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Two calls because the bound has to be atomic.</b> Counting rows and then inserting one is
-/// check-then-act: a burst of concurrent requests all read a count that none of them has yet
-/// written to, and every one of them passes. On an unauthenticated form that check <em>is</em> the
-/// limit, so <see cref="TryBeginAsync"/> takes the slot and writes the row in one serialised step,
-/// and <see cref="CompleteAsync"/> fills in what happened once we know.
-/// </para>
-/// <para>
-/// A row left pending by a process that died still counts against the bound. That is the direction
-/// to fail in: an hour of a slightly tighter limit costs a submitter one wait, and the other way
-/// round costs us the limit.
-/// </para>
+/// <b>Two calls because the bound has to be atomic.</b> Counting rows then inserting one is
+/// check-then-act: a burst of concurrent requests all read a count none of them has written to yet,
+/// and all pass. <see cref="TryBeginAsync"/> takes the slot and writes the row in one serialised
+/// step; <see cref="CompleteAsync"/> fills in what happened once we know. A row left pending by a
+/// dead process still counts against the bound — the fail-safe direction, since the alternative costs
+/// us the limit entirely.
 /// </remarks>
 public interface ISubmissionLog
 {
@@ -122,12 +114,11 @@ public interface ISubmissionLog
 /// §11's rotating salt, shared by every replica.
 /// </summary>
 /// <remarks>
-/// <b>Not a per-process random value, and the difference is the whole bound.</b> Two web replicas
-/// with two salts derive two digests for one address, so a limit of five per hour becomes five per
-/// replica per hour and a restart clears it. §11's construction is a <em>rotating</em> salt, and a
-/// salt that rotates is one that is stored for the length of an epoch. What that buys — that rows
-/// written under a retired salt can never be lined up against rows written under the current one —
-/// survives being shared, and is the property worth having.
+/// <b>Not a per-process random value.</b> Two web replicas with two salts derive two digests for one
+/// address, turning a limit of five per hour into five per replica, cleared on every restart. §11's
+/// <em>rotating</em> salt is stored for the length of an epoch, which is what buys the property worth
+/// having: rows written under a retired salt can never be lined up against rows written under the
+/// current one.
 /// </remarks>
 public interface ISubmissionSalt
 {
@@ -141,10 +132,9 @@ public sealed record SubmissionOptions
     /// How many submissions one source may make inside <see cref="Window"/>.
     /// </summary>
     /// <remarks>
-    /// Low on purpose. Somebody with a list of games to tell us about is doing us a favour and can
-    /// come back in an hour; somebody feeding a scanner through the form cannot. The bound is on the
-    /// form and not on the crawler — <see cref="CrawlRateLimiter"/> already governs what we do to
-    /// other people's servers, and these are two different politenesses.
+    /// Low on purpose: somebody with a list of games can come back in an hour, somebody feeding a
+    /// scanner through the form cannot. Separate from <see cref="CrawlRateLimiter"/>, which already
+    /// governs what we do to other people's servers — two different politenesses.
     /// </remarks>
     public int PerSource { get; init; } = 5;
 
@@ -171,20 +161,15 @@ public sealed record SubmissionOptions
 /// Who submitted something, as much as we are willing to know (spec §11).
 /// </summary>
 /// <remarks>
+/// <b>The submitter's address is never stored</b> — only a digest under
+/// <see cref="ISubmissionSalt"/>'s shared, rotating salt. A plain hash of an IPv4 address would be
+/// reversible with an afternoon and four billion guesses; the salt prevents that, and the rotation
+/// stops one epoch's rows being lined up against the next's.
 /// <para>
-/// <b>The submitter's address is never stored.</b> What the rate limit needs is whether two
-/// submissions came from one place inside the hour, and it needs nothing else, ever — so what is
-/// stored is a digest under <see cref="ISubmissionSalt"/>'s shared, rotating salt. A plain hash of
-/// an IPv4 address would be reversible by anybody with an afternoon and four billion guesses, which
-/// is what the salt is for; the rotation is what stops one epoch's rows being lined up against the
-/// next one's.
-/// </para>
-/// <para>
-/// <b>An IPv6 address is bucketed to its /64, and that is a bound rather than a nicety.</b> The
-/// smallest block anybody is assigned is a /64 and a great many home connections get a /48 or /56,
-/// so an attacker keyed on the full address holds eighteen quintillion buckets and the limit is
-/// decorative. The /64 is the unit that costs something to obtain, so it is the unit the bound is
-/// counted in. IPv4 is kept whole, because there a single address is already scarce.
+/// <b>An IPv6 address is bucketed to its /64</b> — a bound, not a nicety. The smallest block anybody
+/// is assigned is a /64, so keying on the full address would give an attacker eighteen quintillion
+/// buckets and make the limit decorative. IPv4 is kept whole, since there a single address is already
+/// scarce.
 /// </para>
 /// </remarks>
 public sealed class SubmissionSource(ISubmissionSalt salt)
@@ -234,12 +219,10 @@ public sealed class SubmissionSource(ISubmissionSalt salt)
 /// Reads a host and a port out of what somebody typed, and refuses everything else.
 /// </summary>
 /// <remarks>
-/// <b>Nothing here fabricates.</b> A host with no port is refused rather than given 4201: guessing a
-/// port would aim a socket at something nobody advertised, and §6.4's rule that parsers never
-/// fabricate applies to addresses exactly as it applies to player counts. What it does do is read the
-/// spellings people actually type — <c>host:port</c> and <c>host port</c> pasted whole into the first
-/// box — because a form that refuses a correct address on a formatting technicality has taught
-/// somebody that we are broken.
+/// <b>Nothing here fabricates.</b> A host with no port is refused rather than given 4201 (§6.4:
+/// parsers never fabricate, for addresses as much as player counts). It does read the spellings
+/// people actually type — <c>host:port</c> and <c>host port</c> pasted whole into the first box — so
+/// a correct address isn't refused on a formatting technicality.
 /// </remarks>
 public static class SubmittedAddressReader
 {
@@ -289,41 +272,34 @@ public static class SubmittedAddressReader
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>An address, and nothing else.</b> A submitter asserts nothing about the game — no name, no
-/// description, no codebase, no players — because every fact on this site is measured by this crawler
-/// and there is nothing here for a stranger's claim to become. That is §7.6's rule for the backfill,
-/// applied to the one-at-a-time case.
+/// <b>An address, and nothing else.</b> A submitter asserts nothing about the game — no name,
+/// description, codebase or players — because every fact on this site is measured by this crawler
+/// (§7.6's backfill rule, applied to the one-at-a-time case).
 /// </para>
 /// <para>
-/// <b>The order of the checks is the design.</b> The rate limit first — as a reservation rather than
-/// a count, so that a burst cannot walk through a check none of it has written to yet — because it
-/// must not be bypassable by sending rubbish and a source at its bound must not be able to make us
-/// do work. Then the address, then our own catalogue, and only then DNS, so the form cannot be used
-/// as a free resolver. §7.2's gate runs on the resolved address, before the target is written, so a
-/// refused name never reaches the registry and is never dialled by anything.
+/// <b>The order of the checks is the design.</b> The rate limit runs first, as a reservation rather
+/// than a count, so a burst can't walk through a check none of it has written to yet, and a source at
+/// its bound can't make us do work. Then the address, then our own catalogue, and only then DNS, so
+/// the form can't be used as a free resolver. §7.2's gate runs on the resolved address before the
+/// target is written, so a refused name never reaches the registry.
 /// </para>
 /// <para>
-/// <b>§11's opt-out is asked last, and that ordering is what it costs us.</b> It goes after the
-/// scope gate because an address we will not dial anyway is not worth a register read or a TXT
-/// lookup, and the gate itself asks the stored register before it asks DNS. Every lookup this path
-/// can cause is behind the reservation, so one source buys at most
-/// <see cref="SubmissionOptions.PerSource"/> of them an hour — and the resolver behind it is the
-/// crawler's own, un-retried, bounded and caching failures, rather than a fresh one this class
-/// configured for itself.
+/// <b>§11's opt-out is asked last</b> — after the scope gate, since an address we won't dial anyway
+/// isn't worth a register read or TXT lookup. Every lookup this path can cause is behind the
+/// reservation, bounding it to <see cref="SubmissionOptions.PerSource"/> per hour, through the
+/// crawler's own bounded resolver rather than a fresh one.
 /// </para>
 /// <para>
-/// <b>A refusal creates nothing and measures nothing.</b> No game, no target, no availability sample,
-/// no presence row. <see cref="SubmissionOutcome.RefusedNotRoutable"/> is counted on the submission
-/// and nowhere else, which is where a decision of ours belongs — and it is emphatically not a
-/// <c>ProbeOutcome</c>, because no probe happened and none could have.
+/// <b>A refusal creates nothing and measures nothing</b> — no game, target, availability sample or
+/// presence row. <see cref="SubmissionOutcome.RefusedNotRoutable"/> is counted on the submission and
+/// nowhere else; it is not a <c>ProbeOutcome</c>, since no probe happened.
 /// </para>
 /// <para>
 /// <b>A duplicate collapses onto what exists.</b> An address a game already answers at is
-/// <see cref="SubmissionOutcome.AlreadyListed"/> and one already in the registry is
-/// <see cref="SubmissionOutcome.AlreadyQueued"/>; neither writes anything. Even if both checks were
-/// removed, <see cref="ICrawlTargetRepository.AddAsync"/> is keyed on the address and would return
-/// the existing row — so the second listing this form could otherwise have produced is prevented
-/// twice, and the checks exist to say something true to the submitter rather than to hold the line.
+/// <see cref="SubmissionOutcome.AlreadyListed"/>, one already in the registry is
+/// <see cref="SubmissionOutcome.AlreadyQueued"/> — and even without these checks,
+/// <see cref="ICrawlTargetRepository.AddAsync"/> is keyed on the address and would return the
+/// existing row, so a second listing is prevented twice.
 /// </para>
 /// </remarks>
 public sealed class SubmissionService(
@@ -346,10 +322,8 @@ public sealed class SubmissionService(
         var now = time.GetUtcNow();
         var reservation = Guid.CreateVersion7();
 
-        // One serialised step: count this source's slots and take one, or take none. Deliberately
-        // before anything else — a source at its limit must not be able to make us parse, read or
-        // resolve anything — and deliberately the only place the bound is consulted, because a
-        // separate count would be a check somebody could walk through while it was still true.
+        // One serialised step: count this source's slots and take one, or take none. Before anything
+        // else, so a source at its limit can't make us parse, read or resolve anything.
         if (!await log.TryBeginAsync(reservation, source, now, options.PerSource, now - options.Window, ct))
         {
             return new SubmissionReceipt(SubmissionOutcome.TooMany);
@@ -377,10 +351,9 @@ public sealed class SubmissionService(
 
         if (decision.Ruling is not HostScopeRuling.Allowed)
         {
-            // Two outcomes, because §7.2 says they are two facts and the record has to keep them
-            // apart. What the *submitter* is told collapses them into one sentence — see
-            // SubmitCopy — because telling a stranger which of the two happened is an oracle over
-            // our own resolver's view of names they cannot otherwise see.
+            // Two outcomes, because §7.2 keeps them as two facts on the record — but what the
+            // submitter is told collapses them into one sentence (see SubmitCopy), since telling a
+            // stranger which happened is an oracle over our resolver's view of names.
             var outcome = decision.Ruling is HostScopeRuling.RefusedNonGlobal
                 ? SubmissionOutcome.RefusedNotRoutable
                 : SubmissionOutcome.Unresolvable;
@@ -389,20 +362,17 @@ public sealed class SubmissionService(
             return new SubmissionReceipt(outcome, address, Detail: decision.Detail);
         }
 
-        // §11, and the reason it is here rather than left to the crawl loop's own gate: that gate
-        // does hold — a target with a standing opt-out is never dialled — so nothing leaked and no
-        // game was ever minted. What the form did was tell somebody "accepted" for an address we had
-        // already promised never to touch, and then do nothing about it for ever. A refusal we know
-        // at the door belongs at the door.
+        // §11, checked here rather than left to the crawl loop's gate: without this, the form would
+        // tell somebody "accepted" for an address we'd already promised never to touch. A refusal we
+        // know at the door belongs at the door.
         if (await optOut.RuleOnAsync(address.Host, address.Port, ct) is not null)
         {
             await log.CompleteAsync(reservation, address, SubmissionOutcome.RefusedOptOut, null, ct);
             return new SubmissionReceipt(SubmissionOutcome.RefusedOptOut, address);
         }
 
-        // Due now: an address somebody just typed is the one case where waiting has a person behind
-        // it. Everything after this is the ordinary schedule, and IsOperatorSeed stays false — a
-        // stranger with a browser is not an operator, and §7.2's exemption is never inferred.
+        // Due now, since a person is waiting. IsOperatorSeed stays false: a stranger with a browser
+        // is not an operator, and §7.2's exemption is never inferred.
         var target = new CrawlTarget
         {
             Id = Guid.CreateVersion7(),

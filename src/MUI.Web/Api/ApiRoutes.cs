@@ -4,11 +4,7 @@ namespace MUI.Web.Api;
 /// Every path this API publishes, in one place, so a link in a payload and the route that serves it
 /// cannot drift apart.
 /// </summary>
-/// <remarks>
-/// Links are site-relative rather than absolute. This deployable sits behind whatever proxy and
-/// hostname an operator gives it, and a payload that hard-coded one would be wrong the first time
-/// the dataset was mirrored — which is the case §10 exists to serve.
-/// </remarks>
+/// <remarks>Links are site-relative, not absolute — this deployable sits behind whatever proxy and hostname an operator gives it.</remarks>
 public static class ApiRoutes
 {
     public const string Base = "/api";
@@ -42,9 +38,6 @@ public static class ApiRoutes
     /// <summary>One game's availability series, keyed the durable way.</summary>
     public static string Availability(Guid id) => $"{Game(id)}{AvailabilitySuffix}";
 
-    /// <summary>
-    /// The durable link to a game. Keyed on the GUID and not the slug, because the slug is mutable
-    /// by design (spec §5.7) and this is the one a mirror should store.
-    /// </summary>
+    /// <summary>The durable link to a game — keyed on the GUID, not the mutable slug (spec §5.7), for a mirror to store.</summary>
     public static string Game(Guid id) => $"{Games}/{id:D}";
 }

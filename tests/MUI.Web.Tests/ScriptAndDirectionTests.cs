@@ -7,17 +7,10 @@ namespace MUI.Web.Tests;
 /// Game-supplied names, tagged with the script they are actually in.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The listing has always contained 北大侠客行 inside a page declared <c>lang="en"</c>. A screen
-/// reader picks its voice and its pronunciation rules from that attribute, so it attempts Chinese
-/// characters with English phonetics — which is not an accent, it is noise. The same attribute is
-/// what selects between the regional Han forms a font draws.
-/// </para>
-/// <para>
-/// The rule these tests exist to hold is the site's own: <b>say what you measured and nothing
-/// else.</b> A script settles a language only where it is used for essentially one, and where it is
-/// shared the tag is left off rather than filled in with whichever language is commonest.
-/// </para>
+/// The listing has always contained 北大侠客行 inside a page declared <c>lang="en"</c>; a screen
+/// reader picks its voice and pronunciation from that attribute, so it attempts Chinese characters
+/// with English phonetics. The rule: <b>say what you measured and nothing else</b> — a script
+/// settles a language only where it's used for essentially one; where shared, the tag is left off.
 /// </remarks>
 public class ScriptAndDirectionTests
 {
@@ -55,9 +48,8 @@ public class ScriptAndDirectionTests
     /// <remarks>
     /// Polytonic Greek lives at U+1F00–U+1FFF and nothing else is written there, so the block
     /// settles a language exactly as the basic Greek block does. Unlisted, it fell to
-    /// <c>Script.Other</c> — which meant whether a Greek name was tagged at all depended on which of
-    /// its letters happened to carry a breathing mark. Asserted from the codepoints rather than from
-    /// a word, because no natural Greek word is written entirely out of this block.
+    /// <c>Script.Other</c>, so whether a Greek name was tagged at all depended on which of its
+    /// letters happened to carry a breathing mark.
     /// </remarks>
     [Test]
     [Arguments(0x1f00, "el")]     // the first letter in the block
@@ -76,10 +68,9 @@ public class ScriptAndDirectionTests
     [Arguments("मापा गया")]                    // Devanagari — Hindi, Marathi, Nepali
     public async Task AScriptSharedByManyLanguagesSettlesNothing(string name)
     {
-        // The important half. Unicode unified Han across Chinese and Japanese, and the correct drawn
-        // form differs between them — so guessing "zh" for a Japanese game's name is not a harmless
-        // default, it is the site asserting something about somebody's game that no probe measured.
-        // An absent lang costs a glyph variant; a wrong one costs the claim the site is built on.
+        // The important half: Unicode unified Han across Chinese and Japanese, and the drawn form
+        // differs between them — guessing "zh" for a Japanese name is not a harmless default, it's
+        // an unmeasured claim about somebody's game.
         await Assert.That(NameScript.IsPlainAscii(name)).IsFalse();
         await Assert.That(NameScript.LanguageOf(name)).IsNull();
     }
@@ -99,11 +90,9 @@ public class ScriptAndDirectionTests
     [Test]
     public async Task ANonLatinNameIsIsolatedFromTheRowAroundIt()
     {
-        // Without <bdi> the name, the neutral characters beside it and the count in the next cell
-        // renegotiate order as one bidirectional run, and the number lands on the wrong side of the
-        // row. With it, the name reads right-to-left inside its own box while the row stays
-        // left-to-right — which is the whole of "RTL text, LTR layout" and needs no mirrored
-        // stylesheet.
+        // Without <bdi> the name and the count in the next cell renegotiate order as one
+        // bidirectional run and the number lands on the wrong side of the row. With it, the name
+        // reads right-to-left inside its own box while the row stays left-to-right.
         var arabic = await Render.ComponentAsync<GameName>(new() { ["Name"] = "مدينة الأحلام" });
         var chinese = await Render.ComponentAsync<GameName>(new() { ["Name"] = "北大侠客行" });
         var latin = await Render.ComponentAsync<GameName>(new() { ["Name"] = "Shangrila" });

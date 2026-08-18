@@ -9,33 +9,21 @@ namespace MUI.Web.Localization;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>What it is for.</b> <c>545 on</c>, <c>23 games</c> and <c>7 days measured · 168 probes</c> each
-/// glue a number to an English fragment in English word order, and there is nowhere in that for a
-/// translator to intervene without editing markup. One message per fact, the count as a named
-/// argument and the plural clause written out in full is what gives them somewhere to stand — and
-/// it is what stopped this site rendering "1 games" on every accessible name in its facet panel.
-/// </para>
-/// <para>
-/// <b>The whole of MessageFormat 1.0.</b> Simple arguments, <c>number</c>, <c>date</c> and
+/// Implements the whole of MessageFormat 1.0: simple arguments, <c>number</c>, <c>date</c> and
 /// <c>time</c> with styles and skeletons, <c>plural</c> and <c>selectordinal</c> with <c>offset:</c>
-/// and <c>=value</c> matches, <c>select</c>, arbitrary nesting, and ICU's apostrophe quoting in its
-/// default mode. See <see cref="MessagePattern"/> for the parse and for why <c>choice</c> is refused
-/// and MessageFormat 2.0 is not yet the target.
+/// and <c>=value</c> matches, <c>select</c>, arbitrary nesting, and ICU's apostrophe quoting. See
+/// <see cref="MessagePattern"/> for the parse and for why <c>choice</c> is refused.
 /// </para>
 /// <para>
-/// <b>Patterns are parsed once.</b> A message is rendered on every request that draws the surface it
-/// belongs to — the facet panel alone renders forty of them per page — and re-parsing a string that
-/// has not changed since startup is work nobody asked for. The cache is keyed on the pattern text
-/// because that is the only thing the parse depends on; the locale is applied at format time.
+/// Patterns are parsed once and cached, keyed on pattern text; locale is applied at format time.
 /// </para>
 /// <para>
-/// <b>The cache is unbounded, and that is safe only because of what may be passed to it.</b> A
-/// pattern comes from a resource bundle or from a literal in this repository, so the set of distinct
-/// keys is fixed when the process starts and is a few hundred entries. <b>A pattern built from
-/// request data must never reach <see cref="Format"/> or <see cref="Compile"/></b> — a querystring
-/// or a game's own name interpolated into a pattern would make this dictionary grow without limit
-/// for as long as somebody kept asking. Interpolate into an <em>argument</em>, which is not cached
-/// and not parsed; the pattern is the part that has to be written down in advance.
+/// <b>The cache is unbounded, and that is safe only because of what may be passed to it</b> — a
+/// pattern comes from a resource bundle or a literal here, so the set of distinct keys is fixed at
+/// startup. <b>A pattern built from request data must never reach <see cref="Format"/> or
+/// <see cref="Compile"/></b>: a querystring or a game's own name interpolated into a pattern would
+/// make this dictionary grow without limit. Interpolate into an <em>argument</em> instead, which is
+/// not cached or parsed.
 /// </para>
 /// </remarks>
 public static class IcuMessage
@@ -188,8 +176,7 @@ public static class IcuMessage
         double db => (decimal)db,
         float f => (decimal)f,
 
-        // Absolute by construction: the operands CLDR states are, so a caller handing them over
-        // directly has already discarded whatever sign the quantity had.
+        // Absolute by construction — CLDR operands have already discarded any sign the quantity had.
         PluralOperands o => o.N,
 
         null => throw new FormatException($"'{name}' is a plural argument and was null."),
@@ -201,17 +188,10 @@ public static class IcuMessage
     /// The number a <c>#</c> stands for, written exactly as <c>{n, number}</c> would write it.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>One bundle may not print one quantity two ways.</b> <c>#</c> was the raw integer digits
-    /// and <c>{n, number}</c> was the culture's grouped form, so a listing past a thousand said
-    /// "1234 games" in a sentence and "1,234" in the column beside it — and in German the separator
-    /// is a full stop, which no invariant rendering reaches at all. ICU replaces <c>#</c> with the
-    /// argument's own formatted number, so the default pattern here is the default pattern there.
-    /// </para>
-    /// <para>
-    /// The sign travels with it. CLDR takes the absolute value to choose a category and never to
+    /// <c>#</c> is replaced with the argument's own formatted number, not raw integer digits — one
+    /// bundle may not print one quantity two ways ("1234 games" beside "1,234" in a column). The
+    /// sign travels with it: CLDR takes the absolute value only to choose a category, never to
     /// display one, and "3 games" for minus three is a measurement stated backwards.
-    /// </para>
     /// </remarks>
     private static string Hash(decimal number, int visibleFractionDigits, CultureInfo culture) =>
         number.ToString(
@@ -220,9 +200,8 @@ public static class IcuMessage
 
     /// <summary>The same number as an <c>=</c> key, which is matched and never shown to anybody.</summary>
     /// <remarks>
-    /// Plain and invariant on purpose: it is compared against what a message author typed between
-    /// the braces, and a translator writing <c>=1000</c> should not have to know which separator
-    /// their locale would have inserted.
+    /// Plain and invariant — compared against what an author typed between the braces, not something
+    /// a locale's separator should affect.
     /// </remarks>
     private static string Plain(decimal number, int visibleFractionDigits) =>
         number.ToString(
@@ -233,11 +212,10 @@ public static class IcuMessage
     /// <c>{n, number, style}</c>, with ICU's named styles and its <c>::</c> skeletons.
     /// </summary>
     /// <remarks>
-    /// <b>Nothing on this site calls it, and it is here anyway.</b> Counts, versions and ages are
-    /// machine output and stay in Western digits in every locale — Arabic-Indic digits have no
-    /// tabular figures in most faces, so a localized count column loses the alignment that is the
-    /// only reason it is a column. What this covers is prose: a percentage inside a sentence is a
-    /// number a reader reads rather than scans, and that one localizes.
+    /// Nothing on this site calls it: counts, versions and ages are machine output and stay in
+    /// Western digits in every locale, since a localized count column loses the alignment that is
+    /// the only reason it is a column. This covers prose instead — a percentage inside a sentence is
+    /// read rather than scanned, and that one localizes.
     /// </remarks>
     private static string Number(string name, object? value, string? style, CultureInfo culture)
     {
@@ -249,9 +227,8 @@ public static class IcuMessage
         }
         catch (Exception e) when (e is InvalidCastException or OverflowException or FormatException)
         {
-            // The documented contract on Format is FormatException, and Convert raises two others
-            // this could not have said anything about. Neither of them names the argument, and a
-            // page rendering forty messages needs to be told which one it was.
+            // Format's documented contract is FormatException; Convert's exceptions don't name the
+            // argument, which a page rendering forty messages needs to know.
             throw new FormatException(
                 $"'{name}' is a number argument and must be a number, "
                 + $"not {value?.GetType().Name ?? "null"}.", e);
@@ -267,8 +244,7 @@ public static class IcuMessage
             null or "" => number.ToString("#,##0.###", culture),
             "integer" => Math.Round(number, MidpointRounding.ToEven).ToString("#,##0", culture),
             // Built rather than "P0": .NET's percent pattern inserts a space before the sign in
-            // several cultures and ICU's does not, so the two disagree on en for no reason a
-            // message author could predict.
+            // several cultures and ICU's does not.
             "percent" => (number * 100m).ToString("#,##0.###", culture) + culture.NumberFormat.PercentSymbol,
             "currency" => number.ToString("C", culture),
 
@@ -315,12 +291,9 @@ public static class IcuMessage
     /// <c>{d, date, style}</c> and <c>{d, time, style}</c>.
     /// </summary>
     /// <remarks>
-    /// <b>Also uncalled, and also deliberate.</b> Every date this site prints goes through
-    /// <see cref="Components.Dates"/>, which states UTC explicitly and uses an abbreviated month
-    /// name rather than a numeric one — <c>08/17</c> means two different days on two continents.
-    /// This exists so a message <em>can</em> carry a date without the formatter refusing the
-    /// pattern, which is the difference between supporting the grammar and supporting the half of
-    /// it we happen to use.
+    /// Also uncalled, and also deliberate: every date this site prints goes through
+    /// <see cref="Components.Dates"/> instead, which states UTC explicitly. This exists so the
+    /// formatter doesn't refuse a pattern that carries a date.
     /// </remarks>
     private static string Temporal(object? value, ArgumentKind kind, string? style, CultureInfo culture)
     {
@@ -328,17 +301,13 @@ public static class IcuMessage
         {
             DateTimeOffset offset => offset,
 
-            // An Unspecified kind takes the machine's own offset from this constructor, so the same
-            // message rendered on two hosts said two different times and neither said which. This
-            // site is UTC everywhere on purpose — every date it prints says so — and a date that
-            // arrived without a zone did not arrive from somewhere else.
+            // Unspecified is treated as UTC, not the machine's own offset — this site is UTC
+            // everywhere, and a date arriving without a zone did not arrive from somewhere else.
             DateTime { Kind: DateTimeKind.Unspecified } bare => new DateTimeOffset(bare, TimeSpan.Zero),
             DateTime dt => new DateTimeOffset(dt),
 
-            // A day-grain fact carries a DateOnly, and every day-grain surface on this site — the
-            // trend chart's ninety columns, the reachability strip's ninety bars — has one to say.
-            // Refusing it would have meant each of those formatting its own date at the call site,
-            // which is the hard-coded month name this argument exists to remove.
+            // A day-grain fact carries a DateOnly (the trend chart's columns, the reachability
+            // strip's bars), so those surfaces don't each format their own date at the call site.
             DateOnly day => new DateTimeOffset(day.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
             _ => throw new FormatException($"A {kind} argument must be a date, not {value?.GetType().Name ?? "null"}."),
         };
@@ -347,8 +316,8 @@ public static class IcuMessage
 
         if (style is { Length: > 0 } && style.StartsWith("::", StringComparison.Ordinal))
         {
-            // A date skeleton names the fields it wants; .NET has no skeleton engine, so the
-            // closest honest thing is the culture's own long or short pattern.
+            // .NET has no skeleton engine, so the closest honest thing is the culture's long or
+            // short pattern.
             style = style.Contains('y', StringComparison.Ordinal) ? "long" : "short";
         }
 
@@ -366,9 +335,8 @@ public static class IcuMessage
     /// The culture a tag names, or the invariant one where .NET has never heard of it.
     /// </summary>
     /// <remarks>
-    /// <see cref="Locales.CultureOf"/>'s cache rather than one of its own: the number formats a
-    /// message renders and the day names a sentence names are the same CLDR data, and two lookups
-    /// of one tag are two places for it to be answered differently.
+    /// <see cref="Locales.CultureOf"/>'s cache rather than one of its own, so the same tag can't be
+    /// answered differently in two places.
     /// </remarks>
     private static CultureInfo Culture(string tag) => Locales.CultureOf(tag);
 }

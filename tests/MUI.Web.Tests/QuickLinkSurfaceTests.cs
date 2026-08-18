@@ -27,10 +27,8 @@ public class QuickLinkSurfaceTests
     [Test]
     public async Task EveryLinkCarriesNoopenerNofollowAndUgc()
     {
-        // Three separate promises. noopener stops the opened page reaching back through
-        // window.opener; nofollow says we are not voting for a destination we did not choose; ugc
-        // says who did choose it. Without the last two, a directory where anybody can mint a
-        // followed link by editing their own mush.cnf is a link farm with measurements on it.
+        // noopener stops the opened page reaching back through window.opener; nofollow says we
+        // aren't voting for a destination we didn't choose; ugc says who did choose it.
         var html = await RowAsync(Three);
 
         await Assert.That(html.Split("<a ").Length - 1).IsEqualTo(3);
@@ -40,8 +38,7 @@ public class QuickLinkSurfaceTests
     [Test]
     public async Task NoLinkOpensAWindowOnTheReadersBehalf()
     {
-        // target=_blank is the one thing that reliably breaks the back button, and it is a decision
-        // the reader's own browser is better placed to make.
+        // target=_blank reliably breaks the back button; the reader's own browser decides instead.
         await Assert.That(await RowAsync(Three)).DoesNotContain("target=");
     }
 
@@ -50,8 +47,7 @@ public class QuickLinkSurfaceTests
     {
         var html = await RowAsync(Three);
 
-        // The glyph announces nothing and the label announces everything: a reader hearing both
-        // would hear the same word twice per link.
+        // The glyph announces nothing; the label announces everything.
         await Assert.That(html).Contains("aria-hidden=\"true\"");
         await Assert.That(html).Contains("Website");
         await Assert.That(html).Contains("This game on Discord");
@@ -61,8 +57,7 @@ public class QuickLinkSurfaceTests
     [Test]
     public async Task ThePlatformsOwnNameIsNeverTranslated()
     {
-        // Machine voice, like a hostname or a codebase. The preposition around it is the id; the
-        // brand is an argument, so a locale cannot turn Bluesky into something no reader searches.
+        // Machine voice, like a hostname — the brand is an argument, so a locale can't translate it.
         var html = await Render.ComponentAsync<ReachRow>(new()
         {
             ["Links"] = new[] { Link(LinkKind.Bluesky, "BLUESKY", "https://bsky.app/profile/x", "https://bsky.app/profile/x") },
@@ -75,17 +70,14 @@ public class QuickLinkSurfaceTests
     [Test]
     public async Task TheRowIsNotDrawnAtAllForAGameThatPublishedNoAddress()
     {
-        // Fifty-five of the games in this catalogue publish none. An empty <ul> with a label on it
-        // is a heading announcing nothing, and a reader using a rotor hears it as a section.
+        // An empty <ul> with a label on it is a heading announcing nothing.
         await Assert.That(await RowAsync([])).DoesNotContain("<ul");
     }
 
     [Test]
     public async Task TheTooltipSaysWhoSaidSoAndHowOldItIs()
     {
-        // The chips stay in the self-description below — nine of them beside an <h1> is not a page
-        // — so the provenance travels with the link in its title instead. A website icon pointing
-        // somewhere unexpected is exactly where a reader asks "who said so".
+        // The chips stay below; provenance travels with the link in its title instead.
         var html = await RowAsync(Three);
 
         await Assert.That(html).Contains("declared");
@@ -101,8 +93,7 @@ public class QuickLinkSurfaceTests
 
             await Assert.That(svg).StartsWith("<svg").Because($"{kind} has no glyph");
 
-            // A <title> inside the SVG would be a second accessible name, in English, announced
-            // beside the translated one.
+            // A <title> inside the SVG would be a second, English accessible name beside the translated one.
             await Assert.That(svg).DoesNotContain("<title>");
         }
     }

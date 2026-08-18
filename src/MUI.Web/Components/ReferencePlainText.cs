@@ -10,23 +10,12 @@ namespace MUI.Web.Components;
 /// The reference section in plain text.
 /// </summary>
 /// <remarks>
-/// <para>
 /// Same rule as the rest of the plain surface: if a fact cannot survive here, its graphic on the
-/// main page is decoration. For this section that bites hardest on the matrices — a client
-/// capability table carried by a tick, a cross and a blank does not survive, and one carried by
-/// <em>yes</em>, <em>no</em> and <em>unknown</em> does.
-/// </para>
-/// <para>
-/// The prose goes through the Markdown renderer's text output and the structured half is rendered
-/// here from the same records the graphical page uses, so the two surfaces cannot report different
-/// counts. Nothing here re-reads the content files.
-/// </para>
-/// <para>
-/// <b>The tag comes first, as it does on <see cref="PlainText"/>, and it reaches every sentence this
-/// file writes — but never the article.</b> The Markdown body is a document somebody owns and is
-/// translated as a document rather than as a string; this file renders whichever one the library
-/// hands it and puts no word of its own inside it.
-/// </para>
+/// main page is decoration — a client capability table carried by a tick and a cross does not
+/// survive, one carried by "yes"/"no"/"unknown" does. Rendered from the same records the graphical
+/// page uses, so the two surfaces cannot report different counts. The locale tag reaches every
+/// sentence this file writes but never the Markdown article itself, which is translated as a
+/// document rather than as a string.
 /// </remarks>
 public static class ReferencePlainText
 {
@@ -34,14 +23,10 @@ public static class ReferencePlainText
     /// The one sentence that keeps a client matrix honest, on both surfaces.
     /// </summary>
     /// <remarks>
-    /// A client cannot be probed — there is no handshake of ours to observe — so every cell is a
-    /// reading of somebody's documentation. Saying so beside the table is not modesty: this site's
-    /// whole claim is that a reader can tell a measurement from an assertion, and a table that looks
-    /// like the game pages' measured matrix while being neither would spend that credit.
-    /// <para>
-    /// The unknown word is passed in rather than written into the sentence, so the sentence and the
-    /// cells it is explaining cannot end up quoting different words in the same locale.
-    /// </para>
+    /// A client cannot be probed, so every cell is a reading of somebody's documentation — saying so
+    /// beside the table stops it looking like the game pages' measured matrix. The unknown word is
+    /// passed in rather than written into the sentence, so the two cannot quote different words in
+    /// the same locale.
     /// </remarks>
     public static string ClientMatrixCaveat(string tag) =>
         Messages.Say(tag, "reference.capabilities.caveat",
@@ -188,9 +173,8 @@ public static class ReferencePlainText
         b.AppendLine("  " + Messages.For(tag, "reference.plain.protocol.byCodebase"));
         foreach (var row in rows)
         {
-            // The family name is padded to a column and the sentence beside it is not: the numbers
-            // are inside a message now, and a language that puts them in the other order has nowhere
-            // to say so if this file is still counting characters into it.
+            // Only the family name is padded to a column; the sentence beside it is not, since the
+            // numbers live inside a message that a language may reorder.
             b.AppendLine($"    {row.Codebase,-20} " + Messages.Say(
                 tag,
                 "reference.plain.protocol.row",

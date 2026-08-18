@@ -24,12 +24,11 @@ public sealed record AvailabilityInterval
     /// What the dial actually said, when it said anything. Null on a reachable interval.
     /// </summary>
     /// <remarks>
-    /// <b>Evidence, never a key.</b> <see cref="Cause"/> is the vocabulary the site reasons about
-    /// and three of its six words are wastebaskets — "timeout" carries a socket timeout, an
-    /// exhausted probe budget and every error that has no word of its own. This is the sentence
-    /// underneath it, kept because the container's logs last half an hour and a dark game outlives
-    /// them. It takes no part in deciding whether an interval transitions: a message that changed
-    /// while the cause did not is the same interval (§5.3).
+    /// Evidence, never a key: <see cref="Cause"/> is what the site reasons about, and several of its
+    /// values are wastebaskets ("timeout" covers a socket timeout, an exhausted probe budget, and any
+    /// error with no word of its own). This is the sentence underneath it, kept because container
+    /// logs last half an hour and a dark game outlives them. It plays no part in deciding a
+    /// transition (§5.3).
     /// </remarks>
     public string? Detail { get; init; }
 
@@ -55,15 +54,13 @@ public interface IAvailabilityStore
     /// Ends every open interval at <paramref name="at"/>, and returns how many were ended.
     /// </summary>
     /// <remarks>
-    /// <b>The one write that is about the crawler rather than about a game</b>, and the only way the
-    /// catalogue can say "we stopped watching" — see <c>CrawlGap</c> for when that is true and why an
-    /// interval cannot notice it for itself. The state and cause are kept: a game that was dark when
-    /// we stopped looking was dark, and rewriting that would swap one false claim for another. Each
-    /// game opens a fresh interval on its next probe, because a writer with nothing open opens one.
+    /// The one write that is about the crawler rather than a game — the only way the catalogue can
+    /// say "we stopped watching". State and cause are kept as they were: a game dark when we stopped
+    /// looking was dark, and rewriting that swaps one false claim for another. Each game opens a
+    /// fresh interval on its next probe.
     /// <para>
-    /// Intervals that began after <paramref name="at"/> are left alone. Availability is written by
-    /// the crawl loop and by <c>mui-crawl</c>, so one can exist that started after the last recorded
-    /// cycle, and ending it earlier than it began is a row the table refuses.
+    /// Intervals that began after <paramref name="at"/> are left alone — one can start after the last
+    /// recorded cycle, and ending it earlier than it began is a row the table refuses.
     /// </para>
     /// </remarks>
     Task<int> CloseOpenIntervalsAsync(DateTimeOffset at, CancellationToken cancellationToken = default);

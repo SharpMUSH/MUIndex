@@ -7,15 +7,10 @@
 @*
     Sign-in, and the only page on this site that needs JavaScript (spec §8.2).
 
-    Passkeys and nothing else: no password to store, no address to recover to, no third party. The
-    part of passwordless that usually forces one of those back in is account recovery, and it does
-    not apply — lose every device and the way back is to publish a fresh token on the game you
-    control, because the root of trust is the server rather than the credential.
-
-    That also means an account here is worth almost nothing to steal, which is the design working
-    rather than a shortcut: taking one gets you the ability to answer some hand-typed descriptions on
-    games whose real owner takes them back in a single probe — and no measurement at all, because no
-    form on this site reaches one.
+    Passkeys and nothing else: no password to store, no address to recover to, no third party.
+    Recovery from losing every device is to publish a fresh token on the game you control, since the
+    root of trust is the server rather than the credential — which also means an account here is
+    worth almost nothing to steal.
 *@
 
 <SitePreview Title="@L("account.signIn.title")" Data="false"
@@ -33,12 +28,8 @@ else
     <section class="prose auth">
         <h1>@L("account.signIn.title")</h1>
 
-        @*
-            The lead is bold and is its own sentence, rather than one word emphasised inside a
-            longer one. A <strong> in the middle of a sentence is a sentence a translator cannot
-            move: the emphasised word lands in a different place in most languages and in no place
-            at all in some. This is the same split AboutPoint makes, for the same reason.
-        *@
+        @* The lead is its own sentence rather than one word emphasised inside a longer one — a
+           <strong> mid-sentence is a sentence a translator cannot move. Same split AboutPoint makes. *@
         <p>
             <strong>@L("account.signIn.passkey.lead")</strong> @L("account.signIn.passkey.body")
         </p>

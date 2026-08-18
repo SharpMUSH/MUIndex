@@ -11,17 +11,11 @@ public sealed record ArchiveSweep(int Considered, int Archived)
 /// of it the moment they answer again (spec §7.4, §7.5).
 /// </summary>
 /// <remarks>
-/// <para>
-/// Archiving is a presentation change and never a deletion. An archived game keeps its page, its URL,
-/// its history and its change feed; it keeps being probed at the weekly floor for ever; and one
-/// successful probe restores it with no human on either side of the transition. That last property is
-/// the one no incumbent directory managed, so it is worth stating twice.
-/// </para>
-/// <para>
-/// The threshold is <see cref="ArchivePolicy"/>'s and is never recomputed here. This class decides
-/// <em>how long a game has been dark</em> and <em>how much reachable time it has earned</em>, and
-/// then asks.
-/// </para>
+/// Archiving is a presentation change, never a deletion: an archived game keeps its page, its URL,
+/// its history and its change feed, keeps being probed at the weekly floor, and one successful probe
+/// restores it with no human on either side.
+/// The threshold is <see cref="ArchivePolicy"/>'s and is never recomputed here — this class only
+/// decides how long a game has been dark and how much reachable time it has earned, then asks.
 /// </remarks>
 public sealed class ArchiveSweeper(
     IGameStore games,
@@ -41,16 +35,12 @@ public sealed class ArchiveSweeper(
 
         foreach (var game in candidates)
         {
-            // An exclusion is a judgement a person made and only a person undoes. Without this, the
-            // first time an excluded dev instance went dark the sweeper would move it to `archived`
-            // and the next probe that answered would restore it to `active` — the decision discarded
-            // by two automatic steps, neither of which knew it existed.
-            //
-            // An unlisting is somebody else's decision and is skipped for the same reason. It is
-            // rarely reached — a game that opted out writes no availability transition at all, so it
-            // has no open unreachable interval to be archived on — but a game that had already gone
-            // dark before its owner asked does, and archiving that one would replace "they asked" with
-            // "it stopped answering" in the one column the listing reads.
+            // An exclusion is a judgement a person made and only a person undoes — otherwise the
+            // sweeper archives it and the next answering probe restores it, discarding the decision
+            // without either automatic step knowing it existed. An unlisting is skipped for the same
+            // reason: a game that had already gone dark before its owner asked would otherwise get
+            // archived, replacing "they asked" with "it stopped answering" in the column the listing
+            // reads.
             if (game.State is LifecycleState.Excluded or LifecycleState.Unlisted)
             {
                 continue;
@@ -78,14 +68,13 @@ public sealed class ArchiveSweeper(
     {
         var game = await games.ByIdAsync(gameId, cancellationToken);
 
-        // An unlisted game is relisted by a probe too, and that is safe by construction rather than
-        // by a check here: an opted-out address is refused before the dial (§11), so a probe that
-        // answered is proof that no opt-out stands on it any more. It is what makes the exit an
-        // operator can work alone — delete the TXT record, be dialled again within a week on §7.4's
-        // floor — bring the listing back with the crawl, rather than leaving them to ask us twice.
+        // An unlisted game is relisted by a probe too — safe by construction, not by a check here: an
+        // opted-out address is refused before the dial (§11), so an answering probe proves no opt-out
+        // stands. This lets an operator delete the TXT record and be relisted by the crawl alone,
+        // rather than having to ask us twice.
         //
-        // `Excluded` is deliberately not in this list. That one is our judgement about what the
-        // thing is, and a socket answering was never evidence against it.
+        // `Excluded` is deliberately not in this list — that's our judgement, and a socket answering
+        // was never evidence against it.
         if (game is null || game.State is not (LifecycleState.Archived or LifecycleState.Unlisted))
         {
             return false;
@@ -110,10 +99,9 @@ public sealed class ArchiveSweeper(
     {
         var open = await availability.OpenIntervalAsync(game.Id, cancellationToken);
 
-        // A game we have never probed has no darkness to measure. Neither has one whose current
-        // interval is reachable — or degraded, which is a game whose socket answered and whose
-        // session did not finish. Archiving that would record our own probe timeout as the game's
-        // absence, which is exactly what rule 5 forbids.
+        // A game never probed, or currently reachable or degraded (socket answered, session didn't
+        // finish), has no darkness to measure — archiving it would record our own probe timeout as
+        // the game's absence (rule 5).
         if (open is not { State: AvailabilityState.Unreachable })
         {
             return false;

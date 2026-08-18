@@ -44,10 +44,9 @@ public class FacetPolarityTests
     /// A game with no value for the facet survives an exclusion, because it is not the thing excluded.
     /// </summary>
     /// <remarks>
-    /// The tempting bug is to treat "not Evennia" as "has a codebase, and it is not Evennia", which
-    /// would quietly drop every game whose codebase we never identified — turning our own gap in
-    /// measurement into a property of those games. Not identifying a codebase is a measurement, and
-    /// it is not a measurement of being Evennia.
+    /// The tempting bug: treating "not Evennia" as "has a codebase, and it is not Evennia" would
+    /// quietly drop every game whose codebase we never identified — turning our own measurement gap
+    /// into a property of those games.
     /// </remarks>
     [Test]
     public async Task AGameWithNoValueSurvivesAnExclusion()

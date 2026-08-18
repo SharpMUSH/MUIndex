@@ -9,12 +9,9 @@ namespace MUI.Web.Tests;
 /// that stopped either from working.
 /// </summary>
 /// <remarks>
-/// Every selector on this page is written as a query with no path in front of it, which means
-/// <em>this page, asked differently</em>. It did not mean that: <c>&lt;base href="/"&gt;</c> came with
-/// the template, a query-only href resolves against the base rather than against the current
-/// document, and so all five range links and the plain-text link on every page went to the home page.
-/// Nothing caught it because nothing had ever asserted where a link <em>goes</em>, only that it is
-/// there.
+/// Every selector on this page is a query with no path in front of it, meaning <em>this page, asked
+/// differently</em>. With <c>&lt;base href="/"&gt;</c> in the template, a query-only href instead
+/// resolved against the base, sending every range link and the plain-text link to the home page.
 /// </remarks>
 public class TrendSelectorTests
 {
@@ -28,8 +25,7 @@ public class TrendSelectorTests
         await Assert.That(page).DoesNotContain("<base ")
             .Because("a base element resolves '?from=…' against itself and lands on the home page");
 
-        // And the head's own assets are absolute, which is what a page can only rely on once the
-        // base is gone: a relative "app.css" under /g/aardwolf asks for /g/app.css.
+        // A relative "app.css" under /g/aardwolf would ask for /g/app.css.
         foreach (var asset in new[] { "favicon.svg", "favicon.ico", "apple-touch-icon.png", "site.webmanifest" })
         {
             await Assert.That(page).Contains($"href=\"/{asset}\"");
@@ -39,9 +35,6 @@ public class TrendSelectorTests
     [Test]
     public async Task EachSelectorKeepsWhatTheOtherOneChose()
     {
-        // A reader on the columns who asks for a year should get a year of columns, and a reader who
-        // switches shape should keep the range they were looking at. Otherwise every click resets
-        // half of what they had.
         await using var site = await SiteHost.StartAsync();
 
         var page = await site.Client.GetStringAsync("/g/aardwolf?from=2026-01-01&to=2026-03-31&chart=bar");
@@ -76,15 +69,13 @@ public class TrendSelectorTests
     [Test]
     public async Task AShapeNobodyOffersIsTheLineRatherThanAnError()
     {
-        // A mistyped shape on a browsable URL is a reader's typo, not a fault — the same choice the
-        // ranking window makes, and the selector then shows which shape they actually got.
+        // A mistyped shape on a browsable URL is a reader's typo, not a fault.
         await Assert.That(TrendShapes.Parse(null)).IsEqualTo(TrendShape.Line);
         await Assert.That(TrendShapes.Parse("")).IsEqualTo(TrendShape.Line);
         await Assert.That(TrendShapes.Parse("pie")).IsEqualTo(TrendShape.Line);
         await Assert.That(TrendShapes.Parse("BAR")).IsEqualTo(TrendShape.Bar);
         await Assert.That(TrendShapes.Parse("bars")).IsEqualTo(TrendShape.Bar);
 
-        // Round trip, so a link this page writes is a link it can read back.
         await Assert.That(TrendShapes.Parse(TrendShape.Bar.Slug())).IsEqualTo(TrendShape.Bar);
         await Assert.That(TrendShapes.Parse(TrendShape.Line.Slug())).IsEqualTo(TrendShape.Line);
     }

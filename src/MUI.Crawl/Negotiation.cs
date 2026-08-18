@@ -4,16 +4,10 @@ namespace MUI.Crawl;
 /// What the option handshake revealed, gathered from TelnetNegotiationCore's own callbacks.
 /// </summary>
 /// <remarks>
-/// <para>
-/// This is layer 1, and it is <b>measured</b>: every entry here exists because a protocol plugin
-/// actually fired, which only happens when the server negotiated that option. Nothing is parsed out
-/// of the byte stream and nothing is inferred — the library already did the negotiating, so the
-/// honest way to learn what a server supports is to be told by the thing that agreed it.
-/// </para>
-/// <para>
-/// Contrast MSSP, where a game <em>claims</em> <c>GMCP 1</c>. Both go on the page; where they
-/// disagree, that is the interesting fact (spec §6.1).
-/// </para>
+/// This is <b>measured</b>, not parsed or inferred: an entry exists only because a protocol plugin
+/// actually fired during negotiation. Contrast MSSP, where a game merely <em>claims</em>
+/// <c>GMCP 1</c> — both are shown, and where they disagree, that disagreement is the interesting
+/// fact (spec §6.1).
 /// </remarks>
 public sealed record Negotiation
 {

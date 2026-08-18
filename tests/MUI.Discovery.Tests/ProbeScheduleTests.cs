@@ -26,10 +26,8 @@ public class ProbeScheduleTests
     [Test]
     public async Task AFirstFailureIsRecheckedSoonRatherThanBackedOffForHours()
     {
-        // The measured defect (2026-08-18): 173 of 182 dark episodes in four days were one failed
-        // probe followed immediately by a successful one, and the six-hour backoff is what turned
-        // each blip into six hours of published downtime. A single failure is a question, not an
-        // answer, so it buys a recheck rather than a retreat.
+        // A single failure is a question, not an answer, so it buys a recheck rather than the
+        // six-hour backoff.
         await Assert.That(ProbeSchedule.Next(1, null)).IsEqualTo(ProbeSchedule.RecheckInterval);
         await Assert.That(ProbeSchedule.RecheckInterval).IsEqualTo(TimeSpan.FromMinutes(10));
     }
@@ -75,9 +73,8 @@ public class ProbeScheduleTests
     [Test]
     public async Task ThereIsNoNeverInThisSchedule()
     {
-        // The named, tested state that replaces folklore about int.MaxValue. Whatever a caller passes,
-        // the answer is a finite gap: nothing here can express "stop probing this", which is why a
-        // returning game re-lists itself with no human involved (§7.4).
+        // Whatever a caller passes, the answer is a finite gap: nothing here can express "stop
+        // probing this" (§7.4).
         var everyFailureCount = new[] { 0, 1, 7, 20, 21, 1_000, int.MaxValue };
 
         foreach (var failures in everyFailureCount)
@@ -108,10 +105,8 @@ public class ProbeScheduleTests
     [Test]
     public async Task AServerAskingForLongerThanTheCeilingGetsIt()
     {
-        // Where §7.4 (a weekly ceiling on the interval) and §11 (CRAWL DELAY is a floor) disagree, §7.7
-        // rules for politeness: the backoff is clamped first and the server's request applied
-        // afterwards, composing as max(CRAWL DELAY, backoff). §7.4's point is that we never give up,
-        // not that we override the operator whose machine we are dialling.
+        // Where §7.4 (weekly ceiling) and §11 (CRAWL DELAY as floor) disagree, §7.7 rules for
+        // politeness: clamp first, then apply the server's request — max(CRAWL DELAY, backoff).
         await Assert.That(ProbeSchedule.Next(9, TimeSpan.FromDays(30))).IsEqualTo(TimeSpan.FromDays(30));
         await Assert.That(ProbeSchedule.Next(0, TimeSpan.FromDays(30))).IsEqualTo(TimeSpan.FromDays(30));
     }

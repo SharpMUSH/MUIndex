@@ -90,9 +90,7 @@ public class ReviewMergeServiceTests
     }
 
     /// <summary>
-    /// The operator's own words survive onto the log even when no review folded them in — the gap
-    /// CodeRabbit caught on PR #108: <c>because</c> was validated and then discarded the moment there
-    /// was no open review to carry it.
+    /// The operator's own words must survive onto the log even when no review folded them in.
     /// </summary>
     [Test]
     public async Task TheReasonReachesTheMergeLogWithNoOpenReview()

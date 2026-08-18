@@ -14,19 +14,11 @@ public sealed record ProbeOptions
     /// How long the server must say nothing before a phase is treated as finished.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The probe used to spend a flat three seconds waiting for the connect screen and another three
-    /// for the <c>WHO</c> reply, which is fine for one server and wrong for a fleet: it made every
-    /// probe cost six seconds whether the game answered in eighty milliseconds or not at all. Most do
-    /// answer in well under a second, so settling on a gap rather than a stopwatch is most of the
-    /// crawl budget back.
-    /// </para>
-    /// <para>
-    /// The gap is measured between <em>lines</em>, which is the only arrival signal a line-oriented
-    /// callback gives. That is sound because a server's last line lands in the same breath as its
-    /// second-to-last; what it cannot see is a trailing line the server never terminated, which is
-    /// why every phase ends by flushing one (see <see cref="TelnetProbe"/>).
-    /// </para>
+    /// Settling on a gap between <em>lines</em> rather than a flat wait means most probes finish well
+    /// under a second instead of paying a fixed cost regardless of how fast the game answers. This is
+    /// sound because a server's last line lands in the same breath as its second-to-last; what it
+    /// cannot see is a trailing line the server never terminated, which is why every phase ends by
+    /// flushing one (see <see cref="TelnetProbe"/>).
     /// </remarks>
     public TimeSpan QuietPeriod { get; init; } = TimeSpan.FromMilliseconds(500);
 
@@ -35,9 +27,8 @@ public sealed record ProbeOptions
     /// </summary>
     /// <remarks>
     /// Longer than <see cref="QuietPeriod"/> and for a different reason: a gap between lines means
-    /// the server has finished, while silence from the start means it has not begun, and a game
-    /// behind a slow link has not said no just because it has not yet said anything. A server with
-    /// no connect screen at all — measured on <c>bigdamn.com:7777</c> — pays this once.
+    /// the server has finished, while silence from the start means it has not begun. A server with
+    /// no connect screen at all pays this once.
     /// </remarks>
     public TimeSpan SilenceGrace { get; init; } = TimeSpan.FromMilliseconds(2500);
 
@@ -73,32 +64,26 @@ public sealed record ProbeOptions
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Some servers announce that they are not ready, and are then quiet for longer than a gap
-    /// between lines.</b> <c>tbamud.com:4000</c> sends <c>Attempting to Detect Client, Please
-    /// Wait...</c>, negotiates, and paints its real screen about a second and a half later. Under a
-    /// 500 ms quiet period that one placeholder line <em>was</em> the connect screen: it became the
-    /// game's stored banner and its hash became the game's identity, so two unrelated tbaMUDs
-    /// fingerprinted identically and the second was held in a duplicate review rather than listed.
-    /// A referral crawl reaching the second one is what surfaced this.
+    /// Some servers announce they are not ready and then go quiet for longer than one line-gap —
+    /// <c>tbamud.com:4000</c> sends <c>Attempting to Detect Client, Please Wait...</c>, negotiates,
+    /// and paints its real screen about 1.5s later. Under a 500ms quiet period that placeholder line
+    /// became the stored banner, and its hash became the game's identity: two unrelated tbaMUDs
+    /// fingerprinted identically, and the second was held as a duplicate rather than listed.
     /// </para>
     /// <para>
-    /// The patience is conditional on the screen being nearly empty, so it costs nothing on the
-    /// common case — a server that has already painted a real screen settles at the quiet period as
-    /// before. <see cref="MaxPhase"/> still bounds the phase either way, and a server with no
-    /// connect screen at all pays this once, like <see cref="SilenceGrace"/>.
+    /// The patience is conditional on the screen being nearly empty, so it costs nothing once a
+    /// server has already painted a real screen. <see cref="MaxPhase"/> still bounds the phase
+    /// either way, and a server with no connect screen at all pays this once, like
+    /// <see cref="SilenceGrace"/>.
     /// </para>
     /// </remarks>
     public TimeSpan BannerPatience { get; init; } = TimeSpan.FromMilliseconds(2500);
 
-    // There is deliberately no option here for the plaintext MSSP-REQUEST form. It belongs in
-    // TelnetNegotiationCore, where it is filed as issue #61, and a compensating implementation here
-    // would duplicate a first-party dependency and then have to be deleted when that lands.
-    //
-    // The measurements are in docs/codebase-survey-2026-07-30.md and they say the same thing: of
-    // twenty games asked directly, the three that answered — CoffeeMUD, NarutoMUD and Riftforge —
-    // all answer telnet option 70 as well, so the plaintext form reached nothing the option did not.
-    // Eight others read the request as a character name and spent one of a stranger's login attempts
-    // on it.
+    // Deliberately no option here for the plaintext MSSP-REQUEST form — it belongs in
+    // TelnetNegotiationCore, and a compensating implementation here would duplicate a first-party
+    // dependency and then have to be deleted once that lands. Every surveyed game that answered the
+    // plaintext form also answered telnet option 70, so it reached nothing extra; several others read
+    // the bare request as a character name and burned a login attempt on it.
 
     /// <summary>
     /// Ceiling on a single subnegotiation payload, handed to TelnetNegotiationCore's
@@ -106,15 +91,14 @@ public sealed record ProbeOptions
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Deliberately well below the library's 1 MiB default. A real MSSP report is a few kilobytes —
-    /// the specification's whole official vocabulary is 45 variables — so 128 KiB is roughly two
-    /// orders of magnitude of headroom for anything legitimate, while bounding what a hostile or
-    /// broken server can make us allocate. A crawler connects to servers it does not trust by
-    /// definition, which is precisely the case the library's own release notes call out.
+    /// Deliberately well below the library's 1 MiB default: a real MSSP report is a few kilobytes
+    /// (the spec's whole vocabulary is 45 variables), so this is roughly two orders of magnitude of
+    /// headroom for anything legitimate while bounding what a hostile or broken server can make us
+    /// allocate.
     /// </para>
     /// <para>
     /// At the ceiling the report is <b>dropped, not truncated</b>, and surfaces as
-    /// <see cref="MsspOutcome.RejectedTooLarge"/>. That must never be recorded as an absent report.
+    /// <see cref="MsspOutcome.RejectedTooLarge"/> — never recorded as an absent report.
     /// </para>
     /// </remarks>
     public int MaxSubnegotiationBytes { get; init; } = 128 * 1024;
@@ -124,16 +108,14 @@ public sealed record ProbeOptions
     /// </summary>
     /// <remarks>
     /// <para>
-    /// An admin reading their logs must be able to find out who we are and how to opt out, so this
-    /// is a politeness obligation rather than a cosmetic string. It carries a URL for the same
-    /// reason.
+    /// An admin reading their logs must be able to find out who we are and how to opt out — a
+    /// politeness obligation, not a cosmetic string.
     /// </para>
     /// <para>
-    /// The list is passed verbatim to <c>TerminalTypeProtocol.WithTerminalTypes</c>, which controls
-    /// the sequence of TTYPE responses. Per MTTS convention the first entry is the client name, the
-    /// second is the terminal type, and the third is the MTTS bitvector. The first entry is also
-    /// passed to <c>WithClientIdentity</c>, which feeds the MNES <c>CLIENT_NAME</c> variable that
-    /// <c>NewEnvironProtocol</c> answers when a server asks.
+    /// Passed verbatim to <c>TerminalTypeProtocol.WithTerminalTypes</c>. Per MTTS convention the
+    /// first entry is the client name, the second the terminal type, the third the MTTS bitvector.
+    /// The first entry also feeds <c>WithClientIdentity</c>, which answers the MNES
+    /// <c>CLIENT_NAME</c> variable.
     /// </para>
     /// </remarks>
     public IReadOnlyList<string> TerminalTypes { get; init; } =
@@ -141,18 +123,11 @@ public sealed record ProbeOptions
 
     /// <summary>Where an admin can read what we do and ask us to stop.</summary>
     /// <remarks>
-    /// <para>
-    /// A placeholder domain, and it <b>stays</b> one now that §15.1 is settled. Compiling this
-    /// deployment's address in would make every fork and every local run announce our contact page to
-    /// the servers it dials, which is a claim about somebody else's crawl in exactly the shape of the
-    /// <c>ContactedMaintainer</c> defect: the real address is a thing a deployment says
-    /// (<c>MUI_CRAWL_INFO_URL</c>), never a default it inherits.
-    /// </para>
-    /// <para>
-    /// A deployment that leaves this alone is publishing an address that answers nobody, and
-    /// <c>/about</c> compares against this default and says so on the page rather than letting it
-    /// pass.
-    /// </para>
+    /// A placeholder, and it stays one: compiling this deployment's address in would make every fork
+    /// and local run announce our contact page to servers it dials — a claim about somebody else's
+    /// crawl, in the same shape as the <c>ContactedMaintainer</c> defect. The real address is a thing
+    /// a deployment says (<c>MUI_CRAWL_INFO_URL</c>), never a default it inherits. <c>/about</c>
+    /// compares against this default and says so on the page rather than letting it pass silently.
     /// </remarks>
     public string InfoUrl { get; init; } = "https://muindex.example/crawler";
 
@@ -161,8 +136,8 @@ public sealed record ProbeOptions
     /// <see cref="InfoUrl"/> is the one setting here that <em>somebody else</em> reads — an admin who
     /// has just been dialled and wants to know by whom. A malformed one is not a degraded crawl but a
     /// crawl that cannot be complained to, so it is refused while a person is still watching the
-    /// terminal rather than announced to a stranger's server for the next six months. The scheme is
-    /// pinned because we hand this address to a reader who has no way to check what they are opening.
+    /// terminal. The scheme is pinned since we hand this address to a reader with no way to check
+    /// what they're opening.
     /// </remarks>
     public void Validate()
     {

@@ -9,16 +9,14 @@ namespace MUI.Catalog.Persistence;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The order is the safety property.</b> Retention runs last and never past what the rollups have
-/// consumed, so a pass whose rollup step failed cannot go on to drop the raw rows the rollup was
-/// supposed to read. §5.2 permits raw samples to be dropped "only after [they have] been aggregated
-/// into something that outlives [them]", and that word <em>after</em> is enforced here by a watermark
-/// rather than by the order the statements happen to be written in.
+/// <b>The order is the safety property.</b> Retention runs last and never past what the rollups
+/// have consumed, so a pass whose rollup step failed cannot go on to drop the raw rows the rollup
+/// was supposed to read. §5.2's "only after aggregated into something that outlives it" is enforced
+/// here by a watermark, not by statement order.
 /// </para>
 /// <para>
-/// <b>Nothing in here decides how long anything is kept.</b> That is <see cref="PresenceRetentionOptions"/>,
-/// whose defaults keep everything, because §15.4 is an open question and a deletion is the wrong way
-/// to be wrong about one.
+/// Nothing in here decides how long anything is kept — that is
+/// <see cref="PresenceRetentionOptions"/>, whose defaults keep everything.
 /// </para>
 /// </remarks>
 public sealed class PresenceMaintenance(
@@ -76,14 +74,11 @@ public sealed class PresenceMaintenance(
     /// be contradicted by the rest of it, and the raw rows are still there to be read next pass.
     /// </para>
     /// <para>
-    /// <b>Each grain resumes from its own watermark, and this is the part that deletes data if it is
-    /// wrong.</b> The two aggregations are separate statements, so a restart, a cancellation or a
-    /// transient error between them leaves the hours rolled and the days not. A daily pass that then
-    /// resumed from the <em>hourly</em> watermark would skip everything older than the overlap, write
-    /// its own watermark as though it had read it, and let retention drop the raw months behind it —
-    /// and the grain §5.2 keeps for ever would be permanently missing, with the only other copy gone.
-    /// Measured, by <c>EachGrainResumesFromItsOwnWatermarkAndNotFromTheHourly</c>, which produced six
-    /// hours of history and one day of it before this read its own mark.
+    /// <b>Each grain resumes from its own watermark — this is the part that deletes data if it is
+    /// wrong.</b> The two aggregations are separate statements, so an interruption between them can
+    /// leave hours rolled and days not. A daily pass that resumed from the <em>hourly</em> watermark
+    /// would skip everything older than the overlap, mark itself as having read it, and let
+    /// retention drop the raw months behind it — permanently losing the grain §5.2 keeps for ever.
     /// </para>
     /// </remarks>
     public async Task<PresenceMaintenanceReport> RollUpAsync(

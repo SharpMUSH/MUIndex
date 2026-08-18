@@ -15,10 +15,7 @@ public enum OwnerOptOutVerdict
     /// <summary>
     /// The game has no endpoint on record, so there is no address to stop dialling.
     /// </summary>
-    /// <remarks>
-    /// Said out loud rather than reported as success. An opt-out that silently covered nothing is
-    /// the worst possible answer to this particular request: the owner believes we have stopped.
-    /// </remarks>
+    /// <remarks>Reported rather than silently treated as success — the owner must not believe we stopped when there was nothing to stop.</remarks>
     NoAddresses,
 }
 
@@ -36,27 +33,14 @@ public sealed record OwnerOptOutOutcome(OwnerOptOutVerdict Verdict, int Addresse
 /// §11's opt-out, asked for by the one person who does not have to be taken on trust (spec §8.5).
 /// </summary>
 /// <remarks>
-/// <para>
-/// §11 gives three routes and the site shipped two of them reachable: MSSP and DNS are answered by
-/// the game itself, and the third — a recorded request — could only be entered with the crawler CLI.
-/// That left the operator who had already proved they run the game unable to ask through the
-/// interface built for them, while the two self-serve routes required editing a config file or a
-/// zone. This is that third route, for a caller whose claim is verified.
-/// </para>
-/// <para>
-/// <b>Scoped to the game's own listeners, one record per address, never to the whole host.</b> This
-/// is the part worth being careful about. <see cref="CrawlOptOut"/> takes a null port to mean every
-/// port on a host, and a shared machine — a hosting provider, a hobbyist running four games on one
-/// box — would then have three other games delisted by one owner's button. An owner may speak for
-/// the ports their game answers on and for nothing else, so the addresses come from the endpoints we
-/// measured for that game and each gets its own row.
-/// </para>
-/// <para>
-/// The detail records who asked, as <see cref="OptOutSource.Request"/> requires. It is a real claim
-/// rather than a defaulted one: the account named held a verified claim on the game at the moment
-/// the button was pressed, which is exactly what the <c>ContactedMaintainer</c> defect in this
-/// repository's history did not have.
-/// </para>
+/// The third of §11's three opt-out routes (MSSP and DNS are the other two, answered by the game
+/// itself) — for a caller whose ownership claim is verified.
+/// <b>Scoped to the game's own listeners, one record per address, never to the whole host.</b>
+/// <see cref="CrawlOptOut"/> takes a null port to mean every port on a host, and a shared machine
+/// would then have unrelated games delisted by one owner's button — so addresses come from the
+/// endpoints measured for that specific game, each its own row.
+/// The detail records who asked (<see cref="OptOutSource.Request"/>) as a real, verified claim, not
+/// a defaulted one — unlike the <c>ContactedMaintainer</c> defect elsewhere in this repository's history.
 /// </remarks>
 public sealed class OwnerOptOut(
     IGameQueries queries,
@@ -66,10 +50,8 @@ public sealed class OwnerOptOut(
 {
     /// <summary>Whether we are currently honouring an opt-out for this game, and by which route.</summary>
     /// <remarks>
-    /// Reads every address rather than the first: a game whose TLS port was opted out and whose plain
-    /// port was not is in neither state, and a control rendered off one of the two would be lying
-    /// about the other. <see cref="OwnerOptOutState.Partial"/> is that case, and it is shown rather
-    /// than rounded to the friendlier neighbour.
+    /// Reads every address, not just the first: a game partially opted out (<see cref="OwnerOptOutState.Partial"/>)
+    /// is shown as such, not rounded to the friendlier neighbour.
     /// </remarks>
     public async Task<OwnerOptOutState> StateAsync(Guid gameId, CancellationToken cancellationToken = default)
     {
@@ -142,10 +124,7 @@ public sealed class OwnerOptOut(
     /// <summary>
     /// The addresses this game answers on, deduplicated.
     /// </summary>
-    /// <remarks>
-    /// Read from the endpoints we measured rather than from anything the owner typed, so that the
-    /// button can only ever cover addresses this crawler has actually dialled for this game.
-    /// </remarks>
+    /// <remarks>Read from the endpoints we measured, not from anything the owner typed, so the button can only cover addresses this crawler has actually dialled for this game.</remarks>
     private async Task<IReadOnlyList<(string Host, int Port)>> AddressesAsync(
         Guid gameId,
         CancellationToken cancellationToken)
@@ -155,12 +134,9 @@ public sealed class OwnerOptOut(
             return [];
         }
 
-        // Current addresses only. An address a game has LEFT may already be answering for somebody
-        // else — that is what a host with a spare port is for — and opting out on this owner's
-        // say-so would then stop us dialling a game they have nothing to do with. It is the same
-        // harm the whole-host shortcut would have caused, arriving by way of a stale row instead.
-        // The departed endpoint stays on the page, where it belongs (§7.5); it is simply not
-        // something this owner still speaks for.
+        // Current addresses only. An address a game has LEFT may already answer for somebody else,
+        // and opting out on this owner's say-so would stop us dialling a game unrelated to them. The
+        // departed endpoint stays on the page (§7.5); this owner just no longer speaks for it.
         return [.. page.Endpoints
             .Where(e => e.IsCurrent)
             .Select(e => (e.Host, e.Port))
@@ -189,11 +165,7 @@ public sealed record OwnerOptOutState(
     /// <summary>
     /// Whether every standing rule came from a recorded request, and so can be taken back here.
     /// </summary>
-    /// <remarks>
-    /// An MSSP field or a TXT record is the game still saying stop on every probe. The dashboard does
-    /// not offer to overrule it: the way to take one of those back is to stop publishing it, and a
-    /// button here that appeared to would be claiming an authority this side does not have.
-    /// </remarks>
+    /// <remarks>An MSSP field or TXT record is the game itself saying stop on every probe; the dashboard doesn't offer to overrule it, only to withdraw a recorded request.</remarks>
     public bool WithdrawableHere =>
         Stopped.Count > 0 && Standing.All(rule => rule.Source is OptOutSource.Request);
 }

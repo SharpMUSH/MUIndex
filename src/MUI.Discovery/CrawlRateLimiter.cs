@@ -5,16 +5,12 @@ namespace MUI.Discovery;
 /// connections to the same host.
 /// </summary>
 /// <remarks>
+/// Deliberately not a timer or queue: <see cref="DelayBefore"/> answers how long until a host may be
+/// dialled, and <see cref="RecordStart"/> records that it was — a test can drive an injected
+/// <see cref="TimeProvider"/> and read the answers back instead of sleeping for real.
 /// <para>
-/// Deliberately not a timer, a queue, or anything that sleeps on your behalf. It answers one question —
-/// <see cref="DelayBefore"/>, how long from now until this host may be dialled — and records one fact —
-/// <see cref="RecordStart"/>, it just was. That separation is what makes the limit assertable: a test
-/// drives an injected <see cref="TimeProvider"/> and reads the answers back, instead of sleeping for
-/// the interval and hoping the machine agreed.
-/// </para>
-/// <para>
-/// The third limit, how many connections may be open at once, is not here. It is a semaphore in the
-/// crawl loop, because it is a fact about connections in flight rather than about time.
+/// The third limit — how many connections may be open at once — lives in the crawl loop as a
+/// semaphore; it's a fact about connections in flight, not about time.
 /// </para>
 /// </remarks>
 public sealed class CrawlRateLimiter(DiscoveryOptions options, TimeProvider time)
@@ -36,10 +32,9 @@ public sealed class CrawlRateLimiter(DiscoveryOptions options, TimeProvider time
     }
 
     /// <summary>
-    /// Stamps a connection as starting now, against both limits. Called when the connection is
-    /// <em>started</em>, never when it finishes: stamping on completion would let a burst of slow
-    /// connections all start together and would make the effective rate depend on how fast the servers
-    /// answered, which is the opposite of a rate limit.
+    /// Stamps a connection as starting now, against both limits. Must be called on start, not on
+    /// completion — stamping on completion would let a burst of slow connections all start together,
+    /// making the effective rate depend on server response time instead of bounding it.
     /// </summary>
     public void RecordStart(string host)
     {
@@ -52,9 +47,8 @@ public sealed class CrawlRateLimiter(DiscoveryOptions options, TimeProvider time
     }
 
     /// <summary>
-    /// Waits out <see cref="DelayBefore"/> and then stamps the start, re-checking after each wait — two
-    /// workers told to wait one second would otherwise both start at the end of it and halve the global
-    /// interval.
+    /// Waits out <see cref="DelayBefore"/> then stamps the start, re-checking after each wait so two
+    /// workers told to wait the same duration don't both start at the end of it and halve the interval.
     /// </summary>
     public async Task WaitForTurnAsync(string host, CancellationToken cancellationToken)
     {

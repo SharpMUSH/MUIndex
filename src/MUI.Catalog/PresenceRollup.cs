@@ -14,18 +14,12 @@ public enum PresenceGrain
 /// What one bucket of presence samples added up to (spec §5.2), with §5.4's three states intact.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>The tally is kept and the conclusion is not.</b> <see cref="CountedSamples"/> and
-/// <see cref="UnmeasurableSamples"/> are counts of probes, not of players, and they are separate
-/// because an hour that was probed twice and could not be counted either time is a different fact
-/// from an hour in which nobody was logged in. <see cref="MinCount"/>, <see cref="MaxCount"/> and
-/// <see cref="MeanCount"/> are over the counted samples alone and are <c>null</c> when there were
-/// none — a rollup never answers "how many players" with a zero it inferred.
-/// </para>
-/// <para>
-/// The third state has no representation here on purpose: an hour nobody measured is the
-/// <b>absence</b> of one of these, exactly as it is the absence of a <see cref="PresenceSample"/>.
-/// </para>
+/// <see cref="CountedSamples"/> and <see cref="UnmeasurableSamples"/> are counts of probes, not
+/// players, kept separate because an hour probed twice and uncountable both times is a different
+/// fact from an hour with nobody logged in. <see cref="MinCount"/>, <see cref="MaxCount"/> and
+/// <see cref="MeanCount"/> are over counted samples alone and are <c>null</c> when there are none —
+/// never a zero inferred. The third state (unmeasured) has no representation here: it is the
+/// absence of a rollup, exactly as it is the absence of a <see cref="PresenceSample"/>.
 /// </remarks>
 public sealed record PresenceRollup
 {
@@ -65,16 +59,9 @@ public sealed record PresenceRollup
 /// Rolled-up presence over a window, for the read side (spec §10's time series).
 /// </summary>
 /// <remarks>
-/// <para>
-/// A read port rather than the whole store, because publishing a series needs one method and the
-/// store also writes, rolls up, sets watermarks and drops partitions — none of which an API route
-/// should be one mistaken injection away from.
-/// </para>
-/// <para>
-/// <b>A bucket nobody measured is absent, never a zero.</b> That is the same rule
-/// <see cref="PresenceRollup"/> keeps and the same one §5.4's third state keeps: a series that
-/// filled its gaps in would be publishing our crawl schedule as though it were their quiet hours.
-/// </para>
+/// A read port rather than the whole store, so an API route is never one mistaken injection away
+/// from the write/rollup/watermark/partition-drop surface. A bucket nobody measured is absent,
+/// never a zero — filling gaps in would publish our crawl schedule as their quiet hours.
 /// </remarks>
 public interface IPresenceSeries
 {
@@ -91,20 +78,13 @@ public interface IPresenceSeries
 /// How long measured presence is kept, at each of the three grains (spec §5.2, §15.4).
 /// </summary>
 /// <remarks>
+/// Configuration, not a literal: §15.4 leaves the retention policy explicitly open, and a constant
+/// in source would settle by accident a question the design didn't. §5.2's stated shape (raw ninety
+/// days, hourly two years, daily for ever) is available as <see cref="AsDesigned"/>.
 /// <para>
-/// Configuration and not a literal, for the same reason <c>DatasetLicenceOptions</c> is: §15.4
-/// leaves the retention policy — and the salt rotation period beside it — explicitly open, and a
-/// constant in the source would settle by accident a question the design deliberately did not. §5.2
-/// does state a shape (raw ninety days, hourly two years, daily for ever), and
-/// <see cref="AsDesigned"/> is exactly that shape, one line of configuration away.
-/// </para>
-/// <para>
-/// <b>The default keeps everything.</b> §5.2 authorises dropping raw samples once they have been
-/// aggregated, and §15.4 says the period is unsettled, and §15.3 — the cost envelope that would bound
-/// it — is unsettled too. Between an unsettled number and a deletion, the conservative default is to
-/// delete nothing and let a deployment that has measured its own storage say when to start. Turning
-/// retention on later costs one setting; turning it on too early costs data that cannot be measured
-/// again.
+/// The default keeps everything. Between an unsettled retention period and a deletion, the
+/// conservative default is to delete nothing — turning retention on later costs one setting; turning
+/// it on too early costs data that cannot be measured again.
 /// </para>
 /// </remarks>
 public sealed record PresenceRetentionOptions
@@ -113,29 +93,18 @@ public sealed record PresenceRetentionOptions
     /// §5.2's heatmap window, and the floor under any raw retention.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The floor no longer exists because the graphic needs the raw rows. The heatmap reads the
-    /// hourly rollup below the rollup watermark and raw samples above it, so dropping a raw month
-    /// the rollup has already consumed now costs the grid nothing — which is what §5.2 promised and
-    /// what this floor was standing in for until the reader existed.
-    /// </para>
-    /// <para>
-    /// It is kept because <b>the rollup is the only copy left once raw goes</b>, and a rollup pass
-    /// that has been failing quietly is discovered late. Keeping the window's worth of raw means the
-    /// grid can be rebuilt from source after such a fault rather than being whatever the last good
-    /// pass wrote. A deployment that wants to go lower is choosing to trust its rollup, and the
-    /// short-window readers beside the graphic — the seven-day rankings median, which needs the
-    /// distribution the rollup does not keep, and the digest's this-week tallies — set the real
-    /// hard floor well below this one.
-    /// </para>
+    /// Kept as a floor because the rollup is the only copy left once raw goes, and a rollup pass
+    /// failing quietly is discovered late — keeping the window's worth of raw means the grid can be
+    /// rebuilt from source after such a fault. A deployment that wants to go lower is choosing to
+    /// trust its rollup.
     /// </remarks>
     public static readonly TimeSpan HeatmapWindow = TimeSpan.FromDays(56);
 
     /// <summary>How long raw <c>presence_sample</c> rows are kept. <c>null</c> is for ever.</summary>
     /// <remarks>
     /// Enforced by dropping whole monthly partitions, never by deleting rows, and never ahead of the
-    /// rollup: a partition is dropped only once every hour in it has been aggregated into something
-    /// that outlives it. A month is therefore kept for up to a month longer than this asks.
+    /// rollup — a partition drops only once every hour in it has been aggregated. A month is
+    /// therefore kept for up to a month longer than this asks.
     /// </remarks>
     public TimeSpan? RawSamples { get; init; }
 
@@ -143,9 +112,9 @@ public sealed record PresenceRetentionOptions
     public TimeSpan? HourlyRollups { get; init; }
 
     /// <summary>
-    /// How long daily rollups are kept. <c>null</c> is for ever, and for ever is what §5.2 says: the
-    /// daily rollup is the copy everything else is allowed to be dropped in favour of. A deployment
-    /// that sets this is departing from the design, which is why the floor below it is a year.
+    /// How long daily rollups are kept. <c>null</c> (for ever) is what §5.2 designs for — it's the
+    /// copy everything else may be dropped in favour of. Setting this departs from the design; the
+    /// floor below it is a year.
     /// </summary>
     public TimeSpan? DailyRollups { get; init; }
 
@@ -153,10 +122,9 @@ public sealed record PresenceRetentionOptions
     /// How many months of raw partitions to keep ahead of the current one.
     /// </summary>
     /// <remarks>
-    /// The raw table has no <c>DEFAULT</c> partition (migration 0003), so a month without one is an
-    /// insert error. <see cref="Persistence.NpgsqlPresenceStore"/> makes the month before every append
-    /// as well; this exists so that a calendar rollover is never the first thing to discover a
-    /// database the maintenance pass could not reach.
+    /// The raw table has no <c>DEFAULT</c> partition, so a month without one is an insert error.
+    /// This exists so a calendar rollover is never the first thing to discover a maintenance pass
+    /// that couldn't reach the database.
     /// </remarks>
     public int MonthsOfPartitionsAhead { get; init; } = 2;
 
@@ -164,10 +132,9 @@ public sealed record PresenceRetentionOptions
     /// How far back before the watermark each pass re-aggregates.
     /// </summary>
     /// <remarks>
-    /// A sample can land after its own hour has been rolled up — a probe that finished slowly, a
-    /// replica whose clock is behind. Re-reading a few hours costs a bounded query over the newest
-    /// partition and means a late row is folded in rather than lost, because the rollup is an upsert
-    /// and re-aggregating an hour produces the same row twice.
+    /// A sample can land after its own hour was rolled up (a slow probe, a lagging clock). The
+    /// rollup is an upsert, so re-aggregating an hour is idempotent — a late row is folded in rather
+    /// than lost.
     /// </remarks>
     public TimeSpan RollupOverlap { get; init; } = TimeSpan.FromHours(3);
 
@@ -176,12 +143,9 @@ public sealed record PresenceRetentionOptions
     /// set it.
     /// </summary>
     /// <remarks>
-    /// <b>The one default here that deletes rather than keeps.</b> Every other retention on this
-    /// record defaults to keeping everything, because a measurement not taken cannot be taken again.
-    /// A probe shape is not a measurement — it is the evidence a measurement was read out of, its
-    /// value is entirely "can the new parser still read last fortnight's replies", and that value is
-    /// gone within a release cycle. Between an unsettled number and a deletion the conservative
-    /// choice for a measurement is to keep and for this is to drop.
+    /// The one default here that deletes rather than keeps: a probe shape is not a measurement, it's
+    /// the evidence a measurement was read out of, and its value ("can the new parser still read
+    /// last fortnight's replies") is gone within a release cycle.
     /// </remarks>
     public TimeSpan? ProbePayloads { get; init; } = TimeSpan.FromDays(14);
 
@@ -190,19 +154,16 @@ public sealed record PresenceRetentionOptions
     /// for ever.
     /// </summary>
     /// <remarks>
-    /// The second default here that deletes, and for the same reason as the first: a cycle report is
-    /// a fact about <em>our</em> crawler and never a measurement of anybody's game, so the rule that
-    /// makes deletion unthinkable elsewhere does not reach it. Thirty days rather than a fortnight
-    /// because the question it answers — "has this instrument been running?" — is one somebody asks
-    /// about last month, and two cycles a minute is a row count Postgres does not notice.
+    /// Deletes for the same reason <see cref="ProbePayloads"/> does: a cycle report is a fact about
+    /// our crawler, never a measurement of anybody's game. Thirty days because "has this instrument
+    /// been running" is a question asked about last month.
     /// </remarks>
     public TimeSpan? CrawlCycles { get; init; } = TimeSpan.FromDays(30);
 
     /// <summary>The retention §5.2 designed: raw ninety days, hourly two years, daily for ever.</summary>
     /// <remarks>
-    /// Available as a preset rather than as the default, because §15.4 is open and the shape being
-    /// written down is not the same as the number having been validated against a real deployment's
-    /// storage. Ship conservative and tune.
+    /// A preset, not the default: §15.4 is open, and writing the shape down isn't the same as
+    /// validating it against a real deployment's storage. Ship conservative and tune.
     /// </remarks>
     public static PresenceRetentionOptions AsDesigned { get; } = new()
     {
@@ -226,9 +187,8 @@ public sealed record PresenceRetentionOptions
             throw new ArgumentException("The rollup overlap reaches backwards and cannot be negative.");
         }
 
-        // A negative TTL puts the sweep's cutoff in the future, which would delete the shapes taken
-        // moments ago and leave the old ones. The failure of every other setting here is keeping too
-        // much; this one's is deleting the newest evidence there is.
+        // A negative TTL puts the sweep's cutoff in the future, deleting the shapes taken moments
+        // ago and leaving the old ones.
         if (ProbePayloads < TimeSpan.Zero)
         {
             throw new ArgumentException(
@@ -255,8 +215,7 @@ public sealed record PresenceRetentionOptions
 
 /// <summary>What one maintenance pass did.</summary>
 /// <remarks>
-/// Every number here is a count of things that happened, so a log line from a deployment answers "is
-/// the rollup keeping up" and "did retention drop anything" without a query.
+/// A log line answers "is the rollup keeping up" and "did retention drop anything" without a query.
 /// </remarks>
 public sealed record PresenceMaintenanceReport(
     int PartitionsCreated,

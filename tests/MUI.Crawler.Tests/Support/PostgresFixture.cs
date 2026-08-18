@@ -14,24 +14,12 @@ namespace MUI.Crawler.Tests.Support;
 /// One PostgreSQL 17 container for the whole suite, and a fresh database per test.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A real database rather than a fake, because half of what this pipeline must obey is written in
-/// <c>CHECK</c> constraints — the three presence states, the availability vocabulary, "at most one
-/// open interval per game", "a crawl target's host is canonical" — and a cycle asserted only against
-/// in-memory dictionaries has not been tested against the thing that enforces them.
-/// </para>
-/// <para>
-/// Where no container runtime is available the tests <b>skip</b>, loudly and by name. A green suite
-/// that never touched Postgres would be worse than an honestly skipped one. Set
-/// <c>MUI_TEST_POSTGRES</c> to use a database you already have, and Testcontainers reads
-/// <c>DOCKER_HOST</c>, so a rootless Podman socket works as well as Docker.
-/// </para>
-/// <para>
-/// <b>This is a copy of <c>MUI.Catalog.Tests</c>' fixture, and the duplication is deliberate rather
-/// than accidental.</b> Referencing that project would pull its source-generated tests into this
-/// assembly and run the storage suite twice. The right fix is a small shared testing project; until
-/// there is one, the two must be kept in step.
-/// </para>
+/// A real database rather than a fake, since half of what this pipeline must obey is written in
+/// <c>CHECK</c> constraints, not asserted in code. Where no container runtime is available the tests
+/// <b>skip</b>, loudly and by name — a green suite that never touched Postgres would be worse than an
+/// honestly skipped one. Set <c>MUI_TEST_POSTGRES</c> to use a database you already have.
+/// This is a deliberate copy of <c>MUI.Catalog.Tests</c>' fixture (referencing that project would run
+/// its storage suite twice); keep the two in step until there's a shared testing project.
 /// </remarks>
 public static class PostgresFixture
 {
@@ -51,8 +39,8 @@ public static class PostgresFixture
     /// A fresh, empty database on the shared server — no schema at all.
     /// </summary>
     /// <remarks>
-    /// What a deployment's first seconds look like, which is a state the hosted services have to
-    /// survive: they start beside the migration run rather than after it.
+    /// What a deployment's first seconds look like — hosted services start beside the migration run
+    /// rather than after it, and have to survive this state.
     /// </remarks>
     public static async Task<TestDatabase> FreshDatabaseAsync()
     {
@@ -113,14 +101,9 @@ public static class PostgresFixture
                 _container = new PostgreSqlBuilder("postgres:17-alpine")
                     .WithCleanUp(true)
 
-                    // A database per test, and tests in parallel, means one live connection pool per
-                    // test against one server. Postgres allows a hundred clients by default and this
-                    // suite reached that ceiling the moment the opt-out, on-demand-probe and
-                    // submission tests were in it together — as "sorry, too many clients already",
-                    // which fails whichever tests happened to be starting and so reports itself as a
-                    // flake in half a dozen unrelated places. MUI.Catalog.Tests' copy of this fixture
-                    // hit it first and lifted the ceiling there; this is the same lift, and the two
-                    // fixtures are meant to be kept in step.
+                    // A database per test, run in parallel, means one live connection pool per test
+                    // against one server — Postgres's default 100-client ceiling is not enough for
+                    // this suite. Keep in step with MUI.Catalog.Tests' copy of this fixture.
                     .WithCommand("-c", "max_connections=500")
                     .Build();
 
@@ -131,9 +114,8 @@ public static class PostgresFixture
             }
             catch (Exception error)
             {
-                // Deliberately broad: Testcontainers reports "no container runtime", a socket refusal
-                // and an image pull failure as three unrelated exception types, and the honest answer
-                // to all three is the same one.
+                // Deliberately broad: Testcontainers reports several unrelated failure modes as
+                // different exception types, and the honest answer to all of them is the same one.
                 _unavailable =
                     "No PostgreSQL was reachable, so the crawler's storage tests did not run. Start a "
                     + "container runtime (Testcontainers reads DOCKER_HOST) or set MUI_TEST_POSTGRES "
@@ -170,9 +152,9 @@ public sealed class TestDatabase(string name, string connectionString, NpgsqlDat
     /// advisory-lock tests.
     /// </summary>
     /// <remarks>
-    /// Built from the original connection string rather than from
-    /// <c>NpgsqlDataSource.ConnectionString</c>, which redacts the password: a pool built from that
-    /// cannot authenticate, and the failure looks like a broken lock rather than a broken fixture.
+    /// Built from the original connection string, not <c>NpgsqlDataSource.ConnectionString</c> (which
+    /// redacts the password) — a pool from that can't authenticate, and the failure looks like a
+    /// broken lock rather than a broken fixture.
     /// </remarks>
     public NpgsqlDataSource SecondPool() => NpgsqlDataSource.Create(connectionString);
 

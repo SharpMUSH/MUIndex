@@ -23,20 +23,16 @@ public enum MsspFindingKind
     /// Carried, well-formed, and answered differently by an owner here (spec §8.5).
     /// </summary>
     /// <remarks>
-    /// <b>Not a defect, and counted as none.</b> The other four say something is wrong with the
-    /// report; this one says the report is fine and we are showing something else, which an operator
-    /// is entitled to know because <em>every other crawler still reads the report</em>. Saying it
-    /// once is what keeps this site from quietly becoming the only place a game's genre is right —
-    /// a worse outcome for the hobby than the wrong genre.
+    /// Not a defect, and counted as none: the report is fine and we're showing something else,
+    /// which the operator should know since every other crawler still reads the report.
     /// </remarks>
     Overridden,
 }
 
 /// <summary>How much an operator should care.</summary>
 /// <remarks>
-/// Three levels rather than a number, because a number invites a total and a total invites a
-/// league table — and a public ranking of how well games fill in a config file is a rating
-/// affordance with extra steps (§2). This is advice to one operator about their own server.
+/// Three levels rather than a number: a number invites a total, and a total invites a league
+/// table — a rating affordance with extra steps (§2). This is advice to one operator, not a score.
 /// </remarks>
 public enum MsspImportance
 {
@@ -54,10 +50,8 @@ public enum MsspImportance
 /// One remark about one variable. Ours, and phrased as ours.
 /// </summary>
 /// <remarks>
-/// <see cref="Detail"/> says what we read and what MSSP expects; it never says the game is wrong,
-/// because a lint is our reading of a protocol document and not a measurement of anybody. The
-/// distinction is rule 5 in the one place it would be easiest to drop: a scorecard is an opinion,
-/// and an opinion published as a finding about a game is exactly the thing this site refuses to do.
+/// <see cref="Detail"/> says what we read and what MSSP expects; it never says the game is wrong —
+/// a lint is our reading of a protocol document, not a measurement of anybody (rule 5).
 /// </remarks>
 public sealed record MsspFinding(
     string Field,
@@ -70,25 +64,14 @@ public sealed record MsspFinding(
 /// The MSSP linter of spec §8.5 — continuous, and a view rather than a verdict.
 /// </summary>
 /// <remarks>
+/// Nothing here is stored — derived on read from the MSSP rows the crawler already writes, so it
+/// never goes stale and a fixed <c>mush.cnf</c> is clean on the next probe. Writes nothing back
+/// either: a lint result is a decision of ours, and rule 5 forbids recording one as a fact about
+/// somebody else's game.
 /// <para>
-/// <b>Nothing here is stored.</b> §8.5 asks for a scorecard that is continuous rather than one-shot,
-/// and the way to get that is to derive it on read from the MSSP rows the crawler already writes —
-/// so it is never a score that has gone stale against the report it describes, and there is no
-/// button, no queue and no job. A game that fixes its <c>mush.cnf</c> is clean on the next probe,
-/// with nothing to press.
-/// </para>
-/// <para>
-/// <b>It reads measurements and writes nothing about them.</b> No <c>GameField</c>, no
-/// <c>FieldChange</c>, no column on <c>game</c>. A lint result is a decision of ours, and rule 5
-/// forbids recording one as a fact about somebody else's game.
-/// </para>
-/// <para>
-/// <b>Silence is never read as a fault.</b> If we hold no MSSP rows at all, the answer is
-/// <see cref="MsspScorecard.HasReport"/> false and an empty finding list — never twenty-seven
-/// "missing" lines. We did not measure an absence of fields; we have no report, which is a
-/// statement about us and is worded as one wherever it is rendered. Getting that backwards would
-/// publish our own gap as somebody's neglect, on the page of the one person who could tell the
-/// difference.
+/// Silence is never read as a fault: holding no MSSP rows means <see cref="MsspScorecard.HasReport"/>
+/// is false and the finding list is empty — never twenty-seven "missing" lines. Getting that
+/// backwards would publish our own gap as somebody's neglect.
 /// </para>
 /// </remarks>
 public static class MsspLint
@@ -100,8 +83,8 @@ public static class MsspLint
     /// What a directory needs to describe a game as anything other than an address.
     /// </summary>
     /// <remarks>
-    /// Chosen by what this site actually renders: the listing's facets and the game page's own
-    /// description. A variable nothing here reads is optional however much MSSP likes it.
+    /// Chosen by what this site actually renders. A variable nothing here reads is optional
+    /// however much MSSP likes it.
     /// </remarks>
     public static IReadOnlyList<string> Recommended { get; } =
         ["CODEBASE", "DESCRIPTION", "GENRE", "FAMILY", "LANGUAGE", "WEBSITE", "CONTACT", "STATUS"];
@@ -114,10 +97,9 @@ public static class MsspLint
     /// Values MSSP lists for the variables that enumerate them.
     /// </summary>
     /// <remarks>
-    /// Advisory, and worded that way. MSSP's lists are not exhaustive in practice — games run
-    /// genres nobody wrote down in 2011 — so a value outside them is reported as unrecognised by
-    /// the facets rather than as an error. The consequence is real and concrete and belongs in the
-    /// message: a <c>GENRE</c> we do not recognise lands in the listing's unknown bucket.
+    /// Advisory: MSSP's lists aren't exhaustive in practice, so a value outside them is reported as
+    /// unrecognised by the facets rather than as an error — e.g. a <c>GENRE</c> we don't recognise
+    /// lands in the listing's unknown bucket.
     /// </remarks>
     private static readonly Dictionary<string, string[]> Enumerated = new(StringComparer.Ordinal)
     {
@@ -144,10 +126,8 @@ public static class MsspLint
     /// <param name="fields">Every stored field for one game, of every source.</param>
     /// <param name="isUnanswered">
     /// Whether a value is a codebase default or template text. Injected rather than reimplemented:
-    /// <c>MsspDefaults.IsPlaceholder</c> already knows that <c>NAME "PennMUSH"</c> means nobody
-    /// filled it in, and it lives in <c>MUI.Crawl</c>, which <c>MUI.Catalog</c> may never reference.
-    /// A second copy of that list here would be a second spelling of the same judgement, and the two
-    /// would drift the first time somebody added a placeholder to one of them.
+    /// <c>MsspDefaults.IsPlaceholder</c> already knows this and lives in <c>MUI.Crawl</c>, which
+    /// <c>MUI.Catalog</c> may never reference. A second copy here would drift from it.
     /// </param>
     public static MsspScorecard Inspect(
         IReadOnlyList<GameField> fields,
@@ -161,16 +141,15 @@ public static class MsspLint
             .Where(field => field.Source is FieldSource.Mssp)
             .ToDictionary(field => field.Field, StringComparer.Ordinal);
 
-        // What an owner has answered over the report (§8.5). Read here so the scorecard can say
-        // where the two disagree — and kept strictly apart from `declared`, because this scores the
-        // REPORT. An override is not a variable their mush.cnf carries, and folding it in would tell
-        // an operator their config was fine when it is the thing they came here to check.
+        // What an owner has answered over the report (§8.5). Kept strictly apart from `declared`,
+        // because this scores the REPORT — folding an override in would tell an operator their
+        // config was fine when it's the thing they came here to check.
         var overridden = fields
             .Where(field => field.Source is FieldSource.Owner)
             .ToDictionary(field => field.Field, StringComparer.Ordinal);
 
-        // No report, no findings. We did not measure an absence of variables — we have not read an
-        // MSSP report, which is a fact about our crawl and not about their server.
+        // No report, no findings — we have not read an MSSP report, a fact about our crawl, not
+        // about their server.
         if (declared.Count == 0)
         {
             return MsspScorecard.NoReport;
@@ -205,10 +184,9 @@ public static class MsspLint
                 continue;
             }
 
-            // Invariant, and non-negative. A wire value is not written in the host's culture, so a
-            // current-culture parse would let a grouped “1,024” through on one deployment and flag
-            // it on another — and none of the counts MSSP calls a number has a meaning below zero,
-            // so a bare TryParse was reading “-3” as a well-formed answer.
+            // Invariant, and non-negative: a current-culture parse would let a grouped "1,024"
+            // through on one deployment and flag it on another, and none of MSSP's counts has a
+            // meaning below zero (a bare TryParse would accept "-3").
             if (Integers.Contains(field)
                 && !(int.TryParse(row.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var number)
                      && number >= 0))
@@ -235,11 +213,9 @@ public static class MsspLint
                 continue;
             }
 
-            // An address that is not one. Three games here publish WEBSITE as a bare hostname —
-            // "www.slothmud.org" — which MSSP's own text asks for with the prefix, and which this
-            // site will not guess a scheme for: a link we invented is our error published under
-            // their name. So the value renders as text and the operator is told, on their own page,
-            // the one edit that turns it back into a link.
+            // A bare hostname like "www.slothmud.org" is not a linkable URL and we will not guess a
+            // scheme for it — a link we invented would be our error published under their name. It
+            // renders as text and the operator is told what edit fixes it.
             if (FieldRegistry.Instance.Find(field) is { Shape: not FieldShape.Text } shaped
                 && !ExternalUrl.IsLinkable(row.Value, shaped.Shape))
             {
@@ -270,14 +246,10 @@ public static class MsspLint
             }
         }
 
-        // A second pass, and separate from the ladder above on purpose.
-        //
-        // That loop reports at most one finding per variable, most important first, because its
-        // findings are competing descriptions of the same defect — a value cannot usefully be called
-        // both malformed and non-standard. An override is not a defect and does not compete with
-        // one: a GENRE that is both outside MSSP's listed values *and* answered here is a field an
-        // operator has two separate things to know about. Folded into the ladder the second one was
-        // silently swallowed by the first, which is how this was found.
+        // A second pass, separate from the ladder above on purpose: that loop reports at most one
+        // finding per variable (competing descriptions of the same defect), but an override is not
+        // a defect and does not compete with one — a GENRE outside MSSP's values *and* answered
+        // here is two separate things an operator needs to know.
         foreach (var (field, importance) in Vocabulary())
         {
             if (!declared.TryGetValue(field, out var reported)
@@ -287,8 +259,7 @@ public static class MsspLint
             }
 
             // An empty owner row is a withdrawal, not an answer — nothing is deleted, so the row
-            // outlives the override and must stop counting when the value goes. And an owner who
-            // typed exactly what their report says has not disagreed with anything.
+            // outlives the override and must stop counting when the value goes.
             if (owner.Value.Length == 0
                 || string.Equals(owner.Value, reported.Value, StringComparison.Ordinal))
             {
@@ -316,11 +287,11 @@ public static class MsspLint
     /// Every variable worth remarking on, with how much it matters.
     /// </summary>
     /// <remarks>
-    /// Drawn from <c>FieldRegistry</c>'s own MSSP names where it can be, so the linter and the
-    /// catalogue cannot disagree about what an MSSP variable is. Capability variables are excluded:
-    /// they have a surface of their own where measured sits beside declared, and telling an operator
-    /// to declare <c>GMCP 1</c> when the handshake already answers the question would be advice to
-    /// make an assertion this site is built to distrust.
+    /// Drawn from <c>FieldRegistry</c>'s own MSSP names, so the linter and the catalogue cannot
+    /// disagree about what an MSSP variable is. Capability variables are excluded: they have a
+    /// surface where measured sits beside declared, and advising an operator to declare
+    /// <c>GMCP 1</c> when the handshake already answers it would push an assertion this site
+    /// distrusts.
     /// </remarks>
     private static IEnumerable<(string Field, MsspImportance Importance)> Vocabulary()
     {
@@ -351,9 +322,9 @@ public static class MsspLint
 /// What we make of a game's MSSP report — or the fact that we hold none.
 /// </summary>
 /// <remarks>
-/// <see cref="HasReport"/> is the first thing every surface must branch on. A scorecard with no
-/// report is not a clean scorecard and not a failing one; it is a page that has to say we have not
-/// read one, because the alternative renders our own silence as somebody's neglect.
+/// <see cref="HasReport"/> is the first thing every surface must branch on: a scorecard with no
+/// report is neither clean nor failing — it must say we haven't read one, or render our own
+/// silence as somebody's neglect.
 /// </remarks>
 public sealed record MsspScorecard(
     bool HasReport,
@@ -367,10 +338,9 @@ public sealed record MsspScorecard(
     /// Findings against the three variables MSSP requires — defects only.
     /// </summary>
     /// <remarks>
-    /// <see cref="MsspFindingKind.Overridden"/> is excluded, and the exclusion is the point rather
-    /// than a tidiness: an owner answering <c>NAME</c> here would otherwise make a perfectly
-    /// well-formed report stop meeting the standard, which is this scorecard telling an operator
-    /// their config is broken because of something they did on our site.
+    /// <see cref="MsspFindingKind.Overridden"/> is excluded deliberately: otherwise an owner
+    /// answering <c>NAME</c> here would make a well-formed report stop meeting the standard, which
+    /// would tell an operator their config is broken because of something they did on our site.
     /// </remarks>
     public int RequiredFindings => Findings.Count(f =>
         f.Importance is MsspImportance.Required && f.Kind is not MsspFindingKind.Overridden);

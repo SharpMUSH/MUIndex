@@ -10,18 +10,14 @@
 @inject TimeProvider Clock
 
 @*
-    An operator's own page: the games they have claimed, the ones still waiting on a token, and the
-    passkeys that reach the account.
+    An operator's own page: games claimed, claims still pending, and account passkeys.
 
-    Everything editable from here is enrichment (spec §8.5) — an owner may add what MSSP has no
-    field for, and their connect screen is theirs to withdraw (§11) — so there is nothing on this
-    page that could change a player count, a capability or a reachability history. The writable set
-    is the field registry's own OwnerEnrichable flag and is never repeated here; OwnerEnrichment
-    refuses anything outside it, out loud, however the request was assembled.
+    Everything editable here is enrichment (spec §8.5) — nothing on this page can change a player
+    count, a capability or a reachability history. The writable set is the field registry's own
+    OwnerEnrichable flag; OwnerEnrichment refuses anything outside it, out loud.
 
-    A claimed game is a collapsed block rather than a line, because an operator holds a handful of
-    games and a page of five open forms is a page nobody reads. Details/summary, so it works with
-    scripting off along with the rest of the write path.
+    Details/summary rather than open forms, so a handful of claimed games stays readable and it
+    still works with scripting off.
 *@
 
 <SitePreview Title="@PreviewCopy.Titles.Account(Tag)" Data="false"
@@ -45,19 +41,14 @@ else
 {
     <section class="prose">
         <h1>@L("account.title")</h1>
-        @*
-            The display name is the operator's own and goes in as an argument, never as text a
-            translator could edit — the same rule that keeps a game's name out of the bundle.
-        *@
+        @* The display name is the operator's own and goes in as an argument, never translatable
+           text — the same rule that keeps a game's name out of the bundle. *@
         <p class="faint">@Say("account.signedInAs", ("name", User.DisplayName))</p>
 
         @if (Verified.Count == 0 && Pending.Count == 0)
         {
-            @*
-                One sentence that places its own link and its own quoted control, rather than
-                English glued round an anchor: a language that names the listing later, or wants a
-                different preposition before it, has nowhere to say so if the markup owns the order.
-            *@
+            @* Places its own link and control rather than English glued round an anchor, so a
+               translator can reorder the sentence. *@
             <p>
                 @foreach (var part in Sentence.Place(Tag, "account.empty.body", ["listing", "claimControl"]))
                 {
@@ -77,11 +68,7 @@ else
             </p>
         }
 
-        @*
-            One banner slot, and the three things a POST to this page can come back saying. An
-            else-if chain rather than three independent blocks: a redirect carries exactly one
-            outcome, and two banners at once would be two answers to one action.
-        *@
+        @* Else-if, not three independent blocks: a redirect carries exactly one outcome. *@
         @if (Resigned)
         {
             <p class="verified">
@@ -94,11 +81,8 @@ else
         }
         else if (RefusedField is { Length: > 0 })
         {
-            @*
-                Refused out loud (§8.5). A silent no-op teaches an owner that the site is broken, and
-                a successful write to a measured field would make the whole site a self-report with
-                extra steps — so the field is named and the reason is given.
-            *@
+            @* Refused out loud (§8.5) — a silent no-op reads as broken, and a silent write to a
+               measured field would make the site a self-report with extra steps. *@
             <p class="refused">
                 @* The field name is the registry's own token and goes in as an argument. *@
                 <strong>@Say("account.refused.lead", ("field", RefusedField))</strong>
@@ -120,18 +104,11 @@ else
             {
                 <details class="claim" open="@(Verified.Count == 1)">
                     <summary>
-                        @*
-                            Through GameName, which is what every other surface uses: a right-to-left
-                            name written bare renegotiates order with the neutral characters and the
-                            date beside it, and the summary line comes apart. It is also what gives a
-                            screen reader the right voice for the name.
-                        *@
+                        @* Through GameName: a bare right-to-left name renegotiates order with the
+                           neutral characters and date beside it, and the line comes apart. *@
                         <a href="@HttpContext.Link($"/g/{game.Slug}")"><GameName Name="@game.Name" /></a>
-                        @*
-                            A date about OUR record — when we read this owner's token — and never a
-                            measurement of the game. Written through Dates.Absolute so the month is
-                            the reader's rather than the invariant culture's.
-                        *@
+                        @* A date about OUR record, never a measurement of the game. Written through
+                           Dates.Absolute so the month is the reader's, not the invariant culture's. *@
                         <span class="faint">@ClaimNote(claim)</span>
                         @* §8.5's scorecard. Owner-only, so it is reachable from here and nowhere. *@
                         <a class="faint" href="@HttpContext.Link($"/g/{game.Slug}/mssp")">@L("account.claim.mssp")</a>
@@ -148,12 +125,9 @@ else
                         </p>
                     }
 
-                    @*
-                        Name is prefixed, and that is not decoration: a component parameter of type
-                        string written as Name="game.Name" is a LITERAL, so every owner was shown
-                        "What only you can tell us about game.Name". Non-string parameters beside it
-                        are parsed as expressions either way, which is what hid it.
-                    *@
+                    @* Name="@game.Name" is not decoration — a string parameter written as
+                       Name="game.Name" is a LITERAL, and every owner was shown "...about
+                       game.Name" instead of the actual name. *@
                     <OwnerPanel GameId="game.Id"
                                 Name="@game.Name"
                                 Declared="DeclaredFor(game.Id)"
@@ -162,41 +136,20 @@ else
                                 Listing="ListingFor(game.Id)"
                                 Now="Now" />
 
-                    @*
-                        §8.5's owner-published outputs. Shown here because this is where the person
-                        who would paste it is, and shown as the exact line to copy — the same reason
-                        the claim page prints the MSSP variable in full. In the block's body rather
-                        than its summary: a <details> inside a <summary> is interactive content
-                        nested in a control, which no browser owes anybody a sane answer for.
-                    *@
-                    @*
-                        The two addresses in this block carry no locale prefix, and that is the
-                        point of them rather than an omission. The snippet is markup an owner pastes
-                        on *their* site, where the reader is not this one and the language they read
-                        in is not this page's; and a badge answers the same bytes to everybody, so
-                        it has one address for the same reason /api/… and robots.txt do.
-                    *@
+                    @* In the block's body, not its summary: a <details> inside a <summary> nests
+                       interactive content in a control, which no browser owes a sane answer for. *@
+                    @* The two addresses here carry no locale prefix, deliberately: the snippet is
+                       markup an owner pastes on *their* site, and the badge answers the same bytes
+                       to everybody — like /api/… and robots.txt. *@
                     <details class="publish">
                         <summary class="faint">@L("account.badge.summary")</summary>
                         <pre class="mono">&lt;a href="/g/@game.Slug"&gt;&lt;img src="/g/@game.Slug/badge.svg" alt="@game.Name on mu*index"&gt;&lt;/a&gt;</pre>
-                        @*
-                            Three sentences rather than one with emphasis inside it. A <em> in the
-                            middle of a clause is a clause a translator cannot move — the emphasised
-                            word lands elsewhere in most languages and nowhere in some — which is the
-                            same split SignIn makes for the same reason.
-
-                            The two badge words are the image's OWN bytes and are placed as
-                            arguments rather than translated: a badge answers one address to
-                            everybody, so a German page promising a German word would be promising
-                            something the image never draws. JSON is an acronym, machine voice like
-                            every other protocol name here.
-                        *@
-                        @*
-                            Each placed sentence sits in its own <span>. Razor drops the whitespace
-                            on a line that opens a code block, so two bare @foreach siblings render
-                            as "…if the game stops answering.There is JSON too…". Between elements
-                            the space is ordinary markup and survives.
-                        *@
+                        @* Three sentences rather than one with emphasis inside a clause a translator
+                           cannot move. The badge words are the image's OWN bytes, placed as
+                           arguments rather than translated. *@
+                        @* Each placed sentence sits in its own <span>: Razor drops the whitespace on
+                           a line that opens a code block, so two bare @foreach siblings would render
+                           as "…answering.There is JSON too…" without it. *@
                         <p class="faint">
                             @L("account.badge.carries")
                             <span>
@@ -238,12 +191,8 @@ else
                             @foreach (var entry in History(claim))
                             {
                                 <li>
-                                    @*
-                                        The stamp stays ISO and stays out of the bundle: it is the
-                                        machine spelling of an instant in a log column, the same one
-                                        Dates.Machine writes into a datetime attribute, and a
-                                        localized one would be a bug in every language at once.
-                                    *@
+                                    @* Machine spelling, out of the bundle — a localized log stamp
+                                       would be a bug in every language at once. *@
                                     <span class="faint">@Stamp(entry.At)</span>
                                     @Word(entry.Kind)@(entry.Detail is { Length: > 0 } d ? $" · {d}" : string.Empty)
                                 </li>
@@ -251,21 +200,14 @@ else
                         </ol>
                     </details>
 
-                    @*
-                        Explicit, and typed. §8.4 lets a claim end only by an owner saying so or by a
-                        counter-claim — never by lapsing — and a bare button beside a game's name is
-                        one misclick from a listing somebody no longer owns. Last in the block, after
-                        everything an owner came here to do.
-                    *@
+                    @* Explicit and typed (§8.4): a bare button beside a game's name is one misclick
+                       from a listing somebody no longer owns. *@
                     <details class="resign" open="@(Confirming == claim.Id)">
                         <summary class="faint">@L("account.resign.summary")</summary>
                         <form method="post" action="@HttpContext.Link($"/account/claims/{claim.Id}/resign")">
                             <AntiforgeryToken />
-                            @*
-                                The word in the box is the literal the endpoint compares against, so
-                                it is placed rather than translated — a translated confirmation word
-                                is one the form would refuse.
-                            *@
+                            @* Placed, not translated — the endpoint compares against this literal,
+                               and a translated word is one the form would refuse. *@
                             <p class="faint">
                                 @foreach (var part in Sentence.Place(Tag, "account.resign.confirm", ["word"]))
                                 {
@@ -311,10 +253,8 @@ else
             @foreach (var key in Keys)
             {
                 <li>
-                    @*
-                        A passkey's name comes from the authenticator and is its own bytes; the word
-                        for having none is ours, so only that one goes through the bundle.
-                    *@
+                    @* A passkey's name is the authenticator's own bytes; only "unnamed" is ours and
+                       goes through the bundle. *@
                     <span class="mono">@(key.Name ?? L("account.passkey.unnamed"))</span>
                     <span class="faint">
                         @Say(
@@ -356,18 +296,11 @@ else
     private IList<UserPasskeyInfo> Keys { get; set; } = [];
 
     /// <summary>What each claimed game's owners have already declared, keyed by game.</summary>
-    /// <remarks>
-    /// Owner rows only, read once here and handed to the panels. The dashboard edits what owners
-    /// wrote; a measurement has no editable form on this site at all.
-    /// </remarks>
+    /// <remarks>Owner rows only. A measurement has no editable form on this site at all.</remarks>
     private Dictionary<Guid, IReadOnlyDictionary<string, GameField>> Owned { get; } = [];
 
     /// <summary>What each claimed game reports about itself, keyed by game.</summary>
-    /// <remarks>
-    /// MSSP rows, read in the same pass as the owner's own, so the override boxes can show what the
-    /// game already says without a second round trip per field. Shown beside the boxes and never
-    /// used as their value.
-    /// </remarks>
+    /// <remarks>Shown beside the override boxes, never used as their value.</remarks>
     private Dictionary<Guid, IReadOnlyDictionary<string, GameField>> Reports { get; } = [];
 
     /// <summary>§11's answer per game: which of its addresses we are still dialling.</summary>
@@ -380,8 +313,7 @@ else
     /// </summary>
     /// <remarks>
     /// The querystring, because that is what survives a plain form post and a redirect — the whole
-    /// write path works with scripting off, which §8.2 requires of everything but the WebAuthn
-    /// ceremony itself.
+    /// write path works with scripting off (§8.2), except the WebAuthn ceremony itself.
     /// </remarks>
     [SupplyParameterFromQuery(Name = "saved")]
     private string? Saved { get; set; }
@@ -429,9 +361,8 @@ else
     /// The enrichment ceiling, as a label rather than as a quantity.
     /// </summary>
     /// <remarks>
-    /// A string, for the reason <see cref="Dates"/> passes a year as one: an ICU number argument is
-    /// formatted for the locale, and the day this ceiling passes a thousand a German page would
-    /// offer "1.000 characters" — which reads as one, with a decimal point, to half of Europe.
+    /// A string, not a number argument — an ICU number formats for the locale, and past a thousand a
+    /// German page would offer "1.000 characters", which reads as one to half of Europe.
     /// </remarks>
     private static string Ceiling =>
         OwnerEnrichment.MaxValueLength.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -440,10 +371,8 @@ else
     /// One audit line's instant, in the machine spelling.
     /// </summary>
     /// <remarks>
-    /// Invariant on purpose and not an oversight. This is the log column's stamp, the same kind of
-    /// value <see cref="Dates.Machine"/> writes into a <c>datetime</c> attribute — it is read as a
-    /// sortable instant rather than as a date somebody says out loud, and a calendar that follows
-    /// the ambient culture would silently give a Japanese reader a different year number.
+    /// Invariant on purpose: a sortable instant, not a date somebody says out loud. The ambient
+    /// culture would silently give a Japanese reader a different year number.
     /// </remarks>
     private static string Stamp(DateTimeOffset at) =>
         at.UtcDateTime.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture);
@@ -459,23 +388,10 @@ else
     /// What the last write actually did, in a sentence about that write.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// One sentence per write, because hiding a connect screen used to report "now shows it as owner
-    /// declared" — the enrichment sentence, on a page whose whole job is to say what happened.
-    /// </para>
-    /// <para>
-    /// <b>The same defect had already come back once.</b> §11's two crawl outcomes were added to
-    /// <c>OwnerWrites.Saved</c> and never to this switch, so an owner who pressed "stop crawling us"
-    /// was told their page now showed something as owner-declared. A branch per constant, and the
-    /// default names itself rather than standing in for whatever arrives next.
-    /// </para>
-    /// </remarks>
-    /// <remarks>
-    /// <para>
-    /// The game's name is an argument rather than a prefix, which is the other half of the same
-    /// point: these were interpolated strings in English word order, and a language that puts the
-    /// subject elsewhere — or inflects it after a verb — had nowhere to say so.
-    /// </para>
+    /// One sentence per write kind (a new <c>Did</c> value needs a new branch here, not a default
+    /// that lies about it — §11's two crawl outcomes were once left off this switch, so stopping a
+    /// crawl reported the wrong thing happened). The game's name is an argument, not a prefix,
+    /// so a language that puts the subject elsewhere has somewhere to say so.
     /// </remarks>
     private string Outcome
     {
@@ -502,10 +418,8 @@ else
     /// The refused field name, bounded.
     /// </summary>
     /// <remarks>
-    /// It is echoed from the querystring, because that is the only thing that survives the redirect,
-    /// and a field name is short — so the length is capped here rather than trusted. A page that
-    /// printed whatever a crafted link put in front of it would be a billboard on somebody's own
-    /// dashboard, escaped or not.
+    /// Echoed from the querystring and capped rather than trusted — printing whatever a crafted link
+    /// put in front of it would be a billboard on somebody's own dashboard, escaped or not.
     /// </remarks>
     private string? RefusedField => Refused is { Length: > 0 } named
         ? named.Length <= 60 ? named : named[..60]
@@ -526,8 +440,8 @@ else
     /// Whether we are dialling this game, per address — or null where there is no register to ask.
     /// </summary>
     /// <remarks>
-    /// Null and not an empty state. "We are crawling you" and "there is nowhere here that records
-    /// whether we are" are different answers, and the panel offers the button only for the first.
+    /// Null, not an empty state — "we are crawling you" and "nothing here records whether we are"
+    /// are different answers, and the panel offers the button only for the first.
     /// </remarks>
     private OwnerOptOutState? CrawlFor(Guid gameId) =>
         Crawling.TryGetValue(gameId, out var state) ? state : null;
@@ -560,9 +474,8 @@ else
 
         foreach (var claim in await claims.ForUserAsync(User.Id))
         {
-            // A claim names a game id; the listing names a slug. Resolved one at a time because an
-            // operator holds a handful of games, not a page of them — if that stops being true this
-            // wants a single query rather than a loop, and the shape of the fix is a batch read.
+            // Resolved one at a time: an operator holds a handful of games, not a page of them. If
+            // that stops being true, this wants a batch read instead of a loop.
             if (await Queries.FindByIdAsync(claim.GameId) is not { } game)
             {
                 continue;
@@ -578,14 +491,12 @@ else
                     Reports[game.Id] = await enrichment.ReportedAsync(game.Id);
                 }
 
-                // §11, per address. Read here with everything else this page needs so the panel
-                // renders from one pass rather than asking the register itself.
+                // §11, per address — read here so the panel renders from one pass.
                 if (Services.GetService<OwnerOptOut>() is { } optOut)
                 {
                     Crawling[game.Id] = await optOut.StateAsync(game.Id);
                 }
 
-                // Migration 0025's second decision, read the same way and for the same reason.
                 if (Services.GetService<OwnerListing>() is { } listing)
                 {
                     Listings[game.Id] = await listing.StateAsync(game.Id);
@@ -598,9 +509,8 @@ else
 
                     foreach (var owner in Owners[claim.Id].Where(o => o.UserId != User.Id))
                     {
-                        // A co-owner's display name, which they chose and which appears only to the
-                        // people they share a game with. Never an address and never an identity
-                        // claim (§8.2).
+                        // Never an address, never an identity claim (§8.2) — only their own chosen
+                        // display name, shown only to people they share a game with.
                         Names.TryAdd(
                             owner.UserId,
                             (await Users.FindByIdAsync(owner.UserId.ToString()))?.DisplayName
@@ -615,15 +525,7 @@ else
         }
     }
 
-    /// <summary>
-    /// Says when the beacon was last seen, and never treats its absence as a problem.
-    /// </summary>
-    /// <remarks>
-    /// Spec §8.4: presence establishes, absence never revokes. This is a note, not a warning — a
-    /// missing beacon means a probe did not read one, which happens for reasons that have nothing to
-    /// do with the owner, and alarming them about it would be the interface arguing for a rule the
-    /// system does not have.
-    /// </remarks>
+    /// <summary>The other verified owners of this claim's game.</summary>
     private IReadOnlyList<GameClaim> CoOwners(GameClaim mine) =>
         Owners.TryGetValue(mine.Id, out var all)
             ? [.. all.Where(other => other.UserId != mine.UserId)]
@@ -639,11 +541,8 @@ else
     /// One audit entry in words. The vocabulary is the enum's, spelled for a person.
     /// </summary>
     /// <remarks>
-    /// <c>BeaconMissing</c> reads as an observation and not as a warning: a probe not reading the
-    /// token happens for reasons that have nothing to do with the owner, and absence never revokes
-    /// (§8.4). Alarming somebody about it would be the interface arguing for a rule the system does
-    /// not have — and a translator is told the same thing on the id, because "token not read this
-    /// time" has a dozen plausible renderings and most of them sound like an accusation.
+    /// <c>BeaconMissing</c> reads as an observation, not a warning: a probe not reading the token
+    /// happens for reasons that have nothing to do with the owner, and absence never revokes (§8.4).
     /// </remarks>
     private string Word(ClaimEventKind kind) => L(kind switch
     {
@@ -662,10 +561,8 @@ else
     /// When we verified this claim, and when a probe last read the token.
     /// </summary>
     /// <remarks>
-    /// Both are facts about <em>our records</em> — the dates we read something — and neither is a
-    /// measurement of the game. Two ids rather than one with a suffix appended: the beacon clause
-    /// lands in a different place in most languages, and a string built by concatenation has
-    /// nowhere for a translator to move it to.
+    /// Both are facts about <em>our records</em>, never a measurement of the game. Two ids rather
+    /// than one with a suffix appended, so a translator can move the beacon clause.
     /// </remarks>
     private string ClaimNote(GameClaim claim) =>
         claim.BeaconLastSeenAt is { } seen

@@ -28,10 +28,8 @@ public class ReachSeriesTests
     [Test]
     public async Task EveryCauseTheCatalogueCanStoreHasWordsOfItsOwn()
     {
-        // Wording.Cause has a default arm, so a cause added to the enum and forgotten here does not
-        // fail — it renders as "no cause recorded", which is the site telling a reader we do not know
-        // why a game was dark when we do. The one place that silence is correct is FailureCause.None,
-        // which is what a reachable interval carries.
+        // A cause added to the enum and forgotten here silently renders as "no cause recorded" rather
+        // than failing — the one place that silence is correct is FailureCause.None.
         foreach (var cause in Enum.GetValues<FailureCause>().Where(c => c is not FailureCause.None))
         {
             await Assert.That(Wording.Cause(English, cause))
@@ -42,13 +40,9 @@ public class ReachSeriesTests
     [Test]
     public async Task AHoleInTheMiddleIsNotDaysThatPredateUs()
     {
-        // Every unmeasured day in the window was counted and rendered as "predate anything we
-        // measured". That is true of the days before we found a game and false of a hole inside its
-        // history, and the two are different admissions: one is how long we have been looking, the
-        // other is that we stopped. Latent until 2026-08-18, when repairing the intervals that had
-        // been claiming a fifteen-day crawl outage as observation left 409 games with exactly such a
-        // hole — so the sentence began telling readers that days in the middle of a game's history
-        // came before we had heard of it.
+        // Two different admissions: days before we found a game predate our measurement; a hole
+        // inside its history means we stopped measuring. Once conflated, a repaired interval left 409
+        // games' mid-history gaps reading as if they predated our discovery of the game.
         var summary = ReachSeries.Build(
         [
             Span(80, 70, AvailabilityState.Reachable, FailureCause.None),
@@ -59,7 +53,7 @@ public class ReachSeriesTests
         var predating = summary.Days.TakeWhile(d => d.State is ReachState.Unmeasured).Count();
         var sentence = summary.Sentence(English);
 
-        // The fixture has both, and they differ, so neither number can stand in for the other.
+        // Both present and differing, so neither number can stand in for the other.
         await Assert.That(predating).IsGreaterThan(0);
         await Assert.That(unmeasured - predating).IsGreaterThan(predating);
 
@@ -70,8 +64,7 @@ public class ReachSeriesTests
     [Test]
     public async Task AGameWithNothingButAHeadStartSaysNothingAboutAHole()
     {
-        // The other half: a game found last week has unmeasured days and no gap, and must not be
-        // told it has one.
+        // A game found last week has unmeasured days and no gap, and must not be told it has one.
         var summary = ReachSeries.Build([Span(7, null, AvailabilityState.Reachable, FailureCause.None)], Now);
 
         var sentence = summary.Sentence(English);
@@ -92,8 +85,7 @@ public class ReachSeriesTests
     [Test]
     public async Task ADayWeWereNotWatchingIsItsOwnStateAndNotAnOutage()
     {
-        // Painting the days before we found a game as unreachable would record our own ignorance as
-        // a measurement of theirs, which is the one thing this site may never do.
+        // Painting pre-discovery days as unreachable would record our own ignorance as a measurement of theirs (rule 5).
         var summary = ReachSeries.Build([Span(10, null, AvailabilityState.Reachable, FailureCause.None)], Now);
 
         await Assert.That(summary.Days.Count(d => d.State is ReachState.Unmeasured)).IsGreaterThan(70);
@@ -104,8 +96,7 @@ public class ReachSeriesTests
     [Test]
     public async Task DegradedIsItsOwnStateBetweenReachableAndUnreachable()
     {
-        // We got in and could not finish (spec §5.3). The strip draws it as a short bar rather than
-        // as another colour, and the words keep it distinct too.
+        // We got in and could not finish (spec §5.3), drawn as a short bar rather than another colour.
         var summary = ReachSeries.Build(
         [
             Span(90, 20, AvailabilityState.Reachable, FailureCause.None),
@@ -121,8 +112,7 @@ public class ReachSeriesTests
     [Test]
     public async Task TheWorstThingInADayIsWhatTheDaySays()
     {
-        // A game down for an hour was not "reachable that day"; a reader scanning ninety bars for
-        // trouble has to be able to find it.
+        // A game down for an hour was not "reachable that day".
         var summary = ReachSeries.Build(
         [
             Span(90, 5.5, AvailabilityState.Reachable, FailureCause.None),
@@ -136,7 +126,7 @@ public class ReachSeriesTests
     [Test]
     public async Task TheLongestOutageCarriesItsOwnCauseAndNotTheMostRecentOne()
     {
-        // Pairing a real duration with an unrelated event invents an incident that never happened.
+        // Pairing a real duration with an unrelated cause invents an incident that never happened.
         var summary = ReachSeries.Build(
         [
             Span(90, 60, AvailabilityState.Reachable, FailureCause.None),
@@ -148,8 +138,7 @@ public class ReachSeriesTests
 
         await Assert.That(summary.LongestOutageCause).IsEqualTo(FailureCause.Refused);
         await Assert.That(summary.LastCause).IsEqualTo(FailureCause.Timeout);
-        // The cause named through the bundle rather than spelled here, so the assertion is about
-        // which FailureCause reached the sentence and survives its being translated.
+        // Cause named through the bundle, not spelled here, so this survives translation.
         await Assert.That(summary.Sentence(English))
             .Contains(Wording.Cause(English, FailureCause.Refused));
         await Assert.That(summary.Sentence(English))
@@ -159,8 +148,7 @@ public class ReachSeriesTests
     [Test]
     public async Task EverySpellThatWasNotReachableIsAvailableAsWords()
     {
-        // The strip is one image with one label; the detail lives in text so nothing is available
-        // only to a reader who can see it.
+        // The strip is one image with one label; detail lives in text so nothing is sight-only.
         var summary = ReachSeries.Build(
         [
             Span(90, 40, AvailabilityState.Reachable, FailureCause.None),
@@ -178,8 +166,7 @@ public class ReachSeriesTests
     [Test]
     public async Task TheWordIsReachableAndNeverUptime()
     {
-        // A naming rule with teeth: a game with a routing problem to our host is unreachable and
-        // perfectly alive, and "uptime" claims we measured something we did not.
+        // A game with a routing problem to our host is unreachable and perfectly alive; "uptime" claims we measured something we didn't.
         var summary = ReachSeries.Build([Span(90, null, AvailabilityState.Reachable, FailureCause.None)], Now);
         var html = await Render.ComponentAsync<AvailabilityStrip>(new() { ["Summary"] = summary });
 

@@ -10,18 +10,11 @@ namespace MUI.Crawler.Persistence;
 /// <see cref="IMergeLog"/> over <c>merge_log</c> (spec §7.3, migration 0018).
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Recording the row <em>is</em> performing the merge</b>, which is why there is no second write
-/// here and no transaction wrapping one. A merge is a redirect: the absorbed game keeps every row it
-/// had, the public reads skip it, and its page answers with the survivor's. All of that is derived
-/// from this table on read, so a merge cannot half-happen and cannot exist unlogged.
-/// </para>
-/// <para>
-/// <b>The uniqueness that matters is enforced by the schema, not here.</b>
-/// <c>merge_log_absorbed_once_idx</c> refuses a second merge in force for one absorbed game, and this
-/// lets it raise rather than checking first: a read-then-write would lose the race between two
-/// operators, and the failure it would produce is a page with two answers to "where does this go".
-/// </para>
+/// Recording the row <em>is</em> performing the merge — no second write, no wrapping transaction. All
+/// merge behavior (the absorbed game's rows kept, public reads skipping it, its page redirecting) is
+/// derived from this table on read, so a merge can't half-happen or exist unlogged. Uniqueness is
+/// enforced by the schema (<c>merge_log_absorbed_once_idx</c>) rather than checked here first — a
+/// read-then-write would lose the race between two operators.
 /// </remarks>
 public sealed class NpgsqlMergeLog(NpgsqlDataSource source) : IMergeLog
 {
@@ -77,9 +70,8 @@ public sealed class NpgsqlMergeLog(NpgsqlDataSource source) : IMergeLog
     {
         await using var connection = await source.OpenConnectionAsync(ct);
 
-        // Either side, because "what absorbed me" and "what did I absorb" are the same history read
-        // from the two ends, and a survivor that could not ask the second question would have to know
-        // the absorbed game's id already to find out it had absorbed anything.
+        // Either side: "what absorbed me" and "what did I absorb" are the same history read from
+        // opposite ends.
         var rows = await connection.QueryAsync<Row>(new CommandDefinition(
             $"""
             SELECT {Columns} FROM merge_log

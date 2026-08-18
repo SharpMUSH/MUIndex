@@ -8,12 +8,10 @@ namespace MUI.Crawler.Cli;
 /// What actually landed, read back out of the database.
 /// </summary>
 /// <remarks>
-/// <b>Read back rather than accumulated in memory, deliberately.</b> The claim being checked is "the
-/// site will show measured data instead of a fixture", and the site reads these tables — so a summary
-/// tallied from what the cycle thought it wrote would agree with the code and prove nothing. The
-/// three presence states of §5.4 are broken out for the same reason: a counted row, an uncountable
-/// row and a missing row are the three things this whole design turns on, and a single "samples"
-/// figure hides which of them a cycle produced.
+/// Read back rather than accumulated in memory, since the claim being checked is "the site shows
+/// what's in these tables" — a summary tallied from what the cycle thought it wrote would prove
+/// nothing. The three presence states of §5.4 are broken out separately rather than one "samples"
+/// figure, since which of the three a cycle produced is the whole point.
 /// </remarks>
 public static class CrawlSummary
 {

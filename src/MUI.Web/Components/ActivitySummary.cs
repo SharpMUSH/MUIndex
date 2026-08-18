@@ -9,35 +9,14 @@ namespace MUI.Web.Components;
 /// The heatmap said in words, before the graphic and instead of it.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The sentence is the accessible summary and it arrives first, because the answer a reader wants —
-/// <em>when is anyone actually on?</em> — is a sentence and not a grid. The per-day lines are the
-/// "read as text" disclosure, which exists so a screen reader is not made to walk 168 cells to learn
-/// something one paragraph could have told it.
-/// </para>
-/// <para>
-/// It keeps the three states of spec §5.4 apart in words, which the design's own specimen sentence
-/// does not: <em>could not be measured</em> covers both an hour we never reached and an hour we
-/// reached and could not count, and those are different facts about a game. Conflating them is the
-/// worst bug this codebase can ship, so the sentence names each separately — and the ids are
-/// separate too, so a translator cannot collapse them back into one phrase without noticing.
-/// </para>
-/// <para>
-/// And an hour with no presence row is said as <em>not measured</em>, never as <em>not reachable</em>.
-/// A failed probe writes no presence row at all, so silence in this grid cannot tell an outage of
-/// theirs from a gap of ours — and the difference is not cosmetic: this sentence described a game we
-/// had measured once, and found perfectly reachable, as unreachable for 167 hours of the week.
-/// Reachability is the strip's job and it is derived from intervals, which can tell the two apart.
-/// </para>
-/// <para>
-/// <b>Every sentence here is a message and not a concatenation.</b> It was the last surface on the
-/// site that answered in English whatever the reader had asked for, and the reason it lasted is
-/// visible in what it did: it spelled numbers into words from an English array, picked "has" or
-/// "have" by an English rule, pluralised "evening" by adding an s, and named the days from seven
-/// strings compiled in here. All four are facts about English rather than about the measurement, so
-/// all four are gone — the counts are ICU plural arguments, the day names come from CLDR, and each
-/// sentence is one id a translator can move a clause inside of.
-/// </para>
+/// The sentence is the accessible summary and arrives first — a screen reader should not have to walk
+/// 168 cells to learn what one paragraph can say. It keeps spec §5.4's three states apart in words:
+/// <em>not measured</em> (no presence row — a dial we could not complete or never attempted) and
+/// <em>could not be counted</em> (probed but unreadable) are different facts about a game, and
+/// conflating them is the worst bug this codebase can ship. An hour with no presence row is always
+/// said as <em>not measured</em>, never <em>not reachable</em> — this sentence once described a game
+/// measured once, and found perfectly reachable, as unreachable for 167 hours of the week.
+/// Reachability is the strip's job, derived from intervals that can tell the two apart.
 /// </remarks>
 public static class ActivitySummary
 {
@@ -45,10 +24,8 @@ public static class ActivitySummary
     /// How many days of the week must carry a measurement before the grid is worth drawing.
     /// </summary>
     /// <remarks>
-    /// A 7×24 grid with one probe in it is 167 empty cells and one number: to a screen reader that
-    /// is the word "not measured" announced 167 times before the fact arrives, and to everybody else
-    /// it is a page that looks broken. Below the threshold the sentence is the whole panel — which
-    /// is what the grid is for anyway — and the grid appears the week the data does.
+    /// A 7×24 grid with one probe in it is 167 empty cells and one number — "not measured" announced
+    /// 167 times before the fact arrives. Below the threshold the sentence is the whole panel.
     /// </remarks>
     public const int MeasuredDaysForGrid = 7;
 
@@ -56,11 +33,10 @@ public static class ActivitySummary
     /// The name of a day, in the reader's language.
     /// </summary>
     /// <remarks>
-    /// From CLDR by way of <see cref="Locales.CultureOf"/> rather than from an array here. Seven
-    /// day names compiled into a component are seven strings no translator is ever sent, and the
-    /// symptom is a German sentence with "Monday" in the middle of it. Monday is 0 in this codebase
-    /// because that is how the store keys a week; .NET's arrays start at Sunday, and
-    /// <see cref="FromSunday"/> is the whole of the difference.
+    /// From CLDR by way of <see cref="Locales.CultureOf"/>, not a compiled-in array — seven day names
+    /// hard-coded here are seven strings no translator is ever sent. Monday is 0 in this codebase
+    /// (how the store keys a week); .NET's arrays start at Sunday, and <see cref="FromSunday"/> is
+    /// the whole of the difference.
     /// </remarks>
     public static string DayName(string tag, int dayOfWeek) =>
         Locales.CultureOf(tag).DateTimeFormat.DayNames[FromSunday(dayOfWeek)];
@@ -78,9 +54,8 @@ public static class ActivitySummary
         { IsGap: true } => Messages.Say(tag, "activity.cell.notMeasured", When(tag, cell)),
         { IsUnmeasurable: true } => Messages.Say(tag, "activity.cell.notCounted", When(tag, cell)),
 
-        // One message for all three counted cases, because =0 is an exact match in ICU and a
-        // measured zero is a count. "0 players, measured" and "1 player on average" are the same
-        // fact said about different numbers, and a language that needs a third form for two has it.
+        // One message for all three counted cases: =0 is an exact match in ICU, and a measured zero
+        // is still a count.
         _ => Messages.Say(tag, "activity.cell.counted", [.. When(tag, cell), ("count", cell.Count!.Value)]),
     };
 
@@ -91,19 +66,17 @@ public static class ActivitySummary
     /// What one cell announces when a reader arrows onto it: a value, not a sentence.
     /// </summary>
     /// <remarks>
-    /// The row and column headers already say which day and hour it is, so repeating them in the
-    /// cell turns 168 cells into 168 paragraphs — which is exactly what the summary sentence and
-    /// the per-day disclosure exist to avoid. Still words, though: "not counted" and "not measured"
-    /// are different facts and neither is a zero. They are the glossary's own locked ids rather than
-    /// two strings written here, so no locale can quietly render both as *unavailable*.
+    /// Row and column headers already say which day and hour it is, so repeating them here would turn
+    /// 168 cells into 168 paragraphs. "Not counted" and "not measured" are different facts and neither
+    /// is a zero — locked glossary ids, so no locale can quietly render both as *unavailable*.
     /// </remarks>
     public static string CellValue(string tag, ActivityCell cell) => cell switch
     {
         { IsGap: true } => Messages.For(tag, "state.notMeasured"),
         { IsUnmeasurable: true } => Messages.For(tag, "state.notCounted"),
 
-        // A count is machine output and stays in Western digits, like every other number this site
-        // prints in a column: the alignment is the only reason it is a column.
+        // Machine output stays in Western digits, like every numeric column on this site — that's
+        // the only reason it aligns as a column.
         _ => cell.Count!.Value.ToString(CultureInfo.InvariantCulture),
     };
 
@@ -126,8 +99,7 @@ public static class ActivitySummary
         }
         else if (counted.All(c => c.Count == 0))
         {
-            // A measured zero everywhere is a measurement, and a strong one. It must not read as
-            // absence of data.
+            // A measured zero everywhere is still a measurement; it must not read as absence of data.
             parts.Add(Messages.For(tag, "activity.allZero"));
         }
         else
@@ -143,9 +115,8 @@ public static class ActivitySummary
         var gaps = cells.Where(c => c.IsGap).ToList();
         if (gaps.Count > 0)
         {
-            // "Not measured", never "not reachable" — see ActivityCell.IsGap. The strip beside this
-            // grid is where reachability is stated, from intervals that can tell an outage of theirs
-            // from a gap of ours.
+            // "Not measured", never "not reachable" — see ActivityCell.IsGap. Reachability is stated
+            // by the strip beside this grid.
             parts.Add(WhereFrom(tag, gaps, "activity.gap.day", "activity.gap.week"));
         }
 
@@ -172,9 +143,9 @@ public static class ActivitySummary
     /// What there is, when there is not yet enough of it to draw. Two sentences and no grid.
     /// </summary>
     /// <remarks>
-    /// It states what exists rather than what is missing, and it never says the game was unreachable:
-    /// an hour with no presence row covers an hour we could not reach and an hour we never dialled
-    /// alike, and naming one of them would file our crawl schedule as a fact about somebody's game.
+    /// States what exists rather than what is missing, and never says the game was unreachable — an
+    /// hour with no presence row covers a failed dial and one we never attempted alike, and naming
+    /// either would file our crawl schedule as a fact about somebody's game.
     /// </remarks>
     public static string Sparse(string tag, IReadOnlyList<ActivityCell> cells)
     {
@@ -240,11 +211,8 @@ public static class ActivitySummary
         /// <summary>
         /// The row's own header, in the reader's language.
         /// </summary>
-        /// <remarks>
-        /// A method taking the locale rather than a property, because the record is structured data
-        /// and holds numbers: the one string it exposes is the only thing on it that has a language,
-        /// and baking the tag into the record would give six numbers a locale they do not have.
-        /// </remarks>
+        /// <remarks>A method taking the locale, not a property — the record itself holds numbers,
+        /// not language.</remarks>
         public string Name(string tag) => ShortDayName(tag, DayOfWeek);
     }
 
@@ -252,10 +220,8 @@ public static class ActivitySummary
     /// One row per day — seven rows, not a hundred and sixty-eight cells.
     /// </summary>
     /// <remarks>
-    /// This is the grid's text alternative and the source of the plain-text lines both, so the table
-    /// under the drawing and the <c>?plain=1</c> mirror cannot come to say different things about one
-    /// week. The three states of spec §5.4 each get a column of their own: a count, an hour that
-    /// answered without one, and an hour nobody has measured are three facts and never one.
+    /// The source of both the table under the drawing and the <c>?plain=1</c> mirror, so they cannot
+    /// disagree. Spec §5.4's three states each get a column of their own.
     /// </remarks>
     public static IReadOnlyList<DayLine> Days(IReadOnlyList<ActivityCell> cells)
     {
@@ -335,8 +301,8 @@ public static class ActivitySummary
             .ToDictionary(g => g.Key, g => g.Average(c => c.Count!.Value));
         var top = byHour.Values.Max();
 
-        // The busy band is every hour within a quarter of the best hour, taken as the longest
-        // contiguous run so the sentence names a window rather than a scatter of hours.
+        // The longest contiguous run of hours within a quarter of the best hour, so the sentence
+        // names a window rather than a scatter of hours.
         var busyHours = byHour.Where(kv => kv.Value >= top * 0.75).Select(kv => kv.Key).ToHashSet();
         var band = LongestRun(Enumerable.Range(0, 24), busyHours.Contains) ?? new Run(0, 23);
 
@@ -347,9 +313,8 @@ public static class ActivitySummary
         var bestDay = byDay.Values.Max();
         var busyDays = byDay.Where(kv => kv.Value >= bestDay * 0.9).Select(kv => kv.Key).Order().ToList();
 
-        // The band's name is a plural noun here — "evenings, 17:00–21:59" — and the quiet sentence
-        // below wants the singular. Two ids rather than one and a rule, because adding an s is a
-        // rule about English.
+        // Plural here ("evenings") vs. singular in the quiet sentence below — two ids rather than an
+        // English pluralisation rule applied to one.
         var part = PartOfDay(band) is { } named ? Part(tag, named, plural: true) : null;
         var window = Window(band);
 
@@ -378,11 +343,9 @@ public static class ActivitySummary
             return null;
         }
 
-        // "Quiet" has to mean *nobody, or all but nobody* rather than "a lot less than the peak".
-        // On a game whose evenings run to fifteen, a fifth of that is three people in the room, and
-        // calling three people quiet is a claim the measurement does not support. So the strongest
-        // available reading is tried first — a run of hours measured at exactly zero — and only
-        // then a near-zero floor.
+        // "Quiet" means *nobody, or all but nobody*, not "a lot less than the peak" — three people in
+        // a busy room is not quiet. Try the strongest reading first (a run measured at exactly zero),
+        // then fall back to a near-zero floor.
         var floor = Math.Max(0.5, top * 0.1);
         var band = LongestRun(Enumerable.Range(0, 24), h => byHour.TryGetValue(h, out var v) && v == 0)
             ?? LongestRun(Enumerable.Range(0, 24), h => byHour.TryGetValue(h, out var v) && v < floor);
@@ -427,10 +390,7 @@ public static class ActivitySummary
     }
 
     /// <summary>Whether a band of hours has a name a person would use for it.</summary>
-    /// <remarks>
-    /// The answer is the id's last segment rather than a word, because the word depends on the
-    /// reader and on whether the sentence wants one evening or every evening.
-    /// </remarks>
+    /// <remarks>Returns an id's last segment, not a word — the word depends on the reader.</remarks>
     private static string? PartOfDay(Run band) => (band.From, band.To) switch
     {
         ( >= 5 and <= 8, <= 11) => "morning",
@@ -447,9 +407,8 @@ public static class ActivitySummary
     /// A run of days, in the reader's own punctuation.
     /// </summary>
     /// <remarks>
-    /// Folded through two messages rather than joined on ", " and " and ": both the separator and
-    /// the final conjunction belong to a language — Chinese lists on 、 and joins on 和 — and a
-    /// comma written here is one no translator is sent.
+    /// Folded through messages rather than joined on ", " and " and " — the separator and
+    /// conjunction belong to a language (Chinese lists on 、 and joins on 和).
     /// </remarks>
     private static string JoinDays(string tag, IReadOnlyList<int> days)
     {
@@ -474,9 +433,8 @@ public static class ActivitySummary
     /// Names the day when a run of odd hours is all in one, so the sentence can point at it.
     /// </summary>
     /// <remarks>
-    /// Two whole sentences rather than one with a fragment substituted into it. "on Monday" and
-    /// "across the week" sit in different places in a German sentence from an English one, and a
-    /// message that only offered <c>{where}</c> would leave a translator no way to move them.
+    /// Two whole sentences rather than a fragment substituted into one — "on Monday" and "across the
+    /// week" sit in different places across languages.
     /// </remarks>
     private static string WhereFrom(
         string tag, IReadOnlyList<ActivityCell> cells, string onOneDay, string acrossTheWeek)

@@ -5,21 +5,15 @@ namespace MUI.Catalog;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The threshold is tiered rather than constant, because a fortnight-old game and a decade-old
-/// institution do not deserve the same benefit of the doubt (spec §7.5):
+/// Tiered rather than constant — a fortnight-old game and a decade-old institution do not deserve
+/// the same benefit of the doubt (spec §7.5):
 /// </para>
 /// <code>
 /// grace = clamp(credited_reachable_time / 4, 60 days, 365 days)
 /// </code>
 /// <para>
 /// The input is <em>cumulative</em> reachable time summed from availability intervals, not the span
-/// between first and last sighting — a game reachable for two years out of five is credited with two, and
-/// a history of flapping accrues nothing for the gaps.
-/// </para>
-/// <para>
-/// Archiving is a presentation change and never a deletion: an archived game keeps its page, its URL
-/// and its history, keeps being probed at the weekly floor forever, and is restored by a single
-/// successful probe.
+/// between first and last sighting — a history of flapping accrues nothing for the gaps.
 /// </para>
 /// </remarks>
 public static class ArchivePolicy
@@ -37,11 +31,8 @@ public static class ArchivePolicy
     /// The grace period a game has earned.
     /// </summary>
     /// <remarks>
-    /// <b>Only our own measurements earn grace, because only our own measurements exist.</b> This used
-    /// to credit third-party reachable history at half weight — imported from a directory that ran its
-    /// own probe, halved because we cannot audit their prober. The backfill no longer imports history
-    /// at all (spec §7.6): it contributes addresses and nothing else, and every fact about a game is
-    /// then measured here. A weight is not needed for a kind of row that is never written.
+    /// Only first-party measurements earn grace: the backfill contributes addresses only, never
+    /// history (spec §7.6), so there is no imported reachable time to weight.
     /// </remarks>
     /// <param name="firstPartyReachable">Cumulative time this site measured the game as reachable.</param>
     /// <param name="isClaimed">

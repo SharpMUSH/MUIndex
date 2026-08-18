@@ -40,9 +40,8 @@ public class AvailabilityStorePostgresTests
     public async Task EveryCauseTheCodeCanProduceIsOneTheDatabaseAccepts()
     {
         // The two halves of one decision: the C# spelling in SqlEnums and the CHECK constraint in the
-        // migrations. Migration 0026 put it best — a member added on one side and forgotten on the
-        // other has to fail at the database rather than become a value every reader downstream copes
-        // with differently. This is that failure, made to happen here instead of in production.
+        // migrations. A member added on one side and forgotten on the other must fail at the
+        // database, not become a value every downstream reader copes with differently.
         await using var db = await PostgresFixture.MigratedAsync();
         var store = new NpgsqlAvailabilityStore(db.DataSource);
 
@@ -67,9 +66,8 @@ public class AvailabilityStorePostgresTests
     [Test]
     public async Task ClosingTheOpenIntervalsEndsThemWhereWeStoppedLooking()
     {
-        // The guard's one write. Every game watching at the moment the crawl stopped has its interval
-        // ended there, so the silence that follows is a hole rather than observation — see CrawlGap
-        // for why the hole is the honest shape and what it cost to reconstruct by hand.
+        // Every game watching when the crawl stopped has its interval ended there, so the silence
+        // that follows is a hole rather than observation.
         await using var db = await PostgresFixture.MigratedAsync();
         var store = new NpgsqlAvailabilityStore(db.DataSource);
 
@@ -117,9 +115,9 @@ public class AvailabilityStorePostgresTests
     [Test]
     public async Task AnIntervalThatBeganAfterWeStoppedLookingIsLeftAlone()
     {
-        // Totality. Availability is written by the crawl loop and by mui-crawl, so an interval can
-        // exist that began after the last recorded cycle — and closing that one at the earlier
-        // instant would end it before it started, which the table forbids and rightly.
+        // Availability is written by both the crawl loop and mui-crawl, so an interval can exist that
+        // began after the last recorded cycle — closing it at the earlier instant would end it
+        // before it started, which the table forbids.
         await using var db = await PostgresFixture.MigratedAsync();
         var store = new NpgsqlAvailabilityStore(db.DataSource);
         var game = await Seed.GameAsync(db);
@@ -138,9 +136,8 @@ public class AvailabilityStorePostgresTests
     [Test]
     public async Task WhatTheDialSaidSurvivesTheRoundTrip()
     {
-        // The cause is six words and the message is what was underneath one of them. It has to live
-        // in the row, because the only other copy is in a container that keeps half an hour of logs
-        // and a dark game outlives that by days.
+        // The message lives in the row because the only other copy is in a container that keeps half
+        // an hour of logs, and a dark game outlives that by days.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var store = new NpgsqlAvailabilityStore(db.DataSource);
@@ -162,8 +159,8 @@ public class AvailabilityStorePostgresTests
     public async Task ADetailThatChangedDoesNotWriteATransition()
     {
         // §5.3 is about state and cause. The message rides along as evidence and must not become a
-        // seventh thing that can split an interval — a socket message carrying a port number or a
-        // rotated address would otherwise turn one outage into a row per probe.
+        // seventh thing that can split an interval — a message carrying a port number or rotated
+        // address would otherwise turn one outage into a row per probe.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var store = new NpgsqlAvailabilityStore(db.DataSource);
@@ -219,8 +216,7 @@ public class AvailabilityStorePostgresTests
     [Test]
     public async Task CumulativeReachableIsSummedNotSpanned()
     {
-        // Reachable for two years out of five is credited with two: a history of flapping accrues
-        // nothing for the gaps, which is what stops grace being a function of mere longevity.
+        // Reachable two years out of five is credited two: flapping accrues nothing for the gaps.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var store = new NpgsqlAvailabilityStore(db.DataSource);
@@ -256,9 +252,8 @@ public class AvailabilityStorePostgresTests
     public async Task ReachableTimeIsSummedByOriginSoADistinctionCanBeMadeLater()
     {
         // `origin` is one value today — the backfill imports no history (spec §7.6), so every
-        // interval here is ours. The column survives the tier because an undifferentiated total is
-        // not splittable after the fact: if another party's measurements are ever ingested, the
-        // question "how much of this did we measure" has to still have an answer.
+        // interval here is ours. The column survives because an undifferentiated total can't be
+        // split apart later if another party's measurements are ever ingested.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var store = new NpgsqlAvailabilityStore(db.DataSource);

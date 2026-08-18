@@ -72,11 +72,9 @@ public sealed record Arguments
     /// Where the catalogue is.
     /// </summary>
     /// <remarks>
-    /// <c>MUI_CRAWL_POSTGRES</c> first, because a person pointing this at a scratch database on their
-    /// laptop should not have to unset the deployment's variable to do it — and then
-    /// <c>MUI_POSTGRES</c>, which is what <c>MUI.Web</c> reads. The second is for running this
-    /// <em>inside</em> the deployment, where the connection string is already in the environment and
-    /// asking an operator to paste it onto a command line makes a secret into shell history.
+    /// <c>MUI_CRAWL_POSTGRES</c> first, so pointing this at a scratch database doesn't require unsetting
+    /// the deployment's variable; then <c>MUI_POSTGRES</c> (what <c>MUI.Web</c> reads), for running
+    /// this inside the deployment without pasting a secret onto a command line.
     /// </remarks>
     public string? Connection { get; init; } =
         Environment.GetEnvironmentVariable("MUI_CRAWL_POSTGRES")
@@ -88,10 +86,9 @@ public sealed record Arguments
     /// What this crawl tells the servers it dials about who is dialling them (spec §11).
     /// </summary>
     /// <remarks>
-    /// Read from the same variable the deployable reads, because <c>mui-crawl</c> opens sockets to
-    /// other people's machines exactly as the site does and an admin cannot tell the two apart from
-    /// their logs. It is a placeholder when nothing is set, which is honest for a dry run on a
-    /// laptop and would be rude against a real crawl — <c>Program</c> says so on the way past.
+    /// Read from the same variable the deployable reads, since <c>mui-crawl</c> opens sockets to other
+    /// people's machines exactly as the site does. A placeholder when nothing is set — honest for a
+    /// dry run, rude against a real crawl (<c>Program</c> warns on the way past).
     /// </remarks>
     public string InfoUrl { get; init; } =
         Environment.GetEnvironmentVariable("MUI_CRAWL_INFO_URL") is { Length: > 0 } url
@@ -122,10 +119,9 @@ public sealed record Arguments
     /// Who asked, and how.
     /// </summary>
     /// <remarks>
-    /// Required with <see cref="OptOut"/> and deliberately not defaulted. Recording a request is this
-    /// deployment's operator making a claim about somebody else's wishes, which is the exact shape of
-    /// the <c>ContactedMaintainer</c> defect: a gate like that is satisfied by a caller who can make
-    /// the claim, never by a default.
+    /// Required with <see cref="OptOut"/> and deliberately not defaulted: recording a request is this
+    /// operator making a claim about somebody else's wishes, and a gate like that is satisfied by a
+    /// caller who can make the claim, never by a default.
     /// </remarks>
     public string? Because { get; init; }
 
@@ -139,11 +135,10 @@ public sealed record Arguments
     /// Consider every game for a re-mint with §5.7's grace waived, and exit.
     /// </summary>
     /// <remarks>
-    /// The grace answers "is this name settled or is it flapping", and a person reading the change
-    /// feed can answer it for a catalogue in one sitting where the rule has to answer it blind. That
-    /// is the only judgement this switch carries — <see cref="SlugMinter"/> does the rest of the
-    /// deciding, so a codebase default, an owner's override and a name no source has declared are
-    /// refused here exactly as they are on a cycle.
+    /// The grace answers "is this name settled or flapping"; a person reading the change feed can
+    /// answer that for the whole catalogue in one sitting. That's the only judgement this switch
+    /// carries — <see cref="SlugMinter"/> does the rest, so a codebase default or an owner's override
+    /// is refused here exactly as on a normal cycle.
     /// </remarks>
     public bool MintNow { get; init; }
 
@@ -266,26 +261,24 @@ public sealed record Arguments
                 $"--opt-out needs --because: say who asked and how.{Environment.NewLine}{Usage}");
         }
 
-        // The same rule as --opt-out's, for the same reason. A release publishes somebody's game on
-        // our judgement rather than on a measurement, and a judgement nobody wrote down beside the
-        // row is one nobody can review later.
+        // Same rule as --opt-out's: a release publishes on our judgement, not a measurement, and an
+        // unrecorded judgement can't be reviewed later.
         if (parsed.Release is not null && string.IsNullOrWhiteSpace(parsed.Because))
         {
             throw new ArgumentException(
                 $"--release needs --because: say what convinced you.{Environment.NewLine}{Usage}");
         }
 
-        // The third of the same rule. Waiving the grace mints URLs the catalogue then keeps for ever,
-        // on somebody's reading of the change feed rather than on the passage of time, and the log
-        // line each rename writes should say whose reading it was.
+        // Same rule again: waiving the grace mints URLs the catalogue keeps forever, on somebody's
+        // reading of the change feed rather than the passage of time.
         if (parsed.MintNow && string.IsNullOrWhiteSpace(parsed.Because))
         {
             throw new ArgumentException(
                 $"--mint-now needs --because: say what settled these names.{Environment.NewLine}{Usage}");
         }
 
-        // The fourth. A merge folds a live listing into another and is not a thing anybody undoes
-        // lightly; the reason belongs on the row next to the score and signals it may be carrying.
+        // Same rule again: a merge folds a live listing into another, and the reason belongs on the
+        // row beside the score and signals.
         if (parsed.Merge is not null && string.IsNullOrWhiteSpace(parsed.Because))
         {
             throw new ArgumentException(

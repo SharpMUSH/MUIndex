@@ -12,34 +12,19 @@ namespace MUI.I3;
 /// Talks JSON-RPC 2.0 to the Intermud-3 sidecar over its newline-delimited TCP surface.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>What this is not.</b> It is not an I3 client. The gateway owns mudmode framing, the I3v3
-/// handshake, the router password and the mudlist cache; this owns one TCP socket to localhost and
-/// the shape of the messages that cross it. The protocol boundary is deliberate — see
-/// <c>deploy/i3/config.yaml</c> for what we tell the network about ourselves, and note that the one
-/// thing we learned the hard way lives there rather than here: a startup packet advertising no
-/// services at all is discarded by <c>*i4</c> in silence.
-/// </para>
-/// <para>
-/// <b>Remote queries are asynchronous and the immediate reply means nothing.</b> A <c>who</c> call
-/// returns <c>{"status":"requested"}</c> the moment the packet leaves; the answer arrives later, out
-/// of band, as a <c>who_reply</c> event carrying the mud's name. That mirrors I3 itself, where a
-/// request and its reply are two unrelated packets, and it is why <see cref="WhoAsync"/> registers a
-/// waiter *before* it sends rather than reading the next line off the socket.
-/// </para>
-/// <para>
-/// <b>Do not use the gateway's synchronous <c>who</c> return value.</b> Its handler calls a method
-/// that exists only on the who *service* and returns a bool, then takes the length of it. The event
-/// is the supported path and the only one this client reads.
-/// </para>
+/// Not an I3 client — the gateway owns mudmode framing, the I3v3 handshake and the mudlist cache;
+/// this owns one TCP socket to localhost. <c>who</c> calls are asynchronous: the immediate reply is
+/// just an ack, and the real answer arrives later as a <c>who_reply</c> event, which is why
+/// <see cref="WhoAsync"/> registers a waiter before it sends rather than reading the next line. Do
+/// not use the gateway's synchronous <c>who</c> return value — it comes from the wrong handler and
+/// carries no real data; the event is the only supported path.
 /// </remarks>
 /// <summary>
 /// The two questions MUIndex asks Intermud-3, without the socket that carries them.
 /// </summary>
 /// <remarks>
-/// Exists so the cycle that seeds, binds and counts is testable with no gateway and no network,
-/// which is the same reason <c>MUI.Catalog</c> cannot see <c>MUI.Crawl</c>: the code that decides
-/// what an answer <em>means</em> should never need a live correspondent to exercise.
+/// Testable with no gateway and no network, for the same reason <c>MUI.Catalog</c> cannot see
+/// <c>MUI.Crawl</c>: code that decides what an answer means shouldn't need a live correspondent.
 /// </remarks>
 public interface II3Gateway
 {
@@ -121,21 +106,16 @@ public sealed class GatewayClient : II3Gateway, IAsyncDisposable
 
     /// <summary>Every mud the router has told the gateway about.</summary>
     /// <remarks>
-    /// Unfiltered on purpose. The gateway accepts a <c>filter</c> — <c>{"status":"up",
-    /// "has_service":"who"}</c> — and pushing the gate down there would hide from the caller the one
-    /// thing worth recording, which is how many muds exist versus how many we may ask. Filter here,
-    /// where the decision is legible.
+    /// Unfiltered on purpose — the gateway accepts a <c>filter</c> param, but applying it here instead
+    /// would hide how many muds exist versus how many we may ask.
     /// </remarks>
     public async Task<IReadOnlyList<I3Mud>> MudlistAsync(CancellationToken cancellationToken = default)
     {
         var result = await CallAsync("mudlist", new Dictionary<string, object?>(), cancellationToken)
             .ConfigureAwait(false);
 
-        // The gateway represents its mudlist two different ways in two different places: the JSON-RPC
-        // method answers `{"muds": [ … ]}` — an array, each element carrying its own `name` — while
-        // the state file it writes to disk is an object keyed by mud name. Both are accepted, because
-        // a beta whose own two representations disagree is not one to pin a single shape to, and
-        // reading the wrong one yields an empty list rather than an error.
+        // The gateway represents its mudlist two ways: `{"muds": [...]}` (array) from the RPC method,
+        // or an object keyed by mud name from its state file. Both are accepted rather than picking one.
         var muds = result.ValueKind == JsonValueKind.Object && result.TryGetProperty("muds", out var inner)
             ? inner
             : result;
@@ -437,8 +417,7 @@ public sealed class GatewayClient : II3Gateway, IAsyncDisposable
             call.TrySetException(reason);
         }
 
-        // A dropped connection is silence, and silence is unmeasurable rather than an error — the
-        // caller distinguishes "no answer" from "no count" the same way a who timeout does.
+        // A dropped connection is silence, same as a who timeout — unmeasurable, not an error.
         foreach (var who in whos)
         {
             who.TrySetCanceled();
@@ -494,10 +473,8 @@ public sealed record GatewayOptions
     public TimeSpan CallTimeout { get; init; } = TimeSpan.FromSeconds(10);
 
     /// <summary>
-    /// How long a remote mud has to answer a <c>who</c>. Generous, because the packet crosses a
-    /// router to a third party and back: the measured replies from Nightfall and Dead Souls Dev came
-    /// in well under a second, and a mud that has not answered in this long is one we record as
-    /// unmeasurable rather than as empty.
+    /// How long a remote mud has to answer a <c>who</c>. Generous because the packet crosses a router
+    /// to a third party and back; a mud that hasn't answered by then is recorded unmeasurable, not empty.
     /// </summary>
     public TimeSpan WhoTimeout { get; init; } = TimeSpan.FromSeconds(20);
 }

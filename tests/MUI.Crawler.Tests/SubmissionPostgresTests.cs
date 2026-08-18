@@ -145,14 +145,10 @@ public class SubmissionPostgresTests
         await Assert.That((await queries.ListAsync(new GameFilter { IncludeArchived = true })).Count)
             .IsEqualTo(0);
 
-        // Until somebody proves they run it — through the real claiming path, which is the whole of
-        // the exit and the thing the first version of this test faked.
-        //
-        // THE FAKE WAS THE BUG. Flipping is_claimed with SetClaimedAsync proved the query filter
-        // opens, and proved nothing about whether anybody could ever make it open: FindAsync is what
-        // the claim page looks a game up with, and it had just been taught to hide this game. So the
-        // page said "no such game", IssueAsync was unreachable, and hidden-until-claimed was a state
-        // with no exit — under a green test.
+        // Until somebody proves they run it, through the real claiming path. An earlier version of
+        // this test faked it by flipping is_claimed directly, which proved the query filter opens but
+        // nothing about whether anybody could ever reach that flip — IssueAsync was unreachable and
+        // hidden-until-claimed had no real exit, under a green test.
         var user = await AccountAsync(source);
         var claims = new ClaimService(
             new NpgsqlClaimStore(source), new NpgsqlGameStore(source), TimeProvider.System);
@@ -160,11 +156,9 @@ public class SubmissionPostgresTests
         var claim = await claims.IssueAsync(
             (await new NpgsqlGameStore(source).BySlugAsync("tidewater-nights"))!.Id, user);
 
-        // The operator publishes the token where an anonymous connection reads it, and the next
-        // ordinary crawl settles it. Nothing here writes is_claimed.
-        // Published on the connect screen rather than in MSSP — §8.3's second channel — so that the
-        // probe which settles the claim still carries no §7.8 signal and the game becomes visible
-        // because it was claimed, not because it was corroborated on the way past.
+        // Published on the connect screen rather than in MSSP (§8.3's second channel), so the probe
+        // that settles the claim still carries no §7.8 signal — the game becomes visible because it
+        // was claimed, not corroborated on the way past.
         var published = new ScriptedProbe(target => Probes.Answered(
             host: target.Host,
             port: target.Port,
@@ -207,20 +201,9 @@ public class SubmissionPostgresTests
     /// A submitted address that publishes no name of its own is not listed at all (spec §7.2).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>The gate is on "a stranger proposed this", and the form is the second way that happens.</b>
-    /// Reading it as "referrals only" left submissions outside it, and what that let through was not
-    /// a hidden listing — it was <see cref="IdentityMatcher"/>, which runs afterwards. A VPS
-    /// answering <c>NAME "Aardwolf"</c> is then scored against the whole catalogue, and short of a
-    /// merge it mints a game and takes the <c>aardwolf</c> slug, because slug uniqueness asks the
-    /// store and the store does not know a submitted game is hidden. The real one arrives later and
-    /// is listed at <c>aardwolf-2</c>, for ever.
-    /// </para>
-    /// <para>
-    /// The cost is §7.2's own and is accepted there: a real game whose operator never edited one
-    /// line of MSSP stays unlisted. The target is kept and re-probed for ever, so it lists itself
-    /// the moment a name is published.
-    /// </para>
+    /// The form is the second way "a stranger proposed this" happens, alongside a referral (see
+    /// <c>CatalogueBinder.MayBeListed</c>). The target is kept and re-probed forever, so it lists
+    /// itself the moment a name is published.
     /// </remarks>
     [Test]
     public async Task ASubmittedAddressThatPublishesNoNameOfItsOwnIsNotListed()
@@ -253,17 +236,9 @@ public class SubmissionPostgresTests
     /// A submitted game that names itself over <c>INFO</c> is listed, MSSP or no MSSP.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>The real case.</b> <c>game.convergencemush.org:10000</c> was submitted, probed fourteen
-    /// seconds later, answered with sixty-four connected players and an <c>INFO</c> block naming
-    /// itself and its engine — and was refused a listing every six hours for a fortnight, because the
-    /// gate read MSSP and nothing else. RhostMUSH does not implement telnet option 70, so the gate
-    /// was in practice asking whether a game's codebase had a feature rather than whether the game
-    /// existed.
-    /// </para>
-    /// <para>
-    /// It is listed under the name it gave, not under its address and not under its engine.
-    /// </para>
+    /// The real case that motivated this: a RhostMUSH game with no MSSP was refused a listing purely
+    /// for lacking telnet option 70, though its <c>INFO</c> block named it plainly. Listed under the
+    /// name it gave, not its address or its engine.
     /// </remarks>
     [Test]
     public async Task ASubmittedGameThatNamesItselfOverInfoIsListed()
@@ -303,11 +278,10 @@ public class SubmissionPostgresTests
     /// A submitted game the probe shows to be a game is public on sight (spec §7.8).
     /// </summary>
     /// <remarks>
-    /// <b>The rule this feature exists for.</b> Convergence MUSH was submitted at 04:29 on 16 August
-    /// 2026, answered every probe from 10:30 onward with sixty-seven connected players and an
-    /// <c>INFO</c> block naming RhostMUSH, and was on no page of the site at all — the only game of
-    /// 432 that the visibility rule excluded, waiting for a claim from an operator who had no reason
-    /// to know the site existed. Nothing about it was uncertain except who had typed its address.
+    /// The rule this feature exists for: a game that answered every probe with a clear player count
+    /// and an <c>INFO</c> block naming itself still sat on no page of the site, waiting on a claim
+    /// from an operator with no reason to know the site existed. Nothing about it was uncertain except
+    /// who had typed its address.
     /// </remarks>
     [Test]
     public async Task ASubmittedGameThatLooksLikeOneIsPublicWithoutWaitingForAClaim()
@@ -586,11 +560,10 @@ public class SubmissionPostgresTests
     /// Submitting a second port of a game we already list attaches to it and leaves it public.
     /// </summary>
     /// <remarks>
-    /// The takeover this feature could otherwise have shipped. The address is not one we hold an
-    /// endpoint for, so the submission is accepted and a target is written with the marker on it —
-    /// and then §7.3's matcher says the probe <em>is</em> that game, the binder attaches rather than
-    /// creating, and no marker is ever written to a game row. A version of this that copied the
-    /// marker after binding would let anybody hide any listed game by naming one of its ports.
+    /// The takeover this feature could otherwise have shipped: §7.3's matcher says the probe
+    /// <em>is</em> that game, the binder attaches rather than creating, and no marker is ever written
+    /// to the game row. Copying the marker after binding would let anybody hide a listed game by
+    /// naming one of its ports.
     /// </remarks>
     [Test]
     public async Task SubmittingASecondPortOfAListedGameDoesNotHideIt()
@@ -604,9 +577,9 @@ public class SubmissionPostgresTests
             [new CrawlSeed("mush.example.org", 4201)],
             TimeProvider.System);
 
-        // A whole connect screen rather than a line of it: the merge this test needs is NAME + CREATED
-        // + banner, and a screen under BannerFingerprint.MinimumIdentifyingLength is not a signal —
-        // rightly, since three unrelated games in the live catalogue share "Do you want ANSI? (Y/n)".
+        // A whole connect screen, not a line of it: a screen under
+        // BannerFingerprint.MinimumIdentifyingLength isn't a signal, rightly — short login prompts
+        // are shared across unrelated games.
         var probe = new ScriptedProbe(target => Probes.Answered(
             host: target.Host,
             port: target.Port,
@@ -641,10 +614,8 @@ public class SubmissionPostgresTests
     /// An address whose operator asked us to stop is refused at the door (spec §11).
     /// </summary>
     /// <remarks>
-    /// Against the register the crawl loop itself reads, so the form and the loop cannot disagree
-    /// about who has asked. Both channels are covered: a recorded request, which is one indexed read
-    /// and no DNS at all, and a TXT record, which is the route an operator can use without an
-    /// account here or MSSP support in their codebase.
+    /// Against the register the crawl loop itself reads, so the form and the loop can't disagree about
+    /// who has asked. Both channels are covered: a recorded request and a DNS TXT record.
     /// </remarks>
     [Test]
     public async Task AnAddressThatAskedUsToStopIsRefusedAtTheDoor()
@@ -822,11 +793,9 @@ public class SubmissionPostgresTests
     /// A concurrent burst from one source does not walk through the bound.
     /// </summary>
     /// <remarks>
-    /// Against the real database, because this is where it matters: <c>READ COMMITTED</c> lets two
-    /// transactions both read a count neither has written to, so counting and then inserting is
-    /// check-then-act and a burst passes it entirely. The advisory lock on the source is what makes
-    /// the count and the insert one step, and nothing but a real Postgres can be asked whether it
-    /// worked.
+    /// Against the real database, since this is where check-then-act races actually happen: under
+    /// <c>READ COMMITTED</c>, counting then inserting lets a burst pass the bound entirely without
+    /// the advisory lock making the two one step.
     /// </remarks>
     [Test]
     public async Task AConcurrentBurstDoesNotWalkThroughTheBound()
@@ -855,10 +824,8 @@ public class SubmissionPostgresTests
     /// The salt is one row every replica reads, not a value each process invented.
     /// </summary>
     /// <remarks>
-    /// A per-process salt reads as the stronger privacy property and removes the bound: two replicas
-    /// derive two digests for one address, so five per hour becomes five per replica per hour and a
-    /// restart clears it. What §11 asks for is a <em>rotating</em> salt, and a salt that rotates is
-    /// one that is stored for the length of an epoch.
+    /// A per-process salt reads as the stronger privacy property but removes the bound: two replicas
+    /// would derive two digests for one address, turning five per hour into five per replica per hour.
     /// </remarks>
     [Test]
     public async Task TheSaltIsSharedAndRotates()

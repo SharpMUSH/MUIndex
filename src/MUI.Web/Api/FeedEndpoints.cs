@@ -7,11 +7,7 @@ namespace MUI.Web.Api;
 /// <summary>
 /// The three liveness registers — newly discovered, went dark, came back — as JSON and as RSS.
 /// </summary>
-/// <remarks>
-/// These are the differentiator (spec §9): no incumbent measures continuously enough to publish
-/// them. RSS is the whole of v1's notification story; webhooks are deferred (spec §14) and there is
-/// no callback surface here to be mistaken for one.
-/// </remarks>
+/// <remarks>The differentiator (spec §9): no incumbent measures continuously enough to publish them. RSS is the whole of v1's notification story; webhooks are deferred (spec §14).</remarks>
 public static class FeedEndpoints
 {
     public static void Map(IEndpointRouteBuilder api)
@@ -68,10 +64,6 @@ public static class FeedEndpoints
     /// RSS items need absolute links, which is the one place this API cannot use a relative path.
     /// Taken from the request rather than configured, so a mirror serves its own links.
     /// </summary>
-    /// <remarks>
-    /// This was the first surface to need it and now shares the answer with the canonical link, the
-    /// preview metadata and the sitemap. Its own copy assembled the same three parts by hand, which
-    /// meant the scheme fix behind a TLS-terminating proxy had somewhere to not reach.
-    /// </remarks>
+    /// <remarks>Shares the answer with the canonical link, preview metadata and sitemap rather than assembling it separately.</remarks>
     private static Uri Origin(HttpContext http) => SiteUrls.OriginOf(http);
 }

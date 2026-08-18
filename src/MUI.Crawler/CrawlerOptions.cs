@@ -16,9 +16,7 @@ public sealed record CrawlerOptions
 {
     /// <summary>
     /// Off makes the deployable a pure web tier — the hosted service still starts, says so once and
-    /// stands down, because a replica that was meant to crawl and is not looks exactly like one that
-    /// was told not to. The advisory lock already guarantees one crawler, so this is a deliberate
-    /// choice about where the crawl runs rather than a safety net.
+    /// stands down, rather than looking identical to a replica that lost the advisory lock.
     /// </summary>
     public bool Enabled { get; init; } = true;
 
@@ -50,9 +48,9 @@ public sealed record CrawlerOptions
     /// Addresses the crawler knows before it has followed anything.
     /// </summary>
     /// <remarks>
-    /// <b>They matter only on day one.</b> §7.1's effective seed set is every game ever found, growing
-    /// monotonically, so adding a seed here later is a convenience rather than a mechanism. Seeding is
-    /// idempotent: a seed already in the registry keeps its own schedule and is not dragged forward.
+    /// Matter only on day one: §7.1's effective seed set grows monotonically from every game ever
+    /// found, so adding a seed later is a convenience, not a mechanism. Idempotent — a seed already in
+    /// the registry keeps its own schedule.
     /// </remarks>
     public IReadOnlyList<CrawlSeed> Seeds { get; init; } = [];
 
@@ -60,9 +58,8 @@ public sealed record CrawlerOptions
     /// Whether the crawler applies pending migrations before its first cycle.
     /// </summary>
     /// <remarks>
-    /// True by default and it runs under the advisory lock, so exactly one replica migrates and the
-    /// rest wait behind the lock they could not take. <see cref="MUI.Catalog.Persistence.MigrationRunner"/>
-    /// is idempotent regardless.
+    /// Runs under the advisory lock, so exactly one replica migrates.
+    /// <see cref="MUI.Catalog.Persistence.MigrationRunner"/> is idempotent regardless.
     /// </remarks>
     public bool ApplyMigrations { get; init; } = true;
 
@@ -86,10 +83,8 @@ public sealed record CrawlerOptions
 /// <param name="Port">The port.</param>
 /// <param name="IsOperatorSeed">
 /// Whether this address is exempt from <see cref="HostScopeGuard"/>'s resolved-address gate.
-/// <b>False by default, and that is the security-relevant half</b> (§7.2): the exemption exists so
-/// somebody can point the crawler at their own <c>127.0.0.1</c> and mean it, and "operator-supplied
-/// seeds <em>may</em> be exempted" is not "configured therefore exempt". A seed pointing somewhere it
-/// should not go is refused like any other unless a human has said, per address, that they meant it.
+/// <b>False by default — security-relevant</b> (§7.2): the exemption exists so somebody can point the
+/// crawler at their own <c>127.0.0.1</c> and mean it, never as "configured therefore exempt".
 /// </param>
 public sealed record CrawlSeed(string Host, int Port, bool IsOperatorSeed = false)
 {
@@ -98,22 +93,13 @@ public sealed record CrawlSeed(string Host, int Port, bool IsOperatorSeed = fals
     /// is exactly where somebody writes one.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Lives here rather than in whichever surface reads a seed list, because <c>mui-crawl</c>'s
-    /// <c>--seed</c> and a deployment's seed environment variable have to agree about what an address
-    /// is; two parsers would eventually disagree about a bracketed address and only one of them would
-    /// be tested. Anything that is not host:port throws rather than being skipped: a seed silently
-    /// dropped is a crawl that quietly never dialled what it was pointed at.
-    /// </para>
-    /// <para>
-    /// <b>An ambiguous address is refused rather than guessed at.</b> The first version fell back to
-    /// the last colon whenever the brackets did not match, so <c>[2001:db8::1:4201</c> was accepted
-    /// as <c>2001:db8::1</c> port 4201 and a bare <c>2001:db8::1:4201</c> was split the same way —
-    /// a parser inventing the writer's intent from a typo. It could not reach a private address that
-    /// way (every target is resolved and ruled on by <see cref="HostScopeGuard"/> before it is
-    /// dialled, and the string the parser produced is the string that gets gated), but it could dial
-    /// a host nobody wrote down, which rule 4 says a parser does not get to do.
-    /// </para>
+    /// Lives here rather than in whichever surface reads a seed list, so <c>mui-crawl</c>'s
+    /// <c>--seed</c> and a deployment's seed environment variable agree about what an address is.
+    /// Anything that isn't host:port throws rather than being skipped — a seed silently dropped is a
+    /// crawl that quietly never dialled what it was pointed at. An ambiguous address is refused rather
+    /// than guessed at: every target is still resolved and ruled on by
+    /// <see cref="HostScopeGuard"/> before dialling, but a parser guessing at intent could dial a host
+    /// nobody actually wrote down.
     /// </remarks>
     public static CrawlSeed Parse(string value, bool isOperatorSeed = false)
     {

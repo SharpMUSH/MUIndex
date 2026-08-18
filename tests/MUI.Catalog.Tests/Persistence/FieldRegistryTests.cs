@@ -34,9 +34,7 @@ public class FieldRegistryTests
     [Test]
     public async Task AMeasuredCapabilityGoesStaleFasterThanADeclaredOne()
     {
-        // We re-measure the handshake on every probe, so a measured capability unconfirmed for a day
-        // is a fact about our crawler rather than about the game. The game's own claim is hand-typed
-        // and expected to sit still.
+        // A measured capability unconfirmed for a day is a fact about our crawler, not the game.
         var measured = Registry.Find(CapabilityFields.Measured("GMCP"))!.ExpectedRefresh;
         var declared = Registry.Find(CapabilityFields.Declared("GMCP"))!.ExpectedRefresh;
 
@@ -61,9 +59,8 @@ public class FieldRegistryTests
     [Test]
     public async Task TheOverridableFieldsAreTheHandTypedHalfOfMssp()
     {
-        // Spec §8.5, widened: an MSSP report is not a measurement — §5.1 calls it a game filling in a
-        // self-description it maintains — so a verified owner may answer it. What they may answer is
-        // what a person types into mush.cnf, and nothing the codebase fills in for them.
+        // Spec §8.5: an MSSP report is not a measurement, so a verified owner may answer it — but only
+        // what a person types into mush.cnf, nothing the codebase fills in for them.
         var overridable = FieldRegistry.All
             .Where(f => f.OwnerWritable is OwnerWritable.Override)
             .Select(f => f.Name)
@@ -80,13 +77,10 @@ public class FieldRegistryTests
     [Test]
     public async Task TheConnectionDescribingFieldsAreNobodysToAssert()
     {
-        // The line between the two halves of MSSP. HOSTNAME, PORT, IP and CODEBASE describe the
-        // connection rather than the game and are auto-filled by the codebase, so a hand-typed answer
-        // and a measured one would mean genuinely different things under one name.
-        //
-        // capability.*.declared is left out for a sharper reason: the matrix's whole job is to show
-        // what a game claims beside what its handshake offered, and an owner editing the claimed
-        // column is editing one half of a comparison about themselves.
+        // HOSTNAME, PORT, IP and CODEBASE describe the connection rather than the game and are
+        // auto-filled, so a hand-typed answer would mean something different under one name.
+        // capability.*.declared is excluded because the matrix's job is to show what a game claims
+        // beside what its handshake offered — an owner editing "claimed" edits half that comparison.
         var writable = Writable();
 
         foreach (var machinery in new[]
@@ -131,9 +125,8 @@ public class FieldRegistryTests
     [Test]
     public async Task AFieldNobodyDeclaredIsNeverStaleRatherThanGuessedAt()
     {
-        // A game may emit any unofficial MSSP variable it likes, and the registry is not a gate on
-        // ingestion. We store the value; we decline to judge an age we have no window for, because
-        // inventing one would put a fabricated fact on a public page.
+        // The registry is not a gate on ingestion. We store the value but decline to judge an age we
+        // have no window for — inventing one would put a fabricated fact on a public page.
         await Assert.That(Registry.Find("SOME UNOFFICIAL THING")).IsNull();
         await Assert.That(Registry.IsStale("SOME UNOFFICIAL THING", Now.AddYears(-40), Now)).IsFalse();
     }
@@ -173,10 +166,8 @@ public class FieldRegistryTests
     [Test]
     public async Task TwoVocabulariesForOneCapabilityArriveAtOneField()
     {
-        // The handshake names the telnet option it negotiated and MSSP names the feature: MCCP2
-        // against MCCP, and SSL against TLS. Left apart they produced two half-empty rows on the
-        // dashboard — 87 games measured under one name, 35 declared under the other, each reading
-        // as a finding of absence — and measured-beside-declared exists so the two can be compared.
+        // The handshake names the telnet option it negotiated, MSSP names the feature: MCCP2 against
+        // MCCP, SSL against TLS. Left apart, each produces a half-empty row that reads as absence.
         await Assert.That(CapabilityFields.Canonical("MCCP2")).IsEqualTo("MCCP");
         await Assert.That(CapabilityFields.Canonical("SSL")).IsEqualTo("TLS");
         await Assert.That(CapabilityFields.Canonical("ssl")).IsEqualTo("TLS");
@@ -188,9 +179,8 @@ public class FieldRegistryTests
     [Test]
     public async Task FoldingIsIdempotentAndNoNameIsAlsoAnAlias()
     {
-        // A canonical name that is itself an alias, or an alias pointing at another alias, would
-        // make the field a capability lands in depend on how many times the fold ran — and the write
-        // path folds once while the read path does not fold at all.
+        // A canonical name that is itself an alias would make the field a capability lands in depend
+        // on how many times the fold ran — the write path folds once, the read path not at all.
         foreach (var name in CapabilityFields.Names)
         {
             await Assert.That(CapabilityFields.Canonical(name)).IsEqualTo(name);

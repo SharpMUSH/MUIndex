@@ -10,19 +10,14 @@
 @*
     One reference page, whichever kind it is.
 
-    The four routes resolve through the document's own Path rather than through a kind parameter, so
-    a page's URL has exactly one spelling — the one every link on the site is built from. A kind
-    passed separately would let a link and a route disagree, and the failure would be a page that
-    renders the wrong measurement beside the right prose.
+    The four routes resolve through the document's own Path rather than a kind parameter, so a
+    page's URL has exactly one spelling — a kind passed separately could let a link and a route
+    disagree, rendering the wrong measurement beside the right prose.
 
-    The prose is ours and the figures are measured, and that split is the reason the section exists.
-    Nothing below reads a number out of a content file; every count is a query made on this request.
-
-    **The split runs through the localization too.** Every sentence this file writes is a message
-    and is answered in the reader's language; the article between them is a document somebody owns,
-    resolved for this locale by the library and rendered here whole. Nothing on this page puts a word
-    inside it, and every protocol acronym and codebase name reaches the bundle as an argument or not
-    at all.
+    The prose is ours and the figures are measured: nothing below reads a number out of a content
+    file, every count is a query made on this request. The split runs through localization too —
+    every sentence here is a message in the reader's language, while the article is a document
+    resolved for this locale and rendered whole.
 *@
 
 @if (Document is null)
@@ -124,9 +119,7 @@ else
                             </caption>
                             <thead>
                                 <tr>
-                                    @* A column header naming a codebase family, which is not the
-                                       kicker's job of naming what kind of page this is. One English
-                                       word, two ids — S7. *@
+                                    @* A column header naming a codebase family — not the kicker's job. S7. *@
                                     <th scope="col">@Messages.For(Tag, "reference.protocol.column.codebase")</th>
                                     <th scope="col">@Messages.For(Tag, "reference.protocol.column.offered")</th>
                                     <th scope="col">@Messages.For(Tag, "reference.protocol.column.identified")</th>
@@ -205,10 +198,8 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        // The section as this reader gets it — one call site, scoped to the request's locale, and
-        // the only place this page decides which set of articles it is rendering. Related, Find and
-        // the figures below all come off whatever it returns, and every one of them reads structure
-        // that came from the English file whatever language the prose is in.
+        // The one place this page decides which set of articles it is rendering, scoped to the
+        // request's locale. Related, Find and the figures below all come off whatever it returns.
         var library = ReferenceLibrary.For(Tag);
 
         Document = library.Find(Here());
@@ -235,12 +226,10 @@ else
     /// Which document was asked for: the path within this locale, and not the URL that was typed.
     /// </summary>
     /// <remarks>
-    /// <c>NavigationManager.Uri</c> is the whole address, so its local path still carries the
-    /// locale prefix the middleware moved into <c>PathBase</c> — and the library is keyed on the
-    /// one spelling a document has. <c>/de/reference/codebases/pennmush</c> therefore asked for a
-    /// document nothing is filed under and every reader outside English was answered "no reference
-    /// page here", for all of the section at once. <c>Request.Path</c> has the prefix off already,
-    /// which is the point of the middleware putting it where it did.
+    /// <c>NavigationManager.Uri</c> still carries the locale prefix the middleware moved into
+    /// <c>PathBase</c>, and the library is keyed on the one spelling a document has — so
+    /// <c>/de/reference/codebases/pennmush</c> would 404 every non-English reader. <c>Request.Path</c>
+    /// has the prefix off already.
     /// </remarks>
     private string Here() =>
         Http?.Request.Path.Value is { Length: > 0 } path

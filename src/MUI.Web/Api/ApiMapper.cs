@@ -8,15 +8,10 @@ namespace MUI.Web.Api;
 /// View models to wire shapes. The only file that knows both vocabularies.
 /// </summary>
 /// <remarks>
-/// It computes nothing the catalogue already computed. Reachability arithmetic, staleness and the
-/// disagreement flag all arrive decided (spec §5.6) and are carried across, because a surface that
-/// re-derived any of them would be free to disagree with the page about the same fact.
-/// <para>
-/// <b>Every string it emits is English, named by <see cref="Locales.SourceTag"/> rather than left to
-/// a default.</b> The read API is a contract with a program, and an age that read <c>vor 2 Wo.</c>
-/// because the caller happened to send an <c>Accept-Language</c> header would be a breaking change
-/// nobody deployed. The seconds beside it are the field a consumer should be reading anyway.
-/// </para>
+/// Computes nothing the catalogue already computed — reachability, staleness and the disagreement
+/// flag arrive decided (spec §5.6) and are carried across so this can't drift from the page.
+/// <b>Every string it emits is English</b> (<see cref="Locales.SourceTag"/>), never localized by the
+/// caller's <c>Accept-Language</c>: this is a contract with a program, not a browser.
 /// </remarks>
 public static class ApiMapper
 {
@@ -27,9 +22,8 @@ public static class ApiMapper
     /// A listing row, with the label the catalogue put on each of its two bare values (spec §10.1).
     /// </summary>
     /// <remarks>
-    /// <paramref name="now"/> is taken rather than read off a clock, because every age in one
-    /// response is measured from the instant that response is stamped with — a listing whose rows
-    /// each aged from their own <c>UtcNow</c> would disagree with its own <c>generatedAt</c>.
+    /// <paramref name="now"/> is passed in rather than read off a clock so every row in a response
+    /// ages from the same instant as its <c>generatedAt</c>.
     /// </remarks>
     public static GameSummaryView Summary(GameSummary game, DateTimeOffset now) => new(
         game.Id,
@@ -54,10 +48,8 @@ public static class ApiMapper
     /// A window's figures, carried across with the tally they were taken over.
     /// </summary>
     /// <remarks>
-    /// The span is published as whole days because that is what the three sorts offer and what a
-    /// consumer would otherwise have to reconstruct from a duration string. Null propagates: absent
-    /// means "this listing was not sorted on a window, or this game had nothing countable in it",
-    /// and the two are told apart by the <c>sort</c> the response echoes back.
+    /// Null propagates: absent means either the listing wasn't sorted on a window, or the game had
+    /// nothing countable in it — the response's echoed <c>sort</c> tells the two apart.
     /// </remarks>
     private static PresenceWindowView? Window(PresenceWindow? window) => window is null
         ? null
@@ -68,9 +60,8 @@ public static class ApiMapper
     /// One facet, carried across exactly as the catalogue counted it.
     /// </summary>
     /// <remarks>
-    /// Nothing is recomputed, re-ordered or trimmed here. A count is only trustworthy because it
-    /// came from the same pass as the listing beside it, and a mapper that adjusted one would break
-    /// that with no surface left to say so.
+    /// Nothing is recomputed, re-ordered or trimmed — a count is trustworthy only because it came
+    /// from the same pass as the listing beside it.
     /// </remarks>
     public static FacetGroupView Facet(FacetGroup group)
     {
@@ -107,10 +98,9 @@ public static class ApiMapper
             Label(game.CodebaseProvenance, now),
             game.MeasuredProtocols,
             [.. page.Endpoints.Select(Endpoint)],
-            // Suppression withholds the screen here exactly as it does on the page (§11). It shipped
-            // the other way: the flag was published beside the full text, so the one surface most
-            // likely to be re-published by somebody else was the one surface that ignored the
-            // owner's request. A consumer is told there is a screen and that we do not republish it.
+            // Suppression withholds the screen here exactly as it does on the page (§11); it once
+            // shipped publishing the full text beside the suppressed flag, leaking the exact text an
+            // owner asked not to be republished.
             new ConnectScreenView(
                 page.ConnectScreenSuppressed,
                 page.ConnectScreenSuppressed ? null : page.ConnectScreen),
@@ -141,10 +131,7 @@ public static class ApiMapper
     /// <summary>
     /// The label for a value we hold, or nothing where there is no value to label.
     /// </summary>
-    /// <remarks>
-    /// The null is a fact — we did not measure this — and it ships as one rather than as an empty
-    /// object, which a consumer would have to inspect to discover said nothing.
-    /// </remarks>
+    /// <remarks>The null is a fact — we did not measure this — not an empty object a consumer has to inspect to discover the same thing.</remarks>
     public static ProvenanceView? Label(ProvenanceChip? chip, DateTimeOffset now) =>
         chip is null ? null : Provenance(chip, now);
 
@@ -220,11 +207,9 @@ public static class ApiMapper
     /// The named state of a count, read off the same label the count carries.
     /// </summary>
     /// <remarks>
-    /// Null is "we did not measure a count", and it is a different fact from zero (rule 4). It ships
-    /// as a null <em>and</em> as a named state, because a consumer that coerces null to zero would
-    /// otherwise publish a claim we never made. It is derived from the chip rather than from the
-    /// count's nullness so the two cannot disagree — which they did, with every count that existed
-    /// at all named <c>measured</c> beside a label saying the game had asserted it.
+    /// Null is "we did not measure a count", distinct from zero (rule 4), and ships as both a null
+    /// and a named state so a consumer can't coerce null to zero. Derived from the chip rather than
+    /// the count's nullness so the two can't disagree.
     /// </remarks>
     private static PlayerCountState Counted(ProvenanceChip? count) => count switch
     {

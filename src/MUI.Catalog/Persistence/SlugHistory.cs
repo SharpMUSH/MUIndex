@@ -8,21 +8,11 @@ namespace MUI.Catalog.Persistence;
 /// Every slug a game has ever had (spec §5.7), and where it points now.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A game's id is immutable and its slug is not, because games rename themselves — so a slug that
-/// once worked has to keep working for ever, exactly as an archived game's page does. A URL is a
-/// thing somebody else is holding.
-/// </para>
-/// <para>
-/// <b>A row names a game, not another slug.</b> That is what makes a chain free and a loop
-/// impossible: a game renamed twice has two rows, both pointing at it, so its oldest URL resolves to
-/// its current one in one join and there is no edge between two slugs for a cycle to be made of.
-/// </para>
-/// <para>
-/// <b>Nothing filters on lifecycle state here, and that is deliberate.</b> Archiving is a
-/// presentation change (§7.5): an archived game's former URLs keep working exactly as its page
-/// does.
-/// </para>
+/// A game's id is immutable and its slug is not — a slug that once worked has to keep working for
+/// ever, exactly as an archived game's page does. A row names a game, not another slug: that makes a
+/// chain free and a loop impossible, since a game renamed twice has two rows both pointing at it.
+/// Nothing filters on lifecycle state here, deliberately — archiving is a presentation change (§7.5)
+/// and former URLs keep working.
 /// </remarks>
 public interface ISlugHistoryStore
 {
@@ -31,8 +21,7 @@ public interface ISlugHistoryStore
     /// </summary>
     /// <remarks>
     /// Never returns <paramref name="formerSlug"/> itself. A game may take back a name it used to
-    /// have, which leaves a row pointing at a slug that is current again, and a caller that answered
-    /// with it would send a browser round a redirect loop for ever.
+    /// have, and answering with that slug would send a browser round a redirect loop for ever.
     /// </remarks>
     Task<string?> CurrentSlugAsync(string formerSlug, CancellationToken cancellationToken = default);
 
@@ -40,9 +29,9 @@ public interface ISlugHistoryStore
     /// The game that used to wear <paramref name="slug"/>, or null if none did.
     /// </summary>
     /// <remarks>
-    /// The half of the uniqueness question <c>game.slug</c> cannot answer. Minting asks both: a slug
-    /// somebody's bookmark still points at is taken, even though no game currently wears it — unless
-    /// the game asking is the one that retired it, which is entitled to its own old URL back.
+    /// The half of the uniqueness question <c>game.slug</c> cannot answer: a slug somebody's
+    /// bookmark still points at is taken, even though no game currently wears it — unless the game
+    /// asking is the one that retired it.
     /// </remarks>
     Task<Guid?> RetiredByAsync(string slug, CancellationToken cancellationToken = default);
 
@@ -56,9 +45,8 @@ public sealed record SlugRetirement(string Slug, Guid GameId, DateTimeOffset Ret
 
 /// <summary>The <c>game_slug_history</c> table (spec §5.7).</summary>
 /// <remarks>
-/// Read-only. The rows are written by <see cref="IGameStore.RenameAsync"/>, in the same statement
-/// that re-mints the slug — an alias table nothing writes to is the promise §5.7 makes with a schema
-/// under it and no keeper.
+/// Read-only. Rows are written by <see cref="IGameStore.RenameAsync"/>, in the same statement that
+/// re-mints the slug.
 /// </remarks>
 public sealed class NpgsqlSlugHistoryStore(NpgsqlDataSource source) : ISlugHistoryStore
 {
@@ -67,9 +55,8 @@ public sealed class NpgsqlSlugHistoryStore(NpgsqlDataSource source) : ISlugHisto
     {
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
-        // g.slug <> h.slug is the loop guard, and it belongs in the query rather than in a caller:
-        // a game that took its old name back leaves a row pointing at a slug that is current again,
-        // and "redirect to yourself" is the one answer no reader can recover from.
+        // g.slug <> h.slug is the loop guard: a game that took its old name back leaves a row
+        // pointing at a slug that is current again, and "redirect to yourself" is unrecoverable.
         return await connection.QuerySingleOrDefaultAsync<string?>(new CommandDefinition(
             """
             SELECT g.slug

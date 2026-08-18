@@ -42,11 +42,8 @@ public class ProbeRestraintTests
     [Test]
     public async Task PlaintextMsspRequestIsNeverTypedAtALoginScreen()
     {
-        // The plaintext MSSP-REQUEST form is text at a login screen, and eight of twenty games tried
-        // read it as a character name — "Illegal name, try another." on realms.reichel.net:4000 and
-        // tsosmud.org:7070, "'MSSP-REQUEST' does not exist." on eternitymud.com:23. It belongs in
-        // TelnetNegotiationCore (issue #61), not here, and the three games that did answer it all
-        // answer option 70 as well.
+        // The plaintext MSSP-REQUEST form is text at a login screen, and most games tried read it as
+        // a character name. It belongs in TelnetNegotiationCore, not here.
         await Assert.That(TelnetProbe.PermittedCommands).DoesNotContain("MSSP-REQUEST");
     }
 
@@ -65,10 +62,8 @@ public class ProbeRestraintTests
     [Test]
     public async Task TheContactAddressStaysAPlaceholderEvenThoughTheDomainIsDecided()
     {
-        // mu-index.com is settled (§15.1) and this default is still example-domain, on purpose.
-        // Compiling one deployment's contact page in would have every fork and every laptop run
-        // announce it to the servers THEY dial — a claim about somebody else's crawl, in the shape
-        // of the ContactedMaintainer defect. The real address is configuration.
+        // The domain is settled but the default stays a placeholder on purpose: compiling one
+        // deployment's contact page in would have every fork announce it to servers THEY dial.
         await Assert.That(new ProbeOptions().InfoUrl).DoesNotContain("mu-index.com");
     }
 

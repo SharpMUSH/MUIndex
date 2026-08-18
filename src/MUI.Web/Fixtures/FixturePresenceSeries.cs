@@ -6,17 +6,9 @@ namespace MUI.Web.Fixtures;
 /// The demo fixture's presence series, which is empty — because nothing here was measured.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The fixture invents a catalogue so the site can be read without a database, and its heatmap is
-/// drawn from numbers somebody wrote down. Serving those back through §10's series would be handing
-/// a consumer a rolled-up history of measurements that were never taken, in a format whose whole
-/// contract is that every bucket is a tally of real probes — and unlike a page, a JSON body carries
-/// no demo banner to say so.
-/// </para>
-/// <para>
-/// Empty is the honest answer and it is also the true one: the buckets are absent, and an absent
-/// bucket already means <em>not measured</em> everywhere else in this API.
-/// </para>
+/// Serving the fixture's invented heatmap numbers through §10's series would hand a consumer a
+/// rolled-up history of measurements never taken, with no demo banner in a JSON body to say so.
+/// Empty is honest: an absent bucket already means <em>not measured</em> everywhere else in this API.
 /// </remarks>
 public sealed class FixturePresenceSeries : IPresenceSeries
 {

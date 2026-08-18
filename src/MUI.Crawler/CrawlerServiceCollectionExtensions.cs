@@ -17,18 +17,11 @@ namespace MUI.Crawler;
 /// Wires the crawler into a host — the whole composition, in one call.
 /// </summary>
 /// <remarks>
-/// <para>
 /// The crawler is an in-process <c>BackgroundService</c> in the web deployable (spec §4.11), so
-/// <c>Program.cs</c> should be one line and this should be where the graph is assembled. Everything
-/// registered here is either a type from the three projects below or an adapter that joins two of
-/// them; there is no configuration binding, because a library that reads a host's configuration
-/// schema has decided what the host's configuration looks like.
-/// </para>
-/// <para>
-/// <b>The read side is registered too.</b> <see cref="IGameQueries"/> against Postgres is what turns
-/// the site from a fixture into measured data, and it is registered with <c>TryAdd</c> so a host that
-/// has already chosen an implementation — the fixture, in development — keeps it.
-/// </para>
+/// <c>Program.cs</c> should be one line and this is where the graph is assembled. No configuration
+/// binding here — a library that reads a host's configuration schema has decided what the host's
+/// configuration looks like. <see cref="IGameQueries"/> against Postgres is registered too, with
+/// <c>TryAdd</c> so a host that already chose an implementation (the fixture, in development) keeps it.
 /// </remarks>
 public static class CrawlerServiceCollectionExtensions
 {
@@ -62,9 +55,8 @@ public static class CrawlerServiceCollectionExtensions
     /// The same graph, against a data source the host already owns.
     /// </summary>
     /// <remarks>
-    /// Separate because a host that has its own <see cref="NpgsqlDataSource"/> — configured with a
-    /// type mapper, a logger, or a connection multiplexer — must not have a second one created behind
-    /// its back. Two pools against one database is a connection budget nobody planned.
+    /// Separate because a host with its own <see cref="NpgsqlDataSource"/> must not have a second one
+    /// created behind its back — two pools against one database is a connection budget nobody planned.
     /// </remarks>
     public static IServiceCollection AddMuiCrawlerCore(this IServiceCollection services, CrawlerOptions options)
     {
@@ -79,19 +71,12 @@ public static class CrawlerServiceCollectionExtensions
         services.AddSingleton(options.Maintenance);
         services.AddSingleton(options.Maintenance.Retention);
 
-        // There is no salt here any more, and nothing to hash. §11's unique-player estimate is gone —
-        // a player who renames is counted twice inside one epoch, and correcting that needs the
-        // cross-name linkage the salt existed to prevent — so the machinery that served it went with
-        // it. Nothing regressed: no probe ever produced an estimate, because the WHO parser counts
-        // rows and never extracts a name.
-        //
-        // The rule that outlived it is simpler and unchanged: a player name is never persisted. Any
-        // future work that teaches the parser to read a name column has to make that case from
-        // scratch rather than inheriting a hashing helper that presumes the answer.
+        // §11's unique-player estimate and its salting machinery are gone (never revive without also
+        // solving cross-name linkage). The rule that outlived it: a player name is never persisted.
 
         // The catalogue's own stores. NpgsqlAvailabilityStore is both the store and the reachable
-        // history the archive sweep reads, so it is registered once and exposed twice — two instances
-        // would be two connection paths answering one question.
+        // history the archive sweep reads, registered once and exposed twice — two instances would be
+        // two connection paths answering one question.
         services.TryAddSingleton<IGameStore>(s => new NpgsqlGameStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IEndpointStore>(s => new NpgsqlEndpointStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IGameFieldStore>(s => new NpgsqlGameFieldStore(s.GetRequiredService<NpgsqlDataSource>()));
@@ -119,16 +104,11 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<IAvailabilityStore>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());
         services.TryAddSingleton<IReachableHistory>(s => s.GetRequiredService<NpgsqlAvailabilityStore>());
 
-        // §8's claim settling. Every probe of a game whose owner has published a token completes the
-        // claim, and every probe of a claimed game refreshes beacon_last_seen_at — both on the
-        // ordinary schedule, which is why this belongs to the crawl graph rather than to the web
-        // tier that mints the tokens.
-        //
-        // The consumer is the in-process CrawlCycle of the one deployable (§4.11) — this method has
-        // exactly one caller, MUI.Web's Program, and mui-crawl builds its own graph by hand. It was
-        // missing here, and CrawlCycle takes its ClaimService as an OPTIONAL parameter, so the site
-        // settled beacons only insofar as some other registration happened to supply one. That is
-        // the shape of the bug rather than an argument for a deployment nobody builds.
+        // §8's claim settling. A probe of a game whose owner has published a token completes the
+        // claim; a probe of a claimed game refreshes beacon_last_seen_at — both on the ordinary
+        // schedule, so this belongs to the crawl graph, not the web tier that mints the tokens.
+        // CrawlCycle takes ClaimService as an OPTIONAL parameter, so omitting this registration means
+        // beacons silently never settle rather than failing loudly — register it unconditionally.
         services.TryAddSingleton<IClaimStore>(s => new NpgsqlClaimStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IOnDemandProbes>(
             s => new NpgsqlOnDemandProbes(s.GetRequiredService<NpgsqlDataSource>()));
@@ -158,9 +138,8 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<IGameFieldIndex>(
             s => new NpgsqlGameFieldIndex(s.GetRequiredService<NpgsqlDataSource>()));
 
-        // The public submission form (spec §7.6, §9). It writes into the registry above and nowhere
-        // else, and it is registered here rather than in the web project because everything it needs
-        // is already assembled here — the registry, the endpoint directory and §7.2's gate.
+        // The public submission form (spec §7.6, §9), registered here rather than in the web project
+        // since everything it needs — registry, endpoint directory, §7.2's gate — is already assembled.
         services.TryAddSingleton(options.Submissions);
         services.TryAddSingleton<ISubmissionSalt>(s => new NpgsqlSubmissionSalt(
             s.GetRequiredService<NpgsqlDataSource>(),
@@ -220,10 +199,8 @@ public static class CrawlerServiceCollectionExtensions
             s.GetRequiredService<TimeProvider>(),
             logger: s.GetService<ILogger<CrawlGapGuard>>()));
 
-        // Registered even when the crawl is off, so that CrawlerService says so once in the log and
-        // then returns. A replica that was meant to crawl and is silently not crawling looks exactly
-        // like a replica that was configured not to, and an operator reading a log should not have to
-        // tell them apart by their silence.
+        // Registered even when the crawl is off, so CrawlerService says so once in the log rather than
+        // an operator having to infer "not crawling" from silence.
         services.AddHostedService<CrawlerService>();
 
         // Deliberately not gated on options.Enabled: a pure web replica still wants next month's
@@ -234,11 +211,9 @@ public static class CrawlerServiceCollectionExtensions
             services.AddHostedService<PresenceMaintenanceService>();
         }
 
-        // Gated on Enabled, unlike the two above, because this one needs a container that is not part
-        // of the default deployment. Registering it regardless would have every deployment without
-        // the sidecar log a failed connection on a five-minute loop for a feature nobody turned on —
-        // the opposite of CrawlerService's case, where saying "off" once is the useful signal and the
-        // absence of a sidecar is not something an operator can be expected to infer from silence.
+        // Gated on Enabled, unlike the two above, because this needs a sidecar that isn't part of the
+        // default deployment — registering it regardless would log a failed connection on a loop for
+        // a feature nobody turned on.
         if (options.I3.Enabled)
         {
             services.AddSingleton(options.I3);
@@ -261,10 +236,9 @@ public static class CrawlerServiceCollectionExtensions
 /// A small builder so a host configures the crawler without constructing a record graph by hand.
 /// </summary>
 /// <remarks>
-/// Deliberately not <c>IOptions&lt;T&gt;</c> and deliberately not bound to a configuration section:
-/// <see cref="CrawlerOptions"/> validates itself and refuses a setting that would be wrong in a way
-/// nobody notices until it is on the network, and that check has to happen before anything is
-/// registered rather than the first time something resolves the options.
+/// Deliberately not <c>IOptions&lt;T&gt;</c> or bound to a configuration section: <see cref="CrawlerOptions"/>
+/// validates itself, and that check has to happen before anything is registered, not the first time
+/// something resolves the options.
 /// </remarks>
 public sealed class CrawlerOptionsBuilder
 {

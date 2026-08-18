@@ -6,19 +6,12 @@ namespace MUI.Crawler;
 /// The URL segment a game is minted with (spec §5.7).
 /// </summary>
 /// <remarks>
-/// <para>
 /// Two identifiers, deliberately: the id is an immutable GUID every foreign key points at, and the
-/// slug is the mutable URL segment, because games rename themselves. <b>Every slug a game has ever
-/// had redirects to it, for ever</b> — a URL that once worked keeps working, which is the same
-/// promise §7.5 makes about pages.
-/// </para>
-/// <para>
-/// <b>Minting is not re-minting.</b> This is the arithmetic and never the decision: a rename does not
-/// re-mint automatically — a game that flips its name daily would otherwise churn its URL — so
-/// <see cref="CatalogueBinder"/> calls it when a game is first listed, and <see cref="SlugMinter"/>
-/// calls it again only once a new name has held for a grace period, retiring the old slug into
-/// <c>game_slug_history</c> in the same act. Nothing here does either by accident.
-/// </para>
+/// slug is the mutable URL segment, because games rename themselves. Every slug a game has ever had
+/// redirects to it, for ever. This is only the arithmetic, never the decision to (re)mint: a rename
+/// does not re-mint automatically, or a game that flips its name daily would churn its URL —
+/// <see cref="CatalogueBinder"/> calls it on first listing, <see cref="SlugMinter"/> calls it again
+/// only once a new name has held for a grace period.
 /// </remarks>
 public static class GameSlug
 {
@@ -75,13 +68,10 @@ public static class GameSlug
     /// The ASCII a Latin-1 letter folds to, or null for anything that is not one.
     /// </summary>
     /// <remarks>
-    /// <b>A table rather than <c>Normalize(FormD)</c>, because this solution sets
-    /// <c>InvariantGlobalization</c>, under which <c>string.Normalize</c> is a silent no-op</b> — it
-    /// returns the string unchanged rather than throwing, so decomposing and dropping combining marks
-    /// looks correct, compiles, and turns "Café Noir" into <c>caf-noir</c>. Measured, not assumed.
-    /// The range is the Latin-1 Supplement and nothing beyond it: it covers essentially every accented
-    /// Western European name, and a game named in a script this cannot fold gets the address-derived
-    /// fallback rather than a slug pretending to be its name.
+    /// A table rather than <c>Normalize(FormD)</c>: this solution sets <c>InvariantGlobalization</c>,
+    /// under which <c>string.Normalize</c> is a silent no-op that returns the string unchanged rather
+    /// than throwing, so it looks correct and turns "Café Noir" into <c>caf-noir</c>. The range is the
+    /// Latin-1 Supplement only; a name in a script this can't fold gets the address-derived fallback.
     /// </remarks>
     private static string? Fold(char rune) => rune switch
     {
@@ -104,12 +94,10 @@ public static class GameSlug
     /// A slug nothing else has taken, asking <paramref name="isTaken"/> until it says no.
     /// </summary>
     /// <remarks>
-    /// The numeric suffix is §5.7's own answer to a collision. Two unedited PennMUSHes really do want
-    /// the same slug, which is the same observation that makes a codebase default the absence of an
-    /// identity signal rather than a weak one — except that here they are two games and both are
-    /// entitled to a URL. <b>Taken means taken by anybody, ever</b>: every caller asks the former-slug
-    /// table as well as <c>game.slug</c>, because a URL a game gave up is still one somebody is
-    /// holding and pointing it at a different game is worse than the 404 it replaces.
+    /// The numeric suffix is §5.7's own answer to a collision — two games both entitled to a URL can
+    /// legitimately want the same slug. Taken means taken by anybody, ever: every caller checks the
+    /// former-slug table as well as <c>game.slug</c>, since a URL a game gave up is still one somebody
+    /// might follow, and pointing it at a different game is worse than the 404 it replaces.
     /// </remarks>
     /// <param name="name">What the game calls itself.</param>
     /// <param name="isTaken">Whether a candidate belongs to anybody, ever.</param>
@@ -129,11 +117,8 @@ public static class GameSlug
         var stem = Mint(name);
 
         // The fold above keeps Latin-1 and nothing beyond it, so a game named in Hangul, Cyrillic or
-        // Kanji arrives here with nothing to make a URL out of — and both callers know its address,
-        // which is what the fold's own remarks promise such a game gets. It went unnoticed while the
-        // only game with an unmintable name was one that had never told us a name at all, whose
-        // "name" was already its address; the mudlist then handed us a real one, in Hangul, and the
-        // slug for it was the word "game" — permanently, because every slug redirects for ever.
+        // Kanji arrives here with nothing to make a URL out of; the fallback is its address, which
+        // every caller knows.
         if (stem.Length == 0 && fallback is { Length: > 0 })
         {
             stem = Mint(fallback);
@@ -160,12 +145,9 @@ public static class GameSlug
             }
         }
 
-        // Ten thousand games sharing one name is not a collision, it is a bug somewhere upstream —
-        // but a listing refused outright is worse than an ugly URL, so this always terminates.
-        //
-        // Truncated only when there is something to truncate: the range operator throws for a string
-        // shorter than MaxLength, so the line that claimed to always terminate ended the listing with
-        // an ArgumentOutOfRangeException for every stem under 31 characters — which is most of them.
+        // A listing refused outright is worse than an ugly URL, so this always terminates. Truncated
+        // only when there is something to truncate: the range operator throws for a string already
+        // shorter than MaxLength.
         var last = $"{stem}-{Guid.CreateVersion7():N}";
 
         return last.Length > MaxLength ? last[..MaxLength] : last;

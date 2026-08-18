@@ -80,8 +80,8 @@ public class ArchiveSweeperTests
     [Test]
     public async Task AVenerableGameEarnsTheCeilingAndOutlastsAYearOfDarkness()
     {
-        // Four years of measured reachable time is 365 days of grace, and no more: the clamp is what
-        // stops a decade-old institution being unarchivable.
+        // Four years of measured reachable time is 365 days of grace, and no more — the clamp stops
+        // a decade-old institution being unarchivable.
         var scene = Build();
         await scene.Availability.OpenAsync(Dark(364));
         scene.History.FirstParty[Game] = TimeSpan.FromDays(365 * 6);
@@ -94,10 +94,9 @@ public class ArchiveSweeperTests
     [Test]
     public async Task AGameWeHaveOnlyJustFoundGetsTheFloorHoweverItWasFound()
     {
-        // This used to credit two years of a third party's probing as one of ours, for 91 days of
-        // grace. The backfill imports no history now (spec §7.6) — it contributes addresses, and
-        // every fact is measured here — so a game we learned of from somebody's listing and a game
-        // we learned of from a referral start in exactly the same place: the floor.
+        // The backfill imports no history (spec §7.6) — it contributes addresses only, every fact is
+        // measured here — so a game found via a listing and one found via a referral start at the
+        // same place: the floor.
         var scene = Build();
         await scene.Availability.OpenAsync(Dark(59));
 
@@ -112,8 +111,7 @@ public class ArchiveSweeperTests
     [Test]
     public async Task AClaimedGameReceivesTheCeilingOutright()
     {
-        // Someone with server access has demonstrably staked a claim, which is worth a year
-        // regardless of how long we happen to have been watching (§7.5, §8).
+        // Demonstrated server access is worth a year regardless of how long we've watched (§7.5, §8).
         var scene = Build(isClaimed: true);
         await scene.Availability.OpenAsync(Dark(364));
         scene.History.FirstParty[Game] = TimeSpan.Zero;
@@ -138,8 +136,8 @@ public class ArchiveSweeperTests
     [Test]
     public async Task ADegradedGameIsNotDark()
     {
-        // Its socket answered and the session did not finish. Archiving it would record our own probe
-        // timeout as the game's absence, which rule 5 forbids.
+        // Its socket answered and the session didn't finish. Archiving it would record our own probe
+        // timeout as the game's absence (rule 5).
         var scene = Build();
         await scene.Availability.OpenAsync(new AvailabilityInterval
         {
@@ -163,8 +161,7 @@ public class ArchiveSweeperTests
     [Test]
     public async Task OneSuccessfulProbeUnarchivesAGameImmediately()
     {
-        // Automatic, immediate, and with no human on either side of the transition — the property no
-        // incumbent directory managed.
+        // Automatic and immediate, with no human on either side of the transition.
         var scene = Build(LifecycleState.Archived);
 
         var restored = await scene.Sweeper.RestoreAsync(Game, Now);
@@ -187,8 +184,7 @@ public class ArchiveSweeperTests
     [Test]
     public async Task ArchivingKeepsEverythingItPromisedToKeep()
     {
-        // §7.5: archiving is a presentation change and never a deletion. The slug, the name, the
-        // first sighting and the availability history all survive it untouched.
+        // §7.5: archiving is a presentation change, never a deletion.
         var scene = Build();
         await scene.Availability.OpenAsync(Dark(400));
 

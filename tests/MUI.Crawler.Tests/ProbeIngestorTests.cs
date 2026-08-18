@@ -35,11 +35,9 @@ public class ProbeIngestorTests
     [Test]
     public async Task AFailedProbeKeepsWhatTheDialActuallySaid()
     {
-        // The cause vocabulary is six words wide and three of them are wastebaskets: "timeout"
-        // carries a socket timeout, an exhausted probe budget and every error with no word of its
-        // own. Four days of production had 157 dark episodes labelled "timeout" or
-        // "handshake_stalled" and nothing else recorded anywhere, because the message was computed
-        // in DialFailure and dropped on the way here — and the container keeps half an hour of logs.
+        // The cause vocabulary is six words wide and "timeout" is a wastebasket: a socket timeout, an
+        // exhausted probe budget, and every error with no word of its own. The detail message is what
+        // is left once the cause has been collapsed to one of six words.
         var catalogue = new Catalogue();
         var game = catalogue.Listed();
 

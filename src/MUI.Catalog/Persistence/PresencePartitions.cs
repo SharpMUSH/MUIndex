@@ -6,17 +6,10 @@ namespace MUI.Catalog.Persistence;
 /// The naming and bounds of <c>presence_sample</c>'s monthly partitions, in one place.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Two callers need this and they must agree exactly: the writer, which makes the month's partition
-/// before every append, and the maintenance pass, which makes them ahead of need and drops them whole
-/// when a deployment's retention says so. A drop that read the name differently from the create would
-/// delete a month that was not the month it meant.
-/// </para>
-/// <para>
-/// <b>The name is the record of the bounds.</b> Retention reads a partition's month back out of its
-/// name rather than parsing <c>pg_get_expr(relpartbound)</c>, and anything not named the way we name
-/// them is not ours and is never dropped — an operator who attached a partition by hand keeps it.
-/// </para>
+/// The writer (creating ahead of an append) and the maintenance pass (dropping on retention) must
+/// agree on the name exactly, or a drop could delete the wrong month. Retention reads a partition's
+/// month back out of its name rather than parsing bounds, so anything not named the way we name them
+/// is never dropped — an operator who attached a partition by hand keeps it.
 /// </remarks>
 internal static class PresencePartitions
 {

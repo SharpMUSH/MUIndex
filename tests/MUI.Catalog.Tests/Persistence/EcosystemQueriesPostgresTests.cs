@@ -9,13 +9,9 @@ namespace MUI.Catalog.Tests.Persistence;
 /// The ecosystem dashboard and the rankings, against PostgreSQL.
 /// </summary>
 /// <remarks>
-/// These are assertions about <em>denominators</em> more than about numerators, because that is where
-/// the arithmetic on these two pages goes wrong: a share whose denominator quietly swallows the games
-/// we never reached reads as a fact about the hobby and is a fact about our crawl. The three that
-/// matter are pinned by name below — a game we never handshaked is out of the protocol denominator
-/// rather than in it as a no, a game that never told us its codebase is out of the codebase
-/// denominator rather than in it as "other", and a protocol nothing has ever offered is unmeasured
-/// rather than nought per cent.
+/// These are assertions about denominators more than numerators: an unhandshaked game is out of the
+/// protocol denominator rather than counted as a no, an unidentified codebase is out rather than
+/// "other", and an unoffered protocol is unmeasured rather than zero per cent.
 /// </remarks>
 public class EcosystemQueriesPostgresTests
 {
@@ -28,12 +24,9 @@ public class EcosystemQueriesPostgresTests
     /// The rankings, after the rollup that now feeds them has run.
     /// </summary>
     /// <remarks>
-    /// The busiest table reads <c>presence_rollup_day</c>'s distribution rather than
-    /// <c>presence_sample</c> (migration 0019), so that a median outlives §5.2's raw retention. The
-    /// consequence is real and belongs in the tests rather than only in the comments: a ranking is
-    /// as fresh as the last maintenance pass, which the deployment runs hourly. A test that writes
-    /// samples and asks for a ranking without rolling them up is asking about a window nothing has
-    /// been aggregated into yet, and correctly gets an empty table.
+    /// The busiest table reads <c>presence_rollup_day</c>, not <c>presence_sample</c> (migration
+    /// 0019), so a ranking is only as fresh as the last rollup — samples written without rolling up
+    /// correctly produce an empty table.
     /// </remarks>
     private static async Task<Rankings> RankAsync(TestDatabase db, RankingSpan span = RankingSpan.Week)
     {
@@ -66,9 +59,8 @@ public class EcosystemQueriesPostgresTests
     [Test]
     public async Task AGameWeHaveNeverHandshakedIsOutOfTheDenominatorRatherThanInItAsANo()
     {
-        // The whole page rests on this. A game nobody has reached tells us nothing about GMCP, and
-        // counting it in the denominator would let the share fall every time the crawler discovers an
-        // address it has not dialled yet — publishing our own backlog as the hobby's adoption curve.
+        // Counting an unreached game in the denominator would publish our own dial backlog as the
+        // hobby's adoption curve.
         await using var db = await PostgresFixture.MigratedAsync();
         var reached = await Seed.GameAsync(db, "reached", "Reached");
         await Seed.GameAsync(db, "never-dialled", "Never Dialled");
@@ -92,9 +84,8 @@ public class EcosystemQueriesPostgresTests
     [Test]
     public async Task AHandshakeThatOfferedNothingIsStillInTheDenominator()
     {
-        // The tempting denominator is "games with capability rows", which defines the denominator out
-        // of the numerator: a game whose handshake completed and produced no measurable capability
-        // would fall out of the bottom of every fraction and silently raise every share on the page.
+        // "Games with capability rows" would define the denominator out of the numerator, silently
+        // raising every share on the page.
         await using var db = await PostgresFixture.MigratedAsync();
         var quiet = await Seed.GameAsync(db, "quiet", "Quiet");
         var talkative = await Seed.GameAsync(db, "talkative", "Talkative");
@@ -112,10 +103,8 @@ public class EcosystemQueriesPostgresTests
     [Test]
     public async Task AProtocolNothingHasOfferedIsUnmeasuredRatherThanNoughtPerCent()
     {
-        // TLS is the standing case: the probe dials plain telnet and TLS is not a telnet option, so
-        // "0% of games offer TLS" would be a limit of our crawler published as a fact about the
-        // hobby. The rule is derived from the tally rather than compiled in, so the column starts
-        // reporting a share on its own the day the first measurement lands.
+        // TLS is the standing case: the probe dials plain telnet, so "0% offer TLS" would be a limit
+        // of our crawler stated as a fact about the hobby.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         await HandshakedAsync(db, game);
@@ -136,9 +125,8 @@ public class EcosystemQueriesPostgresTests
     [Test]
     public async Task OnlyAProtocolWeAskedForCountsSilenceAsANo()
     {
-        // MSSP is requested by name on every probe, so a server that answered and never engaged it
-        // declined a question that was put — the crawler writes that down and nothing else. A game
-        // silent on GMCP is unobserved, and the two must never land in the same bucket.
+        // MSSP is requested by name, so silence on it is a decline; silence on GMCP (never asked by
+        // name) is unobserved. The two must never land in the same bucket.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         await HandshakedAsync(db, game);
@@ -156,8 +144,7 @@ public class EcosystemQueriesPostgresTests
     [Test]
     public async Task ACodebaseShareCountsOnlyTheGamesThatToldUsOne()
     {
-        // A game whose codebase we could not read is not a game running something else. Rolling those
-        // into a residual would publish our gap as somebody's market share.
+        // Rolling an unread codebase into a residual would publish our gap as somebody's market share.
         await using var db = await PostgresFixture.MigratedAsync();
         var penn = await Seed.GameAsync(db, "penn", "Penn");
         var mux = await Seed.GameAsync(db, "mux", "Mux");
@@ -177,8 +164,7 @@ public class EcosystemQueriesPostgresTests
     [Test]
     public async Task TwoPatchLevelsOfOneCodebaseAreOneShare()
     {
-        // Market share is a question about codebases, not point releases: spreading PennMUSH across
-        // as many rows as there are patch levels in the wild answers no question anybody asked.
+        // Market share is a question about codebases, not point releases.
         await using var db = await PostgresFixture.MigratedAsync();
         var older = await Seed.GameAsync(db, "older", "Older");
         var newer = await Seed.GameAsync(db, "newer", "Newer");
@@ -194,9 +180,8 @@ public class EcosystemQueriesPostgresTests
     [Test]
     public async Task TheLadderPicksTheCodebaseAndTheSqlDoesNotInventItsOwn()
     {
-        // §5.1's ladder is resolved in the query here rather than in memory, because the dashboard
-        // reads every game at once. It has to reach the same answer FieldPrecedence would: a banner
-        // reading is a real observation and it loses to what the game itself declares.
+        // §5.1's ladder is resolved in SQL, not in memory, and must reach the same answer as
+        // FieldPrecedence: a banner reading loses to what the game itself declares.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         await FieldAsync(db, game, "CODEBASE", FieldSource.Banner, "Rhost");
@@ -211,9 +196,7 @@ public class EcosystemQueriesPostgresTests
     [Test]
     public async Task AnArchivedGameIsOutOfTheDashboardAndOutOfBothRankings()
     {
-        // Archiving is a presentation change and it changes exactly this much (§7.5). A game that
-        // stopped answering is a fact about when it stopped, and its last handshake is not evidence
-        // about what the hobby runs now.
+        // Archiving is a presentation change and changes exactly this much (§7.5).
         await using var db = await PostgresFixture.MigratedAsync();
         var gone = await Seed.GameAsync(db, "gaslight-row", "Gaslight Row", LifecycleState.Archived);
         await HandshakedAsync(db, gone);
@@ -241,17 +224,14 @@ public class EcosystemQueriesPostgresTests
     [Test]
     public async Task TheBusiestRankingIsAMedianOverAStatedFloorOfSamples()
     {
-        // A median over three samples is not a median, and a game found on Friday would otherwise
-        // take the top of the table off one lucky evening probe — which ranks our crawl schedule.
+        // A median over too few samples would let one lucky evening probe top the table.
         await using var db = await PostgresFixture.MigratedAsync();
         var steady = await Seed.GameAsync(db, "steady", "Steady");
         var spike = await Seed.GameAsync(db, "spike", "Spike");
         var presence = new NpgsqlPresenceStore(db.DataSource);
 
-        // Spread across six days rather than packed into thirty consecutive hours: the window is
-        // day-aligned and eligibility now has a coverage clause as well as a sample floor, so a
-        // game measured hard for one weekend is deliberately not rankable over a week. The multiset
-        // of counts is unchanged, so the median this asserts is unchanged.
+        // Spread across six days, not packed into 30 consecutive hours: eligibility has a coverage
+        // clause as well as a sample floor. The multiset of counts, and so the median, is unchanged.
         for (var hour = 1; hour <= 30; hour++)
         {
             await presence.AppendAsync(PresenceSample.Counted(
@@ -280,8 +260,7 @@ public class EcosystemQueriesPostgresTests
     [Test]
     public async Task AnUncountableProbeIsNotAZeroInARanking()
     {
-        // Rule 4 in the place it is most tempting to break: a game whose DOING header we cannot parse
-        // would otherwise sink to the bottom of a league table while running perfectly well.
+        // Rule 4: an unparseable DOING header must not sink a game's ranking.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db, "midnight-sun", "Midnight Sun II");
         var presence = new NpgsqlPresenceStore(db.DataSource);
@@ -304,9 +283,9 @@ public class EcosystemQueriesPostgresTests
     [Test]
     public async Task AWeekendOfHardProbingDoesNotRankInAQuarter()
     {
-        // The clause the sample floor cannot express. Twenty-four samples is a day's worth of hourly
-        // probes, so a game measured intensively over two days clears the floor — and a table headed
-        // "last 90 days" that ranks it is describing a quarter out of a weekend.
+        // The clause a sample floor alone can't express: a game measured intensively over one weekend
+        // clears any sample floor, and ranking it in a "last 90 days" table describes a quarter out
+        // of a weekend.
         await using var db = await PostgresFixture.MigratedAsync();
         var burst = await Seed.GameAsync(db, "burst", "Burst");
         var spread = await Seed.GameAsync(db, "spread", "Spread");
@@ -319,9 +298,8 @@ public class EcosystemQueriesPostgresTests
                 burst, Now.AddDays(-(i % 2)).AddMinutes(-20 * i), 50, FieldSource.Who));
         }
 
-        // Sixty samples across sixty consecutive days — fewer per day, and an honest quarter. Sixty
-        // clears the forty-five days of coverage a ninety-day window asks for; forty would not, and
-        // the first draft of this test failed on exactly that.
+        // Sixty samples across sixty consecutive days: clears the 45-day coverage a 90-day window
+        // requires, where forty would not.
         for (var i = 0; i < 60; i++)
         {
             await presence.AppendAsync(PresenceSample.Counted(
@@ -335,10 +313,8 @@ public class EcosystemQueriesPostgresTests
         await Assert.That(quarter.MinimumDays).IsEqualTo(45);
         await Assert.That(quarter.Busiest.Select(g => g.Slug).ToList()).IsEquivalentTo(new[] { "spread" });
 
-        // And over a week neither qualifies, for two different reasons that both belong in the
-        // table's own terms: the burst covers two days of seven, and the spread has one probe a day
-        // and so cannot reach the sample floor inside a week. An empty table is the honest answer
-        // and is not the same as a table nobody computed.
+        // Over a week neither qualifies: burst covers only two of seven days, spread can't clear the
+        // sample floor at one probe a day. An empty table is the honest answer.
         var week = await RankAsync(db);
 
         await Assert.That(week.MinimumDays).IsEqualTo(4);
@@ -349,8 +325,7 @@ public class EcosystemQueriesPostgresTests
     [Test]
     public async Task EachWindowIsItsOwnQuestionAndTheyCanDisagree()
     {
-        // Two games that swap places between the week and the quarter, which is the whole reason for
-        // offering both: one has been steady for months and the other has just arrived busy.
+        // Two games that swap places between week and quarter — the reason for offering both.
         await using var db = await PostgresFixture.MigratedAsync();
         var veteran = await Seed.GameAsync(db, "veteran", "Veteran");
         var newcomer = await Seed.GameAsync(db, "newcomer", "Newcomer");
@@ -380,8 +355,7 @@ public class EcosystemQueriesPostgresTests
         // Over a week the newcomer leads on the count it actually has.
         await Assert.That(week.Busiest[0].Slug).IsEqualTo("newcomer");
 
-        // Over a quarter it has not been measured on enough of the window to be ranked at all, and
-        // the table is not silently the same one under a different heading.
+        // Over a quarter it has not been measured on enough of the window to be ranked at all.
         await Assert.That(quarter.Busiest.Select(g => g.Slug).ToList()).IsEquivalentTo(new[] { "veteran" });
         await Assert.That(quarter.Busiest[0].Days).IsGreaterThanOrEqualTo(45);
     }
@@ -389,18 +363,15 @@ public class EcosystemQueriesPostgresTests
     [Test]
     public async Task ARankingReadsTheRollupAndNotTheRawSamples()
     {
-        // The point of migration 0019: §5.2 lets retention drop raw partitions once they have been
-        // aggregated, and a ranking that read raw would quietly shorten its own window as a
-        // deployment aged. So the table must still stand with the samples gone.
+        // Migration 0019: retention drops raw partitions once aggregated, so the table must still
+        // stand with the samples gone.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db, "enduring", "Enduring");
         var presence = new NpgsqlPresenceStore(db.DataSource);
 
-        // Two things this spacing is avoiding, both of which the first draft hit. `Now` is midday, so
-        // a four-hour step walks the oldest day's last probe out of the day-aligned window. And the
-        // rollup consumes a half-open interval, so a sample written at exactly `Now` is not in this
-        // pass at all — it is rolled up by the next one, which is right, and would silently make the
-        // stated sample count one larger than the arithmetic used.
+        // Spacing avoids two traps: `Now` is midday, so a 4-hour step could walk the oldest day's
+        // last probe out of the day-aligned window; and the rollup's interval is half-open, so a
+        // sample at exactly `Now` belongs to the next pass, not this one.
         for (var day = 0; day < 7; day++)
         {
             for (var probe = 1; probe <= 5; probe++)
@@ -427,8 +398,8 @@ public class EcosystemQueriesPostgresTests
     [Test]
     public async Task OnlyAnOpenReachableSpellCounts()
     {
-        // The table is "reachable on every probe since", so a game that is unreachable right now has
-        // no spell at all, and one whose reachable run ended last week has an ended run.
+        // "Reachable on every probe since": unreachable now has no spell; a run that ended last week
+        // has an ended run.
         await using var db = await PostgresFixture.MigratedAsync();
         var running = await Seed.GameAsync(db, "running", "Running");
         var down = await Seed.GameAsync(db, "down", "Down");
@@ -476,7 +447,7 @@ public class EcosystemQueriesPostgresTests
     [Test]
     public async Task ACapabilityTransitionIsCountedBecauseItIsWhatACurveWouldBeDrawnFrom()
     {
-        // The page says it cannot draw a curve yet. This is the number that says when it can.
+        // The number that says when the page can start drawing an adoption curve.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var fields = new NpgsqlGameFieldStore(db.DataSource);

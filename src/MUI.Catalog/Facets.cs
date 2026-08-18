@@ -5,11 +5,7 @@ namespace MUI.Catalog;
 /// use (spec §9).
 /// </summary>
 /// <remarks>
-/// These are querystring parameter names as much as they are facet identifiers, and that is the
-/// point: <c>q</c> and <c>archived</c> were public on <c>/games</c> before there was a panel, and an
-/// API that invented <c>search</c> beside them would have given one question two spellings and let
-/// them drift. Naming them once, here, is what makes "the page and the API agree" a fact about the
-/// code rather than a convention somebody has to remember.
+/// One spelling shared by the querystring, the API and the page, so they cannot drift apart.
 /// </remarks>
 public static class FacetKeys
 {
@@ -40,12 +36,9 @@ public static class FacetKeys
     /// The codebase family — <c>PennMUSH</c>, never <c>PennMUSH 1.8.8p0</c>.
     /// </summary>
     /// <remarks>
-    /// This counted the raw <c>CODEBASE</c> string until the panel was seen against a real crawl,
-    /// where it offered <c>PennMUSH 1.8.8p0 (9)</c>, <c>PennMUSH 1.8.7p0 (4)</c> and
-    /// <c>PennMUSH 1.8.6p1 (2)</c> as three unrelated choices. Nobody asks a version-shaped
-    /// question, and splitting one codebase across its patchlevels also spent three of the twelve
-    /// values the panel has room for (<see cref="FacetedSearch.MaxValues"/>) saying the same word.
-    /// The exact string is still filterable — it is <see cref="CodebaseVersion"/>.
+    /// Splitting one codebase across patchlevels would waste panel slots
+    /// (<see cref="FacetedSearch.MaxValues"/>) saying the same word. The exact string is
+    /// <see cref="CodebaseVersion"/>.
     /// </remarks>
     public const string Codebase = "codebase";
 
@@ -53,10 +46,8 @@ public static class FacetKeys
     /// The codebase exactly as the game reports it, version and all.
     /// </summary>
     /// <remarks>
-    /// Worth a facet of its own rather than being folded away entirely: "which patchlevels of
-    /// PennMUSH are actually running" is a real question, and it is the one a codebase reference page
-    /// leaves a reader holding. It sits under <see cref="Codebase"/> in the panel because that is the
-    /// order the questions come in.
+    /// Kept as its own facet because "which patchlevels are running" is a real question the family
+    /// facet collapses away.
     /// </remarks>
     public const string CodebaseVersion = "version";
 
@@ -64,11 +55,8 @@ public static class FacetKeys
     /// The old spelling of <see cref="Codebase"/>, still accepted in a querystring.
     /// </summary>
     /// <remarks>
-    /// It named a filter that narrowed the listing while <c>codebase</c> counted raw strings; now
-    /// that <c>codebase</c> <em>is</em> the family, the two are one question and one key. This
-    /// survives as an alias rather than being deleted because every codebase reference page has been
-    /// linking here with it, and a link that used to work and now silently returns the unfiltered
-    /// catalogue is worse than one that errors.
+    /// Kept as an alias because reference pages link with this spelling; removing it would silently
+    /// return the unfiltered catalogue instead of erroring.
     /// </remarks>
     public const string CodebaseFamily = "codebase-family";
 
@@ -87,20 +75,11 @@ public static class FacetKeys
     /// Games we reached and hold no readable count for — <b>never games we counted at nought</b>.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>This is not <c>band=quiet</c>, and the difference is the reason it exists.</b> The activity
-    /// band puts a game measured at zero every hour and a game whose every count was unreadable in
-    /// the same rung, because neither has a count above nought this week — and those are opposite
-    /// facts (rules 2 and 4). One is a measurement we took and one is a measurement we failed to
-    /// take, and a control that returned both under a word meaning the second would publish our
-    /// parser's limits as somebody's empty game.
-    /// </para>
-    /// <para>
-    /// The fact behind it is <c>PresenceSample.Unmeasurable</c>: recent presence rows exist for the
-    /// game and not one of them carries a number. A game with <em>no</em> recent rows is neither
-    /// counted nor uncounted — that is §5.4's third state, which names no cause and is not offered
+    /// Distinct from <c>band=quiet</c>: that band also holds games measured at zero, and conflating
+    /// the two would publish parser limits as an empty game (rules 2, 4). Backed by
+    /// <c>PresenceSample.Unmeasurable</c> — recent rows exist but none carry a number. A game with no
+    /// recent rows at all is neither counted nor uncounted (§5.4's third state) and is not offered
     /// here.
-    /// </para>
     /// </remarks>
     public const string Uncounted = "uncounted";
 
@@ -108,20 +87,12 @@ public static class FacetKeys
     /// Games we could not reach recently. Read off the availability series, never off a gap.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Orthogonal to <see cref="Uncounted"/> and to everything else.</b> "We could not get in" and
-    /// "we got in and could not count" are the two ways a listing row ends up with no number, and a
-    /// reader narrowing by genre has to be able to drop either without giving up the genre — which
-    /// <c>band</c> cannot do, being one exclusive scale.
-    /// </para>
-    /// <para>
-    /// <b>Not the archive.</b> Archiving is a state of ours with its own facet and its own switch
-    /// (<see cref="Archived"/>); this is a measurement, and folding the two would make an editorial
-    /// act read as a failed socket. It is also emphatically not read from a hole in the presence
-    /// series — rule 2 forbids naming a cause for one of those. It comes from
-    /// <c>game.last_reachable_at</c>, which the availability intervals write, and intervals can tell
-    /// an hour we could not reach from an hour we never probed.
-    /// </para>
+    /// Orthogonal to <see cref="Uncounted"/> — "couldn't get in" vs "got in, couldn't count" are
+    /// independent causes of a missing number, and <c>band</c> can't express both at once. Not the
+    /// archive: archiving is editorial (<see cref="Archived"/>), this is a measurement. Never
+    /// inferred from a hole in the presence series (rule 2 forbids naming a cause for that) — comes
+    /// from <c>game.last_reachable_at</c>, which the availability intervals write and which can tell
+    /// "could not reach" from "never probed".
     /// </remarks>
     public const string Unreachable = "unreachable";
 
@@ -136,51 +107,25 @@ public static class FacetKeys
 /// The orders the catalogue can be read in.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Every one of these is named for the measurement it reads, never for a superlative.</b> There is
-/// no "busiest" here and the word is deliberately not used: <c>/rankings</c> means something specific
-/// by it — a median over a window with a sample floor under it — and a sort answering to the same
-/// name on a different arithmetic would be two measurements wearing one word on one site.
-/// <see cref="Players"/> is "players on now", which is exactly what it orders by and exactly as much
-/// as it claims; the window sorts name their statistic and their span, because an average over seven
-/// days and a peak over ninety are different questions and a reader has to be able to see which one
-/// they asked.
-/// </para>
-/// <para>
-/// <b>There is no "recently listed".</b> The only date we have for that is <c>game.first_seen_at</c>,
-/// which is when <em>our crawler</em> first reached a game — a picture of where the frontier has got
-/// to, not of anything happening in the hobby (the same reasoning that keeps it off the adoption
-/// curves, see <c>EcosystemDashboard</c>). Sorted to the top of the catalogue it would read as "new
-/// games", which is a claim we would be making out of our own schedule. The <em>newly discovered</em>
-/// feed publishes the same dates with the framing that makes them honest, and that is where it stays.
-/// </para>
+/// Named for what each reads, never for a superlative — there is no "busiest", because
+/// <c>/rankings</c> already owns that word for a different statistic (median over a windowed sample
+/// floor). There is no "recently listed" sort either: the only date is <c>game.first_seen_at</c>,
+/// when our crawler reached a game — a fact about our schedule, not the hobby (rule 5). That framing
+/// lives in the <em>newly discovered</em> feed instead.
 /// </remarks>
 public enum GameSort
 {
     /// <summary>
     /// Alphabetical — the one order that ranks nobody.
     /// </summary>
-    /// <remarks>
-    /// This was the default, on the argument that a listing arriving pre-ranked makes an editorial
-    /// claim the reader never asked for. The argument holds against a <em>ranking</em> and does not
-    /// hold against this: the alphabet is not neutral, it is an order too, and the one it produces
-    /// puts <c>3Kingdoms</c> above every game in the hobby for no reason anybody chose. Neither
-    /// order is an opinion of ours — <see cref="Players"/> reads a measurement and this reads a
-    /// spelling — so the question is which one answers what a reader came for, and they came to find
-    /// a game with people in it. It remains one click away and every URL that names it still means
-    /// what it meant.
-    /// </remarks>
     Name,
 
     /// <summary>
     /// Most players counted on right now, first — and the default.
     /// </summary>
     /// <remarks>
-    /// The most useful fact on the page leads it. This ranks on a measurement rather than on our
-    /// judgement, which is the property that matters: the games above the fold are the ones somebody
-    /// was counted in, not the ones we chose to promote. The break the listing draws is what keeps it
-    /// honest — the games we could not count follow as a group that says so, and never as a tail of
-    /// zeroes (see <see cref="GameSorting"/>).
+    /// Ranks on a measurement, not our judgement: games we could not count follow as a labeled
+    /// group, never as a tail of zeroes (see <see cref="GameSorting"/>).
     /// </remarks>
     Players,
 
@@ -211,28 +156,14 @@ public enum GameSort
 /// may rank a game (spec §9).
 /// </summary>
 /// <remarks>
+/// Three fixed spans, not a free parameter — a caller-tunable window could be dialed until a
+/// favored game ranks top. Seven/thirty/ninety days match what the rest of the site already
+/// measures over.
 /// <para>
-/// <b>Three spans and not a free parameter.</b> A window a caller can dial to any width is a window
-/// somebody can tune until a game they like comes top, and every one of these figures would then be
-/// answering a slightly different question from the one beside it. Seven, thirty and ninety days are
-/// the three this site already measures things over — <c>RankingWindow</c>, "reachable recently" and
-/// the availability fraction on a game's page — so a reader who has read one of those pages already
-/// knows what these mean.
-/// </para>
-/// <para>
-/// <b>A median carries a sample floor and a peak does not</b>, because they fail differently. A
-/// median over four probes is not a median of anything and would put a game found on Friday above
-/// one measured three hundred times, which is ranking our own crawl schedule; the floor is the same
-/// <c>NpgsqlGameQueries.MinimumRankingSamples</c> that <c>/rankings</c> uses, so the two surfaces
-/// cannot come to hold two opinions about how much evidence is enough. A peak is one observation and
-/// is true however few of them there were — we counted that many people on at once, and a floor
-/// under it would suppress a measurement we actually took.
-/// </para>
-/// <para>
-/// <b>A median and never a mean</b>, which is the same choice <c>/rankings</c> made and migration
-/// 0019 exists to make cheap. A mean is pulled around by the one evening a game was linked from
-/// somewhere; the typical count is what a reader asking "how busy is this normally" wants, and it is
-/// a number a server actually reported rather than an arithmetic artefact between two of them.
+/// A median requires a sample floor (shared with <c>NpgsqlGameQueries.MinimumRankingSamples</c>)
+/// because a median of four probes isn't meaningful; a peak needs no floor since one observation is
+/// true however few there were. Median, never mean, for the same reason <c>/rankings</c> uses
+/// median (migration 0019) — a mean is skewed by a single busy evening.
 /// </para>
 /// </remarks>
 public static class SortWindows
@@ -241,10 +172,9 @@ public static class SortWindows
     /// How many counted samples an average needs before it may rank a game.
     /// </summary>
     /// <remarks>
-    /// A day's worth of hourly probes, and the same floor <c>/rankings</c> puts under its median —
-    /// <c>NpgsqlGameQueries.MinimumRankingSamples</c> is this constant, so the listing and the league
-    /// table cannot come to hold two opinions about how much evidence is enough. It lives here rather
-    /// than there because the sort is what enforces it and the sort is model-layer.
+    /// Same floor as <c>NpgsqlGameQueries.MinimumRankingSamples</c>, so the listing and the rankings
+    /// page cannot disagree about how much evidence is enough. Lives here because the sort enforces
+    /// it.
     /// </remarks>
     public const int MinimumSamples = 24;
 
@@ -271,8 +201,8 @@ public static class SortWindows
     /// Whether a window's figures are enough to rank this game on this sort.
     /// </summary>
     /// <remarks>
-    /// A window with no counted sample at all ranks nothing either way: there is no median of
-    /// nothing and no largest of no readings, and the query does not return a row for such a game.
+    /// A window with no samples ranks nothing either way — no median of nothing, no largest of no
+    /// readings — and the query omits the row.
     /// </remarks>
     public static bool CanRank(PresenceWindow window, GameSort sort)
     {
@@ -286,28 +216,19 @@ public static class SortWindows
 /// The listing's order, and what it does with the games a sort cannot rank.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>An unknown is never a zero and never sorts as one.</b> Most of this catalogue answers with
-/// nothing we can count — we got in and the <c>WHO</c> was past our parser, or the game published no
-/// <c>PLAYERS</c> — and <c>null</c> ordered as <c>0</c> would pile every one of those at the bottom
-/// of "players on now" indistinguishably from the games we measured and found empty. That is the
-/// central claim of this project made backwards, on the page it is most likely to be read off.
-/// </para>
-/// <para>
-/// So the games a sort can rank come first, in order, and the ones it cannot follow as a group in
-/// the default order. <see cref="IsUnranked"/> is the same question the surfaces ask to know where to
-/// draw the line and what to call the group, so the ordering and the label cannot disagree about
-/// which games are in it.
-/// </para>
+/// An unknown never sorts as zero: most of the catalogue has nothing countable (<c>WHO</c> past the
+/// parser, no <c>PLAYERS</c> reported), and null-as-zero would pile those at the bottom of "players
+/// on now" indistinguishable from games measured empty — the site's central claim, broken. Ranked
+/// games sort first, in order; unranked follow as one labeled group. <see cref="IsUnranked"/> is the
+/// single source both the ordering and the label read, so they cannot disagree.
 /// </remarks>
 public static class GameSorting
 {
     /// <summary>Whether this sort has nothing to rank a game by — never "whether it is zero".</summary>
     /// <remarks>
-    /// A window sort is unranked where the window is absent — the game had nothing countable in the
-    /// span — <em>and</em> where it is present and too thin to average over. Both are "we cannot put
-    /// this game in this order", and the break the surfaces draw says so in one sentence rather than
-    /// dropping the game or floating it to the bottom as a nought.
+    /// Unranked covers both an absent window and one too thin to average — both mean "cannot place
+    /// this game in order", so the break says so in one sentence rather than dropping the game or
+    /// floating it as a nought.
     /// </remarks>
     public static bool IsUnranked(GameSummary game, GameSort sort)
     {
@@ -330,11 +251,10 @@ public static class GameSorting
     {
         ArgumentNullException.ThrowIfNull(games);
 
-        // Ranked before unranked, always — then the sort's own key, then the name, so the order is
-        // total and a listing does not shuffle between two identical requests. Each key reads as
-        // zero for the sorts it does not belong to, which is safe only because the unranked games
-        // have already been pushed below every ranked one by the first clause: a key of zero here
-        // is "this sort does not use this column", never "this game measured nothing".
+        // Ranked before unranked always, then the sort's own key, then name — a total order so
+        // identical requests don't reshuffle. Each key reads zero for sorts it doesn't belong to;
+        // that's safe only because unranked games are already pushed below ranked ones by the first
+        // clause — zero here means "this sort ignores this column," never "measured nothing."
         var ordered = games
             .OrderBy(g => IsUnranked(g, sort) ? 1 : 0)
             .ThenByDescending(g => sort is GameSort.Players ? g.PlayersNow ?? 0 : 0)
@@ -351,9 +271,8 @@ public static class GameSorting
     /// What a window sort ranks on, as one number — the typical count, or the largest reading.
     /// </summary>
     /// <remarks>
-    /// Zero for every sort that reads no window, and for every game this sort cannot rank. Neither
-    /// is a claim that nobody was there: the games in the second group sort below the break, where
-    /// the listing says in words what they have in common.
+    /// Zero for sorts that read no window and for games this sort can't rank — never a claim that
+    /// nobody was there; those games sort below the break instead.
     /// </remarks>
     private static int Ranked(GameSummary game, GameSort sort) =>
         SortWindows.Of(sort) is null || game.PlayersOverWindow is not { } window
@@ -365,10 +284,9 @@ public static class GameSorting
 /// Which side of §3.1 a facet reads. Rendered beside every group, never inferred by the reader.
 /// </summary>
 /// <remarks>
-/// The distinction is the product. A measured facet answers "we watched this happen"; a declared one
-/// answers "the game typed this into <c>mush.cnf</c>, possibly in 2017". Both are worth filtering on
-/// and they are not the same question, so a panel that presented them identically would be making
-/// the exact claim this site exists to stop making.
+/// The distinction is the product: "we watched this happen" vs "the game typed this into
+/// <c>mush.cnf</c>, maybe in 2017" are different claims, and presenting them identically would be
+/// the exact thing this site exists to avoid.
 /// </remarks>
 public enum FacetEvidence
 {
@@ -382,12 +300,9 @@ public enum FacetEvidence
     /// Neither: our own classification of something a game published.
     /// </summary>
     /// <remarks>
-    /// A third word rather than borrowing one of the other two, because both would be false in a way
-    /// a reader cannot see through. <c>codebase = MUSH</c> is not a measurement — nothing on the wire
-    /// says it — and it is not a declaration either, because the game never said it; we grouped
-    /// PennMUSH, TinyMUX and RhostMUSH under one heading and that grouping is an editorial act. This
-    /// site's whole claim is that a reader can tell where a fact came from, and the one kind of fact
-    /// that comes from <em>us</em> is the one it would be least excusable to leave unlabelled.
+    /// A third word rather than reusing the other two: <c>codebase = MUSH</c> is neither measured
+    /// (nothing on the wire says it) nor declared (the game never said it) — it's our own grouping,
+    /// and it's the one kind of fact that must not go unlabelled.
     /// </remarks>
     Derived,
 }
@@ -396,18 +311,9 @@ public enum FacetEvidence
 /// Which spelling names a group of values that differ only in case.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Every open-ended facet groups case-insensitively, because <c>russian</c> and <c>Russian</c> are
-/// one language and a panel offering both is splitting a count on somebody's shift key. That leaves
-/// the question of what the group is <em>called</em>, and "whichever row was read first" is an answer
-/// that changes with the sort order — the same catalogue could label a facet differently on two
-/// renders, which is a wobble a reader would read as data changing.
-/// </para>
-/// <para>
-/// The commonest spelling wins, ordinal breaking the tie. One game's stray capitalisation therefore
-/// cannot name a codebase family on a public page, and the label is a function of the set rather than
-/// of the order it arrived in.
-/// </para>
+/// Groups case-insensitively (<c>russian</c>/<c>Russian</c> are one language). The label is the
+/// commonest spelling, ordinal-tiebroken, so it's a function of the set rather than of read order —
+/// otherwise the same catalogue could label a facet differently across renders.
 /// </remarks>
 public static class Spellings
 {
@@ -433,12 +339,11 @@ public enum FacetKind
     /// A set of things we observed, intersected. Checking two asks for games that offered both.
     /// </summary>
     /// <remarks>
-    /// There is deliberately no way to ask for the complement. "Games that do not offer GMCP" is a
-    /// question the data cannot answer: a capability is written <c>true</c> when it was observed and
-    /// is otherwise not written at all (see <c>FieldObservations.Measured</c>), because this client
-    /// requests only some options and a server that was never asked has not declined. A checkbox
-    /// whose unchecked state meant "no" would publish our own instrumentation as a fact about
-    /// somebody's game.
+    /// No way to ask for the complement — "games without GMCP" isn't answerable: a capability is
+    /// written <c>true</c> when observed and otherwise not written at all (see
+    /// <c>FieldObservations.Measured</c>), since this client only requests some options and an
+    /// unasked server hasn't declined. An unchecked box meaning "no" would publish our own
+    /// instrumentation gaps as fact.
     /// </remarks>
     Presence,
 }
@@ -447,10 +352,8 @@ public enum FacetKind
 /// One choice-facet selection: a value the data carries, or the absence of one.
 /// </summary>
 /// <remarks>
-/// The absence is a first-class member rather than an empty string, because the whole site turns on
-/// unknown and <em>no</em> being different facts. "Games whose codebase we could not identify" is a
-/// real and useful question; it is not "games with no codebase", and neither is it a games-with-any
-/// filter left blank. Modelling it as a value would let one be typed where the other was meant.
+/// Absence is first-class rather than an empty string: "codebase unknown" and "no codebase" are
+/// different, real questions, and modelling absence as a value would let one be typed for the other.
 /// </remarks>
 public sealed record FacetChoice(string? Value, bool Exclude = false)
 {
@@ -465,19 +368,10 @@ public sealed record FacetChoice(string? Value, bool Exclude = false)
     /// codebase is not Evennia.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>A facet has three states, not two</b>, and the third one is what makes the panel a filter
-    /// rather than a set of shortcuts. Absent means the facet is not being asked about; a value
-    /// means <em>only these</em>; an excluded value means <em>anything but these</em>. Without the
-    /// third, "show me the games that are not Evennia" is a question the catalogue can answer and
-    /// the interface cannot ask.
-    /// </para>
-    /// <para>
-    /// <c>!</c> rather than <c>-</c> because a codebase, genre or language may legitimately begin
-    /// with a hyphen and none of the values observed in the wild begin with a bang. A literal
-    /// leading <c>!</c> is written <c>!!</c>, so a value is never unreachable — see
-    /// <see cref="Parse"/>.
-    /// </para>
+    /// A facet has three states: absent (not asked), a value (only these), an excluded value
+    /// (anything but these) — without the third, "not Evennia" is unaskable. <c>!</c> rather than
+    /// <c>-</c> because values may start with a hyphen; a literal leading <c>!</c> is escaped as
+    /// <c>!!</c> so no value is unreachable (see <see cref="Parse"/>).
     /// </remarks>
     public const string ExcludeToken = "!";
 
@@ -497,11 +391,10 @@ public sealed record FacetChoice(string? Value, bool Exclude = false)
 
     /// <summary>The same facet with its polarity flipped, which is what a panel's toggle emits.</summary>
     /// <remarks>
-    /// <b>A method and not a property, deliberately.</b> A record's generated <c>ToString</c> prints
-    /// every public property, so a property returning another <see cref="FacetChoice"/> makes
-    /// printing one recurse until the stack runs out — which is exactly what happened, and it
-    /// surfaced as an unrelated test dying inside an assertion message rather than as anything to do
-    /// with facets.
+    /// A method, not a property: a record's generated <c>ToString</c> prints every public property,
+    /// and a property returning another <see cref="FacetChoice"/> would make printing one recurse
+    /// until the stack overflows — which happened, surfacing as an unrelated test failing inside an
+    /// assertion message.
     /// </remarks>
     public FacetChoice Invert() => this with { Exclude = !Exclude };
 
@@ -529,10 +422,10 @@ public sealed record FacetChoice(string? Value, bool Exclude = false)
     /// Whether <paramref name="actual"/> is the value this selection names — <b>polarity ignored</b>.
     /// </summary>
     /// <remarks>
-    /// Deliberately separate from <see cref="Admits"/>. A facet can hand a row several tokens (a
-    /// game reached an hour ago is in the last day, week and month), and inverting the comparison
-    /// per token would make an excluded selection mean "some token differs" — which every row with
-    /// more than one token satisfies. The polarity is applied once, to the answer.
+    /// Separate from <see cref="Admits"/> deliberately: a facet can hand a row several tokens
+    /// (reached an hour ago is in "last day", "last week" and "last month"), and inverting per-token
+    /// would make an excluded selection mean "some token differs" — true for nearly every
+    /// multi-token row. Polarity is applied once, to the answer.
     /// </remarks>
     public bool Covers(string? actual) =>
         IsUnknown ? actual is null : string.Equals(actual, Value, StringComparison.OrdinalIgnoreCase);
@@ -549,15 +442,13 @@ public sealed record FacetChoice(string? Value, bool Exclude = false)
 /// The last-seen facet (spec §9), measured from <c>game.last_reachable_at</c>.
 /// </summary>
 /// <remarks>
-/// The first three nest — a game seen in the last hour is in all of them — because "seen within a
-/// week" is the question people actually have, and cutting it into exclusive rings would make the
-/// common case two clicks that cannot both be made. The counts stay honest under nesting: each says
-/// exactly how many games choosing it returns.
+/// The first three bands nest — reached an hour ago is in all of them — because "seen within a
+/// week" is the common question and exclusive rings would split it across clicks that can't both be
+/// made.
 /// <para>
-/// <see cref="Never"/> is a value rather than an unknown, and that is the whole reason it exists
-/// separately from <see cref="Older"/>. A game we have listed and never once reached is a different
-/// fact from one we reached in 2023, and rendering the two the same way would let our own crawl
-/// history read as somebody's outage.
+/// <see cref="Never"/> is a value, not an unknown, because it exists to be told apart from
+/// <see cref="Older"/>: a game never once reached is a different fact from one reached in 2023, and
+/// rendering them the same would let our own crawl history read as somebody's outage.
 /// </para>
 /// </remarks>
 public enum LastSeenBand
@@ -577,10 +468,9 @@ public enum LastSeenBand
 /// One value of one facet, with how many games choosing it returns.
 /// </summary>
 /// <remarks>
-/// <see cref="Count"/> is not decoration and is not an estimate: it is computed from the same pass
-/// that produced the listing beside it (see <see cref="FacetedSearch"/>), so a facet cannot promise
-/// results it will not deliver. A value nothing matches is never offered at all — the one exception
-/// is a value that is currently selected, which stays visible at zero so it can be seen and undone.
+/// <see cref="Count"/> is computed from the same pass that produces the listing, never estimated, so
+/// a facet cannot promise results it won't deliver. A value nothing matches is never offered — except
+/// a currently selected one, kept visible at zero so it can be undone.
 /// </remarks>
 public sealed record FacetValue(
     string Token,
@@ -593,9 +483,8 @@ public sealed record FacetValue(
     /// The three states a value can be in, as one question a renderer can switch on.
     /// </summary>
     /// <remarks>
-    /// A panel that only knew <see cref="IsSelected"/> would draw an included and an excluded value
-    /// identically, which is the one thing a tri-state filter must not do — a reader would have no
-    /// way to tell "only Evennia" from "anything but Evennia" except by reading the URL.
+    /// A panel that only checked <see cref="IsSelected"/> would draw an included and an excluded
+    /// value identically — the one thing a tri-state filter must not do.
     /// </remarks>
     public FacetState State => (IsSelected, IsExcluded) switch
     {
@@ -615,11 +504,9 @@ public enum FacetState
 
 /// <summary>One facet, ready to render: what it is called, what it reads, and what it offers.</summary>
 /// <remarks>
-/// <see cref="Total"/> is what dropping this facet's own selection returns — the number an "any"
-/// option produces. It is carried rather than summed from <see cref="Values"/> because an
-/// open-ended facet offers only its commonest values, so the sum is short of the truth by however
-/// long the tail is, and a control labelled with a number smaller than the set it selects is the
-/// same lie in the other direction.
+/// <see cref="Total"/> is what dropping this facet's selection would return — carried rather than
+/// summed from <see cref="Values"/>, because an open-ended facet only offers its commonest values and
+/// the sum would fall short of the true total.
 /// </remarks>
 public sealed record FacetGroup(
     string Key,
@@ -634,9 +521,8 @@ public sealed record FacetGroup(
 
 /// <summary>The listing and the facets that describe it, from one pass over one set of games.</summary>
 /// <remarks>
-/// They are returned together rather than fetched separately on purpose. Two queries would be two
-/// answers to two slightly different questions, and the first time they disagreed the panel would be
-/// advertising a count the listing could not produce.
+/// Returned together rather than fetched separately, so the panel's counts and the listing can never
+/// disagree.
 /// </remarks>
 public sealed record GameListing(IReadOnlyList<GameSummary> Games, IReadOnlyList<FacetGroup> Facets)
 {
@@ -647,19 +533,13 @@ public sealed record GameListing(IReadOnlyList<GameSummary> Games, IReadOnlyList
 /// One game reduced to the values every facet reads, so the facets are computed once from one shape.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Assembling this is each <see cref="IGameQueries"/> implementation's job — Postgres builds it from
-/// <c>game_field</c> rows and the presence digest, the demo fixture builds it from constants — and
-/// filtering and counting it is <see cref="FacetedSearch"/>'s, once. That split is what stops the
-/// fixture and the database from quietly answering the same filter differently, which they already
-/// did for <c>band=archived</c> before this type existed.
-/// </para>
-/// <para>
-/// <see cref="Charset"/> is the <em>negotiated</em> charset and never the game's MSSP claim about
-/// one, and <see cref="TlsMeasured"/> is an endpoint we actually completed a TLS connection to
-/// rather than an <c>SSL</c> line in a self-description. Both are named for what they are so that a
-/// later reader wiring them up cannot reach for the declared column by accident.
-/// </para>
+/// Assembled once per <see cref="IGameQueries"/> implementation (Postgres from <c>game_field</c>
+/// rows, the demo fixture from constants); filtering and counting happens once in
+/// <see cref="FacetedSearch"/>, so the fixture and the database cannot silently answer a filter
+/// differently, as they once did for <c>band=archived</c>.
+/// <see cref="Charset"/> is the negotiated charset, never the game's MSSP claim; <see cref="TlsMeasured"/>
+/// is a completed TLS connection, never an <c>SSL</c> self-description line — both named for what
+/// they are so a later reader can't reach for the declared column by accident.
 /// </remarks>
 public sealed record GameFacetRow(
     GameSummary Summary,
@@ -676,9 +556,8 @@ public sealed record GameFacetRow(
     /// Whether the game declared adult content, by <see cref="AdultContent"/>'s one rule.
     /// </summary>
     /// <remarks>
-    /// Carried on the row rather than re-derived from <see cref="Genre"/> here, because
-    /// <c>GENRE</c> is only half of it: MSSP's <c>ADULT MATERIAL</c> flag is the other half and has
-    /// no facet of its own to ride in on.
+    /// Carried on the row rather than re-derived from <see cref="Genre"/>: MSSP's
+    /// <c>ADULT MATERIAL</c> flag is independent of genre and has no facet of its own.
     /// </remarks>
     bool IsAdult,
 
@@ -687,16 +566,10 @@ public sealed record GameFacetRow(
     /// (<see cref="FacetKeys.Uncounted"/>).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>A measured zero is not this.</b> "We got in and nobody was there" is a count, and it is the
-    /// case this flag exists to be distinguishable from — <see cref="Band"/> cannot tell them apart,
-    /// because <see cref="ActivityBand.Quiet"/> holds both.
-    /// </para>
-    /// <para>
-    /// <b>Nor is "we have not measured it".</b> False covers a game we counted <em>and</em> a game we
-    /// hold nothing recent for at all, and those two are told apart by <see cref="Unreachable"/> and
-    /// by the last-seen facet rather than by inventing a cause here (rule 2).
-    /// </para>
+    /// Distinct from a measured zero (<see cref="ActivityBand.Quiet"/> holds both, so
+    /// <see cref="Band"/> can't tell them apart) and from "not measured at all" (those are told apart
+    /// by <see cref="Unreachable"/> and the last-seen facet rather than by inventing a cause here,
+    /// rule 2). See <see cref="FacetKeys.Uncounted"/> for why the distinction matters.
     /// </remarks>
     bool Uncounted,
 
@@ -704,10 +577,9 @@ public sealed record GameFacetRow(
     /// We have not reached this game recently (<see cref="FacetKeys.Unreachable"/>).
     /// </summary>
     /// <remarks>
-    /// Answered from the last moment we reached it — which the availability series writes — and never
-    /// from a hole in the presence series, which cannot tell an hour we could not reach from an hour
-    /// we never probed. A game we have <em>never</em> reached is included: we could not reach it
-    /// recently, and the last-seen facet is where that is separately visible as <em>never</em>.
+    /// Read from <c>game.last_reachable_at</c>, never inferred from a hole in the presence series
+    /// (see <see cref="FacetKeys.Unreachable"/>). A game never reached is included here; the
+    /// last-seen facet is where that stays separately visible as <see cref="LastSeenBand.Never"/>.
     /// </remarks>
     bool Unreachable);
 
@@ -715,21 +587,12 @@ public sealed record GameFacetRow(
 /// Turns a filter and a set of games into the listing plus every facet's counts.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Counts are measured against the set each choice would actually return.</b> A
+/// Counts are measured against what each choice would actually return. A
 /// <see cref="FacetKind.Choice"/> facet replaces its own selection, so its values are counted with
-/// that selection lifted and every other filter still applied — the number beside <c>quiet</c> is
-/// how many games you get by clicking <c>quiet</c>, not how many quiet games exist. A
-/// <see cref="FacetKind.Presence"/> facet intersects, so its values are counted against the current
-/// results — the number beside <c>GMCP</c> is how many of the games on screen also offered it. The
-/// two denominators differ because the two gestures differ, and both answer the same question: what
-/// happens if I click this.
-/// </para>
-/// <para>
-/// A value with no games is not offered. That is not tidiness — a facet that can be clicked into an
-/// empty listing is a facet lying about the catalogue, and the cheapest way to make that impossible
-/// is to never draw the click.
-/// </para>
+/// that selection lifted but every other filter applied — the count beside <c>quiet</c> is what
+/// clicking <c>quiet</c> would return. A <see cref="FacetKind.Presence"/> facet intersects, so its
+/// values are counted against the current results. A value with no games is never offered — a facet
+/// that could be clicked into an empty listing would be lying about the catalogue.
 /// </remarks>
 public static class FacetedSearch
 {
@@ -738,11 +601,9 @@ public static class FacetedSearch
     /// the panel says as much.
     /// </summary>
     /// <remarks>
-    /// The cap was written for the codebase facet, which no longer needs it much: folding the
-    /// version off collapsed a catalogue of hundreds of strings to a few dozen families. It is
-    /// <see cref="FacetKeys.CodebaseVersion"/> that carries the long tail now, and it is the right
-    /// facet to be capped — a reader scanning for a codebase wants the families, and a reader who
-    /// wants one patchlevel of one of them arrives already knowing its name.
+    /// <see cref="FacetKeys.CodebaseVersion"/>, not <see cref="FacetKeys.Codebase"/>, is the facet
+    /// that needs this cap now: a reader scanning for a codebase wants families; one wanting a
+    /// specific patchlevel already knows its name.
     /// </remarks>
     public const int MaxValues = 12;
 
@@ -751,22 +612,16 @@ public static class FacetedSearch
         ArgumentNullException.ThrowIfNull(rows);
         ArgumentNullException.ThrowIfNull(filter);
 
-        // Archived games leave the default listing and nothing else (spec §7.5). Asking for the
-        // archived band *is* asking for them, so the toggle does not also have to be set — the
-        // database and the demo fixture disagreed about that until this became one function.
+        // Archived games leave the default listing entirely (spec §7.5). Asking for the archived
+        // band already means asking for them, so the toggle need not also be set.
         var wantsArchived = filter.IncludeArchived || filter.Band is ActivityBand.Archived;
 
-        // Games declaring adult content leave the default listing, and — like archiving — nothing
-        // else: their pages, their history and every count outside this listing are untouched.
-        //
-        // *Unlike* the archived band, asking for `genre=Adult` does not lift it, and that asymmetry
-        // is deliberate. `band=archived` is a value of a bounded facet, so it is drawn whatever it
-        // counts, and a value that is always drawn and always returns nothing is a broken control
-        // that has to be rescued. Genre is open-ended: a value nothing matches is never offered at
-        // all, so there is nothing to rescue — and lifting on the selection would make every *other*
-        // count in that dropdown a promise the listing would not keep, because choosing one of them
-        // would drop the exclusion back on. The checkbox is the one way in, and it is in the bar on
-        // every request.
+        // Games declaring adult content leave the default listing too, same as archiving — but
+        // unlike archiving, selecting genre=Adult does not lift the exclusion. band=archived is a
+        // bounded facet value that's always drawn even when it returns nothing; genre is
+        // open-ended, so a value nothing matches is simply never offered, and lifting on selection
+        // would make every other value in the dropdown a promise the listing wouldn't keep. The
+        // adult checkbox is the only way in.
         var baseRows = rows
             .Where(r => (wantsArchived || r.Band is not ActivityBand.Archived)
                 && (filter.IncludeAdult || !r.IsAdult)
@@ -798,9 +653,8 @@ public static class FacetedSearch
 
         groups.AddRange(Presence(results, filter));
 
-        // Ordered after the counting, never before it. Every facet count is taken over a set, and a
-        // set has no order — so sorting here cannot move a number, which is what lets the panel go on
-        // promising exactly what a click returns whichever way the list is arranged.
+        // Ordered after counting, never before: every count is taken over a set, which has no
+        // order, so sorting here can't move a number.
         return new GameListing(GameSorting.Apply(results.Select(r => r.Summary), filter.Sort), groups);
     }
 
@@ -808,9 +662,8 @@ public static class FacetedSearch
     /// The last-seen band a game is in, given when it was last reachable.
     /// </summary>
     /// <remarks>
-    /// Null is <see cref="LastSeenBand.Never"/> and never the oldest bucket: a game we have listed
-    /// and never once reached has no last-seen date, and dating it from our own ignorance would be
-    /// the same error as painting an unprobed hour as an outage.
+    /// Null is <see cref="LastSeenBand.Never"/>, never the oldest bucket — dating an unreached game
+    /// from our own ignorance would be the same error as painting an unprobed hour as an outage.
     /// </remarks>
     public static LastSeenBand LastSeenOf(DateTimeOffset? lastReachableAt, DateTimeOffset now) =>
         lastReachableAt is not { } seen ? LastSeenBand.Never
@@ -823,10 +676,9 @@ public static class FacetedSearch
     /// How long ago a game must have answered for us to still call it reached.
     /// </summary>
     /// <remarks>
-    /// One constant, read by the activity band, by <see cref="NotReachedRecently"/> and by both
-    /// <see cref="IGameQueries"/> implementations. It lived on the Postgres reader alone while the
-    /// demo fixture had no opinion at all; now that a facet turns on it, two copies would be two
-    /// answers to "is this game still answering" on one page.
+    /// One constant read by the activity band, <see cref="NotReachedRecently"/> and both
+    /// <see cref="IGameQueries"/> implementations, so "still answering" isn't two different answers
+    /// on one page.
     /// </remarks>
     public static readonly TimeSpan RecentlyReachable = TimeSpan.FromDays(30);
 
@@ -835,12 +687,10 @@ public static class FacetedSearch
     /// <see cref="FacetKeys.Unreachable"/> fact.
     /// </summary>
     /// <remarks>
-    /// <b>Never inferred from missing presence rows.</b> A hole in the presence series covers an hour
-    /// we could not reach and an hour we never probed alike and may not name a cause (rule 2); this
-    /// reads <c>game.last_reachable_at</c>, which the intervals write and which can tell the two
-    /// apart. Null — a game we have listed and never once reached — is true here, because we could
-    /// not reach it recently; <see cref="LastSeenBand.Never"/> is where that stays separately
-    /// visible, rather than being lent the oldest date we have.
+    /// Never inferred from missing presence rows — a hole there covers "could not reach" and "never
+    /// probed" alike and may not name a cause (rule 2). Reads <c>game.last_reachable_at</c> instead,
+    /// which the intervals write. A game never reached is true here (not reached recently);
+    /// <see cref="LastSeenBand.Never"/> is where that stays separately visible.
     /// </remarks>
     public static bool NotReachedRecently(DateTimeOffset? lastReachableAt, DateTimeOffset now) =>
         lastReachableAt is not { } seen || now - seen > RecentlyReachable;
@@ -849,12 +699,8 @@ public static class FacetedSearch
     /// A game matches the text box on its name, its own one-line tagline, or its codebase.
     /// </summary>
     /// <remarks>
-    /// Here rather than in SQL because the facet counts are computed over the same set the listing
-    /// is, and a search term applied in one place and counted in another is two answers to one
-    /// question. The cost is a pass over the catalogue per request, which is what every count in the
-    /// panel already costs; the point at which that stops being affordable is a <c>GROUP BY</c> per
-    /// facet in the database, and the counts would then need pinning against the listing rather than
-    /// being the same arithmetic by construction.
+    /// Done here rather than in SQL so the facet counts and the listing are computed over the same
+    /// set — a search term applied in one place and counted in another would answer two questions.
     /// </remarks>
     private static bool MatchesText(GameFacetRow row, string? text)
     {
@@ -952,32 +798,14 @@ public static class FacetedSearch
     /// whole, because a scale with a rung missing is not the same scale.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Every value stays, including the ones that would return nothing.</b> An open-ended facet
-    /// drops its empty values and should: nobody wants three hundred codebases nothing matches. A
-    /// bounded one is four named thresholds a reader picks between, and dropping the empty ones
-    /// meant that filtering the codebase — a facet in a different group entirely — silently deleted
-    /// two of activity's four rows, shifted everything below them up the panel, and left the reader
-    /// unable to see or reach the thresholds they had not chosen.
-    /// </para>
-    /// <para>
-    /// A zero is also the answer to a question worth asking. "How many Evennia games were active
-    /// this week" is a fact about the catalogue, and <em>none</em> is as real a measurement as four.
-    /// The row says 0 and stays clickable; what it leads to is the listing's own empty state, which
-    /// says what happened and how to get back. The rule this looked like it was serving — a choice
-    /// may not promise results it will not deliver — is intact, because a row reading 0 promises
-    /// nothing.
-    /// </para>
-    /// <para>
-    /// <b>Which rungs exist is decided by <paramref name="catalogue"/> and not by
-    /// <paramref name="domain"/>.</b> That is the whole of the fix: the count on a row answers the
-    /// reader's current question, and whether the row is there at all answers a different one — does
-    /// this catalogue exercise this value at all. Reading both off the filtered set made the panel
-    /// shrink under a selection; reading both off the unfiltered one would print six lineages nobody
-    /// runs. <paramref name="catalogue"/> is the listing before any facet was chosen but after the
-    /// text search and the archived and adult switches, because those three are what a reader means
-    /// by "the catalogue I am looking at".
-    /// </para>
+    /// Every value stays, including ones that return nothing. Dropping empty rows (as an open-ended
+    /// facet does) previously meant filtering an unrelated facet could delete rows from a bounded
+    /// one, shift the panel, and hide thresholds the reader hadn't chosen — a zero row is a real
+    /// answer and stays clickable.
+    /// <paramref name="catalogue"/>, not <paramref name="domain"/>, decides which rungs exist: it's
+    /// the listing before any facet selection but after text search and the archived/adult
+    /// switches — "the catalogue I'm looking at". <paramref name="domain"/> only supplies the
+    /// counts.
     /// </remarks>
     private static List<FacetValue> Bounded(
         IReadOnlyList<GameFacetRow> domain,
@@ -1008,20 +836,13 @@ public static class FacetedSearch
     /// covers, capped, with the unknown bucket kept whatever it weighs.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The unknown bucket survives the cap deliberately. "Games whose codebase we could not
-    /// identify" is a measurement of our own reach and one of the more useful things in the panel,
-    /// and it is exactly the value a popularity cap would delete on a well-covered catalogue.
-    /// </para>
-    /// <para>
-    /// <b>So does the reader's own selection, at zero.</b> A value nothing matches is not offered —
-    /// and the exception <see cref="FacetValue"/> has always documented is the one already chosen,
-    /// because the domain a facet is counted over has that facet's own selection lifted: ask for
-    /// <c>genre=Historical&amp;language=Swedish</c> and no Swedish game is historical, so the value
-    /// the reader picked is not in the counts at all. It disappeared from the panel, taking with it
-    /// the only control that could undo it — the answer responsible for an empty listing was the one
-    /// answer the page would not show.
-    /// </para>
+    /// The unknown bucket survives the popularity cap deliberately — "codebase we couldn't identify"
+    /// is a useful measurement and exactly what a cap would otherwise delete.
+    /// The reader's own selection also survives, at zero if necessary: since the domain has that
+    /// facet's own selection lifted, a combination like
+    /// <c>genre=Historical&amp;language=Swedish</c> can leave the chosen value out of the counts
+    /// entirely — dropping it from the panel would remove the only control that could undo the
+    /// choice responsible for an empty listing.
     /// </remarks>
     private static List<FacetValue> Open(
         IReadOnlyList<GameFacetRow> domain,
@@ -1074,10 +895,9 @@ public static class FacetedSearch
     /// How many games each value covers, and every spelling they used for it.
     /// </summary>
     /// <remarks>
-    /// The spellings are kept rather than the first one being taken as the name, so
-    /// <see cref="Spellings.Commonest"/> can label the group. A bare count keyed
-    /// <see cref="StringComparer.OrdinalIgnoreCase"/> silently promotes whichever row was read first
-    /// to naming the value, which put <c>russian</c> beside <c>English</c> on the live panel.
+    /// Spellings are kept, not just counted, so <see cref="Spellings.Commonest"/> can label the
+    /// group — a bare ordinal-insensitive count would let whichever row was read first name the
+    /// value.
     /// </remarks>
     private static Dictionary<string, List<string>> Counts(
         IReadOnlyList<GameFacetRow> domain,
@@ -1107,10 +927,8 @@ public static class FacetedSearch
     /// One choice facet: which of its values a game is in, and what the filter says about it.
     /// </summary>
     /// <remarks>
-    /// <see cref="TokensOf"/> returns a <em>list</em> because one facet's values nest: a game
-    /// reached an hour ago is in "the last 24 hours" and in "the last 7 days" both, and the question
-    /// people have is the second. Every other facet returns one token, or one null for a game the
-    /// facet has no value for.
+    /// <see cref="TokensOf"/> returns a list because values can nest — reached an hour ago is in
+    /// both "last 24 hours" and "last 7 days". Every other facet returns a single token, or null.
     /// </remarks>
     private sealed record ChoiceFacet(
         string Key,
@@ -1125,20 +943,10 @@ public static class FacetedSearch
     /// not — a reader has to be able to see which part of the panel is evidence.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <see cref="FacetKeys.Lineage"/> sits at the head of the declared half rather than the foot of
-    /// the measured one because it is a conclusion drawn from a declaration, and the whole of its
-    /// evidence is the codebase string immediately below it. <see cref="FacetKeys.CodebaseVersion"/>
-    /// follows <see cref="FacetKeys.Codebase"/> for the same reason: the three read as one column,
-    /// widening to narrowing, and every step of it is labelled with where it came from.
-    /// </para>
-    /// <para>
-    /// <see cref="FacetKeys.Uncounted"/> and <see cref="FacetKeys.Unreachable"/> follow the two
-    /// scales because they are the two ways a row on those scales ends up with no number, and they
-    /// are <em>two</em> facets rather than two values of one because they are independent: a game can
-    /// be either, both or neither, and one selection that had to be spent on picking between them
-    /// would be a third exclusive scale rather than the pair of switches this is.
-    /// </para>
+    /// <see cref="FacetKeys.Lineage"/> sits ahead of the declared half rather than the end of the
+    /// measured one because it's a conclusion drawn from the codebase string beneath it.
+    /// <see cref="FacetKeys.Uncounted"/> and <see cref="FacetKeys.Unreachable"/> are two separate
+    /// facets, not two values of one, because a game can be either, both, or neither.
     /// </remarks>
     private static readonly ChoiceFacet[] Choices =
     [
@@ -1193,9 +1001,8 @@ public static class FacetedSearch
 /// How the two derived facets' values are spelled in a URL.
 /// </summary>
 /// <remarks>
-/// The spelling lives beside the enums rather than in whichever surface parses a querystring,
-/// because the facet panel emits these tokens and the filter binding reads them: if the two had
-/// separate tables, the panel could offer a value its own parser would reject.
+/// Lives beside the enums rather than in the querystring parser, so the panel and the filter
+/// binding can never disagree about which tokens are valid.
 /// </remarks>
 public static class FacetTokens
 {
@@ -1203,11 +1010,10 @@ public static class FacetTokens
     /// The one value a facet has when the question it asks is a yes-or-nothing one.
     /// </summary>
     /// <remarks>
-    /// <b>There is no <c>no</c>, and there must not be.</b> These facets read a fact we either hold
-    /// or do not — an endpoint we completed TLS to, a week of presence rows with no number in them —
-    /// and a second value meaning "the opposite" would be our own silence published as an
-    /// observation. Asking for the complement is what the <c>!</c> prefix is for, and it says
-    /// "hide these from my listing", which is a statement about the listing rather than about a game.
+    /// There is no <c>no</c>, and must not be: these facets read a fact we hold or don't —
+    /// publishing an opposite value would be our own silence presented as an observation. The
+    /// <c>!</c> prefix asks for the complement instead, which is a statement about the listing, not
+    /// about a game.
     /// </remarks>
     public const string Yes = "yes";
 
@@ -1231,12 +1037,10 @@ public static class FacetTokens
     /// Every last-seen value a game in <paramref name="band"/> answers to.
     /// </summary>
     /// <remarks>
-    /// The first three nest: a game reached an hour ago is in the last 24 hours, the last 7 days and
-    /// the last 30. Cutting them into exclusive rings would make "seen within a week" — the question
-    /// people actually have — two clicks that cannot both be made. The tails do not nest, because
-    /// <see cref="LastSeenBand.Never"/> is not a longer version of <see cref="LastSeenBand.Older"/>:
-    /// a game we have never once reached has no date, and lending it the oldest one would publish
-    /// our own ignorance as its outage.
+    /// The first three nest (reached an hour ago is in all of them) so "seen within a week" is one
+    /// click. The tails don't nest: <see cref="LastSeenBand.Never"/> is not a longer
+    /// <see cref="LastSeenBand.Older"/> — a game never reached has no date, and lending it the
+    /// oldest one would publish our own ignorance as its outage.
     /// </remarks>
     public static IReadOnlyList<string?> Reaching(LastSeenBand band) => band switch
     {
@@ -1264,12 +1068,11 @@ public static class FacetTokens
     /// everything else.
     /// </summary>
     /// <remarks>
-    /// Hyphens and underscores are stripped so <c>active-this-week</c>, <c>active_this_week</c> and
-    /// <c>activeThisWeek</c> are one facet rather than three near misses. Digits are refused
-    /// outright: <see cref="Enum.TryParse{TEnum}(string, bool, out TEnum)"/> also accepts the
-    /// underlying number, which would make <c>band=0</c> a synonym for whichever member happens to
-    /// be declared first — a facet that silently re-points itself the day somebody reorders the
-    /// enum. Only the names are public.
+    /// Hyphens/underscores are stripped so <c>active-this-week</c>, <c>active_this_week</c> and
+    /// <c>activeThisWeek</c> are one facet. Digits are refused:
+    /// <see cref="Enum.TryParse{TEnum}(string, bool, out TEnum)"/> also accepts the underlying
+    /// number, which would make <c>band=0</c> silently repoint itself if the enum were ever
+    /// reordered.
     /// </remarks>
     private static bool TryRead<TEnum>(string? text, out TEnum value)
         where TEnum : struct, Enum

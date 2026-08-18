@@ -11,10 +11,8 @@ namespace MUI.Catalog.Tests.Persistence;
 /// Spec §5.2's rollups, against a real database.
 /// </summary>
 /// <remarks>
-/// The question every one of these asks is §5.4's: <b>does an hour still have three states after it
-/// has been aggregated?</b> A rollup is the easiest place in this codebase to lose that distinction —
-/// <c>count(*)</c> and <c>coalesce(sum(count), 0)</c> both turn "we got in and could not count" into
-/// a zero, and the graph that reads it then says a healthy game was empty.
+/// Does an hour still have three states after aggregation? <c>count(*)</c> and
+/// <c>coalesce(sum(count), 0)</c> both turn "we got in and could not count" into a zero.
 /// </remarks>
 public class PresenceRollupPostgresTests
 {
@@ -26,26 +24,24 @@ public class PresenceRollupPostgresTests
     [Test]
     public async Task TheThreeStatesSurviveTheRollup()
     {
-        // The worst bug this codebase could ship, asserted at the seam where it would happen.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var samples = new NpgsqlPresenceStore(db.DataSource);
         var writer = new PresenceWriter(samples);
 
-        // Hour 0: counted, and one of the counts is a measured zero — we got in and nobody was there.
+        // Hour 0: counted, including a measured zero.
         await writer.WriteAsync(game, PresenceReading.Counted(0, FieldSource.Who), Hour);
         await writer.WriteAsync(game, PresenceReading.Counted(4, FieldSource.Who), Hour.AddMinutes(30));
 
-        // Hour 1: probed twice, uncountable both times. Hatched, and never a zero.
+        // Hour 1: probed twice, uncountable both times. Hatched, never a zero.
         await writer.WriteAsync(
             game, PresenceReading.Unmeasurable(UnmeasurableReason.WhoUnparseable), After(1));
         await writer.WriteAsync(
             game, PresenceReading.Unmeasurable(UnmeasurableReason.WhoNotOffered), After(1).AddMinutes(20));
 
-        // Hour 2: nothing at all. A failed probe writes no presence row, and neither does an hour we
-        // never reached — the empty cell is the absence of a row here too.
+        // Hour 2: nothing at all — no row.
 
-        // Hour 3: a single measured zero, which is a filled cell on its own.
+        // Hour 3: a single measured zero.
         await writer.WriteAsync(game, PresenceReading.Counted(0, FieldSource.Who), After(3));
 
         var maintenance = Maintenance(db);
@@ -63,8 +59,6 @@ public class PresenceRollupPostgresTests
         await Assert.That(counted.MeanCount).IsEqualTo(2m);
         await Assert.That(counted.IsCounted).IsTrue();
 
-        // The middle state. Two probes reached the game and neither could count, so there is a row —
-        // and it carries no number at all, rather than the zero that would render it as empty.
         var hatched = rollups.Single(r => r.Bucket == After(1));
         await Assert.That(hatched.CountedSamples).IsEqualTo(0);
         await Assert.That(hatched.UnmeasurableSamples).IsEqualTo(2);
@@ -74,11 +68,8 @@ public class PresenceRollupPostgresTests
         await Assert.That(hatched.IsCounted).IsFalse();
         await Assert.That(hatched.IsUncountable).IsTrue();
 
-        // The third state is the absence of a row, exactly as it is in presence_sample. A rollup that
-        // wrote a row of zeroes here would have invented a measurement.
         await Assert.That(rollups.Any(r => r.Bucket == After(2))).IsFalse();
 
-        // And a measured zero is not any of the other two: it is a filled cell with a number in it.
         var measuredZero = rollups.Single(r => r.Bucket == After(3));
         await Assert.That(measuredZero.CountedSamples).IsEqualTo(1);
         await Assert.That(measuredZero.MinCount).IsEqualTo(0);
@@ -91,16 +82,13 @@ public class PresenceRollupPostgresTests
     [Test]
     public async Task TheSchemaRefusesAnUncountableHourWithAZeroInIt()
     {
-        // Half the design is in CHECK constraints, and this is the one that means no future writer —
-        // ours or a hand-typed UPDATE at four in the morning — can turn a hatched hour into an empty
-        // game.
+        // Enforced by a CHECK constraint, so no future writer can turn a hatched hour into an empty game.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
 
         await using var connection = await db.DataSource.OpenConnectionAsync();
 
-        // A hatched hour given a zero: three probes that could not count, recorded as three probes
-        // that counted nobody.
+        // A hatched hour given a zero: three uncounted probes recorded as three probes that counted nobody.
         await Assert.That(async () => await connection.ExecuteAsync(
                 """
                 INSERT INTO presence_rollup_hour
@@ -123,8 +111,7 @@ public class PresenceRollupPostgresTests
     [Test]
     public async Task ADayIsSummedFromItsHoursAndNotAveragedOverThem()
     {
-        // Three probes in one hour and one in the next is the normal shape of a crawl, and averaging
-        // the two hourly means would weight the lonely probe three times too heavily.
+        // Averaging the two hourly means would weight a lonely probe as heavily as three together.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
@@ -167,22 +154,19 @@ public class PresenceRollupPostgresTests
 
         var afterTwoRuns = (await Rollups(db).ForGameAsync(game, PresenceGrain.Hour, Hour, Hour)).Single();
 
-        // The rollup is a projection of the raw table and not an accumulation, so the second pass
-        // rewrites the same hour to the same numbers rather than adding to them.
+        // The rollup is a projection, not an accumulation: the second pass rewrites the same numbers.
         await Assert.That(afterTwoRuns.CountedSamples).IsEqualTo(1);
         await Assert.That(afterTwoRuns.MinCount).IsEqualTo(3);
         await Assert.That(afterTwoRuns.MaxCount).IsEqualTo(3);
         await Assert.That(second.HoursRolled).IsEqualTo(first.HoursRolled);
         await Assert.That(second.DaysRolled).IsEqualTo(first.DaysRolled);
 
-        // And it is still one hour and one day, not two of each.
         await Assert.That(await Rollups(db).ForGameAsync(game, PresenceGrain.Hour, Hour, After(1)))
             .Count().IsEqualTo(1);
         await Assert.That(await Rollups(db).ForGameAsync(game, PresenceGrain.Day, Midnight(Hour), After(1)))
             .Count().IsEqualTo(1);
 
-        // A sample that lands after its own hour was rolled up — a probe that finished slowly, or a
-        // replica whose clock was behind — is picked up by the overlap the next pass re-reads.
+        // A sample landing after its hour was rolled up is picked up by the overlap the next pass re-reads.
         await writer.WriteAsync(game, PresenceReading.Counted(9, FieldSource.Who), Hour.AddMinutes(50));
         await maintenance.RunAsync(After(1));
 
@@ -194,12 +178,9 @@ public class PresenceRollupPostgresTests
     [Test]
     public async Task EachGrainResumesFromItsOwnWatermarkAndNotFromTheHourly()
     {
-        // The failure this guards against deletes data. The hourly watermark is committed before the
-        // daily aggregation runs, so a restart, a cancellation or a transient error in between leaves
-        // the hours rolled and the days not — and if the daily pass then resumed from the *hourly*
-        // watermark it would skip everything older than the overlap, mark itself caught up, and let
-        // retention drop the raw months behind it. The grain §5.2 keeps for ever would be permanently
-        // missing and the only other copy gone.
+        // The hourly watermark commits before daily aggregation runs, so an interruption between them
+        // leaves hours rolled and days not. If the daily pass resumed from the hourly watermark it
+        // would skip that gap, mark itself caught up, and let retention drop the only other copy.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
@@ -211,7 +192,6 @@ public class PresenceRollupPostgresTests
             await writer.WriteAsync(game, PresenceReading.Counted(day, FieldSource.Who), start.AddDays(day));
         }
 
-        // The interrupted pass: hours aggregated and their watermark committed, then nothing.
         var rollups = Rollups(db);
         await rollups.RollUpAsync(PresenceGrain.Hour, start, now);
         await rollups.SetWatermarkAsync(PresenceGrain.Hour, now);
@@ -227,8 +207,7 @@ public class PresenceRollupPostgresTests
     [Test]
     public async Task RetentionWaitsForTheGrainThatIsBehind()
     {
-        // The same failure seen from the other end: while the daily grain has not consumed a month,
-        // that month's raw rows are the only copy of it there is.
+        // While the daily grain has not consumed a month, that month's raw rows are the only copy.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
@@ -250,9 +229,8 @@ public class PresenceRollupPostgresTests
     [Test]
     public async Task TheEstimateColumnsAreGoneFromTheSchema()
     {
-        // Migration 0014, proved rather than assumed. Every other test here would pass whether or not
-        // it ran, because nothing selects those columns any more — so the one thing that actually
-        // demonstrates the drop is asking the catalogue what the table is made of.
+        // Nothing selects these columns any more, so the only proof the migration ran is asking the
+        // catalogue what the table is made of.
         await using var db = await PostgresFixture.MigratedAsync();
 
         await using var connection = await db.DataSource.OpenConnectionAsync();
@@ -266,7 +244,6 @@ public class PresenceRollupPostgresTests
         await Assert.That(columns).DoesNotContain("peak_distinct_estimate");
         await Assert.That(columns).DoesNotContain("salt_epoch");
 
-        // And the tally either side of them is untouched, so this is a drop and not a rebuild.
         await Assert.That(columns).Contains("counted_samples");
         await Assert.That(columns).Contains("unmeasurable_samples");
     }
@@ -274,12 +251,9 @@ public class PresenceRollupPostgresTests
     [Test]
     public async Task AnOldRowsEstimateKeysAreIgnoredRatherThanFatal()
     {
-        // Rows written before §11's unique-player estimate was removed still carry distinctEstimate
-        // and saltEpoch in their aggregates JSON. They are not members of the record any more, so
-        // they are ignored on the way back in — which is the outcome wanted, twice over: a window
-        // that threw on an unknown key would take every other measurement in it along, and an
-        // estimate that miscounted every renamed player must not come back to life because an old
-        // row still holds one.
+        // Rows written before the unique-player estimate was removed still carry distinctEstimate and
+        // saltEpoch in their aggregates JSON. Deserializing must ignore unknown keys rather than throw
+        // — a window that threw would take every other measurement in it down too.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var store = new NpgsqlPresenceStore(db.DataSource);
@@ -293,7 +267,6 @@ public class PresenceRollupPostgresTests
             Aggregates = new PresenceAggregates([4, 3]),
         });
 
-        // Written the way the record serialised when an estimate was still a thing it held.
         await using (var connection = await db.DataSource.OpenConnectionAsync())
         {
             await connection.ExecuteAsync(
@@ -314,11 +287,9 @@ public class PresenceRollupPostgresTests
 
         await Assert.That(samples).Count().IsEqualTo(2);
 
-        // What was derived from times survives; what was derived from names is simply not read.
         var legacy = samples.Single(s => s.At == Hour.AddMinutes(30));
         await Assert.That(legacy.Aggregates!.IdleBuckets).IsEquivalentTo(new[] { 2, 1 });
 
-        // And the rollup over it is an ordinary rollup, with nowhere for an estimate to land.
         await Maintenance(db).RunAsync(After(2));
 
         var rolled = (await Rollups(db).ForGameAsync(game, PresenceGrain.Hour, Hour, Hour)).Single();
@@ -330,9 +301,8 @@ public class PresenceRollupPostgresTests
     [Test]
     public async Task TheSchemaHasToBeThereBeforeAPassMeansAnything()
     {
-        // The maintenance pass starts with the web tier, and on a fresh database the migrations may
-        // not have run yet. Asking is cheaper than throwing 42P01 and standing down for the whole
-        // retry interval on every replica's first pass.
+        // On a fresh database the migrations may not have run yet; asking is cheaper than throwing
+        // 42P01 and standing down for a full retry interval.
         await using var fresh = await PostgresFixture.FreshDatabaseAsync();
         await Assert.That(await Maintenance(fresh).SchemaReadyAsync()).IsFalse();
 
@@ -343,8 +313,7 @@ public class PresenceRollupPostgresTests
     [Test]
     public async Task TheHourStillRunningIsNotRolledUpUntilItIsOver()
     {
-        // Rolling a half-finished hour would publish a min and a max that the rest of the hour is
-        // about to contradict.
+        // Rolling a half-finished hour would publish a min/max the rest of the hour is about to contradict.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
@@ -359,10 +328,8 @@ public class PresenceRollupPostgresTests
     [Test]
     public async Task PartitionsAreMadeAheadOfNeedSoAMonthEndingDoesNotBreakTheWriter()
     {
-        // The raw table has no DEFAULT partition on purpose (migration 0003), so a month with no
-        // partition is an insert error rather than a misfiled row. The store makes one per append;
-        // this makes them before anybody needs them, which is what keeps a midnight-on-the-31st crawl
-        // from depending on that.
+        // No DEFAULT partition on the raw table (a month with no partition is an insert error, not a
+        // misfiled row), so partitions are made ahead of need rather than relying on per-append creation.
         await using var db = await PostgresFixture.MigratedAsync();
 
         await Maintenance(db).RunAsync(new DateTimeOffset(2026, 11, 20, 4, 0, 0, TimeSpan.Zero));
@@ -412,11 +379,10 @@ public class PresenceRollupPostgresTests
 
         await Assert.That(report.PartitionsDropped).IsEqualTo(1);
         await Assert.That(await PartitionNames(db)).DoesNotContain("presence_sample_202601");
-        // Inside the retention window, so it stays whole.
         await Assert.That(await PartitionNames(db)).Contains("presence_sample_202607");
 
-        // And what the dropped partition measured is still there in the shape that outlives it —
-        // including that one of those two hours was probed and uncountable rather than empty.
+        // What the dropped partition measured survives in the daily rollup, including that one of
+        // those two hours was probed and uncountable rather than empty.
         var days = await Rollups(db).ForGameAsync(game, PresenceGrain.Day, Midnight(old), Midnight(old));
         var day = days.Single();
 
@@ -428,9 +394,8 @@ public class PresenceRollupPostgresTests
     [Test]
     public async Task AnUnrolledHourKeepsItsRawRowsHoweverOldTheyAre()
     {
-        // Retention may never run ahead of the rollup. If the rollup has not consumed an hour, the
-        // raw rows for it are the only copy there is — so a maintenance pass whose rollup step failed
-        // must not then delete the thing the rollup was supposed to read.
+        // Retention may never run ahead of the rollup: a failed rollup step must not let this
+        // maintenance pass delete the raw rows it was supposed to read.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var old = new DateTimeOffset(2026, 1, 15, 6, 0, 0, TimeSpan.Zero);

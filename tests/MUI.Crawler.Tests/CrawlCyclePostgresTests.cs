@@ -15,10 +15,9 @@ namespace MUI.Crawler.Tests;
 /// A whole crawl cycle against a real PostgreSQL, with the socket replaced and nothing else.
 /// </summary>
 /// <remarks>
-/// This is the suite that answers "does the site show measured data": it drives the same graph the
-/// hosted service builds, and then asks the database what is in it — not the code what it thinks it
-/// wrote. Half the design lives in <c>CHECK</c> constraints, so the assertions that matter here are
-/// the ones an in-memory fake could not have made.
+/// Drives the same graph the hosted service builds, then asks the database what's in it rather than
+/// the code what it thinks it wrote. Half the design lives in <c>CHECK</c> constraints, so the
+/// assertions that matter here are ones an in-memory fake couldn't have made.
 /// </remarks>
 public class CrawlCyclePostgresTests
 {
@@ -46,9 +45,8 @@ public class CrawlCyclePostgresTests
         var targets = new NpgsqlCrawlTargetRepository(source);
         var slugs = new NpgsqlSlugHistoryStore(source);
 
-        // One resolver, shared with the identity matcher below — production wires the same instance
-        // to both for the same reason (IdentityMatcher's ResolvedEndpoint signal reads the answers
-        // HostScopeGuard's own resolver already gives, rather than a second lookup path).
+        // One resolver, shared with the identity matcher below, same as production: ResolvedEndpoint
+        // reads the answers HostScopeGuard's resolver already gives rather than a second lookup path.
         var effectiveResolver = resolver ?? new FakeHostResolver();
 
         return new CrawlCycle(
@@ -100,10 +98,8 @@ public class CrawlCyclePostgresTests
     [Test]
     public async Task AGameThatAnsweredOnTheSecondAttemptWasNeverDark()
     {
-        // The defect, measured in production on 2026-08-18: over four days, 173 of 182 dark episodes
-        // were one failed probe followed immediately by a successful one, and they accounted for 86%
-        // of all published downtime. One dial is not a measurement of a game's reachability — it is a
-        // measurement of one dial — and publishing it as the former is rule 5.
+        // The defect: one dial is not a measurement of a game's reachability, it's a measurement of
+        // one dial — publishing it as the former is rule 5.
         await using var database = await PostgresFixture.MigratedAsync();
         var source = database.DataSource;
 
@@ -185,10 +181,9 @@ public class CrawlCyclePostgresTests
     [Test]
     public async Task AConfirmedFailureIsLookedAtAgainInMinutesRatherThanHours()
     {
-        // The amplifier. A first failure used to buy the six-hour BaseInterval, so every blip was
-        // published as six hours of downtime whatever the far end did next — which is why every dark
-        // span in production is a clean multiple of six hours. ProbeSchedule owns the arithmetic;
-        // this asserts the loop asks it with the right failure count and stores the answer.
+        // The amplifier: a first failure used to buy the six-hour BaseInterval, publishing every blip
+        // as six hours of downtime regardless of what happened next. ProbeSchedule owns the
+        // arithmetic; this asserts the loop asks it with the right failure count.
         await using var database = await PostgresFixture.MigratedAsync();
         var source = database.DataSource;
 
@@ -299,22 +294,12 @@ public class CrawlCyclePostgresTests
     /// cycle rather than against the game.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Two ceilings, and only one of them is a measurement.</b> <c>ProbeOptions.Timeout</c> is
-    /// what the probe promises the far end will get — twenty seconds of our patience — and it
-    /// expiring is a fact about that host, stored with cause <c>timeout</c>
-    /// (<c>ProbeSessionTests.TheProbesOwnBudgetExpiringIsStillATimeoutWeMeasured</c>).
-    /// <c>DiscoveryOptions.ProbeTimeout</c> is sixty seconds and is documented as something else
-    /// entirely: <em>"the crawl loop's own hard bound on one probe, applied on top of whatever the
-    /// probe promises … the loop does not get to trust a collaborator for that"</em>.
-    /// </para>
-    /// <para>
-    /// So a probe that reaches the outer bound has overrun its own promise by forty seconds. That is
-    /// a bug in our probe, and writing it into a game's public reachability history as though the
-    /// game had timed out is precisely rule 5 — our limitation published as their downtime. It is
-    /// counted on the cycle instead, which is where decisions and failures of ours belong, and the
-    /// target is backed off so it cannot re-burn a batch slot every cycle.
-    /// </para>
+    /// Two ceilings, only one a measurement: <c>ProbeOptions.Timeout</c> expiring is a fact about the
+    /// host (cause <c>timeout</c>), while <c>DiscoveryOptions.ProbeTimeout</c> is the loop's own outer
+    /// bound on top of that. A probe that reaches the outer bound has overrun its own promise — a bug
+    /// in our probe — and writing that into a game's reachability history as though the game timed
+    /// out would be rule 5. Counted on the cycle instead; the target is still backed off so it can't
+    /// re-burn a batch slot every cycle.
     /// </remarks>
     [Test]
     public async Task TheCrawlLoopsOwnCeilingIsCountedOnTheCycleAndNotAgainstTheGame()
@@ -366,9 +351,8 @@ public class CrawlCyclePostgresTests
     [Test]
     public async Task AGameThatRenamesItselfTakesANewUrlAndKeepsTheOldOneWorking()
     {
-        // §5.7 end to end, through the real graph and against the real schema: a game renames itself,
-        // nothing moves while the new name is fresh, and once it has held for the grace period the URL
-        // follows — with the old one recorded beside the game rather than in somebody's config file.
+        // §5.7 end to end: a game renames itself, nothing moves while the new name is fresh, and once
+        // it has held for the grace period the URL follows.
         await using var database = await PostgresFixture.MigratedAsync();
         var source = database.DataSource;
 
@@ -429,9 +413,8 @@ public class CrawlCyclePostgresTests
     [Test]
     public async Task ABannerThatStatesItsOwnPlayerCountDoesNotWriteAChangeRowEveryProbe()
     {
-        // Measured on aardmud.org:4000 during a live verification run, and it is the exact cost §5.1
-        // exists to avoid: a change feed that fills with an unreadable diff of one game's welcome
-        // screen buries every event that actually happened.
+        // The exact cost §5.1 exists to avoid: a change feed that fills with an unreadable diff of
+        // one game's welcome screen buries every event that actually happened.
         await using var database = await PostgresFixture.MigratedAsync();
         var source = database.DataSource;
 
@@ -710,14 +693,8 @@ public class CrawlCyclePostgresTests
     public async Task AReferralThatNamesItselfBecomesASecondListedGameWithoutBeingSeeded()
     {
         // The other half of the rule above, and the whole reason the graph exists: one seed, two
-        // games. Nothing tells the crawler about hollow.example.net — it is named only by the
-        // game it was referred from, and it earns its listing by answering with a name of its own.
-        //
-        // Live counterpart, measured: mud.kharkov.org:3000 (Virtustan MUD, CircleMUD) publishes
-        // REFERRAL for two ports of tbamud.com, and both became depth-1 targets and were probed on
-        // their own schedule. They are not listed, because tbaMUD's only self-description is
-        // NAME "tbaMUD" — its codebase's name, which MsspDefaults reads as unset. That is the arm
-        // the previous test pins; this one pins the arm a well-described game takes.
+        // games. Nothing tells the crawler about hollow.example.net — it is named only by the game
+        // it was referred from, and it earns its listing by answering with a name of its own.
         await using var database = await PostgresFixture.MigratedAsync();
         var source = database.DataSource;
 
@@ -881,15 +858,11 @@ public class CrawlCyclePostgresTests
     [Test]
     public async Task ATwinThatOnlyBecomesRecognisableLaterIsStillReviewed()
     {
-        // aardmud.org:23 and aardmud.org:4000 are one game, with byte-identical connect screens, two
-        // listings and no duplicate review between them. Identity was decided once, on first sighting,
-        // and never revisited: BindAsync returned at its first branch whenever the target already had
-        // a game, so the matcher never ran again. A second port that happened to look different the
-        // one time it was compared — behind a maintenance screen, mid-reboot, or simply not yet
-        // carrying the name — was a separate listing for ever, and no later evidence could reach it.
-        //
-        // §7.3's middle band is "both pages live and a person decides". That has to stay reachable
-        // after the first probe, or the band only ever catches twins discovered minutes apart.
+        // Identity used to be decided once, on first sighting, and never revisited: a second port
+        // that happened to look different the one time it was compared — behind a maintenance screen,
+        // mid-reboot, or not yet carrying the name — was a separate listing forever. §7.3's middle
+        // band ("both pages live and a person decides") has to stay reachable after the first probe,
+        // or it only ever catches twins discovered minutes apart.
         await using var database = await PostgresFixture.MigratedAsync();
         var source = database.DataSource;
 
@@ -944,12 +917,10 @@ public class CrawlCyclePostgresTests
     public async Task ABareIpSeededLikeI3DoesResolvesToAKnownHostnameAndBindsRatherThanMintingAShadow()
     {
         // The production bug, end to end. I3Cycle seeds a crawl_target at the bare IP a mudlist hands
-        // it (spec §7.6 — host and port and nothing else; it deliberately does no resolving of its
-        // own). Before ResolvedEndpoint, the ordinary probe of that literal address could only ever
-        // corroborate the real game through BannerHash (0.50) — the exact shape the previous test just
-        // proved lands as a stuck review, because 0.50 sits between ReviewThreshold and
-        // AutoMergeThreshold. Nine confirmed pairs in production were this shape: a shadow listing
-        // that I3's own player counts then bound to instead of the real page.
+        // it (§7.6 — host and port and nothing else, no resolving of its own). Before
+        // ResolvedEndpoint, the ordinary probe of that literal address could only ever corroborate
+        // the real game through BannerHash (0.50) — the exact shape the previous test just proved
+        // lands as a stuck review, since 0.50 sits between ReviewThreshold and AutoMergeThreshold.
         await using var database = await PostgresFixture.MigratedAsync();
         var source = database.DataSource;
 

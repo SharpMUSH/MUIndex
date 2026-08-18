@@ -1,34 +1,22 @@
 @using MUI.Web.Localization
 
 @*
-    The capability matrix: measured and declared as two columns, never merged into one badge.
-
-    There are two claims — what the server did in the handshake, and what the game says about itself
-    — and merging them throws away the only interesting case. Disagreements sort to the top, are
-    marked in the row itself rather than by tint alone, and the count sits in the section head so it
-    survives both a collapsed section and a screen reader.
+    The capability matrix: measured and declared as two columns, never merged into one badge —
+    merging what the handshake showed with what the game claims would throw away the only
+    interesting case, a disagreement. Disagreements sort to the top and are marked in the row itself
+    rather than by tint alone.
 *@
 
 <div class="section-head">
     <h2 id="@Id">@Messages.For(Tag, "game.capabilities")</h2>
 </div>
 
-@* Six columns of nowrap cells do not fit a phone, and the page body may never scroll sideways —
-   so the table scrolls inside its own box, which is the same rule the ANSI frame follows. *@
+@* Six columns of nowrap cells don't fit a phone, and the page body may never scroll sideways —
+   so the table scrolls inside its own box, the same rule the ANSI frame follows. *@
 <div class="table-wrap">
 <table class="matrix">
-    @*
-        The tally, once. It was the section's heading text and then, verbatim, this table's caption —
-        so a screen reader heard the same sentence twice before reaching a row. As the caption it is
-        the table's own accessible description, it survives a collapsed section, and it is on screen
-        for everybody rather than only for a screen reader.
-    *@
-    @*
-        Short of the long form on purpose. "0 of 6 capabilities disagree with what the game declares"
-        was the section's heading text and then, verbatim, this caption; said once and set beside the
-        table it describes, the shorter sentence carries the same fact and reads as a summary rather
-        than as a restatement.
-    *@
+    @* The tally, once, as the caption — it used to duplicate the section heading verbatim, so a
+       screen reader heard the same sentence twice before reaching a row. *@
     <caption class="count @(Disagreements.Count > 0 ? "warn" : "faint")">
         @Messages.For(Tag, "capabilities.agree", new Dictionary<string, object?>
         {
@@ -52,8 +40,8 @@
                     <span class="mono">@row.Protocol</span>
                     @if (row.Disagrees)
                     {
-                        @* The mark is a word in the row, not a background tint. A tint is invisible
-                           in greyscale, to a screen reader, and to anyone who prints the page. *@
+                        @* A word in the row, not a background tint — a tint is invisible in
+                           greyscale, to a screen reader, and when printed. *@
                         <span class="mark warn">@Messages.For(Tag, "capability.disagrees")</span>
                     }
                 </th>
@@ -120,8 +108,8 @@
     private IReadOnlyList<CapabilityRow> Disagreements => [.. Rows.Where(r => r.Disagrees).OrderBy(r => r.Protocol, StringComparer.Ordinal)];
 
     /// <summary>
-    /// Glyph and word together. The glyph is the state and the colour only reinforces it, so the
-    /// cell still says which of the four things it is when there is no colour at all.
+    /// Glyph and word together — the glyph is the state, and the cell still says which of the four
+    /// things it is with no colour at all.
     /// </summary>
     private static string Cell(string tag, CapabilityState state, bool measured)
     {
@@ -134,8 +122,8 @@
             _ => ("state-unknown", "–", "capability.silent"),
         };
 
-        // Escaped, because the word now comes out of a bundle a translator writes rather than out of
-        // this file. A message is not markup and must not be able to become any.
+        // Escaped: the word comes out of a translator-writable bundle, and a message must not be
+        // able to become markup.
         var word = System.Net.WebUtility.HtmlEncode(Messages.For(tag, id));
 
         return $"<span class=\"{css}\">{glyph} {word}</span>";

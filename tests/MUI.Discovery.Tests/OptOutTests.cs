@@ -8,16 +8,10 @@ namespace MUI.Discovery.Tests;
 /// recorded.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Two of the three routes need no account with us, deliberately.</b> The operator most likely to
-/// want the crawler gone is the least likely to have signed up for anything here first, and an
-/// opt-out available only to people who had already opted in would be a joke at their expense.
-/// </para>
-/// <para>
-/// Everything asserted here is about whether we <em>dial</em>. Nothing an opt-out does may reach a
-/// game's record — that half is pinned in <c>MUI.Crawler.Tests</c> against a real database, because
-/// "no availability row was written" is a claim about storage and an in-memory fake cannot make it.
-/// </para>
+/// Two of the three routes need no account with us, deliberately: the operator most likely to want
+/// the crawler gone is the least likely to have signed up first. Everything asserted here is about
+/// whether we <em>dial</em> — that no availability row gets written is pinned separately in
+/// <c>MUI.Crawler.Tests</c> against a real database, since an in-memory fake can't make that claim.
 /// </remarks>
 public class OptOutTests
 {
@@ -207,11 +201,8 @@ public class OptOutTests
     [Arguments("opt-out=everything")]
     public async Task AQualifierWeCannotReadAsPortsCoversTheWholeHost(string record)
     {
-        // The plausible thing to type, and the one failure this feature cannot have: an admin who
-        // wrote "opt-out=all" and went away must not still be crawled. A qualifier is a port list or
-        // it is not readable as one, and the only safe reading of the second is the whole host —
-        // which is what the unqualified record already means and what ReadMssp does with a value it
-        // did not anticipate.
+        // An admin who wrote "opt-out=all" and went away must not still be crawled: an unparseable
+        // qualifier reads as the whole host, the safe direction.
         var dns = new FakeDnsTxtResolver()
             .Publishing(OptOutVocabulary.DnsNameFor("corvid.example.org"), record);
 
@@ -258,10 +249,8 @@ public class OptOutTests
     [Test]
     public async Task TheFirstAskIsLoggedOnceAndConfirmationsAreNot()
     {
-        // The log line is how an operator finds out that a game asked us to stop, so "did we hear
-        // this before" cannot be decided by comparing timestamps: the register rounds them to the
-        // microsecond a timestamptz column stores, and 100ns ticks never survive that. The register
-        // says whether it inserted; nothing here recomputes it.
+        // "Did we hear this before" can't be decided by comparing timestamps (see
+        // ICrawlOptOutRepository.RecordAsync's remarks) — the register says whether it inserted.
         var dns = new FakeDnsTxtResolver()
             .Publishing(OptOutVocabulary.DnsNameFor("corvid.example.org"), OptOutVocabulary.DnsValue);
 
@@ -365,9 +354,7 @@ public class OptOutTests
     [Test]
     public async Task ARecordedRequestHasToSayWhoAsked()
     {
-        // The ContactedMaintainer defect, in the one other place this codebase makes a claim about
-        // somebody else's wishes: a gate like that is satisfied by a caller who can make the claim,
-        // never by a default.
+        // A claim about somebody else's wishes must be made by a caller, never by a default.
         var (gate, _, _, _) = World();
 
         await Assert.That(async () => await gate.RecordRequestAsync("corvid.example.org", null, "  ", None))
@@ -440,9 +427,8 @@ public class OptOutTests
     [Test]
     public async Task ARefusalIsNotAProbeResultAndCannotBecomeOne()
     {
-        // The rule this whole file exists under: DialRefusal.OptedOut names a dial that never
-        // happened, and ProbeOutcome has two members that both mean the socket was opened. A Refused
-        // member on that enum would make our politeness indistinguishable from a game's RST.
+        // DialRefusal.OptedOut names a dial that never happened; both ProbeOutcome members mean the
+        // socket was opened. See OptOutGate's remarks on why a Refused member must not exist there.
         await Assert.That(Enum.GetNames<ProbeOutcome>()).IsEquivalentTo(new[] { "Answered", "Failed" });
         await Assert.That(Enum.GetNames<DialRefusal>())
             .IsEquivalentTo(new[] { "None", "OutOfScope", "OptedOut" });

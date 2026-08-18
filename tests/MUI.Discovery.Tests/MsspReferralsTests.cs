@@ -56,10 +56,8 @@ public class MsspReferralsTests
     [Test]
     public async Task AVariableTheServerRepeatedIsSeveralCandidates()
     {
-        // MSSP's own way of expressing a list is to send the variable again, and it is how REFERRAL
-        // and PORT actually arrive — coffeemud.net:2327 reports PORT nine times. This could not be
-        // expressed at all while the probe flattened a report into one string per name: the entries
-        // were glued together with ", " and this parser had to guess where the glue was.
+        // MSSP's own way of expressing a list is to send the variable again. Previously entries were
+        // glued into one string and re-split, which couldn't distinguish real separators from glue.
         var mssp = ProbeResults.Mssp(
             ("REFERRAL", "a.example.org 4000"),
             ("REFERRAL", "b.example.org 4001"),
@@ -75,9 +73,8 @@ public class MsspReferralsTests
     [Test]
     public async Task ACommaInsideAnEntryIsNoLongerMistakenForTheSeparatorBetweenTwo()
     {
-        // The reason joining was worse than dropping. A four-column entry carrying a game name with
-        // a comma in it survives now, because it arrives as its own value rather than as part of a
-        // string this parser has to re-split.
+        // A four-column entry with a comma in the game name now survives, since it arrives as its
+        // own value rather than part of a string this parser has to re-split.
         var mssp = ProbeResults.Mssp(
             ("REFERRAL", "Bravo, the Second\tb.example.org\t4001\tPennMUSH"),
             ("REFERRAL", "c.example.org 4002"));

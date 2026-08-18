@@ -31,19 +31,10 @@ public enum FailureCause
     /// was down.
     /// </summary>
     /// <remarks>
-    /// <b>Legitimately a game's record, because of what the word already means here.</b> Reachable
-    /// is measured from one vantage point at intervals — that is why nothing in this schema is
-    /// called uptime, and why "a game with a routing problem to our host is unreachable and
-    /// perfectly alive" is a sentence the vocabulary already had to be able to say. This is that
-    /// sentence with a cause attached.
-    /// <para>
-    /// Before it existed, <c>ENETUNREACH</c> and <c>EHOSTUNREACH</c> fell through
-    /// <c>DialFailure.Classify</c>'s catch-all to cause <c>error</c>, which
-    /// <c>FailureReading.CauseOf</c> then mapped to <see cref="Timeout"/> — so a route that did not
-    /// exist was published as a game that did not answer in time. Two different facts under one
-    /// word, and the wrong one. <c>availability_interval.detail</c> keeps the errno that tells the
-    /// three apart.
-    /// </para>
+    /// Previously <c>ENETUNREACH</c>/<c>EHOSTUNREACH</c> fell through <c>DialFailure.Classify</c>'s
+    /// catch-all to <see cref="Timeout"/> — a route that did not exist was published as a game that
+    /// did not answer in time. <c>availability_interval.detail</c> keeps the errno that tells the
+    /// causes apart.
     /// </remarks>
     NoRoute,
 }
@@ -71,21 +62,13 @@ public enum LifecycleState
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Not archived, and the difference is what the state means rather than what it hides.</b>
-    /// Archiving says "this stopped answering", and a probe that gets an answer reverses it
-    /// immediately and without a human (§7.5) — so archiving something that answers perfectly well
-    /// flips it back every cycle and records a change each time. These answer fine. What they are
-    /// not is games somebody could go and play.
+    /// Not archived: archiving reverses on any answered probe, which would flip an excluded game
+    /// back every cycle since these answer perfectly well. What they are not is games somebody
+    /// could go and play.
     /// </para>
     /// <para>
-    /// <b>It is our judgement, so it is stored as ours</b> and carries a reason the page shows. Rule
-    /// 5 forbids recording a decision of ours as a measurement of theirs, and nothing about a socket
-    /// tells us that a mud called <c>test</c> is not for players — an editor decided that.
-    /// </para>
-    /// <para>
-    /// Everything §7.5 promises still holds: the page, the URL, the history and the change feed all
-    /// survive, and it is probed for ever. Only the default listing, the rankings and the "active
-    /// today" figure drop it.
+    /// It is our judgement, so it is stored as ours with a reason the page shows — rule 5 forbids
+    /// recording a decision of ours as a measurement of theirs.
     /// </para>
     /// </remarks>
     Excluded,
@@ -96,23 +79,18 @@ public enum LifecycleState
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Not <see cref="Excluded"/>, and the difference is whose statement it is.</b> An exclusion
-    /// is our judgement that a thing is not a game for players, and it carries an argument a reader
-    /// can disagree with. This is a game. What it is not is a game that wants to be in a directory,
-    /// and the state has to be able to say that without also saying something false about what it is.
+    /// Not <see cref="Excluded"/>: exclusion is our judgement that a thing isn't a game for players.
+    /// This is a game — what it is not is a game that wants to be in a directory.
     /// </para>
     /// <para>
-    /// <b>Reachable only under a standing opt-out.</b> Unlisting is offered to an owner who has
-    /// already stopped the crawl on every address their game answers on — <c>OwnerOptOut</c>'s
-    /// <c>AllStopped</c>. "They asked us to stop and they meant it" is one decision made twice, and
-    /// the second half is not offered to somebody who has not made the first.
+    /// Offered only to an owner who has already stopped the crawl on every address their game
+    /// answers on (<c>OwnerOptOut</c>'s <c>AllStopped</c>) — unlisting is that same "stop" decision
+    /// made twice.
     /// </para>
     /// <para>
-    /// <b>A probe undoes it, unlike an exclusion.</b> <c>ArchiveSweeper.RestoreAsync</c> relists it
-    /// on the first answered probe — safe by construction, because an opted-out address is refused
-    /// before the dial, so a probe that answers is proof that no opt-out stands. The exit an operator
-    /// can work alone (delete the TXT record and wait out §7.4's floor) therefore brings the listing
-    /// back with the crawl.
+    /// A probe undoes it, unlike an exclusion: <c>ArchiveSweeper.RestoreAsync</c> relists on the
+    /// first answered probe, safe because an opted-out address is refused before the dial, so an
+    /// answered probe proves no opt-out stands.
     /// </para>
     /// </remarks>
     Unlisted,

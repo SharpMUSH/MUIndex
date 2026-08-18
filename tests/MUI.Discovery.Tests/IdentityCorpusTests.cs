@@ -24,8 +24,7 @@ public class IdentityCorpusTests
     [Test]
     public async Task AGameThatChangedHostingProviderIsRecognised()
     {
-        // The commonest real move: new host, new port, same everything else. §5.5 says a game that moves
-        // must not become unfindable, and this is the mechanism that keeps it findable.
+        // The commonest real move: new host, new port, same everything else (spec §5.5).
         const string banner = "  ---===  CORVID  ===---\r\n  A place for slow stories.\r\n";
         var corvid = await _world.GameAsync(
             (IdentityFields.Name, "Corvid"),
@@ -155,12 +154,9 @@ public class IdentityCorpusTests
     [Test]
     public async Task TwoUneditedPennMushesDoNotMatchEachOther()
     {
-        // Observed on a live server: an unedited PennMUSH publishes NAME "PennMUSH", and so does every
-        // other unedited PennMUSH on the internet. Scored naively they all match each other on the
-        // strongest textual signal in §7.3's table, and auto-merge fuses unrelated games into one
-        // listing — silently, and afterwards indistinguishably from a merge that should have happened.
-        //
-        // A placeholder contributes nothing, not a little.
+        // Every unedited PennMUSH publishes NAME "PennMUSH" — scored naively they'd all match each
+        // other and auto-merge would fuse unrelated games. A placeholder contributes nothing, not a
+        // little (see MsspReading in src/MUI.Discovery/Identity.cs).
         await _world.GameAsync(
             (IdentityFields.Name, "PennMUSH"),
             (IdentityFields.Created, "2020"),
@@ -234,14 +230,8 @@ public class IdentityCorpusTests
     [Test]
     public async Task AStockColourPromptIsNotAConnectScreen()
     {
-        // The same rule as the silent screen, one notch up, and it is not hypothetical: three unrelated
-        // ROM games in the live catalogue — Adventures Unlimited, Pendulum's Calm and StockMUD — send
-        // nothing before the first prompt but "Do you want ANSI? (Y/n)", hash identically, and had two
-        // duplicate reviews open between them at 0.50, the same score as a genuine twin.
-        //
-        // A screen this short is the codebase talking, not the game. Measured against the live
-        // catalogue: every connect screen under 40 flattened characters is a capability-negotiation
-        // prompt, and the shortest one that names its game is 42.
+        // The same rule as the silent screen, one notch up: a screen this short is the codebase
+        // talking, not the game (see BannerFingerprint.MinimumIdentifyingLength).
         const string prompt = "Do you want ANSI? (Y/n) ";
         await _world.GameAsync((IdentityFields.BannerHash, BannerFingerprint.Of(prompt)));
 
@@ -284,11 +274,8 @@ public class IdentityCorpusTests
     [Test]
     public async Task TheWireSpellingsAreWhatWeTellOperatorsToType()
     {
-        // The one place in this suite where the literal is the subject rather than a dependency. These
-        // strings are a published contract with server operators: they appear in the claim instructions
-        // an owner is given and in this reader, and if either side edits one the other stops seeing a
-        // token that is sitting right there in the MSSP report. Changing a value here is changing what
-        // every already-claimed game has typed into its config, so it is a migration, not an edit.
+        // These strings are a published contract with server operators (see ClaimTokenBeacon); changing
+        // one is a migration, not an edit.
         await Assert.That(ClaimTokenBeacon.MsspVariable).IsEqualTo("MUINDEX CLAIM");
         await Assert.That(ClaimTokenBeacon.ConnectScreenPrefix).IsEqualTo("MUINDEX-CLAIM:");
         await Assert.That(ClaimTokenBeacon.DnsLabel).IsEqualTo("_muindex");

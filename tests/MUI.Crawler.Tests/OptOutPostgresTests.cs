@@ -15,12 +15,10 @@ namespace MUI.Crawler.Tests;
 /// Spec §11's opt-out through the whole loop and into a real database.
 /// </summary>
 /// <remarks>
-/// <b>The assertions that matter here are the absences.</b> "No availability transition was written",
-/// "no presence row", "no field" and "no game" are claims about storage, and an in-memory fake asked
-/// what it thinks it wrote could not make them. A refusal happens before a
-/// <see cref="ProbeResult"/> exists, so if any of these tables ever gains a row from an opt-out, our
-/// own politeness has been recorded as a measurement of somebody's server — the same class of defect
-/// as recording an unparseable <c>WHO</c> as zero players.
+/// The assertions that matter here are the absences — "no availability transition", "no presence
+/// row", "no field", "no game" — which an in-memory fake asked what it thinks it wrote could not make.
+/// If any of these tables ever gains a row from an opt-out, our own politeness has been recorded as a
+/// measurement of somebody's server.
 /// </remarks>
 public class OptOutPostgresTests
 {
@@ -89,9 +87,7 @@ public class OptOutPostgresTests
     [Test]
     public async Task AGameThatPublishesTheMsspFieldIsNotDialledAgainAndKeepsWhatWeMeasured()
     {
-        // §11 in one test: honoured within one cycle, recorded, and nothing that was already measured
-        // is touched. The probe that carried the field is the last one; what it read is stored,
-        // because nothing here is ever deleted and the about page says exactly that.
+        // §11 in one test: honoured within one cycle, recorded, and nothing already measured is touched.
         await using var database = await PostgresFixture.MigratedAsync();
         var source = database.DataSource;
 
@@ -156,8 +152,7 @@ public class OptOutPostgresTests
     [Test]
     public async Task AHostThatOptedOutInDnsIsNeverDialledAndGetsNoRecordAtAll()
     {
-        // The route for an address we have never listed, which is most of them. It must work with no
-        // game, no claim and no account — and it must leave the catalogue exactly as empty as it was.
+        // The route for an address we have never listed, which is most of them.
         await using var database = await PostgresFixture.MigratedAsync();
         var source = database.DataSource;
 
@@ -296,8 +291,8 @@ public class OptOutPostgresTests
     [Test]
     public async Task TakingBackATxtRecordPutsTheAddressBackOnTheSchedule()
     {
-        // The half of an opt-out that has to work or the whole thing is a trap: the DNS route is
-        // undoable by the operator alone, and within one cycle, because we ask every time.
+        // The half of an opt-out that has to work or the whole thing is a trap: undoable by the
+        // operator alone, within one cycle, since we ask every time.
         await using var database = await PostgresFixture.MigratedAsync();
         var source = database.DataSource;
 
@@ -397,8 +392,7 @@ public class OptOutPostgresTests
     public async Task TheRegisterSaysWhetherItHeardThisBeforeRatherThanLeavingItToTheClock()
     {
         // timestamptz keeps microseconds and DateTimeOffset counts 100ns ticks, so a date written
-        // here comes back a different value and "is this the first ask" cannot be a comparison
-        // against the clock. The register knows, because it is the thing that inserted or did not.
+        // here comes back a different value — "is this the first ask" can't be a clock comparison.
         await using var database = await PostgresFixture.MigratedAsync();
         var register = new NpgsqlCrawlOptOutRepository(database.DataSource);
 
@@ -497,8 +491,8 @@ public class OptOutPostgresTests
     [Test]
     public async Task TheTableRefusesAnOptOutNobodyCouldExplainLater()
     {
-        // Half this design lives in CHECK constraints, and this one is the ContactedMaintainer rule
-        // in the schema: a claim about somebody else's wishes with no account of who made it.
+        // Half this design lives in CHECK constraints: a claim about somebody else's wishes with no
+        // account of who made it is refused at the schema.
         await using var database = await PostgresFixture.MigratedAsync();
         var source = database.DataSource;
 

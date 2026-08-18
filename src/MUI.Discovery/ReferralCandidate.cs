@@ -8,18 +8,12 @@ namespace MUI.Discovery;
 /// §7.2).
 /// </summary>
 /// <remarks>
-/// <para>
-/// This type carries no game, no name and no identity, and that is the whole point: a referred host is
-/// a hostname somebody claimed is a game, and it becomes one only when it independently answers MSSP
-/// for itself. Everything a referrer says about it beyond the address is discarded here.
-/// </para>
-/// <para>
-/// <b><see cref="IsCrawlable"/> is the weaker of the two scope checks and must never be mistaken for
-/// the gate.</b> It classifies a <em>string</em>, so it catches a referral naming <c>10.0.0.5</c>
-/// outright and is worth nothing against anybody who owns a domain: <c>games.example.com</c> with an A
-/// record pointing at <c>169.254.169.254</c> passes here, correctly, because nothing can be known
-/// about a name until DNS answers. <see cref="HostScopeGuard"/> is the gate that actually holds.
-/// </para>
+/// Carries no game, no name and no identity: a referred host becomes a game only when it
+/// independently answers MSSP for itself. <b><see cref="IsCrawlable"/> is the weaker of the two scope
+/// checks and must never be mistaken for the gate</b> — it classifies a string, so
+/// <c>games.example.com</c> with an A record pointing at <c>169.254.169.254</c> passes here
+/// correctly, since nothing can be known about a name until DNS answers.
+/// <see cref="HostScopeGuard"/> is the gate that actually holds.
 /// </remarks>
 public sealed record ReferralCandidate(string Host, int Port)
 {
@@ -37,19 +31,12 @@ public sealed record ReferralCandidate(string Host, int Port)
 /// Reads MSSP <c>REFERRAL</c> into candidates.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>The field is not written the same way twice in the wild.</b> MSSP describes <c>REFERRAL</c> as a
-/// list, and servers express the list by repeating the variable, by tab-separating entries inside one
-/// value, and by newline-separating them; entries themselves appear as <c>host port</c>,
-/// <c>host:port</c>, and as the four-column <c>name host port codebase</c> some listing sites ask for.
-/// This parser accepts all of those and refuses everything else <em>silently and completely</em> —
-/// there is no partial credit, because half an address is not an address.
-/// </para>
-/// <para>
-/// Nothing here fabricates a port. A referral naming a host and no port is dropped: guessing 4201
-/// would send somebody else's crawler at a socket nobody advertised, and spec §6.4's rule that parsers
-/// never fabricate applies to addresses exactly as it applies to player counts.
-/// </para>
+/// MSSP describes <c>REFERRAL</c> as a list, and servers express it by repeating the variable, by
+/// tab- or newline-separating entries inside one value, and as <c>host port</c>, <c>host:port</c>, or
+/// the four-column <c>name host port codebase</c>. This parser accepts all of those and refuses
+/// everything else silently and completely — no partial credit, since half an address is not an
+/// address. A referral naming a host with no port is dropped rather than guessed: parsers never
+/// fabricate (spec §6.4), for addresses as much as player counts.
 /// </remarks>
 public static class MsspReferrals
 {
@@ -61,12 +48,9 @@ public static class MsspReferrals
 
     /// <summary>Every candidate this probe's <c>REFERRAL</c> named, in the order the server listed them.</summary>
     /// <remarks>
-    /// <b>The repeated-variable form is now read from the list, not recovered from a joined string.</b>
-    /// MSSP's own way of expressing a list is to send the variable more than once, and that used to
-    /// reach here as one value with the entries glued together by a comma — so this parser had to
-    /// split them apart again, and could not distinguish the glue from a comma inside an entry. Each
-    /// reported value is parsed on its own now. The in-value separators stay, because servers really
-    /// do put several entries in one value as well, and both shapes turn up in the wild.
+    /// Each reported MSSP value is parsed on its own, not joined into one string first — a
+    /// comma-joined repeated variable was previously indistinguishable from a comma inside one entry.
+    /// The in-value separators stay, since servers also put several entries in one value.
     /// </remarks>
     public static IReadOnlyList<ReferralCandidate> From(IReadOnlyDictionary<string, IReadOnlyList<string>> mssp)
     {
@@ -179,18 +163,12 @@ public static class MsspReferrals
 /// Whether a string is shaped like a host we could dial at all.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A host label has a dot or a colon in it, or parses as an address. A bare word does not: a
-/// single-label name is not routable on the public internet, and accepting one would let
-/// <c>REFERRAL "intranet 80"</c> — or a submission form — aim the crawler at whatever the crawler's
-/// own search domain resolves that to. That is the SSRF shape §7.2 exists to prevent, arriving
-/// without anybody needing to own a domain.
-/// </para>
-/// <para>
-/// <b>This is a shape check and never the gate.</b> It classifies a string, so every real DNS name
-/// passes it — correctly, because nothing can be known about a name until DNS answers.
-/// <see cref="HostScopeGuard"/> is the check that holds, and it runs on the resolved address.
-/// </para>
+/// A host label has a dot or colon in it, or parses as an address. A bare word does not: accepting a
+/// single-label name would let <c>REFERRAL "intranet 80"</c> aim the crawler at whatever the
+/// crawler's own search domain resolves that to — the SSRF shape §7.2 exists to prevent, arriving
+/// without anybody needing to own a domain. <b>This is a shape check and never the gate</b>: every
+/// real DNS name passes it correctly, and <see cref="HostScopeGuard"/> is the check that runs on the
+/// resolved address.
 /// </remarks>
 public static class HostText
 {

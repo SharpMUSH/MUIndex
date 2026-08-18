@@ -10,33 +10,23 @@ namespace MUI.Web.Components;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The vocabulary invites exactly the mistake this project exists to prevent.</b>
-/// <c>userInteractionCount</c> is a bare integer, and there is nowhere in the obvious spelling of it
-/// to put "and we read that four minutes ago". A number published without its age is the unlabelled
-/// fact spec §10.1 called the one place a surface could contradict the whole project — so the rule
-/// enforced here is narrow and absolute: <b>nothing enters this graph unless the thing beside it
-/// carries when it was taken</b>. <c>InteractionCounter.endTime</c> is where the timestamp goes.
+/// Every measurement here must carry when it was taken: <c>userInteractionCount</c> has nowhere to
+/// say "as of", so the timestamp goes on <c>InteractionCounter.endTime</c> instead. Nothing enters
+/// this graph without one.
 /// </para>
 /// <para>
-/// <b>Only measurements go in.</b> A count a game declared about itself in MSSP stays on the page,
-/// where it sits under a chip reading <em>declared</em> and a reader can weigh it. There is no
-/// schema.org property that means "they said so and we could not check", and the nearest ones all
-/// read as observations — so publishing a declared count here would be our inability to verify it,
-/// republished in a machine-readable format as our having verified it. That is rule 5 exactly.
+/// Only measured counts are emitted — a declared count (MSSP) has no schema.org property meaning
+/// "unverified", so publishing one here would misrepresent it as observed (rule 5).
 /// </para>
 /// <para>
-/// <b>And none of it is emitted over the demo fixture.</b> That decision is the caller's, in
-/// <c>SitePreview</c>: a consumer of this graph never sees the banner, and there is no field in
-/// which to write "these facts are invented".
+/// Never emitted over the demo fixture (<c>SitePreview</c>): there is no field in this format for
+/// "these facts are invented".
 /// </para>
 /// <para>
-/// <b>A game's name is a stranger's bytes.</b> It arrives from MSSP or off a connect screen on a
-/// host nobody here controls, and it lands inside a <c>&lt;script&gt;</c> element — the one place in
-/// an HTML document where the usual escaping does not apply, because the parser is looking for
-/// <c>&lt;/script&gt;</c> and not for entities. <see cref="JavaScriptEncoder"/>'s default behaviour
-/// escapes <c>&lt;</c> and <c>&gt;</c>, which is what closes that hole, so this serializer is
-/// deliberately left on its defaults and must never be given
-/// <c>JavaScriptEncoder.UnsafeRelaxedJsonEscaping</c> to make the output prettier.
+/// <b>A game's name is untrusted text landing inside a <c>&lt;script&gt;</c> element</b>, where
+/// normal HTML escaping doesn't apply. Keep <see cref="JavaScriptEncoder"/> on its defaults — never
+/// <c>UnsafeRelaxedJsonEscaping</c> — or <c>&lt;</c>/<c>&gt;</c> stop being escaped and this becomes
+/// an XSS hole.
 /// </para>
 /// </remarks>
 public static class GameStructuredData
@@ -51,16 +41,13 @@ public static class GameStructuredData
     /// <summary>The graph for one game page.</summary>
     /// <param name="page">The game, as the page renders it.</param>
     /// <param name="origin">
-    /// This site's absolute origin, from the request being answered — scheme, authority and path
-    /// base. Appended to rather than resolved against, for the reason <see cref="SiteUrls.Absolute"/>
-    /// gives: <see cref="Uri"/>'s relative-reference rules discard the path base, so
-    /// <c>new Uri(new Uri("https://h/mui"), "/g/x")</c> names a page that exists only where the site
-    /// happens to be mounted at the root.
+    /// This site's absolute origin — scheme, authority and path base. Appended to rather than
+    /// resolved against: <see cref="Uri"/>'s relative-reference rules discard the path base, so
+    /// <c>new Uri(new Uri("https://h/mui"), "/g/x")</c> names a page that only exists when the site
+    /// is mounted at the root. See <see cref="SiteUrls.Absolute"/>.
     /// </param>
     /// <remarks>
-    /// There is no <c>now</c> parameter, deliberately. Every instant in this graph is one we
-    /// recorded when we took the measurement; a value stamped with the moment the page happened to
-    /// be rendered would be a freshness claim nobody made.
+    /// No <c>now</c> parameter: every timestamp here is a recorded measurement, never the render time.
     /// </remarks>
     public static string For(GamePage page, Uri origin)
     {
@@ -86,16 +73,14 @@ public static class GameStructuredData
             game["description"] = description;
         }
 
-        // When the facts on this page were last confirmed — not when it was rendered. A page
-        // regenerated hourly from a measurement three years old is three years old.
+        // Last confirmed, not last rendered — a page regenerated hourly from a three-year-old
+        // measurement is three years old.
         if (summary.LastReachableAt is { } confirmed)
         {
             game["dateModified"] = confirmed.ToUniversalTime().ToString("o");
         }
 
-        // The codebase is what a game runs, which is the closest schema.org gets to it — and it is
-        // named only when we have a chip for it, because an unlabelled value is the one thing this
-        // graph may not contain.
+        // Named only when we have a chip for it — an unlabelled value may not enter this graph.
         if (summary.CodebaseProvenance is not null && summary.Codebase is { } codebase)
         {
             game["gameServer"] = codebase;
@@ -121,10 +106,8 @@ public static class GameStructuredData
     /// The count, with the instant it was taken — or nothing at all.
     /// </summary>
     /// <remarks>
-    /// Three cases and they are not two. An unknown count is omitted (rule 4: an unreadable
-    /// <c>WHO</c> yields unknown, never zero). A measured zero is published, because we got in and
-    /// nobody was there and that is a fact about the game. A declared count is omitted, because
-    /// there is no honest way to say "declared" here.
+    /// Three cases, not two: unknown is omitted (rule 4). A measured zero is published — we got in
+    /// and nobody was there. A declared count is omitted; there's no honest way to say "declared" here.
     /// </remarks>
     private static JsonObject? Counter(GameSummary summary)
     {
@@ -140,8 +123,7 @@ public static class GameStructuredData
             ["interactionType"] = $"{Vocabulary}/PlayAction",
             ["userInteractionCount"] = players,
 
-            // The whole reason this block is safe to publish. Without it the integer above is a
-            // number with no age, which is the thing the site does not have anywhere else.
+            // Without this the count above is an age-less number, which the site never publishes.
             ["endTime"] = chip.LastConfirmedAt.ToUniversalTime().ToString("o"),
         };
     }

@@ -12,17 +12,11 @@ public interface IGameStore
 
     Task InsertAsync(GameRecord game, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Moves a game between lifecycle states. Archiving is a presentation change and never a deletion
-    /// (§7.5): the row, its fields, its history and its slug all survive it untouched.
-    /// </summary>
-    /// <summary>
-    /// Takes a game out of the listing because it is not a game for players, with the argument.
-    /// </summary>
+    /// <summary>Takes a game out of the listing because it isn't a game for players.</summary>
     /// <remarks>
-    /// Separate from <see cref="SetStateAsync"/> because it is the only state change that carries a
-    /// reason, and because that one deliberately refuses to move a game that is already excluded —
-    /// an automatic sweep must not be able to discard a judgement a person made.
+    /// Separate from <see cref="SetStateAsync"/>: this is the only state change that carries a
+    /// reason, and refuses to move a game that's already excluded — an automatic sweep must not
+    /// discard a judgement a person made.
     /// </remarks>
     Task ExcludeAsync(Guid id, string reason, DateTimeOffset at, CancellationToken cancellationToken = default);
 
@@ -33,14 +27,13 @@ public interface IGameStore
     /// Takes a game out of the listing because the people who run it asked (spec §11, migration 0025).
     /// </summary>
     /// <remarks>
-    /// Separate from <see cref="ExcludeAsync"/> because it carries an account rather than an
-    /// argument. The reason is that they asked; <paramref name="byUserId"/> is the account that held
-    /// a verified claim when they asked, and <c>crawl_opt_out</c> holds how the ask arrived.
+    /// Separate from <see cref="ExcludeAsync"/>: this carries an account, not an argument. The reason
+    /// is that they asked; <paramref name="byUserId"/> is the account that held a verified claim, and
+    /// <c>crawl_opt_out</c> holds how the ask arrived.
     /// </remarks>
     /// <param name="byUserId">
-    /// The account that asked for it here — claim-verified through the dashboard, and the operator's
-    /// own where §11's recorded-request route reaches the listing by hand. Never inferred, never
-    /// defaulted.
+    /// The account that asked — claim-verified through the dashboard, or the operator's own where
+    /// §11's recorded-request route reaches the listing by hand. Never inferred, never defaulted.
     /// </param>
     Task UnlistAsync(
         Guid id,
@@ -52,12 +45,16 @@ public interface IGameStore
     /// Puts an unlisted game back in the listing, and hands it back to the crawl.
     /// </summary>
     /// <remarks>
-    /// Called by the owner's own button and by <see cref="ArchiveSweeper.RestoreAsync"/> when a probe
-    /// answers — the second is the documented exit for an operator who withdrew the opt-out in their
-    /// own zone file and never had an account here.
+    /// Called by the owner's own button, and by <see cref="ArchiveSweeper.RestoreAsync"/> when a
+    /// probe answers — the documented exit for an operator who withdrew the opt-out in their own
+    /// zone file and never had an account here.
     /// </remarks>
     Task RelistAsync(Guid id, DateTimeOffset at, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Moves a game between lifecycle states. Archiving is a presentation change, never a deletion
+    /// (§7.5): the row, its fields, its history and its slug all survive it untouched.
+    /// </summary>
     Task SetStateAsync(
         Guid id,
         LifecycleState state,
@@ -81,17 +78,12 @@ public interface IGameStore
     /// Re-mints a game's name and URL, retiring the slug it had (spec §5.7).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>The retirement and the re-mint are one write.</b> The old URL stops being current and starts
-    /// redirecting at the same instant, so there is no moment in which a slug somebody is holding is
-    /// neither — and no way to leave a game renamed with nothing pointing at it, which is the failure
-    /// this whole table exists to prevent.
-    /// </para>
-    /// <para>
-    /// Renaming is a <em>measured</em> change and never a tidy-up: only something reading the winning
-    /// <c>NAME</c> field may call it, and only once that name has held for a grace period, or a game
-    /// that flips its name daily churns its URL — see <c>SlugMinter</c>, which is the only caller.
-    /// </para>
+    /// The retirement and the re-mint are one write: the old URL stops being current and starts
+    /// redirecting at the same instant, so a slug somebody is holding is never left in between, and a
+    /// game can't end up renamed with nothing pointing at it.
+    /// Renaming is measured, never a tidy-up: only something reading the winning <c>NAME</c> field
+    /// may call it, and only after that name has held for a grace period — see <c>SlugMinter</c>, the
+    /// only caller.
     /// </remarks>
     /// <returns>
     /// The slug that was retired, or null when the slug did not move — a game may change its name
@@ -108,27 +100,26 @@ public interface IGameStore
     /// Sets whether any account has proved control of this game (spec §8).
     /// </summary>
     /// <remarks>
-    /// A cache of "does a verified claim exist", denormalised onto the game because the listing reads
-    /// it for every row and §7.5's grace reads it on every sweep. <see cref="ClaimService"/> owns it;
-    /// nothing else may write it, or the flag and the claims it summarises will drift.
+    /// A cache of "does a verified claim exist", denormalised because the listing and §7.5's grace
+    /// both read it on every row. <see cref="ClaimService"/> owns it; nothing else may write it, or
+    /// it will drift from the claims it summarises.
     /// </remarks>
     Task SetClaimedAsync(Guid id, bool isClaimed, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Games eligible for the archive sweep: everything not already archived. Deliberately not
-    /// "everything dark" — the sweeper computes darkness from the availability series, and a
-    /// pre-filter here would be a second definition of it.
+    /// Games eligible for the archive sweep: everything not already archived — deliberately not
+    /// "everything dark", since the sweeper computes darkness itself and a pre-filter here would be a
+    /// second definition of it.
     /// </summary>
     Task<IReadOnlyList<GameRecord>> UnarchivedAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>The addresses a game answers on (spec §5.5).</summary>
 /// <remarks>
-/// Hosts are canonicalised by every implementation, on both ends: an upsert stores
-/// <c>HostName.Normalize(endpoint.Host)</c> and <see cref="ByAddressAsync"/> looks up
-/// <c>HostName.Normalize(host)</c>. That is part of this interface's contract rather than one
-/// implementation's private habit, because a fake that compared more leniently than the real thing
-/// would pass every test while production minted a duplicate endpoint for a host spelled in capitals.
+/// Hosts are canonicalised by every implementation, on both ends — an upsert stores
+/// <c>HostName.Normalize(endpoint.Host)</c> and <see cref="ByAddressAsync"/> looks up the same. Part
+/// of the interface's contract, not one implementation's habit: a lenient fake would pass every test
+/// while production minted a duplicate endpoint for a host spelled in capitals.
 /// </remarks>
 public interface IEndpointStore
 {
@@ -144,18 +135,17 @@ public interface IEndpointStore
 /// Reachable time summed by who measured it (spec §7.5, §7.6).
 /// </summary>
 /// <remarks>
-/// Separate from <see cref="IAvailabilityStore"/> because it answers a different question with a
-/// different shape: not "what happened" but "how much of it did we watch", and split by origin
-/// because <see cref="ArchivePolicy.GraceFor"/> weights an imported hour at half of one of ours.
-/// Summed in the database rather than by reading every interval into memory — a game watched for a
-/// decade has few intervals, but the sweep asks this of every game in the catalogue at once.
+/// Separate from <see cref="IAvailabilityStore"/>: answers "how much did we watch", not "what
+/// happened", and split by origin because <see cref="ArchivePolicy.GraceFor"/> weights an imported
+/// hour at half of one of ours. Summed in the database, not by reading every interval into memory —
+/// the sweep asks this of every game in the catalogue at once.
 /// </remarks>
 public interface IReachableHistory
 {
     /// <summary>
-    /// Time this site measured the game as reachable, with the open interval counted to
-    /// <paramref name="now"/>. Cumulative, not span (§7.5): a game reachable for two years out of
-    /// five is credited with two, and a history of flapping accrues nothing for the gaps.
+    /// Time this site measured the game as reachable, open interval counted to <paramref name="now"/>.
+    /// Cumulative, not span (§7.5): a game reachable two years out of five is credited two, and
+    /// flapping accrues nothing for the gaps.
     /// </summary>
     Task<TimeSpan> CumulativeReachableAsync(
         Guid gameId,

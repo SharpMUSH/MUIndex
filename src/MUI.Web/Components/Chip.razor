@@ -2,8 +2,8 @@
 @*
     The provenance chip. One glyph, one relative age, no border.
 
-    The glyph carries the state and the colour only reinforces it, so greyscale printing and
-    colour-blind rendering both survive — that is a design constraint, not a nicety.
+    The glyph carries the state and colour only reinforces it, so greyscale printing and
+    colour-blind rendering both survive.
 *@
 <span class="chip @Class" title="@Title">
     @if (ValueShown)
@@ -12,20 +12,16 @@
     }
     else
     {
-        @* Without the value there is nothing left but a glyph, a colour and an age, and neither of
-           the first two is a fact anybody can hear. The word goes in for a reader who is listening
-           rather than looking — where the value is shown, the title carries it as it always has. *@
+        @* Without the value there's only a glyph and a colour, neither of which a screen reader can
+           hear — so the word goes in for a reader who is listening rather than looking. *@
         <span class="sr-only">@Word</span>
     }
     @if (GlyphShown)
     {
         <span class="glyph" aria-hidden="true">@Glyph</span>
     }
-    @*
-        The age, as a <time> that can be resolved. Spoken where the chip is carrying its own value —
-        the game page's fields, where a reader is weighing one fact and "declared 3y ago" is exactly
-        the fact they are weighing — and short where it rides a row in a listing.
-    *@
+    @* The age, as a resolvable <time>. Spoken where the chip carries its own value (the game page's
+       fields), short where it rides a listing row. *@
     @if (AgeShown)
     {
         <Moment At="Fact.LastConfirmedAt" Now="Now" Spoken="ValueShown" Class="age" />
@@ -40,9 +36,8 @@
     /// Whether the chip prints the value it labels.
     /// </summary>
     /// <remarks>
-    /// Off where the surrounding sentence already says it — "9 players on now" does not want a
-    /// second 9 beside it — so a count and a field wear one chip rather than two that resemble each
-    /// other. Everything else about the chip is identical, which is the point of the parameter.
+    /// Off where the surrounding sentence already says it — "9 players on now" doesn't want a
+    /// second 9 beside it.
     /// </remarks>
     [Parameter] public bool ValueShown { get; set; } = true;
 
@@ -51,21 +46,17 @@
     /// </summary>
     /// <remarks>
     /// Off in exactly one place: a listing row's player count, which draws the glyph itself at the
-    /// head of the figure because that is where a reader scanning a column of numbers looks. The row
-    /// shipped with both, so one fact wore two identical diamonds four characters apart — and a
-    /// reader who counts glyphs to count facts was being told there were two. The colour, the title
-    /// and the word a screen reader hears are unchanged, so what is dropped is the duplicate and not
-    /// the provenance.
+    /// head of the figure. The row used to ship both, so one fact wore two identical diamonds four
+    /// characters apart. Colour, title and the screen-reader word are unchanged — only the duplicate
+    /// is dropped.
     /// </remarks>
     [Parameter] public bool GlyphShown { get; set; } = true;
 
     /// <summary>Whether the chip prints the age of the thing it labels.</summary>
     /// <remarks>
-    /// Off on a listing row, where the row already has a freshness column of its own. The chip's age
-    /// and that column dated the same probe, so every row printed one age twice, four characters
-    /// apart, in two different alignments — which is the run the handoff describes as arriving at a
-    /// screen reader as one slur. The title still carries the absolute time, so nothing is lost to a
-    /// reader who wants it; what is dropped is the second copy.
+    /// Off on a listing row, which already has its own freshness column dating the same probe — the
+    /// chip's age was a second copy read out four characters apart. The title still carries the
+    /// absolute time.
     /// </remarks>
     [Parameter] public bool AgeShown { get; set; } = true;
 
@@ -78,19 +69,12 @@
 
     private string Glyph => Fact.IsMeasured ? "●" : "◇";
 
-    // The class name is a stylesheet selector and not a word anybody reads, so it stays English
-    // while the word beside it localizes. A CSS class that changed with the reader's language would
-    // take the colour and the glyph with it.
+    // The class name is a stylesheet selector, not a translated word — it stays English.
     private string Class => (Fact.IsMeasured ? "measured" : "declared")
         + (Fact.IsStale ? " stale" : string.Empty);
 
-    // The full record belongs in the title as well as the expanded view: a reader hovering wants
-    // the absolute time, and a screen reader gets the source named rather than inferred from colour.
-    //
-    // The value and the source token pass through as they are — a version string and a protocol
-    // name are evidence — and every word around them comes from the bundle. "last confirmed" says
-    // when *we* last saw the value and never when the game did anything, which is the difference
-    // between recording a measurement of theirs and recording a decision of ours.
+    // "Last confirmed" says when *we* last saw the value, never when the game did anything — the
+    // difference between recording our measurement and recording a decision of ours.
     private string Title => Messages.For(
         Tag,
         Fact.IsStale ? "chip.title.stale" : "chip.title",

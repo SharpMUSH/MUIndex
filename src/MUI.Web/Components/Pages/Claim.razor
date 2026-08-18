@@ -11,14 +11,10 @@
 @*
     Claiming a game: sign in, then publish a token where a probe can read it (spec §8.1).
 
-    Nobody has to write anything down. What is on this page is durable server-side state, shown for
-    as long as the claim is pending, with each channel's exact line ready to copy — close the tab and
-    come back next week and it is unchanged. A scheme that had to be finished in one sitting would
-    put a transcription error between an owner and their listing.
-
-    The token is a nonce and not a secret. We are asking for it to be published where every anonymous
-    connection reads it, so holding it can never confer anything: it proves somebody with write
-    access to that server published it, and the account this claim is bound to answers who asked.
+    State is durable server-side, so the page can be left and revisited unchanged — nothing has to
+    be finished in one sitting. The token is a nonce, not a secret: it will be published where any
+    anonymous connection reads it, so holding it proves only write access to that server, and the
+    claim is bound to the account that asked.
 *@
 
 @* The game's name is its own bytes and goes into the message as an argument, not as text a
@@ -47,20 +43,14 @@ else if (User is null)
 }
 else if (Pending is null)
 {
-    @*
-        The game already has owners, so arriving here is not by itself the ask: §8.5 allows several
-        owners and §8.4 makes a counter-claim how a game changes hands, and NOTHING IN A PROBE CAN
-        TELL THEM APART — both publish the identical line in the identical config file. So the
-        choice is made before the token exists, by the person who knows which they mean.
-    *@
+    @* The game already has owners, so arriving here isn't by itself the ask: §8.5 allows several
+       owners and §8.4 makes a counter-claim how a game changes hands, and a probe cannot tell them
+       apart — both publish the identical line. So the choice is made before the token exists. *@
     <section class="prose">
         <h1>@Title</h1>
 
-        @*
-            The owner count agrees inside the message rather than being chosen here: picking
-            "an owner" or "3 owners" in C# is an English plural rule compiled into a page, and the
-            languages with three or six forms have nowhere to put the rest.
-        *@
+        @* Owner count/plural agreement is resolved inside the message, not chosen here — an
+           English plural rule compiled into the page has nowhere for a 3- or 6-form language. *@
         <p>@Say("claim.hasOwners", ("count", Owners.Count))</p>
 
         <form method="post" action="@HttpContext.Link($"/g/{Slug}/claim/start")">
@@ -85,12 +75,8 @@ else
 
         @if (Pending!.IsVerified)
         {
-            @*
-                What we read, and where we read it — a fact about our records rather than about the
-                game. Two ids and not one sentence with the channel slotted into it: "from the
-                game's MSSP report" and "from the connect screen" take different prepositions and
-                different cases in the languages that have them.
-            *@
+            @* Two ids, not one sentence with the channel slotted in: "from the MSSP report" and
+               "from the connect screen" take different prepositions and cases in some languages. *@
             <p class="verified">
                 <strong>@L("claim.verified.lead")</strong>
                 @Say(
@@ -114,28 +100,19 @@ else
                 </p>
             }
 
-            @*
-                The token itself. translate="no" for the reason a hostname carries it: translating
-                it would destroy the evidence rather than localize anything, and what an operator
-                pastes into their config has to be these exact bytes in every language.
-            *@
+            @* translate="no": translating the token would destroy the evidence, not localize it —
+               it must be these exact bytes in every language. *@
             <p class="token mono" translate="no">@Pending.Token</p>
 
             <h2>@L("claim.either.heading")</h2>
 
             <h3>@L("claim.mssp.heading")</h3>
             <pre class="mono">@ClaimTokenBeacon.MsspVariable @Pending.Token</pre>
-            @*
-                Every name in these two sentences is machine voice and is placed rather than
-                translated: a codebase string, a config file name, and the variables a probe
-                actually looks for. The accepted spellings come from ClaimTokenBeacon rather than
-                being retyped here — two lists that must agree is one list that eventually does not.
-            *@
-            @*
-                Each sentence sits in its own <span>. Razor drops the whitespace on a line that
-                opens a code block, so a bare @foreach beside a sibling sentence renders as
-                "…has an equivalent.MUINDEX_CLAIM…". Between elements the space is ordinary markup.
-            *@
+            @* Every name below is machine voice, placed rather than translated. Accepted spellings
+               come from ClaimTokenBeacon rather than being retyped — two lists that must agree is
+               one list that eventually doesn't. *@
+            @* Each sentence in its own <span>: Razor drops whitespace on a line that opens a code
+               block, so a bare @foreach beside a sibling sentence would run the two together. *@
             <p class="faint">
                 <span>
                     @foreach (var part in Sentence.Place(Tag, "claim.mssp.note", ["codebase", "file"]))
@@ -187,12 +164,8 @@ else
             <form method="post" action="@HttpContext.Link($"/g/{Slug}/claim/check")">
                 <AntiforgeryToken />
                 <button type="submit" disabled="@(!CanCheck)">@L("claim.check.button")</button>
-                @*
-                    It moves your game to the front of the crawl queue; the crawler still does the
-                    dialling, on its own schedule and under CRAWL DELAY. Saying it "dials a real
-                    server" was both an overstatement and — for as long as nothing moved the
-                    schedule — a description of something that did not happen at all.
-                *@
+                @* Moves the game to the front of the crawl queue; the crawler still dials on its
+                   own schedule, under CRAWL DELAY — must not be worded as dialling immediately. *@
                 <span class="faint">@L(CanCheck ? "claim.check.can" : "claim.check.rationed")</span>
             </form>
         }
@@ -222,15 +195,13 @@ else
     /// <remarks>
     /// Minting on view rather than behind a second button is deliberate: arriving here is the ask.
     /// <see cref="ClaimService.IssueAsync"/> returns an existing pending claim rather than replacing
-    /// it, so a refresh does not invalidate what the operator has just finished pasting into their
-    /// config — which would look exactly like the site being broken.
+    /// it, so a refresh doesn't invalidate a token the operator already pasted into their config.
     /// </remarks>
     protected override async Task OnInitializedAsync()
     {
-        // The GAME RECORD, not the public page view model, and this is load-bearing. A submitted
-        // game is hidden from IGameQueries until it is claimed (migration 0010) — so looking it up
-        // through the same read the listing uses made claiming the one thing a hidden game could
-        // never do, and hidden-until-claimed a state with no exit. Claiming operates on the row.
+        // Must read via IGameStore, not the public listing query: a submitted game is hidden from
+        // IGameQueries until claimed (migration 0010), so looking it up the listing's way would
+        // make claiming the one thing a hidden game could never do.
         Game = Services.GetService<IGameStore>() is { } store
             ? await store.BySlugAsync(Slug)
             : null;
@@ -262,10 +233,8 @@ else
         Pending = mine.FirstOrDefault(claim => claim.IsVerified)
             ?? mine.FirstOrDefault(claim => claim.IsPending(Clock.GetUtcNow()));
 
-        // Minting on view is right for a game nobody owns — arriving here IS the ask, and
-        // IssueAsync returns an existing token rather than replacing one already pasted into a
-        // config file. It is wrong for a game that has owners, where the ask has two meanings and
-        // only the claimant knows which: that case falls through to the choice above.
+        // Only for a game nobody owns; a game with owners has two possible meanings for "the ask"
+        // and falls through to the explicit choice above instead.
         if (Pending is null && Owners.Count == 0)
         {
             Pending = await Claims.IssueAsync(Game.Id, User.Id);
@@ -286,9 +255,8 @@ else
     /// The heading, with the game's name placed by the message.
     /// </summary>
     /// <remarks>
-    /// A separate id from <c>preview.title.claim</c> even though the English is identical: that one
-    /// is a noun phrase in a browser tab and this is the first line of a document, and the
-    /// languages that decline the two differently have nowhere to stand if they share an id.
+    /// A separate id from <c>preview.title.claim</c> despite identical English: one is a tab title,
+    /// the other a document heading, and languages that decline the two differently need both ids.
     /// </remarks>
     private string Title => Say("claim.title", ("game", Game!.Name));
 
@@ -296,10 +264,9 @@ else
     /// The other MSSP variable names a probe accepts, as the crawler spells them.
     /// </summary>
     /// <remarks>
-    /// Read from <see cref="ClaimTokenBeacon.AcceptedMsspVariables"/> rather than retyped into the
-    /// markup, which is where they were: the page listed two of the three by hand, so adding a
-    /// fourth spelling to the parser would have left this page quietly telling operators about a
-    /// set that no longer matched. The first entry is the one printed in full above.
+    /// Read from <see cref="ClaimTokenBeacon.AcceptedMsspVariables"/> rather than retyped, so a
+    /// parser change can't silently leave this page listing a stale set. First entry is printed in
+    /// full above.
     /// </remarks>
     private static IReadOnlyList<string> Aliases =>
         [.. ClaimTokenBeacon.AcceptedMsspVariables.Skip(1)];

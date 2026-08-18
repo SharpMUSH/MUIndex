@@ -6,23 +6,10 @@ namespace MUI.Crawler;
 /// The gap a server asked for, read off its own MSSP report (spec §7.7, §11).
 /// </summary>
 /// <remarks>
-/// <para>
-/// MSSP defines <c>CRAWL DELAY</c> as the "preferred minimum number of hours between crawls", and
-/// <c>-1</c> as "no preference" — which is a different fact from zero and must not collapse into it.
-/// A server stating <c>0</c> has said "as often as you like"; a server stating <c>-1</c> has said
-/// nothing, and the difference is only visible if the reader keeps it.
-/// </para>
-/// <para>
-/// <b>This decides nothing about when to probe.</b> <see cref="MUI.Discovery.ProbeSchedule"/> owns
-/// that, and composes <c>max(CRAWL DELAY, backoff)</c> so politeness wins over §7.4's weekly floor.
-/// All this does is turn a string a stranger typed into the <c>TimeSpan?</c> that argument takes.
-/// </para>
-/// <para>
-/// <b>Where this belongs, eventually.</b> Beside <c>MsspReferrals</c> in <c>MUI.Discovery</c>, which
-/// is where CLAUDE.md files "the domain readings TNC does not provide (<c>CRAWL DELAY -1</c> as 'no
-/// preference', ports validated as ports, <c>REFERRAL</c> as crawlable hosts)". It is here because
-/// this project's plan scoped edits to <c>MUI.Crawler</c>; move it when that closes.
-/// </para>
+/// MSSP defines <c>CRAWL DELAY</c> as the preferred minimum hours between crawls, and <c>-1</c> as
+/// "no preference" — a different fact from zero and must not collapse into it: <c>0</c> means "as
+/// often as you like", <c>-1</c> means nothing was stated. This decides nothing about when to probe;
+/// <see cref="MUI.Discovery.ProbeSchedule"/> owns that and composes <c>max(CRAWL DELAY, backoff)</c>.
 /// </remarks>
 public static class MsspCrawlDelay
 {

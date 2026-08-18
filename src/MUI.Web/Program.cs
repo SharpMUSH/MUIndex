@@ -3,14 +3,11 @@ using MUI.Web.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// The site reads through IGameQueries and nothing else, and it prefers a real database to a fixture.
-// Point MUI_POSTGRES (or ConnectionStrings:MUIndex) at the catalogue the crawler writes and every
-// page renders measurements; without one the site still starts, but it says loudly and on every page
-// that what it is showing was not measured.
+// Point MUI_POSTGRES (or ConnectionStrings:MUIndex) at the catalogue the crawler writes; without one
+// the site still starts, but says loudly and on every page that what it shows was not measured.
 var connectionString = PostgresData.ResolveConnectionString(builder.Configuration);
 
-// The graph itself lives in SiteComposition, so that CompositionTests can resolve THE SAME
-// registrations rather than a copy of them that agrees until somebody edits one of the two.
+// The graph itself lives in SiteComposition, so CompositionTests resolves THE SAME registrations.
 builder.Services.AddMuiSite(builder.Configuration, connectionString);
 
 var app = builder.Build();

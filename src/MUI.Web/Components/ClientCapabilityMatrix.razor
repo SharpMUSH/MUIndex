@@ -2,17 +2,12 @@
 @using MUI.Web.Reference
 
 @*
-    A client's capability matrix: one hand-written column, and the source that backs each cell.
+    Unlike the game pages' CapabilityMatrix (two columns: measured vs declared), this table has only
+    one kind of claim — documentation somebody read — so the citation is the load-bearing part: an
+    uncited cell isn't a weaker claim, it's not a claim at all, and renders as unknown.
 
-    This is deliberately shaped differently from the game pages' CapabilityMatrix, which has two
-    columns because it has two kinds of claim to hold apart. Here there is only one kind — somebody
-    read somebody else's documentation — so a second column would imply a measurement that does not
-    exist. What takes its place is the citation, which is the load-bearing part of the record: an
-    uncited cell is not a weaker claim, it is not a claim at all, and it renders as unknown.
-
-    Every word round the table is a message and every capability name inside it is not: TLS, MCCP and
-    GMCP are machine voice, spelled as the catalogue spells them, and a locale that translated one
-    would break the only thing this table is for — reading a client's row against a game's.
+    Capability names (TLS, MCCP, GMCP) stay untranslated machine voice so a client's row still reads
+    against a game's regardless of locale.
 *@
 
 <div class="section-head">
@@ -40,9 +35,8 @@
             <tr class="@(claim.Name == ClientCapabilities.ScreenReader ? "accessibility" : null)">
                 <th scope="row"><span class="mono">@claim.Name</span></th>
 
-                @* The word is the state and the colour only reinforces it. In greyscale, in a screen
-                   reader and on a printout the cell still says which of the three things it is —
-                   which is the entire difference between an unknown and a no. *@
+                @* The word carries the state; colour only reinforces it, so greyscale/screen-reader/
+                   print still distinguish unknown from no. *@
                 <td class="mono">
                     <span class="@Tone(claim.State)">@ClientCapabilities.Word(Tag, claim.State)</span>
                 </td>
@@ -73,11 +67,7 @@
 
     private int Established => Claims.Count(c => c.IsClaimed);
 
-    /// <summary>
-    /// Accent for a documented yes, amber for a documented no, and the unknown tone for the rest —
-    /// the site's one colour rule (measured / declared / absent) applied to a table where every cell
-    /// is on the declared side of it.
-    /// </summary>
+    /// <summary>Accent for a documented yes, amber for a documented no, unknown tone otherwise.</summary>
     private static string Tone(CapabilityState state) => state switch
     {
         CapabilityState.Present => "state-present",

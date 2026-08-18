@@ -17,17 +17,9 @@ namespace MUI.Web.Tests;
 /// The three controls that change how a page is read, and the footer they came out of.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Every page ended with the same row: <em>all games · archive · submit · plain text</em> and the
-/// language switcher, under a bar that already carried the first three. So the last thing a reader
-/// met on every page of the site was navigation they had been given at the top, and the two things
-/// in that row which were <em>not</em> duplicates — the text mirror and the language switcher —
-/// were at the end of it.
-/// </para>
-/// <para>
-/// The duplicates are gone and the two survivors are in the bar beside the theme control, which is
-/// the third of the same kind: not a place to go, a way to read the place you are.
-/// </para>
+/// Every page used to end in a footer row duplicating the bar's own nav, with the text mirror and
+/// language switcher — the two non-duplicate items — buried at the end of it. Those two now live in
+/// the bar beside the theme control: all three are ways to read the page, not places to go.
 /// </remarks>
 public class ReadingControlsTests
 {
@@ -44,16 +36,10 @@ public class ReadingControlsTests
     /// The caret that holds them is a disclosure with a name, and it works with no script.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// A <c>summary</c> whose whole content is <c>▾</c> has no accessible name: a screen reader
-    /// announces "disclosure triangle, collapsed" and nothing about what is behind it. The word is
-    /// in there for whoever is not looking at the glyph, and the glyph is hidden from them so the
-    /// name is not "reading ▾".
-    /// </para>
-    /// <para>
-    /// <c>details</c> rather than a button, because this site runs no script — the same reason the
-    /// nav's own menu is one and the reason the switcher is a form with a submit.
-    /// </para>
+    /// A <c>summary</c> whose whole content is <c>▾</c> has no accessible name — a screen reader
+    /// announces "disclosure triangle, collapsed" and nothing else. The word is present for
+    /// non-visual readers, with the glyph hidden from them (<c>aria-hidden</c>). <c>details</c>
+    /// rather than a button because this site runs no script.
     /// </remarks>
     [Test]
     public async Task TheReadingCaretIsANamedDisclosureThatNeedsNoScript()
@@ -74,12 +60,7 @@ public class ReadingControlsTests
     /// <summary>
     /// The theme control is not behind the caret.
     /// </summary>
-    /// <remarks>
-    /// It is the one of the three a reader reaches for <em>because</em> they cannot comfortably read
-    /// the page, and a click in front of that is the wrong direction. It is also what pays for the
-    /// caret: with its own label taken out of the drawing the cluster measures 105px where the theme
-    /// alone used to, so the bar never grew.
-    /// </remarks>
+    /// <remarks>It's the control a reader reaches for because they can't comfortably read the page — a click in front of that would be the wrong direction.</remarks>
     [Test]
     public async Task TheThemeControlStaysDrawnInTheBar()
     {
@@ -95,11 +76,7 @@ public class ReadingControlsTests
     /// <summary>
     /// And says nothing on a page that has none.
     /// </summary>
-    /// <remarks>
-    /// Six routes on this site do not honour the flag. <c>/account/sign-in?plain=1</c> answers with
-    /// the sign-in page it always answers with, so an offer there is not a broken link a browser can
-    /// report — it is a promise the site quietly does not keep, made in the chrome of every page.
-    /// </remarks>
+    /// <remarks>Six routes don't honour <c>?plain=1</c>; offering it there would be a promise the chrome quietly doesn't keep.</remarks>
     [Test]
     [Arguments("/account")]
     [Arguments("/account/sign-in")]
@@ -116,11 +93,7 @@ public class ReadingControlsTests
     /// <summary>
     /// The offer carries the question the page was already answering.
     /// </summary>
-    /// <remarks>
-    /// Four of the eleven footers this replaces wrote a bare <c>?plain=1</c>. On a listing narrowed
-    /// to three facets that is not "this page as text", it is the whole catalogue as text — the
-    /// reader's question dropped on the floor by the control that offered to answer it differently.
-    /// </remarks>
+    /// <remarks>A bare <c>?plain=1</c> on a narrowed listing would answer with the whole catalogue as text, not the filtered page the reader was looking at.</remarks>
     [Test]
     public async Task TheOfferKeepsTheQueryThePageIsAnswering()
     {
@@ -130,11 +103,7 @@ public class ReadingControlsTests
     }
 
     /// <summary>A reader already in the mirror is not offered the mirror.</summary>
-    /// <remarks>
-    /// The page they are on <em>is</em> the offer's destination, and a self-link in the site's
-    /// chrome reads as a way out of something. The footers got this right by rendering inside the
-    /// branch that draws the graphical page; the bar renders either way and has to ask.
-    /// </remarks>
+    /// <remarks>The page they're on is the offer's own destination — a self-link would read as a way out of something.</remarks>
     [Test]
     public async Task ThePlainSurfaceDoesNotOfferItself()
     {
@@ -147,11 +116,9 @@ public class ReadingControlsTests
     /// The switcher is in the document twice and carries no id either time.
     /// </summary>
     /// <remarks>
-    /// The bar holds it above 880px and the nav disclosure below, and CSS shows one — the same trade
-    /// <c>submit</c> already makes one step down the ladder, because nothing moves a box between two
-    /// flex containers. That is only safe because the label wraps the control now: <c>for=</c> and
-    /// <c>id="locale-select"</c> would have been a duplicate id in one document and a label naming
-    /// whichever select the browser reached first.
+    /// The bar renders it above 880px, the nav disclosure below it, and CSS shows only one. Safe
+    /// because the label wraps the control — a shared <c>for=</c>/<c>id</c> would duplicate the id
+    /// and bind to whichever select the browser reached first.
     /// </remarks>
     [Test]
     public async Task TheLanguageSwitcherIsRenderedTwiceAndNamesItsControlWithoutAnId()
@@ -164,10 +131,7 @@ public class ReadingControlsTests
     }
 
     /// <summary>Both copies post the reader back to the page they were reading.</summary>
-    /// <remarks>
-    /// Counted inside the two <c>form.locale</c> elements rather than over the document, because the
-    /// theme control beside them carries the same return field and for the same reason.
-    /// </remarks>
+    /// <remarks>Counted inside the two <c>form.locale</c> elements rather than over the document — the theme control beside them carries the same return field.</remarks>
     [Test]
     public async Task BothCopiesOfTheSwitcherComeBackToThisPage()
     {
@@ -187,12 +151,7 @@ public class ReadingControlsTests
     /// <summary>
     /// Every route on the site has been asked about, rather than merely not matching.
     /// </summary>
-    /// <remarks>
-    /// <see cref="TextMirror"/> answers a path, which means a page added later gets an answer
-    /// whether or not anybody thought about it — and the wrong answer is silent in both directions.
-    /// This walks the assembly's own route table and pins each one, so adding a page fails here
-    /// until somebody says which it is.
-    /// </remarks>
+    /// <remarks><see cref="TextMirror"/> answers any path, silently, whether classified or not. This walks the assembly's own route table so a new page fails here until classified.</remarks>
     [Test]
     public async Task EveryRoutablePageIsClassified()
     {
@@ -233,16 +192,11 @@ public class ReadingControlsTests
                 .Because($"{template} has no text mirror and the bar offers one anyway");
         }
 
-        // The route as a reader reaches it. Nothing on this site routes on the slug's shape, so any
-        // slug stands for every slug.
         static string Sample(string template) => template.Replace("{Slug}", "eldertale");
     }
 
     /// <summary>Not one page still ends in the row this replaced.</summary>
-    /// <remarks>
-    /// Asserted over the rendered site rather than over the layout, because the footer was eleven
-    /// separate copies in eleven pages and deleting ten of them is the failure this catches.
-    /// </remarks>
+    /// <remarks>Asserted over the rendered site, not the layout — the old footer was eleven separate copies, and a missed one is the failure this catches.</remarks>
     [Test]
     [Arguments("/")]
     [Arguments("/games")]
@@ -262,13 +216,12 @@ public class ReadingControlsTests
 
         await Assert.That(markup).DoesNotContain("card-footer");
 
-        // Twice and no more: the bar's copy and the menu's, of which CSS shows one — the same trade
-        // `submit` makes at the width below. A third would be a page that kept its own.
+        // Twice and no more: the bar's copy and the menu's (CSS shows only one). A third would mean
+        // the page kept its own.
         await Assert.That(markup.Split("plain=1").Length - 1)
             .IsEqualTo(2)
             .Because($"{path} still offers the text mirror somewhere of its own");
 
-        // And the two are the two the bar renders, not a survivor at the bottom of the column.
         foreach (var slot in new[] { "class=\"read-panel\"", "class=\"menu-reading\"" })
         {
             var at = markup.IndexOf(slot, StringComparison.Ordinal);
@@ -292,10 +245,8 @@ public class ReadingControlsTests
         context.Request.Path = path;
         context.Request.QueryString = new QueryString(query);
 
-        // The switcher draws nothing where there is one language to choose between, and English is
-        // the only shipped locale — so the tests that look at it ask for the build that lists the
-        // review locales too, which is the same thing a developer sees. Asked of the request's own
-        // services, which is where LocaleRouting.IsReviewBuild looks.
+        // English is the only shipped locale, so tests that need the switcher visible ask for the
+        // review build (with review locales), same as a developer sees.
         if (review)
         {
             var services = new ServiceCollection();

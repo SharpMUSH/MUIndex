@@ -74,10 +74,9 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
     /// Publishes a submitted game on the strength of what a probe measured (spec §7.8).
     /// </summary>
     /// <remarks>
-    /// <b>Write-once at the database, not by convention.</b> The <c>WHERE corroborated_at IS NULL</c>
-    /// is what makes a second probe with richer signals leave the first record alone — a caller that
-    /// forgot to check would otherwise rewrite the answer to "why was this published" every six
-    /// hours, and two crawlers racing the same game would each think they were first.
+    /// Write-once at the database, not by convention: <c>WHERE corroborated_at IS NULL</c> makes a
+    /// second probe leave the first record alone, so two crawlers racing the same game can't each
+    /// think they were first.
     /// </remarks>
     public async Task CorroborateAsync(
         Guid id,
@@ -151,17 +150,13 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
     {
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
-        // archived_at is cleared for the reason IncludeAsync clears excluded_at: the schema holds the
-        // date and the state in step, and a game can be dark on the day its owner asks. Nothing else
-        // about the row is touched — the history that made it dark is still true and still shown.
+        // archived_at is cleared because the schema holds the date and the state in step; the history
+        // that made the game dark is still true and still shown.
         //
-        // **`AND state <> 'excluded'` is the same clause SetStateAsync carries, and it is needed here
-        // for the same reason.** An exclusion is a judgement a person made about what an address is,
-        // and only a person undoes it. Nothing stops an excluded instance being claimed and opted
-        // out, and without this clause its claim-holder could then move it out of that state through
-        // a button meant for something else — the editor's decision discarded by a caller that did
-        // not know it existed. An unlisting is refused rather than layered over it; the exclusion
-        // already withholds the listing, so nothing is lost by refusing.
+        // `AND state <> 'excluded'` (same clause SetStateAsync carries): an exclusion is an editor's
+        // judgement, and only a person undoes it. Without this, an excluded instance's claim-holder
+        // could unlist their way out of that state through a button meant for something else. Refused
+        // rather than layered — the exclusion already withholds the listing.
         await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE game
@@ -198,26 +193,22 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
     {
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
-        // **`AND state NOT IN ('excluded', 'unlisted')` is the load-bearing clause.** The sweeper and
-        // the ingestor both call this, and both would otherwise walk one of those games back into the
-        // listing — the sweeper by archiving it when it went dark, the ingestor by restoring it when
-        // it answered. Refusing here rather than at each caller means a third caller written later
-        // inherits it. Both states are left by their own method, which is where the thing this
-        // signature cannot express lives: an argument for one, an account for the other.
+        // `AND state NOT IN ('excluded', 'unlisted')` is load-bearing: the sweeper and the ingestor
+        // both call this and would otherwise walk one of those games back into the listing. Refusing
+        // here rather than at each caller means a later caller inherits it too — excluded/unlisted
+        // are left only by their own dedicated methods, which can say why or name who asked.
         //
-        // archived_at is set on the way in and cleared on the way out, because the schema's
-        // game_archived_games_have_a_date constraint holds the two in step. Nothing else about the
-        // row is touched: archiving changes presentation and never the record (§7.5).
+        // archived_at is set/cleared in step with state (game_archived_games_have_a_date constraint).
+        // Nothing else about the row is touched: archiving changes presentation, never the record (§7.5).
         await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE game
                SET state = @state,
                    archived_at = CASE WHEN @state = 'archived' THEN @at ELSE NULL END,
 
-                   -- Cleared on the way to any other state, because game_exclusion_is_explained and
-                   -- game_unlisting_is_attributed hold each date and the state in step. Neither can
-                   -- be put *on* from here, because there is nowhere in this signature to say why or
-                   -- to name who asked.
+                   -- Cleared on the way to any other state (game_exclusion_is_explained,
+                   -- game_unlisting_is_attributed); can't be put back on here since this
+                   -- signature has nowhere to say why or name who asked.
                    excluded_at = NULL,
                    excluded_reason = NULL,
                    unlisted_at = NULL,
@@ -268,21 +259,17 @@ public sealed class NpgsqlGameStore(NpgsqlDataSource source) : IGameStore
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
-        // One statement, so the retirement and the re-mint are one atomic act (see IGameStore). The
-        // data-modifying CTEs all read the same snapshot, so `previous` sees the slug as it was
-        // however Postgres orders them, and a CTE nobody selects from still runs exactly once.
+        // One statement, so retirement and re-mint are atomic. All CTEs read the same snapshot, so
+        // `previous` sees the slug as it was regardless of Postgres's evaluation order.
         //
-        // ON CONFLICT DO NOTHING keeps the earliest retirement of a slug a game has worn twice: the
-        // row exists to say "this URL is spoken for and here is whose", and re-stamping it would
-        // rewrite when a URL somebody bookmarked started redirecting.
+        // ON CONFLICT DO NOTHING keeps the earliest retirement of a slug a game has worn twice —
+        // re-stamping it would rewrite when a bookmarked URL started redirecting.
         //
-        // The answer is read from `previous` and NOT from the insert. A game that goes A -> B -> A -> B
-        // retires a slug already in the table, so the insert is suppressed and RETURNING yields
-        // nothing — which reported "the slug did not move" while it moved. What the caller asked is
-        // what this game was at a moment ago; the row it already has is the record, not the write.
+        // The answer is read from `previous`, not the insert: a game cycling A -> B -> A -> B retires
+        // a slug already in the table, so the insert is suppressed and RETURNING yields nothing even
+        // though the slug did move. `previous` is the record of what changed; the insert is not.
         //
-        // The unique index on game.slug is the guard against re-minting a URL another game holds; it
-        // raises here rather than letting two games answer to one address.
+        // The unique index on game.slug guards against two games racing to claim one address.
         return await connection.QuerySingleOrDefaultAsync<string?>(new CommandDefinition(
             """
             WITH previous AS (

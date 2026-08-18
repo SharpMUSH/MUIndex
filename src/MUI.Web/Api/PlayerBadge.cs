@@ -8,11 +8,10 @@ namespace MUI.Web.Api;
 
 /// <summary>What a badge can be showing. Three states, and never two.</summary>
 /// <remarks>
-/// The same three-state discipline §5.4 applies to an hour of the heatmap, applied to a number on
-/// somebody else's front page. <see cref="Counted"/> covers a measured zero — we got in and nobody
-/// was there, which is a real fact about a game and a filled cell — and <see cref="Unknown"/> covers
-/// both "we could not count" and "we have not counted recently". Collapsing the second into a zero
-/// is rule 4, broken on a page we do not control and cannot correct.
+/// The same three-state discipline §5.4 applies to the heatmap, applied to a number on somebody
+/// else's front page. <see cref="Counted"/> covers a measured zero (a real fact); <see cref="Unknown"/>
+/// covers both "could not count" and "not counted recently" — collapsing that into a zero is rule 4,
+/// broken on a page we do not control.
 /// </remarks>
 public enum BadgeState
 {
@@ -28,24 +27,12 @@ public enum BadgeState
 /// The live player-count badge of spec §8.5 — an owner-published output, on somebody else's page.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>This is the surface with the least room and the most exposure, and the rules do not bend for
-/// it.</b> A badge is embedded where we have no other sentence, no footnote and no chance to
-/// explain, so the number it shows has to carry its own age and its own state or it is exactly the
-/// unlabelled figure the incumbents publish. There is space: "14 now · 4m ago" is nine characters
-/// more than "14".
-/// </para>
-/// <para>
-/// <b>An unknown count is never a zero.</b> A game whose <c>WHO</c> we cannot parse renders
-/// "players unknown" in grey, not "0 players" in green — the second would be our parser's limit
-/// published as a fact about their game, on their own front page, which is rule 5 at its most
-/// damaging.
-/// </para>
-/// <para>
-/// No external font, no remote reference, no script. The SVG is self-contained because a badge that
-/// fetched anything would put a third-party request on every page that embeds it, and because an
-/// <c>&lt;img&gt;</c> does not execute one anyway.
-/// </para>
+/// <b>The rules do not bend for lack of room.</b> A badge has no footnote and no chance to explain,
+/// so the number carries its own age and state, or it's the unlabelled figure the incumbents publish.
+/// <b>An unknown count is never a zero</b> — an unparseable <c>WHO</c> renders "players unknown" in
+/// grey, never "0 players" in green (rule 5).
+/// No external font, no remote reference, no script — self-contained, since a badge that fetched
+/// anything would put a third-party request on every page that embeds it.
 /// </remarks>
 public static class PlayerBadge
 {
@@ -53,11 +40,9 @@ public static class PlayerBadge
     /// How long a badge may be cached by a browser or a CDN.
     /// </summary>
     /// <remarks>
-    /// Five minutes: short enough that "live" is not a lie on a page somebody refreshes, long enough
-    /// that a game on a popular front page does not turn its readers into our traffic. Deliberately
-    /// well inside <c>FieldRegistry.Volatile</c>, the two hours after which a count is stale — a
-    /// cache entry that outlived the freshness of what it holds would be publishing a stale number
-    /// with a live label.
+    /// Five minutes: short enough that "live" isn't a lie, long enough that a popular front page
+    /// doesn't turn its readers into our traffic. Well inside <c>FieldRegistry.Volatile</c>'s
+    /// two-hour staleness window, so the cache can't outlive the freshness of what it holds.
     /// </remarks>
     public const string CacheControl = "public, max-age=300";
 
@@ -74,11 +59,7 @@ public static class PlayerBadge
     /// <summary>
     /// Reads a summary into the one of three things a badge can say.
     /// </summary>
-    /// <remarks>
-    /// Archived is decided before the count, and not after. An archived game may still carry a count
-    /// from the last time it answered, and rendering it would put a live-sounding number on a page
-    /// for a game that stopped answering in 2023.
-    /// </remarks>
+    /// <remarks>Archived is decided before the count, not after — an archived game may still carry a stale count that would otherwise render as live.</remarks>
     public static BadgeReading Read(GameSummary game, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(game);
@@ -88,19 +69,10 @@ public static class PlayerBadge
             return new BadgeReading(BadgeState.Archived, null, null, game.LastReachableAt);
         }
 
-        // The two halves of a measurement travel together or not at all: a count with no label is a
-        // number we cannot age, and a label with no count labels nothing.
-        //
-        // AND THE LABEL HAS TO SAY WE MEASURED IT. This badge writes "N players measured 4m ago" and
-        // paints it in the accent that means measured everywhere on this site, on a page we do not
-        // control — so a count the game asserted about itself in MSSP may not reach it. Read off the
-        // same ProvenanceChip.IsMeasured that ApiMapper reads, because the badge and
-        // /api/games/{slug}'s playersNowState answer the same question about the same game and two
-        // surfaces disagreeing is the failure the labelling exists to prevent.
-        //
-        // Declared therefore renders as unknown, which is the honest thing for a badge that can only
-        // say three things: we have not counted. What the game says about itself is on its page,
-        // labelled as theirs, where there is room to attribute it.
+        // The badge paints the measured accent and writes "measured Xm ago", so a count the game
+        // merely asserted in MSSP must not reach it — read off the same ProvenanceChip.IsMeasured
+        // ApiMapper reads, so the badge and playersNowState can't disagree. Declared renders as
+        // unknown; the game's own claim belongs on its page, labelled as theirs.
         return game is { PlayersNow: { } count, PlayersNowProvenance: { IsMeasured: true } chip }
             ? new BadgeReading(BadgeState.Counted, count, now - chip.LastConfirmedAt, game.LastReachableAt)
             : new BadgeReading(BadgeState.Unknown, null, null, game.LastReachableAt);
@@ -118,10 +90,8 @@ public static class PlayerBadge
         var valueWidth = Width(value) + 12;
         var total = labelWidth + valueWidth;
 
-        // Everything interpolated below is either ours or escaped. A game's name is MSSP text and
-        // therefore attacker-controlled — it reaches the accessible title and nowhere else, and it
-        // goes through WebUtility.HtmlEncode on the way, because an SVG is a document and a name
-        // containing "</text>" would otherwise be markup.
+        // A game's name is MSSP text, attacker-controlled, and an SVG is a document — HtmlEncode is
+        // what stops a name containing "</text>" becoming markup.
         var title = WebUtility.HtmlEncode($"{gameName} — {reading.Description}");
 
         return $"""
@@ -148,23 +118,14 @@ public static class PlayerBadge
     /// <summary>
     /// A badge for a slug we do not have, as a badge.
     /// </summary>
-    /// <remarks>
-    /// A 404 with a body, rather than an empty one. The reader of this is an operator who has just
-    /// pasted the wrong URL into their own site, and a broken-image icon tells them nothing while
-    /// this tells them the thing they need to know. The status is still 404 and it is never cached.
-    /// </remarks>
+    /// <remarks>A 404 with a body rather than an empty one — a broken-image icon would tell the operator nothing. Still 404, never cached.</remarks>
     public static string UnknownSvg() =>
         Svg(new BadgeReading(BadgeState.Unknown, null, null, null) { Override = "unknown game" }, "mu*index");
 
     /// <summary>
     /// How wide a string renders at 11px, near enough to lay a box out around it.
     /// </summary>
-    /// <remarks>
-    /// An estimate, and it only has to be good enough that the text does not touch the edges: SVG
-    /// has no text metrics without a layout engine, and shipping a font to get them would put a
-    /// remote asset on every page that embeds this. Digits and lower-case are the common case and
-    /// are measured closest; anything wider simply gets a roomier box.
-    /// </remarks>
+    /// <remarks>An estimate, good enough that text doesn't touch the edges — SVG has no text metrics without a layout engine, and shipping a font would add a remote asset.</remarks>
     private static int Width(string text)
     {
         var width = 0d;
@@ -187,11 +148,7 @@ public static class PlayerBadge
 /// <summary>
 /// What the badge says, and why. The same reading serves the SVG and the JSON.
 /// </summary>
-/// <remarks>
-/// One reading behind both outputs, so an owner embedding the image and an owner reading the JSON
-/// cannot be told two different things about the same moment — which is the same reason the plain
-/// surface renders from the page's own view models.
-/// </remarks>
+/// <remarks>One reading behind both outputs, so an owner embedding the image and one reading the JSON can't be told two different things about the same moment.</remarks>
 public sealed record BadgeReading(
     BadgeState State,
     int? Count,
@@ -204,12 +161,7 @@ public sealed record BadgeReading(
     /// <summary>
     /// What the badge says when we could not count, in the one language it has.
     /// </summary>
-    /// <remarks>
-    /// A constant rather than a literal because the owner dashboard quotes it — "it says
-    /// <em>players unknown</em> rather than nought" — and a badge answers the same bytes to
-    /// everybody, so that quotation is the image's own text and not a sentence to translate. Two
-    /// copies of the words would let a dashboard promise something the image never draws.
-    /// </remarks>
+    /// <remarks>A constant rather than a literal because the owner dashboard quotes it — two copies would let the dashboard promise something the image never draws.</remarks>
     public const string UnknownText = "players unknown";
 
     /// <summary>What the badge says for a game that stopped answering. Quoted the same way.</summary>
@@ -218,10 +170,7 @@ public sealed record BadgeReading(
     /// <summary>
     /// The words on the badge.
     /// </summary>
-    /// <remarks>
-    /// A measured zero says "0 now", which is a fact we measured and are entitled to publish. An
-    /// unmeasured count says "players unknown" and never borrows the shape of a number.
-    /// </remarks>
+    /// <remarks>A measured zero says "0 now"; an unmeasured count says "players unknown" and never borrows the shape of a number.</remarks>
     public string Text => Override ?? State switch
     {
         BadgeState.Counted => $"{Count!.Value.ToString(CultureInfo.InvariantCulture)} now · {Relative()}",
@@ -248,10 +197,7 @@ public sealed record BadgeReading(
     /// <summary>
     /// A coarse age, because a badge has room for two characters and not for "4 minutes ago".
     /// </summary>
-    /// <remarks>
-    /// Rounded down, never up. "1h" for something measured fifty-nine minutes ago overstates its
-    /// age, which is the safe direction; rounding the other way would call an hour-old number fresh.
-    /// </remarks>
+    /// <remarks>Rounded down, never up — rounding the other way would call an hour-old number fresh.</remarks>
     private string Relative() => Age switch
     {
         null => "?",

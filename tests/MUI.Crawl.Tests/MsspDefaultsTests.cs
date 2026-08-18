@@ -25,8 +25,7 @@ public class MsspDefaultsTests
     [Arguments("TinyMUX")]
     [Arguments("RhostMUSH")]
 
-    // The two that were missing. AresMUSH and CobraMUSH ship the same unedited NAME line every
-    // other MUSH codebase here does, and every one of their siblings was already refused.
+    // AresMUSH and CobraMUSH ship the same unedited NAME line every other MUSH codebase here does.
     [Arguments("AresMUSH")]
     [Arguments("aresmush")]
     [Arguments("CobraMUSH")]
@@ -45,9 +44,8 @@ public class MsspDefaultsTests
     [Arguments("Tidewater Nights")]
     [Arguments("Eldertale")]
 
-    // A codebase name that is also a game's name stays off the list, because this refusal erases a
-    // name and the cost of erasing a real one is higher than the cost of keeping a default. All
-    // three are live games as well as codebases.
+    // A codebase name that is also a real game's name stays off the placeholder list — erasing a
+    // real name costs more than keeping a default.
     [Arguments("Last Outpost")]
     [Arguments("LuminariMUD")]
     [Arguments("GodWars")]
@@ -66,9 +64,8 @@ public class MsspDefaultsTests
     [Test]
     public async Task TwoUneditedServersMustNotLookLikeTheSameGame()
     {
-        // The reason this type exists. Spec §7.3 weights MSSP NAME heavily when deciding whether two
-        // endpoints are one game. If a default counted as a signal, every unedited PennMUSH would
-        // score as a match for every other one and auto-merge would fuse unrelated games.
+        // Spec §7.3 weights MSSP NAME heavily when deciding whether two endpoints are one game; if a
+        // default counted as a signal, every unedited PennMUSH would auto-merge into one game.
         var first = MsspDefaults.MeaningfulName("PennMUSH", "PennMUSH 1.8.8p0");
         var second = MsspDefaults.MeaningfulName("PennMUSH", "PennMUSH 1.8.7");
 
@@ -83,10 +80,8 @@ public class MsspDefaultsTests
     [Test]
     public async Task TheStringZeroIsAPlaceholderButAMeasuredZeroCountIsNot()
     {
-        // Guarding the opposite error. `PLAYERS 0` was measured on a live server and means nobody
-        // was on — a real fact, and exactly what rule 2 protects. Only a name-shaped field reading
-        // "0" is a non-answer; the numeric count is data, and it is asserted as such in
-        // MUI.Catalog.Tests.PresenceContractTests, which is the assembly that can see the type.
+        // The opposite error: a measured `PLAYERS 0` is a real fact (rule 2), not a non-answer. Only
+        // a name-shaped field reading "0" is a placeholder.
         await Assert.That(MsspDefaults.IsPlaceholder("0")).IsTrue();
         await Assert.That(MsspDefaults.MeaningfulName("0", "PennMUSH")).IsNull();
     }

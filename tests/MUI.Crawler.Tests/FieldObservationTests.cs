@@ -35,17 +35,11 @@ public class FieldObservationTests
     /// An encoding nobody determined is not stored, in any form and under any source.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// A screen that is not UTF-8 and that nobody has explained is read with Latin-1 to keep its
-    /// bytes whole. <b>That is a way of holding the bytes, not a reading of them</b>, and writing
-    /// <c>iso-8859-1</c> down for it would produce a value where the honest answer is unknown
-    /// (rule 4) and sign it with a source that says we measured it about the game (rule 5). The
-    /// screen still renders; it simply carries no claim about its encoding, which is what we know.
-    /// </para>
-    /// <para>
-    /// The two determined cases carry the source of their determination, which is genuinely
-    /// different in each: a strict decoder proved the bytes, or a person asserted them.
-    /// </para>
+    /// A screen that isn't UTF-8 and that nobody has explained is read with Latin-1 to keep its bytes
+    /// whole — a way of holding the bytes, not a reading of them. Writing <c>iso-8859-1</c> down for
+    /// it would produce a value where the honest answer is unknown (rule 4) signed with a source that
+    /// claims we measured it (rule 5). The two determined cases carry the source of their
+    /// determination: a strict decoder proved the bytes, or a person asserted them.
     /// </remarks>
     [Test]
     public async Task AnUndeterminedEncodingIsNotRecordedAsOne()
@@ -112,11 +106,9 @@ public class FieldObservationTests
     [Test]
     public async Task ACapabilityWeNeverAskedAboutIsNotRecordedAsAbsent()
     {
-        // Measured on alteraeon.com:23, which plainly implements MSDP, GMCP, MXP and MCCP and whose
-        // offered set from one probe is exactly { MSSP }: this client only requests option 70, it
-        // declines MCCP while upstream #62 is open, and the library's OnEnabledAsync was measured not
-        // firing where the payload callbacks did. Writing "false" here would publish our own
-        // instrumentation as a fact about their game.
+        // The probe only requests a subset of options and its enabled-callback can miss capabilities
+        // the payload callbacks still see. Writing "false" here would publish our own instrumentation
+        // gap as a fact about their game.
         var observed = FieldObservations.From(Probes.Answered(
             offered: Probes.Offered("MSSP"), mssp: Probes.Mssp()));
 
@@ -207,10 +199,9 @@ public class FieldObservationTests
     [Test]
     public async Task TheConnectScreenIsNotReconciledBecauseABannerIsNotAnEvent()
     {
-        // Measured on aardmud.org:4000, whose connect screen states its own live player count: two
-        // cycles apart wrote "connect_screen changed from ####… to ####…", and would have written one
-        // per probe per game for ever. It is upserted by CatalogueBinder instead, beside the banner
-        // fingerprint it is the other half of.
+        // A banner that states its own live player count would otherwise write a change-feed row on
+        // every probe. It's upserted by CatalogueBinder instead, beside the banner fingerprint it's
+        // the other half of.
         var observed = FieldObservations.From(Probes.Answered(banner: "Players Online: 206"));
 
         await Assert.That(observed.Select(o => o.Field))
@@ -242,9 +233,8 @@ public class FieldObservationTests
     [Test]
     public async Task AVersionReplyNamesTheCodebaseOfAGameThatPublishesNoMssp()
     {
-        // §6.2, and the case it was written for: 281 of the 409 games in the first real crawl
-        // answered the socket and published no MSSP at all. Their page could say only that they were
-        // reachable. This is the sentence it can say instead.
+        // §6.2: a game that answers the socket but publishes no MSSP would otherwise have a page that
+        // could say only that it's reachable. This is the sentence it can say instead.
         var observed = FieldObservations.From(Probes.Answered(
             version: "PennMUSH version 1.8.8p1"));
 
@@ -337,15 +327,9 @@ public class FieldObservationTests
     [Test]
     public async Task AMudWhoseArtSaysMuckIsStillAMud()
     {
-        // mud.stick.org:9000. The whole guard, at the layer that stores the value: the same screen
-        // that jokes about muck credits DikuMUD, MERC and ROM, and a codebase we invented for it
-        // would be a fact about somebody else's game that nobody at either end ever claimed.
-        //
-        // **This asserted null until CodebaseCredits existed, and the improvement is why it does
-        // not now.** The screen names its codebase in the licence notice every Diku descendant is
-        // required to carry, so there is a right answer here and it is the one the comment above has
-        // always named. What must never happen is MUCK — the word is a joke in the game's own title
-        // — and that is now a positive assertion rather than the side effect of reading nothing.
+        // A screen that jokes about "muck" in its title while its licence notice credits DikuMUD,
+        // MERC and ROM must read as DikuMUD, not as a codebase invented from the joke word. What must
+        // never happen is MUCK — the licence notice every Diku descendant carries is the real signal.
         var observed = FieldObservations.From(Probes.Answered(
             host: "mud.stick.org",
             banner: """

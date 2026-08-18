@@ -5,19 +5,16 @@ namespace MUI.Web.Components;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Han glyphs are regional, and a browser with no <c>lang</c> guesses.</b> 直, 骨, 令 and several
-/// hundred others are drawn differently in Simplified Chinese, Traditional Chinese and Japanese, and
-/// the shape a font serves depends on what the document says the text is. Untagged CJK in an English
-/// page is commonly rendered with whichever CJK face the system reaches first, which for a Chinese
-/// game on a Japanese-configured machine is the wrong regional form of its own name.
+/// <b>Han glyphs are regional, and a browser with no <c>lang</c> guesses.</b> Several hundred
+/// characters are drawn differently in Simplified Chinese, Traditional Chinese and Japanese; untagged
+/// CJK in an English page commonly renders with whichever face the system reaches first — often the
+/// wrong regional form.
 /// </para>
 /// <para>
-/// <b>This is an inference, and a narrow one, which is why it only ever sets an attribute.</b> An
-/// encoding is not a language: GBK is used for Simplified Chinese and essentially nothing else, so
-/// the mapping holds where it is defined, but UTF-8 says nothing whatever about language and gets no
-/// tag at all rather than a guess. Nothing here is stored, published as a field, or shown as a fact
-/// about the game — it is a typographic hint on one element, and being wrong costs a glyph variant
-/// rather than a false measurement.
+/// <b>A narrow inference, which is why it only ever sets an attribute.</b> An encoding isn't a
+/// language — GBK means Simplified Chinese, but UTF-8 says nothing about language and gets no tag.
+/// Nothing here is stored or shown as a fact about the game; being wrong costs a glyph variant, not
+/// a false measurement.
 /// </para>
 /// </remarks>
 public static class ScreenLanguage
@@ -26,8 +23,8 @@ public static class ScreenLanguage
     /// The BCP-47 tag for an encoding, or null when the encoding does not imply one.
     /// </summary>
     /// <remarks>
-    /// Null for UTF-8, ASCII and Latin-1 — the first because it carries every script at once, the
-    /// other two because the page's own <c>lang</c> is already right for them.
+    /// Null for UTF-8 (carries every script at once), ASCII and Latin-1 (the page's own <c>lang</c>
+    /// is already right for them).
     /// </remarks>
     public static string? For(string? charset) => charset?.Trim().ToLowerInvariant() switch
     {

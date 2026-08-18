@@ -37,9 +37,6 @@ public class FeedAndArchiveTests
 
         foreach (var html in new[] { discovered, dark, back })
         {
-            // A row rather than a card: three columns of boxes gave a name and an age the furniture
-            // of a section, on a page whose only other framed thing is somebody else's connect
-            // screen. The three registers are still three, and still one shape.
             await Assert.That(html).Contains("<article class=\"feed-row");
             await Assert.That(html).Contains("href=\"/g/x\"");
         }
@@ -48,29 +45,20 @@ public class FeedAndArchiveTests
     [Test]
     public async Task ARowSaysWhatHappenedAndWhenAndNothingTheHeadingAlreadySaid()
     {
-        // Three lists of five rows, and every row used to carry a prose line under it — "first
-        // seen", "answered again", "we keep knocking", and on the discovery feed the referral that
-        // found the game and the codebase it answered with. The column heading above says which
-        // register this is, so each of those was the same fact announced twice: twenty extra lines
-        // on the front page for a screen reader to wade through.
-        //
-        // What survives is a *cause*, which is not a repetition of the heading — the socket was
-        // refused, or the name did not resolve. It rides in the one right-hand cell beside the age
-        // rather than on a second line: "refused · 16h".
+        // Every row previously carried a prose line repeating the heading's register. What survives
+        // is a *cause*, riding in the right-hand cell beside the age: "refused · 16h".
         var entry = new FeedEntry(Guid.NewGuid(), "x", "The Long Sleep", Now, "connection refused");
 
         var back = await CardAsync(entry, FeedKind.CameBack);
         var dark = await CardAsync(entry, FeedKind.WentDark);
         var found = await CardAsync(entry, FeedKind.NewlyDiscovered);
 
-        // No second line on any of the three.
         foreach (var html in new[] { back, dark, found })
         {
             await Assert.That(html).DoesNotContain("class=\"return-line\"");
             await Assert.That(html).DoesNotContain("class=\"mono detail\"");
         }
 
-        // A return says it is back; a cause appears only where there is one to give.
         await Assert.That(Render.Words(back)).Contains("live");
         await Assert.That(Render.Words(dark)).Contains("connection refused");
         await Assert.That(Render.Words(found)).DoesNotContain("connection refused");
@@ -79,7 +67,6 @@ public class FeedAndArchiveTests
     [Test]
     public async Task TheRegisterCanBeSuppressedWhereTheColumnAlreadyNamesIt()
     {
-        // Otherwise the front page reads "newly discovered newly discovered".
         var entry = new FeedEntry(Guid.NewGuid(), "x", "Somewhere", Now, "detail");
 
         var html = await Render.ComponentAsync<FeedCard>(new()
@@ -138,9 +125,6 @@ public class FeedAndArchiveTests
     public async Task AGameWeCouldNeverReachHasNoRunToState()
     {
         // Inventing a run from the dates we happen to hold would be asserting rather than measuring.
-        // Asserted through the message rather than against its English, because the claim is that
-        // the entry says *this* — never reached at all, and no reachable time measured — rather than
-        // that it says it in these words. A locale that dropped either would fail here too.
         var game = (await Queries.ListAsync(new GameFilter { IncludeArchived = true })).First();
         var entry = ArchiveEntry.For(game, [], Now);
 
@@ -150,7 +134,6 @@ public class FeedAndArchiveTests
         await Assert.That(entry.KnownLiveWording("en"))
             .IsEqualTo(Messages.For("en", "archive.noReachableTime"));
 
-        // And a zero here is an absence of measurement, never a measured zero.
         await Assert.That(entry.KnownLiveWording("en")).DoesNotContain("0");
     }
 

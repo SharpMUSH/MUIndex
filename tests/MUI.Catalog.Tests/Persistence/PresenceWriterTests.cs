@@ -8,9 +8,8 @@ namespace MUI.Catalog.Tests.Persistence;
 /// </summary>
 /// <remarks>
 /// Collapsing "probed but uncountable" into either neighbour is the worst bug this codebase could
-/// ship, and it is the one the first cut of the spec actually shipped: a game whose <c>DOING</c>
-/// header is customised past our parser would render as permanently dark while running perfectly
-/// well.
+/// ship: a game whose <c>DOING</c> header is customised past our parser would render as
+/// permanently dark while running perfectly well.
 /// </remarks>
 public class PresenceWriterTests
 {

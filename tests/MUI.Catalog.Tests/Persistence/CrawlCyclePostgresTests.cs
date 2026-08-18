@@ -10,10 +10,9 @@ namespace MUI.Catalog.Tests.Persistence;
 /// Migration 0017's cycle log, against a real PostgreSQL.
 /// </summary>
 /// <remarks>
-/// The pulse query is a cross join over two unrelated aggregates and a lateral for the newest cycle.
-/// That shape is easy to get subtly wrong in a way that only shows on an empty table — which is the
-/// state every fresh deployment starts in and the one the front page must survive — so the empty
-/// cases are tested first and by name.
+/// The pulse query cross-joins two unrelated aggregates with a lateral for the newest cycle — a shape
+/// that's easy to get subtly wrong in ways that only show on an empty table, the state every fresh
+/// deployment starts in. Empty cases are tested first, by name.
 /// </remarks>
 public class CrawlCyclePostgresTests
 {

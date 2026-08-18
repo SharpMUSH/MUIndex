@@ -16,8 +16,7 @@ public class GameApiTests
     [Test]
     public async Task TheIdIsTheGuidAndTheGuidAddressesTheGame()
     {
-        // The GUID is minted once and never reused; the slug is minted from a name games change
-        // (spec §5.7). So the id in the payload is the GUID, and the GUID is a route.
+        // The GUID is minted once and never reused; the slug is minted from a name games change (spec §5.7).
         await using var host = await ApiHost.StartAsync();
 
         var bySlug = await Json.ElementAsync(
@@ -27,8 +26,7 @@ public class GameApiTests
         await Assert.That(bySlug.GetProperty("id").GetString()).IsEqualTo(Mush);
         await Assert.That(byId.GetProperty("slug").GetString()).IsEqualTo("m-u-s-h");
 
-        // apiUrl is the durable one. A payload that pointed a mirror at the mutable key would be
-        // handing it a link that stops working the next time the game renames itself.
+        // apiUrl is the durable one, not the mutable slug.
         await Assert.That(bySlug.GetProperty("apiUrl").GetString())
             .IsEqualTo($"{ApiRoutes.Games}/{Mush}");
     }
@@ -36,11 +34,7 @@ public class GameApiTests
     [Test]
     public async Task AGuidIsResolvedByLookingTheGameUpAndNeverByScanningTheCatalogue()
     {
-        // §10.1's third small gap. Addressing a game by its immutable id — the identifier the API
-        // tells consumers to store — read the entire catalogue and picked one row out of it, so the
-        // durable key was the most expensive way to ask for a game and got slower with every game
-        // added. FindByIdAsync answers it in one indexed lookup, and the slug it returns fetches the
-        // page in another.
+        // FindByIdAsync answers by GUID in one indexed lookup rather than scanning the catalogue.
         await using var host = await ApiHost.StartAsync(
             queries: new ListingRefusingQueries(new FixtureGameQueries()));
 
@@ -51,9 +45,7 @@ public class GameApiTests
         await Assert.That(game.GetProperty("slug").GetString()).IsEqualTo("m-u-s-h");
         await Assert.That(game.GetProperty("id").GetString()).IsEqualTo(Mush);
 
-        // Nothing is ever deleted and the archive is addressable like everything else, so an
-        // archived game answers to its GUID too — the scan asked for archived games explicitly, and
-        // a replacement that quietly dropped them would take a URL away that used to work.
+        // Nothing is ever deleted, so an archived game answers to its GUID too.
         var archived = await Json.ElementAsync(
             await host.Client.GetAsync($"{ApiRoutes.Games}/aaaaaaaa-0000-0000-0000-000000000005"));
         await Assert.That(archived.GetProperty("slug").GetString()).IsEqualTo("gaslight-row");
@@ -63,10 +55,7 @@ public class GameApiTests
     [Test]
     public async Task AGuidNobodyMintedIs404AndTheAnswerIsIdenticalToASlugNobodyMinted()
     {
-        // The route that changed is the one that answers by id, so the shape of its refusal is part
-        // of what changed. A GUID that names nothing gets the same problem document a slug does —
-        // and emphatically not a redirect, because there is no former GUID: an id is minted once and
-        // never reused (§5.7), so a lookup that misses has nowhere else to look.
+        // No redirect: an id is minted once and never reused (§5.7), so a miss has nowhere else to look.
         await using var host = await ApiHost.StartAsync(
             queries: new ListingRefusingQueries(new FixtureGameQueries()));
 
@@ -78,7 +67,6 @@ public class GameApiTests
         await Assert.That(problem.GetProperty("title").GetString()).IsEqualTo("No such game");
         await Assert.That(problem.GetProperty("detail").GetString()).Contains("archived=true");
 
-        // The same body a missing slug produces, bar the key it quotes back.
         await using var plain = await ApiHost.StartAsync();
         var bySlug = await Json.ElementAsync(
             await plain.Client.GetAsync($"{ApiRoutes.Games}/nothing-here"));
@@ -91,9 +79,6 @@ public class GameApiTests
     [Test]
     public async Task AGameFetchedByGuidIsByteForByteTheOneFetchedBySlug()
     {
-        // One route, two keys, one representation — so the ETag over the exact bytes is the same
-        // validator either way. A consumer holding the id must not be handed a body that differs
-        // from the one it would have got by slug, or a cache keyed on the entity re-fetches for ever.
         await using var host = await ApiHost.StartAsync();
 
         var byId = await host.Client.GetAsync($"{ApiRoutes.Games}/{Mush}");
@@ -104,7 +89,6 @@ public class GameApiTests
         await Assert.That(byId.Headers.ETag!.ToString())
             .IsEqualTo(bySlug.Headers.ETag!.ToString());
 
-        // And it is still a conditional request away from a 304.
         using var conditional = new HttpRequestMessage(HttpMethod.Get, $"{ApiRoutes.Games}/{Mush}");
         conditional.Headers.TryAddWithoutValidation("If-None-Match", byId.Headers.ETag!.ToString());
         var second = await host.Client.SendAsync(conditional);
@@ -131,8 +115,7 @@ public class GameApiTests
     [Test]
     public async Task AnArchivedGameKeepsItsUrlAndItsEvidence()
     {
-        // Archiving takes a game out of the default listing and out of nothing else. Its page, its
-        // history and its last connect screen survive, and state says what it is.
+        // Archiving takes a game out of the default listing and out of nothing else (spec §7.5).
         await using var host = await ApiHost.StartAsync();
 
         var game = await Json.ElementAsync(
@@ -145,15 +128,7 @@ public class GameApiTests
         await Assert.That(game.GetProperty("availability").GetArrayLength()).IsGreaterThan(0);
     }
 
-    /// <summary>
-    /// A suppressed screen is withheld here as well as on the page (spec §11).
-    /// </summary>
-    /// <remarks>
-    /// It shipped the other way: <c>suppressed</c> was published beside the full text, so the one
-    /// surface most likely to be republished by somebody else was the only surface that ignored the
-    /// owner's request. The flag stays — a consumer is told there is a screen and that we do not
-    /// republish it, which is a different fact from never having captured one.
-    /// </remarks>
+    /// <summary>A suppressed screen is withheld here as well as on the page (spec §11).</summary>
     [Test]
     public async Task AScreenItsOwnerAskedUsNotToRepublishIsNotRepublishedByTheApiEither()
     {
@@ -166,7 +141,6 @@ public class GameApiTests
         await Assert.That(screen.GetProperty("suppressed").GetBoolean()).IsTrue();
         await Assert.That(screen.GetProperty("text").ValueKind).IsEqualTo(JsonValueKind.Null);
 
-        // And a game whose owner asked for nothing still ships its screen.
         var ordinary = await Json.ElementAsync(
             await host.Client.GetAsync($"{ApiRoutes.Games}/m-u-s-h"));
 
@@ -197,16 +171,12 @@ public class GameApiTests
             await Assert.That(field.Value.TryGetProperty("stale", out _)).IsTrue();
         }
 
-        // Staleness is the catalogue's answer against the field's own refresh window, carried
-        // through rather than re-derived here — a six-year-old CREATED is stale and a four-minute
-        // banner is not, and nothing on this surface gets to hold a second opinion.
+        // Staleness is the catalogue's answer, carried through rather than re-derived here.
         await Assert.That(fields.GetProperty("created").GetProperty("stale").GetBoolean()).IsTrue();
         await Assert.That(fields.GetProperty("codebase").GetProperty("stale").GetBoolean()).IsFalse();
 
-        // MSSP and not the banner. M*U*S*H disagrees with itself — its MSSP says 1.8.8p0 and its
-        // banner says 1.8.7 — and 1.8.8p0 is the value on the page, which is what the precedence
-        // ladder returns (§5.1). Labelling it `banner` credited one source with another's value,
-        // which is the single thing a provenance chip exists not to do.
+        // M*U*S*H disagrees with itself — MSSP says 1.8.8p0, banner says 1.8.7 — and the precedence
+        // ladder (§5.1) picks MSSP, so the label must say mssp and not banner.
         await Assert.That(fields.GetProperty("codebase").GetProperty("source").GetString())
             .IsEqualTo("mssp");
         await Assert.That(game.GetProperty("codebaseProvenance").GetProperty("source").GetString())
@@ -218,8 +188,7 @@ public class GameApiTests
     [Test]
     public async Task MeasuredAndDeclaredArriveAsTwoColumnsAndTheDisagreementIsNamed()
     {
-        // "Declared GMCP, never offered in a handshake" is the most useful thing a capability matrix
-        // can say, and one merged badge cannot hold it (spec §3.1).
+        // Measured vs. declared, kept as two columns rather than one merged badge (spec §3.1).
         await using var host = await ApiHost.StartAsync();
 
         var game = await Json.ElementAsync(
@@ -234,7 +203,7 @@ public class GameApiTests
         await Assert.That(gmcp.GetProperty("ageSeconds").GetDouble()).IsGreaterThan(0d);
         await Assert.That(game.GetProperty("disagreementCount").GetInt32()).IsGreaterThan(0);
 
-        // Nothing said either way is its own state, and it is not "absent".
+        // Nothing said either way is its own state, not "absent".
         var mxp = game.GetProperty("capabilities").EnumerateArray()
             .Single(c => c.GetProperty("protocol").GetString() == "MXP");
         await Assert.That(mxp.GetProperty("measured").GetString()).IsEqualTo("unknown");
@@ -244,8 +213,7 @@ public class GameApiTests
     [Test]
     public async Task AnHourHasThreeStatesAndTheApiKeepsThemThree()
     {
-        // The worst bug this codebase could ship is collapsing the middle one. A cell we probed and
-        // could not count is not a zero, and a cell we could not reach is not a zero either.
+        // Collapsing the middle state is the worst bug this codebase could ship (§5.4).
         await using var host = await ApiHost.StartAsync();
 
         async Task<List<JsonElement>> CellsAsync(string slug)
@@ -267,7 +235,6 @@ public class GameApiTests
         await Assert.That(States(dark)).Contains("gap");
         await Assert.That(States(dark)).DoesNotContain("counted");
 
-        // The count is present exactly when the state is "counted", and never otherwise.
         foreach (var cell in mush.Concat(uncountable).Concat(dark))
         {
             var counted = cell.GetProperty("state").GetString() == "counted";

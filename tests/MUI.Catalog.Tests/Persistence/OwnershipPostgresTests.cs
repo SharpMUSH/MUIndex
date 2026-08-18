@@ -216,9 +216,9 @@ public class OwnershipPostgresTests
     /// A claim id is not a credential, so resigning is scoped to the account that holds the claim.
     /// </summary>
     /// <remarks>
-    /// <c>RevokeAsync</c> takes a claim id and nothing else, which is right for the service and wrong
-    /// for a caller reached from a form. Anybody who learned an id could otherwise unclaim somebody
-    /// else's game, and ids travel — they are in URLs, in logs and in this test.
+    /// <c>RevokeAsync</c> takes a claim id and nothing else — right for the service, wrong for a
+    /// caller reached from a form. Anybody who learned an id could otherwise unclaim somebody
+    /// else's game, and ids travel: URLs, logs, this test.
     /// </remarks>
     [Test]
     public async Task NobodyCanResignSomebodyElsesClaim()

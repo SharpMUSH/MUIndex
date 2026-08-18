@@ -8,12 +8,7 @@ namespace MUI.Web.Tests;
 /// <summary>
 /// The two aggregate surfaces, asserted in words.
 /// </summary>
-/// <remarks>
-/// A dashboard is where a site's honesty is cheapest to lose, because a percentage is quotable and a
-/// qualification is not. The three assertions worth having are all about what the page must
-/// <em>refuse</em> to say: it may not publish an absolute player figure, it may not print a share
-/// without the set it is a share of, and it may not describe a snapshot as a trend.
-/// </remarks>
+/// <remarks>What the page must <em>refuse</em> to say: no absolute player figure, no share without its denominator, no snapshot described as a trend.</remarks>
 public class EcosystemSurfaceTests
 {
     private static readonly DateTimeOffset Now = FixtureGameQueries.Now;
@@ -28,23 +23,15 @@ public class EcosystemSurfaceTests
     /// <summary>
     /// One message, as the source locale renders it.
     /// </summary>
-    /// <remarks>
-    /// These assertions are about what the two surfaces <em>claim</em>, not about the English they
-    /// happen to claim it in. Reading the claim out of the bundle keeps the guard exactly as strong
-    /// — a page that stopped saying it fails here — while leaving the wording free to be translated,
-    /// which is the whole reason it moved into the bundle.
-    /// </remarks>
+    /// <remarks>Reads the claim out of the bundle, not the English literal, so wording stays free to be translated while a page that stopped saying it still fails here.</remarks>
     private static string Say(string id, params (string Key, object? Value)[] args) =>
         Messages.For("en", id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 
     [Test]
     public async Task NoAbsolutePlayerFigureIsEmittedByEitherSurface()
     {
-        // §15.7, and the "Never" list. The absolute "how many people play MU*" number is withheld
-        // because a ratio over the measured set survives the unclaimed and unreachable biases and a
-        // headcount survives neither. The pin is the arithmetic itself: sum the fixture's measured
-        // counts and require that the number never appears, so a future "total players on right now"
-        // fails here rather than in review.
+        // §15.7: the absolute headcount is withheld because it can't survive the unclaimed/unreachable
+        // biases a ratio can. Pinned via arithmetic so a future total fails here, not in review.
         var listed = await Queries.ListAsync(new GameFilter());
         var total = listed.Sum(g => g.PlayersNow ?? 0).ToString();
         var text = await EcosystemAsync() + await RankingsAsync();
@@ -62,9 +49,7 @@ public class EcosystemSurfaceTests
     [Test]
     public async Task EveryPercentageOnTheDashboardArrivesWithItsDenominator()
     {
-        // "62% of games offer UTF-8" is not a fact until "of the 431 games whose handshake we have
-        // completed" is attached to it. The count and the set come first on every line, and the
-        // percentage second, so a line carrying one and not the other is the defect.
+        // A percentage without its denominator isn't a fact.
         var lines = (await EcosystemAsync())
             .Split('\n')
             .Where(line => line.Contains('%', StringComparison.Ordinal))
@@ -81,9 +66,8 @@ public class EcosystemSurfaceTests
     [Test]
     public async Task BothDenominatorsAreNamedRatherThanImplied()
     {
-        // Measured and declared are counted over two different sets of games, and a page that named
-        // one denominator for both would be comparing a share of the reachable against a share of the
-        // talkative and calling the difference adoption.
+        // Measured and declared are counted over different sets of games; one shared denominator
+        // would compare the reachable against the talkative and call the difference adoption.
         var text = Render.Words(await EcosystemAsync());
 
         var dashboard = await Queries.EcosystemAsync();
@@ -99,8 +83,7 @@ public class EcosystemSurfaceTests
     [Test]
     public async Task AProtocolWithNoMeasurementSaysSoRatherThanShowingNoughtPerCent()
     {
-        // The one place a true number would be a false statement. Nothing has been observed to offer
-        // this, which is a fact about our reach; "0.0%" is a claim about everybody else's servers.
+        // Nothing observed to offer this is a fact about our reach; "0.0%" would claim it about their servers.
         var never = new ProtocolAdoption("TLS", Offered: null, Declined: 0, Handshakes: 400, Declared: 12, MsspReports: 300);
 
         await Assert.That(EcosystemCopy.Measured("en", never))
@@ -108,7 +91,7 @@ public class EcosystemSurfaceTests
         await Assert.That(EcosystemCopy.Measured("en", never)).DoesNotContain("0.0%");
         await Assert.That(EcosystemCopy.Measured("en", never)).DoesNotContain("0 of 400");
 
-        // The declared side is unaffected and still carries its own set.
+        // Declared is unaffected and still carries its own set.
         await Assert.That(EcosystemCopy.Declared("en", never)).IsEqualTo(
             Say("ecosystem.share", ("count", 12), ("total", 300), ("fraction", 12d / 300)));
         await Assert.That(EcosystemCopy.Declared("en", never)).IsEqualTo("12 of 300 (4.0%)");
@@ -129,9 +112,8 @@ public class EcosystemSurfaceTests
     [Test]
     public async Task TheMeasuredColumnIsSaidToBeAFloor()
     {
-        // The crawler writes a capability down when it observes one and otherwise writes nothing,
-        // because it requests MSSP alone and declines MCCP outright. Printing that column without
-        // saying so publishes our own instrumentation as a fact about somebody's game.
+        // Printing the measured column without saying it's a floor publishes our own instrumentation
+        // limits as a fact about the game.
         var text = Render.Words(await EcosystemAsync());
 
         await Assert.That(text).Contains(Say("ecosystem.protocols.floor"));
@@ -140,9 +122,8 @@ public class EcosystemSurfaceTests
     [Test]
     public async Task TheDashboardCallsItselfASnapshotAndNotATrend()
     {
-        // §9 asks for adoption curves and the store cannot honestly draw one yet. Saying so is better
-        // than a plot of first sightings, which would draw a confident rising line measuring the
-        // crawl reaching more games and nothing about anybody adopting anything.
+        // §9 asks for adoption curves; the store can't honestly draw one yet, so it says so rather
+        // than plotting first-sightings, which would just show the crawl's own reach.
         var text = Render.Words(await EcosystemAsync());
 
         await Assert.That(text).Contains(Say("ecosystem.snapshot"));
@@ -168,10 +149,8 @@ public class EcosystemSurfaceTests
     [Test]
     public async Task TheCodebasePanelNamesTheListingBesideTheGamesThatAnswered()
     {
-        // The identified count sat alone in this sentence — "Share of the 144 listed games that told
-        // us what they run" — and read as the size of the catalogue, which was 418. A denominator
-        // that can be mistaken for the set it was drawn from is the failure this page exists to
-        // argue against, so both numbers are in the sentence and each is unambiguous.
+        // The identified count once sat alone and read as the size of the whole catalogue; both
+        // numbers must be in the sentence, unambiguous.
         var dashboard = await Queries.EcosystemAsync();
         var text = Render.Words(await EcosystemAsync());
 
@@ -189,12 +168,7 @@ public class EcosystemSurfaceTests
     }
 
     /// <summary>The one-game codebases are folded out of the chart and listed under it.</summary>
-    /// <remarks>
-    /// Live, 49 of the 72 rows in this panel were one game at 0.5% — the tail was two-thirds of the
-    /// list and answered no question a reader has, because a share of one is a name and not a share.
-    /// Folded rather than dropped: the surface still prints every one of them, so the panel's own
-    /// arithmetic stays checkable on the page.
-    /// </remarks>
+    /// <remarks>A share of one is a name, not a share. Folded rather than dropped: the surface still prints every one, so the panel's arithmetic stays checkable.</remarks>
     [Test]
     public async Task ACodebaseOnlyOneGameRunsIsFoldedOutOfTheChartAndStillPrinted()
     {
@@ -218,11 +192,8 @@ public class EcosystemSurfaceTests
     [Test]
     public async Task TheMsspRowStaysBecauseItIsTheOnlyMeasurementThatIsNotAFloor()
     {
-        // Not all servers support MSSP, and which ones do is one of the more useful things this page
-        // knows — it bounds what anybody can learn about the rest. It is also the only row with a
-        // real negative beside it: we request MSSP by name and nothing else, so every other measured
-        // figure is an undercount and this one is an answer. Holding it out as "the instrument"
-        // deleted the strongest row on the table.
+        // The only row with a real negative beside it: we request MSSP by name, so every other
+        // measured figure is an undercount and this one is an answer.
         var dashboard = await Queries.EcosystemAsync();
         var text = Render.Words(await EcosystemAsync());
 
@@ -238,11 +209,9 @@ public class EcosystemSurfaceTests
     [Test]
     public async Task OnlyMsspHasNoDeclaredFigureAndTheReasonIsItsDenominator()
     {
-        // Every game whose report we hold has proved it supports MSSP by sending one, so there is no
-        // population left over for a share to be of: the 1 of 131 that rendered counted the games
-        // that also listed MSSP inside their own MSSP report, which measures a habit. A protocol
-        // nobody declared is still 0% — absence of a claim is a claim — so the blank is this case
-        // alone.
+        // Every game whose report we hold has proved MSSP support by sending one, so there's no
+        // population left for a share to be of. A protocol nobody declared is still 0% — absence of
+        // a claim is a claim — so MSSP is the one blank.
         var dashboard = await Queries.EcosystemAsync();
         var text = Render.Words(await EcosystemAsync());
 
@@ -257,9 +226,8 @@ public class EcosystemSurfaceTests
     [Test]
     public async Task TwoCountsOfMsspAreReconciledRatherThanLeftToSubtract()
     {
-        // We hold more reports than there are games offering MSSP today, because a report is not
-        // discarded when a game stops reissuing it. Left unexplained the two numbers read as an
-        // arithmetic error on a page whose whole argument is that its arithmetic can be checked.
+        // We hold more reports than games offering MSSP today (a report isn't discarded when a game
+        // stops reissuing it) — left unexplained, that reads as an arithmetic error.
         var dashboard = await Queries.EcosystemAsync();
 
         await Assert.That(dashboard.Mssp).IsNotNull();
@@ -284,9 +252,7 @@ public class EcosystemSurfaceTests
 
         await Assert.That(text).Contains(Say("rankings.basis.median", ("days", 7)));
 
-        // The threshold, as a sentence rather than as arithmetic. Where nothing qualifies the page
-        // said "0 of 519 games listed produced the 24 counted samples a median needs, on at least 4
-        // days of the window", which is a subtraction the reader was left to do.
+        // The threshold as a sentence, not arithmetic the reader has to do themselves.
         await Assert.That(text).Contains("24 samples across 4 days");
 
         // Rule 4 on the surface that most invites a zero to be read as an absence.
@@ -296,7 +262,7 @@ public class EcosystemSurfaceTests
     [Test]
     public async Task TheRankingsOfferNoVoteAndClaimNoBest()
     {
-        // §2's permanent non-goal, said on the surface a reader would look for it on.
+        // §2's permanent non-goal.
         var text = Render.Words(await RankingsAsync());
 
         await Assert.That(text).Contains(Say("rankings.noVote"));
@@ -307,8 +273,7 @@ public class EcosystemSurfaceTests
     [Test]
     public async Task AMeasuredZeroIsRankedRatherThanDroppedFromTheTable()
     {
-        // Eldertale sits at a measured zero across the week. That is a measurement and a strong one,
-        // and a league table that quietly omitted it would be softening a fact into a shrug.
+        // A measured zero across the week is a strong measurement; omitting it softens a fact into a shrug.
         var rankings = await Queries.RankingsAsync();
         var lowest = rankings.Busiest[^1];
 
@@ -320,9 +285,8 @@ public class EcosystemSurfaceTests
     [Test]
     public async Task AGameThatCannotBeCountedIsNotRankedAtZero()
     {
-        // Midnight Sun answers and offers nothing we can count. It has no median, so it is absent
-        // from the busiest table — and it is present in the reachability one, because those are two
-        // different measurements and only one of them failed.
+        // Answers but offers nothing countable: absent from the busiest table, present in the
+        // reachability one — two different measurements, only one failed.
         var rankings = await Queries.RankingsAsync();
 
         await Assert.That(rankings.Busiest.Any(g => g.Slug == "midnight-sun")).IsFalse();
@@ -337,8 +301,7 @@ public class EcosystemSurfaceTests
         var archived = await Queries.ListAsync(new GameFilter { Band = ActivityBand.Archived });
         var slugs = archived.Select(g => g.Slug).ToHashSet(StringComparer.Ordinal);
 
-        // Counted from the fixture rather than written down as a literal, so a game added to the
-        // demo does not fail this test for the one reason it is not about.
+        // Counted from the fixture, not a literal, so adding a demo game doesn't spuriously fail this.
         var catalogue = await Queries.ListAsync(new GameFilter { IncludeArchived = true });
 
         await Assert.That(slugs).IsNotEmpty();
@@ -350,11 +313,10 @@ public class EcosystemSurfaceTests
     [Test]
     public async Task NothingOnEitherSurfaceExceedsEightyColumns()
     {
-        // The plain surface is the test of the whole system, and a text browser is eighty wide.
+        // A text browser is eighty columns wide.
         foreach (var line in (await EcosystemAsync() + await RankingsAsync()).Split('\n'))
         {
-            // The line itself in the message: a bare "expected 80, got 81" sends the next reader
-            // hunting through two whole renderings for the one that grew.
+            // The line itself in the message, so a failure doesn't require hunting for which one grew.
             await Assert.That(line.TrimEnd().Length)
                 .IsLessThanOrEqualTo(PlainText.Columns)
                 .Because($"too wide: {line.TrimEnd()}");

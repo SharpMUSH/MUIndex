@@ -1,14 +1,12 @@
 @using MUI.Web.Localization
 
 @*
-    The availability strip: ninety bars, oldest at the left.
+    The availability strip: ninety bars, oldest at the left. Status-page convention. Two deliberate
+    divergences from the design handoff: degraded is a *short* bar rather than only a different
+    colour, and unreachable is hatched and outlined so it reads as "absent" rather than as an alarm.
 
-    Status-page convention, because readers already know how to read one. Two deliberate divergences,
-    both from the design handoff: degraded is a *short* bar rather than only a different colour, and
-    unreachable is hatched and outlined so it reads as "absent" rather than as an alarm.
-
-    The word is "reachable", never "uptime". We measured a socket from one vantage point and did not
-    measure whether the game was up. The wording matters more than the graphic.
+    "Reachable", never "uptime": we measured a socket from one vantage point, not whether the game
+    was up.
 *@
 
 <div class="kicker">@L("reach.kicker", ("days", Summary.Window))</div>

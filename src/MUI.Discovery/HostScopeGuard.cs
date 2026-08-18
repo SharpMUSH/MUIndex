@@ -24,54 +24,43 @@ public sealed class SystemHostResolver : IHostResolver
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Do not delete this as redundant with <see cref="ReferralCandidate.IsCrawlable"/>. It is not.</b>
-/// That check classifies a <em>string</em>, and every DNS name passes it — correctly, because nothing
-/// can be known about a name until DNS answers. The consequence is that the literal-address checks are
-/// worth nothing against an attacker who owns a domain: a <c>REFERRAL</c> naming
-/// <c>internal.example.org</c>, with an A record pointing at <c>10.0.0.5</c> or
-/// <c>169.254.169.254</c>, passes every check the referral writer makes. Publishing that record costs
-/// an attacker nothing, so a DNS name is the cheapest bypass of the one gate §7.2 exists to provide.
-/// The check has to happen after resolution, and a referral string never sees one.
+/// <b>Do not delete this as redundant with <see cref="ReferralCandidate.IsCrawlable"/>.</b> That
+/// check classifies a <em>string</em>, and every DNS name passes it — correctly, since nothing can be
+/// known about a name until DNS answers. A <c>REFERRAL</c> naming <c>internal.example.org</c>, with
+/// an A record pointing at <c>10.0.0.5</c> or <c>169.254.169.254</c>, passes every string-level
+/// check, so the scope check has to happen after resolution.
 /// </para>
 /// <para>
-/// <b>Any non-global address refuses the whole target.</b> Not the first one found, and the good ones
-/// are not filtered out and used: a name resolving to one public and one private address is the
-/// DNS-rebinding shape, proceeding on the half we liked is a coin flip lost the moment DNS reorders,
-/// and a mixed answer is itself evidence of intent.
+/// <b>Any non-global address refuses the whole target</b>, not just the bad one and not the first
+/// found: a name resolving to one public and one private address is the DNS-rebinding shape, and
+/// proceeding on the half we liked is a coin flip lost the moment DNS reorders.
 /// </para>
 /// <para>
-/// <b>"Could not resolve" and "resolved somewhere we won't go" are different facts.</b>
-/// <see cref="HostScopeRuling.Unresolvable"/> is an ordinary DNS failure that gets ordinary backoff;
-/// <see cref="HostScopeRuling.RefusedNonGlobal"/> is a decision of ours. Collapsing them would make our
-/// own policy indistinguishable from the world's behaviour in every downstream reading.
+/// <see cref="HostScopeRuling.Unresolvable"/> (an ordinary DNS failure, ordinary backoff) and
+/// <see cref="HostScopeRuling.RefusedNonGlobal"/> (a decision of ours) must stay distinct facts —
+/// collapsing them makes our own policy indistinguishable from the world's behaviour downstream.
 /// </para>
 /// <para>
-/// <b>A refusal is not a <c>ProbeOutcome</c>, and there is deliberately no <c>Refused</c> member to
-/// reach for.</b> <see cref="ProbeOutcome"/> has exactly two members, <c>Answered</c> and
-/// <c>Failed</c>, and <em>both mean the socket was opened</em>. This guard runs <b>before</b> a
-/// <see cref="ProbeResult"/> exists at all, so there is no honest route by which a refusal could
-/// produce an availability row — which is how §7.2's "a refusal writes no availability sample" is
-/// satisfied structurally rather than by a check somebody has to remember. <b>The tempting shortcut is
-/// <c>ProbeResult.Failed(refused, …)</c>, and it is wrong twice:</b>
-/// <see cref="MUI.Catalog.FailureCause.Refused"/> means the far end sent an RST — a real measurement of
-/// a real host — so dressing a policy refusal as a probe failure makes the two permanently inseparable
-/// downstream, and it writes our own security policy into a game's public reachability history, which
-/// is exactly what §7.2 forbids. Count a refusal on the crawl cycle instead. Do not add the enum
-/// member; do not manufacture a <see cref="ProbeResult"/> here.
+/// <b>A refusal is not a <see cref="ProbeOutcome"/>, and there is deliberately no <c>Refused</c>
+/// member to reach for.</b> This guard runs before a <see cref="ProbeResult"/> exists, so there is no
+/// honest route by which a refusal could produce an availability row. Do not dress it as
+/// <c>ProbeResult.Failed(refused, …)</c> either: <see cref="MUI.Catalog.FailureCause.Refused"/>
+/// already means the far end sent an RST — a real measurement of a real host — and conflating the two
+/// writes our own security policy into a game's public reachability history. Count a refusal on the
+/// crawl cycle instead.
 /// </para>
 /// <para>
 /// <b>Known limitation, stated rather than implied</b> (§7.2's own words). This is a
-/// time-of-check-to-time-of-use gap: the name is resolved here, then connected by name, so a DNS answer
-/// that changes in between is not caught. The fix is to connect to the pinned
+/// time-of-check-to-time-of-use gap: the name is resolved here, then connected by name, so a DNS
+/// answer that changes in between is not caught. The fix is to connect to the pinned
 /// <see cref="IPAddress"/> in <see cref="HostScopeDecision.Addresses"/> rather than re-resolving the
-/// host string — a transport change, and worth doing. Caching resolutions would <em>widen</em> this
-/// window, so there is no cache here and the crawler resolves per dial. <b>Do not restate this guard
-/// as airtight; it raises the cost of the attack, it does not close it.</b>
+/// host string. Caching resolutions would <em>widen</em> this window, so there is no cache here and
+/// the crawler resolves per dial. <b>Do not restate this guard as airtight; it raises the cost of the
+/// attack, it does not close it.</b>
 /// </para>
 /// <para>
-/// The range checks themselves are <see cref="AddressScope.IsGloballyRoutable"/>'s. Writing a second
-/// copy here would be two sets of rules that must agree for ever, and the day they disagree is the day
-/// one of them is wrong about <c>169.254.169.254</c>.
+/// The range checks themselves belong to <see cref="AddressScope.IsGloballyRoutable"/> — not
+/// duplicated here.
 /// </para>
 /// </remarks>
 public sealed class HostScopeGuard(IHostResolver resolver) : IHostScopeGuard
@@ -80,10 +69,9 @@ public sealed class HostScopeGuard(IHostResolver resolver) : IHostScopeGuard
     /// The explanation attached to a dial allowed by <see cref="CrawlTarget.IsOperatorSeed"/>.
     /// </summary>
     /// <remarks>
-    /// An exemption and an ordinary allow are both <see cref="HostScopeRuling.Allowed"/> because the
-    /// answer to "may we dial" is the same, but they are not the same event, and an operator reading a
-    /// log needs to see which happened. The detail carries that without a fourth ruling that every
-    /// caller would then have to handle.
+    /// An exemption and an ordinary allow are both <see cref="HostScopeRuling.Allowed"/> — the answer
+    /// to "may we dial" is the same — but an operator reading a log needs to see which happened. This
+    /// detail carries that without a fourth ruling every caller would have to handle.
     /// </remarks>
     public const string OperatorSeedDetail = "operator seed: exempt from the resolved-address gate; no lookup performed";
 
@@ -130,11 +118,9 @@ public sealed class HostScopeGuard(IHostResolver resolver) : IHostScopeGuard
     /// Rules on a registry target, honouring <see cref="CrawlTarget.IsOperatorSeed"/>.
     /// </summary>
     /// <remarks>
-    /// "Operator-supplied seeds may be exempted, and nothing else may" (§7.2). The exemption is a
-    /// stored property defaulting to <em>not</em> exempt, never inferred, and never granted by a
-    /// referral or an import — so the dangerous paths are guarded by not having to remember to guard
-    /// them. It short-circuits: there is nothing to verify about an address a human typed, and no
-    /// lookup worth making.
+    /// "Operator-supplied seeds may be exempted, and nothing else may" (§7.2) — see
+    /// <see cref="CrawlTarget.IsOperatorSeed"/>. Short-circuits: there is nothing to verify about an
+    /// address a human typed, and no lookup worth making.
     /// </remarks>
     public Task<HostScopeDecision> RuleOnAsync(CrawlTarget target, CancellationToken cancellationToken = default)
     {

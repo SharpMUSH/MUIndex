@@ -54,10 +54,8 @@ public class ArchivePolicyTests
     [Test]
     public async Task OnlyOurOwnMeasurementsEarnGrace()
     {
-        // This used to credit a third party's reachable history at half weight. The backfill
-        // contributes addresses and no history at all now (spec §7.6), so there is no such time to
-        // credit — a game found through somebody's listing starts at the floor exactly like a game
-        // found through a referral, and earns its grace by being measured here.
+        // The backfill contributes addresses only, no history (spec §7.6) — a game found through a
+        // listing starts at the floor exactly like one found through a referral.
         await Assert.That(ArchivePolicy.GraceFor(firstPartyReachable: TimeSpan.Zero))
             .IsEqualTo(ArchivePolicy.Floor);
         await Assert.That(ArchivePolicy.GraceFor(firstPartyReachable: Days(1460)).TotalDays)
@@ -67,8 +65,7 @@ public class ArchivePolicyTests
     [Test]
     public async Task ClaimingAGameEarnsTheCeilingOutright()
     {
-        // Someone with server access has staked a claim; how long we happen to have been watching
-        // stops being the question.
+        // Server access staked; how long we've watched stops being the question.
         var grace = ArchivePolicy.GraceFor(firstPartyReachable: Days(1), isClaimed: true);
 
         await Assert.That(grace).IsEqualTo(ArchivePolicy.Ceiling);

@@ -6,26 +6,11 @@ namespace MUI.Web;
 /// <c>/crawler</c> — the short URL the crawler announces to the servers it dials (spec §11).
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>It is a URL a person types off a log line</b>, having just found an unfamiliar connection from
-/// an address they did not recognise, and that is the whole argument for its existence: the string
-/// travels over TTYPE and MNES, gets copied into a mail client by hand, and is read by somebody who
-/// is mildly annoyed. <c>/about#about-crawler</c> is the honest address of the content and a poor
-/// one to retype.
-/// </para>
-/// <para>
-/// <b>A redirect rather than a page</b>, so there is one copy of what the crawler does and one place
-/// to correct it. The section it lands on is generated from <c>ProbeOptions</c> — the name we
-/// announce, the commands we send, the three ways to make us stop — and a second surface rendering
-/// the same facts is a second surface that can fall behind them.
-/// </para>
-/// <para>
-/// <b>302 and not 301</b>, unlike <see cref="FormerSlugRedirects"/>. That one implements a promise
-/// the spec makes about a URL a stranger holds, and permanence is the promise; this says only where
-/// the answer lives today. If the crawler section ever outgrows a section of <c>/about</c> and takes
-/// a page of its own, a cached permanent redirect would be a thing readers could not undo and we
-/// could not withdraw.
-/// </para>
+/// A short URL a person types off a log line after spotting an unfamiliar connection — travels over
+/// TTYPE and MNES, gets copied by hand. A redirect rather than a page keeps one copy of what the
+/// crawler does. <b>302, not 301</b>, unlike <see cref="FormerSlugRedirects"/>: this says only where
+/// the answer lives today, and a cached permanent redirect would be un-withdrawable if the crawler
+/// section ever became its own page.
 /// </remarks>
 public static class CrawlerContact
 {
@@ -39,14 +24,10 @@ public static class CrawlerContact
     {
         ArgumentNullException.ThrowIfNull(endpoints);
 
-        // HEAD as well as GET: a link checker asking whether the address we published still works is
-        // exactly the reader this route is for, and MapGet alone answers one with 405.
+        // HEAD as well as GET, for link checkers — MapGet alone answers HEAD with 405.
         endpoints.MapMethods(Path, [HttpMethods.Get, HttpMethods.Head], (HttpContext context) =>
-            // The query string travels with it, and the fragment goes last because that is where a
-            // fragment goes: ?plain=1 is a real second surface (§9), and an admin who asked for the
-            // plain rendering of the page that explains us should get it. And the locale travels
-            // with it too, for a reader who already had one: this lands on a page, and a page is a
-            // document in a language.
+            // Query string and locale both travel with the redirect; ?plain=1 is a real second
+            // surface (§9).
             TypedResults.Redirect(LocaleRouting.Link(
                 context.LocaleOf().Tag,
                 $"/about{context.Request.QueryString}#{Fragment}")));

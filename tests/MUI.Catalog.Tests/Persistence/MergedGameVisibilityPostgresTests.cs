@@ -9,18 +9,11 @@ namespace MUI.Catalog.Tests.Persistence;
 /// What a merge does to the public reads (spec §7.3, migration 0018).
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>A merge is a redirect, so this is the whole of its effect.</b> Nothing moves between the two
-/// games: the absorbed one keeps its endpoints, its fields and its history exactly where they were
-/// measured, and every public surface simply stops offering it as a separate game.
-/// </para>
-/// <para>
-/// The assertions ride the same seam the submission rule does. That rule was written once as a shared
-/// predicate after the first cut covered the six queries naming <c>game</c> directly and missed every
-/// one reaching it through <c>JOIN game g</c> — an unclaimed submission stayed off the listing and
-/// turned up in the rankings. A merge filter written per call site would repeat that exactly, so it
-/// is composed into the same constant and these tests check more than one surface on purpose.
-/// </para>
+/// A merge is a redirect — nothing moves between the two games; the absorbed one keeps its
+/// endpoints, fields and history exactly where they were measured, and every public surface simply
+/// stops offering it separately. The merge filter is composed into the same shared predicate the
+/// submission rule uses (a per-call-site filter previously missed queries reaching <c>game</c>
+/// through a join), so these tests check more than one surface on purpose.
 /// </remarks>
 public class MergedGameVisibilityPostgresTests
 {
@@ -57,8 +50,7 @@ public class MergedGameVisibilityPostgresTests
     [Test]
     public async Task AnAbsorbedGameIsNotCountedAsAListing()
     {
-        // The count and the list are separate queries and have disagreed before. A catalogue that says
-        // 418 and shows 417 is reporting a number nobody can check.
+        // The count and the list are separate queries and have disagreed before.
         await using var db = await PostgresFixture.MigratedAsync();
         var survivor = await Seed.GameAsync(db, "aardwolf-mud", "Aardwolf MUD");
         var absorbed = await Seed.GameAsync(db, "aardwolf-mud-2", "Aardwolf MUD");
@@ -71,8 +63,8 @@ public class MergedGameVisibilityPostgresTests
     [Test]
     public async Task AnAbsorbedGameKeepsEverythingItHad()
     {
-        // §7.5: nothing is ever deleted. The row, its state and its history stay exactly as measured —
-        // the merge is a pointer, and a reader who follows it back must find the game intact.
+        // §7.5: nothing is ever deleted — the merge is a pointer, and a reader who follows it back
+        // must find the game intact.
         await using var db = await PostgresFixture.MigratedAsync();
         var survivor = await Seed.GameAsync(db, "aardwolf-mud", "Aardwolf MUD");
         var absorbed = await Seed.GameAsync(db, "aardwolf-mud-2", "Aardwolf MUD");
@@ -92,8 +84,7 @@ public class MergedGameVisibilityPostgresTests
     [Test]
     public async Task ARevertedMergeGivesTheGameBackToTheListing()
     {
-        // "Reverting is clearing one pointer." If a revert did not restore the listing, reversibility
-        // would be a column nobody could act on.
+        // Reverting is clearing one pointer; the listing must reflect that.
         await using var db = await PostgresFixture.MigratedAsync();
         var survivor = await Seed.GameAsync(db, "aardwolf-mud", "Aardwolf MUD");
         var absorbed = await Seed.GameAsync(db, "aardwolf-mud-2", "Aardwolf MUD");
@@ -108,14 +99,10 @@ public class MergedGameVisibilityPostgresTests
     [Test]
     public async Task ThereIsNoRedirectOntoAPageThatIsNotPublic()
     {
-        // A 301 is cached by the reader's browser, so sending them somewhere that answers 404 is a
-        // mistake they cannot undo by reloading. FormerSlugRedirects already refuses to do it for a
-        // renamed game — "onto a page that says 'no game here'" is written in its own doc comment —
-        // and the merge redirect has to hold the same line: an unclaimed submission is not a public
-        // page, so it is not a redirect target either.
-        //
-        // It becomes one the moment somebody claims the survivor, which is why this is decided on read
-        // rather than refused at the merge.
+        // A 301 is cached by the reader's browser, so sending them to a 404 is a mistake they can't
+        // undo by reloading. An unclaimed submission is not a public page, so it's not a redirect
+        // target either — it becomes one the moment somebody claims the survivor, which is why this
+        // is decided on read rather than refused at the merge.
         await using var db = await PostgresFixture.MigratedAsync();
         var survivor = await Seed.GameAsync(db, "aardwolf-mud", "Aardwolf MUD");
         var absorbed = await Seed.GameAsync(db, "aardwolf-mud-2", "Aardwolf MUD");
@@ -162,10 +149,8 @@ public class MergedGameVisibilityPostgresTests
     public async Task AnAbsorbedGameIsNotFoundByItsOwnSlug()
     {
         // The lookup goes through the same predicate as the listing, so an absorbed game stops
-        // resolving — and that is precisely what makes the redirect load-bearing rather than a
-        // courtesy. Pinned here because MergedGamePageTests depends on it from the other side: if this
-        // ever started returning the game again, the 301 would become a redirect away from a page that
-        // works, and nothing in the web suite would notice.
+        // resolving — what makes the redirect load-bearing rather than a courtesy.
+        // MergedGamePageTests depends on this from the other side.
         await using var db = await PostgresFixture.MigratedAsync();
         var survivor = await Seed.GameAsync(db, "aardwolf-mud", "Aardwolf MUD");
         var absorbed = await Seed.GameAsync(db, "aardwolf-mud-2", "Aardwolf MUD");

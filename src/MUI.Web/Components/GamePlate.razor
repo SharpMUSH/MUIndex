@@ -3,17 +3,12 @@
 @*
     A game's face: the icon it published, where we hold one, and its monogram otherwise.
 
-    Served from this origin rather than the game's. Hot-linking would hand every reader's address,
-    user-agent and referring URL to a third-party server for a decoration — on a listing, to five
-    hundred of them at once — which is what §11 exists to prevent.
+    Served from this origin, never hot-linked — that would hand every reader's address to a
+    third-party server for a decoration (§11). A game with no icon gets no placeholder or broken
+    image: a fetch failure is our afternoon, not a fact about their game (rule 5).
 
-    A game with no icon gets no element saying so. There is no placeholder, no broken image and no
-    "logo unavailable": that we could not reach somebody's web server is a fact about our afternoon
-    and not about their game (rule 5), and the monogram is what a game with nothing declared gets
-    anyway. The two states are drawn identically on purpose.
-
-    aria-hidden on the monogram and alt="" on the image, both because the game's name is the link
-    immediately beside this — a screen reader announcing the picture as well would read it twice.
+    aria-hidden on the monogram and alt="" on the image: the game's name is the link right beside
+    this, so a screen reader announcing the picture too would read the name twice.
 *@
 
 @if (HasIcon)
@@ -38,19 +33,9 @@ else if (Fallback)
     /// Whether a game with no icon gets a monogram, or gets no element at all.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Off on the game page, per the handoff.</b> "When absent, render no element at all. No
-    /// monogram, no grey square, no initial in a circle." Two reasons, and both hold: an empty
-    /// frame on five hundred pages is noise, and a generated monogram invents a brand the game never
-    /// supplied — which on a site whose whole claim is that it publishes only what it measured is
-    /// the one kind of decoration that costs something. The title simply starts at the left edge,
-    /// and because the identity block is a flex row with a gap, the indent collapses on its own.
-    /// </para>
-    /// <para>
-    /// The parameter exists rather than the behaviour being unconditional because a surface that
-    /// needs a fixed left edge down a list of rows is a different argument from a surface showing
-    /// one game. Nothing passes it today.
-    /// </para>
+    /// Off on the game page, per the handoff: a generated monogram invents a brand the game never
+    /// supplied, which is the one kind of decoration this site's measured-only claim can't afford.
+    /// Nothing passes it today — it exists for a surface that needs a fixed left edge down a list.
     /// </remarks>
     [Parameter] public bool Fallback { get; set; }
 
@@ -58,11 +43,8 @@ else if (Fallback)
     /// The box the plate occupies, which the stylesheet fixes and this repeats on the element.
     /// </summary>
     /// <remarks>
-    /// The attributes are what reserve the space before the bytes arrive, and on a listing of five
-    /// hundred lazily-loaded images that is the difference between a page that settles and one that
-    /// reflows under the reader as they scroll. It is the box and not the image's own dimensions —
-    /// <c>object-fit: contain</c> letterboxes the artwork inside it rather than cropping it, so a
-    /// logo that is not square is still the shape its author drew.
+    /// Reserves layout space before the bytes arrive, so a listing of lazily-loaded images doesn't
+    /// reflow as the reader scrolls.
     /// </remarks>
     [Parameter] public int Size { get; set; } = 36;
 }

@@ -17,16 +17,9 @@ namespace MUI.Web.Tests.Api;
 /// The read API, running for real on a loopback port, answered by the same fixture the site uses.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A real server and not a hand-called handler, because half of what this task promises is HTTP
-/// rather than JSON: a 304 that carries no body, a 301 that survives forever, a dump that arrives
-/// chunked because it was never assembled. None of those can be asserted against a delegate.
-/// </para>
-/// <para>
-/// It builds its own host rather than booting <c>Program</c> so a test can vary configuration —
-/// slug aliases, the dataset licence — without an environment variable, and so no test project
-/// needs a package the solution does not already carry.
-/// </para>
+/// A real server, not a hand-called handler: HTTP-level facts like a bodyless 304, a permanent 301,
+/// or a chunked dump can't be asserted against a delegate. Builds its own host rather than booting
+/// <c>Program</c> so a test can vary configuration without an environment variable.
 /// </remarks>
 public sealed class ApiHost : IAsyncDisposable
 {
@@ -50,13 +43,11 @@ public sealed class ApiHost : IAsyncDisposable
     /// <summary>The API on a loopback port.</summary>
     /// <param name="settings">Configuration this host is to read, as a deployment would supply it.</param>
     /// <param name="queries">
-    /// Replaces the fixture's read side — which is how a test asserts what an endpoint <em>does
-    /// not</em> ask for, by handing it a catalogue that refuses the question.
+    /// Replaces the fixture's read side, so a test can hand it a catalogue that refuses a question.
     /// </param>
     /// <param name="services">
     /// Anything a database would have registered — the former-slug store, above all. Applied before
-    /// <c>AddMuiApi</c>, because that is the order a real host composes in: the catalogue is chosen
-    /// first and the API asks what it found.
+    /// <c>AddMuiApi</c>, matching how a real host composes.
     /// </param>
     public static async Task<ApiHost> StartAsync(
         Dictionary<string, string?>? settings = null,
@@ -77,9 +68,7 @@ public sealed class ApiHost : IAsyncDisposable
         builder.Services.AddSingleton<IAvailabilityHistory>(
             s => s.GetRequiredService<FixtureGameQueries>());
 
-        // The fixture measured nothing, so §10's series is empty here unless a test supplies one.
-        // Registered before the caller's own hook so that a test's registration is the later one and
-        // therefore the one that resolves.
+        // Registered before the caller's hook so a test's own registration is the one that resolves.
         builder.Services.AddSingleton<IPresenceSeries, FixturePresenceSeries>();
         builder.Services.AddSingleton<TimeProvider>(new FixedClock(Now));
         services?.Invoke(builder.Services);
@@ -96,8 +85,7 @@ public sealed class ApiHost : IAsyncDisposable
             .Features.Get<IServerAddressesFeature>()!
             .Addresses.First();
 
-        // Redirects are not followed: a permanent redirect from a former slug is the assertion, and
-        // a client that quietly follows it would report a 200 and prove nothing.
+        // Not followed: a redirect from a former slug is the assertion itself.
         var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
         {
             BaseAddress = new Uri(address),

@@ -4,12 +4,10 @@ namespace MUI.Discovery.Tests.Support;
 /// The registry's contract in memory: monotonic, no delete, depth only ever shrinks.
 /// </summary>
 /// <remarks>
-/// <b>Hosts are canonicalised with <see cref="CanonicalHost.Normalize"/> and then compared
-/// ordinally</b> — the same rule, in the same order, a database-backed registry has to enforce. A
-/// convenient <c>OrdinalIgnoreCase</c> dictionary here would be a fake kinder than the real thing:
-/// every test would pass while the registry minted a second target for the same machine, which is
-/// double the traffic at somebody else's server and eventually the duplicate listing §7.3 exists to
-/// prevent.
+/// <b>Hosts are canonicalised with <see cref="CanonicalHost.Normalize"/> and compared ordinally</b> —
+/// the same rule a database-backed registry has to enforce. An <c>OrdinalIgnoreCase</c> dictionary
+/// here would be a fake kinder than the real thing: tests would pass while the registry minted a
+/// second target for the same machine.
 /// </remarks>
 public sealed class InMemoryCrawlTargetRepository : ICrawlTargetRepository
 {

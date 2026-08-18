@@ -15,20 +15,12 @@ namespace MUI.Web.Accounts;
 /// Sign-in, and the endpoints WebAuthn needs on the way (spec §8.2).
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Passkeys only.</b> No passwords, no email, no federated provider — we hold a public key and the
-/// private key never leaves the operator's authenticator. What usually forces a password back into a
-/// passwordless deployment is account recovery, and it does not apply here: §8.2's recovery path is
-/// to make a new account and re-verify through the game, because the root of trust is the server the
-/// operator controls rather than the credential.
-/// </para>
-/// <para>
-/// <b>These four endpoints are the only part of this site that needs JavaScript.</b>
-/// <c>navigator.credentials</c> has no scripting-off path, and rather than let that leak outwards the
-/// boundary is drawn here: the catalogue, the game pages, the archive, plain mode and the API all
-/// work with scripting disabled, and the part that does not is the part used by people who administer
-/// a game server.
-/// </para>
+/// <b>Passkeys only</b> — no passwords, no email, no federated provider. Recovery (§8.2) is to make a
+/// new account and re-verify through the game, since the root of trust is the server the operator
+/// controls, not the credential.
+/// <b>These four endpoints are the only part of this site that needs JavaScript</b> —
+/// <c>navigator.credentials</c> has no scripting-off path, and the boundary is drawn here rather than
+/// letting it leak outward: everything else works with scripting disabled.
 /// </remarks>
 public static class Passkeys
 {
@@ -45,8 +37,7 @@ public static class Passkeys
         services
             .AddIdentityCore<MuiUser>(options =>
             {
-                // A display name, not an address. Identity's default set excludes most punctuation
-                // and it is left as-is: this name appears beside a claim on a public page.
+                // A display name, not an address — this name appears beside a claim on a public page.
                 options.User.RequireUniqueEmail = false;
             })
             .AddSignInManager()
@@ -56,31 +47,20 @@ public static class Passkeys
             s.GetRequiredService<NpgsqlDataSource>(),
             s.GetRequiredService<TimeProvider>()));
 
-        // Claiming's own two services, and both are singletons for a reason that is not tidiness.
-        //
-        // The dashboard resolves IClaimStore from the container and treats a null as "this site has
-        // no database" — so an unregistered store did not throw, it made every operator's list of
-        // claimed games empty on a site that had them. Nothing registered it, here or anywhere.
-        //
-        // ClaimService was scoped, and the crawl loop that settles beacons is a singleton
-        // BackgroundService: a scoped dependency is one CrawlCycle can never legally be given. With
-        // scope validation on — which is what `dotnet run` does — the container refused to build at
-        // all, so the site did not start with a connection string set. Both are stateless over a
-        // pooled NpgsqlDataSource, so a singleton is what they should always have been.
-        //
-        // TryAdd, because AddMuiCrawler registers the same pair for the crawl loop and this method
-        // registers it for the dashboard — one deployable calls both (§4.11), and neither may end up
-        // with a second instance or a second lifetime.
+        // Claiming's two services are singletons: both are stateless over a pooled NpgsqlDataSource,
+        // and ClaimService in particular is consumed by the crawl loop's singleton BackgroundService,
+        // which can never legally be given a scoped dependency. TryAdd because AddMuiCrawler registers
+        // the same pair for the crawl loop and this method registers it for the dashboard — one
+        // deployable calls both (§4.11), and neither may end up with a second instance or lifetime.
         services.TryAddSingleton<IClaimStore>(s => new NpgsqlClaimStore(
             s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IGameStore>(s => new NpgsqlGameStore(
             s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<ClaimService>();
 
-        // The write half of a claim (§8.5). It goes through the same reconciler the crawler's
-        // observations do, so an owner's value confirms, changes and reaches the change feed by the
-        // same code path as a measured one — and lands in a row of its own, which is what keeps the
-        // two from ever contending.
+        // The write half of a claim (§8.5), through the same reconciler the crawler's observations
+        // use — an owner's value reaches the change feed by the same code path as a measured one, but
+        // lands in a row of its own so the two never contend.
         services.AddScoped<OwnerEnrichment>(s =>
         {
             var store = new NpgsqlGameFieldStore(s.GetRequiredService<NpgsqlDataSource>());
@@ -92,35 +72,25 @@ public static class Passkeys
                 s.GetRequiredService<IFieldRegistry>(),
                 s.GetRequiredService<TimeProvider>(),
 
-                // The second half of a NAME write (§5.7): the listed name is a denormalised column
-                // and the URL minted from it is a promise to everybody holding the old one, so an
-                // owner's name is stored by the line above and applied by this one.
-                //
-                // GetRequiredService, not GetService, and this is the §8.5 lesson rather than a
-                // preference. OwnerEnrichment takes this optional because a deployment without a
-                // minter should store the name and do less — but *this* deployment has one:
-                // AddMuiCrawler registers SlugMinter and runs immediately before this method, under
-                // the same connection-string guard. Asking softly here would mean a composition
-                // mistake showed up as owners renaming their games and the URLs never moving, with
-                // nothing in any log. An optional dependency and a service-located one both fail
-                // silently when the composition is wrong, and this path already has one of each.
+                // Second half of a NAME write (§5.7): the URL minted from the name is a promise to
+                // everybody holding the old one. GetRequiredService rather than GetService — this
+                // deployment always registers SlugMinter (AddMuiCrawler, under the same
+                // connection-string guard), and asking softly here would let a composition mistake
+                // fail silently as owners renaming games with the URL never moving.
                 s.GetRequiredService<SlugMinter>());
         });
 
-        // §11's third route, wired to the dashboard rather than only to the CLI. Scoped alongside
-        // OwnerEnrichment because it asks the same question about ownership before it writes.
+        // §11's third route, wired to the dashboard rather than only to the CLI.
         services.AddScoped<OwnerOptOut>();
 
-        // The second half of that decision (migration 0025), which is only offered once the first one
-        // is standing on every address — so it takes OwnerOptOut rather than re-deriving the answer.
+        // The second half of that decision (migration 0025); takes OwnerOptOut rather than re-deriving
+        // whether every address already stands opted out.
         services.AddScoped<OwnerListing>();
 
         services.Configure<IdentityPasskeyOptions>(options =>
         {
-            // Set explicitly rather than inferred from the host header, which the ASP.NET Core docs
-            // call a credential-scoping risk. It is also the reason §15.1's open domain question has
-            // a deadline: a passkey is bound to this value, and every credential registered before
-            // the domain settles has to be registered again after it moves.
+            // Set explicitly, never inferred from the host header (a credential-scoping risk per the
+            // ASP.NET Core docs) — a passkey is bound to this value.
             options.ServerDomain = configuration["Passkeys:ServerDomain"];
             options.UserVerificationRequirement = "required";
             options.ResidentKeyRequirement = "required";
@@ -130,7 +100,6 @@ public static class Passkeys
             .AddAuthentication(IdentityConstants.ApplicationScheme)
             .AddIdentityCookies();
 
-        // Needed by the one endpoint that calls RequireAuthorization — the on-demand claim check.
         services.AddAuthorization();
 
         services.ConfigureApplicationCookie(options =>
@@ -140,9 +109,6 @@ public static class Passkeys
             options.Cookie.SameSite = SameSiteMode.Lax;
             options.SlidingExpiration = true;
 
-            // Stated rather than defaulted, because sliding expiry is only meaningful against a
-            // window somebody chose. Thirty days of not touching the site is a long absence for
-            // somebody who runs a game, and the way back in is one gesture at an authenticator.
             options.ExpireTimeSpan = TimeSpan.FromDays(30);
         });
 
@@ -152,11 +118,7 @@ public static class Passkeys
     /// <summary>
     /// The WebAuthn ceremony, as four endpoints the page's script calls in order.
     /// </summary>
-    /// <remarks>
-    /// Minimal APIs rather than Razor handlers because the browser talks JSON here: the options go
-    /// out as the shapes <c>PublicKeyCredential.parseCreationOptionsFromJSON</c> expects, and the
-    /// credential comes back as the shape <c>PerformPasskeyAttestationAsync</c> reads.
-    /// </remarks>
+    /// <remarks>Minimal APIs rather than Razor handlers: the browser talks JSON here, matching the shapes WebAuthn's JS API expects.</remarks>
     public static void MapMuiAccounts(this WebApplication app)
     {
         ArgumentNullException.ThrowIfNull(app);
@@ -169,9 +131,8 @@ public static class Passkeys
             SignInManager<MuiUser> signIn,
             string? name) =>
         {
-            // Two arms, and the difference is who is asking. A signed-in operator is adding a second
-            // credential to the account they have; anybody else is creating one, and the account does
-            // not exist until the credential comes back verified — so nothing is written here.
+            // A signed-in operator is adding a second credential to their account; anybody else is
+            // creating one, and the account does not exist until the credential comes back verified.
             var user = await users.GetUserAsync(context.User);
 
             var entity = user is not null
@@ -187,11 +148,9 @@ public static class Passkeys
                 await signIn.MakePasskeyCreationOptionsAsync(entity),
                 contentType: "application/json");
 
-            // Everything the account will be called and known by, decided here and nowhere else.
-            // `register` reads both back off the attestation rather than deciding either again: the
-            // id because the authenticator makes it permanent the moment it writes the credential,
-            // and the name because Naming.Clean invents one for a blank field — so a second call
-            // would name the account something the person registering it was never shown.
+            // Id and name are decided here and nowhere else; `register` reads both back off the
+            // attestation rather than deciding either again, since the authenticator makes the id
+            // permanent the moment it writes the credential.
             static PasskeyUserEntity NewAccount(string? name)
             {
                 var chosen = Naming.Clean(name);
@@ -223,22 +182,11 @@ public static class Passkeys
 
             if (user is null)
             {
-                // The account is created here, at the moment a credential exists to reach it with.
-                // Creating it earlier would leave unreachable accounts behind every abandoned
-                // registration.
-                //
-                // Under the id from the attestation, and this is the whole of the bug that shipped.
-                // MuiUser mints its own v7 GUID, so the account was created under an identifier the
-                // authenticator had never been told, while the credential kept the one issued at
-                // registration-options. Registration still succeeded — it signs the operator in
-                // itself and never asks who the credential says they are — and sign-in could not,
-                // ever: a discoverable credential is resolved by FindByIdAsync(userHandle), and no
-                // row had that id. It read as "works until the server restarts", because a restart
-                // is the first thing that makes anybody use the door instead of the cookie.
-                //
-                // The value is ours: minted at registration-options, carried in Identity's
-                // data-protected attestation state, and never through the browser. TryParse rather
-                // than Parse only because it comes back as a string.
+                // Created here, at the moment a credential exists to reach it with — and, critically,
+                // under the id from the attestation, not a freshly minted GUID. A discoverable
+                // credential is resolved later by FindByIdAsync(userHandle); minting a different id
+                // here leaves no row the credential's handle can ever find, and the failure is silent
+                // until the very next sign-in attempt. TryParse because the id comes back as a string.
                 if (!Guid.TryParse(attestation.UserEntity.Id, out var handle))
                 {
                     return Results.BadRequest("That passkey could not be registered.");
@@ -273,9 +221,8 @@ public static class Passkeys
 
         accounts.MapPost("/passkey/assertion-options", async (SignInManager<MuiUser> signIn) =>
             TypedResults.Content(
-                // No user, so the browser offers whatever discoverable credential it holds for this
-                // domain. That is what makes sign-in a single click with nothing typed first, and it
-                // is why ResidentKeyRequirement is "required" at registration.
+                // No user: the browser offers whatever discoverable credential it holds for this
+                // domain, which is why ResidentKeyRequirement is "required" at registration.
                 await signIn.MakePasskeyRequestOptionsAsync(user: null),
                 contentType: "application/json"));
 
@@ -283,14 +230,10 @@ public static class Passkeys
             SignInManager<MuiUser> signIn,
             PasskeySubmission submission) =>
         {
-            // Asserted and then signed in, rather than PasskeySignInAsync, for one reason: that
-            // method has no isPersistent and issues a session cookie. So registering left a lasting
-            // session and *signing in* did not — an operator who came back was signed out by
-            // closing the window, while SlidingExpiration slid something that was already gone.
-            // Two doors into one account should not disagree about how long it stays open, and the
-            // one that lasts is right: §8.2 argues this account is worth almost nothing to steal,
-            // and the alternative is asking somebody who administers a game server to redo a
-            // WebAuthn ceremony every time they close a tab.
+            // Asserted and then signed in explicitly, rather than PasskeySignInAsync — that method has
+            // no isPersistent and issues only a session cookie, which would make sign-in expire on
+            // tab close while registration granted a lasting session. Both doors into one account
+            // must agree on how long it stays open.
             var assertion = await signIn.PerformPasskeyAssertionAsync(submission.Credential);
 
             if (!assertion.Succeeded)
@@ -305,17 +248,13 @@ public static class Passkeys
 
         // §8.1's on-demand check. It does not dial anything itself — it brings the game's crawl
         // targets forward and the crawler's own loop does the dialling, under CRAWL DELAY and §7.2's
-        // address gate. Keeping the two apart is what stops a button on a public page becoming a way
-        // to make us connect to a stranger's server on demand: the rate limit is per claim, and a
-        // claim cannot exist for a game nobody has been offered.
+        // address gate. Keeping the two apart stops a public-page button becoming a way to make us
+        // connect to a stranger's server on demand: the rate limit is per claim, and a claim can't
+        // exist for a game nobody has been offered. See ClaimService.RequestCheckAsync.
         //
-        // For as long as this existed it moved nothing at all — due-ness comes only from
-        // crawl_target.next_probe_at, and this wrote last_checked_at and an audit event. See
-        // ClaimService.RequestCheckAsync and IOnDemandProbes.
-        //
-        // IGameStore rather than IGameQueries, for the reason Claim.razor is: a submitted game is
-        // hidden from every public read until it is claimed (migration 0010), and asking the public
-        // read here would make the on-demand check the second thing a hidden game could not do.
+        // IGameStore, not IGameQueries: a submitted game is hidden from every public read until
+        // claimed (migration 0010), and the public read would make this the second thing a hidden
+        // game couldn't do.
         app.MapPost("/g/{slug}/claim/check", async (
             HttpContext context,
             UserManager<MuiUser> users,
@@ -348,8 +287,7 @@ public static class Passkeys
         {
             await signIn.SignOutAsync();
 
-            // The front page in the language they were reading, and not the English one: signing
-            // out is not a request to change language.
+            // The front page in the language they were reading — signing out is not a language change.
             return Results.Redirect(LocaleRouting.Link(context.LocaleOf().Tag, "/"));
         });
 
@@ -363,22 +301,13 @@ public static class Passkeys
     /// <summary>
     /// What the page posts back after the authenticator has answered.
     /// </summary>
-    /// <remarks>
-    /// The credential and nothing else. It carried the typed name as well, and that field was the
-    /// second half of the user-handle defect in miniature: a value the ceremony had already fixed,
-    /// offered again by the browser, and read in preference to the one the authenticator was shown.
-    /// The name belongs to <c>registration-options</c>, which is where the entity is built.
-    /// </remarks>
+    /// <remarks>The credential and nothing else — the name belongs to <c>registration-options</c>, where the entity is built, not to a value re-typed and trusted here.</remarks>
     public sealed record PasskeySubmission(string Credential);
 
     /// <summary>
     /// A display name is a label, and this is the whole of what we do to one.
     /// </summary>
-    /// <remarks>
-    /// Bounded and trimmed, with a default rather than a rejection: somebody registering a passkey
-    /// has already done the hard part, and refusing them over a blank field would be a poor moment to
-    /// start being strict. It is never treated as a claim about who anybody is.
-    /// </remarks>
+    /// <remarks>Bounded and trimmed, with a default rather than a rejection for a blank field. Never treated as a claim about who anybody is.</remarks>
     private static class Naming
     {
         private const int MaxLength = 40;

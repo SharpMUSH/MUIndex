@@ -55,8 +55,8 @@ public static class SqlEnums
     };
 
     /// <summary>
-    /// The channel a claim token was read from (spec §8.3). DNS is absent from the enum, not merely
-    /// unmapped here — a TXT record proves control of a hostname, and a hostname is not a game.
+    /// The channel a claim token was read from (spec §8.3). DNS is absent from the enum itself — a
+    /// TXT record proves control of a hostname, not of a game.
     /// </summary>
     public static string ToDb(ProbePayloadKind kind) => kind switch
     {

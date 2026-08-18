@@ -8,16 +8,9 @@ namespace MUI.Web.Tests;
 /// What an image's own header says it is (spec §8.5, icons).
 /// </summary>
 /// <remarks>
-/// <para>
-/// The bytes here are assembled rather than loaded from files, and the four builders below are the
-/// interesting part of the suite: a fixture <c>logo.png</c> proves the parser reads <em>that file</em>,
-/// and says nothing about the layout it is supposed to know. Assembling one puts the format's own
-/// rules in the test, where a reader can check them against the specification.
-/// </para>
-/// <para>
-/// Every negative case matters more than the positive ones. This code reads bytes fetched from a URL
-/// somebody else controls, so "what does it do with something that is not an image" is the question.
-/// </para>
+/// Bytes are assembled rather than loaded from files, so the format's own rules are visible in the
+/// test rather than hidden in a fixture. Every negative case matters more than the positive ones:
+/// this code reads bytes fetched from a URL somebody else controls.
 /// </remarks>
 public class ImageHeaderTests
 {
@@ -71,11 +64,7 @@ public class ImageHeaderTests
     /// <summary>
     /// SVG is not an image this site will serve, however much it looks like one.
     /// </summary>
-    /// <remarks>
-    /// It is a document that can carry script. Served from our own origin it is a cross-site
-    /// scripting hole with an image tag in front of it, and no size ceiling or content-type header
-    /// changes that.
-    /// </remarks>
+    /// <remarks>SVG is a document that can carry script — served from our own origin it's an XSS hole with an image tag in front of it.</remarks>
     [Test]
     public async Task AnSvgIsNotAnImageWeWillServe()
     {
@@ -92,11 +81,7 @@ public class ImageHeaderTests
     /// <summary>
     /// Nothing here throws, whatever it is handed.
     /// </summary>
-    /// <remarks>
-    /// The input is a response body from a URL a stranger chose, so every one of these is a real
-    /// case rather than a defensive gesture: empty, truncated mid-header, a plausible signature with
-    /// nothing behind it, and a file whose declared segment length would walk the reader off the end.
-    /// </remarks>
+    /// <remarks>The input is a response body from an attacker-chosen URL, so each of these is a real case: empty, truncated mid-header, a plausible signature with nothing behind it, a declared segment length that would walk off the end.</remarks>
     [Test]
     public async Task NothingUnreadableIsAcceptedAndNothingThrows()
     {
@@ -155,7 +140,7 @@ public class ImageHeaderTests
     {
         var bytes = new List<byte> { 0xFF, 0xD8 };
 
-        // An APP0 segment of length 4 — two bytes of length and two of payload — then SOF0.
+        // APP0 segment of length 4, then SOF0.
         bytes.AddRange([0xFF, 0xE0, 0x00, 0x04, 0x00, 0x00]);
         bytes.AddRange([0xFF, 0xC0, 0x00, 0x11, 0x08]);
         bytes.AddRange([(byte)(height >> 8), (byte)height, (byte)(width >> 8), (byte)width]);

@@ -1,33 +1,22 @@
 @*
-    A game's own name, isolated from the layout around it.
+    A game's own name, isolated from the layout around it (i18n B2).
 
-    Two attributes and one element, and all three are doing work (i18n B2):
+    `<bdi>` isolates user-supplied text of unknown direction from a fixed-direction layout — without
+    it, an Arabic name and the neutral characters beside it renegotiate order with the count in the
+    next cell, and the row comes apart. `dir` keeps the name RTL inside its own box while the row
+    stays LTR.
 
-    `<bdi>` is the element designed for user-supplied text of unknown direction inside a
-    fixed-direction layout, and it is why an Arabic game name cannot drag the count in the next cell
-    to the wrong side of the row. Without it the name, the neutral characters beside it and the
-    number renegotiate order as one bidirectional run, and the row comes apart. With it the name
-    reads right-to-left *inside its own box* while the row stays left-to-right — which is the whole
-    of "RTL text, LTR layout" and needs no mirrored stylesheet.
+    `lang` gives a screen reader the right voice (so 北大侠客行 is read as Chinese, not attempted
+    with English phonetics) and selects between regional Han font forms. Set only where the script
+    settles it — see NameScript.
 
-    `lang` gives a screen reader the right voice, so 北大侠客行 is pronounced as Chinese instead of
-    attempted with English phonetics, and it is what selects between the regional Han forms a font
-    draws. It is set only where the script settles it; see NameScript for the cases it refuses.
-
-    `translate="no"` is not here on purpose. A game's name is its name and a browser's page
-    translator should leave it alone — but that is the machine voice's rule, and the name is the one
-    game-supplied string a reader might legitimately want transliterated. The strings that carry it
-    are the ones where translation destroys evidence: hostnames, codebase strings, versions,
-    protocol acronyms and connect-screen output.
+    `translate="no"` is deliberately absent: a game's name is the one game-supplied string a reader
+    might legitimately want transliterated, unlike hostnames, codebase strings or protocol acronyms.
 *@
 
 @if (Ascii)
 {
-    @*
-        Pure ASCII, which is most of the catalogue: no element and no attributes. The page's own
-        lang already describes it, and five hundred rows repeating that is the duplication this
-        whole pass exists to remove.
-    *@
+    @* Pure ASCII, most of the catalogue: no element, no attributes — the page's own lang covers it. *@
     @Name
 }
 else

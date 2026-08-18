@@ -18,14 +18,10 @@ public enum UnmeasurableReason
     /// character name.
     /// </summary>
     /// <remarks>
-    /// <b>Split out of <see cref="WhoUnparseable"/>, which it had been hiding inside.</b> The two
-    /// look identical on the heatmap — both are the hatched, probed-but-uncountable cell — and they
-    /// are opposite facts to whoever reads the reason. <c>who_unparseable</c> is a parser of ours
-    /// that met a dialect it could not read, and every one of them is a defect with a fix.
-    /// <c>who_login_prompt</c> is a game with no pre-login <c>WHO</c> at all: <c>WHO</c> went in as a
-    /// character name and <c>Illegal name, try again.</c> came back, and no amount of parser work
-    /// will ever produce a count from it. Of 107 stored payloads read on 2026-08-17, 43 were this
-    /// — filed as our backlog while being a property of the DIKU login screen.
+    /// Split out of <see cref="WhoUnparseable"/>: the two render as the same hatched cell but mean
+    /// opposite things. <c>who_unparseable</c> is our parser failing on a readable dialect — a defect
+    /// with a fix. <c>who_login_prompt</c> is a game with no pre-login <c>WHO</c> at all, which no
+    /// parser work will ever fix.
     /// </remarks>
     WhoLoginPrompt,
 
@@ -36,14 +32,10 @@ public enum UnmeasurableReason
     /// The game is on Intermud-3, is up, advertises <c>who</c>, was asked — and said nothing.
     /// </summary>
     /// <remarks>
-    /// <b>Silence is not zero.</b> An empty <c>users</c> array is a mud answering that nobody is on,
-    /// which is a measured zero and a filled cell; no answer at all is the middle state of §5.4 and
-    /// has to say so. The two arrive down the same pipe and look alike in a debugger, which is
-    /// exactly why they are different values here.
-    ///
-    /// There is no sibling reason for a mud that does not advertise <c>who</c>, because we never ask
-    /// those and so write no row: not asking is a decision of ours about our manners, and §5.5 says a
-    /// decision of ours is never recorded as a measurement of theirs.
+    /// Silence is not zero: an empty <c>users</c> array is a measured zero, no answer at all is the
+    /// unmeasurable middle state (§5.4). No sibling reason exists for a mud that doesn't advertise
+    /// <c>who</c> — we never ask, so we write no row; §5.5 forbids recording our own choice not to
+    /// ask as a fact about them.
     /// </remarks>
     I3NoReply,
 }
@@ -85,9 +77,8 @@ public sealed record PresenceSample
 
     /// <summary>An uncountable sample that names the pipe it failed on.</summary>
     /// <remarks>
-    /// The overload above answers <see cref="FieldSource.Who"/> because for years there was one pipe
-    /// and an uncountable row came off it by definition. There are two now, and I3 silence stored as
-    /// <c>who</c> would say a game failed to answer a telnet command nobody sent it (§5.5).
+    /// The overload above defaults to <see cref="FieldSource.Who"/> for the one-pipe case; storing an
+    /// I3 silence as <c>who</c> would misattribute it to a command nobody sent (§5.5).
     /// </remarks>
     public static PresenceSample Unmeasurable(
         Guid gameId,
@@ -101,23 +92,11 @@ public sealed record PresenceSample
 /// Derived distributions that never contain a player name (spec §11).
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>There is no unique-player estimate here, and there is not going to be one.</b> §11 once
-/// promised one, on the strength of salted hashes with a rotating salt. The arithmetic does not
-/// survive contact with the hobby: a player who renames — which every platform this site indexes
-/// allows, and which MU* culture actively encourages — hashes to two values inside one epoch and is
-/// counted twice. The overcount is unbounded and, worse, uncorrectable in principle, because
-/// correcting it needs exactly the identity linkage across names that the salt existed to prevent.
-/// </para>
-/// <para>
-/// A number like that published as a count of players would be our parser's limitation printed as a
-/// fact about somebody's playerbase, which is rule 5. It was never produced — no probe ever built
-/// one of these — so nothing measured was lost in removing it.
-/// </para>
-/// <para>
-/// What remains is derived from <em>times</em> rather than from identities, which is why it survives
-/// the same argument.
-/// </para>
+/// <b>There is no unique-player estimate here, and there is not going to be one.</b> A player who
+/// renames hashes to two salted values inside one epoch and is counted twice — an overcount that is
+/// uncorrectable in principle, since fixing it needs the identity linkage the salt exists to prevent.
+/// Publishing such a number would be our parser's limitation printed as a fact about someone's
+/// playerbase (rule 5). What remains here is derived from times, not identities.
 /// </remarks>
 public sealed record PresenceAggregates
 {
@@ -172,15 +151,7 @@ public sealed record PresenceReading(
     public static PresenceReading Unmeasurable(UnmeasurableReason reason) =>
         new(null, FieldSource.Who, reason);
 
-    /// <summary>
-    /// An unmeasurable reading that names the pipe it failed on.
-    /// </summary>
-    /// <remarks>
-    /// The parameterless overload above answers with <see cref="FieldSource.Who"/> because for years
-    /// there was one pipe and a row with no count came off it by definition. There are two now, and
-    /// an I3 silence stored as <c>who</c> would say a game did not answer a telnet command nobody
-    /// sent it — our own confusion, written into their record, which is exactly what §5.5 forbids.
-    /// </remarks>
+    /// <summary>An unmeasurable reading that names the pipe it failed on.</summary>
     public static PresenceReading Unmeasurable(UnmeasurableReason reason, FieldSource source) =>
         new(null, source, reason);
 }

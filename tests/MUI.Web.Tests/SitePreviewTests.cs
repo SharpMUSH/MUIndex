@@ -4,27 +4,18 @@ namespace MUI.Web.Tests;
 /// What a link to this site looks like everywhere that is not this site.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A game page is shared far more often than it is browsed to, and every one of those shares is
-/// rendered by somebody else's unfurler from the head of the document. That makes the head a
-/// <em>surface</em> in the sense spec §9 means it, and the five rules reach into it exactly as they
-/// reach into the page: a preview that quotes a count without its age has published an unlabelled
-/// fact, and a preview that says "0 players" for a game we could not count has fabricated one.
-/// </para>
-/// <para>
-/// It is also the surface where the demo banner cannot follow. <c>MainLayout</c> writes "nothing
-/// here was measured" into the body, and no unfurler renders the body — so the fixture has to say
-/// so in the metadata itself or not at all.
-/// </para>
+/// A game page is shared far more than it's browsed to, rendered by somebody else's unfurler from
+/// the head alone — so the five rules reach into the head exactly as they reach into the page (an
+/// unlabelled count, a fabricated zero). The demo banner also can't follow: <c>MainLayout</c> writes
+/// it into the body, which no unfurler renders, so the fixture has to say so in the metadata itself.
 /// </remarks>
 public class SitePreviewTests
 {
     [Test]
     public async Task ACanonicalUrlDropsTheQueryThatDidNotChangeTheDocument()
     {
-        // ?plain=1 is the same document rendered for a text browser, and a facet permutation is a
-        // question about the listing rather than a second page. Both would otherwise present a
-        // search engine with an unbounded supply of near-duplicate URLs for one document.
+        // Both are the same document, not a second page — otherwise a search engine sees unbounded
+        // near-duplicate URLs.
         await using var site = await SiteHost.StartAsync();
 
         var body = await site.Client.GetStringAsync("/g/m-u-s-h?plain=1");
@@ -39,8 +30,7 @@ public class SitePreviewTests
     [Test]
     public async Task ThePreviewUrlIsAbsoluteAndSoIsTheImage()
     {
-        // An unfurler has no base to resolve a relative path against; it has the URL it was handed
-        // and the bytes at the end of it. A relative og:image is simply not fetched.
+        // An unfurler has no base to resolve a relative path against; a relative og:image is simply not fetched.
         await using var site = await SiteHost.StartAsync();
 
         var body = await site.Client.GetStringAsync("/g/m-u-s-h");
@@ -53,9 +43,7 @@ public class SitePreviewTests
     [Test]
     public async Task AGameDescriptionQuotesItsCountWithTheAgeOfTheMeasurement()
     {
-        // Rule 1, in the one place there is no room for a chip: the number and how old it is travel
-        // together or the number does not travel. M*U*S*H answers a pre-login WHO four minutes
-        // before the fixture's clock.
+        // Rule 1, with no room for a chip: the number and its age travel together or the number doesn't travel.
         await using var site = await SiteHost.StartAsync(
             measured: true, clock: FixedClock.AtFixtureNow());
 
@@ -70,9 +58,7 @@ public class SitePreviewTests
     [Test]
     public async Task ACountAGameDeclaredIsNotDescribedAsOneWeMeasured()
     {
-        // Ashen Court publishes PLAYERS in MSSP and answers no pre-login WHO. Calling that
-        // "measured" in a preview is rule 5's failure in miniature — our inability to check it,
-        // republished as a fact we established.
+        // Declared via MSSP, not measured by us — calling it "measured" would be rule 5's failure.
         await using var site = await SiteHost.StartAsync(
             measured: true, clock: FixedClock.AtFixtureNow());
 
@@ -87,8 +73,8 @@ public class SitePreviewTests
     [Test]
     public async Task AGameWhoseCountCannotBeReadIsNotDescribedAsEmpty()
     {
-        // Rule 4. Midnight Sun answers and nothing in the answer is countable; the honest preview
-        // omits the number rather than rounding our parser's limit down to zero players.
+        // Rule 4: nothing in the answer is countable, so the honest preview omits the number rather
+        // than rounding our parser's limit down to zero.
         await using var site = await SiteHost.StartAsync(measured: true);
 
         var body = await site.Client.GetStringAsync("/g/midnight-sun");
@@ -101,8 +87,7 @@ public class SitePreviewTests
     [Test]
     public async Task AMeasuredZeroIsACountAndIsPublished()
     {
-        // The other half of rule 4, so omitting the unknown case does not quietly swallow the
-        // measured one. We got into Eldertale and nobody was there; that is a fact about the game.
+        // The other half of rule 4: a measured zero is a fact about the game and must still publish.
         await using var site = await SiteHost.StartAsync(measured: true);
 
         var body = await site.Client.GetStringAsync("/g/eldertale");
@@ -113,10 +98,8 @@ public class SitePreviewTests
     [Test]
     public async Task TheFixtureSaysSoInTheMetadataBecauseTheBannerCannotReachThere()
     {
-        // The demo banner is body copy and an unfurler renders none of the body. Without this, a
-        // pasted demo link is indistinguishable from a measured one in the one context where the
-        // reader has the least ability to check — which is the mechanism this project exists to
-        // replace, reproduced.
+        // The demo banner is body copy that no unfurler renders; without this, a pasted demo link is
+        // indistinguishable from a measured one in the context where a reader can least check.
         await using var site = await SiteHost.StartAsync();
 
         var body = await site.Client.GetStringAsync("/g/m-u-s-h");
@@ -128,8 +111,7 @@ public class SitePreviewTests
     [Test]
     public async Task NoStructuredDataIsPublishedOverTheFixture()
     {
-        // JSON-LD is read by machines that will not read the disclaimer beside it, so there is no
-        // way to ship it honestly from invented data. Absent is the only correct answer.
+        // JSON-LD is read by machines that won't read the disclaimer beside it, so absent is the only honest answer over invented data.
         await using var site = await SiteHost.StartAsync();
 
         var body = await site.Client.GetStringAsync("/g/m-u-s-h");
@@ -153,9 +135,7 @@ public class SitePreviewTests
     [Test]
     public async Task EveryIconTheHeadNamesIsActuallyServed()
     {
-        // A head that names a file nobody shipped is a broken tab icon and a broken home-screen
-        // install, and neither shows up in any other test. Reading the paths off the document
-        // rather than restating them here is what keeps this from rotting the day one is renamed.
+        // Reads paths off the document rather than restating them, so this doesn't rot the day one is renamed.
         await using var site = await SiteHost.StartAsync();
 
         var body = await site.Client.GetStringAsync("/");
@@ -178,8 +158,7 @@ public class SitePreviewTests
     [Test]
     public async Task TheHeadColoursTheBrowserChromeForBothThemes()
     {
-        // The stylesheet's whole position is that neither theme is the real one. A single
-        // theme-color would hand mobile Safari one of them as the truth.
+        // Neither theme is "the real one"; a single theme-color would hand mobile Safari one as the truth.
         await using var site = await SiteHost.StartAsync();
 
         var body = await site.Client.GetStringAsync("/");
@@ -192,8 +171,7 @@ public class SitePreviewTests
     [Test]
     public async Task EveryIconTheManifestNamesIsServedToo()
     {
-        // The manifest is a second list of the same files, read by a different consumer, and
-        // nothing else in the suite opens it.
+        // A second list of the same files, read by a different consumer.
         await using var site = await SiteHost.StartAsync();
 
         var manifest = await site.Client.GetStringAsync("/site.webmanifest");
@@ -217,8 +195,7 @@ public class SitePreviewTests
     [Test]
     public async Task EveryPageHasADescriptionOfItsOwn()
     {
-        // A description repeated across a site is one a search engine discards, and a page with
-        // none is summarised from whatever text happens to be first in the body.
+        // A repeated description is one a search engine discards.
         await using var site = await SiteHost.StartAsync();
 
         string[] paths = ["/", "/games", "/archive", "/rankings", "/reference", "/ecosystem", "/about"];
@@ -239,9 +216,8 @@ public class SitePreviewTests
     [Test]
     public async Task BehindATrustedProxyTheCanonicalUrlKeepsTheSchemeTheReaderUsed()
     {
-        // The site terminates plain HTTP behind something that terminated TLS, so Request.Scheme is
-        // http and every absolute URL it generates — canonical, og:url, the sitemap, the RSS feed's
-        // own self-link — names a scheme the reader did not use and some consumers will not follow.
+        // Behind TLS termination, Request.Scheme is http, so absolute URLs would otherwise name a
+        // scheme the reader didn't use.
         await using var site = await SiteHost.StartAsync(
             new Dictionary<string, string?> { ["Submissions:TrustedProxyHops"] = "1" });
 
@@ -257,8 +233,8 @@ public class SitePreviewTests
     [Test]
     public async Task AForwardedSchemeNobodyVouchedForIsIgnored()
     {
-        // The same rule the submitter address is under: a header is trusted because a deployment
-        // said how many proxies are in front of it, never because it arrived.
+        // Same rule as the submitter address: a header is trusted because the deployment configured
+        // it, never because it arrived.
         await using var site = await SiteHost.StartAsync();
 
         using var request = new HttpRequestMessage(HttpMethod.Get, "/g/m-u-s-h");

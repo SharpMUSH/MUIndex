@@ -7,27 +7,21 @@ namespace MUI.Web.Components;
 /// The listing's own URL, rewritten one parameter at a time.
 /// </summary>
 /// <remarks>
+/// The querystring is the whole of this page's state, so every non-form affordance is a link to the
+/// same URL with one parameter changed — rewritten here once so callers agree about repeated
+/// parameters, comma-separated values and escaping.
 /// <para>
-/// The querystring is the whole of this page's state, so every affordance that is not a form control
-/// — read this as plain text, surprise me, stop asking for Evennia — is a link to the same URL with
-/// one parameter changed. That rewriting is here, once, rather than in each page that needs it: the
-/// listing already carried a private copy for the plain-text link, and the moment a second caller
-/// wanted "the same query without this facet" the two would have had to agree about repeated
-/// parameters, comma-separated values and escaping without ever being compared.
-/// </para>
-/// <para>
-/// Both return a querystring — leading <c>?</c> or empty — and never a path, because the callers
-/// point at three different ones (<c>/games</c>, <c>/games/random</c>, and the page itself).
+/// Both return a querystring — leading <c>?</c> or empty — and never a path, because callers point
+/// at three different ones (<c>/games</c>, <c>/games/random</c>, and the page itself).
 /// </para>
 /// </remarks>
 public static class ListingLinks
 {
     /// <summary>The same query with one parameter set, replaced, or — on a null value — removed.</summary>
     /// <remarks>
-    /// A parameter's aliases go with it. <c>codebase-family</c> is the old spelling of
-    /// <c>codebase</c> and both bind to one filter, so rewriting the one and leaving the other would
-    /// make a chip's remove-link a no-op for exactly the readers who arrived from a codebase
-    /// reference page — the query would still carry the value the chip said it had dropped.
+    /// A parameter's aliases go with it: <c>codebase-family</c> is the old spelling of
+    /// <c>codebase</c>, so rewriting one and leaving the other would make a chip's remove-link a
+    /// no-op for readers who arrived via the old spelling.
     /// </remarks>
     public static string With(string? query, string name, string? value)
     {
@@ -48,11 +42,9 @@ public static class ListingLinks
     /// The same query with one facet's selection dropped — the whole parameter, or one value of it.
     /// </summary>
     /// <remarks>
-    /// A presence facet is repeatable <em>and</em> comma-separated, because both are what people
-    /// type (see <c>GameFilterBinding.Protocols</c>), so removing one protocol from
-    /// <c>?protocol=GMCP,MSSP</c> has to rewrite the value rather than delete the parameter. Dropping
-    /// the parameter would silently take MSSP off the query as well, and the chip the reader clicked
-    /// said nothing about MSSP.
+    /// A presence facet is repeatable and comma-separated, so removing one protocol from
+    /// <c>?protocol=GMCP,MSSP</c> has to rewrite the value, not delete the parameter — deleting it
+    /// would silently drop MSSP too, which the reader never asked for.
     /// </remarks>
     public static string Without(string? query, string name, string? value)
     {
@@ -87,10 +79,8 @@ public static class ListingLinks
 
     /// <summary>Every spelling of one parameter, so setting or clearing it clears them all.</summary>
     /// <remarks>
-    /// Symmetric, because an alias that only works in one direction is not an alias. Naming the old
-    /// spelling used to clear only the old spelling and leave the canonical one applied — unreachable
-    /// from the panel, which never rewrites a key it does not draw a facet for, and exactly the shape
-    /// that stops being unreachable the first time something else calls this.
+    /// Symmetric, because a one-directional alias isn't an alias: naming the old spelling used to
+    /// clear only the old spelling and leave the canonical one applied.
     /// </remarks>
     private static IReadOnlyList<string> Names(string name) =>
         string.Equals(name, FacetKeys.Codebase, StringComparison.OrdinalIgnoreCase)

@@ -76,9 +76,8 @@ public class IdentityMatcherTests
         // 0.60 + 0.50 = 1.10. This is the known-move shape, and it is the reason the two weights add to
         // more than the threshold rather than exactly to it.
         var world = new IdentityWorld();
-        // Long enough to be a connect screen rather than a colour prompt (BannerFingerprint
-        // .MinimumIdentifyingLength). The 33-character version this used to carry was shorter than any
-        // screen in the live catalogue, which is how a fixture comes to agree with a bug.
+        // Long enough to be a connect screen rather than a colour prompt (see
+        // BannerFingerprint.MinimumIdentifyingLength).
         const string banner = "Welcome to Corvid.\nA place for slow stories.\nType 'connect'.";
         var corvid = await world.GameAsync(
             (IdentityFields.Name, "Corvid"),
@@ -203,14 +202,9 @@ public class IdentityMatcherTests
     [Test]
     public async Task AnOwnerCannotTypeTheirGameIntoAnotherGamesFingerprint()
     {
-        // The hazard §8.5's widened writable set introduces, and the reason this test exists before
-        // that set widens. Owner outranks Mssp in FieldPrecedence — correctly, for a page, where an
-        // owner's answer about their own game is the one to show. Scored here it would let anybody
-        // with a verified claim type NAME and CREATED to match a game they have nothing to do with,
-        // and §7.3 merges above threshold.
-        //
-        // De-duplication asks which host is which game. A person's typing is not evidence in that
-        // question, however true it happens to be.
+        // Owner outranks Mssp in FieldPrecedence for display, but scored here it would let anybody
+        // with a verified claim type NAME/CREATED to match a game they have nothing to do with and
+        // trigger an unreviewable merge (see StoredAsync in src/MUI.Discovery/IdentityMatcher.cs).
         var world = new IdentityWorld();
         var impostor = await world.GameAsync((IdentityFields.Name, "Something Else"));
 
@@ -230,11 +224,9 @@ public class IdentityMatcherTests
     [Test]
     public async Task ABareIpResolvingToAKnownHostnameMergesOnceAnyOtherSignalFoundTheCandidate()
     {
-        // The I3 shadow-game shape: nightfall.org is on record and its only other trace on the wire is
-        // WEBSITE — on its own worth only a review (0.40). WEBSITE is one of the fields GatherAsync
-        // actually reverse-looks-up, so it is what finds the candidate at all; ResolvedEndpoint then
-        // corroborates on its own strength (1.00), exactly as Endpoint would if the address had matched
-        // literally instead of by resolution.
+        // The I3 shadow-game shape: nightfall.org is on record, and WEBSITE is its only other trace
+        // on the wire (worth just a review on its own). ResolvedEndpoint then corroborates at full
+        // strength, exactly as Endpoint would for a literal match.
         var world = new IdentityWorld { Resolver = new FakeHostResolver().Resolving("nightfall.org", "45.79.224.33") };
         var nightfall = await world.GameAsync((IdentityFields.Website, "https://nightfall.example"));
         await world.EndpointAsync(nightfall, "nightfall.org", 4201);
@@ -255,10 +247,8 @@ public class IdentityMatcherTests
     [Test]
     public async Task ABareIpWithNoOtherEvidenceAtAllGathersNoCandidateEvenWithAResolverWired()
     {
-        // ResolvedEndpoint corroborates a candidate CandidatesAsync already found; it is not itself a
-        // gathering step, deliberately — resolving every listed game's hostname against a bare IP that
-        // matched nothing else would be an unbounded DNS fan-out per probe, and it would let a stranger
-        // reach an existing game with no textual evidence in common at all.
+        // ResolvedEndpoint only corroborates a candidate CandidatesAsync already found; it never
+        // gathers on its own, or a bare IP matching nothing else would trigger unbounded DNS fan-out.
         var world = new IdentityWorld { Resolver = new FakeHostResolver().Resolving("nightfall.org", "45.79.224.33") };
         var nightfall = await world.GameAsync();
         await world.EndpointAsync(nightfall, "nightfall.org", 4201);
@@ -317,11 +307,8 @@ public class IdentityMatcherTests
     }
 
     /// <summary>
-    /// CodeRabbit's finding on PR #108: a candidate's hostname failing to resolve — a timeout, a
-    /// SERVFAIL, anything short of cancellation — must not crash the probe that happened to reach here
-    /// by IP first. This is the same failure class PR #56 and #57 shipped to production twice already
-    /// (catching the exception type instead of asking the token), and <see cref="HostScopeGuard"/>'s
-    /// own idiom for the identical resolver call is what this now matches.
+    /// A candidate's hostname failing to resolve — a timeout, a SERVFAIL, anything short of
+    /// cancellation — must not crash the probe that happened to reach here by IP first.
     /// </summary>
     [Test]
     public async Task AResolverFailureOnOneCandidateDoesNotCrashTheProbeAndTheLoopKeepsLooking()
@@ -370,9 +357,8 @@ public class IdentityMatcherTests
     [Test]
     public async Task ResolvedEndpointCorroboratesABannerMatchAcrossTheReviewThreshold()
     {
-        // The shape nine confirmed production pairs actually had: BannerHash alone (0.50) sat between
-        // ReviewThreshold and AutoMergeThreshold and stuck there for ever. A resolver wired in closes
-        // exactly this gap.
+        // BannerHash alone (0.50) sits between ReviewThreshold and AutoMergeThreshold and would stick
+        // there forever without this; a resolver wired in closes exactly that gap.
         const string banner = "Welcome to Nightfall.\nA world of shadow and steel.\nType 'connect'.";
         var world = new IdentityWorld { Resolver = new FakeHostResolver().Resolving("nightfall.org", "45.79.224.33") };
         var nightfall = await world.GameAsync((IdentityFields.BannerHash, BannerFingerprint.Of(banner)));
@@ -387,10 +373,8 @@ public class IdentityMatcherTests
     [Test]
     public async Task AStrangerCannotManufactureACandidateByDiallingFromAResolvedAddressAlone()
     {
-        // ResolvedEndpoint only ever corroborates a candidate CandidatesAsync already gathered by some
-        // other signal (name, banner, website, contact, claim token). An IP that happens to resolve the
-        // same as an unrelated listed game's hostname, with nothing else in common, must gather no
-        // candidate at all — GatherAsync never asks a resolver anything.
+        // ResolvedEndpoint only corroborates a candidate found by another signal — GatherAsync never
+        // asks a resolver anything, so a resolved-but-otherwise-unrelated address gathers nothing.
         var world = new IdentityWorld { Resolver = new FakeHostResolver().Resolving("nightfall.org", "45.79.224.33") };
         var nightfall = await world.GameAsync();
         await world.EndpointAsync(nightfall, "nightfall.org", 4201);

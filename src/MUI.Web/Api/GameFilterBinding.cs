@@ -13,19 +13,11 @@ public sealed record GameQuery(GameFilter Filter, FilterView Echo, int Limit, in
 /// Querystring to <see cref="GameFilter"/> — the one parser, with two callers.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The facet panel is a plain GET form, so its field names <em>are</em> the public query language,
-/// and the page reads its own URL through this same function rather than binding each parameter for
-/// itself. That is not tidiness: <c>/games?band=quiet</c> and <c>/api/games?band=quiet</c> have to
-/// mean one thing, and a second binder is exactly how they stop meaning one thing. Every name comes
-/// from <see cref="FacetKeys"/>, so the facet a query returns and the parameter that selects it
-/// cannot be spelled differently.
-/// </para>
-/// <para>
-/// An unrecognised <c>band</c> or <c>seen</c> is refused rather than ignored. A consumer who typoed
-/// a facet should be told, not handed the unfiltered catalogue and left to read it as the answer —
-/// the same rule as everywhere else here: our own silence must not be published as a fact.
-/// </para>
+/// The facet panel is a plain GET form, so its field names are the public query language, and the
+/// page reads its own URL through this same function rather than binding each parameter itself —
+/// <c>/games?band=quiet</c> and <c>/api/games?band=quiet</c> must mean one thing.
+/// An unrecognised <c>band</c> or <c>seen</c> is refused, not ignored: a typo should be told, not
+/// handed the unfiltered catalogue to read as the answer.
 /// </remarks>
 public static class GameFilterBinding
 {
@@ -75,15 +67,9 @@ public static class GameFilterBinding
         var protocols = Protocols(read);
         var text = read(FacetKeys.Text).ToString();
 
-        // `codebase` is the family — PennMUSH, not PennMUSH 1.8.8p0 — and `codebase-family` is what
-        // that question used to be called. Every codebase reference page links here with the old
-        // spelling, so it is read as an alias rather than dropped.
-        //
-        // PRESENT, NOT NON-EMPTY. The new key wins whenever a caller names it, and `?codebase=` names
-        // it: blank means "ask for anything", so `?codebase=&codebase-family=PennMUSH` is a caller
-        // clearing the filter with a stale alias still in the query. Falling back on a null selection
-        // instead would re-apply the value they just cleared and leave them no way to clear it at
-        // all — the old spelling would outrank the current one precisely when the two disagree.
+        // `codebase-family` is the old name for `codebase`, read as an alias rather than dropped.
+        // PRESENT, NOT NON-EMPTY: the new key wins whenever a caller names it (even blank), so
+        // `?codebase=&codebase-family=PennMUSH` clears the filter rather than re-applying the alias.
         var codebase = read(FacetKeys.Codebase).Count > 0
             ? Choice(read, FacetKeys.Codebase)
             : Choice(read, FacetKeys.CodebaseFamily);
@@ -93,11 +79,9 @@ public static class GameFilterBinding
             Text = string.IsNullOrWhiteSpace(text) ? null : text,
             IncludeArchived = Truthy.Is(read(FacetKeys.Archived)),
 
-            // The listing surface's own default, and the reason it is written here rather than on
-            // GameFilter (which defaults the other way): everything that reads a querystring goes
-            // through this function, and nothing that does not is meant to be touched. The data
-            // dump, the home page's counts and the reference pages' per-codebase figures build
-            // their filters in code, and go on counting the whole catalogue.
+            // The listing surface's own default, written here rather than on GameFilter (which
+            // defaults the other way) — callers that build filters in code, like the dump, are meant
+            // to keep counting the whole catalogue.
             IncludeAdult = Truthy.Is(read(FacetKeys.Adult)),
             MeasuredProtocols = protocols,
             Tls = Truthy.Is(read(FacetKeys.Tls)),
@@ -140,12 +124,7 @@ public static class GameFilterBinding
     /// <summary>
     /// An open-ended facet's selection, which may name the absence of a value.
     /// </summary>
-    /// <remarks>
-    /// A blank parameter is no selection at all; <c>~unknown</c> is a selection of the games that
-    /// have no value. Folding the two together would make "games whose codebase we could not
-    /// identify" — a measurement of our own reach, and one of the more useful filters here —
-    /// unaskable, and would quietly re-point any URL that asked it.
-    /// </remarks>
+    /// <remarks>A blank parameter is no selection; <c>~unknown</c> selects the games with no value — folding the two together would make "codebase we could not identify" unaskable.</remarks>
     private static FacetChoice? Choice(Func<string, StringValues> read, string key)
     {
         var value = read(key).ToString();
@@ -157,18 +136,9 @@ public static class GameFilterBinding
     /// One of the two measurement switches: <c>yes</c>, <c>!yes</c>, or not asked.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Refused rather than ignored, like <c>band</c> and <c>seen</c> and unlike the open-ended
-    /// facets. Its vocabulary is one word, so anything else is a typo rather than a value the
-    /// catalogue happens not to hold — and a typo silently narrowing a listing to nothing would hand
-    /// a consumer an empty answer to read as "no game is uncounted", which is our own parser
-    /// published as a measurement.
-    /// </para>
-    /// <para>
-    /// <c>~unknown</c> is accepted because <see cref="FacetChoice"/> means something by it here: the
-    /// games this facet has no value for, which is every game that is <em>not</em> uncounted. It is a
-    /// spelling of <c>!yes</c> and lands on the same set rather than being a second question.
-    /// </para>
+    /// Refused rather than ignored: its vocabulary is one word, so anything else is a typo, and a typo
+    /// silently narrowing a listing to nothing would read as a measurement we never took. <c>~unknown</c>
+    /// is accepted as a spelling of <c>!yes</c> — the games this facet has no value for.
     /// </remarks>
     private static bool TryToggle(
         Func<string, StringValues> read,
@@ -242,16 +212,8 @@ public static class GameFilterBinding
         return true;
     }
 
-    /// <summary>
-    /// The listing's order. Refused rather than ignored, like every other unreadable facet: a
-    /// consumer who asked for <c>?sort=busiest</c> and silently got some other order would read the
-    /// first name on the page as the busiest game on the site.
-    /// </summary>
-    /// <remarks>
-    /// The default is <see cref="GameFilter"/>'s own, read off a default instance rather than named
-    /// again here. Two literals is how <c>/games</c> and <c>/api/games</c> come to answer one URL two
-    /// ways, which is the failure this whole class exists to make impossible.
-    /// </remarks>
+    /// <summary>The listing's order. Refused rather than ignored, like every other unreadable facet.</summary>
+    /// <remarks>The default is read off a default <see cref="GameFilter"/> instance rather than named again here, so the two can't drift apart.</remarks>
     private static bool TrySort(Func<string, StringValues> read, out GameSort sort, out string? error)
     {
         sort = new GameFilter().Sort;

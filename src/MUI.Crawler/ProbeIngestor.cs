@@ -5,9 +5,7 @@ using MUI.Crawl;
 using Microsoft.Extensions.Logging;
 
 // MUI.Catalog.ActivityBand is the listing facet a reader filters on; MUI.Discovery.ActivityBand is
-// how busy one probe looked, as the scheduler reads it. The names collide and this file needs the
-// second, so it aliases — which is what DiscoveryOptions' own remarks ask a file in this position
-// to do.
+// how busy one probe looked, as the scheduler reads it. The names collide, hence the alias.
 using SchedulerBand = MUI.Discovery.ActivityBand;
 
 namespace MUI.Crawler;

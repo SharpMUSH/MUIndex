@@ -7,16 +7,9 @@ namespace MUI.Web.Components;
 /// A game in the archive: what it was, when it last answered, and how long it was known live.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The archive is a first-class section rather than a hidden flag, because this is the historical
-/// record every incumbent threw away and it is worth presenting as an asset rather than as a bin.
-/// A game is here because it stopped answering; it is not here because it was judged.
-/// </para>
-/// <para>
-/// The treatment is a library catalogue entry for a periodical that ceased publication: dimmed one
-/// step, no red, no "dead", no strikethrough. Its page, URL and history are untouched, it is still
-/// probed weekly forever, and one successful probe puts it back (spec §7.5).
-/// </para>
+/// A game is here because it stopped answering, not because it was judged: dimmed one step, no red,
+/// no "dead", no strikethrough. Its page, URL and history are untouched, it is still probed weekly
+/// forever, and one successful probe puts it back (spec §7.5).
 /// </remarks>
 public sealed record ArchiveEntry(
     GameSummary Summary,
