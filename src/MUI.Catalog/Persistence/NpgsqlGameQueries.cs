@@ -139,8 +139,16 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// </summary>
     public static readonly TimeSpan ActivityWindow = PresenceRetentionOptions.HeatmapWindow;
 
-    /// <summary>§5.2's "reachable recently", which separates <c>quiet</c> from <c>dark</c>.</summary>
-    public static readonly TimeSpan RecentlyReachable = TimeSpan.FromDays(30);
+    /// <summary>
+    /// §5.2's "reachable recently", which separates <c>quiet</c> from <c>dark</c>.
+    /// </summary>
+    /// <remarks>
+    /// The catalogue's own constant rather than a second copy of thirty days. The
+    /// <c>unreachable</c> facet turns on the same threshold and is computed by the demo fixture too,
+    /// so a number written twice would let the two implementations disagree about whether a game is
+    /// still answering — which is the failure that put the filtering itself into one shared function.
+    /// </remarks>
+    public static readonly TimeSpan RecentlyReachable = FacetedSearch.RecentlyReachable;
 
     /// <summary>§5.2's "active this week".</summary>
     public static readonly TimeSpan ThisWeek = TimeSpan.FromDays(7);
@@ -307,7 +315,16 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 // the case the field table exists for — an owner may add the flag their server
                 // never sent, and the listing has to read the correction rather than the original.
                 IsAdult: AdultContent.Declared(
-                    genre, Winner(forGame, AdultContent.Field)?.Value)));
+                    genre, Winner(forGame, AdultContent.Field)?.Value),
+
+                // The two facts the digest above exists to keep apart. Neither is BandOf's `Quiet`,
+                // which holds a game measured at nought all week beside one whose every count was
+                // unreadable — see PresenceDigest.Uncounted.
+                Uncounted: digest.Uncounted,
+
+                // From the availability series and never from a hole in the presence one, which
+                // could not tell an hour we missed from an hour we could not reach (rule 2).
+                Unreachable: FacetedSearch.NotReachedRecently(row.LastReachableAt, now)));
         }
 
         return FacetedSearch.Search(facetRows, filter);
@@ -1288,9 +1305,16 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     }
 
     /// <summary>
-    /// The three presence facts a listing needs, in one pass: the current count, whether anybody was
-    /// counted this week, and whether anything was probed at all.
+    /// The presence facts a listing needs, in one pass: the current count, whether anybody was
+    /// counted this week, and — separately — whether the week holds any readable count at all.
     /// </summary>
+    /// <remarks>
+    /// <b>The last pair is what tells a measured zero from an unreadable one.</b> The digest used to
+    /// return "was anybody counted above nought" and nothing else, so a game measured at nought every
+    /// hour and a game whose every <c>WHO</c> was past our parser arrived here identical and left as
+    /// one activity band. The fact was always in the table — <c>presence_sample.count IS NULL</c>
+    /// beside a reason (§5.4's middle state) — and only this projection was throwing it away.
+    /// </remarks>
     private async Task<Dictionary<Guid, PresenceDigest>> PresenceDigestAsync(
         NpgsqlConnection connection,
         Guid[] ids,
@@ -1308,7 +1332,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         var rows = await connection.QueryAsync<DigestRow>(new CommandDefinition(
             """
             SELECT g.id AS GameId, recent.count AS CountNow, recent.at AS CountedAt,
-                   recent.source AS CountSource, coalesce(week.n, 0) AS NonZeroThisWeek
+                   recent.source AS CountSource, coalesce(week.nonzero, 0) AS NonZeroThisWeek,
+                   coalesce(week.counted, 0) AS CountedThisWeek,
+                   coalesce(week.uncountable, 0) AS UncountableThisWeek
               FROM unnest(@ids::uuid[]) AS g(id)
               LEFT JOIN LATERAL (
                    SELECT p.count, p.at, p.source
@@ -1316,10 +1342,20 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                     WHERE p.game_id = g.id AND p.at >= @nowFrom AND p.count IS NOT NULL
                     ORDER BY p.at DESC
                     LIMIT 1) recent ON true
+
+              -- Three tallies over one scan of the same week, because they are three different
+              -- questions about it. `count(p.count)` counts the rows with a number, which is a
+              -- measured nought included; `count(*) FILTER (count IS NULL)` counts the rows that
+              -- answered and could not be read. A row exists at all only where a probe got far
+              -- enough to try (`PresenceWriter`), so no tally here ever speaks for an hour we did
+              -- not measure — the absence of every one of them is §5.4's third state and names no
+              -- cause.
               LEFT JOIN LATERAL (
-                   SELECT count(*) AS n
+                   SELECT count(*) FILTER (WHERE p.count > 0) AS nonzero,
+                          count(p.count) AS counted,
+                          count(*) FILTER (WHERE p.count IS NULL) AS uncountable
                      FROM presence_sample p
-                    WHERE p.game_id = g.id AND p.at >= @weekFrom AND p.count > 0) week ON true
+                    WHERE p.game_id = g.id AND p.at >= @weekFrom) week ON true
             """,
             new
             {
@@ -1335,7 +1371,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 r.CountNow,
                 r.NonZeroThisWeek > 0,
                 r.CountedAt,
-                r.CountSource is { } source ? SqlEnums.ToFieldSource(source) : null));
+                r.CountSource is { } source ? SqlEnums.ToFieldSource(source) : null,
+                r.CountedThisWeek > 0,
+                r.UncountableThisWeek > 0));
     }
 
     /// <summary>
@@ -1480,17 +1518,38 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
         // Reachable recently but nobody counted — including a game every one of whose counts was
         // unmeasurable. Quiet, never dark: being uncountable is not being absent.
-        return lastReachableAt is { } reachable && now - reachable <= RecentlyReachable
-            ? ActivityBand.Quiet
-            : ActivityBand.Dark;
+        //
+        // **And the band cannot say which of those two a game is**, which is why it is not the whole
+        // story: `uncounted` is its own facet, off the digest's own tallies, precisely because this
+        // rung holds a measured nought and an unreadable WHO alike.
+        return FacetedSearch.NotReachedRecently(lastReachableAt, now)
+            ? ActivityBand.Dark
+            : ActivityBand.Quiet;
     }
 
     private sealed record PresenceDigest(
         int? CountNow,
         bool NonZeroThisWeek,
         DateTimeOffset? CountedAt = null,
-        FieldSource? CountSource = null)
+        FieldSource? CountSource = null,
+
+        /// <summary>Any sample this week carried a number — <b>a measured nought included</b>.</summary>
+        bool CountedThisWeek = false,
+
+        /// <summary>Any sample this week answered and carried no number (§5.4's middle state).</summary>
+        bool UncountableThisWeek = false)
     {
+        /// <summary>
+        /// We hold presence rows for the week and not one of them is readable.
+        /// </summary>
+        /// <remarks>
+        /// <b>Both halves are load-bearing.</b> Without <see cref="CountedThisWeek"/> this would
+        /// catch a game measured at nought all week, which is a count and the opposite fact. Without
+        /// <see cref="UncountableThisWeek"/> it would catch a game we hold nothing at all for, which
+        /// is not measured — and naming a cause for that is the one thing rule 2 forbids.
+        /// </remarks>
+        public bool Uncounted => UncountableThisWeek && !CountedThisWeek;
+
         public static readonly PresenceDigest None = new(null, false);
     }
 
@@ -1543,6 +1602,10 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         public string? CountSource { get; init; }
 
         public long NonZeroThisWeek { get; init; }
+
+        public long CountedThisWeek { get; init; }
+
+        public long UncountableThisWeek { get; init; }
     }
 
     /// <summary>A referral edge with the game at its far end, as the query returns it.</summary>

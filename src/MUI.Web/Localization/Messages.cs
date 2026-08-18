@@ -302,7 +302,14 @@ public static class Messages
         // ── facet values ──────────────────────────────────────────────────────────────────────
         ["facet.band.playersNow"] = "connected now",
         ["facet.band.activeThisWeek"] = "active this week",
-        ["facet.band.quiet"] = "uncounted",
+        // **Not "uncounted", which this band is not.** `state.uncounted` is a locked glossary term
+        // meaning "the game answered and we could not read a count", and this rung holds that game
+        // *and* a game we measured at nought in every hour of the week — opposite facts, one of
+        // which is a measurement we took (rules 2 and 4). The word was borrowed here before there
+        // was a facet that meant it, and it now names a control two groups further down the same
+        // panel that returns a different set. This says what the band actually is: the threshold,
+        // and no cause.
+        ["facet.band.quiet"] = "quiet — no count above 0",
         ["facet.band.dark"] = "dark — not reached in a month",
         ["facet.band.archived"] = "archived",
         ["facet.seen.day"] = "in the last 24 hours",
@@ -1847,6 +1854,40 @@ public static class Messages
             + "by any probe that answers after you take your opt-out back.",
         ["owner.listing.unlist"] = "Take us out of the listing too",
         // ══ END APPENDED BLOCK ════════════════════════════════════════════════════════════════
+
+        // ══ WHAT WE COULD MEASURE ═════════════════════════════════════════════════════════════
+        // The handoff's last panel group: two independent switches over the two reasons a listing
+        // row carries no number. Every string here describes *our* reach and none of them describes
+        // a game, which is rule 5 — the note exists because the gesture these controls offer is the
+        // one most likely to be read as a claim about the games it removes.
+        ["facet.group.measure"] = "what we could measure",
+
+        // The design's own sentence, with its first clause made true of the control that shipped:
+        // the panel's rows are tri-state, so hiding is the "−" rather than an untick. The second
+        // clause is the load-bearing one and is carried verbatim.
+        ["facet.measure.note"] = "Hiding these takes them out of your listing; it does not mean the "
+            + "game is empty.",
+
+        // Named for what we did and never for what the game is. "could not count" is a fact about
+        // our parsers meeting a dialect; "no players" would be that same fact filed in somebody
+        // else's public record.
+        ["facet.group.uncounted"] = "could not count",
+        ["facet.group.unreachable"] = "could not reach",
+
+        // What the chip says when a reader has dropped one of the two. Deliberately not "not
+        // uncounted": a double negative reads as an assertion about the games, and this is an
+        // assertion about the listing. Two ids carrying one English sentence, because they are two
+        // different facts and a language that inflects will not spell them the same way.
+        ["facet.excluded.uncounted"] = "hidden from this listing",
+        ["facet.excluded.unreachable"] = "hidden from this listing",
+
+        // The plain surface's own key to its left column. It drew "only these" and "anything but
+        // these" with one star until these two switches arrived, whose ordinary gesture is the
+        // second — so the surface with the least else to go on was the one that could not show the
+        // third state at all.
+        ["facet.plain.marks"] = "In the left column, * is a value this listing is filtered to and - "
+            + "is one it is filtered against. Both are choices in the query, not facts about a game.",
+        // ══ END WHAT WE COULD MEASURE ═════════════════════════════════════════════════════════
     };
 
     /// <summary>

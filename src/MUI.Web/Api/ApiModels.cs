@@ -322,6 +322,21 @@ public sealed record FilterView(
     bool Tls,
     ActivityBand? Band,
     LastSeenBand? Seen,
+
+    /// <summary>
+    /// Whether the games we hold no readable count for were asked for, or dropped.
+    /// </summary>
+    /// <remarks>
+    /// <c>yes</c> is only those games, <c>!yes</c> is the listing with them dropped, and null is the
+    /// listing that did not ask — which contains them. <b>Not a claim about any game either way</b>:
+    /// <c>!yes</c> echoes a decision this request made about its own answer, and a consumer that
+    /// rendered it as "these games are empty" would be making exactly the inference the facet exists
+    /// to prevent.
+    /// </remarks>
+    string? Uncounted,
+
+    /// <summary>The same, for the games we could not reach recently. Never the archive.</summary>
+    string? Unreachable,
     string? Charset,
     string? Codebase,
     string? Version,
@@ -346,6 +361,8 @@ public sealed record FilterView(
             filter.Tls,
             filter.Band,
             filter.LastSeen,
+            filter.Uncounted?.Token,
+            filter.Unreachable?.Token,
             filter.Charset?.Token,
             filter.Codebase?.Token,
             filter.CodebaseVersion?.Token,

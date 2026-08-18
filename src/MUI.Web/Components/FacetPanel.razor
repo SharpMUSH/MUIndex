@@ -97,6 +97,43 @@
         </div>
 
         @*
+            What we could measure: the two reasons a row in the listing carries no number, as two
+            switches that do not compete.
+
+            One heading over two facet groups, and that is the shape rather than a drawing decision.
+            Each is its own tri-state selection — uncounted and unreachable are independent, a game
+            can be either, both or neither — so they cannot be values of one exclusive scale the way
+            the activity bands are. The heading is the only thing they share.
+
+            No "any" row and no per-group heading: a group with one value has nothing to choose
+            between, and its own row already clears itself when it is ticked. What is left is exactly
+            the drawing — a tick, a name, a count, and the − that hides them.
+
+            The note is not decoration. Hiding a game because we could not measure it is a decision
+            about this listing, and it is the gesture on this panel most likely to be read back as a
+            claim that the games it removed are empty — which is the one thing this site may never
+            say (rule 5).
+        *@
+        @if (Measurable is { Count: > 0 } measurable)
+        {
+            <fieldset class="facet choice measure @(measurable.Any(g => g.IsFiltered) ? "chosen" : null)">
+                <legend>
+                    <span class="facet-head">
+                        <span class="facet-name">@Messages.For(Tag, "facet.group.measure")</span>
+                        @Evidence(measurable[0])
+                    </span>
+                    <span class="facet-note">@Messages.For(Tag, "facet.measure.note")</span>
+                </legend>
+                <div class="rows">
+                    @foreach (var group in measurable)
+                    {
+                        @Row(group, group.Values[0])
+                    }
+                </div>
+            </fieldset>
+        }
+
+        @*
             Everything else, behind one disclosure. Nine facets in a column is a column taller than
             the listing it filters, and the handoff's panel is short because it is opinionated about
             which questions belong in a sidebar: what is on now, what it runs, and what we could
@@ -250,6 +287,17 @@
     /// </summary>
     private static readonly string[] Lead = [FacetKeys.Band, FacetKeys.Codebase, FacetKeys.LastSeen];
 
+    /// <summary>
+    /// The two facets drawn under one heading, in the handoff's own order.
+    /// </summary>
+    /// <remarks>
+    /// They are two <see cref="FacetGroup"/>s and not one because they are independent selections —
+    /// see <c>FacetKeys.Unreachable</c>. Only the heading and the note are shared, and sharing those
+    /// is what makes the pair read as one question with two answers rather than as two more facets
+    /// in a column of nine.
+    /// </remarks>
+    private static readonly string[] Measured = [FacetKeys.Uncounted, FacetKeys.Unreachable];
+
     private IReadOnlyList<FacetGroup> Choices =>
         [.. Facets.Where(g => g.Kind is FacetKind.Choice)];
 
@@ -257,8 +305,21 @@
         [.. Choices.Where(g => Lead.Contains(g.Key, StringComparer.Ordinal))
             .OrderBy(g => Array.IndexOf(Lead, g.Key))];
 
+    /// <summary>
+    /// The measurement switches, in declared order and only where there is something to switch.
+    /// </summary>
+    /// <remarks>
+    /// A group whose one value nothing matches is not built at all (see <c>FacetedSearch</c>), so a
+    /// catalogue in which we could count everything draws no row, and one in which we reached
+    /// everything draws one. The heading follows the rows rather than standing over an empty box.
+    /// </remarks>
+    private IReadOnlyList<FacetGroup> Measurable =>
+        [.. Choices.Where(g => Measured.Contains(g.Key, StringComparer.Ordinal) && g.Values.Count > 0)
+            .OrderBy(g => Array.IndexOf(Measured, g.Key))];
+
     private IReadOnlyList<FacetGroup> Secondary =>
-        [.. Choices.Where(g => !Lead.Contains(g.Key, StringComparer.Ordinal))];
+        [.. Choices.Where(g => !Lead.Contains(g.Key, StringComparer.Ordinal)
+            && !Measured.Contains(g.Key, StringComparer.Ordinal))];
 
     /// <summary>One facet group, wherever it is drawn.</summary>
     private RenderFragment Group(FacetGroup group) =>

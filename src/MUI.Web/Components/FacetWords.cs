@@ -36,6 +36,12 @@ public static class FacetWords
         // and the two words together wrapped the label and knocked its control out of line with the
         // rest of the row. What negotiation has to do with it is in the values — "nothing negotiated"
         // is what this facet calls a game it has no answer for.
+        // The two switches under "what we could measure". Their group names say what we did, because
+        // that is what the facet reads — "could not count" is a fact about our reach, and every
+        // wording that instead described the game ("empty", "nobody on") would be rule 5 written
+        // into a control.
+        FacetKeys.Uncounted => "facet.group.uncounted",
+        FacetKeys.Unreachable => "facet.group.unreachable",
         FacetKeys.Charset => "facet.group.charset",
         FacetKeys.Codebase => "facet.group.codebase",
 
@@ -217,6 +223,15 @@ public static class FacetWords
             FacetKeys.LastSeen => LastSeen(tag, value.Token),
             FacetKeys.Tls => Messages.For(tag, "facet.tls.yes"),
 
+            // The glossary's own two words, not new ones. `state.uncounted` and `state.unreachable`
+            // are locked strings with the meanings this facet needs — "the game answered and we
+            // could not read a count", "we tried and got nothing back" — and every locale that ships
+            // has already had them reviewed. A fresh pair of ids would be the same two claims
+            // translated a second time by somebody who had not read the glossary entry, which is the
+            // drift Locales.cs names as the failure mode that matters.
+            FacetKeys.Uncounted => Messages.For(tag, "state.uncounted"),
+            FacetKeys.Unreachable => Messages.For(tag, "state.unreachable"),
+
             // Everything else IS the value: a codebase name, a version string, a protocol acronym.
             // Machine voice — it is what a game said about itself, and translating it would destroy
             // the evidence rather than localize anything.
@@ -238,16 +253,27 @@ public static class FacetWords
     {
         ArgumentNullException.ThrowIfNull(value);
 
-        return value.IsUnknown
-            ? Known(tag, key)
+        if (value.IsUnknown)
+        {
+            return Known(tag, key);
+        }
+
+        return key switch
+        {
+            // "not uncounted" is a double negative that reads as a claim about the games rather than
+            // about the listing, and it is the one chip on this panel where the difference is the
+            // whole point (rule 5). These two say what the reader actually did: they hid some rows.
+            FacetKeys.Uncounted => Messages.For(tag, "facet.excluded.uncounted"),
+            FacetKeys.Unreachable => Messages.For(tag, "facet.excluded.unreachable"),
 
             // A message rather than "not " + the value: the negation goes before the noun in
             // English and after it in several other languages, and a caller concatenating it here
             // has taken that word order away from every translator at once.
-            : Messages.For(tag, "facet.excluded", new Dictionary<string, object?>
+            _ => Messages.For(tag, "facet.excluded", new Dictionary<string, object?>
             {
                 ["value"] = Value(tag, key, value),
-            });
+            }),
+        };
     }
 
     /// <summary>The opposite of <see cref="Unknown"/> — the games this facet has any value for.</summary>
@@ -299,10 +325,18 @@ public static class FacetWords
     /// What an activity band is called, from its token — the same word the listing's own row uses.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Public so a second surface can read the vocabulary rather than spell it again. Find a game
     /// carried its own copy of "reachable, count unknown" with a comment saying it was the listing's
     /// words for the band, and then the listing shortened the band to "uncounted" and the two
     /// drifted — which is the whole failure the comment was written to prevent.
+    /// </para>
+    /// <para>
+    /// <b>That shortening was itself the bug, and it is gone.</b> <c>quiet</c> holds a game measured
+    /// at nought every hour beside a game whose every count was unreadable, so labelling the rung
+    /// with the glossary's word for the second published the first as the second. The word now names
+    /// the facet that means it (<see cref="FacetKeys.Uncounted"/>) and the band names its threshold.
+    /// </para>
     /// </remarks>
     public static string BandWord(string tag, string token) => Band(tag, token);
 

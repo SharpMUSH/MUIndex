@@ -503,10 +503,27 @@ public static class PlainText
         Wrap(b, "Counts are exact, from the same query as the list below. A blank is a gap in our "
             + "measurement, never a \"no\": each facet spells its own. A measured zero is a count; "
             + "an unknown count is not a zero and never sorts as one.");
+        b.AppendLine();
+
+        // The marks in the left column, said once. Two of the three states are a filter the reader
+        // applied, and a surface that draws them the same way has published one as the other.
+        Wrap(b, Say(tag, "facet.plain.marks"));
 
         foreach (var group in facets)
         {
             b.AppendLine();
+
+            // The rendered panel gathers these two under one heading and one note; here they are two
+            // groups in a list of nine, so the heading arrives with the first of them and the note
+            // arrives with it. Leaving the note to the graphical surface would put the one sentence
+            // that stops a hidden row reading as an empty game on only one of the two surfaces.
+            if (string.Equals(group.Key, FacetKeys.Uncounted, StringComparison.Ordinal))
+            {
+                b.AppendLine($"  {Say(tag, "facet.group.measure").ToUpperInvariant()}");
+                Wrap(b, Say(tag, "facet.measure.note"), "  ");
+                b.AppendLine();
+            }
+
             b.AppendLine($"  {FacetWords.Group(tag, group.Key)}"
                 + $" — {FacetWords.Evidence(tag, group.Evidence)}  (?{group.Key}=…)");
 
@@ -517,9 +534,21 @@ public static class PlainText
                     ? string.Empty
                     : "  " + words;
 
-                // A star, not a colour: the selected value has to be visible where there is no ink.
-                b.AppendLine($"  {(value.IsSelected ? '*' : ' ')} {value.Token,-24}{value.Count,5}{gloss}"
-                    .TrimEnd());
+                // A mark, not a colour: the selected value has to be visible where there is no ink.
+                //
+                // **Three marks, because the facet has three states.** A star for both included and
+                // excluded drew "only these" and "anything but these" identically — the exact defect
+                // the rendered panel was rebuilt to remove, left standing on the surface where a
+                // reader has the least else to go on. It matters most on the two measurement
+                // switches, whose ordinary gesture is the exclusion.
+                var mark = value.State switch
+                {
+                    FacetState.Included => '*',
+                    FacetState.Excluded => '-',
+                    _ => ' ',
+                };
+
+                b.AppendLine($"  {mark} {value.Token,-24}{value.Count,5}{gloss}".TrimEnd());
             }
         }
     }

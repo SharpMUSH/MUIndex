@@ -606,9 +606,6 @@
   <data name="facet.band.activeThisWeek" xml:space="preserve">
     <value>actief deze week</value>
   </data>
-  <data name="facet.band.quiet" xml:space="preserve">
-    <value>ongeteld</value>
-  </data>
   <data name="facet.band.dark" xml:space="preserve">
     <value>stil — een maand niet bereikt</value>
   </data>

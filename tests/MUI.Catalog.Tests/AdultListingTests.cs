@@ -33,7 +33,13 @@ public class AdultListingTests
             Codebase: "Evennia",
             Family: null,
             Genre: genre,
-            IsAdult: adult);
+            IsAdult: adult,
+
+            // Every game here answered and was counted. The adult switch is what this suite is
+            // about, and a row that was also uncounted would put a second reason in front of the
+            // one being asserted.
+            Uncounted: false,
+            Unreachable: false);
 
     private static readonly GameFacetRow[] Catalogue =
     [

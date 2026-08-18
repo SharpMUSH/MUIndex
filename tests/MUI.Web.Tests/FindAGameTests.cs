@@ -648,7 +648,9 @@ public class FindAGameTests
             Codebase: "PennMUSH",
             Family: "TinyMUD",
             Genre: "Fantasy",
-            IsAdult: false);
+            IsAdult: false,
+            Uncounted: false,
+            Unreachable: false);
     }
 
     /// <summary>
@@ -713,7 +715,9 @@ public class FindAGameTests
             Codebase: "PennMUSH",
             Family: "TinyMUD",
             Genre: genre,
-            IsAdult: false);
+            IsAdult: false,
+            Uncounted: false,
+            Unreachable: false);
     }
 
     /// <summary>The count and the noun it agrees with are one message, never two strings.</summary>

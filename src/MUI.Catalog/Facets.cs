@@ -84,6 +84,48 @@ public static class FacetKeys
     public const string Genre = "genre";
 
     /// <summary>
+    /// Games we reached and hold no readable count for — <b>never games we counted at nought</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is not <c>band=quiet</c>, and the difference is the reason it exists.</b> The activity
+    /// band puts a game measured at zero every hour and a game whose every count was unreadable in
+    /// the same rung, because neither has a count above nought this week — and those are opposite
+    /// facts (rules 2 and 4). One is a measurement we took and one is a measurement we failed to
+    /// take, and a control that returned both under a word meaning the second would publish our
+    /// parser's limits as somebody's empty game.
+    /// </para>
+    /// <para>
+    /// The fact behind it is <c>PresenceSample.Unmeasurable</c>: recent presence rows exist for the
+    /// game and not one of them carries a number. A game with <em>no</em> recent rows is neither
+    /// counted nor uncounted — that is §5.4's third state, which names no cause and is not offered
+    /// here.
+    /// </para>
+    /// </remarks>
+    public const string Uncounted = "uncounted";
+
+    /// <summary>
+    /// Games we could not reach recently. Read off the availability series, never off a gap.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Orthogonal to <see cref="Uncounted"/> and to everything else.</b> "We could not get in" and
+    /// "we got in and could not count" are the two ways a listing row ends up with no number, and a
+    /// reader narrowing by genre has to be able to drop either without giving up the genre — which
+    /// <c>band</c> cannot do, being one exclusive scale.
+    /// </para>
+    /// <para>
+    /// <b>Not the archive.</b> Archiving is a state of ours with its own facet and its own switch
+    /// (<see cref="Archived"/>); this is a measurement, and folding the two would make an editorial
+    /// act read as a failed socket. It is also emphatically not read from a hole in the presence
+    /// series — rule 2 forbids naming a cause for one of those. It comes from
+    /// <c>game.last_reachable_at</c>, which the availability intervals write, and intervals can tell
+    /// an hour we could not reach from an hour we never probed.
+    /// </para>
+    /// </remarks>
+    public const string Unreachable = "unreachable";
+
+    /// <summary>
     /// What order the listing comes back in. A filter parameter by spelling and by plumbing, so the
     /// panel, the page and the read API cannot grow two words for one question.
     /// </summary>
@@ -638,7 +680,36 @@ public sealed record GameFacetRow(
     /// <c>GENRE</c> is only half of it: MSSP's <c>ADULT MATERIAL</c> flag is the other half and has
     /// no facet of its own to ride in on.
     /// </remarks>
-    bool IsAdult);
+    bool IsAdult,
+
+    /// <summary>
+    /// We hold recent presence rows for this game and not one of them carries a number
+    /// (<see cref="FacetKeys.Uncounted"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A measured zero is not this.</b> "We got in and nobody was there" is a count, and it is the
+    /// case this flag exists to be distinguishable from — <see cref="Band"/> cannot tell them apart,
+    /// because <see cref="ActivityBand.Quiet"/> holds both.
+    /// </para>
+    /// <para>
+    /// <b>Nor is "we have not measured it".</b> False covers a game we counted <em>and</em> a game we
+    /// hold nothing recent for at all, and those two are told apart by <see cref="Unreachable"/> and
+    /// by the last-seen facet rather than by inventing a cause here (rule 2).
+    /// </para>
+    /// </remarks>
+    bool Uncounted,
+
+    /// <summary>
+    /// We have not reached this game recently (<see cref="FacetKeys.Unreachable"/>).
+    /// </summary>
+    /// <remarks>
+    /// Answered from the last moment we reached it — which the availability series writes — and never
+    /// from a hole in the presence series, which cannot tell an hour we could not reach from an hour
+    /// we never probed. A game we have <em>never</em> reached is included: we could not reach it
+    /// recently, and the last-seen facet is where that is separately visible as <em>never</em>.
+    /// </remarks>
+    bool Unreachable);
 
 /// <summary>
 /// Turns a filter and a set of games into the listing plus every facet's counts.
@@ -749,6 +820,32 @@ public static class FacetedSearch
             : LastSeenBand.Older;
 
     /// <summary>
+    /// How long ago a game must have answered for us to still call it reached.
+    /// </summary>
+    /// <remarks>
+    /// One constant, read by the activity band, by <see cref="NotReachedRecently"/> and by both
+    /// <see cref="IGameQueries"/> implementations. It lived on the Postgres reader alone while the
+    /// demo fixture had no opinion at all; now that a facet turns on it, two copies would be two
+    /// answers to "is this game still answering" on one page.
+    /// </remarks>
+    public static readonly TimeSpan RecentlyReachable = TimeSpan.FromDays(30);
+
+    /// <summary>
+    /// Whether the availability series says we have not reached this game lately — the
+    /// <see cref="FacetKeys.Unreachable"/> fact.
+    /// </summary>
+    /// <remarks>
+    /// <b>Never inferred from missing presence rows.</b> A hole in the presence series covers an hour
+    /// we could not reach and an hour we never probed alike and may not name a cause (rule 2); this
+    /// reads <c>game.last_reachable_at</c>, which the intervals write and which can tell the two
+    /// apart. Null — a game we have listed and never once reached — is true here, because we could
+    /// not reach it recently; <see cref="LastSeenBand.Never"/> is where that stays separately
+    /// visible, rather than being lent the oldest date we have.
+    /// </remarks>
+    public static bool NotReachedRecently(DateTimeOffset? lastReachableAt, DateTimeOffset now) =>
+        lastReachableAt is not { } seen || now - seen > RecentlyReachable;
+
+    /// <summary>
     /// A game matches the text box on its name, its own one-line tagline, or its codebase.
     /// </summary>
     /// <remarks>
@@ -843,7 +940,7 @@ public static class FacetedSearch
                 FacetEvidence.Measured,
                 FacetKind.Presence,
                 results.Count,
-                [new FacetValue("yes", tls, filter.Tls, IsUnknown: false)]);
+                [new FacetValue(FacetTokens.Yes, tls, filter.Tls, IsUnknown: false)]);
         }
 
         bool Selected(string protocol) =>
@@ -1028,11 +1125,20 @@ public static class FacetedSearch
     /// not — a reader has to be able to see which part of the panel is evidence.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <see cref="FacetKeys.Lineage"/> sits at the head of the declared half rather than the foot of
     /// the measured one because it is a conclusion drawn from a declaration, and the whole of its
     /// evidence is the codebase string immediately below it. <see cref="FacetKeys.CodebaseVersion"/>
     /// follows <see cref="FacetKeys.Codebase"/> for the same reason: the three read as one column,
     /// widening to narrowing, and every step of it is labelled with where it came from.
+    /// </para>
+    /// <para>
+    /// <see cref="FacetKeys.Uncounted"/> and <see cref="FacetKeys.Unreachable"/> follow the two
+    /// scales because they are the two ways a row on those scales ends up with no number, and they
+    /// are <em>two</em> facets rather than two values of one because they are independent: a game can
+    /// be either, both or neither, and one selection that had to be spent on picking between them
+    /// would be a third exclusive scale rather than the pair of switches this is.
+    /// </para>
     /// </remarks>
     private static readonly ChoiceFacet[] Choices =
     [
@@ -1048,6 +1154,18 @@ public static class FacetedSearch
             r => FacetTokens.Reaching(r.LastSeen),
             f => f.LastSeen is { } seen ? FacetChoice.Of(FacetTokens.Of(seen)) : null,
             FacetTokens.LastSeenBands),
+        new(
+            FacetKeys.Uncounted,
+            FacetEvidence.Measured,
+            r => [r.Uncounted ? FacetTokens.Yes : null],
+            f => f.Uncounted,
+            FacetTokens.YesOnly),
+        new(
+            FacetKeys.Unreachable,
+            FacetEvidence.Measured,
+            r => [r.Unreachable ? FacetTokens.Yes : null],
+            f => f.Unreachable,
+            FacetTokens.YesOnly),
         new(FacetKeys.Charset, FacetEvidence.Measured, r => [r.Charset], f => f.Charset),
         new(
             FacetKeys.Lineage,
@@ -1081,6 +1199,21 @@ public static class FacetedSearch
 /// </remarks>
 public static class FacetTokens
 {
+    /// <summary>
+    /// The one value a facet has when the question it asks is a yes-or-nothing one.
+    /// </summary>
+    /// <remarks>
+    /// <b>There is no <c>no</c>, and there must not be.</b> These facets read a fact we either hold
+    /// or do not — an endpoint we completed TLS to, a week of presence rows with no number in them —
+    /// and a second value meaning "the opposite" would be our own silence published as an
+    /// observation. Asking for the complement is what the <c>!</c> prefix is for, and it says
+    /// "hide these from my listing", which is a statement about the listing rather than about a game.
+    /// </remarks>
+    public const string Yes = "yes";
+
+    /// <summary>That one value, as the bounded vocabulary a counted facet is built from.</summary>
+    public static IReadOnlyList<string> YesOnly { get; } = [Yes];
+
     public static IReadOnlyList<string> Bands { get; } =
         [.. Enum.GetValues<ActivityBand>().Select(Of)];
 

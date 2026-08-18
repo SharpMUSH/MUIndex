@@ -19,6 +19,15 @@ namespace MUI.Web.Fixtures;
 /// states, and those states are the product.
 /// </para>
 /// <para>
+/// <b>Eldertale and Midnight Sun II are the pair the whole catalogue turns on</b>, and Hollow Bell is
+/// the third of them. Both of the first two show a listing row with no number above it, and one is a
+/// game we counted and found empty while the other is a game we got into and could not read; Hollow
+/// Bell is a game we could not get into at all. Three rows that look alike and three different facts,
+/// which is what the <c>uncounted</c> and <c>unreachable</c> switches exist to keep apart — and a
+/// fixture holding only one of the three could not tell whether they had been implemented or merely
+/// spelled.
+/// </para>
+/// <para>
 /// The archived and suppressed entries are the design handoff's own exemplars rather than real
 /// games, deliberately: asserting that a named game is dead, or that its owner asked us to stop
 /// republishing it, is exactly the kind of claim this site may not make without a measurement.
@@ -79,6 +88,30 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         IsClaimed: true, PlayersNow: 9, Codebase: "Evennia", MeasuredProtocols: ["MSSP", "GMCP", "TLS"],
         LastReachableAt: Now.AddMinutes(-9));
 
+    /// <summary>
+    /// Stopped answering six weeks ago and has not been archived: unreachable, and not uncounted.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The state between "went dark" and "archived", which nothing else here occupies — every other
+    /// silent game in this fixture is already archived, so the whole of the demo's
+    /// <c>unreachable</c> facet sat behind the archive switch and the <c>dark</c> activity band was
+    /// a rung no game stood on.
+    /// </para>
+    /// <para>
+    /// <b>It is the counter-example the pair of switches needs.</b> Midnight Sun answers and cannot
+    /// be counted; this one cannot be reached at all. Both listing rows show no number and the
+    /// reasons are opposite, which is exactly the distinction a reader is being offered — and its
+    /// grid is <em>empty</em> rather than hatched, because we did not get in to fail to count.
+    /// </para>
+    /// </remarks>
+    private static readonly GameSummary HollowBell = new(
+        Guid.Parse("aaaaaaaa-0000-0000-0000-00000000000a"), "hollow-bell", "Hollow Bell",
+        "Has not answered since June. Still probed, and one answer puts it back.",
+        LifecycleState.Dark, IsClaimed: false,
+        PlayersNow: null, Codebase: "PennMUSH 1.8.5", MeasuredProtocols: ["MSSP"],
+        LastReachableAt: Now.AddDays(-44));
+
     private static readonly GameSummary Gaslight = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000005"), "gaslight-row", "Gaslight Row",
         "Ceased answering in March 2023. We still try the door every week.",
@@ -108,7 +141,8 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     [
         .. new[]
             {
-                Mush, Eldertale, Aardwolf, MidnightSun, Enormous, Ashen, Gaslight, Verdigris, Cinder,
+                Mush, Eldertale, Aardwolf, MidnightSun, Enormous, Ashen, HollowBell, Gaslight,
+                Verdigris, Cinder,
             }
             .Select(Labelled),
     ];
@@ -258,13 +292,47 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         // Through the same predicate the database reads, rather than a slug test of its own — the
         // two implementations disagreeing about which games a filter returns is the failure that
         // put the filtering itself into one shared function.
-        IsAdult: AdultContent.Declared(Genre(game), AdultMaterial(game)));
+        IsAdult: AdultContent.Declared(Genre(game), AdultMaterial(game)),
+        Uncounted: Uncounted(game),
+
+        // The same rule and the same constant the Postgres reader applies, for the same reason the
+        // line above is derived rather than declared.
+        Unreachable: FacetedSearch.NotReachedRecently(game.LastReachableAt, Now));
+
+    /// <summary>
+    /// Whether every hour this game answered in produced no number.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Read off the fixture's own grid rather than listed beside it</b>, so the panel cannot
+    /// promise something the heatmap on the game's page contradicts — the same argument
+    /// <see cref="OverWindow"/> is derived by. A slug switch here would let the demo advertise
+    /// "uncounted" over a week of filled cells.
+    /// </para>
+    /// <para>
+    /// <b>Both clauses matter, and the fixture exercises both.</b> Eldertale is a measured zero in
+    /// every hour: counted, and emphatically not this. Hollow Bell answered in no hour at all: not
+    /// measured, which names no cause and is not this either. Midnight Sun answered in every hour and
+    /// produced a number in none, which is the one game here that is uncounted. Every other game has
+    /// one hatched hour beside its counts and is not uncounted for it.
+    /// </para>
+    /// </remarks>
+    private static bool Uncounted(GameSummary game)
+    {
+        var week = Activity(game);
+
+        return week.Any(c => c.IsUnmeasurable) && !week.Any(c => c.IsCounted);
+    }
 
     private static ActivityBand Band(GameSummary g) => g.Slug switch
     {
         "gaslight-row" or "verdigris" => ActivityBand.Archived,
         "eldertale" => ActivityBand.ActiveThisWeek,
         "midnight-sun" => ActivityBand.Quiet,
+
+        // Not reached in six weeks, and not archived — the one rung of this scale no fixture game
+        // stood on, so the demo panel never drew it.
+        "hollow-bell" => ActivityBand.Dark,
         _ => ActivityBand.PlayersNow,
     };
 
@@ -392,6 +460,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         "midnight-sun" => [Endpoint("midnightsun2.org", 3000, "telnet", tls: false, sinceDays: 1500)],
         "batmud" => [Endpoint("bat.org", 23, "telnet", tls: false, sinceDays: 5000)],
         "ashen-court" => [Endpoint("ashen.example", 4000, "tls", tls: true, sinceDays: 600)],
+        "hollow-bell" => [Endpoint("hollowbell.example", 4201, "telnet", tls: false, sinceDays: 2400)],
         "gaslight-row" => [Endpoint("gaslight.example", 4201, "telnet", tls: false, sinceDays: 3000)],
         "verdigris" => [Endpoint("verdigris.example", 6250, "telnet", tls: false, sinceDays: 800)],
         _ => [Endpoint("eldertale.example", 4000, "telnet", tls: false, sinceDays: 1200)],
@@ -582,6 +651,15 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
                 Span(2000, 60, AvailabilityState.Reachable, FailureCause.None),
                 Span(60, 58, AvailabilityState.Unreachable, FailureCause.Timeout),
                 Span(58, null, AvailabilityState.Reachable, FailureCause.None),
+            ],
+
+            // Answered for years and then stopped, with the run still open. This is what the
+            // `unreachable` facet actually reads: an interval, which can say we tried and got
+            // nothing — where the empty half of a heatmap could not, and may not be asked to.
+            "hollow-bell" =>
+            [
+                Span(2400, 44, AvailabilityState.Reachable, FailureCause.None),
+                Span(44, null, AvailabilityState.Unreachable, FailureCause.Timeout),
             ],
             _ =>
             [

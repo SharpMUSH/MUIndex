@@ -797,7 +797,7 @@
     <comment>facet values</comment>
   </data>
   <data name="facet.band.quiet" xml:space="preserve">
-    <value>uncounted</value>
+    <value>quiet — no count above 0</value>
     <comment>facet values</comment>
   </data>
   <data name="facet.band.dark" xml:space="preserve">
@@ -3791,5 +3791,33 @@
   <data name="owner.listing.unlist" xml:space="preserve">
     <value>Take us out of the listing too</value>
     <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="facet.group.measure" xml:space="preserve">
+    <value>what we could measure</value>
+    <comment>what we could measure (the two measurement switches, spec §9)</comment>
+  </data>
+  <data name="facet.measure.note" xml:space="preserve">
+    <value>Hiding these takes them out of your listing; it does not mean the game is empty.</value>
+    <comment>what we could measure (the two measurement switches, spec §9)</comment>
+  </data>
+  <data name="facet.group.uncounted" xml:space="preserve">
+    <value>could not count</value>
+    <comment>what we could measure (the two measurement switches, spec §9)</comment>
+  </data>
+  <data name="facet.group.unreachable" xml:space="preserve">
+    <value>could not reach</value>
+    <comment>what we could measure (the two measurement switches, spec §9)</comment>
+  </data>
+  <data name="facet.excluded.uncounted" xml:space="preserve">
+    <value>hidden from this listing</value>
+    <comment>what we could measure (the two measurement switches, spec §9)</comment>
+  </data>
+  <data name="facet.excluded.unreachable" xml:space="preserve">
+    <value>hidden from this listing</value>
+    <comment>what we could measure (the two measurement switches, spec §9)</comment>
+  </data>
+  <data name="facet.plain.marks" xml:space="preserve">
+    <value>In the left column, * is a value this listing is filtered to and - is one it is filtered against. Both are choices in the query, not facts about a game.</value>
+    <comment>what we could measure (the two measurement switches, spec §9)</comment>
   </data>
 </root>

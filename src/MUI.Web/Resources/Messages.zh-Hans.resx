@@ -606,9 +606,6 @@
   <data name="facet.band.activeThisWeek" xml:space="preserve">
     <value>本周活跃</value>
   </data>
-  <data name="facet.band.quiet" xml:space="preserve">
-    <value>未能计数</value>
-  </data>
   <data name="facet.band.dark" xml:space="preserve">
     <value>失联——一个月未连通</value>
   </data>

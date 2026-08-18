@@ -606,9 +606,6 @@
   <data name="facet.band.activeThisWeek" xml:space="preserve">
     <value>今週アクティブ</value>
   </data>
-  <data name="facet.band.quiet" xml:space="preserve">
-    <value>接続数読み取り不可</value>
-  </data>
   <data name="facet.band.dark" xml:space="preserve">
     <value>消息不明 — 1か月間到達なし</value>
   </data>

@@ -309,6 +309,12 @@ public sealed record ChangeEntry(DateTimeOffset At, string Summary);
 /// classification of ours, which is why it is labelled <see cref="FacetEvidence.Derived"/> rather
 /// than being quietly filed with the things games told us.
 /// </para>
+/// <para>
+/// <see cref="Uncounted"/> and <see cref="Unreachable"/> are measured too, and are the two members
+/// that read the <em>absence</em> of a measurement rather than one. They are separate switches
+/// rather than values of <see cref="Band"/> precisely because they are independent of it and of each
+/// other — see their own remarks, and note that neither of them is <see cref="ActivityBand.Quiet"/>.
+/// </para>
 /// </remarks>
 public sealed record GameFilter
 {
@@ -351,6 +357,43 @@ public sealed record GameFilter
     public ActivityBand? Band { get; init; }
 
     public LastSeenBand? LastSeen { get; init; }
+
+    /// <summary>
+    /// The games we reached and hold no readable count for (<see cref="FacetKeys.Uncounted"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A <see cref="FacetChoice"/> and not a <see cref="Band"/> value, because it is orthogonal to
+    /// every band and to the other switch beside it.</b> <see cref="Band"/> is one exclusive scale, so
+    /// a reader who has spent it on <c>genre</c>'s neighbour cannot also say "and drop the ones we
+    /// could not count"; these two can be set together, inverted independently, and combined with any
+    /// other facet.
+    /// </para>
+    /// <para>
+    /// <b><see cref="ActivityBand.Quiet"/> is emphatically not this.</b> That band holds a game we
+    /// measured at nought every hour <em>and</em> a game whose every count was unreadable, because
+    /// neither has a count above nought this week. Filtering on it as though it meant the second
+    /// would state a measurement of ours — that our parser could not read a <c>WHO</c> — as a fact
+    /// about somebody's empty game, which is rules 2, 4 and 5 in one control.
+    /// </para>
+    /// <para>
+    /// Excluding is a decision about <em>this listing</em> and never a claim about a game, and every
+    /// surface that offers it has to keep saying so.
+    /// </para>
+    /// </remarks>
+    public FacetChoice? Uncounted { get; init; }
+
+    /// <summary>
+    /// The games we could not reach recently (<see cref="FacetKeys.Unreachable"/>).
+    /// </summary>
+    /// <remarks>
+    /// The other half of "this row has no number": we could not get in at all, where
+    /// <see cref="Uncounted"/> is we got in and could not count. Read from the availability series
+    /// and never from a gap in the presence series — see
+    /// <see cref="FacetedSearch.NotReachedRecently"/>. It is not the archive: archiving is a decision
+    /// of ours with its own switch, and this is a measurement.
+    /// </remarks>
+    public FacetChoice? Unreachable { get; init; }
 
     public FacetChoice? Charset { get; init; }
 
