@@ -284,7 +284,21 @@ public sealed class IdentityMatcher(
                 continue;
             }
 
-            var resolved = await resolver.ResolveAsync(candidateEndpoint.Host, ct);
+            IReadOnlyList<IPAddress> resolved;
+            try
+            {
+                resolved = await resolver.ResolveAsync(candidateEndpoint.Host, ct);
+            }
+            catch (Exception error) when (error is not OperationCanceledException)
+            {
+                // HostScopeGuard's own idiom for the identical failure: a candidate's hostname not
+                // resolving is not evidence either way, only a resolver having a bad minute, and it
+                // must not crash a probe that happened to arrive by IP rather than by name. Rule 5's
+                // shape in code — our resolver's failure is not a measurement of anybody — so this
+                // candidate simply does not corroborate through this signal and the loop moves on.
+                continue;
+            }
+
             if (resolved.Any(address => address.Equals(probedAddress)))
             {
                 return true;

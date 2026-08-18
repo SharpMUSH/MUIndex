@@ -89,6 +89,39 @@ public class ReviewMergeServiceTests
         await Assert.That(record.SignalsJson).IsEqualTo("[]");
     }
 
+    /// <summary>
+    /// The operator's own words survive onto the log even when no review folded them in — the gap
+    /// CodeRabbit caught on PR #108: <c>because</c> was validated and then discarded the moment there
+    /// was no open review to carry it.
+    /// </summary>
+    [Test]
+    public async Task TheReasonReachesTheMergeLogWithNoOpenReview()
+    {
+        var world = new World();
+        var winner = world.Games.Add();
+        var loser = world.Games.Add();
+
+        await world.Service.MergeAsync(winner, loser, "obviously the same game, I run both", None);
+
+        await Assert.That(world.Merges.All.Single().Reason)
+            .IsEqualTo("obviously the same game, I run both");
+    }
+
+    [Test]
+    public async Task TheReasonReachesTheMergeLogWithAnOpenReviewToo()
+    {
+        var world = new World();
+        var winner = world.Games.Add();
+        var loser = world.Games.Add();
+
+        var score = new IdentityScore(loser, 0.5, [new IdentitySignal("BannerHash", 0.5, true)]);
+        await world.Reviews.OpenAsync(winner, loser, score, world.Time.GetUtcNow(), None);
+
+        await world.Service.MergeAsync(winner, loser, "confirmed: same connect screen", None);
+
+        await Assert.That(world.Merges.All.Single().Reason).IsEqualTo("confirmed: same connect screen");
+    }
+
     [Test]
     public async Task OnlyTheNamedPairsReviewIsResolvedNotEveryOpenReviewOnEitherGame()
     {

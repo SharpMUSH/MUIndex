@@ -316,6 +316,39 @@ public class IdentityMatcherTests
         await Assert.That(verdict).IsTypeOf<IdentityVerdict.Fresh>();
     }
 
+    /// <summary>
+    /// CodeRabbit's finding on PR #108: a candidate's hostname failing to resolve — a timeout, a
+    /// SERVFAIL, anything short of cancellation — must not crash the probe that happened to reach here
+    /// by IP first. This is the same failure class PR #56 and #57 shipped to production twice already
+    /// (catching the exception type instead of asking the token), and <see cref="HostScopeGuard"/>'s
+    /// own idiom for the identical resolver call is what this now matches.
+    /// </summary>
+    [Test]
+    public async Task AResolverFailureOnOneCandidateDoesNotCrashTheProbeAndTheLoopKeepsLooking()
+    {
+        var world = new IdentityWorld
+        {
+            Resolver = new FakeHostResolver()
+                .Throwing("unreachable-mirror.example", new InvalidOperationException("SERVFAIL"))
+                .Resolving("nightfall.org", "45.79.224.33"),
+        };
+        var nightfall = await world.GameAsync((IdentityFields.Website, "https://nightfall.example"));
+        await world.EndpointAsync(nightfall, "unreachable-mirror.example", 4201);
+        await world.EndpointAsync(nightfall, "nightfall.org", 4201);
+
+        var verdict = await world.Matcher.ResolveAsync(
+            ProbeResults.Answered(
+                host: "45.79.224.33",
+                port: 4201,
+                mssp: ProbeResults.Mssp(("WEBSITE", "https://nightfall.example"))),
+            None);
+
+        // No exception reached here, and the candidate's first endpoint throwing did not stop the loop
+        // from reaching its second, which resolves and corroborates.
+        await Assert.That(verdict).IsTypeOf<IdentityVerdict.Merge>();
+        await Assert.That(((IdentityVerdict.Merge)verdict).GameId).IsEqualTo(nightfall);
+    }
+
     [Test]
     public async Task AHostnameProbeNeverUsesResolvedEndpointEvenWithAResolverWired()
     {

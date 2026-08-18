@@ -361,7 +361,17 @@ public static class IdentitySignals
             return [];
         }
 
-        return JsonSerializer.Deserialize<IReadOnlyList<IdentitySignal>>(signalsJson) ?? [];
+        try
+        {
+            return JsonSerializer.Deserialize<IReadOnlyList<IdentitySignal>>(signalsJson) ?? [];
+        }
+        catch (JsonException)
+        {
+            // Documented above as "an unreadable or absent payload is an empty list, not a failure" —
+            // this is the unreadable half. A review row's evidence surviving corrupted is a smaller
+            // problem than a merge refusing to complete because it could not read its own paper trail.
+            return [];
+        }
     }
 }
 

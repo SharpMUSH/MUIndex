@@ -70,7 +70,13 @@ public sealed class MergeApplier(
     /// the ones that did not fire, because a merge that has to be explained a year later is explained
     /// by what was considered.
     /// </summary>
-    public Task<Guid> MergeGamesAsync(Guid intoGameId, Guid fromGameId, IdentityScore score, CancellationToken ct)
+    /// <param name="reason">
+    /// An operator's own words for why these are one game, carried onto the log row beside the score
+    /// (spec §7.3, migration 0030). Null for the one caller that has none: an automatic merge is its
+    /// own explanation, the score and signals it crossed <c>AutoMergeThreshold</c> on.
+    /// </param>
+    public Task<Guid> MergeGamesAsync(
+        Guid intoGameId, Guid fromGameId, IdentityScore score, CancellationToken ct, string? reason = null)
     {
         ArgumentNullException.ThrowIfNull(score);
 
@@ -86,6 +92,7 @@ public sealed class MergeApplier(
             score.Score,
             IdentitySignals.ToJson(score.Signals),
             time.GetUtcNow(),
-            null), ct);
+            null,
+            reason), ct);
     }
 }

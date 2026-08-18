@@ -74,7 +74,7 @@ public sealed class ReviewMergeService(
             ? new IdentityScore(loserId, openReview.Score, IdentitySignals.FromJson(openReview.SignalsJson))
             : new IdentityScore(loserId, Score: 0, Signals: []);
 
-        var mergeId = await applier.MergeGamesAsync(winnerId, loserId, score, ct);
+        var mergeId = await applier.MergeGamesAsync(winnerId, loserId, score, ct, because);
 
         if (openReview is not null)
         {

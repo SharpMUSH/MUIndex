@@ -27,7 +27,8 @@ public sealed class NpgsqlMergeLog(NpgsqlDataSource source) : IMergeLog
 {
     private const string Columns = """
         id AS Id, into_game_id AS IntoGameId, from_game_id AS FromGameId,
-        score AS Score, signals::text AS SignalsJson, at AS At, reverted_at AS RevertedAt
+        score AS Score, signals::text AS SignalsJson, at AS At, reverted_at AS RevertedAt,
+        reason AS Reason
         """;
 
     public async Task<Guid> RecordAsync(MergeRecord record, CancellationToken ct)
@@ -38,8 +39,8 @@ public sealed class NpgsqlMergeLog(NpgsqlDataSource source) : IMergeLog
 
         return await connection.ExecuteScalarAsync<Guid>(new CommandDefinition(
             """
-            INSERT INTO merge_log (id, into_game_id, from_game_id, score, signals, at, reverted_at)
-            VALUES (@id, @into, @from, @score, @signals::jsonb, @at, @revertedAt)
+            INSERT INTO merge_log (id, into_game_id, from_game_id, score, signals, at, reverted_at, reason)
+            VALUES (@id, @into, @from, @score, @signals::jsonb, @at, @revertedAt, @reason)
             RETURNING id
             """,
             new
@@ -51,6 +52,7 @@ public sealed class NpgsqlMergeLog(NpgsqlDataSource source) : IMergeLog
                 signals = record.SignalsJson,
                 at = record.At.ToUniversalTime(),
                 revertedAt = record.RevertedAt?.ToUniversalTime(),
+                reason = record.Reason,
             },
             cancellationToken: ct));
     }
@@ -111,6 +113,9 @@ public sealed class NpgsqlMergeLog(NpgsqlDataSource source) : IMergeLog
 
         public DateTimeOffset? RevertedAt { get; init; }
 
-        public MergeRecord ToRecord() => new(Id, IntoGameId, FromGameId, Score, SignalsJson, At, RevertedAt);
+        public string? Reason { get; init; }
+
+        public MergeRecord ToRecord() =>
+            new(Id, IntoGameId, FromGameId, Score, SignalsJson, At, RevertedAt, Reason);
     }
 }

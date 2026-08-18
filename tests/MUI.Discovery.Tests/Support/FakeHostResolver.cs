@@ -14,6 +14,7 @@ namespace MUI.Discovery.Tests.Support;
 public sealed class FakeHostResolver : IHostResolver
 {
     private readonly Dictionary<string, IReadOnlyList<IPAddress>> _answers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Exception> _errors = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Every name the guard asked about, so "it never looked" is assertable.</summary>
     public List<string> Asked { get; } = [];
@@ -31,9 +32,25 @@ public sealed class FakeHostResolver : IHostResolver
         return this;
     }
 
+    /// <summary>
+    /// A resolver having a bad minute rather than an authoritative "no such host" — the shape
+    /// <see cref="Failing"/> does not cover: a timeout, a SERVFAIL, a transient network error. A caller
+    /// asking about this name gets the exception thrown at it, exactly as the real resolver would.
+    /// </summary>
+    public FakeHostResolver Throwing(string host, Exception error)
+    {
+        _errors[host] = error;
+        return this;
+    }
+
     public Task<IReadOnlyList<IPAddress>> ResolveAsync(string host, CancellationToken cancellationToken = default)
     {
         Asked.Add(host);
+
+        if (_errors.TryGetValue(host, out var error))
+        {
+            throw error;
+        }
 
         if (_answers.TryGetValue(host, out var scripted))
         {
