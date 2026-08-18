@@ -88,8 +88,6 @@ else
     {
         <p class="dim">@L("archive.empty")</p>
     }
-
-    <p class="faint"><a href="@PlainHref">@L("a11y.plainText")</a></p>
 }
 
 @code {
@@ -102,10 +100,6 @@ else
     private DateTimeOffset Now => Clock.GetUtcNow();
 
     private IReadOnlyList<ArchiveEntry> Entries = [];
-
-    private string PlainHref => string.IsNullOrWhiteSpace(Query)
-        ? "?plain=1"
-        : $"?plain=1&q={Uri.EscapeDataString(Query)}";
 
     protected override async Task OnParametersSetAsync()
     {

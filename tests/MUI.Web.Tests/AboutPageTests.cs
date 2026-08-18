@@ -428,13 +428,21 @@ public class AboutPageTests
         }
     }
 
+    /// <summary>
+    /// The graphical page needs no scripting to be read.
+    /// </summary>
+    /// <remarks>
+    /// It used to assert the offer of the text mirror here too. That offer is in the bar now — it
+    /// was the one thing in each page's footer worth keeping, and eleven pages each carried their
+    /// own copy of it. <see cref="ReadingControlsTests"/> holds the claim, over every route rather
+    /// than over this one.
+    /// </remarks>
     [Test]
-    public async Task TheGraphicalPageIsReachableWithoutScriptingAndSaysHowToReadItPlainly()
+    public async Task TheGraphicalPageIsReachableWithoutScripting()
     {
         var html = await RenderAboutAsync();
 
         await Assert.That(html).DoesNotContain("<script");
-        await Assert.That(html).Contains("?plain=1");
     }
 
     /// <summary>

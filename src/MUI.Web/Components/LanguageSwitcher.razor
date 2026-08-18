@@ -34,8 +34,16 @@
     @* This locale's copy of the endpoint, for the same reason the theme control beside it posts to
        one: nothing else on the request says which language the reader is leaving. *@
     <form class="locale" method="post" action="@HttpContext.Link(Locales.Path)">
-        <label class="kick" for="locale-select">@Messages.For(Tag, "locale.label")</label>
         <input type="hidden" name="@Locales.ReturnField" value="@Here" />
+        @*
+            The label wraps the control rather than pointing at it by id, and that is what lets this
+            component be rendered twice in one document: the bar carries it at one width and the nav
+            disclosure at another, and `for="locale-select"` made those two copies a duplicate id and
+            a label that named whichever select the browser found first. An implicit label names the
+            control it contains, so there is nothing left to collide.
+        *@
+        <label>
+            <span class="kick">@Messages.For(Tag, "locale.label")</span>
         @*
             One box holding the choice and the way to commit it, which is the shape the search field
             already taught the reader on the listing — rather than a native dropdown and a wide
@@ -44,7 +52,7 @@
             control is assembled out of vocabulary this site already has instead of the browser's.
         *@
         <span class="locale-field">
-            <select id="locale-select" name="@Locales.Field">
+            <select name="@Locales.Field">
                 @foreach (var locale in Offered)
                 {
                     @* lang on the option, so a screen reader says each name in its own voice rather
@@ -61,6 +69,7 @@
                 <span class="sr-only">@Messages.For(Tag, "locale.submit")</span>
             </button>
         </span>
+        </label>
     </form>
 }
 
