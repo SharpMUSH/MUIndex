@@ -189,11 +189,64 @@ public static class LocaleRouting
     /// <summary>The paths that are the same in every language, so a prefix says nothing about them.</summary>
     public static bool IsUnlocalized(PathString path) =>
         path.StartsWithSegments(Api.ApiRoutes.Base, StringComparison.OrdinalIgnoreCase)
-        || path.Equals("/robots.txt", StringComparison.OrdinalIgnoreCase)
-        || path.Equals("/sitemap.xml", StringComparison.OrdinalIgnoreCase)
-        || path.Equals("/favicon.ico", StringComparison.OrdinalIgnoreCase)
-        || path.Equals("/favicon.svg", StringComparison.OrdinalIgnoreCase)
-        || path.Equals("/site.webmanifest", StringComparison.OrdinalIgnoreCase);
+        || IsFile(path);
+
+    /// <summary>
+    /// The extensions this site serves as files rather than as documents.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Named by extension because the stylesheet's address is not knowable.</b> It carries a
+    /// content fingerprint — <c>/app.gt0hup1p9v.css</c> — which changes whenever the bytes do, so no
+    /// list of paths can hold it, and a reader with a locale cookie paid a redirect for the
+    /// stylesheet, the script and the touch icon on <em>every page load</em>. A 302 that answers a
+    /// request for a file is pure latency: the bytes are the same in every language.
+    /// </para>
+    /// <para>
+    /// An allowlist rather than "the last segment has a dot", because <c>{Slug}</c> is a route
+    /// parameter and a game's slug is not this file's to make promises about. A game called
+    /// <c>foo.css</c> would still be wrong, and wrong by one missing prefix on one page rather than
+    /// by a 404 — the request is answered in the reader's locale either way, because a request that
+    /// is not redirected still reads the cookie.
+    /// </para>
+    /// </remarks>
+    private static readonly string[] FileExtensions =
+    [
+        ".css", ".js", ".map", ".json", ".xml", ".txt", ".webmanifest",
+        ".png", ".svg", ".ico", ".jpg", ".jpeg", ".gif", ".webp", ".avif",
+        ".woff", ".woff2", ".ttf",
+    ];
+
+    /// <summary>Whether this path names a file, which is the same file in every language.</summary>
+    private static bool IsFile(PathString path)
+    {
+        var value = path.Value;
+
+        if (string.IsNullOrEmpty(value))
+        {
+            return false;
+        }
+
+        var lastSegment = value.AsSpan()[(value.LastIndexOf('/') + 1)..];
+        var dot = lastSegment.LastIndexOf('.');
+
+        if (dot < 0)
+        {
+            return false;
+        }
+
+        var extension = lastSegment[dot..];
+
+        foreach (var known in FileExtensions)
+        {
+            if (extension.Equals(known, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>The locale a reader has already chosen, where they have chosen one.</summary>
     private static LocaleContext? Remembered(HttpContext context) =>

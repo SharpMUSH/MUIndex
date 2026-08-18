@@ -582,6 +582,39 @@ public class LocalizationTests
         await Assert.That(answered.Headers.Location?.OriginalString).IsEqualTo(expected);
     }
 
+    /// <summary>
+    /// A file is the same file in every language, including the ones whose names we cannot know.
+    /// </summary>
+    /// <remarks>
+    /// The stylesheet carries a content fingerprint, so no list of paths can name it — and a reader
+    /// with a locale cookie was paying a redirect for the stylesheet, the script and the touch icon
+    /// on every page load. Recognised by extension rather than by "the last segment has a dot",
+    /// because <c>{Slug}</c> is a route parameter and a game's slug is not this rule's to constrain.
+    /// </remarks>
+    [Test]
+    [Arguments("/app.gt0hup1p9v.css")]
+    [Arguments("/passkey.js")]
+    [Arguments("/apple-touch-icon.png")]
+    [Arguments("/favicon.svg")]
+    [Arguments("/site.webmanifest")]
+    [Arguments("/robots.txt")]
+    [Arguments("/sitemap.xml")]
+    public async Task AFingerprintedFileIsNeverGivenALocalePrefix(string path)
+    {
+        await Assert.That(LocaleRouting.IsUnlocalized(path)).IsTrue();
+    }
+
+    /// <summary>And a document is still a document, whatever is in its slug.</summary>
+    [Test]
+    [Arguments("/games")]
+    [Arguments("/g/m-u-s-h")]
+    [Arguments("/reference/protocols/mssp")]
+    [Arguments("/g/a-game-with.no-extension")]
+    public async Task ADocumentIsNeverMistakenForAFile(string path)
+    {
+        await Assert.That(LocaleRouting.IsUnlocalized(path)).IsFalse();
+    }
+
     /// <summary>The read API and the crawler's files have one address each, in every language.</summary>
     [Test]
     [Arguments("/api/games")]
