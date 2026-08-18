@@ -1,4 +1,5 @@
 using MUI.Crawl;
+using MUI.Crawler;
 
 namespace MUI.Crawler.Cli;
 
@@ -226,7 +227,7 @@ public sealed record Arguments
                     break;
 
                 case "--opt-out":
-                    parsed = parsed with { OptOut = ParseAddress(Next(args, ref i, "--opt-out")) };
+                    parsed = parsed with { OptOut = CrawlAddress.Parse(Next(args, ref i, "--opt-out")) };
                     break;
 
                 case "--submissions":
@@ -252,7 +253,7 @@ public sealed record Arguments
                     break;
 
                 case "--opt-out-check":
-                    parsed = parsed with { OptOutCheck = ParseAddress(Next(args, ref i, "--opt-out-check")) };
+                    parsed = parsed with { OptOutCheck = CrawlAddress.Parse(Next(args, ref i, "--opt-out-check")) };
                     break;
 
                 default:
@@ -299,46 +300,6 @@ public sealed record Arguments
         return parsed with { Seeds = seeds };
     }
 
-    /// <summary>
-    /// <c>host</c> or <c>host:port</c>, where leaving the port off means every port on that host.
-    /// </summary>
-    /// <remarks>
-    /// A bare IPv6 literal is read as a host rather than as an address with a port, because
-    /// <c>2001:db8::1</c> ends in something that parses as a number and guessing wrong here would file
-    /// an opt-out under an address nobody dials.
-    /// </remarks>
-    private static CrawlAddress ParseAddress(string value)
-    {
-        var text = value.Trim();
-
-        if (text.Length == 0)
-        {
-            throw new ArgumentException("An address is needed.");
-        }
-
-        if (text.StartsWith('[') && text.Contains("]:", StringComparison.Ordinal))
-        {
-            var bracket = text.IndexOf("]:", StringComparison.Ordinal);
-            return new CrawlAddress(text[1..bracket], Port(text[(bracket + 2)..]));
-        }
-
-        if (System.Net.IPAddress.TryParse(text.Trim('[', ']'), out var literal))
-        {
-            return new CrawlAddress(literal.ToString(), null);
-        }
-
-        var colon = text.LastIndexOf(':');
-
-        return colon > 0
-            ? new CrawlAddress(text[..colon], Port(text[(colon + 1)..]))
-            : new CrawlAddress(text, null);
-
-        static int Port(string text) =>
-            int.TryParse(text, out var port) && port is >= 1 and <= 65535
-                ? port
-                : throw new ArgumentException($"'{text}' is not a port.");
-    }
-
     private static string Next(string[] args, ref int i, string name) =>
         ++i < args.Length ? args[i] : throw new ArgumentException($"{name} needs a value.");
 
@@ -346,12 +307,6 @@ public sealed record Arguments
         int.TryParse(Next(args, ref i, name), out var value) && value > 0
             ? value
             : throw new ArgumentException($"{name} needs a positive number.");
-}
-
-/// <summary>One address, with the port optional — "every port on this host" is a thing to be able to say.</summary>
-public sealed record CrawlAddress(string Host, int? Port)
-{
-    public override string ToString() => Port is { } port ? $"{Host}:{port}" : $"{Host} (every port)";
 }
 
 /// <summary>
