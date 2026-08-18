@@ -517,7 +517,7 @@ figure.ansi figcaption {
 
 .skip:focus { left: 8px; top: 8px; }
 
-:where(a, button, input, summary):focus-visible {
+:where(a, button, input, select, summary):focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
 }
@@ -986,11 +986,75 @@ p.crawler .state-present { text-shadow: var(--glow); }
   that change how the page is read rather than which page it is. Pushed there rather than placed, so
   the destinations keep the left edge they had.
 */
-form.locale {
-    display: flex; align-items: baseline; gap: 8px; margin: 0 0 0 auto;
+form.locale { display: flex; align-items: center; gap: 10px; margin: 0 0 0 auto; }
+
+/* The label is the theme control's kicker, because these two sit side by side and are the same kind
+   of thing: a small named control that changes how the page is read. */
+form.locale .kick {
+    font: 10px/1 var(--kick);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
 }
-form.locale select { font-size: 12.5px; padding: 4px 6px; }
-form.locale button { font-size: 12.5px; padding: 4px 10px; }
+
+/*
+  One box, drawn as the search field is: the control and its submit inside a single hairline rather
+  than a native dropdown and a wide button beside it. The footer is otherwise text, and two heavy
+  rectangles in it read as the loudest thing on the page — which a language switcher is not.
+*/
+.locale-field {
+    display: flex; align-items: center; gap: 2px;
+    background: var(--recessed);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0 4px 0 11px;
+}
+.locale-field:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+
+/* Stripped of the platform's own chrome so it matches the site rather than the OS — a native select
+   is a different shade, a different radius and a different caret on each of the three, and none of
+   them is this one. */
+form.locale select {
+    appearance: none;
+    background: none; border: 0; border-radius: 0; margin: 0;
+    padding: 7px 18px 7px 0;
+    color: var(--text); font: 13px var(--sans);
+    cursor: pointer;
+
+    /* Sized to the option in force rather than to the longest one in the list. A select is as wide
+       as its widest child by default, so "English" sat in a box cut for "Русский (CI canary)" and
+       the caret ended up a hand's width from the word it belongs to. Where this is not supported the
+       box is merely the old width, which is the behaviour it replaces — nothing is lost by it. */
+    field-sizing: content;
+}
+/*
+  The ring goes round the box, not round the flat control inside it. Stripping `appearance` takes the
+  platform's focus ring with it, and the border tint below is a mouse affordance rather than an
+  indicator a keyboard reader can rely on — 2.4.7 wants something that survives at any contrast.
+*/
+form.locale select:focus { outline: none; }
+.locale-field:has(select:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* The nav's chevron, not a new glyph. Pulled back over the select's right padding and transparent to
+   the pointer, so the caret is part of the same click target rather than a dead spot beside it. */
+.locale-caret {
+    margin-left: -16px;
+    color: var(--faint); font-size: 11px; line-height: 1;
+    pointer-events: none;
+}
+
+/* The search's own arrow. A submit is needed because this site runs no script, and this is the
+   smallest shape that says "commit" in a vocabulary the reader has already met. */
+.locale-go {
+    flex: none; display: flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; padding: 0;
+    background: none; border: 0; border-radius: 6px;
+    color: var(--faint); font-size: 13px; cursor: pointer;
+}
+.locale-go:hover { color: var(--accent); background: var(--raised); }
 
 
 

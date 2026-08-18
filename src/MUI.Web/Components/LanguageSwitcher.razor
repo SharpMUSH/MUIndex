@@ -34,17 +34,31 @@
     <form class="locale" method="post" action="@Locales.Path">
         <label class="kick" for="locale-select">@Messages.For(Tag, "locale.label")</label>
         <input type="hidden" name="@Locales.ReturnField" value="@Here" />
-        <select id="locale-select" name="@Locales.Field">
-            @foreach (var locale in Offered)
-            {
-                @* lang on the option, so a screen reader says each name in its own voice rather
-                   than attempting 中文 with the phonetics of the page it is currently on. *@
-                <option value="@locale.Tag" lang="@locale.Tag" selected="@(locale.Tag == Tag)">
-                    @locale.Endonym
-                </option>
-            }
-        </select>
-        <button type="submit">@Messages.For(Tag, "locale.submit")</button>
+        @*
+            One box holding the choice and the way to commit it, which is the shape the search field
+            already taught the reader on the listing — rather than a native dropdown and a wide
+            button beside it, which drew two heavy rectangles into a footer that is otherwise text.
+            The caret is the bar's own chevron and the submit is the search's own arrow, so the
+            control is assembled out of vocabulary this site already has instead of the browser's.
+        *@
+        <span class="locale-field">
+            <select id="locale-select" name="@Locales.Field">
+                @foreach (var locale in Offered)
+                {
+                    @* lang on the option, so a screen reader says each name in its own voice rather
+                       than attempting 中文 with the phonetics of the page it is currently on. *@
+                    <option value="@locale.Tag" lang="@locale.Tag" selected="@(locale.Tag == Tag)">
+                        @locale.Endonym
+                    </option>
+                }
+            </select>
+            @* Over the select's own padding and click-through, so the whole box opens it. *@
+            <span class="locale-caret" aria-hidden="true">▾</span>
+            <button type="submit" class="locale-go" title="@Messages.For(Tag, "locale.submit")">
+                <span aria-hidden="true">→</span>
+                <span class="sr-only">@Messages.For(Tag, "locale.submit")</span>
+            </button>
+        </span>
     </form>
 }
 

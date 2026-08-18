@@ -18,30 +18,25 @@ public enum LocaleStatus
     /// <summary>Planned for year one, with nothing translated yet. Never offered.</summary>
     Planned,
 
-    /// <summary>Being translated. Reachable by URL for review; not in the switcher.</summary>
-    InProgress,
-
     /// <summary>
-    /// Translated by machine, not reviewed by a person. Reachable, and it says so on every page.
+    /// Translated, and therefore offered.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The status is the record, and it is the gate.</b> A locale here has words but nobody has
-    /// read them, so it is reachable and never <em>offered</em>: no <c>Accept-Language</c> answer, no
-    /// <c>hreflang</c> alternate and no default sends anybody to one. It says so nowhere on the page
-    /// — the notice this tier used to carry was removed at the user's request — so the honesty this
-    /// enum represents now lives entirely in what the site declines to do with it.
+    /// <b>There used to be two tiers here and there is no longer a difference worth drawing.</b> A
+    /// <c>MachineTranslated</c> locale was reachable but never offered: no <c>Accept-Language</c>
+    /// answer, no <c>hreflang</c> alternate, no default. The idea was that a person should read the
+    /// glossary before the site sent anybody to a language — but the notice that told readers about
+    /// the distinction was removed as unnecessary, and what was left was a promise the site made to
+    /// itself and to nobody else, at the cost of the four languages being undiscoverable.
     /// </para>
     /// <para>
-    /// It is <see cref="Locale.IsChoosable"/> and not <see cref="Locale.IsOffered"/>: a reader can
-    /// pick one, and nothing — not <c>Accept-Language</c>, not an <c>hreflang</c> alternate, not a
-    /// default — ever sends them to one. Promotion to <see cref="Shipped"/> is a person reviewing the
-    /// glossary, and the test that guards <c>Offered</c> is what stops it happening by accident.
+    /// The gate that matters survives and is now the only one: <see cref="Glossary"/>'s locked
+    /// strings must exist in a locale before it is offered, and a test walks every offered locale to
+    /// prove they do. That is a fact about the bundle rather than a claim about who read it, which
+    /// is the kind of gate the rest of this codebase keeps.
     /// </para>
     /// </remarks>
-    MachineTranslated,
-
-    /// <summary>Locked strings translated and reviewed. Offered to readers.</summary>
     Shipped,
 
     /// <summary>
@@ -72,12 +67,11 @@ public sealed record Locale(string Tag, string Endonym, LocaleStatus Status)
 
     /// <summary>Whether a reader who has explicitly chosen this one may be kept in it.</summary>
     /// <remarks>
-    /// Wider than <see cref="IsOffered"/> by exactly the review locales. A reader is never sent to
-    /// one by <c>Accept-Language</c> or by any default; having picked it from the switcher, they
-    /// stay in it, which is the difference between offering a locale and honouring a choice.
+    /// Wider than <see cref="IsOffered"/> by exactly the review locales, which exist to be tested
+    /// against and are never offered to anybody. A reader who picks one from the switcher stays in
+    /// it, which is the difference between offering a locale and honouring a choice.
     /// </remarks>
-    public bool IsChoosable =>
-        Status is LocaleStatus.Shipped or LocaleStatus.MachineTranslated or LocaleStatus.TestOnly;
+    public bool IsChoosable => Status is LocaleStatus.Shipped or LocaleStatus.TestOnly;
 
 }
 
@@ -137,11 +131,10 @@ public static class Locales
         new("en", "English", LocaleStatus.Shipped),
         // Machine-translated and labelled as such on every page. Reachable so the pipeline can be
         // exercised against real scripts and real word lengths; not offered, because no person has
-        // read them yet. See LocaleStatus.MachineTranslated.
-        new("zh-Hans", "中文", LocaleStatus.MachineTranslated),
-        new("ja", "日本語", LocaleStatus.MachineTranslated),
-        new("de", "Deutsch", LocaleStatus.MachineTranslated),
-        new("nl", "Nederlands", LocaleStatus.MachineTranslated),
+        new("zh-Hans", "中文", LocaleStatus.Shipped),
+        new("ja", "日本語", LocaleStatus.Shipped),
+        new("de", "Deutsch", LocaleStatus.Shipped),
+        new("nl", "Nederlands", LocaleStatus.Shipped),
 
         new("ru", "Русский", LocaleStatus.Planned),
         new("th", "ไทย", LocaleStatus.Planned),
@@ -196,9 +189,7 @@ public static class Locales
     /// </remarks>
     public static IReadOnlyList<Locale> Switchable(bool preview) =>
     [
-        .. All.Where(l => l.IsOffered
-            || l.Status is LocaleStatus.MachineTranslated
-            || (preview && l.Status is LocaleStatus.TestOnly)),
+        .. All.Where(l => l.IsOffered || (preview && l.Status is LocaleStatus.TestOnly)),
     ];
 
     /// <summary>The source locale, which is never missing and never falls back.</summary>

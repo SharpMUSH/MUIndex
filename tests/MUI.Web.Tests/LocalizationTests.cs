@@ -829,19 +829,38 @@ public class LocalizationTests
     }
 
     [Test]
-    public async Task NothingButAShippedLocaleIsEverOfferedToAReader()
+    public async Task ALocaleIsOfferedWhenItHasTheWordsAndNotBefore()
     {
-        // The gate, stated twice on purpose. `Offered` is what a default may reach — Accept-Language,
-        // a remembered cookie, an hreflang alternate — and it is English alone until a glossary is
-        // translated. A review build lists more in the switcher; that is a control somebody clicks,
-        // not a place a reader is sent.
-        await Assert.That(Locales.Offered.Select(l => l.Tag)).IsEquivalentTo(new[] { Locales.SourceTag });
+        // The gate, and now the only one. `Offered` is what a default may reach — Accept-Language, a
+        // remembered cookie, an hreflang alternate — and what opens it is the bundle carrying the
+        // locked glossary, not somebody's claim to have read it. There used to be a second tier that
+        // was translated and deliberately unreachable; it made four languages undiscoverable in
+        // exchange for a promise the site made only to itself.
+        foreach (var locale in Locales.Offered.Where(l => l.Tag != Locales.SourceTag))
+        {
+            foreach (var locked in Glossary.Locked)
+            {
+                await Assert.That(Messages.HasOwn(locale.Tag, locked.Id))
+                    .IsTrue()
+                    .Because($"{locale.Tag} is offered without a translation for {locked.Id}");
+            }
+        }
 
-        foreach (var locale in Locales.All.Where(l => l.Status is not LocaleStatus.Shipped))
+        // A locale with nothing translated is never offered, whatever else changes.
+        foreach (var locale in Locales.All.Where(l => l.Status is LocaleStatus.Planned))
         {
             await Assert.That(locale.IsOffered)
                 .IsFalse()
-                .Because($"{locale.Tag} is {locale.Status} and must not be offered");
+                .Because($"{locale.Tag} is planned and has no words yet");
+        }
+
+        // And a review locale is reachable by choice and never by default: it exists to be tested
+        // against, and a reader must not be sent to a pseudolocale by their browser's settings.
+        foreach (var locale in Locales.All.Where(l => l.Status is LocaleStatus.TestOnly))
+        {
+            await Assert.That(locale.IsOffered)
+                .IsFalse()
+                .Because($"{locale.Tag} is a review locale and must not be offered");
         }
 
         // And no default reaches a review locale, whatever a browser asks for.
@@ -929,21 +948,24 @@ public class LocalizationTests
         await Assert.That(Locales.Find("qps-ploc")!.IsOffered).IsFalse();
         await Assert.That(Locales.Find("qps-ploc")!.IsChoosable).IsTrue();
 
-        // Same for a machine-translated one, and for the same reason: nothing sends a reader there.
-        await Assert.That(Locales.Find("de")!.IsOffered).IsFalse();
+        // A translated locale is both: it can be chosen, and a browser asking for it is answered.
+        // That is the tier collapse — there is no longer a state that has the words and withholds
+        // them.
+        await Assert.That(Locales.Find("de")!.IsOffered).IsTrue();
         await Assert.That(Locales.Find("de")!.IsChoosable).IsTrue();
 
         // A planned locale is neither. There is nothing to choose.
         await Assert.That(Locales.Find("ru")!.IsChoosable).IsFalse();
+        await Assert.That(Locales.Find("ru")!.IsOffered).IsFalse();
     }
 
     [Test]
-    public async Task EveryMachineTranslatedLocaleTranslatedTheWholeGlossary()
+    public async Task EveryOfferedLocaleTranslatedTheWholeGlossary()
     {
         // Not the review gate — that is a person reading them. This is the weaker thing worth
         // asserting: a bundle that stopped halfway would leave a page in two languages, with the
         // English half being exactly the provenance words a reader most needs to trust.
-        foreach (var locale in Locales.All.Where(l => l.Status is LocaleStatus.MachineTranslated))
+        foreach (var locale in Locales.All.Where(l => l.IsOffered && l.Tag != Locales.SourceTag))
         {
             foreach (var locked in Glossary.Locked)
             {
@@ -963,7 +985,7 @@ public class LocalizationTests
         // reader then cannot tell a game that answered from one that did not.
         string[] ids = ["state.notMeasured", "state.uncounted", "state.unreachable", "state.notCounted"];
 
-        foreach (var locale in Locales.All.Where(l => l.Status is LocaleStatus.MachineTranslated))
+        foreach (var locale in Locales.All.Where(l => l.IsOffered && l.Tag != Locales.SourceTag))
         {
             var rendered = ids.Select(id => Messages.For(locale.Tag, id)).ToList();
 
