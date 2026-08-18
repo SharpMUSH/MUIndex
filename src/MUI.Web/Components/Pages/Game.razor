@@ -94,7 +94,11 @@ else
                         @L("game.unclaimed")
                         @if (Claimable)
                         {
-                            <a href="@Http.Link($"/g/{Page.Summary.Slug}/claim")">@L("game.claim")</a>
+                            @* A bare space here is whitespace-only text next to a Razor code block,
+                               which the compiler drops rather than rendering — so without an escape
+                               that is not itself all-whitespace, the sentence and the link ran
+                               together as "measured.Claim this game" with nothing between them. *@
+                            <text>&#32;</text><a href="@Http.Link($"/g/{Page.Summary.Slug}/claim")">@L("game.claim")</a>
                         }
                     </p>
                 }

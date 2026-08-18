@@ -45,6 +45,27 @@ public class ClaimSurfaceTests
         await Assert.That(page).DoesNotContain("Claim this game");
     }
 
+    /// <summary>
+    /// The sentence and the link it hands off to read as one sentence, not two words run together.
+    /// </summary>
+    /// <remarks>
+    /// The Razor source has a line break between <c>@L("game.unclaimed")</c> and the <c>@if</c> that
+    /// prints the link — whitespace-only text between two code blocks, which the compiler drops
+    /// rather than rendering as a space. Over the fixture the invitation never renders at all (see
+    /// above), so this needs a claim service actually registered to reach the branch that lost it.
+    /// </remarks>
+    [Test]
+    public async Task TheClaimInvitationHasASpaceBeforeTheLink()
+    {
+        var page = await Render.PageAsync<Game>(
+            new() { ["Slug"] = "m-u-s-h" },
+            query: string.Empty,
+            claimService: new ClaimService(new NullClaimStore(), new NullGameStore(), TimeProvider.System));
+
+        await Assert.That(Render.Text(page))
+            .Contains("Unclaimed — everything here was measured. Claim this game");
+    }
+
     /// <summary>The sign-in page says why it cannot sign anybody in, rather than offering a button.</summary>
     [Test]
     public async Task SignInOverTheFixtureSaysThereIsNothingToSignInTo()
@@ -412,5 +433,81 @@ public class ClaimSurfaceTests
         {
             public override AntiforgeryRequestToken? GetAntiforgeryToken() => null;
         }
+    }
+
+    /// <summary>A store <see cref="ClaimService"/> is constructed over but never actually asked</summary>
+    /// <remarks>
+    /// <see cref="Game.Claimable"/> only checks whether a <c>ClaimService</c> resolves from DI — it
+    /// never calls one — so a real store behind it would be dead weight for a spacing test.
+    /// </remarks>
+    private sealed class NullGameStore : IGameStore
+    {
+        public Task<GameRecord?> ByIdAsync(Guid id, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<GameRecord?> BySlugAsync(string slug, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task InsertAsync(GameRecord game, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task ExcludeAsync(Guid id, string reason, DateTimeOffset at, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task IncludeAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task UnlistAsync(Guid id, Guid byUserId, DateTimeOffset at, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task RelistAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task SetStateAsync(Guid id, LifecycleState state, DateTimeOffset at, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task CorroborateAsync(
+            Guid id, DateTimeOffset at, IReadOnlyList<string> signals, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task MarkReachableAsync(Guid id, DateTimeOffset at, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<string?> RenameAsync(
+            Guid id, string name, string slug, DateTimeOffset at, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task SetClaimedAsync(Guid id, bool isClaimed, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<GameRecord>> UnarchivedAsync(CancellationToken ct = default) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class NullClaimStore : IClaimStore
+    {
+        public Task<GameClaim?> FindAsync(Guid claimId, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<GameClaim>> ForGameAsync(Guid gameId, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<GameClaim>> ForUserAsync(Guid userId, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<GameClaim?> FindPendingByTokenAsync(Guid gameId, string token, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task InsertAsync(GameClaim claim, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task UpdateAsync(GameClaim claim, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task RecordEventAsync(ClaimEvent claimEvent, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<ClaimEvent>> EventsAsync(Guid claimId, CancellationToken ct = default) =>
+            throw new NotSupportedException();
     }
 }
