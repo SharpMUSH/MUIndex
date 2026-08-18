@@ -61,17 +61,10 @@ real zero), hatched (measured but uncountable), or empty (not measured) — neve
 No forums, reviews, comments, ratings, or player profiles. No hosting, no web client. Player names
 are never persisted — `WHO` is parsed in memory and aggregates use salted, rotating hashes.
 
-## Screenshots
-
-![The game page](docs/screenshots/03-game-page.png)
-
-More in [`docs/screenshots/`](docs/screenshots/), including the plain-text rendering.
-
 ## Docs
 
-- [`docs/specs/2026-07-30-mu-directory-design.md`](docs/specs/2026-07-30-mu-directory-design.md) — system design, authoritative
-- [`docs/deploy.md`](docs/deploy.md) — image, environment variables, migrations, replicas
-- [`docs/design-handoff.html`](docs/design-handoff.html) — the visual design (open in a browser)
+[`docs/specs/2026-07-30-mu-directory-design.md`](docs/specs/2026-07-30-mu-directory-design.md) is
+the system design and the authoritative source for anything below.
 
 ## Build & test
 
