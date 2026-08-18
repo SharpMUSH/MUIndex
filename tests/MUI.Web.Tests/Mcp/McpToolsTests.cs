@@ -619,6 +619,7 @@ public class McpToolsTests
         await Assert.That(record.FromGameId).IsEqualTo(loserId);
         await Assert.That(record.Score).IsEqualTo(0.5);
         await Assert.That(record.IsInForce).IsTrue();
+        await Assert.That(record.SignalsJson).Contains("BannerHash");
     }
 
     [Test]
@@ -781,5 +782,51 @@ public class McpToolsTests
         });
 
         await Assert.That(result.IsError).IsTrue();
+    }
+
+    /// <summary>
+    /// A survivor of one merge asked to be absorbed by a third game is <c>merge_log_no_chains</c>
+    /// refusing -- a distinct guard from <see cref="GameMergeRefusesALoserAlreadyAbsorbedElsewhere"/>'s
+    /// <c>merge_log_absorbed_once_idx</c>: that one stops the same loser being folded in twice, this
+    /// one stops a survivor from also being somebody else's loser, which would leave the middle game's
+    /// URL redirecting nowhere reachable (spec §7.5).
+    /// </summary>
+    [Test]
+    public async Task GameMergeRefusesARedirectChain()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+        await SeedGameAsync(source, "chain-end", now);
+        var middleId = await SeedGameAsync(source, "chain-middle", now);
+        await SeedGameAsync(source, "chain-start", now);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString, clock: new FixedClock(now));
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        // chain-middle absorbs chain-start, making chain-middle a survivor.
+        await client.CallAsync<GameMergeResult>("game_merge", new Dictionary<string, object?>
+        {
+            ["winnerSlug"] = "chain-middle",
+            ["loserSlug"] = "chain-start",
+            ["because"] = "First merge.",
+        });
+
+        // Now asking chain-middle -- already a survivor -- to be absorbed by chain-end would leave
+        // chain-start's redirect resolving to a game with no page of its own.
+        var result = await client.TryCallAsync("game_merge", new Dictionary<string, object?>
+        {
+            ["winnerSlug"] = "chain-end",
+            ["loserSlug"] = "chain-middle",
+            ["because"] = "Would form a chain and should be refused.",
+        });
+
+        await Assert.That(result.IsError).IsTrue();
+
+        var merges = new NpgsqlMergeLog(source);
+        var middlesMerges = await merges.ForGameAsync(middleId, CancellationToken.None);
+        await Assert.That(middlesMerges.Count).IsEqualTo(1);
+        await Assert.That(middlesMerges.Single().IsInForce).IsTrue();
     }
 }
