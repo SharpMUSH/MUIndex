@@ -1,8 +1,13 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using MUI.Crawl;
+using TelnetNegotiationCore.Builders;
+using TelnetNegotiationCore.Interpreters;
+using TelnetNegotiationCore.Protocols;
 
 namespace MUI.Crawl.Tests;
 
@@ -281,6 +286,120 @@ public class ProbeSessionTests
 
         await Assert.That(result.Banner).Contains("Welcome to Nowhere");
         await Assert.That(result.Who.Count).IsEqualTo(5);
+    }
+
+    /// <summary>
+    /// Wiring proof for TelnetNegotiationCore PR #84 (v2.8.3): once MSDP negotiates, the probe asks
+    /// for <c>PLAYERS</c> and captures whatever comes back, through <c>SendMSDPCommand</c> and the
+    /// new <c>OnMSDPMessage</c> hook.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="MsdpTestServer"/> is TelnetNegotiationCore itself, run in Server mode — not a
+    /// hand-rolled byte parser reimplementing MSDP's wire framing, which is exactly the kind of
+    /// compensating logic CLAUDE.md says belongs upstream rather than here. The library already
+    /// implements both ends of the protocol; this proves the client side against the real server side.
+    /// <para>
+    /// Live testing across the DIKU/ROM/EmpireMUD-family and custom-coded servers sampled for
+    /// <c>docs/codebase-survey-2026-07-30.md</c> found nothing exposing a pre-login player-count
+    /// variable, so this fake exists to prove the request/response plumbing works end to end
+    /// (negotiate, ask, capture), not to claim any real server answers this way.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AServerOfferingMsdpIsAskedForPlayersAndTheAnswerIsCaptured()
+    {
+        await using var server = new MsdpTestServer { PlayersReply = "7" };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(server.Target);
+
+        await Assert.That(server.ReceivedMessages).Count().IsEqualTo(1);
+        var sent = JsonSerializer.Deserialize<Dictionary<string, string>>(
+            server.ReceivedMessages[0]);
+        await Assert.That(sent!["SEND"]).IsEqualTo("PLAYERS");
+
+        await Assert.That(result.Negotiation.Supported).Contains("MSDP");
+        await Assert.That(result.Negotiation.MsdpMessages).IsNotEmpty();
+
+        var received = JsonSerializer.Deserialize<Dictionary<string, string>>(
+            result.Negotiation.MsdpMessages[0]);
+        await Assert.That(received!["PLAYERS"]).IsEqualTo("7");
+    }
+
+    /// <summary>
+    /// The more realistic case, per the live sample: MSDP negotiates but the server never answers
+    /// <c>SEND PLAYERS</c> because it never advertised that variable. Nothing times out waiting for an
+    /// answer that was never coming, and nothing is fabricated in its place (rule 4) — including
+    /// <c>Supported</c> itself. TelnetNegotiationCore's <c>OnEnabledAsync</c> (see <c>Watched.Msdp</c>
+    /// and <c>Build</c>'s remarks) is wired to a manual enable/disable API that nothing in negotiation
+    /// ever calls, so it is not a signal this codebase can read as "the server offered MSDP" — the only
+    /// signal that is, an MSDP message actually arriving, never arrives here. <c>MSDP</c> is absent
+    /// from <c>Supported</c> for the same reason a game that never speaks is absent from any other
+    /// protocol's capability set: not observed, not claimed.
+    /// </summary>
+    [Test]
+    public async Task AServerThatNegotiatesMsdpButHasNoPlayersVariableAnswersNothing()
+    {
+        await using var server = new MsdpTestServer { PlayersReply = null };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(server.Target);
+
+        await Assert.That(server.ReceivedMessages).Count().IsEqualTo(1);
+        var sent = JsonSerializer.Deserialize<Dictionary<string, string>>(
+            server.ReceivedMessages[0]);
+        await Assert.That(sent!["SEND"]).IsEqualTo("PLAYERS");
+
+        await Assert.That(result.Negotiation.Supported).DoesNotContain("MSDP");
+        await Assert.That(result.Negotiation.MsdpMessages).IsEmpty();
+    }
+
+    /// <summary>
+    /// The probe cannot know in advance whether a server offered MSDP — see the request's own remarks
+    /// in <c>TelnetProbe.ProbeAsync</c> for why — so it is sent speculatively to every server, the same
+    /// way MSSP is asked for by negotiation regardless of whether the far end implements it. A
+    /// compliant server that never negotiated MSDP still recognises <c>IAC SB … IAC SE</c> as telnet
+    /// subnegotiation framing (RFC 855) and discards the unknown option without incident, so nothing is
+    /// recorded as supported and the rest of the session is unaffected.
+    /// </summary>
+    [Test]
+    public async Task ATelnetCompliantServerThatDoesNotOfferMsdpIsUnaffectedByBeingAsked()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "Welcome to Nowhere\r\n",
+            WhoReply = "There are 5 players connected.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Negotiation.Supported).DoesNotContain("MSDP");
+        await Assert.That(result.Negotiation.MsdpMessages).IsEmpty();
+        await Assert.That(result.Who.Count).IsEqualTo(5);
+        await Assert.That(result.Banner).Contains("Welcome to Nowhere");
+    }
+
+    /// <summary>
+    /// The regression this design is built to avoid. chaos.caile.org:4444 (TinyMUSH) does not parse
+    /// telnet at its login screen at all — <see cref="AServerThatBuffersOurNegotiationAsTextStillAnswersWho"/>
+    /// covers the same shape for the client's own automatic negotiation replies. The MSDP request is
+    /// sent before the probe's existing flush line for exactly this reason: whatever a server like this
+    /// makes of six-plus bytes of raw subnegotiation it cannot parse lands in the same discarded window
+    /// as any other stray reaction, and <c>WHO</c> comes back uncorrupted regardless.
+    /// </summary>
+    [Test]
+    public async Task AServerThatSwallowsTelnetAsTextStillAnswersWhoDespiteTheMsdpRequest()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "Welcome to Nowhere\r\n",
+            WhoReply = "0 Players logged in, 22 record, no maximum.\r\n",
+            SwallowsNegotiationAsText = true,
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Count);
+        await Assert.That(result.Who.Count).IsEqualTo(0);
+        await Assert.That(result.Negotiation.Supported).DoesNotContain("MSDP");
     }
 
     [Test]
@@ -867,7 +986,14 @@ public class ProbeSessionTests
             await stream.FlushAsync(_stopping.Token);
         }
 
-        /// <summary>What a server that does implement telnet does with an option request.</summary>
+        /// <summary>
+        /// What a server that does implement telnet does with an option request — including one it
+        /// has no plugin for. RFC 855 subnegotiation framing (<c>IAC SB &lt;option&gt; … IAC SE</c>) is
+        /// generic: a compliant server skips the whole frame by scanning for its terminator without
+        /// needing to understand the option inside, the same way it discards an option it never
+        /// offered. Only a server that does not parse telnet at all — TinyMUSH's shape, covered by
+        /// <see cref="SwallowsNegotiationAsText"/> — reads any of this as literal text.
+        /// </summary>
         private static byte[] StripNegotiation(ReadOnlySpan<byte> data)
         {
             var kept = new List<byte>(data.Length);
@@ -879,11 +1005,171 @@ public class ProbeSessionTests
                     continue;
                 }
 
+                if (i + 1 < data.Length && data[i + 1] == 250)
+                {
+                    // IAC SB <option> … IAC SE, with IAC doubled inside the payload per RFC 854.
+                    var j = i + 2;
+                    while (j < data.Length)
+                    {
+                        if (data[j] == 255 && j + 1 < data.Length && data[j + 1] == 255)
+                        {
+                            j += 2;
+                            continue;
+                        }
+
+                        if (data[j] == 255 && j + 1 < data.Length && data[j + 1] == 240)
+                        {
+                            j += 2;
+                            break;
+                        }
+
+                        j++;
+                    }
+
+                    i = j - 1;
+                    continue;
+                }
+
                 // IAC WILL/WONT/DO/DONT <option> is three bytes; anything else, skip two.
                 i += i + 1 < data.Length && data[i + 1] is >= 251 and <= 254 ? 2 : 1;
             }
 
             return [.. kept];
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await _stopping.CancelAsync();
+            _listener.Stop();
+
+            try
+            {
+                await _serving;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            _stopping.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// The server side of an MSDP round trip, built from TelnetNegotiationCore's own Server-mode
+    /// interpreter rather than a hand-rolled reimplementation of MSDP's wire framing.
+    /// </summary>
+    /// <remarks>
+    /// Negotiation (<c>IAC WILL MSDP</c>, unprompted, and the <c>IAC DO MSDP</c> that answers it) is
+    /// entirely the library's own — <c>MSDPProtocol.ConfigureStateMachine</c> registers it as an
+    /// initial negotiation in Server mode, the same as it does for every other option. This exists to
+    /// answer <c>SEND PLAYERS</c> the way a real MSDP-speaking server would, over the actual
+    /// subnegotiation channel, so the test proves the client side against protocol-correct behaviour
+    /// rather than against a guess at what that behaviour is.
+    /// </remarks>
+    private sealed class MsdpTestServer : IAsyncDisposable
+    {
+        private readonly TcpListener _listener;
+        private readonly CancellationTokenSource _stopping = new();
+        private readonly Task _serving;
+        private readonly List<string> _received = [];
+
+        public MsdpTestServer()
+        {
+            _listener = new TcpListener(IPAddress.Loopback, 0);
+            _listener.Start();
+            _serving = ServeAsync();
+        }
+
+        /// <summary>
+        /// What to answer a <c>SEND PLAYERS</c> request with. Null means MSDP negotiates but the
+        /// server never answers — the shape every server sampled in
+        /// <c>docs/codebase-survey-2026-07-30.md</c> turned out to have, pre-login.
+        /// </summary>
+        public string? PlayersReply { get; init; }
+
+        public ProbeTarget Target => new(
+            IPAddress.Loopback.ToString(),
+            ((IPEndPoint)_listener.LocalEndpoint).Port);
+
+        /// <summary>Every raw MSDP message this server received, exactly as the library delivered it.</summary>
+        public IReadOnlyList<string> ReceivedMessages
+        {
+            get
+            {
+                lock (_received)
+                {
+                    return [.. _received];
+                }
+            }
+        }
+
+        private async Task ServeAsync()
+        {
+            try
+            {
+                using var client = await _listener.AcceptTcpClientAsync(_stopping.Token);
+
+                var msdp = new MSDPProtocol();
+                msdp.OnMSDPMessage((telnet, message) =>
+                {
+                    lock (_received)
+                    {
+                        _received.Add(message);
+                    }
+
+                    return HandleAsync(telnet, message);
+                });
+
+                var built = await new TelnetInterpreterBuilder()
+                    .UseMode(TelnetInterpreter.TelnetMode.Server)
+                    .UseLogger(NullLogger.Instance)
+                    .OnSubmit((_, _, _) => ValueTask.CompletedTask)
+                    .AddPlugin(msdp)
+                    .BuildAndStartAsync(client, _stopping.Token);
+
+                await using var telnet = built.Interpreter;
+                await built.ReadTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (IOException)
+            {
+            }
+            catch (SocketException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+
+        /// <summary>Answers a <c>SEND PLAYERS</c> request, over MSDP's own wire shape, if asked to.</summary>
+        /// <remarks>
+        /// Answered with <c>SendMSDPCommand</c> — the same client-side method under test, reused here
+        /// because it is mode-agnostic (it is a raw <c>IAC SB MSDP MSDP_VAR … MSDP_VAL … IAC SE</c>
+        /// write with no client/server branch) and it is the shape MSDP defines for one variable's
+        /// value, which is what a <c>SEND PLAYERS</c> reply is. <c>MSDPLibrary.Report</c> — the
+        /// function <see cref="Handlers.MSDPServerHandler"/> uses — wraps a JSON *object* in
+        /// <c>MSDP_TABLE_OPEN</c>/<c>CLOSE</c>, which is right for reporting a table of variables but
+        /// wrong for this flat single-pair answer, so it is not used here.
+        /// </remarks>
+        private async ValueTask HandleAsync(TelnetInterpreter telnet, string message)
+        {
+            if (PlayersReply is null)
+            {
+                return;
+            }
+
+            var request = JsonSerializer.Deserialize<Dictionary<string, string>>(message);
+            if (request is not { } fields
+                || !fields.TryGetValue("SEND", out var wanted)
+                || !wanted.Equals("PLAYERS", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            await telnet.SendMSDPCommand("PLAYERS", PlayersReply);
         }
 
         public async ValueTask DisposeAsync()

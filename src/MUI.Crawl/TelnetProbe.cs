@@ -191,6 +191,28 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
             try
             {
+                // MSDP's request vocabulary — SEND, REPORT, LIST, RESET, UNREPORT — has no plaintext
+                // form, so it is not on PermittedCommands for the same reason MSSP-REQUEST is not: it
+                // is asked for by protocol, not by typing. It cannot be gated on "did MSDP negotiate"
+                // the way the WHO/INFO/VERSION gates below are gated on Live(client), because that
+                // knowledge does not exist yet — TelnetNegotiationCore's OnEnabledAsync (see
+                // Watched.Msdp) is not a reliable signal of a server having agreed to an option (it is
+                // wired to a manual enable/disable API nothing in negotiation ever calls; see
+                // Build()'s remarks) and the only demonstrable signal, an MSDP message actually
+                // arriving, cannot exist before something has been sent to provoke one.
+                //
+                // So this is sent exactly the way the client's own automatic negotiation replies are:
+                // unconditionally, before the flush that already exists to absorb a stray reaction to
+                // exactly this class of byte. A server that never offered MSDP has no state for
+                // "IAC SB MSDP" and, per the TinyMUSH shape documented on the flush below, may read it
+                // as literal text and answer with something — which lands in the same flush window and
+                // is discarded the same way. A server that did negotiate MSDP answers over the
+                // subnegotiation channel, which never touches `lines` and cannot perturb a phase
+                // boundary at all, whether or not it answers. PLAYERS is MSDP's conventional variable
+                // name for a player count; see docs/codebase-survey-2026-07-30.md for what asking real
+                // servers for it found.
+                await telnet.SendMSDPCommand("SEND", "PLAYERS");
+
                 await telnet.SendAsync([]);
                 await SettleAsync(telnet, Arrived, bannerLines, _options.QuietPeriod, budget.Token);
                 flushLines = whoLines = infoLines = versionLines = Arrived();
@@ -609,6 +631,12 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
         var msdp = new Watched.Msdp(Note);
         msdp.WithMaxMessageSize(_options.MaxSubnegotiationBytes);
+        msdp.OnMSDPMessage((_, message) =>
+        {
+            seen.Msdp(message);
+            Note("MSDP");
+            return ValueTask.CompletedTask;
+        });
 
         var newEnviron = new Watched.NewEnviron(Note);
         newEnviron.OnEnvironmentVariables((requested, _) =>
@@ -693,6 +721,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         private readonly HashSet<string> _supported = new(StringComparer.Ordinal);
         private readonly List<string> _environment = [];
         private readonly List<string> _gmcp = [];
+        private readonly List<string> _msdp = [];
 
         public MSSPConfig? Mssp;
         public MsspOutcome MsspOutcome = MsspOutcome.NotOffered;
@@ -737,22 +766,41 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             }
         }
 
+        /// <summary>
+        /// Records one MSDP message exactly as TelnetNegotiationCore delivered it. Not deduplicated,
+        /// unlike <see cref="Gmcp"/>'s package names — each message is a distinct answer rather than a
+        /// repeated declaration, and collapsing "PLAYERS":"3" and "PLAYERS":"4" as duplicates because
+        /// their JSON differs only in value would be silently correct today and silently wrong the
+        /// moment two different answers arrived.
+        /// </summary>
+        public void Msdp(string message)
+        {
+            lock (_msdp)
+            {
+                _msdp.Add(message);
+            }
+        }
+
         public Negotiation ToNegotiation()
         {
             lock (_environment)
             {
                 lock (_gmcp)
                 {
-                    return new Negotiation
+                    lock (_msdp)
                     {
-                        Supported = Supported,
-                        Charset = Charset,
-                        CompressionVersion = CompressionVersion,
-                        CharsetNegotiated = CharsetNegotiated,
-                        EnvironmentRequested = _environment.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
-                        GmcpPackages = _gmcp.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
-                        SendsPromptMarkers = Prompts,
-                    };
+                        return new Negotiation
+                        {
+                            Supported = Supported,
+                            Charset = Charset,
+                            CompressionVersion = CompressionVersion,
+                            CharsetNegotiated = CharsetNegotiated,
+                            EnvironmentRequested = _environment.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                            GmcpPackages = _gmcp.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                            MsdpMessages = [.. _msdp],
+                            SendsPromptMarkers = Prompts,
+                        };
+                    }
                 }
             }
         }
