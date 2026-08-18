@@ -198,4 +198,98 @@ public class ReferenceLocalizationTests
                 .Contains(ClientCapabilities.Word(locale.Tag, CapabilityState.Unknown));
         }
     }
+
+    /// <summary>
+    /// A translated article is the same article: same slug, same kind, same related pages.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Enforced by the loader and asserted here anyway.</b> <c>ReferenceLibrary.For</c> hands out
+    /// the English record with only the prose replaced, so a translator cannot move a slug even by
+    /// writing a different one — but the file on disk is what a person edits next, and a front
+    /// matter that disagrees with the English is a trap set for whoever reads it later. This walks
+    /// the files rather than the loaded documents, which is the only place the difference shows.
+    /// </para>
+    /// <para>
+    /// The structural keys are the routing and the see-also graph: <c>kind</c> and <c>slug</c> make
+    /// the URL, <c>see-also</c> makes the related-pages links, and <c>codebase</c>, <c>protocol</c>,
+    /// <c>home</c>, <c>platform</c> and <c>capability</c> are read as machine voice. Only
+    /// <c>title</c> and <c>summary</c> are prose.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ATranslatedArticleKeepsTheEnglishStructure()
+    {
+        var root = ArticleRoot();
+        var english = root.GetFiles("*.md").ToDictionary(f => f.Name, StringComparer.Ordinal);
+
+        await Assert.That(english).IsNotEmpty().Because("the English articles are the source");
+
+        var checkedFiles = 0;
+
+        foreach (var directory in root.GetDirectories())
+        {
+            foreach (var translated in directory.GetFiles("*.md"))
+            {
+                await Assert.That(english.ContainsKey(translated.Name))
+                    .IsTrue()
+                    .Because($"{directory.Name}/{translated.Name} translates an article that does not exist");
+
+                var source = Structure(File.ReadAllText(english[translated.Name].FullName));
+                var target = Structure(File.ReadAllText(translated.FullName));
+
+                await Assert.That(target)
+                    .IsEquivalentTo(source)
+                    .Because($"{directory.Name}/{translated.Name} changed a structural front-matter key");
+
+                checkedFiles++;
+            }
+        }
+
+        await Assert.That(checkedFiles)
+            .IsGreaterThan(0)
+            .Because("a sweep over no translations proves nothing about translations");
+    }
+
+    /// <summary>Every front-matter line that is not prose, in the order the file gives them.</summary>
+    private static List<string> Structure(string document)
+    {
+        var parts = document.Split("---", 3);
+        var front = parts.Length > 1 ? parts[1] : string.Empty;
+
+        return
+        [
+            .. front.Split('\n')
+                .Select(l => l.TrimEnd('\r'))
+                .Where(l => l.Length > 0 && !l.StartsWith("title:", StringComparison.Ordinal)
+                    && !l.StartsWith("summary:", StringComparison.Ordinal)),
+        ];
+    }
+
+    /// <summary>
+    /// The articles on disk, which is where a front matter can disagree with the English.
+    /// </summary>
+    /// <remarks>
+    /// Walked up from the test binary to the repository root rather than assumed at a fixed depth:
+    /// the output layout moves with the configuration, the framework and any <c>--output</c>, and a
+    /// content test that fails as a missing directory says nothing about content.
+    /// </remarks>
+    private static DirectoryInfo ArticleRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null)
+        {
+            var articles = new DirectoryInfo(Path.Combine(directory.FullName, "content", "reference"));
+
+            if (articles.Exists)
+            {
+                return articles;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("content/reference was not found above the test binary.");
+    }
 }
