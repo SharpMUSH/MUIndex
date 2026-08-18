@@ -3,6 +3,7 @@
 @using MUI.Catalog
 @using MUI.Catalog.Persistence
 @using MUI.Web.Accounts
+@using MUI.Web.Api
 @using MUI.Web.Localization
 @inject IGameQueries Queries
 @inject IServiceProvider Services
@@ -29,28 +30,50 @@
 @if (Users is null)
 {
     <section class="prose">
-        <h1>Your games</h1>
-        <p>Accounts need a database behind them, and this site is running on the demo fixture.</p>
+        <h1>@L("account.title")</h1>
+        <p>@L("account.noDatabase")</p>
     </section>
 }
 else if (User is null)
 {
     <section class="prose">
-        <h1>Your games</h1>
-        <p><a class="button" href="@HttpContext.Link("/account/sign-in")">Sign in</a></p>
+        <h1>@L("account.title")</h1>
+        <p><a class="button" href="@HttpContext.Link("/account/sign-in")">@L("account.signInButton")</a></p>
     </section>
 }
 else
 {
     <section class="prose">
-        <h1>Your games</h1>
-        <p class="faint">Signed in as @User.DisplayName.</p>
+        <h1>@L("account.title")</h1>
+        @*
+            The display name is the operator's own and goes in as an argument, never as text a
+            translator could edit — the same rule that keeps a game's name out of the bundle.
+        *@
+        <p class="faint">@Say("account.signedInAs", ("name", User.DisplayName))</p>
 
         @if (Verified.Count == 0 && Pending.Count == 0)
         {
+            @*
+                One sentence that places its own link and its own quoted control, rather than
+                English glued round an anchor: a language that names the listing later, or wants a
+                different preposition before it, has nowhere to say so if the markup owns the order.
+            *@
             <p>
-                You have not claimed anything yet. Find your game in
-                <a href="@HttpContext.Link("/games")">the listing</a> and press <em>claim this game</em> on its page.
+                @foreach (var part in Sentence.Place(Tag, "account.empty.body", ["listing", "claimControl"]))
+                {
+                    @if (part.Slot is "listing")
+                    {
+                        <a href="@HttpContext.Link("/games")">@L("account.empty.listing")</a>
+                    }
+                    else if (part.Slot is "claimControl")
+                    {
+                        <em>@L("account.empty.claimControl")</em>
+                    }
+                    else
+                    {
+                        @part.Text
+                    }
+                }
             </p>
         }
 
@@ -62,13 +85,12 @@ else
         @if (Resigned)
         {
             <p class="verified">
-                <strong>Given up.</strong> The record of it is kept, and you can prove control again
-                any time by publishing a fresh token.
+                <strong>@L("account.resigned.lead")</strong> @L("account.resigned.body")
             </p>
         }
         else if (Saved is not null)
         {
-            <p class="verified"><strong>Saved.</strong> @Outcome</p>
+            <p class="verified"><strong>@L("account.saved.lead")</strong> @Outcome</p>
         }
         else if (RefusedField is { Length: > 0 })
         {
@@ -78,40 +100,51 @@ else
                 extra steps — so the field is named and the reason is given.
             *@
             <p class="refused">
-                <strong>@RefusedField was not changed.</strong>
+                @* The field name is the registry's own token and goes in as an argument. *@
+                <strong>@Say("account.refused.lead", ("field", RefusedField))</strong>
                 @if (string.Equals(Because, nameof(EnrichmentVerdict.TooLong), StringComparison.Ordinal))
                 {
-                    @($"These are one-line answers; {OwnerEnrichment.MaxValueLength} characters is the most we store.")
+                    @Say("account.refused.tooLong", ("max", Ceiling))
                 }
                 else
                 {
-                    @("That field is measured. A claim lets you add what MSSP has no room for; "
-                        + "it never lets anybody edit what we observed, and that includes us.")
+                    @L("account.refused.measured")
                 }
             </p>
         }
 
         @if (Verified.Count > 0)
         {
-            <h2>Claimed</h2>
+            <h2>@L("account.claimed.heading")</h2>
             @foreach (var (claim, game) in Verified)
             {
                 <details class="claim" open="@(Verified.Count == 1)">
                     <summary>
-                        <a href="@HttpContext.Link($"/g/{game.Slug}")">@game.Name</a>
-                        <span class="faint">
-                            verified @claim.ClaimedAt!.Value.ToString("d MMM yyyy")@(BeaconNote(claim))
-                        </span>
+                        @*
+                            Through GameName, which is what every other surface uses: a right-to-left
+                            name written bare renegotiates order with the neutral characters and the
+                            date beside it, and the summary line comes apart. It is also what gives a
+                            screen reader the right voice for the name.
+                        *@
+                        <a href="@HttpContext.Link($"/g/{game.Slug}")"><GameName Name="@game.Name" /></a>
+                        @*
+                            A date about OUR record — when we read this owner's token — and never a
+                            measurement of the game. Written through Dates.Absolute so the month is
+                            the reader's rather than the invariant culture's.
+                        *@
+                        <span class="faint">@ClaimNote(claim)</span>
                         @* §8.5's scorecard. Owner-only, so it is reachable from here and nowhere. *@
-                        <a class="faint" href="@HttpContext.Link($"/g/{game.Slug}/mssp")">check your MSSP</a>
+                        <a class="faint" href="@HttpContext.Link($"/g/{game.Slug}/mssp")">@L("account.claim.mssp")</a>
                     </summary>
 
                     @if (CoOwners(claim) is { Count: > 0 } others)
                     {
                         @* §8.5 — a game may have several owners, and each of them should know. *@
                         <p class="faint">
-                            Also owned by @string.Join(", ", others.Select(Name)) — each having
-                            verified a token of their own.
+                            @Say(
+                                "account.claim.coOwners",
+                                ("count", others.Count),
+                                ("names", string.Join(", ", others.Select(Name))))
                         </p>
                     }
 
@@ -144,25 +177,74 @@ else
                         it has one address for the same reason /api/… and robots.txt do.
                     *@
                     <details class="publish">
-                        <summary class="faint">put your player count on your own site</summary>
+                        <summary class="faint">@L("account.badge.summary")</summary>
                         <pre class="mono">&lt;a href="/g/@game.Slug"&gt;&lt;img src="/g/@game.Slug/badge.svg" alt="@game.Name on mu*index"&gt;&lt;/a&gt;</pre>
+                        @*
+                            Three sentences rather than one with emphasis inside it. A <em> in the
+                            middle of a clause is a clause a translator cannot move — the emphasised
+                            word lands elsewhere in most languages and nowhere in some — which is the
+                            same split SignIn makes for the same reason.
+
+                            The two badge words are the image's OWN bytes and are placed as
+                            arguments rather than translated: a badge answers one address to
+                            everybody, so a German page promising a German word would be promising
+                            something the image never draws. JSON is an acronym, machine voice like
+                            every other protocol name here.
+                        *@
+                        @*
+                            Each placed sentence sits in its own <span>. Razor drops the whitespace
+                            on a line that opens a code block, so two bare @foreach siblings render
+                            as "…if the game stops answering.There is JSON too…". Between elements
+                            the space is ordinary markup and survives.
+                        *@
                         <p class="faint">
-                            The badge carries the count <em>and</em> when we measured it, because a
-                            number with no age is the thing this site exists to replace. It says
-                            <em>players unknown</em> rather than nought when we could not count, and
-                            <em>archived</em> if the game stops answering. There is
-                            <a href="/g/@game.Slug/badge.json">JSON</a> too, if you would rather draw
-                            your own.
+                            @L("account.badge.carries")
+                            <span>
+                                @foreach (var part in Sentence.Place(Tag, "account.badge.states", ["unknown", "archived"]))
+                                {
+                                    @if (part.Slot is "unknown")
+                                    {
+                                        <em translate="no">@BadgeReading.UnknownText</em>
+                                    }
+                                    else if (part.Slot is "archived")
+                                    {
+                                        <em translate="no">@BadgeReading.ArchivedText</em>
+                                    }
+                                    else
+                                    {
+                                        @part.Text
+                                    }
+                                }
+                            </span>
+                            <span>
+                                @foreach (var part in Sentence.Place(Tag, "account.badge.json", ["json"]))
+                                {
+                                    @if (part.Slot is "json")
+                                    {
+                                        <a href="/g/@game.Slug/badge.json" translate="no">JSON</a>
+                                    }
+                                    else
+                                    {
+                                        @part.Text
+                                    }
+                                }
+                            </span>
                         </p>
                     </details>
 
                     <details class="history">
-                        <summary class="faint">history</summary>
+                        <summary class="faint">@L("account.history.summary")</summary>
                         <ol class="events mono">
                             @foreach (var entry in History(claim))
                             {
                                 <li>
-                                    <span class="faint">@entry.At.ToString("yyyy-MM-dd HH:mm")</span>
+                                    @*
+                                        The stamp stays ISO and stays out of the bundle: it is the
+                                        machine spelling of an instant in a log column, the same one
+                                        Dates.Machine writes into a datetime attribute, and a
+                                        localized one would be a bug in every language at once.
+                                    *@
+                                    <span class="faint">@Stamp(entry.At)</span>
                                     @Word(entry.Kind)@(entry.Detail is { Length: > 0 } d ? $" · {d}" : string.Empty)
                                 </li>
                             }
@@ -176,16 +258,29 @@ else
                         everything an owner came here to do.
                     *@
                     <details class="resign" open="@(Confirming == claim.Id)">
-                        <summary class="faint">give up this claim</summary>
+                        <summary class="faint">@L("account.resign.summary")</summary>
                         <form method="post" action="@HttpContext.Link($"/account/claims/{claim.Id}/resign")">
                             <AntiforgeryToken />
+                            @*
+                                The word in the box is the literal the endpoint compares against, so
+                                it is placed rather than translated — a translated confirmation word
+                                is one the form would refuse.
+                            *@
                             <p class="faint">
-                                Type <code>resign</code> to confirm. Nothing is deleted and you can
-                                prove control again by publishing a fresh token; the game stays
-                                claimed if anybody else owns it.
+                                @foreach (var part in Sentence.Place(Tag, "account.resign.confirm", ["word"]))
+                                {
+                                    @if (part.Slot is "word")
+                                    {
+                                        <code translate="no">@OwnershipWrites.ResignConfirmation</code>
+                                    }
+                                    else
+                                    {
+                                        @part.Text
+                                    }
+                                }
                             </p>
                             <input type="text" name="confirm" autocomplete="off" />
-                            <button type="submit" class="quiet">Give up @game.Name</button>
+                            <button type="submit" class="quiet">@Say("account.resign.button", ("game", game.Name))</button>
                         </form>
                     </details>
                 </details>
@@ -194,29 +289,37 @@ else
 
         @if (Pending.Count > 0)
         {
-            <h2>Waiting on a token</h2>
+            <h2>@L("account.pending.heading")</h2>
             <ul class="claims">
                 @foreach (var (claim, game) in Pending)
                 {
                     <li>
-                        <a href="@HttpContext.Link($"/g/{game.Slug}/claim")">@game.Name</a>
+                        <a href="@HttpContext.Link($"/g/{game.Slug}/claim")"><GameName Name="@game.Name" /></a>
                         <span class="faint">
-                            token issued @claim.IssuedAt.ToString("d MMM yyyy"), good until
-                            @claim.ExpiresAt.ToString("d MMM yyyy")
+                            @Say(
+                                "account.pending.dates",
+                                ("issued", Dates.Absolute(Tag, claim.IssuedAt)),
+                                ("expires", Dates.Absolute(Tag, claim.ExpiresAt)))
                         </span>
                     </li>
                 }
             </ul>
         }
 
-        <h2>Passkeys</h2>
+        <h2>@L("account.passkeys.heading")</h2>
         <ul class="passkeys">
             @foreach (var key in Keys)
             {
                 <li>
-                    <span class="mono">@(key.Name ?? "unnamed")</span>
+                    @*
+                        A passkey's name comes from the authenticator and is its own bytes; the word
+                        for having none is ours, so only that one goes through the bundle.
+                    *@
+                    <span class="mono">@(key.Name ?? L("account.passkey.unnamed"))</span>
                     <span class="faint">
-                        added @key.CreatedAt.ToString("d MMM yyyy")@(key.IsBackedUp ? string.Empty : " · on one device only")
+                        @Say(
+                            key.IsBackedUp ? "account.passkey.added" : "account.passkey.addedOneDevice",
+                            ("date", Dates.Absolute(Tag, key.CreatedAt)))
                     </span>
                 </li>
             }
@@ -224,20 +327,17 @@ else
 
         @if (Keys.Any(k => !k.IsBackedUp) && Keys.Count == 1)
         {
-            <p class="faint">
-                This passkey lives on one device. If you lose it you can still get back in by
-                publishing a fresh token on your game, but a second passkey is quicker.
-            </p>
+            <p class="faint">@L("account.passkey.single")</p>
         }
 
         <form data-passkey="register" method="post" action="@HttpContext.Link("/account/passkey/register")">
-            <button type="submit" disabled>Add another passkey</button>
+            <button type="submit" disabled>@L("account.passkey.add")</button>
             <p class="faint" data-passkey-status></p>
         </form>
 
         <form method="post" action="@HttpContext.Link("/account/sign-out")">
             <AntiforgeryToken />
-            <button type="submit" class="quiet">Sign out</button>
+            <button type="submit" class="quiet">@L("account.signOut")</button>
         </form>
     </section>
 
@@ -320,6 +420,34 @@ else
 
     private string Tag => HttpContext.LocaleOf().Tag;
 
+    private string L(string id) => Messages.For(Tag, id);
+
+    private string Say(string id, params (string Key, object? Value)[] args) =>
+        Messages.Say(Tag, id, args);
+
+    /// <summary>
+    /// The enrichment ceiling, as a label rather than as a quantity.
+    /// </summary>
+    /// <remarks>
+    /// A string, for the reason <see cref="Dates"/> passes a year as one: an ICU number argument is
+    /// formatted for the locale, and the day this ceiling passes a thousand a German page would
+    /// offer "1.000 characters" — which reads as one, with a decimal point, to half of Europe.
+    /// </remarks>
+    private static string Ceiling =>
+        OwnerEnrichment.MaxValueLength.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// One audit line's instant, in the machine spelling.
+    /// </summary>
+    /// <remarks>
+    /// Invariant on purpose and not an oversight. This is the log column's stamp, the same kind of
+    /// value <see cref="Dates.Machine"/> writes into a <c>datetime</c> attribute — it is read as a
+    /// sortable instant rather than as a date somebody says out loud, and a calendar that follows
+    /// the ambient culture would silently give a Japanese reader a different year number.
+    /// </remarks>
+    private static string Stamp(DateTimeOffset at) =>
+        at.UtcDateTime.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+
     private DateTimeOffset Now => Clock.GetUtcNow();
 
     /// <summary>The game a save landed on, if it is one this account holds.</summary>
@@ -342,30 +470,31 @@ else
     /// default names itself rather than standing in for whatever arrives next.
     /// </para>
     /// </remarks>
+    /// <remarks>
+    /// <para>
+    /// The game's name is an argument rather than a prefix, which is the other half of the same
+    /// point: these were interpolated strings in English word order, and a language that puts the
+    /// subject elsewhere — or inflects it after a verb — had nowhere to say so.
+    /// </para>
+    /// </remarks>
     private string Outcome
     {
         get
         {
-            var game = SavedName ?? "That game";
+            var game = SavedName ?? L("account.saved.thatGame");
 
-            return Did switch
+            var id = Did switch
             {
-                "screen-hidden" =>
-                    $"We have stopped republishing {game}'s connect screen. The page says so plainly "
-                    + "rather than leaving a hole.",
-                "screen-shown" => $"{game}'s connect screen is on its page again.",
-                "crawl-stopped" =>
-                    $"We have stopped dialling {game}, on every address we have for it. Its page keeps "
-                    + "everything measured before you asked.",
-                "crawl-resumed" => $"We are dialling {game} again, from its next turn in the schedule.",
-                "unlisted" =>
-                    $"{game} is out of the listing, the rankings and the daily figure. Its page and "
-                    + "every URL it has ever had go on answering.",
-                "relisted" =>
-                    $"{game} is back in the listing. One probe that answers is all it needs to be "
-                    + "measured again.",
-                _ => $"{game}'s page now shows it as owner-declared.",
+                "screen-hidden" => "account.saved.screenHidden",
+                "screen-shown" => "account.saved.screenShown",
+                "crawl-stopped" => "account.saved.crawlStopped",
+                "crawl-resumed" => "account.saved.crawlResumed",
+                "unlisted" => "account.saved.unlisted",
+                "relisted" => "account.saved.relisted",
+                _ => "account.saved.fields",
             };
+
+            return Say(id, ("game", game));
         }
     }
 
@@ -475,7 +604,7 @@ else
                         Names.TryAdd(
                             owner.UserId,
                             (await Users.FindByIdAsync(owner.UserId.ToString()))?.DisplayName
-                                ?? "another account");
+                                ?? L("account.coOwner.unnamed"));
                     }
                 }
             }
@@ -504,7 +633,7 @@ else
         Events.TryGetValue(mine.Id, out var events) ? events : [];
 
     private string Name(GameClaim claim) =>
-        Names.TryGetValue(claim.UserId, out var name) ? name : "another account";
+        Names.TryGetValue(claim.UserId, out var name) ? name : L("account.coOwner.unnamed");
 
     /// <summary>
     /// One audit entry in words. The vocabulary is the enum's, spelled for a person.
@@ -513,23 +642,36 @@ else
     /// <c>BeaconMissing</c> reads as an observation and not as a warning: a probe not reading the
     /// token happens for reasons that have nothing to do with the owner, and absence never revokes
     /// (§8.4). Alarming somebody about it would be the interface arguing for a rule the system does
-    /// not have.
+    /// not have — and a translator is told the same thing on the id, because "token not read this
+    /// time" has a dozen plausible renderings and most of them sound like an accusation.
     /// </remarks>
-    private static string Word(ClaimEventKind kind) => kind switch
+    private string Word(ClaimEventKind kind) => L(kind switch
     {
-        ClaimEventKind.Issued => "token issued",
-        ClaimEventKind.Reissued => "token issued again",
-        ClaimEventKind.Verified => "verified — we read your token",
-        ClaimEventKind.BeaconSeen => "token still published",
-        ClaimEventKind.BeaconMissing => "token not read this time",
-        ClaimEventKind.Revoked => "claim given up",
-        ClaimEventKind.Expired => "token expired unused",
-        ClaimEventKind.CounterClaimed => "another account proved control and took the game over",
-        _ => "check requested",
-    };
+        ClaimEventKind.Issued => "account.event.issued",
+        ClaimEventKind.Reissued => "account.event.reissued",
+        ClaimEventKind.Verified => "account.event.verified",
+        ClaimEventKind.BeaconSeen => "account.event.beaconSeen",
+        ClaimEventKind.BeaconMissing => "account.event.beaconMissing",
+        ClaimEventKind.Revoked => "account.event.revoked",
+        ClaimEventKind.Expired => "account.event.expired",
+        ClaimEventKind.CounterClaimed => "account.event.counterClaimed",
+        _ => "account.event.checkRequested",
+    });
 
-    private static string BeaconNote(GameClaim claim) =>
+    /// <summary>
+    /// When we verified this claim, and when a probe last read the token.
+    /// </summary>
+    /// <remarks>
+    /// Both are facts about <em>our records</em> — the dates we read something — and neither is a
+    /// measurement of the game. Two ids rather than one with a suffix appended: the beacon clause
+    /// lands in a different place in most languages, and a string built by concatenation has
+    /// nowhere for a translator to move it to.
+    /// </remarks>
+    private string ClaimNote(GameClaim claim) =>
         claim.BeaconLastSeenAt is { } seen
-            ? $", token last seen {seen:d MMM yyyy}"
-            : string.Empty;
+            ? Say(
+                "account.claim.verifiedAndSeen",
+                ("date", Dates.Absolute(Tag, claim.ClaimedAt!.Value)),
+                ("seen", Dates.Absolute(Tag, seen)))
+            : Say("account.claim.verified", ("date", Dates.Absolute(Tag, claim.ClaimedAt!.Value)));
 }

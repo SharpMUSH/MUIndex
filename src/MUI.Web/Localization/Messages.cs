@@ -1425,6 +1425,294 @@ public static class Messages
         ["home.plain.connectedNow"] = "{count, plural, one {# connected now (measured)} other {# connected now (measured)}}",
         ["home.plain.uncounted"] = "{count, plural, one {# answering, uncounted} other {# answering, uncounted}}",
         ["home.plain.archived"] = "{count, plural, one {# archived, still probed} other {# archived, still probed}}",
+
+        // ══ APPENDED BLOCK: the owner dashboard and the claim flow ════════════════════════════
+        // The last two page surfaces that were still English whatever language they were asked
+        // for. Kept as one block at the end of the dictionary so that a parallel append merges
+        // additively rather than interleaving.
+        //
+        // These surfaces address a game's operator in the second person — "your games", "a game
+        // you run" — and the English says "you" deliberately. A translator should render them in
+        // whatever second person their language uses for one person being addressed directly; the
+        // catalogue surfaces are impersonal and these are not. Do not neutralise them.
+        //
+        // Nothing here may blur the two provenances. An owner's answer is a DECLARATION stored
+        // beside what the crawler measured; a claim is a fact about our records and never a
+        // measurement of the game; an opt-out is honoured and is never a deletion. Where a
+        // sentence carries that distinction it is called out on the id.
+
+        // ── the dashboard's frame ─────────────────────────────────────────────────────────────
+        // account.title is its own id rather than preview.title.account's: a heading is the first
+        // line of a document and a title is a noun phrase in a browser tab, and the languages that
+        // decline the two differently have nowhere to stand if they share one.
+        ["account.title"] = "Your games",
+        ["account.noDatabase"] = "Accounts need a database behind them, and this site is running on "
+            + "the demo fixture.",
+        ["account.signInButton"] = "Sign in",
+        ["account.signedInAs"] = "Signed in as {name}.",
+        ["account.signOut"] = "Sign out",
+
+        // The empty state's sentence places its own link and its own quoted control, so the word
+        // order belongs to the language rather than to the markup. {claimControl} names the button
+        // on a game's page; it is a separate id from game.claim because that one is the control's
+        // own label and this one is prose quoting it — a language that capitalises or declines a
+        // quoted control differently has nowhere else to say so.
+        ["account.empty.body"] = "You have not claimed anything yet. Find your game in {listing} "
+            + "and press {claimControl} on its page.",
+        ["account.empty.listing"] = "the listing",
+        ["account.empty.claimControl"] = "claim this game",
+
+        // ── the one banner a POST comes back with ─────────────────────────────────────────────
+        // Resigning is not deleting: §7.5 keeps the record, and §8.4 lets the same person prove
+        // control again. A translation that renders this as "removed" or "deleted" contradicts the
+        // rule the sentence exists to state.
+        ["account.resigned.lead"] = "Given up.",
+        ["account.resigned.body"] = "The record of it is kept, and you can prove control again any "
+            + "time by publishing a fresh token.",
+        ["account.saved.lead"] = "Saved.",
+
+        // One sentence per write. The game's name is its own bytes and arrives as an argument, so
+        // a language that puts the subject elsewhere can move it; {game} is never translated.
+        // These say what WE did — stopped republishing, stopped dialling, took out of the listing —
+        // and never that anything about the game was measured or removed.
+        ["account.saved.thatGame"] = "That game",
+        ["account.saved.fields"] = "{game}'s page now shows it as owner-declared.",
+        ["account.saved.screenHidden"] = "We have stopped republishing {game}'s connect screen. The "
+            + "page says so plainly rather than leaving a hole.",
+        ["account.saved.screenShown"] = "{game}'s connect screen is on its page again.",
+        ["account.saved.crawlStopped"] = "We have stopped dialling {game}, on every address we have "
+            + "for it. Its page keeps everything measured before you asked.",
+        ["account.saved.crawlResumed"] = "We are dialling {game} again, from its next turn in the "
+            + "schedule.",
+        ["account.saved.unlisted"] = "{game} is out of the listing, the rankings and the daily "
+            + "figure. Its page and every URL it has ever had go on answering.",
+        ["account.saved.relisted"] = "{game} is back in the listing. One probe that answers is all "
+            + "it needs to be measured again.",
+
+        // Refused out loud (§8.5). {field} is a registry field name — machine voice, an argument.
+        // The second sentence is the site's whole claim and may not soften: nobody edits a
+        // measurement, and that includes us.
+        ["account.refused.lead"] = "{field} was not changed.",
+        ["account.refused.tooLong"] = "These are one-line answers; {max} characters is the most we "
+            + "store.",
+        ["account.refused.measured"] = "That field is measured. A claim lets you add what MSSP has "
+            + "no room for; it never lets anybody edit what we observed, and that includes us.",
+
+        // ── a claimed game's block ────────────────────────────────────────────────────────────
+        // "verified {date}" is a fact about OUR record — the date we read this owner's token — and
+        // not a measurement of the game. Two ids rather than a suffix glued on, because the beacon
+        // note lands in a different place in most languages.
+        ["account.claimed.heading"] = "Claimed",
+        ["account.claim.verified"] = "verified {date}",
+        ["account.claim.verifiedAndSeen"] = "verified {date}, token last seen {seen}",
+        ["account.claim.mssp"] = "check your MSSP",
+        ["account.claim.coOwners"] = "{count, plural,"
+            + " one {Also owned by {names} — who verified a token of their own.}"
+            + " other {Also owned by {names} — each having verified a token of their own.}}",
+        ["account.coOwner.unnamed"] = "another account",
+
+        // The badge snippet. {unknown} and {archived} are the badge's own bytes rather than words
+        // to translate: a badge answers one address to everybody, so a German page promising a
+        // German word would be promising something the image never says. {json} is an acronym and
+        // machine voice for the same reason every protocol name here is.
+        ["account.badge.summary"] = "put your player count on your own site",
+        ["account.badge.carries"] = "The badge carries the count and when we measured it, because a "
+            + "number with no age is the thing this site exists to replace.",
+        ["account.badge.states"] = "It says {unknown} rather than nought when we could not count, "
+            + "and {archived} if the game stops answering.",
+        ["account.badge.json"] = "There is {json} too, if you would rather draw your own.",
+
+        // ── the audit log ─────────────────────────────────────────────────────────────────────
+        // The vocabulary is ClaimEventKind's, spelled for a person. beaconMissing reads as an
+        // observation and never as a warning: a probe not reading the token happens for reasons
+        // that have nothing to do with the owner, and absence never revokes (§8.4).
+        ["account.history.summary"] = "history",
+        ["account.event.issued"] = "token issued",
+        ["account.event.reissued"] = "token issued again",
+        ["account.event.verified"] = "verified — we read your token",
+        ["account.event.beaconSeen"] = "token still published",
+        ["account.event.beaconMissing"] = "token not read this time",
+        ["account.event.revoked"] = "claim given up",
+        ["account.event.expired"] = "token expired unused",
+        ["account.event.counterClaimed"] = "another account proved control and took the game over",
+        ["account.event.checkRequested"] = "check requested",
+
+        // Giving up a claim. {word} is the literal an operator types into the box and is never
+        // translated — a translated confirmation word would be one the form does not accept.
+        ["account.resign.summary"] = "give up this claim",
+        ["account.resign.confirm"] = "Type {word} to confirm. Nothing is deleted and you can prove "
+            + "control again by publishing a fresh token; the game stays claimed if anybody else "
+            + "owns it.",
+        ["account.resign.button"] = "Give up {game}",
+
+        // ── waiting on a token, and the passkeys ──────────────────────────────────────────────
+        ["account.pending.heading"] = "Waiting on a token",
+        ["account.pending.dates"] = "token issued {issued}, good until {expires}",
+        ["account.passkeys.heading"] = "Passkeys",
+        ["account.passkey.unnamed"] = "unnamed",
+        ["account.passkey.added"] = "added {date}",
+        ["account.passkey.addedOneDevice"] = "added {date} · on one device only",
+        ["account.passkey.single"] = "This passkey lives on one device. If you lose it you can "
+            + "still get back in by publishing a fresh token on your game, but a second passkey is "
+            + "quicker.",
+        ["account.passkey.add"] = "Add another passkey",
+
+        // ── claiming a game you run ───────────────────────────────────────────────────────────
+        // claim.title is its own id rather than preview.title.claim's, for the reason account.title
+        // is: a heading and a browser-tab title are not the same noun phrase.
+        ["claim.noGame"] = "No such game",
+        ["claim.title"] = "Claim {game}",
+        ["claim.noDatabase"] = "Claiming needs a database behind it, and this site is running on "
+            + "the demo fixture.",
+        ["claim.needAccount"] = "You need an account first. It takes a passkey and a name.",
+        ["claim.signIn"] = "Sign in or create an account",
+        ["claim.yourGames"] = "Your games",
+
+        // The game already has owners, and nothing in a probe can tell joining from taking over —
+        // both publish the identical line. So the choice is made here, in words, before the token
+        // exists. The owner count agrees inside the message rather than being chosen in C#.
+        ["claim.hasOwners"] = "{count, plural,"
+            + " one {This game already has an owner who proved control of the server.}"
+            + " other {This game already has # owners who proved control of the server.}}"
+            + " You can prove it too — the test is the same either way — but we need to know what "
+            + "you mean by it, because we cannot tell from the token.",
+        ["claim.join.button"] = "I run it too — add me as an owner",
+        ["claim.join.note"] = "Everyone keeps their claim. This is two people running one game.",
+        ["claim.assume.button"] = "I have taken it over — transfer it to me",
+        ["claim.assume.note"] = "{count, plural,"
+            + " one {When your token verifies, the existing claim is revoked and the game is yours.}"
+            + " other {When your token verifies, the existing claims are revoked and the game is yours.}}"
+            + " They will see why in their own history. Nothing is deleted, and they can prove "
+            + "control again the same way you are about to.",
+
+        // Verified. Two ids and not one with the channel slotted in: "from the game's MSSP report"
+        // and "from the connect screen" take different prepositions and different cases in the
+        // languages that have them, and a single sentence with a {channel} hole has nowhere to
+        // say so. Both state what WE read, which is a fact about our records.
+        ["claim.verified.lead"] = "Verified.",
+        ["claim.verified.viaMssp"] = "We read your token from the game's MSSP report on {date}.",
+        ["claim.verified.viaScreen"] = "We read your token from the connect screen on {date}.",
+        ["claim.verified.leaveIt"] = "Leave the token where it is. It doubles as an identity "
+            + "signal, so this game stays recognisable if it moves host or changes name. Removing "
+            + "it will not un-claim you.",
+
+        // Publishing the token. Every variable name, file name and prefix below is machine voice
+        // and arrives as an argument: a translated MSSP variable is one no crawler reads.
+        ["claim.publish"] = "Publish this token anywhere the game shows it to an anonymous "
+            + "connection. The next probe picks it up, which proves you can write to that server.",
+        ["claim.transfer.lead"] = "This is a transfer.",
+        ["claim.transfer.body"] = "{count, plural,"
+            + " one {When we read this token, the current owner's claim on this game is revoked and it becomes yours.}"
+            + " other {When we read this token, the current owners' claims on this game are revoked and it becomes yours.}}",
+        ["claim.either.heading"] = "Either of these will do",
+        ["claim.mssp.heading"] = "An MSSP variable",
+        ["claim.mssp.note"] = "In {codebase} that is a line in {file}; every codebase with MSSP has "
+            + "an equivalent.",
+        ["claim.mssp.aliases"] = "{aliases} are accepted too.",
+        ["claim.screen.heading"] = "A line on the connect screen",
+        ["claim.screen.note"] = "Anywhere in the screen, and colour codes around it are fine.",
+        ["claim.then.heading"] = "Then",
+        ["claim.then.body"] = "We check on the ordinary crawl schedule. This token is good until "
+            + "{date}. Come back any time; nothing needs writing down.",
+
+        // Asking us to look sooner moves the game to the front of the queue; the crawler still
+        // does the dialling on its own schedule and under CRAWL DELAY. Neither sentence may
+        // promise a probe, because pressing a button here is our decision and not a measurement.
+        ["claim.check.button"] = "Look sooner",
+        ["claim.check.can"] = "Brings your game to the front of the queue. We dial on our own "
+            + "schedule, so this is sooner rather than now.",
+        ["claim.check.rationed"] = "Just asked. Try again in a few minutes — it is rationed because "
+            + "it dials a real server sooner than we would have.",
+
+        // ── what a claim actually grants (the owner panel, §8.5 and §11) ──────────────────────
+        // Everything on this panel is enrichment. An owner's answer is DECLARED: stored under its
+        // own field source beside whatever the crawler measured, shown with its age, and it never
+        // replaces, hides or silences a measurement. A translation that lets "you told us" read as
+        // "we measured" breaks the one rule the whole site rests on.
+        ["owner.declare.heading"] = "What only you can tell us about {game}",
+        ["owner.declare.lede"] = "These are the things MSSP has no field for. They appear on your "
+            + "game's page as {declared}, with the date you last confirmed them, beside what we "
+            + "measured — never instead of it. Nothing measured can be edited from here, by you or "
+            + "by us.",
+        ["owner.field.declared"] = "declared {age}. Empty this box to withdraw it — the record of "
+            + "what it said is kept either way.",
+        ["owner.save"] = "Save what you declared",
+
+        ["owner.override.heading"] = "What {game} reports, and what you would rather we showed",
+        ["owner.override.lede"] = "Your MSSP is what every crawler reads, and we go on showing it "
+            + "beside anything you put here — an answer of yours does not hide one of your game's.",
+        ["owner.override.nothingMeasured"] = "Nothing measured can be edited from here: not a "
+            + "player count, not a capability, not an hour of reachability.",
+        ["owner.override.fixItThere"] = "If a line below is wrong in your {file}, fixing it there "
+            + "fixes it everywhere.",
+        ["owner.report.value"] = "your game reports {value}, confirmed {age}",
+        ["owner.report.none"] = "your game reports nothing here",
+        ["owner.rename.note"] = "Changing the name changes what {game} is listed as and the "
+            + "address of its page. The old address goes on working for ever — every URL this game "
+            + "has ever had redirects to its current one — and clearing the box hands the name back "
+            + "to whatever your MSSP says.",
+
+        ["owner.screen.heading"] = "Your connect screen",
+        ["owner.screen.suppressed"] = "We are not republishing it. The page says so plainly rather "
+            + "than leaving a hole, and the crawler goes on reading it — it is how we recognise "
+            + "your game if it moves.",
+        ["owner.screen.show"] = "Show it again",
+        ["owner.screen.shown"] = "We show it because your server sends it to every anonymous "
+            + "connection. If you would rather we did not, say so and we stop. We will not ask why.",
+        ["owner.screen.stop"] = "Stop showing our connect screen",
+
+        // §11. An opt-out is honoured, never a deletion — and the empty hours it leaves may not be
+        // given a cause, because "you asked us to stop" is OUR fact and not a measurement of the
+        // game (rule 5, rule 2). {ourFact} is placed by the message so a language can put the
+        // emphasised clause where it belongs.
+        ["owner.crawl.heading"] = "Being crawled",
+        ["owner.crawl.stopped"] = "We have stopped. Nothing on {game} is dialled, and the page "
+            + "keeps everything measured before you asked — the empty hours name no cause, because "
+            + "{ourFact} is our fact and not a measurement of your game.",
+        ["owner.crawl.ourFact"] = "you asked us to stop",
+        ["owner.crawl.resume"] = "Start crawling us again",
+        ["owner.crawl.standing"] = "This one came from your own server rather than from here — "
+            + "{routes}. To be crawled again, stop publishing it; we will hear that on the next "
+            + "cycle.",
+        ["owner.crawl.route.mssp"] = "your MSSP report publishes {variable}",
+        ["owner.crawl.route.dns"] = "a {label} TXT record asks us to stop",
+        ["owner.crawl.route.recorded"] = "a request we recorded",
+        // Neither state, and shown as neither: rounding this to "stopped" would tell an owner we
+        // had left them alone while we went on dialling the port that is still open.
+        ["owner.crawl.partial"] = "We have stopped on {stopped} and are still dialling {dialling}. "
+            + "That is usually a port added after the opt-out.",
+        ["owner.crawl.stopAll"] = "Stop on every address too",
+        ["owner.crawl.dialling"] = "We dial {game} on a schedule and read what any anonymous "
+            + "connection is shown. If you would rather we did not, say so and we stop — within "
+            + "one cycle, on every address we have for you, and we will not ask why.",
+        ["owner.crawl.selfService"] = "Nothing already measured is deleted: your page keeps its "
+            + "history and its URL, and one probe after you take this back starts it again. You "
+            + "can also say it without us, in your own config — {mssp} in MSSP, or a {dns} TXT "
+            + "record — and we honour those whether or not anybody has ever claimed the game here.",
+        ["owner.crawl.stop"] = "Stop crawling us",
+
+        // Migration 0025's second decision, and a second one rather than a stronger version of the
+        // first. Nothing is deleted here either: the page answers, every URL it ever had still
+        // redirects to it, and it stops being somewhere a reader arrives by browsing.
+        ["owner.listing.heading"] = "Being listed",
+        ["owner.listing.unlisted"] = "{game} is out of the listing, out of the rankings and out of "
+            + "the daily figure. Its page and every URL it has ever had go on answering, and "
+            + "everything measured before you asked is still on it. Nothing was deleted; it is "
+            + "simply not somewhere a reader arrives by browsing.",
+        ["owner.listing.relist"] = "Put us back in the listing",
+        ["owner.listing.probeRelists"] = "One probe that answers does this too. While your opt-out "
+            + "stands we do not dial, so nothing will — but the day you take it back, the address "
+            + "comes up within a week and the probe that gets an answer puts you back. You do not "
+            + "have to ask us twice.",
+        ["owner.listing.mayUnlist"] = "We have stopped dialling you, and your page is still in the "
+            + "listing with what we measured before that. If you would rather it were not, say so "
+            + "and it comes out — of the listing, the rankings and the daily figure.",
+        ["owner.listing.reversible"] = "Nothing is deleted and nothing breaks: the page answers, "
+            + "every URL it has ever had still redirects to it, and anyone you send there sees it. "
+            + "It stops being somewhere a reader can arrive by browsing. Reversible from here, and "
+            + "by any probe that answers after you take your opt-out back.",
+        ["owner.listing.unlist"] = "Take us out of the listing too",
+        // ══ END APPENDED BLOCK ════════════════════════════════════════════════════════════════
     };
 
     /// <summary>

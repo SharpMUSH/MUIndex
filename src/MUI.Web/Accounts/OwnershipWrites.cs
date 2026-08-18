@@ -18,6 +18,17 @@ namespace MUI.Web.Accounts;
 /// </remarks>
 public static class OwnershipWrites
 {
+    /// <summary>
+    /// The word an operator types to confirm giving up a claim.
+    /// </summary>
+    /// <remarks>
+    /// A constant because the dashboard prints it and this endpoint compares against it, and the
+    /// two must agree. It is never translated and is placed into the instruction as an argument:
+    /// a German page telling somebody to type <c>aufgeben</c> would be instructing them to type
+    /// the one thing this comparison rejects.
+    /// </remarks>
+    public const string ResignConfirmation = "resign";
+
     public static void MapMuiOwnership(this WebApplication app)
     {
         ArgumentNullException.ThrowIfNull(app);
@@ -67,7 +78,7 @@ public static class OwnershipWrites
             // that getting back in means publishing a fresh token — recoverable, but not by pressing
             // undo — and a bare button beside a game's name is one misclick from a listing an
             // operator no longer owns.
-            if (!string.Equals(form["confirm"], "resign", StringComparison.Ordinal))
+            if (!string.Equals(form["confirm"], ResignConfirmation, StringComparison.Ordinal))
             {
                 return Back(context, $"{Passkeys.DashboardPath}?resign={claimId}");
             }

@@ -202,6 +202,20 @@ public sealed record BadgeReading(
     internal string? Override { get; init; }
 
     /// <summary>
+    /// What the badge says when we could not count, in the one language it has.
+    /// </summary>
+    /// <remarks>
+    /// A constant rather than a literal because the owner dashboard quotes it — "it says
+    /// <em>players unknown</em> rather than nought" — and a badge answers the same bytes to
+    /// everybody, so that quotation is the image's own text and not a sentence to translate. Two
+    /// copies of the words would let a dashboard promise something the image never draws.
+    /// </remarks>
+    public const string UnknownText = "players unknown";
+
+    /// <summary>What the badge says for a game that stopped answering. Quoted the same way.</summary>
+    public const string ArchivedText = "archived";
+
+    /// <summary>
     /// The words on the badge.
     /// </summary>
     /// <remarks>
@@ -211,8 +225,8 @@ public sealed record BadgeReading(
     public string Text => Override ?? State switch
     {
         BadgeState.Counted => $"{Count!.Value.ToString(CultureInfo.InvariantCulture)} now · {Relative()}",
-        BadgeState.Archived => "archived",
-        _ => "players unknown",
+        BadgeState.Archived => ArchivedText,
+        _ => UnknownText,
     };
 
     /// <summary>The same, as a sentence, for the accessible title and the JSON.</summary>

@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
 using MUI.Web.Data;
@@ -192,4 +194,24 @@ public static class Render
     public static string Words(string markupOrText) =>
         string.Join(' ', System.Net.WebUtility.HtmlDecode(markupOrText)
             .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    /// <summary>
+    /// What a reader actually sees: the elements removed, then decoded and collapsed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Words"/> keeps the tags, which is right for most assertions here and wrong for one
+    /// kind: a sentence that places its own link or code span is broken up by elements, so asserting
+    /// it against <c>Words</c> asserts the markup as well as the sentence. It is also why a
+    /// class name — <c>&lt;details class="history"&gt;</c> — reads as the word "history" and can
+    /// satisfy a check that was about the copy.
+    /// </para>
+    /// <para>
+    /// Tags are stripped <em>before</em> decoding, on purpose. The owner dashboard prints a badge
+    /// snippet as escaped markup for an operator to copy; decoding first would turn it into
+    /// something this regex then ate, and the snippet is text a reader is meant to see.
+    /// </para>
+    /// </remarks>
+    public static string Text(string markup) =>
+        Words(Regex.Replace(markup, "<[^>]*>", " ", RegexOptions.None, TimeSpan.FromSeconds(5)));
 }
