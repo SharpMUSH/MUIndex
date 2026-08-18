@@ -24,8 +24,14 @@ namespace MUI.Web.Components;
 /// </remarks>
 public static class Ansi
 {
-    /// <summary>The grid the art was drawn for. Games assume it; scaling breaks the box-drawing.</summary>
-    public const int Columns = 80;
+    /// <summary>
+    /// The grid the art was drawn for. Games assume it; scaling breaks the box-drawing. 80 clipped
+    /// a real cluster of AresMUSH-family banners mid-glyph (measured against captured connect
+    /// screens in prod, 2026-08-18); 100 clears that cluster's widest observed line (97) with a
+    /// little headroom without absorbing the much longer lines that are cursor-addressed screens
+    /// misread as one row, not honest width.
+    /// </summary>
+    public const int Columns = 100;
 
     /// <summary>Below this there is not enough screen to be worth a frame, so the hero collapses.</summary>
     public const int MinimumRows = 3;
