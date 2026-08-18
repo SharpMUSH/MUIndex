@@ -44,5 +44,11 @@ public interface IDuplicateReviewRepository
     Task<IReadOnlyList<DuplicateReview>> OpenPairsForAsync(Guid gameId, CancellationToken ct);
 
     /// <summary>Closes the pair. The row is kept: a judgement is part of the record.</summary>
-    Task ResolveAsync(Guid id, string resolution, DateTimeOffset at, CancellationToken ct);
+    /// <param name="unitOfWork">
+    /// When given, this write joins it rather than committing on its own -- see
+    /// <see cref="ReviewMergeService.MergeAsync"/>, which needs this write and the preceding
+    /// <c>merge_log</c> insert to commit or roll back together.
+    /// </param>
+    Task ResolveAsync(
+        Guid id, string resolution, DateTimeOffset at, CancellationToken ct, IUnitOfWork? unitOfWork = null);
 }

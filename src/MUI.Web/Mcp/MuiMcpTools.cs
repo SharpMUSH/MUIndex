@@ -279,9 +279,13 @@ public sealed class MuiMcpTools(
         string value,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(gameSlug);
-        ArgumentException.ThrowIfNullOrWhiteSpace(field);
-        ArgumentNullException.ThrowIfNull(value);
+        RequireNotBlank(gameSlug, nameof(gameSlug));
+        RequireNotBlank(field, nameof(field));
+
+        if (value is null)
+        {
+            throw new McpException("value is required (pass an empty string to withdraw the field).");
+        }
 
         var game = await games.BySlugAsync(gameSlug.Trim(), cancellationToken)
             ?? throw new McpException($"No game with slug '{gameSlug}'.");
@@ -345,9 +349,9 @@ public sealed class MuiMcpTools(
         string because,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(gameSlug);
-        ArgumentException.ThrowIfNullOrWhiteSpace(newName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(because);
+        RequireNotBlank(gameSlug, nameof(gameSlug));
+        RequireNotBlank(newName, nameof(newName));
+        RequireNotBlank(because, nameof(because));
 
         var game = await games.BySlugAsync(gameSlug.Trim(), cancellationToken)
             ?? throw new McpException($"No game with slug '{gameSlug}'.");
@@ -407,9 +411,9 @@ public sealed class MuiMcpTools(
         string because,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(winnerSlug);
-        ArgumentException.ThrowIfNullOrWhiteSpace(loserSlug);
-        ArgumentException.ThrowIfNullOrWhiteSpace(because);
+        RequireNotBlank(winnerSlug, nameof(winnerSlug));
+        RequireNotBlank(loserSlug, nameof(loserSlug));
+        RequireNotBlank(because, nameof(because));
 
         var winner = await games.BySlugAsync(winnerSlug.Trim(), cancellationToken)
             ?? throw new McpException($"No game with slug '{winnerSlug}'.");
@@ -476,6 +480,21 @@ public sealed class MuiMcpTools(
 
     private static IReadOnlyList<CrawlDueTarget> ToDue(IReadOnlyList<CrawlTarget> due) =>
         [.. due.Select(t => new CrawlDueTarget(t.Host, t.Port, t.Depth, t.ConsecutiveFailures, t.NextProbeAt))];
+
+    /// <summary>
+    /// The blank-input guard every staff tool (<see cref="GameFieldSetAsync"/>, <see cref="GameRenameAsync"/>,
+    /// <see cref="GameMergeAsync"/>) needs on its required string parameters. A raw
+    /// <see cref="ArgumentException"/> reaches a caller as the MCP SDK's generic "an error occurred" —
+    /// see <see cref="ParseSeedOrThrow"/>'s own doc comment — so this throws <see cref="McpException"/>
+    /// instead, the same way every other refusal in this class already does.
+    /// </summary>
+    private static void RequireNotBlank(string? value, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new McpException($"{parameterName} is required.");
+        }
+    }
 
     /// <summary>
     /// <see cref="CrawlSeed"/>'s own constructor and <see cref="CrawlSeed.Validate"/> throw a plain

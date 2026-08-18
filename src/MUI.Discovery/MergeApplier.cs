@@ -75,8 +75,16 @@ public sealed class MergeApplier(
     /// (spec §7.3, migration 0030). Null for the one caller that has none: an automatic merge is its
     /// own explanation, the score and signals it crossed <c>AutoMergeThreshold</c> on.
     /// </param>
+    /// <param name="unitOfWork">
+    /// Passed straight through to <see cref="IMergeLog.RecordAsync"/> -- see its own doc comment.
+    /// </param>
     public Task<Guid> MergeGamesAsync(
-        Guid intoGameId, Guid fromGameId, IdentityScore score, CancellationToken ct, string? reason = null)
+        Guid intoGameId,
+        Guid fromGameId,
+        IdentityScore score,
+        CancellationToken ct,
+        string? reason = null,
+        IUnitOfWork? unitOfWork = null)
     {
         ArgumentNullException.ThrowIfNull(score);
 
@@ -85,14 +93,17 @@ public sealed class MergeApplier(
             throw new ArgumentException("A game cannot be merged into itself.", nameof(fromGameId));
         }
 
-        return merges.RecordAsync(new MergeRecord(
-            Guid.CreateVersion7(),
-            intoGameId,
-            fromGameId,
-            score.Score,
-            IdentitySignals.ToJson(score.Signals),
-            time.GetUtcNow(),
-            null,
-            reason), ct);
+        return merges.RecordAsync(
+            new MergeRecord(
+                Guid.CreateVersion7(),
+                intoGameId,
+                fromGameId,
+                score.Score,
+                IdentitySignals.ToJson(score.Signals),
+                time.GetUtcNow(),
+                null,
+                reason),
+            ct,
+            unitOfWork);
     }
 }

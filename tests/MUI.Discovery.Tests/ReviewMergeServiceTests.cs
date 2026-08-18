@@ -26,8 +26,28 @@ public class ReviewMergeServiceTests
 
         public ManualTimeProvider Time { get; } = new();
 
+        public InMemoryUnitOfWorkFactory UnitOfWorks { get; } = new();
+
         public ReviewMergeService Service =>
-            new(Games, Reviews, new MergeApplier(Endpoints, Fields, Merges, Time), Time);
+            new(Games, Reviews, new MergeApplier(Endpoints, Fields, Merges, Time), Time, UnitOfWorks);
+    }
+
+    /// <summary>
+    /// A <see cref="IDuplicateReviewRepository"/> decorator whose <see cref="ResolveAsync"/> always
+    /// throws, standing in for a dropped connection or a cancelled request between the two writes
+    /// <c>ReviewMergeService.MergeAsync</c> makes.
+    /// </summary>
+    private sealed class ResolveThrowsReviewRepository(IDuplicateReviewRepository inner) : IDuplicateReviewRepository
+    {
+        public Task<Guid> OpenAsync(Guid a, Guid b, IdentityScore score, DateTimeOffset at, CancellationToken ct) =>
+            inner.OpenAsync(a, b, score, at, ct);
+
+        public Task<IReadOnlyList<DuplicateReview>> OpenPairsForAsync(Guid gameId, CancellationToken ct) =>
+            inner.OpenPairsForAsync(gameId, ct);
+
+        public Task ResolveAsync(
+            Guid id, string resolution, DateTimeOffset at, CancellationToken ct, IUnitOfWork? unitOfWork = null) =>
+            throw new InvalidOperationException("Simulated failure resolving the review.");
     }
 
     [Test]
@@ -173,5 +193,37 @@ public class ReviewMergeServiceTests
 
         await Assert.That(async () => await world.Service.MergeAsync(winner, ghost, "typo", None))
             .Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
+    /// The gap #117 tracked: the merge_log insert and the duplicate_review resolve are two writes with
+    /// nothing tying them together, so a failure between them could record a merge while leaving its
+    /// review open forever -- merge_log_absorbed_once_idx then refuses the retry that would "finish the
+    /// job". Both now join one IUnitOfWork, so a failure on the second write must roll back the first.
+    /// </summary>
+    [Test]
+    public async Task AFailureResolvingTheReviewRollsBackTheMergeToo()
+    {
+        var world = new World();
+        var winner = world.Games.Add();
+        var loser = world.Games.Add();
+
+        var score = new IdentityScore(loser, 0.5, [new IdentitySignal("BannerHash", 0.5, true)]);
+        await world.Reviews.OpenAsync(winner, loser, score, world.Time.GetUtcNow(), None);
+
+        var breakingService = new ReviewMergeService(
+            world.Games,
+            new ResolveThrowsReviewRepository(world.Reviews),
+            new MergeApplier(world.Endpoints, world.Fields, world.Merges, world.Time),
+            world.Time,
+            world.UnitOfWorks);
+
+        await Assert.That(async () => await breakingService.MergeAsync(winner, loser, "should roll back", None))
+            .Throws<InvalidOperationException>();
+
+        // Neither write landed: the merge_log insert was buffered behind the same unit of work as the
+        // review resolve that then failed, and an uncommitted unit of work applies nothing.
+        await Assert.That(world.Merges.All).IsEmpty();
+        await Assert.That(world.Reviews.All.Single().IsOpen).IsTrue();
     }
 }

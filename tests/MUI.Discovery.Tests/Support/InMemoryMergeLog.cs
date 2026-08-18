@@ -13,10 +13,26 @@ public sealed class InMemoryMergeLog : IMergeLog
     /// <summary>Where each absorbed game now points, which is the whole of what a merge does.</summary>
     public Dictionary<Guid, Guid> RedirectedTo { get; } = [];
 
-    public Task<Guid> RecordAsync(MergeRecord record, CancellationToken ct)
+    public Task<Guid> RecordAsync(MergeRecord record, CancellationToken ct, IUnitOfWork? unitOfWork = null)
     {
-        _records.Add(record);
-        RedirectedTo[record.FromGameId] = record.IntoGameId;
+        void Apply()
+        {
+            _records.Add(record);
+            RedirectedTo[record.FromGameId] = record.IntoGameId;
+        }
+
+        // A real transaction defers the write until commit; the in-memory fake mirrors that by
+        // enqueuing onto the caller's InMemoryUnitOfWork instead of applying immediately, so a test can
+        // prove ReviewMergeService.MergeAsync actually rolls both writes back together on failure.
+        if (unitOfWork is InMemoryUnitOfWork shared)
+        {
+            shared.Enqueue(Apply);
+        }
+        else
+        {
+            Apply();
+        }
+
         return Task.FromResult(record.Id);
     }
 

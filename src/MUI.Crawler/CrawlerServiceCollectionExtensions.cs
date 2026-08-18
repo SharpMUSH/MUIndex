@@ -162,6 +162,8 @@ public static class CrawlerServiceCollectionExtensions
         // this graph itself per invocation; registered here too so the same MergeAsync path is
         // reachable from a host's own DI (the MCP game_merge tool), rather than only from the CLI.
         services.TryAddSingleton<IMergeLog>(s => new NpgsqlMergeLog(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IUnitOfWorkFactory>(
+            s => new NpgsqlUnitOfWorkFactory(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<MergeApplier>();
         services.TryAddSingleton<ReviewMergeService>();
 

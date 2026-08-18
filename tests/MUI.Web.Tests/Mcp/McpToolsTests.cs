@@ -491,6 +491,10 @@ public class McpToolsTests
 
         await Assert.That(result.IsError).IsTrue();
 
+        // #116: a blank required input surfaces the actual reason (McpException), not the MCP SDK's
+        // generic "an error occurred" for an unhandled ArgumentException.
+        await Assert.That(result.ErrorText()).Contains("because is required");
+
         // Nothing was written: the refusal happens before either write.
         var games = new NpgsqlGameStore(source);
         await Assert.That((await games.BySlugAsync("needs-because", CancellationToken.None))!.Name)
@@ -729,8 +733,8 @@ public class McpToolsTests
         await using var database = await PostgresFixture.MigratedAsync();
         await using var source = NpgsqlDataSource.Create(database.ConnectionString);
         var now = DateTimeOffset.UtcNow;
-        var loserId = await SeedGameAsync(source, "because-winner", now);
-        await SeedGameAsync(source, "because-loser", now);
+        await SeedGameAsync(source, "because-winner", now);
+        var loserId = await SeedGameAsync(source, "because-loser", now);
 
         await using var site = await SiteHost.StartAsync(
             settings: Settings(), connectionString: database.ConnectionString);
@@ -744,6 +748,10 @@ public class McpToolsTests
         });
 
         await Assert.That(result.IsError).IsTrue();
+
+        // #116: a blank required input surfaces the actual reason (McpException), not the MCP SDK's
+        // generic "an error occurred" for an unhandled ArgumentException.
+        await Assert.That(result.ErrorText()).Contains("because is required");
 
         var merges = new NpgsqlMergeLog(source);
         await Assert.That((await merges.ForGameAsync(loserId, CancellationToken.None)).Count).IsEqualTo(0);
