@@ -13,8 +13,8 @@ public sealed class NpgsqlI3BindingRepository(NpgsqlDataSource source) : II3Bind
 {
     private const string Columns = """
         mud_name AS MudName, game_id AS GameId, host AS Host, port AS Port,
-        answers_who AS AnswersWho, first_seen_at AS FirstSeenAt, last_seen_at AS LastSeenAt,
-        last_asked_at AS LastAskedAt
+        answers_who AS AnswersWho, is_up AS IsUp, first_seen_at AS FirstSeenAt,
+        last_seen_at AS LastSeenAt, last_asked_at AS LastAskedAt
         """;
 
     /// <remarks>
@@ -28,6 +28,7 @@ public sealed class NpgsqlI3BindingRepository(NpgsqlDataSource source) : II3Bind
         string host,
         int port,
         bool answersWho,
+        bool isUp,
         DateTimeOffset seenAt,
         CancellationToken ct)
     {
@@ -37,15 +38,16 @@ public sealed class NpgsqlI3BindingRepository(NpgsqlDataSource source) : II3Bind
 
         await connection.ExecuteAsync(new CommandDefinition(
             """
-            INSERT INTO i3_mud (mud_name, host, port, answers_who, first_seen_at, last_seen_at)
-            VALUES (@mudName, @host, @port, @answersWho, @seenAt, @seenAt)
+            INSERT INTO i3_mud (mud_name, host, port, answers_who, is_up, first_seen_at, last_seen_at)
+            VALUES (@mudName, @host, @port, @answersWho, @isUp, @seenAt, @seenAt)
             ON CONFLICT (mud_name) DO UPDATE SET
                 host = EXCLUDED.host,
                 port = EXCLUDED.port,
                 answers_who = EXCLUDED.answers_who,
+                is_up = EXCLUDED.is_up,
                 last_seen_at = EXCLUDED.last_seen_at
             """,
-            new { mudName, host, port, answersWho, seenAt },
+            new { mudName, host, port, answersWho, isUp, seenAt },
             cancellationToken: ct));
     }
 
@@ -108,6 +110,7 @@ public sealed class NpgsqlI3BindingRepository(NpgsqlDataSource source) : II3Bind
             SELECT {Columns} FROM i3_mud
             WHERE game_id IS NOT NULL
               AND answers_who
+              AND is_up
               AND (last_asked_at IS NULL OR last_asked_at < @notSince)
             ORDER BY last_asked_at NULLS FIRST
             LIMIT @limit

@@ -265,6 +265,36 @@ public class I3CycleTests
     }
 
     /// <summary>
+    /// A mud the router reports down is not asked at all — spending a packet to learn what the
+    /// mudlist already said.
+    /// </summary>
+    /// <remarks>
+    /// <c>I3PresenceChoice.MayAsk</c> has checked <c>IsUp</c> since the pass was first written, but
+    /// nothing carried it into the database, so a mud the router marked down kept being asked on the
+    /// ordinary 30-minute floor forever — I3 never removes a listing, only marks it down. Measured on
+    /// prod 2026-08-18: 8 of 87 bound muds had a 100% who-reply failure rate with this exact shape.
+    /// </remarks>
+    [Test]
+    public async Task AMudTheRouterReportsDownIsNotAsked()
+    {
+        var game = Guid.CreateVersion7();
+        var bindings = new FakeBindings();
+        bindings.Rows["Fallen"] = Bound("Fallen", game);
+        var presence = new FakePresence();
+
+        var cycle = new I3Cycle(
+            new StubGateway([Mud("Fallen", "203.0.113.1", 4000, status: "down")]),
+            new FakeTargets(), bindings, presence, new FakeFields(),
+            new I3Options { BetweenAsks = TimeSpan.Zero }, Clock());
+
+        var result = await cycle.RunAsync(CancellationToken.None);
+
+        await Assert.That(result.Counted).IsEqualTo(0);
+        await Assert.That(presence.Written).IsEmpty();
+        await Assert.That(bindings.Rows["Fallen"].IsUp).IsFalse();
+    }
+
+    /// <summary>
     /// Marked asked before the answer, so a mud that never replies does not become the one we bother
     /// most.
     /// </summary>
@@ -312,6 +342,7 @@ public class I3CycleTests
         Host = "203.0.113.1",
         Port = 4000,
         AnswersWho = true,
+        IsUp = true,
         FirstSeenAt = Now,
         LastSeenAt = Now,
     };
@@ -367,17 +398,21 @@ public class I3CycleTests
         public Dictionary<string, I3Binding> Rows { get; } = [];
 
         public Task UpsertAsync(
-            string mudName, string host, int port, bool answersWho, DateTimeOffset seenAt,
+            string mudName, string host, int port, bool answersWho, bool isUp, DateTimeOffset seenAt,
             CancellationToken ct)
         {
             Rows[mudName] = Rows.TryGetValue(mudName, out var existing)
-                ? existing with { Host = host, Port = port, AnswersWho = answersWho, LastSeenAt = seenAt }
+                ? existing with
+                {
+                    Host = host, Port = port, AnswersWho = answersWho, IsUp = isUp, LastSeenAt = seenAt,
+                }
                 : new I3Binding
                 {
                     MudName = mudName,
                     Host = host,
                     Port = port,
                     AnswersWho = answersWho,
+                    IsUp = isUp,
                     FirstSeenAt = seenAt,
                     LastSeenAt = seenAt,
                 };
@@ -410,7 +445,7 @@ public class I3CycleTests
             DateTimeOffset notSince, int limit, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<I3Binding>>(
                 [.. Rows.Values
-                    .Where(r => r.GameId is not null && r.AnswersWho
+                    .Where(r => r.GameId is not null && r.AnswersWho && r.IsUp
                         && (r.LastAskedAt is null || r.LastAskedAt < notSince))
                     .Take(limit)]);
 

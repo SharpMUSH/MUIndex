@@ -72,13 +72,13 @@ public sealed class I3Cycle(
             if (mud.PlayerPortNumber <= 0 || string.IsNullOrWhiteSpace(mud.HostAddress))
             {
                 await bindings.UpsertAsync(
-                    mud.Name, mud.HostAddress, 0, mud.Answers("who"), now, cancellationToken);
+                    mud.Name, mud.HostAddress, 0, mud.Answers("who"), mud.IsUp, now, cancellationToken);
                 result.Unlistable++;
                 continue;
             }
 
             await bindings.UpsertAsync(
-                mud.Name, mud.HostAddress, mud.PlayerPortNumber, mud.Answers("who"), now,
+                mud.Name, mud.HostAddress, mud.PlayerPortNumber, mud.Answers("who"), mud.IsUp, now,
                 cancellationToken);
 
             var target = await targets.ByAddressAsync(
@@ -240,5 +240,13 @@ public sealed record I3Options
     public int MaxAsksPerCycle { get; init; } = 60;
 
     /// <summary>Spacing between consecutive asks, so a pass is a trickle rather than a flood.</summary>
-    public TimeSpan BetweenAsks { get; init; } = TimeSpan.FromSeconds(2);
+    /// <remarks>
+    /// <b>The gateway's own limit, not just etiquette.</b> <c>deploy/i3/config.yaml</c> caps
+    /// <c>who</c> at 10 requests per minute on the sidecar's API. A 2-second spacing sends up to 30,
+    /// three times that — measured on 2026-08-18: 60-ask cycles lost 13-34% of asks to
+    /// <c>i3_no_reply</c>, 25-ask cycles lost 4-8%, 11-ask cycles lost none, tracking a token bucket
+    /// exhausting faster in bigger batches. 8 seconds is 7.5/minute, under the cap with margin, and a
+    /// full 60-ask cycle still finishes in 8 minutes — inside the 30-minute floor with room to grow.
+    /// </remarks>
+    public TimeSpan BetweenAsks { get; init; } = TimeSpan.FromSeconds(8);
 }
