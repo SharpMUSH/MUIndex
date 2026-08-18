@@ -756,7 +756,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             Changes: changes.Select(Describe).ToList(),
             Neighbours: neighbours,
             ConnectScreenCharset: ScreenCharset(fields),
-            ExcludedReason: row.ExcludedReason);
+            ExcludedReason: row.ExcludedReason,
+            Reachable: QuickLinks.From(fields, _registry, now));
     }
 
     /// <summary>

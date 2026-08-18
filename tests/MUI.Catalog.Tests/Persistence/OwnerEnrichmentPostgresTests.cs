@@ -19,11 +19,21 @@ public class OwnerEnrichmentPostgresTests
 {
     private static readonly DateTimeOffset Now = Seed.Now;
 
-    /// <summary>The four fields §3.2 names as genuinely absent from MSSP, and not one more.</summary>
+    /// <summary>The fields MSSP has no variable for, and not one more.</summary>
     /// <remarks>
+    /// <para>
     /// Pinned as a list because the writable set is derived from a flag: a field marked
     /// <c>ownerEnrichable</c> becomes editable on the dashboard and writable through the endpoint in
     /// one edit, with no second review anywhere. This is that review.
+    /// </para>
+    /// <para>
+    /// The six addresses join §3.2's four on the same argument rather than on a new one. MSSP added
+    /// <c>DISCORD</c> and stopped: there is no <c>FORUM</c>, <c>WIKI</c>, <c>MASTODON</c>,
+    /// <c>BLUESKY</c>, <c>X</c> or <c>TELEGRAM</c> variable in the specification, and none in the
+    /// wild either — every URL-valued field in this catalogue is <c>WEBSITE</c>, <c>ICON</c> or
+    /// <c>DISCORD</c>. A crawler will never fill one in, so the owner is the only source there could
+    /// be, which is the whole of what Enrichment means.
+    /// </para>
     /// </remarks>
     [Test]
     public async Task TheWritableSetIsExactlyWhatMsspHasNoRoomFor()
@@ -32,7 +42,59 @@ public class OwnerEnrichmentPostgresTests
             .IsEquivalentTo(new[]
             {
                 "FANDOM", "APPLICATION PROCESS", "RP ENFORCEMENT", "CONSENT TOOLS",
+                "WIKI", "FORUM", "TELEGRAM", "MASTODON", "BLUESKY", "X",
             });
+    }
+
+    /// <summary>
+    /// A field that holds an address gets one or nothing, and the refusal names the field.
+    /// </summary>
+    /// <remarks>
+    /// Gated on the write and not only on the render. A value stored and then quietly declined by
+    /// the page is the worst of both: the owner sees their address in the self-description below the
+    /// fold, no icon beside the title, and nothing anywhere telling them which of the two is broken.
+    /// </remarks>
+    [Test]
+    [Arguments("WIKI", "javascript:alert(1)")]
+    [Arguments("FORUM", "www.example.org")]
+    [Arguments("MASTODON", "https://user:pass@evil.example/")]
+    [Arguments("WEBSITE", "not a url at all")]
+    [Arguments("CONTACT", "msocorcim (at) gmail (dot) com")]
+    public async Task AnAddressFieldRefusesAValueThatIsNotOne(string field, string value)
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var world = await World.BuildAsync(db);
+
+        var outcome = await world.Enrichment.ApplyAsync(
+            world.Game, world.Owner, [new OwnerEdit("FANDOM", "Exalted"), new OwnerEdit(field, value)]);
+
+        await Assert.That(outcome.Verdict).IsEqualTo(EnrichmentVerdict.NotAnAddress);
+        await Assert.That(outcome.Field).IsEqualTo(field);
+
+        // All or nothing, like every other refusal here: the good half of the submission is not
+        // applied while the bad half is reported.
+        await Assert.That((await world.Fields.ForGameAsync(world.Game)).Count).IsEqualTo(0);
+    }
+
+    /// <summary>Clearing an address field is a withdrawal, not a malformed address.</summary>
+    [Test]
+    public async Task AnEmptyBoxIsNotAnAddressThatFailedToParse()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var world = await World.BuildAsync(db);
+
+        await world.Enrichment.ApplyAsync(
+            world.Game, world.Owner, [new OwnerEdit("WIKI", "https://wiki.example.org")]);
+
+        var outcome = await world.Enrichment.ApplyAsync(
+            world.Game, world.Owner, [new OwnerEdit("WIKI", "  ")]);
+
+        await Assert.That(outcome.IsApplied).IsTrue();
+
+        // The row goes on existing, emptied. Nothing here is ever deleted (§7.5).
+        var stored = await world.Fields.ForGameAsync(world.Game, FieldSource.Owner);
+
+        await Assert.That(stored.Single(f => f.Field == "WIKI").Value).IsEmpty();
     }
 
     /// <summary>

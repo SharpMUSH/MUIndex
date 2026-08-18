@@ -418,7 +418,8 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
             Capabilities: Capabilities(summary),
             Activity: Activity(summary),
             Declared: Declared(summary),
-            Changes: Changes(summary)));
+            Changes: Changes(summary),
+            Reachable: Reach(summary)));
     }
 
     public Task<IReadOnlyList<AvailabilityInterval>> ForGameAsync(
@@ -590,14 +591,65 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// answers to one question, and this file had exactly that: every game's codebase was dated four
     /// minutes ago, including one that has not answered the door since 2023.
     /// </remarks>
-    private static Dictionary<string, ProvenanceChip> Declared(GameSummary g) => new()
+    private static Dictionary<string, ProvenanceChip> Declared(GameSummary g)
     {
-        ["codebase"] = g.CodebaseProvenance
-            ?? Chip("CODEBASE", "not identified", FieldSource.Banner, g.LastReachableAt ?? Now),
-        ["genre"] = new ProvenanceChip("Modern Supernatural", FieldSource.Mssp, Now.AddDays(-14), IsStale: false),
-        ["created"] = new ProvenanceChip("2009", FieldSource.Mssp, Now.AddYears(-6), IsStale: true),
-        ["language"] = new ProvenanceChip("English", FieldSource.Mssp, Now.AddYears(-6), IsStale: true),
+        var declared = new Dictionary<string, ProvenanceChip>(StringComparer.Ordinal)
+        {
+            ["codebase"] = g.CodebaseProvenance
+                ?? Chip("CODEBASE", "not identified", FieldSource.Banner, g.LastReachableAt ?? Now),
+            ["genre"] = new ProvenanceChip("Modern Supernatural", FieldSource.Mssp, Now.AddDays(-14), IsStale: false),
+            ["created"] = new ProvenanceChip("2009", FieldSource.Mssp, Now.AddYears(-6), IsStale: true),
+            ["language"] = new ProvenanceChip("English", FieldSource.Mssp, Now.AddYears(-6), IsStale: true),
+        };
+
+        // Every link is also a declared field, because on the real page it IS one — the row beside
+        // the name is drawn from these. A fixture where the two disagreed would be a demo of a page
+        // that cannot exist, and this fixture is the one the site falls back on with no database.
+        foreach (var link in Reach(g))
+        {
+            declared[link.Field.ToLowerInvariant()] =
+                new ProvenanceChip(link.Shown, link.Source, link.LastConfirmedAt, link.IsStale);
+        }
+
+        return declared;
+    }
+
+    /// <summary>
+    /// The ways to reach each game's people, where the fixture gives them any.
+    /// </summary>
+    /// <remarks>
+    /// Two games and not all eight, on purpose. Most games in the real catalogue publish a WEBSITE
+    /// and nothing else — fifty-five publish no address at all — and a fixture where every game had
+    /// a full row would demo a site nobody will see. m-u-s-h carries what MSSP can express;
+    /// ashen-court carries the half that only an owner can, which is the difference the panel on the
+    /// dashboard exists to explain.
+    /// </remarks>
+    private static QuickLink[] Reach(GameSummary g) => g.Slug switch
+    {
+        "m-u-s-h" =>
+        [
+            Reachable(LinkKind.Website, "WEBSITE", "https://www.pennmush.org/", FieldSource.Mssp, 30),
+            Reachable(LinkKind.Email, "CONTACT", "mailto:nobody@example.org", FieldSource.Mssp, 30, "nobody@example.org"),
+        ],
+        "ashen-court" =>
+        [
+            Reachable(LinkKind.Website, "WEBSITE", "https://ashen.example/", FieldSource.Owner, 5),
+            Reachable(LinkKind.Wiki, "WIKI", "https://wiki.ashen.example/", FieldSource.Owner, 5),
+            Reachable(LinkKind.Forum, "FORUM", "https://forum.ashen.example/", FieldSource.Owner, 5),
+            Reachable(LinkKind.Discord, "DISCORD", "https://discord.gg/example", FieldSource.Mssp, 40),
+            Reachable(LinkKind.Mastodon, "MASTODON", "https://mastodon.example/@ashen", FieldSource.Owner, 5),
+        ],
+        _ => [],
     };
+
+    private static QuickLink Reachable(
+        LinkKind kind,
+        string field,
+        string href,
+        FieldSource source,
+        int ageDays,
+        string? shown = null) =>
+        new(kind, field, href, shown ?? href, source, Now.AddDays(-ageDays), IsStale: ageDays > 90);
 
     private static ChangeEntry[] Changes(GameSummary g) =>
     [

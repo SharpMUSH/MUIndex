@@ -27,6 +27,17 @@ public enum EnrichmentVerdict
     NotEnrichable,
 
     TooLong,
+
+    /// <summary>
+    /// A field that holds an address, and a value that is not one.
+    /// </summary>
+    /// <remarks>
+    /// Refused at the door rather than at the point of rendering, for the reason every other refusal
+    /// here is: a value stored and then silently declined by the page is a box an owner filled in
+    /// correctly as far as they can tell. Naming the field and saying what the shape is turns
+    /// "nothing happened" into a typo they can fix.
+    /// </remarks>
+    NotAnAddress,
 }
 
 /// <summary>
@@ -211,7 +222,7 @@ public sealed class OwnerEnrichment(
 
         foreach (var edit in edits)
         {
-            if (registry.Find(edit.Field) is not { OwnerWritable: not OwnerWritable.No })
+            if (registry.Find(edit.Field) is not { OwnerWritable: not OwnerWritable.No } definition)
             {
                 // Refused out loud, and the rest of the submission with it. This is the line §8.5
                 // draws: a player count, a capability and a reachability history are measurements,
@@ -226,6 +237,20 @@ public sealed class OwnerEnrichment(
             {
                 return new EnrichmentOutcome(
                     EnrichmentVerdict.TooLong, edit.Field, FieldReconciliation.Nothing);
+            }
+
+            // A field that holds an address gets one or nothing. The clear is exempt on purpose —
+            // an empty box is a withdrawal, and "" is not a malformed URL, it is the absence of one.
+            //
+            // This is a gate on the WRITE and not only on the render, because the alternative is a
+            // stored value that the page quietly declines to link: the owner sees their address in
+            // the list below the fold, no icon beside the title, and nothing anywhere saying why.
+            if (definition.Shape is not FieldShape.Text
+                && value.Length > 0
+                && !ExternalUrl.IsLinkable(value, definition.Shape))
+            {
+                return new EnrichmentOutcome(
+                    EnrichmentVerdict.NotAnAddress, edit.Field, FieldReconciliation.Nothing);
             }
 
             // An empty box over an already-empty field is not a withdrawal of anything, so it is

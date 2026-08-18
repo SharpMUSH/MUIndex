@@ -3828,4 +3828,26 @@
     <value>In the left column, * is a value this listing is filtered to and - is one it is filtered against. Both are choices in the query, not facts about a game.</value>
     <comment>what we could measure (the two measurement switches, spec §9)</comment>
   </data>
+  <data name="links.heading" xml:space="preserve">
+    <value>Where to find this game</value>
+    <comment>the reach row, and the same facts on the plain surface</comment>
+  </data>
+  <data name="links.to" xml:space="preserve">
+    <value>This game on {platform}</value>
+  </data>
+  <data name="links.website" xml:space="preserve">
+    <value>Website</value>
+  </data>
+  <data name="links.wiki" xml:space="preserve">
+    <value>Wiki</value>
+  </data>
+  <data name="links.forum" xml:space="preserve">
+    <value>Forum</value>
+  </data>
+  <data name="links.email" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="links.plain.heading" xml:space="preserve">
+    <value>Where to find this game</value>
+  </data>
 </root>

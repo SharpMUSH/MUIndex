@@ -2880,4 +2880,25 @@
   <data name="facet.plain.marks" xml:space="preserve">
     <value>In de linkerkolom is * een waarde waarop deze lijst gefilterd is en - een waarde die is uitgesloten. Beide zijn keuzes in de zoekopdracht, geen feiten over een spel.</value>
   </data>
+  <data name="links.heading" xml:space="preserve">
+    <value>Waar dit spel te vinden is</value>
+  </data>
+  <data name="links.to" xml:space="preserve">
+    <value>Dit spel op {platform}</value>
+  </data>
+  <data name="links.website" xml:space="preserve">
+    <value>Website</value>
+  </data>
+  <data name="links.wiki" xml:space="preserve">
+    <value>Wiki</value>
+  </data>
+  <data name="links.forum" xml:space="preserve">
+    <value>Forum</value>
+  </data>
+  <data name="links.email" xml:space="preserve">
+    <value>E-mail</value>
+  </data>
+  <data name="links.plain.heading" xml:space="preserve">
+    <value>Waar dit spel te vinden is</value>
+  </data>
 </root>

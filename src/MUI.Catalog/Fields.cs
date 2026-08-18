@@ -38,7 +38,37 @@ public sealed record FieldObservation(string Field, FieldSource Source, string V
 public sealed record FieldDefinition(
     string Name,
     TimeSpan ExpectedRefresh,
-    OwnerWritable OwnerWritable = OwnerWritable.No);
+    OwnerWritable OwnerWritable = OwnerWritable.No,
+    FieldShape Shape = FieldShape.Text);
+
+/// <summary>
+/// What kind of value a field holds, where that decides what may be done with it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Three shapes, because exactly three things ask.</b> The enrichment form refuses a value that is
+/// not the shape its field holds, the game page renders a link only for a value that is one, and the
+/// MSSP scorecard names the mismatch to the operator whose config produced it. All three were about
+/// to grow a private list of "the URL fields", and a rule spelled three times is a rule that drifts
+/// twice.
+/// </para>
+/// <para>
+/// <see cref="Text"/> is the default and is deliberately not "unknown": a <c>GENRE</c> holds prose,
+/// and prose is never a destination. It is the answer for every field that has not made a case for
+/// something narrower.
+/// </para>
+/// </remarks>
+public enum FieldShape
+{
+    /// <summary>Prose, an enumerated word, a number. Never rendered as a link.</summary>
+    Text,
+
+    /// <summary>An http or https address. See <see cref="ExternalUrl"/> for what that means here.</summary>
+    Url,
+
+    /// <summary>An email address — or, in practice, a contact page. See <see cref="ExternalUrl"/>.</summary>
+    Email,
+}
 
 /// <summary>
 /// Whether a verified owner may write a field, and on what grounds (spec §8.5).

@@ -1,0 +1,99 @@
+@*
+    The ways to reach a game's people, beside its name.
+
+    Icons rather than a list of URLs, because this sits under an <h1> and nine addresses would push
+    the page's actual content below the fold. Every one of them is also printed in full, with its
+    provenance chip, under "declared by the game" — these are navigation and that list is the record.
+
+    Nothing here is measured. A website, an invite and an inbox are all hand-typed by somebody, so
+    the row carries no measured glyph: the chip below says "declared" for each of them, and a second
+    vocabulary up here would be a second thing to keep in step with it.
+*@
+
+@if (Links.Count > 0)
+{
+    <ul class="reach" aria-label="@L("links.heading")">
+        @foreach (var link in Links)
+        {
+            <li>
+                @*
+                    rel is three separate promises and all three are load-bearing. noopener stops the
+                    opened page reaching back through window.opener; nofollow says we are not voting
+                    for a destination we did not choose; ugc says who did choose it — these addresses
+                    are published by the games themselves, and a directory that let anybody mint
+                    followed links by editing their own mush.cnf would be a link farm with measurements
+                    on it.
+
+                    No target=_blank. Deciding on somebody's behalf that a link opens a window is a
+                    decision their browser is better placed to make, and it is the one thing that
+                    makes the back button stop working.
+                *@
+                <a class="reach-@Slug(link.Kind)"
+                   href="@link.Href"
+                   rel="noopener nofollow ugc"
+                   title="@Title(link)">
+                    @* aria-hidden because the label below is the accessible name; a screen reader
+                       announcing both would say "Discord Discord". *@
+                    <span class="reach-icon" aria-hidden="true">@((MarkupString)LinkIcons.Svg(link.Kind))</span>
+                    <span class="sr-only">@Label(link)</span>
+                </a>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    private string L(string id) => Messages.For(Tag, id);
+
+    [Parameter, EditorRequired] public IReadOnlyList<QuickLink> Links { get; set; } = [];
+
+    [Parameter] public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// The accessible name for one link.
+    /// </summary>
+    /// <remarks>
+    /// The platform's own name is an argument rather than part of the translated string, and it is
+    /// never translated: Mastodon is Mastodon in every language, and a message id per platform would
+    /// be nine ids saying one thing. <c>links.to</c> carries the preposition, which is the part that
+    /// moves.
+    /// </remarks>
+    private string Label(QuickLink link) => link.Kind switch
+    {
+        LinkKind.Website => L("links.website"),
+        LinkKind.Wiki => L("links.wiki"),
+        LinkKind.Forum => L("links.forum"),
+        LinkKind.Email => L("links.email"),
+        _ => Messages.Say(Tag, "links.to", ("platform", Platform(link.Kind))),
+    };
+
+    /// <summary>
+    /// The label, then how we know it and how old it is — the chip's sentence, in a tooltip.
+    /// </summary>
+    /// <remarks>
+    /// The provenance travels with the link even though the chip stays below, because this row is
+    /// the one an owner's override and their game's own report reach identically. A reader hovering
+    /// a website icon that points somewhere unexpected is owed the answer to "who said so", and the
+    /// wording is <c>PlainText.Label</c>'s so the tooltip and the plain surface cannot drift.
+    /// </remarks>
+    private string Title(QuickLink link) =>
+        $"{Label(link)} — {link.Shown} — "
+        + PlainText.Label(Tag, new ProvenanceChip(link.Shown, link.Source, link.LastConfirmedAt, link.IsStale), Now);
+
+    /// <summary>The platform's own name. Machine voice: never translated, never localised.</summary>
+    private static string Platform(LinkKind kind) => kind switch
+    {
+        LinkKind.Discord => "Discord",
+        LinkKind.Telegram => "Telegram",
+        LinkKind.Mastodon => "Mastodon",
+        LinkKind.Bluesky => "Bluesky",
+        LinkKind.X => "X",
+        _ => kind.ToString(),
+    };
+
+    private static string Slug(LinkKind kind) => kind.ToString().ToLowerInvariant();
+}

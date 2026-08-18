@@ -2880,4 +2880,25 @@
   <data name="facet.plain.marks" xml:space="preserve">
     <value>左の列で、* はこの一覧が絞り込みに使っている値、- は除外に使っている値。どちらもクエリでの選択であって、ゲームについての事実ではない。</value>
   </data>
+  <data name="links.heading" xml:space="preserve">
+    <value>このゲームの所在</value>
+  </data>
+  <data name="links.to" xml:space="preserve">
+    <value>{platform} 上のこのゲーム</value>
+  </data>
+  <data name="links.website" xml:space="preserve">
+    <value>ウェブサイト</value>
+  </data>
+  <data name="links.wiki" xml:space="preserve">
+    <value>ウィキ</value>
+  </data>
+  <data name="links.forum" xml:space="preserve">
+    <value>フォーラム</value>
+  </data>
+  <data name="links.email" xml:space="preserve">
+    <value>メール</value>
+  </data>
+  <data name="links.plain.heading" xml:space="preserve">
+    <value>このゲームの所在</value>
+  </data>
 </root>
