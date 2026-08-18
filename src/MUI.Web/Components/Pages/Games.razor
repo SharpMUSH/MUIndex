@@ -39,7 +39,7 @@ else
             somebody's question — the same rule that stops an unparseable WHO reading as zero.
         *@
         <p class="problem" role="alert">@problem</p>
-        <p><a href="/games">@Messages.For(Tag, "listing.clearFilters")</a></p>
+        <p><a href="@Http.Link("/games")">@Messages.For(Tag, "listing.clearFilters")</a></p>
         @* The text mirror is offered from here too: a reader who cannot read the refusal is exactly
            the one who wants the other surface. *@
         <p class="faint"><a href="@PlainHref">@Messages.For(Tag, "a11y.plainText")</a></p>
@@ -72,7 +72,7 @@ else
                 chip cannot carry: the page explaining the thing being filtered on.
             *@
             <p class="kicker">
-                <a href="/reference/codebases/@(family.ToLowerInvariant())">@Messages.For(Tag, "listing.aboutCodebase", new Dictionary<string, object?> { ["codebase"] = family })</a>
+                <a href="@Http.Link($"/reference/codebases/{family.ToLowerInvariant()}")">@Messages.For(Tag, "listing.aboutCodebase", new Dictionary<string, object?> { ["codebase"] = family })</a>
             </p>
         }
 
@@ -191,7 +191,7 @@ else
                     <div class="row-main">
                         <div class="row-text">
                             <p class="row-head">
-                                <a class="name" href="/g/@g.Slug"><GameName Name="@g.Name" /></a>
+                                <a class="name" href="@Http.Link($"/g/{g.Slug}")"><GameName Name="@g.Name" /></a>
                                 @*
                                     Archived and claimed are the two states worth saying. Unclaimed
                                     is the majority state of the catalogue — it was on all 515 rows,
@@ -372,7 +372,7 @@ else
                 <p class="empty-head">@Messages.For(Tag, "listing.empty.head")</p>
                 <p class="dim">@Messages.For(Tag, "listing.empty.hint")</p>
                 <p class="kicker">
-                    <a href="/games">@Messages.For(Tag, "listing.clearFilters")</a> · <a href="/archive">@Messages.For(Tag, "footer.archive")</a>
+                    <a href="@Http.Link("/games")">@Messages.For(Tag, "listing.clearFilters")</a> · <a href="@Http.Link("/archive")">@Messages.For(Tag, "footer.archive")</a>
                 </p>
             </div>
         }
@@ -386,11 +386,11 @@ else
             footer" fix.
         *@
         <div class="card-footer">
-            <a href="/games">@Messages.For(Tag, "footer.allGames")</a>
+            <a href="@Http.Link("/games")">@Messages.For(Tag, "footer.allGames")</a>
             <span class="sep" aria-hidden="true">·</span>
-            <a href="/archive">@Messages.For(Tag, "footer.archive")</a>
+            <a href="@Http.Link("/archive")">@Messages.For(Tag, "footer.archive")</a>
             <span class="sep" aria-hidden="true">·</span>
-            <a href="/submit">@Messages.For(Tag, "nav.submitGame")</a>
+            <a href="@Http.Link("/submit")">@Messages.For(Tag, "nav.submitGame")</a>
             <span class="sep" aria-hidden="true">·</span>
             <a href="@PlainHref">@Messages.For(Tag, "a11y.plainText")</a>
                     <LanguageSwitcher />
@@ -430,7 +430,7 @@ else
     /// Random, within whatever is on screen (spec §9). The filters ride along, because "surprise me"
     /// after narrowing to Evennia games means surprise me among those.
     /// </summary>
-    private string RandomHref => "/games/random" + ListingLinks.With(Query, "plain", null);
+    private string RandomHref => Http.Link("/games/random" + ListingLinks.With(Query, "plain", null));
 
     /// <summary>
     /// The first game this sort had nothing to rank, which is where the list says so.
@@ -501,7 +501,7 @@ else
 
     /// <summary>This listing in one other order, keeping every other thing it was asked.</summary>
     private string SortHref(GameSort sort) =>
-        "/games" + ListingLinks.With(Query, FacetKeys.Sort, FacetTokens.Of(sort));
+        Http.Link("/games" + ListingLinks.With(Query, FacetKeys.Sort, FacetTokens.Of(sort)));
 
     /// <summary>
     /// What goes in the count column, which is whichever measurement the switch is showing.

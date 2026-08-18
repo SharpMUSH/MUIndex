@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Identity;
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
 
+using MUI.Web.Localization;
+
 namespace MUI.Web.Accounts;
 
 /// <summary>
@@ -35,7 +37,7 @@ public static class OwnershipWrites
             if (await users.GetUserAsync(context.User) is not { } user
                 || await queries.FindAsync(slug) is not { } page)
             {
-                return Results.Redirect($"/g/{slug}/claim");
+                return Back(context, $"/g/{slug}/claim");
             }
 
             var intent = string.Equals(form["intent"], "assume", StringComparison.Ordinal)
@@ -44,7 +46,7 @@ public static class OwnershipWrites
 
             await claims.IssueAsync(page.Summary.Id, user.Id, intent);
 
-            return Results.Redirect($"/g/{slug}/claim");
+            return Back(context, $"/g/{slug}/claim");
         }).RequireAuthorization();
 
         // Giving up a game. Explicit, which §8.4 requires of every revocation that is not a
@@ -67,12 +69,20 @@ public static class OwnershipWrites
             // operator no longer owns.
             if (!string.Equals(form["confirm"], "resign", StringComparison.Ordinal))
             {
-                return Results.Redirect($"{Passkeys.DashboardPath}?resign={claimId}");
+                return Back(context, $"{Passkeys.DashboardPath}?resign={claimId}");
             }
 
             return await claims.ResignAsync(claimId, user.Id)
-                ? Results.Redirect($"{Passkeys.DashboardPath}?resigned=1")
+                ? Back(context, $"{Passkeys.DashboardPath}?resigned=1")
                 : Results.StatusCode(StatusCodes.Status403Forbidden);
         }).RequireAuthorization();
     }
+
+    /// <summary>The page the operator came from, in the language they were reading it in.</summary>
+    /// <remarks>
+    /// The form they posted carries this locale in its own action, so the request has one. Same rule
+    /// as every link on the site, applied where the address is a header rather than an attribute.
+    /// </remarks>
+    private static IResult Back(HttpContext context, string path) =>
+        Results.Redirect(LocaleRouting.Link(context.LocaleOf().Tag, path));
 }

@@ -599,6 +599,326 @@ public class LocalizationTests
         await Assert.That((int)answered.StatusCode).IsNotEqualTo(302);
     }
 
+    // ── links out of a locale ────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// One address, in the locale the page carrying it is read in.
+    /// </summary>
+    /// <remarks>
+    /// The table is the whole rule: an app path takes the prefix, the source locale takes none, and
+    /// four shapes are left exactly as they arrived — a query-only address, which means <em>this
+    /// page, asked differently</em>; a file that has one canonical address in every language; an
+    /// absolute URL; and a protocol-relative one, which is another host wearing a path's clothes.
+    /// </remarks>
+    [Test]
+    [Arguments("en", "/games", "/games")]
+    [Arguments("de", "/games", "/de/games")]
+    [Arguments("de", "/", "/de/")]
+    [Arguments("de", "/g/ashen-court", "/de/g/ashen-court")]
+    [Arguments("de", "/games?sort=busiest", "/de/games?sort=busiest")]
+    [Arguments("zh-Hans", "/rankings", "/zh-Hans/rankings")]
+    [Arguments("de", "?plain=1", "?plain=1")]
+    [Arguments("de", "?window=30d&plain=1", "?window=30d&plain=1")]
+    [Arguments("de", "#content", "#content")]
+    [Arguments("de", "/api/games", "/api/games")]
+    [Arguments("de", "/robots.txt", "/robots.txt")]
+    [Arguments("de", "/sitemap.xml", "/sitemap.xml")]
+    [Arguments("de", "/favicon.svg", "/favicon.svg")]
+    [Arguments("de", "/site.webmanifest", "/site.webmanifest")]
+    [Arguments("de", "/api/games?limit=5", "/api/games?limit=5")]
+    [Arguments("de", "https://example.com/games", "https://example.com/games")]
+    [Arguments("de", "mailto:someone@example.com", "mailto:someone@example.com")]
+    [Arguments("de", "//elsewhere.example/games", "//elsewhere.example/games")]
+    [Arguments("de", "", "")]
+    public async Task AnAddressIsWrittenInTheLocaleThePageIsReadIn(string tag, string given, string expected)
+    {
+        await Assert.That(LocaleRouting.Link(tag, given)).IsEqualTo(expected);
+    }
+
+    /// <summary>
+    /// Every link on a localized page stays inside that locale.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Every internal link was an absolute path emitted verbatim, so a German page's links all
+    /// pointed out of German.</b> <c>/de/games</c> rendered <c>href="/games"</c>,
+    /// <c>href="/about"</c> and <c>href="/find"</c>, and a reader who followed a shared
+    /// <c>/de/…</c> link carries no cookie — so nothing could send them back and their first click
+    /// landed in English. Putting the locale in the path is what makes it linkable, shareable,
+    /// cacheable and indexable, and a page that discards it on every link has the property in its
+    /// own address and nowhere else.
+    /// </para>
+    /// <para>
+    /// Swept rather than spot-checked, over every anchor and every form on the page, because the
+    /// bug was fifty separate link sites and any one of them left behind is the same bug for
+    /// whichever reader clicks it. Nothing here is asked with a cookie: this is the reader who was
+    /// sent a link.
+    /// </para>
+    /// </remarks>
+    [Test]
+    [Arguments("/de/")]
+    [Arguments("/de/games")]
+    [Arguments("/de/games?sort=busiest")]
+    [Arguments("/de/archive")]
+    [Arguments("/de/find")]
+    [Arguments("/de/rankings")]
+    [Arguments("/de/ecosystem")]
+    [Arguments("/de/about")]
+    [Arguments("/de/reference")]
+    [Arguments("/de/reference/codebases/pennmush")]
+    [Arguments("/de/submit")]
+    [Arguments("/de/g/ashen-court")]
+    public async Task EveryLinkOnALocalizedPageStaysInThatLocale(string path)
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var markup = await site.Client.GetStringAsync(path);
+        var addresses = Addresses(markup);
+
+        // The page was read, rather than a 404 body with nothing on it being swept clean.
+        await Assert.That(addresses.Count).IsGreaterThan(3);
+
+        foreach (var address in addresses)
+        {
+            if (LeavesThisSite(address) || LocaleRouting.IsUnlocalized(PathOf(address)))
+            {
+                continue;
+            }
+
+            await Assert.That(address)
+                .StartsWith("/de/")
+                .Because($"{path} offers {address}, which leads out of German");
+        }
+    }
+
+    /// <summary>And the source locale is the absence of a prefix, on the same pages.</summary>
+    /// <remarks>
+    /// <c>/games</c> is the canonical English address and <c>/en/games</c> redirects to it, so a
+    /// prefix written here would be a second URL for a document that already has one — and every
+    /// bookmark and inbound link already spells the unprefixed one.
+    /// </remarks>
+    [Test]
+    [Arguments("/")]
+    [Arguments("/games")]
+    [Arguments("/archive")]
+    [Arguments("/find")]
+    [Arguments("/rankings")]
+    [Arguments("/g/ashen-court")]
+    public async Task TheSourceLocaleIsTheAbsenceOfAPrefix(string path)
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var markup = await site.Client.GetStringAsync(path);
+
+        foreach (var address in Addresses(markup))
+        {
+            foreach (var locale in Locales.All)
+            {
+                await Assert.That(address.StartsWith($"/{locale.Tag}/", StringComparison.Ordinal))
+                    .IsFalse()
+                    .Because($"{path} offers {address}, a second address for a page that has one");
+            }
+        }
+    }
+
+    /// <summary>
+    /// A query-only address means <em>this page, asked differently</em>, in every language.
+    /// </summary>
+    /// <remarks>
+    /// The plain-text link and all five trend range links are written as a bare querystring so they
+    /// resolve against the page they are on — which is what removing <c>&lt;base href="/"&gt;</c>
+    /// from <c>App.razor</c> made true, and which giving one a prefix would undo just as
+    /// thoroughly: <c>/de/?plain=1</c> is the home page, not the listing the reader was reading.
+    /// </remarks>
+    [Test]
+    [Arguments("/de/games")]
+    [Arguments("/de/g/ashen-court")]
+    [Arguments("/de/rankings")]
+    public async Task AQueryOnlyAddressIsLeftExactlyAsItWasWritten(string path)
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var markup = await site.Client.GetStringAsync(path);
+        var queries = Addresses(markup).Where(a => a.StartsWith('?')).ToList();
+
+        await Assert.That(queries.Count).IsGreaterThan(0);
+
+        foreach (var query in queries)
+        {
+            await Assert.That(query).DoesNotContain("/de");
+        }
+    }
+
+    /// <summary>
+    /// A file with one canonical address never gets a prefix, whatever language the page is in.
+    /// </summary>
+    /// <remarks>
+    /// The head's own links are not swept above — a stylesheet is not a document in a language —
+    /// so the list the middleware refuses to redirect is asserted here directly against the markup
+    /// that carries it.
+    /// </remarks>
+    [Test]
+    public async Task AFileWithOneAddressIsNeverPrefixedInTheMarkupEither()
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var markup = await site.Client.GetStringAsync("/de/games");
+
+        foreach (var file in new[] { "/favicon.svg", "/favicon.ico", "/site.webmanifest" })
+        {
+            await Assert.That(markup).Contains($"href=\"{file}\"");
+            await Assert.That(markup).DoesNotContain($"href=\"/de{file}\"");
+        }
+    }
+
+    /// <summary>
+    /// A control that answers with a <c>Location</c> header keeps the reader's language too.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>These are the links a sweep of the markup cannot see</b>, and the walk found them where
+    /// the sweep could not: "surprise me" is in the nav of every page, and from <c>/de/games</c> it
+    /// answered with <c>Location: /g/eldertale</c> — a reader two clicks into German, put back into
+    /// English by the one destination that is a header rather than an attribute. The theme control
+    /// did the same for the reader who preferred a light background.
+    /// </para>
+    /// <para>
+    /// No cookie on any of these, deliberately. A reader who followed a shared <c>/de/…</c> link has
+    /// none, so the path is the only thing that knows what language they are reading in — which is
+    /// the whole reason the locale is in the path.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AControlThatAnswersWithARedirectKeepsTheReadersLanguage()
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var random = await site.Client.GetAsync("/de/games/random");
+
+        await Assert.That((int)random.StatusCode).IsEqualTo(302);
+        await Assert.That(Where(random)).StartsWith("/de/g/");
+
+        var theme = new HttpRequestMessage(HttpMethod.Post, "/de/theme")
+        {
+            Content = new FormUrlEncodedContent([
+                new KeyValuePair<string, string>("theme", "light"),
+                new KeyValuePair<string, string>("return", "/games"),
+            ]),
+        };
+
+        var themed = await site.Client.SendAsync(theme);
+
+        await Assert.That((int)themed.StatusCode).IsEqualTo(303);
+        await Assert.That(themed.Headers.Location?.OriginalString).IsEqualTo("/de/games");
+
+        // And the crawler's own short URL, which lands on a page and so is a document in a language.
+        var crawler = await site.Client.GetAsync("/de/crawler");
+
+        await Assert.That(Where(crawler)).StartsWith("/de/about");
+
+        // The source locale keeps the address it always had.
+        var english = await site.Client.GetAsync("/games/random");
+
+        await Assert.That(Where(english)).StartsWith("/g/");
+        await Assert.That(Where(english)).DoesNotContain("/de/");
+    }
+
+    /// <summary>
+    /// The plain surface prints its addresses in the locale it is printing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>They are links, whatever they look like.</b> There are no anchors on this surface, so a
+    /// path is printed for a reader to type, to follow in a text browser, or to paste to somebody —
+    /// and a German reader who copies <c>/g/ashen-court</c> off <c>/de/games?plain=1</c> arriving in
+    /// English is the same defect as the fifty in the markup, on the surface whose whole promise is
+    /// that it mirrors the page.
+    /// </para>
+    /// <para>
+    /// The trend's seek link stays a bare querystring here for the reason it does in the markup: it
+    /// means <em>this page, asked differently</em>, and the page it is on is already the German one.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ThePlainSurfacePrintsItsAddressesInTheLocaleItIsPrintingIn()
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var listing = await site.Client.GetStringAsync("/de/games?plain=1");
+        var game = await site.Client.GetStringAsync("/de/g/ashen-court?plain=1");
+        var english = await site.Client.GetStringAsync("/games?plain=1");
+
+        await Assert.That(listing).Contains("/de/g/ashen-court");
+        await Assert.That(english).Contains("/g/ashen-court");
+        await Assert.That(english).DoesNotContain("/de/g/ashen-court");
+
+        // The seek link is relative to the page and is not given a prefix it would break under.
+        await Assert.That(game).Contains("?from=");
+        await Assert.That(game).DoesNotContain("/de?from=");
+    }
+
+    /// <summary>
+    /// A reference article is the article in every locale, and not the section's empty state.
+    /// </summary>
+    /// <remarks>
+    /// The page looked itself up by <c>NavigationManager.Uri</c>, whose local path still carries
+    /// the prefix the middleware moved into <c>PathBase</c> — so <c>/de/reference/codebases/pennmush</c>
+    /// asked the library for a document filed under <c>/reference/codebases/pennmush</c>, was told
+    /// there is none, and answered every non-English reader with "no reference page here" for all
+    /// thirty-odd articles. It is the request's own path that names the document, in every language.
+    /// </remarks>
+    [Test]
+    [Arguments("/reference/codebases/pennmush")]
+    [Arguments("/de/reference/codebases/pennmush")]
+    [Arguments("/ja/reference/codebases/pennmush")]
+    public async Task AReferenceArticleIsFoundInEveryLocale(string path)
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var markup = await site.Client.GetStringAsync(path);
+
+        await Assert.That(markup).Contains("PennMUSH");
+        await Assert.That(Render.Words(markup)).DoesNotContain("No reference page here");
+    }
+
+    /// <summary>Every anchor and every form on a rendered page, as the browser receives them.</summary>
+    /// <remarks>
+    /// Read off the frame rather than the source, because that is where the bug was: the components
+    /// held the right paths all along and the markup is what pointed out of the locale.
+    /// </remarks>
+    private static IReadOnlyList<string> Addresses(string markup) =>
+    [
+        .. System.Text.RegularExpressions.Regex
+            .Matches(markup, "<a\\s[^>]*?href=\"([^\"]*)\"|<form\\s[^>]*?action=\"([^\"]*)\"")
+            .Select(m => m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value)
+            .Select(a => System.Net.WebUtility.HtmlDecode(a) ?? string.Empty)
+            .Where(a => a.Length > 0),
+    ];
+
+    /// <summary>
+    /// Where a redirect sends the reader, as a path.
+    /// </summary>
+    /// <remarks>
+    /// The two shapes are both correct and both shipped: an endpoint writes a relative
+    /// <c>Location</c>, and a page redirecting through <c>NavigationManager</c> gets an absolute one
+    /// built off the request's own base. What a test is asking about is where the reader lands.
+    /// </remarks>
+    private static string Where(HttpResponseMessage response) =>
+        response.Headers.Location is not { } location ? string.Empty
+        : location.IsAbsoluteUri ? location.AbsolutePath
+        : location.OriginalString;
+
+    /// <summary>Whether an address names somewhere that is not a page of this site.</summary>
+    private static bool LeavesThisSite(string address) =>
+        address[0] != '/' || (address.Length > 1 && address[1] is '/' or '\\');
+
+    private static string PathOf(string address)
+    {
+        var cut = address.AsSpan().IndexOfAny('?', '#');
+
+        return cut < 0 ? address : address[..cut];
+    }
+
     /// <summary>
     /// A sentence with links in it is one message, and what a translator writes is never markup.
     /// </summary>

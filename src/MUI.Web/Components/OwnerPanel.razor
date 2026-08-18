@@ -26,7 +26,7 @@
         never instead of it. Nothing measured can be edited from here, by you or by us.
     </p>
 
-    <form method="post" action="/account/games/@GameId/enrichment" class="enrichment">
+    <form method="post" action="@Http.Link($"/account/games/{GameId}/enrichment")" class="enrichment">
         <AntiforgeryToken />
 
         @foreach (var definition in FieldRegistry.OwnerEnrichable)
@@ -69,7 +69,7 @@
         line below is wrong in your <code>mush.cnf</code>, fixing it there fixes it everywhere.
     </p>
 
-    <form method="post" action="/account/games/@GameId/enrichment" class="enrichment override">
+    <form method="post" action="@Http.Link($"/account/games/{GameId}/enrichment")" class="enrichment override">
         <AntiforgeryToken />
 
         @foreach (var definition in FieldRegistry.OwnerOverridable)
@@ -115,7 +115,7 @@
             We are not republishing it. The page says so plainly rather than leaving a hole, and the
             crawler goes on reading it — it is how we recognise your game if it moves.
         </p>
-        <form method="post" action="/account/games/@GameId/connect-screen">
+        <form method="post" action="@Http.Link($"/account/games/{GameId}/connect-screen")">
             <AntiforgeryToken />
             <input type="hidden" name="suppress" value="false" />
             <button type="submit">Show it again</button>
@@ -127,7 +127,7 @@
             We show it because your server sends it to every anonymous connection. If you would
             rather we did not, say so and we stop. We will not ask why.
         </p>
-        <form method="post" action="/account/games/@GameId/connect-screen">
+        <form method="post" action="@Http.Link($"/account/games/{GameId}/connect-screen")">
             <AntiforgeryToken />
             <input type="hidden" name="suppress" value="true" />
             <button type="submit">Stop showing our connect screen</button>
@@ -152,7 +152,7 @@
 
         @if (OptOut.WithdrawableHere)
         {
-            <form method="post" action="/account/games/@GameId/crawl">
+            <form method="post" action="@Http.Link($"/account/games/{GameId}/crawl")">
                 <AntiforgeryToken />
                 <input type="hidden" name="stop" value="false" />
                 <button type="submit">Start crawling us again</button>
@@ -177,7 +177,7 @@
             We have stopped on @string.Join(", ", OptOut.Stopped) and are still dialling
             @string.Join(", ", OptOut.Dialling). That is usually a port added after the opt-out.
         </p>
-        <form method="post" action="/account/games/@GameId/crawl">
+        <form method="post" action="@Http.Link($"/account/games/{GameId}/crawl")">
             <AntiforgeryToken />
             <input type="hidden" name="stop" value="true" />
             <button type="submit">Stop on every address too</button>
@@ -197,7 +197,7 @@
             <code>@OptOutVocabulary.DnsLabel</code> TXT record — and we honour those whether or not
             anybody has ever claimed the game here.
         </p>
-        <form method="post" action="/account/games/@GameId/crawl">
+        <form method="post" action="@Http.Link($"/account/games/{GameId}/crawl")">
             <AntiforgeryToken />
             <input type="hidden" name="stop" value="true" />
             <button type="submit">Stop crawling us</button>
@@ -222,7 +222,7 @@
             browsing.
         </p>
 
-        <form method="post" action="/account/games/@GameId/listing">
+        <form method="post" action="@Http.Link($"/account/games/{GameId}/listing")">
             <AntiforgeryToken />
             <input type="hidden" name="unlist" value="false" />
             <button type="submit">Put us back in the listing</button>
@@ -251,7 +251,7 @@
             your opt-out back.
         </p>
 
-        <form method="post" action="/account/games/@GameId/listing">
+        <form method="post" action="@Http.Link($"/account/games/{GameId}/listing")">
             <AntiforgeryToken />
             <input type="hidden" name="unlist" value="true" />
             <button type="submit">Take us out of the listing too</button>

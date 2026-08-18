@@ -44,7 +44,7 @@ else
             <p>@answer.Sentence</p>
             @if (answer.Link is { } link)
             {
-                <p><a href="@link.Href">@link.Label</a></p>
+                <p><a href="@Http.Link(link.Href)">@link.Label</a></p>
             }
         </section>
     }
@@ -58,7 +58,7 @@ else
 @if (Catalogue.IsMeasured)
 {
     <section class="prose">
-        <form method="post" action="@SubmitLinks.Path" class="submit-address">
+        <form method="post" action="@Http.Link(SubmitLinks.Path)" class="submit-address">
             <AntiforgeryToken />
 
             <label for="submit-host">@SubmitCopy.HostLabel(Tag)</label>

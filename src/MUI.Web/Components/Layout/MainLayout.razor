@@ -28,7 +28,7 @@
 *@
 <div class="shell">
 <header class="site">
-    <a class="mark" href="/">mu<span class="star">*</span>index</a>
+    <a class="mark" href="@HttpContext.Link("/")">mu<span class="star">*</span>index</a>
     @*
         The bar degrades through a defined order rather than through whatever flexbox decides
         (i18n S2): group labels first, then submit's border, then both groups into one disclosure.
@@ -74,7 +74,7 @@
                 *@
                 <span class="menu-tail">
                     <span class="nav-label" aria-hidden="true">@L("nav.thisSite")</span>
-                    <a href="/submit">@L("nav.submitGame")</a>
+                    <a href="@HttpContext.Link("/submit")">@L("nav.submitGame")</a>
                 </span>
             </div>
         </details>
@@ -90,14 +90,14 @@
     *@
     <nav class="account" aria-label="@L("nav.account")">
         @Item("/about", L("nav.about"))
-        <a class="action" href="/submit">@L("nav.submit")</a>
+        <a class="action" href="@HttpContext.Link("/submit")">@L("nav.submit")</a>
         @if (HttpContext?.User is { Identity.IsAuthenticated: true })
         {
-            <a class="action primary" href="/account">@L("nav.yourGames")</a>
+            <a class="action primary" href="@HttpContext.Link("/account")">@L("nav.yourGames")</a>
         }
         else
         {
-            <a class="action primary" href="/account/sign-in">@L("nav.signIn")</a>
+            <a class="action primary" href="@HttpContext.Link("/account/sign-in")">@L("nav.signIn")</a>
         }
     </nav>
     @*
@@ -125,9 +125,16 @@
     /// "reference" — but "/" matches only itself, or every item on the site would be current on the
     /// home page.
     /// </para>
+    /// <para>
+    /// <b>The item is named by the path it has in every language and written in the one this page
+    /// is being read in.</b> Those are two different strings and only the first can be compared
+    /// against the request: the middleware moves the locale into <c>PathBase</c>, so
+    /// <c>Request.Path</c> on <c>/de/games</c> is <c>/games</c> — and a nav that marked the current
+    /// page by its written form would mark nothing at all outside English.
+    /// </para>
     /// </remarks>
     private RenderFragment Item(string href, string text) =>
-        @<a href="@href" class="@(IsCurrent(href) ? "on" : null)"
+        @<a href="@HttpContext.Link(href)" class="@(IsCurrent(href) ? "on" : null)"
             aria-current="@(IsCurrent(href) ? "page" : null)">@text</a>;
 
     private bool IsCurrent(string href)

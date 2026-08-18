@@ -1,6 +1,7 @@
 using System.Text;
 
 using MUI.Catalog;
+using MUI.Web.Localization;
 using MUI.Web.Reference;
 
 namespace MUI.Web.Components;
@@ -48,7 +49,8 @@ public static class ReferencePlainText
         ReferenceDocument document,
         CodebaseFigures? codebase = null,
         ProtocolFigures? protocol = null,
-        IReadOnlyList<ReferenceDocument>? related = null)
+        IReadOnlyList<ReferenceDocument>? related = null,
+        string tag = Locales.SourceTag)
     {
         ArgumentNullException.ThrowIfNull(document);
 
@@ -69,12 +71,12 @@ public static class ReferencePlainText
 
         if (codebase is not null)
         {
-            AppendCodebase(b, document, codebase);
+            AppendCodebase(b, document, codebase, tag);
         }
 
         if (protocol is not null)
         {
-            AppendProtocol(b, document, protocol);
+            AppendProtocol(b, document, protocol, tag);
         }
 
         if (document.Kind is ReferenceKind.Client)
@@ -91,7 +93,7 @@ public static class ReferencePlainText
             b.AppendLine("See also");
             foreach (var other in related)
             {
-                b.AppendLine($"  {other.Title} — {other.Path}");
+                b.AppendLine($"  {other.Title} — {LocaleRouting.Link(tag, other.Path)}");
             }
         }
 
@@ -103,7 +105,8 @@ public static class ReferencePlainText
     /// are</em>, because a game whose codebase we could not read is not a game running something
     /// else — and the difference is the whole reason the figure is worth printing.
     /// </summary>
-    private static void AppendCodebase(StringBuilder b, ReferenceDocument document, CodebaseFigures figures)
+    private static void AppendCodebase(
+        StringBuilder b, ReferenceDocument document, CodebaseFigures figures, string tag)
     {
         b.AppendLine();
         b.AppendLine("Games we have identified as running this codebase");
@@ -120,7 +123,7 @@ public static class ReferencePlainText
 
         if (document.GamesPath is { } path)
         {
-            b.AppendLine($"  {path}");
+            b.AppendLine($"  {LocaleRouting.Link(tag, path)}");
         }
 
         b.AppendLine(figures.MeasuredProtocols.Count > 0
@@ -128,7 +131,8 @@ public static class ReferencePlainText
             : "  Nothing was offered in any handshake we have read from them.");
     }
 
-    private static void AppendProtocol(StringBuilder b, ReferenceDocument document, ProtocolFigures figures)
+    private static void AppendProtocol(
+        StringBuilder b, ReferenceDocument document, ProtocolFigures figures, string tag)
     {
         b.AppendLine();
         b.AppendLine("Measured adoption");
@@ -144,7 +148,7 @@ public static class ReferencePlainText
 
         if (document.GamesPath is { } path)
         {
-            b.AppendLine($"  {path}");
+            b.AppendLine($"  {LocaleRouting.Link(tag, path)}");
         }
 
         b.AppendLine();
@@ -198,7 +202,7 @@ public static class ReferencePlainText
     }
 
     /// <summary>The index, which is the only page in the section that is a list of the others.</summary>
-    public static string RenderIndex(ReferenceLibrary library)
+    public static string RenderIndex(ReferenceLibrary library, string tag = Locales.SourceTag)
     {
         ArgumentNullException.ThrowIfNull(library);
 
@@ -227,7 +231,7 @@ public static class ReferencePlainText
             foreach (var document in documents)
             {
                 b.AppendLine($"  {document.Title}");
-                b.AppendLine($"    {document.Path}");
+                b.AppendLine($"    {LocaleRouting.Link(tag, document.Path)}");
                 PlainText.Wrap(b, document.Summary, "    ");
             }
         }

@@ -64,7 +64,7 @@ else
         parse failure as the answer to somebody's question.
     *@
     <p class="problem" role="alert">@problem</p>
-    <p><a href="/find">@Say("find.startAgain")</a></p>
+    <p><a href="@Http.Link("/find")">@Say("find.startAgain")</a></p>
 }
 else
 {
@@ -75,7 +75,7 @@ else
     a form, since a field has nothing to click. Every answer already given rides along as a hidden
     input, so typing a name refines what is on screen instead of replacing it.
 *@
-<form class="find-name" method="get" action="/find">
+<form class="find-name" method="get" action="@Http.Link("/find")">
     @foreach (var (key, value) in Carried)
     {
         <input type="hidden" name="@key" value="@value" />
@@ -184,7 +184,7 @@ else
                         "clear" can do. The × alone is not a description, so the accessible name says
                         which question it clears.
                     *@
-                    <a class="find-chip" href="@chip.ClearHref"
+                    <a class="find-chip" href="@Http.Link(chip.ClearHref)"
                        aria-label="@Say("find.clear", ("question", chip.Question))">
                         <span class="chip-value">@chip.Label</span>
                         <span class="chip-x" aria-hidden="true">✕</span>
@@ -201,7 +201,7 @@ else
                 answers produced it and what dropping that one returns. The figure on it is the size
                 of the listing with exactly this answer lifted, counted rather than estimated.
             *@
-            <a class="find-loosen" href="@loosen.Href">
+            <a class="find-loosen" href="@Http.Link(loosen.Href)">
                 <span aria-hidden="true">×</span>
                 @Say("find.drop", ("answer", loosen.Label), ("count", loosen.Count))
             </a>
@@ -215,12 +215,12 @@ else
                 a control that cannot do what it offers is worse than one that is not there, and the
                 loosen button above is the affordance that case needs.
             *@
-            <a class="find-go" href="@Screen.ShowHref">@Say("find.show", ("count", Screen.Matching))</a>
+            <a class="find-go" href="@Http.Link(Screen.ShowHref)">@Say("find.show", ("count", Screen.Matching))</a>
         }
 
         @if (Screen.Answers.Count > 0)
         {
-            <p class="find-clear"><a href="@Screen.ClearHref">@Say("find.clearAll")</a></p>
+            <p class="find-clear"><a href="@Http.Link(Screen.ClearHref)">@Say("find.clearAll")</a></p>
         }
     </div>
 </div>
@@ -234,9 +234,9 @@ else
     than as a clause inside prose nobody reads.
 *@
 <div class="card-footer">
-    <a href="/games">@Say("footer.allGames")</a>
+    <a href="@Http.Link("/games")">@Say("footer.allGames")</a>
     <span class="sep" aria-hidden="true">·</span>
-    <a href="/games/random">@Say("footer.randomGame")</a>
+    <a href="@Http.Link("/games/random")">@Say("footer.randomGame")</a>
     <span class="sep" aria-hidden="true">·</span>
     <a href="@PlainHref">@Say("a11y.plainText")</a>
     <LanguageSwitcher />
@@ -328,7 +328,7 @@ else
     /// </para>
     /// </remarks>
     private RenderFragment Option(FindOption option) =>
-        @<a class="@(option.IsChosen ? "find-opt on" : "find-opt")" href="@option.Href"
+        @<a class="@(option.IsChosen ? "find-opt on" : "find-opt")" href="@Http.Link(option.Href)"
             aria-current="@(option.IsChosen ? "true" : null)"
             aria-label="@Say("facet.value.choose", ("value", option.Label), ("count", option.Count))">
             <span class="tick" aria-hidden="true">@(option.IsChosen ? "◉" : "○")</span>

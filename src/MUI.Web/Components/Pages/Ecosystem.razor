@@ -63,7 +63,7 @@ else
             {
                 <li>
                     <span class="share-label">
-                        <a href="/games?@(FacetKeys.Codebase)=@Uri.EscapeDataString(family.Label)">@family.Label</a>
+                        <a href="@Http.Link($"/games?{FacetKeys.Codebase}={Uri.EscapeDataString(family.Label)}")">@family.Label</a>
                     </span>
                     @* The bar carries no fact of its own, so it is hidden from assistive technology
                        rather than announced twice beside the figure that does. *@
@@ -86,7 +86,7 @@ else
                     @foreach (var alone in Dashboard.Codebases.SoleUse)
                     {
                         <li>
-                            <a href="/games?@(FacetKeys.Codebase)=@Uri.EscapeDataString(alone.Label)">@alone.Label</a>
+                            <a href="@Http.Link($"/games?{FacetKeys.Codebase}={Uri.EscapeDataString(alone.Label)}")">@alone.Label</a>
                         </li>
                     }
                 </ul>
@@ -117,7 +117,7 @@ else
             {
                 <li>
                     <span class="share-label">
-                        <a href="/games?@(FacetKeys.Lineage)=@Uri.EscapeDataString(lineage.Label)">@lineage.Label</a>
+                        <a href="@Http.Link($"/games?{FacetKeys.Lineage}={Uri.EscapeDataString(lineage.Label)}")">@lineage.Label</a>
                     </span>
                     <span class="share-track" aria-hidden="true">
                         <span class="share-fill derived" style="width: @Percent(lineage.Fraction)"></span>
@@ -242,8 +242,8 @@ else
     </section>
 
     <p class="faint">
-        <a href="/rankings">@L("nav.rankings")</a> ·
-        <a href="/games">@L("footer.allGames")</a> ·
+        <a href="@Http.Link("/rankings")">@L("nav.rankings")</a> ·
+        <a href="@Http.Link("/games")">@L("footer.allGames")</a> ·
         <a href="?plain=1">@L("a11y.plainText")</a>
     </p>
 }

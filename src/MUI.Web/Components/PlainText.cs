@@ -36,6 +36,25 @@ public static class PlainText
     /// </remarks>
     public const int Columns = 80;
 
+    /// <summary>
+    /// An address this surface prints, in the locale it is printing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>These are the addresses on this surface</b> — there are no anchors here, so a path is
+    /// printed for a reader to type, follow in a text browser or paste to somebody. That makes them
+    /// links in every sense that matters and subject to the same rule: a German reader who copies
+    /// <c>/g/ashen-court</c> off <c>/de/games?plain=1</c> must not arrive in English, or the mirror
+    /// is telling them something the page it mirrors does not.
+    /// </para>
+    /// <para>
+    /// A query-only address is not passed through here and does not need to be: <c>?window=30d&amp;
+    /// plain=1</c> means <em>this page, asked differently</em> in every language, and the reader is
+    /// already on the localized one.
+    /// </para>
+    /// </remarks>
+    private static string Path(string tag, string address) => LocaleRouting.Link(tag, address);
+
     public static string Render(
         GamePage page,
         DateTimeOffset now,
@@ -412,7 +431,7 @@ public static class PlainText
                 : g.IsClaimed ? $"  [{Say(tag, "listing.plain.claimed")}]"
                 : string.Empty;
             b.AppendLine($"{g.Name}{mark}");
-            b.AppendLine($"  /g/{g.Slug}");
+            b.AppendLine($"  {Path(tag, $"/g/{g.Slug}")}");
 
             // How we know, and how old it is — the same two words and the same relative age the game
             // page uses, because two surfaces of one fact must not have two vocabularies. The word
@@ -545,7 +564,8 @@ public static class PlainText
 
             foreach (var e in entries)
             {
-                b.AppendLine($"  {e.Name}  ({Relative.Ago(tag, now - e.At)})  /g/{e.Slug}");
+                b.AppendLine(
+                    $"  {e.Name}  ({Relative.Ago(tag, now - e.At)})  {Path(tag, $"/g/{e.Slug}")}");
                 Wrap(b, e.Detail, "    ");
             }
 
@@ -634,7 +654,7 @@ public static class PlainText
         foreach (var entry in entries)
         {
             b.AppendLine($"{entry.Summary.Name}  [{badge}]");
-            b.AppendLine($"  /g/{entry.Summary.Slug}");
+            b.AppendLine($"  {Path(tag, $"/g/{entry.Summary.Slug}")}");
             b.AppendLine($"  {labels[0].PadRight(width)}{entry.LastAnswered(tag)} "
                 + Say(tag, "archive.darkFor", ("age", entry.DarkFor(tag, now))));
             b.AppendLine($"  {labels[1].PadRight(width)}"
@@ -886,7 +906,7 @@ public static class PlainText
 
             if (answer.Link is { } link)
             {
-                b.AppendLine($"  {link.Label}: {link.Href}");
+                b.AppendLine($"  {link.Label}: {Path(tag, link.Href)}");
             }
         }
 
@@ -944,7 +964,7 @@ public static class PlainText
             Heading(b, Say(locale, "find.refused").ToUpperInvariant());
             Wrap(b, problem, "  ");
             b.AppendLine();
-            b.AppendLine("  /find?plain=1");
+            b.AppendLine("  " + Path(locale, "/find?plain=1"));
             return b.ToString();
         }
 
@@ -960,7 +980,7 @@ public static class PlainText
         {
             b.AppendLine();
             b.AppendLine("  " + Say(locale, "find.show", ("count", screen.Matching)));
-            b.AppendLine("      " + screen.ShowHref);
+            b.AppendLine("      " + Path(locale, screen.ShowHref));
         }
 
         if (screen.Loosen is { } loosen)
@@ -968,7 +988,7 @@ public static class PlainText
             b.AppendLine();
             b.AppendLine("  " + Say(
                 locale, "find.drop", ("answer", loosen.Label), ("count", loosen.Count)));
-            b.AppendLine("      " + loosen.Href);
+            b.AppendLine("      " + Path(locale, loosen.Href));
         }
 
         if (screen.Answers.Count > 0)
@@ -979,12 +999,12 @@ public static class PlainText
             {
                 b.AppendLine($"  {chip.Label}");
                 b.AppendLine($"      {Say(locale, "find.clear", ("question", chip.Question))}");
-                b.AppendLine($"      {chip.ClearHref}");
+                b.AppendLine($"      {Path(locale, chip.ClearHref)}");
             }
 
             b.AppendLine();
             b.AppendLine("  " + Say(locale, "find.clearAll"));
-            b.AppendLine("      " + screen.ClearHref);
+            b.AppendLine("      " + Path(locale, screen.ClearHref));
         }
 
         foreach (var question in screen.Questions)
@@ -996,7 +1016,7 @@ public static class PlainText
 
             if (question.Any is { } any)
             {
-                Answer(b, any);
+                Answer(b, locale, any);
             }
 
             // The tail is written out in full. There is no folding here and there should not be:
@@ -1004,12 +1024,12 @@ public static class PlainText
             // every option the page offers can be reached from it.
             foreach (var option in question.Options.Concat(question.Tail))
             {
-                Answer(b, option);
+                Answer(b, locale, option);
             }
         }
 
         Heading(b, Say(locale, "find.wholeListing").ToUpperInvariant());
-        b.AppendLine("  /games?plain=1");
+        b.AppendLine("  " + Path(locale, "/games?plain=1"));
 
         return b.ToString();
     }
@@ -1022,7 +1042,7 @@ public static class PlainText
     /// same parentheses the rendered page puts it in a column — so the two surfaces can be read
     /// against each other line for line.
     /// </remarks>
-    private static void Answer(StringBuilder b, FindOption option)
+    private static void Answer(StringBuilder b, string tag, FindOption option)
     {
         var mark = $"  [{(option.IsChosen ? "x" : " ")}] ";
         var text = $"{option.Label} ({option.Count})";
@@ -1044,7 +1064,7 @@ public static class PlainText
         }
 
         // The address is never wrapped: see the note on Columns.
-        b.AppendLine($"      {option.Href}");
+        b.AppendLine($"      {Path(tag, option.Href)}");
     }
 
     private static string Say(string tag, string id, params (string Key, object? Value)[] args) =>
@@ -1084,7 +1104,7 @@ public static class PlainText
         {
             b.AppendLine(span == rankings.Span
                 ? $"    [{labels[span].PadRight(width)}] {here}"
-                : $"     {labels[span].PadRight(width)}  /rankings?window={span.Slug()}&plain=1");
+                : $"     {labels[span].PadRight(width)}  {Path(tag, $"/rankings?window={span.Slug()}&plain=1")}");
         }
 
         b.AppendLine();
@@ -1105,7 +1125,7 @@ public static class PlainText
                 ("peak", game.Peak),
                 ("samples", game.Samples),
                 ("days", game.Days),
-                ("window", days)) + $" · /g/{game.Slug}", "       ");
+                ("window", days)) + $" · {Path(tag, $"/g/{game.Slug}")}", "       ");
         }
 
         Heading(b, Say(tag, "rankings.spells.title").ToUpperInvariant());
@@ -1125,7 +1145,7 @@ public static class PlainText
             b.AppendLine($"  {place,3}  {spell.Name}");
             Wrap(b, Say(tag, "rankings.plain.spellRow",
                 ("date", Dates.Absolute(tag, spell.Since)),
-                ("duration", Wording.Duration(spell.LengthAt(now)))) + $" · /g/{spell.Slug}", "       ");
+                ("duration", Wording.Duration(spell.LengthAt(now)))) + $" · {Path(tag, $"/g/{spell.Slug}")}", "       ");
         }
 
         return b.ToString();

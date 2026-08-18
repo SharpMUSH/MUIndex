@@ -31,7 +31,9 @@
 
 @if (Offered.Count > 1)
 {
-    <form class="locale" method="post" action="@Locales.Path">
+    @* This locale's copy of the endpoint, for the same reason the theme control beside it posts to
+       one: nothing else on the request says which language the reader is leaving. *@
+    <form class="locale" method="post" action="@HttpContext.Link(Locales.Path)">
         <label class="kick" for="locale-select">@Messages.For(Tag, "locale.label")</label>
         <input type="hidden" name="@Locales.ReturnField" value="@Here" />
         <select id="locale-select" name="@Locales.Field">

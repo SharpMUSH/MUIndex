@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Theme;
 
@@ -42,7 +43,13 @@ public static class ThemeEndpoint
             // 303 rather than 302: the reader posted a form and what they should now be holding is
             // the page they came from, fetched with GET. A 302 gets there by convention on every
             // browser written since 1996, and this says what was meant.
-            context.Response.Headers.Location = ReaderTheme.Back(returnTo);
+            //
+            // And back into the language they were reading, which the return field cannot carry: it
+            // holds Request.Path, from which the middleware has already taken the prefix. A reader
+            // who followed a shared /de/… link has no cookie either, so this redirect was the whole
+            // of what stood between them and an English page — for choosing a light background.
+            context.Response.Headers.Location =
+                LocaleRouting.Link(context.LocaleOf().Tag, ReaderTheme.Back(returnTo));
 
             return Results.StatusCode(StatusCodes.Status303SeeOther);
         }).DisableAntiforgery();

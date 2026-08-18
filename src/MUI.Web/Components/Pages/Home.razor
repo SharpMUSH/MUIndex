@@ -46,7 +46,7 @@ else
             stays: this form's only other way to submit is the return key, and a control that exists
             only as a keystroke is one a reader using a switch or a pointer cannot reach.
         *@
-        <form class="search" method="get" action="/games" role="search">
+        <form class="search" method="get" action="@Http.Link("/games")" role="search">
             <label for="q" class="sr-only">@L("home.search.label")</label>
             <span class="search-field">
                 <span class="search-glyph mono" aria-hidden="true">⌕</span>
@@ -85,7 +85,7 @@ else
                 <span class="figure mono">@Counts.CountUnknown</span>
             </li>
             <li>
-                <a href="/archive"><span class="kicker">@L("tile.archived")</span>
+                <a href="@Http.Link("/archive")"><span class="kicker">@L("tile.archived")</span>
                 <span class="figure mono">@Counts.Archived</span></a>
             </li>
         </ul>
@@ -142,11 +142,11 @@ else
     </div>
 
     <div class="card-footer">
-        <a href="/games">@L("footer.allGames")</a>
+        <a href="@Http.Link("/games")">@L("footer.allGames")</a>
         <span class="sep" aria-hidden="true">·</span>
-        <a href="/archive">@L("footer.archive")</a>
+        <a href="@Http.Link("/archive")">@L("footer.archive")</a>
         <span class="sep" aria-hidden="true">·</span>
-        <a href="/submit">@L("nav.submitGame")</a>
+        <a href="@Http.Link("/submit")">@L("nav.submitGame")</a>
         <span class="sep" aria-hidden="true">·</span>
         <a href="?plain=1">@L("a11y.plainText")</a>
             <LanguageSwitcher />

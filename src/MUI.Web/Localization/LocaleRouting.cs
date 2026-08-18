@@ -187,7 +187,7 @@ public static class LocaleRouting
         && !IsUnlocalized(request.Path);
 
     /// <summary>The paths that are the same in every language, so a prefix says nothing about them.</summary>
-    private static bool IsUnlocalized(PathString path) =>
+    public static bool IsUnlocalized(PathString path) =>
         path.StartsWithSegments(Api.ApiRoutes.Base, StringComparison.OrdinalIgnoreCase)
         || path.Equals("/robots.txt", StringComparison.OrdinalIgnoreCase)
         || path.Equals("/sitemap.xml", StringComparison.OrdinalIgnoreCase)
@@ -270,11 +270,82 @@ public static class LocaleRouting
             }
 
             context.Response.Cookies.Append(Locales.CookieName, chosen.Tag, options);
-            context.Response.Redirect("/" + chosen.Tag + back);
+            context.Response.Redirect(Link(chosen.Tag, back));
         });
 
         return endpoints;
     }
+
+    /// <summary>
+    /// An address on this site, in the locale the page carrying it is being read in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Every internal link was written as an absolute path and emitted verbatim, so a German
+    /// page's links all pointed out of German.</b> <c>/de/games</c> rendered <c>href="/games"</c>,
+    /// <c>href="/about"</c>, <c>href="/find"</c> — and a reader who followed a shared <c>/de/…</c>
+    /// link has no cookie, so nothing could send them back and their first click landed in English.
+    /// The locale is in the path precisely so it is linkable, shareable, cacheable and indexable;
+    /// a page that throws it away on every link has the property in its address and nowhere else.
+    /// </para>
+    /// <para>
+    /// <b>Written once and called at every link site, rather than at each producer.</b> The pages
+    /// build addresses in a dozen places — <c>ListingLinks</c>, <c>FindScreen</c>, the facet panel,
+    /// the reference library — and threading a locale through all of them would leave the next
+    /// producer to remember. This is the last thing that touches the string before it becomes an
+    /// attribute, so what it is given is whatever a caller had, and every shape it can be given is
+    /// answered here.
+    /// </para>
+    /// <para>
+    /// <b>What is left exactly as it arrived,</b> because none of it is an app path in a language:
+    /// anything not starting with <c>/</c> — a query-only <c>?plain=1</c> or <c>?window=30d</c>,
+    /// which means <em>this page, asked differently</em> and is relative to it on purpose; a
+    /// fragment; an absolute URL; a <c>mailto:</c> — and anything starting <c>//</c> or <c>/\</c>,
+    /// which is another host wearing a path's clothes. <see cref="IsUnlocalized"/> names the rest:
+    /// the read API, <c>robots.txt</c>, <c>sitemap.xml</c>, the icons and the manifest each have one
+    /// canonical address, which is the same list the middleware refuses to redirect and not a second
+    /// copy of it.
+    /// </para>
+    /// <para>
+    /// <b>The locale and not <c>Request.PathBase</c>,</b> though the middleware puts the prefix
+    /// there and reading it back would have been cheaper. The two agree on every request that
+    /// arrives with a prefix and disagree on the one that does not: a request nothing may redirect —
+    /// a POST — is answered in the locale the reader's cookie names with an empty <c>PathBase</c>,
+    /// so a page rendered from it would link to English while reading German. The question a link
+    /// asks is <em>which language is this page in</em>, and that is what <see cref="LocaleOf"/>
+    /// answers.
+    /// </para>
+    /// </remarks>
+    public static string Link(string tag, string? path)
+    {
+        ArgumentNullException.ThrowIfNull(tag);
+
+        if (string.IsNullOrEmpty(path) || tag == Locales.SourceTag || path[0] != '/')
+        {
+            return path ?? string.Empty;
+        }
+
+        if (path.Length > 1 && path[1] is '/' or '\\')
+        {
+            return path;
+        }
+
+        // The path alone decides, so /games?plain=1 is localized and /sitemap.xml?x=1 is not: the
+        // list is about which document an address names, and a querystring does not change that.
+        var cut = path.AsSpan().IndexOfAny('?', '#');
+
+        return IsUnlocalized(cut < 0 ? path : path[..cut]) ? path : "/" + tag + path;
+    }
+
+    /// <summary>The same, for the request a component is being rendered inside.</summary>
+    /// <remarks>
+    /// The form nearly every call site uses: a component already holds the <c>HttpContext</c> it
+    /// reads its messages from, so a link asks the same thing the words did. A component rendered
+    /// with no request at all — which is how this suite renders most of them — is in the source
+    /// locale, and there the answer is the path it was given.
+    /// </remarks>
+    public static string Link(this HttpContext? context, string? path) =>
+        Link(context.LocaleOf().Tag, path);
 
     /// <summary>
     /// The same page, in every locale it exists in — for <c>&lt;link rel="alternate"&gt;</c>.
@@ -294,7 +365,9 @@ public static class LocaleRouting
 
         foreach (var locale in Locales.Offered)
         {
-            yield return (locale.Tag, locale.Tag == Locales.SourceTag ? path : "/" + locale.Tag + path);
+            // The same rule the links on the page follow, from the same function: an alternate that
+            // spelled the prefix itself would be a second copy of it to keep in step.
+            yield return (locale.Tag, Link(locale.Tag, path));
         }
     }
 
