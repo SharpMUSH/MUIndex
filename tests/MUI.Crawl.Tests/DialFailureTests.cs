@@ -73,13 +73,27 @@ public class DialFailureTests
     }
 
     [Test]
-    public async Task AnErrorWithNoWordForItIsNotSilentlyCalledSomethingElse()
+    [Arguments(SocketError.NetworkUnreachable)]
+    [Arguments(SocketError.HostUnreachable)]
+    [Arguments(SocketError.NetworkDown)]
+    public async Task NoPathFromHereToThereSaysSoRatherThanClaimingATimeout(SocketError code)
     {
-        // It still has to become one of the catalogue's causes downstream, but it must not claim to
-        // be a socket timeout here: a network we could not reach is our problem, not the game's.
-        var unreachable = DialFailure.Classify(new SocketException((int)SocketError.NetworkUnreachable));
-
-        await Assert.That(unreachable.Cause).IsEqualTo("error");
-        await Assert.That(unreachable.Detail).IsNotNull().And.IsNotEmpty();
+        // All three fell through to the catch-all, which FailureReading turns into "timeout" — so a
+        // route that did not exist was published as a game that did not answer in time. They are
+        // one word here and the errno is kept in the detail, because what distinguishes them is a
+        // question for whoever reads the interval and not for the six-word vocabulary.
+        await Assert.That(DialFailure.Classify(new SocketException((int)code)).Cause).IsEqualTo("no_route");
     }
+
+    [Test]
+    public async Task AnErrorWithNoWordForItStillCarriesWhatItSaid()
+    {
+        // The catch-all is now genuinely a catch-all rather than the place three named network
+        // errors were quietly landing. Whatever falls here keeps its message.
+        var unknown = DialFailure.Classify(new IOException("the peer went away"));
+
+        await Assert.That(unknown.Cause).IsEqualTo("error");
+        await Assert.That(unknown.Detail).IsEqualTo("the peer went away");
+    }
+
 }

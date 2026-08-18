@@ -144,6 +144,7 @@ public static class SqlEnums
         FailureCause.Tls => "tls",
         FailureCause.Timeout => "timeout",
         FailureCause.HandshakeStalled => "handshake_stalled",
+        FailureCause.NoRoute => "no_route",
         _ => throw Unmapped(cause),
     };
 
@@ -155,6 +156,7 @@ public static class SqlEnums
         "tls" => FailureCause.Tls,
         "timeout" => FailureCause.Timeout,
         "handshake_stalled" => FailureCause.HandshakeStalled,
+        "no_route" => FailureCause.NoRoute,
         _ => throw Unread(value, nameof(FailureCause)),
     };
 

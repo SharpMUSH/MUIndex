@@ -37,6 +37,34 @@ public class AvailabilityStorePostgresTests
     }
 
     [Test]
+    public async Task EveryCauseTheCodeCanProduceIsOneTheDatabaseAccepts()
+    {
+        // The two halves of one decision: the C# spelling in SqlEnums and the CHECK constraint in the
+        // migrations. Migration 0026 put it best — a member added on one side and forgotten on the
+        // other has to fail at the database rather than become a value every reader downstream copes
+        // with differently. This is that failure, made to happen here instead of in production.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var store = new NpgsqlAvailabilityStore(db.DataSource);
+
+        foreach (var cause in Enum.GetValues<FailureCause>().Where(c => c is not FailureCause.None))
+        {
+            // A game apiece, because the partial unique index allows one open interval per game.
+            var slug = cause.ToString().ToLowerInvariant();
+            var game = await Seed.GameAsync(db, slug: slug, name: slug);
+
+            await store.OpenAsync(new AvailabilityInterval
+            {
+                GameId = game,
+                State = AvailabilityState.Unreachable,
+                FromAt = Now,
+                Cause = cause,
+            });
+
+            await Assert.That((await store.OpenIntervalAsync(game))!.Cause).IsEqualTo(cause);
+        }
+    }
+
+    [Test]
     public async Task WhatTheDialSaidSurvivesTheRoundTrip()
     {
         // The cause is six words and the message is what was underneath one of them. It has to live
