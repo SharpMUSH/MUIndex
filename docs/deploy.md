@@ -562,22 +562,29 @@ For everything short of `--seed-exempt`, `/mcp` is the alternative to ssh'ing in
 an authenticated [Model Context Protocol](https://modelcontextprotocol.io) endpoint mounted inside
 this same deployable (Streamable HTTP transport, `ModelContextProtocol.AspNetCore`), so an MCP client
 — Claude Code, calling over HTTPS — can seed the crawler, record an opt-out, list what's due, force a
-crawl pass, read the registry/crawl summary, hand-set one field of one game, or rename a game, without
-a shell on the box.
+crawl pass, read the registry/crawl summary, hand-set one field of one game, rename a game, or merge
+a duplicate pair, without a shell on the box.
 
 Set `MUI_MCP_TOKEN` (`openssl rand -hex 32`, never committed) and point a client at
 `https://<site>/mcp` with `Authorization: Bearer <token>`. Unset, every request gets a 401 and MUI.Web
 says so once at startup — this endpoint fails closed, never open.
 
-The eight tools (`src/MUI.Web/Mcp/MuiMcpTools.cs`) mirror `mui-crawl`'s CLI surface — `crawl_seed_add`,
+The nine tools (`src/MUI.Web/Mcp/MuiMcpTools.cs`) mirror `mui-crawl`'s CLI surface — `crawl_seed_add`,
 `crawl_opt_out_record`, `crawl_opt_out_check`, `crawl_due_targets`, `crawl_run_cycle`,
-`crawl_summary` — plus two new capabilities. `game_field_set` is a staff override of a single
+`crawl_summary` — plus three new capabilities. `game_field_set` is a staff override of a single
 `GameField` row (`FieldSource.Staff`, spec §5.1) for fixing a mis-parsed value by hand without raw
 SQL, and explicitly declines to re-mint a game's slug when the field is `NAME`. `game_rename` (also
 `mui-crawl --rename`) is that missing half: it writes `NAME` through the same staff override and then
 runs `SlugMinter`'s immediate mint-and-rename path, retiring the old slug into `game_slug_history` so
 `FormerSlugRedirects` 301s it for ever — a collision with another game's slug is not an error, it just
-mints a numbered suffix the same way any other mint does. `crawl_run_cycle`'s real (non-dry) run
-reuses the exact same `CrawlCycle` and advisory-lock machinery the hosted crawler uses, so it
-correctly no-ops rather than double-crawls while the hosted crawler holds the lease — see the tool's
-own description for why that is not a bug.
+mints a numbered suffix the same way any other mint does. `game_merge` (also `mui-crawl --merge
+--because`) drains one `duplicate_review` pair by hand (spec §7.3) through `ReviewMergeService`: it
+folds a loser slug into a winner slug, resolves an open review naming that pair if one exists
+(carrying its score and signals onto `merge_log` unchanged), and is still usable on a pair the
+identity matcher never flagged, recorded as a judgement with no signals. The loser's page 301s to the
+winner's for ever; nothing else about the loser is touched. It refuses — surfacing the schema's own
+message — on a loser already absorbed elsewhere (`merge_log_absorbed_once_idx`) or a redirect chain
+(`merge_log_no_chains`, e.g. a game renamed and then asked to absorb another). `crawl_run_cycle`'s
+real (non-dry) run reuses the exact same `CrawlCycle` and advisory-lock machinery the hosted crawler
+uses, so it correctly no-ops rather than double-crawls while the hosted crawler holds the lease — see
+the tool's own description for why that is not a bug.

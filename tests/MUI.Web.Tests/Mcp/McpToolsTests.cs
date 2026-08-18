@@ -14,7 +14,7 @@ using Npgsql;
 namespace MUI.Web.Tests.Mcp;
 
 /// <summary>
-/// Each of the eight <see cref="MuiMcpTools"/> tools, called over the real MCP transport against a
+/// Each of the nine <see cref="MuiMcpTools"/> tools, called over the real MCP transport against a
 /// real Postgres — the properties under test are the ones a caller cannot see from the tool's C#
 /// alone: what actually landed in the database, and what the tool refuses.
 /// </summary>
@@ -574,5 +574,212 @@ public class McpToolsTests
         var original = await games.BySlugAsync("pennmush", CancellationToken.None);
         await Assert.That(original).IsNotNull();
         await Assert.That(original!.Name).IsEqualTo("pennmush");
+    }
+
+    // ── game_merge ──────────────────────────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task GameMergeResolvesAnOpenReviewAndCarriesItsEvidenceOntoTheMergeLog()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+        var winnerId = await SeedGameAsync(source, "furrymuck", now);
+        var loserId = await SeedGameAsync(source, "furrymuck-com-8888", now);
+
+        var reviews = new NpgsqlDuplicateReviewRepository(source);
+        var score = new IdentityScore(
+            loserId, 0.5, [new IdentitySignal("BannerHash", 0.5, Matched: true)]);
+        await reviews.OpenAsync(winnerId, loserId, score, now, CancellationToken.None);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString, clock: new FixedClock(now));
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var result = await client.CallAsync<GameMergeResult>("game_merge", new Dictionary<string, object?>
+        {
+            ["winnerSlug"] = "furrymuck",
+            ["loserSlug"] = "furrymuck-com-8888",
+            ["because"] = "Same connect screen, same banner hash, reached by hostname vs raw IP.",
+        });
+
+        await Assert.That(result.WinnerSlug).IsEqualTo("furrymuck");
+        await Assert.That(result.LoserSlug).IsEqualTo("furrymuck-com-8888");
+        await Assert.That(result.ResolvedReviewId).IsNotNull();
+        await Assert.That(result.Score).IsEqualTo(0.5);
+
+        // The review is closed, not deleted.
+        var openPairs = await reviews.OpenPairsForAsync(winnerId, CancellationToken.None);
+        await Assert.That(openPairs.Any(r => r.Id == result.ResolvedReviewId)).IsFalse();
+
+        // merge_log carries the review's own score and signals.
+        var merges = new NpgsqlMergeLog(source);
+        var record = (await merges.ForGameAsync(loserId, CancellationToken.None)).Single();
+        await Assert.That(record.IntoGameId).IsEqualTo(winnerId);
+        await Assert.That(record.FromGameId).IsEqualTo(loserId);
+        await Assert.That(record.Score).IsEqualTo(0.5);
+        await Assert.That(record.IsInForce).IsTrue();
+    }
+
+    [Test]
+    public async Task GameMergeIsStillUsableWithNoOpenReview()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+        var winnerId = await SeedGameAsync(source, "operator-spotted-winner", now);
+        var loserId = await SeedGameAsync(source, "operator-spotted-loser", now);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString, clock: new FixedClock(now));
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var result = await client.CallAsync<GameMergeResult>("game_merge", new Dictionary<string, object?>
+        {
+            ["winnerSlug"] = "operator-spotted-winner",
+            ["loserSlug"] = "operator-spotted-loser",
+            ["because"] = "Spotted by hand; the matcher never flagged this pair.",
+        });
+
+        await Assert.That(result.ResolvedReviewId).IsNull();
+        await Assert.That(result.Score).IsEqualTo(0);
+
+        var merges = new NpgsqlMergeLog(source);
+        var record = (await merges.ForGameAsync(loserId, CancellationToken.None)).Single();
+        await Assert.That(record.IntoGameId).IsEqualTo(winnerId);
+        await Assert.That(record.SignalsJson).IsEqualTo("[]");
+    }
+
+    /// <summary>
+    /// The loser's page redirects for real over HTTP once merged — the same property
+    /// <see cref="GameRenameOldSlugRedirectsForReal"/> checks for a rename, exercised here for a merge.
+    /// </summary>
+    [Test]
+    public async Task GameMergeLoserPageRedirectsForReal()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+        await SeedGameAsync(source, "merge-winner", now);
+        await SeedGameAsync(source, "merge-loser", now);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString, clock: new FixedClock(now));
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        await client.CallAsync<GameMergeResult>("game_merge", new Dictionary<string, object?>
+        {
+            ["winnerSlug"] = "merge-winner",
+            ["loserSlug"] = "merge-loser",
+            ["because"] = "Testing the merge redirect for real.",
+        });
+
+        var response = await site.Client.GetAsync("/g/merge-loser");
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.MovedPermanently);
+        await Assert.That(response.Headers.Location!.ToString()).IsEqualTo("/g/merge-winner");
+    }
+
+    [Test]
+    public async Task GameMergeRefusesMergingAGameIntoItself()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString);
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        await SeedGameAsync(source, "self-merge", DateTimeOffset.UtcNow);
+
+        var result = await client.TryCallAsync("game_merge", new Dictionary<string, object?>
+        {
+            ["winnerSlug"] = "self-merge",
+            ["loserSlug"] = "self-merge",
+            ["because"] = "Checking the refusal.",
+        });
+
+        await Assert.That(result.IsError).IsTrue();
+    }
+
+    [Test]
+    public async Task GameMergeRefusesAnUnknownSlug()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        await SeedGameAsync(source, "known-game", DateTimeOffset.UtcNow);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString);
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var result = await client.TryCallAsync("game_merge", new Dictionary<string, object?>
+        {
+            ["winnerSlug"] = "known-game",
+            ["loserSlug"] = "does-not-exist-anywhere",
+            ["because"] = "Checking the refusal.",
+        });
+
+        await Assert.That(result.IsError).IsTrue();
+    }
+
+    [Test]
+    public async Task GameMergeRequiresBecause()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+        var loserId = await SeedGameAsync(source, "because-winner", now);
+        await SeedGameAsync(source, "because-loser", now);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString);
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var result = await client.TryCallAsync("game_merge", new Dictionary<string, object?>
+        {
+            ["winnerSlug"] = "because-winner",
+            ["loserSlug"] = "because-loser",
+            ["because"] = "   ",
+        });
+
+        await Assert.That(result.IsError).IsTrue();
+
+        var merges = new NpgsqlMergeLog(source);
+        await Assert.That((await merges.ForGameAsync(loserId, CancellationToken.None)).Count).IsEqualTo(0);
+    }
+
+    /// <summary>
+    /// A loser already absorbed elsewhere is <c>merge_log_absorbed_once_idx</c> refusing, surfaced as
+    /// the schema's own message rather than an unhandled exception.
+    /// </summary>
+    [Test]
+    public async Task GameMergeRefusesALoserAlreadyAbsorbedElsewhere()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+        await SeedGameAsync(source, "first-winner", now);
+        await SeedGameAsync(source, "twice-absorbed-loser", now);
+        await SeedGameAsync(source, "second-winner", now);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString, clock: new FixedClock(now));
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        await client.CallAsync<GameMergeResult>("game_merge", new Dictionary<string, object?>
+        {
+            ["winnerSlug"] = "first-winner",
+            ["loserSlug"] = "twice-absorbed-loser",
+            ["because"] = "First merge.",
+        });
+
+        var result = await client.TryCallAsync("game_merge", new Dictionary<string, object?>
+        {
+            ["winnerSlug"] = "second-winner",
+            ["loserSlug"] = "twice-absorbed-loser",
+            ["because"] = "Second merge should be refused.",
+        });
+
+        await Assert.That(result.IsError).IsTrue();
     }
 }

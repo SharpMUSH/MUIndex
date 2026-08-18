@@ -158,6 +158,13 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<IGameFieldIndex>(
             s => new NpgsqlGameFieldIndex(s.GetRequiredService<NpgsqlDataSource>()));
 
+        // §7.3's operator surface for draining duplicate_review by hand — mui-crawl --merge builds
+        // this graph itself per invocation; registered here too so the same MergeAsync path is
+        // reachable from a host's own DI (the MCP game_merge tool), rather than only from the CLI.
+        services.TryAddSingleton<IMergeLog>(s => new NpgsqlMergeLog(s.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<MergeApplier>();
+        services.TryAddSingleton<ReviewMergeService>();
+
         // The public submission form (spec §7.6, §9). It writes into the registry above and nowhere
         // else, and it is registered here rather than in the web project because everything it needs
         // is already assembled here — the registry, the endpoint directory and §7.2's gate.
