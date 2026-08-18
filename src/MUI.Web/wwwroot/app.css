@@ -1205,9 +1205,9 @@ form.locale select:focus { outline: none; }
    smallest shape that says "commit" in a vocabulary the reader has already met. */
 .locale-go {
     flex: none; display: flex; align-items: center; justify-content: center;
-    width: 22px; height: 22px; padding: 0;
+    width: 2.2rem; height: 2.2rem; padding: 0;
     background: none; border: 0; border-radius: 6px;
-    color: var(--faint); font-size: var(--fs-sm2); cursor: pointer;
+    color: var(--faint); font-size: var(--fs-sm2); line-height: 1; cursor: pointer;
 }
 .locale-go:hover { color: var(--accent); background: var(--raised); }
 
@@ -1229,7 +1229,7 @@ form.locale select:focus { outline: none; }
 .game-head .game-title h1 { margin: 0; }
 .game-head .claim-line { margin: 0; font-size: var(--fs-sm2); }
 .game-head .plate {
-    width: 64px; height: 64px; flex: none;
+    width: 6.4rem; height: 6.4rem; flex: none;
     border: 1px solid var(--line-soft); border-radius: 12px;
     background: var(--recessed); color: var(--dim);
     display: grid; place-items: center; font-size: var(--fs-3xl);
@@ -1644,7 +1644,7 @@ ul.games > li.game-row { min-height: 46px; padding: var(--row-pad) var(--gutter)
 /* The row's own plate. Same recessed square, same border, same monogram treatment as the game
    page's — one vocabulary at two sizes, so a reader who has seen the page recognises the row. */
 .row-main .plate {
-    width: 36px; height: 36px; flex: none;
+    width: 3.6rem; height: 3.6rem; flex: none;
     border: 1px solid var(--line); border-radius: 6px;
     background: var(--recessed); color: var(--dim);
     display: grid; place-items: center;
@@ -1743,7 +1743,7 @@ ul.games .meta .protocol.more { color: var(--dim); }
 */
 .claim-ring {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 16px; height: 16px; flex: none;
+    width: 1.6rem; height: 1.6rem; flex: none;
     border-radius: 99px;
     border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
     background: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -2097,9 +2097,9 @@ form.facet-form { border: 0; background: none; padding: 0; margin: 0; }
    submit that exists only as the return key is one a pointer-only reader cannot press. */
 .search-go {
     flex: none; display: flex; align-items: center; justify-content: center;
-    width: 22px; height: 22px; padding: 0;
+    width: 2.2rem; height: 2.2rem; padding: 0;
     background: none; border: 0; border-radius: 6px;
-    color: var(--faint); font-size: var(--fs-sm2); cursor: pointer;
+    color: var(--faint); font-size: var(--fs-sm2); line-height: 1; cursor: pointer;
 }
 .search-go:hover { color: var(--text); background: var(--raised); }
 
