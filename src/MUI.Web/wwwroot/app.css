@@ -13,6 +13,17 @@
 
 :root {
     /*
+      62.5% of the reader's browser default rather than a fixed size, so the site actually tracks
+      the font-size preference a reader sets — the control someone reaches for who wants bigger text
+      without bigger everything, and the one browser *zoom* does not replace. 1rem no longer means
+      "the base"; it means a tenth of it, chosen so the type scale below reads as its own pixel value
+      (1.35rem is 13.5px at a 16px default) instead of the awkward fractions a body-relative rem
+      would produce. Every size in this file is rem so it moves with that preference; only the
+      handful the comments beside them name as deliberately exempt stay in absolute units.
+    */
+    font-size: 62.5%;
+
+    /*
       Spacing, radii and motion, in the relationships the design handoff's own token files carry.
       The values are theirs; the colours below are ours — the handoff's palette is a different
       product's and its README says so. What transfers is the scale: content padding at 20px rather
@@ -102,6 +113,30 @@
         "Noto Sans Mono CJK SC", "Noto Sans Mono CJK TC", "Noto Sans Mono CJK JP",
         "Noto Sans Mono CJK KR", "Sarasa Mono SC", "Sarasa Mono J", "MS Gothic", "SimSun",
         monospace;
+
+    /*
+      Named type steps, all rem so every one of them tracks the reader's font-size preference.
+      Nineteen ad-hoc pixel values collapsed to these twelve where two neighbours were close enough
+      that the difference between them looked like drift rather than a decision — a handful of
+      elements move up to 1px at a 16px default as a result. What did NOT collapse: the kicker's own
+      readability overrides for RTL/complex scripts and CJK (still exact, now pointing at --fs-xs and
+      --fs-sm because those happen to already be their values), the header bar's responsive shrink
+      ladder, and the heatmap's narrow-viewport squeeze — all three are hand-tuned against measured
+      constraints (string width, cell fit) and are converted to rem in place rather than folded in.
+    */
+    --fs-2xs: 1rem;      /* 10px @16 — kicker labels, chart-axis ticks */
+    --fs-xs: 1.15rem;    /* 11.5px @16 — small captions and hints */
+    --fs-sm: 1.2rem;     /* 12px @16 — secondary/meta text, the site's most common size */
+    --fs-sm2: 1.3rem;    /* 13px @16 — body-small: code, disagreements, identity tables */
+    --fs-base: 1.4rem;   /* 14px @16 — body */
+    --fs-md: 1.5rem;     /* 15px @16 — lede paragraphs, subheads */
+    --fs-lg: 1.6rem;     /* 16px @16 — find-a-game heading */
+    --fs-xl: 1.7rem;     /* 17px @16 — section h2 */
+    --fs-2xl: 2rem;      /* 20px @16 — h2, stat figures */
+    --fs-3xl: 2.2rem;    /* 22px @16 — figure glyph */
+    --fs-4xl: 2.6rem;    /* 26px @16 — h1 */
+    --fs-5xl: 2.8rem;    /* 28px @16 — the narrow-viewport find-count step */
+    --fs-6xl: 4rem;      /* 40px @16 — the find-count itself */
 }
 
 /*
@@ -213,7 +248,7 @@ body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font: 14px/1.65 var(--sans);
+    font: var(--fs-base)/1.65 var(--sans);
     text-wrap: pretty;
 }
 
@@ -266,8 +301,8 @@ main:has(> .card-page) { padding: 0; }
 main > .card-page,
 .hero { display: flex; flex-direction: column; gap: 22px; }
 
-h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 6px; }
-h2 { font-size: 20px; font-weight: 600; margin: calc(var(--cpad) * 1.4) 0 10px; }
+h1 { font-size: var(--fs-4xl); font-weight: 600; letter-spacing: -0.01em; margin: 0 0 6px; }
+h2 { font-size: var(--fs-2xl); font-weight: 600; margin: calc(var(--cpad) * 1.4) 0 10px; }
 a { color: inherit; }
 
 .dim { color: var(--dim); }
@@ -286,7 +321,7 @@ a { color: inherit; }
   wrong. The class is the semantics; :lang() decides the typography.
 */
 .kicker {
-    font: 10px/1 var(--kick);
+    font: var(--fs-2xs)/1 var(--kick);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--faint);
@@ -298,7 +333,7 @@ a { color: inherit; }
     text-transform: none;
     letter-spacing: normal;
     font-weight: 600;
-    font-size: 11.5px;
+    font-size: var(--fs-xs);
     line-height: 1.5;
 }
 
@@ -307,7 +342,7 @@ a { color: inherit; }
     :lang(zh), :lang(ja), :lang(ko)) {
     text-transform: none;
     letter-spacing: 0.02em;
-    font-size: 12px;
+    font-size: var(--fs-sm);
 }
 
 /* ── site chrome ───────────────────────────────────────────────────────────
@@ -380,7 +415,7 @@ header.site .reading { flex: 0 0 auto; }
 header.site .mark {
     display: flex;
     align-items: center;
-    font: 700 17px/1 var(--sans);
+    font: 700 var(--fs-xl)/1 var(--sans);
     letter-spacing: -0.01em;
     text-decoration: none;
     white-space: nowrap;
@@ -402,7 +437,7 @@ header.site .mark .star { color: var(--accent); text-shadow: var(--glow); }
    column it was in. Adjacent-sibling, so the glyph gains nothing after the screen-reader word, which
    is positioned out of the flow and would otherwise leave a gap before a chip that shows no value. */
 .chip .value + .glyph { margin-left: 4px; }
-.chip .age { font-family: var(--mono); font-size: 12px; color: var(--faint); margin-left: 4px; }
+.chip .age { font-family: var(--mono); font-size: var(--fs-sm); color: var(--faint); margin-left: 4px; }
 .chip.measured .glyph { color: var(--accent); }
 .chip.declared .glyph { color: var(--amber); }
 .chip.stale .age { color: var(--amber); }
@@ -432,7 +467,7 @@ table.matrix th, table.matrix td {
     white-space: nowrap;
 }
 table.matrix thead th {
-    font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint);
+    font: var(--fs-2xs)/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint);
     background: var(--recessed);
     border-top: 0;
     padding: 10px 16px;
@@ -442,7 +477,7 @@ table.matrix tr.disagrees { background: color-mix(in srgb, var(--amber) 9%, tran
 /* At the foot and inside the frame, where a caption belongs on a table whose heading is directly
    above it — and stated once, here, rather than in the heading as well. */
 table.matrix caption.count {
-    caption-side: bottom; text-align: left; font-size: 12.5px;
+    caption-side: bottom; text-align: left; font-size: var(--fs-sm);
     padding: 10px 16px;
     background: var(--recessed);
     border-top: 1px solid var(--line-soft);
@@ -457,7 +492,7 @@ table.matrix caption.count {
    survives greyscale and colour blindness.                                                      */
 
 table.heat { border-collapse: separate; border-spacing: 2px; }
-table.heat th { font: 10px/1 var(--kick); color: var(--faint); font-weight: 400; padding: 2px 4px; }
+table.heat th { font: var(--fs-2xs)/1 var(--kick); color: var(--faint); font-weight: 400; padding: 2px 4px; }
 table.heat td { width: 15px; height: 15px; padding: 0; border-radius: 3px; }
 td.counted   { background: var(--accent); }
 td.zero      { background: color-mix(in srgb, var(--accent) 18%, transparent); }
@@ -490,7 +525,7 @@ figure.ansi {
 }
 figure.ansi figcaption {
     font-family: var(--mono);
-    font-size: 11.5px;
+    font-size: var(--fs-xs);
     color: var(--faint);
     padding: 0;
     background: none;
@@ -503,7 +538,7 @@ figure.ansi figcaption {
   two meanings on one hue. It is a plain outlined pill at the faint step: dimmed one step, no red.
 */
 .badge {
-    font: 10px/1 var(--kick); letter-spacing: 0.14em; text-transform: uppercase;
+    font: var(--fs-2xs)/1 var(--kick); letter-spacing: 0.14em; text-transform: uppercase;
     color: var(--faint); border: 1px solid var(--line); border-radius: 99px;
     padding: 3px 8px; white-space: nowrap;
 }
@@ -548,7 +583,7 @@ figure.ansi figcaption {
 header.site nav { display: flex; align-items: stretch; min-width: 0; }
 header.site nav a, header.site nav span.nav-item {
     display: flex; align-items: center; white-space: nowrap;
-    color: var(--dim); text-decoration: none; font-size: 13.5px;
+    color: var(--dim); text-decoration: none; font-size: var(--fs-sm2);
 }
 header.site nav a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 
@@ -562,7 +597,7 @@ header.site .site-nav { display: flex; align-items: stretch; justify-content: ce
 header.site .nav-group { display: flex; align-items: stretch; gap: 11px; min-width: 0; }
 header.site .nav-label {
     display: flex; align-items: center; white-space: nowrap;
-    font: 9px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint);
+    font: var(--fs-2xs)/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint);
 }
 
 /* A hairline between the groups rather than a wider gap: the bar is short and the gap that would
@@ -586,7 +621,7 @@ header.site nav.account { display: flex; align-items: center; gap: 12px; }
 header.site nav.account a { color: var(--text); }
 header.site nav.account a.action {
     border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 12px;
-    font-size: 13px; white-space: nowrap;
+    font-size: var(--fs-sm2); white-space: nowrap;
 }
 header.site nav.account a.action:hover { border-color: var(--dim); text-decoration: none; }
 
@@ -622,7 +657,7 @@ header.site nav.account a.action.primary {
 header.site .nav-menu { display: flex; position: relative; align-items: stretch; min-width: 0; }
 header.site .nav-menu > summary {
     display: flex; align-items: center; gap: 6px; cursor: pointer;
-    color: var(--dim); font-size: 13.5px; white-space: nowrap; list-style: none;
+    color: var(--dim); font-size: var(--fs-sm2); white-space: nowrap; list-style: none;
 }
 header.site .nav-menu > summary::-webkit-details-marker { display: none; }
 header.site .nav-menu > summary:hover { color: var(--text); }
@@ -647,7 +682,7 @@ header.site .nav-menu .menu-panel a:hover { background: var(--surface); text-dec
   moves to the leading edge. Scoped to the collapsed width: unscoped it drew a vertical accent bar
   and a tinted box down the side of the current item in the open bar.
 */
-@media (max-width: 900px) {
+@media (max-width: 56.25em) {
     header.site .nav-menu .menu-panel a.on {
         box-shadow: inset 2px 0 0 0 var(--accent);
         background: color-mix(in srgb, var(--accent) 10%, transparent);
@@ -666,12 +701,12 @@ header.site .nav-menu .menu-panel .nav-rule { display: none; }
 */
 header.site .menu-tail { display: none; flex-direction: column; gap: 2px; }
 
-@media (max-width: 640px) {
+@media (max-width: 40em) {
     header.site .menu-tail { display: flex; }
 }
 
 @supports selector(::details-content) {
-    @media (min-width: 901px) {
+    @media (min-width: 56.3125em) {
         header.site .nav-menu > summary { display: none; }
 
         /*
@@ -708,21 +743,21 @@ header.site .menu-tail { display: none; flex-direction: column; gap: 2px; }
       both at once would leave seven links in a row in no order anybody could name, which is the
       state this bar was rebuilt out of.
     */
-    @media (min-width: 901px) and (max-width: 1180px) {
+    @media (min-width: 56.3125em) and (max-width: 73.75em) {
         header.site .nav-label { display: none; }
         header.site .nav-menu .menu-panel { gap: 14px; }
         header.site .nav-menu .menu-panel > .nav-group { gap: 11px; }
     }
 }
 
-@media (max-width: 1000px) {                    /* step 2 — submit keeps the word, loses the box */
+@media (max-width: 62.5em) {                    /* step 2 — submit keeps the word, loses the box */
     header.site nav.account a.action:not(.primary) {
         border-color: transparent; padding: 6px 0; color: var(--dim);
     }
     header.site nav.account a.action:not(.primary):hover { color: var(--text); }
 }
 
-@media (max-width: 900px) {                     /* step 3 — one disclosure, every destination kept */
+@media (max-width: 56.25em) {                     /* step 3 — one disclosure, every destination kept */
     header.site .site-nav { justify-content: flex-start; }
 
     /*
@@ -742,7 +777,7 @@ header.site .menu-tail { display: none; flex-direction: column; gap: 2px; }
   because it is the one item at that end that changes what the site will let a reader do. Still no
   destination lost.
 */
-@media (max-width: 640px) {
+@media (max-width: 40em) {
     header.site { padding: 0 14px; gap: 12px; }
     header.site nav.account a.action:not(.primary) { display: none; }
     header.site form.theme { gap: 6px; }
@@ -753,13 +788,13 @@ header.site .menu-tail { display: none; flex-direction: column; gap: 2px; }
   nothing moves; the two clusters at the ends are simply set a step smaller, which is the last
   decoration the bar has left to spend.
 */
-@media (max-width: 460px) {
+@media (max-width: 28.75em) {
     header.site { padding: 0 8px; gap: 6px; }
-    header.site .mark { font-size: 15px; }
+    header.site .mark { font-size: 1.5rem; }
     header.site form.theme { gap: 4px; }
-    header.site form.theme button { font-size: 12px; }
+    header.site form.theme button { font-size: 1.2rem; }
     header.site nav.account { gap: 6px; }
-    header.site nav.account a { font-size: 12.5px; }
+    header.site nav.account a { font-size: 1.25rem; }
     header.site nav.account a.action { padding: 5px 8px; }
 }
 
@@ -846,7 +881,7 @@ header.site .read-menu { display: flex; position: relative; align-items: center;
 header.site .read-menu > summary {
     display: flex; align-items: center; cursor: pointer;
     padding: 4px 6px; border-radius: 6px;
-    color: var(--dim); font-size: 13.5px; line-height: 1; list-style: none;
+    color: var(--dim); font-size: var(--fs-sm2); line-height: 1; list-style: none;
 }
 header.site .read-menu > summary::-webkit-details-marker { display: none; }
 header.site .read-menu > summary:hover { color: var(--text); background: var(--raised); }
@@ -864,7 +899,7 @@ header.site .read-panel {
 header.site .read-panel .mirror {
     align-self: stretch;
     padding: 6px 8px; border-radius: 6px;
-    color: var(--dim); font-size: 13.5px; text-decoration: none; white-space: nowrap;
+    color: var(--dim); font-size: var(--fs-sm2); text-decoration: none; white-space: nowrap;
 }
 header.site .read-panel .mirror:hover { background: var(--surface); color: var(--text); }
 header.site .read-panel form.locale > label { flex-direction: column; align-items: flex-start; gap: 4px; padding: 0 8px; }
@@ -879,7 +914,7 @@ header.site .read-panel form.locale > label { flex-direction: column; align-item
   bar this branch started from and 134px with a caret added — the one band where this bar was *wider*
   than that one. Both steps happen at one width now, and the cluster is 105px there, as before.
 */
-@media (max-width: 900px) {
+@media (max-width: 56.25em) {
     header.site .read-menu { display: none; }
 }
 
@@ -890,7 +925,7 @@ header.site .read-panel form.locale > label { flex-direction: column; align-item
 */
 header.site .menu-reading { display: none; flex-direction: column; gap: 2px; }
 
-@media (max-width: 900px) {
+@media (max-width: 56.25em) {
     header.site .menu-reading { display: flex; }
 }
 header.site .menu-reading .mirror { padding: 6px 10px; border-radius: 6px; color: var(--dim); }
@@ -899,11 +934,11 @@ header.site .menu-reading .nav-label { padding: 6px 8px 2px; }
 header.site .menu-reading form.locale { margin: 6px 8px 2px; }
 header.site .menu-reading form.locale > label { flex-direction: column; align-items: flex-start; gap: 4px; }
 
-@media (max-width: 480px) {
-    header.site .mark { font-size: 14px; letter-spacing: 0; }
+@media (max-width: 30em) {
+    header.site .mark { font-size: 1.4rem; letter-spacing: 0; }
     header.site form.theme { gap: 4px; }
-    header.site form.theme button { font-size: 11.5px; }
-    header.site nav.account a { font-size: 12px; }
+    header.site form.theme button { font-size: 1.15rem; }
+    header.site nav.account a { font-size: 1.2rem; }
 }
 
 /* ── the reader's theme ────────────────────────────────────────────────────
@@ -917,7 +952,7 @@ header.site .menu-reading form.locale > label { flex-direction: column; align-it
    put this cluster sixteen pixels above the buttons beside it. */
 form.theme { display: flex; align-items: center; gap: 8px; margin: 0; }
 form.theme .kick {
-    font: 10px/1 var(--kick);
+    font: var(--fs-2xs)/1 var(--kick);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--faint);
@@ -937,12 +972,12 @@ form.theme button[aria-pressed="true"] {
     text-underline-offset: 3px;
 }
 
-h3 { font-size: 15px; font-weight: 600; margin: var(--cpad) 0 4px; }
+h3 { font-size: var(--fs-md); font-weight: 600; margin: var(--cpad) 0 4px; }
 p { margin: 0 0 8px; }
 
-.summary { font-size: 15px; line-height: 1.6; color: var(--text); max-width: 68ch; }
+.summary { font-size: var(--fs-md); line-height: 1.6; color: var(--text); max-width: 68ch; }
 .note { max-width: 64ch; }
-pre.plain { white-space: pre-wrap; font-size: 13px; line-height: 1.6; color: var(--dim); }
+pre.plain { white-space: pre-wrap; font-size: var(--fs-sm2); line-height: 1.6; color: var(--dim); }
 
 /* ── home ──────────────────────────────────────────────────────────────── */
 
@@ -954,11 +989,11 @@ pre.plain { white-space: pre-wrap; font-size: 13px; line-height: 1.6; color: var
   this is one short line whose whole job is to be read at a glance.
 */
 .hero-head { display: flex; flex-direction: column; gap: 8px; }
-.hero h1 { font-size: 26px; line-height: 1.2; letter-spacing: -0.01em; margin: 0; }
+.hero h1 { font-size: var(--fs-4xl); line-height: 1.2; letter-spacing: -0.01em; margin: 0; }
 
 /* The one sentence a stranger needs before they read a count. Dimmed a step so the heading above it
    stays the first thing the eye takes, and measured so it never runs past a comfortable line. */
-.hero .lede { font-size: 14.5px; line-height: 1.6; color: var(--dim); max-width: 62ch; margin: 0; }
+.hero .lede { font-size: var(--fs-md); line-height: 1.6; color: var(--dim); max-width: 62ch; margin: 0; }
 
 /*
   One field with the search glyph inside it, and the submit beside it at the field's own height.
@@ -975,12 +1010,12 @@ form.search { display: flex; gap: 8px; max-width: 520px; margin: 0; }
     padding: 0 14px;
 }
 .search-field:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
-.search-glyph { color: var(--accent); font-size: 15px; line-height: 1; }
+.search-glyph { color: var(--accent); font-size: var(--fs-md); line-height: 1; }
 input[type="search"], input[type="text"] {
     background: var(--recessed);
     border: 1px solid var(--line);
     color: var(--text);
-    font: 14px var(--sans);
+    font: var(--fs-base) var(--sans);
     padding: 8px 11px;
     border-radius: var(--radius);
 }
@@ -991,7 +1026,7 @@ input[type="search"], input[type="text"] {
 .search-field input[type="search"] {
     flex: 1; min-width: 0;
     background: none; border: 0; padding: 11px 0; border-radius: 0;
-    color: var(--text); font: 14px var(--sans);
+    color: var(--text); font: var(--fs-base) var(--sans);
 }
 .search-field input[type="search"]:focus { outline: none; }
 .search-field input[type="search"]::placeholder { color: var(--faint); }
@@ -1000,7 +1035,7 @@ button {
     background: var(--raised);
     border: 1px solid var(--line);
     color: var(--text);
-    font: 14px var(--sans);
+    font: var(--fs-base) var(--sans);
     padding: 8px 14px;
     border-radius: var(--radius);
     cursor: pointer;
@@ -1030,7 +1065,7 @@ ul.tiles a { text-decoration: none; display: grid; gap: 8px; }
 */
 ul.tiles .kicker { color: var(--faint); }
 ul.tiles .figure {
-    font-size: 28px; font-weight: 600; letter-spacing: -0.01em; color: var(--text);
+    font-size: var(--fs-5xl); font-weight: 600; letter-spacing: -0.01em; color: var(--text);
     line-height: 1;
 }
 ul.tiles .figure.state-present { color: var(--accent); }
@@ -1041,7 +1076,7 @@ ul.tiles .figure.state-present { color: var(--accent); }
 /* Hairlines top and bottom, as the handoff frames it: the strip is a band of provenance under the
    figures it qualifies, and a band reads as one thing where a loose line reads as a footnote. */
 p.crawler {
-    margin: 0; padding: 12px 0; font-size: 12.5px;
+    margin: 0; padding: 12px 0; font-size: var(--fs-sm);
     display: flex; align-items: center; gap: 10px;
     border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
 }
@@ -1082,12 +1117,12 @@ p.crawler .state-present { text-shadow: var(--glow); }
 .feeds .feed-row:last-child { border-bottom: 0; }
 
 .feed-row .feed-name {
-    min-width: 0; font-size: 14px; color: var(--text); text-decoration: none;
+    min-width: 0; font-size: var(--fs-base); color: var(--text); text-decoration: none;
 }
 .feed-row .feed-name:hover { text-decoration: underline; text-underline-offset: 3px; }
 .feed-row .feed-state {
     flex: none; display: inline-flex; align-items: baseline; gap: 5px;
-    font-size: 12.5px; color: var(--faint);
+    font-size: var(--fs-sm); color: var(--faint);
 }
 .feed-row .feed-state .sep { color: var(--faint); }
 .feed-row.unlit .feed-name { color: var(--dim); }
@@ -1111,7 +1146,7 @@ form.locale > label { display: flex; align-items: center; gap: 10px; cursor: poi
 /* The label is the theme control's kicker, because these two sit side by side and are the same kind
    of thing: a small named control that changes how the page is read. */
 form.locale .kick {
-    font: 10px/1 var(--kick);
+    font: var(--fs-2xs)/1 var(--kick);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--faint);
@@ -1138,7 +1173,7 @@ form.locale select {
     appearance: none;
     background: none; border: 0; border-radius: 0; margin: 0;
     padding: 7px 18px 7px 0;
-    color: var(--text); font: 13px var(--sans);
+    color: var(--text); font: var(--fs-sm2) var(--sans);
     cursor: pointer;
 
     /* Sized to the option in force rather than to the longest one in the list. A select is as wide
@@ -1162,7 +1197,7 @@ form.locale select:focus { outline: none; }
    the pointer, so the caret is part of the same click target rather than a dead spot beside it. */
 .locale-caret {
     margin-left: -16px;
-    color: var(--faint); font-size: 11px; line-height: 1;
+    color: var(--faint); font-size: var(--fs-xs); line-height: 1;
     pointer-events: none;
 }
 
@@ -1172,7 +1207,7 @@ form.locale select:focus { outline: none; }
     flex: none; display: flex; align-items: center; justify-content: center;
     width: 22px; height: 22px; padding: 0;
     background: none; border: 0; border-radius: 6px;
-    color: var(--faint); font-size: 13px; cursor: pointer;
+    color: var(--faint); font-size: var(--fs-sm2); cursor: pointer;
 }
 .locale-go:hover { color: var(--accent); background: var(--raised); }
 
@@ -1192,12 +1227,12 @@ form.locale select:focus { outline: none; }
 .game-identity { display: flex; gap: 16px; align-items: flex-start; min-width: 0; flex: 1 1 340px; }
 .game-head .game-title { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .game-head .game-title h1 { margin: 0; }
-.game-head .claim-line { margin: 0; font-size: 13.5px; }
+.game-head .claim-line { margin: 0; font-size: var(--fs-sm2); }
 .game-head .plate {
     width: 64px; height: 64px; flex: none;
     border: 1px solid var(--line-soft); border-radius: 12px;
     background: var(--recessed); color: var(--dim);
-    display: grid; place-items: center; font-size: 22px;
+    display: grid; place-items: center; font-size: var(--fs-3xl);
     padding: 8px; box-sizing: border-box;
 }
 
@@ -1211,31 +1246,31 @@ form.locale select:focus { outline: none; }
     text-align: right;
 }
 .game-figure .figure-count {
-    margin: 0; font-size: 20px; color: var(--accent);
+    margin: 0; font-size: var(--fs-2xl); color: var(--accent);
     text-shadow: var(--glow); font-variant-numeric: tabular-nums;
 }
-.game-figure .figure-count .unit { font-size: 15px; }
+.game-figure .figure-count .unit { font-size: var(--fs-md); }
 
 /* A count the game states about itself rather than one we read: amber, which is what declared means
    everywhere else here, and no glow — the glow is the accent's, and the accent means measured. */
 .game-figure .figure-count.declared { color: var(--amber); text-shadow: none; }
 .game-figure .figure-count.unknown {
-    color: var(--faint); text-shadow: none; font-size: 15px; font-variant-numeric: normal;
+    color: var(--faint); text-shadow: none; font-size: var(--fs-md); font-variant-numeric: normal;
 }
 .game-figure .figure-age { margin: 0; }
 
 /* One column, and the sections spaced by it rather than by margins that disagree. */
 .game-body { display: flex; flex-direction: column; gap: 28px; padding: 28px var(--gutter) 8px; }
 .game-body > section { display: flex; flex-direction: column; gap: 10px; }
-.game-body > section > h2 { margin: 0; font-size: 17px; }
+.game-body > section > h2 { margin: 0; font-size: var(--fs-xl); }
 /* An icon sits in the monogram's place and at its size. `contain` rather than `cover`: a logo that
    is not square is letterboxed rather than cropped, because cropping somebody's artwork to fit our
    box is a small edit to a thing they published. The plate's own background shows through where the
    image does not reach, so a transparent PNG lands on the same recessed square as the monogram. */
 .game-head img.plate { object-fit: contain; padding: 4px; }
 
-.game-head .lede { font-size: 14.5px; line-height: 1.6; max-width: 62ch; margin: 0; color: var(--dim); }
-.game-head .tagline { font-size: 15px; margin: 0; }
+.game-head .lede { font-size: var(--fs-md); line-height: 1.6; max-width: 62ch; margin: 0; color: var(--dim); }
+.game-head .tagline { font-size: var(--fs-md); margin: 0; }
 
 /*
   An address is a line, not a card. Each was a bordered panel the full width of the title column,
@@ -1245,9 +1280,9 @@ form.locale select:focus { outline: none; }
 .game-head .endpoint {
     display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px;
     margin: 0; padding-top: 4px;
-    font-size: 13.5px; color: var(--text);
+    font-size: var(--fs-sm2); color: var(--text);
 }
-.game-head .endpoint .faint { font-size: 12.5px; }
+.game-head .endpoint .faint { font-size: var(--fs-sm); }
 .game-head .endpoint.former .address { color: var(--dim); }
 
 /*
@@ -1302,10 +1337,10 @@ form.locale select:focus { outline: none; }
 .two-up > *, .feeds > *, .row-main > *, .game-body > * { min-width: 0; }
 
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--cpad); flex-wrap: wrap; }
-.section-head .count { font-size: 12px; margin: 0; }
+.section-head .count { font-size: var(--fs-sm); margin: 0; }
 .warn { color: var(--amber); }
 
-ol.changes { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+ol.changes { list-style: none; margin: 0; padding: 0; font-size: var(--fs-sm); }
 ol.changes li { padding: 4px 0; color: var(--dim); }
 
 dl.declared { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; }
@@ -1315,11 +1350,11 @@ dl.declared dd { margin: 0; }
 /* ── capability matrix ─────────────────────────────────────────────────── */
 
 table.matrix .mark {
-    font: 9px/1 var(--kick); letter-spacing: 0.14em; text-transform: uppercase;
+    font: var(--fs-2xs)/1 var(--kick); letter-spacing: 0.14em; text-transform: uppercase;
     border: 1px solid currentColor; border-radius: 99px; padding: 2px 6px; margin-left: 8px;
 }
 .state-declared { color: var(--amber); }
-details.disagreement { margin-top: var(--cpad); font-size: 13px; }
+details.disagreement { margin-top: var(--cpad); font-size: var(--fs-sm2); }
 details.disagreement p { max-width: 68ch; }
 
 /* ── activity heatmap ──────────────────────────────────────────────────── */
@@ -1331,7 +1366,7 @@ td.counted.zero { background: var(--raised); outline: 1px solid var(--line); out
 
 ul.legend {
     list-style: none; margin: 0 0 8px; padding: 0;
-    display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--dim);
+    display: flex; flex-wrap: wrap; gap: 16px; font-size: var(--fs-sm); color: var(--dim);
 }
 ul.legend li { display: inline-flex; align-items: center; gap: 6px; }
 .swatch { width: 13px; height: 13px; border-radius: 3px; display: inline-block; flex: none; }
@@ -1387,10 +1422,10 @@ svg.trend .hit { fill: transparent; }
 
 /* Month names, positioned at the same fractions the rules inside the plot are drawn at. They live
    out here because the canvas is stretched to the page width and text inside it stretches too. */
-.trend-axis { position: relative; height: 15px; font-size: 10.5px; }
+.trend-axis { position: relative; height: 15px; font-size: var(--fs-2xs); }
 .trend-axis span { position: absolute; top: 0; white-space: nowrap; }
 
-.trend-scale { display: flex; justify-content: space-between; font-size: 10.5px; margin: 2px 0 8px; }
+.trend-scale { display: flex; justify-content: space-between; font-size: var(--fs-2xs); margin: 2px 0 8px; }
 
 .swatch.mean { background: var(--accent); }
 .swatch.peak { background: color-mix(in srgb, var(--accent) 50%, var(--surface)); }
@@ -1401,7 +1436,7 @@ svg.trend .hit { fill: transparent; }
 }
 .swatch.uncounted { background: var(--dim); opacity: 0.55; height: 6px; border-radius: 2px; }
 
-ul.weeks { list-style: none; margin: 8px 0 0; padding: 0; font-size: 12px; color: var(--dim); }
+ul.weeks { list-style: none; margin: 8px 0 0; padding: 0; font-size: var(--fs-sm); color: var(--dim); }
 ul.weeks li { padding: 2px 0; }
 
 /* ── the ranking window selector ───────────────────────────────────────────
@@ -1410,7 +1445,7 @@ ul.weeks li { padding: 2px 0; }
 
 nav.spans { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 var(--cpad); }
 nav.spans .span {
-    font: 11px/1 var(--kick); letter-spacing: 0.08em; text-transform: uppercase;
+    font: var(--fs-2xs)/1 var(--kick); letter-spacing: 0.08em; text-transform: uppercase;
     padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px;
     color: var(--dim); text-decoration: none;
 }
@@ -1426,7 +1461,7 @@ nav.spans .span.on {
    rather than being spaced as a second block. */
 nav.spans.shapes { margin-top: -4px; }
 
-details.read-as-text { margin: 8px 0 var(--cpad); font-size: 13px; }
+details.read-as-text { margin: 8px 0 var(--cpad); font-size: var(--fs-sm2); }
 details.read-as-text summary { cursor: pointer; color: var(--dim); }
 details.read-as-text[open] > *:not(summary) { animation: reveal 120ms ease-out; }
 
@@ -1435,7 +1470,7 @@ details.read-as-text[open] > *:not(summary) { animation: reveal 120ms ease-out; 
 
 ul.spells {
     list-style: none; margin: 6px 0 0; padding: 0;
-    font-family: var(--mono); font-size: 12px; color: var(--dim);
+    font-family: var(--mono); font-size: var(--fs-sm); color: var(--dim);
 }
 ul.spells li { padding: 2px 0; }
 
@@ -1443,13 +1478,13 @@ ul.spells li { padding: 2px 0; }
    tabular so the columns scan, and the caption sits under the table it describes. */
 table.perday {
     width: 100%; margin: 6px 0 0; border-collapse: collapse;
-    font-family: var(--mono); font-size: 12px; color: var(--dim);
+    font-family: var(--mono); font-size: var(--fs-sm); color: var(--dim);
     caption-side: bottom;
 }
 table.perday caption { padding: 8px 0 0; color: var(--faint); text-align: left; }
 table.perday th, table.perday td { padding: 4px 8px 4px 0; text-align: left; }
 table.perday thead th {
-    font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint);
+    font: var(--fs-2xs)/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint);
     border-bottom: 1px solid var(--line); padding-bottom: 6px;
 }
 table.perday tbody th { color: var(--text); font-weight: 600; }
@@ -1483,10 +1518,10 @@ table.perday td.num { font-variant-numeric: tabular-nums; }
 .swatch.bar-reachable, .swatch.bar-unreachable, .swatch.bar-unmeasured { height: 13px; }
 .swatch.bar-degraded { height: 7px; align-self: flex-end; }
 
-.strip-scale { display: flex; justify-content: space-between; font-size: 10.5px; margin: 6px 0 8px; }
+.strip-scale { display: flex; justify-content: space-between; font-size: var(--fs-2xs); margin: 6px 0 8px; }
 
 dl.stats { display: flex; flex-wrap: wrap; gap: 22px; margin: 0 0 var(--cpad); }
-dl.stats dd { margin: 3px 0 0; font-size: 17px; }
+dl.stats dd { margin: 3px 0 0; font-size: var(--fs-xl); }
 
 /* ── the ANSI quotation frame ──────────────────────────────────────────── */
 
@@ -1502,7 +1537,7 @@ figure.ansi .quote {
 figure.ansi .quote:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 figure.ansi .quote pre {
     margin: 0; padding: 14px 16px;
-    font: 12px/1.4 var(--mono-cjk); font-variant-ligatures: none;
+    font: var(--fs-sm)/1.4 var(--mono-cjk); font-variant-ligatures: none;
     color: #aaaaaa; white-space: pre;
 }
 figure.ansi figcaption { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -1528,13 +1563,13 @@ figure.ansi figcaption { display: flex; gap: 8px; flex-wrap: wrap; }
 .screen-text > pre { margin-top: 8px; }
 .screen-text pre {
     margin: 0;
-    font: 12.5px/1.7 var(--mono-cjk); font-variant-ligatures: none;
+    font: var(--fs-sm)/1.7 var(--mono-cjk); font-variant-ligatures: none;
     color: var(--text);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
 
-pre.plain-screen { background: var(--recessed); padding: var(--cpad); overflow-x: auto; font-size: 12px; }
+pre.plain-screen { background: var(--recessed); padding: var(--cpad); overflow-x: auto; font-size: var(--fs-sm); }
 
 .ansi-plate {
     border: 1px dashed var(--line); border-radius: 8px;
@@ -1613,7 +1648,7 @@ ul.games > li.game-row { min-height: 46px; padding: var(--row-pad) var(--gutter)
     border: 1px solid var(--line); border-radius: 6px;
     background: var(--recessed); color: var(--dim);
     display: grid; place-items: center;
-    font-size: 12px; letter-spacing: 0.02em;
+    font-size: var(--fs-sm); letter-spacing: 0.02em;
 
     /* Nudged down to sit against the name's cap height rather than above it. */
     margin-top: 2px;
@@ -1626,7 +1661,7 @@ ul.games > li.game-row { min-height: 46px; padding: var(--row-pad) var(--gutter)
 .row-text { min-width: 0; }
 .row-head { margin: 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 
-ul.games .name, ul.archive .name { font-size: 15px; font-weight: 600; text-decoration: none; }
+ul.games .name, ul.archive .name { font-size: var(--fs-md); font-weight: 600; text-decoration: none; }
 ul.games .name:hover { text-decoration: underline; text-underline-offset: 3px; }
 ul.archive .name { color: var(--dim); }
 
@@ -1637,7 +1672,7 @@ ul.archive .name { color: var(--dim); }
 .row-text .tagline {
     margin: 2px 0 0;
     color: var(--dim);
-    font-size: 13px;
+    font-size: var(--fs-sm2);
 
     /* One line. A game's own description is a paragraph on its page; here it is a hint at what the
        game is, and a listing whose rows are different heights cannot be scanned at all. */
@@ -1646,7 +1681,7 @@ ul.archive .name { color: var(--dim); }
     white-space: nowrap;
 }
 
-ul.games .meta, ul.archive .meta { margin: 3px 0 0; font-size: 12.5px; color: var(--dim); }
+ul.games .meta, ul.archive .meta { margin: 3px 0 0; font-size: var(--fs-sm); color: var(--dim); }
 ul.games .meta .protocol { white-space: nowrap; }
 
 /* The protocols this row did not print. A count rather than a name, and the names are in its title
@@ -1675,7 +1710,7 @@ ul.games .meta .protocol.more { color: var(--dim); }
     grid-column: 2;
     text-align: right;
     white-space: nowrap;
-    font-size: 15px;
+    font-size: var(--fs-md);
     font-variant-numeric: tabular-nums;
     color: var(--text);
 }
@@ -1689,14 +1724,14 @@ ul.games .meta .protocol.more { color: var(--dim); }
 .row-count.empty { color: var(--dim); }
 
 /* Not a number at all, so it is not set as one: smaller, faint, and in words. */
-.row-count.unknown { color: var(--faint); font-size: 13.5px; font-variant-numeric: normal; }
+.row-count.unknown { color: var(--faint); font-size: var(--fs-sm2); font-variant-numeric: normal; }
 
 .row-seen {
     margin: 0;
     grid-column: 3;
     text-align: right;
     white-space: nowrap;
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
     color: var(--faint);
     font-variant-numeric: tabular-nums;
 }
@@ -1713,7 +1748,7 @@ ul.games .meta .protocol.more { color: var(--dim); }
     border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
     background: color-mix(in srgb, var(--accent) 12%, transparent);
     color: var(--accent);
-    font: 10px/1 var(--mono);
+    font: var(--fs-2xs)/1 var(--mono);
 }
 
 /* Archived: dimmed one step, and that is the whole treatment. No red, no strikethrough, no "dead" —
@@ -1734,7 +1769,7 @@ li.unranked-break {
     border-top: 1px solid var(--line);
     background: var(--surface);
     color: var(--dim);
-    font-size: 12px;
+    font-size: var(--fs-sm);
     margin-top: var(--cpad);
 }
 
@@ -1748,12 +1783,12 @@ li.unranked-break:hover { background: var(--surface); }
 */
 ul.archive .row-main { grid-template-columns: minmax(0, 1fr) auto; }
 
-dl.archive-facts { margin: 0; font-size: 12px; min-width: 200px; }
+dl.archive-facts { margin: 0; font-size: var(--fs-sm); min-width: 200px; }
 dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
 
 /* Below the width where a 200px facts panel and a game's metadata both fit, they stack — the panel
    was holding its minimum and clipping the name and codebase beside it. */
-@media (max-width: 620px) {
+@media (max-width: 38.75em) {
     ul.archive .row-main { grid-template-columns: minmax(0, 1fr); }
     dl.archive-facts { min-width: 0; }
 }
@@ -1769,7 +1804,7 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
     display: flex; flex-direction: column; gap: 7px;
 }
 .listing-head h1 { margin: 0; }
-.listing-head p { margin: 0; max-width: 62ch; font-size: 14px; }
+.listing-head p { margin: 0; max-width: 62ch; font-size: var(--fs-base); }
 
 /* ── the listing's toolbar ─────────────────────────────────────────────────
    What order this is in on the left, the control that changes it and the two column names on the
@@ -1784,7 +1819,7 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
     margin: 0;
     padding: 11px var(--gutter);
     border-bottom: 1px solid var(--line-soft);
-    font-size: 13px;
+    font-size: var(--fs-sm2);
     color: var(--dim);
 }
 
@@ -1801,7 +1836,7 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
    there is no keystroke that lands on a control whose only effect is to re-fetch this page — the
    same fix the trend range and shape selectors already carry.                                    */
 
-.switch { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; }
+.switch { display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-sm); }
 .switch a { color: var(--dim); text-decoration: none; }
 .switch a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 .switch .on { color: var(--accent); }
@@ -1815,7 +1850,7 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
 .switch.windows {
     padding: 8px var(--gutter);
     border-bottom: 1px solid var(--line-soft);
-    font-size: 12px;
+    font-size: var(--fs-sm);
     justify-content: flex-end;
 }
 
@@ -1833,12 +1868,12 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
     max-width: 60ch;
 }
 
-.empty-state .empty-head { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+.empty-state .empty-head { font-size: var(--fs-md); font-weight: 600; margin: 0 0 4px; }
 .empty-state .kicker { margin: 8px 0 0; }
 
 /* ── one column below 900px; no horizontal scroll except inside the frame ── */
 
-@media (max-width: 900px) {
+@media (max-width: 56.25em) {
     .feeds { grid-template-columns: minmax(0, 1fr); }
 
     /*
@@ -1847,7 +1882,7 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
     */
     table.heat { border-spacing: 1px; }
     table.heat td { width: 12px; height: 12px; border-radius: 2px; }
-    table.heat th { padding: 1px 3px; font-size: 9px; }
+    table.heat th { padding: 1px 3px; font-size: 0.9rem; }
 }
 
 /* All three motions become plain state changes, and nothing updates under the reader. */
@@ -1877,13 +1912,13 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
 section.about { max-width: 68ch; }
 section.about h2 { margin-top: calc(var(--cpad) * 2.5); }
 
-dl.identity { font-size: 13px; margin: var(--cpad) 0; }
+dl.identity { font-size: var(--fs-sm2); margin: var(--cpad) 0; }
 dl.identity dt { margin-top: 8px; }
 dl.identity dd { margin: 2px 0 0; color: var(--dim); }
 
 ul.sources { list-style: none; margin: var(--cpad) 0 0; padding: 0; }
 ul.sources li { border-top: 1px solid var(--line); padding: var(--cpad) 0; }
-ul.sources .name { font-size: 15px; font-weight: 600; text-decoration: none; }
+ul.sources .name { font-size: var(--fs-md); font-weight: 600; text-decoration: none; }
 ul.sources .source-head { display: flex; gap: var(--cpad); align-items: baseline; flex-wrap: wrap; }
 /*
   ── ecosystem dashboard & rankings ──
@@ -1928,7 +1963,7 @@ ul.shares .share-figure { color: var(--dim); white-space: nowrap; }
    live, fifty of them at 0.5% were two-thirds of the chart above — and a disclosure rather than a
    deletion because the fold's arithmetic has to be checkable against what it folded. The summary
    carries the whole sentence, so a reader who never opens it has still read the number. */
-details.sole-use { margin: var(--cpad) 0; font-size: 13px; }
+details.sole-use { margin: var(--cpad) 0; font-size: var(--fs-sm2); }
 details.sole-use > summary { cursor: pointer; color: var(--dim); max-width: 68ch; }
 ul.sole-use-names {
     list-style: none;
@@ -1967,7 +2002,7 @@ table.ranking th, table.ranking td {
     border-bottom: 1px solid var(--line);
 }
 table.protocols thead th, table.ranking thead th {
-    font: 10px/1.4 var(--kick);
+    font: var(--fs-2xs)/1.4 var(--kick);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--faint);
@@ -1978,7 +2013,7 @@ table.protocols td.declared { color: var(--amber); }
 table.ranking td.place, table.ranking th.place { width: 3rem; color: var(--faint); }
 table.ranking tbody th { font-weight: 400; }
 
-@media (max-width: 900px) {
+@media (max-width: 56.25em) {
     /* The label stops competing with the bar for a width neither of them has. */
     ul.shares li { grid-template-columns: minmax(0, 1fr); gap: 6px; }
 }
@@ -2031,22 +2066,22 @@ form.facet-form { border: 0; background: none; padding: 0; margin: 0; }
     cursor: pointer; list-style: none;
     padding: 9px 8px; margin-bottom: 4px;
     border: 1px solid var(--line); border-radius: var(--radius);
-    font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase;
+    font: var(--fs-2xs)/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase;
     color: var(--dim);
 }
 .facet-collapse > summary::-webkit-details-marker { display: none; }
 .facet-collapse > summary:hover { color: var(--text); border-color: var(--dim); }
 .facet-collapse > summary::after {
-    content: "▾"; margin-left: auto; font-size: 11px; letter-spacing: normal;
+    content: "▾"; margin-left: auto; font-size: var(--fs-xs); letter-spacing: normal;
 }
 .facet-collapse[open] > summary::after { content: "▴"; }
 .facet-collapse .summary-count {
-    font-family: var(--mono); font-size: 11px; letter-spacing: normal; color: var(--accent);
+    font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: normal; color: var(--accent);
 }
 .facet-body { display: flex; flex-direction: column; gap: 24px; }
 
 @supports selector(::details-content) {
-    @media (min-width: 901px) {
+    @media (min-width: 56.3125em) {
         .facet-collapse > summary { display: none; }
         .facet-collapse::details-content { content-visibility: visible; block-size: auto; }
     }
@@ -2056,7 +2091,7 @@ form.facet-form { border: 0; background: none; padding: 0; margin: 0; }
    are a toolbar switch and two facet rows now. */
 .filter-bar { display: block; margin: 0; }
 .filter-bar .search-field { padding: 0 8px 0 12px; }
-.filter-bar .search-field input[type="search"] { padding: 7px 0; font-size: 13px; }
+.filter-bar .search-field input[type="search"] { padding: 7px 0; font-size: var(--fs-sm2); }
 
 /* The submit, inside the field. A 268px column has no room for a second box on that row, and a
    submit that exists only as the return key is one a pointer-only reader cannot press. */
@@ -2064,7 +2099,7 @@ form.facet-form { border: 0; background: none; padding: 0; margin: 0; }
     flex: none; display: flex; align-items: center; justify-content: center;
     width: 22px; height: 22px; padding: 0;
     background: none; border: 0; border-radius: 6px;
-    color: var(--faint); font-size: 13px; cursor: pointer;
+    color: var(--faint); font-size: var(--fs-sm2); cursor: pointer;
 }
 .search-go:hover { color: var(--text); background: var(--raised); }
 
@@ -2084,7 +2119,7 @@ fieldset.facets {
 }
 
 fieldset.facets legend {
-    font: 10px/1 var(--kick);
+    font: var(--fs-2xs)/1 var(--kick);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--faint);
@@ -2094,7 +2129,7 @@ fieldset.facets legend {
 fieldset.facets input[type="search"] { flex: 1 1 16rem; min-width: 0; }
 
 .bar-field { display: inline-flex; align-items: center; gap: 6px; }
-.bar-label { font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
+.bar-label { font: var(--fs-2xs)/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
 
 .filter-bar button { flex: none; }
 
@@ -2151,7 +2186,7 @@ fieldset.facets input[type="search"] { flex: 1 1 16rem; min-width: 0; }
   before the first game. Closed by default and open whenever the reader has actually asked
   something, because a filter in force that nothing shows is the defect this control replaces.
 */
-@media (max-width: 900px) {
+@media (max-width: 56.25em) {
     .listing-grid { grid-template-columns: minmax(0, 1fr); }
     .listing-grid > * { grid-column: 1; }
     .listing-grid > .facet-form {
@@ -2205,7 +2240,7 @@ fieldset.facets input[type="search"] { flex: 1 1 16rem; min-width: 0; }
 }
 
 .facet .facet-name {
-    font: 10px/1.4 var(--kick);
+    font: var(--fs-2xs)/1.4 var(--kick);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--dim);
@@ -2218,7 +2253,7 @@ fieldset.facets input[type="search"] { flex: 1 1 16rem; min-width: 0; }
 */
 .facet-note {
     margin: 0;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     line-height: 1.5;
     color: var(--faint);
 }
@@ -2227,7 +2262,7 @@ select {
     background: var(--recessed);
     border: 1px solid var(--line);
     color: var(--text);
-    font: 13px var(--sans);
+    font: var(--fs-sm2) var(--sans);
     padding: 5px 7px;
     border-radius: 6px;
 }
@@ -2261,7 +2296,7 @@ select {
     min-height: 30px;
     padding: 0 8px;
     border-radius: 9px;
-    font-size: 13.5px;
+    font-size: var(--fs-sm2);
     color: var(--dim);
     border: 1px solid transparent;
 }
@@ -2277,7 +2312,7 @@ select {
     min-width: 0;
     cursor: pointer;
 }
-.facet-row .tick { text-align: center; color: var(--faint); font-family: var(--mono); font-size: 12px; }
+.facet-row .tick { text-align: center; color: var(--faint); font-family: var(--mono); font-size: var(--fs-sm); }
 .facet-row .row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /*
   `--dim` rather than `--faint`, because the panel is not the page.
@@ -2290,14 +2325,14 @@ select {
   contrast the page itself does not have.
 */
 .facet-row .count {
-    font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--dim);
+    font-family: var(--mono); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; color: var(--dim);
 }
 
 /* The exclusion affordance, at the far edge where a "remove" belongs. Quiet until it is the state
    the row is in. */
 .facet-row .drop {
     display: block; text-align: center; cursor: pointer;
-    color: var(--faint); font-family: var(--mono); font-size: 12.5px;
+    color: var(--faint); font-family: var(--mono); font-size: var(--fs-sm);
 }
 .facet-row .drop:hover { color: var(--text); }
 /* Links, so a click applies the filter rather than arming a control that waits for a button. */
@@ -2352,17 +2387,17 @@ select {
 /* The tail. A summary is a control, so it gets the row's own height and hit area. */
 .facet .facet-tail { margin-top: 2px; }
 .facet .facet-tail summary {
-    cursor: pointer; padding: 4px 8px; font-size: 12px; color: var(--faint); border-radius: 9px;
+    cursor: pointer; padding: 4px 8px; font-size: var(--fs-sm); color: var(--faint); border-radius: 9px;
 }
 .facet .facet-tail summary:hover { color: var(--text); background: var(--raised); }
 
 /* Said once, under the groups it applies to. */
-.facet-hint { margin: 12px 0 0; font-size: 11.5px; color: var(--dim); }
+.facet-hint { margin: 12px 0 0; font-size: var(--fs-xs); color: var(--dim); }
 
 /* The facets a reader goes looking for, rather than the three they arrive with. */
 .facet-more-groups { margin: 0; border-top: 1px solid var(--line-soft); padding-top: 14px; }
 .facet-more-groups > summary {
-    cursor: pointer; font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase;
+    cursor: pointer; font: var(--fs-2xs)/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase;
     color: var(--faint); padding: 4px 8px; border-radius: var(--radius);
 }
 .facet-more-groups > summary:hover { color: var(--text); background: var(--raised); }
@@ -2392,7 +2427,7 @@ fieldset.facet.presence .check {
     display: inline-flex;
     gap: 6px;
     align-items: center;
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
     border: 1px solid var(--line);
     border-radius: 99px;
     padding: 3px 10px 3px 7px;
@@ -2410,7 +2445,7 @@ fieldset.facet.presence .check .count { color: var(--faint); font-variant-numeri
    fact. Derived is the odd hue on purpose: it is the only ink on the site that marks something no
    game said and no socket showed, so it may not be mistaken for either at a glance. */
 .evidence {
-    font: 10px/1.4 var(--kick);
+    font: var(--fs-2xs)/1.4 var(--kick);
     letter-spacing: 0.1em;
     text-transform: uppercase;
     white-space: nowrap;
@@ -2442,12 +2477,12 @@ fieldset.facet.presence .check .count { color: var(--faint); font-variant-numeri
     margin: 0 8px;
     padding-top: 14px;
     border-top: 1px solid var(--line-soft);
-    font-size: 12px;
+    font-size: var(--fs-sm);
     color: var(--faint);
     text-align: left;
 }
 
-.facet-key summary { cursor: pointer; color: var(--dim); font-size: 11.5px; }
+.facet-key summary { cursor: pointer; color: var(--dim); font-size: var(--fs-xs); }
 .facet-key .facet-more ul { margin: 8px 0 0; padding-left: 1.2em; }
 .facet-key .facet-more li { margin-bottom: 6px; color: var(--dim); line-height: 1.5; }
 
@@ -2473,18 +2508,18 @@ fieldset.facet.presence .check .count { color: var(--faint); font-variant-numeri
     border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line));
     border-radius: 99px;
     padding: 3px 9px;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     text-decoration: none;
     background: var(--recessed);
 }
 
 .filter-chip:hover { border-color: var(--accent); background: var(--raised); }
-.filter-chip .chip-facet { font: 10px/1.4 var(--kick); letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+.filter-chip .chip-facet { font: var(--fs-2xs)/1.4 var(--kick); letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
 .filter-chip .chip-value { color: var(--text); }
-.filter-chip .chip-x { color: var(--faint); font-size: 10px; }
+.filter-chip .chip-x { color: var(--faint); font-size: var(--fs-2xs); }
 .filter-chip:hover .chip-x { color: var(--text); }
 
-.active-filters .clear-all { font-size: 12px; color: var(--dim); }
+.active-filters .clear-all { font-size: var(--fs-sm); color: var(--dim); }
 
 /* A filter we could not read is refused out loud rather than dropped, so it needs somewhere loud
    to be said. Amber, like every other "we are not showing you a measurement" state here. */
@@ -2502,10 +2537,10 @@ fieldset.facet.presence .check .count { color: var(--faint); font-variant-numeri
   same list drawn two ways down one screen. The name gives up width first, which is the one cell
   that can spare it, and the two right-hand columns hold their edge.
 */
-@media (max-width: 620px) {
+@media (max-width: 38.75em) {
     .row-main { gap: 3px 12px; }
-    .row-count { font-size: 14px; }
-    .row-count.unknown { font-size: 12.5px; }
+    .row-count { font-size: var(--fs-base); }
+    .row-count.unknown { font-size: var(--fs-sm); }
 }
 /* ── reference and orientation pages ───────────────────────────────────────
    The hand-written section (spec §9). Two things it has to communicate that no
@@ -2526,12 +2561,12 @@ fieldset.facet.presence .check .count { color: var(--faint); font-variant-numeri
 
 article.reference { max-width: 72ch; }
 article.reference header { margin-bottom: calc(var(--cpad) * 2); }
-article.reference header .lede { font-size: 15px; margin: 4px 0 8px; }
+article.reference header .lede { font-size: var(--fs-md); margin: 4px 0 8px; }
 
 .reference-index { list-style: none; margin: 0; padding: 0; }
 .reference-index li { padding: var(--row-pad) 0; border-bottom: 1px solid var(--line); }
 .reference-index .name { font-weight: 600; text-decoration: none; display: inline-block; margin-right: 8px; }
-.reference-index .dim { font-size: 13px; }
+.reference-index .dim { font-size: var(--fs-sm2); }
 
 /* The measured half of a codebase or protocol page, boxed away from the prose. */
 .measured-panel {
@@ -2542,9 +2577,9 @@ article.reference header .lede { font-size: 15px; margin: 4px 0 8px; }
     margin: 0 0 calc(var(--cpad) * 2);
 }
 .measured-panel h2 { margin-top: 0; }
-.measured-panel .figure { font-size: 20px; margin: 0 0 6px; }
+.measured-panel .figure { font-size: var(--fs-2xl); margin: 0 0 6px; }
 .measured-panel .figure a { text-decoration: none; }
-.measured-panel .dim { font-size: 13px; margin: 0 0 6px; max-width: 62ch; }
+.measured-panel .dim { font-size: var(--fs-sm2); margin: 0 0 6px; max-width: 62ch; }
 .measured-panel table.matrix { margin-top: var(--cpad); }
 
 /* The accessibility row is first and stays visually first, because it is the row
@@ -2556,11 +2591,11 @@ table.client-matrix td a { color: var(--faint); }
 /* Prose. Measure capped at 62ch for the same reason the plain surface stops at
    eighty columns — a line a reader loses their place in is a line they re-read. */
 .prose { max-width: 62ch; }
-.prose h2 { font-size: 17px; }
-.prose h3 { font-size: 15px; font-weight: 600; margin: calc(var(--cpad) * 1.5) 0 6px; }
+.prose h2 { font-size: var(--fs-xl); }
+.prose h3 { font-size: var(--fs-md); font-weight: 600; margin: calc(var(--cpad) * 1.5) 0 6px; }
 .prose p, .prose li { color: var(--dim); }
 .prose strong { color: var(--text); font-weight: 600; }
-.prose code { font-family: var(--mono); font-size: 13px; color: var(--text); }
+.prose code { font-family: var(--mono); font-size: var(--fs-sm2); color: var(--text); }
 .prose pre {
     background: var(--recessed);
     border: 1px solid var(--line);
@@ -2568,7 +2603,7 @@ table.client-matrix td a { color: var(--faint); }
     padding: var(--cpad);
     overflow-x: auto;
 }
-.prose pre code { font-size: 13px; }
+.prose pre code { font-size: var(--fs-sm2); }
 .prose ul, .prose ol { padding-left: 1.4em; }
 .prose li { margin-bottom: 4px; }
 
@@ -2578,10 +2613,10 @@ table.client-matrix td a { color: var(--faint); }
    read as one field somebody has been asked to split. The hint sits under the
    box it belongs to, where the mistake it prevents is about to be made. */
 form.submit-address { display: grid; gap: 6px; max-width: 44ch; margin: var(--cpad) 0; }
-form.submit-address label { font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
+form.submit-address label { font: var(--fs-2xs)/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
 form.submit-address label + input { margin-bottom: 2px; }
 form.submit-address input[type="text"] { width: 100%; }
-form.submit-address .faint { font-size: 12px; margin-bottom: 8px; }
+form.submit-address .faint { font-size: var(--fs-sm); margin-bottom: 8px; }
 form.submit-address button { justify-self: start; margin-top: 4px; }
 
 /* The answer. A left rule and nothing else — no colour carries the difference
@@ -2606,7 +2641,7 @@ form.submit-address button { justify-self: start; margin-top: 4px; }
 
 details.claim { border-bottom: 1px solid var(--line); padding: var(--row-pad) 0; }
 details.claim > summary { cursor: pointer; }
-details.claim > summary .faint { margin-left: 8px; font-size: 13px; }
+details.claim > summary .faint { margin-left: 8px; font-size: var(--fs-sm2); }
 
 .owner-panel { margin: var(--cpad) 0 calc(var(--cpad) * 2); max-width: 62ch; }
 .owner-panel h3 { margin-top: var(--cpad); }
@@ -2615,7 +2650,7 @@ details.claim > summary .faint { margin-left: 8px; font-size: 13px; }
 form.enrichment label { display: block; margin-bottom: var(--cpad); }
 form.enrichment label .kicker { display: block; margin-bottom: 4px; }
 form.enrichment input[type="text"] { display: block; width: 100%; }
-form.enrichment label .faint { display: block; font-size: 12px; margin-top: 4px; }
+form.enrichment label .faint { display: block; font-size: var(--fs-sm); margin-top: 4px; }
 
 /* Saved and refused both say so on the page an owner is already looking at: a
    write that reported nothing would teach them the site is broken (§8.5). */
@@ -2627,7 +2662,7 @@ p.refused { border-left: 2px solid var(--amber); padding-left: 10px; }
    fault, and most of what this page says is that a value is unlisted rather
    than wrong. The kicker carries the kind and the prose carries the reason. */
 
-dl.lint dt { font-size: 13px; margin-top: var(--cpad); }
+dl.lint dt { font-size: var(--fs-sm2); margin-top: var(--cpad); }
 dl.lint dd { margin: 2px 0 0; color: var(--dim); }
 dl.lint dd .kicker { display: block; margin-bottom: 2px; }
 
@@ -2637,13 +2672,13 @@ dl.lint dd .kicker { display: block; margin-bottom: 2px; }
    in one piece. */
 
 details.publish { margin-top: 6px; }
-details.publish > summary { cursor: pointer; font-size: 12px; }
+details.publish > summary { cursor: pointer; font-size: var(--fs-sm); }
 details.publish pre {
     background: var(--recessed);
     border: 1px solid var(--line);
     border-radius: 3px;
     padding: 8px 10px;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     white-space: pre-wrap;
     word-break: break-all;
 }
@@ -2659,9 +2694,9 @@ details.publish pre {
    confirmation is the guard, not the colour. */
 
 details.history, details.resign { margin-top: 6px; }
-details.history > summary, details.resign > summary { cursor: pointer; font-size: 12px; }
+details.history > summary, details.resign > summary { cursor: pointer; font-size: var(--fs-sm); }
 
-ol.events { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12px; }
+ol.events { list-style: none; margin: 6px 0 0; padding: 0; font-size: var(--fs-sm); }
 ol.events li { padding: 2px 0; color: var(--dim); }
 ol.events .faint { margin-right: 8px; }
 
@@ -2719,7 +2754,7 @@ details.resign input[type="text"] { display: block; margin: 6px 0; max-width: 16
 /* The question is a heading, so a screen reader can jump between the six and
    the page has an outline. h2's own rhythm belongs to prose sections and
    would fight the 24/14 above. */
-.find-q-head h2 { font-size: 16px; font-weight: 600; margin: 0; color: var(--text); }
+.find-q-head h2 { font-size: var(--fs-lg); font-weight: 600; margin: 0; color: var(--text); }
 
 .find-opts { display: flex; flex-wrap: wrap; gap: 10px 8px; }
 
@@ -2739,13 +2774,13 @@ details.resign input[type="text"] { display: block; margin: 6px 0; max-width: 16
     border-radius: var(--radius);
     background: var(--raised);
     color: var(--dim);
-    font-size: 13.5px;
+    font-size: var(--fs-sm2);
     text-decoration: none;
     transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 
-.find-opt .tick { font-family: var(--mono); font-size: 12px; color: var(--faint); }
-.find-opt .count { font-size: 12px; color: var(--faint); }
+.find-opt .tick { font-family: var(--mono); font-size: var(--fs-sm); color: var(--faint); }
+.find-opt .count { font-size: var(--fs-sm); color: var(--faint); }
 .find-opt:hover { background: color-mix(in srgb, var(--accent) 8%, var(--raised)); }
 .find-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -2764,7 +2799,7 @@ details.resign input[type="text"] { display: block; margin: 6px 0; max-width: 16
     cursor: pointer;
     display: inline-block;
     padding: 6px 10px;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     color: var(--faint);
     border-radius: var(--radius);
 }
@@ -2804,15 +2839,15 @@ details.resign input[type="text"] { display: block; margin: 6px 0; max-width: 16
 .find-count { display: flex; align-items: baseline; gap: 8px; margin: 0; }
 
 .find-n {
-    font-size: 40px;
+    font-size: var(--fs-6xl);
     font-weight: 600;
     line-height: 1;
     color: var(--accent);
     font-variant-numeric: tabular-nums;
 }
 
-.find-noun { font-size: 13.5px; color: var(--dim); }
-.find-basis { margin: 0; font-size: 12px; color: var(--faint); }
+.find-noun { font-size: var(--fs-sm2); color: var(--dim); }
+.find-basis { margin: 0; font-size: var(--fs-sm); color: var(--faint); }
 
 .find-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
@@ -2825,7 +2860,7 @@ details.resign input[type="text"] { display: block; margin: 6px 0; max-width: 16
     border-radius: var(--radius-pill);
     background: var(--raised);
     color: var(--dim);
-    font-size: 12px;
+    font-size: var(--fs-sm);
     text-decoration: none;
     max-width: 100%;
 }
@@ -2846,7 +2881,7 @@ details.resign input[type="text"] { display: block; margin: 6px 0; max-width: 16
     border: 1px dashed var(--line);
     border-radius: var(--radius);
     color: var(--dim);
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
     text-decoration: none;
 }
 .find-loosen:hover { color: var(--text); border-color: var(--dim); background: var(--raised); }
@@ -2861,7 +2896,7 @@ details.resign input[type="text"] { display: block; margin: 6px 0; max-width: 16
     background: color-mix(in srgb, var(--accent) 14%, transparent);
     box-shadow: var(--glow);
     color: var(--accent);
-    font-size: 14px;
+    font-size: var(--fs-base);
     font-weight: 600;
     text-align: center;
     text-decoration: none;
@@ -2869,7 +2904,7 @@ details.resign input[type="text"] { display: block; margin: 6px 0; max-width: 16
 .find-go:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 .find-go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.find-clear { margin: 0; font-size: 12px; }
+.find-clear { margin: 0; font-size: var(--fs-sm); }
 .find-clear a { color: var(--faint); }
 .find-clear a:hover { color: var(--text); }
 
@@ -2883,7 +2918,7 @@ details.resign input[type="text"] { display: block; margin: 6px 0; max-width: 16
   It stays sticky at the top of the viewport, which is the same promise the
   side column makes at a width that has room for one.
 */
-@media (max-width: 860px) {
+@media (max-width: 53.75em) {
     .find-grid { grid-template-columns: minmax(0, 1fr); }
     .find-questions, .find-panel { grid-column: 1; }
 
@@ -2936,7 +2971,7 @@ details.resign input[type="text"] { display: block; margin: 6px 0; max-width: 16
 
     .find-chips { flex: 0 1 auto; }
     .find-go { padding: 9px 14px; }
-    .find-n { font-size: 28px; }
+    .find-n { font-size: var(--fs-5xl); }
 
     /*
       The bar is pinned over the foot of the viewport, and a browser scrolling a
