@@ -3118,206 +3118,678 @@
   </data>
   <data name="reference.title" xml:space="preserve">
     <value>Reference</value>
-    <comment>the reference section's chrome</comment>
+    <comment>THE REFERENCE SECTION'S CHROME</comment>
   </data>
   <data name="reference.lede" xml:space="preserve">
     <value>What the codebases are, what the clients do, and what the protocols mean. Written by hand and kept in the repository beside the crawler — not a wiki, and there is nothing on this page to edit. Every {number} here is a different thing: it comes from the catalogue and is recomputed each time you load the page.</value>
-    <comment>the reference section's chrome</comment>
+    <comment>THE REFERENCE SECTION'S CHROME</comment>
   </data>
   <data name="reference.lede.number" xml:space="preserve">
     <value>number</value>
-    <comment>the reference section's chrome</comment>
+    <comment>THE REFERENCE SECTION'S CHROME</comment>
   </data>
   <data name="reference.plain.lede" xml:space="preserve">
     <value>Hand-written, single-author, and versioned in git. The prose here is ours; every number beside it was measured by the crawler and is recomputed on each request. This is not a wiki, and there is no way to edit it from this page.</value>
-    <comment>the reference section's chrome</comment>
+    <comment>THE REFERENCE SECTION'S CHROME</comment>
   </data>
   <data name="reference.section.orientation" xml:space="preserve">
     <value>Start here</value>
-    <comment>the reference section's chrome</comment>
+    <comment>THE REFERENCE SECTION'S CHROME</comment>
   </data>
   <data name="reference.section.codebase" xml:space="preserve">
     <value>Codebases</value>
-    <comment>the reference section's chrome</comment>
+    <comment>THE REFERENCE SECTION'S CHROME</comment>
   </data>
   <data name="reference.section.client" xml:space="preserve">
     <value>Clients</value>
-    <comment>the reference section's chrome</comment>
+    <comment>THE REFERENCE SECTION'S CHROME</comment>
   </data>
   <data name="reference.section.protocol" xml:space="preserve">
     <value>Protocols</value>
-    <comment>the reference section's chrome</comment>
+    <comment>THE REFERENCE SECTION'S CHROME</comment>
   </data>
   <data name="reference.kind.orientation" xml:space="preserve">
     <value>orientation</value>
-    <comment>the reference section's chrome</comment>
+    <comment>THE REFERENCE SECTION'S CHROME</comment>
   </data>
   <data name="reference.kind.codebase" xml:space="preserve">
     <value>codebase</value>
-    <comment>the reference section's chrome</comment>
+    <comment>THE REFERENCE SECTION'S CHROME</comment>
   </data>
   <data name="reference.kind.client" xml:space="preserve">
     <value>client</value>
-    <comment>the reference section's chrome</comment>
+    <comment>THE REFERENCE SECTION'S CHROME</comment>
   </data>
   <data name="reference.kind.protocol" xml:space="preserve">
     <value>protocol</value>
-    <comment>the reference section's chrome</comment>
+    <comment>THE REFERENCE SECTION'S CHROME</comment>
   </data>
   <data name="reference.notFound.title" xml:space="preserve">
     <value>Not found</value>
-    <comment>the reference section's chrome</comment>
+    <comment>THE REFERENCE SECTION'S CHROME</comment>
   </data>
   <data name="reference.notFound.body" xml:space="preserve">
     <value>No reference page here. This section is hand-written, so a gap is work nobody has done rather than something that was removed — {index}.</value>
-    <comment>the reference section's chrome</comment>
+    <comment>THE REFERENCE SECTION'S CHROME</comment>
   </data>
   <data name="reference.notFound.index" xml:space="preserve">
     <value>see what there is</value>
-    <comment>the reference section's chrome</comment>
+    <comment>THE REFERENCE SECTION'S CHROME</comment>
   </data>
   <data name="reference.codebase.heading" xml:space="preserve">
     <value>Games running it</value>
-    <comment>the reference section's chrome</comment>
+    <comment>a codebase page's measured half</comment>
   </data>
   <data name="reference.codebase.none" xml:space="preserve">
     <value>We have not identified any yet. That is a fact about what this crawler has measured, not about what exists — a game we have not reached, or whose codebase we could not read, is not counted here.</value>
-    <comment>the reference section's chrome</comment>
+    <comment>a codebase page's measured half</comment>
   </data>
   <data name="reference.codebase.listed" xml:space="preserve">
     <value>{count, plural, one {# listed} other {# listed}}</value>
-    <comment>the reference section's chrome</comment>
+    <comment>a codebase page's measured half</comment>
   </data>
   <data name="reference.codebase.archived" xml:space="preserve">
     <value>{count, plural, one {# archived} other {# archived}}</value>
-    <comment>the reference section's chrome</comment>
+    <comment>a codebase page's measured half</comment>
   </data>
   <data name="reference.measuredNeverAsserted" xml:space="preserve">
     <value>measured, never asserted</value>
-    <comment>the reference section's chrome</comment>
+    <comment>a codebase page's measured half</comment>
   </data>
   <data name="reference.codebase.note" xml:space="preserve">
     <value>Counted from the catalogue on this request, over the same filter the link above carries — so this number and that listing are one query and cannot drift apart.</value>
-    <comment>the reference section's chrome</comment>
+    <comment>a codebase page's measured half</comment>
   </data>
   <data name="reference.codebase.offered" xml:space="preserve">
     <value>offered in their handshakes: {protocols}</value>
-    <comment>the reference section's chrome</comment>
+    <comment>a codebase page's measured half</comment>
   </data>
   <data name="reference.protocol.heading" xml:space="preserve">
     <value>Measured adoption</value>
-    <comment>the reference section's chrome</comment>
+    <comment>a protocol page's measured half</comment>
   </data>
   <data name="reference.protocol.none" xml:space="preserve">
     <value>Nothing measured yet.</value>
-    <comment>the reference section's chrome</comment>
+    <comment>a protocol page's measured half</comment>
   </data>
   <data name="reference.protocol.share" xml:space="preserve">
     <value>of {listed, plural, one {# listed game} other {# listed games}} — {percent}</value>
-    <comment>the reference section's chrome</comment>
+    <comment>a protocol page's measured half</comment>
   </data>
   <data name="reference.protocol.remainder" xml:space="preserve">
     <value>The games not counted here are not games without the protocol. A game is counted when we observed its server offering the option in a handshake; the rest are servers that did not offer it to us and servers whose handshake we have not read, and we cannot tell you which.</value>
-    <comment>the reference section's chrome</comment>
+    <comment>a protocol page's measured half</comment>
   </data>
   <data name="reference.protocol.caption" xml:space="preserve">
     <value>Games observed offering {protocol} in a handshake, by the codebase we identified them as running.</value>
-    <comment>the reference section's chrome</comment>
+    <comment>a protocol page's measured half</comment>
   </data>
   <data name="reference.protocol.column.codebase" xml:space="preserve">
     <value>codebase</value>
-    <comment>the reference section's chrome</comment>
+    <comment>a protocol page's measured half</comment>
   </data>
   <data name="reference.protocol.column.offered" xml:space="preserve">
     <value>offered it</value>
-    <comment>the reference section's chrome</comment>
+    <comment>a protocol page's measured half</comment>
   </data>
   <data name="reference.protocol.column.identified" xml:space="preserve">
     <value>identified</value>
-    <comment>the reference section's chrome</comment>
+    <comment>a protocol page's measured half</comment>
   </data>
   <data name="reference.seeAlso" xml:space="preserve">
     <value>See also</value>
-    <comment>the reference section's chrome</comment>
+    <comment>a protocol page's measured half</comment>
   </data>
   <data name="reference.capabilities.heading" xml:space="preserve">
     <value>Capabilities</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the client capability matrix, which is documentation rather than measurement</comment>
   </data>
   <data name="reference.capabilities.established" xml:space="preserve">
     <value>{count, plural, one {# of {total} established from the project's own documentation} other {# of {total} established from the project's own documentation}}</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the client capability matrix, which is documentation rather than measurement</comment>
   </data>
   <data name="reference.capabilities.caveat" xml:space="preserve">
     <value>Read off each project's own documentation, not measured by us — a client has no handshake for us to observe. "{unknown}" means we looked and did not establish it. It never means no.</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the client capability matrix, which is documentation rather than measurement</comment>
   </data>
   <data name="reference.capabilities.caption" xml:space="preserve">
     <value>Client capabilities, each read off the project's own documentation. Unknown means we did not establish it, and never that the client lacks it.</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the client capability matrix, which is documentation rather than measurement</comment>
   </data>
   <data name="reference.capabilities.column.documented" xml:space="preserve">
     <value>documented</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the client capability matrix, which is documentation rather than measurement</comment>
   </data>
   <data name="reference.capabilities.column.source" xml:space="preserve">
     <value>source</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the client capability matrix, which is documentation rather than measurement</comment>
   </data>
   <data name="reference.capabilities.noSource" xml:space="preserve">
     <value>we did not find one</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the client capability matrix, which is documentation rather than measurement</comment>
   </data>
   <data name="reference.capability.yes" xml:space="preserve">
     <value>yes</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the client capability matrix, which is documentation rather than measurement</comment>
   </data>
   <data name="reference.capability.no" xml:space="preserve">
     <value>no</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the client capability matrix, which is documentation rather than measurement</comment>
   </data>
   <data name="reference.capability.unknown" xml:space="preserve">
     <value>unknown</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the client capability matrix, which is documentation rather than measurement</comment>
   </data>
   <data name="reference.plain.runsOn" xml:space="preserve">
     <value>Runs on: {platforms}</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the plain mirror's own wording</comment>
   </data>
   <data name="reference.plain.codebase.heading" xml:space="preserve">
     <value>Games we have identified as running this codebase</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the plain mirror's own wording</comment>
   </data>
   <data name="reference.plain.codebase.none" xml:space="preserve">
     <value>None yet. That is a statement about what we have measured, not about what exists — a game we have not reached, or whose codebase we could not read, is not counted here.</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the plain mirror's own wording</comment>
   </data>
   <data name="reference.plain.codebase.counts" xml:space="preserve">
     <value>{listed, plural, one {# listed} other {# listed}}, {archived, plural, one {# archived} other {# archived}}</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the plain mirror's own wording</comment>
   </data>
   <data name="reference.plain.codebase.offered" xml:space="preserve">
     <value>Measured in their handshakes: {protocols}</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the plain mirror's own wording</comment>
   </data>
   <data name="reference.plain.codebase.nothingOffered" xml:space="preserve">
     <value>Nothing was offered in any handshake we have read from them.</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the plain mirror's own wording</comment>
   </data>
   <data name="reference.plain.protocol.share" xml:space="preserve">
     <value>{offering} of {listed, plural, one {# listed game} other {# listed games}} were observed offering it ({percent})</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the plain mirror's own wording</comment>
   </data>
   <data name="reference.plain.protocol.byCodebase" xml:space="preserve">
     <value>By codebase, of the games we identified</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the plain mirror's own wording</comment>
   </data>
   <data name="reference.plain.protocol.row" xml:space="preserve">
     <value>{offering} of {identified} offered it</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the plain mirror's own wording</comment>
   </data>
   <data name="reference.plain.capabilities.unknown" xml:space="preserve">
     <value>{count, plural, one {# of {total} rows is unknown} other {# of {total} rows are unknown}}: we did not find the project's own documentation saying either way. A short honest table beats a long guessed one.</value>
-    <comment>the reference section's chrome</comment>
+    <comment>the plain mirror's own wording</comment>
+  </data>
+  <data name="account.title" xml:space="preserve">
+    <value>Your games</value>
+    <comment>the dashboard's frame</comment>
+  </data>
+  <data name="account.noDatabase" xml:space="preserve">
+    <value>Accounts need a database behind them, and this site is running on the demo fixture.</value>
+    <comment>the dashboard's frame</comment>
+  </data>
+  <data name="account.signInButton" xml:space="preserve">
+    <value>Sign in</value>
+    <comment>the dashboard's frame</comment>
+  </data>
+  <data name="account.signedInAs" xml:space="preserve">
+    <value>Signed in as {name}.</value>
+    <comment>the dashboard's frame</comment>
+  </data>
+  <data name="account.signOut" xml:space="preserve">
+    <value>Sign out</value>
+    <comment>the dashboard's frame</comment>
+  </data>
+  <data name="account.empty.body" xml:space="preserve">
+    <value>You have not claimed anything yet. Find your game in {listing} and press {claimControl} on its page.</value>
+    <comment>the dashboard's frame</comment>
+  </data>
+  <data name="account.empty.listing" xml:space="preserve">
+    <value>the listing</value>
+    <comment>the dashboard's frame</comment>
+  </data>
+  <data name="account.empty.claimControl" xml:space="preserve">
+    <value>claim this game</value>
+    <comment>the dashboard's frame</comment>
+  </data>
+  <data name="account.resigned.lead" xml:space="preserve">
+    <value>Given up.</value>
+    <comment>the one banner a POST comes back with</comment>
+  </data>
+  <data name="account.resigned.body" xml:space="preserve">
+    <value>The record of it is kept, and you can prove control again any time by publishing a fresh token.</value>
+    <comment>the one banner a POST comes back with</comment>
+  </data>
+  <data name="account.saved.lead" xml:space="preserve">
+    <value>Saved.</value>
+    <comment>the one banner a POST comes back with</comment>
+  </data>
+  <data name="account.saved.thatGame" xml:space="preserve">
+    <value>That game</value>
+    <comment>the one banner a POST comes back with</comment>
+  </data>
+  <data name="account.saved.fields" xml:space="preserve">
+    <value>{game}'s page now shows it as owner-declared.</value>
+    <comment>the one banner a POST comes back with</comment>
+  </data>
+  <data name="account.saved.screenHidden" xml:space="preserve">
+    <value>We have stopped republishing {game}'s connect screen. The page says so plainly rather than leaving a hole.</value>
+    <comment>the one banner a POST comes back with</comment>
+  </data>
+  <data name="account.saved.screenShown" xml:space="preserve">
+    <value>{game}'s connect screen is on its page again.</value>
+    <comment>the one banner a POST comes back with</comment>
+  </data>
+  <data name="account.saved.crawlStopped" xml:space="preserve">
+    <value>We have stopped dialling {game}, on every address we have for it. Its page keeps everything measured before you asked.</value>
+    <comment>the one banner a POST comes back with</comment>
+  </data>
+  <data name="account.saved.crawlResumed" xml:space="preserve">
+    <value>We are dialling {game} again, from its next turn in the schedule.</value>
+    <comment>the one banner a POST comes back with</comment>
+  </data>
+  <data name="account.saved.unlisted" xml:space="preserve">
+    <value>{game} is out of the listing, the rankings and the daily figure. Its page and every URL it has ever had go on answering.</value>
+    <comment>the one banner a POST comes back with</comment>
+  </data>
+  <data name="account.saved.relisted" xml:space="preserve">
+    <value>{game} is back in the listing. One probe that answers is all it needs to be measured again.</value>
+    <comment>the one banner a POST comes back with</comment>
+  </data>
+  <data name="account.refused.lead" xml:space="preserve">
+    <value>{field} was not changed.</value>
+    <comment>the one banner a POST comes back with</comment>
+  </data>
+  <data name="account.refused.tooLong" xml:space="preserve">
+    <value>These are one-line answers; {max} characters is the most we store.</value>
+    <comment>the one banner a POST comes back with</comment>
+  </data>
+  <data name="account.refused.measured" xml:space="preserve">
+    <value>That field is measured. A claim lets you add what MSSP has no room for; it never lets anybody edit what we observed, and that includes us.</value>
+    <comment>the one banner a POST comes back with</comment>
+  </data>
+  <data name="account.claimed.heading" xml:space="preserve">
+    <value>Claimed</value>
+    <comment>a claimed game's block</comment>
+  </data>
+  <data name="account.claim.verified" xml:space="preserve">
+    <value>verified {date}</value>
+    <comment>a claimed game's block</comment>
+  </data>
+  <data name="account.claim.verifiedAndSeen" xml:space="preserve">
+    <value>verified {date}, token last seen {seen}</value>
+    <comment>a claimed game's block</comment>
+  </data>
+  <data name="account.claim.mssp" xml:space="preserve">
+    <value>check your MSSP</value>
+    <comment>a claimed game's block</comment>
+  </data>
+  <data name="account.claim.coOwners" xml:space="preserve">
+    <value>{count, plural, one {Also owned by {names} — who verified a token of their own.} other {Also owned by {names} — each having verified a token of their own.}}</value>
+    <comment>a claimed game's block</comment>
+  </data>
+  <data name="account.coOwner.unnamed" xml:space="preserve">
+    <value>another account</value>
+    <comment>a claimed game's block</comment>
+  </data>
+  <data name="account.badge.summary" xml:space="preserve">
+    <value>put your player count on your own site</value>
+    <comment>a claimed game's block</comment>
+  </data>
+  <data name="account.badge.carries" xml:space="preserve">
+    <value>The badge carries the count and when we measured it, because a number with no age is the thing this site exists to replace.</value>
+    <comment>a claimed game's block</comment>
+  </data>
+  <data name="account.badge.states" xml:space="preserve">
+    <value>It says {unknown} rather than nought when we could not count, and {archived} if the game stops answering.</value>
+    <comment>a claimed game's block</comment>
+  </data>
+  <data name="account.badge.json" xml:space="preserve">
+    <value>There is {json} too, if you would rather draw your own.</value>
+    <comment>a claimed game's block</comment>
+  </data>
+  <data name="account.history.summary" xml:space="preserve">
+    <value>history</value>
+    <comment>the audit log</comment>
+  </data>
+  <data name="account.event.issued" xml:space="preserve">
+    <value>token issued</value>
+    <comment>the audit log</comment>
+  </data>
+  <data name="account.event.reissued" xml:space="preserve">
+    <value>token issued again</value>
+    <comment>the audit log</comment>
+  </data>
+  <data name="account.event.verified" xml:space="preserve">
+    <value>verified — we read your token</value>
+    <comment>the audit log</comment>
+  </data>
+  <data name="account.event.beaconSeen" xml:space="preserve">
+    <value>token still published</value>
+    <comment>the audit log</comment>
+  </data>
+  <data name="account.event.beaconMissing" xml:space="preserve">
+    <value>token not read this time</value>
+    <comment>the audit log</comment>
+  </data>
+  <data name="account.event.revoked" xml:space="preserve">
+    <value>claim given up</value>
+    <comment>the audit log</comment>
+  </data>
+  <data name="account.event.expired" xml:space="preserve">
+    <value>token expired unused</value>
+    <comment>the audit log</comment>
+  </data>
+  <data name="account.event.counterClaimed" xml:space="preserve">
+    <value>another account proved control and took the game over</value>
+    <comment>the audit log</comment>
+  </data>
+  <data name="account.event.checkRequested" xml:space="preserve">
+    <value>check requested</value>
+    <comment>the audit log</comment>
+  </data>
+  <data name="account.resign.summary" xml:space="preserve">
+    <value>give up this claim</value>
+    <comment>the audit log</comment>
+  </data>
+  <data name="account.resign.confirm" xml:space="preserve">
+    <value>Type {word} to confirm. Nothing is deleted and you can prove control again by publishing a fresh token; the game stays claimed if anybody else owns it.</value>
+    <comment>the audit log</comment>
+  </data>
+  <data name="account.resign.button" xml:space="preserve">
+    <value>Give up {game}</value>
+    <comment>the audit log</comment>
+  </data>
+  <data name="account.pending.heading" xml:space="preserve">
+    <value>Waiting on a token</value>
+    <comment>waiting on a token, and the passkeys</comment>
+  </data>
+  <data name="account.pending.dates" xml:space="preserve">
+    <value>token issued {issued}, good until {expires}</value>
+    <comment>waiting on a token, and the passkeys</comment>
+  </data>
+  <data name="account.passkeys.heading" xml:space="preserve">
+    <value>Passkeys</value>
+    <comment>waiting on a token, and the passkeys</comment>
+  </data>
+  <data name="account.passkey.unnamed" xml:space="preserve">
+    <value>unnamed</value>
+    <comment>waiting on a token, and the passkeys</comment>
+  </data>
+  <data name="account.passkey.added" xml:space="preserve">
+    <value>added {date}</value>
+    <comment>waiting on a token, and the passkeys</comment>
+  </data>
+  <data name="account.passkey.addedOneDevice" xml:space="preserve">
+    <value>added {date} · on one device only</value>
+    <comment>waiting on a token, and the passkeys</comment>
+  </data>
+  <data name="account.passkey.single" xml:space="preserve">
+    <value>This passkey lives on one device. If you lose it you can still get back in by publishing a fresh token on your game, but a second passkey is quicker.</value>
+    <comment>waiting on a token, and the passkeys</comment>
+  </data>
+  <data name="account.passkey.add" xml:space="preserve">
+    <value>Add another passkey</value>
+    <comment>waiting on a token, and the passkeys</comment>
+  </data>
+  <data name="claim.noGame" xml:space="preserve">
+    <value>No such game</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.title" xml:space="preserve">
+    <value>Claim {game}</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.noDatabase" xml:space="preserve">
+    <value>Claiming needs a database behind it, and this site is running on the demo fixture.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.needAccount" xml:space="preserve">
+    <value>You need an account first. It takes a passkey and a name.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.signIn" xml:space="preserve">
+    <value>Sign in or create an account</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.yourGames" xml:space="preserve">
+    <value>Your games</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.hasOwners" xml:space="preserve">
+    <value>{count, plural, one {This game already has an owner who proved control of the server.} other {This game already has # owners who proved control of the server.}} You can prove it too — the test is the same either way — but we need to know what you mean by it, because we cannot tell from the token.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.join.button" xml:space="preserve">
+    <value>I run it too — add me as an owner</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.join.note" xml:space="preserve">
+    <value>Everyone keeps their claim. This is two people running one game.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.assume.button" xml:space="preserve">
+    <value>I have taken it over — transfer it to me</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.assume.note" xml:space="preserve">
+    <value>{count, plural, one {When your token verifies, the existing claim is revoked and the game is yours.} other {When your token verifies, the existing claims are revoked and the game is yours.}} They will see why in their own history. Nothing is deleted, and they can prove control again the same way you are about to.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.verified.lead" xml:space="preserve">
+    <value>Verified.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.verified.viaMssp" xml:space="preserve">
+    <value>We read your token from the game's MSSP report on {date}.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.verified.viaScreen" xml:space="preserve">
+    <value>We read your token from the connect screen on {date}.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.verified.leaveIt" xml:space="preserve">
+    <value>Leave the token where it is. It doubles as an identity signal, so this game stays recognisable if it moves host or changes name. Removing it will not un-claim you.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.publish" xml:space="preserve">
+    <value>Publish this token anywhere the game shows it to an anonymous connection. The next probe picks it up, which proves you can write to that server.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.transfer.lead" xml:space="preserve">
+    <value>This is a transfer.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.transfer.body" xml:space="preserve">
+    <value>{count, plural, one {When we read this token, the current owner's claim on this game is revoked and it becomes yours.} other {When we read this token, the current owners' claims on this game are revoked and it becomes yours.}}</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.either.heading" xml:space="preserve">
+    <value>Either of these will do</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.mssp.heading" xml:space="preserve">
+    <value>An MSSP variable</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.mssp.note" xml:space="preserve">
+    <value>In {codebase} that is a line in {file}; every codebase with MSSP has an equivalent.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.mssp.aliases" xml:space="preserve">
+    <value>{aliases} are accepted too.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.screen.heading" xml:space="preserve">
+    <value>A line on the connect screen</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.screen.note" xml:space="preserve">
+    <value>Anywhere in the screen, and colour codes around it are fine.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.then.heading" xml:space="preserve">
+    <value>Then</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.then.body" xml:space="preserve">
+    <value>We check on the ordinary crawl schedule. This token is good until {date}. Come back any time; nothing needs writing down.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.check.button" xml:space="preserve">
+    <value>Look sooner</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.check.can" xml:space="preserve">
+    <value>Brings your game to the front of the queue. We dial on our own schedule, so this is sooner rather than now.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.check.rationed" xml:space="preserve">
+    <value>Just asked. Try again in a few minutes — it is rationed because it dials a real server sooner than we would have.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="owner.declare.heading" xml:space="preserve">
+    <value>What only you can tell us about {game}</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.declare.lede" xml:space="preserve">
+    <value>These are the things MSSP has no field for. They appear on your game's page as {declared}, with the date you last confirmed them, beside what we measured — never instead of it. Nothing measured can be edited from here, by you or by us.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.field.declared" xml:space="preserve">
+    <value>declared {age}. Empty this box to withdraw it — the record of what it said is kept either way.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.save" xml:space="preserve">
+    <value>Save what you declared</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.override.heading" xml:space="preserve">
+    <value>What {game} reports, and what you would rather we showed</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.override.lede" xml:space="preserve">
+    <value>Your MSSP is what every crawler reads, and we go on showing it beside anything you put here — an answer of yours does not hide one of your game's.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.override.nothingMeasured" xml:space="preserve">
+    <value>Nothing measured can be edited from here: not a player count, not a capability, not an hour of reachability.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.override.fixItThere" xml:space="preserve">
+    <value>If a line below is wrong in your {file}, fixing it there fixes it everywhere.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.report.value" xml:space="preserve">
+    <value>your game reports {value}, confirmed {age}</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.report.none" xml:space="preserve">
+    <value>your game reports nothing here</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.rename.note" xml:space="preserve">
+    <value>Changing the name changes what {game} is listed as and the address of its page. The old address goes on working for ever — every URL this game has ever had redirects to its current one — and clearing the box hands the name back to whatever your MSSP says.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.screen.heading" xml:space="preserve">
+    <value>Your connect screen</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.screen.suppressed" xml:space="preserve">
+    <value>We are not republishing it. The page says so plainly rather than leaving a hole, and the crawler goes on reading it — it is how we recognise your game if it moves.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.screen.show" xml:space="preserve">
+    <value>Show it again</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.screen.shown" xml:space="preserve">
+    <value>We show it because your server sends it to every anonymous connection. If you would rather we did not, say so and we stop. We will not ask why.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.screen.stop" xml:space="preserve">
+    <value>Stop showing our connect screen</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.crawl.heading" xml:space="preserve">
+    <value>Being crawled</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.crawl.stopped" xml:space="preserve">
+    <value>We have stopped. Nothing on {game} is dialled, and the page keeps everything measured before you asked — the empty hours name no cause, because {ourFact} is our fact and not a measurement of your game.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.crawl.ourFact" xml:space="preserve">
+    <value>you asked us to stop</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.crawl.resume" xml:space="preserve">
+    <value>Start crawling us again</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.crawl.standing" xml:space="preserve">
+    <value>This one came from your own server rather than from here — {routes}. To be crawled again, stop publishing it; we will hear that on the next cycle.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.crawl.route.mssp" xml:space="preserve">
+    <value>your MSSP report publishes {variable}</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.crawl.route.dns" xml:space="preserve">
+    <value>a {label} TXT record asks us to stop</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.crawl.route.recorded" xml:space="preserve">
+    <value>a request we recorded</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.crawl.partial" xml:space="preserve">
+    <value>We have stopped on {stopped} and are still dialling {dialling}. That is usually a port added after the opt-out.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.crawl.stopAll" xml:space="preserve">
+    <value>Stop on every address too</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.crawl.dialling" xml:space="preserve">
+    <value>We dial {game} on a schedule and read what any anonymous connection is shown. If you would rather we did not, say so and we stop — within one cycle, on every address we have for you, and we will not ask why.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.crawl.selfService" xml:space="preserve">
+    <value>Nothing already measured is deleted: your page keeps its history and its URL, and one probe after you take this back starts it again. You can also say it without us, in your own config — {mssp} in MSSP, or a {dns} TXT record — and we honour those whether or not anybody has ever claimed the game here.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.crawl.stop" xml:space="preserve">
+    <value>Stop crawling us</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.listing.heading" xml:space="preserve">
+    <value>Being listed</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.listing.unlisted" xml:space="preserve">
+    <value>{game} is out of the listing, out of the rankings and out of the daily figure. Its page and every URL it has ever had go on answering, and everything measured before you asked is still on it. Nothing was deleted; it is simply not somewhere a reader arrives by browsing.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.listing.relist" xml:space="preserve">
+    <value>Put us back in the listing</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.listing.probeRelists" xml:space="preserve">
+    <value>One probe that answers does this too. While your opt-out stands we do not dial, so nothing will — but the day you take it back, the address comes up within a week and the probe that gets an answer puts you back. You do not have to ask us twice.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.listing.mayUnlist" xml:space="preserve">
+    <value>We have stopped dialling you, and your page is still in the listing with what we measured before that. If you would rather it were not, say so and it comes out — of the listing, the rankings and the daily figure.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.listing.reversible" xml:space="preserve">
+    <value>Nothing is deleted and nothing breaks: the page answers, every URL it has ever had still redirects to it, and anyone you send there sees it. It stops being somewhere a reader can arrive by browsing. Reversible from here, and by any probe that answers after you take your opt-out back.</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
+  </data>
+  <data name="owner.listing.unlist" xml:space="preserve">
+    <value>Take us out of the listing too</value>
+    <comment>what a claim actually grants (the owner panel, §8.5 and §11)</comment>
   </data>
 </root>

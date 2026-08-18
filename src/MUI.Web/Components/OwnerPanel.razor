@@ -18,12 +18,25 @@
 *@
 
 <section class="owner-panel">
-    <h3>What only you can tell us about @Name</h3>
+    <h3>@Say("owner.declare.heading", ("game", Name))</h3>
 
+    @*
+        The provenance word is placed rather than written into the sentence, and it is the SAME id
+        the chip on the game's page uses. That is deliberate: this paragraph promises an owner what
+        their page will say, and two ids for one word is how the promise and the page drift apart.
+    *@
     <p class="faint">
-        These are the things MSSP has no field for. They appear on your game's page as
-        <em>owner-declared</em>, with the date you last confirmed them, beside what we measured —
-        never instead of it. Nothing measured can be edited from here, by you or by us.
+        @foreach (var part in Sentence.Place(Tag, "owner.declare.lede", ["declared"]))
+        {
+            @if (part.Slot is "declared")
+            {
+                <em>@L("provenance.game.ownerDeclared")</em>
+            }
+            else
+            {
+                @part.Text
+            }
+        }
     </p>
 
     <form method="post" action="@Http.Link($"/account/games/{GameId}/enrichment")" class="enrichment">
@@ -32,22 +45,23 @@
         @foreach (var definition in FieldRegistry.OwnerEnrichable)
         {
             <label>
-                <span class="kicker">@definition.Name.ToLowerInvariant()</span>
+                @* The registry's own field name: machine voice, like a hostname or a codebase. *@
+                <span class="kicker" translate="no">@definition.Name.ToLowerInvariant()</span>
                 <input type="text"
                        name="@(OwnerWrites.FieldPrefix + definition.Name)"
                        value="@(Current(definition.Name)?.Value)"
                        maxlength="@OwnerEnrichment.MaxValueLength" />
                 @if (Current(definition.Name) is { Value.Length: > 0 } row)
                 {
+                    @* "declared", never "measured" — this is the age of what the owner told us. *@
                     <span class="faint">
-                        declared @Relative.Ago(Tag, Now - row.LastConfirmedAt). Empty this box to
-                        withdraw it — the record of what it said is kept either way.
+                        @Say("owner.field.declared", ("age", Relative.Ago(Tag, Now - row.LastConfirmedAt)))
                     </span>
                 }
             </label>
         }
 
-        <button type="submit">Save what you declared</button>
+        <button type="submit">@L("owner.save")</button>
     </form>
 
     @*
@@ -60,13 +74,36 @@
         a game's own report invites somebody to retype it into an override saying exactly the same
         thing: a second row, a second age, a second thing to keep current, in exchange for nothing.
     *@
-    <h3>What @Name reports, and what you would rather we showed</h3>
+    <h3>@Say("owner.override.heading", ("game", Name))</h3>
 
+    @*
+        Three sentences rather than one with a <strong> inside it. An emphasised clause in the
+        middle of a sentence is one a translator cannot move — it lands elsewhere in most languages
+        and nowhere in some — and this is the clause that must survive translation intact, because
+        it is the site's whole claim. Its own id, its own sentence, its own element.
+    *@
+    @*
+        The placed sentence sits in its own <span>, and that is load-bearing rather than tidy:
+        Razor drops the whitespace on a line that opens a code block, so a bare @foreach after a
+        sibling sentence renders as "…not an hour of reachability.If a line below…". Between two
+        elements the space is ordinary markup and survives.
+    *@
     <p class="faint">
-        Your MSSP is what every crawler reads, and we go on showing it beside anything you put here —
-        an answer of yours does not hide one of your game's. <strong>Nothing measured can be edited
-        from here</strong>: not a player count, not a capability, not an hour of reachability. If a
-        line below is wrong in your <code>mush.cnf</code>, fixing it there fixes it everywhere.
+        @L("owner.override.lede")
+        <strong>@L("owner.override.nothingMeasured")</strong>
+        <span>
+            @foreach (var part in Sentence.Place(Tag, "owner.override.fixItThere", ["file"]))
+            {
+                @if (part.Slot is "file")
+                {
+                    <code translate="no">mush.cnf</code>
+                }
+                else
+                {
+                    @part.Text
+                }
+            }
+        </span>
     </p>
 
     <form method="post" action="@Http.Link($"/account/games/{GameId}/enrichment")" class="enrichment override">
@@ -75,62 +112,70 @@
         @foreach (var definition in FieldRegistry.OwnerOverridable)
         {
             <label>
-                <span class="kicker">@definition.Name.ToLowerInvariant()</span>
+                <span class="kicker" translate="no">@definition.Name.ToLowerInvariant()</span>
                 <input type="text"
                        name="@(OwnerWrites.FieldPrefix + definition.Name)"
                        value="@(Current(definition.Name)?.Value)"
                        maxlength="@OwnerEnrichment.MaxValueLength" />
                 @if (Reported.TryGetValue(definition.Name, out var reported) && reported.Value.Length > 0)
                 {
+                    @*
+                        What the game itself reports, shown beside the box and never in it. The
+                        value is the game's own bytes and is placed as markup rather than
+                        translated.
+                    *@
                     <span class="faint">
-                        your game reports <span class="mono">@reported.Value</span>, confirmed
-                        @Relative.Ago(Tag, Now - reported.LastConfirmedAt)
+                        @foreach (var part in Sentence.Place(
+                            Tag,
+                            "owner.report.value",
+                            ["value"],
+                            ("age", Relative.Ago(Tag, Now - reported.LastConfirmedAt))))
+                        {
+                            @if (part.Slot is "value")
+                            {
+                                <span class="mono" translate="no">@reported.Value</span>
+                            }
+                            else
+                            {
+                                @part.Text
+                            }
+                        }
                     </span>
                 }
                 else
                 {
-                    <span class="faint">your game reports nothing here</span>
+                    <span class="faint">@L("owner.report.none")</span>
                 }
             </label>
         }
 
-        <button type="submit">Save what you declared</button>
+        <button type="submit">@L("owner.save")</button>
     </form>
 
     @*
         The one field on this form that moves more than a row. Said here rather than in a tooltip,
         because a URL changing is the kind of surprise somebody should have read about first.
     *@
-    <p class="faint">
-        Changing the name changes what @Name is listed as and the address of its page. The old
-        address goes on working for ever — every URL this game has ever had redirects to its current
-        one — and clearing the box hands the name back to whatever your MSSP says.
-    </p>
+    <p class="faint">@Say("owner.rename.note", ("game", Name))</p>
 
-    <h3>Your connect screen</h3>
+    <h3>@L("owner.screen.heading")</h3>
 
     @if (Suppressed)
     {
-        <p>
-            We are not republishing it. The page says so plainly rather than leaving a hole, and the
-            crawler goes on reading it — it is how we recognise your game if it moves.
-        </p>
+        <p>@L("owner.screen.suppressed")</p>
         <form method="post" action="@Http.Link($"/account/games/{GameId}/connect-screen")">
             <AntiforgeryToken />
             <input type="hidden" name="suppress" value="false" />
-            <button type="submit">Show it again</button>
+            <button type="submit">@L("owner.screen.show")</button>
         </form>
     }
     else
     {
-        <p>
-            We show it because your server sends it to every anonymous connection. If you would
-            rather we did not, say so and we stop. We will not ask why.
-        </p>
+        <p>@L("owner.screen.shown")</p>
         <form method="post" action="@Http.Link($"/account/games/{GameId}/connect-screen")">
             <AntiforgeryToken />
             <input type="hidden" name="suppress" value="true" />
-            <button type="submit">Stop showing our connect screen</button>
+            <button type="submit">@L("owner.screen.stop")</button>
         </form>
     }
 
@@ -140,14 +185,27 @@
         rather than hidden behind it: an owner who would rather not depend on us having their claim
         on file can say it in their own config and we will honour it on the next cycle.
     *@
-    <h3>Being crawled</h3>
+    <h3>@L("owner.crawl.heading")</h3>
 
     @if (OptOut is { AllStopped: true })
     {
+        @*
+            The empty hours this leaves may not be given a cause (rule 2, rule 5): "you asked us to
+            stop" is OUR fact and not a measurement of the game. The clause is emphasised and is
+            placed by the message, so a language that puts it first can.
+        *@
         <p>
-            We have stopped. Nothing on @Name is dialled, and the page keeps everything measured
-            before you asked — the empty hours name no cause, because <em>you asked us to stop</em>
-            is our fact and not a measurement of your game.
+            @foreach (var part in Sentence.Place(Tag, "owner.crawl.stopped", ["ourFact"], ("game", Name)))
+            {
+                @if (part.Slot is "ourFact")
+                {
+                    <em>@L("owner.crawl.ourFact")</em>
+                }
+                else
+                {
+                    @part.Text
+                }
+            }
         </p>
 
         @if (OptOut.WithdrawableHere)
@@ -155,16 +213,13 @@
             <form method="post" action="@Http.Link($"/account/games/{GameId}/crawl")">
                 <AntiforgeryToken />
                 <input type="hidden" name="stop" value="false" />
-                <button type="submit">Start crawling us again</button>
+                <button type="submit">@L("owner.crawl.resume")</button>
             </form>
         }
         else
         {
             @* The game is still saying stop on every probe, and this side may not overrule it. *@
-            <p class="faint">
-                This one came from your own server rather than from here — @Routes. To be crawled
-                again, stop publishing it; we will hear that on the next cycle.
-            </p>
+            <p class="faint">@Say("owner.crawl.standing", ("routes", Routes))</p>
         }
     }
     else if (OptOut is { Partial: true })
@@ -174,33 +229,45 @@
             had left them alone while we went on dialling the port that is still open.
         *@
         <p class="warn">
-            We have stopped on @string.Join(", ", OptOut.Stopped) and are still dialling
-            @string.Join(", ", OptOut.Dialling). That is usually a port added after the opt-out.
+            @Say(
+                "owner.crawl.partial",
+                ("stopped", string.Join(", ", OptOut.Stopped)),
+                ("dialling", string.Join(", ", OptOut.Dialling)))
         </p>
         <form method="post" action="@Http.Link($"/account/games/{GameId}/crawl")">
             <AntiforgeryToken />
             <input type="hidden" name="stop" value="true" />
-            <button type="submit">Stop on every address too</button>
+            <button type="submit">@L("owner.crawl.stopAll")</button>
         </form>
     }
     else
     {
-        <p>
-            We dial @Name on a schedule and read what any anonymous connection is shown. If you would
-            rather we did not, say so and we stop — within one cycle, on every address we have for
-            you, and we will not ask why.
-        </p>
+        <p>@Say("owner.crawl.dialling", ("game", Name))</p>
+        @*
+            An opt-out is honoured and is never a deletion — the first clause says so, and the two
+            config spellings are the crawler's own tokens rather than words to translate.
+        *@
         <p class="faint">
-            Nothing already measured is deleted: your page keeps its history and its URL, and one
-            probe after you take this back starts it again. You can also say it without us, in your
-            own config — <code>@OptOutVocabulary.MsspVariable</code> in MSSP, or a
-            <code>@OptOutVocabulary.DnsLabel</code> TXT record — and we honour those whether or not
-            anybody has ever claimed the game here.
+            @foreach (var part in Sentence.Place(Tag, "owner.crawl.selfService", ["mssp", "dns"]))
+            {
+                @if (part.Slot is "mssp")
+                {
+                    <code translate="no">@OptOutVocabulary.MsspVariable</code>
+                }
+                else if (part.Slot is "dns")
+                {
+                    <code translate="no">@OptOutVocabulary.DnsLabel</code>
+                }
+                else
+                {
+                    @part.Text
+                }
+            }
         </p>
         <form method="post" action="@Http.Link($"/account/games/{GameId}/crawl")">
             <AntiforgeryToken />
             <input type="hidden" name="stop" value="true" />
-            <button type="submit">Stop crawling us</button>
+            <button type="submit">@L("owner.crawl.stop")</button>
         </form>
     }
 
@@ -213,48 +280,31 @@
     *@
     @if (Listing is { IsUnlisted: true })
     {
-        <h3>Being listed</h3>
+        <h3>@L("owner.listing.heading")</h3>
 
-        <p>
-            @Name is out of the listing, out of the rankings and out of the daily figure. Its page
-            and every URL it has ever had go on answering, and everything measured before you asked
-            is still on it. Nothing was deleted; it is simply not somewhere a reader arrives by
-            browsing.
-        </p>
+        @* Unlisted, never deleted (§7.5): the page and every URL it ever had go on answering. *@
+        <p>@Say("owner.listing.unlisted", ("game", Name))</p>
 
         <form method="post" action="@Http.Link($"/account/games/{GameId}/listing")">
             <AntiforgeryToken />
             <input type="hidden" name="unlist" value="false" />
-            <button type="submit">Put us back in the listing</button>
+            <button type="submit">@L("owner.listing.relist")</button>
         </form>
 
-        <p class="faint">
-            One probe that answers does this too. While your opt-out stands we do not dial, so
-            nothing will — but the day you take it back, the address comes up within a week and the
-            probe that gets an answer puts you back. You do not have to ask us twice.
-        </p>
+        <p class="faint">@L("owner.listing.probeRelists")</p>
     }
     else if (Listing is { MayUnlist: true })
     {
-        <h3>Being listed</h3>
+        <h3>@L("owner.listing.heading")</h3>
 
-        <p>
-            We have stopped dialling you, and your page is still in the listing with what we measured
-            before that. If you would rather it were not, say so and it comes out — of the listing,
-            the rankings and the daily figure.
-        </p>
+        <p>@L("owner.listing.mayUnlist")</p>
 
-        <p class="faint">
-            Nothing is deleted and nothing breaks: the page answers, every URL it has ever had still
-            redirects to it, and anyone you send there sees it. It stops being somewhere a reader can
-            arrive by browsing. Reversible from here, and by any probe that answers after you take
-            your opt-out back.
-        </p>
+        <p class="faint">@L("owner.listing.reversible")</p>
 
         <form method="post" action="@Http.Link($"/account/games/{GameId}/listing")">
             <AntiforgeryToken />
             <input type="hidden" name="unlist" value="true" />
-            <button type="submit">Take us out of the listing too</button>
+            <button type="submit">@L("owner.listing.unlist")</button>
         </form>
     }
 </section>
@@ -263,6 +313,11 @@
     [CascadingParameter] private HttpContext? Http { get; set; }
 
     private string Tag => Http.LocaleOf().Tag;
+
+    private string L(string id) => Messages.For(Tag, id);
+
+    private string Say(string id, params (string Key, object? Value)[] args) =>
+        Messages.Say(Tag, id, args);
 
     [Parameter, EditorRequired] public Guid GameId { get; set; }
 
@@ -309,12 +364,19 @@
     [Parameter] public OwnerListingState? Listing { get; set; }
 
     /// <summary>The routes the standing rules came in by, for the case this side cannot undo.</summary>
+    /// <remarks>
+    /// One id per route rather than an English clause built round a constant. The variable and the
+    /// DNS label are the crawler's own tokens and go in as arguments: a translated
+    /// <c>MUINDEX OPT-OUT</c> is one no probe would ever read.
+    /// </remarks>
     private string Routes => string.Join(", ", (OptOut?.Standing ?? [])
         .Select(rule => rule.Source switch
         {
-            OptOutSource.Mssp => $"your MSSP report publishes {OptOutVocabulary.MsspVariable}",
-            OptOutSource.DnsTxt => $"a {OptOutVocabulary.DnsLabel} TXT record asks us to stop",
-            _ => "a request we recorded",
+            OptOutSource.Mssp =>
+                Say("owner.crawl.route.mssp", ("variable", OptOutVocabulary.MsspVariable)),
+            OptOutSource.DnsTxt =>
+                Say("owner.crawl.route.dns", ("label", OptOutVocabulary.DnsLabel)),
+            _ => L("owner.crawl.route.recorded"),
         })
         .Distinct());
 
