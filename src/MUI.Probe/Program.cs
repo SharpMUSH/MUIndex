@@ -106,6 +106,11 @@ if (result.Negotiation.GmcpPackages.Count > 0)
     Console.WriteLine($"gmcp          {string.Join(", ", result.Negotiation.GmcpPackages)}");
 }
 
+if (result.Negotiation.MsdpMessages.Count > 0)
+{
+    Console.WriteLine($"msdp          {string.Join(" | ", result.Negotiation.MsdpMessages)}");
+}
+
 if (result.Failure is { } failure)
 {
     Console.WriteLine($"failure       {failure.Cause} — {failure.Detail}");

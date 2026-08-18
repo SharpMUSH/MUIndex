@@ -11,7 +11,7 @@
       IS the capability measurement (spec §6.1), so what a server offers is observed rather than
       taken from a game's own MSSP claim.
     -->
-    <PackageVersion Include="TelnetNegotiationCore" Version="2.8.2" />
+    <PackageVersion Include="TelnetNegotiationCore" Version="2.9.0" />
 
     <!-- Logging abstractions (TelnetNegotiationCore takes an ILogger). -->
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.2" />
