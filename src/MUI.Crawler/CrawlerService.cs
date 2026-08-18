@@ -37,7 +37,10 @@ public sealed class CrawlerService(
     ILogger<CrawlerService> logger,
     // Migration 0017. Optional so a deployment that predates the table keeps crawling rather than
     // failing on a missing relation — the strip is a window on the work, never a condition of it.
-    ICrawlCycles? cycles = null) : BackgroundService
+    ICrawlCycles? cycles = null,
+    // Optional for the same reason, and because a crawl with no gap guard is a crawl that keeps its
+    // old behaviour rather than one that fails to start.
+    CrawlGapGuard? gaps = null) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -214,6 +217,26 @@ public sealed class CrawlerService(
         logger.LogInformation(
             "Holding the crawl lease. {Added} of {Total} configured seeds were new",
             added, options.Seeds.Count);
+
+        // Before the first cycle, because the question it answers is about the time up to now and
+        // the first cycle is what stops that being true. Here rather than once at startup so that it
+        // also covers a lease lost and taken again: the replica that picks the crawl back up is the
+        // one that should say how long nobody was holding it.
+        //
+        // Isolated like RecordAsync below, and for the same reason: this edits history rather than
+        // adding to it, and a guard that cannot run is a reason to crawl anyway. Failing here would
+        // trade a wrong reachability figure for no crawl at all.
+        if (gaps is not null)
+        {
+            try
+            {
+                await gaps.CloseAnyGapAsync(cancellationToken);
+            }
+            catch (Exception error) when (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogError(error, "Could not close the intervals left open by a crawl gap");
+            }
+        }
     }
 }
 
