@@ -83,6 +83,131 @@ public class CrawlCyclePostgresTests
     private static async Task SeedAsync(NpgsqlDataSource source, params CrawlSeed[] seeds) =>
         await CrawlSeeds.PlantAsync(new NpgsqlCrawlTargetRepository(source), seeds, TimeProvider.System);
 
+    /// <summary>Confirmation on, with no wait, so the suite asserts the behaviour and not the delay.</summary>
+    private static DiscoveryOptions Confirming() => new()
+    {
+        GlobalInterval = TimeSpan.Zero,
+        PerHostInterval = TimeSpan.Zero,
+        ConfirmationDelay = TimeSpan.Zero,
+    };
+
+    [Test]
+    public async Task AGameThatAnsweredOnTheSecondAttemptWasNeverDark()
+    {
+        // The defect, measured in production on 2026-08-18: over four days, 173 of 182 dark episodes
+        // were one failed probe followed immediately by a successful one, and they accounted for 86%
+        // of all published downtime. One dial is not a measurement of a game's reachability — it is a
+        // measurement of one dial — and publishing it as the former is rule 5.
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+
+        await SeedAsync(source, new CrawlSeed("mush.example.org", 4201));
+
+        var attempts = 0;
+        var probe = new ScriptedProbe(target => Interlocked.Increment(ref attempts) == 1
+            ? Probes.Failed(
+                host: target.Host,
+                port: target.Port,
+                cause: "dns",
+                detail: "Temporary failure in name resolution")
+            : Probes.Answered(
+                host: target.Host,
+                port: target.Port,
+                mssp: Probes.Mssp(("NAME", "Tidewater Nights")),
+                banner: "Welcome to Tidewater Nights"));
+
+        var report = await Build(source, probe, TimeProvider.System, options: Confirming()).RunAsync();
+
+        await Assert.That(attempts).IsEqualTo(2);
+        await Assert.That(report.Answered).IsEqualTo(1);
+        await Assert.That(report.Failed).IsEqualTo(0);
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        var states = (await connection.QueryAsync<string>(
+            "SELECT state FROM availability_interval ORDER BY from_at")).ToList();
+
+        await Assert.That(states).IsEquivalentTo(new[] { "reachable" });
+    }
+
+    [Test]
+    public async Task AGameThatFailedTwiceIsBelievedAndSaysWhatTheDialSaid()
+    {
+        // The other half. Confirmation is not a licence to swallow real outages: a failure the second
+        // dial agreed with is published immediately, with the message underneath the cause.
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+
+        await SeedAsync(source, new CrawlSeed("mush.example.org", 4201));
+
+        var answered = new ScriptedProbe(target => Probes.Answered(
+            host: target.Host,
+            port: target.Port,
+            mssp: Probes.Mssp(("NAME", "Tidewater Nights")),
+            banner: "Welcome to Tidewater Nights"));
+
+        await Build(source, answered, TimeProvider.System, options: Confirming()).RunAsync();
+
+        await using var connection = await source.OpenConnectionAsync();
+        await connection.ExecuteAsync("UPDATE crawl_target SET next_probe_at = now() - interval '1 hour'");
+
+        var attempts = 0;
+        var failing = new ScriptedProbe(target =>
+        {
+            Interlocked.Increment(ref attempts);
+
+            return Probes.Failed(
+                host: target.Host,
+                port: target.Port,
+                cause: "dns",
+                detail: "No such host is known");
+        });
+
+        var report = await Build(source, failing, TimeProvider.System, options: Confirming()).RunAsync();
+
+        await Assert.That(attempts).IsEqualTo(2);
+        await Assert.That(report.Failed).IsEqualTo(1);
+
+        var interval = await connection.QuerySingleAsync<(string State, string Cause, string? Detail)>(
+            "SELECT state, cause, detail FROM availability_interval WHERE to_at IS NULL");
+
+        await Assert.That(interval.State).IsEqualTo("unreachable");
+        await Assert.That(interval.Cause).IsEqualTo("dns");
+        await Assert.That(interval.Detail).IsEqualTo("No such host is known");
+    }
+
+    [Test]
+    public async Task AConfirmedFailureIsLookedAtAgainInMinutesRatherThanHours()
+    {
+        // The amplifier. A first failure used to buy the six-hour BaseInterval, so every blip was
+        // published as six hours of downtime whatever the far end did next — which is why every dark
+        // span in production is a clean multiple of six hours. ProbeSchedule owns the arithmetic;
+        // this asserts the loop asks it with the right failure count and stores the answer.
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+
+        await SeedAsync(source, new CrawlSeed("mush.example.org", 4201));
+
+        var clock = new SettableClock(new DateTimeOffset(2026, 8, 18, 6, 0, 0, TimeSpan.Zero));
+
+        await using var connection = await source.OpenConnectionAsync();
+        await connection.ExecuteAsync(
+            "UPDATE crawl_target SET next_probe_at = @due", new { due = clock.GetUtcNow() });
+
+        var probe = new ScriptedProbe(target => Probes.Failed(host: target.Host, port: target.Port));
+
+        var report = await Build(source, probe, clock, options: Confirming()).RunAsync();
+
+        await Assert.That(report.Failed).IsEqualTo(1);
+
+        var target = await connection.QuerySingleAsync<(DateTime NextProbeAt, int Failures)>(
+            "SELECT next_probe_at, consecutive_failures FROM crawl_target");
+
+        await Assert.That(target.Failures).IsEqualTo(1);
+        await Assert.That(target.NextProbeAt - clock.GetUtcNow().UtcDateTime)
+            .IsEqualTo(ProbeSchedule.RecheckInterval);
+    }
+
     [Test]
     public async Task AGameThatAnsweredIsListedWithItsMeasuredAndDeclaredFacts()
     {

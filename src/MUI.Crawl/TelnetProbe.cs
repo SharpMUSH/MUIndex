@@ -75,7 +75,12 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
         try
         {
-            await client.ConnectAsync(target.Host, target.Port, budget.Token);
+            // The vetted addresses when the caller has them, the name otherwise. See
+            // ProbeTarget.Addresses for why re-resolving a name the scope guard already ruled on is
+            // both a hole in the guard and a second chance to fail on a transient lookup.
+            await (target.Addresses.Count > 0
+                ? client.ConnectAsync([.. target.Addresses], target.Port, budget.Token)
+                : client.ConnectAsync(target.Host, target.Port, budget.Token));
 
             var built = await Build(seen, lines).BuildAndStartAsync(client, budget.Token);
             var telnet = built.Item1;
@@ -288,7 +293,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Outcome = ProbeOutcome.Failed,
                 OfferedOptions = seen.Supported,
                 Negotiation = seen.ToNegotiation(),
-                Failure = Classify(error),
+                Failure = DialFailure.Classify(error),
                 Elapsed = Stopwatch.GetElapsedTime(started),
             };
         }
@@ -611,14 +616,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// Failure causes, kept apart because only a change of cause writes an availability transition
     /// (spec §5.3) — a hundred consecutive timeouts are one interval, not a hundred.
     /// </summary>
-    private static FailureDetail Classify(Exception error) => error switch
-    {
-        SocketException { SocketErrorCode: SocketError.HostNotFound } => new("dns", error.Message),
-        SocketException { SocketErrorCode: SocketError.ConnectionRefused } => new("refused", error.Message),
-        SocketException { SocketErrorCode: SocketError.TimedOut } => new("timeout", error.Message),
-        OperationCanceledException => new("timeout", "probe budget exhausted"),
-        _ => new("error", error.Message),
-    };
 
     /// <summary>Mutable scratch for one probe. Callbacks arrive on the read loop, so it locks.</summary>
     private sealed class Observations

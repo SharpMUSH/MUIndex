@@ -40,6 +40,12 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
 
     <!--
+      One retry, around one dial. A failed probe is confirmed before it is published as a game going
+      dark — see DiscoveryOptions.ConfirmationAttempts for what one unconfirmed dial was costing.
+    -->
+    <PackageReference Include="Polly.Core" />
+
+    <!--
       §11's opt-out reads a TXT record, which the BCL cannot ask for. The interface lives in
       MUI.Discovery beside the gate that consults it and the implementation lives here, exactly as
       IHostResolver and its live counterpart do — so the projects that hold the rules stay free of a

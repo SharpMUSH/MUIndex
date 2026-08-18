@@ -499,6 +499,31 @@ public class ProbeSessionTests
         await Assert.That(result.Failure!.Cause).IsEqualTo("timeout");
     }
 
+    [Test]
+    public async Task TheProbeDialsTheAddressTheGuardApprovedRatherThanResolvingTheNameAgain()
+    {
+        // Every probe used to resolve its host twice: once in HostScopeGuard, which vetted the
+        // addresses, and once inside TcpClient.ConnectAsync, which dialled the name and could land
+        // somewhere the guard never saw. Two chances to fail on a transient lookup, and a hole in
+        // the guard. The name here cannot resolve (RFC 2606), so the probe can only answer if it
+        // dialled what it was handed.
+        await using var game = new FakeGame
+        {
+            Banner = "Welcome to Nowhere\r\n",
+            WhoReply = "0 Players logged in.\r\n",
+        };
+
+        var target = new ProbeTarget("no-such-host.invalid", game.Target.Port)
+        {
+            Addresses = [IPAddress.Loopback],
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Host).IsEqualTo("no-such-host.invalid");
+    }
+
     private sealed class FakeGame : IAsyncDisposable
     {
         private readonly TcpListener _listener;

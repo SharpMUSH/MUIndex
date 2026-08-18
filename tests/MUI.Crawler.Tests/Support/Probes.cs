@@ -67,14 +67,15 @@ public static class Probes
         int port = 4201,
         string cause = "refused",
         IReadOnlySet<string>? offered = null,
-        DateTimeOffset? at = null) => new()
+        DateTimeOffset? at = null,
+        string? detail = null) => new()
     {
         Host = host,
         Port = port,
         ObservedAt = at ?? Observed,
         Outcome = ProbeOutcome.Failed,
         OfferedOptions = offered ?? new HashSet<string>(StringComparer.Ordinal),
-        Failure = new FailureDetail(cause),
+        Failure = new FailureDetail(cause, detail),
     };
 
     public static IReadOnlySet<string> Offered(params string[] protocols) =>

@@ -103,7 +103,7 @@ public sealed class ProbeIngestor(
         CancellationToken cancellationToken)
     {
         var reachability = await availability.ObserveAsync(
-            gameId, AvailabilityState.Reachable, FailureCause.None, at, cancellationToken);
+            gameId, AvailabilityState.Reachable, FailureCause.None, at, cancellationToken: cancellationToken);
 
         var reading = PresenceChoice.From(result);
         var written = await presence.WriteAsync(gameId, reading, at, cancellationToken);
@@ -145,7 +145,10 @@ public sealed class ProbeIngestor(
     {
         var (state, cause) = FailureReading.Of(result);
 
-        var reachability = await availability.ObserveAsync(gameId, state, cause, at, cancellationToken);
+        // The message travels with the cause. FailureReading collapses a dozen socket errors into
+        // six words on purpose — the site reasons about those six — and this is what was underneath.
+        var reachability = await availability.ObserveAsync(
+            gameId, state, cause, at, result.Failure?.Detail, cancellationToken);
 
         // No presence row, no field reconciliation, no last_reachable_at, no un-archiving. The
         // availability series carries this hour on its own, and the heatmap's empty cell IS that

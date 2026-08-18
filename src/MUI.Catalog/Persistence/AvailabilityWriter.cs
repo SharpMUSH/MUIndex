@@ -16,6 +16,7 @@ public sealed class AvailabilityWriter(IAvailabilityStore store) : IAvailability
         AvailabilityState state,
         FailureCause cause,
         DateTimeOffset at,
+        string? detail = null,
         CancellationToken cancellationToken = default)
     {
         // 'none' is what a reachable interval carries; a failure that reported no cause would be a
@@ -37,7 +38,7 @@ public sealed class AvailabilityWriter(IAvailabilityStore store) : IAvailability
         if (open is null)
         {
             await store.OpenAsync(
-                new AvailabilityInterval { GameId = gameId, State = state, FromAt = at, Cause = cause },
+                new AvailabilityInterval { GameId = gameId, State = state, FromAt = at, Cause = cause, Detail = detail },
                 cancellationToken);
 
             return AvailabilityOutcome.Opened;
@@ -53,7 +54,7 @@ public sealed class AvailabilityWriter(IAvailabilityStore store) : IAvailability
 
         await store.CloseAsync(gameId, at, cancellationToken);
         await store.OpenAsync(
-            new AvailabilityInterval { GameId = gameId, State = state, FromAt = at, Cause = cause },
+            new AvailabilityInterval { GameId = gameId, State = state, FromAt = at, Cause = cause, Detail = detail },
             cancellationToken);
 
         return AvailabilityOutcome.Transitioned;
