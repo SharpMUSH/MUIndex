@@ -1,3 +1,5 @@
+using System.Net;
+
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
 using MUI.Crawler;
@@ -12,7 +14,7 @@ using Npgsql;
 namespace MUI.Web.Tests.Mcp;
 
 /// <summary>
-/// Each of the seven <see cref="MuiMcpTools"/> tools, called over the real MCP transport against a
+/// Each of the eight <see cref="MuiMcpTools"/> tools, called over the real MCP transport against a
 /// real Postgres — the properties under test are the ones a caller cannot see from the tool's C#
 /// alone: what actually landed in the database, and what the tool refuses.
 /// </summary>
@@ -387,5 +389,190 @@ public class McpToolsTests
 
         var fields = new NpgsqlGameFieldStore(source);
         await Assert.That((await fields.ForGameAsync(gameId, CancellationToken.None)).Count).IsEqualTo(0);
+    }
+
+    // ── game_rename ─────────────────────────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task GameRenameWritesNameAsStaffAndMintsANewSlug()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+        var gameId = await SeedGameAsync(source, "old-slug-game", now);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString, clock: new FixedClock(now));
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var result = await client.CallAsync<GameRenameResult>("game_rename", new Dictionary<string, object?>
+        {
+            ["gameSlug"] = "old-slug-game",
+            ["newName"] = "Brand New Name",
+            ["because"] = "The operator asked us to fix the listed name, 2026-08-18.",
+        });
+
+        await Assert.That(result.OldSlug).IsEqualTo("old-slug-game");
+        await Assert.That(result.NewSlug).IsNotEqualTo("old-slug-game");
+        await Assert.That(result.Name).IsEqualTo("Brand New Name");
+
+        // The game table itself moved, and the row is reachable under its new slug.
+        var games = new NpgsqlGameStore(source);
+        var renamed = await games.BySlugAsync(result.NewSlug, CancellationToken.None);
+        await Assert.That(renamed).IsNotNull();
+        await Assert.That(renamed!.Id).IsEqualTo(gameId);
+        await Assert.That(renamed.Name).IsEqualTo("Brand New Name");
+
+        // NAME landed as a staff row with correct precedence (spec §5.1), same check as
+        // GameFieldSetWritesAsStaffAndOutranksASubsequentMeasuredRow.
+        var fields = new NpgsqlGameFieldStore(source);
+        var nameRows = (await fields.ForGameAsync(gameId, CancellationToken.None))
+            .Where(f => f.Field == "NAME")
+            .ToList();
+
+        var staffNameRow = nameRows.Single(f => f.Source == FieldSource.Staff);
+        await Assert.That(staffNameRow.Value).IsEqualTo("Brand New Name");
+        await Assert.That(FieldPrecedence.Winner(nameRows)!.Source).IsEqualTo(FieldSource.Staff);
+
+        // The old slug is retired, not deleted, and points at the new one.
+        var slugs = new NpgsqlSlugHistoryStore(source);
+        await Assert.That(await slugs.CurrentSlugAsync("old-slug-game", CancellationToken.None))
+            .IsEqualTo(result.NewSlug);
+    }
+
+    /// <summary>
+    /// The whole point of a rename is that a stranger's bookmark keeps working — exercised over real
+    /// HTTP against the actual <c>FormerSlugRedirects</c> middleware, not just the database row it
+    /// writes.
+    /// </summary>
+    [Test]
+    public async Task GameRenameOldSlugRedirectsForReal()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+        await SeedGameAsync(source, "redirect-me", now);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString, clock: new FixedClock(now));
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var result = await client.CallAsync<GameRenameResult>("game_rename", new Dictionary<string, object?>
+        {
+            ["gameSlug"] = "redirect-me",
+            ["newName"] = "Redirected Elsewhere",
+            ["because"] = "Testing the redirect for real.",
+        });
+
+        var response = await site.Client.GetAsync($"/g/redirect-me");
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.MovedPermanently);
+        await Assert.That(response.Headers.Location!.ToString()).IsEqualTo($"/g/{result.NewSlug}");
+    }
+
+    [Test]
+    public async Task GameRenameRequiresBecause()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+        var gameId = await SeedGameAsync(source, "needs-because", now);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString);
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var result = await client.TryCallAsync("game_rename", new Dictionary<string, object?>
+        {
+            ["gameSlug"] = "needs-because",
+            ["newName"] = "Should Not Land",
+            ["because"] = "   ",
+        });
+
+        await Assert.That(result.IsError).IsTrue();
+
+        // Nothing was written: the refusal happens before either write.
+        var games = new NpgsqlGameStore(source);
+        await Assert.That((await games.BySlugAsync("needs-because", CancellationToken.None))!.Name)
+            .IsEqualTo("needs-because");
+
+        var fields = new NpgsqlGameFieldStore(source);
+        await Assert.That((await fields.ForGameAsync(gameId, CancellationToken.None)).Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task GameRenameRefusesAnUnknownGame()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString);
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var result = await client.TryCallAsync("game_rename", new Dictionary<string, object?>
+        {
+            ["gameSlug"] = "does-not-exist-anywhere",
+            ["newName"] = "Anything",
+            ["because"] = "Checking the refusal.",
+        });
+
+        await Assert.That(result.IsError).IsTrue();
+    }
+
+    [Test]
+    public async Task GameRenameRefusesWhenAlreadyNamedThat()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+        await SeedGameAsync(source, "same-name-game", now);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString);
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        // SeedGameAsync names the game the same as its slug.
+        var result = await client.TryCallAsync("game_rename", new Dictionary<string, object?>
+        {
+            ["gameSlug"] = "same-name-game",
+            ["newName"] = "same-name-game",
+            ["because"] = "Checking the refusal.",
+        });
+
+        await Assert.That(result.IsError).IsTrue();
+    }
+
+    /// <summary>
+    /// A rename that folds to another game's slug is not an error — <c>GameSlug.UniqueAsync</c>
+    /// appends a numeric suffix the same way it does for any other mint — so this is "handled
+    /// cleanly" in the sense the brief asks for: no raw exception, no refusal, just a different URL.
+    /// </summary>
+    [Test]
+    public async Task GameRenameHandlesANameThatCollidesWithAnotherGamesSlug()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+        await SeedGameAsync(source, "pennmush", now);
+        await SeedGameAsync(source, "some-other-game", now);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString, clock: new FixedClock(now));
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var result = await client.CallAsync<GameRenameResult>("game_rename", new Dictionary<string, object?>
+        {
+            ["gameSlug"] = "some-other-game",
+            ["newName"] = "pennmush",
+            ["because"] = "Deliberately colliding with an existing slug.",
+        });
+
+        await Assert.That(result.NewSlug).IsNotEqualTo("pennmush");
+        await Assert.That(result.NewSlug).StartsWith("pennmush-");
+
+        // The original holder of "pennmush" is untouched.
+        var games = new NpgsqlGameStore(source);
+        var original = await games.BySlugAsync("pennmush", CancellationToken.None);
+        await Assert.That(original).IsNotNull();
+        await Assert.That(original!.Name).IsEqualTo("pennmush");
     }
 }

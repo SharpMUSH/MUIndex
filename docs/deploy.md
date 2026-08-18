@@ -550,6 +550,11 @@ says so on its way past — a dry run dials nobody and owes nobody an address.
 `--seed-exempt` is the only way to point the crawler at an address that is not globally routable, and
 it exists so somebody can dial their own `127.0.0.1` and mean it.
 
+`--rename <slug> <newName> --because "…"` renames a game and mints it a new, unique slug at once —
+the immediate, no-grace path a verified owner's own rename already takes (spec §5.7), for a game with
+no claimed owner or where staff has decided what it is called. The old slug redirects to the new page
+for ever; nothing else about the game moves.
+
 ## Administering the site over MCP
 
 For everything short of `--seed-exempt`, `/mcp` is the alternative to ssh'ing in and running
@@ -557,17 +562,22 @@ For everything short of `--seed-exempt`, `/mcp` is the alternative to ssh'ing in
 an authenticated [Model Context Protocol](https://modelcontextprotocol.io) endpoint mounted inside
 this same deployable (Streamable HTTP transport, `ModelContextProtocol.AspNetCore`), so an MCP client
 — Claude Code, calling over HTTPS — can seed the crawler, record an opt-out, list what's due, force a
-crawl pass, read the registry/crawl summary, or hand-set one field of one game, without a shell on the
-box.
+crawl pass, read the registry/crawl summary, hand-set one field of one game, or rename a game, without
+a shell on the box.
 
 Set `MUI_MCP_TOKEN` (`openssl rand -hex 32`, never committed) and point a client at
 `https://<site>/mcp` with `Authorization: Bearer <token>`. Unset, every request gets a 401 and MUI.Web
 says so once at startup — this endpoint fails closed, never open.
 
-The seven tools (`src/MUI.Web/Mcp/MuiMcpTools.cs`) mirror `mui-crawl`'s CLI surface — `crawl_seed_add`,
+The eight tools (`src/MUI.Web/Mcp/MuiMcpTools.cs`) mirror `mui-crawl`'s CLI surface — `crawl_seed_add`,
 `crawl_opt_out_record`, `crawl_opt_out_check`, `crawl_due_targets`, `crawl_run_cycle`,
-`crawl_summary` — plus one new capability, `game_field_set`, a staff override of a single `GameField`
-row (`FieldSource.Staff`, spec §5.1) for fixing a mis-parsed value by hand without raw SQL.
-`crawl_run_cycle`'s real (non-dry) run reuses the exact same `CrawlCycle` and advisory-lock machinery
-the hosted crawler uses, so it correctly no-ops rather than double-crawls while the hosted crawler
-holds the lease — see the tool's own description for why that is not a bug.
+`crawl_summary` — plus two new capabilities. `game_field_set` is a staff override of a single
+`GameField` row (`FieldSource.Staff`, spec §5.1) for fixing a mis-parsed value by hand without raw
+SQL, and explicitly declines to re-mint a game's slug when the field is `NAME`. `game_rename` (also
+`mui-crawl --rename`) is that missing half: it writes `NAME` through the same staff override and then
+runs `SlugMinter`'s immediate mint-and-rename path, retiring the old slug into `game_slug_history` so
+`FormerSlugRedirects` 301s it for ever — a collision with another game's slug is not an error, it just
+mints a numbered suffix the same way any other mint does. `crawl_run_cycle`'s real (non-dry) run
+reuses the exact same `CrawlCycle` and advisory-lock machinery the hosted crawler uses, so it
+correctly no-ops rather than double-crawls while the hosted crawler holds the lease — see the tool's
+own description for why that is not a bug.

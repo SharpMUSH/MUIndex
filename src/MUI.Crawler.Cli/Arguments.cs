@@ -61,6 +61,14 @@ public sealed record Arguments
                                   0018). Reversible later by hand against merge_log — nothing here
                                   moves an endpoint, a field or any history, only the redirect.
                                   Needs --because.
+          --rename <slug> <newName>
+                                  Rename a game and mint it a new, unique slug at once, and exit.
+                                  <slug> may be a slug or a game id. Writes NAME as staff first (so
+                                  the value has provenance and reaches the change feed), then takes
+                                  the same immediate, no-grace mint-and-rename path a verified
+                                  owner's own rename does (spec §5.7) — not the fourteen-day grace a
+                                  measured rename waits for. The old slug redirects to the new page
+                                  for ever. Needs --because.
           -v, --verbose           Debug logging.
           -h, --help              This.
 
@@ -152,6 +160,9 @@ public sealed record Arguments
     /// The pair to resolve by hand, winner named first (spec §7.3). Null when nothing was asked.
     /// </summary>
     public MergeRequest? Merge { get; init; }
+
+    /// <summary>The game to rename and the name to give it (spec §5.7). Null when nothing was asked.</summary>
+    public RenameRequest? Rename { get; init; }
 
     /// <summary>An address to ask DNS about, without touching a database or a game server.</summary>
     public CrawlAddress? OptOutCheck { get; init; }
@@ -248,6 +259,12 @@ public sealed record Arguments
                     parsed = parsed with { Merge = new MergeRequest(winner, loser) };
                     break;
 
+                case "--rename":
+                    var renameSlug = Next(args, ref i, "--rename");
+                    var renameName = Next(args, ref i, "--rename");
+                    parsed = parsed with { Rename = new RenameRequest(renameSlug, renameName) };
+                    break;
+
                 case "--because":
                     parsed = parsed with { Because = Next(args, ref i, "--because") };
                     break;
@@ -293,6 +310,15 @@ public sealed record Arguments
                 $"--merge needs --because: say what convinced you these are one game.{Environment.NewLine}{Usage}");
         }
 
+        // The fifth. A rename mints a URL the catalogue keeps for ever, on somebody's judgement that
+        // the name has settled rather than on §5.7's usual fourteen-day wait; the reason belongs
+        // beside the row it lands on, same as the other three consequential writes above.
+        if (parsed.Rename is not null && string.IsNullOrWhiteSpace(parsed.Because))
+        {
+            throw new ArgumentException(
+                $"--rename needs --because: say why this name is worth a new URL.{Environment.NewLine}{Usage}");
+        }
+
         // Before a socket rather than after one: an address nobody can open is worth catching while
         // the person who typed it is still looking at the terminal.
         new ProbeOptions { InfoUrl = parsed.InfoUrl }.Validate();
@@ -314,3 +340,6 @@ public sealed record Arguments
 /// way <see cref="Program"/> already reads one for any other operator surface.
 /// </summary>
 public sealed record MergeRequest(string Winner, string Loser);
+
+/// <summary>A game to rename and the name to give it, exactly as typed (spec §5.7).</summary>
+public sealed record RenameRequest(string Slug, string NewName);

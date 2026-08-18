@@ -31,3 +31,7 @@ public sealed record GameFieldSetResult(
     string? PreviousValue,
     string NewValue,
     string? Warning);
+
+/// <summary>What <see cref="MuiMcpTools.GameRenameAsync"/> did. <see cref="OldSlug"/> is the same as
+/// <see cref="NewSlug"/> when the new name minted the same slug as the one the game already had.</summary>
+public sealed record GameRenameResult(string OldSlug, string NewSlug, string Name);

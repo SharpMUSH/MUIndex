@@ -13,9 +13,10 @@ using Npgsql;
 namespace MUI.Web.Mcp;
 
 /// <summary>
-/// The seven tools that replace the ssh/scp/<c>docker compose run --entrypoint mui-crawl</c>
+/// The eight tools that replace the ssh/scp/<c>docker compose run --entrypoint mui-crawl</c>
 /// administration dance with an authenticated MCP surface, mirroring <c>mui-crawl</c>'s CLI surface
-/// (see <c>src/MUI.Crawler.Cli/Arguments.cs</c>) plus <see cref="GameFieldSetAsync"/>, a new capability.
+/// (see <c>src/MUI.Crawler.Cli/Arguments.cs</c>) plus <see cref="GameFieldSetAsync"/> and
+/// <see cref="GameRenameAsync"/>, two new capabilities.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -26,7 +27,9 @@ namespace MUI.Web.Mcp;
 /// what makes <see cref="CrawlRunCycleAsync"/>'s lock-contention behaviour correct rather than
 /// accidental: there is exactly one <see cref="CrawlCycle"/> per process, so a manual invocation and
 /// the hosted crawler are contending for the same advisory lock rather than running two unrelated
-/// crawls at once.
+/// crawls at once. <see cref="SlugMinter"/>, likewise, is the same instance <c>OwnerEnrichment</c>
+/// resolves for a verified owner's own rename (<c>Passkeys.AddMuiAccounts</c>) — <see cref="GameRenameAsync"/>
+/// takes the identical no-grace mint-and-rename path, on staff's say-so instead of an owner's.
 /// </para>
 /// <para>
 /// Registered against DI's per-request scope in stateless HTTP mode (<c>MuiMcp.AddMuiMcp</c>), so a
@@ -44,6 +47,7 @@ public sealed class MuiMcpTools(
     IGameStore games,
     IGameFieldStore fields,
     IFieldRegistry registry,
+    SlugMinter minter,
     TimeProvider time,
     ILogger<MuiMcpTools>? logger = null)
 {
@@ -297,23 +301,7 @@ public sealed class MuiMcpTools(
         }
 
         var now = time.GetUtcNow();
-
-        var existing = (await fields.ForGameAsync(game.Id, FieldSource.Staff, cancellationToken))
-            .FirstOrDefault(f => string.Equals(f.Field, definition.Name, StringComparison.Ordinal));
-
-        // first_seen_at is only ever consumed on the INSERT branch of the upsert (NpgsqlGameFieldStore
-        // deliberately does not overwrite it on conflict), so passing "now" here is safe whether this
-        // is a fresh row or a confirmation of an existing one.
-        await fields.UpsertAsync(
-            new GameField(game.Id, definition.Name, FieldSource.Staff, value, now, now),
-            cancellationToken);
-
-        if (existing is null || !string.Equals(existing.Value, value, StringComparison.Ordinal))
-        {
-            await fields.RecordChangeAsync(
-                new FieldChange(game.Id, definition.Name, FieldSource.Staff, existing?.Value, value, now),
-                cancellationToken);
-        }
+        var previousValue = await WriteStaffFieldAsync(game.Id, definition.Name, value, now, cancellationToken);
 
         logger?.LogInformation(
             "game_field_set: {Slug}.{Field} := {Value} (staff)", game.Slug, definition.Name, value);
@@ -321,10 +309,99 @@ public sealed class MuiMcpTools(
         var warning = string.Equals(definition.Name, "NAME", StringComparison.OrdinalIgnoreCase)
             ? "NAME was written, but the slug was NOT re-minted (this tool does not run "
                 + "IGameStore.RenameAsync's rename/CTE dance) -- the page will show the new name "
-                + "under the OLD url until a re-mint happens some other way."
+                + "under the OLD url until a re-mint happens some other way. Use game_rename instead "
+                + "if the slug should move too."
             : null;
 
-        return new GameFieldSetResult(game.Slug, definition.Name, existing?.Value, value, warning);
+        return new GameFieldSetResult(game.Slug, definition.Name, previousValue, value, warning);
+    }
+
+    [McpServerTool(Name = "game_rename")]
+    [Description("""
+        Renames a game and mints it a new, unique slug at once -- the thing game_field_set explicitly
+        declines to do when field is NAME. Writes NAME through FieldSource.Staff first (spec section
+        5.1 -- the same write game_field_set itself performs, so the value has provenance and reaches
+        the change feed), then runs SlugMinter.ApplyAsync -- the SAME immediate, no-grace mint-and-
+        rename path a verified owner's own rename takes (spec section 5.7) -- rather than waiting for
+        the ordinary fourteen-day grace a measured rename would. The old slug is retired into
+        game_slug_history and 301-redirects to the new page for ever (FormerSlugRedirects); nothing
+        else about the game -- its other fields, its presence history, its change feed -- is touched.
+
+        A collision with another game's slug is not an error: GameSlug.UniqueAsync appends a numeric
+        suffix (e.g. pennmush-2) the same way it does for any other mint. This tool only refuses when
+        the game is not found, the requested name is the game's current name already (nothing to
+        rename), or an actual database-level race prevented the mint just now -- in which case NAME
+        was still written as staff and, being the highest-precedence source, it will win the ordinary
+        crawl cycle's own re-mint once one next runs.
+        """)]
+    public async Task<GameRenameResult> GameRenameAsync(
+        [Description("The game's current slug, e.g. pennmush.")] string gameSlug,
+        [Description("The new name to give the game.")] string newName,
+        [Description(
+            "Why this is worth a new name and URL. Required -- a rename mints a URL the catalogue "
+            + "keeps for ever, matching mui-crawl's --rename/--merge/--mint-now precedent that a "
+            + "consequential catalogue write needs a stated reason beside it for later review.")]
+        string because,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(gameSlug);
+        ArgumentException.ThrowIfNullOrWhiteSpace(newName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(because);
+
+        var game = await games.BySlugAsync(gameSlug.Trim(), cancellationToken)
+            ?? throw new McpException($"No game with slug '{gameSlug}'.");
+
+        var trimmedName = newName.Trim();
+
+        if (string.Equals(trimmedName, game.Name, StringComparison.Ordinal))
+        {
+            throw new McpException($"'{game.Slug}' is already named '{trimmedName}'; nothing to rename.");
+        }
+
+        var now = time.GetUtcNow();
+
+        await WriteStaffFieldAsync(game.Id, "NAME", trimmedName, now, cancellationToken);
+
+        var rename = await minter.ApplyAsync(game.Id, trimmedName, cancellationToken)
+            ?? throw new McpException(
+                $"'{trimmedName}' could not be minted a unique slug for '{game.Slug}' right now (a "
+                + "database-level collision SlugMinter could not resolve on this attempt). NAME was "
+                + "still written as staff and will win the ordinary crawl cycle's own re-mint once "
+                + "one next runs.");
+
+        logger?.LogInformation(
+            "game_rename: {Old} -> {Slug} ({Name}) -- {Because}",
+            game.Slug, rename.Slug, rename.Name, because);
+
+        return new GameRenameResult(rename.FormerSlug ?? game.Slug, rename.Slug, rename.Name);
+    }
+
+    /// <summary>
+    /// Upserts one field of one game as <see cref="FieldSource.Staff"/> and records the transition
+    /// when the value actually changed -- the write both <see cref="GameFieldSetAsync"/> and
+    /// <see cref="GameRenameAsync"/> perform, the second for exactly one field, <c>NAME</c>.
+    /// </summary>
+    /// <returns>The value stored under this (game, field, staff) key before this call, or null.</returns>
+    private async Task<string?> WriteStaffFieldAsync(
+        Guid gameId, string field, string value, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var existing = (await fields.ForGameAsync(gameId, FieldSource.Staff, cancellationToken))
+            .FirstOrDefault(f => string.Equals(f.Field, field, StringComparison.Ordinal));
+
+        // first_seen_at is only ever consumed on the INSERT branch of the upsert (NpgsqlGameFieldStore
+        // deliberately does not overwrite it on conflict), so passing "now" here is safe whether this
+        // is a fresh row or a confirmation of an existing one.
+        await fields.UpsertAsync(
+            new GameField(gameId, field, FieldSource.Staff, value, now, now), cancellationToken);
+
+        if (existing is null || !string.Equals(existing.Value, value, StringComparison.Ordinal))
+        {
+            await fields.RecordChangeAsync(
+                new FieldChange(gameId, field, FieldSource.Staff, existing?.Value, value, now),
+                cancellationToken);
+        }
+
+        return existing?.Value;
     }
 
     private static IReadOnlyList<CrawlDueTarget> ToDue(IReadOnlyList<CrawlTarget> due) =>

@@ -311,6 +311,71 @@ if (arguments.Merge is { } mergeRequest)
     }
 }
 
+// §5.7's operator-driven rename: the same immediate, no-grace mint-and-rename SlugMinter.ApplyAsync
+// performs for a verified owner's own save (OwnerEnrichment -> IOwnerRenames), for a game with no
+// claimed owner or where staff has decided what it is called. NAME is written as staff first — the
+// same declared record an owner's write produces — so the value has provenance and reaches the
+// change feed even on the rare attempt where the mint itself has to wait for a retry.
+if (arguments.Rename is { } renameRequest)
+{
+    try
+    {
+        var gameId = await ResolveGameIdAsync(games, renameRequest.Slug, CancellationToken.None)
+            ?? throw new ArgumentException($"'{renameRequest.Slug}' is not a known slug or game id.");
+
+        var game = await games.ByIdAsync(gameId, CancellationToken.None)
+            ?? throw new ArgumentException($"'{renameRequest.Slug}' is not a known slug or game id.");
+
+        var newName = renameRequest.NewName.Trim();
+
+        if (string.Equals(newName, game.Name, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"'{game.Slug}' is already named '{newName}'; nothing to rename.");
+        }
+
+        var now = time.GetUtcNow();
+
+        var existingName = (await fields.ForGameAsync(gameId, FieldSource.Staff, CancellationToken.None))
+            .FirstOrDefault(f => string.Equals(f.Field, "NAME", StringComparison.Ordinal));
+
+        await fields.UpsertAsync(
+            new GameField(gameId, "NAME", FieldSource.Staff, newName, now, now), CancellationToken.None);
+
+        if (existingName is null || !string.Equals(existingName.Value, newName, StringComparison.Ordinal))
+        {
+            await fields.RecordChangeAsync(
+                new FieldChange(gameId, "NAME", FieldSource.Staff, existingName?.Value, newName, now),
+                CancellationToken.None);
+        }
+
+        var renameMinter = new SlugMinter(
+            games, fields, slugs, grace: null, loggerFactory.CreateLogger<SlugMinter>());
+
+        var rename = await renameMinter.ApplyAsync(gameId, newName, CancellationToken.None)
+            ?? throw new InvalidOperationException(
+                $"'{newName}' could not be minted a unique slug right now (a database-level "
+                + "collision SlugMinter could not resolve on this attempt). NAME was still written "
+                + "as staff and will win the ordinary crawl cycle's own re-mint once one next runs.");
+
+        Console.WriteLine(
+            $"rename        {rename.FormerSlug ?? game.Slug,-34} → {rename.Slug,-34} {rename.Name}"
+            + $" — {arguments.Because}");
+
+        return 0;
+    }
+    catch (Exception error) when (error is ArgumentException or InvalidOperationException)
+    {
+        Console.Error.WriteLine($"rename        refused: {error.Message}");
+        return 1;
+    }
+    catch (PostgresException error)
+    {
+        Console.Error.WriteLine($"rename        refused by the database: {error.MessageText}");
+        return 1;
+    }
+}
+
 var planted = await CrawlSeeds.PlantAsync(targets, arguments.Seeds, time);
 Console.WriteLine($"seeds         {arguments.Seeds.Count} configured, {planted} new in the registry");
 
