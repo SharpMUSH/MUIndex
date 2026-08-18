@@ -53,6 +53,24 @@ public class ProbeIngestorTests
     }
 
     [Test]
+    public async Task ARouteThatDoesNotExistIsNotATimeout()
+    {
+        // FailureReading maps every cause it does not recognise to Timeout, which is why "no_route"
+        // had to be taught here as well as in DialFailure: teaching only the probe would have moved
+        // the word one step and lost it in the same place.
+        var catalogue = new Catalogue();
+        var game = catalogue.Listed();
+
+        await catalogue.Ingestor().IngestAsync(
+            game, Probes.Failed(cause: "no_route", detail: "Network is unreachable"));
+
+        var interval = catalogue.Availability.Intervals.Single();
+
+        await Assert.That(interval.State).IsEqualTo(AvailabilityState.Unreachable);
+        await Assert.That(interval.Cause).IsEqualTo(FailureCause.NoRoute);
+    }
+
+    [Test]
     public async Task ADetailThatChangedIsNotATransition()
     {
         // §5.3's invariant survives the new column. Two timeouts whose messages differ — a different

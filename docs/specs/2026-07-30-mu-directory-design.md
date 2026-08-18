@@ -783,6 +783,15 @@ A single scheduler picks due targets by `next_probe_at`, feeding a bounded worke
 Archiving does not change the schedule. Per-host serialisation prevents a multi-port game from being
 hit concurrently.
 
+**A route that does not exist is not a timeout.** `ENETUNREACH`, `EHOSTUNREACH` and `ENETDOWN` had no
+word in the cause vocabulary, so they fell through the classifier's catch-all and were stored as
+`timeout` — a game that could not be reached from here, published as one that did not answer in time.
+`no_route` is that word. It belongs in a game's record rather than being suppressed as a limitation of
+ours, because of what the vocabulary already means: reachability is measured from one vantage point at
+intervals, which is why nothing here is called uptime, and the site renders the cause as *"no route
+from here"* so the reader is told whose route it was. The errno that separates the three stays in
+`availability_interval.detail`.
+
 **One dial is not a measurement of a game's reachability; it is a measurement of one dial.** A failed
 probe is dialled once more before anything is written down, and only a failure the second dial agrees
 with is published as the game being unreachable. This was learned from production rather than designed

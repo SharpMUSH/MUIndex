@@ -26,6 +26,20 @@ public class ReachSeriesTests
         };
 
     [Test]
+    public async Task EveryCauseTheCatalogueCanStoreHasWordsOfItsOwn()
+    {
+        // Wording.Cause has a default arm, so a cause added to the enum and forgotten here does not
+        // fail — it renders as "no cause recorded", which is the site telling a reader we do not know
+        // why a game was dark when we do. The one place that silence is correct is FailureCause.None,
+        // which is what a reachable interval carries.
+        foreach (var cause in Enum.GetValues<FailureCause>().Where(c => c is not FailureCause.None))
+        {
+            await Assert.That(Wording.Cause(English, cause))
+                .IsNotEqualTo(Wording.Cause(English, FailureCause.None));
+        }
+    }
+
+    [Test]
     public async Task TheStripIsNinetyDaysWideWithTheOldestFirst()
     {
         var summary = ReachSeries.Build([Span(400, null, AvailabilityState.Reachable, FailureCause.None)], Now);
