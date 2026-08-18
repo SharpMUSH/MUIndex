@@ -21,6 +21,12 @@ namespace MUI.Web.Components;
 /// here from the same records the graphical page uses, so the two surfaces cannot report different
 /// counts. Nothing here re-reads the content files.
 /// </para>
+/// <para>
+/// <b>The tag comes first, as it does on <see cref="PlainText"/>, and it reaches every sentence this
+/// file writes — but never the article.</b> The Markdown body is a document somebody owns and is
+/// translated as a document rather than as a string; this file renders whichever one the library
+/// hands it and puts no word of its own inside it.
+/// </para>
 /// </remarks>
 public static class ReferencePlainText
 {
@@ -32,31 +38,38 @@ public static class ReferencePlainText
     /// reading of somebody's documentation. Saying so beside the table is not modesty: this site's
     /// whole claim is that a reader can tell a measurement from an assertion, and a table that looks
     /// like the game pages' measured matrix while being neither would spend that credit.
+    /// <para>
+    /// The unknown word is passed in rather than written into the sentence, so the sentence and the
+    /// cells it is explaining cannot end up quoting different words in the same locale.
+    /// </para>
     /// </remarks>
-    public const string ClientMatrixCaveat =
-        "Read off each project's own documentation, not measured by us — a client has no handshake "
-        + "for us to observe. \"unknown\" means we looked and did not establish it. It never means no.";
+    public static string ClientMatrixCaveat(string tag) =>
+        Messages.Say(tag, "reference.capabilities.caveat",
+            ("unknown", Messages.For(tag, "reference.capability.unknown")));
 
     /// <summary>
     /// The sentence a protocol page's remainder needs, on both surfaces.
     /// </summary>
-    public const string ProtocolRemainderCaveat =
-        "The games not counted here are not games without the protocol. A game is counted when we "
-        + "observed its server offering the option in a handshake; the rest are servers that did not "
-        + "offer it to us and servers whose handshake we have not read, and we cannot tell you which.";
+    /// <remarks>
+    /// Rule 5 in one paragraph: the games not counted are servers that did not offer it to us
+    /// <em>and</em> servers whose handshake we have never read, and a locale that collapsed the two
+    /// would publish our own gap as a fact about somebody's game.
+    /// </remarks>
+    public static string ProtocolRemainderCaveat(string tag) =>
+        Messages.For(tag, "reference.protocol.remainder");
 
     public static string Render(
+        string tag,
         ReferenceDocument document,
         CodebaseFigures? codebase = null,
         ProtocolFigures? protocol = null,
-        IReadOnlyList<ReferenceDocument>? related = null,
-        string tag = Locales.SourceTag)
+        IReadOnlyList<ReferenceDocument>? related = null)
     {
         ArgumentNullException.ThrowIfNull(document);
 
         var b = new StringBuilder();
 
-        b.AppendLine($"{document.Title.ToUpperInvariant()}  [{Kind(document.Kind)}]");
+        b.AppendLine($"{document.Title.ToUpperInvariant()}  [{Kind(tag, document.Kind)}]");
         PlainText.Wrap(b, document.Summary);
 
         if (document.Home is { } home)
@@ -66,22 +79,23 @@ public static class ReferencePlainText
 
         if (document.Platforms.Count > 0)
         {
-            b.AppendLine($"Runs on: {string.Join(", ", document.Platforms)}");
+            b.AppendLine(Messages.Say(
+                tag, "reference.plain.runsOn", ("platforms", string.Join(", ", document.Platforms))));
         }
 
         if (codebase is not null)
         {
-            AppendCodebase(b, document, codebase, tag);
+            AppendCodebase(b, tag, document, codebase);
         }
 
         if (protocol is not null)
         {
-            AppendProtocol(b, document, protocol, tag);
+            AppendProtocol(b, tag, document, protocol);
         }
 
         if (document.Kind is ReferenceKind.Client)
         {
-            AppendClientMatrix(b, document);
+            AppendClientMatrix(b, tag, document);
         }
 
         b.AppendLine();
@@ -90,7 +104,7 @@ public static class ReferencePlainText
         if (related is { Count: > 0 })
         {
             b.AppendLine();
-            b.AppendLine("See also");
+            b.AppendLine(Messages.For(tag, "reference.seeAlso"));
             foreach (var other in related)
             {
                 b.AppendLine($"  {other.Title} — {LocaleRouting.Link(tag, other.Path)}");
@@ -106,45 +120,54 @@ public static class ReferencePlainText
     /// else — and the difference is the whole reason the figure is worth printing.
     /// </summary>
     private static void AppendCodebase(
-        StringBuilder b, ReferenceDocument document, CodebaseFigures figures, string tag)
+        StringBuilder b, string tag, ReferenceDocument document, CodebaseFigures figures)
     {
         b.AppendLine();
-        b.AppendLine("Games we have identified as running this codebase");
+        b.AppendLine(Messages.For(tag, "reference.plain.codebase.heading"));
 
         if (figures.Known == 0)
         {
-            PlainText.Wrap(b, "None yet. That is a statement about what we have measured, not about "
-                + "what exists — a game we have not reached, or whose codebase we could not read, is "
-                + "not counted here.", "  ");
+            PlainText.Wrap(b, Messages.For(tag, "reference.plain.codebase.none"), "  ");
             return;
         }
 
-        b.AppendLine($"  {figures.Listed} listed, {figures.Archived} archived");
+        b.AppendLine("  " + Messages.Say(
+            tag,
+            "reference.plain.codebase.counts",
+            ("listed", figures.Listed),
+            ("archived", figures.Archived)));
 
         if (document.GamesPath is { } path)
         {
             b.AppendLine($"  {LocaleRouting.Link(tag, path)}");
         }
 
-        b.AppendLine(figures.MeasuredProtocols.Count > 0
-            ? $"  Measured in their handshakes: {string.Join(", ", figures.MeasuredProtocols)}"
-            : "  Nothing was offered in any handshake we have read from them.");
+        b.AppendLine("  " + (figures.MeasuredProtocols.Count > 0
+            ? Messages.Say(
+                tag,
+                "reference.plain.codebase.offered",
+                ("protocols", string.Join(", ", figures.MeasuredProtocols)))
+            : Messages.For(tag, "reference.plain.codebase.nothingOffered")));
     }
 
     private static void AppendProtocol(
-        StringBuilder b, ReferenceDocument document, ProtocolFigures figures, string tag)
+        StringBuilder b, string tag, ReferenceDocument document, ProtocolFigures figures)
     {
         b.AppendLine();
-        b.AppendLine("Measured adoption");
+        b.AppendLine(Messages.For(tag, "reference.protocol.heading"));
 
         if (figures.Listed == 0)
         {
-            b.AppendLine("  Nothing measured yet.");
+            b.AppendLine("  " + Messages.For(tag, "reference.protocol.none"));
             return;
         }
 
-        b.AppendLine($"  {figures.Offering} of {figures.Listed} listed games were observed offering it "
-            + $"({Wording.Percent(figures.Share ?? 0)})");
+        PlainText.Wrap(b, Messages.Say(
+            tag,
+            "reference.plain.protocol.share",
+            ("offering", figures.Offering),
+            ("listed", figures.Listed),
+            ("percent", Wording.Percent(figures.Share ?? 0))), "  ");
 
         if (document.GamesPath is { } path)
         {
@@ -152,7 +175,7 @@ public static class ReferencePlainText
         }
 
         b.AppendLine();
-        PlainText.Wrap(b, ProtocolRemainderCaveat, "  ");
+        PlainText.Wrap(b, ProtocolRemainderCaveat(tag), "  ");
 
         var rows = figures.ByCodebase.Where(r => r.IsMeasured).ToList();
 
@@ -162,25 +185,32 @@ public static class ReferencePlainText
         }
 
         b.AppendLine();
-        b.AppendLine("  By codebase, of the games we identified");
+        b.AppendLine("  " + Messages.For(tag, "reference.plain.protocol.byCodebase"));
         foreach (var row in rows)
         {
-            b.AppendLine($"    {row.Codebase,-20} {row.Offering,4} of {row.Identified,-4} offered it");
+            // The family name is padded to a column and the sentence beside it is not: the numbers
+            // are inside a message now, and a language that puts them in the other order has nowhere
+            // to say so if this file is still counting characters into it.
+            b.AppendLine($"    {row.Codebase,-20} " + Messages.Say(
+                tag,
+                "reference.plain.protocol.row",
+                ("offering", row.Offering),
+                ("identified", row.Identified)));
         }
     }
 
-    private static void AppendClientMatrix(StringBuilder b, ReferenceDocument document)
+    private static void AppendClientMatrix(StringBuilder b, string tag, ReferenceDocument document)
     {
         b.AppendLine();
-        b.AppendLine("Capabilities");
-        PlainText.Wrap(b, ClientMatrixCaveat, "  ");
+        b.AppendLine(Messages.For(tag, "reference.capabilities.heading"));
+        PlainText.Wrap(b, ClientMatrixCaveat(tag), "  ");
         b.AppendLine();
 
         var claims = ClientCapabilities.For(document);
 
         foreach (var claim in claims)
         {
-            b.AppendLine($"  {claim.Name,-16} {ClientCapabilities.Word(claim.State)}");
+            b.AppendLine($"  {claim.Name,-16} {ClientCapabilities.Word(tag, claim.State)}");
 
             // The source on its own line, unwrapped. A URL broken across two lines is not a URL, and
             // this is the one place the eighty-column rule gives way to a thing being usable.
@@ -195,23 +225,23 @@ public static class ReferencePlainText
         if (unknown > 0)
         {
             b.AppendLine();
-            PlainText.Wrap(b, $"{unknown} of {claims.Count} rows are unknown: we did not find the "
-                + "project's own documentation saying either way. A short honest table beats a long "
-                + "guessed one.", "  ");
+            PlainText.Wrap(b, Messages.Say(
+                tag,
+                "reference.plain.capabilities.unknown",
+                ("count", unknown),
+                ("total", claims.Count)), "  ");
         }
     }
 
     /// <summary>The index, which is the only page in the section that is a list of the others.</summary>
-    public static string RenderIndex(ReferenceLibrary library, string tag = Locales.SourceTag)
+    public static string RenderIndex(string tag, ReferenceLibrary library)
     {
         ArgumentNullException.ThrowIfNull(library);
 
         var b = new StringBuilder();
 
-        b.AppendLine("REFERENCE");
-        PlainText.Wrap(b, "Hand-written, single-author, and versioned in git. The prose here is ours; "
-            + "every number beside it was measured by the crawler and is recomputed on each request. "
-            + "This is not a wiki, and there is no way to edit it from this page.");
+        b.AppendLine(Messages.For(tag, "reference.title").ToUpperInvariant());
+        PlainText.Wrap(b, Messages.For(tag, "reference.plain.lede"));
 
         foreach (var kind in new[]
         {
@@ -226,7 +256,7 @@ public static class ReferencePlainText
             }
 
             b.AppendLine();
-            b.AppendLine(Heading(kind).ToUpperInvariant());
+            b.AppendLine(Heading(tag, kind).ToUpperInvariant());
 
             foreach (var document in documents)
             {
@@ -239,19 +269,24 @@ public static class ReferencePlainText
         return b.ToString();
     }
 
-    public static string Kind(ReferenceKind kind) => kind switch
+    /// <summary>What one page is — the kicker above its title, and the tag beside it in plain text.</summary>
+    public static string Kind(string tag, ReferenceKind kind) => Messages.For(tag, kind switch
     {
-        ReferenceKind.Codebase => "codebase",
-        ReferenceKind.Client => "client",
-        ReferenceKind.Protocol => "protocol",
-        _ => "orientation",
-    };
+        ReferenceKind.Codebase => "reference.kind.codebase",
+        ReferenceKind.Client => "reference.kind.client",
+        ReferenceKind.Protocol => "reference.kind.protocol",
+        _ => "reference.kind.orientation",
+    });
 
-    public static string Heading(ReferenceKind kind) => kind switch
+    /// <summary>
+    /// The heading over a list of them, which is a different job from <see cref="Kind"/> and so a
+    /// different id: English writes one word for both and most languages do not.
+    /// </summary>
+    public static string Heading(string tag, ReferenceKind kind) => Messages.For(tag, kind switch
     {
-        ReferenceKind.Codebase => "Codebases",
-        ReferenceKind.Client => "Clients",
-        ReferenceKind.Protocol => "Protocols",
-        _ => "Start here",
-    };
+        ReferenceKind.Codebase => "reference.section.codebase",
+        ReferenceKind.Client => "reference.section.client",
+        ReferenceKind.Protocol => "reference.section.protocol",
+        _ => "reference.section.orientation",
+    });
 }
