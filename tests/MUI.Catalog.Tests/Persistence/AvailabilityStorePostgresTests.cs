@@ -65,6 +65,77 @@ public class AvailabilityStorePostgresTests
     }
 
     [Test]
+    public async Task ClosingTheOpenIntervalsEndsThemWhereWeStoppedLooking()
+    {
+        // The guard's one write. Every game watching at the moment the crawl stopped has its interval
+        // ended there, so the silence that follows is a hole rather than observation — see CrawlGap
+        // for why the hole is the honest shape and what it cost to reconstruct by hand.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var store = new NpgsqlAvailabilityStore(db.DataSource);
+
+        var watching = await Seed.GameAsync(db, slug: "watching", name: "Watching");
+        var dark = await Seed.GameAsync(db, slug: "dark", name: "Dark");
+        var settled = await Seed.GameAsync(db, slug: "settled", name: "Settled");
+
+        await store.OpenAsync(new AvailabilityInterval
+        {
+            GameId = watching, State = AvailabilityState.Reachable, FromAt = Now, Cause = FailureCause.None,
+        });
+        await store.OpenAsync(new AvailabilityInterval
+        {
+            GameId = dark, State = AvailabilityState.Unreachable, FromAt = Now, Cause = FailureCause.Dns,
+        });
+
+        // Already closed, and must stay exactly as it is: it recorded a span that ended while we
+        // were still watching.
+        await store.OpenAsync(new AvailabilityInterval
+        {
+            GameId = settled,
+            State = AvailabilityState.Reachable,
+            FromAt = Now,
+            ToAt = Now.AddHours(1),
+            Cause = FailureCause.None,
+        });
+
+        var stoppedAt = Now.AddHours(2);
+        var closed = await store.CloseOpenIntervalsAsync(stoppedAt);
+
+        await Assert.That(closed).IsEqualTo(2);
+        await Assert.That(await store.OpenIntervalAsync(watching)).IsNull();
+        await Assert.That(await store.OpenIntervalAsync(dark)).IsNull();
+
+        // The state is kept. A game that was dark when we stopped watching was dark, and rewriting
+        // that would replace one false claim with another.
+        var ended = (await store.ForGameAsync(dark)).Single();
+        await Assert.That(ended.State).IsEqualTo(AvailabilityState.Unreachable);
+        await Assert.That(ended.Cause).IsEqualTo(FailureCause.Dns);
+        await Assert.That(ended.ToAt).IsEqualTo(stoppedAt);
+
+        await Assert.That((await store.ForGameAsync(settled)).Single().ToAt).IsEqualTo(Now.AddHours(1));
+    }
+
+    [Test]
+    public async Task AnIntervalThatBeganAfterWeStoppedLookingIsLeftAlone()
+    {
+        // Totality. Availability is written by the crawl loop and by mui-crawl, so an interval can
+        // exist that began after the last recorded cycle — and closing that one at the earlier
+        // instant would end it before it started, which the table forbids and rightly.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var store = new NpgsqlAvailabilityStore(db.DataSource);
+        var game = await Seed.GameAsync(db);
+
+        await store.OpenAsync(new AvailabilityInterval
+        {
+            GameId = game, State = AvailabilityState.Reachable, FromAt = Now.AddHours(3), Cause = FailureCause.None,
+        });
+
+        var closed = await store.CloseOpenIntervalsAsync(Now);
+
+        await Assert.That(closed).IsEqualTo(0);
+        await Assert.That((await store.OpenIntervalAsync(game))!.ToAt).IsNull();
+    }
+
+    [Test]
     public async Task WhatTheDialSaidSurvivesTheRoundTrip()
     {
         // The cause is six words and the message is what was underneath one of them. It has to live

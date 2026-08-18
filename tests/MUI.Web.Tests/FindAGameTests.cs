@@ -39,6 +39,35 @@ public class FindAGameTests
     }
 
     /// <summary>
+    /// The page renders when the catalogue answers on a later turn, which is the only way it answers
+    /// in production.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the whole of a live 500. <c>ComponentBase</c> calls <c>StateHasChanged</c>
+    /// after starting <c>OnParametersSetAsync</c> and before awaiting it, so the page renders once
+    /// with the fields it had before the load. Every other test on this page passes the fixture,
+    /// whose tasks are already complete when that first render happens, so the first frame and the
+    /// last are the same frame and no test had ever seen the page mid-load. Against Postgres they
+    /// are different frames, and the first one dereferenced a screen that was not built yet.
+    /// </para>
+    /// <para>
+    /// Asserting only that a heading came back, deliberately: what broke was not the markup but
+    /// whether there was any. A test that checked the finished page here would have gone on passing.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ThePageRendersBeforeItsScreenHasArrived()
+    {
+        foreach (var query in (string[])["", "?genre=Fantasy", "?nonsense=%zz"])
+        {
+            var html = await Render.PageAsync<FindAGame>([], query, yielding: true);
+
+            await Assert.That(Render.Words(html)).Contains("Find a game");
+        }
+    }
+
+    /// <summary>
     /// The unlock: an answered Find page is a page, not a moment between two form submissions.
     /// </summary>
     /// <remarks>

@@ -47,17 +47,34 @@ public static class Render
     /// proved, which is also how "last reached now ago" reached a real page: no test had ever looked
     /// at a rendered listing row.
     /// </remarks>
+    /// <param name="yielding">
+    /// Whether the catalogue answers on a later turn of the scheduler, as a real one does.
+    /// <para>
+    /// <b>The fixture answers synchronously, and that hid a page that 500s in production.</b>
+    /// <see cref="ComponentBase"/> calls <c>StateHasChanged</c> immediately after starting
+    /// <c>OnParametersSetAsync</c> and before awaiting it, so a page renders once with whatever its
+    /// fields held before the load. When the load completes inside its own first turn — which is
+    /// what every <c>Task.FromResult</c> here does — that interim render sees the finished state and
+    /// nothing is proved. Against Postgres the load genuinely suspends, the interim render sees the
+    /// initial state, and a field that starts null is dereferenced.
+    /// </para>
+    /// <para>
+    /// So this is not a slower fixture for its own sake: it is the difference between a page test
+    /// that renders the real first frame and one that renders only the last.
+    /// </para>
+    /// </param>
     public static Task<string> PageAsync<TComponent>(
         Dictionary<string, object?> parameters,
         string query,
         bool measured = false,
-        IReadOnlyList<GameRecord>? games = null)
+        IReadOnlyList<GameRecord>? games = null,
+        bool yielding = false)
         where TComponent : IComponent =>
         ComponentAsync<TComponent>(parameters, services =>
         {
             var fixture = new FixtureGameQueries();
 
-            services.AddSingleton<IGameQueries>(fixture);
+            services.AddSingleton<IGameQueries>(yielding ? new Suspending(fixture) : fixture);
             services.AddSingleton<IAvailabilityHistory>(fixture);
             services.AddSingleton(TimeProvider.System);
 
@@ -81,6 +98,79 @@ public static class Render
             services.AddSingleton<NavigationManager>(new StubNavigation(query));
             services.AddSingleton<AntiforgeryStateProvider, StubAntiforgery>();
         });
+
+    /// <summary>
+    /// The fixture's answers, delivered on a later turn of the scheduler.
+    /// </summary>
+    /// <remarks>
+    /// One <c>await Task.Yield()</c> in front of each call is the whole of it. That is enough to
+    /// make the returned task incomplete when the caller first looks at it, which is the only
+    /// property of a real database this needs to reproduce: it is what separates the first rendered
+    /// frame from the last. See the <c>yielding</c> parameter above for why a page test that cannot
+    /// tell them apart proves less than it appears to.
+    /// </remarks>
+    private sealed class Suspending(IGameQueries inner) : IGameQueries
+    {
+        public async Task<GameListing> SearchAsync(GameFilter filter, CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+
+            return await inner.SearchAsync(filter, cancellationToken);
+        }
+
+        public async Task<IReadOnlyList<GameSummary>> ListAsync(
+            GameFilter filter,
+            CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+
+            return await inner.ListAsync(filter, cancellationToken);
+        }
+
+        public async Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+
+            return await inner.FindAsync(slug, cancellationToken);
+        }
+
+        public async Task<GamePage?> FindAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+
+            return await inner.FindAsync(id, cancellationToken);
+        }
+
+        public async Task<GameSummary?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+
+            return await inner.FindByIdAsync(id, cancellationToken);
+        }
+
+        public async Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+
+            return await inner.FeedsAsync(cancellationToken);
+        }
+
+        public async Task<EcosystemDashboard> EcosystemAsync(CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+
+            return await inner.EcosystemAsync(cancellationToken);
+        }
+
+        public async Task<Rankings> RankingsAsync(
+            RankingSpan span = RankingSpan.Week,
+            CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+
+            return await inner.RankingsAsync(span, cancellationToken);
+        }
+    }
 
     /// <summary>
     /// The two lookups a page makes against stored rows. Everything else throws rather than

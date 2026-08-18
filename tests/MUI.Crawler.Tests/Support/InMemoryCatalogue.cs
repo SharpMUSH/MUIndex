@@ -290,6 +290,22 @@ public sealed class FakeAvailabilityStore : IAvailabilityStore, IReachableHistor
         Task.FromResult<IReadOnlyList<AvailabilityInterval>>(
             Intervals.Where(i => i.GameId == gameId).ToList());
 
+    public Task<int> CloseOpenIntervalsAsync(DateTimeOffset at, CancellationToken cancellationToken = default)
+    {
+        var closed = 0;
+
+        for (var i = 0; i < Intervals.Count; i++)
+        {
+            if (Intervals[i] is { IsOpen: true } open && open.FromAt <= at)
+            {
+                Intervals[i] = open with { ToAt = at };
+                closed++;
+            }
+        }
+
+        return Task.FromResult(closed);
+    }
+
     public Task<TimeSpan> CumulativeReachableAsync(
         Guid gameId,
         DateTimeOffset now,

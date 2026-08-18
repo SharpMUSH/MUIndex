@@ -792,6 +792,24 @@ intervals, which is why nothing here is called uptime, and the site renders the 
 from here"* so the reader is told whose route it was. The errno that separates the three stays in
 `availability_interval.detail`.
 
+**An interval cannot notice that nobody looked at it, so the crawler says so on its behalf.** §5.3
+gives two reasons a transition is written — a change of state, and a change of cause. There is now a
+third, and it is elapsed time: when the crawl has been silent longer than the tightest probe cadence,
+every open interval is ended at the instant the last cycle finished, and the silence that follows is a
+hole rather than observation. Without it an interval simply extends across an outage, because "nothing
+changed" and "nobody looked" present identically to the writer, and `Reachability.FractionReachable`
+counts an interval's whole span as observed. Measured on 2026-08-18: 173 intervals were doing exactly
+this across a fifteen-day outage, together claiming some 2,600 days of observation that never happened
+— one game read *"Reachable 14.0% of the 19 days we have measured"* about a period it was fine
+throughout.
+
+The judgement belongs to the crawler and not to any target. Asking whether a *game* is overdue needs a
+per-target notion of overdue, and no constant serves: §7.4 requires a game dark for years to still be
+probed weekly, and a polite `CRAWL DELAY` can stretch that to a month, so a threshold tight enough to
+catch an outage would shred the history of the very population §7.4 exists to keep watching. The
+crawler, by contrast, knows exactly when it last ran. A deployment that has never crawled writes
+nothing: not knowing when we stopped is a reason for silence, never a reason to choose an instant.
+
 **One dial is not a measurement of a game's reachability; it is a measurement of one dial.** A failed
 probe is dialled once more before anything is written down, and only a failure the second dial agrees
 with is published as the game being unreachable. This was learned from production rather than designed

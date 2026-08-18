@@ -647,7 +647,7 @@ header.site .nav-menu .menu-panel a:hover { background: var(--surface); text-dec
   moves to the leading edge. Scoped to the collapsed width: unscoped it drew a vertical accent bar
   and a tinted box down the side of the current item in the open bar.
 */
-@media (max-width: 880px) {
+@media (max-width: 1019px) {
     header.site .nav-menu .menu-panel a.on {
         box-shadow: inset 2px 0 0 0 var(--accent);
         background: color-mix(in srgb, var(--accent) 10%, transparent);
@@ -671,7 +671,7 @@ header.site .menu-tail { display: none; flex-direction: column; gap: 2px; }
 }
 
 @supports selector(::details-content) {
-    @media (min-width: 881px) {
+    @media (min-width: 1020px) {
         header.site .nav-menu > summary { display: none; }
 
         /*
@@ -708,7 +708,7 @@ header.site .menu-tail { display: none; flex-direction: column; gap: 2px; }
       both at once would leave seven links in a row in no order anybody could name, which is the
       state this bar was rebuilt out of.
     */
-    @media (min-width: 881px) and (max-width: 1180px) {
+    @media (min-width: 1020px) and (max-width: 1400px) {
         header.site .nav-label { display: none; }
         header.site .nav-menu .menu-panel { gap: 14px; }
         header.site .nav-menu .menu-panel > .nav-group { gap: 11px; }
@@ -722,7 +722,7 @@ header.site .menu-tail { display: none; flex-direction: column; gap: 2px; }
     header.site nav.account a.action:not(.primary):hover { color: var(--text); }
 }
 
-@media (max-width: 880px) {                     /* step 3 — one disclosure, every destination kept */
+@media (max-width: 1019px) {                    /* step 3 — one disclosure, every destination kept */
     header.site .site-nav { justify-content: flex-start; }
 
     /*
@@ -848,12 +848,12 @@ header.site .reading form.locale select { padding: 5px 18px 5px 0; font-size: 12
   would leave a screen reader three buttons in an unnamed group and a select called nothing at all —
   at exactly the width where the surrounding words that would have explained them are gone too.
 */
-@media (max-width: 1300px) {
-    header.site { gap: 14px; }
-    header.site .reading { gap: 12px; }
-    header.site .reading .locale-field { padding: 0 2px 0 7px; }
-    header.site .nav-menu .menu-panel { gap: 11px; }
-    header.site .nav-menu .menu-panel > .nav-group { gap: 9px; }
+/*
+  The words go at 1400 and stay gone, at every width below it. Not because the room is needed the
+  whole way down — below 1020 the nav is one word and there is room to spare — but because a label
+  that reappears at 900 after vanishing at 1400 is a bar that looks like it is deciding as it goes.
+*/
+@media (max-width: 1400px) {
     header.site .reading .kick {
         position: absolute;
         width: 1px; height: 1px;
@@ -864,7 +864,28 @@ header.site .reading form.locale select { padding: 5px 18px 5px 0; font-size: 12
     }
 }
 
-@media (max-width: 880px) {
+/*
+  The tightening, bounded at both ends, because it is a fix for one band and not a global.
+
+  Unbounded below, it did two things it was never meant to do. `gap: 14px` sits after step 5's
+  `gap: 6px` in this file, so it won the cascade on a 340px phone and cost the bar a second row for
+  eight pixels it did not need — the four items measure 298px there either way, and the only
+  difference between one row and two was the space between them. And the panel gaps reached the
+  collapsed dropdown, where the panel is a column with a designed 2px between rows, and opened it
+  out to 11.
+
+  Above 1020 the panel is the bar's middle row and these are its inline gaps; below it the panel is
+  a menu and these must not apply.
+*/
+@media (min-width: 1020px) and (max-width: 1400px) {
+    header.site { gap: 14px; }
+    header.site .reading { gap: 12px; }
+    header.site .reading .locale-field { padding: 0 2px 0 7px; }
+    header.site .nav-menu .menu-panel { gap: 11px; }
+    header.site .nav-menu .menu-panel > .nav-group { gap: 9px; }
+}
+
+@media (max-width: 1019px) {
     header.site .reading .mirror,
     header.site .reading form.locale { display: none; }
 }
@@ -876,7 +897,7 @@ header.site .reading form.locale select { padding: 5px 18px 5px 0; font-size: 12
 */
 header.site .menu-reading { display: none; flex-direction: column; gap: 2px; }
 
-@media (max-width: 880px) {
+@media (max-width: 1019px) {
     header.site .menu-reading { display: flex; }
 }
 header.site .menu-reading .mirror { padding: 6px 10px; border-radius: 6px; color: var(--dim); }

@@ -76,6 +76,21 @@ public sealed class NpgsqlAvailabilityStore(NpgsqlDataSource source) : IAvailabi
             cancellationToken: cancellationToken));
     }
 
+    public async Task<int> CloseOpenIntervalsAsync(
+        DateTimeOffset at,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        // `from_at <= @at` is the totality guard, not an optimisation: without it this writes rows
+        // that end before they start, which the check constraint refuses and which would take the
+        // whole guard down with it on the one startup that needed it most.
+        return await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE availability_interval SET to_at = @at WHERE to_at IS NULL AND from_at <= @at",
+            new { at = at.ToUniversalTime() },
+            cancellationToken: cancellationToken));
+    }
+
     public async Task<IReadOnlyList<AvailabilityInterval>> ForGameAsync(
         Guid gameId,
         CancellationToken cancellationToken = default)

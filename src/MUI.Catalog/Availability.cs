@@ -50,6 +50,23 @@ public interface IAvailabilityStore
     Task<IReadOnlyList<AvailabilityInterval>> ForGameAsync(
         Guid gameId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Ends every open interval at <paramref name="at"/>, and returns how many were ended.
+    /// </summary>
+    /// <remarks>
+    /// <b>The one write that is about the crawler rather than about a game</b>, and the only way the
+    /// catalogue can say "we stopped watching" — see <c>CrawlGap</c> for when that is true and why an
+    /// interval cannot notice it for itself. The state and cause are kept: a game that was dark when
+    /// we stopped looking was dark, and rewriting that would swap one false claim for another. Each
+    /// game opens a fresh interval on its next probe, because a writer with nothing open opens one.
+    /// <para>
+    /// Intervals that began after <paramref name="at"/> are left alone. Availability is written by
+    /// the crawl loop and by <c>mui-crawl</c>, so one can exist that started after the last recorded
+    /// cycle, and ending it earlier than it began is a row the table refuses.
+    /// </para>
+    /// </remarks>
+    Task<int> CloseOpenIntervalsAsync(DateTimeOffset at, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
