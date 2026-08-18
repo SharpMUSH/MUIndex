@@ -318,6 +318,9 @@
   <data name="nav.menu" xml:space="preserve">
     <value>菜单</value>
   </data>
+  <data name="nav.reading" xml:space="preserve">
+    <value>阅读方式</value>
+  </data>
   <data name="nav.games" xml:space="preserve">
     <value>游戏</value>
   </data>
@@ -372,17 +375,8 @@
   <data name="banner.demo" xml:space="preserve">
     <value>未配置数据库，因此这是一份样例。此处没有任何内容经过实测。</value>
   </data>
-  <data name="footer.allGames" xml:space="preserve">
-    <value>全部游戏</value>
-  </data>
   <data name="footer.archive" xml:space="preserve">
     <value>归档</value>
-  </data>
-  <data name="footer.declaredByGame" xml:space="preserve">
-    <value>游戏自述</value>
-  </data>
-  <data name="footer.whatChanged" xml:space="preserve">
-    <value>变更记录</value>
   </data>
   <data name="home.title" xml:space="preserve">
     <value>MU* 爱好者的游戏目录</value>
@@ -1811,9 +1805,6 @@
   </data>
   <data name="archive.plain.codebase" xml:space="preserve">
     <value>代码库：</value>
-  </data>
-  <data name="footer.randomGame" xml:space="preserve">
-    <value>随机游戏</value>
   </data>
   <data name="trend.day.counted" xml:space="preserve">
     <value>{d, date, medium}——平均 {typical}，{probes, plural, other {#次探测}}中介于 {low}–{high}</value>

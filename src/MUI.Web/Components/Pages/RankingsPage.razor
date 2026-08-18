@@ -162,11 +162,10 @@ else
         }
     </section>
 
+    @* The note is a fact about what the two tables contain, so it survives the footer that used
+       to carry it — the three links beside it did not, because all three are in the bar. *@
     <p class="faint">
         @L("rankings.archivedNote")
-        <a href="@Http.Link("/archive")">@L("nav.archive")</a> ·
-        <a href="@Http.Link("/ecosystem")">@L("nav.ecosystem")</a> ·
-        <a href="?window=@Span.Slug()&plain=1">@L("a11y.plainText")</a>
     </p>
 }
 

@@ -412,6 +412,10 @@
     <value>menu</value>
     <comment>site chrome</comment>
   </data>
+  <data name="nav.reading" xml:space="preserve">
+    <value>reading</value>
+    <comment>site chrome</comment>
+  </data>
   <data name="nav.games" xml:space="preserve">
     <value>games</value>
     <comment>site chrome</comment>
@@ -484,20 +488,8 @@
     <value>No database is configured, so this is a fixture. Nothing here was measured.</value>
     <comment>site chrome</comment>
   </data>
-  <data name="footer.allGames" xml:space="preserve">
-    <value>all games</value>
-    <comment>site chrome</comment>
-  </data>
   <data name="footer.archive" xml:space="preserve">
     <value>archive</value>
-    <comment>site chrome</comment>
-  </data>
-  <data name="footer.declaredByGame" xml:space="preserve">
-    <value>declared by the game</value>
-    <comment>site chrome</comment>
-  </data>
-  <data name="footer.whatChanged" xml:space="preserve">
-    <value>what changed</value>
     <comment>site chrome</comment>
   </data>
   <data name="home.title" xml:space="preserve">
@@ -2403,10 +2395,6 @@
   <data name="archive.plain.codebase" xml:space="preserve">
     <value>Codebase:</value>
     <comment>the archive: removed from the default listing, and from nothing else</comment>
-  </data>
-  <data name="footer.randomGame" xml:space="preserve">
-    <value>random game</value>
-    <comment>/find's footer, which the rebuild left in English</comment>
   </data>
   <data name="trend.day.counted" xml:space="preserve">
     <value>{d, date, medium} — {typical} on average, {low}–{high} across {probes, plural, one {# probe} other {# probes}}</value>

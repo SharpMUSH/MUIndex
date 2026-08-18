@@ -76,6 +76,24 @@
                     <span class="nav-label" aria-hidden="true">@L("nav.thisSite")</span>
                     <a href="@HttpContext.Link("/submit")">@L("nav.submitGame")</a>
                 </span>
+
+                @*
+                    Step 5. The two reading controls, at the width where the bar has no room left
+                    for them — the same move `submit` makes one step earlier, for the same reason.
+                    The theme control stays in the bar at every width: it is three short words and
+                    the ladder already spends its type size on them.
+
+                    Rendered here *and* in the bar, with CSS showing exactly one, which is what
+                    `menu-tail` above already does. The alternative — one copy moved by CSS — is not
+                    available: the panel and the trailing cluster are different flex containers and
+                    nothing moves a box between two of those. The switcher carries no `id` for that
+                    reason; see LanguageSwitcher on the label that used to need one.
+                *@
+                <span class="menu-reading">
+                    <span class="nav-label" aria-hidden="true">@L("nav.reading")</span>
+                    @Mirror
+                    <LanguageSwitcher />
+                </span>
             </div>
         </details>
     </nav>
@@ -101,10 +119,45 @@
         }
     </nav>
     @*
-        Last in the bar, because it is the one control here that does not go anywhere: everything to
-        its left names a page and this changes the one you are on.
+        Last in the bar, because these are the controls that do not go anywhere: everything to their
+        left names a page, and these three change the one you are on — as text, in another language,
+        against another background.
+
+        They used to be a footer. It said "all games · archive · submit · plain text" under a bar
+        that already carried the first three, so on every page the last thing a reader met was the
+        navigation they had already been given, and the two controls that were *not* duplicates were
+        buried at the end of it. The duplicates are gone and the two survivors came up here.
     *@
-    <ThemeToggle />
+    <div class="reading">
+        @*
+            Two of the three behind a caret, and the reason is a measurement rather than a taste.
+
+            Drawn in the bar they cost 406px, and every threshold in this ladder is a pixel count
+            taken in English with `flex-wrap` as the escape valve. Swept from 340 to 1440 that valve
+            opened: a second row under German and Dutch at 1020–1220 and again at 1410, under
+            Japanese at 1020–1200. A caret and a panel cost about thirty, so the bar is never wider
+            than the one this branch started from — see app.css on why the numbers were left alone.
+
+            The theme is not in here. It is the control a reader reaches for *because* they cannot
+            comfortably read the page, and a click is the wrong thing to put in front of that.
+        *@
+        <details class="read-menu">
+            @*
+                The caret is the glyph; the word is for whoever is not looking at it. A summary whose
+                whole content is `▾` has no accessible name at all — a screen reader announces
+                "disclosure triangle, collapsed" and nothing about what it holds.
+            *@
+            <summary>
+                <span class="sr-only">@L("nav.reading")</span>
+                <span aria-hidden="true">▾</span>
+            </summary>
+            <div class="read-panel">
+                @Mirror
+                <LanguageSwitcher />
+            </div>
+        </details>
+        <ThemeToggle />
+    </div>
 </header>
 <main id="content">@Body</main>
 </div>
@@ -136,6 +189,26 @@
     private RenderFragment Item(string href, string text) =>
         @<a href="@HttpContext.Link(href)" class="@(IsCurrent(href) ? "on" : null)"
             aria-current="@(IsCurrent(href) ? "page" : null)">@text</a>;
+
+    /// <summary>
+    /// The offer to read this page as text, where there is one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Conditional, because six of the site's routes have no text mirror and a bar that offered one
+    /// on all of them would be advertising a link that answers with the page you are already on.
+    /// <see cref="TextMirror"/> holds which are which, and why the page cannot be the one to say so.
+    /// </para>
+    /// <para>
+    /// The href carries the query. Four of the eleven footers this replaces wrote a bare
+    /// <c>?plain=1</c>, so asking a filtered listing for text threw the filter away and answered
+    /// with the whole catalogue.
+    /// </para>
+    /// </remarks>
+    private RenderFragment Mirror =>
+        TextMirror.Offers(HttpContext)
+            ? @<a class="mirror" href="@TextMirror.Href(HttpContext)">@L("a11y.plainText")</a>
+            : @<text></text>;
 
     /// <summary>
     /// Every destination this bar offers, longest first, so the most specific match wins.

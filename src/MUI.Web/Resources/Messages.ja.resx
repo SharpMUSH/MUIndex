@@ -318,6 +318,9 @@
   <data name="nav.menu" xml:space="preserve">
     <value>メニュー</value>
   </data>
+  <data name="nav.reading" xml:space="preserve">
+    <value>読み方</value>
+  </data>
   <data name="nav.games" xml:space="preserve">
     <value>ゲーム</value>
   </data>
@@ -372,17 +375,8 @@
   <data name="banner.demo" xml:space="preserve">
     <value>データベースが未設定のため、これはダミーデータ。ここにある値は実測ではない。</value>
   </data>
-  <data name="footer.allGames" xml:space="preserve">
-    <value>すべてのゲーム</value>
-  </data>
   <data name="footer.archive" xml:space="preserve">
     <value>アーカイブ</value>
-  </data>
-  <data name="footer.declaredByGame" xml:space="preserve">
-    <value>ゲームの自己申告</value>
-  </data>
-  <data name="footer.whatChanged" xml:space="preserve">
-    <value>変更点</value>
   </data>
   <data name="home.title" xml:space="preserve">
     <value>MU*ホビーのディレクトリ</value>
@@ -1811,9 +1805,6 @@
   </data>
   <data name="archive.plain.codebase" xml:space="preserve">
     <value>コードベース：</value>
-  </data>
-  <data name="footer.randomGame" xml:space="preserve">
-    <value>ランダムなゲーム</value>
   </data>
   <data name="trend.day.counted" xml:space="preserve">
     <value>{d, date, medium} — 平均{typical}、{probes, plural, other {#回の探査}}で{low}〜{high}</value>

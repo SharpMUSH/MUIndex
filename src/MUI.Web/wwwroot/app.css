@@ -375,7 +375,7 @@ header.site { flex-wrap: wrap; }
 header.site .mark { flex: 0 0 auto; }
 header.site .site-nav { flex: 1 1 auto; min-width: max-content; }
 header.site nav.account { flex: 0 0 auto; }
-header.site form.theme { flex: 0 0 auto; }
+header.site .reading { flex: 0 0 auto; }
 
 header.site .mark {
     display: flex;
@@ -647,7 +647,7 @@ header.site .nav-menu .menu-panel a:hover { background: var(--surface); text-dec
   moves to the leading edge. Scoped to the collapsed width: unscoped it drew a vertical accent bar
   and a tinted box down the side of the current item in the open bar.
 */
-@media (max-width: 880px) {
+@media (max-width: 900px) {
     header.site .nav-menu .menu-panel a.on {
         box-shadow: inset 2px 0 0 0 var(--accent);
         background: color-mix(in srgb, var(--accent) 10%, transparent);
@@ -656,10 +656,22 @@ header.site .nav-menu .menu-panel a:hover { background: var(--surface); text-dec
 }
 header.site .nav-menu .menu-panel .nav-label { padding: 6px 8px 2px; }
 header.site .nav-menu .menu-panel .nav-rule { display: none; }
-header.site .menu-tail { display: flex; flex-direction: column; gap: 2px; }
+/*
+  Submit's overflow home, and it opens at the width the overflow actually happens.
+
+  It was shown wherever the panel was a dropdown — below 881 — while the bar keeps its own submit
+  link down to 640. So between 641 and 880 the menu and the bar both offered "submit a game", which
+  is one destination drawn twice in one document and the exact duplication the disclosure is built
+  to avoid. Step 4 is where the bar drops it, so step 4 is where this picks it up.
+*/
+header.site .menu-tail { display: none; flex-direction: column; gap: 2px; }
+
+@media (max-width: 640px) {
+    header.site .menu-tail { display: flex; }
+}
 
 @supports selector(::details-content) {
-    @media (min-width: 881px) {
+    @media (min-width: 901px) {
         header.site .nav-menu > summary { display: none; }
 
         /*
@@ -688,8 +700,6 @@ header.site .menu-tail { display: flex; flex-direction: column; gap: 2px; }
         header.site .nav-menu .menu-panel .nav-rule { display: block; }
         header.site .nav-menu .menu-panel .nav-label { padding: 0; }
 
-        /* Step 4's overflow home, which the bar itself still carries at these widths. */
-        header.site .menu-tail { display: none; }
     }
 
     /*
@@ -698,7 +708,7 @@ header.site .menu-tail { display: flex; flex-direction: column; gap: 2px; }
       both at once would leave seven links in a row in no order anybody could name, which is the
       state this bar was rebuilt out of.
     */
-    @media (min-width: 881px) and (max-width: 1180px) {
+    @media (min-width: 901px) and (max-width: 1180px) {
         header.site .nav-label { display: none; }
         header.site .nav-menu .menu-panel { gap: 14px; }
         header.site .nav-menu .menu-panel > .nav-group { gap: 11px; }
@@ -712,7 +722,7 @@ header.site .menu-tail { display: flex; flex-direction: column; gap: 2px; }
     header.site nav.account a.action:not(.primary):hover { color: var(--text); }
 }
 
-@media (max-width: 880px) {                     /* step 3 — one disclosure, every destination kept */
+@media (max-width: 900px) {                     /* step 3 — one disclosure, every destination kept */
     header.site .site-nav { justify-content: flex-start; }
 
     /*
@@ -779,7 +789,115 @@ header.site .menu-tail { display: flex; flex-direction: column; gap: 2px; }
   one thing set here is what happens *after* a wrap — the control keeps the trailing edge it has on
   one line, so the bar does not appear to change its mind about which end it belongs to.
 */
-header.site form.theme { margin-inline-start: auto; }
+header.site .reading { margin-inline-start: auto; }
+
+/* ── the reading controls ─────────────────────────────────────────────────
+   The three things in this bar that do not name a page: read it as text, read it in another
+   language, read it against another background. They were a footer under a bar that already
+   carried every link beside them, so the two that were not duplicates were the two nobody found.
+
+   One cluster and not three siblings, so they are one thing at the trailing end rather than three
+   that happen to be adjacent — and so the caret and the buttons it sits beside cannot be separated
+   by anything the bar does.                                                                      */
+
+header.site .reading { display: flex; align-items: center; gap: 10px; }
+
+/* It gives up the auto margin that pushed it to the far end of a footer row; the cluster around it
+   does that job now. Everything else — the hairline, the caret, the arrow — is the same control. */
+header.site .reading form.locale { margin: 0; }
+
+/*
+  Step 5 — the two reading controls go behind a caret, and the theme does not.
+
+  **The bar may not get wider than it was.** Every threshold in the ladder above is a pixel count
+  measured in English, which the ladder says out loud, and the wrap is the escape valve those
+  numbers rely on. Two controls added at the trailing end spend that valve: with the text link and
+  the switcher drawn in the bar it cost 406px, and swept from 340 to 1440 it put a second row under
+  German and Dutch at 1020–1220 and again at 1410, under Japanese at 1020–1200. Pushing the numbers
+  until German fits lands the nav's collapse near 1220 — which takes the seven inline links off an
+  English reader at 1200px, and is the exact failure the ladder's own comment was written about.
+
+  So the cluster is sized instead. A caret and a panel cost about thirty pixels where the two
+  controls cost three hundred, and the trailing cluster comes to 147px against the 151px the theme
+  alone used to occupy: the bar is never wider than the one this branch started from, at any width,
+  in any language. Nothing about the ladder needed changing after that, and nothing was.
+
+  The theme stays drawn. It is the control a reader reaches for because they cannot comfortably read
+  the page, and putting it one click further away is the wrong direction for exactly that reader.
+  Its label is what pays for the caret beside it — `auto light dark` says what the buttons are.
+*/
+
+/* Taken out of the drawing and left in the accessibility tree: the form names itself with
+   `aria-labelledby="theme-label"` and this is that label, so `display: none` would leave a screen
+   reader three buttons in a group with no name. Scoped with `>` so the switcher's own label, which
+   sits inside the panel where there is room for it, keeps its word. */
+header.site .reading > form.theme .kick {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* The caret is the bar's own chevron, at the size the nav's summary uses, so the disclosure reads as
+   the same kind of control as `menu ▾` rather than as a new one. */
+header.site .read-menu { display: flex; position: relative; align-items: center; min-width: 0; }
+header.site .read-menu > summary {
+    display: flex; align-items: center; cursor: pointer;
+    padding: 4px 6px; border-radius: 6px;
+    color: var(--dim); font-size: 13.5px; line-height: 1; list-style: none;
+}
+header.site .read-menu > summary::-webkit-details-marker { display: none; }
+header.site .read-menu > summary:hover { color: var(--text); background: var(--raised); }
+header.site .read-menu[open] > summary { color: var(--text); background: var(--raised); }
+
+/* Right-anchored, because it opens at the trailing end of the bar and a panel that grew rightwards
+   from there would open off the edge of the window. */
+header.site .read-panel {
+    position: absolute; top: 100%; right: 0; z-index: 20; min-width: 190px;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+    padding: 10px; margin-top: 1px;
+    background: var(--raised); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+}
+header.site .read-panel .mirror {
+    align-self: stretch;
+    padding: 6px 8px; border-radius: 6px;
+    color: var(--dim); font-size: 13.5px; text-decoration: none; white-space: nowrap;
+}
+header.site .read-panel .mirror:hover { background: var(--surface); color: var(--text); }
+header.site .read-panel form.locale > label { flex-direction: column; align-items: flex-start; gap: 4px; padding: 0 8px; }
+
+/*
+  Below the nav's own collapse width the caret goes and the two controls ride in the nav menu, where
+  the markup already carries them. Two disclosures side by side in a bar that is four items wide is
+  one more tap target than that width has room to explain, and the menu is right there.
+
+  That width is 900 rather than the 880 it was, and the twenty pixels are the whole point: 900 is
+  where the theme control's own label goes, so below it the trailing cluster measured 105px on the
+  bar this branch started from and 134px with a caret added — the one band where this bar was *wider*
+  than that one. Both steps happen at one width now, and the cluster is 105px there, as before.
+*/
+@media (max-width: 900px) {
+    header.site .read-menu { display: none; }
+}
+
+/*
+  In the panel the two sit as a labelled group like the ones above them, with the switcher on its
+  own line under the text link — a select in a dropdown row would be a control inside a menu inside
+  a bar, and the box needs the width it has.
+*/
+header.site .menu-reading { display: none; flex-direction: column; gap: 2px; }
+
+@media (max-width: 900px) {
+    header.site .menu-reading { display: flex; }
+}
+header.site .menu-reading .mirror { padding: 6px 10px; border-radius: 6px; color: var(--dim); }
+header.site .menu-reading .mirror:hover { background: var(--surface); color: var(--text); }
+header.site .menu-reading .nav-label { padding: 6px 8px 2px; }
+header.site .menu-reading form.locale { margin: 6px 8px 2px; }
+header.site .menu-reading form.locale > label { flex-direction: column; align-items: flex-start; gap: 4px; }
 
 @media (max-width: 480px) {
     header.site .mark { font-size: 14px; letter-spacing: 0; }
@@ -979,31 +1097,16 @@ p.crawler .state-present { text-shadow: var(--glow); }
    and the eye cannot run down three lists that are drawn as different kinds of thing. */
 .feed-row.returned .feed-state .state-present { color: var(--accent); }
 
-/* ── the card's own footer ─────────────────────────────────────────────────
-   The same row on every page: where else to go, and the text mirror last. A rule above it, because
-   it is the end of the card and not another block in the column.                                */
-
-.card-footer {
-    display: flex; flex-wrap: wrap; gap: 16px;
-    margin: 0; padding-top: 14px;
-    border-top: 1px solid var(--line-soft);
-    font-size: 13px; color: var(--dim);
-}
-
-/* On a card page the footer is a band of the card rather than a block in a padded column, so it
-   pads itself to the same edge every other band uses. */
-.card-page > .card-footer { padding: 14px var(--gutter) 22px; }
-.card-footer { align-items: baseline; }
-.card-footer a { text-decoration: none; }
-.card-footer a:hover { text-decoration: underline; text-underline-offset: 3px; }
-.card-footer .sep { color: var(--faint); }
-
 /*
-  The language switcher, at the far end of the footer beside the plain-text link — the two controls
-  that change how the page is read rather than which page it is. Pushed there rather than placed, so
-  the destinations keep the left edge they had.
+  The language switcher, in the bar beside the text link and the theme control — the three controls
+  that change how the page is read rather than which page it is. It used to be the far end of a
+  footer row, which is why the pushing margin was here rather than on whatever held it.
+
+  The label wraps the control: the switcher is rendered twice in a document now (bar and menu, one
+  of them hidden), and a `for=` would have been a duplicate id in both copies.
 */
-form.locale { display: flex; align-items: center; gap: 10px; margin: 0 0 0 auto; }
+form.locale { display: flex; align-items: center; margin: 0; }
+form.locale > label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 
 /* The label is the theme control's kicker, because these two sit side by side and are the same kind
    of thing: a small named control that changes how the page is read. */
@@ -1737,24 +1840,6 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
 
 @media (max-width: 900px) {
     .feeds { grid-template-columns: minmax(0, 1fr); }
-
-    /*
-      The theme control is the one thing in the bar that goes nowhere, so it is what the bar gives
-      up its words for first: three buttons become their initials' worth of room.
-
-      Taken out of the drawing and left in the accessibility tree, because the form names itself
-      with `aria-labelledby="theme-label"` and this is that label. `display: none` removed it from
-      both, so below 900px a screen reader met three buttons in a group with no name at all — the
-      one width where the surrounding words that would have explained them are gone too.
-    */
-    header.site form.theme .kick {
-        position: absolute;
-        width: 1px; height: 1px;
-        padding: 0; margin: -1px;
-        overflow: hidden;
-        clip-path: inset(50%);
-        white-space: nowrap;
-    }
 
     /*
       All 168 cells at 12px rather than a scrolling grid — the whole week at a glance is the reason

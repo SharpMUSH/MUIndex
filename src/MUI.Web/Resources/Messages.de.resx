@@ -318,6 +318,9 @@
   <data name="nav.menu" xml:space="preserve">
     <value>Menü</value>
   </data>
+  <data name="nav.reading" xml:space="preserve">
+    <value>Lesen</value>
+  </data>
   <data name="nav.games" xml:space="preserve">
     <value>Spiele</value>
   </data>
@@ -372,17 +375,8 @@
   <data name="banner.demo" xml:space="preserve">
     <value>Es ist keine Datenbank konfiguriert, daher sind dies Beispieldaten. Nichts davon wurde gemessen.</value>
   </data>
-  <data name="footer.allGames" xml:space="preserve">
-    <value>alle Spiele</value>
-  </data>
   <data name="footer.archive" xml:space="preserve">
     <value>Archiv</value>
-  </data>
-  <data name="footer.declaredByGame" xml:space="preserve">
-    <value>vom Spiel angegeben</value>
-  </data>
-  <data name="footer.whatChanged" xml:space="preserve">
-    <value>was sich geändert hat</value>
   </data>
   <data name="home.title" xml:space="preserve">
     <value>Ein Verzeichnis des MU*-Hobbys</value>
@@ -1811,9 +1805,6 @@
   </data>
   <data name="archive.plain.codebase" xml:space="preserve">
     <value>Codebase:</value>
-  </data>
-  <data name="footer.randomGame" xml:space="preserve">
-    <value>zufälliges Spiel</value>
   </data>
   <data name="trend.day.counted" xml:space="preserve">
     <value>{d, date, medium} — durchschnittlich {typical}, {low}–{high} über {probes, plural, one {# Abfrage} other {# Abfragen}}</value>

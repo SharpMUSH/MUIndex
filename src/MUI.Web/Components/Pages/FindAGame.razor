@@ -228,20 +228,6 @@ else
 </div>
 }
 
-@*
-    The card's own footer, in the same place as every other page's. "all games" is where the deleted
-    intro paragraph's escape hatch went: it survives as a link somebody browsing can reach rather
-    than as a clause inside prose nobody reads.
-*@
-<div class="card-footer">
-    <a href="@Http.Link("/games")">@Say("footer.allGames")</a>
-    <span class="sep" aria-hidden="true">·</span>
-    <a href="@Http.Link("/games/random")">@Say("footer.randomGame")</a>
-    <span class="sep" aria-hidden="true">·</span>
-    <a href="@PlainHref">@Say("a11y.plainText")</a>
-    <LanguageSwitcher />
-</div>
-
 </div>
 }
 
@@ -260,8 +246,6 @@ else
 
     private bool Plain =>
         Truthy.Is(Parsed.TryGetValue("plain", out var flag) ? flag.ToString() : null);
-
-    private string PlainHref => ListingLinks.With(Query, "plain", "1");
 
     /// <summary>The six questions and their counts, once the catalogue has answered.</summary>
     /// <remarks>

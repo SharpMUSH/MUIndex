@@ -402,20 +402,6 @@ else
             </section>
 
         </div>
-
-        <div class="card-footer">
-            <a href="#declared">@L("footer.declaredByGame")</a>
-            @* Only where there is a #changed to land on. The heading is rendered under the same
-               condition, so on a game with no recorded change this link went nowhere at all. *@
-            @if (Page.Changes.Count > 0)
-            {
-                <span class="sep" aria-hidden="true">·</span>
-                <a href="#changed">@L("footer.whatChanged")</a>
-            }
-            <span class="sep" aria-hidden="true">·</span>
-            <a href="?plain=1">@L("a11y.plainText")</a>
-                    <LanguageSwitcher />
-        </div>
     </article>
 }
 

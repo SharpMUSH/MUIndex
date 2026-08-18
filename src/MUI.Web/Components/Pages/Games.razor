@@ -40,9 +40,6 @@ else
         *@
         <p class="problem" role="alert">@problem</p>
         <p><a href="@Http.Link("/games")">@Messages.For(Tag, "listing.clearFilters")</a></p>
-        @* The text mirror is offered from here too: a reader who cannot read the refusal is exactly
-           the one who wants the other surface. *@
-        <p class="faint"><a href="@PlainHref">@Messages.For(Tag, "a11y.plainText")</a></p>
     }
     else
     {
@@ -379,22 +376,6 @@ else
 
         </div>
         </div>
-
-        @*
-            The card's own footer, on the card rather than inside the results column — the same row
-            in the same place as every other page's, which is the whole of the "plain text in every
-            footer" fix.
-        *@
-        <div class="card-footer">
-            <a href="@Http.Link("/games")">@Messages.For(Tag, "footer.allGames")</a>
-            <span class="sep" aria-hidden="true">·</span>
-            <a href="@Http.Link("/archive")">@Messages.For(Tag, "footer.archive")</a>
-            <span class="sep" aria-hidden="true">·</span>
-            <a href="@Http.Link("/submit")">@Messages.For(Tag, "nav.submitGame")</a>
-            <span class="sep" aria-hidden="true">·</span>
-            <a href="@PlainHref">@Messages.For(Tag, "a11y.plainText")</a>
-                    <LanguageSwitcher />
-        </div>
     }
 
     </div>
@@ -414,17 +395,6 @@ else
 
     private bool Plain => Truthy.Is(
         QueryHelpers.ParseQuery(Query).TryGetValue("plain", out var flag) ? flag.ToString() : null);
-
-    /// <summary>
-    /// Plain mode keeps the whole question it was reading, whatever that question grows into.
-    /// </summary>
-    /// <remarks>
-    /// Rebuilt from the live querystring rather than from a hand-kept list of parameters. That list
-    /// carried <c>q</c> and <c>archived</c> and nothing else, so the day a facet arrived the plain
-    /// link would have quietly dropped it and offered the unfiltered catalogue as "this page, as
-    /// text" — which is the same page in neither sense.
-    /// </remarks>
-    private string PlainHref => ListingLinks.With(Query, "plain", "1");
 
     /// <summary>
     /// Random, within whatever is on screen (spec §9). The filters ride along, because "surprise me"

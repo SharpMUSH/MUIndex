@@ -405,12 +405,17 @@ public class SubmitSurfaceTests
     }
 
     /// <summary>The site says where the form is, or nobody finds it.</summary>
+    /// <remarks>
+    /// Asked of the bar rather than of the home page. The home page said it in a footer that also
+    /// said "all games" and "archive" under a bar already carrying both, so the whole row went — and
+    /// the link that mattered is the one the bar had all along.
+    /// </remarks>
     [Test]
     public async Task TheSiteLinksToTheForm()
     {
-        var home = await Render.PageAsync<Home>([]);
+        await using var site = await SiteHost.StartAsync();
 
-        await Assert.That(home).Contains("/submit");
+        await Assert.That(await site.Client.GetStringAsync("/")).Contains("href=\"/submit\"");
     }
 
     /// <summary>

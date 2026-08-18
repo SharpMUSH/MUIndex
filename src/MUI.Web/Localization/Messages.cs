@@ -190,6 +190,7 @@ public static class Messages
         ["nav.learn"] = "learn",
         ["nav.thisSite"] = "this site",
         ["nav.menu"] = "menu",
+        ["nav.reading"] = "reading",
         ["nav.games"] = "games",
         ["nav.find"] = "find",
         ["nav.random"] = "random",
@@ -208,10 +209,7 @@ public static class Messages
         ["theme.dark"] = "dark",
         ["banner.demo.lead"] = "Demo data.",
         ["banner.demo"] = "No database is configured, so this is a fixture. Nothing here was measured.",
-        ["footer.allGames"] = "all games",
         ["footer.archive"] = "archive",
-        ["footer.declaredByGame"] = "declared by the game",
-        ["footer.whatChanged"] = "what changed",
 
         // ── home ──────────────────────────────────────────────────────────────────────────────
         ["home.title"] = "A directory of the MU* hobby",
@@ -896,7 +894,7 @@ public static class Messages
         ["source.i3Mudlist"] = "the I3 mudlist",
         ["source.banner"] = "the connect screen",
 
-        // THE CATALOGUE SURFACES — /ecosystem, /rankings, /archive, and /find's footer.
+        // THE CATALOGUE SURFACES — /ecosystem, /rankings, /archive and /find.
         //
         // Every sentence on these three pages is made of its own qualifications, which is why
         // none of them is assembled from parts. "Of the 7 games listed, 5 told us what they run"
@@ -1073,13 +1071,6 @@ public static class Messages
         ["archive.plain.knownLiveValue"] = "{value} of measured reachable time",
         ["archive.plain.run"] = "Run:",
         ["archive.plain.codebase"] = "Codebase:",
-
-        // ── /find's footer, which the rebuild left in English ────────────────────────────────
-        //
-        // The other two links here are footer.allGames and a11y.plainText, already said elsewhere
-        // in exactly this job. This one had nothing to reuse: nav.random is a nav item reading
-        // "random", and a footer link naming what it fetches is a different phrase.
-        ["footer.randomGame"] = "random game",
 
         // THE TREND CHART, THE REACHABILITY STRIP AND THE REST OF THE GAME PAGE
         // ═════════════════════════════════════════════════════════════════════════════════════

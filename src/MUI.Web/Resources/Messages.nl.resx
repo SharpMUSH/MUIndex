@@ -318,6 +318,9 @@
   <data name="nav.menu" xml:space="preserve">
     <value>menu</value>
   </data>
+  <data name="nav.reading" xml:space="preserve">
+    <value>lezen</value>
+  </data>
   <data name="nav.games" xml:space="preserve">
     <value>spellen</value>
   </data>
@@ -372,17 +375,8 @@
   <data name="banner.demo" xml:space="preserve">
     <value>Er is geen database geconfigureerd, dus dit zijn testgegevens. Niets hiervan is gemeten.</value>
   </data>
-  <data name="footer.allGames" xml:space="preserve">
-    <value>alle spellen</value>
-  </data>
   <data name="footer.archive" xml:space="preserve">
     <value>archief</value>
-  </data>
-  <data name="footer.declaredByGame" xml:space="preserve">
-    <value>opgegeven door het spel</value>
-  </data>
-  <data name="footer.whatChanged" xml:space="preserve">
-    <value>wat er veranderd is</value>
   </data>
   <data name="home.title" xml:space="preserve">
     <value>Een gids voor de MU*-hobby</value>
@@ -1811,9 +1805,6 @@
   </data>
   <data name="archive.plain.codebase" xml:space="preserve">
     <value>Codebase:</value>
-  </data>
-  <data name="footer.randomGame" xml:space="preserve">
-    <value>willekeurig spel</value>
   </data>
   <data name="trend.day.counted" xml:space="preserve">
     <value>{d, date, medium} — gemiddeld {typical}, {low}–{high} over {probes, plural, one {# peiling} other {# peilingen}}</value>
