@@ -54,8 +54,16 @@ ENV ASPNETCORE_HTTP_PORTS=8080 \
 
 EXPOSE 8080
 
-# The `app` user the base image already provides (UID 1654). The process writes nothing to disk —
-# every write goes to Postgres — so a read-only root filesystem is a reasonable thing to ask of it.
+# Somewhere for `createdump` to write, owned by the user that will be doing the writing. Docker
+# initialises an empty named volume from the image directory it is mounted over, ownership included,
+# so this line is what makes the volume land as 1654 rather than as root. Without it the mount is
+# root-owned, the app user cannot write to it, and DOTNET_DbgEnableMiniDump fails silently at the
+# one moment it exists for — which is how it was found: by trying, in production, after the fact.
+RUN mkdir -p /dumps && chown $APP_UID:$APP_UID /dumps
+
+# The `app` user the base image already provides (UID 1654). The process writes nothing to disk in
+# the ordinary course — every write goes to Postgres, and /dumps above is only touched on the way
+# out — so a read-only root filesystem is a reasonable thing to ask of it.
 USER $APP_UID
 
 ENTRYPOINT ["dotnet", "MUI.Web.dll"]
