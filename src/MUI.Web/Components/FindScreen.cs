@@ -118,6 +118,32 @@ public sealed class FindScreen
         Error = error;
     }
 
+    /// <summary>The screen a page holds before it has asked the catalogue anything.</summary>
+    /// <remarks>
+    /// <b>A page renders once before its data arrives, and this is what it renders.</b>
+    /// <c>ComponentBase</c> calls <c>StateHasChanged</c> as soon as <c>OnParametersSetAsync</c> has
+    /// been started and before it is awaited, so there is always a frame drawn from whatever the
+    /// component's fields held beforehand. Holding <c>null!</c> there and trusting the load to have
+    /// finished works only while the load finishes synchronously — true of the fixture, false of
+    /// Postgres, which is why <c>/find</c> returned 500 in production and passed every test.
+    /// <para>
+    /// Nothing renders from it: no questions, no answers, and a count of zero, which every
+    /// conditional on the page already treats as "say nothing yet". It is not a state a reader can
+    /// reach — the frame is replaced by the built screen before the response is written — it is only
+    /// what makes the interim frame harmless. <c>GameListing.Empty</c> is the same idea, and the
+    /// listing has always had it.
+    /// </para>
+    /// </remarks>
+    public static FindScreen Empty { get; } = new(
+        questions: [],
+        answers: [],
+        matching: 0,
+        listed: 0,
+        loosen: null,
+        showHref: "/games",
+        clearHref: "/find",
+        error: null);
+
     public IReadOnlyList<FindQuestion> Questions { get; }
 
     /// <summary>The answers given, in the order the questions ask them.</summary>
