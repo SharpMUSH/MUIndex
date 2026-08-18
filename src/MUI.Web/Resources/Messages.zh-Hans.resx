@@ -2070,6 +2070,9 @@
   <data name="cause.handshakeStalled" xml:space="preserve">
     <value>握手停滞</value>
   </data>
+  <data name="cause.noRoute" xml:space="preserve">
+    <value>从这里没有路由</value>
+  </data>
   <data name="cause.none" xml:space="preserve">
     <value>未记录原因</value>
   </data>

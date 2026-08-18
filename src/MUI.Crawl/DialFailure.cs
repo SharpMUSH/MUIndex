@@ -38,6 +38,17 @@ public static class DialFailure
             } => new("dns", error.Message),
             SocketException { SocketErrorCode: SocketError.ConnectionRefused } => new("refused", error.Message),
             SocketException { SocketErrorCode: SocketError.TimedOut } => new("timeout", error.Message),
+
+            // No path from here to there. One word for all three because that is the fact the
+            // catalogue publishes — reachable is measured from one vantage point, so "no route from
+            // here" is the honest sentence — and the errno that separates a missing route from a
+            // router's host-unreachable stays in the message beside it.
+            SocketException
+            {
+                SocketErrorCode: SocketError.NetworkUnreachable
+                    or SocketError.HostUnreachable
+                    or SocketError.NetworkDown,
+            } => new("no_route", error.Message),
             OperationCanceledException => new("timeout", "probe budget exhausted"),
             _ => new("error", error.Message),
         };

@@ -348,6 +348,7 @@ public static class Wording
         FailureCause.Tls => "cause.tls",
         FailureCause.Timeout => "cause.timeout",
         FailureCause.HandshakeStalled => "cause.handshakeStalled",
+        FailureCause.NoRoute => "cause.noRoute",
         _ => "cause.none",
     });
 

@@ -2070,6 +2070,9 @@
   <data name="cause.handshakeStalled" xml:space="preserve">
     <value>Handshake hängen geblieben</value>
   </data>
+  <data name="cause.noRoute" xml:space="preserve">
+    <value>keine Route von hier</value>
+  </data>
   <data name="cause.none" xml:space="preserve">
     <value>keine Ursache festgehalten</value>
   </data>

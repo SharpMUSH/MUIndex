@@ -243,6 +243,7 @@ public static class FailureReading
         "tls" => FailureCause.Tls,
         "timeout" => FailureCause.Timeout,
         "handshake_stalled" => FailureCause.HandshakeStalled,
+        "no_route" => FailureCause.NoRoute,
         _ => FailureCause.Timeout,
     };
 }

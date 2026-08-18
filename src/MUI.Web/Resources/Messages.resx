@@ -2748,6 +2748,10 @@
     <value>handshake stalled</value>
     <comment>why a dial did not complete, in a person's words</comment>
   </data>
+  <data name="cause.noRoute" xml:space="preserve">
+    <value>no route from here</value>
+    <comment>why a dial did not complete, in a person's words</comment>
+  </data>
   <data name="cause.none" xml:space="preserve">
     <value>no cause recorded</value>
     <comment>why a dial did not complete, in a person's words</comment>
