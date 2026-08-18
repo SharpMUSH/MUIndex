@@ -2,6 +2,7 @@
 @page "/reference/codebases/{Slug}"
 @page "/reference/clients/{Slug}"
 @page "/reference/protocols/{Slug}"
+@using MUI.Web.Localization
 @using MUI.Web.Reference
 @inject IGameQueries Queries
 @inject NavigationManager Navigation
@@ -16,19 +17,34 @@
 
     The prose is ours and the figures are measured, and that split is the reason the section exists.
     Nothing below reads a number out of a content file; every count is a query made on this request.
+
+    **The split runs through the localization too.** Every sentence this file writes is a message
+    and is answered in the reader's language; the article between them is a document somebody owns,
+    resolved for this locale by the library and rendered here whole. Nothing on this page puts a word
+    inside it, and every protocol acronym and codebase name reaches the bundle as an argument or not
+    at all.
 *@
 
 @if (Document is null)
 {
-    <h1>Not found</h1>
+    <h1>@Messages.For(Tag, "reference.notFound.title")</h1>
     <p class="dim">
-        No reference page here. This section is hand-written, so a gap is work nobody has done rather
-        than something that was removed — <a href="@Http.Link("/reference")">see what there is</a>.
+        @foreach (var run in NotFound)
+        {
+            @if (run.Slot is null)
+            {
+                @run.Text
+            }
+            else
+            {
+                <a href="@Http.Link("/reference")">@run.Text</a>
+            }
+        }
     </p>
 }
 else if (Plain)
 {
-    <pre class="mono plain">@ReferencePlainText.Render(Document, Codebase, Protocol, Related, Http.LocaleOf().Tag)</pre>
+    <pre class="mono plain">@ReferencePlainText.Render(Tag, Document, Codebase, Protocol, Related)</pre>
 }
 else
 {
@@ -37,7 +53,7 @@ else
 
     <article class="reference">
         <header>
-            <p class="kicker">@ReferencePlainText.Kind(Document.Kind)</p>
+            <p class="kicker">@ReferencePlainText.Kind(Tag, Document.Kind)</p>
             <h1>@Document.Title</h1>
             <p class="lede dim">@Document.Summary</p>
             <p class="mono faint">
@@ -55,33 +71,25 @@ else
         @if (Codebase is { } codebase)
         {
             <section class="measured-panel" aria-labelledby="running">
-                <h2 id="running">Games running it</h2>
+                <h2 id="running">@Messages.For(Tag, "reference.codebase.heading")</h2>
                 @if (codebase.Known == 0)
                 {
                     @* Never a zero standing on its own. Zero here is a statement about our coverage
                        and reads as a statement about the codebase unless it is spelled out. *@
-                    <p class="dim">
-                        We have not identified any yet. That is a fact about what this crawler has
-                        measured, not about what exists — a game we have not reached, or whose
-                        codebase we could not read, is not counted here.
-                    </p>
+                    <p class="dim">@Messages.For(Tag, "reference.codebase.none")</p>
                 }
                 else
                 {
                     <p class="figure mono">
-                        <a class="state-present" href="@Http.Link(Document.GamesPath)">@codebase.Listed listed</a>
-                        <span class="faint"> · @codebase.Archived archived · measured, never asserted</span>
+                        <a class="state-present" href="@Http.Link(Document.GamesPath)">@Messages.Say(Tag, "reference.codebase.listed", ("count", codebase.Listed))</a>
+                        <span class="faint"> · @Messages.Say(Tag, "reference.codebase.archived", ("count", codebase.Archived)) · @Messages.For(Tag, "reference.measuredNeverAsserted")</span>
                     </p>
-                    <p class="dim">
-                        Counted from the catalogue on this request, over the same filter the link
-                        above carries — so this number and that listing are one query and cannot
-                        drift apart.
-                    </p>
+                    <p class="dim">@Messages.For(Tag, "reference.codebase.note")</p>
                     @if (codebase.MeasuredProtocols.Count > 0)
                     {
                         <p class="mono faint">
-                            offered in their handshakes:
-                            @string.Join(", ", codebase.MeasuredProtocols)
+                            @Messages.Say(Tag, "reference.codebase.offered",
+                                ("protocols", string.Join(", ", codebase.MeasuredProtocols)))
                         </p>
                     }
                 }
@@ -91,33 +99,37 @@ else
         @if (Protocol is { } protocol)
         {
             <section class="measured-panel" aria-labelledby="adoption">
-                <h2 id="adoption">Measured adoption</h2>
+                <h2 id="adoption">@Messages.For(Tag, "reference.protocol.heading")</h2>
                 @if (protocol.Listed == 0)
                 {
-                    <p class="dim">Nothing measured yet.</p>
+                    <p class="dim">@Messages.For(Tag, "reference.protocol.none")</p>
                 }
                 else
                 {
                     <p class="figure mono">
                         <a class="state-present" href="@Http.Link(Document.GamesPath)">@protocol.Offering</a>
                         <span class="faint">
-                            of @protocol.Listed listed games — @Wording.Percent(protocol.Share ?? 0)
+                            @Messages.Say(Tag, "reference.protocol.share",
+                                ("listed", protocol.Listed),
+                                ("percent", Wording.Percent(protocol.Share ?? 0)))
                         </span>
                     </p>
-                    <p class="dim">@ReferencePlainText.ProtocolRemainderCaveat</p>
+                    <p class="dim">@ReferencePlainText.ProtocolRemainderCaveat(Tag)</p>
 
                     @if (MeasuredRows.Count > 0)
                     {
                         <table class="matrix">
                             <caption class="sr-only">
-                                Games observed offering @Document.Title in a handshake, by the
-                                codebase we identified them as running.
+                                @Messages.Say(Tag, "reference.protocol.caption", ("protocol", Document.Title))
                             </caption>
                             <thead>
                                 <tr>
-                                    <th scope="col">codebase</th>
-                                    <th scope="col">offered it</th>
-                                    <th scope="col">identified</th>
+                                    @* A column header naming a codebase family, which is not the
+                                       kicker's job of naming what kind of page this is. One English
+                                       word, two ids — S7. *@
+                                    <th scope="col">@Messages.For(Tag, "reference.protocol.column.codebase")</th>
+                                    <th scope="col">@Messages.For(Tag, "reference.protocol.column.offered")</th>
+                                    <th scope="col">@Messages.For(Tag, "reference.protocol.column.identified")</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -147,7 +159,7 @@ else
 
         @if (Related.Count > 0)
         {
-            <h2>See also</h2>
+            <h2>@Messages.For(Tag, "reference.seeAlso")</h2>
             <ul class="reference-index">
                 @foreach (var other in Related)
                 {
@@ -159,7 +171,7 @@ else
             </ul>
         }
 
-        <p class="faint"><a href="?plain=1">plain text</a></p>
+        <p class="faint"><a href="?plain=1">@Messages.For(Tag, "a11y.plainText")</a></p>
     </article>
 }
 
@@ -183,8 +195,23 @@ else
     /// <summary>The request, for the path that names this document and the locale it is read in.</summary>
     [CascadingParameter] private HttpContext? Http { get; set; }
 
+    private string Tag => Http.LocaleOf().Tag;
+
+    /// <summary>
+    /// The empty state's sentence, with the link to the index placed by the message rather than
+    /// glued round it — a gap here is work nobody has done, and this is the one 404 on the site a
+    /// reader could reasonably read a deletion into.
+    /// </summary>
+    private IReadOnlyList<Sentences.Run> NotFound => Sentences.Place(
+        Tag, "reference.notFound.body", ("index", Messages.For(Tag, "reference.notFound.index")));
+
     protected override async Task OnParametersSetAsync()
     {
+        // The section as this reader gets it — one call site, scoped to the request's locale, and
+        // the only place this page decides which set of articles it is rendering. The locale-aware
+        // loader's ReferenceLibrary.For(Tag) is not in this branch yet, so this reads the English
+        // set through the API that does exist; the switch is this expression and nothing else,
+        // because Related, Find and the figures below all come off whatever it returns.
         var library = ReferenceLibrary.Shipped;
 
         Document = library.Find(Here());
@@ -196,7 +223,7 @@ else
 
         Related = library.Related(Document);
         Claims = ClientCapabilities.For(Document);
-        Html = ReferenceMarkdown.ToHtml(Document.Body, Http.LocaleOf().Tag);
+        Html = ReferenceMarkdown.ToHtml(Document.Body, Tag);
 
         Codebase = Document.Codebase is { } family
             ? await CodebaseFigures.ReadAsync(Queries, family)

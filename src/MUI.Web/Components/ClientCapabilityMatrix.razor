@@ -1,3 +1,4 @@
+@using MUI.Web.Localization
 @using MUI.Web.Reference
 
 @*
@@ -8,25 +9,29 @@
     read somebody else's documentation — so a second column would imply a measurement that does not
     exist. What takes its place is the citation, which is the load-bearing part of the record: an
     uncited cell is not a weaker claim, it is not a claim at all, and it renders as unknown.
+
+    Every word round the table is a message and every capability name inside it is not: TLS, MCCP and
+    GMCP are machine voice, spelled as the catalogue spells them, and a locale that translated one
+    would break the only thing this table is for — reading a client's row against a game's.
 *@
 
 <div class="section-head">
-    <h2 id="@Id">Capabilities</h2>
-    <p class="count faint">@Established of @Claims.Count established from the project's own documentation</p>
+    <h2 id="@Id">@Messages.For(Tag, "reference.capabilities.heading")</h2>
+    <p class="count faint">
+        @Messages.Say(Tag, "reference.capabilities.established",
+            ("count", Established), ("total", Claims.Count))
+    </p>
 </div>
 
-<p class="dim">@ReferencePlainText.ClientMatrixCaveat</p>
+<p class="dim">@ReferencePlainText.ClientMatrixCaveat(Tag)</p>
 
 <table class="matrix client-matrix">
-    <caption class="sr-only">
-        Client capabilities, each read off the project's own documentation. Unknown means we did not
-        establish it, and never that the client lacks it.
-    </caption>
+    <caption class="sr-only">@Messages.For(Tag, "reference.capabilities.caption")</caption>
     <thead>
         <tr>
-            <th scope="col">capability</th>
-            <th scope="col">documented</th>
-            <th scope="col">source</th>
+            <th scope="col">@Messages.For(Tag, "capability.column")</th>
+            <th scope="col">@Messages.For(Tag, "reference.capabilities.column.documented")</th>
+            <th scope="col">@Messages.For(Tag, "reference.capabilities.column.source")</th>
         </tr>
     </thead>
     <tbody>
@@ -39,7 +44,7 @@
                    reader and on a printout the cell still says which of the three things it is —
                    which is the entire difference between an unknown and a no. *@
                 <td class="mono">
-                    <span class="@Tone(claim.State)">@ClientCapabilities.Word(claim.State)</span>
+                    <span class="@Tone(claim.State)">@ClientCapabilities.Word(Tag, claim.State)</span>
                 </td>
                 <td class="mono faint">
                     @if (claim.Source is { } source)
@@ -48,7 +53,7 @@
                     }
                     else
                     {
-                        <text>we did not find one</text>
+                        <text>@Messages.For(Tag, "reference.capabilities.noSource")</text>
                     }
                 </td>
             </tr>
@@ -60,6 +65,11 @@
     [Parameter, EditorRequired] public IReadOnlyList<CapabilityClaim> Claims { get; set; } = [];
 
     [Parameter] public string Id { get; set; } = "capabilities";
+
+    /// <summary>The request, for the language every word round this table is written in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
 
     private int Established => Claims.Count(c => c.IsClaimed);
 

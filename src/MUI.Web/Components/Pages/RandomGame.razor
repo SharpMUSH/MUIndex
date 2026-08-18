@@ -28,20 +28,20 @@ else
         a language that puts the links in the other order, or needs a different preposition before
         each, has nowhere to say so if the markup owns the word order.
 
-        The message places two markers and this splits on them, so what a translator writes is text
-        and never markup. Formatting anchors into the string and trusting them through a
+        The message places two markers and Sentences walks them, so what a translator writes is
+        text and never markup. Formatting anchors into the string and trusting them through a
         MarkupString would make every bundle a place someone could put a tag.
     *@
     <p class="dim">
-        @foreach (var piece in Sentence())
+        @foreach (var run in Sentence)
         {
-            @if (piece.Href is { } href)
+            @if (run.Slot is { } slot)
             {
-                <a href="@Http.Link(href)">@piece.Text</a>
+                <a href="@Http.Link(Address(slot))">@run.Text</a>
             }
             else
             {
-                @piece.Text
+                @run.Text
             }
         }
     </p>
@@ -52,58 +52,25 @@ else
 
     private string Tag => Http.LocaleOf().Tag;
 
-    /// <summary>One run of the sentence: plain text, or text that is a link.</summary>
-    private sealed record Piece(string Text, string? Href);
-
     /// <summary>
     /// The empty state's sentence, split into the runs the markup renders.
     /// </summary>
     /// <remarks>
-    /// The message places two markers and this walks them, so a translator writes text and never
-    /// markup — formatting anchors into the string and trusting the result through a
-    /// <c>MarkupString</c> would make every bundle a place someone could put a tag. The markers are
-    /// private-use code points, which no translation contains by accident and no script here uses.
-    /// The message owns the word order: a language that wants the archive named first, or a
-    /// different preposition before each link, writes that and this follows.
+    /// The message places two markers and <see cref="Sentences"/> walks them, so a translator writes
+    /// text and never markup — formatting anchors into the string and trusting the result through a
+    /// <c>MarkupString</c> would make every bundle a place someone could put a tag. The message owns
+    /// the word order: a language that wants the archive named first, or a different preposition
+    /// before each link, writes that and this follows.
     /// </remarks>
-    private IEnumerable<Piece> Sentence()
-    {
-        const char Listing = '\uE000';
-        const char Archive = '\uE001';
+    private IReadOnlyList<Sentences.Run> Sentence => Sentences.Place(
+        Tag,
+        "random.empty.body",
+        ("listing", Messages.For(Tag, "random.empty.listing")),
+        ("archive", Messages.For(Tag, "random.empty.archive")));
 
-        var sentence = Messages.For(Tag, "random.empty.body",
-            new Dictionary<string, object?>(StringComparer.Ordinal)
-            {
-                ["listing"] = Listing.ToString(),
-                ["archive"] = Archive.ToString(),
-            });
-
-        var run = new System.Text.StringBuilder();
-
-        foreach (var c in sentence)
-        {
-            if (c is not (Listing or Archive))
-            {
-                run.Append(c);
-                continue;
-            }
-
-            if (run.Length > 0)
-            {
-                yield return new Piece(run.ToString(), null);
-                run.Clear();
-            }
-
-            yield return c is Listing
-                ? new Piece(Messages.For(Tag, "random.empty.listing"), "/games")
-                : new Piece(Messages.For(Tag, "random.empty.archive"), "/games?archived=true");
-        }
-
-        if (run.Length > 0)
-        {
-            yield return new Piece(run.ToString(), null);
-        }
-    }
+    /// <summary>Where each slot of that sentence leads.</summary>
+    private static string Address(string slot) =>
+        slot == "listing" ? "/games" : "/games?archived=true";
 
     private string? Error { get; set; }
 

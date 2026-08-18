@@ -3116,4 +3116,208 @@
     <value>{count, plural, one {# archived, still probed} other {# archived, still probed}}</value>
     <comment>the plain mirror's feed headings and home counts</comment>
   </data>
+  <data name="reference.title" xml:space="preserve">
+    <value>Reference</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.lede" xml:space="preserve">
+    <value>What the codebases are, what the clients do, and what the protocols mean. Written by hand and kept in the repository beside the crawler — not a wiki, and there is nothing on this page to edit. Every {number} here is a different thing: it comes from the catalogue and is recomputed each time you load the page.</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.lede.number" xml:space="preserve">
+    <value>number</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.plain.lede" xml:space="preserve">
+    <value>Hand-written, single-author, and versioned in git. The prose here is ours; every number beside it was measured by the crawler and is recomputed on each request. This is not a wiki, and there is no way to edit it from this page.</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.section.orientation" xml:space="preserve">
+    <value>Start here</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.section.codebase" xml:space="preserve">
+    <value>Codebases</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.section.client" xml:space="preserve">
+    <value>Clients</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.section.protocol" xml:space="preserve">
+    <value>Protocols</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.kind.orientation" xml:space="preserve">
+    <value>orientation</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.kind.codebase" xml:space="preserve">
+    <value>codebase</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.kind.client" xml:space="preserve">
+    <value>client</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.kind.protocol" xml:space="preserve">
+    <value>protocol</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.notFound.title" xml:space="preserve">
+    <value>Not found</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.notFound.body" xml:space="preserve">
+    <value>No reference page here. This section is hand-written, so a gap is work nobody has done rather than something that was removed — {index}.</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.notFound.index" xml:space="preserve">
+    <value>see what there is</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.codebase.heading" xml:space="preserve">
+    <value>Games running it</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.codebase.none" xml:space="preserve">
+    <value>We have not identified any yet. That is a fact about what this crawler has measured, not about what exists — a game we have not reached, or whose codebase we could not read, is not counted here.</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.codebase.listed" xml:space="preserve">
+    <value>{count, plural, one {# listed} other {# listed}}</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.codebase.archived" xml:space="preserve">
+    <value>{count, plural, one {# archived} other {# archived}}</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.measuredNeverAsserted" xml:space="preserve">
+    <value>measured, never asserted</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.codebase.note" xml:space="preserve">
+    <value>Counted from the catalogue on this request, over the same filter the link above carries — so this number and that listing are one query and cannot drift apart.</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.codebase.offered" xml:space="preserve">
+    <value>offered in their handshakes: {protocols}</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.protocol.heading" xml:space="preserve">
+    <value>Measured adoption</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.protocol.none" xml:space="preserve">
+    <value>Nothing measured yet.</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.protocol.share" xml:space="preserve">
+    <value>of {listed, plural, one {# listed game} other {# listed games}} — {percent}</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.protocol.remainder" xml:space="preserve">
+    <value>The games not counted here are not games without the protocol. A game is counted when we observed its server offering the option in a handshake; the rest are servers that did not offer it to us and servers whose handshake we have not read, and we cannot tell you which.</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.protocol.caption" xml:space="preserve">
+    <value>Games observed offering {protocol} in a handshake, by the codebase we identified them as running.</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.protocol.column.codebase" xml:space="preserve">
+    <value>codebase</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.protocol.column.offered" xml:space="preserve">
+    <value>offered it</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.protocol.column.identified" xml:space="preserve">
+    <value>identified</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.seeAlso" xml:space="preserve">
+    <value>See also</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.capabilities.heading" xml:space="preserve">
+    <value>Capabilities</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.capabilities.established" xml:space="preserve">
+    <value>{count, plural, one {# of {total} established from the project's own documentation} other {# of {total} established from the project's own documentation}}</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.capabilities.caveat" xml:space="preserve">
+    <value>Read off each project's own documentation, not measured by us — a client has no handshake for us to observe. "{unknown}" means we looked and did not establish it. It never means no.</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.capabilities.caption" xml:space="preserve">
+    <value>Client capabilities, each read off the project's own documentation. Unknown means we did not establish it, and never that the client lacks it.</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.capabilities.column.documented" xml:space="preserve">
+    <value>documented</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.capabilities.column.source" xml:space="preserve">
+    <value>source</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.capabilities.noSource" xml:space="preserve">
+    <value>we did not find one</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.capability.yes" xml:space="preserve">
+    <value>yes</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.capability.no" xml:space="preserve">
+    <value>no</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.capability.unknown" xml:space="preserve">
+    <value>unknown</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.plain.runsOn" xml:space="preserve">
+    <value>Runs on: {platforms}</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.plain.codebase.heading" xml:space="preserve">
+    <value>Games we have identified as running this codebase</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.plain.codebase.none" xml:space="preserve">
+    <value>None yet. That is a statement about what we have measured, not about what exists — a game we have not reached, or whose codebase we could not read, is not counted here.</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.plain.codebase.counts" xml:space="preserve">
+    <value>{listed, plural, one {# listed} other {# listed}}, {archived, plural, one {# archived} other {# archived}}</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.plain.codebase.offered" xml:space="preserve">
+    <value>Measured in their handshakes: {protocols}</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.plain.codebase.nothingOffered" xml:space="preserve">
+    <value>Nothing was offered in any handshake we have read from them.</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.plain.protocol.share" xml:space="preserve">
+    <value>{offering} of {listed, plural, one {# listed game} other {# listed games}} were observed offering it ({percent})</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.plain.protocol.byCodebase" xml:space="preserve">
+    <value>By codebase, of the games we identified</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.plain.protocol.row" xml:space="preserve">
+    <value>{offering} of {identified} offered it</value>
+    <comment>the reference section's chrome</comment>
+  </data>
+  <data name="reference.plain.capabilities.unknown" xml:space="preserve">
+    <value>{count, plural, one {# of {total} rows is unknown} other {# of {total} rows are unknown}}: we did not find the project's own documentation saying either way. A short honest table beats a long guessed one.</value>
+    <comment>the reference section's chrome</comment>
+  </data>
 </root>
