@@ -1147,6 +1147,35 @@ form.locale select:focus { outline: none; }
 .game-head .endpoint .faint { font-size: 12.5px; }
 .game-head .endpoint.former .address { color: var(--dim); }
 
+/*
+  The reach row: where this game's people are, under its name.
+
+  A row of icons and not a list of addresses, because nine URLs under an <h1> would push the page's
+  content off the first screen. Each is a 32px target — the row is the one place on this page where
+  a reader is aiming at something small, and 18px of glyph inside a 32px box is what makes it a
+  thumb-sized hit without making the icons loud.
+
+  The hover colour is the accent, which everywhere else on this site means measured — and these are
+  declared. That is not a contradiction being papered over: the accent is also the interactive
+  colour here (every link takes it), and a row of links that refused to use it would be reading the
+  provenance palette as though it governed states it was never about. The fact itself is unglowed,
+  and its chip below says declared.
+*/
+.reach { display: flex; flex-wrap: wrap; gap: 2px; margin: 2px 0 0; padding: 0; list-style: none; }
+.reach a {
+    display: grid; place-items: center;
+    width: 32px; height: 32px; border-radius: 8px;
+    color: var(--dim); text-decoration: none;
+}
+.reach a:hover, .reach a:focus-visible { color: var(--accent); background: var(--recessed); }
+.reach .reach-icon { display: block; line-height: 0; }
+
+/* Reduced motion is not the question here — this is a colour change and nothing moves — but the
+   transition is still worth having only where the reader has not asked for less. */
+@media (prefers-reduced-motion: no-preference) {
+    .reach a { transition: color 120ms ease, background-color 120ms ease; }
+}
+
 .badges { margin: 4px 0 6px; }
 .badge.claimed { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 34%, transparent); }
 

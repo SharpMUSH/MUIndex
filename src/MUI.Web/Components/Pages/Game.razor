@@ -54,6 +54,15 @@ else
                        HasIcon="Icon is not null" Size="64" />
             <div class="game-title">
                 <h1><GameName Name="@Page.Summary.Name" /></h1>
+
+                @*
+                    Where this game's people are, under its name and above everything we have to say
+                    about it. A reader who came here to find the Discord has found it before reading
+                    a word of ours — and every one of these is printed in full, with its chip, in the
+                    self-description below, which is the record these are drawn from.
+                *@
+                <ReachRow Links="Page.Links" Now="Now" />
+
                 @if (Archived)
                 {
                     <p class="badges"><span class="badge archived">@L("facet.archived")</span></p>

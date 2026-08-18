@@ -331,8 +331,12 @@ public sealed class FieldRegistry : IFieldRegistry
     {
         var fields = new List<FieldDefinition>();
 
-        void Add(string name, TimeSpan window, OwnerWritable writable = OwnerWritable.No) =>
-            fields.Add(new FieldDefinition(name, window, writable));
+        void Add(
+            string name,
+            TimeSpan window,
+            OwnerWritable writable = OwnerWritable.No,
+            FieldShape shape = FieldShape.Text) =>
+            fields.Add(new FieldDefinition(name, window, writable, shape));
 
         // ── What a verified owner may answer, and the line it does not cross ──────────────────────
         //
@@ -361,10 +365,17 @@ public sealed class FieldRegistry : IFieldRegistry
         Add("IP", Automatic);
         Add("IPV6", Automatic);
         Add("CHARSET", Automatic);
-        Add("CONTACT", Contactable, OwnerWritable.Override);
-        Add("WEBSITE", Contactable, OwnerWritable.Override);
-        Add("DISCORD", Contactable, OwnerWritable.Override);
-        Add("ICON", HandTyped, OwnerWritable.Override);
+        Add("CONTACT", Contactable, OwnerWritable.Override, FieldShape.Email);
+        Add("WEBSITE", Contactable, OwnerWritable.Override, FieldShape.Url);
+        Add("DISCORD", Contactable, OwnerWritable.Override, FieldShape.Url);
+        Add("ICON", HandTyped, OwnerWritable.Override, FieldShape.Url);
+
+        // Unofficial, and carried because fourteen games in this catalogue publish it. MSSP's
+        // variable for an email address is CONTACT; EMAIL is what several codebases emit beside it
+        // or instead of it, and a reader wanting to reach somebody does not care which. Not
+        // writable: an owner correcting their address has CONTACT, and offering two boxes for one
+        // fact is how a game ends up with two addresses and no way to tell which is current.
+        Add("EMAIL", Contactable, OwnerWritable.No, FieldShape.Email);
         Add("CREATED", HandTyped, OwnerWritable.Override);
         Add("LANGUAGE", HandTyped, OwnerWritable.Override);
         Add("LOCATION", HandTyped, OwnerWritable.Override);
@@ -408,6 +419,22 @@ public sealed class FieldRegistry : IFieldRegistry
         Add("APPLICATION PROCESS", HandTyped, OwnerWritable.Enrichment);
         Add("RP ENFORCEMENT", HandTyped, OwnerWritable.Enrichment);
         Add("CONSENT TOOLS", HandTyped, OwnerWritable.Enrichment);
+
+        // The rest of where a game's people are. MSSP added DISCORD and stopped, so a game with a
+        // wiki, a forum or a fediverse account has no variable to say so — which puts these in the
+        // same category as FANDOM above: absent from the protocol, so the owner is the only source
+        // there could be, and a crawler will never fill one in.
+        //
+        // Contactable rather than HandTyped, and that is the one thing here worth arguing about: a
+        // fandom does not change and an invite link expires. Ninety days is the window that asks
+        // "is this still where you are" without nagging somebody whose forum has sat at one address
+        // since 2004 — the same window CONTACT, WEBSITE and DISCORD already use, for the same reason.
+        Add("WIKI", Contactable, OwnerWritable.Enrichment, FieldShape.Url);
+        Add("FORUM", Contactable, OwnerWritable.Enrichment, FieldShape.Url);
+        Add("TELEGRAM", Contactable, OwnerWritable.Enrichment, FieldShape.Url);
+        Add("MASTODON", Contactable, OwnerWritable.Enrichment, FieldShape.Url);
+        Add("BLUESKY", Contactable, OwnerWritable.Enrichment, FieldShape.Url);
+        Add("X", Contactable, OwnerWritable.Enrichment, FieldShape.Url);
 
         return fields;
     }

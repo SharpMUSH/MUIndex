@@ -47,7 +47,10 @@
             <label>
                 @* The registry's own field name: machine voice, like a hostname or a codebase. *@
                 <span class="kicker" translate="no">@definition.Name.ToLowerInvariant()</span>
-                <input type="text"
+                @* type=url on the fields that hold one, so a browser catches the typo the
+                   endpoint would otherwise refuse the whole form for. The shape is the registry's
+                   own, not a list of field names kept here — see FieldShape. *@
+                <input type="@Box(definition.Shape)"
                        name="@(OwnerWrites.FieldPrefix + definition.Name)"
                        value="@(Current(definition.Name)?.Value)"
                        maxlength="@OwnerEnrichment.MaxValueLength" />
@@ -113,7 +116,10 @@
         {
             <label>
                 <span class="kicker" translate="no">@definition.Name.ToLowerInvariant()</span>
-                <input type="text"
+                @* type=url on the fields that hold one, so a browser catches the typo the
+                   endpoint would otherwise refuse the whole form for. The shape is the registry's
+                   own, not a list of field names kept here — see FieldShape. *@
+                <input type="@Box(definition.Shape)"
                        name="@(OwnerWrites.FieldPrefix + definition.Name)"
                        value="@(Current(definition.Name)?.Value)"
                        maxlength="@OwnerEnrichment.MaxValueLength" />
@@ -318,6 +324,23 @@
 
     private string Say(string id, params (string Key, object? Value)[] args) =>
         Messages.Say(Tag, id, args);
+
+    /// <summary>The input type a field's shape asks for.</summary>
+    /// <remarks>
+    /// Advisory and nothing more: a browser's own check is a courtesy to whoever is typing, and
+    /// <c>OwnerEnrichment</c> refuses a malformed address whatever the markup said — this form is
+    /// posted by anything that can make an HTTP request.
+    /// </remarks>
+    private static string Box(FieldShape shape) => shape switch
+    {
+        FieldShape.Url => "url",
+
+        // Not type=email, deliberately. CONTACT holds an address in the specification and a contact
+        // page in practice — one game in this catalogue publishes an https:// form there, and it is
+        // accepted — so a browser refusing anything without an @ would block a value the endpoint
+        // takes.
+        _ => "text",
+    };
 
     [Parameter, EditorRequired] public Guid GameId { get; set; }
 

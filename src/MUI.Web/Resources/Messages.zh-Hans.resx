@@ -2880,4 +2880,25 @@
   <data name="facet.plain.marks" xml:space="preserve">
     <value>左栏中，* 表示此列表已筛选为该值，- 表示此列表已把该值排除。两者都是查询中的选择，而不是关于某个游戏的事实。</value>
   </data>
+  <data name="links.heading" xml:space="preserve">
+    <value>在哪里找到这个游戏</value>
+  </data>
+  <data name="links.to" xml:space="preserve">
+    <value>这个游戏在 {platform}</value>
+  </data>
+  <data name="links.website" xml:space="preserve">
+    <value>网站</value>
+  </data>
+  <data name="links.wiki" xml:space="preserve">
+    <value>维基</value>
+  </data>
+  <data name="links.forum" xml:space="preserve">
+    <value>论坛</value>
+  </data>
+  <data name="links.email" xml:space="preserve">
+    <value>电子邮件</value>
+  </data>
+  <data name="links.plain.heading" xml:space="preserve">
+    <value>在哪里找到这个游戏</value>
+  </data>
 </root>

@@ -209,12 +209,27 @@ public sealed record GamePage(
     // Why an editor ruled this address out (migration 0024), shown on the page that carries the
     // decision. Null for every other state — including `unlisted`, which is not our argument to
     // make and has none to print.
-    string? ExcludedReason = null)
+    string? ExcludedReason = null,
+
+    // The ways to reach this game's people, in render order (see QuickLinks). Defaulted for the
+    // same reason Neighbours is: a game that published no address at all is the ordinary case for
+    // fifty-five of these, not a read somebody forgot to do.
+    IReadOnlyList<QuickLink>? Reachable = null)
 {
     public int DisagreementCount => Capabilities.Count(c => c.Disagrees);
 
     /// <summary>Games this one points at, and games that point at it — measured, not curated.</summary>
     public IReadOnlyList<ReferralNeighbour> Referrals => Neighbours ?? [];
+
+    /// <summary>
+    /// Where this game's people are — its site, its rooms, its inbox.
+    /// </summary>
+    /// <remarks>
+    /// Every entry is also in <see cref="Declared"/>, with its full provenance chip, and that is not
+    /// a duplication to be tidied away: these are the same facts rendered as navigation, and the
+    /// list below the fold is the record they are drawn from.
+    /// </remarks>
+    public IReadOnlyList<QuickLink> Links => Reachable ?? [];
 }
 
 /// <summary>Which way a referral runs.</summary>

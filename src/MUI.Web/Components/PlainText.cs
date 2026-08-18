@@ -111,6 +111,7 @@ public static class PlainText
             b.AppendLine(Say(tag, "reach.plain.longestOutage", ("duration", Wording.Duration(o))));
         }
 
+        AppendReach(b, page, now, tag);
         AppendActivity(b, page.Activity, tag);
         AppendTrend(b, trend, tag);
         AppendReachable(b, reach, tag);
@@ -262,6 +263,30 @@ public static class PlainText
             var flag = c.Disagrees ? "  " + Say(tag, "game.plain.disagree") : string.Empty;
             b.AppendLine($"  {c.Protocol,-10} {Say(tag, "game.plain.measured")}: {Word(c.Measured),-7} "
                 + $"{Say(tag, "game.plain.declared.column")}: {Word(c.Declared)}{flag}");
+        }
+    }
+
+    /// <summary>
+    /// The links, as addresses. The graphical page draws nine icons; this is what they say.
+    /// </summary>
+    /// <remarks>
+    /// <b>The stored value and not the normalised href.</b> A reader here is being handed what the
+    /// game published, and "https://discord.gg/x" where the row says "discord.gg/x" would be this
+    /// surface quietly repairing a fact — which is the one thing it exists not to do. The rendered
+    /// page links the normalised form because a browser needs one; a text surface needs the truth.
+    /// </remarks>
+    private static void AppendReach(StringBuilder b, GamePage page, DateTimeOffset now, string tag)
+    {
+        if (page.Links.Count == 0)
+        {
+            return;
+        }
+
+        Heading(b, Say(tag, "links.plain.heading"));
+
+        foreach (var link in page.Links)
+        {
+            b.AppendLine($"  {link.Field,-10} {link.Shown}  {Label(tag, new ProvenanceChip(link.Shown, link.Source, link.LastConfirmedAt, link.IsStale), now)}");
         }
     }
 

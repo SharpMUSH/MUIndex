@@ -1305,6 +1305,20 @@ public static class Messages
         ["game.plain.declared.column"] = "declared",
         ["game.plain.disagree"] = "** disagree",
 
+        // ── the reach row, and the same facts on the plain surface ────────────────────────────
+        //
+        // The platform's own name is an ARGUMENT and never part of the string. Mastodon is Mastodon
+        // in every language on this list, and nine ids each saying one proper noun would be nine
+        // chances for a translator to translate a brand — while the preposition around it, which is
+        // the part that actually moves between languages, would have nowhere to live.
+        ["links.heading"] = "Where to find this game",
+        ["links.to"] = "This game on {platform}",
+        ["links.website"] = "Website",
+        ["links.wiki"] = "Wiki",
+        ["links.forum"] = "Forum",
+        ["links.email"] = "Email",
+        ["links.plain.heading"] = "Where to find this game",
+
         // ══ appended block: the listing row's own labels and the last three chips ══════════════
         //
         // The two column heads, repeated per row for assistive technology only. The visible head is

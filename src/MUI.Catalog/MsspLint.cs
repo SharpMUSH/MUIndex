@@ -1,5 +1,7 @@
 using System.Globalization;
 
+using MUI.Catalog.Persistence;
+
 namespace MUI.Catalog;
 
 /// <summary>What is wrong with one MSSP variable, in the operator's terms.</summary>
@@ -230,6 +232,27 @@ public static class MsspLint
                     importance,
                     row.Value,
                     $"MSSP says this is a four-digit year and it reads “{row.Value}”."));
+                continue;
+            }
+
+            // An address that is not one. Three games here publish WEBSITE as a bare hostname —
+            // "www.slothmud.org" — which MSSP's own text asks for with the prefix, and which this
+            // site will not guess a scheme for: a link we invented is our error published under
+            // their name. So the value renders as text and the operator is told, on their own page,
+            // the one edit that turns it back into a link.
+            if (FieldRegistry.Instance.Find(field) is { Shape: not FieldShape.Text } shaped
+                && !ExternalUrl.IsLinkable(row.Value, shaped.Shape))
+            {
+                findings.Add(new MsspFinding(
+                    field,
+                    MsspFindingKind.WrongType,
+                    importance,
+                    row.Value,
+                    shaped.Shape is FieldShape.Url
+                        ? $"MSSP says this is a URL and it reads “{row.Value}”. It needs the "
+                          + "https:// prefix, or we cannot link it."
+                        : $"MSSP says this is an email address and it reads “{row.Value}”, so we "
+                          + "show it as written rather than as something to write to."));
                 continue;
             }
 
