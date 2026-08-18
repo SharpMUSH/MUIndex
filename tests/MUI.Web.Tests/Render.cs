@@ -68,7 +68,8 @@ public static class Render
         string query,
         bool measured = false,
         IReadOnlyList<GameRecord>? games = null,
-        bool yielding = false)
+        bool yielding = false,
+        ClaimService? claimService = null)
         where TComponent : IComponent =>
         ComponentAsync<TComponent>(parameters, services =>
         {
@@ -77,6 +78,13 @@ public static class Render
             services.AddSingleton<IGameQueries>(yielding ? new Suspending(fixture) : fixture);
             services.AddSingleton<IAvailabilityHistory>(fixture);
             services.AddSingleton(TimeProvider.System);
+
+            // Absent by default, matching the demo fixture's own "no database" state — several
+            // pages, including the game page's claim invitation, switch on whether this resolves.
+            if (claimService is not null)
+            {
+                services.AddSingleton(claimService);
+            }
 
             // The same answer the demo path gives: there is no crawler behind a fixture, so the
             // front page's strip renders nothing rather than a heartbeat nobody measured.
