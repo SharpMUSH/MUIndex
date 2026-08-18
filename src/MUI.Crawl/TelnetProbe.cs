@@ -713,6 +713,14 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// <summary>Mutable scratch for one probe. Callbacks arrive on the read loop, so it locks.</summary>
     private sealed class Observations
     {
+        // A ceiling on how many distinct MSDP messages one probe keeps, not on any one message's
+        // size — WithMaxMessageSize (ProbeOptions.MaxSubnegotiationBytes) already bounds that. MSDP
+        // messages are deliberately not deduplicated (see Msdp below), so nothing else stops a
+        // hostile or broken server from sending an unbounded number of small, distinct messages for
+        // as long as the probe's phase budget allows. No real server measured has sent more than one;
+        // this is headroom for legitimate variety, not a number anything has approached.
+        private const int MaxMsdpMessages = 64;
+
         private readonly HashSet<string> _supported = new(StringComparer.Ordinal);
         private readonly List<string> _environment = [];
         private readonly List<string> _gmcp = [];
@@ -766,38 +774,58 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         /// unlike <see cref="Gmcp"/>'s package names — each message is a distinct answer rather than a
         /// repeated declaration, and collapsing "PLAYERS":"3" and "PLAYERS":"4" as duplicates because
         /// their JSON differs only in value would be silently correct today and silently wrong the
-        /// moment two different answers arrived.
+        /// moment two different answers arrived. Bounded at <see cref="MaxMsdpMessages"/>: further
+        /// messages are dropped rather than grown into, the same "stop rather than fabricate a
+        /// smaller version of the truth" choice <see cref="Gmcp"/>'s dedup makes for repetition.
         /// </summary>
         public void Msdp(string message)
         {
             lock (_msdp)
             {
-                _msdp.Add(message);
+                if (_msdp.Count < MaxMsdpMessages)
+                {
+                    _msdp.Add(message);
+                }
             }
         }
 
+        /// <remarks>
+        /// Each collection is snapshotted under its own lock, released before the next is taken —
+        /// not nested, so this can never wait on a lock order some future caller takes in reverse.
+        /// </remarks>
         public Negotiation ToNegotiation()
         {
+            var supported = Supported;
+
+            List<string> environment;
             lock (_environment)
             {
-                lock (_gmcp)
-                {
-                    lock (_msdp)
-                    {
-                        return new Negotiation
-                        {
-                            Supported = Supported,
-                            Charset = Charset,
-                            CompressionVersion = CompressionVersion,
-                            CharsetNegotiated = CharsetNegotiated,
-                            EnvironmentRequested = _environment.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
-                            GmcpPackages = _gmcp.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
-                            MsdpMessages = [.. _msdp],
-                            SendsPromptMarkers = Prompts,
-                        };
-                    }
-                }
+                environment = [.. _environment];
             }
+
+            List<string> gmcp;
+            lock (_gmcp)
+            {
+                gmcp = [.. _gmcp];
+            }
+
+            List<string> msdp;
+            lock (_msdp)
+            {
+                msdp = [.. _msdp];
+            }
+
+            return new Negotiation
+            {
+                Supported = supported,
+                Charset = Charset,
+                CompressionVersion = CompressionVersion,
+                CharsetNegotiated = CharsetNegotiated,
+                EnvironmentRequested = environment.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                GmcpPackages = gmcp.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                MsdpMessages = msdp,
+                SendsPromptMarkers = Prompts,
+            };
         }
     }
 }

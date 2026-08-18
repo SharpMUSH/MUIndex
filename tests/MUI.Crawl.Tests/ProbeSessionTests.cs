@@ -833,7 +833,6 @@ public class ProbeSessionTests
             try
             {
                 using var client = await _listener.AcceptTcpClientAsync(_stopping.Token);
-                await using var stream = client.GetStream();
 
                 if (ClosesImmediately)
                 {
@@ -841,59 +840,13 @@ public class ProbeSessionTests
                     return;
                 }
 
-                if (Preamble is not null)
+                if (SwallowsNegotiationAsText)
                 {
-                    await SendAsync(stream, Preamble);
+                    await ServeRawAsync(client);
                 }
-
-                if (BannerDelay > TimeSpan.Zero)
+                else
                 {
-                    await Task.Delay(BannerDelay, _stopping.Token);
-                }
-
-                await SendAsync(stream, Banner);
-                if (BannerTail is not null)
-                {
-                    await SendAsync(stream, BannerTail);
-                }
-
-                var pending = new StringBuilder();
-                var buffer = new byte[4096];
-
-                while (!_stopping.IsCancellationRequested)
-                {
-                    var read = await stream.ReadAsync(buffer, _stopping.Token);
-                    if (read == 0)
-                    {
-                        break;
-                    }
-
-                    var text = SwallowsNegotiationAsText
-                        ? Encoding.Latin1.GetString(buffer, 0, read)
-                        : Encoding.Latin1.GetString(StripNegotiation(buffer.AsSpan(0, read)));
-
-                    pending.Append(text);
-
-                    var farewell = false;
-                    while (!farewell)
-                    {
-                        var whole = pending.ToString();
-                        var breakAt = whole.IndexOf('\n');
-                        if (breakAt < 0)
-                        {
-                            break;
-                        }
-
-                        var line = whole[..breakAt].TrimEnd('\r');
-                        pending.Remove(0, breakAt + 1);
-                        farewell = !await HandleAsync(stream, line);
-                    }
-
-                    if (farewell)
-                    {
-                        client.Client.Shutdown(SocketShutdown.Both);
-                        break;
-                    }
+                    await ServeOverTelnetAsync(client);
                 }
             }
             catch (OperationCanceledException)
@@ -907,8 +860,132 @@ public class ProbeSessionTests
             }
         }
 
-        /// <summary>Handles one line, and says whether the connection survives it.</summary>
-        private async Task<bool> HandleAsync(NetworkStream stream, string line)
+        /// <summary>
+        /// The naive path — no telnet awareness at all, matching a server that does not implement RFC
+        /// 854 at its login screen and reads our negotiation bytes as typed text. TinyMUSH's shape,
+        /// and the one case in this fixture that must not go through TelnetNegotiationCore: a real
+        /// interpreter is telnet-compliant by construction, so it cannot stand in for a peer whose
+        /// entire defining trait is that it isn't.
+        /// </summary>
+        private async Task ServeRawAsync(TcpClient client)
+        {
+            await using var stream = client.GetStream();
+
+            if (Preamble is not null)
+            {
+                await SendAsync(stream, Preamble);
+            }
+
+            if (BannerDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(BannerDelay, _stopping.Token);
+            }
+
+            await SendAsync(stream, Banner);
+            if (BannerTail is not null)
+            {
+                await SendAsync(stream, BannerTail);
+            }
+
+            var pending = new StringBuilder();
+            var buffer = new byte[4096];
+
+            while (!_stopping.IsCancellationRequested)
+            {
+                var read = await stream.ReadAsync(buffer, _stopping.Token);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                pending.Append(Encoding.Latin1.GetString(buffer, 0, read));
+
+                var farewell = false;
+                while (!farewell)
+                {
+                    var whole = pending.ToString();
+                    var breakAt = whole.IndexOf('\n');
+                    if (breakAt < 0)
+                    {
+                        break;
+                    }
+
+                    var line = whole[..breakAt].TrimEnd('\r');
+                    pending.Remove(0, breakAt + 1);
+                    farewell = !await HandleAsync(line, text => new ValueTask(SendAsync(stream, text)));
+                }
+
+                if (farewell)
+                {
+                    client.Client.Shutdown(SocketShutdown.Both);
+                    break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The compliant path — a real TelnetNegotiationCore Server-mode interpreter, no plugins
+        /// attached, in place of a hand-rolled reimplementation of RFC 855 framing. The same reasoning
+        /// <see cref="MsdpTestServer"/> already applies to MSDP specifically applies to every option
+        /// the client might negotiate here: a real interpreter reassembles a subnegotiation frame
+        /// correctly regardless of how the peer's writes land across TCP reads, which a hand-rolled
+        /// scanner over one buffer at a time cannot promise and, once, did not (a request sent as its
+        /// own write ahead of the probe's main flush could arrive as two reads, and the old scanner
+        /// read the frame's tail back as literal text). No plugin is attached because none is
+        /// needed — <c>OnSubmit</c> only ever sees genuine typed text once the interpreter has done
+        /// its own job, whether or not it recognises what was negotiated.
+        /// </summary>
+        private async Task ServeOverTelnetAsync(TcpClient client)
+        {
+            var built = await new TelnetInterpreterBuilder()
+                .UseMode(TelnetInterpreter.TelnetMode.Server)
+                .UseLogger(NullLogger.Instance)
+                .OnSubmit(async (bytes, encoding, telnet) =>
+                {
+                    var line = encoding.GetString(bytes).TrimEnd('\r');
+                    var alive = await HandleAsync(line, text => WriteRawAsync(telnet, text));
+
+                    if (!alive)
+                    {
+                        client.Client.Shutdown(SocketShutdown.Both);
+                    }
+                })
+                .BuildAndStartAsync(client, _stopping.Token);
+
+            await using var telnet = built.Interpreter;
+
+            if (Preamble is not null)
+            {
+                await WriteRawAsync(telnet, Preamble);
+            }
+
+            if (BannerDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(BannerDelay, _stopping.Token);
+            }
+
+            await WriteRawAsync(telnet, Banner);
+            if (BannerTail is not null)
+            {
+                await WriteRawAsync(telnet, BannerTail);
+            }
+
+            await built.ReadTask;
+        }
+
+        /// <summary>
+        /// Writes exactly the bytes given, with nothing appended. <c>TelnetInterpreter.SendAsync</c>
+        /// always adds a trailing CR LF (right for the client's own bare one-line commands, wrong
+        /// here — <see cref="BannerTail"/> and <see cref="WhoTail"/> exist specifically to test a line
+        /// the peer never terminated, and <see cref="Banner"/> is already a complete multi-line block
+        /// with whatever terminators the test gave it). <c>WriteToNetworkAsync</c> is the primitive
+        /// every <c>Send*</c> method builds on before adding its own framing.
+        /// </summary>
+        private static ValueTask WriteRawAsync(TelnetInterpreter telnet, string text) =>
+            text.Length == 0 ? default : telnet.WriteToNetworkAsync(Encoding.Latin1.GetBytes(text));
+
+        /// <summary>Handles one already-assembled line, and says whether the connection survives it.</summary>
+        private async Task<bool> HandleAsync(string line, Func<string, ValueTask> reply)
         {
             lock (_received)
             {
@@ -917,6 +994,8 @@ public class ProbeSessionTests
 
             // A line carrying anything the server did not recognise — including our negotiation
             // bytes, when it is the kind of server that swallows them — is not a command it has.
+            // Unreachable via ServeOverTelnetAsync, where a submitted line is never anything else,
+            // but the check is the same either way rather than a second copy of what "clean" means.
             var command = line.Trim();
             var clean = command.All(c => c is >= ' ' and <= '~');
 
@@ -929,7 +1008,7 @@ public class ProbeSessionTests
 
                 if (BlankLineReply is not null)
                 {
-                    await SendAsync(stream, BlankLineReply);
+                    await reply(BlankLineReply);
                 }
 
                 return true;
@@ -938,16 +1017,16 @@ public class ProbeSessionTests
             if (!clean)
             {
                 // What TinyMUSH does: redisplay the connect screen and answer nothing.
-                await SendAsync(stream, Banner);
+                await reply(Banner);
                 return true;
             }
 
             if (command.Equals("WHO", StringComparison.OrdinalIgnoreCase))
             {
-                await SendAsync(stream, WhoReply);
+                await reply(WhoReply);
                 if (WhoTail is not null)
                 {
-                    await SendAsync(stream, WhoTail);
+                    await reply(WhoTail);
                 }
 
                 return !HangsUpAfterWho;
@@ -957,7 +1036,7 @@ public class ProbeSessionTests
             {
                 if (InfoReply is not null)
                 {
-                    await SendAsync(stream, InfoReply);
+                    await reply(InfoReply);
                 }
 
                 return true;
@@ -967,7 +1046,7 @@ public class ProbeSessionTests
             {
                 if (VersionReply is not null)
                 {
-                    await SendAsync(stream, VersionReply);
+                    await reply(VersionReply);
                 }
             }
 
@@ -984,57 +1063,6 @@ public class ProbeSessionTests
             var bytes = Encoding.Latin1.GetBytes(text);
             await stream.WriteAsync(bytes, _stopping.Token);
             await stream.FlushAsync(_stopping.Token);
-        }
-
-        /// <summary>
-        /// What a server that does implement telnet does with an option request — including one it
-        /// has no plugin for. RFC 855 subnegotiation framing (<c>IAC SB &lt;option&gt; … IAC SE</c>) is
-        /// generic: a compliant server skips the whole frame by scanning for its terminator without
-        /// needing to understand the option inside, the same way it discards an option it never
-        /// offered. Only a server that does not parse telnet at all — TinyMUSH's shape, covered by
-        /// <see cref="SwallowsNegotiationAsText"/> — reads any of this as literal text.
-        /// </summary>
-        private static byte[] StripNegotiation(ReadOnlySpan<byte> data)
-        {
-            var kept = new List<byte>(data.Length);
-            for (var i = 0; i < data.Length; i++)
-            {
-                if (data[i] != 255)
-                {
-                    kept.Add(data[i]);
-                    continue;
-                }
-
-                if (i + 1 < data.Length && data[i + 1] == 250)
-                {
-                    // IAC SB <option> … IAC SE, with IAC doubled inside the payload per RFC 854.
-                    var j = i + 2;
-                    while (j < data.Length)
-                    {
-                        if (data[j] == 255 && j + 1 < data.Length && data[j + 1] == 255)
-                        {
-                            j += 2;
-                            continue;
-                        }
-
-                        if (data[j] == 255 && j + 1 < data.Length && data[j + 1] == 240)
-                        {
-                            j += 2;
-                            break;
-                        }
-
-                        j++;
-                    }
-
-                    i = j - 1;
-                    continue;
-                }
-
-                // IAC WILL/WONT/DO/DONT <option> is three bytes; anything else, skip two.
-                i += i + 1 < data.Length && data[i + 1] is >= 251 and <= 254 ? 2 : 1;
-            }
-
-            return [.. kept];
         }
 
         public async ValueTask DisposeAsync()
