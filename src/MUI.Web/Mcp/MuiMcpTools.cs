@@ -13,10 +13,10 @@ using Npgsql;
 namespace MUI.Web.Mcp;
 
 /// <summary>
-/// The eight tools that replace the ssh/scp/<c>docker compose run --entrypoint mui-crawl</c>
+/// The nine tools that replace the ssh/scp/<c>docker compose run --entrypoint mui-crawl</c>
 /// administration dance with an authenticated MCP surface, mirroring <c>mui-crawl</c>'s CLI surface
-/// (see <c>src/MUI.Crawler.Cli/Arguments.cs</c>) plus <see cref="GameFieldSetAsync"/> and
-/// <see cref="GameRenameAsync"/>, two new capabilities.
+/// (see <c>src/MUI.Crawler.Cli/Arguments.cs</c>) plus <see cref="GameFieldSetAsync"/>,
+/// <see cref="GameRenameAsync"/> and <see cref="GameMergeAsync"/>, three new capabilities.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -48,6 +48,7 @@ public sealed class MuiMcpTools(
     IGameFieldStore fields,
     IFieldRegistry registry,
     SlugMinter minter,
+    ReviewMergeService merge,
     TimeProvider time,
     ILogger<MuiMcpTools>? logger = null)
 {
@@ -278,9 +279,13 @@ public sealed class MuiMcpTools(
         string value,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(gameSlug);
-        ArgumentException.ThrowIfNullOrWhiteSpace(field);
-        ArgumentNullException.ThrowIfNull(value);
+        RequireNotBlank(gameSlug, nameof(gameSlug));
+        RequireNotBlank(field, nameof(field));
+
+        if (value is null)
+        {
+            throw new McpException("value is required (pass an empty string to withdraw the field).");
+        }
 
         var game = await games.BySlugAsync(gameSlug.Trim(), cancellationToken)
             ?? throw new McpException($"No game with slug '{gameSlug}'.");
@@ -344,9 +349,9 @@ public sealed class MuiMcpTools(
         string because,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(gameSlug);
-        ArgumentException.ThrowIfNullOrWhiteSpace(newName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(because);
+        RequireNotBlank(gameSlug, nameof(gameSlug));
+        RequireNotBlank(newName, nameof(newName));
+        RequireNotBlank(because, nameof(because));
 
         var game = await games.BySlugAsync(gameSlug.Trim(), cancellationToken)
             ?? throw new McpException($"No game with slug '{gameSlug}'.");
@@ -374,6 +379,75 @@ public sealed class MuiMcpTools(
             game.Slug, rename.Slug, rename.Name, because);
 
         return new GameRenameResult(rename.FormerSlug ?? game.Slug, rename.Slug, rename.Name);
+    }
+
+    [McpServerTool(Name = "game_merge")]
+    [Description("""
+        Drains one duplicate_review pair by hand -- same as mui-crawl's --merge --because (spec §7.3).
+        Folds loserSlug into winnerSlug: an open review naming exactly this pair is resolved and its
+        score/signals are carried onto the merge log unchanged; a pair the identity matcher never
+        flagged is still mergeable, recorded as a judgement with no signals. A rival is never a merge
+        on its own -- IdentityMatcher only ever opens a review (see IdentityMatcher.RivalAsync) -- this
+        tool is the person acting on one.
+
+        The merge is a redirect, not a move: loserSlug's page 301s to winnerSlug's for ever; nothing
+        about loserSlug -- its presence history, its change feed, its other fields -- is touched or
+        carried over. Reverting is a hand-written UPDATE merge_log SET reverted_at = now() (see
+        CLAUDE.md); this tool does not expose an undo.
+
+        Refuses when either slug is unknown, when they name the same game, or when the database itself
+        refuses -- merge_log_absorbed_once_idx catches a loser already folded in elsewhere, and
+        merge_log_no_chains catches a redirect chain (a game renamed then absorbed, or absorbed then
+        asked to absorb another); both surface as an McpException with the schema's own message.
+        """)]
+    public async Task<GameMergeResult> GameMergeAsync(
+        [Description("The slug that survives -- the canonical entry the other absorbs into.")]
+        string winnerSlug,
+        [Description("The slug that is absorbed and will 301 to winnerSlug for ever.")]
+        string loserSlug,
+        [Description(
+            "What convinced you these are one game. Required -- matching mui-crawl's --merge "
+            + "precedent that a consequential catalogue write needs a stated reason beside it.")]
+        string because,
+        CancellationToken cancellationToken = default)
+    {
+        RequireNotBlank(winnerSlug, nameof(winnerSlug));
+        RequireNotBlank(loserSlug, nameof(loserSlug));
+        RequireNotBlank(because, nameof(because));
+
+        var winner = await games.BySlugAsync(winnerSlug.Trim(), cancellationToken)
+            ?? throw new McpException($"No game with slug '{winnerSlug}'.");
+        var loser = await games.BySlugAsync(loserSlug.Trim(), cancellationToken)
+            ?? throw new McpException($"No game with slug '{loserSlug}'.");
+
+        ReviewMergeResult result;
+
+        try
+        {
+            result = await merge.MergeAsync(winner.Id, loser.Id, because, cancellationToken);
+        }
+        catch (Exception error) when (error is ArgumentException or InvalidOperationException)
+        {
+            throw new McpException(error.Message, error);
+        }
+        catch (PostgresException error)
+        {
+            // merge_log's own guards firing at the moment somebody would create the shape they refuse
+            // -- an absorbed-elsewhere loser or a redirect chain. The database's message is more
+            // specific than anything worth restating here (see Program.cs's --merge handling).
+            throw new McpException($"refused by the database: {error.MessageText}", error);
+        }
+
+        logger?.LogInformation(
+            "game_merge: {Loser} -> {Winner} (merge {MergeId}) -- {Because}",
+            loser.Slug, winner.Slug, result.MergeId, because);
+
+        return new GameMergeResult(
+            winner.Slug,
+            loser.Slug,
+            result.MergeId,
+            result.ResolvedReviewId,
+            result.Score);
     }
 
     /// <summary>
@@ -406,6 +480,21 @@ public sealed class MuiMcpTools(
 
     private static IReadOnlyList<CrawlDueTarget> ToDue(IReadOnlyList<CrawlTarget> due) =>
         [.. due.Select(t => new CrawlDueTarget(t.Host, t.Port, t.Depth, t.ConsecutiveFailures, t.NextProbeAt))];
+
+    /// <summary>
+    /// The blank-input guard every staff tool (<see cref="GameFieldSetAsync"/>, <see cref="GameRenameAsync"/>,
+    /// <see cref="GameMergeAsync"/>) needs on its required string parameters. A raw
+    /// <see cref="ArgumentException"/> reaches a caller as the MCP SDK's generic "an error occurred" —
+    /// see <see cref="ParseSeedOrThrow"/>'s own doc comment — so this throws <see cref="McpException"/>
+    /// instead, the same way every other refusal in this class already does.
+    /// </summary>
+    private static void RequireNotBlank(string? value, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new McpException($"{parameterName} is required.");
+        }
+    }
 
     /// <summary>
     /// <see cref="CrawlSeed"/>'s own constructor and <see cref="CrawlSeed.Validate"/> throw a plain

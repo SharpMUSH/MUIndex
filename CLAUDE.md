@@ -181,15 +181,18 @@ mounted inside `MUI.Web` itself — `src/MUI.Web/Mcp/` — that reuses the same 
 uses (`OptOutGate`, `ICrawlTargetRepository`, `NpgsqlGameFieldStore`, the deployment's own singleton
 `CrawlCycle`) rather than reviving the excluded CLI image. It is gated behind `MUI_MCP_TOKEN`, a
 shared bearer secret checked in constant time; unset, every request fails authentication (fail
-closed — see `docs/deploy.md`'s "Administering the site over MCP"). Eight tools, mirroring the CLI:
+closed — see `docs/deploy.md`'s "Administering the site over MCP"). Nine tools, mirroring the CLI:
 `crawl_seed_add`, `crawl_opt_out_record`, `crawl_opt_out_check`, `crawl_due_targets`,
-`crawl_run_cycle`, `crawl_summary`, plus two new capabilities — `game_field_set`, a staff override
+`crawl_run_cycle`, `crawl_summary`, plus three new capabilities — `game_field_set`, a staff override
 (`FieldSource.Staff`) of one `GameField` row, for fixing a mis-parsed value by hand without raw SQL;
-and `game_rename` (also `mui-crawl --rename`), which writes `NAME` through that same staff override
+`game_rename` (also `mui-crawl --rename`), which writes `NAME` through that same staff override
 and then takes `SlugMinter`'s immediate, no-grace mint-and-rename path — the one a verified owner's
 own rename already takes (spec §5.7) — for a game with no owner or where staff has decided what it is
-called. The old slug redirects to the new page for ever; `game_field_set` on `NAME` alone still does
-not do this, and says so.
+called; and `game_merge` (also `mui-crawl --merge --because`), which drains one `duplicate_review`
+pair by hand (spec §7.3) through the same `ReviewMergeService` the CLI uses — folding the loser into
+the winner, resolving an open review naming that pair if one exists, and refusing on a redirect chain
+or an already-absorbed loser the same way the schema itself refuses. The old slug redirects to the
+new page for ever; `game_field_set` on `NAME` alone still does not do this, and says so.
 
 ## MUIndex owns its crawler
 

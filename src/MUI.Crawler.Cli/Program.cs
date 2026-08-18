@@ -265,7 +265,8 @@ if (arguments.Merge is { } mergeRequest)
         new NpgsqlDuplicateReviewRepository(source),
         new MergeApplier(
             new CatalogueEndpointDirectory(endpoints), fields, new NpgsqlMergeLog(source), time),
-        time);
+        time,
+        new NpgsqlUnitOfWorkFactory(source));
 
     Guid? winnerId = null;
     Guid? loserId = null;

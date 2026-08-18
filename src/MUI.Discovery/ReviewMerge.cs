@@ -28,7 +28,8 @@ public sealed class ReviewMergeService(
     IGameDirectory games,
     IDuplicateReviewRepository reviews,
     MergeApplier applier,
-    TimeProvider time)
+    TimeProvider time,
+    IUnitOfWorkFactory unitOfWorkFactory)
 {
     /// <summary>
     /// Absorbs <paramref name="loserId"/> into <paramref name="winnerId"/>: closes the open review
@@ -74,13 +75,20 @@ public sealed class ReviewMergeService(
             ? new IdentityScore(loserId, openReview.Score, IdentitySignals.FromJson(openReview.SignalsJson))
             : new IdentityScore(loserId, Score: 0, Signals: []);
 
-        var mergeId = await applier.MergeGamesAsync(winnerId, loserId, score, ct, because);
+        // Both writes join one unit of work so a failure between them rolls back the first rather than
+        // leaving a merge in force with its review still open -- see IUnitOfWork's own doc comment for
+        // why that state is otherwise unrecoverable (merge_log_absorbed_once_idx refuses the retry).
+        await using var unitOfWork = await unitOfWorkFactory.BeginAsync(ct);
+
+        var mergeId = await applier.MergeGamesAsync(winnerId, loserId, score, ct, because, unitOfWork);
 
         if (openReview is not null)
         {
             await reviews.ResolveAsync(
-                openReview.Id, $"merged into {winnerId}: {because}", time.GetUtcNow(), ct);
+                openReview.Id, $"merged into {winnerId}: {because}", time.GetUtcNow(), ct, unitOfWork);
         }
+
+        await unitOfWork.CommitAsync(ct);
 
         return new ReviewMergeResult(mergeId, openReview?.Id, score.Score);
     }

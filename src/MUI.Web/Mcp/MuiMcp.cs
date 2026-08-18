@@ -9,14 +9,14 @@ namespace MUI.Web.Mcp;
 /// <b>A narrow, purpose-built tool surface, not the CLI in a trenchcoat.</b> The Dockerfile keeps
 /// <c>mui-crawl</c> out of the deployed image on purpose — see its own comment — because an image that
 /// shipped the raw, all-flags binary would invite it into a container's entrypoint. This is a
-/// different thing: eight specific, authenticated tools (<see cref="MuiMcpTools"/>) built on the exact
+/// different thing: nine specific, authenticated tools (<see cref="MuiMcpTools"/>) built on the exact
 /// same library services the CLI uses, mounted as a route group inside the one deployable rather than
 /// a second image or a second process.
 /// </para>
 /// <para>
 /// <b>Mapped only where there is a database</b> — inside <c>SiteComposition</c>'s
 /// <c>connectionString is not null</c> branch, exactly like accounts, submissions and icons. Every one
-/// of the eight tools needs the Postgres-backed crawler graph <c>AddMuiCrawler</c> registers; there is
+/// of the nine tools needs the Postgres-backed crawler graph <c>AddMuiCrawler</c> registers; there is
 /// nothing useful for this route to do against the demo fixture.
 /// </para>
 /// </remarks>

@@ -38,14 +38,28 @@ public sealed class InMemoryDuplicateReviewRepository : IDuplicateReviewReposito
         Task.FromResult<IReadOnlyList<DuplicateReview>>(
             _reviews.Where(r => r.IsOpen && (r.LeftGameId == gameId || r.RightGameId == gameId)).ToList());
 
-    public Task ResolveAsync(Guid id, string resolution, DateTimeOffset at, CancellationToken ct)
+    public Task ResolveAsync(
+        Guid id, string resolution, DateTimeOffset at, CancellationToken ct, IUnitOfWork? unitOfWork = null)
     {
-        var index = _reviews.FindIndex(r => r.Id == id && r.IsOpen);
-        if (index >= 0)
+        void Apply()
         {
-            // Resolved, never deleted: a pair somebody judged distinct and which turns up again is a
-            // second row with its own history rather than a silent overwrite.
-            _reviews[index] = _reviews[index] with { ResolvedAt = at, Resolution = resolution };
+            var index = _reviews.FindIndex(r => r.Id == id && r.IsOpen);
+            if (index >= 0)
+            {
+                // Resolved, never deleted: a pair somebody judged distinct and which turns up again is
+                // a second row with its own history rather than a silent overwrite.
+                _reviews[index] = _reviews[index] with { ResolvedAt = at, Resolution = resolution };
+            }
+        }
+
+        // See InMemoryMergeLog.RecordAsync's own comment -- the same defer-to-commit behaviour.
+        if (unitOfWork is InMemoryUnitOfWork shared)
+        {
+            shared.Enqueue(Apply);
+        }
+        else
+        {
+            Apply();
         }
 
         return Task.CompletedTask;

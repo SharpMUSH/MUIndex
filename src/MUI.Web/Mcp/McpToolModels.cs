@@ -35,3 +35,13 @@ public sealed record GameFieldSetResult(
 /// <summary>What <see cref="MuiMcpTools.GameRenameAsync"/> did. <see cref="OldSlug"/> is the same as
 /// <see cref="NewSlug"/> when the new name minted the same slug as the one the game already had.</summary>
 public sealed record GameRenameResult(string OldSlug, string NewSlug, string Name);
+
+/// <summary>What <see cref="MuiMcpTools.GameMergeAsync"/> did. <see cref="ResolvedReviewId"/> is null
+/// when no open duplicate_review named this pair -- the merge was still recorded, as a judgement with
+/// no signals, and <see cref="Score"/> reads 0 in that case.</summary>
+public sealed record GameMergeResult(
+    string WinnerSlug,
+    string LoserSlug,
+    Guid MergeId,
+    Guid? ResolvedReviewId,
+    double Score);
