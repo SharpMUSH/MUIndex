@@ -108,7 +108,7 @@ public class IdentityMatcherTests
 
         var score = ((IdentityVerdict.Review)verdict).Score;
 
-        await Assert.That(score.Signals.Count).IsEqualTo(6);
+        await Assert.That(score.Signals.Count).IsEqualTo(7);
         await Assert.That(score.Signals.Count(s => s.Matched)).IsEqualTo(1);
         await Assert.That(score.Signals.Sum(s => s.Weight)).IsGreaterThan(score.Score);
     }
@@ -223,6 +223,151 @@ public class IdentityMatcherTests
         var verdict = await world.Matcher.ResolveAsync(ProbeResults.Answered(
             host: "new.example.org",
             mssp: ProbeResults.Mssp(("NAME", "Corvid"), ("CREATED", "2003"))), None);
+
+        await Assert.That(verdict).IsTypeOf<IdentityVerdict.Fresh>();
+    }
+
+    [Test]
+    public async Task ABareIpResolvingToAKnownHostnameMergesOnceAnyOtherSignalFoundTheCandidate()
+    {
+        // The I3 shadow-game shape: nightfall.org is on record and its only other trace on the wire is
+        // WEBSITE — on its own worth only a review (0.40). WEBSITE is one of the fields GatherAsync
+        // actually reverse-looks-up, so it is what finds the candidate at all; ResolvedEndpoint then
+        // corroborates on its own strength (1.00), exactly as Endpoint would if the address had matched
+        // literally instead of by resolution.
+        var world = new IdentityWorld { Resolver = new FakeHostResolver().Resolving("nightfall.org", "45.79.224.33") };
+        var nightfall = await world.GameAsync((IdentityFields.Website, "https://nightfall.example"));
+        await world.EndpointAsync(nightfall, "nightfall.org", 4201);
+
+        var verdict = await world.Matcher.ResolveAsync(
+            ProbeResults.Answered(
+                host: "45.79.224.33",
+                port: 4201,
+                mssp: ProbeResults.Mssp(("WEBSITE", "https://nightfall.example"))),
+            None);
+
+        await Assert.That(verdict).IsTypeOf<IdentityVerdict.Merge>();
+        var merge = (IdentityVerdict.Merge)verdict;
+        await Assert.That(merge.GameId).IsEqualTo(nightfall);
+        await Assert.That(merge.Score.Score).IsGreaterThanOrEqualTo(IdentityWeights.AutoMergeThreshold);
+    }
+
+    [Test]
+    public async Task ABareIpWithNoOtherEvidenceAtAllGathersNoCandidateEvenWithAResolverWired()
+    {
+        // ResolvedEndpoint corroborates a candidate CandidatesAsync already found; it is not itself a
+        // gathering step, deliberately — resolving every listed game's hostname against a bare IP that
+        // matched nothing else would be an unbounded DNS fan-out per probe, and it would let a stranger
+        // reach an existing game with no textual evidence in common at all.
+        var world = new IdentityWorld { Resolver = new FakeHostResolver().Resolving("nightfall.org", "45.79.224.33") };
+        var nightfall = await world.GameAsync();
+        await world.EndpointAsync(nightfall, "nightfall.org", 4201);
+
+        var verdict = await world.Matcher.ResolveAsync(
+            ProbeResults.Answered(host: "45.79.224.33", port: 4201), None);
+
+        await Assert.That(verdict).IsTypeOf<IdentityVerdict.Fresh>();
+        await Assert.That(((IdentityVerdict.Fresh)verdict).Best).IsNull();
+    }
+
+    [Test]
+    public async Task WithNoResolverWiredTheBareIpShapeStaysWhateverItWasBefore()
+    {
+        // The degrade-gracefully guarantee: a caller that has not wired a resolver gets exactly the
+        // pre-fix behaviour, never an exception and never a silently wrong merge.
+        var world = new IdentityWorld
+        {
+            Resolver = null,
+        };
+        var nightfall = await world.GameAsync((IdentityFields.BannerHash, "irrelevant-without-a-banner-match"));
+        await world.EndpointAsync(nightfall, "nightfall.org", 4201);
+
+        var verdict = await world.Matcher.ResolveAsync(
+            ProbeResults.Answered(host: "45.79.224.33", port: 4201), None);
+
+        await Assert.That(verdict).IsTypeOf<IdentityVerdict.Fresh>();
+    }
+
+    [Test]
+    public async Task ADifferentPortAtTheSameResolvedAddressDoesNotMatch()
+    {
+        // Two listeners cannot share one address and port, but they can easily share one address on
+        // different ports — a second game hosted on the same box. That must not merge.
+        var world = new IdentityWorld { Resolver = new FakeHostResolver().Resolving("nightfall.org", "45.79.224.33") };
+        var nightfall = await world.GameAsync();
+        await world.EndpointAsync(nightfall, "nightfall.org", 4201);
+
+        var verdict = await world.Matcher.ResolveAsync(
+            ProbeResults.Answered(host: "45.79.224.33", port: 9999), None);
+
+        await Assert.That(verdict).IsTypeOf<IdentityVerdict.Fresh>();
+    }
+
+    [Test]
+    public async Task AResolvedAddressThatMatchesNobodyIsJustAnAbsence()
+    {
+        var world = new IdentityWorld { Resolver = new FakeHostResolver().Resolving("nightfall.org", "45.79.224.33") };
+        var nightfall = await world.GameAsync();
+        await world.EndpointAsync(nightfall, "nightfall.org", 4201);
+
+        var verdict = await world.Matcher.ResolveAsync(
+            ProbeResults.Answered(host: "203.0.113.9", port: 4201), None);
+
+        await Assert.That(verdict).IsTypeOf<IdentityVerdict.Fresh>();
+    }
+
+    [Test]
+    public async Task AHostnameProbeNeverUsesResolvedEndpointEvenWithAResolverWired()
+    {
+        // Hostname-to-hostname is Endpoint's comparison, unchanged. ResolvedEndpoint's job starts and
+        // ends at a probe that arrived by literal address.
+        var world = new IdentityWorld
+        {
+            Resolver = new FakeHostResolver().Resolving("nightfall.org", "45.79.224.33"),
+        };
+        var nightfall = await world.GameAsync();
+        await world.EndpointAsync(nightfall, "nightfall.org", 4201);
+
+        var verdict = await world.Matcher.ResolveAsync(
+            ProbeResults.Answered(host: "mirror.nightfall.org", port: 4201), None);
+
+        await Assert.That(verdict).IsTypeOf<IdentityVerdict.Fresh>();
+    }
+
+    [Test]
+    public async Task ResolvedEndpointCorroboratesABannerMatchAcrossTheReviewThreshold()
+    {
+        // The shape nine confirmed production pairs actually had: BannerHash alone (0.50) sat between
+        // ReviewThreshold and AutoMergeThreshold and stuck there for ever. A resolver wired in closes
+        // exactly this gap.
+        const string banner = "Welcome to Nightfall.\nA world of shadow and steel.\nType 'connect'.";
+        var world = new IdentityWorld { Resolver = new FakeHostResolver().Resolving("nightfall.org", "45.79.224.33") };
+        var nightfall = await world.GameAsync((IdentityFields.BannerHash, BannerFingerprint.Of(banner)));
+        await world.EndpointAsync(nightfall, "nightfall.org", 4201);
+
+        var verdict = await world.Matcher.ResolveAsync(
+            ProbeResults.Answered(host: "45.79.224.33", port: 4201, banner: banner), None);
+
+        await Assert.That(verdict).IsTypeOf<IdentityVerdict.Merge>();
+    }
+
+    [Test]
+    public async Task AStrangerCannotManufactureACandidateByDiallingFromAResolvedAddressAlone()
+    {
+        // ResolvedEndpoint only ever corroborates a candidate CandidatesAsync already gathered by some
+        // other signal (name, banner, website, contact, claim token). An IP that happens to resolve the
+        // same as an unrelated listed game's hostname, with nothing else in common, must gather no
+        // candidate at all — GatherAsync never asks a resolver anything.
+        var world = new IdentityWorld { Resolver = new FakeHostResolver().Resolving("nightfall.org", "45.79.224.33") };
+        var nightfall = await world.GameAsync();
+        await world.EndpointAsync(nightfall, "nightfall.org", 4201);
+
+        var verdict = await world.Matcher.ResolveAsync(
+            ProbeResults.Answered(
+                host: "45.79.224.33",
+                port: 4201,
+                mssp: ProbeResults.Mssp(("NAME", "Something Entirely Unrelated"))),
+            None);
 
         await Assert.That(verdict).IsTypeOf<IdentityVerdict.Fresh>();
     }

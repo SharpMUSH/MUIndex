@@ -33,6 +33,10 @@ public sealed class InMemoryEndpointDirectory : IEndpointDirectory
     public Task<KnownEndpoint?> ByAddressAsync(string host, int port, CancellationToken ct) =>
         Task.FromResult(_endpoints.GetValueOrDefault((CanonicalHost.Normalize(host), port)));
 
+    public Task<IReadOnlyList<KnownEndpoint>> ForGameAsync(Guid gameId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<KnownEndpoint>>(
+            _endpoints.Values.Where(e => e.GameId == gameId).ToList());
+
     public Task UpsertAsync(KnownEndpoint endpoint, CancellationToken ct)
     {
         _endpoints[(CanonicalHost.Normalize(endpoint.Host), endpoint.Port)] = endpoint;

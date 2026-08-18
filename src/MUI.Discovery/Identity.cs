@@ -21,6 +21,48 @@ public static class IdentityWeights
     public const double Endpoint = 1.00;
 
     /// <summary>
+    /// A bare-IP probe's address, at the port a candidate's own known endpoint resolves to — the same
+    /// (host, port) <see cref="Endpoint"/> asserts, read off a hostname instead of a literal string.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Exists because I3 seeds by address alone, on purpose (spec §7.6).</b> <c>I3Cycle</c> plants a
+    /// new <c>crawl_target</c> at the mudlist's bare IP, and correctly does no resolving of its own —
+    /// see its own remarks on why that machinery belongs here and nowhere else. The ordinary probe then
+    /// dials that literal IP, and <see cref="Endpoint"/>'s string comparison can never match it against
+    /// a game already on record under its DNS hostname: <c>45.79.224.33</c> is not the string
+    /// <c>nightfall.org</c>, however identical the machine. Nine confirmed pairs in production are this
+    /// exact shape — a shadow listing at the literal address, permanently stuck in review because only
+    /// <see cref="BannerHash"/> (0.50) corroborated, with I3's player counts landing on the shadow page
+    /// nobody visits while the real one goes uncounted.
+    /// </para>
+    /// <para>
+    /// <b>Equal to <see cref="Endpoint"/> deliberately, and only that literal.</b> The comparison this
+    /// makes is not looser than <see cref="Endpoint"/>'s, only later-binding: it resolves the
+    /// candidate's own recorded hostname (the address that was already good enough to be
+    /// <see cref="Endpoint"/> for a probe that arrived by name) and asks whether it names the same
+    /// (address, port) this probe just reached by number. Two TCP listeners cannot share one address
+    /// and port, so an agreement here is exactly as strong a claim as a literal string match — it is
+    /// the same fact, observed through a resolver instead of through equality.
+    /// </para>
+    /// <para>
+    /// <b>Cannot manufacture a candidate on its own, and that is the safety property that matters
+    /// most.</b> This is only ever evaluated for a candidate <see cref="IdentityMatcher"/> already
+    /// gathered through some other signal — a shared banner, name, website or contact — because
+    /// resolving DNS is not one of <c>CandidatesAsync</c>'s gathering steps. So a stranger cannot make
+    /// their probe merge with an arbitrary listed game merely by dialling from an address that happens
+    /// to resolve the same as somebody else's hostname; they would first have to earn a candidate the
+    /// ordinary way, on evidence this weight does not touch.
+    /// </para>
+    /// <para>
+    /// Never fires when the probed host is not a literal address — a hostname-to-hostname comparison is
+    /// <see cref="Endpoint"/>'s job, unchanged — and never fires with no resolver wired at all, which is
+    /// correct rather than degraded (see <see cref="IdentityMatcher"/>'s constructor).
+    /// </para>
+    /// </remarks>
+    public const double ResolvedEndpoint = Endpoint;
+
+    /// <summary>
     /// MSSP <c>NAME</c> together with <c>CREATED</c>. Both, because a name alone collides: "Fantasy
     /// MUD", "The Realm" and "Midnight Sun" are each several games, and <c>CREATED</c> is a year and
     /// therefore collides freely on its own too.
@@ -305,6 +347,22 @@ public static class MsspReading
 public static class IdentitySignals
 {
     public static string ToJson(IReadOnlyList<IdentitySignal> signals) => JsonSerializer.Serialize(signals);
+
+    /// <summary>
+    /// The reverse of <see cref="ToJson"/> — reading a review row's evidence back, so a merge that
+    /// resolves one can carry the same signals forward onto <c>merge_log</c> rather than inventing new
+    /// ones. An unreadable or absent payload is an empty list, not a failure: nothing here is evidence
+    /// of a defect a caller should crash over.
+    /// </summary>
+    public static IReadOnlyList<IdentitySignal> FromJson(string? signalsJson)
+    {
+        if (string.IsNullOrWhiteSpace(signalsJson))
+        {
+            return [];
+        }
+
+        return JsonSerializer.Deserialize<IReadOnlyList<IdentitySignal>>(signalsJson) ?? [];
+    }
 }
 
 /// <summary>
@@ -346,6 +404,13 @@ public sealed record KnownEndpoint(
 public interface IEndpointDirectory
 {
     Task<KnownEndpoint?> ByAddressAsync(string host, int port, CancellationToken ct);
+
+    /// <summary>
+    /// Every address on record for one game. <see cref="IdentityWeights.ResolvedEndpoint"/> is the
+    /// reason this exists: asking "what does this candidate's own hostname resolve to" needs the
+    /// hostname first, and <see cref="ByAddressAsync"/> only ever answers in the other direction.
+    /// </summary>
+    Task<IReadOnlyList<KnownEndpoint>> ForGameAsync(Guid gameId, CancellationToken ct);
 
     Task UpsertAsync(KnownEndpoint endpoint, CancellationToken ct);
 }

@@ -1,3 +1,5 @@
+using System.Net;
+
 using MUI.Catalog;
 using MUI.Crawl;
 
@@ -10,7 +12,7 @@ namespace MUI.Discovery;
 /// <para>
 /// Candidates are gathered by reverse lookup rather than by scanning: the endpoint, then every game
 /// sharing this probe's claim token, name, banner hash, website or contact. Each candidate is then
-/// scored over all six signals, so a candidate found by one signal is still credited for the others.
+/// scored over all seven signals, so a candidate found by one signal is still credited for the others.
 /// </para>
 /// <para>
 /// <b>Every signal is filtered through <see cref="MsspDefaults.IsPlaceholder"/> before it is weighed,
@@ -35,7 +37,13 @@ public sealed class IdentityMatcher(
     IEndpointDirectory endpoints,
     IGameFieldStore fields,
     IGameFieldIndex index,
-    DiscoveryOptions options)
+    DiscoveryOptions options,
+    // Null on every caller that has not wired one, and that degrades rather than fails:
+    // IdentityWeights.ResolvedEndpoint simply never fires, exactly as ClaimToken never fires before
+    // §8's verification half lands. The real one is IHostScopeGuard's own SystemHostResolver — the
+    // one place live DNS is meant to be reached from — so production gets this signal by handing the
+    // same resolver to both, and no test performs a lookup by accident.
+    IHostResolver? resolver = null)
 {
     public async Task<IdentityVerdict> ResolveAsync(ProbeResult result, CancellationToken ct)
     {
@@ -176,11 +184,15 @@ public sealed class IdentityMatcher(
         CancellationToken ct)
     {
         var stored = await StoredAsync(gameId, ct);
+        var resolvedEndpointMatched = await ResolvesToKnownEndpointAsync(gameId, observed, ct);
 
         var signals = new List<IdentitySignal>
         {
             new(nameof(IdentityWeights.Endpoint), IdentityWeights.Endpoint,
                 endpoint is not null && endpoint.GameId == gameId),
+
+            new(nameof(IdentityWeights.ResolvedEndpoint), IdentityWeights.ResolvedEndpoint,
+                resolvedEndpointMatched),
 
             new(nameof(IdentityWeights.MsspNameAndCreated), IdentityWeights.MsspNameAndCreated,
                 Same(stored, IdentityFields.Name, observed.Name)
@@ -246,13 +258,52 @@ public sealed class IdentityMatcher(
         && string.Equals(value.Trim(), candidate!.Trim(), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Whether this bare-IP probe reached the same (address, port) as one of this candidate's own known
+    /// endpoints, resolved by name (spec §7.3, <see cref="IdentityWeights.ResolvedEndpoint"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>Bounded on every side that matters.</b> No resolver wired: never fires. The probed host is
+    /// itself a hostname rather than a literal: never fires — a hostname-to-hostname comparison is
+    /// <see cref="IdentityWeights.Endpoint"/>'s job and this is not a second, looser way to reach the
+    /// same credit. A candidate endpoint that is itself a literal: skipped — literal-to-literal is also
+    /// <see cref="IdentityWeights.Endpoint"/>'s comparison, made at the top of <see cref="ResolveAsync"/>
+    /// already. A port that does not match: skipped, because a different port is a different listener
+    /// even on one machine.
+    /// </remarks>
+    private async Task<bool> ResolvesToKnownEndpointAsync(Guid gameId, Observation observed, CancellationToken ct)
+    {
+        if (resolver is null || !IPAddress.TryParse(observed.Host, out var probedAddress))
+        {
+            return false;
+        }
+
+        foreach (var candidateEndpoint in await endpoints.ForGameAsync(gameId, ct))
+        {
+            if (candidateEndpoint.Port != observed.Port || IPAddress.TryParse(candidateEndpoint.Host, out _))
+            {
+                continue;
+            }
+
+            var resolved = await resolver.ResolveAsync(candidateEndpoint.Host, ct);
+            if (resolved.Any(address => address.Equals(probedAddress)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// What one probe says about identity, with every placeholder already reduced to null.
     /// </summary>
     /// <remarks>
-    /// Extracted so the filtering happens once, at the boundary, rather than at each of six comparison
-    /// sites where the seventh would eventually forget.
+    /// Extracted so the filtering happens once, at the boundary, rather than at each of the comparison
+    /// sites where the next one would eventually forget.
     /// </remarks>
     private sealed record Observation(
+        string Host,
+        int Port,
         string? Name,
         string? Created,
         string? Website,
@@ -262,6 +313,8 @@ public sealed class IdentityMatcher(
         string? ClaimToken)
     {
         public static Observation Of(ProbeResult result) => new(
+            result.Host,
+            result.Port,
             MsspReading.MeaningfulName(result.Mssp),
             MsspReading.Meaningful(result.Mssp, IdentityMsspVariables.Created),
             MsspReading.Meaningful(result.Mssp, IdentityMsspVariables.Website),

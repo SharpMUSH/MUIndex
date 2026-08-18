@@ -46,13 +46,18 @@ public class CrawlCyclePostgresTests
         var targets = new NpgsqlCrawlTargetRepository(source);
         var slugs = new NpgsqlSlugHistoryStore(source);
 
+        // One resolver, shared with the identity matcher below — production wires the same instance
+        // to both for the same reason (IdentityMatcher's ResolvedEndpoint signal reads the answers
+        // HostScopeGuard's own resolver already gives, rather than a second lookup path).
+        var effectiveResolver = resolver ?? new FakeHostResolver();
+
         return new CrawlCycle(
             targets,
             probe,
             // §11's gate, against the real register in the real database — "an opt-out wrote no
             // availability row" is a claim about storage and only Postgres can answer it.
             new OptOutGate(new NpgsqlCrawlOptOutRepository(source), dns ?? new ScriptedDns(), time),
-            new HostScopeGuard(resolver ?? new FakeHostResolver()),
+            new HostScopeGuard(effectiveResolver),
             new ProbeIngestor(
                 new PresenceWriter(new NpgsqlPresenceStore(source)),
                 new AvailabilityWriter(availability),
@@ -70,7 +75,8 @@ public class CrawlCyclePostgresTests
                     new CatalogueEndpointDirectory(endpoints),
                     fields,
                     new NpgsqlGameFieldIndex(source),
-                    discovery),
+                    discovery,
+                    effectiveResolver),
                 new NpgsqlDuplicateReviewRepository(source),
                 time),
             new ReferralGraphWriter(new NpgsqlReferralRepository(source), targets, discovery, time),
@@ -932,6 +938,55 @@ public class CrawlCyclePostgresTests
 
         await Assert.That(await connection.ExecuteScalarAsync<long>("SELECT count(*) FROM duplicate_review"))
             .IsEqualTo(1L);
+    }
+
+    [Test]
+    public async Task ABareIpSeededLikeI3DoesResolvesToAKnownHostnameAndBindsRatherThanMintingAShadow()
+    {
+        // The production bug, end to end. I3Cycle seeds a crawl_target at the bare IP a mudlist hands
+        // it (spec §7.6 — host and port and nothing else; it deliberately does no resolving of its
+        // own). Before ResolvedEndpoint, the ordinary probe of that literal address could only ever
+        // corroborate the real game through BannerHash (0.50) — the exact shape the previous test just
+        // proved lands as a stuck review, because 0.50 sits between ReviewThreshold and
+        // AutoMergeThreshold. Nine confirmed pairs in production were this shape: a shadow listing
+        // that I3's own player counts then bound to instead of the real page.
+        await using var database = await PostgresFixture.MigratedAsync();
+        var source = database.DataSource;
+
+        const string banner = "Welcome to Nightfall.\nA world of shadow and steel.\nType 'connect'.";
+        var resolver = new FakeHostResolver()
+            .Resolving("nightfall.org", "45.79.224.33")
+            .Resolving("45.79.224.33", "45.79.224.33");
+
+        await SeedAsync(source, new CrawlSeed("nightfall.org", 4201));
+
+        var probe = new ScriptedProbe(target => Probes.Answered(host: target.Host, port: target.Port, banner: banner));
+        var cycle = Build(source, probe, new StepClock(), resolver: resolver);
+
+        var first = await cycle.RunAsync();
+        await Assert.That(first.Listed).IsEqualTo(1);
+
+        // I3Cycle's own seed for an address it does not have: host and port, nothing else — the same
+        // shape CrawlSeeds.PlantAsync produces here.
+        await SeedAsync(source, new CrawlSeed("45.79.224.33", 4201));
+
+        var second = await cycle.RunAsync();
+
+        // The fix: no second listing, and no review left stuck between the thresholds.
+        await Assert.That(second.Listed).IsEqualTo(0);
+        await Assert.That(second.ReviewsOpened).IsEqualTo(0);
+
+        await using var connection = await source.OpenConnectionAsync();
+
+        await Assert.That(await connection.ExecuteScalarAsync<long>("SELECT count(*) FROM game")).IsEqualTo(1L);
+        await Assert.That(await connection.ExecuteScalarAsync<long>("SELECT count(*) FROM duplicate_review"))
+            .IsEqualTo(0L);
+
+        var endpoints = (await connection.QueryAsync<(string Host, int Port, Guid GameId)>(
+            "SELECT host, port, game_id AS GameId FROM game_endpoint ORDER BY host")).ToList();
+
+        await Assert.That(endpoints.Count).IsEqualTo(2);
+        await Assert.That(endpoints.Select(e => e.GameId).Distinct().Count()).IsEqualTo(1);
     }
 
     private static async Task MakeDueAsync(NpgsqlDataSource source)
