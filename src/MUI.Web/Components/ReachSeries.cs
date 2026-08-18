@@ -105,6 +105,15 @@ public sealed record ReachSummary(
         var unmeasured = Days.Count(d => d.State is ReachState.Unmeasured);
         var measured = Window - unmeasured;
 
+        // Two different admissions, and only the first was ever being made. Days at the head of the
+        // strip come before we had heard of the game — a fact about how long we have been looking.
+        // Unmeasured days after that are a stretch we stopped looking during, which is a fact about
+        // our crawl having a hole in it. Splitting on the leading run works because the strip is
+        // ordered oldest first, and a trailing run belongs with the second: not looking lately is
+        // still not looking.
+        var predating = Days.TakeWhile(d => d.State is ReachState.Unmeasured).Count();
+        var unwatched = unmeasured - predating;
+
         // The percentage's denominator is *observed* time, not the window (Reachability
         // .FractionReachable). The sentence has to say so, or a game found an hour ago reads
         // "Reachable 100.0% of the last 90 days" off a single successful probe — a true number
@@ -142,11 +151,16 @@ public sealed record ReachSummary(
                     ("cause", Wording.Cause(tag, LongestOutageCause))));
         }
 
-        if (unmeasured > 0)
+        // Never "unreachable for N days", and never a cause, on either of these. Both are facts
+        // about our crawl, and attaching a cause would turn one into a fact about the game.
+        if (predating > 0)
         {
-            // Never "unreachable for N days", and never a cause. These are days before we knew the
-            // game existed, which is a fact about our crawl.
-            parts.Add(Messages.Say(tag, "reach.predate", ("count", unmeasured)));
+            parts.Add(Messages.Say(tag, "reach.predate", ("count", predating)));
+        }
+
+        if (unwatched > 0)
+        {
+            parts.Add(Messages.Say(tag, "reach.gap", ("count", unwatched)));
         }
 
         return string.Join(' ', parts);

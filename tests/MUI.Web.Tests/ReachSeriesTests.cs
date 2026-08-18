@@ -40,6 +40,47 @@ public class ReachSeriesTests
     }
 
     [Test]
+    public async Task AHoleInTheMiddleIsNotDaysThatPredateUs()
+    {
+        // Every unmeasured day in the window was counted and rendered as "predate anything we
+        // measured". That is true of the days before we found a game and false of a hole inside its
+        // history, and the two are different admissions: one is how long we have been looking, the
+        // other is that we stopped. Latent until 2026-08-18, when repairing the intervals that had
+        // been claiming a fifteen-day crawl outage as observation left 409 games with exactly such a
+        // hole — so the sentence began telling readers that days in the middle of a game's history
+        // came before we had heard of it.
+        var summary = ReachSeries.Build(
+        [
+            Span(80, 70, AvailabilityState.Reachable, FailureCause.None),
+            Span(20, null, AvailabilityState.Reachable, FailureCause.None),
+        ], Now);
+
+        var unmeasured = summary.Days.Count(d => d.State is ReachState.Unmeasured);
+        var predating = summary.Days.TakeWhile(d => d.State is ReachState.Unmeasured).Count();
+        var sentence = summary.Sentence(English);
+
+        // The fixture has both, and they differ, so neither number can stand in for the other.
+        await Assert.That(predating).IsGreaterThan(0);
+        await Assert.That(unmeasured - predating).IsGreaterThan(predating);
+
+        await Assert.That(sentence).Contains($"{predating} days predate anything we measured");
+        await Assert.That(sentence).Contains($"{unmeasured - predating} days went unmeasured");
+    }
+
+    [Test]
+    public async Task AGameWithNothingButAHeadStartSaysNothingAboutAHole()
+    {
+        // The other half: a game found last week has unmeasured days and no gap, and must not be
+        // told it has one.
+        var summary = ReachSeries.Build([Span(7, null, AvailabilityState.Reachable, FailureCause.None)], Now);
+
+        var sentence = summary.Sentence(English);
+
+        await Assert.That(sentence).Contains("predate anything we measured");
+        await Assert.That(sentence).DoesNotContain("went unmeasured");
+    }
+
+    [Test]
     public async Task TheStripIsNinetyDaysWideWithTheOldestFirst()
     {
         var summary = ReachSeries.Build([Span(400, null, AvailabilityState.Reachable, FailureCause.None)], Now);

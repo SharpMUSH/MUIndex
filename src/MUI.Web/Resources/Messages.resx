@@ -2692,6 +2692,10 @@
     <value>Longest outage {duration} ({cause}).</value>
     <comment>the reachability strip</comment>
   </data>
+  <data name="reach.gap" xml:space="preserve">
+    <value>{count, plural, one {# day went unmeasured — we were not watching.} other {# days went unmeasured — we were not watching.}}</value>
+    <comment>the reachability strip</comment>
+  </data>
   <data name="reach.predate" xml:space="preserve">
     <value>{count, plural, one {# day predates anything we measured.} other {# days predate anything we measured.}}</value>
     <comment>the reachability strip</comment>
