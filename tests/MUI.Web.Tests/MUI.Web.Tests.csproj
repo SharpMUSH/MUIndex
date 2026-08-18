@@ -10,6 +10,13 @@
 
   <ItemGroup>
     <PackageReference Include="TUnit" />
+
+    <!--
+      GET /health's database-backed cases want a real PostgreSQL, not a mock told to throw: only a
+      real socket proves the check's timeout and error handling against what production runs. Where
+      no container runtime is available the tests skip out loud rather than pass silently.
+    -->
+    <PackageReference Include="Testcontainers.PostgreSql" />
   </ItemGroup>
 
   <!--

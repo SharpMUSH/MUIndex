@@ -115,6 +115,10 @@ public static class SiteComposition
 
         services.AddSingleton(new CatalogueSource(connectionString is not null));
 
+        // /health for the reverse proxy's routing decision (see HealthEndpoint's own remarks for
+        // why it checks the database and not the crawler).
+        services.AddMuiHealth(connectionString);
+
         return services;
     }
 
@@ -165,6 +169,12 @@ public static class SiteComposition
         // the middleware above had rewritten the path — so every localized URL 404'd while the
         // unprefixed one worked. Naming it here is what puts routing after the rewrite.
         app.UseRouting();
+
+        // /health, before anything that reads HttpContext.User: the reverse proxy dials this
+        // unauthenticated on every routing decision, and it must answer before the not-found page,
+        // static files or antiforgery — none of which have any bearing on whether this replica is
+        // ready to serve traffic.
+        app.MapMuiHealth();
 
         // A reader who mistyped a URL, and a crawler indexing one, both got a 404 with an empty body:
         // the <NotFound> fragment inside <Router> is never rendered under static server rendering, so

@@ -33,9 +33,10 @@ namespace MUI.Web.Tests;
 /// order under it is the deployed one.
 /// </para>
 /// <para>
-/// Composed with a null connection string, which is the demo-fixture half: no database, so no
-/// accounts and no submission endpoint, and the page says what it is showing was not measured —
-/// exactly what a reader of the real site with no <c>MUI_POSTGRES</c> sees.
+/// Composed with a null connection string by default, which is the demo-fixture half: no database,
+/// so no accounts and no submission endpoint, and the page says what it is showing was not measured
+/// — exactly what a reader of the real site with no <c>MUI_POSTGRES</c> sees. A caller that passes
+/// one gets the other composition, for the tests that need a real one running behind real HTTP.
 /// </para>
 /// </remarks>
 public sealed class SiteHost : IAsyncDisposable
@@ -72,11 +73,22 @@ public sealed class SiteHost : IAsyncDisposable
     /// asserting on "4m ago" has to pin the other end of that subtraction or it is asserting on the
     /// date it was written.
     /// </param>
+    /// <param name="connectionString">
+    /// <c>null</c> for the demo fixture (the default, and every existing caller). A non-null value
+    /// composes the real database graph instead — <see cref="AddMuiSite"/> and
+    /// <see cref="UseMuiSite"/> both branch on this the same way <c>Program</c> does, so a test asking
+    /// for the database-backed composition gets the composition rather than a restatement of it.
+    /// Passing one turns off the two things that only make sense against the fixture: the sign-in
+    /// stub below, because <see cref="UseMuiSite"/> maps a real one when there is a database, and the
+    /// <paramref name="measured"/> override, because the real composition already registers
+    /// <see cref="MUI.Web.Data.CatalogueSource"/> from the connection string itself.
+    /// </param>
     public static async Task<SiteHost> StartAsync(
         Dictionary<string, string?>? settings = null,
         Action<IServiceCollection>? services = null,
         bool measured = false,
-        TimeProvider? clock = null)
+        TimeProvider? clock = null,
+        string? connectionString = null)
     {
         // Named for the web project, so UseStaticWebAssets below finds the manifest that project
         // wrote into this one's output — see the call for why that matters.
@@ -103,9 +115,9 @@ public sealed class SiteHost : IAsyncDisposable
 
         // The site's own registrations — the fixture catalogue, the clock, the demo marker and the
         // read API — through the one call Program makes.
-        builder.Services.AddMuiSite(builder.Configuration, connectionString: null);
+        builder.Services.AddMuiSite(builder.Configuration, connectionString);
 
-        if (measured)
+        if (measured && connectionString is null)
         {
             builder.Services.AddSingleton(new MUI.Web.Data.CatalogueSource(IsMeasured: true));
         }
@@ -123,15 +135,19 @@ public sealed class SiteHost : IAsyncDisposable
         // API, because the deployable is one process and a rule about how *pages* answer must not
         // reach the endpoints beside them: an unmatched route under /api is a 404 nobody wrote a
         // body for, which is exactly the shape a not-found page would have swallowed.
-        app.UseMuiSite(connectionString: null);
+        app.UseMuiSite(connectionString);
 
-        // Standing in for MUI.Web.Accounts, which UseMuiSite leaves unmapped with no connection
-        // string: passkeys need a database and this host has none. The status line is what matters —
-        // Passkeys.cs answers a bad sign-in with Results.Unauthorized(), a bodiless 401, and
-        // passkey.js renders `throw new Error(await response.text())` straight into the sign-in
-        // status line. If anything in the pipeline fills that body with HTML, a reader who mistyped
-        // their passkey is shown a page of markup.
-        app.MapPost(SignInPath, () => Results.Unauthorized()).DisableAntiforgery();
+        if (connectionString is null)
+        {
+            // Standing in for MUI.Web.Accounts, which UseMuiSite leaves unmapped with no connection
+            // string: passkeys need a database and this host has none. The status line is what
+            // matters — Passkeys.cs answers a bad sign-in with Results.Unauthorized(), a bodiless
+            // 401, and passkey.js renders `throw new Error(await response.text())` straight into the
+            // sign-in status line. If anything in the pipeline fills that body with HTML, a reader
+            // who mistyped their passkey is shown a page of markup. With a database configured
+            // UseMuiSite maps a real one at this same path, so the stub would only ever shadow it.
+            app.MapPost(SignInPath, () => Results.Unauthorized()).DisableAntiforgery();
+        }
 
         await app.StartAsync();
 
