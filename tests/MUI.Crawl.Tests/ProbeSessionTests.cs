@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using MUI.Crawl;
 
 namespace MUI.Crawl.Tests;
@@ -522,6 +523,120 @@ public class ProbeSessionTests
 
         await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
         await Assert.That(result.Host).IsEqualTo("no-such-host.invalid");
+    }
+
+    /// <summary>
+    /// The interpreter is shut down when the probe has finished with it, rather than left for the
+    /// garbage collector to notice.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The defect this closes. <c>BuildAndStartAsync</c> hands back an interpreter that owns a byte
+    /// channel, a byte-processing task and a dozen protocol plugins, and the probe took it, held a
+    /// session with it and walked away without a word. <c>TelnetInterpreter.DisposeAsync</c> is the
+    /// only place any of that is given back — it completes the channel, cancels the processing task,
+    /// waits for it, retires the byte transforms and disposes every plugin — and MCCP's plugin holds
+    /// zlib streams, which are the part that is not simply a managed object waiting its turn. One
+    /// abandoned session per probe, measured on the deployment at roughly six megabytes an hour.
+    /// </para>
+    /// <para>
+    /// Asserted against the library's own transcript rather than against a memory reading, because
+    /// a drift of megabytes per hour is invisible over the life of a test and any threshold able to
+    /// see it would be a coin toss. The interpreter says <c>All plugins initialized successfully</c>
+    /// when it starts and <c>Disposing all plugins</c> when it is shut down; before the fix, the
+    /// transcript of a complete and successful probe carried the first and never the second.
+    /// </para>
+    /// <para>
+    /// That nothing was logged as an error is the second half of the claim, and it is about the
+    /// shutdown being orderly rather than merely having happened. Disposal completes the byte
+    /// channel and then waits for the processing task to drain it, and a probe that tore its
+    /// session down while that was still in flight would have the library saying so here.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AFinishedSessionIsShutDownRatherThanAbandoned()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "Welcome to Nowhere\r\nA quiet little place.\r\n",
+            BannerTail = "By what name do you wish to be known? ",
+            WhoReply = "0 Players logged in, 22 record, no maximum.\r\n",
+        };
+
+        var transcript = new Transcript();
+
+        var result = await new TelnetProbe(Fast(), transcript).ProbeAsync(game.Target);
+
+        // The session really happened, so the shutdown assertion below is about a probe that had
+        // something to shut down rather than about one that never got that far.
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(transcript.Says("All plugins initialized successfully")).IsTrue();
+
+        await Assert.That(transcript.Says("Disposing all plugins")).IsTrue();
+        await Assert.That(transcript.Errors).IsEmpty();
+    }
+
+    /// <summary>
+    /// Everything the probe and the library underneath it wrote down. Log callbacks arrive on the
+    /// read loop as well as on the caller's thread, so it locks.
+    /// </summary>
+    /// <remarks>
+    /// Trace is declined deliberately: TelnetNegotiationCore traces every byte it processes with a
+    /// formatted message, and paying for that on a whole connect screen would make this the slowest
+    /// test in the suite for nothing — every line these assertions read is Debug or above.
+    /// </remarks>
+    private sealed class Transcript : ILogger
+    {
+        private readonly List<string> _lines = [];
+        private readonly List<string> _errors = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel level) => level >= LogLevel.Debug;
+
+        public void Log<TState>(
+            LogLevel level,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (!IsEnabled(level))
+            {
+                return;
+            }
+
+            var line = formatter(state, exception);
+
+            lock (_lines)
+            {
+                _lines.Add(line);
+
+                if (level >= LogLevel.Error)
+                {
+                    _errors.Add(line);
+                }
+            }
+        }
+
+        public bool Says(string fragment)
+        {
+            lock (_lines)
+            {
+                return _lines.Any(line => line.Contains(fragment, StringComparison.Ordinal));
+            }
+        }
+
+        public IReadOnlyList<string> Errors
+        {
+            get
+            {
+                lock (_lines)
+                {
+                    return [.. _errors];
+                }
+            }
+        }
     }
 
     private sealed class FakeGame : IAsyncDisposable
