@@ -7,6 +7,8 @@ using MUI.Crawler;
 
 using Npgsql;
 
+using MUI.Web.Localization;
+
 namespace MUI.Web.Accounts;
 
 /// <summary>
@@ -326,7 +328,8 @@ public static class Passkeys
 
             if (user is null || await games.BySlugAsync(slug) is not { } game)
             {
-                return Results.Redirect($"/g/{slug}/claim");
+                return Results.Redirect(
+                LocaleRouting.Link(context.LocaleOf().Tag, $"/g/{slug}/claim"));
             }
 
             var mine = (await claims.ForUserAsync(user.Id))
@@ -337,14 +340,17 @@ public static class Passkeys
                 await service.RequestCheckAsync(mine.Id);
             }
 
-            return Results.Redirect($"/g/{slug}/claim");
+            return Results.Redirect(
+                LocaleRouting.Link(context.LocaleOf().Tag, $"/g/{slug}/claim"));
         }).RequireAuthorization();
 
-        accounts.MapPost("/sign-out", async (SignInManager<MuiUser> signIn) =>
+        accounts.MapPost("/sign-out", async (HttpContext context, SignInManager<MuiUser> signIn) =>
         {
             await signIn.SignOutAsync();
 
-            return Results.Redirect("/");
+            // The front page in the language they were reading, and not the English one: signing
+            // out is not a request to change language.
+            return Results.Redirect(LocaleRouting.Link(context.LocaleOf().Tag, "/"));
         });
 
         // §8.5's enrichment and §11's suppression, which are the only writes a claim grants.

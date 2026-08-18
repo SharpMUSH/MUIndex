@@ -1,3 +1,5 @@
+using MUI.Web.Localization;
+
 namespace MUI.Web;
 
 /// <summary>
@@ -39,11 +41,15 @@ public static class CrawlerContact
 
         // HEAD as well as GET: a link checker asking whether the address we published still works is
         // exactly the reader this route is for, and MapGet alone answers one with 405.
-        endpoints.MapMethods(Path, [HttpMethods.Get, HttpMethods.Head], (HttpRequest request) =>
+        endpoints.MapMethods(Path, [HttpMethods.Get, HttpMethods.Head], (HttpContext context) =>
             // The query string travels with it, and the fragment goes last because that is where a
             // fragment goes: ?plain=1 is a real second surface (§9), and an admin who asked for the
-            // plain rendering of the page that explains us should get it.
-            TypedResults.Redirect($"/about{request.QueryString}#{Fragment}"));
+            // plain rendering of the page that explains us should get it. And the locale travels
+            // with it too, for a reader who already had one: this lands on a page, and a page is a
+            // document in a language.
+            TypedResults.Redirect(LocaleRouting.Link(
+                context.LocaleOf().Tag,
+                $"/about{context.Request.QueryString}#{Fragment}")));
 
         return endpoints;
     }

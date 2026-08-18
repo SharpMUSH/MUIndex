@@ -37,7 +37,7 @@ else
         {
             @if (piece.Href is { } href)
             {
-                <a href="@href">@piece.Text</a>
+                <a href="@Http.Link(href)">@piece.Text</a>
             }
             else
             {
@@ -130,6 +130,11 @@ else
 
         // In static SSR this raises a NavigationException the framework turns into a redirect, so
         // the markup below is only ever reached when there was nothing to redirect to.
-        Nav.NavigateTo($"/g/{Uri.EscapeDataString(pick.Slug)}");
+        //
+        // Written in this page's own locale, because a leading slash here is relative to the host
+        // and not to the base: "surprise me" is in the nav of every page, and from German it landed
+        // the reader on an English game page — the one link on the site whose destination no sweep
+        // of the markup can see, because it is a Location header rather than an anchor.
+        Nav.NavigateTo(Http.Link($"/g/{Uri.EscapeDataString(pick.Slug)}"));
     }
 }

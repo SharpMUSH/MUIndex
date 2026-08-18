@@ -80,7 +80,7 @@ else
                         {
                             <tr>
                                 <td class="place mono">@Place(Table.Busiest.Select(g => g.Median), game.Median)</td>
-                                <th scope="row"><a href="/g/@game.Slug">@game.Name</a></th>
+                                <th scope="row"><a href="@Http.Link($"/g/{game.Slug}")">@game.Name</a></th>
                                 @* The rank is on the median, so the median is the emphasised cell and
                                    the peak sits beside it as context. A peak is one sample, and a game
                                    that had forty players for a minute is not busier than one that has
@@ -151,7 +151,7 @@ else
                                 <td class="place mono">
                                     @PlaceEarliest(Table.LongestUnbroken.Select(s => s.Since), spell.Since)
                                 </td>
-                                <th scope="row"><a href="/g/@spell.Slug">@spell.Name</a></th>
+                                <th scope="row"><a href="@Http.Link($"/g/{spell.Slug}")">@spell.Name</a></th>
                                 <td class="mono">@Dates.Absolute(Tag, spell.Since)</td>
                                 <td class="mono state-present">@Wording.Duration(spell.LengthAt(Now))</td>
                             </tr>
@@ -164,8 +164,8 @@ else
 
     <p class="faint">
         @L("rankings.archivedNote")
-        <a href="/archive">@L("nav.archive")</a> ·
-        <a href="/ecosystem">@L("nav.ecosystem")</a> ·
+        <a href="@Http.Link("/archive")">@L("nav.archive")</a> ·
+        <a href="@Http.Link("/ecosystem")">@L("nav.ecosystem")</a> ·
         <a href="?window=@Span.Slug()&plain=1">@L("a11y.plainText")</a>
     </p>
 }

@@ -19,7 +19,7 @@
     fieldset it applies to, and the rest is one disclosure a reader can open once and never again.
 *@
 
-<form method="get" action="/games" role="search" class="facet-form">
+<form method="get" action="@Http.Link("/games")" role="search" class="facet-form">
     @*
         The bar: the whole question in one row — what to match, what order to read it in, and whether
         the archive is in. Everything here is a control a reader touches on most visits; the facets
@@ -231,14 +231,14 @@
         <span class="kicker">@Messages.For(Tag, "filters.showing")</span>
         @foreach (var chip in Chips)
         {
-            <a class="filter-chip" href="@chip.RemoveHref">
+            <a class="filter-chip" href="@Http.Link(chip.RemoveHref)">
                 <span class="chip-facet">@chip.Facet</span>
                 <span class="chip-value">@chip.Value</span>
                 <span class="chip-x" aria-hidden="true">✕</span>
                 <span class="sr-only">@Messages.For(Tag, "filters.stopFiltering")</span>
             </a>
         }
-        <a class="clear-all" href="/games">@Messages.For(Tag, "filters.clearAll")</a>
+        <a class="clear-all" href="@Http.Link("/games")">@Messages.For(Tag, "filters.clearAll")</a>
     </div>
 }
 
@@ -498,7 +498,7 @@
     /// </para>
     /// </remarks>
     private string Href(FacetGroup group, string? token) =>
-        "/games" + ListingLinks.With(Query, group.Key, token);
+        Http.Link("/games" + ListingLinks.With(Query, group.Key, token));
 
     /// <summary>This listing with one of the two inclusion switches flipped.</summary>
     /// <remarks>
@@ -506,7 +506,7 @@
     /// only what they asked for — the same rule the sort and every facet follow.
     /// </remarks>
     private string Toggled(string key, bool on) =>
-        "/games" + ListingLinks.With(Query, key, on ? null : "true");
+        Http.Link("/games" + ListingLinks.With(Query, key, on ? null : "true"));
 
     private static string RowState(FacetValue value) => value.State switch
     {

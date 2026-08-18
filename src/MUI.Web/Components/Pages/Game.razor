@@ -85,7 +85,7 @@ else
                         @L("game.unclaimed")
                         @if (Claimable)
                         {
-                            <a href="/g/@Page.Summary.Slug/claim">@L("game.claim")</a>
+                            <a href="@Http.Link($"/g/{Page.Summary.Slug}/claim")">@L("game.claim")</a>
                         }
                     </p>
                 }
@@ -331,7 +331,7 @@ else
                             @foreach (var neighbour in group)
                             {
                                 <li class="@(neighbour.Present ? null : "former")">
-                                    <a href="/g/@neighbour.Slug">@neighbour.Name</a>
+                                    <a href="@Http.Link($"/g/{neighbour.Slug}")">@neighbour.Name</a>
                                     @if (neighbour.Present)
                                     {
                                         <span class="faint">
@@ -461,7 +461,7 @@ else
     /// </summary>
     /// <remarks>
     /// A query with no path in front of it, which means <em>this page, asked differently</em> — and
-    /// meant it only once <c>&lt;base href="/"&gt;</c> was gone from <c>App.razor</c>, since a base
+    /// meant it only once <c>&lt;base href="@Http.Link("/")"&gt;</c> was gone from <c>App.razor</c>, since a base
     /// resolves a query-only href against itself and sent all five of these to the home page.
     /// </remarks>
     private string RangeHref(TrendRange range) => Href(range, Shape);

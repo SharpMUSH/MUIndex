@@ -29,7 +29,7 @@
     {
         <div class="kicker">@Heading</div>
     }
-    <a class="feed-name" href="/g/@Entry.Slug"><GameName Name="@Entry.Name" /></a>
+    <a class="feed-name" href="@Http.Link($"/g/{Entry.Slug}")"><GameName Name="@Entry.Name" /></a>
     <span class="feed-state mono">
         @if (Kind is FeedKind.CameBack)
         {

@@ -37,7 +37,7 @@ else if (User is null)
 {
     <section class="prose">
         <h1>Your games</h1>
-        <p><a class="button" href="/account/sign-in">Sign in</a></p>
+        <p><a class="button" href="@HttpContext.Link("/account/sign-in")">Sign in</a></p>
     </section>
 }
 else
@@ -50,7 +50,7 @@ else
         {
             <p>
                 You have not claimed anything yet. Find your game in
-                <a href="/games">the listing</a> and press <em>claim this game</em> on its page.
+                <a href="@HttpContext.Link("/games")">the listing</a> and press <em>claim this game</em> on its page.
             </p>
         }
 
@@ -98,12 +98,12 @@ else
             {
                 <details class="claim" open="@(Verified.Count == 1)">
                     <summary>
-                        <a href="/g/@game.Slug">@game.Name</a>
+                        <a href="@HttpContext.Link($"/g/{game.Slug}")">@game.Name</a>
                         <span class="faint">
                             verified @claim.ClaimedAt!.Value.ToString("d MMM yyyy")@(BeaconNote(claim))
                         </span>
                         @* §8.5's scorecard. Owner-only, so it is reachable from here and nowhere. *@
-                        <a class="faint" href="/g/@game.Slug/mssp">check your MSSP</a>
+                        <a class="faint" href="@HttpContext.Link($"/g/{game.Slug}/mssp")">check your MSSP</a>
                     </summary>
 
                     @if (CoOwners(claim) is { Count: > 0 } others)
@@ -135,6 +135,13 @@ else
                         the claim page prints the MSSP variable in full. In the block's body rather
                         than its summary: a <details> inside a <summary> is interactive content
                         nested in a control, which no browser owes anybody a sane answer for.
+                    *@
+                    @*
+                        The two addresses in this block carry no locale prefix, and that is the
+                        point of them rather than an omission. The snippet is markup an owner pastes
+                        on *their* site, where the reader is not this one and the language they read
+                        in is not this page's; and a badge answers the same bytes to everybody, so
+                        it has one address for the same reason /api/… and robots.txt do.
                     *@
                     <details class="publish">
                         <summary class="faint">put your player count on your own site</summary>
@@ -170,7 +177,7 @@ else
                     *@
                     <details class="resign" open="@(Confirming == claim.Id)">
                         <summary class="faint">give up this claim</summary>
-                        <form method="post" action="/account/claims/@claim.Id/resign">
+                        <form method="post" action="@HttpContext.Link($"/account/claims/{claim.Id}/resign")">
                             <AntiforgeryToken />
                             <p class="faint">
                                 Type <code>resign</code> to confirm. Nothing is deleted and you can
@@ -192,7 +199,7 @@ else
                 @foreach (var (claim, game) in Pending)
                 {
                     <li>
-                        <a href="/g/@game.Slug/claim">@game.Name</a>
+                        <a href="@HttpContext.Link($"/g/{game.Slug}/claim")">@game.Name</a>
                         <span class="faint">
                             token issued @claim.IssuedAt.ToString("d MMM yyyy"), good until
                             @claim.ExpiresAt.ToString("d MMM yyyy")
@@ -223,12 +230,12 @@ else
             </p>
         }
 
-        <form data-passkey="register" method="post" action="/account/passkey/register">
+        <form data-passkey="register" method="post" action="@HttpContext.Link("/account/passkey/register")">
             <button type="submit" disabled>Add another passkey</button>
             <p class="faint" data-passkey-status></p>
         </form>
 
-        <form method="post" action="/account/sign-out">
+        <form method="post" action="@HttpContext.Link("/account/sign-out")">
             <AntiforgeryToken />
             <button type="submit" class="quiet">Sign out</button>
         </form>

@@ -43,7 +43,7 @@ else
             <strong>@L("account.signIn.passkey.lead")</strong> @L("account.signIn.passkey.body")
         </p>
 
-        <form data-passkey="sign-in" method="post" action="/account/sign-in">
+        <form data-passkey="sign-in" method="post" action="@Http.Link("/account/sign-in")">
             <button type="submit" disabled>@L("account.signIn.button")</button>
             <p class="faint" data-passkey-status>@L("account.signIn.script")</p>
         </form>
@@ -52,7 +52,7 @@ else
 
         <p>@L("account.register.lede")</p>
 
-        <form data-passkey="register" method="post" action="/account/register">
+        <form data-passkey="register" method="post" action="@Http.Link("/account/register")">
             <label for="name">@L("account.register.name.label")</label>
             <input id="name" name="name" type="text" maxlength="40" autocomplete="username"
                    placeholder="@L("account.register.name.placeholder")" />

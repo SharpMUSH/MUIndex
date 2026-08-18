@@ -13,7 +13,13 @@
     Each button is its own submit with its own value, so choosing is one press from anywhere in the
     set. A radio group would have been the other honest shape and costs two.
 *@
-<form class="theme" method="post" action="@ReaderTheme.Path" aria-labelledby="theme-label">
+@*
+    Posted to this locale's copy of the endpoint, which is what tells it which language to send the
+    reader back into. A reader who followed a shared /de/… link carries no cookie, so the locale is
+    in the path or it is nowhere — and a theme control that answered in English would take a German
+    reader out of German for the crime of preferring a light background.
+*@
+<form class="theme" method="post" action="@HttpContext.Link(ReaderTheme.Path)" aria-labelledby="theme-label">
     <span id="theme-label" class="kick">@Messages.For(Tag, "theme.label")</span>
     <input type="hidden" name="@ReaderTheme.ReturnField" value="@Here" />
     @foreach (var choice in ReaderTheme.Choices)

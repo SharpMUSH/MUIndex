@@ -13,7 +13,7 @@
 
 @if (Plain)
 {
-    <pre class="mono plain">@ReferencePlainText.RenderIndex(Library)</pre>
+    <pre class="mono plain">@ReferencePlainText.RenderIndex(Library, Tag)</pre>
 }
 else
 {
@@ -43,7 +43,7 @@ else
                 @foreach (var document in documents)
                 {
                     <li>
-                        <a class="name" href="@document.Path">@document.Title</a>
+                        <a class="name" href="@Http.Link(document.Path)">@document.Title</a>
                         <span class="dim">@document.Summary</span>
                     </li>
                 }

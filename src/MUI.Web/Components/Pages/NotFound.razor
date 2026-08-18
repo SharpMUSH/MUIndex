@@ -23,7 +23,7 @@
    spelling of the same two sentences sitting in this template. *@
 <h1>@Messages.For(Tag, "game.notFound")</h1>
 <p class="dim">@Messages.For(Tag, "game.notFound.hint")</p>
-<p class="faint"><a href="/games">@Messages.For(Tag, "nav.games")</a></p>
+<p class="faint"><a href="@Http.Link("/games")">@Messages.For(Tag, "nav.games")</a></p>
 
 @code {
     [CascadingParameter] private HttpContext? Http { get; set; }

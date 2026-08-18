@@ -31,7 +31,7 @@ else
        page that reads as an obituary. *@
     <p class="dim">@L("archive.lede")</p>
 
-    <form method="get" action="/archive" role="search">
+    <form method="get" action="@Http.Link("/archive")" role="search">
         <fieldset class="facets">
             <legend>@L("archive.search.legend")</legend>
             <label for="q" class="sr-only">@L("archive.search.label")</label>
@@ -49,7 +49,7 @@ else
             <li>
                 <div class="row-main">
                     <div>
-                        <a class="name" href="/g/@entry.Summary.Slug">@entry.Summary.Name</a>
+                        <a class="name" href="@Http.Link($"/g/{entry.Summary.Slug}")">@entry.Summary.Name</a>
                         <span class="badge archived">@L("archive.badge")</span>
                         @if (entry.Summary.Tagline is { } tagline)
                         {
