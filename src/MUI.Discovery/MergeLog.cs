@@ -29,7 +29,12 @@ public sealed record MergeRecord(
 /// </summary>
 public interface IMergeLog
 {
-    Task<Guid> RecordAsync(MergeRecord record, CancellationToken ct);
+    /// <param name="unitOfWork">
+    /// When given, this write joins it rather than committing on its own -- see
+    /// <see cref="ReviewMergeService.MergeAsync"/>, the one caller that needs this write and the
+    /// following <c>duplicate_review</c> resolve to commit or roll back together.
+    /// </param>
+    Task<Guid> RecordAsync(MergeRecord record, CancellationToken ct, IUnitOfWork? unitOfWork = null);
 
     /// <summary>
     /// Undoes the redirect and stamps the row. Reverting twice must not rewrite when the first revert

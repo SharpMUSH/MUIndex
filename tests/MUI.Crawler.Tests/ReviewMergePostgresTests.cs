@@ -50,7 +50,8 @@ public class ReviewMergePostgresTests
             new NpgsqlGameFieldStore(source),
             new NpgsqlMergeLog(source),
             TimeProvider.System),
-        TimeProvider.System);
+        TimeProvider.System,
+        new NpgsqlUnitOfWorkFactory(source));
 
     [Test]
     public async Task AnOpenReviewIsResolvedAndTheMergeIsInForce()
@@ -149,5 +150,64 @@ public class ReviewMergePostgresTests
             .Throws<InvalidOperationException>();
 
         await Assert.That(await new NpgsqlMergeLog(database.DataSource).ForGameAsync(winner, None)).IsEmpty();
+    }
+
+    /// <summary>
+    /// A <see cref="IDuplicateReviewRepository"/> decorator whose <see cref="ResolveAsync"/> always
+    /// throws, standing in for a dropped connection or a cancelled request between the two writes
+    /// <see cref="ReviewMergeService.MergeAsync"/> makes.
+    /// </summary>
+    private sealed class ResolveThrowsReviewRepository(IDuplicateReviewRepository inner) : IDuplicateReviewRepository
+    {
+        public Task<Guid> OpenAsync(Guid a, Guid b, IdentityScore score, DateTimeOffset at, CancellationToken ct) =>
+            inner.OpenAsync(a, b, score, at, ct);
+
+        public Task<IReadOnlyList<DuplicateReview>> OpenPairsForAsync(Guid gameId, CancellationToken ct) =>
+            inner.OpenPairsForAsync(gameId, ct);
+
+        public Task ResolveAsync(
+            Guid id, string resolution, DateTimeOffset at, CancellationToken ct, IUnitOfWork? unitOfWork = null) =>
+            throw new InvalidOperationException("Simulated failure resolving the review.");
+    }
+
+    /// <summary>
+    /// #117: the merge_log insert and the duplicate_review resolve shared no transaction, so a failure
+    /// between them could leave a merge in force with its review stuck open — retrying then fails
+    /// outright against merge_log_absorbed_once_idx. Proved here against real Postgres rather than the
+    /// in-memory fakes in MUI.Discovery.Tests, because what actually needed proving was that
+    /// NpgsqlUnitOfWork's shared connection and transaction really do roll back together.
+    /// </summary>
+    [Test]
+    public async Task AFailureResolvingTheReviewRollsBackTheMergeTooAgainstRealPostgres()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+
+        var winner = await GameAsync(database.DataSource, "rollback-winner");
+        var loser = await GameAsync(database.DataSource, "rollback-loser");
+
+        var reviews = new NpgsqlDuplicateReviewRepository(database.DataSource);
+        var score = new IdentityScore(loser, 0.5, [new IdentitySignal("BannerHash", 0.5, true)]);
+        await reviews.OpenAsync(winner, loser, score, Then, None);
+
+        var breakingService = new ReviewMergeService(
+            new CatalogueGameDirectory(new NpgsqlGameStore(database.DataSource)),
+            new ResolveThrowsReviewRepository(reviews),
+            new MergeApplier(
+                new CatalogueEndpointDirectory(new NpgsqlEndpointStore(database.DataSource)),
+                new NpgsqlGameFieldStore(database.DataSource),
+                new NpgsqlMergeLog(database.DataSource),
+                TimeProvider.System),
+            TimeProvider.System,
+            new NpgsqlUnitOfWorkFactory(database.DataSource));
+
+        await Assert.That(async () => await breakingService.MergeAsync(winner, loser, "should roll back", None))
+            .Throws<InvalidOperationException>();
+
+        // The merge_log insert ran inside the same transaction as the review resolve that then threw,
+        // so real Postgres rolled it back too -- not just ReviewMergeService's own bookkeeping.
+        await Assert.That(await new NpgsqlMergeLog(database.DataSource).ForGameAsync(loser, None)).IsEmpty();
+
+        var stillOpen = await reviews.OpenPairsForAsync(winner, None);
+        await Assert.That(stillOpen).IsNotEmpty();
     }
 }

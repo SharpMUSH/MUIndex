@@ -1,5 +1,6 @@
 using MUI.Web;
 using MUI.Web.Data;
+using MUI.Web.Mcp;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +19,18 @@ if (connectionString is not null)
 {
     await PostgresData.ApplyMigrationsAsync(app.Services, startupLog);
     startupLog.LogInformation("Reading the catalogue from PostgreSQL.");
+
+    // The MCP endpoint is mapped whenever there is a database (SiteComposition), whether or not an
+    // operator has set the token that gates it — fail-closed, not absent, so the route's own 401s are
+    // the loud failure rather than a silent 404 nobody can tell apart from a typo in the path.
+    if (MuiMcp.ResolveToken(app.Configuration) is null)
+    {
+        startupLog.LogWarning(
+            "{Route} is mapped but {Env} is not set: every request to it will fail authentication "
+            + "until it is.",
+            MuiMcp.Route,
+            MuiMcp.TokenEnvironmentVariable);
+    }
 }
 else
 {

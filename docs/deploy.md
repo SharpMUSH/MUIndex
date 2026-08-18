@@ -60,6 +60,7 @@ which is why the check exists.
 | `MUI_CRAWL_ENABLED` | `true` | `false` makes this replica a pure web tier. Anything that is not `true` or `false` is refused at startup. Also `Crawler:Enabled`. |
 | `MUI_CRAWL_INFO_URL` | *(a placeholder)* | Where an admin who has just been dialled reads what we do and asks us to stop (§11), announced over TTYPE and MNES to every server the crawler reaches. Must be an absolute **https** URL or startup refuses it. Also `Crawler:Probe:InfoUrl`. |
 | `Passkeys__ServerDomain` | *(unset)* | The WebAuthn relying-party ID — the **registrable** domain, `mu-index.com`. Only affects sign-in and claiming. |
+| `MUI_MCP_TOKEN` | *(unset)* | The bearer secret that gates `/mcp` (see [Administering the site over MCP](#administering-the-site-over-mcp)). **Unset means every request fails authentication** — fail closed, not fail open. Also `Mcp:Token`. |
 | `Dataset__LicenceId`, `Dataset__LicenceName`, `Dataset__LicenceUrl`, `Dataset__Attribution`, `Dataset__Notice` | `CC-BY-4.0`, … | The terms the published data goes out under. Configuration rather than a literal because §15.2 is open and the code's licence is not the dataset's. |
 | `ASPNETCORE_HTTP_PORTS` | `8080` | Set in the image. |
 | `ASPNETCORE_ENVIRONMENT` | `Production` | |
@@ -548,3 +549,42 @@ says so on its way past — a dry run dials nobody and owes nobody an address.
 
 `--seed-exempt` is the only way to point the crawler at an address that is not globally routable, and
 it exists so somebody can dial their own `127.0.0.1` and mean it.
+
+`--rename <slug> <newName> --because "…"` renames a game and mints it a new, unique slug at once —
+the immediate, no-grace path a verified owner's own rename already takes (spec §5.7), for a game with
+no claimed owner or where staff has decided what it is called. The old slug redirects to the new page
+for ever; nothing else about the game moves.
+
+## Administering the site over MCP
+
+For everything short of `--seed-exempt`, `/mcp` is the alternative to ssh'ing in and running
+`mui-crawl` through `docker compose run --rm --no-deps ... --entrypoint /cli/mui-crawl web ...`. It is
+an authenticated [Model Context Protocol](https://modelcontextprotocol.io) endpoint mounted inside
+this same deployable (Streamable HTTP transport, `ModelContextProtocol.AspNetCore`), so an MCP client
+— Claude Code, calling over HTTPS — can seed the crawler, record an opt-out, list what's due, force a
+crawl pass, read the registry/crawl summary, hand-set one field of one game, rename a game, or merge
+a duplicate pair, without a shell on the box.
+
+Set `MUI_MCP_TOKEN` (`openssl rand -hex 32`, never committed) and point a client at
+`https://<site>/mcp` with `Authorization: Bearer <token>`. Unset, every request gets a 401 and MUI.Web
+says so once at startup — this endpoint fails closed, never open.
+
+The nine tools (`src/MUI.Web/Mcp/MuiMcpTools.cs`) mirror `mui-crawl`'s CLI surface — `crawl_seed_add`,
+`crawl_opt_out_record`, `crawl_opt_out_check`, `crawl_due_targets`, `crawl_run_cycle`,
+`crawl_summary` — plus three new capabilities. `game_field_set` is a staff override of a single
+`GameField` row (`FieldSource.Staff`, spec §5.1) for fixing a mis-parsed value by hand without raw
+SQL, and explicitly declines to re-mint a game's slug when the field is `NAME`. `game_rename` (also
+`mui-crawl --rename`) is that missing half: it writes `NAME` through the same staff override and then
+runs `SlugMinter`'s immediate mint-and-rename path, retiring the old slug into `game_slug_history` so
+`FormerSlugRedirects` 301s it for ever — a collision with another game's slug is not an error, it just
+mints a numbered suffix the same way any other mint does. `game_merge` (also `mui-crawl --merge
+--because`) drains one `duplicate_review` pair by hand (spec §7.3) through `ReviewMergeService`: it
+folds a loser slug into a winner slug, resolves an open review naming that pair if one exists
+(carrying its score and signals onto `merge_log` unchanged), and is still usable on a pair the
+identity matcher never flagged, recorded as a judgement with no signals. The loser's page 301s to the
+winner's for ever; nothing else about the loser is touched. It refuses — surfacing the schema's own
+message — on a loser already absorbed elsewhere (`merge_log_absorbed_once_idx`) or a redirect chain
+(`merge_log_no_chains`, e.g. a game renamed and then asked to absorb another). `crawl_run_cycle`'s
+real (non-dry) run reuses the exact same `CrawlCycle` and advisory-lock machinery the hosted crawler
+uses, so it correctly no-ops rather than double-crawls while the hosted crawler holds the lease — see
+the tool's own description for why that is not a bug.

@@ -10,11 +10,14 @@ namespace MUI.Crawler.Persistence;
 /// <see cref="IMergeLog"/> over <c>merge_log</c> (spec §7.3, migration 0018).
 /// </summary>
 /// <remarks>
-/// Recording the row <em>is</em> performing the merge — no second write, no wrapping transaction. All
-/// merge behavior (the absorbed game's rows kept, public reads skipping it, its page redirecting) is
-/// derived from this table on read, so a merge can't half-happen or exist unlogged. Uniqueness is
-/// enforced by the schema (<c>merge_log_absorbed_once_idx</c>) rather than checked here first — a
-/// read-then-write would lose the race between two operators.
+/// Recording the row <em>is</em> performing the merge — no write of its own beyond the one INSERT. A
+/// merge is a redirect: the absorbed game keeps every row it had, public reads skip it, and its page
+/// answers with the survivor's, all derived from this table on read, so a merge can't half-happen or
+/// exist unlogged. <see cref="RecordAsync"/> still accepts an <see cref="IUnitOfWork"/> so a caller
+/// with a second, different write to make elsewhere — <see cref="ReviewMergeService.MergeAsync"/>'s
+/// <c>duplicate_review</c> resolve is the only one today — can make the two commit or roll back
+/// together. Uniqueness is enforced by the schema (<c>merge_log_absorbed_once_idx</c>) rather than
+/// checked here first — a read-then-write would lose the race between two operators.
 /// </remarks>
 public sealed class NpgsqlMergeLog(NpgsqlDataSource source) : IMergeLog
 {
@@ -24,30 +27,51 @@ public sealed class NpgsqlMergeLog(NpgsqlDataSource source) : IMergeLog
         reason AS Reason
         """;
 
-    public async Task<Guid> RecordAsync(MergeRecord record, CancellationToken ct)
+    public async Task<Guid> RecordAsync(MergeRecord record, CancellationToken ct, IUnitOfWork? unitOfWork = null)
     {
         ArgumentNullException.ThrowIfNull(record);
 
-        await using var connection = await source.OpenConnectionAsync(ct);
+        // Joining a caller-supplied unit of work (ReviewMergeService.MergeAsync, the only caller that
+        // hands one in) means running against its own connection and transaction instead of opening a
+        // new one -- opening a second connection here would make this write invisible to the other
+        // write sharing that unit of work until both committed, defeating the point of sharing it.
+        var shared = unitOfWork as NpgsqlUnitOfWork;
 
-        return await connection.ExecuteScalarAsync<Guid>(new CommandDefinition(
-            """
-            INSERT INTO merge_log (id, into_game_id, from_game_id, score, signals, at, reverted_at, reason)
-            VALUES (@id, @into, @from, @score, @signals::jsonb, @at, @revertedAt, @reason)
-            RETURNING id
-            """,
-            new
+        NpgsqlConnection? owned = shared is null ? await source.OpenConnectionAsync(ct) : null;
+
+        try
+        {
+            var connection = shared?.Connection ?? owned!;
+
+            var command = new CommandDefinition(
+                """
+                INSERT INTO merge_log (id, into_game_id, from_game_id, score, signals, at, reverted_at, reason)
+                VALUES (@id, @into, @from, @score, @signals::jsonb, @at, @revertedAt, @reason)
+                RETURNING id
+                """,
+                new
+                {
+                    id = record.Id,
+                    into = record.IntoGameId,
+                    from = record.FromGameId,
+                    score = record.Score,
+                    signals = record.SignalsJson,
+                    at = record.At.ToUniversalTime(),
+                    revertedAt = record.RevertedAt?.ToUniversalTime(),
+                    reason = record.Reason,
+                },
+                transaction: shared?.Transaction,
+                cancellationToken: ct);
+
+            return await connection.ExecuteScalarAsync<Guid>(command);
+        }
+        finally
+        {
+            if (owned is not null)
             {
-                id = record.Id,
-                into = record.IntoGameId,
-                from = record.FromGameId,
-                score = record.Score,
-                signals = record.SignalsJson,
-                at = record.At.ToUniversalTime(),
-                revertedAt = record.RevertedAt?.ToUniversalTime(),
-                reason = record.Reason,
-            },
-            cancellationToken: ct));
+                await owned.DisposeAsync();
+            }
+        }
     }
 
     /// <remarks>

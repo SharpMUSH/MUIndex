@@ -9,6 +9,7 @@ using MUI.Web.Data;
 using MUI.Web.Fixtures;
 using MUI.Web.Icons;
 using MUI.Web.Localization;
+using MUI.Web.Mcp;
 using MUI.Web.Submissions;
 using MUI.Web.Theme;
 
@@ -73,6 +74,12 @@ public static class SiteComposition
             // After AddMuiCrawler, which owns §7.2's address gate and the contact address the icon
             // client announces — both reused rather than restated.
             services.AddMuiIcons();
+
+            // The authenticated MCP endpoint that replaces the ssh/scp/mui-crawl administration
+            // dance (CLAUDE.md). After AddMuiAccounts, so the default authentication scheme it sets
+            // is already fixed before this adds a second, non-default one; after AddMuiCrawler,
+            // whose singletons every one of MuiMcpTools' seven tools resolves rather than rebuilding.
+            services.AddMuiMcp(configuration);
         }
         else
         {
@@ -165,6 +172,11 @@ public static class SiteComposition
 
             // Served from this origin so a reader's address is never spent on a third-party host.
             app.MapMuiIcons();
+
+            // The MCP route. Inside the guard for the same reason as the two above: every tool needs
+            // the Postgres-backed crawler graph, and there is nothing for this route to do against
+            // the demo fixture.
+            app.UseMuiMcp();
         }
 
         // Outside the guard above: it only writes a cookie, so a demo-deployment reader has the same

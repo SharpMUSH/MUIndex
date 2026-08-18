@@ -112,20 +112,38 @@ public sealed class NpgsqlDuplicateReviewRepository(NpgsqlDataSource source) : I
     }
 
     /// <summary>Closes the pair. The row is kept: a judgement is part of the record.</summary>
-    public async Task ResolveAsync(Guid id, string resolution, DateTimeOffset at, CancellationToken ct)
+    public async Task ResolveAsync(
+        Guid id, string resolution, DateTimeOffset at, CancellationToken ct, IUnitOfWork? unitOfWork = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resolution);
 
-        await using var connection = await source.OpenConnectionAsync(ct);
+        // See NpgsqlMergeLog.RecordAsync's own comment -- the same join-or-open choice, for the same
+        // caller (ReviewMergeService.MergeAsync).
+        var shared = unitOfWork as NpgsqlUnitOfWork;
 
-        await connection.ExecuteAsync(new CommandDefinition(
-            """
-            UPDATE duplicate_review
-               SET resolved_at = @at, resolution = @resolution
-             WHERE id = @id AND resolved_at IS NULL
-            """,
-            new { id, resolution, at = at.ToUniversalTime() },
-            cancellationToken: ct));
+        NpgsqlConnection? owned = shared is null ? await source.OpenConnectionAsync(ct) : null;
+
+        try
+        {
+            var connection = shared?.Connection ?? owned!;
+
+            await connection.ExecuteAsync(new CommandDefinition(
+                """
+                UPDATE duplicate_review
+                   SET resolved_at = @at, resolution = @resolution
+                 WHERE id = @id AND resolved_at IS NULL
+                """,
+                new { id, resolution, at = at.ToUniversalTime() },
+                transaction: shared?.Transaction,
+                cancellationToken: ct));
+        }
+        finally
+        {
+            if (owned is not null)
+            {
+                await owned.DisposeAsync();
+            }
+        }
     }
 
     private sealed class Row
