@@ -7,6 +7,7 @@ using MUI.Web.Fixtures;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -68,13 +69,15 @@ public static class Render
         string query,
         bool measured = false,
         IReadOnlyList<GameRecord>? games = null,
-        bool yielding = false)
+        bool yielding = false,
+        HttpContext? http = null,
+        IGameQueries? queries = null)
         where TComponent : IComponent =>
         ComponentAsync<TComponent>(parameters, services =>
         {
             var fixture = new FixtureGameQueries();
 
-            services.AddSingleton<IGameQueries>(yielding ? new Suspending(fixture) : fixture);
+            services.AddSingleton<IGameQueries>(queries ?? (yielding ? new Suspending(fixture) : fixture));
             services.AddSingleton<IAvailabilityHistory>(fixture);
             services.AddSingleton(TimeProvider.System);
 
@@ -97,6 +100,14 @@ public static class Render
             services.AddSingleton(new CatalogueSource(measured));
             services.AddSingleton<NavigationManager>(new StubNavigation(query));
             services.AddSingleton<AntiforgeryStateProvider, StubAntiforgery>();
+
+            // Absent by default, matching a component rendered with no HttpContext at all — the
+            // condition LocaleRouting.IsReviewBuild's own remarks describe. Supplied only by a
+            // caller that has something to ask of the request, e.g. an Accept-Language header.
+            if (http is not null)
+            {
+                services.AddCascadingValue(_ => http);
+            }
         });
 
     /// <summary>
