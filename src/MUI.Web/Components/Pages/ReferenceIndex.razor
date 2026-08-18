@@ -88,11 +88,8 @@ else
     /// The section as this reader gets it — one call site, scoped to the request's locale.
     /// </summary>
     /// <remarks>
-    /// Instance rather than static because it is a per-request question now: the locale-aware loader
-    /// answers it with this locale's articles and the English ones where a translation does not
-    /// exist yet. <c>ReferenceLibrary.For(Tag)</c> is that call and it is not in this branch yet, so
-    /// this reads the English set through the API that does exist; everything round it already
-    /// threads <c>Tag</c>, so the switch is this expression and nothing else.
+    /// Instance rather than static because it is a per-request question: the loader answers it with
+    /// this locale's articles and the English ones where a translation does not exist yet.
     /// </remarks>
-    private ReferenceLibrary Library => ReferenceLibrary.Shipped;
+    private ReferenceLibrary Library => ReferenceLibrary.For(Tag);
 }

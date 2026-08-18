@@ -208,11 +208,10 @@ else
     protected override async Task OnParametersSetAsync()
     {
         // The section as this reader gets it — one call site, scoped to the request's locale, and
-        // the only place this page decides which set of articles it is rendering. The locale-aware
-        // loader's ReferenceLibrary.For(Tag) is not in this branch yet, so this reads the English
-        // set through the API that does exist; the switch is this expression and nothing else,
-        // because Related, Find and the figures below all come off whatever it returns.
-        var library = ReferenceLibrary.Shipped;
+        // the only place this page decides which set of articles it is rendering. Related, Find and
+        // the figures below all come off whatever it returns, and every one of them reads structure
+        // that came from the English file whatever language the prose is in.
+        var library = ReferenceLibrary.For(Tag);
 
         Document = library.Find(Here());
 
