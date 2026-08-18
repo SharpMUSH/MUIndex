@@ -1269,7 +1269,12 @@ form.locale select:focus { outline: none; }
    image does not reach, so a transparent PNG lands on the same recessed square as the monogram. */
 .game-head img.plate { object-fit: contain; padding: 4px; }
 
-.game-head .lede { font-size: var(--fs-md); line-height: 1.6; max-width: 62ch; margin: 0; color: var(--dim); }
+/* Wider than .hero .lede's 62ch on purpose: that one is a single-sentence tagline sized for an ideal
+   reading line, this is a game's own self-description at whatever length its operator wrote it —
+   often several sentences — and 62ch was wrapping it well short of the column .game-title already
+   has, not for readability but because the two shared a number that only fit one of their jobs. 80ch
+   is WCAG 1.4.8's own ceiling for a comfortable line, so it still bounds width on a wide viewport. */
+.game-head .lede { font-size: var(--fs-md); line-height: 1.6; max-width: 80ch; margin: 0; color: var(--dim); }
 .game-head .tagline { font-size: var(--fs-md); margin: 0; }
 
 /*
