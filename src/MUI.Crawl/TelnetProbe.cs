@@ -193,25 +193,20 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             {
                 // MSDP's request vocabulary — SEND, REPORT, LIST, RESET, UNREPORT — has no plaintext
                 // form, so it is not on PermittedCommands for the same reason MSSP-REQUEST is not: it
-                // is asked for by protocol, not by typing. It cannot be gated on "did MSDP negotiate"
-                // the way the WHO/INFO/VERSION gates below are gated on Live(client), because that
-                // knowledge does not exist yet — TelnetNegotiationCore's OnEnabledAsync (see
-                // Watched.Msdp) is not a reliable signal of a server having agreed to an option (it is
-                // wired to a manual enable/disable API nothing in negotiation ever calls; see
-                // Build()'s remarks) and the only demonstrable signal, an MSDP message actually
-                // arriving, cannot exist before something has been sent to provoke one.
-                //
-                // So this is sent exactly the way the client's own automatic negotiation replies are:
-                // unconditionally, before the flush that already exists to absorb a stray reaction to
-                // exactly this class of byte. A server that never offered MSDP has no state for
-                // "IAC SB MSDP" and, per the TinyMUSH shape documented on the flush below, may read it
-                // as literal text and answer with something — which lands in the same flush window and
-                // is discarded the same way. A server that did negotiate MSDP answers over the
-                // subnegotiation channel, which never touches `lines` and cannot perturb a phase
-                // boundary at all, whether or not it answers. PLAYERS is MSDP's conventional variable
-                // name for a player count; see docs/codebase-survey-2026-07-30.md for what asking real
-                // servers for it found.
-                await telnet.SendMSDPCommand("SEND", "PLAYERS");
+                // is asked for by protocol, not by typing. Gated on TelnetNegotiationCore 2.9.0's
+                // IsNegotiated (see Watched.Msdp), which reflects the peer's real WILL/DO acceptance —
+                // unlike the pre-2.9.0 OnEnabledAsync, which was true from plugin construction
+                // regardless of the wire (TelnetNegotiationCore#85). By this point in the probe the
+                // banner phase above has already given negotiation time to settle, so a server that
+                // never agreed to MSDP is not asked at all: no bytes go to a peer that said nothing
+                // about this option, one connect screen fewer that might read a subnegotiation as
+                // literal typing. PLAYERS is MSDP's conventional variable name for a player count; see
+                // docs/codebase-survey-2026-07-30.md for what asking real servers for it found — every
+                // server tested answered with an unsolicited SERVER_ID instead, never PLAYERS.
+                if (telnet.PluginManager?.GetPlugin<MSDPProtocol>() is { IsNegotiated: true })
+                {
+                    await telnet.SendMSDPCommand("SEND", "PLAYERS");
+                }
 
                 await telnet.SendAsync([]);
                 await SettleAsync(telnet, Arrived, bannerLines, _options.QuietPeriod, budget.Token);
