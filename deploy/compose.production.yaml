@@ -17,14 +17,41 @@ services:
     build: !reset null
     pull_policy: always
 
-    # NOTHING IS PUBLISHED. Caddy reaches this over the compose network, and the base file's
+    # NOTHING IS PUBLISHED. Traefik reaches this over the compose network, and the base file's
     # 8080 mapping is dropped rather than narrowed, because Docker writes its port rules ahead of
     # ufw: a published port is reachable from the internet whatever the host firewall was told, and
     # the safest number of ports to argue about is none. `docker compose exec web` is the way in.
     ports: !override []
 
+    # **Two, so a version cutover never drops to zero backends.** Watchtower's ordinary update is
+    # stop-old-then-start-new; on one replica that is a gap where nothing answers. With two, and
+    # WATCHTOWER_ROLLING_RESTART=true below making Watchtower replace them one at a time, there is
+    # always at least one container running while the other is mid-swap — and Traefik's service
+    # healthcheck (below) is what keeps it from sending a request to the new one before it can answer.
+    #
+    # This is safe against the one thing it could break: two replicas applying the same migration at
+    # once. `PostgresData.ApplyMigrationsAsync` (src/MUI.Web/Data/PostgresData.cs), unlike the
+    # crawler's own migration path, does not run under MUI.Crawler's advisory lock — it is not gated
+    # at all, and MigrationRunner.ApplyAsync (src/MUI.Catalog/Persistence/MigrationRunner.cs) snapshots
+    # which migrations are already applied with one SELECT before looping, rather than taking a lock
+    # per migration. Two replicas starting close enough together that both snapshot the same pending
+    # migration will both attempt it; the loser's INSERT into the mui_migration ledger hits that
+    # table's PRIMARY KEY and throws, which is unhandled in Program.cs, so that replica exits before
+    # app.Run(). Transactional DDL means this cannot double-apply or corrupt anything, and
+    # `restart: unless-stopped` recovers it on the next attempt, when the migration is already
+    # committed and it just serves. The window this can actually happen in is narrow — Watchtower's
+    # rolling mode replaces containers one at a time, so it is closed for an ordinary automated
+    # update — but a host reboot or a manual `docker compose up -d --force-recreate` starts both
+    # replicas together and can hit it. **Known and left open deliberately**: fixing it (moving
+    # MUI.Web's own ApplyMigrationsAsync call behind AdvisoryLease, the way the crawler's is) is a
+    # database-safety change and belongs in its own reviewed PR, not folded into a deploy-packaging
+    # change under time pressure. See the PR description for the full argument that this is
+    # self-limiting rather than a real double-apply or an availability gap.
+    deploy:
+      replicas: 2
+
     environment:
-      # Cloudflare, then Caddy. Both append to X-Forwarded-For, so the middleware walks exactly two
+      # Cloudflare, then Traefik. Both append to X-Forwarded-For, so the middleware walks exactly two
       # hops and takes the address Cloudflare actually saw — a client that forges the header has its
       # value pushed out of reach rather than believed. Getting this number wrong in either direction
       # is a rate limit that either buckets the whole internet together or hands out a bucket per
@@ -71,9 +98,75 @@ services:
       # Crash dumps, which the read-only root filesystem has nowhere to put. Overwritten in place.
       - dumps:/dumps
 
-    # The only container Watchtower is allowed to touch. See below.
+    # The only container Watchtower is allowed to touch. See below. The rest of this block is
+    # Traefik's routing configuration — everything the Caddyfile used to say, as labels on the thing
+    # being routed to rather than as a second file. `providers.docker.exposedbydefault=false` (on the
+    # traefik service, below) means nothing is routed anywhere without `traefik.enable=true` here.
     labels:
       com.centurylinklabs.watchtower.enable: "true"
+
+      traefik.enable: "true"
+
+      # --- The public site, behind Cloudflare -----------------------------------------------------
+      # tls: "true" with no certResolver: the certificate comes from deploy/traefik/dynamic.yml's
+      # file-provided Origin CA pair, matched by SNI, not issued by ACME. See that file for why —
+      # the short version is the same one the Caddyfile gave: the ACME HTTP-01 challenge cannot round-
+      # trip through Cloudflare's proxy for a name whose edge already terminates TLS.
+      traefik.http.routers.mui-site.rule: Host(`${SITE_DOMAIN:?set SITE_DOMAIN in .env}`)
+      traefik.http.routers.mui-site.entrypoints: websecure
+      traefik.http.routers.mui-site.tls: "true"
+      traefik.http.routers.mui-site.middlewares: mui-compress
+      traefik.http.routers.mui-site.service: mui-web
+
+      # One canonical origin: www permanently redirects to the apex, path and query preserved. The
+      # regex strips the "www." prefix rather than naming the domain twice, so it does not have to
+      # repeat SITE_DOMAIN — and does not have to escape the dot in it — inside a regex.
+      traefik.http.routers.mui-www.rule: Host(`www.${SITE_DOMAIN:?set SITE_DOMAIN in .env}`)
+      traefik.http.routers.mui-www.entrypoints: websecure
+      traefik.http.routers.mui-www.tls: "true"
+      traefik.http.routers.mui-www.middlewares: mui-strip-www
+      traefik.http.routers.mui-www.service: mui-web
+
+      traefik.http.middlewares.mui-strip-www.redirectregex.regex: ^https://www\.(.+)
+      # Doubled, per Traefik's own label-escaping rule for values containing `$`.
+      traefik.http.middlewares.mui-strip-www.redirectregex.replacement: https://$${1}
+      traefik.http.middlewares.mui-strip-www.redirectregex.permanent: "true"
+
+      # zstd first, gzip as the fallback for a client that does not offer it — `encode zstd gzip` in
+      # the old Caddyfile, in that same preference order.
+      traefik.http.middlewares.mui-compress.compress.encodings: zstd,gzip
+
+      # --- The crawler domain, DNS-only ------------------------------------------------------------
+      # No Cloudflare in front of this name — it has to resolve directly, or the PTR a probed admin
+      # runs `dig -x` against would not forward-confirm (docs/deploy.md, "The domain") — so port 80
+      # reaches this box directly and an ordinary Let's Encrypt certificate can be issued for it over
+      # HTTP-01. The resolver is declared once, on the traefik service's own `command:`.
+      traefik.http.routers.mui-crawler.rule: Host(`${CRAWLER_DOMAIN:?set CRAWLER_DOMAIN in .env}`)
+      traefik.http.routers.mui-crawler.entrypoints: websecure
+      traefik.http.routers.mui-crawler.tls.certresolver: crawler-acme
+      traefik.http.routers.mui-crawler.middlewares: mui-crawler-redirect
+      traefik.http.routers.mui-crawler.service: mui-web
+
+      # It exists because somebody who has just been dialled types it into a browser, having read it
+      # out of `dig -x`. Landing them on the part of /about that answers them is the whole job.
+      traefik.http.middlewares.mui-crawler-redirect.redirectregex.regex: ^https?://.*
+      traefik.http.middlewares.mui-crawler-redirect.redirectregex.replacement: https://${SITE_DOMAIN:?set SITE_DOMAIN in .env}/crawler
+      traefik.http.middlewares.mui-crawler-redirect.redirectregex.permanent: "true"
+
+      # --- What actually receives the traffic ----------------------------------------------------
+      # One service, shared by every router above, so `deploy.replicas: 2` (above) becomes two
+      # backends in ONE load-balancer pool rather than two independent services — Traefik's Docker
+      # provider aggregates every container matching these labels automatically. The healthcheck is
+      # the other half of the zero-downtime property `deploy.replicas` alone does not buy: without it,
+      # a replica that has just been recreated and has not finished starting (or is stuck re-applying
+      # a migration — see the note above `deploy:`) would receive traffic the moment Traefik notices
+      # its container, not once it can answer. GET /health is the same endpoint the Dockerfile's own
+      # HEALTHCHECK polls; Traefik polls it independently, over the compose network, which is what
+      # actually gates routing rather than just reporting `docker compose ps` status.
+      traefik.http.services.mui-web.loadbalancer.server.port: "8080"
+      traefik.http.services.mui-web.loadbalancer.healthcheck.path: /health
+      traefik.http.services.mui-web.loadbalancer.healthcheck.interval: 5s
+      traefik.http.services.mui-web.loadbalancer.healthcheck.timeout: 3s
 
   postgres:
     # Deliberately unlabelled, and this is the load-bearing half of the label scheme. An automatic
@@ -91,33 +184,109 @@ services:
     mem_limit: 768m
     memswap_limit: 768m
 
-  caddy:
-    image: caddy:2-alpine
+  # TLS and nothing else, same as the Caddy it replaces — every routing decision is a label on `web`,
+  # above, and this service terminates HTTPS, hands the request on, and stays out of the way.
+  #
+  # The reason it is Traefik and not Caddy: Caddy has no notion of "route to whichever backends are
+  # currently healthy" — it proxies to whatever the Docker DNS name resolves to, which during a
+  # container swap can be a container that is still starting. Traefik's Docker provider tracks
+  # individual container IPs rather than a DNS name, and `loadbalancer.healthcheck` (on `web`'s
+  # labels, above) removes one from rotation until GET /health says otherwise — which is the actual
+  # mechanism, together with `web`'s two replicas, that keeps a version cutover from looking like
+  # downtime. See docs/deploy.md for the operational picture.
+  traefik:
+    image: traefik:v3.7
+    # Ordering only, not `condition: service_healthy`: Compose's health-gated `depends_on` is not
+    # well-specified against a service running `deploy.replicas` > 1, and the real gate on whether a
+    # given `web` container receives traffic is the per-container active healthcheck on `mui-web`
+    # (below), which Traefik keeps re-evaluating for the life of the container rather than once at
+    # startup. This line only keeps `traefik` from being created before `web` exists at all.
     depends_on: [web]
+    command:
+      # Only containers labelled traefik.enable=true — one service (`web`), whatever its replica
+      # count — the same discipline WATCHTOWER_LABEL_ENABLE applies below, and for the same reason: a
+      # provider that exposes everything it can see by default eventually exposes something by
+      # accident.
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+
+      # The one thing static config cannot express: a certificate that comes from a file rather than
+      # ACME. See deploy/traefik/dynamic.yml.
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+
+      - "--entrypoints.web.address=:80"
+      # Global, rather than a redirect middleware per router: every host this box answers for gets
+      # the same http->https upgrade, which is what Caddy's automatic HTTPS already did for both site
+      # blocks without being asked. Traefik's ACME HTTP-01 challenge is answered by a router with
+      # priority over this — see the "allowACMEByPass" note it would otherwise need — so this and
+      # the crawler domain's certificate renewal coexist on the same port without a special case.
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+      - "--entrypoints.websecure.address=:443"
+
+      # Only for the ACME account behind crawler.mu-index.com, which is DNS-only and therefore gets
+      # an ordinary Let's Encrypt certificate over HTTP-01 — unreachable through Cloudflare's proxy,
+      # which is why the site domain uses the file-provided Origin CA certificate instead. Named
+      # "crawler-acme" rather than the conventional "letsencrypt"/"le" because a second name-worthy
+      # resolver is one edit away the day the site domain ever wants its own ACME certificate, and a
+      # resolver named for what it is for does not need renaming first.
+      - "--certificatesresolvers.crawler-acme.acme.email=${ACME_EMAIL:?set ACME_EMAIL in .env}"
+      - "--certificatesresolvers.crawler-acme.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.crawler-acme.acme.httpchallenge.entrypoint=web"
+
+      # JSON, to stdout, for the same reason the Caddyfile's log block exists: on 2026-08-18 the web
+      # container doubled in size twice in ten minutes and took the host down with it, and neither the
+      # crawl schedule nor the application log could say what had been served at the time, because no
+      # per-request record had ever existed. Unlike Caddy, Traefik has no built-in `roll_size`/
+      # `roll_keep_for` — its own docs point at external rotation — so the `logging:` block below asks
+      # Docker/Podman's own json-file driver to do it instead. That trades the Caddyfile's second axis
+      # (a week's worth, however large) for a size-only bound (20 MiB × 5 files); see the comment
+      # there for why that is considered close enough rather than replicated exactly.
+      - "--accesslog=true"
+      - "--accesslog.format=json"
+
+      # /ping, gated on this flag, is what the HEALTHCHECK below and `traefik healthcheck` ask.
+      - "--ping=true"
+
+      - "--log.level=INFO"
     ports:
       - "80:80"
       - "443:443"
-      - "443:443/udp"
+      # No `443:443/udp`. Caddy enables HTTP/3 the moment both ports are given; Traefik does not do
+      # this automatically and turning it on is a further opt-in (a `http3` block per entrypoint).
+      # Deliberately not carried over: the connection that matters for the proxied site domain is
+      # Cloudflare-to-origin, which is a plain TLS connection regardless of what reaches Cloudflare's
+      # edge, and the crawler domain serves one redirect. An unused UDP listener on the public
+      # internet is exposure with nothing behind it. Revisit if that stops being true.
     volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       # The Cloudflare Origin CA certificate for the proxied names. Not publicly trusted and not
       # meant to be: it is presented to Cloudflare, which is the only thing that reaches this port
       # for those names, and it is what makes Full (strict) an honest setting rather than a label.
-      - ./deploy/tls:/etc/caddy/tls:ro
-      - caddy-data:/data
-      - caddy-config:/config
-      # The access log, which the Caddyfile writes here rather than to stdout. On stdout it would
-      # share the container log with everything else and be rotated out by volume; here it is a
-      # file with its own bounded history, which is what makes it answerable after an outage.
-      - caddy-logs:/var/log/caddy
+      - ./deploy/tls:/etc/traefik/tls:ro
+      # The file-provider declaration that points at the pair above. See that file for why a
+      # certificate is dynamic configuration rather than a `command:` flag.
+      - ./deploy/traefik:/etc/traefik/dynamic:ro
+      # The ACME account key and the crawler domain's certificate. Not disposable in the sense that
+      # losing it is a re-issue rather than an outage, but Let's Encrypt rate-limits re-issuance, so
+      # this survives a container recreate the same way the Caddyfile's `caddy-data` did.
+      - traefik-acme:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # 20 MiB per file, 5 files — see the `--accesslog` comment above for what this stands in for.
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
     mem_limit: 128m
     memswap_limit: 128m
-    environment:
-      # Only for the ACME account behind crawler.mu-index.com, which is DNS-only and therefore gets
-      # an ordinary Let's Encrypt certificate over HTTP-01.
-      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
-      SITE_DOMAIN: ${SITE_DOMAIN:?set SITE_DOMAIN in .env}
-      CRAWLER_DOMAIN: ${CRAWLER_DOMAIN:?set CRAWLER_DOMAIN in .env}
     restart: unless-stopped
 
   watchtower:
@@ -132,14 +301,24 @@ services:
     environment:
       DOCKER_CONFIG: /config
 
-      # Only labelled containers, which is exactly one of them. Without this, Watchtower updates
-      # everything it can see, including the database.
+      # Only labelled containers — one service (`web`), now running as two containers under
+      # `deploy.replicas: 2`. Without this, Watchtower updates everything it can see, including the
+      # database.
       WATCHTOWER_LABEL_ENABLE: "true"
 
       # Five minutes. The interval is a poll against GHCR for a changed digest, not a pull, so it is
       # cheap; what it costs is that a merge to main reaches the public site within five minutes with
       # no human in between. That is a deliberate choice and the reason the SHA tags exist.
       WATCHTOWER_POLL_INTERVAL: "300"
+
+      # The reason there are two replicas at all. Watchtower's ordinary update stops every matched
+      # container, THEN starts the replacements — on one replica, or on two updated in the same
+      # batch, that is a window with no `web` container running at all. Rolling mode processes matched
+      # containers one at a time: stop this one, start its replacement, THEN move to the next — so the
+      # other replica is still up and Traefik is still routing to it (once the new one passes its own
+      # healthcheck, see `web`'s labels) for the entire swap. This is the mechanism; `deploy.replicas`
+      # is just what gives it two containers to alternate between.
+      WATCHTOWER_ROLLING_RESTART: "true"
 
       # The old image after a successful swap. Without it a long-lived host slowly fills with
       # untagged layers, which is a disk-full at an hour nobody chose.
@@ -158,7 +337,7 @@ services:
     memswap_limit: 256m
 
 volumes:
-  caddy-data:
-  caddy-config:
-  caddy-logs:
+  # The ACME account key and the crawler domain's certificate — see the `traefik` service's own
+  # volumes comment for why this survives a container recreate rather than starting fresh each time.
+  traefik-acme:
   dumps:

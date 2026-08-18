@@ -1,0 +1,19 @@
+# The one thing Traefik's command-line static config cannot express: a certificate that comes from a
+# file rather than from ACME. Everything else Traefik needs (entryPoints, the ACME resolver, the
+# Docker provider) is a `command:` flag in compose.production.yaml; a TLS certificate is dynamic
+# configuration, so it has to arrive through a provider — this file, read by `--providers.file`.
+#
+# This is the Cloudflare Origin CA certificate for {$SITE_DOMAIN} and www — the same pair that used to
+# sit in the Caddyfile's `tls /etc/caddy/tls/origin.pem /etc/caddy/tls/origin.key`. It is presented
+# only to Cloudflare, which is the only thing that reaches this box's 443 for that name (see
+# docs/deploy.md, "Certificates, and why they come from a file"), and it is what makes Cloudflare's
+# Full (strict) mode check something real instead of accepting whatever the origin presents.
+#
+# Not a store selection, not a default-certificate declaration: a router with `tls: {}` and no
+# certResolver matches an incoming ClientHello's SNI against every certificate Traefik knows about,
+# static or ACME-issued, and picks the one that covers it. Declaring it here is sufficient — the
+# site's router (compose.production.yaml, on the `web` service's labels) does not have to name it.
+tls:
+  certificates:
+    - certFile: /etc/traefik/tls/origin.pem
+      keyFile: /etc/traefik/tls/origin.key
