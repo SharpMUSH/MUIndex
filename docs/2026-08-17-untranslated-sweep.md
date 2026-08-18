@@ -67,13 +67,42 @@ Two shapes appear on nearly every page and are counted above under whichever pag
   Note `Mssp` is also mis-cased here: it is an acronym and the enum's `ToString()` is leaking into a
   reader-facing string. Fix the casing with the translation.
 
-## Reference articles are out of scope, deliberately
+## Reference articles were out of scope, and then were not
 
-`/reference` and `/reference/…` are Markdown under `content/reference/*.md`. Translating an article is
-a content project with a different unit of work — a translated article is a document somebody owns,
-not a string in a bundle — and machine-translating the site's own explanations of MSSP and telnet
-would produce exactly the confident-and-wrong prose this project exists not to publish. The reference
-index's *chrome* is in scope; the articles are not.
+**This section recorded a decision that has been reversed. It is kept rather than rewritten, because
+the reasoning was sound and the outcome was still wrong, and that is worth being able to read.**
+
+The original argument: `/reference` is 39 Markdown documents under `content/reference/*.md`, an
+article is a document somebody owns rather than a string in a bundle, and machine-translating this
+site's own explanation of MSSP and telnet would produce exactly the confident-and-wrong prose the
+project exists not to publish. So the chrome was in scope and the articles were not.
+
+What that missed is that the alternative was not "no translation" but "the reference section is
+English for four out of five readers" — the section that exists to teach the vocabulary the rest of
+the interface uses. A reader who cannot read the explanation of *measured* versus *declared* is
+worse served by a careful silence than by a translation somebody may later improve.
+
+So all 39 are translated into German, Dutch, Japanese and Simplified Chinese: 156 files, about 48,000
+words. Each translator worked from the site's own message bundle as a glossary, because the reference
+teaches the words the interface says and the two must not disagree. All four independently reserved
+their language's word for the *derived* provenance register rather than spend it on the loose English
+phrase "MSSP-derived facts", which is the kind of care the original objection assumed was impossible.
+
+**How it is arranged**, for whoever changes it next:
+
+- A translation lives at `content/reference/<tag>/<same-file-name>.md` and is embedded beside the
+  English by a second `EmbeddedResource` rule.
+- `ReferenceLibrary.For(tag)` returns that locale's documents with **per-article fallback** to
+  English, so a missing translation is served rather than withheld.
+- **A translation supplies prose and nothing else.** The document handed to a page is the English
+  record with only `Title`, `Summary` and `Body` replaced, so the slug, kind, `see-also` graph, `home`
+  link and protocol name always come from one file in one language. A translator cannot move a URL.
+- Two tests guard it: one walks the *files* asserting the structural front matter is byte-identical
+  to the English, and one asserts no article quietly falls back — because the fallback that protects
+  a reader also hides a file nobody wrote.
+- **`zh-Hans` is named explicitly in those tests.** MSBuild replaces the dash when it builds a
+  manifest resource name, so `content/reference/zh-Hans/` embeds as `…reference.zh_Hans.…`; Chinese
+  loaded no articles at all and served English on every page while the other three worked.
 
 ## Partition for the work
 
