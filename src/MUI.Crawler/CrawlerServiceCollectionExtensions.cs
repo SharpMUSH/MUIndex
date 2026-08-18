@@ -212,6 +212,14 @@ public static class CrawlerServiceCollectionExtensions
 
         services.TryAddSingleton<CrawlCycle>();
 
+        // §5.3's third reason a transition is written: elapsed time. See CrawlGapGuard for why the
+        // crawler is the only thing that can notice a gap, and CrawlGap for what counts as one.
+        services.TryAddSingleton(s => new CrawlGapGuard(
+            s.GetRequiredService<IAvailabilityStore>(),
+            s.GetService<ICrawlCycles>(),
+            s.GetRequiredService<TimeProvider>(),
+            logger: s.GetService<ILogger<CrawlGapGuard>>()));
+
         // Registered even when the crawl is off, so that CrawlerService says so once in the log and
         // then returns. A replica that was meant to crawl and is silently not crawling looks exactly
         // like a replica that was configured not to, and an operator reading a log should not have to
