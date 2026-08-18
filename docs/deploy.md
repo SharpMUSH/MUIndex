@@ -230,7 +230,7 @@ The rest of the zone, once:
 | Email Routing | `crawler@`, `abuse@` | "Ask us to stop" has to reach a person. It is the address `/about` publishes. |
 | Cache rules | static assets only | See above. Never "Cache Everything". |
 
-Behind the proxy, `Submissions__TrustedProxyHops` is **2** — Cloudflare, then Caddy — because both
+Behind the proxy, `Submissions__TrustedProxyHops` is **2** — Cloudflare, then Traefik — because both
 append to `X-Forwarded-For` and the middleware walks exactly that many hops. A forwarded header
 nobody counted is a header anybody may write, and the thing reading it is a rate limit.
 
@@ -323,13 +323,18 @@ docker compose up -d web                     # recreates it with the new environ
 `deploy/compose.production.yaml` as well, so neither the unit nor a person at three in the morning
 has to remember a `-f` flag. What the overlay changes:
 
-- **Nothing is published.** The base file's `8080` mapping is dropped rather than narrowed. Caddy
+- **Nothing is published.** The base file's `8080` mapping is dropped rather than narrowed. Traefik
   reaches the site over the compose network, and the safest number of host ports to argue about with
   Docker's iptables rules is none.
-- **Caddy** terminates TLS for `mu-index.com` and `www`, redirects `www` to the apex, and answers
-  `crawler.mu-index.com` with a redirect to `/crawler`.
-- **Watchtower** updates the site container and nothing else.
-- **`Submissions__TrustedProxyHops=2`** — Cloudflare, then Caddy. Both append to `X-Forwarded-For`,
+- **Traefik** terminates TLS for `mu-index.com` and `www`, redirects `www` to the apex, and answers
+  `crawler.mu-index.com` with a redirect to `/crawler` — the same three jobs Caddy used to do, now as
+  labels on `web` rather than a second config file, because Traefik's Docker provider can tell which
+  of `web`'s containers is actually answering `GET /health` and route only to those.
+- **`web` runs as two containers** (`deploy.replicas: 2`), so a version cutover has one still serving
+  while the other is mid-swap, and **Watchtower replaces them one at a time**
+  (`WATCHTOWER_ROLLING_RESTART=true`) rather than stopping both before starting either replacement.
+  Watchtower still touches nothing but `web`.
+- **`Submissions__TrustedProxyHops=2`** — Cloudflare, then Traefik. Both append to `X-Forwarded-For`,
   so the middleware walks two hops and lands on the address Cloudflare actually saw; a client that
   forges the header has its value pushed out of reach rather than believed.
 
@@ -507,6 +512,7 @@ because the question is answered.
 ## Checking a deployment
 
 ```bash
+curl -fsS http://localhost:8080/health                        # 200 once the process can serve a request
 curl -fsS http://localhost:8080/api/games | head -c 200      # the read API, same reads as the pages
 curl -fsS http://localhost:8080/ | grep -c demo-banner       # 0 with a database, 1 without
 curl -fsS http://localhost:8080/about | grep -c placeholder  # 0 once a contact address is set
@@ -514,12 +520,15 @@ curl -isS http://localhost:8080/crawler | head -2            # 302 to /about#abo
 psql "$MUI_POSTGRES" -c 'SELECT name FROM mui_migration ORDER BY name'
 ```
 
-The third and fourth lines are the two halves of §11: an address to reach us at, and an address that
-answers. Both are checkable from outside, which is the point — they are the only settings here whose
-failure is visible to a stranger before it is visible to us.
+The third and fourth curl lines are the two halves of §11: an address to reach us at, and an address
+that answers. Both are checkable from outside, which is the point — they are the only settings here
+whose failure is visible to a stranger before it is visible to us.
 
-There is no `/health` endpoint. `GET /` is the health check, because it exercises the reads the site
-actually serves.
+`GET /health` is what the Dockerfile's own `HEALTHCHECK` and the production overlay's Traefik
+`loadbalancer.healthcheck` both poll — 200 once the process can actually serve a request, checking
+Postgres reachability when a connection string is configured. It is the readiness check, not a
+substitute for the one above: `GET /` still exercises the reads the site actually serves, and is worth
+running by hand the same way.
 
 ## Crawling by hand
 
