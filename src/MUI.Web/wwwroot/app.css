@@ -56,6 +56,15 @@
     --faint: #6b747c;          /* provenance, ages, meta */
 
     --accent: #35d29a;         /* measured */
+
+    /*
+      The accent as *text on an accent tint* — the selected facet row, which paints a 12% wash of
+      the accent behind accent-coloured words. Every ratio beside a token here is measured against
+      the page, and a tinted row is not the page: in light, --accent is 5.0:1 on the background it
+      was tuned for and 3.9:1 on this one, which is the row a reader has just clicked. Dark clears
+      it either way, so there the two are the same colour.
+    */
+    --accent-ink: var(--accent);
     --amber: #d8a13a;          /* declared / ageing */
     --derived: #a394f0;        /* our own classification, and nobody else's */
 
@@ -137,6 +146,7 @@
         --faint: #646f76;      /* 4.8:1 — was 3.5:1 and carried 12px ages */
 
         --accent: #04795b;     /* same hue, dropped in value: 5.0:1 */
+        --accent-ink: #036349; /* 5.3:1 on the accent's own 12% tint, where --accent is 3.9:1 */
         --amber: #7d5400;      /* 6.2:1 */
         --derived: #5240b8;    /* 7.0:1 */
         --danger: #a8261e;     /* 6.5:1 */
@@ -158,6 +168,7 @@
     --faint: #646f76;
 
     --accent: #04795b;
+    --accent-ink: #036349;
     --amber: #7d5400;
     --derived: #5240b8;
     --danger: #a8261e;
@@ -178,6 +189,12 @@
     --faint: #6b747c;
 
     --accent: #35d29a;
+
+    /* Reset with the rest of them. The light media block sets this unconditionally, so a reader who
+       pinned dark on a light-preferring system kept the light ink — a dark green on a dark tint,
+       2.7:1, which is worse than the value it was added to fix. Every token this block redeclares
+       is redeclared for that reason; this one was missed. */
+    --accent-ink: var(--accent);
     --amber: #d8a13a;
     --derived: #a394f0;
     --danger: #f4574c;
@@ -2148,8 +2165,18 @@ select {
 }
 .facet-row .tick { text-align: center; color: var(--faint); font-family: var(--mono); font-size: 12px; }
 .facet-row .row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/*
+  `--dim` rather than `--faint`, because the panel is not the page.
+
+  `--faint` was raised to 4.8:1 once already, measured against the page background — and the facet
+  panel is a more recessed surface than that, where the same token falls to 4.09:1 in dark and
+  4.37:1 in light. Both are under the 4.5:1 this site holds itself to, and both are carried by a
+  12px number, which is the smallest text in the panel and the one a reader most needs to read.
+  Raising the token instead would have moved every age and provenance line on the site to fix a
+  contrast the page itself does not have.
+*/
 .facet-row .count {
-    font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--faint);
+    font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--dim);
 }
 
 /* The exclusion affordance, at the far edge where a "remove" belongs. Quiet until it is the state
@@ -2178,11 +2205,11 @@ select {
    is the part of the row that says what the filter will return, so it is the part that has to look
    chosen. */
 .facet-row.on {
-    color: var(--accent);
+    color: var(--accent-ink);
     background: color-mix(in srgb, var(--accent) 12%, transparent);
     border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
-.facet-row.on .tick, .facet-row.on .count { color: var(--accent); }
+.facet-row.on .tick, .facet-row.on .count { color: var(--accent-ink); }
 .facet-row.on:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 
 /*
@@ -2216,7 +2243,7 @@ select {
 .facet .facet-tail summary:hover { color: var(--text); background: var(--raised); }
 
 /* Said once, under the groups it applies to. */
-.facet-hint { margin: 12px 0 0; font-size: 11.5px; color: var(--faint); }
+.facet-hint { margin: 12px 0 0; font-size: 11.5px; color: var(--dim); }
 
 /* The facets a reader goes looking for, rather than the three they arrive with. */
 .facet-more-groups { margin: 0; border-top: 1px solid var(--line-soft); padding-top: 14px; }

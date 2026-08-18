@@ -137,6 +137,22 @@
         @<a href="@HttpContext.Link(href)" class="@(IsCurrent(href) ? "on" : null)"
             aria-current="@(IsCurrent(href) ? "page" : null)">@text</a>;
 
+    /// <summary>
+    /// Every destination this bar offers, longest first, so the most specific match wins.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two items were marked at once.</b> A section matches its own root and everything under it,
+    /// which is what makes a reference article mark "reference" — but <c>/games/random</c> is its own
+    /// destination in the same bar, so standing on it matched <c>/games</c> as well and a screen
+    /// reader was handed two "current page" markers in one document. `aria-current` names the page
+    /// you are on, and there is one of those.
+    /// </remarks>
+    private static readonly string[] Destinations =
+    [
+        .. new[] { "/games/random", "/games", "/find", "/archive", "/reference", "/ecosystem", "/rankings", "/about", "/" }
+            .OrderByDescending(d => d.Length),
+    ];
+
     private bool IsCurrent(string href)
     {
         var path = HttpContext?.Request.Path.Value?.TrimEnd('/');
@@ -146,9 +162,15 @@
             path = "/";
         }
 
-        return href == "/"
+        // The best match, not merely a match: the first destination this path sits under is the one
+        // that gets the marker, and every shorter one that also contains it gets nothing.
+        var best = Destinations.FirstOrDefault(d => Matches(d, path));
+
+        return best is not null && best == href;
+
+        static bool Matches(string destination, string path) => destination == "/"
             ? path == "/"
-            : path == href || path.StartsWith(href + "/", StringComparison.Ordinal);
+            : path == destination || path.StartsWith(destination + "/", StringComparison.Ordinal);
     }
 
     /// <summary>

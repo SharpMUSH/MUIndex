@@ -162,4 +162,30 @@ public class SiteHeaderTests
 
         return context;
     }
+
+    /// <summary>
+    /// One page is current, so one item is marked — even where two destinations nest.
+    /// </summary>
+    /// <remarks>
+    /// A section matches its own root and everything under it, which is what makes a reference
+    /// article mark "reference". But <c>/games/random</c> is its own destination in the same bar, so
+    /// standing on it matched <c>/games</c> as well and a screen reader was handed two
+    /// <c>aria-current="page"</c> markers in one document. The most specific match wins now.
+    /// </remarks>
+    [Test]
+    [Arguments("/games/random", "/games/random")]
+    [Arguments("/games", "/games")]
+    [Arguments("/reference/protocols/mssp", "/reference")]
+    [Arguments("/archive", "/archive")]
+    public async Task ExactlyOneNavigationItemIsMarkedCurrent(string path, string expected)
+    {
+        var markup = await HeaderAsync(signedIn: false, path: path);
+
+        var marked = System.Text.RegularExpressions.Regex
+            .Matches(markup, "<a href=\"([^\"]+)\"[^>]*aria-current=\"page\"")
+            .Select(m => m.Groups[1].Value)
+            .ToList();
+
+        await Assert.That(marked).IsEquivalentTo(new[] { expected });
+    }
 }
