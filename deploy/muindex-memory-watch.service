@@ -1,0 +1,36 @@
+# The sampler from deploy/memory-watch.sh, as something that survives a reboot.
+#
+#   cp deploy/memory-watch.sh /usr/local/bin/muindex-memory-watch
+#   chmod +x /usr/local/bin/muindex-memory-watch
+#   cp deploy/muindex-memory-watch.service /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now muindex-memory-watch
+#
+# Read what it collects with /var/log/muindex/memory-YYYY-MM-DD.csv, and the burst-* directories
+# beside it for the captures.
+
+[Unit]
+Description=MUIndex per-container memory sampler
+Documentation=https://github.com/SharpMUSH/MUIndex/blob/main/deploy/memory-watch.sh
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/muindex-memory-watch
+Restart=always
+RestartSec=10
+
+# It exists to describe a machine that is out of memory, so it must not be a meaningful part of
+# what is consuming it, and it must not be a candidate when the kernel goes looking for something
+# to kill. The second line is the one that matters: a watcher the OOM killer picks first would
+# have nothing to report.
+MemoryMax=64M
+OOMScoreAdjust=-900
+
+# Reads other containers' cgroups and enters their network namespaces; neither is possible from a
+# sandbox, and there is nothing here worth sandboxing away from.
+ProtectHome=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

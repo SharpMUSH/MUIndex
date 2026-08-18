@@ -31,6 +31,46 @@ services:
       # forged header.
       Submissions__TrustedProxyHops: "2"
 
+      # A crash dump, written somewhere the restart cannot lose it. The heap ceiling that mem_limit
+      # implies (below) turns a runaway into a managed OutOfMemoryException rather than a SIGKILL
+      # from the kernel, and an unhandled one of those is a crash the runtime describes on its way
+      # out — which is the only artefact that would name the allocation. %p is the PID, and in a
+      # container that is always 1, so each crash overwrites the last dump rather than filling the
+      # disk with a series of them.
+      DOTNET_DbgEnableMiniDump: "1"
+      DOTNET_DbgMiniDumpType: "2"
+      DOTNET_DbgMiniDumpName: "/dumps/muindex-%p.dmp"
+
+    # **A ceiling, because on 2026-08-18 there was not one.** This process went from its steady
+    # 350-450 MB to 3.3 GB inside a single ten-minute window and took all 3.7 GiB of the host with
+    # it, twice needing a reboot from the provider's console. Without a limit the kernel's only
+    # lever is the page cache, so it evicted every executable page on the box — sshd's included —
+    # and the host stopped answering SSH at the same moment the site stopped answering requests.
+    # Losing the way in is what made a container's bug an outage.
+    #
+    # This does not fix the allocation, which is still unidentified. It fixes the blast radius:
+    # the cgroup kills this container, Docker restarts it, and SSH answers throughout.
+    #
+    # 2g is a little over four times the steady working set. It is also the number .NET reads —
+    # Server GC sizes its budgets against the whole machine when it finds no cgroup limit and
+    # against 75% of the limit when it finds one, so this line is what puts a 1.5 GB ceiling on the
+    # managed heap and what makes the failure a catchable exception instead of a SIGKILL.
+    mem_limit: 2g
+    # Equal to mem_limit, so this container cannot spill into the host's swap. That swap is margin
+    # for sshd and the kernel to stay responsive *while* this container dies; lending it to the
+    # process being killed would spend the one thing it was added to protect.
+    memswap_limit: 2g
+
+    volumes:
+      # The base file's key ring, restated. Compose merges service volumes by mount target, so this
+      # is a duplicate that collapses rather than a second mount — and writing it out means the
+      # overlay is still correct if that rule is ever the other one. Dropping the ring by accident
+      # would sign every operator out on the next restart, which is too quiet a failure to risk on
+      # a merge semantic.
+      - keys:/home/app/.aspnet
+      # Crash dumps, which the read-only root filesystem has nowhere to put. Overwritten in place.
+      - dumps:/dumps
+
     # The only container Watchtower is allowed to touch. See below.
     labels:
       com.centurylinklabs.watchtower.enable: "true"
@@ -42,6 +82,14 @@ services:
     # Postgres is upgraded by hand, with a dump taken first.
     labels:
       com.centurylinklabs.watchtower.enable: "false"
+
+    # Nine times its steady 86 MB. The point of a limit here is not that Postgres is suspected of
+    # anything — it is that after the web container was capped, it would otherwise be the next
+    # process able to take the host down, and the whole argument above applies to whichever one
+    # that is. A SIGKILL here is a crash, and a crash is a case Postgres is built for: it replays
+    # the WAL on the restart that `restart: unless-stopped` gives it.
+    mem_limit: 768m
+    memswap_limit: 768m
 
   caddy:
     image: caddy:2-alpine
@@ -58,6 +106,12 @@ services:
       - ./deploy/tls:/etc/caddy/tls:ro
       - caddy-data:/data
       - caddy-config:/config
+      # The access log, which the Caddyfile writes here rather than to stdout. On stdout it would
+      # share the container log with everything else and be rotated out by volume; here it is a
+      # file with its own bounded history, which is what makes it answerable after an outage.
+      - caddy-logs:/var/log/caddy
+    mem_limit: 128m
+    memswap_limit: 128m
     environment:
       # Only for the ACME account behind crawler.mu-index.com, which is DNS-only and therefore gets
       # an ordinary Let's Encrypt certificate over HTTP-01.
@@ -92,8 +146,19 @@ services:
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_NO_STARTUP_MESSAGE: "true"
       TZ: ${TZ:-Etc/UTC}
+    mem_limit: 64m
+    memswap_limit: 64m
     restart: unless-stopped
+
+  # Capped for the same reason as the rest, and no more than that — the sidecar has sat at 75 MB
+  # since it was started. It keeps the mudlist cache in memory, which is the one thing here that
+  # grows with somebody else's network rather than with our own traffic.
+  i3:
+    mem_limit: 256m
+    memswap_limit: 256m
 
 volumes:
   caddy-data:
   caddy-config:
+  caddy-logs:
+  dumps:
