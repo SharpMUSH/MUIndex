@@ -258,6 +258,18 @@
   <data name="listing.plain.claimed" xml:space="preserve">
     <value>已认领</value>
   </data>
+  <data name="random.empty.title" xml:space="preserve">
+    <value>没有可挑的游戏</value>
+  </data>
+  <data name="random.empty.body" xml:space="preserve">
+    <value>没有游戏符合该筛选。试试{listing}，或者{archive}。</value>
+  </data>
+  <data name="random.empty.listing" xml:space="preserve">
+    <value>全部列表</value>
+  </data>
+  <data name="random.empty.archive" xml:space="preserve">
+    <value>把归档也算上</value>
+  </data>
   <data name="term.connected" xml:space="preserve">
     <value>连接数</value>
   </data>
@@ -2333,5 +2345,512 @@
   </data>
   <data name="home.plain.archived" xml:space="preserve">
     <value>{count, plural, other {#个已归档，仍在探测}}</value>
+  </data>
+  <data name="reference.title" xml:space="preserve">
+    <value>参考</value>
+  </data>
+  <data name="reference.lede" xml:space="preserve">
+    <value>代码库是什么，客户端做什么，协议又意味着什么。由人手写，与爬虫一同存放在代码仓库里——这不是维基，本页上也没有任何可编辑的东西。这里的每一个{number}都是另一回事：它取自目录，每次加载页面时都重新算出。</value>
+  </data>
+  <data name="reference.lede.number" xml:space="preserve">
+    <value>数字</value>
+  </data>
+  <data name="reference.plain.lede" xml:space="preserve">
+    <value>手写，单一作者，并用 git 做版本管理。这里的文字出自我们；旁边的每一个数字都由爬虫实测得出，并在每次请求时重新算出。这不是维基，本页也没有任何编辑它的途径。</value>
+  </data>
+  <data name="reference.section.orientation" xml:space="preserve">
+    <value>从这里开始</value>
+  </data>
+  <data name="reference.section.codebase" xml:space="preserve">
+    <value>代码库</value>
+  </data>
+  <data name="reference.section.client" xml:space="preserve">
+    <value>客户端</value>
+  </data>
+  <data name="reference.section.protocol" xml:space="preserve">
+    <value>协议</value>
+  </data>
+  <data name="reference.kind.orientation" xml:space="preserve">
+    <value>入门</value>
+  </data>
+  <data name="reference.kind.codebase" xml:space="preserve">
+    <value>代码库</value>
+  </data>
+  <data name="reference.kind.client" xml:space="preserve">
+    <value>客户端</value>
+  </data>
+  <data name="reference.kind.protocol" xml:space="preserve">
+    <value>协议</value>
+  </data>
+  <data name="reference.notFound.title" xml:space="preserve">
+    <value>未找到</value>
+  </data>
+  <data name="reference.notFound.body" xml:space="preserve">
+    <value>这里没有参考页面。本节由人手写，所以缺口是还没人做的工作，而不是被移除的内容——{index}。</value>
+  </data>
+  <data name="reference.notFound.index" xml:space="preserve">
+    <value>看看现有的内容</value>
+  </data>
+  <data name="reference.codebase.heading" xml:space="preserve">
+    <value>运行它的游戏</value>
+  </data>
+  <data name="reference.codebase.none" xml:space="preserve">
+    <value>我们尚未识别到任何一个。这是关于这台爬虫实测到了什么的事实，而不是关于存在什么的事实——我们没有连通过的游戏，或者代码库读不出来的游戏，都不算进这里。</value>
+  </data>
+  <data name="reference.codebase.listed" xml:space="preserve">
+    <value>{count, plural, other {已列出#个}}</value>
+  </data>
+  <data name="reference.codebase.archived" xml:space="preserve">
+    <value>{count, plural, other {已归档#个}}</value>
+  </data>
+  <data name="reference.measuredNeverAsserted" xml:space="preserve">
+    <value>实测，绝非断言</value>
+  </data>
+  <data name="reference.codebase.note" xml:space="preserve">
+    <value>这是本次请求时从目录中数出的，用的正是上方链接所带的同一个筛选条件——所以这个数字和那份列表出自同一个查询，不可能对不上。</value>
+  </data>
+  <data name="reference.codebase.offered" xml:space="preserve">
+    <value>在它们的握手中提供：{protocols}</value>
+  </data>
+  <data name="reference.protocol.heading" xml:space="preserve">
+    <value>实测采用情况</value>
+  </data>
+  <data name="reference.protocol.none" xml:space="preserve">
+    <value>尚无实测。</value>
+  </data>
+  <data name="reference.protocol.share" xml:space="preserve">
+    <value>在{listed, plural, other {#个已列出的游戏}}中——{percent}</value>
+  </data>
+  <data name="reference.protocol.remainder" xml:space="preserve">
+    <value>未算进这里的游戏，并不是没有这个协议的游戏。一个游戏被算进这里，条件是我们观测到它的服务器在一次握手中提供了这个选项；其余的既包括没有向我们提供它的服务器，也包括我们还没有读到过握手的服务器，而我们说不出是哪一种。</value>
+  </data>
+  <data name="reference.protocol.caption" xml:space="preserve">
+    <value>在一次握手中被观测到提供 {protocol} 的游戏，按我们识别出的其运行代码库分组。</value>
+  </data>
+  <data name="reference.protocol.column.codebase" xml:space="preserve">
+    <value>代码库</value>
+  </data>
+  <data name="reference.protocol.column.offered" xml:space="preserve">
+    <value>已提供</value>
+  </data>
+  <data name="reference.protocol.column.identified" xml:space="preserve">
+    <value>已识别</value>
+  </data>
+  <data name="reference.seeAlso" xml:space="preserve">
+    <value>另见</value>
+  </data>
+  <data name="reference.capabilities.heading" xml:space="preserve">
+    <value>能力</value>
+  </data>
+  <data name="reference.capabilities.established" xml:space="preserve">
+    <value>{count, plural, other {在{total}项中，有#项依据项目自己的文档确定}}</value>
+  </data>
+  <data name="reference.capabilities.caveat" xml:space="preserve">
+    <value>逐项读自各项目自己的文档，而非由我们实测——客户端没有握手可供我们观测。“{unknown}”表示我们查过，没能确定。它绝不表示“否”。</value>
+  </data>
+  <data name="reference.capabilities.caption" xml:space="preserve">
+    <value>客户端能力，每一项都读自项目自己的文档。未知表示我们没能确定，而绝不表示这个客户端不具备该项。</value>
+  </data>
+  <data name="reference.capabilities.column.documented" xml:space="preserve">
+    <value>有文档</value>
+  </data>
+  <data name="reference.capabilities.column.source" xml:space="preserve">
+    <value>来源</value>
+  </data>
+  <data name="reference.capabilities.noSource" xml:space="preserve">
+    <value>我们没有找到</value>
+  </data>
+  <data name="reference.capability.yes" xml:space="preserve">
+    <value>有</value>
+  </data>
+  <data name="reference.capability.no" xml:space="preserve">
+    <value>否</value>
+  </data>
+  <data name="reference.capability.unknown" xml:space="preserve">
+    <value>未知</value>
+  </data>
+  <data name="reference.plain.runsOn" xml:space="preserve">
+    <value>运行平台：{platforms}</value>
+  </data>
+  <data name="reference.plain.codebase.heading" xml:space="preserve">
+    <value>我们识别为运行该代码库的游戏</value>
+  </data>
+  <data name="reference.plain.codebase.none" xml:space="preserve">
+    <value>尚无。这是关于我们实测到了什么的说法，而不是关于存在什么的说法——我们没有连通过的游戏，或者代码库读不出来的游戏，都不算进这里。</value>
+  </data>
+  <data name="reference.plain.codebase.counts" xml:space="preserve">
+    <value>{listed, plural, other {已列出#个}}，{archived, plural, other {已归档#个}}</value>
+  </data>
+  <data name="reference.plain.codebase.offered" xml:space="preserve">
+    <value>在它们的握手中实测到：{protocols}</value>
+  </data>
+  <data name="reference.plain.codebase.nothingOffered" xml:space="preserve">
+    <value>在我们读到过的它们的任何一次握手中，都没有提供过任何东西。</value>
+  </data>
+  <data name="reference.plain.protocol.share" xml:space="preserve">
+    <value>在{listed, plural, other {#个已列出的游戏}}中，有 {offering} 个被观测到提供了它（{percent}）</value>
+  </data>
+  <data name="reference.plain.protocol.byCodebase" xml:space="preserve">
+    <value>按代码库，在我们已识别的游戏中</value>
+  </data>
+  <data name="reference.plain.protocol.row" xml:space="preserve">
+    <value>{identified} 个中有 {offering} 个提供了它</value>
+  </data>
+  <data name="reference.plain.capabilities.unknown" xml:space="preserve">
+    <value>{count, plural, other {在{total}行中，有#行是未知}}：我们没有找到项目自己的文档给出任何一种说法。一张诚实的短表胜过一张靠猜的长表。</value>
+  </data>
+  <data name="account.title" xml:space="preserve">
+    <value>我的游戏</value>
+  </data>
+  <data name="account.noDatabase" xml:space="preserve">
+    <value>账户需要数据库支撑，而本站正运行在演示数据上。</value>
+  </data>
+  <data name="account.signInButton" xml:space="preserve">
+    <value>登录</value>
+  </data>
+  <data name="account.signedInAs" xml:space="preserve">
+    <value>已以 {name} 登录。</value>
+  </data>
+  <data name="account.signOut" xml:space="preserve">
+    <value>退出登录</value>
+  </data>
+  <data name="account.empty.body" xml:space="preserve">
+    <value>你还没有认领任何游戏。在{listing}中找到你的游戏，在它的页面上点击{claimControl}。</value>
+  </data>
+  <data name="account.empty.listing" xml:space="preserve">
+    <value>列表</value>
+  </data>
+  <data name="account.empty.claimControl" xml:space="preserve">
+    <value>认领此游戏</value>
+  </data>
+  <data name="account.resigned.lead" xml:space="preserve">
+    <value>已放弃。</value>
+  </data>
+  <data name="account.resigned.body" xml:space="preserve">
+    <value>相关记录会保留，你随时可以再发布一个新令牌，重新证明控制权。</value>
+  </data>
+  <data name="account.saved.lead" xml:space="preserve">
+    <value>已保存。</value>
+  </data>
+  <data name="account.saved.thatGame" xml:space="preserve">
+    <value>那个游戏</value>
+  </data>
+  <data name="account.saved.fields" xml:space="preserve">
+    <value>{game} 的页面现在把它标为所有者自述。</value>
+  </data>
+  <data name="account.saved.screenHidden" xml:space="preserve">
+    <value>我们已停止发布 {game} 的连接画面。页面会明确说明，而不是留一个空洞。</value>
+  </data>
+  <data name="account.saved.screenShown" xml:space="preserve">
+    <value>{game} 的连接画面又回到了它的页面上。</value>
+  </data>
+  <data name="account.saved.crawlStopped" xml:space="preserve">
+    <value>我们已停止向 {game} 拨号，我们掌握的它的每一个地址都停了。它的页面保留你开口之前实测到的一切。</value>
+  </data>
+  <data name="account.saved.crawlResumed" xml:space="preserve">
+    <value>我们又开始向 {game} 拨号，从它在排期中的下一轮起。</value>
+  </data>
+  <data name="account.saved.unlisted" xml:space="preserve">
+    <value>{game} 已不在列表、排行和每日数字中。它的页面和它曾用过的每一个 URL 仍然照常应答。</value>
+  </data>
+  <data name="account.saved.relisted" xml:space="preserve">
+    <value>{game} 已回到列表中。一次得到应答的探测，就足以让它重新被实测。</value>
+  </data>
+  <data name="account.refused.lead" xml:space="preserve">
+    <value>{field} 未作改动。</value>
+  </data>
+  <data name="account.refused.tooLong" xml:space="preserve">
+    <value>这些是一行以内的回答；我们最多保存 {max} 个字符。</value>
+  </data>
+  <data name="account.refused.measured" xml:space="preserve">
+    <value>该字段是实测的。认领让你补上 MSSP 放不下的内容；它绝不让任何人改动我们观测到的内容，我们自己也不例外。</value>
+  </data>
+  <data name="account.claimed.heading" xml:space="preserve">
+    <value>已认领</value>
+  </data>
+  <data name="account.claim.verified" xml:space="preserve">
+    <value>已于 {date} 验证</value>
+  </data>
+  <data name="account.claim.verifiedAndSeen" xml:space="preserve">
+    <value>已于 {date} 验证，令牌最近一次见于 {seen}</value>
+  </data>
+  <data name="account.claim.mssp" xml:space="preserve">
+    <value>检查你的 MSSP</value>
+  </data>
+  <data name="account.claim.coOwners" xml:space="preserve">
+    <value>{count, plural, other {另有 {names} 共同拥有——各自验证过自己的令牌。}}</value>
+  </data>
+  <data name="account.coOwner.unnamed" xml:space="preserve">
+    <value>另一个账户</value>
+  </data>
+  <data name="account.badge.summary" xml:space="preserve">
+    <value>把你的在线人数放到自己的网站上</value>
+  </data>
+  <data name="account.badge.carries" xml:space="preserve">
+    <value>这个徽标同时带上计数和我们实测它的时间，因为一个没有时间的数字，正是本站要取而代之的东西。</value>
+  </data>
+  <data name="account.badge.states" xml:space="preserve">
+    <value>我们未能计数时，它显示{unknown}而不是零；游戏停止应答时，它显示{archived}。</value>
+  </data>
+  <data name="account.badge.json" xml:space="preserve">
+    <value>还有{json}，如果你更愿意自己画。</value>
+  </data>
+  <data name="account.history.summary" xml:space="preserve">
+    <value>历史</value>
+  </data>
+  <data name="account.event.issued" xml:space="preserve">
+    <value>已签发令牌</value>
+  </data>
+  <data name="account.event.reissued" xml:space="preserve">
+    <value>已再次签发令牌</value>
+  </data>
+  <data name="account.event.verified" xml:space="preserve">
+    <value>已验证——我们读到了你的令牌</value>
+  </data>
+  <data name="account.event.beaconSeen" xml:space="preserve">
+    <value>令牌仍在发布</value>
+  </data>
+  <data name="account.event.beaconMissing" xml:space="preserve">
+    <value>本次未读到令牌</value>
+  </data>
+  <data name="account.event.revoked" xml:space="preserve">
+    <value>已放弃认领</value>
+  </data>
+  <data name="account.event.expired" xml:space="preserve">
+    <value>令牌未使用即过期</value>
+  </data>
+  <data name="account.event.counterClaimed" xml:space="preserve">
+    <value>另一个账户证明了控制权，接管了这个游戏</value>
+  </data>
+  <data name="account.event.checkRequested" xml:space="preserve">
+    <value>已请求提前查看</value>
+  </data>
+  <data name="account.resign.summary" xml:space="preserve">
+    <value>放弃此认领</value>
+  </data>
+  <data name="account.resign.confirm" xml:space="preserve">
+    <value>输入{word}以确认。任何内容都不会被删除，你可以再发布一个新令牌重新证明控制权；如果还有别人拥有它，这个游戏仍是已认领状态。</value>
+  </data>
+  <data name="account.resign.button" xml:space="preserve">
+    <value>放弃 {game}</value>
+  </data>
+  <data name="account.pending.heading" xml:space="preserve">
+    <value>等待令牌</value>
+  </data>
+  <data name="account.pending.dates" xml:space="preserve">
+    <value>令牌签发于 {issued}，有效期至 {expires}</value>
+  </data>
+  <data name="account.passkeys.heading" xml:space="preserve">
+    <value>通行密钥</value>
+  </data>
+  <data name="account.passkey.unnamed" xml:space="preserve">
+    <value>未命名</value>
+  </data>
+  <data name="account.passkey.added" xml:space="preserve">
+    <value>添加于 {date}</value>
+  </data>
+  <data name="account.passkey.addedOneDevice" xml:space="preserve">
+    <value>添加于 {date} · 仅在一台设备上</value>
+  </data>
+  <data name="account.passkey.single" xml:space="preserve">
+    <value>这个通行密钥只存在于一台设备上。万一丢了，你仍可以在自己的游戏上发布一个新令牌重新进来，但再加一个通行密钥更快。</value>
+  </data>
+  <data name="account.passkey.add" xml:space="preserve">
+    <value>再添加一个通行密钥</value>
+  </data>
+  <data name="claim.noGame" xml:space="preserve">
+    <value>没有这个游戏</value>
+  </data>
+  <data name="claim.title" xml:space="preserve">
+    <value>认领 {game}</value>
+  </data>
+  <data name="claim.noDatabase" xml:space="preserve">
+    <value>认领需要数据库，而本站正运行在演示数据上。</value>
+  </data>
+  <data name="claim.needAccount" xml:space="preserve">
+    <value>你需要先有一个账户。只需一个通行密钥和一个名称。</value>
+  </data>
+  <data name="claim.signIn" xml:space="preserve">
+    <value>登录或创建账户</value>
+  </data>
+  <data name="claim.yourGames" xml:space="preserve">
+    <value>我的游戏</value>
+  </data>
+  <data name="claim.hasOwners" xml:space="preserve">
+    <value>{count, plural, other {这个游戏已经有#位所有者证明了对该服务器的控制权。}}你也可以证明——两种情况下的检验方式相同——但我们需要知道你的意思是什么，因为从令牌上看不出来。</value>
+  </data>
+  <data name="claim.join.button" xml:space="preserve">
+    <value>我也在运营它——把我加为所有者</value>
+  </data>
+  <data name="claim.join.note" xml:space="preserve">
+    <value>每个人都保留自己的认领。这是两个人一起运营一个游戏。</value>
+  </data>
+  <data name="claim.assume.button" xml:space="preserve">
+    <value>我已经接手了它——把它转给我</value>
+  </data>
+  <data name="claim.assume.note" xml:space="preserve">
+    <value>{count, plural, other {你的令牌通过验证后，现有的认领会被撤销，这个游戏归你。}}他们会在自己的历史里看到原因。任何内容都不会被删除，他们也可以用你即将采用的同一种方式重新证明控制权。</value>
+  </data>
+  <data name="claim.verified.lead" xml:space="preserve">
+    <value>已验证。</value>
+  </data>
+  <data name="claim.verified.viaMssp" xml:space="preserve">
+    <value>我们在 {date} 从这个游戏的 MSSP 报告中读到了你的令牌。</value>
+  </data>
+  <data name="claim.verified.viaScreen" xml:space="preserve">
+    <value>我们在 {date} 从连接画面上读到了你的令牌。</value>
+  </data>
+  <data name="claim.verified.leaveIt" xml:space="preserve">
+    <value>把令牌留在原处。它同时也是一个身份标记，这样即使这个游戏换了主机或改了名字，我们仍认得出它。把它撤掉不会取消你的认领。</value>
+  </data>
+  <data name="claim.publish" xml:space="preserve">
+    <value>把这个令牌发布在游戏会展示给匿名连接的任何地方。下一次探测就会读到它，这就证明了你能写入那台服务器。</value>
+  </data>
+  <data name="claim.transfer.lead" xml:space="preserve">
+    <value>这是一次转移。</value>
+  </data>
+  <data name="claim.transfer.body" xml:space="preserve">
+    <value>{count, plural, other {我们读到这个令牌时，当前所有者对这个游戏的认领会被撤销，它归你。}}</value>
+  </data>
+  <data name="claim.either.heading" xml:space="preserve">
+    <value>两种方式都可以</value>
+  </data>
+  <data name="claim.mssp.heading" xml:space="preserve">
+    <value>一个 MSSP 变量</value>
+  </data>
+  <data name="claim.mssp.note" xml:space="preserve">
+    <value>在 {codebase} 中那是 {file} 里的一行；每个支持 MSSP 的代码库都有对应的做法。</value>
+  </data>
+  <data name="claim.mssp.aliases" xml:space="preserve">
+    <value>{aliases} 同样可用。</value>
+  </data>
+  <data name="claim.screen.heading" xml:space="preserve">
+    <value>连接画面上的一行</value>
+  </data>
+  <data name="claim.screen.note" xml:space="preserve">
+    <value>画面中任何位置都行，周围有颜色代码也没关系。</value>
+  </data>
+  <data name="claim.then.heading" xml:space="preserve">
+    <value>然后</value>
+  </data>
+  <data name="claim.then.body" xml:space="preserve">
+    <value>我们按平常的爬取排期来查看。这个令牌有效期至 {date}。你随时可以再来；没有什么需要记下来。</value>
+  </data>
+  <data name="claim.check.button" xml:space="preserve">
+    <value>提前查看</value>
+  </data>
+  <data name="claim.check.can" xml:space="preserve">
+    <value>把你的游戏排到队列前面。我们按自己的排期拨号，所以这只是提前，而不是立刻。</value>
+  </data>
+  <data name="claim.check.rationed" xml:space="preserve">
+    <value>刚刚请求过。请过几分钟再试——之所以限量，是因为它会让我们比原定更早去拨一台真实的服务器。</value>
+  </data>
+  <data name="owner.declare.heading" xml:space="preserve">
+    <value>关于 {game}，只有你能告诉我们的事</value>
+  </data>
+  <data name="owner.declare.lede" xml:space="preserve">
+    <value>这些是 MSSP 没有字段可放的东西。它们会以{declared}的身份出现在你游戏的页面上，带着你最后一次确认的日期，与我们实测到的内容并列——绝不取而代之。实测到的任何内容都无法从这里编辑，你不能，我们也不能。</value>
+  </data>
+  <data name="owner.field.declared" xml:space="preserve">
+    <value>{age}自述。清空此框即可撤回——不论如何，它曾写过什么的记录都会保留。</value>
+  </data>
+  <data name="owner.save" xml:space="preserve">
+    <value>保存你的自述</value>
+  </data>
+  <data name="owner.override.heading" xml:space="preserve">
+    <value>{game} 报告了什么，以及你更希望我们显示什么</value>
+  </data>
+  <data name="owner.override.lede" xml:space="preserve">
+    <value>你的 MSSP 是每个爬虫都会读到的内容，无论你在这里填了什么，我们都会把它并列显示出来——你给的答案不会遮住你游戏给的答案。</value>
+  </data>
+  <data name="owner.override.nothingMeasured" xml:space="preserve">
+    <value>实测到的任何内容都无法从这里编辑：人数计数不行，能力不行，可连通的某个小时也不行。</value>
+  </data>
+  <data name="owner.override.fixItThere" xml:space="preserve">
+    <value>如果下面某一行在你的 {file} 里就是错的，在那里改掉，处处都会跟着改。</value>
+  </data>
+  <data name="owner.report.value" xml:space="preserve">
+    <value>你的游戏报告 {value}，{age}确认</value>
+  </data>
+  <data name="owner.report.none" xml:space="preserve">
+    <value>你的游戏在这里什么也没有报告</value>
+  </data>
+  <data name="owner.rename.note" xml:space="preserve">
+    <value>改名会同时改变 {game} 在列表中的名称和它页面的地址。旧地址永远继续有效——这个游戏曾用过的每一个 URL 都会重定向到它当前的地址——而清空此框，名称就交还给你的 MSSP 所说的内容。</value>
+  </data>
+  <data name="owner.screen.heading" xml:space="preserve">
+    <value>你的连接画面</value>
+  </data>
+  <data name="owner.screen.suppressed" xml:space="preserve">
+    <value>我们不再发布它。页面会明确说明，而不是留一个空洞；爬虫仍会继续读它——你的游戏搬了家，我们靠的就是它认出你。</value>
+  </data>
+  <data name="owner.screen.show" xml:space="preserve">
+    <value>重新显示</value>
+  </data>
+  <data name="owner.screen.shown" xml:space="preserve">
+    <value>我们展示它，是因为你的服务器本来就把它发给每一个匿名连接。你若不愿意，说一声我们就撤下。我们不会问为什么。</value>
+  </data>
+  <data name="owner.screen.stop" xml:space="preserve">
+    <value>不要再展示我们的连接画面</value>
+  </data>
+  <data name="owner.crawl.heading" xml:space="preserve">
+    <value>被爬取</value>
+  </data>
+  <data name="owner.crawl.stopped" xml:space="preserve">
+    <value>我们已经停下。{game} 上没有任何地址还在被拨号，页面保留你开口之前实测到的一切——那些空白的小时不指明原因，因为{ourFact}是关于我们的事实，而不是对你游戏的实测。</value>
+  </data>
+  <data name="owner.crawl.ourFact" xml:space="preserve">
+    <value>你要求我们停下</value>
+  </data>
+  <data name="owner.crawl.resume" xml:space="preserve">
+    <value>重新开始爬取我们</value>
+  </data>
+  <data name="owner.crawl.standing" xml:space="preserve">
+    <value>这一条来自你自己的服务器，而不是来自这里——{routes}。要重新被爬取，请停止发布它；下一个周期我们就会知道。</value>
+  </data>
+  <data name="owner.crawl.route.mssp" xml:space="preserve">
+    <value>你的 MSSP 报告发布了 {variable}</value>
+  </data>
+  <data name="owner.crawl.route.dns" xml:space="preserve">
+    <value>一条 {label} TXT 记录要求我们停下</value>
+  </data>
+  <data name="owner.crawl.route.recorded" xml:space="preserve">
+    <value>一份我们记录在案的请求</value>
+  </data>
+  <data name="owner.crawl.partial" xml:space="preserve">
+    <value>我们已在 {stopped} 上停下，仍在拨 {dialling}。这通常是在退出声明之后又新增的端口。</value>
+  </data>
+  <data name="owner.crawl.stopAll" xml:space="preserve">
+    <value>在每一个地址上也都停下</value>
+  </data>
+  <data name="owner.crawl.dialling" xml:space="preserve">
+    <value>我们按排期向 {game} 拨号，读取任何匿名连接都能看到的内容。你若不愿意，说一声我们就停——在一个爬取周期之内，在我们掌握的你的每一个地址上，而且我们不会问为什么。</value>
+  </data>
+  <data name="owner.crawl.selfService" xml:space="preserve">
+    <value>已经实测到的内容不会被删除：你的页面保留它的历史和它的 URL，而你收回这项设置之后，一次探测就会让它重新开始。你也可以不经过我们，在自己的配置里说出来——MSSP 里的 {mssp}，或者一条 {dns} TXT 记录——无论有没有人在这里认领过这个游戏，我们都照办。</value>
+  </data>
+  <data name="owner.crawl.stop" xml:space="preserve">
+    <value>不要再爬取我们</value>
+  </data>
+  <data name="owner.listing.heading" xml:space="preserve">
+    <value>被列出</value>
+  </data>
+  <data name="owner.listing.unlisted" xml:space="preserve">
+    <value>{game} 已不在列表中，不在排行中，也不在每日数字中。它的页面和它曾用过的每一个 URL 仍然照常应答，你开口之前实测到的一切也都还在上面。任何内容都没有被删除；它只是不再是读者靠浏览就能走到的地方。</value>
+  </data>
+  <data name="owner.listing.relist" xml:space="preserve">
+    <value>把我们放回列表</value>
+  </data>
+  <data name="owner.listing.probeRelists" xml:space="preserve">
+    <value>一次得到应答的探测同样能做到这件事。你的退出声明还立着的时候我们不会拨号，所以不会有这样的探测——但你收回它的那一天，这个地址会在一周之内轮到，得到应答的那次探测就会把你放回去。你不必再来问我们第二次。</value>
+  </data>
+  <data name="owner.listing.mayUnlist" xml:space="preserve">
+    <value>我们已经不再向你拨号，而你的页面仍在列表中，带着在那之前我们实测到的内容。你若不愿意，说一声它就撤出来——从列表、排行和每日数字中撤出。</value>
+  </data>
+  <data name="owner.listing.reversible" xml:space="preserve">
+    <value>任何内容都不会被删除，也不会有什么坏掉：页面照常应答，它曾用过的每一个 URL 仍然重定向到它，你指引过去的人都能看到它。它只是不再是读者靠浏览就能走到的地方。这可以从这里撤销，而你收回退出声明之后，任何一次得到应答的探测也能撤销它。</value>
+  </data>
+  <data name="owner.listing.unlist" xml:space="preserve">
+    <value>把我们也移出列表</value>
   </data>
 </root>
