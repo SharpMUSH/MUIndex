@@ -292,4 +292,66 @@ public class ReferenceLocalizationTests
 
         throw new InvalidOperationException("content/reference was not found above the test binary.");
     }
+
+    /// <summary>
+    /// Every offered locale gets its own articles, including the one whose tag carries a dash.
+    /// </summary>
+    /// <remarks>
+    /// <b>Chinese was the locale that silently did not work.</b> MSBuild builds a manifest resource
+    /// name out of the file's path and replaces what cannot appear in an identifier, so
+    /// <c>content/reference/zh-Hans/</c> is embedded as <c>…reference.zh_Hans.…</c> and a lookup
+    /// spelled with the dash matched nothing. German, Dutch and Japanese all worked, which is
+    /// exactly the evidence that hides it — so this names <c>zh-Hans</c> rather than iterating and
+    /// hoping the interesting case is in the list.
+    /// </remarks>
+    [Test]
+    [Arguments("de")]
+    [Arguments("nl")]
+    [Arguments("ja")]
+    [Arguments("zh-Hans")]
+    public async Task ALocaleWithArticlesServesItsOwnProse(string tag)
+    {
+        var english = ReferenceLibrary.Shipped.Find("/reference/protocols/mssp");
+        var translated = ReferenceLibrary.For(tag).Find("/reference/protocols/mssp");
+
+        await Assert.That(english).IsNotNull();
+        await Assert.That(translated).IsNotNull();
+
+        await Assert.That(translated!.Body)
+            .IsNotEqualTo(english!.Body)
+            .Because($"{tag} has a translation of this article and should be reading it");
+
+        // The prose changed and nothing else did: a translation supplies words, not structure.
+        await Assert.That(translated.Slug).IsEqualTo(english.Slug);
+        await Assert.That(translated.Kind).IsEqualTo(english.Kind);
+        await Assert.That(translated.SeeAlso).IsEquivalentTo(english.SeeAlso);
+        await Assert.That(translated.Home).IsEqualTo(english.Home);
+    }
+
+    /// <summary>And every article is translated in every offered locale, not merely most of them.</summary>
+    /// <remarks>
+    /// The loader falls back per article so a gap is invisible on the page, which is right for a
+    /// reader and wrong for us: without this, one file failing to be written would look exactly like
+    /// a file that was never meant to exist.
+    /// </remarks>
+    [Test]
+    [Arguments("de")]
+    [Arguments("nl")]
+    [Arguments("ja")]
+    [Arguments("zh-Hans")]
+    public async Task NoArticleQuietlyFallsBackToEnglish(string tag)
+    {
+        var english = ReferenceLibrary.Shipped;
+        var localized = ReferenceLibrary.For(tag);
+
+        foreach (var article in english.Documents)
+        {
+            var translated = localized.Find(article.Path);
+
+            await Assert.That(translated).IsNotNull();
+            await Assert.That(translated!.Body)
+                .IsNotEqualTo(article.Body)
+                .Because($"{tag}{article.Path} is being served in English");
+        }
+    }
 }

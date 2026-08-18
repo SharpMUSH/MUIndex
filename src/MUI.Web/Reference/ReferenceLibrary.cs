@@ -118,7 +118,12 @@ public sealed class ReferenceLibrary
     {
         ArgumentNullException.ThrowIfNull(assembly);
 
-        var prefix = tag is null ? ".reference." : $".reference.{tag}.";
+        // MSBuild builds a manifest name out of the file's path and replaces what cannot appear in
+        // an identifier, so `content/reference/zh-Hans/` is embedded as `…reference.zh_Hans.…`. The
+        // tag is BCP-47 and its only such character is the dash. Without this, Chinese was the one
+        // locale whose articles loaded and were never found — three locales working is exactly the
+        // evidence that hides it, which is why the test below names zh-Hans rather than "a locale".
+        var prefix = tag is null ? ".reference." : $".reference.{tag.Replace('-', '_')}.";
 
         var documents = new List<ReferenceDocument>();
 
