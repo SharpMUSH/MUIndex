@@ -13,6 +13,23 @@
 {$SITE_DOMAIN}, www.{$SITE_DOMAIN} {
 	tls /etc/caddy/tls/origin.pem /etc/caddy/tls/origin.key
 
+	# **What was being asked for.** Nothing recorded this until 2026-08-18, and on that day the web
+	# container twice grew from 350 MB to 3.3 GB in minutes and took the host down with it. Neither
+	# the crawl schedule nor the application log could say what it had been serving at the time,
+	# because the only per-request record that had ever existed was this one, and it was off.
+	#
+	# Bounded in both directions on purpose. A hundred megabytes is the size argument; a week is the
+	# other one, because these lines carry visitors' addresses and the reason to keep them is to
+	# explain an outage that happened, not to accumulate a readership.
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 20MiB
+			roll_keep 5
+			roll_keep_for 168h
+		}
+		format json
+	}
+
 	# One canonical origin. Passkeys are bound to the registrable domain so both names work for
 	# sign-in, but a URL people share should have one spelling.
 	@www host www.{$SITE_DOMAIN}
