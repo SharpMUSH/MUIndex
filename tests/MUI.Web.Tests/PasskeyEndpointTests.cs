@@ -17,25 +17,13 @@ namespace MUI.Web.Tests;
 /// The passkey ceremony's four endpoints, driven as the browser drives them.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>§8.2 makes passkeys the only way in</b>, so if these refuse a request nobody can sign in,
-/// nobody can claim anything, and every owner surface on the site is unreachable. Nothing tested
-/// them: the suites that exercise sign-in are the ones that stub it, and the composition tests stop
-/// at the graph.
-/// </para>
-/// <para>
-/// These drive the real routes through the real pipeline — <see cref="SiteComposition.AddMuiSite"/>
-/// and <see cref="SiteComposition.UseMuiSite"/>, the same two calls the deployable makes — because
-/// the property at issue is what the middleware does to a request, and no synthetic endpoint can
-/// answer that for the endpoints that actually exist.
-/// </para>
-/// <para>
-/// No database is behind them. The connection string points at a port nothing listens on, which is
-/// enough for everything asserted here: <c>assertion-options</c> answers in full without storage,
-/// and the two that need it are asserted on what the middleware did rather than on how the handler
-/// ended. Against a real Postgres all three answer 200, 200 and 401 — measured, on a host with
-/// migrations applied.
-/// </para>
+/// <b>§8.2 makes passkeys the only way in</b> — if these refuse a request, nobody can sign in or
+/// claim anything. Nothing else tested them: sign-in suites stub it, and composition tests stop at
+/// the graph. These drive the real routes through the real pipeline
+/// (<see cref="SiteComposition.AddMuiSite"/>/<see cref="SiteComposition.UseMuiSite"/>) with no
+/// database behind them — <c>assertion-options</c> answers in full without storage, and the other
+/// two are asserted on what the middleware did rather than how the handler ended. Against real
+/// Postgres all three answer 200, 200 and 401.
 /// </remarks>
 public class PasskeyEndpointTests
 {
@@ -50,9 +38,7 @@ public class PasskeyEndpointTests
     /// </summary>
     /// <remarks>
     /// The control, and it has to come first: "the passkey endpoints are not blocked" says nothing
-    /// unless something on the same host <em>is</em>. <c>MapRazorComponents</c> puts anti-forgery
-    /// metadata on every component route, so a POST to one without a token is refused — and that is
-    /// the same middleware, in the same pipeline, one route over.
+    /// unless something on the same host <em>is</em> blocked by the same middleware.
     /// </remarks>
     [Test]
     public async Task AntiforgeryIsLiveAndRefusesAnUntokenedPostToAPage()
@@ -68,19 +54,11 @@ public class PasskeyEndpointTests
     /// The ceremony's JSON endpoints are not anti-forgery-gated, and answer.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// A minimal API is given anti-forgery metadata only when it binds <em>form</em> data —
-    /// <c>IFormCollection</c>, <c>IFormFile</c>, <c>[FromForm]</c>. These bind JSON or a query
-    /// string, so they carry none and the middleware passes them through. That is the whole
-    /// mechanism, and it is why the control above is refused while these are not.
-    /// </para>
-    /// <para>
-    /// Both of these are reachable before any account exists, which is the point: a first-time
-    /// visitor's very first request to this site is one of them. <c>assertion-options</c> mints a
-    /// challenge without reading anything, so it is asserted in full; <c>registration-options</c>
-    /// reads the account's existing credentials and therefore needs the database this host does not
-    /// have, so it is asserted on the only thing under test here — that it was not refused as forged.
-    /// </para>
+    /// Anti-forgery metadata is only added when a minimal API binds <em>form</em> data; these bind
+    /// JSON or a query string, so the middleware passes them through untouched — unlike the control
+    /// above. Both are reachable before any account exists: <c>assertion-options</c> mints a
+    /// challenge without reading anything, so it's asserted in full; <c>registration-options</c>
+    /// needs the database this host doesn't have, so it's only asserted as not refused as forged.
     /// </remarks>
     [Test]
     public async Task TheOptionsEndpointsAnswerAJsonPostWithNoToken()
@@ -101,10 +79,8 @@ public class PasskeyEndpointTests
     /// The sign-in POST reaches its handler rather than being refused as forged.
     /// </summary>
     /// <remarks>
-    /// Asserted as "not 400", deliberately, because what is under test is the middleware and not the
-    /// outcome of the ceremony: with no database behind it the handler cannot finish, and pinning a
-    /// specific failure would be pinning the wrong thing. Against a real database this same request
-    /// answers 401 — measured, on a host with Postgres behind it and migrations applied.
+    /// Asserted as "not 400" rather than a specific success: with no database the handler can't
+    /// finish. Against real Postgres this same request answers 401.
     /// </remarks>
     [Test]
     public async Task TheSignInPostIsNotRefusedAsForged()

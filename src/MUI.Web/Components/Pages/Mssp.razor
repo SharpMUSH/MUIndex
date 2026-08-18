@@ -7,15 +7,10 @@
 @inject IServiceProvider Services
 
 @*
-    The MSSP linter of spec §8.5 — continuous rather than one-shot, because it is derived on read
-    from the report the crawler already holds. There is no button, no queue and no stored score: fix
-    mush.cnf and this page is clean on the next probe, with nothing to press.
-
-    Owner-only, and that is a judgement about what the thing IS rather than about secrecy. Every
-    value on it is already public on the game's own page. A scorecard is advice about somebody's
-    configuration, and publishing one per game would make a league table of how well operators fill
-    in a config file — a rating affordance with extra steps, and §2 does not allow ratings by any
-    route. So it is shown to the person who can act on it.
+    The MSSP linter of spec §8.5 — continuous rather than one-shot: derived on read from the report
+    the crawler already holds, so fixing mush.cnf cleans this page on the next probe with nothing to
+    press. Owner-only not for secrecy (every value is already public) but because a per-game
+    scorecard would be a league table of config quality — a rating affordance §2 does not allow.
 *@
 
 <PageTitle>MSSP — @(Page?.Summary.Name ?? Slug) — mu*index</PageTitle>
@@ -116,10 +111,8 @@ else
     /// Loads the game, decides whether the reader owns it, and lints what we hold.
     /// </summary>
     /// <remarks>
-    /// The fields are read once and linted in memory. Nothing is written, and there is nothing here
-    /// to write with — <see cref="MsspLint.Inspect"/> takes a list and a predicate and has no store
-    /// in reach, which is what makes "continuous rather than one-shot" a property of the code rather
-    /// than a discipline.
+    /// Fields are read once and linted in memory; nothing is written, and nothing here can write —
+    /// <see cref="MsspLint.Inspect"/> takes a list and a predicate with no store in reach.
     /// </remarks>
     protected override async Task OnInitializedAsync()
     {
@@ -163,10 +156,9 @@ else
     /// The kicker beside a finding, in the operator's terms.
     /// </summary>
     /// <remarks>
-    /// Every member spelled out rather than three and a discard. The discard read "unlisted value",
-    /// so <see cref="MsspFindingKind.Overridden"/> — added later, and not a defect at all — arrived
-    /// on the page describing itself as a malformed one. A catch-all arm over an enum somebody else
-    /// will extend is a label waiting to be wrong.
+    /// Every member spelled out rather than a catch-all discard: a prior discard read "unlisted
+    /// value", so <see cref="MsspFindingKind.Overridden"/> — added later and not a defect — arrived
+    /// on the page describing itself as malformed.
     /// </remarks>
     private static string Word(MsspFindingKind kind) => kind switch
     {

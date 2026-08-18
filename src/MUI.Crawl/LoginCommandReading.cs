@@ -7,9 +7,8 @@ namespace MUI.Crawl;
 /// Reads pre-login command replies (<c>INFO</c>, <c>VERSION</c>) conservatively.
 /// </summary>
 /// <remarks>
-/// These commands are intentionally free-form and vary by codebase and by game configuration, so this
-/// reader only returns a value when the text explicitly labels one (for example <c>Version:</c> or
-/// <c>Codebase:</c>) or when a <c>VERSION</c> line clearly names a known family.
+/// Free-form and codebase-dependent, so this only returns a value when the text explicitly labels
+/// one (<c>Version:</c>, <c>Codebase:</c>) or a <c>VERSION</c> line clearly names a known family.
 /// </remarks>
 public static partial class LoginCommandReading
 {
@@ -17,12 +16,8 @@ public static partial class LoginCommandReading
     private static readonly string[] VersionLabels = ["version", "release"];
 
     /// <summary>
-    /// The labels an <c>INFO</c> block uses for the game's own name.
+    /// The labels an <c>INFO</c> block uses for the game's own name (<c>Mudname</c> is MSSP's spelling).
     /// </summary>
-    /// <remarks>
-    /// <c>Name:</c> is what RhostMUSH, TinyMUX and TinyMUSH all write. <c>Mudname</c> is MSSP's
-    /// spelling, seen in <c>INFO</c> on codebases that grew one from the other.
-    /// </remarks>
     private static readonly string[] NameLabels = ["name", "mudname", "game"];
     private static readonly IReadOnlyDictionary<string, string> FamilyNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -42,10 +37,8 @@ public static partial class LoginCommandReading
         ["ldmud"] = "LDMud",
         ["moo"] = "MOO",
 
-        // The specific spellings matter more here than anywhere else in this map, because "MOO" is
-        // an MsspDefaults placeholder: a line naming LambdaMOO that we read as "MOO" is not merely
-        // vaguer, it is discarded. Four LambdaMOOs were being stored under a whole sentence each for
-        // exactly this reason — the sentence won because the only alternative was a non-answer.
+        // "MOO" is an MsspDefaults placeholder, so a LambdaMOO line matched only as "moo" would be
+        // discarded rather than merely under-identified — lambdamoo must be checked as its own key.
         ["lambdamoo"] = "LambdaMOO",
         ["toaststunt"] = "ToastStunt",
         ["evennia"] = "Evennia",
@@ -73,19 +66,9 @@ public static partial class LoginCommandReading
     /// The game's own name as its <c>INFO</c> block gives it, or null.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>The counterpart to <c>MsspDefaults.MeaningfulName</c>, and it exists because MSSP is not
-    /// the only way a server names itself.</b> RhostMUSH answers <c>INFO</c> and offers no MSSP at
-    /// all: <c>game.convergencemush.org:10000</c> replies <c>Name: Convergence MUSH</c>,
-    /// <c>Connected: 64</c>, <c>Version: RhostMUSH 4.27.3</c> — a complete, measured
-    /// self-identification — and was refused a listing for a fortnight because the one gate that
-    /// reads a name only knew about MSSP.
-    /// </para>
-    /// <para>
-    /// Same filter as the MSSP reader, for the same reason: a name that merely restates the codebase
-    /// has not identified anything. <c>Name: PennMUSH</c> is a non-answer whichever command carried
-    /// it, and admitting one would put every unedited install in the listing under its engine's name.
-    /// </para>
+    /// Counterpart to <c>MsspDefaults.MeaningfulName</c> for codebases (RhostMUSH among them) that
+    /// answer <c>INFO</c> but offer no MSSP. Same filter, same reason: <c>Name: PennMUSH</c> merely
+    /// restates the codebase and is not an identification.
     /// </remarks>
     public static string? MeaningfulName(string? info, string? version)
     {
@@ -112,33 +95,12 @@ public static partial class LoginCommandReading
     /// The player count an <c>INFO</c> block states about itself, or null when it stated none.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>The MUSH family answers <c>INFO</c> with a machine-readable block, and this crawler was
-    /// throwing the one number in it away.</b> PennMUSH's <c>dump_info()</c> prints
-    /// <c>### Begin INFO 1.1</c>, a run of <c>Label: value</c> lines including <c>Connected:</c>, and
-    /// <c>### End INFO</c>. Evennia reimplements the same idea deliberately differently — two hashes,
-    /// an uppercase <c>BEGIN</c>/<c>END</c>, no <c>Address</c> — and both are read here. A MUSH with
-    /// no MSSP and a <c>DOING</c> header past our parser was recorded unmeasurable while its exact
-    /// count sat in the payload.
-    /// </para>
-    /// <para>
-    /// <b>Only inside a block that opened and closed.</b> The delimiters are the entire defence: a
-    /// connect screen may say "Connected:" about the reader, about a countdown, or about the last
-    /// reboot, and a number lifted off one of those would be a fabrication with a colon in front of
-    /// it. An unterminated block is not a block — this reader is handed the whole <c>INFO</c> reply
-    /// window, so a missing <c>End</c> means the text is not the thing it looked like.
-    /// </para>
-    /// <para>
-    /// <b>The version on the <c>Begin</c> line is not part of the contract.</b> <c>INFO_VERSION</c> is
-    /// a string a codebase bumps when it likes, and keying on today's <c>1.1</c> would make this stop
-    /// measuring the day somebody ships <c>1.2</c> — silently, which is the worst way for a
-    /// measurement to stop.
-    /// </para>
-    /// <para>
-    /// Nothing else on the block is read numerically, and <c>Uptime:</c> is why that matters: Penn
-    /// writes it as a ctime string rather than a timestamp, so a reader that went looking for "the
-    /// number on the line" would find a year.
-    /// </para>
+    /// Reads PennMUSH/RhostMUSH/TinyMUX's <c>### Begin INFO 1.1</c> ... <c>### End INFO</c> block and
+    /// Evennia's <c>## BEGIN INFO</c>/<c>END INFO</c> variant. Only counts a value found strictly
+    /// inside a block that both opened and closed — an unterminated block is not trusted, since a bare
+    /// "Connected:" outside one could mean anything. The <c>INFO_VERSION</c> on the <c>Begin</c> line
+    /// is never matched against, so a future version bump doesn't silently stop this from reading.
+    /// <c>Uptime:</c> is never read numerically — PennMUSH writes it as a ctime string, not a number.
     /// </remarks>
     public static int? ConnectedPlayers(string? info)
     {
@@ -168,9 +130,8 @@ public static partial class LoginCommandReading
             if (connected is null
                 && TrySplitLabelled(line, out var label, out var value)
                 && label.Equals(ConnectedLabel, StringComparison.OrdinalIgnoreCase)
-                // NumberStyles.None refuses a sign, a separator and surrounding space alike. A
-                // negative player count is not a small number, it is a value we did not understand,
-                // and the presence table's own CHECK would refuse it one layer down.
+                // NumberStyles.None refuses a sign — a negative count means we misread the value, not
+                // a small number.
                 && int.TryParse(value.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var players))
             {
                 connected = players;
@@ -252,47 +213,26 @@ public static partial class LoginCommandReading
     /// The codebase named inside a line of prose, and nothing else from that line.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>This exists because the whole line used to be the answer.</b> A line that merely
-    /// <em>mentions</em> a codebase was returned intact and stored as the game's <c>CODEBASE</c>,
-    /// which put nine sentences on the ecosystem dashboard's codebase chart as if they were
-    /// codebases — "The MOO is currently running version 1.8.3+47 of the LambdaMOO server code.",
-    /// "Tapestries MUCK Copyright 1991-2020 by tapestries.fur.com. All rights reserved.", "This MUCK
-    /// is rated NC-17…", and a 697-character Pueblo banner from a PennMUSH whose connect screen
-    /// begins with an <c>IMG</c> tag. Four separate LambdaMOOs each got a bar of their own, named
-    /// after a sentence.
-    /// </para>
-    /// <para>
-    /// A codebase is a name and at most a version. Everything else on the line is the game talking,
-    /// and a parser that cannot tell the difference should keep the part it recognises rather than
-    /// the part it does not — rule 4, one level up from a count.
-    /// </para>
-    /// <para>
-    /// <b>The longest marker wins.</b> "…of the LambdaMOO server code" contains both <c>MOO</c> and
-    /// <c>LambdaMOO</c>, and the shorter one is not merely less useful: <c>MOO</c> is an
-    /// <see cref="MsspDefaults"/> placeholder, so preferring it would throw away an identification we
-    /// actually made.
-    /// </para>
+    /// A line that merely mentions a codebase must not be returned intact as the codebase (a parser
+    /// that can't tell the codebase from the surrounding prose should keep only the part it
+    /// recognises — rule 4). The longest matching marker wins: "…of the LambdaMOO server code"
+    /// contains both <c>MOO</c> and <c>LambdaMOO</c>, and <c>MOO</c> alone is an
+    /// <see cref="MsspDefaults"/> placeholder that would throw away a real identification.
     /// </remarks>
     /// <summary>
     /// How long a line can be and still be a codebase rather than prose about one.
     /// </summary>
     /// <remarks>
-    /// A bound rather than a judgement, and generous: the longest real value in the catalogue is
-    /// <c>RhostMUSH Alpha 4.1.0RL(A).p2</c> at twenty-nine characters, and the shortest sentence this
-    /// rule has to refuse is sixty-six. It exists so that a line beginning with a codebase name — a
-    /// connect screen whose first words are "PennMUSH 1.8.8p0 running at…" — cannot take the
-    /// whole-line path on the strength of its first word alone.
+    /// Generous bound so a line that opens with a codebase name (e.g. "PennMUSH 1.8.8p0 running
+    /// at…") can't take the whole-line path purely on its first word.
     /// </remarks>
     private const int LongestPlausibleCodebase = 48;
 
     private static string? Extract(string line)
     {
         var marker = FamilyNames
-            // NamesFamily rather than Contains, or this reintroduces exactly what the boundary check
-            // was added to stop: "smooth 1.0" carries `moo`, "mucked about 2.1" carries `muck`, and
-            // a wrong codebase is worse than none on precisely the games with no MSSP to contradict
-            // it. The marker has to be a word here for the same reason it does one rung up.
+            // Must be NamesFamily (word boundary), not Contains — "smooth 1.0" contains `moo`,
+            // "mucked about 2.1" contains `muck`, and a wrong codebase is worse than none.
             .Where(pair => NamesFamily(line, pair.Key))
             .OrderByDescending(pair => pair.Key.Length)
             .Select(pair => (Key: pair.Key, Canonical: pair.Value))
@@ -303,11 +243,8 @@ public static partial class LoginCommandReading
             return null;
         }
 
-        // A line that *begins* with the codebase is the codebase, and whatever follows is the game's
-        // own way of writing its build — `TinyMUX 2.14.0.4 #22` is one value and not a name with a
-        // sentence stuck to it. Extraction is for lines that merely mention a codebase somewhere
-        // inside them, and taking it here would quietly file the build number off every honest
-        // answer to pay for the dishonest ones.
+        // A line that begins with the codebase is the codebase, build number included (e.g.
+        // `TinyMUX 2.14.0.4 #22`) — extraction below is only for lines that merely mention one.
         var trimmed = line.Trim();
 
         if (trimmed.Length <= LongestPlausibleCodebase && OpensWith(trimmed, marker.Key))
@@ -322,14 +259,9 @@ public static partial class LoginCommandReading
     }
 
     /// <summary>
-    /// Whether the line opens with this codebase's name, give or take the punctuation around it.
+    /// Whether the line opens with this codebase's name, give or take surrounding punctuation
+    /// (e.g. <c>(CircleMUD 3.1)</c>).
     /// </summary>
-    /// <remarks>
-    /// A game writes its version as <c>(CircleMUD 3.1)</c> and as <c>ROM24 b6</c>, and both are the
-    /// whole of what that line says. Requiring the very first character to be the name would send the
-    /// parenthesised form down the extraction path and quietly file its brackets off — a value the
-    /// game published, altered by us, for no reason a reader could see.
-    /// </remarks>
     private static bool OpensWith(string line, string marker) =>
         line.TrimStart('(', '[', '<', '{', '"', '\'', '*', ' ')
             .StartsWith(marker, StringComparison.OrdinalIgnoreCase);
@@ -338,19 +270,14 @@ public static partial class LoginCommandReading
     /// The version a line offers for the codebase it names, or null when it offers none we can pin.
     /// </summary>
     /// <remarks>
-    /// Two shapes and no more. Fused to the name — <c>Currently running TinyMUCK2.3b2!</c> — or
-    /// following the word <c>version</c> or <c>release</c>, which is how the MOOs write it. Anything
-    /// looser reads a copyright year as a release: "Tapestries MUCK Copyright 1991-2020" would
-    /// become <c>MUCK 1991-2020</c>, which is a worse answer than admitting we have only the name.
+    /// Only two shapes are accepted: fused to the name (<c>TinyMUCK2.3b2</c>) or following the word
+    /// <c>version</c>/<c>release</c>. Anything looser reads a copyright year as a release.
     /// </remarks>
     private static string? VersionBeside(string line, string marker)
     {
         var at = line.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
 
-        // TrimStart because "PennMUSH 1.7.1" and "TinyMUCK2.3b2" are the same claim written two
-        // ways, and only one of them was being read. That cost the whole of a 697-character Pueblo
-        // banner: the version was one space past the name, the space stopped the scan, and with no
-        // version to pin the line was kept entire.
+        // TrimStart: "PennMUSH 1.7.1" and "TinyMUCK2.3b2" are the same claim written two ways.
         var fused = Token(line[(at + marker.Length)..].TrimStart());
 
         if (fused.Length > 0 && char.IsAsciiDigit(fused[0]))
@@ -435,11 +362,8 @@ public static partial class LoginCommandReading
     /// Every known family the text names as a word, in canonical spelling and without repeats.
     /// </summary>
     /// <remarks>
-    /// The reader's own vocabulary, exposed because <see cref="MuckNaming"/>'s entire safety is the
-    /// question "does this text say anything else" — and asking it against a second list of family
-    /// names would let the two drift, so that a family added here would quietly stop withdrawing an
-    /// assumption there. <see cref="NamesFamily"/>'s word rule comes with it, which is the part that
-    /// matters: a second implementation is what put <c>ROM</c> inside <c>RetroMUX</c>.
+    /// Exposes this reader's own vocabulary so <see cref="MuckNaming"/> can ask "does this text say
+    /// anything else" against the same list rather than a second one that could drift from it.
     /// </remarks>
     public static IReadOnlyList<string> FamiliesNamedIn(string? text) =>
         [.. FamiliesIn(Lines(text)).Distinct(StringComparer.OrdinalIgnoreCase)];
@@ -452,20 +376,19 @@ public static partial class LoginCommandReading
             .Select(family => family.Value));
 
     /// <summary>
-    /// Whether the text names this family as a word, rather than containing it as a fragment of one.
+    /// Whether the text names this family as a word, rather than containing it as a fragment of one
+    /// (e.g. <c>ROM</c> inside <c>RetroMUX</c>).
     /// </summary>
     /// <remarks>
-    /// The rule and the <c>RetroMUX</c> bug it was written for now live in <see cref="FamilyWord"/>,
-    /// because <see cref="CodebaseCredits"/> asks the identical question about the identical names
-    /// and a second copy of this is a second place for that bug to come back.
+    /// Delegates to <see cref="FamilyWord"/> rather than reimplementing, since <see cref="CodebaseCredits"/>
+    /// needs the identical rule and a second copy is a second place for that bug to reappear.
     /// </remarks>
     private static bool NamesFamily(string value, string marker) => FamilyWord.Names(value, marker);
 
     /// <summary>The label a MUSH-family <c>INFO</c> block states its player count under.</summary>
     private const string ConnectedLabel = "Connected";
 
-    // `### Begin INFO 1.1` (PennMUSH, RhostMUSH, TinyMUX) and `## BEGIN INFO 1.1` (Evennia). The
-    // version after the word is matched by nobody on purpose — see ConnectedPlayers.
+    // `### Begin INFO 1.1` (PennMUSH, RhostMUSH, TinyMUX) and `## BEGIN INFO 1.1` (Evennia).
     [GeneratedRegex(@"^#{2,}\s*begin\s+info\b", RegexOptions.IgnoreCase)]
     private static partial Regex InfoBlockStart();
 

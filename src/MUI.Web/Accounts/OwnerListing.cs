@@ -15,11 +15,7 @@ public enum OwnerListingVerdict
     /// We are still dialling at least one of this game's addresses, so there is no standing decision
     /// to extend.
     /// </summary>
-    /// <remarks>
-    /// Said out loud rather than applied anyway. Unlisting a game we are still crawling would produce
-    /// the one combination nothing else in the system can describe: a page nobody can find, filling
-    /// up with fresh measurements.
-    /// </remarks>
+    /// <remarks>Refused rather than applied anyway: unlisting a still-crawled game would leave a page nobody can find but that keeps filling with fresh measurements.</remarks>
     NotOptedOut,
 }
 
@@ -39,29 +35,14 @@ public sealed record OwnerListingOutcome(OwnerListingVerdict Verdict)
 /// The second half of §11's opt-out: out of the listing as well as out of the crawl (migration 0025).
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>An opt-out stops us dialling and nothing else</b>, which is what the about page has always
-/// promised and what most operators who use it want — the page keeps everything measured before the
-/// ask, and the empty hours name no cause. Some want the page out of the directory too, and until
-/// this there was nothing to offer them but the same sentence again.
-/// </para>
-/// <para>
-/// <b>Offered only under a standing opt-out on every address, and that gate is the design.</b>
-/// <see cref="OwnerOptOut.StateAsync"/>'s <c>AllStopped</c> is the precondition:
-/// <see cref="OwnerOptOutState.Partial"/> is refused, not rounded up, for the reason the panel
-/// refuses to round it — a game whose second port we are still dialling has not stopped, and taking
-/// its page out of the listing while measurements went on arriving would be the worst of both. It
-/// also keeps the two decisions in the right order. "Stop crawling us" is reversible by a probe;
-/// "and take us out of the listing" is a thing to be asked for on purpose, once, by somebody who has
-/// already made the first decision.
-/// </para>
-/// <para>
-/// <b>The account is the authorisation and it is stored.</b> Everything about this is a claim about
-/// what somebody else wants, which is the class of statement this repository has already got wrong
-/// by letting a default make it (<c>ContactedMaintainer</c>). The row records the account that held
-/// a verified claim at the moment the button was pressed, and <c>crawl_opt_out</c> holds how the ask
-/// arrived. Neither is inferred.
-/// </para>
+/// <b>An opt-out stops us dialling and nothing else</b> — the page keeps everything measured before
+/// the ask, and empty hours name no cause. This is the separate ask to take the page out of the
+/// directory too.
+/// <b>Offered only under a standing opt-out on every address</b> (<see cref="OwnerOptOutState.Partial"/>
+/// is refused, not rounded up): a game we are still dialling has not stopped, so taking its page out
+/// of the listing while measurements keep arriving would be the worst of both, and it keeps "stop
+/// crawling us" (reversible by a probe) ordered before "and delist us" (a deliberate second ask).
+/// <b>The account is the stored authorisation</b> — never inferred, unlike the <c>ContactedMaintainer</c> defect elsewhere in this repository's history.
 /// </remarks>
 public sealed class OwnerListing(
     IGameQueries queries,
@@ -95,10 +76,8 @@ public sealed class OwnerListing(
 
         if (!unlist)
         {
-            // Relisting is never gated on the opt-out. An owner who has already withdrawn it in their
-            // own zone file, and is waiting out §7.4's floor for the probe that would relist them
-            // automatically, must not find the button that would do it now refusing on the grounds
-            // that they are no longer opted out.
+            // Relisting is never gated on the opt-out — an owner who already withdrew it via their own
+            // zone file and is waiting out §7.4's floor must not find this button refusing them too.
             await games.RelistAsync(gameId, time.GetUtcNow(), cancellationToken);
 
             return OwnerListingOutcome.Applied;

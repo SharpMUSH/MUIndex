@@ -9,15 +9,15 @@ namespace MUI.Web.Components;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Served at <c>?plain=1</c> and automatically to text browsers. It is not a courtesy: it is the
-/// test of whether a fact is really being communicated. If something cannot survive here, its
-/// graphic on the main page is decoration.
+/// Served at <c>?plain=1</c> and automatically to text browsers. Not a courtesy: it's the test of
+/// whether a fact is really being communicated. If something can't survive here, its graphic on the
+/// main page is decoration.
 /// </para>
 /// <para>
-/// It renders from the same view models the graphical pages use, which is what bounds its
-/// maintenance cost — the main pages are these with graphics added, not second documents that have
-/// to be kept in step. No prose here is wider than 80 columns — addresses excepted, see
-/// <see cref="Columns"/> — and every state is a word, never a glyph, a colour or a cell shape.
+/// Renders from the same view models the graphical pages use, so the main pages are these with
+/// graphics added rather than a second document to keep in step. No prose here is wider than 80
+/// columns — addresses excepted, see <see cref="Columns"/> — and every state is a word, never a
+/// glyph, colour or cell shape.
 /// </para>
 /// </remarks>
 public static class PlainText
@@ -26,13 +26,9 @@ public static class PlainText
     /// No prose this renderer writes exceeds this, because text browsers are 80 wide.
     /// </summary>
     /// <remarks>
-    /// <b>URLs are the one exception, and are exempt on purpose.</b> The cap used to be documented
-    /// as covering everything, which was not true and could not be made true: an address is printed
-    /// whole because a wrapped one is not clickable in the browsers this surface exists for, and a
-    /// find query with six answers in it is longer than eighty columns on its own. The choice is
-    /// between a line a reader can follow and a line a reader can use, and for an address it is the
-    /// second. Everything that is not an address wraps — <see cref="Wrap"/> — and
-    /// <c>NoPlainLineIsWiderThanEightyColumns</c> enforces exactly that split.
+    /// <b>URLs are the one exception, deliberately.</b> An address prints whole because a wrapped
+    /// one isn't clickable in the browsers this surface exists for. Everything else wraps
+    /// (<see cref="Wrap"/>); <c>NoPlainLineIsWiderThanEightyColumns</c> enforces exactly that split.
     /// </remarks>
     public const int Columns = 80;
 
@@ -40,18 +36,9 @@ public static class PlainText
     /// An address this surface prints, in the locale it is printing.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>These are the addresses on this surface</b> — there are no anchors here, so a path is
-    /// printed for a reader to type, follow in a text browser or paste to somebody. That makes them
-    /// links in every sense that matters and subject to the same rule: a German reader who copies
-    /// <c>/g/ashen-court</c> off <c>/de/games?plain=1</c> must not arrive in English, or the mirror
-    /// is telling them something the page it mirrors does not.
-    /// </para>
-    /// <para>
-    /// A query-only address is not passed through here and does not need to be: <c>?window=30d&amp;
-    /// plain=1</c> means <em>this page, asked differently</em> in every language, and the reader is
-    /// already on the localized one.
-    /// </para>
+    /// There are no anchors here, so a path is printed for a reader to type, follow or paste — which
+    /// makes them links subject to the same rule: a German reader copying <c>/g/ashen-court</c> off
+    /// <c>/de/games?plain=1</c> must not arrive in English.
     /// </remarks>
     private static string Path(string tag, string address) => LocaleRouting.Link(tag, address);
 
@@ -66,10 +53,8 @@ public static class PlainText
         var s = page.Summary;
 
         b.Append(s.Name.ToUpperInvariant());
-        // The states that withhold a game from the listing are named here rather than folded into
-        // [archived], because this surface is the one a reader reaches with a script: a page that says
-        // [archived] for a game whose owner asked to come out would be the wrong fact in the only
-        // field a parser reads.
+        // Named individually rather than folded into [archived]: a script parsing this page needs
+        // the real reason a game is withheld, not a generic label.
         b.Append(s.State switch
         {
             LifecycleState.Archived => " [archived]",
@@ -86,13 +71,10 @@ public static class PlainText
 
         b.AppendLine();
 
-        // Every state spelled as a word. The absence is written out rather than left blank, because a
-        // blank reads as zero to a human exactly as it does to a parser — and the count says how it
-        // was obtained here as it does on the listing, or this page is the less honest of the two.
-        //
-        // The absence names no cause, for the reason the graphical hero's does not: a null count
-        // covers an unmeasured game, a probe that answered with nothing countable, and a count older
-        // than the window, and this surface can no more tell them apart than that one can.
+        // Absence is written out, never left blank — a blank reads as zero to a parser just as it
+        // does to a human. It names no cause: a null count covers an unmeasured game, an uncountable
+        // probe, and a count older than the window alike, and this surface can't tell them apart
+        // any better than the graphical hero can.
         b.AppendLine((s.PlayersNow is { } n
             ? $"{Say(tag, "game.plain.playersNow", ("count", n))}  {Label(tag, s.PlayersNowProvenance, now)}"
             : Say(tag, "game.plain.playersNoCount")).TrimEnd());
@@ -124,8 +106,7 @@ public static class PlainText
     }
 
     /// <summary>
-    /// The heatmap in words. The sentence first — it is the answer — then a line per day, which is
-    /// the same content the graphical page hides behind "read as text". The three states of spec
+    /// The heatmap in words: the sentence first, then a line per day. The three states of spec
     /// §5.4 are three different words here and never share one.
     /// </summary>
     private static void AppendActivity(StringBuilder b, IReadOnlyList<ActivityCell> cells, string tag)
@@ -137,9 +118,8 @@ public static class PlainText
 
         Heading(b, Say(tag, "activity.plain.heading"));
 
-        // The same threshold the graphical page draws on, and the same words. Below it there is no
-        // grid there and no seven lines here: a week of prose about two measured hours would be this
-        // surface describing a shape the measurements do not have.
+        // Same threshold the graphical page draws on: below it, a week of prose about two measured
+        // hours would describe a shape the measurements don't have.
         if (ActivitySummary.MeasuredDays(cells) < ActivitySummary.MeasuredDaysForGrid)
         {
             Wrap(b, ActivitySummary.Sparse(tag, cells));
@@ -156,11 +136,9 @@ public static class PlainText
 
         b.AppendLine();
 
-        // The key. The three words on the left are the site's own — two of them the glossary's
-        // locked ids — rather than a third spelling invented for this surface: "no data" said here
-        // what "not measured" says everywhere else, which left a reader deciding whether the two
-        // were one state. Wrapped rather than padded to a column, because a language whose word for
-        // "uncounted" is four syllables must not push the line past eighty.
+        // The key. Reuses the site's own words rather than a third spelling invented for this
+        // surface — "no data" used to say here what "not measured" says everywhere else. Wrapped
+        // rather than padded to a column, since a language's word for "uncounted" might run long.
         Key(b, tag, "activity.key.counted", "activity.key.counted.meaning");
         Key(b, tag, "state.uncounted", "activity.key.uncounted.meaning");
         Key(b, tag, "state.notMeasured", "activity.key.notMeasured.meaning");
@@ -173,16 +151,10 @@ public static class PlainText
     /// The trend in words: the direction first, then a line per week.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Weeks rather than days, from <see cref="TrendSeries.PerWeek"/> — the same lines the graphical
-    /// page hides behind "read as text", so the two surfaces cannot drift into saying different
-    /// things about one series. A quarter is ninety days and nobody reads ninety lines.
-    /// </para>
-    /// <para>
-    /// The seek links are here too. A range is part of the address, and a text browser that could
-    /// see the chart's window but not change it would have the graphic's navigation and none of its
-    /// function — which is the decoration §9 is testing for.
-    /// </para>
+    /// Weeks rather than days, from <see cref="TrendSeries.PerWeek"/> — a quarter is ninety days and
+    /// nobody reads ninety lines. The seek links are here too, since a range is part of the address:
+    /// a text browser that saw the window but couldn't change it would have the graphic's navigation
+    /// and none of its function, the decoration §9 tests for.
     /// </remarks>
     private static void AppendTrend(StringBuilder b, TrendSeries? trend, string tag)
     {
@@ -248,8 +220,7 @@ public static class PlainText
             ("disagreeing", page.DisagreementCount),
             ("total", page.Capabilities.Count)));
 
-        // The same order the matrix uses: disagreements first, then measured-present, then absent,
-        // then unknown. Two surfaces of one fact must not put it in two places.
+        // Same order as the matrix: disagreements first, then measured-present, absent, unknown.
         foreach (var c in page.Capabilities
             .OrderByDescending(c => c.Disagrees)
             .ThenBy(c => c.Measured switch
@@ -270,10 +241,10 @@ public static class PlainText
     /// The links, as addresses. The graphical page draws nine icons; this is what they say.
     /// </summary>
     /// <remarks>
-    /// <b>The stored value and not the normalised href.</b> A reader here is being handed what the
-    /// game published, and "https://discord.gg/x" where the row says "discord.gg/x" would be this
-    /// surface quietly repairing a fact — which is the one thing it exists not to do. The rendered
-    /// page links the normalised form because a browser needs one; a text surface needs the truth.
+    /// <b>The stored value, not the normalised href.</b> A reader is handed what the game published;
+    /// showing "https://discord.gg/x" where the row says "discord.gg/x" would be quietly repairing a
+    /// fact. The rendered page links the normalised form because a browser needs one; text needs the
+    /// truth.
     /// </remarks>
     private static void AppendReach(StringBuilder b, GamePage page, DateTimeOffset now, string tag)
     {
@@ -309,17 +280,12 @@ public static class PlainText
     /// A provenance chip in words: how we know it, how old it is, and whether it has aged out.
     /// </summary>
     /// <remarks>
-    /// The whole of what the rendered chip carries — glyph, relative age, amber — spelled out. One
-    /// function because four surfaces print it: the listing's counts and codebases, the game page's
-    /// count and its self-description, and the archive. Four spellings of "declared six years ago"
-    /// would be four chances to say it four ways, and this comment claimed the archive before the
-    /// archive did — which is how <c>/games</c> and <c>/archive</c> came to describe the same value
-    /// two ways for a while. An absent chip prints nothing rather than inventing a source for a
-    /// value nobody has labelled.
+    /// One function because four surfaces print it — four spellings of "declared six years ago"
+    /// would be four chances to disagree, and <c>/games</c> and <c>/archive</c> once did. An absent
+    /// chip prints nothing rather than inventing a source for an unlabelled value.
     /// <para>
-    /// The word itself is <see cref="Provenance.How"/>'s, which is where it moved once the preview
-    /// metadata needed it too — a rule spelled at one of five call sites is a rule the other four
-    /// break, and a private spelling is one the fifth surface cannot reach even to obey.
+    /// The word itself is <see cref="Provenance.How"/>'s, so a fifth call site (the preview
+    /// metadata) can reach it too.
     /// </para>
     /// </remarks>
     internal static string Label(string tag, ProvenanceChip? chip, DateTimeOffset now) => chip is null
@@ -334,9 +300,8 @@ public static class PlainText
             });
 
     /// <summary>
-    /// The connect screen with its SGR stripped. Colour codes are never announced, and the cases the
-    /// frame has — suppressed, absent, too small — are stated rather than left as an absence for the
-    /// reader to interpret.
+    /// The connect screen with its SGR stripped. The frame's states — suppressed, absent, too small
+    /// — are stated rather than left as an absence to interpret.
     /// </summary>
     private static void AppendConnectScreen(StringBuilder b, GamePage page, string tag)
     {
@@ -359,9 +324,8 @@ public static class PlainText
                 return;
         }
 
-        // The same caption the figure carries, for the same reason: on a game whose bytes were not
-        // UTF-8 this is how a reader learns which encoding they are looking at rather than blaming
-        // their terminal. The two surfaces must not disagree about the screen.
+        // Same caption the figure carries: on a game whose bytes weren't UTF-8, this is how a
+        // reader learns which encoding they're looking at instead of blaming their terminal.
         b.AppendLine("  [" + (page.ConnectScreenCharset is { Length: > 0 } read
             ? Say(tag, "ansi.plain.rows.readAs", ("count", screen.RowCount), ("charset", read))
             : Say(tag, "ansi.plain.rows", ("count", screen.RowCount))) + "]");
@@ -390,10 +354,8 @@ public static class PlainText
     /// The listing and its facets, with every state spelled and no column past 80.
     /// </summary>
     /// <remarks>
-    /// The facets are here in full — every value, its count, and the parameter that selects it —
-    /// because a text browser cannot operate a <c>&lt;select&gt;</c> but can perfectly well edit a
-    /// URL. A panel that only worked as a widget would fail §9's own test of itself: if a fact
-    /// cannot survive in plain text, its graphic on the main site is decoration.
+    /// Facets are here in full — every value, its count, its selecting parameter — because a text
+    /// browser can't operate a <c>&lt;select&gt;</c> but can edit a URL.
     /// </remarks>
     public static string RenderListing(
         GameListing listing, GameFilter filter, DateTimeOffset now, string tag = Locales.SourceTag)
@@ -409,20 +371,15 @@ public static class PlainText
             + (string.IsNullOrWhiteSpace(filter.Text) ? string.Empty : $" matching \"{filter.Text}\"")
             + (filter.IncludeArchived ? ", archived included" : ", archived excluded")
 
-            // Both exclusions, both stated. A text browser cannot see the checkbox in the bar, so
-            // the line that says what this listing is has to carry the same two facts the bar does.
+            // Both exclusions stated: a text browser can't see the checkbox in the bar.
             + (filter.IncludeAdult ? ", adult included" : ", adult excluded"));
 
-        // The order, stated. A sorted list that does not say what it is sorted by is one a reader has
-        // to reverse-engineer from the first few rows — and that is exactly how a tail of games
-        // showing no number gets read as a tail of games with no players.
+        // Stated, since an unlabelled sort is one a reader has to reverse-engineer from the rows —
+        // exactly how a tail of games with no number gets read as a tail with no players.
         b.AppendLine($"Sorted by {FacetWords.Sort(tag, filter.Sort)}");
 
-        // And every order it could have been in, wrapped rather than run on: a text browser cannot
-        // operate a <select> but can perfectly well edit a URL, and nine sort tokens on one line is
-        // a hundred and thirty columns of it running off the right of the screen. Wrapped, because
-        // the alternative — offering three of the nine and calling it the list — is a control the
-        // plain surface has that the rendered one does not.
+        // Every order it could have been in, wrapped rather than run on: nine sort tokens on one
+        // line would run 130 columns off the screen.
         Wrap(b, $"?{FacetKeys.Sort}={string.Join(" / ", FacetTokens.Sorts)}", "  ");
 
         AppendFacets(tag, b, listing.Facets);
@@ -438,9 +395,8 @@ public static class PlainText
 
         foreach (var g in games)
         {
-            // The same break the rendered listing draws, in the same place and for the same reason:
-            // where the sort runs out of things it can rank, the list says so rather than letting the
-            // rows that follow read as the bottom of the ranking.
+            // Same break the rendered listing draws: where the sort runs out of things to rank, say
+            // so rather than let the rest read as the bottom of the ranking.
             if (!broken && GameSorting.IsUnranked(g, filter.Sort))
             {
                 broken = true;
@@ -450,30 +406,27 @@ public static class PlainText
             }
 
             // Archived and claimed are the two worth a mark; unclaimed is most of the catalogue and
-            // is not one, here for the same reason it is not on the rendered row. This surface and
-            // that one say the same things about a game or they are not two views of one listing.
+            // isn't marked here either, matching the rendered row.
             var mark = g.State is LifecycleState.Archived ? $"  [{Say(tag, "listing.plain.archived")}]"
                 : g.IsClaimed ? $"  [{Say(tag, "listing.plain.claimed")}]"
                 : string.Empty;
             b.AppendLine($"{g.Name}{mark}");
             b.AppendLine($"  {Path(tag, $"/g/{g.Slug}")}");
 
-            // How we know, and how old it is — the same two words and the same relative age the game
-            // page uses, because two surfaces of one fact must not have two vocabularies. The word
-            // was hard-coded here and said "(measured)" over every count including the ones a game
-            // asserted about itself, which is rule 5 broken by a format string.
+            // Same words and relative age the game page uses. This used to hard-code "(measured)"
+            // over every count including declared ones — rule 5 broken by a format string.
             b.AppendLine((g.PlayersNow is { } n
                 ? $"  Players now: {n}   {Label(tag, g.PlayersNowProvenance, now)}"
                 : "  Players now: unknown (no count could be measured)").TrimEnd());
 
-            // What a window sort ranked this row on. Only where there is one, because a line reading
-            // "over 7 days: —" on every row of an alphabetical listing is a column of nothing.
+            // Only where there's a window sort; otherwise every row of an alphabetical listing
+            // would print "Ranked on: —".
             if (g.PlayersOverWindow is { } window)
             {
                 b.AppendLine($"  Ranked on:   {FacetWords.Window(tag, window, filter.Sort)}");
             }
 
-            // Never blank. "We could not identify it" is a measurement and a missing line is not.
+            // Never blank: "we could not identify it" is a measurement, a missing line is not.
             b.AppendLine((g.Codebase is { } codebase
                 ? $"  Codebase:    {codebase}  {Label(tag, g.CodebaseProvenance, now)}"
                 : "  Codebase:    not identified").TrimEnd());
@@ -482,9 +435,8 @@ public static class PlainText
                 ? $"  Measured:    {string.Join(", ", g.MeasuredProtocols)}"
                 : "  Measured:    nothing offered in the handshake");
 
-            // The last-seen facet's own column. Never once reached is its own sentence rather than
-            // the oldest bucket, because a game we have never got an answer from has no date and
-            // inventing one from our first sighting would read as its outage.
+            // "Never" is its own sentence rather than the oldest bucket: a game with no answer yet
+            // has no date, and inventing one from first sighting would read as an outage.
             b.AppendLine(g.LastReachableAt is { } seen
                 ? $"  Last reached: {Relative.Ago(tag, now - seen, AgeSense.Reached)}"
                 : "  Last reached: never — no answer yet");
@@ -504,10 +456,8 @@ public static class PlainText
     /// The facet panel in text: what each choice returns, and what to put in the URL to choose it.
     /// </summary>
     /// <remarks>
-    /// The two sentences at the top are the same two the rendered panel carries, and they are not
-    /// blurb. An unticked protocol is not a game declining a protocol, and a facet with no value for
-    /// a game is not a no — those are the two readings this whole design exists to prevent, and a
-    /// surface that leaves them to be inferred has left the important half out.
+    /// The two sentences at the top aren't blurb: an unticked protocol isn't a game declining it,
+    /// and no value isn't a no — the two readings this design exists to prevent.
     /// </remarks>
     private static void AppendFacets(string tag, StringBuilder b, IReadOnlyList<FacetGroup> facets)
     {
@@ -517,9 +467,8 @@ public static class PlainText
         }
 
         Heading(b, "FILTERS");
-        // Enumerated rather than spelled out, so a register added to the vocabulary cannot be
-        // introduced on the rendered panel and quietly left out of the plain one — which is the
-        // surface where the key is the only place the distinction is ever made.
+        // Enumerated rather than spelled out, so a new register added elsewhere can't quietly be
+        // left out here.
         Wrap(b, "Each facet is marked "
             + string.Join(", ", Enum.GetValues<FacetEvidence>()
                 .Select(e => $"{FacetWords.Evidence(tag, e)} ({FacetWords.EvidenceMeaning(tag, e)})"))
@@ -530,18 +479,17 @@ public static class PlainText
             + "an unknown count is not a zero and never sorts as one.");
         b.AppendLine();
 
-        // The marks in the left column, said once. Two of the three states are a filter the reader
-        // applied, and a surface that draws them the same way has published one as the other.
+        // Two of the three states are a filter the reader applied; drawing them the same way would
+        // publish one as the other.
         Wrap(b, Say(tag, "facet.plain.marks"));
 
         foreach (var group in facets)
         {
             b.AppendLine();
 
-            // The rendered panel gathers these two under one heading and one note; here they are two
-            // groups in a list of nine, so the heading arrives with the first of them and the note
-            // arrives with it. Leaving the note to the graphical surface would put the one sentence
-            // that stops a hidden row reading as an empty game on only one of the two surfaces.
+            // The rendered panel gathers these two facets under one heading and note; here they're
+            // two groups in a list of nine, so the note travels with the first of them rather than
+            // living only on the graphical surface.
             if (string.Equals(group.Key, FacetKeys.Uncounted, StringComparison.Ordinal))
             {
                 b.AppendLine($"  {Say(tag, "facet.group.measure").ToUpperInvariant()}");
@@ -560,12 +508,8 @@ public static class PlainText
                     : "  " + words;
 
                 // A mark, not a colour: the selected value has to be visible where there is no ink.
-                //
-                // **Three marks, because the facet has three states.** A star for both included and
-                // excluded drew "only these" and "anything but these" identically — the exact defect
-                // the rendered panel was rebuilt to remove, left standing on the surface where a
-                // reader has the least else to go on. It matters most on the two measurement
-                // switches, whose ordinary gesture is the exclusion.
+                // Three marks, because the facet has three states — a shared star for included and
+                // excluded once drew "only these" and "anything but these" identically.
                 var mark = value.State switch
                 {
                     FacetState.Included => '*',
@@ -579,17 +523,16 @@ public static class PlainText
     }
 
     /// <summary>
-    /// The three liveness feeds. All three are the same shape here, because the register the
-    /// graphical cards carry is a tone and a tone is not a fact — the words have to do the work.
+    /// The three liveness feeds. All three are the same shape here: the register the graphical
+    /// cards carry is a tone, not a fact, so the words have to do the work.
     /// </summary>
     public static string RenderFeeds(string tag, LivenessFeeds feeds, DateTimeOffset now)
     {
         var b = new StringBuilder();
 
-        // Heading and empty state both through the bundle. The empty states are the ids the
-        // graphical cards already say, so the two surfaces cannot disagree in any language; the
-        // headings are plain-only ids, because the card's own kicker for the middle feed carries
-        // "— still probed" and this column has that promise elsewhere.
+        // Empty states reuse the graphical cards' ids so the two surfaces can't disagree; headings
+        // are plain-only ids, since the card's own kicker carries "— still probed" that lives
+        // elsewhere on this surface.
         Feed(b, tag, "feed.plain.newlyDiscovered", feeds.NewlyDiscovered, "feed.nothingNew", now);
         Feed(b, tag, "feed.plain.wentDark", feeds.WentDark, "feed.nothingDark", now);
         Feed(b, tag, "feed.plain.cameBack", feeds.CameBack, "feed.nothingBack", now);
@@ -604,9 +547,8 @@ public static class PlainText
             string empty,
             DateTimeOffset now)
         {
-            // Uppercased here rather than in the bundle, as every other heading on this surface is:
-            // the id carries the words, the renderer carries the typography, and a script with no
-            // case is left exactly as its translator wrote it.
+            // Uppercased here rather than in the bundle, like every other heading on this surface: a
+            // script with no case is left exactly as its translator wrote it.
             b.AppendLine(Say(tag, title).ToUpperInvariant());
 
             if (entries.Count == 0)
@@ -639,8 +581,8 @@ public static class PlainText
 
         var b = new StringBuilder();
 
-        // The wordmark, which is the site's name and stays out of the bundle for the same reason a
-        // hostname does. Everything under it is a sentence and goes through it.
+        // The wordmark stays out of the bundle, like a hostname — everything under it is a sentence
+        // and goes through it.
         b.AppendLine("MU*INDEX");
         b.AppendLine();
         b.AppendLine(Say(tag, "home.plain.known", ("count", counts.Known)));
@@ -648,9 +590,8 @@ public static class PlainText
         b.AppendLine(Say(tag, "home.plain.uncounted", ("count", counts.CountUnknown)));
         b.AppendLine(Say(tag, "home.plain.archived", ("count", counts.Archived)));
 
-        // Same three facts as the rendered strip, in the same order and the same words, plus the
-        // registry line the narrow page has no room for. Omitted entirely when there is nothing
-        // measured to say, which is what the strip does and what the demo path yields.
+        // Same three facts as the rendered strip, plus the registry line it has no room for. Omitted
+        // entirely when there's nothing measured to say, matching the demo path.
         if (pulse.State(now) is not CrawlState.NotYet)
         {
             b.AppendLine();
@@ -672,9 +613,8 @@ public static class PlainText
 
     /// <summary>The archive. Past tense, no alarm, and the run of years given as a fact.</summary>
     /// <remarks>
-    /// The label column is measured rather than hard-spaced. Four labels padded to seventeen
-    /// columns is an arrangement that holds for exactly one language, and a locale whose word for
-    /// "last reachable" is longer would have run its value into it.
+    /// The label column is measured rather than hard-spaced: a fixed width holds for exactly one
+    /// language, and a locale with a longer word for "last reachable" would run into its value.
     /// </remarks>
     public static string RenderArchive(
         IReadOnlyList<ArchiveEntry> entries,
@@ -719,10 +659,9 @@ public static class PlainText
                 b.AppendLine($"  {labels[2].PadRight(width)}{run}");
             }
 
-            // Labelled here above all. This is where a value is oldest — nobody has confirmed an
-            // archived game's codebase since the day it stopped answering — and the archive read
-            // "Codebase: PennMUSH 1.8.5" flat while the listing said the same value was three years
-            // unconfirmed. Same fact, same words, whichever page a reader is on.
+            // Labelled here above all: nobody has confirmed an archived game's codebase since it
+            // stopped answering, and this used to read "Codebase: PennMUSH 1.8.5" flat while the
+            // listing called the same value three years unconfirmed.
             if (entry.Summary.Codebase is { } codebase)
             {
                 b.AppendLine(
@@ -745,9 +684,8 @@ public static class PlainText
     /// The about page. Prose, so the only thing the graphical version adds is the shape of it.
     /// </summary>
     /// <remarks>
-    /// The attribution list is the part that has to survive here above all: it is what this project
-    /// owes the directories it read, and an acknowledgement a text browser cannot render is an
-    /// acknowledgement made to the layout rather than to anybody.
+    /// The attribution list has to survive here above all — it's what this project owes the
+    /// directories it read, and an acknowledgement a text browser can't render isn't one.
     /// </remarks>
     public static string RenderAbout(AboutPage page, string tag = Locales.SourceTag)
     {
@@ -755,9 +693,8 @@ public static class PlainText
 
         var b = new StringBuilder();
 
-        // Upper-cased from the translated title rather than typed in capitals, so this surface keeps
-        // its own shape in a language that has one. A locale whose script has no case is unchanged,
-        // which is correct: the shape is English typography and the words are not.
+        // Upper-cased from the translated title rather than typed in capitals: a script with no
+        // case is left unchanged, since the shape is English typography and the words are not.
         b.AppendLine(Say(tag, "about.title").ToUpperInvariant());
         b.AppendLine();
         Wrap(b, page.Lede);
@@ -797,9 +734,8 @@ public static class PlainText
             if (section.Licence is { } licence)
             {
                 b.AppendLine();
-                // Every one of these goes through the wrapper rather than being laid out in columns:
-                // a licence name and an attribution are both configuration, and a deployment that
-                // sets a long one must not push a line off the side of a text browser.
+                // Every one of these goes through the wrapper rather than columns: a licence name or
+                // attribution is deployment configuration and could run long.
                 Wrap(b, Say(tag, "about.licence.code.line", ("licence", licence.CodeLicence)), "  ");
                 Wrap(b, Say(tag, "about.licence.data.line", ("licence", licence.DataLicenceName)), "  ");
 
@@ -822,9 +758,8 @@ public static class PlainText
     /// The ecosystem dashboard, which is the page whose graphic is most obviously an illustration.
     /// </summary>
     /// <remarks>
-    /// Every bar on the rendered page illustrates a sentence that is complete without it: "PennMUSH —
-    /// 122 of 310 (39.4%)" is the fact, and the bar is a way of seeing several of them at once.
-    /// Nothing is lost here but the seeing-at-once, which is the test §9 sets for a graphic.
+    /// Every bar illustrates a sentence complete without it: "PennMUSH — 122 of 310 (39.4%)" is the
+    /// fact, the bar is a way to see several at once. Only the seeing-at-once is lost here.
     /// </remarks>
     public static string RenderEcosystem(
         EcosystemDashboard dashboard, DateTimeOffset now, string tag = Locales.SourceTag)
@@ -861,9 +796,8 @@ public static class PlainText
             b.AppendLine("  " + Say(tag, "ecosystem.codebases.none"));
         }
 
-        // The graphic folds these behind a disclosure and this surface has none, so it prints them
-        // outright. Both say the same sentence first, which is the point of EcosystemCopy: the
-        // plain surface may be shorter than the page and it may not be more or less honest than it.
+        // The graphic folds these behind a disclosure; this surface has no disclosure, so it prints
+        // them outright.
         if (dashboard.Codebases.SoleUse.Count > 0)
         {
             b.AppendLine();
@@ -938,11 +872,10 @@ public static class PlainText
     /// The submission form's prose, and whatever it last answered.
     /// </summary>
     /// <remarks>
-    /// <b>The form itself is not rendered here, and it is not missing either.</b> Two text boxes and
-    /// a button already are plain text: a text browser posts them perfectly well, so the page keeps
-    /// the real form beneath this block rather than describing one. What this renders is everything
-    /// around it — what happens to an address, and what happened to the last one — which is the part
-    /// that could otherwise have been carried by layout.
+    /// The form itself isn't rendered here, and isn't missing either — two text boxes and a button
+    /// are already plain text, so the page keeps the real form beneath this block. This renders what
+    /// could otherwise have been carried by layout: what happens to an address, and what happened
+    /// to the last one.
     /// </remarks>
     public static string RenderSubmit(
         SubmitAnswer? answer, bool hasCatalogue, string tag = Locales.SourceTag)
@@ -986,18 +919,13 @@ public static class PlainText
     /// The find-a-game questions, as text — the same six, in the same words, with the same counts.
     /// </summary>
     /// <remarks>
+    /// Built from the same <see cref="FindScreen"/> the rendered page draws. This used to be a
+    /// different page that dumped ten facet groups while the rendered page asked six questions, and
+    /// the two disagreed about what could be asked at all.
     /// <para>
-    /// <b>Built from the same <see cref="FindScreen"/> the rendered page draws</b>, which is the
-    /// whole of the fix here. This was a different page: it dumped ten facet groups as querystring
-    /// recipes while the rendered page asked six questions, and the two disagreed about what could
-    /// be asked at all — plain offered the silent bucket the rendered page hid. A text mirror
-    /// showing a different set of facts is not a mirror.
-    /// </para>
-    /// <para>
-    /// The addresses differ from the rendered page's only because the querystring they are built
-    /// from carries <c>plain=1</c>, so following one stays in this surface. That falls out of the
-    /// construction rather than being arranged: every link on both surfaces is the page's own URL
-    /// with one parameter changed.
+    /// The addresses differ from the rendered page's only because the querystring they're built
+    /// from carries <c>plain=1</c> — every link on both surfaces is the page's own URL with one
+    /// parameter changed.
     /// </para>
     /// </remarks>
     public static string RenderFind(FindScreen screen, string? tag = null)
@@ -1007,14 +935,13 @@ public static class PlainText
         var locale = tag ?? Locales.SourceTag;
         var b = new StringBuilder();
 
-        // Upper-cased from the translated word rather than typed in capitals, so a locale that
-        // has this page still gets the surface's own shape. Everything below is read off the
-        // screen, which was built for this same locale — there is no second translation here.
+        // Upper-cased from the translated word, so a locale with this page still gets the surface's
+        // own shape.
         b.AppendLine(Say(locale, "find.title").ToUpperInvariant());
 
         if (screen.Error is { } problem)
         {
-            // Refused rather than ignored, in the same words the rendered page refuses it with.
+            // Refused rather than ignored, in the same words the rendered page uses.
             Heading(b, Say(locale, "find.refused").ToUpperInvariant());
             Wrap(b, problem, "  ");
             b.AppendLine();
@@ -1073,9 +1000,8 @@ public static class PlainText
                 Answer(b, locale, any);
             }
 
-            // The tail is written out in full. There is no folding here and there should not be:
-            // a disclosure is a graphical economy, and the guarantee this surface carries is that
-            // every option the page offers can be reached from it.
+            // The tail is written out in full, unfolded: every option the page offers must be
+            // reachable from this surface.
             foreach (var option in question.Options.Concat(question.Tail))
             {
                 Answer(b, locale, option);
@@ -1092,9 +1018,9 @@ public static class PlainText
     /// One answer: whether it is the one in force, what it is called, what choosing it returns.
     /// </summary>
     /// <remarks>
-    /// The state is a pair of characters and never a colour or an indent, and the count is in the
-    /// same parentheses the rendered page puts it in a column — so the two surfaces can be read
-    /// against each other line for line.
+    /// The state is a pair of characters, never a colour or indent, and the count is in the same
+    /// parentheses the rendered page uses — so the two surfaces read against each other line for
+    /// line.
     /// </remarks>
     private static void Answer(StringBuilder b, string tag, FindOption option)
     {
@@ -1108,9 +1034,7 @@ public static class PlainText
         else
         {
             // A label too long for the line keeps its checkbox on the first line and hangs its
-            // continuation under the label rather than under the box, so a wrapped option cannot be
-            // read as a second one. The labels that reach this are the catalogue's own — a genre, a
-            // language, a lineage — and nothing bounds their length but the games.
+            // continuation under the label, so a wrapped option can't be read as a second one.
             var wrapped = new StringBuilder();
             Wrap(wrapped, text, new string(' ', mark.Length));
 
@@ -1142,14 +1066,12 @@ public static class PlainText
         Wrap(b, EcosystemCopy.SpanChoice(tag));
         b.AppendLine();
 
-        // The three windows as addresses, because a text browser cannot use a tab strip and the
-        // choice must survive here or the graphical selector is decoration (spec §9). One per line:
-        // the addresses do not fit on one inside eighty columns, and a wrapped URL is not clickable
-        // in the browsers this surface exists for.
+        // The three windows as addresses: a text browser can't use a tab strip, so the choice must
+        // survive here (spec §9). One per line — the addresses don't fit on one inside eighty
+        // columns.
         b.AppendLine("  " + Say(tag, "rankings.plain.windows"));
 
-        // The width the three labels are padded to is measured rather than assumed: "7 days" is
-        // six columns and its German is nine, and a hard -8 would have run the address into it.
+        // Padding width is measured rather than assumed: "7 days" is six columns, its German nine.
         var labels = RankingSpans.All.ToDictionary(s => s, s => EcosystemCopy.SpanLabel(tag, s));
         var width = labels.Values.Max(l => l.Length);
         var here = Say(tag, "rankings.plain.thisOne");
@@ -1243,11 +1165,9 @@ public static class PlainText
     /// Colour is never the only carrier of a state, and here there is no colour at all.
     /// </summary>
     /// <remarks>
-    /// The one thing on this surface left in English on purpose. These are a two-column tabular
-    /// token in a fixed-width table eighty columns wide, read the way a flag in <c>ls -l</c> is,
-    /// and the row's own labels beside them <em>are</em> translated — so what a reader meets is a
-    /// German sentence naming a machine token, which is the arrangement every other machine value
-    /// on this site already has. A four-syllable translation would push the row past eighty.
+    /// Left in English on purpose — a machine token read like a flag in <c>ls -l</c>, in a
+    /// fixed-width table where a four-syllable translation would push the row past eighty columns.
+    /// The row's own labels beside it are still translated.
     /// </remarks>
     private static string Word(CapabilityState state) => state switch
     {
@@ -1258,9 +1178,8 @@ public static class PlainText
 }
 
 /// <summary>
-/// What the front page can honestly count. Every figure here is a count of games we measured, so
-/// there is no "reachable this week" until the store can answer it — an unmeasured number is left
-/// out rather than estimated.
+/// What the front page can honestly count: every figure is a count of games we measured, so an
+/// unmeasured number (like "reachable this week") is left out rather than estimated.
 /// </summary>
 public sealed record SiteCounts(int Known, int WithPlayersOn, int CountUnknown, int Archived)
 {

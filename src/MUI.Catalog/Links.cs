@@ -6,14 +6,13 @@ namespace MUI.Catalog;
 /// <remarks>
 /// <para>
 /// A kind rather than a field name, because two field names can answer one kind: an email address
-/// arrives as MSSP's official <c>CONTACT</c> and also as the unofficial <c>EMAIL</c> that fourteen
-/// games in this catalogue publish, and a reader wants one envelope beside the title either way.
+/// arrives as MSSP's official <c>CONTACT</c> and also as the unofficial <c>EMAIL</c>, and a reader
+/// wants one envelope beside the title either way.
 /// </para>
 /// <para>
-/// Everything past <see cref="Discord"/> exists because MSSP has no variable for it. The protocol
-/// added <c>DISCORD</c> and stopped there, so a game with a wiki, a forum or a fediverse account has
-/// nowhere to say so — which is why those kinds are answered only by <see cref="FieldSource.Owner"/>
-/// rows, written by somebody who proved the game is theirs (spec §8.5).
+/// Everything past <see cref="Discord"/> exists because MSSP has no variable for it, so those kinds
+/// are answered only by <see cref="FieldSource.Owner"/> rows, written by somebody who proved the
+/// game is theirs (spec §8.5).
 /// </para>
 /// </remarks>
 public enum LinkKind
@@ -56,10 +55,10 @@ public enum LinkKind
 /// One reachable destination a game published, with the provenance every other fact here carries.
 /// </summary>
 /// <remarks>
-/// <see cref="Href"/> is normalised and never the stored value: it has been through
-/// <see cref="ExternalUrl"/>, so a surface rendering it into an <c>href</c> does not have to decide
-/// whether a stranger's <c>javascript:</c> is safe. The row it came from is untouched and still
-/// prints verbatim under "declared by the game" — we refuse to link a value, never to show it.
+/// <see cref="Href"/> is normalised, never the stored value: it has been through
+/// <see cref="ExternalUrl"/>, so a surface rendering it does not have to decide whether a
+/// stranger's <c>javascript:</c> is safe. The source row is untouched and still prints verbatim —
+/// we refuse to link a value, never to show it.
 /// </remarks>
 public sealed record QuickLink(
     LinkKind Kind,
@@ -72,9 +71,8 @@ public sealed record QuickLink(
 {
     /// <summary>Whether somebody observed this, as opposed to a game or its owner reporting it.</summary>
     /// <remarks>
-    /// Always false in practice — every field behind a link is hand-typed — and derived rather than
-    /// hard-coded anyway, because the one spelling of the measured/declared line is
-    /// <see cref="FieldSources"/> and a second one here would be a second thing to keep in step.
+    /// Derived rather than hard-coded (always false in practice) so the measured/declared line
+    /// stays owned by <see cref="FieldSources"/> alone, not duplicated here.
     /// </remarks>
     public bool IsMeasured => FieldSources.IsMeasured(Source);
 }
@@ -85,18 +83,16 @@ public sealed record QuickLink(
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The input is hostile by default.</b> A hundred and thirty-five of the <c>WEBSITE</c> values in
-/// this catalogue came off strangers' sockets, and an owner's box is a text field on the public
-/// internet. <c>javascript:</c> in an <c>href</c> is script execution on our origin, and Blazor's
-/// encoding does not stop it — it encodes the text of an attribute, not the meaning of its scheme.
+/// <b>The input is hostile by default.</b> <c>WEBSITE</c> values come off strangers' sockets or an
+/// owner's text field. <c>javascript:</c> in an <c>href</c> is script execution on our origin, and
+/// Blazor's encoding does not stop it — it encodes the text of an attribute, not the meaning of its
+/// scheme.
 /// </para>
 /// <para>
-/// <b>It refuses rather than repairs.</b> Three games in this catalogue publish a <c>WEBSITE</c> with
-/// no scheme — <c>www.slothmud.org</c> — and prepending one would be us guessing whether their server
-/// answers on TLS and publishing the guess as their address. The value still renders as text where
-/// every other declared field does, and the MSSP scorecard on their own page names the missing prefix
-/// in the operator's terms. A link we invented that 404s is worse than a line of text that is exactly
-/// what they wrote.
+/// <b>It refuses rather than repairs.</b> A value with no scheme (<c>www.slothmud.org</c>) is not
+/// given one — that would be us guessing whether their server answers on TLS and publishing the
+/// guess as their address. It still renders as text like every other declared field. A link we
+/// invented that 404s is worse than a line of text that is exactly what they wrote.
 /// </para>
 /// </remarks>
 public static class ExternalUrl
@@ -105,9 +101,8 @@ public static class ExternalUrl
     /// The longest destination we will store or render.
     /// </summary>
     /// <remarks>
-    /// The same bound the enrichment form applies to everything else, restated as a constant here so
-    /// the render path does not depend on the write path having run — MSSP rows never went through
-    /// that form.
+    /// Restated as a constant so the render path does not depend on the write path having run —
+    /// MSSP rows never went through the enrichment form that applies this bound elsewhere.
     /// </remarks>
     public const int MaxLength = 500;
 
@@ -132,10 +127,8 @@ public static class ExternalUrl
         {
             FieldShape.Url => Web(text),
 
-            // A CONTACT is an email address in the specification and a contact page in practice —
-            // one game in this catalogue publishes an https:// form there. Both are ways to reach
-            // the same people, and refusing the second on a technicality would drop a working
-            // address to enforce a distinction the reader does not have.
+            // CONTACT is an email address per spec, but sometimes an https:// contact page in
+            // practice — both are ways to reach the same people.
             FieldShape.Email => Mail(text) ?? Web(text),
             _ => null,
         };
@@ -151,11 +144,9 @@ public static class ExternalUrl
             return null;
         }
 
-        // http and https and nothing else. `javascript:` and `data:` are script; `file:` and
-        // `ftp:` point at the reader's own machine or at a protocol no browser here still dials.
-        // Compared rather than pattern-matched: Uri.UriSchemeHttp is a static field and not a
-        // constant, so it cannot appear in a pattern. Uri lower-cases the scheme it parsed, so an
-        // ordinal comparison is the whole check.
+        // http and https only: `javascript:` and `data:` are script, `file:` and `ftp:` point
+        // elsewhere. Compared rather than pattern-matched because Uri.UriSchemeHttp is a static
+        // field, not a constant, so it cannot appear in a pattern.
         var scheme = uri.Scheme;
 
         if ((!string.Equals(scheme, Uri.UriSchemeHttp, StringComparison.Ordinal)
@@ -176,10 +167,9 @@ public static class ExternalUrl
             ? text["mailto:".Length..]
             : text;
 
-        // Deliberately not a validator. Six of the CONTACT values here are obfuscated against
-        // harvesters — "msocorcim (at) gmail (dot) com" — and the point is only to tell an address
-        // apart from a spelling of one, so that the second renders as the text it is rather than as
-        // a mailto nobody's client can dial.
+        // Deliberately not a validator: some CONTACT values are obfuscated against harvesters
+        // ("name (at) example (dot) com"), and the point is only to tell an address apart from a
+        // spelling of one, so the spelling renders as text rather than as a dead mailto.
         var at = address.IndexOf('@', StringComparison.Ordinal);
 
         if (at <= 0 || at != address.LastIndexOf('@') || address.AsSpan().ContainsAny(" \t\r\n"))
@@ -201,16 +191,14 @@ public static class ExternalUrl
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Derived on read, like every other winner on this site.</b> Nothing is stored: an owner's
-/// <c>WEBSITE</c> and their game's own report are two rows keyed <c>(game, field, source)</c>, and
-/// which of them is a link is <see cref="FieldPrecedence"/>'s answer rather than a column somebody
-/// has to keep in step.
+/// Derived on read, nothing stored: an owner's <c>WEBSITE</c> and their game's own report are two
+/// rows keyed <c>(game, field, source)</c>, and which wins is <see cref="FieldPrecedence"/>'s
+/// answer rather than a column kept in step by hand.
 /// </para>
 /// <para>
-/// <b>The icons are navigation and the chips are the record.</b> A link carries its source and age so
-/// a surface can say them, but the game page keeps printing the full provenance chip under "declared
-/// by the game" — nine chips beside a title is not a page, and one fact rendered twice in two places
-/// is two places for it to disagree.
+/// The icons are navigation, the chips are the record: a link carries its source and age so a
+/// surface can say them, but the game page still prints the full provenance chip — one fact
+/// rendered twice in two places is two places for it to disagree.
 /// </para>
 /// </remarks>
 public static class QuickLinks
@@ -219,12 +207,10 @@ public static class QuickLinks
     /// Which fields answer which kind, in the order the links are rendered.
     /// </summary>
     /// <remarks>
-    /// A list per kind rather than a field per kind, for <see cref="LinkKind.Email"/> alone: MSSP's
-    /// <c>CONTACT</c> is asked first because it is the official variable, and the unofficial
-    /// <c>EMAIL</c> answers only where <c>CONTACT</c> holds nothing we could dial. The fallback runs
-    /// across fields and never within one — an owner's row beats their game's report and that is the
-    /// end of it, because falling back inside a field would put one value beside the title and a
-    /// different one in the list below.
+    /// A list per kind, needed only for <see cref="LinkKind.Email"/>: <c>CONTACT</c> is asked first,
+    /// <c>EMAIL</c> only where <c>CONTACT</c> holds nothing dialable. The fallback runs across
+    /// fields and never within one — falling back inside a field would put one value beside the
+    /// title and a different one in the list below.
     /// </remarks>
     private static readonly (LinkKind Kind, string[] Fields)[] Sources =
     [

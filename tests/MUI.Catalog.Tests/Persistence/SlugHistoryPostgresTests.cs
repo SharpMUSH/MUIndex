@@ -110,10 +110,9 @@ public class SlugHistoryPostgresTests
     [Test]
     public async Task AGameThatGivesUpAUrlItHasGivenUpBeforeStillReportsTheMove()
     {
-        // A -> B -> A -> B. The fourth rename retires a slug already in the table, so the insert is
-        // suppressed — and reading the answer off the insert reported "the slug did not move" while
-        // the URL moved underneath it. What the caller asked was what this game used to be at, and
-        // the row it already has is the record, not the write.
+        // A -> B -> A -> B: the fourth rename retires a slug already in the table, so the insert is
+        // suppressed. Reading the answer off the insert alone would report "the slug did not move"
+        // while the URL moved underneath it — the row already there is the record, not the write.
         await using var db = await PostgresFixture.MigratedAsync();
         var games = new NpgsqlGameStore(db.DataSource);
         var history = new NpgsqlSlugHistoryStore(db.DataSource);

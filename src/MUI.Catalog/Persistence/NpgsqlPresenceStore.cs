@@ -12,11 +12,9 @@ namespace MUI.Catalog.Persistence;
 /// </summary>
 /// <remarks>
 /// The table is RANGE-partitioned monthly, and this is the only class that knows it. A partition is
-/// created before every append <em>as well as</em> ahead of need by the maintenance pass, because the
-/// alternative to the per-append check is losing a measurement to a calendar rollover, and the check
-/// costs one <c>CREATE TABLE IF NOT EXISTS</c> against a catalogue lookup. The partition lifecycle in
-/// full — make ahead, list, drop whole once rolled up — lives here for the same reason: two places
-/// that named a month differently would drop a month neither of them meant.
+/// created before every append as well as ahead of need by the maintenance pass — the alternative to
+/// the per-append check is losing a measurement to a calendar rollover. The whole partition lifecycle
+/// (make ahead, list, drop once rolled up) lives here so two places can't name a month differently.
 /// </remarks>
 public sealed class NpgsqlPresenceStore(NpgsqlDataSource source) : IPresenceStore
 {
@@ -94,9 +92,8 @@ public sealed class NpgsqlPresenceStore(NpgsqlDataSource source) : IPresenceStor
     /// <paramref name="through"/> falls in, and returns the ones that did not exist yet.
     /// </summary>
     /// <remarks>
-    /// The per-append check above is what keeps a measurement from being lost to a calendar rollover;
-    /// this is what keeps that check from ever being the thing that discovers a database it cannot
-    /// write DDL to, at midnight on the 31st, in the one code path that has a measurement in hand.
+    /// Called ahead of need so the per-append DDL check is never the first thing to discover a
+    /// database it cannot write DDL to, at midnight on the 31st, with a measurement in hand.
     /// </remarks>
     public async Task<IReadOnlyList<string>> EnsurePartitionsThroughAsync(
         DateTimeOffset from,
@@ -149,17 +146,11 @@ public sealed class NpgsqlPresenceStore(NpgsqlDataSource source) : IPresenceStor
     /// returns what it dropped (spec §5.2, §15.4).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Whole partitions, never rows.</b> This is what the monthly RANGE partitioning in migration
-    /// 0003 was for: a <c>DELETE</c> over hundreds of millions of rows is a day of vacuum, and a
-    /// <c>DROP TABLE</c> of a month is a catalogue update. It follows that a month is kept until every
-    /// hour in it has aged out, which is up to a month longer than a deployment asked for — the safe
-    /// direction to be wrong in.
-    /// </para>
-    /// <para>
-    /// The caller decides the boundary, and <see cref="PresenceMaintenance"/> never sets it later than
-    /// what the rollups have consumed. A partition nobody has aggregated is the only copy there is.
-    /// </para>
+    /// Whole partitions, never rows: a <c>DELETE</c> over hundreds of millions of rows is a day of
+    /// vacuum, a <c>DROP TABLE</c> of a month is a catalogue update. A month is kept until every hour
+    /// in it has aged out — up to a month longer than asked for, the safe direction to be wrong in.
+    /// <see cref="PresenceMaintenance"/> never sets the boundary later than what rollups have
+    /// consumed; an unaggregated partition is the only copy there is.
     /// </remarks>
     public async Task<IReadOnlyList<string>> DropPartitionsEndingAtOrBeforeAsync(
         DateTimeOffset boundary,
@@ -245,21 +236,12 @@ public sealed class NpgsqlPresenceStore(NpgsqlDataSource source) : IPresenceStor
         /// Reads the <c>aggregates</c> column, dropping an estimate that does not name its epoch.
         /// </summary>
         /// <remarks>
-        /// <para>
-        /// <b>One unreadable row may not cost the window it is in.</b> <see cref="PresenceAggregates"/>
-        /// refuses to be constructed with an estimate and no salt epoch (§11), and deserialising
-        /// straight into it made that refusal throw out of the middle of a read — so a single row
-        /// written before the rule existed, or edited by hand, took every other measurement in the
-        /// window with it. Reading through a shape with no invariant and then applying the rule keeps
-        /// the refusal and confines it to the row it is about.
-        /// </para>
-        /// <para>
-        /// Dropping the estimate rather than the row is what the rule actually says: an estimate with
-        /// no epoch is not a number anything may compare with another, and the idle buckets beside it
-        /// were never derived from a name at all. The aggregation in
-        /// <see cref="NpgsqlPresenceRollupStore"/> filters the same case in SQL, so the two paths
-        /// agree about what is readable.
-        /// </para>
+        /// One unreadable row may not cost the window it is in. <see cref="PresenceAggregates"/>
+        /// refuses construction with an estimate and no salt epoch (§11); deserialising straight into
+        /// it made that refusal throw mid-read, so one bad row took the whole window with it. Reading
+        /// through this invariant-free shape first confines the refusal to the row it's about. Only
+        /// the estimate is dropped, not the row — <see cref="NpgsqlPresenceRollupStore"/> filters the
+        /// same case in SQL, so both paths agree on what's readable.
         /// </remarks>
         private static PresenceAggregates? ReadAggregates(string? json)
         {
@@ -284,9 +266,8 @@ public sealed class NpgsqlPresenceStore(NpgsqlDataSource source) : IPresenceStor
     /// </summary>
     /// <remarks>
     /// A row written before the unique-player estimate was removed may still carry
-    /// <c>distinctEstimate</c> and <c>saltEpoch</c> keys. They are not members here, so they are
-    /// ignored on the way back in — which is the outcome wanted: an estimate that miscounted every
-    /// renamed player does not come back to life because an old row still holds one.
+    /// <c>distinctEstimate</c>/<c>saltEpoch</c> keys; they aren't members here, so an old row can't
+    /// bring that estimate back to life.
     /// </remarks>
     private sealed record StoredAggregates(IReadOnlyList<int>? IdleBuckets);
 }

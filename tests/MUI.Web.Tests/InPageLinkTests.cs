@@ -6,19 +6,8 @@ namespace MUI.Web.Tests;
 /// Every in-page link lands on something the page rendered.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A fragment that names no id is not a broken link a browser reports: it scrolls nowhere and says
-/// nothing, and to a screen reader following it the page simply does not move. Nothing in a build
-/// log or an HTTP status ever mentions it.
-/// </para>
-/// <para>
-/// This began as a test of the game page's footer, where a link to <c>#changed</c> was rendered
-/// unconditionally beside a section that was not. That footer is gone — its two jump links pointed
-/// a screen and a half back up a page they sat at the bottom of, and the rest of it was the site's
-/// own navigation restated. What is left is the rule the old test happened to prove, asked of every
-/// page rather than one, and it now covers the link a keyboard reader meets first: the skip link
-/// in the bar, which nothing had ever followed.
-/// </para>
+/// A fragment naming no id is not a broken link a browser reports — it scrolls nowhere and says
+/// nothing, silently, to a screen reader too. Nothing in a build log or HTTP status ever mentions it.
 /// </remarks>
 public class InPageLinkTests
 {
@@ -47,9 +36,8 @@ public class InPageLinkTests
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        // A sweep over "every in-page link" asserts nothing where a page renders none and passes
-        // anyway. Every page on this site carries the skip link at least, so an empty list here is
-        // the layout having lost it rather than this test having nothing to do.
+        // Every page carries at least the skip link, so an empty list means the layout lost it, not
+        // that this test has nothing to check.
         await Assert.That(targets).IsNotEmpty()
             .Because($"{path} renders no in-page link at all, not even the skip link");
 

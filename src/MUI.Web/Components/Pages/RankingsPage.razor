@@ -4,21 +4,14 @@
 @inject TimeProvider Clock
 
 @*
-    The rankings (spec §9), computed from measured data only.
+    The rankings (spec §9), computed from measured data only. "Busiest" is defensible once the
+    window, statistic, and eligible set are stated; "best" is not, at any length, because nobody
+    measured it — the vote affordance that would let readers assert it is ruled out permanently by
+    §2 (vote-gaming is what reduced Top Mud Sites to a link graveyard). Both tables here say what
+    they rank on, over what window, out of how many games, and what they exclude.
 
-    What a ranking on this site can honestly be is a short list. "Busiest" is defensible once the
-    window, the statistic and the eligible set are stated: it is the median of counts we actually
-    read, over seven days, among the games that produced enough samples to have a median. "Best" is
-    not defensible at any length, because nobody measured it — and the affordance that would let
-    readers assert it is the one thing §2 rules out permanently, since vote-gaming is what reduced
-    Top Mud Sites to a link graveyard.
-
-    So both tables here say what they rank on, over what window, out of how many games, and what
-    they exclude. A ranking whose arithmetic a reader cannot check is a ranking they have to trust,
-    and this site does not ask for trust.
-
-    The component is RankingsPage and not Rankings because the view model it renders is called
-    Rankings, and a page class of that name shadows it inside its own code block.
+    Named RankingsPage rather than Rankings because the view model it renders is called Rankings,
+    which would shadow a page class of that name inside its own code block.
 *@
 
 @if (Plain)
@@ -36,12 +29,8 @@ else
     <section aria-labelledby="busiest">
         <h2 id="busiest">@L("rankings.busiest.title")</h2>
 
-        @*
-            Three windows, as links rather than as a control. The page is a document and the window
-            is part of its address, so the browser's back button works, the tab can be shared, and a
-            text browser gets the same three choices — which is the whole test §9 sets for a
-            graphic. aria-current marks the live one, so the state is announced and not only shaded.
-        *@
+        @* Three windows as links, not a control: the window is part of the page's address, so
+           back/share/text-browsers all work. aria-current marks the live one. *@
         <nav class="spans" aria-label="@L("rankings.window.label")">
             @foreach (var span in RankingSpans.All)
             {
@@ -81,15 +70,13 @@ else
                             <tr>
                                 <td class="place mono">@Place(Table.Busiest.Select(g => g.Median), game.Median)</td>
                                 <th scope="row"><a href="@Http.Link($"/g/{game.Slug}")">@game.Name</a></th>
-                                @* The rank is on the median, so the median is the emphasised cell and
-                                   the peak sits beside it as context. A peak is one sample, and a game
-                                   that had forty players for a minute is not busier than one that has
-                                   thirty all day. *@
+                                @* Ranked on the median, not the peak: a peak is one sample, and a
+                                   game with 40 players for a minute isn't busier than one with 30
+                                   all day. *@
                                 <td class="mono state-present">@game.Median</td>
                                 <td class="mono">@game.Peak</td>
                                 <td class="mono faint">@game.Samples</td>
-                                @* The other half of the basis: a thousand samples means something
-                                   different over ninety days than over three. *@
+                                @* A thousand samples means something different over 90 days than over 3. *@
                                 <td class="mono faint">@game.Days / @((int)Table.Window.TotalDays)</td>
                             </tr>
                         }
@@ -124,30 +111,13 @@ else
                         @foreach (var spell in Table.LongestUnbroken)
                         {
                             <tr>
-                                @*
-                                    Tied games share a place. Every one of the twenty rows here read
-                                    "31 July 2026" and they were numbered 1 to 20 — an order the
-                                    measurements do not contain, printed by a site whose whole
-                                    argument is that it prints only what it measured.
-                                *@
-                                @*
-                                    Earliest first, because a spell that started sooner is the
-                                    longer one — and `Place` gives the first place to the *greatest*
-                                    value, so ranking on `Since.Ticks` ranked this table backwards:
-                                    Midnight Sun II, reachable on every probe since June, was
-                                    printed as seventh of seven under a heading that says longest,
-                                    while the `?plain=1` mirror numbered the same rows from a
-                                    counter and got them right. The page and its own text
-                                    alternative disagreed about a ranking.
-
-                                    On `Since` rather than on the duration, even though the duration
-                                    is what the heading names. `Now` is `Clock.GetUtcNow()` and each
-                                    read of it is a fresh instant, so `LengthAt(Now)` differs by
-                                    microseconds between the row and the sequence it is compared
-                                    against — which breaks every tie and invents a place. The start
-                                    date is the measurement; the duration is that date read against
-                                    a clock, and only one of the two is stable enough to sort on.
-                                *@
+                                @* Tied games share a place — numbering them sequentially would
+                                   print an order the measurements don't contain. Ranked on `Since`
+                                   rather than the duration the heading names: `Now` is a fresh
+                                   instant on every read, so comparing `LengthAt(Now)` breaks ties by
+                                   microseconds and invents a place. `Place` ranks the *greatest*
+                                   value first, so this uses `PlaceEarliest` — ranking on
+                                   `Since.Ticks` with `Place` put the longest-running game last. *@
                                 <td class="place mono">
                                     @PlaceEarliest(Table.LongestUnbroken.Select(s => s.Since), spell.Since)
                                 </td>
@@ -162,8 +132,6 @@ else
         }
     </section>
 
-    @* The note is a fact about what the two tables contain, so it survives the footer that used
-       to carry it — the three links beside it did not, because all three are in the bar. *@
     <p class="faint">
         @L("rankings.archivedNote")
     </p>
@@ -189,32 +157,18 @@ else
 
     private Rankings Table = Rankings.Empty(default, TimeSpan.Zero, 0);
 
-    /// <summary>
-    /// Where a row places, with tied rows sharing a place.
-    /// </summary>
+    /// <summary>Where a row places, with tied rows sharing a place.</summary>
     /// <remarks>
-    /// <para>
-    /// Competition ranking: a row's place is one more than the number of rows strictly above it, so
-    /// four games on the same median are four number 4s and the next is a 8. Numbering them 4, 5, 6,
-    /// 7 would state an order the measurement does not contain — the whole of finding S5, and the
-    /// opposite of what every other surface here is careful about.
-    /// </para>
-    /// <para>
-    /// Rows are ordered as the query returned them, and the table's caption says the ties are ties
-    /// rather than leaving a reader to infer a tiebreaker we did not apply.
-    /// </para>
+    /// Competition ranking: four games tied on the median are all place 4 and the next is place 8.
+    /// Numbering them 4, 5, 6, 7 would state an order the measurement doesn't contain.
     /// </remarks>
     private static int Place<T>(IEnumerable<T> values, T value) where T : IComparable<T> =>
         1 + values.Count(v => v.CompareTo(value) > 0);
 
-    /// <summary>
-    /// The same place, for a column where the smallest value is the best one.
-    /// </summary>
+    /// <summary>The same place, for a column where the smallest value is the best one.</summary>
     /// <remarks>
-    /// The longest unbroken spell is the one that started earliest, and an earlier date is a smaller
-    /// number — so it needs the opposite comparison from a median or a peak, and sharing
-    /// <see cref="Place{T}"/> between them ranked it backwards. Ties still share a place, which is
-    /// the rule the whole column exists for.
+    /// An earlier start date is the better result, which needs the opposite comparison from
+    /// <see cref="Place{T}"/> — sharing that method between them ranked this column backwards.
     /// </remarks>
     private static int PlaceEarliest<T>(IEnumerable<T> values, T value) where T : IComparable<T> =>
         1 + values.Count(v => v.CompareTo(value) < 0);

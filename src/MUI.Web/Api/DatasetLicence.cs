@@ -6,17 +6,9 @@ namespace MUI.Web.Api;
 /// The terms the published data goes out under, and who is credited in it.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Configuration and not a literal, because the code's licence and the dataset's are two separate
-/// decisions: the code is MIT and the dataset licence is still an open question (spec §15.2). A
-/// constant in the source would settle by accident a question the design deliberately left open,
-/// and would then be wrong in every deployment that answered it differently.
-/// </para>
-/// <para>
-/// The default is attribution-only, which is the weakest thing compatible with §10's actual
-/// commitment: republish rather than silo. A rival directory taking this dataset wholesale is a
-/// success condition here, so the default must not stand in its way — it only asks to be named.
-/// </para>
+/// Configuration, not a literal: the code's MIT licence and the dataset's are separate decisions, and
+/// the dataset licence is still open (spec §15.2). The default is attribution-only — the weakest
+/// thing compatible with §10's commitment to republish rather than silo.
 /// </remarks>
 public sealed class DatasetLicenceOptions
 {
@@ -36,11 +28,7 @@ public sealed class DatasetLicenceOptions
         + "confirmed. Player names are never recorded, and no absolute population figure is "
         + "published — per-codebase and per-protocol shares are, totals are not.";
 
-    /// <summary>
-    /// Third parties whose data was ingested (spec §7.6). Empty until something has been imported:
-    /// crediting a source we have not read yet would be the one kind of unmeasured claim this site
-    /// exists not to make.
-    /// </summary>
+    /// <summary>Third parties whose data was ingested (spec §7.6). Empty until something has actually been imported.</summary>
     public List<AttributionOption> Sources { get; set; } = [];
 
     public LicenceView View() => new(LicenceId, LicenceName, LicenceUrl, Attribution);

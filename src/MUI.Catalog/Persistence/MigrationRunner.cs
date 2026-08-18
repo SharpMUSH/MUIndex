@@ -13,10 +13,9 @@ namespace MUI.Catalog.Persistence;
 /// own transaction, recording each in the <c>mui_migration</c> ledger.
 /// </summary>
 /// <remarks>
-/// Idempotent by construction: it runs on every process start, in every replica, for ever, and a
-/// second run must apply nothing. Deliberately not a migration framework — plain SQL files and a
-/// ledger table are legible to anyone with <c>psql</c>, which is the property that matters when
-/// something has gone wrong in production at four in the morning.
+/// Idempotent by construction: runs on every process start, in every replica, and a second run
+/// applies nothing. Deliberately plain SQL files and a ledger table rather than a migration
+/// framework, so it stays legible with just <c>psql</c>.
 /// </remarks>
 public sealed class MigrationRunner(NpgsqlDataSource source, ILogger? logger = null)
 {
@@ -35,10 +34,9 @@ public sealed class MigrationRunner(NpgsqlDataSource source, ILogger? logger = n
     /// <summary>Applies whatever has not been applied yet, and returns the names of what it ran.</summary>
     public async Task<IReadOnlyList<string>> ApplyAsync(CancellationToken cancellationToken = default)
     {
-        // An empty set is never "nothing to do": this assembly is built with the migrations embedded
-        // in it, so no scripts means the binary was assembled without them, and applying nothing
-        // would leave a site running against a database with no schema and no complaint. Refusing to
-        // start is the smaller failure.
+        // An empty set means this binary was assembled without migrations/, not that there's
+        // nothing to do — applying nothing would leave the site running against a schema-less
+        // database with no complaint. Refusing to start is the smaller failure.
         if (Scripts.Count == 0)
         {
             throw new InvalidOperationException(

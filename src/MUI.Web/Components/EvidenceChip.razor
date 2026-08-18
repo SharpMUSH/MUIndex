@@ -3,16 +3,9 @@
 @*
     The evidence badge: a glyph, and the word, always both.
 
-    The glyphs are the site's own state vocabulary — ● for something we watched, ◇ for something only
-    claimed, ◆ for a claim we grouped ourselves — and they are aria-hidden, because the word beside
-    them is the same fact and a screen reader announcing "black circle measured" is worse than
-    announcing "measured". Colour is never the carrier: the word is legible with no ink at all, which
-    is also why the third glyph is the second one filled in rather than a shape nobody has seen
-    before — derived is a declaration with our hand on it, and reads as one.
-
-    One component rather than a copy per surface. The listing's facet panel had the only one, and the
-    moment a second page needed a badge the two would have had to agree about three glyphs, three
-    class names and three words without ever being compared.
+    ● measured, ◇ claimed, ◆ derived (a claim we grouped ourselves — the filled-in ◇ reads as "our
+    hand on it"). Glyphs are aria-hidden since the word carries the same fact; a screen reader
+    announcing "black circle measured" is worse than "measured". Colour is never the sole carrier.
 *@
 
 <span class="evidence @Kind">
@@ -23,12 +16,8 @@
 @code {
     [Parameter, EditorRequired] public FacetEvidence Evidence { get; set; }
 
-    @*
-        The badge reads its own locale rather than taking one from every caller. The word is the
-        carrier here — the glyph beside it is aria-hidden — so a chip rendered in the source
-        language inside a translated page is the one failure this component exists to make
-        impossible, and a parameter every call site has to remember is how that happens.
-    *@
+    @* Reads its own locale rather than taking one from every caller, so a chip can't render in the
+       source language inside a translated page. *@
     [CascadingParameter] private HttpContext? Http { get; set; }
 
     private string Glyph => Evidence switch

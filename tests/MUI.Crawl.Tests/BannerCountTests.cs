@@ -8,7 +8,7 @@ namespace MUI.Crawl.Tests;
 /// </summary>
 public class BannerCountTests
 {
-    /// <summary>aardmud.org:4000, captured 2026-07-30. The count sits inside the ASCII art.</summary>
+    /// <summary>A real connect screen where the count sits inside the ASCII art.</summary>
     private const string AardwolfBanner = """""
         #############################################################################
         ##[                                               ]##########################
@@ -91,11 +91,9 @@ public class BannerCountTests
     /// The second way a screen states a count: a sentence rather than a label.
     /// </summary>
     /// <remarks>
-    /// Both fixtures are live connect screens of games recorded as having no count.
-    /// <c>telehack.com:23</c> prints its sentence in the connect screen <em>and</em> in its
-    /// <c>WHO</c>, and it was unreadable in both places for two unrelated reasons — this reader had
-    /// its own, narrower idea of what a stated count looks like. It now goes through
-    /// <see cref="WhoParser.TryStatedCount"/>, which is the one the <c>WHO</c> reply uses.
+    /// Both fixtures are live connect screens. This reader now goes through
+    /// <see cref="WhoParser.TryStatedCount"/>, the same one the <c>WHO</c> reply uses, rather than
+    /// keeping its own narrower idea of what a stated count looks like.
     /// </remarks>
     [Test]
     [Arguments("It is 8:00 pm in Mountain View.\nThere are 122 local users.", 122)]

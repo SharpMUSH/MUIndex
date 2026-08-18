@@ -44,11 +44,10 @@ public class GameQueriesPostgresTests
     /// game from the listing.
     /// </summary>
     /// <remarks>
-    /// <b>It lifted all three until now.</b> The predicate read
-    /// <c>@includeArchived OR state NOT IN ('archived', 'excluded')</c>, so a reader who ticked "show
-    /// me the archive" was also handed every stock <c>Your MUD Name</c> instance an editor had ruled
-    /// out — asking one question and being answered another. `unlisted` would have inherited the same
-    /// bug and been worse: the one state whose entire purpose is that browsing does not reach it.
+    /// Previously read <c>@includeArchived OR state NOT IN ('archived', 'excluded')</c>, so ticking
+    /// "show the archive" also revealed every excluded game — asking one question, answered
+    /// another. <c>unlisted</c> would have inherited the same bug and been worse: the one state
+    /// whose entire purpose is that browsing does not reach it.
     /// </remarks>
     [Test]
     public async Task TheArchiveToggleRevealsTheArchiveAndNothingElse()
@@ -83,13 +82,10 @@ public class GameQueriesPostgresTests
     /// referral links as well.
     /// </summary>
     /// <remarks>
-    /// <b>Both surfaces read <c>Public</c> alone</b>, which says who vouched for a game and nothing
-    /// about its lifecycle — so a game taken out of the listing went on being offered as a *newly
-    /// discovered* entry and as a link on its neighbour's page. Excluding something from the listing
-    /// and then linking to it from the listing's own pages is not excluding it.
-    ///
-    /// <c>archived</c> is deliberately still in both: the archive is a browsable section in its own
-    /// right, and "came back" is the entry §7.5 promises when one answers again.
+    /// Both surfaces read <c>Public</c> alone, which says who vouched for a game and nothing about
+    /// its lifecycle — so a game taken out of the listing kept appearing as newly discovered and as
+    /// a link on its neighbour's page. <c>archived</c> stays in both deliberately: the archive is a
+    /// browsable section in its own right.
     /// </remarks>
     [Test]
     public async Task NeitherTheFeedsNorTheNeighboursOfferAGameThatIsNotBrowsable()
@@ -123,9 +119,7 @@ public class GameQueriesPostgresTests
 
     /// <summary>The argument behind an exclusion reaches the page that carries the decision.</summary>
     /// <remarks>
-    /// Migration 0024 shipped the column and nothing that read it, so the nine instances it was
-    /// written for rendered as ordinary pages with no sign that anybody had decided anything. An
-    /// unlisting has no counterpart here on purpose: it is not our argument to print.
+    /// An unlisting has no counterpart here on purpose: it is not our argument to print.
     /// </remarks>
     [Test]
     public async Task AnExclusionsReasonIsOnItsPage()
@@ -334,14 +328,13 @@ public class GameQueriesPostgresTests
     [Test]
     public async Task ACountAGameAssertedAboutItselfIsNeverLabelledAsOneWeMeasured()
     {
-        // Rule 5, at the point it is most tempting to break: an MSSP PLAYERS line is the game's own
-        // claim, and a listing that dressed it as a reading of ours would be the exact confusion the
-        // incumbents' directories run on. Same number, different fact.
+        // Rule 5: an MSSP PLAYERS line is the game's own claim, and labelling it as a reading of
+        // ours would be the exact confusion the incumbent directories run on. Same number,
+        // different fact.
         //
-        // Three sources reach this column and they are three different facts, so all three are here.
-        // `banner` is on the measured side — we parse that number off the connect screen ourselves,
-        // on every probe, which is what migration 0003 has said since the table was written — and it
-        // stays distinguishable from `who` by its source rather than by its verdict.
+        // Three sources reach this column and are three different facts. `banner` is on the
+        // measured side — we parse that number off the connect screen ourselves, on every probe —
+        // and stays distinguishable from `who` by its source rather than by its verdict.
         await using var db = await PostgresFixture.MigratedAsync();
         var measured = await Seed.GameAsync(db, "measured", "Measured");
         var asserted = await Seed.GameAsync(db, "asserted", "Asserted");
@@ -382,9 +375,7 @@ public class GameQueriesPostgresTests
     [Test]
     public async Task APageAskedForByIdIsTheSamePageAskedForBySlug()
     {
-        // Two keys for one game (§5.7), and one read either way. The id route used to get its page
-        // by assembling a whole summary — fields, presence digest, chips, on its own connection —
-        // and then throwing all of it away but the slug, which the slug route promptly re-read.
+        // Two keys for one game (§5.7); both routes must read one path so they cannot disagree.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db, lastReachableAt: Now);
 
@@ -411,9 +402,8 @@ public class GameQueriesPostgresTests
     [Test]
     public async Task AnArchivedGameStillAnswersToItsId()
     {
-        // Archiving takes a game out of the default listing and out of nothing else (§7.5). The
-        // scan this replaced asked for archived games explicitly; a lookup that quietly dropped
-        // them would take away a URL that used to work.
+        // Archiving takes a game out of the default listing and out of nothing else (§7.5); a
+        // lookup by id must not quietly drop it.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db, "gaslight-row", "Gaslight Row", LifecycleState.Archived);
 
@@ -426,9 +416,8 @@ public class GameQueriesPostgresTests
     [Test]
     public async Task AGameLookedUpByIdIsTheSameSummaryTheListingReturned()
     {
-        // The owner surfaces address a game by id (§5.7) and were handed a summary with neither its
-        // labels nor its last-reachable moment — so a claimed listing said "never reached" about a
-        // game the public listing showed as reachable minutes ago.
+        // The owner surfaces address a game by id (§5.7) — a claimed listing must not disagree with
+        // the public listing about the same game's reachability.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db, lastReachableAt: Now.AddMinutes(-5));
 
@@ -510,10 +499,9 @@ public class GameQueriesPostgresTests
     /// §9's referral neighbours, both arrows, off the reverse index that had no reader.
     /// </summary>
     /// <remarks>
-    /// The direction is kept apart because the two are different people's claims: "our list names
-    /// them" is a fact about what this game published, and "their list names us" is a fact about
-    /// what somebody else did. Merged into one bag, each game's list would be attributed to the
-    /// other.
+    /// Kept apart because the two are different people's claims: "our list names them" is what this
+    /// game published, "their list names us" is what somebody else did. Merged into one bag, each
+    /// game's list would be attributed to the other.
     /// </remarks>
     [Test]
     public async Task AGamePageNamesWhoItListsAndWhoListsIt()
@@ -547,9 +535,9 @@ public class GameQueriesPostgresTests
     /// Being named by somebody's referral is not a way onto a public surface.
     /// </summary>
     /// <remarks>
-    /// The rule that keeps an unclaimed submission off every public page applies to a neighbour list
-    /// exactly as it applies to the listing. Without it, anyone could put a game they submitted onto
-    /// a stranger's page by publishing a REFERRAL to it.
+    /// The rule that keeps an unclaimed submission off every public page applies to a neighbour
+    /// list too — otherwise anyone could put a game they submitted onto a stranger's page by
+    /// publishing a REFERRAL to it.
     /// </remarks>
     [Test]
     public async Task AnUnclaimedSubmissionIsNotANeighbour()
@@ -637,10 +625,9 @@ public class GameQueriesPostgresTests
     [Test]
     public async Task TheGridSurvivesTheRawSamplesBeingDroppedBehindTheRollup()
     {
-        // §5.2's whole point. The rollup is the copy raw samples are allowed to be dropped in favour
-        // of, so a cell whose only surviving evidence is a rolled-up bucket must still render as what
-        // it was — and both of the states the tally keeps apart must come back, because a hatched
-        // hour re-read as a gap is §5.4's worst collapse arriving by way of retention.
+        // §5.2: raw samples may be dropped only after the rollup has consumed them, so a cell whose
+        // only surviving evidence is a rolled-up bucket must still render as what it was — a hatched
+        // hour re-read as a gap would be §5.4's worst collapse arriving by way of retention.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var presence = new NpgsqlPresenceStore(db.DataSource);
@@ -671,10 +658,9 @@ public class GameQueriesPostgresTests
     [Test]
     public async Task AnHourProbedSinceTheLastRollupIsStillOnTheGrid()
     {
-        // The rollup only ever consumes whole elapsed hours, so the newest hours on the grid are
-        // always ahead of the watermark. Reading the rollup alone would render the probe we took ten
-        // minutes ago as an hour nobody measured — the same collapse from the other end, and on the
-        // part of the grid a reader looks at first.
+        // The rollup only consumes whole elapsed hours, so the newest hours are always ahead of the
+        // watermark. Reading the rollup alone would render a probe from ten minutes ago as an hour
+        // nobody measured.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var presence = new NpgsqlPresenceStore(db.DataSource);
@@ -812,17 +798,11 @@ public class GameQueriesPostgresTests
     /// The screen's caption says what the probe applied, and never what somebody asked for.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Those come apart whenever an override names an encoding the runtime does not have, which
-    /// <c>WireEncoding.Override</c> ignores in favour of reading the bytes the ordinary way. Reading
-    /// the raw <c>CHARSET/staff</c> row here would then caption a Latin-1 screen "read as
-    /// not-an-encoding" — a sentence about the screen that is not true of it, and one no reader
-    /// could tell from a real measurement.
-    /// </para>
-    /// <para>
-    /// <c>charset.read</c> exists only where the encoding was determined, so the unusable override
-    /// correctly yields no caption at all rather than a confident wrong one.
-    /// </para>
+    /// <c>WireEncoding.Override</c> ignores an override naming an encoding the runtime does not
+    /// have, falling back to reading the bytes the ordinary way. Captioning from the raw
+    /// <c>CHARSET</c> row instead would print a caption that is not true of the screen.
+    /// <c>charset.read</c> exists only where the encoding was actually determined, so an unusable
+    /// override yields no caption at all.
     /// </remarks>
     [Test]
     public async Task AnUnusableOverrideCaptionsNothingRatherThanItself()
@@ -849,7 +829,7 @@ public class GameQueriesPostgresTests
 
     /// <summary>UTF-8 is the ordinary case and earns no caption.</summary>
     /// <remarks>
-    /// A line of provenance on all 522 screens would bury the handful where the encoding is the
+    /// A caption on every ordinary screen would bury the handful where the encoding is the
     /// interesting fact.
     /// </remarks>
     [Test]

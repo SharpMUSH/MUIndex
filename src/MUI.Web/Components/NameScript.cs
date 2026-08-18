@@ -7,36 +7,26 @@ namespace MUI.Web.Components;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The listing already contains 北大侠客行 inside a page declared <c>lang="en"</c>.</b> A screen
-/// reader picks its voice and its pronunciation rules from that attribute, so it attempts Chinese
-/// characters with English phonetics — which is not an accent, it is noise. The same attribute is
-/// what selects between the regional Han forms a font serves, so an untagged Japanese game name on a
-/// page whose CJK fallback resolves to a Simplified face is drawn wrong in a way a Japanese reader
-/// notices immediately.
+/// A page declared <c>lang="en"</c> still contains names like 北大侠客行. A screen reader picks
+/// pronunciation from that attribute, so untagged CJK gets attempted with English phonetics — noise,
+/// not an accent — and the same attribute selects between regional Han font forms a page's CJK
+/// fallback might otherwise get wrong.
 /// </para>
 /// <para>
-/// <b>This only ever answers where the answer is not a guess.</b> A script maps to a language when
-/// it is used for essentially one — Thai, Hangul, Greek, Hebrew, Arabic — and kana settle Japanese
-/// whenever any appear. It does <em>not</em> map where the script is shared: Cyrillic is Russian and
-/// Ukrainian and Bulgarian and a dozen more, Devanagari is Hindi and Marathi and Nepali, and Han
-/// without kana is Chinese or Japanese with no way to tell from the codepoints. In those cases the
-/// tag is left off entirely rather than filled in with whichever is commonest. An absent
-/// <c>lang</c> costs a glyph variant; a wrong one asserts something about somebody's game that we
-/// did not measure, which is the thing this site exists not to do.
+/// <b>This only answers where the answer isn't a guess.</b> A script maps to a language only when
+/// it's used for essentially one (Thai, Hangul, Greek, Hebrew, Arabic; kana settle Japanese). It does
+/// <em>not</em> map where the script is shared — Cyrillic, Devanagari, Han without kana — and the tag
+/// is left off entirely rather than guessed. An absent <c>lang</c> costs a glyph variant; a wrong
+/// one asserts something about a game we did not measure.
 /// </para>
 /// <para>
-/// <b>Direction is a separate question and is always answered.</b> <c>dir</c> on a <c>&lt;bdi&gt;</c>
-/// makes those characters flow right-to-left <em>inside the box they occupy</em> and moves nothing
-/// else — the row, the grid and the column order stay left-to-right. That is the whole of the RTL
-/// requirement here (i18n S6): text runs have a direction, layouts have a direction, and only the
-/// first is in scope. Without it an Arabic name and the neutral characters beside it renegotiate
-/// order with the count in the next cell, and the number lands on the wrong side of the row.
+/// <b>Direction is answered separately, always.</b> <c>dir</c> on a <c>&lt;bdi&gt;</c> flows those
+/// characters right-to-left <em>inside their own box</em> and moves nothing else — row, grid and
+/// column order stay left-to-right (i18n S6). Without it an Arabic name renegotiates order with the
+/// count in the next cell, and the number lands on the wrong side of the row.
 /// </para>
 /// <para>
-/// Derived at render time from the characters themselves. It is not stored, not published as a
-/// field and not shown to a reader as a fact about the game — the handoff's preferred design detects
-/// it once at crawl time and stores it beside the name, which is the right shape and needs a
-/// migration this does not.
+/// Derived at render time from the characters themselves — not stored, not published as a field.
 /// </para>
 /// </remarks>
 public static class NameScript
@@ -82,9 +72,8 @@ public static class NameScript
             }
         }
 
-        // Han with no kana anywhere. Chinese and Japanese share these codepoints and disagree about
-        // how to draw them, and nothing in the string says which this is. Unicode unified them; we
-        // are not entitled to un-unify them by guessing.
+        // Han with no kana: Chinese and Japanese share these codepoints and disagree how to draw
+        // them, and nothing in the string says which this is.
         _ = han;
 
         return null;
@@ -94,9 +83,8 @@ public static class NameScript
     /// <c>"rtl"</c> for a right-to-left script, or null to let the surrounding direction stand.
     /// </summary>
     /// <remarks>
-    /// Answered from the first strongly-directional character, which is what the Unicode
-    /// bidirectional algorithm itself uses to type a paragraph — so a name opening with a Latin
-    /// bracket around Arabic text is still an Arabic run.
+    /// Answered from the first strongly-directional character, as the Unicode bidi algorithm itself
+    /// does — a name opening with a Latin bracket around Arabic text is still an Arabic run.
     /// </remarks>
     public static string? DirectionOf(string? text)
     {
@@ -127,9 +115,8 @@ public static class NameScript
 
     /// <summary>Whether a string needs any of this at all.</summary>
     /// <remarks>
-    /// Pure ASCII is the overwhelming majority of the catalogue and is exactly what the page's own
-    /// <c>lang</c> already describes, so it gets no attributes — five hundred rows carrying
-    /// <c>lang="en"</c> on a page that says so once is the duplication this pass removes.
+    /// Pure ASCII is most of the catalogue and is what the page's own <c>lang</c> already describes,
+    /// so it gets no attributes.
     /// </remarks>
     public static bool IsPlainAscii(string? text)
     {
@@ -169,9 +156,9 @@ public static class NameScript
     /// Which script a codepoint belongs to, at the coarseness this needs.
     /// </summary>
     /// <remarks>
-    /// Range checks rather than <see cref="CharUnicodeInfo"/>, because .NET exposes general category
-    /// and not script, and the ranges that matter here are few and stable. Anything unlisted is
-    /// <see cref="Script.Other"/> and settles nothing, which is the safe answer.
+    /// Range checks rather than <see cref="CharUnicodeInfo"/>, since .NET exposes general category
+    /// and not script. Anything unlisted is <see cref="Script.Other"/>, the safe "settles nothing"
+    /// answer.
     /// </remarks>
     private static Script Block(int cp) => cp switch
     {
@@ -188,10 +175,8 @@ public static class NameScript
         >= 0x0e00 and <= 0x0e7f => Script.Thai,
         >= 0x1100 and <= 0x11ff => Script.Hangul,
 
-        // Greek Extended: polytonic Greek and nothing else is written in it, so it settles the
-        // language exactly as the basic Greek block above does. Unlisted, it fell through to
-        // Script.Other and a name spelled with breathings — Ἑλλάς — got no lang at all, which made
-        // the answer depend on which accents the name happened to carry.
+        // Greek Extended (polytonic Greek): unlisted, it fell to Script.Other and a name spelled
+        // with breathings — Ἑλλάς — got no lang at all.
         >= 0x1f00 and <= 0x1fff => Script.Greek,
 
         >= 0x3040 and <= 0x30ff => Script.Kana,                       // hiragana and katakana

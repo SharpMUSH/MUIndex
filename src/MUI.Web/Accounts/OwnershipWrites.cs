@@ -11,32 +11,24 @@ namespace MUI.Web.Accounts;
 /// The two ownership decisions a person makes with a form (spec §8.4, §8.5).
 /// </summary>
 /// <remarks>
-/// Both are plain posts and redirects, like the rest of the account surface, and both delegate every
-/// decision to <see cref="ClaimService"/> — including who is allowed to make it. A claim id is not a
-/// credential and travels in URLs and logs, so the account has to be checked against the claim
-/// rather than assumed from the fact that somebody knew its id.
+/// Both delegate every decision to <see cref="ClaimService"/>, including who may make it. A claim id
+/// is not a credential and travels in URLs and logs, so the account is checked against the claim
+/// rather than assumed from knowledge of its id.
 /// </remarks>
 public static class OwnershipWrites
 {
     /// <summary>
     /// The word an operator types to confirm giving up a claim.
     /// </summary>
-    /// <remarks>
-    /// A constant because the dashboard prints it and this endpoint compares against it, and the
-    /// two must agree. It is never translated and is placed into the instruction as an argument:
-    /// a German page telling somebody to type <c>aufgeben</c> would be instructing them to type
-    /// the one thing this comparison rejects.
-    /// </remarks>
+    /// <remarks>A constant so the dashboard's printed instruction and this endpoint's comparison agree. Never translated — the comparison only accepts this exact word.</remarks>
     public const string ResignConfirmation = "resign";
 
     public static void MapMuiOwnership(this WebApplication app)
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        // Asking for a token on a game somebody already owns, having said which of the two things
-        // §8.5 allows you are doing. The choice is made HERE, before the token exists, because it
-        // is stored on the claim the token belongs to — a token published as a co-owner must not be
-        // settleable as a takeover.
+        // The intent (join vs. assume) is chosen HERE, before the token exists, and stored on the
+        // claim it belongs to — a token published as a co-owner must not be settleable as a takeover.
         app.MapPost("/g/{slug}/claim/start", async (
             HttpContext context,
             UserManager<MuiUser> users,
@@ -60,8 +52,8 @@ public static class OwnershipWrites
             return Back(context, $"/g/{slug}/claim");
         }).RequireAuthorization();
 
-        // Giving up a game. Explicit, which §8.4 requires of every revocation that is not a
-        // counter-claim: a claim never lapses on its own and absence never revokes.
+        // §8.4 requires every non-counter-claim revocation to be explicit: a claim never lapses on
+        // its own and absence never revokes.
         app.MapPost("/account/claims/{claimId:guid}/resign", async (
             HttpContext context,
             UserManager<MuiUser> users,
@@ -74,10 +66,8 @@ public static class OwnershipWrites
                 return Results.StatusCode(StatusCodes.Status403Forbidden);
             }
 
-            // A typed confirmation rather than a second page. Resigning is irreversible in the sense
-            // that getting back in means publishing a fresh token — recoverable, but not by pressing
-            // undo — and a bare button beside a game's name is one misclick from a listing an
-            // operator no longer owns.
+            // A typed confirmation rather than a second page — a bare button would be one misclick
+            // from a listing an operator no longer owns.
             if (!string.Equals(form["confirm"], ResignConfirmation, StringComparison.Ordinal))
             {
                 return Back(context, $"{Passkeys.DashboardPath}?resign={claimId}");
@@ -90,10 +80,7 @@ public static class OwnershipWrites
     }
 
     /// <summary>The page the operator came from, in the language they were reading it in.</summary>
-    /// <remarks>
-    /// The form they posted carries this locale in its own action, so the request has one. Same rule
-    /// as every link on the site, applied where the address is a header rather than an attribute.
-    /// </remarks>
+    /// <remarks>The posted form carries this locale in its own action, so the request always has one.</remarks>
     private static IResult Back(HttpContext context, string path) =>
         Results.Redirect(LocaleRouting.Link(context.LocaleOf().Tag, path));
 }

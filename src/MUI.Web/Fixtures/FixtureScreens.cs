@@ -4,10 +4,8 @@ namespace MUI.Web.Fixtures;
 /// Connect screens for the fixture, with the SGR the servers actually send.
 /// </summary>
 /// <remarks>
-/// These exist to exercise the four cases the quotation frame has to survive: a screen that fits, a
-/// screen long enough to crop, a screen too small to frame at all, and a screen long enough that the
-/// caption has to explain itself. Colour is present because a renderer that is only ever handed
-/// plain text is not a renderer that has been tested.
+/// Exercises the four cases the quotation frame has to survive: fits, crops, too small to frame, and
+/// long enough the caption has to explain itself. Colour is present so the renderer is actually tested.
 /// </remarks>
 internal static class FixtureScreens
 {

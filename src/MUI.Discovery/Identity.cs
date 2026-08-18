@@ -10,10 +10,9 @@ namespace MUI.Discovery;
 /// The weighted signals of spec §7.3, and the two thresholds they are compared against.
 /// </summary>
 /// <remarks>
-/// Spec §15.5 records that the auto-merge threshold needs calibration against real data, so these are
-/// the conservative shipping defaults and <see cref="DiscoveryOptions"/> is what a deployment tunes.
-/// The corpus in <c>IdentityCorpusTests</c> is the thing to re-run after any change; if a real merge is
-/// ever reverted twice for the same shape, that shape belongs in the corpus before the number moves.
+/// Spec §15.5: these are unvalidated conservative defaults pending calibration against real data;
+/// <see cref="DiscoveryOptions"/> is what a deployment tunes. Re-run <c>IdentityCorpusTests</c> after
+/// any change.
 /// </remarks>
 public static class IdentityWeights
 {
@@ -26,38 +25,22 @@ public static class IdentityWeights
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Exists because I3 seeds by address alone, on purpose (spec §7.6).</b> <c>I3Cycle</c> plants a
-    /// new <c>crawl_target</c> at the mudlist's bare IP, and correctly does no resolving of its own —
-    /// see its own remarks on why that machinery belongs here and nowhere else. The ordinary probe then
-    /// dials that literal IP, and <see cref="Endpoint"/>'s string comparison can never match it against
-    /// a game already on record under its DNS hostname: <c>45.79.224.33</c> is not the string
-    /// <c>nightfall.org</c>, however identical the machine. Nine confirmed pairs in production are this
-    /// exact shape — a shadow listing at the literal address, permanently stuck in review because only
-    /// <see cref="BannerHash"/> (0.50) corroborated, with I3's player counts landing on the shadow page
-    /// nobody visits while the real one goes uncounted.
+    /// Exists because I3 seeds by bare IP (spec §7.6): a probe dialling that literal address can never
+    /// match <see cref="Endpoint"/>'s string comparison against a game already on record under its DNS
+    /// hostname (<c>45.79.224.33</c> is not the string <c>nightfall.org</c>), which in production
+    /// produced shadow listings stuck in review with the game's traffic split across two pages.
     /// </para>
     /// <para>
-    /// <b>Equal to <see cref="Endpoint"/> deliberately, and only that literal.</b> The comparison this
-    /// makes is not looser than <see cref="Endpoint"/>'s, only later-binding: it resolves the
-    /// candidate's own recorded hostname (the address that was already good enough to be
-    /// <see cref="Endpoint"/> for a probe that arrived by name) and asks whether it names the same
-    /// (address, port) this probe just reached by number. Two TCP listeners cannot share one address
-    /// and port, so an agreement here is exactly as strong a claim as a literal string match — it is
-    /// the same fact, observed through a resolver instead of through equality.
+    /// <b>Equal to <see cref="Endpoint"/> deliberately, and only that literal.</b> It resolves the
+    /// candidate's own recorded hostname and asks whether it names the same (address, port) this probe
+    /// reached by number — the same fact as a literal string match, observed through a resolver
+    /// instead of equality, since two listeners cannot share one address and port.
     /// </para>
     /// <para>
-    /// <b>Cannot manufacture a candidate on its own, and that is the safety property that matters
-    /// most.</b> This is only ever evaluated for a candidate <see cref="IdentityMatcher"/> already
-    /// gathered through some other signal — a shared banner, name, website or contact — because
-    /// resolving DNS is not one of <c>CandidatesAsync</c>'s gathering steps. So a stranger cannot make
-    /// their probe merge with an arbitrary listed game merely by dialling from an address that happens
-    /// to resolve the same as somebody else's hostname; they would first have to earn a candidate the
-    /// ordinary way, on evidence this weight does not touch.
-    /// </para>
-    /// <para>
-    /// Never fires when the probed host is not a literal address — a hostname-to-hostname comparison is
-    /// <see cref="Endpoint"/>'s job, unchanged — and never fires with no resolver wired at all, which is
-    /// correct rather than degraded (see <see cref="IdentityMatcher"/>'s constructor).
+    /// <b>Cannot manufacture a candidate on its own</b> — the safety property that matters most. This
+    /// is only evaluated for a candidate <see cref="IdentityMatcher"/> already gathered through
+    /// another signal, so a stranger cannot force a merge merely by dialling from an address that
+    /// happens to resolve the same as somebody else's hostname.
     /// </para>
     /// </remarks>
     public const double ResolvedEndpoint = Endpoint;
@@ -85,16 +68,13 @@ public static class IdentityWeights
     /// <summary>The site-issued claim token (spec §7.3, §8). Decisive when present.</summary>
     /// <remarks>
     /// Ten times the auto-merge threshold, so one matching token merges two games with nothing else
-    /// agreeing — which is §7.3's "a claimed game is never duplicated". <b>Read this before treating
-    /// the number as the whole guarantee:</b> every §8 channel <em>publishes</em> the token, because
-    /// proving control without an email round-trip is the entire point, so on a bare value comparison
-    /// this weight is a merge primitive any passer-by can trigger — read a claimed game's MSSP,
-    /// republish the token from your own host, be absorbed into their listing. Secrecy cannot fix a
-    /// credential whose job is to be public. Narrowing it (the token counts on the game's own known
-    /// endpoints, and from a strange host only once the game's own addresses have stopped answering)
-    /// belongs with the half of §8 that issues and verifies tokens, and is not in this plan's scope.
-    /// Until that lands, no verified token ever reaches <c>claim_token</c> and the signal never fires —
-    /// which is correct rather than degraded.
+    /// agreeing — §7.3's "a claimed game is never duplicated". <b>The token is not a secret</b>: every
+    /// §8 channel publishes it, so on a bare value comparison anyone can read a claimed game's MSSP,
+    /// republish the token from their own host, and be absorbed into that listing. Narrowing this
+    /// (token only counts on the game's known endpoints, or once those stop answering) belongs with
+    /// the half of §8 that issues and verifies tokens — not in scope yet. Until then no verified token
+    /// ever reaches <c>claim_token</c>, so this signal never fires, which is correct rather than
+    /// degraded.
     /// </remarks>
     public const double ClaimToken = 10.0;
 
@@ -106,12 +86,11 @@ public static class IdentityWeights
 
     /// <summary>At or above this, open a review pair. Below it, a new game.</summary>
     /// <remarks>
-    /// <b>Set equal to <see cref="WebsiteOrContact"/> on purpose.</b> The review band opens at exactly
-    /// the weakest signal §7.3 calls "stable, and rarely coincidental", so one shared <c>WEBSITE</c> or
-    /// <c>CONTACT</c> earns a human's eye and nothing weaker does — a codebase in common (0.15) does
-    /// not, or the review queue would be the whole catalogue. It costs a review pair for every pair of
-    /// games behind one hosting provider's contact address, which is the cheapest error this system
-    /// makes: both pages stay live, they link reciprocally, and nothing is hidden.
+    /// <b>Set equal to <see cref="WebsiteOrContact"/> on purpose</b> — the review band opens at
+    /// exactly the weakest signal §7.3 calls "stable, and rarely coincidental"; a shared codebase
+    /// (0.15) does not, or the review queue would be the whole catalogue. Costs a review pair per
+    /// pair of games behind one hosting provider's contact address — the cheapest error this system
+    /// makes, since both pages stay live and nothing is hidden.
     /// </remarks>
     public const double ReviewThreshold = WebsiteOrContact;
 }
@@ -185,30 +164,25 @@ public static class IdentityMsspVariables
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>This type reads a beacon; it does not model a token.</b> The two halves of §8 belong apart: the
-/// record for an <em>issued</em> token, with its state, validity window and verification channel, and
-/// the issuing and verifying of it, belong with the claiming flow. This owns only the reading: given a
-/// <see cref="ProbeResult"/>, what token string, if any, did the server show us.
+/// <b>Reads a beacon; does not model a token.</b> The record for an <em>issued</em> token — state,
+/// validity window, verification channel — belongs with the claiming flow. This owns only reading:
+/// given a <see cref="ProbeResult"/>, what token string, if any, did the server show us.
 /// </para>
 /// <para>
-/// Two of §8's three channels are visible to a probe — an MSSP variable and a line on the connect
-/// screen. The third, a DNS TXT record, is not: nothing in a telnet session can see it. Until
-/// something writes a verified token into the <c>claim_token</c> field, this signal never fires and the
-/// matcher scores as though the weight were absent, which is correct rather than degraded.
+/// Two of §8's three channels are visible to a probe (an MSSP variable, a connect-screen line); the
+/// third, a DNS TXT record, is not — nothing in a telnet session can see it. Until something writes a
+/// verified token into <c>claim_token</c>, this signal never fires, which is correct rather than
+/// degraded.
 /// </para>
 /// <para>
-/// <b>The spellings are a published contract with server operators.</b> They appear in the claim
-/// instructions an owner is given and in this reader, so a silent edit on either side breaks claiming
-/// with no failing test anywhere. <c>IdentityCorpusTests.TheWireSpellingsAreWhatWeTellOperatorsToType</c>
-/// pins them. When the claiming half lands, these constants move to a type both sides can see and this
-/// class aliases them; changing a value is a migration, not an edit, because it is changing what every
-/// already-claimed game has typed into its config.
+/// <b>The spellings are a published contract with server operators</b> — they appear in the claim
+/// instructions an owner is given, so changing one is a migration, not an edit.
+/// <c>IdentityCorpusTests.TheWireSpellingsAreWhatWeTellOperatorsToType</c> pins them.
 /// </para>
 /// <para>
-/// <b>More than one MSSP spelling is accepted, and that is not sloppiness.</b> MSSP variable names
-/// cannot be relied on to survive a config file intact, and an operator who did exactly what they were
-/// told must not be informed their claim failed — that support mail is the thing §8's whole design
-/// exists to prevent.
+/// More than one MSSP spelling is accepted deliberately: MSSP variable names don't reliably survive a
+/// config file intact, and an operator who did exactly what they were told must not be told their
+/// claim failed.
 /// </para>
 /// </remarks>
 public static class ClaimTokenBeacon
@@ -283,28 +257,25 @@ public sealed record ClaimBeacon(string Token, ClaimChannel Channel);
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Every identity signal goes through <see cref="Meaningful"/>, and that is not polish.</b> Observed
-/// on a live server: an unedited PennMUSH publishes <c>NAME "PennMUSH"</c>, and so does every other
-/// unedited PennMUSH on the internet. Scored naively they all match each other on the strongest textual
-/// signal in §7.3's table, and auto-merge fuses unrelated games into one listing — silently, and
-/// afterwards indistinguishably from a merge that should have happened.
+/// <b>Every identity signal goes through <see cref="Meaningful"/>, and that is not polish.</b> Every
+/// unedited PennMUSH publishes <c>NAME "PennMUSH"</c>; scored naively they'd all match each other on
+/// the strongest textual signal in §7.3's table, and auto-merge would fuse unrelated games into one
+/// listing.
 /// </para>
 /// <para>
-/// So a placeholder contributes <b>nothing</b> rather than a little. <b>Two absences must never score
-/// as an agreement.</b> The same caution applies to <c>CONTACT</c> and <c>WEBSITE</c>, shared across a
-/// hosting provider more often than unique, and to <c>CREATED</c>, a year that collides freely — all of
-/// which <see cref="MsspDefaults.IsPlaceholder"/> already covers for the blank and template-text cases.
+/// A placeholder contributes <b>nothing</b> rather than a little — two absences must never score as
+/// an agreement. The same applies to <c>CONTACT</c>/<c>WEBSITE</c> (shared across a hosting provider)
+/// and <c>CREATED</c> (a year that collides freely), all covered by
+/// <see cref="MsspDefaults.IsPlaceholder"/>.
 /// </para>
 /// </remarks>
 public static class MsspReading
 {
     /// <summary>The raw value of an MSSP variable, matched case-insensitively as MSSP variables are.</summary>
     /// <remarks>
-    /// A variable holds a <em>list</em>, because MSSP lets a server repeat one — and identity wants a
-    /// scalar. Where there are several this takes the <b>last</b>, which is the specification's own
-    /// rule for reducing one ("the last reported value should be used as the default value") and what
-    /// <see cref="ProbeResult.MsspField"/> does. Anything that cares about the other values must read
-    /// the list, which is what <see cref="MsspReferrals"/> now does with <c>REFERRAL</c>.
+    /// A variable holds a <em>list</em>, because MSSP lets a server repeat one; identity wants a
+    /// scalar. Takes the <b>last</b>, per the spec's own reduction rule ("the last reported value
+    /// should be used as the default value"), matching <see cref="ProbeResult.MsspField"/>.
     /// </remarks>
     public static string? Value(IReadOnlyDictionary<string, IReadOnlyList<string>> mssp, string variable)
     {
@@ -367,9 +338,7 @@ public static class IdentitySignals
         }
         catch (JsonException)
         {
-            // Documented above as "an unreadable or absent payload is an empty list, not a failure" —
-            // this is the unreadable half. A review row's evidence surviving corrupted is a smaller
-            // problem than a merge refusing to complete because it could not read its own paper trail.
+            // The unreadable half of the summary above: corrupted evidence must not block a merge.
             return [];
         }
     }
@@ -379,10 +348,10 @@ public static class IdentitySignals
 /// The reverse field lookup identity needs: "which games carry this value for this field".
 /// </summary>
 /// <remarks>
-/// A forward store reads by game id, which cannot answer "who else calls themselves Corvid" without
-/// scanning every game. This is the missing arrow. Its implementation must compare the same way this
-/// contract states — case-insensitive on both field name and value, trimmed on both sides, distinct
-/// game ids — or the matcher passes its tests and misses candidates in production.
+/// A forward store reads by game id, which can't answer "who else calls themselves Corvid" without
+/// scanning every game — this is the missing arrow. Implementations must compare case-insensitively
+/// on field name and value, trimmed, distinct game ids, or the matcher passes tests and misses
+/// candidates in production.
 /// </remarks>
 public interface IGameFieldIndex
 {

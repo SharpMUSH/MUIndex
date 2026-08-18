@@ -9,11 +9,7 @@ namespace MUI.Web.Tests.Api;
 /// The rules the read surface must keep whatever else changes: the vocabulary, the absent figure,
 /// the absent vote, and the fact that nothing here writes.
 /// </summary>
-/// <remarks>
-/// Guards rather than behaviour. Every one of these is a thing somebody would add in good faith —
-/// a percentage called the obvious word, a headline "players online across the hobby", a
-/// <c>?sort=rating</c> — and each is a decision the design already took and wrote down.
-/// </remarks>
+/// <remarks>Guards rather than behaviour tests — each asserts against a thing that would be added in good faith but that the design already ruled out.</remarks>
 public class ApiSurfaceGuardTests
 {
     private static readonly string[] AllRoutes =
@@ -36,9 +32,7 @@ public class ApiSurfaceGuardTests
     [Test]
     public async Task NothingOnThisSurfaceSaysTheWordWeDoNotUse()
     {
-        // Reachable, never the other one (spec §5.8). We measured a socket from one vantage point at
-        // intervals; the word claims we measured whether the game was running. The rule binds field
-        // names, enum names and published copy, so this reads all three.
+        // Reachable, never uptime (spec §5.8) — binds field names, enum names, and published copy.
         const string Forbidden = "uptime";
 
         var names = ApiMembers().Select(m => m.Name).ToList();
@@ -59,9 +53,7 @@ public class ApiSurfaceGuardTests
     [Test]
     public async Task NoAbsolutePopulationFigureIsPublishedAnywhere()
     {
-        // Per-codebase and per-protocol shares survive the unclaimed and unreachable biases because
-        // they are ratios over the same measured set. An absolute count does not, and would be
-        // quoted for years (spec §15.7).
+        // Shares survive measurement bias as ratios; an absolute count doesn't (spec §15.7).
         foreach (var member in ApiMembers())
         {
             var name = member.Name.ToLowerInvariant();
@@ -82,7 +74,6 @@ public class ApiSurfaceGuardTests
             }
         }
 
-        // The one field called "total" is a count of games, and this is what pins it there.
         await using var pinned = await ApiHost.StartAsync();
         var listing = await Json.ElementAsync(await pinned.Client.GetAsync(ApiRoutes.Games));
         await Assert.That(listing.GetProperty("total").GetInt32())
@@ -92,8 +83,7 @@ public class ApiSurfaceGuardTests
     [Test]
     public async Task ThereIsNoVoteStarOrRatingAnywhere()
     {
-        // The thing that reduced Top Mud Sites to a link graveyard. Rankings, when they come, are
-        // computed from measured data; no user-supplied signal has a route to reach one.
+        // Rankings, when they come, are computed from measured data — no user-supplied signal reaches one.
         foreach (var member in ApiMembers())
         {
             var name = member.Name.ToLowerInvariant();
@@ -120,8 +110,7 @@ public class ApiSurfaceGuardTests
     [Test]
     public async Task ThereIsNoWebhookSurface()
     {
-        // Deferred deliberately (spec §14). RSS is the whole of v1's notification story, and a
-        // callback registration is a write endpoint wearing a different coat.
+        // Deferred deliberately (spec §14) — a callback registration is a write endpoint in disguise.
         foreach (var member in ApiMembers())
         {
             await Assert.That(member.Name.ToLowerInvariant()).DoesNotContain("webhook");
@@ -147,8 +136,7 @@ public class ApiSurfaceGuardTests
                 using var request = new HttpRequestMessage(method, route);
                 var response = await host.Client.SendAsync(request);
 
-                // 405, and specifically not a 404: the route exists and refuses the verb, which is
-                // a different and more useful answer than pretending it is not there.
+                // 405, not 404: the route exists and refuses the verb.
                 await Assert.That((int)response.StatusCode).IsEqualTo(405);
             }
         }
@@ -157,8 +145,8 @@ public class ApiSurfaceGuardTests
     [Test]
     public async Task TheIndexTellsAConsumerTheRulesWithoutMakingThemReadUs()
     {
-        // Someone writing a MUD client is a first-class consumer, and the two rules most likely to
-        // be got wrong — null is not zero, the id is the durable key — are stated on the front door.
+        // The two rules most likely to be gotten wrong — null is not zero, id is the durable key —
+        // are stated on the front door for a MUD-client author who never reads our docs.
         await using var host = await ApiHost.StartAsync();
 
         var index = await Json.ElementAsync(await host.Client.GetAsync(ApiRoutes.Base));

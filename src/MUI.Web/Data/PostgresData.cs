@@ -54,17 +54,12 @@ public static class PostgresData
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        // TryAdd throughout, and the availability store registered once and exposed through its
-        // interfaces rather than newed per interface. Both matter because AddMuiCrawler registers
-        // the same objects for the crawl loop and one deployable calls both (§4.11): with AddSingleton
-        // this method won the IAvailabilityStore registration while the crawler's TryAdd was skipped,
-        // leaving the concrete type and IReachableHistory pointing at a SECOND instance. Harmless on
-        // one pool, and a direct contradiction of the comment in the crawler that says the store is
-        // registered once because two would be two connection paths answering one question.
+        // TryAdd throughout: AddMuiCrawler registers these same objects, and one deployable calls both
+        // (§4.11). AddSingleton here once won the IAvailabilityStore registration while the crawler's
+        // TryAdd was skipped, leaving the concrete type and IReachableHistory pointing at a second
+        // instance — harmless on one pool, but two connection paths answering one question.
         services.TryAddSingleton(_ => NpgsqlDataSource.Create(connectionString));
 
-        // The registry is a lookup table with no state, so the shared instance rather than a second
-        // one — which is also what the crawler registers.
         services.TryAddSingleton<IFieldRegistry>(FieldRegistry.Instance);
 
         services.TryAddSingleton(s => new NpgsqlAvailabilityStore(s.GetRequiredService<NpgsqlDataSource>()));
@@ -73,22 +68,18 @@ public static class PostgresData
         services.TryAddSingleton<IAvailabilityHistory, StoredAvailabilityHistory>();
 
         // §10's presence series, read off the rollup rather than the raw table: §5.2 lets retention
-        // drop the raw partitions once they have been aggregated, so a series read from raw would
-        // quietly shorten as a deployment aged. The crawler registers the same store — TryAdd, so
-        // one deployable running both has one of it.
+        // drop raw partitions once aggregated, so a series read from raw would quietly shorten as a
+        // deployment aged.
         services.TryAddSingleton(s => new NpgsqlPresenceRollupStore(s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IPresenceSeries>(s => s.GetRequiredService<NpgsqlPresenceRollupStore>());
         services.TryAddSingleton<IPresenceTrends>(s => new PresenceTrends(s.GetRequiredService<IPresenceSeries>()));
 
-        // §5.7's former-slug table. Registered here rather than only with the crawler because a
-        // read-only replica serves the redirects too — the promise is about URLs, not about which
-        // process happens to be writing. TryAdd for the same reason as everything above it: the
-        // crawler registers this one too, and two of them would be two pools answering one question.
+        // §5.7's former-slug table, registered here too: a read-only replica serves the redirects,
+        // since the promise is about URLs, not about which process happens to be writing.
         services.TryAddSingleton<ISlugHistoryStore>(s =>
             new NpgsqlSlugHistoryStore(s.GetRequiredService<NpgsqlDataSource>()));
 
-        // §7.3's merge redirect. Beside the former-slug table and for the same reason: the promise is
-        // about a URL, and a replica that serves pages has to keep it whether or not it merges anything.
+        // §7.3's merge redirect, for the same reason as the former-slug table above.
         services.TryAddSingleton<IMergeRedirects>(s =>
             new NpgsqlMergeRedirects(s.GetRequiredService<NpgsqlDataSource>()));
 
@@ -96,11 +87,8 @@ public static class PostgresData
             s.GetRequiredService<NpgsqlDataSource>(),
             s.GetRequiredService<IFieldRegistry>()));
 
-        // Migration 0017's cycle log. Registered on the web side as well as the crawl side, and
-        // TryAdd for the same reason as everything above: a replica that does no crawling still
-        // renders the strip, because the answer comes out of the database rather than out of this
-        // process. That is the whole point — an in-process flag would make the front page's answer
-        // depend on which replica served the request.
+        // Migration 0017's cycle log, registered on the web side too: a replica that does no crawling
+        // still renders the strip, since the answer comes from the database rather than this process.
         services.TryAddSingleton<ICrawlCycles>(s => new NpgsqlCrawlCycles(
             s.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<ICrawlerPulse, StoredCrawlerPulse>();

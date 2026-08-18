@@ -114,14 +114,11 @@ public sealed class NpgsqlGameFieldStore(NpgsqlDataSource source) : IGameFieldSt
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
-        // lower(field), because MSSP spells NAME upper-case and IdentityFields spells it lower — the
-        // same fold IGameFieldIndex's contract states, for the same reason: a comparison that missed
-        // would report a name that has moved as one that never has, and re-mint a URL on the spot.
+        // lower(field): MSSP spells NAME upper-case, IdentityFields spells it lower. A missed match
+        // would report a moved name as unchanged and re-mint a URL on the spot.
         //
-        // Read as DateTime and not DateTimeOffset: Npgsql hands a bare timestamptz back as a UTC
-        // DateTime, and Dapper's scalar path converts rather than mapping — asking for the offset
-        // type here throws InvalidCastException at runtime, which the crawl loop would swallow as one
-        // errored target. Measured, not assumed.
+        // Read as DateTime, not DateTimeOffset: Npgsql/Dapper's scalar path throws InvalidCastException
+        // on the offset type for a bare timestamptz (measured, not assumed).
         var at = await connection.QuerySingleOrDefaultAsync<DateTime?>(new CommandDefinition(
             """
             SELECT max(at) FROM field_change
@@ -139,23 +136,13 @@ public sealed class NpgsqlGameFieldStore(NpgsqlDataSource source) : IGameFieldSt
     /// The per-game change feed (spec §9), newest first — public events only.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Not on <see cref="IGameFieldStore"/> because nothing on the write path reads it; it is the
-    /// game page's, and the page reads it through <see cref="IGameQueries"/>.
-    /// </para>
-    /// <para>
-    /// <b><see cref="InternalFields"/> are excluded here, in the query.</b> They are machinery — a
-    /// digest we computed, the screen we render in its own frame, the owner's decision about whether
-    /// we render it at all — and the declared panel has always filtered them. The feed did not, so
-    /// an owner reversing §11's suppression published "connect_screen_suppressed changed from true
-    /// to false" on their game's public page, in plain text and in the API: the first internal field
-    /// ever to reach those surfaces, announcing a choice §11 grants with no questions asked.
-    /// </para>
-    /// <para>
-    /// Filtered in SQL rather than afterwards because the query is limited, and a filter applied
-    /// after the limit would spend it on rows nobody may see. Nothing is deleted: the rows stay in
-    /// <c>field_change</c> and are simply not events about the game.
-    /// </para>
+    /// Not on <see cref="IGameFieldStore"/> because nothing on the write path reads it; the game page
+    /// reads it through <see cref="IGameQueries"/>. <see cref="InternalFields"/> (digests, the connect
+    /// screen, suppression flags) must stay excluded here in the query — they previously leaked
+    /// through this feed, publishing an owner's own suppression toggle as a public event. Filtering in
+    /// SQL rather than after the fact matters because the query is <c>LIMIT</c>ed; a post-hoc filter
+    /// would spend the limit on rows nobody may see. Nothing is deleted — excluded rows stay in
+    /// <c>field_change</c>, just not as events about the game.
     /// </remarks>
     public async Task<IReadOnlyList<FieldChange>> ChangesAsync(
         Guid gameId,

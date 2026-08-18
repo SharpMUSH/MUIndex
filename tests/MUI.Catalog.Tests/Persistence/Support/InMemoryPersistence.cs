@@ -6,20 +6,17 @@ namespace MUI.Catalog.Tests.Persistence.Support;
 /// In-memory stands-in for the two stores the archive sweep reads.
 /// </summary>
 /// <remarks>
-/// The rule these obey, and the reason they exist: <b>a fake must never be more lenient than the real
-/// thing</b>. The sweep's own arithmetic is what these tests are about, so the database is not in the
-/// way of them — but the same behaviour is asserted against Postgres in
-/// <c>ArchiveSweeperPostgresTests</c>, because a fake agreeing with the code proves only that they
-/// were written by the same person.
+/// A fake must never be more lenient than the real thing. The same behaviour is also asserted against
+/// Postgres in <c>ArchiveSweeperPostgresTests</c> — a fake agreeing with the code proves only that
+/// they were written by the same person.
 /// </remarks>
 internal sealed class InMemoryGameStore : IGameStore
 {
     private readonly Dictionary<Guid, GameRecord> _games = [];
 
     /// <summary>
-    /// The slugs this store has retired. Held here because <see cref="RenameAsync"/> writes both in
-    /// one act, exactly as the real statement does — a fake that renamed a game without retiring its
-    /// URL would be more lenient than the thing it stands in for, in precisely the way §5.7 forbids.
+    /// The slugs this store has retired. <see cref="RenameAsync"/> writes both in one act, as the real
+    /// statement does — a rename that didn't retire its URL would violate §5.7.
     /// </summary>
     public InMemorySlugHistory Slugs { get; }
 
@@ -69,9 +66,7 @@ internal sealed class InMemoryGameStore : IGameStore
         DateTimeOffset at,
         CancellationToken cancellationToken = default)
     {
-        // The store's own `state NOT IN ('excluded', 'unlisted')` clause, mirrored — a double that
-        // let the sweeper walk one of those games back into the listing would report a guard this
-        // codebase relies on as working when it had been removed.
+        // Mirrors the store's `state NOT IN ('excluded', 'unlisted')` clause.
         if (_games.TryGetValue(id, out var game)
             && game.State is not (LifecycleState.Excluded or LifecycleState.Unlisted))
         {
@@ -101,8 +96,7 @@ internal sealed class InMemoryGameStore : IGameStore
         IReadOnlyList<string> signals,
         CancellationToken cancellationToken = default)
     {
-        // Write-once, as the SQL is: the UPDATE carries `WHERE corroborated_at IS NULL`, and a fake
-        // that overwrote would let a test pass against behaviour the database refuses.
+        // Write-once, mirroring the SQL's `WHERE corroborated_at IS NULL`.
         if (signals.Count > 0
             && _games.TryGetValue(id, out var game)
             && game.CorroboratedAt is null)
@@ -182,9 +176,8 @@ internal sealed class InMemorySlugHistory(Func<Guid, string?> currentSlug) : ISl
             || currentSlug(row.GameId) is not { } current
             || string.Equals(current, formerSlug, StringComparison.Ordinal))
         {
-            // The last arm is the real query's `g.slug <> h.slug`: a game that took back a name it
-            // used to have leaves a row pointing at a slug that is current again, and answering with
-            // it would send a reader round a redirect loop.
+            // Last arm mirrors `g.slug <> h.slug`: a game that took back an old name leaves a row
+            // pointing at a slug that's current again, which would otherwise loop a redirect.
             return Task.FromResult<string?>(null);
         }
 

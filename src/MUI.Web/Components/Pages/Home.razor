@@ -5,11 +5,9 @@
 @inject TimeProvider Clock
 
 @*
-    The feeds are the front page, not a sidebar.
-
-    A directory whose front page is a list of games is a list; a front page that says what changed in
-    the hobby this week is a record. Search sits above them because the second-most-common visit is
-    "find one specific game".
+    The feeds are the front page, not a sidebar: a front page that says what changed in the hobby
+    this week is a record, not a list. Search sits above them because "find one specific game" is
+    the second-most-common visit.
 *@
 
 @if (Plain)
@@ -20,32 +18,21 @@ else
 {
     <SitePreview Description="@PreviewCopy.Site(Http.LocaleOf().Tag)" />
 
-    @*
-        One column, one rhythm. The blocks are spaced by the column's own gap rather than by a
-        margin on each of them, because a margin on a block that renders nothing — the crawler strip
-        on a deployment with no pulse — leaves its space behind. This page had an 82px dead band
-        there for exactly that reason.
-    *@
+    @* One column, one rhythm: blocks are spaced by the column's own gap rather than a margin on
+       each, because a margin on a block that renders nothing (the crawler strip with no pulse)
+       leaves its space behind — this page had an 82px dead band there for exactly that reason. *@
     <div class="page-flow">
 
     <section class="hero">
-        @*
-            The heading says what the site is rather than what it is called. An h1 reading
-            "mu*index" printed the wordmark twice down the left edge and told a first-time reader
-            nothing, so it was hidden — but a hidden h1 is a page whose first visible words are a
-            search placeholder. This is the sentence the meta description already carried, and it is
-            the one thing a stranger needs before they read a count.
-        *@
+        @* The heading says what the site is, not what it's called — an h1 reading "mu*index" told
+           a first-time reader nothing and duplicated the wordmark down the left edge. *@
         <div class="hero-head">
             <h1>@L("home.title")</h1>
             <p class="lede">@L("home.lede")</p>
         </div>
 
-        @*
-            One field, with the glyph inside it rather than a second control beside it. The button
-            stays: this form's only other way to submit is the return key, and a control that exists
-            only as a keystroke is one a reader using a switch or a pointer cannot reach.
-        *@
+        @* One field, glyph inside it rather than a second control beside it. The button stays: a
+           reader using a switch or pointer can't reach a control that exists only as a keystroke. *@
         <form class="search" method="get" action="@Http.Link("/games")" role="search">
             <label for="q" class="sr-only">@L("home.search.label")</label>
             <span class="search-field">
@@ -57,19 +44,11 @@ else
         </form>
 
         @*
-            Four tiles: a label and a value, and no sub-label under either. They were one mono line
-            of "9 games known · 5 with players on now · …", which is a sentence pretending to be a
-            dashboard — the numbers are the front page's whole claim and they were set at the size
-            of the metadata beside them.
+            Four tiles: a label and a value, no sub-label. There is no "reachable this week" tile
+            because the store can't answer it, and an estimate here would undo the argument.
 
-            No sub-labels: "games with a count" under "connected now" is a gloss on a label that
-            should carry its own meaning, so the label carries it. There is no "reachable this week"
-            tile because the store cannot answer it, and an estimate here would undo the argument.
-
-            "Connected now" rather than "with players on". The crawler counts open connections and
-            not people — one player with two clients is two connections, and a bot is a connection —
-            so the word that localizes cleanly is also the one that is true. See the handoff's
-            "why players became connected".
+            "Connected now", not "with players on": the crawler counts open connections, not
+            people — one player with two clients is two connections, and a bot is a connection.
         *@
         <ul class="tiles">
             <li>
@@ -90,17 +69,12 @@ else
             </li>
         </ul>
 
-        @* Under the counts on purpose. Every figure above it is only as current as the loop this
-           line describes, so it reads as the provenance of the four numbers it sits beneath. *@
+        @* Under the counts on purpose: it's the provenance of the four numbers above it. *@
         <CrawlerStrip Pulse="Pulse" Now="Now" />
     </section>
 
-    @*
-        Three registers, three colours, and the colours are the site's own: the accent means
-        measured and is what a discovery and a return both are, amber means the thing we are least
-        sure of and is what a game we can no longer reach is. The heading carries it; nothing on the
-        rows below does, because a column of amber ages would say "went dark" once per row.
-    *@
+    @* Three registers, three colours: accent means measured (discovery and return), amber means
+       least-sure (went dark). The heading carries the colour; the rows below don't. *@
     <div class="feeds">
         <section class="feed feed-lit" aria-labelledby="feed-new">
             <h2 id="feed-new" class="kicker">@L("feed.newlyDiscovered")</h2>
@@ -115,8 +89,7 @@ else
         </section>
 
         <section class="feed feed-dark" aria-labelledby="feed-dark">
-            @* "Still probed" belongs here, once, rather than under every row as "we keep knocking".
-               Nothing is ever deleted (§7.5) and this is where that promise is made. *@
+            @* "Still probed" belongs here once, not under every row — nothing is ever deleted (§7.5). *@
             <h2 id="feed-dark" class="kicker">@L("feed.wentDark")</h2>
             @if (Feeds.WentDark.Count == 0)
             {
@@ -157,13 +130,13 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        // Archived games are out of the default listing and of nothing else, so the front page's
-        // "games known" counts them: they are still known, still probed and still addressable.
+        // Archived games are still known, still probed and still addressable, so "games known"
+        // counts them.
         Counts = SiteCounts.From(await Queries.ListAsync(new GameFilter { IncludeArchived = true }));
         Feeds = await Queries.FeedsAsync();
 
-        // Its own read, and it cannot throw: StoredCrawlerPulse answers Unknown for a missing table
-        // or a failed query alike, so the strip going quiet never costs a reader the front page.
+        // Cannot throw: StoredCrawlerPulse answers Unknown for a missing table or failed query
+        // alike, so the strip going quiet never costs a reader the front page.
         Pulse = await Crawler.ReadAsync(Now);
     }
 

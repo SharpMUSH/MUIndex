@@ -8,24 +8,11 @@ namespace MUI.Web.Icons;
 /// </summary>
 /// <param name="ContentType">The type read from the bytes, never the one the far end claimed.</param>
 /// <remarks>
-/// <para>
-/// <b>A header parser rather than a decoder, and rather than an image library.</b> All this needs to
-/// know is what the bytes are and how big the picture is, and every one of the four formats states
-/// both within the first thirty bytes. Decoding would mean running a full image pipeline over a file
-/// fetched from a URL a stranger chose, which is a decoder attack surface acquired to answer a
-/// question the header already answers — and it would mean taking a dependency whose licence we would
-/// then have to keep track of.
-/// </para>
-/// <para>
-/// <b>The bytes decide the type, and the <c>Content-Type</c> header never does.</b> A far end that
-/// says <c>image/png</c> and sends a GIF is not lying about anything important, but a site that
-/// echoed the claim would be serving a type it had not checked from its own origin.
-/// </para>
-/// <para>
-/// <b>SVG is not here and will not be.</b> It is a document that can carry script, and serving one
-/// from this origin is a cross-site scripting hole with an image tag in front of it. An owner who
-/// wants a vector logo can publish a PNG of it.
-/// </para>
+/// A header parser, not a decoder or an image library — decoding would run a full image pipeline over
+/// a file fetched from an attacker-chosen URL, a decoder attack surface acquired to answer a question
+/// the header already answers. The bytes decide the type; <c>Content-Type</c> never does. SVG is not
+/// here and will not be: it can carry script, and serving one from this origin is an XSS hole with an
+/// image tag in front of it.
 /// </remarks>
 public sealed record ImageHeader(string ContentType, int Width, int Height)
 {
@@ -33,9 +20,7 @@ public sealed record ImageHeader(string ContentType, int Width, int Height)
     /// What the bytes say, or null for anything this does not recognise or cannot read.
     /// </summary>
     /// <remarks>
-    /// Null rather than a guess, and null rather than a throw. An unreadable header is an image we
-    /// decline to serve, which is a decision with a rendering — no element at all — and not an error
-    /// anybody needs to hear about.
+    /// Null rather than a guess or a throw: an unreadable header is an image we decline to serve.
     /// </remarks>
     public static ImageHeader? Read(ReadOnlySpan<byte> bytes) =>
         Png(bytes) ?? Gif(bytes) ?? WebP(bytes) ?? Jpeg(bytes);
@@ -75,10 +60,9 @@ public sealed record ImageHeader(string ContentType, int Width, int Height)
     /// differently.
     /// </summary>
     /// <remarks>
-    /// Three layouts rather than one because the format grew: <c>VP8 </c> packs 14-bit dimensions
-    /// after a start code, <c>VP8L</c> bit-packs two 14-bit values less one into a 32-bit word, and
-    /// <c>VP8X</c> — the one an animated or alpha-carrying file uses — stores 24-bit values less one.
-    /// A reader that knew only the first would reject most real WebP files as unreadable.
+    /// Three layouts because the format grew: <c>VP8 </c> packs 14-bit dimensions after a start code,
+    /// <c>VP8L</c> bit-packs two 14-bit values less one into a 32-bit word, and <c>VP8X</c> (animated
+    /// or alpha-carrying) stores 24-bit values less one.
     /// </remarks>
     private static ImageHeader? WebP(ReadOnlySpan<byte> bytes)
     {
@@ -91,8 +75,6 @@ public sealed record ImageHeader(string ContentType, int Width, int Height)
 
         if (chunk.SequenceEqual("VP8 "u8))
         {
-            // A three-byte frame tag, then the 0x9D 0x01 0x2A start code, then the two dimensions in
-            // the low fourteen bits of a little-endian pair each.
             ReadOnlySpan<byte> startCode = [0x9D, 0x01, 0x2A];
 
             if (!bytes[23..26].SequenceEqual(startCode))
@@ -134,10 +116,9 @@ public sealed record ImageHeader(string ContentType, int Width, int Height)
     /// carries them.
     /// </summary>
     /// <remarks>
-    /// The only one of the four that needs walking, and the walk is bounded twice over — by the
-    /// buffer, and by each segment's own declared length, which is why a malformed length terminates
-    /// rather than looping. <c>C4</c>, <c>C8</c> and <c>CC</c> are excluded because they are Huffman
-    /// tables and arithmetic-coding conditioning rather than frames, and they sit in the middle of
+    /// The walk is bounded twice over — by the buffer, and by each segment's own declared length, so a
+    /// malformed length terminates rather than looping. <c>C4</c>, <c>C8</c> and <c>CC</c> are excluded
+    /// since they're Huffman tables and arithmetic-coding conditioning, not frames, despite sitting in
     /// the same marker range.
     /// </remarks>
     private static ImageHeader? Jpeg(ReadOnlySpan<byte> bytes)
@@ -185,9 +166,8 @@ public sealed record ImageHeader(string ContentType, int Width, int Height)
     /// A header, unless the dimensions are absurd — which is what an unrecognised layout looks like.
     /// </summary>
     /// <remarks>
-    /// A zero dimension is not a small image; it is a file whose header we have misread or that was
-    /// truncated on the way. Refusing here rather than passing it on means the caller's size ceiling
-    /// never has to distinguish "tiny" from "wrong".
+    /// A zero dimension means a misread or truncated header, not a small image — refused here so the
+    /// caller's size ceiling never has to distinguish "tiny" from "wrong".
     /// </remarks>
     private static ImageHeader? Sized(string contentType, uint width, uint height) =>
         width is 0 or > int.MaxValue || height is 0 or > int.MaxValue

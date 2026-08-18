@@ -8,9 +8,8 @@ namespace MUI.Catalog.Persistence;
 /// The crawl loop's own record of itself (migration 0017).
 /// </summary>
 /// <remarks>
-/// <b>Nothing here is a measurement of a game</b>, which is why a TTL is allowed to reach it at all
-/// — see the migration. The writer is <c>CrawlerService</c>; the readers are the front page's strip
-/// and the maintenance sweep.
+/// Nothing here is a measurement of a game, which is why a TTL is allowed to reach it (see the
+/// migration). Written by <c>CrawlerService</c>; read by the front page's strip and the sweep.
 /// </remarks>
 public interface ICrawlCycles
 {
@@ -21,9 +20,9 @@ public interface ICrawlCycles
     /// What the crawler has been doing, in one round trip.
     /// </summary>
     /// <remarks>
-    /// One query rather than four, because this is on the front page's path and the front page is
-    /// the most-served document here. Every figure comes from a table the crawler writes, so the
-    /// answer is the same whichever replica is asked — including one that does no crawling.
+    /// One query rather than four — this is on the front page's path. Every figure comes from a
+    /// table the crawler writes, so the answer is the same on any replica, including one that does
+    /// no crawling.
     /// </remarks>
     Task<CrawlerPulse> PulseAsync(DateTimeOffset now, CancellationToken cancellationToken = default);
 
@@ -34,8 +33,8 @@ public interface ICrawlCycles
     /// Whether migration 0017 has been applied.
     /// </summary>
     /// <remarks>
-    /// Asked rather than discovered as an exception, the same way the presence pass asks. A
-    /// deployment mid-upgrade should render a front page without a strip, not a 500.
+    /// Asked rather than discovered as an exception, so a deployment mid-upgrade renders a front
+    /// page without a strip, not a 500.
     /// </remarks>
     Task<bool> IsInstalledAsync(CancellationToken cancellationToken = default);
 }

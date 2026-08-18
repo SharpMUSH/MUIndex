@@ -29,26 +29,21 @@ public static class CapabilityFields
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Two vocabularies meet here, and without this they produced two half-empty rows.</b> The
-    /// handshake names what it negotiated — the telnet option is MCCP2 — and MSSP's variable is the
-    /// version-less <c>MCCP</c>. So the dashboard showed <c>MCCP2</c> measured by 87 games and
-    /// declared by none, above <c>MCCP</c> declared by 35 and never measured, which is one fact
-    /// about compression split into two rows that each look like a finding of absence. The whole
-    /// point of holding measured beside declared is the comparison, and a comparison cannot happen
-    /// across two rows.
+    /// Two vocabularies name the same capability differently: the handshake negotiates the telnet
+    /// option (<c>MCCP2</c>), MSSP's variable is the version-less <c>MCCP</c>. Without this alias
+    /// each spelling gets its own row, and the point of holding measured beside declared — the
+    /// comparison — cannot happen across two rows.
     /// </para>
     /// <para>
-    /// <c>SSL</c> is the same shape between two MSSP variables rather than between two protocols:
-    /// the specification names <c>SSL</c>, games also write <c>TLS</c>, and both mean "there is an
-    /// encrypted port". 31 games said one and 6 said the other, in separate rows, and 6 said both.
-    /// The word each game used is not lost — a value carrying more than a yes still writes its own
-    /// descriptive row, so <c>SSL 4202</c> survives verbatim; it is only the boolean that merges.
+    /// <c>SSL</c> is the same shape between two MSSP variables rather than two protocols: the spec
+    /// names <c>SSL</c>, games also write <c>TLS</c>, both meaning "there is an encrypted port". A
+    /// value carrying more than a yes still writes its own descriptive row (<c>SSL 4202</c> survives
+    /// verbatim) — only the boolean merges.
     /// </para>
     /// <para>
-    /// <b>Only spellings actually observed are here.</b> MCCP3 is a distinct telnet option that no
-    /// game in this catalogue has offered, and adding it on the strength of the pattern would be
-    /// compiling in a guess. If one appears it gets a row of its own, which is visible and
-    /// correctable, rather than being folded somewhere by a rule nobody checked.
+    /// Only spellings actually observed are here. Adding an unobserved one on the strength of the
+    /// pattern would be compiling in a guess; an unaliased spelling instead gets a row of its own,
+    /// visible and correctable.
     /// </para>
     /// </remarks>
     private static readonly IReadOnlyDictionary<string, string> Aliases =
@@ -63,11 +58,8 @@ public static class CapabilityFields
     /// carry a column for.
     /// </summary>
     /// <remarks>
-    /// Folded on case and on the separators the two vocabularies spell differently —
-    /// TelnetNegotiationCore's <c>NEW-ENVIRON</c> against MSSP's <c>XTERM 256 COLORS</c> — and then
-    /// through <see cref="Aliases"/>, so one capability is one field however it arrived. It lives
-    /// beside the names rather than in the crawler because the read path has to agree with the write
-    /// path about what a capability is, and only one of them observes a socket.
+    /// Folded on case and on the separators the two vocabularies spell differently, then through
+    /// <see cref="Aliases"/>, so one capability is one field however it arrived.
     /// </remarks>
     public static string? Canonical(string name)
     {
@@ -109,20 +101,16 @@ public static class CapabilityFields
     /// capability at all.
     /// </summary>
     /// <remarks>
-    /// <see cref="CapabilityOf"/> answers only for capabilities this class declares, which is the
-    /// right answer where a column of the matrix is at stake. An aggregate over the whole catalogue
-    /// needs the other one: a server naming a protocol nobody listed here is <em>still measured and
-    /// still stored</em> — <c>FieldObservations</c> refuses to drop an observation because no column
-    /// renders it — so a dashboard that knew only the declared set would silently discard real
-    /// measurements. The name the server used is returned in that case, folded back out of the slug,
-    /// so <c>capability.zmp3.measured</c> reads as <c>ZMP3</c>.
+    /// <see cref="CapabilityOf"/> only answers for capabilities this class declares. An aggregate
+    /// over the whole catalogue needs more: a server naming a protocol nobody listed is still
+    /// measured and stored (<c>FieldObservations</c> never drops an observation for lack of a
+    /// column), so this returns the server's own name, folded back out of the slug, rather than
+    /// silently discarding it — <c>capability.zmp3.measured</c> reads as <c>ZMP3</c>.
     /// <para>
-    /// <b>It deliberately does not apply <see cref="Aliases"/>.</b> Aliasing happens once, on the
-    /// way in, and <c>0017_merge_capability_aliases.sql</c> moved the rows already written under an
-    /// alias — so every stored row is under its canonical name and folding again here would buy
-    /// nothing. It would also cost something: the dashboard tallies games per field name, so two
-    /// field names arriving at one capability would add rather than merge, and a game offering both
-    /// spellings would be counted twice in its own share.
+    /// Deliberately does not apply <see cref="Aliases"/>: aliasing happens once on the way in, so
+    /// every stored row is already under its canonical name. Re-aliasing here would double-count —
+    /// two field names arriving at one capability would add rather than merge, counting a game
+    /// offering both spellings twice in its own share.
     /// </para>
     /// </remarks>
     public static string? NameOf(string field)
@@ -170,18 +158,14 @@ public static class CapabilityFields
 /// </summary>
 /// <remarks>
 /// <para>
-/// A <c>GameField</c> row is not by itself a public fact. Some are working state — a fingerprint the
-/// de-duplicator compares on, the connect screen the page renders in its own frame — and putting
-/// them in the game's self-description panel is wrong twice over: <c>banner_hash</c> is a 64-character
-/// digest <em>we</em> computed rather than anything the game claims about itself, and it is
-/// meaningless to a reader besides.
+/// A <c>GameField</c> row is not by itself a public fact: some are working state — a fingerprint
+/// the de-duplicator compares on, the connect screen rendered in its own frame — and putting them
+/// in the game's self-description panel is wrong twice over, since <c>banner_hash</c> is a digest
+/// <em>we</em> computed rather than anything the game claims about itself.
 /// </para>
 /// <para>
-/// The check is a list rather than a naming convention because the alternative already failed here:
-/// the panel filtered on a <c>connect_screen</c> prefix inlined at the call site, which is a rule
-/// that only ever excludes the fields whoever wrote it happened to remember. <c>banner_hash</c> is
-/// not in the field registry at all — an unregistered field is stored like any other by design — so
-/// nothing else was going to catch it either.
+/// A list rather than a naming convention: a prefix check inlined at one call site already failed
+/// here by only ever excluding the fields whoever wrote it remembered.
 /// </para>
 /// </remarks>
 public static class InternalFields
@@ -207,12 +191,10 @@ public static class InternalFields
     /// The encoding the connect screen's bytes were actually read with (see <c>WireEncoding</c>).
     /// </summary>
     /// <remarks>
-    /// <b>Internal because of where the only list of fields is printed.</b> The game page renders
-    /// <c>GamePage.Declared</c> under the heading "Declared by the game", and this is the opposite
-    /// of declared — it is what a strict decoder proved about bytes, arrived at by us, sometimes in
-    /// contradiction of what the game said. A row of ours under that heading is our own reasoning
-    /// published as the game's claim, which is rule 5. It has a surface, and it is the caption on
-    /// the screen it describes.
+    /// Internal because of where the only list of fields is printed: <c>GamePage.Declared</c>
+    /// renders under "Declared by the game", and this is the opposite — what a strict decoder
+    /// proved about the bytes, sometimes contradicting what the game said. Showing it there would
+    /// publish our own reasoning as the game's claim, which is rule 5.
     /// </remarks>
     public const string CharsetRead = "charset.read";
 
@@ -235,11 +217,9 @@ public static class InternalFields
     /// The exact names, for a caller that has to apply this rule somewhere other than in C#.
     /// </summary>
     /// <remarks>
-    /// The change feed is filtered in SQL rather than after the read, because the query is limited
-    /// and a filter applied afterwards would spend that limit on rows nobody may see — a game whose
-    /// owner toggled their connect screen twenty times would have shown an empty feed. Exposed
-    /// rather than restated so the two halves of <see cref="IsInternal"/> keep one spelling; the
-    /// other half is a prefix on <see cref="ConnectScreen"/>.
+    /// The change feed filters in SQL, not after the read — filtering afterward would spend the
+    /// query's limit on rows nobody may see. Exposed rather than restated so the two halves of
+    /// <see cref="IsInternal"/> keep one spelling.
     /// </remarks>
     public static IReadOnlyList<string> ExactNames { get; } = [.. Names];
 }
@@ -249,16 +229,14 @@ public static class InternalFields
 /// </summary>
 /// <remarks>
 /// <para>
-/// The windows are calibrated against the two anchors the spec argues from: a player count is stale
-/// in hours, and a hand-typed <c>GENRE</c> is unremarkable at six months and notable at six years.
-/// Everything else is placed relative to those on one question — does the codebase fill this in
-/// automatically (short window, because a stale one means something went wrong at our end) or did a
-/// human type it into <c>mush.cnf</c> once (long window, because sitting still is its normal state)?
+/// Windows are calibrated against two anchors: a player count is stale in hours, and a hand-typed
+/// <c>GENRE</c> is unremarkable at six months and notable at six years. Everything else is placed
+/// relative to those on one question — does the codebase fill this in automatically (short window)
+/// or did a human type it into <c>mush.cnf</c> once (long window)?
 /// </para>
 /// <para>
-/// The window lives here rather than in a front-end conditional because the API, the plain-text
-/// surface and the rendered page must all agree on when a value has aged out, and only one of them is
-/// a front end.
+/// Lives here rather than in a front-end conditional because the API, the plain-text surface and
+/// the rendered page must all agree on when a value has aged out.
 /// </para>
 /// </remarks>
 public sealed class FieldRegistry : IFieldRegistry
@@ -340,19 +318,17 @@ public sealed class FieldRegistry : IFieldRegistry
 
         // ── What a verified owner may answer, and the line it does not cross ──────────────────────
         //
-        // §8.5's rule is that an owner may never edit a MEASUREMENT, and the ceiling now sits where
-        // that argument puts it rather than four fields short of it. An MSSP report is not a
-        // measurement: §5.1 calls `mssp` a game filling in a structured self-description it
-        // maintains, and `owner` a person typing. Same kind of fact, same person, different road —
-        // so the same person may take the shorter road, and both rows go on existing side by side.
+        // §8.5: an owner may never edit a MEASUREMENT. An MSSP report is not one — §5.1 calls `mssp`
+        // a game filling in a structured self-description it maintains, and `owner` a person typing;
+        // same kind of fact, same person, different road, so both rows go on existing side by side.
         //
-        // The half marked Override is what a person types into mush.cnf. The half left alone is what
-        // the codebase fills in about the connection: a hand-typed HOSTNAME and a measured one would
-        // mean genuinely different things under one name, and nothing good comes of that.
+        // Override is what a person types into mush.cnf. The half left alone is what the codebase
+        // fills in about the connection — a hand-typed HOSTNAME and a measured one would mean
+        // genuinely different things under one name.
 
-        // The required MSSP trio. PLAYERS is declared here because it is the staleness anchor §5.6
-        // argues from — but it is NEVER stored as a GameField: the count lives in §5.2's presence
-        // series, where `who` outranks `mssp`. FieldReconciler skips it, and skips UPTIME with it.
+        // PLAYERS is declared here because it is the staleness anchor §5.6 argues from, but it is
+        // NEVER stored as a GameField: the count lives in §5.2's presence series, where `who`
+        // outranks `mssp`. FieldReconciler skips it, and skips UPTIME with it.
         Add("NAME", Automatic, OwnerWritable.Override);
         Add("PLAYERS", Volatile);
         Add("UPTIME", Volatile);
@@ -370,11 +346,10 @@ public sealed class FieldRegistry : IFieldRegistry
         Add("DISCORD", Contactable, OwnerWritable.Override, FieldShape.Url);
         Add("ICON", HandTyped, OwnerWritable.Override, FieldShape.Url);
 
-        // Unofficial, and carried because fourteen games in this catalogue publish it. MSSP's
-        // variable for an email address is CONTACT; EMAIL is what several codebases emit beside it
-        // or instead of it, and a reader wanting to reach somebody does not care which. Not
-        // writable: an owner correcting their address has CONTACT, and offering two boxes for one
-        // fact is how a game ends up with two addresses and no way to tell which is current.
+        // Unofficial: MSSP's variable for an email address is CONTACT; EMAIL is what several
+        // codebases emit beside it or instead of it. Not writable — an owner correcting their
+        // address has CONTACT, and offering two boxes for one fact is how a game ends up with two
+        // addresses and no way to tell which is current.
         Add("EMAIL", Contactable, OwnerWritable.No, FieldShape.Email);
         Add("CREATED", HandTyped, OwnerWritable.Override);
         Add("LANGUAGE", HandTyped, OwnerWritable.Override);
@@ -402,10 +377,9 @@ public sealed class FieldRegistry : IFieldRegistry
         // Capabilities, both sides. Measured is re-observed on every probe; declared is hand-typed.
         //
         // Neither side is writable, and the declared side is the interesting refusal: it is
-        // hand-typed, so it would otherwise qualify. The matrix's whole job is to show what a game
-        // claims beside what its handshake offered — "declared GMCP, not offered in 214 handshakes"
-        // — and an owner editing the claimed column is editing one half of a comparison about
-        // themselves.
+        // hand-typed, so it would otherwise qualify, but the matrix's whole job is to show what a
+        // game claims beside what its handshake offered, and an owner editing the claimed column is
+        // editing one half of a comparison about themselves.
         foreach (var capability in CapabilityFields.Names)
         {
             Add(CapabilityFields.Measured(capability), Measured);
@@ -420,15 +394,12 @@ public sealed class FieldRegistry : IFieldRegistry
         Add("RP ENFORCEMENT", HandTyped, OwnerWritable.Enrichment);
         Add("CONSENT TOOLS", HandTyped, OwnerWritable.Enrichment);
 
-        // The rest of where a game's people are. MSSP added DISCORD and stopped, so a game with a
-        // wiki, a forum or a fediverse account has no variable to say so — which puts these in the
-        // same category as FANDOM above: absent from the protocol, so the owner is the only source
-        // there could be, and a crawler will never fill one in.
+        // The rest of where a game's people are. MSSP added DISCORD and stopped, so these are absent
+        // from the protocol like FANDOM above — the owner is the only source there could be.
         //
-        // Contactable rather than HandTyped, and that is the one thing here worth arguing about: a
-        // fandom does not change and an invite link expires. Ninety days is the window that asks
-        // "is this still where you are" without nagging somebody whose forum has sat at one address
-        // since 2004 — the same window CONTACT, WEBSITE and DISCORD already use, for the same reason.
+        // Contactable rather than HandTyped: an invite link expires even where a fandom does not.
+        // Ninety days asks "is this still where you are" without nagging over an address that has
+        // sat still for years — the same window CONTACT, WEBSITE and DISCORD already use.
         Add("WIKI", Contactable, OwnerWritable.Enrichment, FieldShape.Url);
         Add("FORUM", Contactable, OwnerWritable.Enrichment, FieldShape.Url);
         Add("TELEGRAM", Contactable, OwnerWritable.Enrichment, FieldShape.Url);

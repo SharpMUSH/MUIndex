@@ -17,24 +17,11 @@ public sealed record SentencePart(string Text, string? Slot);
 /// A sentence that places its own links, code spans and emphasis.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Neither half of the obvious approach works.</b> Gluing English around an anchor gives a
-/// language that wants the link earlier, or a different preposition before it, nowhere to say so:
-/// the markup owns the word order and a translator only ever receives the fragments. Formatting the
-/// anchor <em>into</em> the string and trusting the result through a <c>MarkupString</c> fixes that
-/// and makes every bundle a place somebody could put a tag.
-/// </para>
-/// <para>
-/// So the message places a marker and the caller walks the runs. What a translator writes is text
-/// either way, and the word order is theirs. <c>RandomGame</c> invented this for its empty state and
-/// kept it private; the owner dashboard, the claim page and the owner panel each need it two or
-/// three times over, and a fourth private copy is how the escaping stops matching.
-/// </para>
-/// <para>
-/// The markers are Unicode private-use characters, which is what makes the split safe: no message,
-/// no game name, no hostname and no token can contain one, so a run boundary is never something a
-/// translator or an operator typed.
-/// </para>
+/// Gluing English text around an anchor fixes the word order, leaving a translator no way to move
+/// the link; trusting a formatted anchor through <c>MarkupString</c> makes every message a place to
+/// inject a tag. Instead the message places a marker and the caller walks the runs, so a translator
+/// writes ordinary text and chooses the order. Markers are Unicode private-use characters, so a run
+/// boundary can never collide with translated or operator-typed text.
 /// </remarks>
 public static class Sentence
 {

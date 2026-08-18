@@ -5,12 +5,7 @@ namespace MUI.Web.Tests;
 /// <summary>
 /// MessageFormat 1.0, against the cases that catch the usual mistakes.
 /// </summary>
-/// <remarks>
-/// Most of these are the examples ICU's own documentation uses, because they are the ones chosen to
-/// break a naive implementation: the apostrophe that is not a quote, the plural offset that changes
-/// <c>#</c> but not <c>=0</c>, the ordinal categories English has and its cardinal rule does not,
-/// and the fraction that makes 1 and 1.0 different words.
-/// </remarks>
+/// <remarks>Mostly ICU's own documentation examples, chosen to break a naive implementation.</remarks>
 public class IcuMessageTests
 {
     private static string Format(string pattern, string tag = "en", params (string Key, object? Value)[] args) =>
@@ -27,17 +22,14 @@ public class IcuMessageTests
     [Arguments("5 o''clock", "5 o'clock")]
     public async Task ApostrophesFollowIcusDefaultMode(string pattern, string expected)
     {
-        // DOUBLE_OPTIONAL: an apostrophe only starts a quote when it immediately precedes { } | or,
-        // inside a plural, #. Anywhere else it is a literal — which is what makes English possessives
-        // and contractions safe to type without thinking about it.
+        // DOUBLE_OPTIONAL: an apostrophe starts a quote only immediately before { } | or, in a
+        // plural, #. Anywhere else it's a literal.
         await Assert.That(Format(pattern)).IsEqualTo(expected);
     }
 
     [Test]
     public async Task AQuotedHashInsideAPluralIsALiteral()
     {
-        // And an unquoted one is the number. Both matter: a game called "#1 MUSH" would otherwise
-        // print its own count in the middle of its name.
         await Assert.That(Format("{n, plural, other {'#' is # }}", "en", ("n", 3))).IsEqualTo("# is 3 ");
         await Assert.That(Format("channel #general")).IsEqualTo("channel #general");
     }
@@ -45,8 +37,6 @@ public class IcuMessageTests
     [Test]
     public async Task ABraceInsideABranchIsQuotedTheSameWay()
     {
-        // The doubled-brace escape an earlier version carried could not do this: a branch ending
-        // "...}}" is indistinguishable from a literal brace followed by the argument's own close.
         await Assert.That(Format("{n, plural, other {'{'#'}'}}", "en", ("n", 2))).IsEqualTo("{2}");
     }
 
@@ -65,9 +55,8 @@ public class IcuMessageTests
     [Test]
     public async Task AVisibleFractionIsNotOneEvenWhenTheValueIsOne()
     {
-        // "1.0 stars", never "1.0 star" — and the two quantities are equal, so nothing but the
-        // operands can tell them apart. This is the case an integer-only implementation cannot get
-        // right, and the reason PluralOperands exists.
+        // "1.0 stars", never "1.0 star" — equal quantities, distinguished only by visible fraction
+        // digits (why PluralOperands exists).
         const string Pattern = "{n, plural, one {# star} other {# stars}}";
 
         await Assert.That(Format(Pattern, "en", ("n", 1))).IsEqualTo("1 star");
@@ -84,8 +73,6 @@ public class IcuMessageTests
     [Arguments(22, "22 игры")]
     public async Task RussianCardinalHasThreeFormsAndTheTeensAreTheTrap(int count, string expected)
     {
-        // A rule written from the first three examples anybody tries is wrong for 11 and 12, and
-        // wrong in a way no English-speaking reviewer notices.
         await Assert.That(Format(
             "{n, plural, one {# игра} few {# игры} many {# игр} other {# игры}}", "ru", ("n", count)))
             .IsEqualTo(expected);
@@ -103,8 +90,8 @@ public class IcuMessageTests
     [Arguments(102, "102nd")]
     public async Task EnglishOrdinalHasFourFormsAndTheCardinalRuleCannotProduceThem(int n, string expected)
     {
-        // selectordinal is a different rule set, not a different spelling of plural. English's
-        // cardinal rule has two categories and this needs four.
+        // selectordinal is a different rule set from plural; English's cardinal rule has two
+        // categories, this needs four.
         await Assert.That(Format(
             "{n, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}", "en", ("n", n)))
             .IsEqualTo(expected);
@@ -123,9 +110,8 @@ public class IcuMessageTests
     [Test]
     public async Task OffsetChangesTheHashAndTheCategoryButNotTheExactMatch()
     {
-        // ICU's own example. `=` matches the number as written; `#` and the category are both taken
-        // after the offset is subtracted — which is what makes "Bob and 2 others" come out of a
-        // party of three.
+        // `=` matches the number as written; `#` and the category are taken after the offset is
+        // subtracted.
         const string Pattern =
             "{n, plural, offset:1 =0 {nobody} =1 {just them} one {them and # other} other {them and # others}}";
 
@@ -138,10 +124,8 @@ public class IcuMessageTests
     [Test]
     public async Task AHashPrintsANumberTheWayANumberArgumentPrintsIt()
     {
-        // One bundle may not print one quantity two ways. `#` was the raw integer digits and
-        // `{n, number}` was the culture's grouped form, so a listing past a thousand said "1234
-        // games" in a sentence and "1,234" in the column beside it. The separator is the culture's:
-        // en groups with a comma and de with a full stop.
+        // One bundle may not print one quantity two ways — `#` and `{n, number}` must agree, grouped
+        // by the culture's own separator.
         await Assert.That(Format("{n, plural, other {# games}}", "en", ("n", 1234))).IsEqualTo("1,234 games");
         await Assert.That(Format("{n, plural, other {# Spiele}}", "de", ("n", 1234))).IsEqualTo("1.234 Spiele");
 
@@ -152,9 +136,7 @@ public class IcuMessageTests
     [Test]
     public async Task ANegativeCountKeepsItsSign()
     {
-        // CLDR takes the absolute value to choose a category and never to print the number. The
-        // operands are absolute because the chart says so; the rendering is not, and printing "3
-        // games" for minus three is a measurement stated backwards.
+        // CLDR takes the absolute value to choose a category, never to print the number.
         const string Pattern = "{n, plural, one {# game} other {# games}}";
 
         await Assert.That(Format(Pattern, "en", ("n", -1))).IsEqualTo("-1 game");
@@ -165,7 +147,7 @@ public class IcuMessageTests
     [Test]
     public async Task ChineseHasOneFormAndSoAgreesWithAnyShape()
     {
-        // Which is exactly why it cannot be the locale a string architecture is validated against.
+        // Which is why it can't be the locale a string architecture is validated against.
         foreach (var count in new[] { 0, 1, 2, 5, 11 })
         {
             await Assert.That(Format("{n, plural, other {#个游戏}}", "zh-Hans", ("n", count)))
@@ -188,8 +170,7 @@ public class IcuMessageTests
     [Test]
     public async Task ASelectorMayHoldAnotherSelector()
     {
-        // The case that breaks a parser which stops at the first closing brace: a branch containing
-        // an argument ends with two of them, and only a counted scan gets the boundary right.
+        // Breaks a parser that stops at the first closing brace: needs a counted scan.
         const string Pattern =
             "{kind, select, game {{n, plural, one {# game} other {# games}}} other {{n} things}}";
 
@@ -201,9 +182,8 @@ public class IcuMessageTests
     [Test]
     public async Task AHashIsNotSpecialInsideANestedArgumentsSubMessage()
     {
-        // ICU's rule, and a genuinely surprising one: # is a placeholder in the plural argument's
-        // own sub-messages and nowhere else. Inside a select nested in that plural it is a literal
-        // hash, and a message that wants the number there has to name the argument.
+        // # is a placeholder only in a plural argument's own sub-messages; nested inside a select
+        // it's a literal hash and the number must be named explicitly.
         await Assert.That(Format(
             "{n, plural, other {{k, select, a {# apples} other {# other}}}}",
             "en", ("n", 4), ("k", "a")))
@@ -229,9 +209,8 @@ public class IcuMessageTests
     [Test]
     public async Task DateAndTimeAreAcceptedRatherThanRefused()
     {
-        // Nothing on this site calls them — every date goes through Dates, which states UTC and
-        // never prints a numeric month. They are here so the grammar is supported rather than the
-        // half of it we happen to use.
+        // Nothing on this site calls them directly (every date goes through Dates); tested so the
+        // whole grammar is supported.
         var when = new DateTimeOffset(2026, 8, 17, 14, 2, 0, TimeSpan.Zero);
 
         await Assert.That(Format("{d, date}", "en", ("d", when))).IsEqualTo("17 Aug 2026");
@@ -244,8 +223,7 @@ public class IcuMessageTests
     [Test]
     public async Task ASelectorWithNoOtherBranchIsRefusedWhenItIsParsed()
     {
-        // Not when a reader's count happens to reach the gap. Every bundle is parsed by a test, so
-        // this fails a build.
+        // Refused at parse time, not when a reader's count happens to reach the gap.
         await Assert.That(() => MessagePattern.Parse("{n, plural, one {# game}}"))
             .Throws<FormatException>();
 
@@ -256,8 +234,8 @@ public class IcuMessageTests
     [Test]
     public async Task ABranchKeywordNoCategoryUsesIsRefused()
     {
-        // "much" is not a CLDR category, so nothing would ever select it. It is almost always a typo
-        // for "many", and silently rendering `other` instead is how that typo survives review.
+        // "much" is not a CLDR category — almost always a typo for "many" that a silent `other`
+        // fallback would hide.
         await Assert.That(() => MessagePattern.Parse("{n, plural, much {#} other {#}}"))
             .Throws<FormatException>();
     }
@@ -275,8 +253,6 @@ public class IcuMessageTests
     [Test]
     public async Task AMissingArgumentIsAnErrorAndNotAnEmptyString()
     {
-        // A message that silently rendered nothing for a value nobody passed would be a fact
-        // quietly missing from a page whose whole claim is that its facts are there.
         await Assert.That(() => Format("{missing}")).Throws<FormatException>();
         await Assert.That(() => Format("{n, plural, other {#}}", "en", ("n", "not a number")))
             .Throws<FormatException>();
@@ -296,18 +272,14 @@ public class IcuMessageTests
     [Arguments("{n, plural, =. {none} other {#}}")]
     public async Task AnExplicitMatchWithNoNumberAfterItIsRefused(string pattern)
     {
-        // An `=` selector is stored under a key compared against the number as written, so `=` on
-        // its own is a branch nothing can ever select. The category check at the line above skips
-        // anything starting with `=`, so this was the one dead branch the parser let through — and
-        // a dead branch is precisely what this parser refuses rather than guesses at.
+        // `=` alone is a branch nothing can ever select — a dead branch the parser refuses rather
+        // than lets through.
         await Assert.That(() => MessagePattern.Parse(pattern)).Throws<FormatException>();
     }
 
     [Test]
     public async Task AnExplicitMatchStillTakesEveryNumberIcuWritesOneWith()
     {
-        // Refusing the empty case must not also refuse the legal ones: ICU parses an explicit value
-        // as a number, which may carry a sign and a fraction.
         await Assert.That(Format("{n, plural, =0 {none} other {#}}", "en", ("n", 0))).IsEqualTo("none");
         await Assert.That(Format("{n, plural, =-1 {owed} other {#}}", "en", ("n", -1))).IsEqualTo("owed");
         await Assert.That(Format("{n, plural, =1.5 {half} other {#}}", "en", ("n", 1.5m))).IsEqualTo("half");
@@ -316,9 +288,8 @@ public class IcuMessageTests
     [Test]
     public async Task ADateWithNoZoneIsReadAsUtcAndNotAsTheServersOwnClock()
     {
-        // This site states UTC on every date it prints, and `new DateTimeOffset(dt)` applies the
-        // machine's local offset to an Unspecified kind — so the same message rendered on two
-        // hosts said two different times, and neither said which.
+        // `new DateTimeOffset(dt)` applies the machine's local offset to an Unspecified kind, which
+        // would make the same message render two different times on two hosts.
         var unspecified = new DateTime(2026, 8, 17, 14, 2, 0, DateTimeKind.Unspecified);
 
         await Assert.That(Format("{d, time, medium}", "en", ("d", unspecified))).IsEqualTo("14:02:00");
@@ -328,9 +299,8 @@ public class IcuMessageTests
     [Test]
     public async Task ANumberArgumentThatIsNotANumberNamesItselfInTheRefusal()
     {
-        // The documented contract is FormatException. Convert.ToDecimal raises InvalidCastException
-        // for a value with no conversion and OverflowException for one out of range, and neither
-        // says which argument in a forty-message page was the one that failed.
+        // The documented contract is FormatException, not the raw InvalidCastException/
+        // OverflowException Convert.ToDecimal would throw — neither names the failing argument.
         await Assert.That(() => Format("{n, number}", "en", ("n", new object())))
             .Throws<FormatException>();
 
@@ -343,8 +313,6 @@ public class IcuMessageTests
     [Test]
     public async Task APatternCanBeAskedWhatArgumentsItReads()
     {
-        // Which is what lets a test check a bundle against the values the site actually supplies,
-        // without rendering every message against every plausible count.
         var parsed = MessagePattern.Parse(
             "{value}, {count, plural, one {# game} other {# games}}, {state, select, a {A} other {B}}");
 
@@ -363,8 +331,6 @@ public class IcuMessageTests
     [Test]
     public async Task ThePatternCacheReturnsTheSameParseForTheSameText()
     {
-        // Forty messages render per facet panel, and re-parsing a string that has not changed since
-        // startup is work nobody asked for.
         const string Pattern = "{n, plural, one {#} other {#}}";
 
         await Assert.That(IcuMessage.Compile(Pattern)).IsSameReferenceAs(IcuMessage.Compile(Pattern));

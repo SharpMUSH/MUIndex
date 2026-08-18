@@ -2,16 +2,10 @@
 @using MUI.Web.Localization
 
 @*
-    The instrument, shown running.
-
-    Every number on this site is downstream of one loop on one host, and until now the only way to
-    know whether that loop was alive was to open an SSH session. It stopped for four hours and the
-    front page went on rendering measurements that had quietly stopped being taken — which is the
-    same failure this project exists to correct, turned inward: data presented without the one piece
-    of provenance that would let a reader discount it.
-
-    It says nothing when there is nothing measured to say (CrawlerPulse.Unknown, which is also the
-    demo path), because an empty strip is honest and an invented one is not.
+    The instrument, shown running. Every number on this site is downstream of one crawl loop; this is
+    what lets a reader see it stalled instead of the site quietly rendering stale measurements as
+    fresh. Says nothing when there is nothing measured to say (CrawlerPulse.Unknown, also the demo
+    path) — an empty strip is honest, an invented one is not.
 *@
 
 @if (Pulse.State(Now) is not CrawlState.NotYet)

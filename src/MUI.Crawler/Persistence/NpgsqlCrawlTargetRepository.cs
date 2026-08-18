@@ -10,31 +10,22 @@ namespace MUI.Crawler.Persistence;
 /// The <c>crawl_target</c> table (spec §7.1, §7.4).
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Monotonic by construction.</b> There is no delete here, no retire, and no method that can stop a
-/// target being probed — the same absence <see cref="ICrawlTargetRepository"/> holds in place by
-/// reflection and <c>0006_crawl_registry.sql</c> holds in place by having no column for it. A game
-/// dark for two years is still probed weekly, for ever, including after archiving, because a returning
-/// game re-listing itself with no human involved is the thing every incumbent failed at (§3, §7.4).
-/// </para>
-/// <para>
-/// Hosts are canonicalised on the way in and on every lookup, with
-/// <see cref="CanonicalHost.Normalize"/> — the same rule the in-memory registry obeys. The unique
-/// index on <c>(host, port)</c> is only a guarantee that one machine is one target if one machine has
-/// one spelling, and the table's own CHECK refuses anything else rather than trusting this class.
-/// </para>
+/// Monotonic by construction — no delete, no retire, no method that can stop a target being probed.
+/// A game dark for two years is still probed weekly forever, including after archiving, because a
+/// returning game re-listing itself with no human involved is the thing every incumbent directory
+/// failed at (§3, §7.4). Hosts are canonicalised on the way in and on every lookup with
+/// <see cref="CanonicalHost.Normalize"/>; the unique index on <c>(host, port)</c> only guarantees one
+/// machine is one target if one machine has one spelling.
 /// </remarks>
 public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICrawlTargetRepository
 {
     /// <remarks>
     /// The charset override is read here, with the target, rather than by the probe — which has no
-    /// database and must not grow one (spec §6.5). It is a subquery rather than a column on
-    /// <c>crawl_target</c> because it is not a fact about an address: it belongs to the game, it is
-    /// keyed <c>(game, field, source)</c> like every other staff assertion, and putting it anywhere
-    /// else would make it the one operator override with a table of its own. <c>source = 'staff'</c>
-    /// exactly, never the precedence winner: an override is a decision somebody made, and taking a
-    /// value the server itself declared would be reading the declaration we already know can be
-    /// wrong (see <c>WireEncoding</c>).
+    /// database and must not grow one (§6.5). A subquery rather than a column on <c>crawl_target</c>,
+    /// since it's not a fact about an address; it belongs to the game and is keyed
+    /// <c>(game, field, source)</c> like every other staff assertion. <c>source = 'staff'</c> exactly,
+    /// never the precedence winner: an override is a decision somebody made, not a value the server
+    /// itself declared (which we already know can be wrong).
     /// </remarks>
     private const string Columns = """
         id AS Id, game_id AS GameId, host AS Host, port AS Port, use_tls AS UseTls,
@@ -65,13 +56,11 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
     /// Adds a target, or returns the existing one's id.
     /// </summary>
     /// <remarks>
-    /// <b>A repeat sighting may lower the recorded depth and may change nothing else.</b> Not the
-    /// schedule, not the failure count, not the operator-seed exemption, <b>and not the submission
-    /// marker</b> — a second referral naming an address we already crawl must not drag it forward,
-    /// which is exactly the coupling §7.1 removes by giving every target its own
-    /// <c>next_probe_at</c>, and a submission naming an address we already crawl must not be able to
-    /// mark a listed game as somebody's assertion and hide it. One statement, so two workers racing
-    /// the same referral cannot both insert.
+    /// A repeat sighting may lower the recorded depth and change nothing else — not the schedule, the
+    /// failure count, the operator-seed exemption, or the submission marker. A second referral naming
+    /// an address we already crawl must not drag it forward, and a submission naming a listed address
+    /// must not be able to mark it as somebody's assertion and hide it. One statement, so two workers
+    /// racing the same referral can't both insert.
     /// </remarks>
     public async Task<Guid> AddAsync(CrawlTarget target, CancellationToken ct)
     {
@@ -117,9 +106,8 @@ public sealed class NpgsqlCrawlTargetRepository(NpgsqlDataSource source) : ICraw
     /// The targets that are due, oldest first, then shallowest.
     /// </summary>
     /// <remarks>
-    /// Depth breaks the tie so that a batch which cannot hold everything spends itself nearer the
-    /// seeds — a referral four hops out is by construction less likely to be a game than one hop out,
-    /// and waiting a cycle costs it nothing because it keeps its own schedule.
+    /// Depth breaks the tie so a batch that can't hold everything spends itself nearer the seeds —
+    /// waiting a cycle costs a deeper referral nothing, since it keeps its own schedule.
     /// </remarks>
     public async Task<IReadOnlyList<CrawlTarget>> DueAsync(DateTimeOffset now, int limit, CancellationToken ct)
     {

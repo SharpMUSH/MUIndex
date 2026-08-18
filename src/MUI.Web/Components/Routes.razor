@@ -1,10 +1,6 @@
-@*
-    NotFoundPage rather than the <NotFound> fragment: under static server rendering the fragment is
-    never rendered, so every mistyped URL was answered with a 404 and an empty body while this copy
-    sat here looking as though it were the site's answer. The page is routable, which is what the
-    parameter takes, and it is the same answer whether the route did not match or a page decided
-    there was nothing at it.
-*@
+@* NotFoundPage rather than the <NotFound> fragment: the fragment never renders under static server
+   rendering, so a mistyped URL got an empty 404 body instead. Same page whether the route failed
+   to match or a page decided there was nothing at it. *@
 <Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(MUI.Web.Components.Pages.NotFound)">
     <Found Context="routeData">
         <RouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)" />

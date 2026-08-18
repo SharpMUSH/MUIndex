@@ -1,74 +1,35 @@
 @using MUI.Web.Theme
 @using MUI.Web.Localization
 
-@*
-    data-theme is written only when the reader has asked for one. Dark is the stylesheet's default
-    and a reader whose system says light gets light — pinning the attribute unconditionally meant a
-    light-preferring reader was served dark regardless, which is not "dark is the default", it is
-    "there is one theme". So the absence of the attribute is load-bearing: it is what hands the
-    decision to prefers-color-scheme in app.css.
-*@
-@*
-    The document's language, and it is the locale rather than the constant it was.
-
-    Unicode unified thousands of Han characters across Chinese and Japanese and the correct drawn
-    form differs between them, so `lang` is the only thing that picks the right font family — a
-    fully translated Japanese page inside `<html lang="en">` is rendered by a browser that has been
-    told it is English, which on the two locales this site most needed to get right means the wrong
-    glyphs at exactly the same width. Nothing measures that; a reader of either sees it instantly.
-    It is also what a screen reader switches voice on, and what `hreflang` in the head is claiming.
-*@
+@* data-theme is written only when the reader has explicitly chosen one — leaving it absent hands
+   the decision to prefers-color-scheme in app.css, so a system-light reader gets light rather than
+   the dark default being force-pinned. *@
+@* lang must be the actual locale, not a constant: Unicode unifies Han characters across CJK
+   locales, so the wrong `lang` renders Japanese text with Chinese glyph forms — and it's also what
+   a screen reader uses to choose voice. *@
 <!DOCTYPE html>
 <html lang="@Locale.Tag" data-theme="@ReaderTheme.Attribute(Theme)">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="@ReaderTheme.ColorScheme(Theme)" />
-    @*
-        No <base href="/">. It came with the template, it is inert under static server rendering — the
-        Blazor router that wants it is not loaded here — and it silently broke every link written as a
-        bare query string: "?plain=1" resolves against the base rather than the current page, so the
-        plain-text link on every page and all five trend range links went to the home page. Removing it
-        is what makes a query-only href mean "this page, asked differently", which is what each of them
-        was written to mean. Everything in this head is absolute for the same reason.
-    *@
-    @*
-        Fingerprinted, and that is load-bearing rather than tidy. The stylesheet was linked as a bare
-        "app.css", the proxy in front of this site caches wwwroot for four hours, and so a deploy that
-        changed the CSS served new markup against the old sheet to everybody whose cache had not
-        expired: the trend chart went out styled by a stylesheet written before it existed. A URL that
-        changes when the bytes change cannot be stale, which is a property of the address rather than
-        a promise about somebody's cache configuration.
-    *@
+    @* No <base href="/">: it's inert under static server rendering, and it silently broke every
+       bare-query-string link (e.g. "?plain=1") by resolving it against the base instead of the
+       current page. Everything in this head is written absolute for the same reason. *@
+    @* Fingerprinted rather than a bare "app.css": the front proxy caches wwwroot for hours, so an
+       unfingerprinted name would serve new markup against a stale cached stylesheet after a deploy. *@
     <link rel="stylesheet" href="@Stylesheet" />
 
-    @*
-        The SVG is the real icon and the .ico is the fallback for the browsers that still want one;
-        anything that understands both takes the SVG, which is the one that stays sharp on a display
-        the .ico has no size for.
-
-        The mark is the asterisk out of the wordmark, drawn as strokes rather than typed — the site
-        loads no font from anywhere, so a glyph here would be whatever the reader's browser fell
-        back to. It carries its own plate and does not follow the reader's theme; favicon.svg says
-        why, and the reason is the same 4.5:1 rule that makes the accent change value in app.css.
-    *@
+    @* SVG is the real icon (stays sharp at any size); .ico is the fallback for browsers that need one. *@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    @*
-        The manifest is here for the name, the icon set and the colour a phone paints its chrome —
-        and it declares display: browser, which means it does not ask to be installed. That is not a
-        gap. These pages are static documents with no offline story; an installed shell that showed
-        a blank frame on a train would be a small version of the thing this site exists not to do.
-    *@
+    @* Manifest declares display: browser — no install prompt. Deliberate: these pages are static
+       documents with no offline story, so an installable shell would just go blank without a network. *@
     <link rel="manifest" href="/site.webmanifest" />
 
-    @*
-        Both when we do not know, because neither theme is the real one: a single theme-color hands
-        mobile Safari one of them as the truth and puts a dark bar above a light page for half the
-        readers. One when we do — a reader who pinned light on a phone set to dark is exactly the
-        case the pair gets wrong, and it is the only case in which we know better than the system.
-    *@
+    @* Both meta tags when we don't know the reader's theme (a single theme-color would put a dark
+       chrome bar above a light page for half of them); one tag when the reader has pinned a choice. *@
     @if (Theme is ThemeChoice.System)
     {
         <meta name="theme-color" content="@ReaderTheme.Plate(ThemeChoice.Dark)" media="(prefers-color-scheme: dark)" />
@@ -83,12 +44,8 @@
 </head>
 <body>
     <Routes />
-    @*
-        No blazor.web.js. Static server rendering only — every page here is a document, and the
-        three places the design allows motion are plain CSS. Adding the script would opt the whole
-        site into enhanced navigation and quietly break the no-script guarantee the facet panel
-        and plain mode both depend on.
-    *@
+    @* No blazor.web.js: static server rendering only. Adding it would opt the site into enhanced
+       navigation and break the no-script guarantee the facet panel and plain mode depend on. *@
 </body>
 </html>
 
@@ -97,26 +54,12 @@
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }
 
-    /// <summary>
-    /// The reader's own choice, read once per document.
-    /// </summary>
-    /// <remarks>
-    /// It reaches the markup in three places — the attribute the stylesheet switches on, the
-    /// color-scheme the browser paints its own controls from, and the colour a phone paints its
-    /// chrome — and all three have to agree or the reader gets a light page inside dark furniture.
-    /// </remarks>
+    /// <summary>The reader's chosen theme, read once and applied consistently across data-theme, color-scheme, and theme-color.</summary>
     private ThemeChoice Theme => ReaderTheme.Of(HttpContext);
 
     /// <summary>The locale this document is being answered in, which is what <c>lang</c> states.</summary>
     private Locale Locale => HttpContext.LocaleOf().Locale;
 
-    /// <summary>
-    /// The stylesheet's address: absolute, and carrying the content fingerprint.
-    /// </summary>
-    /// <remarks>
-    /// Absolute because there is no &lt;base&gt; any more, so a relative name would resolve against
-    /// the current page and 404 on every URL with a segment in it. Composed here rather than inline
-    /// because the fingerprint is an indexer call and the attribute is already quoted.
-    /// </remarks>
+    /// <summary>The stylesheet's absolute, fingerprinted address.</summary>
     private string Stylesheet => "/" + Assets["app.css"];
 }

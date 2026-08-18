@@ -6,12 +6,9 @@ namespace MUI.Discovery;
 /// fact about the observation we are rescheduling from.
 /// </summary>
 /// <remarks>
-/// <b>Not <see cref="MUI.Catalog.ActivityBand"/>.</b> That one is the listing facet of spec §5.2 —
-/// <c>PlayersNow</c>, <c>ActiveThisWeek</c>, <c>Quiet</c>, <c>Dark</c>, <c>Archived</c> — and it
-/// describes a game as a reader filters on it. This one describes one probe as the scheduler reads it,
-/// and it has three members because that is all a single observation can tell us. The names collide and
-/// <c>MUI.Discovery</c> references <c>MUI.Catalog</c>, so a file needing both must alias one; no file
-/// here does.
+/// <b>Not <see cref="MUI.Catalog.ActivityBand"/>.</b> That one is the listing facet of spec §5.2 and
+/// describes a game as a reader filters on it. This one describes one probe as the scheduler reads
+/// it, with only the three members a single observation can tell us.
 /// </remarks>
 public enum ActivityBand
 {
@@ -79,26 +76,19 @@ public sealed record DiscoveryOptions
     /// How many extra dials a failing target gets before the failure is believed.
     /// </summary>
     /// <remarks>
-    /// <b>One dial is a measurement of one dial.</b> Until 2026-08-18 the loop published the first
-    /// one as the game's reachability, and four days of production said what that costs: 173 of 182
-    /// dark episodes were a single failed probe followed immediately by a successful one, 86% of all
-    /// published downtime, across 171 of 538 listed games. Nothing was wrong with those games.
-    /// <para>
-    /// One extra dial, because the measured failures are transient — a cold DNS lookup that took
-    /// five seconds and gave up, a connection reset — and a second attempt is enough to tell those
-    /// from a game that has gone. Zero restores the old behaviour and is what the CLI's single-shot
-    /// mode wants. It costs nothing on the common path: only a failing target ever retries, and in
-    /// production that is about one target in a hundred.
-    /// </para>
+    /// <b>One dial is a measurement of one dial.</b> Publishing the first failure as the game's
+    /// reachability turned out to mostly capture transient faults (a slow DNS lookup, a connection
+    /// reset) rather than real outages — one extra dial is enough to tell the two apart. Zero
+    /// restores the old behaviour and is what the CLI's single-shot mode wants; it costs nothing on
+    /// the common path, since only a failing target ever retries.
     /// </remarks>
     public int ConfirmationAttempts { get; init; } = 1;
 
     /// <summary>How long to wait before a confirming dial.</summary>
     /// <remarks>
-    /// The floor, not the gap. <see cref="PerHostInterval"/> applies to the confirming dial like any
-    /// other — politeness does not lapse because we are unsure — so the real pause in production is
-    /// the larger of the two. Long enough to outlast a momentary fault, short enough that a game
-    /// which really has gone is published within the same cycle.
+    /// The floor, not the gap: <see cref="PerHostInterval"/> still applies to the confirming dial, so
+    /// the real pause is the larger of the two. Long enough to outlast a momentary fault, short
+    /// enough that a game which really has gone is published within the same cycle.
     /// </remarks>
     public TimeSpan ConfirmationDelay { get; init; } = TimeSpan.FromSeconds(5);
 

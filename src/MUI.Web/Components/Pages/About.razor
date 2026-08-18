@@ -7,15 +7,10 @@
 @inject IServiceProvider Services
 
 @*
-    The page this project owes the sites it read and the servers it dials.
-
-    Spec §7.6 and §11 both require it, and neither of them calls it a feature: crediting the
-    directories a backfill read, publishing who is knocking and how to make them stop, and stating
-    the limits of what a measurement here proves are obligations already incurred by crawling.
-
-    It is prose and a short list, and it is deliberately the plainest page on the site — the whole
-    argument this project makes is that a fact stated with its provenance beats a fact presented
-    well, and the page making that argument would be a poor place to contradict it.
+    The page this project owes the sites it read and the servers it dials (spec §7.6, §11):
+    crediting backfill sources, publishing who is knocking and how to stop it, and stating the
+    limits of what a measurement here proves. Deliberately the plainest page on the site — a poor
+    place to contradict the argument that provenance beats presentation.
 *@
 
 @if (Plain)
@@ -67,9 +62,8 @@ else
                 <ul class="sources">
                     @foreach (var source in section.Sources)
                     {
-                        @* Name and state on one line, the note under both. The listing's two-column
-                           row is wrong here: a note is a paragraph rather than a facts column, and
-                           reserving a column for a short badge leaves the prose reading in a gutter. *@
+                        @* Name and state on one line, the note under both — a note is a paragraph
+                           rather than a facts column, so the listing's two-column row is wrong here. *@
                         <li>
                             <p class="source-head">
                                 <a class="name" href="@source.Url" rel="external">@source.Name</a>
@@ -101,16 +95,9 @@ else
                     <dd>@licence.Attribution</dd>
                 </dl>
 
-                @*
-                    Configuration, not chrome, and so not a message.
-
-                    The notice is set per deployment beside the licence name and the attribution
-                    line, and the read API serves the same bytes to whoever takes the bulk dump. A
-                    translated copy on this page and an untranslated one in the dump would be two
-                    statements of one deployment's terms, and a reader could not tell which bound
-                    it. `translate="no"` so a browser's own translator leaves it alone too — the
-                    same treatment the licence name and the credit line beside it already get.
-                *@
+                @* Configuration, not chrome, and so not a message: the read API serves the same
+                   notice to the bulk dump, so a translated copy here would be a second, differing
+                   statement of one deployment's terms. `translate="no"` for the same reason. *@
                 <p class="note dim" translate="no">@licence.Notice</p>
             }
         </section>
@@ -129,13 +116,8 @@ else
 
     private string L(string id) => Messages.For(Tag, id);
 
-    /*
-        The crawler's own options when the crawl loop is hosted in this process, and the defaults
-        when it is not. Asking the container rather than constructing one means the identity this
-        page publishes is the identity the probe was built from — a page that said MUINDEX-CRAWLER
-        while a deployment had configured something else would be describing the source tree instead
-        of the crawler, which is the failure mode of every claim on this site that nobody pinned.
-    */
+    // Read from the container rather than constructed, so the identity this page publishes is the
+    // identity the probe was actually built from, not a default that drifted from configuration.
     private AboutPage Page => AboutPage.Build(
         Services.GetService(typeof(ProbeOptions)) as ProbeOptions ?? new ProbeOptions(),
         Dataset.Value,

@@ -12,12 +12,10 @@ namespace MUI.Catalog.Tests.Persistence;
 /// An address that answers like a game and is not one (migration 0024).
 /// </summary>
 /// <remarks>
-/// <b>The property under test is that the crawl cannot undo a person's judgement.</b> Archiving was
-/// the obvious tool and is the wrong one: it means "this stopped answering", and
-/// <c>ProbeIngestor</c> restores an archived game on the next successful probe, immediately and
-/// without a human. The nine instances this was built for — <c>Your MUD Name</c>, <c>test</c>,
-/// <c>lpcdb</c>, four <c>*-Dev</c> servers and a stock mudlib demo — all answer perfectly well, so
-/// archiving them would have flipped each back within one cycle and written a change every time.
+/// The property under test is that the crawl cannot undo a person's judgement. Archiving is the wrong
+/// tool for this: it means "this stopped answering", and <c>ProbeIngestor</c> restores an archived
+/// game on the next successful probe, immediately and without a human — which would flip a
+/// perfectly-answering stock/dev instance right back.
 /// </remarks>
 public class ExcludedGamePostgresTests
 {

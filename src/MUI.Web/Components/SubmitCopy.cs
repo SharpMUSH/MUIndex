@@ -10,23 +10,19 @@ namespace MUI.Web.Components;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Here rather than in the page because the plain surface renders the same words (spec §9), and a
-/// form whose refusal reads differently in a text browser is a form with two policies. Nothing here
-/// touches a database or a socket: this maps a <see cref="SubmissionOutcome"/> to a message id, and
-/// <see cref="SubmissionService"/> is what decides.
+/// Here rather than in the page because the plain surface renders the same words (spec §9). Nothing
+/// here touches a database or a socket: this maps a <see cref="SubmissionOutcome"/> to a message id,
+/// and <see cref="SubmissionService"/> is what decides.
 /// </para>
 /// <para>
-/// <b>Every member takes a locale, and the address is an ICU argument rather than a prefix.</b> The
-/// answers used to open with the address glued to the front of an English sentence, which is a fact
-/// about English word order and not about addresses — a language that puts the subject elsewhere had
-/// nowhere to say so. The default is the source language, so a caller with no request behind it
-/// still gets a sentence.
+/// Every member takes a locale, with the address as an ICU argument rather than a string-glued
+/// prefix, so a language with different word order has somewhere to put it. The default is the
+/// source language.
 /// </para>
 /// <para>
-/// <b>No refusal here explains itself with an address.</b> The receipt carries a detail naming what
-/// the host resolved to, and it is for an operator's log — showing it to the submitter would turn
-/// this form into a free scan of whatever network the crawler happens to run inside, which is the
-/// exact thing §7.2's gate exists to prevent.
+/// <b>No refusal here explains itself with an address.</b> What the host resolved to goes in an
+/// operator's log, never shown to the submitter — that would turn this form into a free scan of
+/// whatever network the crawler runs inside, exactly what §7.2's gate exists to prevent.
 /// </para>
 /// </remarks>
 public static class SubmitCopy
@@ -101,17 +97,10 @@ public static class SubmitCopy
                 Messages.Say(tag, "submit.malformed.sentence")),
 
             // ONE SENTENCE FOR ALL THREE, AND THE VAGUENESS IS THE POINT. §7.2 keeps "did not
-            // resolve" and "resolved somewhere we will not go" apart because they are two facts and
-            // our own record has to hold them apart, and §11's opt-out is a third — but telling a
-            // *stranger* which of them happened turns this form into a scanner of whatever the
-            // crawler can see. Submit internal.corp.example: one answer means it exists on our side
-            // of a split horizon and another means it does not, and a few hundred guesses is a map
-            // of somebody's network drawn from outside it. The same enumeration works on the opt-out
-            // register with a list of hostnames. The log knows which; the page does not say.
-            //
-            // THE REASONS ARE LISTED AND THE ANSWER IS NOT, WHICH IS NOT A CONTRADICTION. Knowing
-            // that three things can produce this sentence tells a reader nothing about which one
-            // did, and leaving them unlisted would make an honest refusal look like a malfunction.
+            // resolve" apart from "resolved somewhere we will not go" in our own record — but
+            // telling a *stranger* which one happened turns this form into a network scanner: a
+            // few hundred submissions of internal hostnames would map somebody's split horizon from
+            // outside it. The log knows which case fired; the page never says.
             SubmissionOutcome.RefusedNotRoutable
                 or SubmissionOutcome.Unresolvable
                 or SubmissionOutcome.RefusedOptOut => new SubmitAnswer(
@@ -129,8 +118,8 @@ public static class SubmitCopy
     /// The address as the sentence names it — or the noun phrase that stands where one would.
     /// </summary>
     /// <remarks>
-    /// Its own id rather than a fragment of every sentence that can take it: it is a noun phrase
-    /// filling a hostname's slot, and it declines in the languages that decline.
+    /// Its own id rather than a fragment embedded in every sentence that can take it, so it can
+    /// decline in the languages that decline.
     /// </remarks>
     private static string Named(string tag, string? address) =>
         address is { Length: > 0 } ? address : Messages.Say(tag, "submit.answer.thatAddress");
@@ -150,8 +139,7 @@ public sealed record SubmitLink(string Href, string Label, bool IsClaim = false)
     /// A game's page, labelled with its own address.
     /// </summary>
     /// <remarks>
-    /// The label is the URL, which is machine voice and takes no locale: a reader following it is
-    /// being shown where they are about to go, and translating a path would be inventing one.
+    /// The label is the URL and takes no locale: translating a path would be inventing one.
     /// </remarks>
     public static SubmitLink Game(string slug) => new($"/g/{slug}", $"/g/{slug}");
 
@@ -164,15 +152,12 @@ public sealed record SubmitLink(string Href, string Label, bool IsClaim = false)
 /// </summary>
 /// <remarks>
 /// <para>
-/// Post, redirect, get — so a reload does not resubmit and the answer is a page somebody can send to
-/// themselves. The alternative is a session, and a public form that has to set a cookie before it
-/// can tell you what it did is a public form with a tracking problem.
+/// Post, redirect, get — so a reload doesn't resubmit and the answer is a page someone can send to
+/// themselves, without needing a session cookie on a public form.
 /// </para>
 /// <para>
-/// <b>Nothing in this querystring is trusted.</b> The outcome is a word out of a fixed vocabulary,
-/// the address is echoed back at whoever typed it, and the slug is looked up again before it is
-/// rendered — so a hand-made link can make this page say something about an address, and can make it
-/// say nothing at all about a game.
+/// <b>Nothing in this querystring is trusted.</b> The outcome is a word from a fixed vocabulary, the
+/// address is just echoed back, and the slug is looked up again before it's rendered.
 /// </para>
 /// </remarks>
 public static class SubmitLinks
@@ -216,10 +201,9 @@ public static class SubmitLinks
     /// The word an outcome travels under.
     /// </summary>
     /// <remarks>
-    /// <b>Both scope outcomes share one token, and that is not a shortcut.</b> Collapsing the two
-    /// sentences and then putting the distinction back in the URL would leave the same oracle in a
-    /// place easier to read — a script would never look at the prose. §7.2's two facts live in
-    /// <c>game_submission.outcome</c>, which is ours.
+    /// <b>Both scope outcomes share one token, deliberately.</b> Putting the distinction back in the
+    /// URL would leave the same oracle in a place a script reads more easily than prose. §7.2's two
+    /// facts live in <c>game_submission.outcome</c>, which is ours.
     /// </remarks>
     public static string Token(SubmissionOutcome outcome) => outcome switch
     {

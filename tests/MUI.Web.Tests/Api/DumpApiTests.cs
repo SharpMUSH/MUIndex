@@ -7,11 +7,7 @@ namespace MUI.Web.Tests.Api;
 /// <summary>
 /// The bulk dump: streamed, licensed, and complete — including the games that went dark.
 /// </summary>
-/// <remarks>
-/// A directory that publishes an unusable dump has published nothing, so these are assertions about
-/// usability as much as about correctness: it arrives without ever being assembled, it says what may
-/// be done with it, and the line-delimited form is one whole game per line.
-/// </remarks>
+/// <remarks>Assertions about usability as much as correctness: it arrives without being assembled, says what may be done with it, and NDJSON is one whole game per line.</remarks>
 public class DumpApiTests
 {
     [Test]
@@ -22,8 +18,7 @@ public class DumpApiTests
         var response = await host.Client.GetAsync(
             ApiRoutes.Dump, HttpCompletionOption.ResponseHeadersRead);
 
-        // No Content-Length, because the body was never in one place to be measured. Kestrel chunks
-        // it, and the first bytes are on the wire before the last game has been read.
+        // No Content-Length: the body is never assembled in one place before being streamed.
         await Assert.That(response.Content.Headers.ContentLength).IsNull();
         await Assert.That(response.Headers.TransferEncodingChunked).IsTrue();
     }
@@ -41,8 +36,7 @@ public class DumpApiTests
         var response = await host.Client.GetAsync(ApiRoutes.Dump);
         var dump = await Json.ElementAsync(response);
 
-        // Configuration and not a literal: the code is MIT and the dataset's terms are a separate,
-        // still-open decision (spec §15.2).
+        // Configuration, not a literal: the code's MIT licence and the dataset's terms are separate (spec §15.2).
         await Assert.That(dump.GetProperty("licence").GetProperty("id").GetString())
             .IsEqualTo("ODbL-1.0");
         await Assert.That(response.Headers.GetValues("X-MUIndex-Licence").Single())
@@ -55,8 +49,6 @@ public class DumpApiTests
     [Test]
     public async Task AnyResponseCarriesTheLicenceAndNotOnlyTheDump()
     {
-        // Somebody republishing three fields off the listing is under the same terms as somebody
-        // taking the whole catalogue, and should not have to fetch a different route to learn it.
         await using var host = await ApiHost.StartAsync();
 
         var listing = await host.Client.GetAsync(ApiRoutes.Games);
@@ -77,7 +69,6 @@ public class DumpApiTests
         await Assert.That(slugs).Contains("gaslight-row");
         await Assert.That(slugs).Contains("verdigris");
 
-        // The default listing excludes them; the dump is not the default listing.
         var listing = await Json.ElementAsync(await host.Client.GetAsync(ApiRoutes.Games));
         await Assert.That(slugs.Count).IsGreaterThan(listing.GetProperty("total").GetInt32());
     }
@@ -85,8 +76,6 @@ public class DumpApiTests
     [Test]
     public async Task TheDumpsETagIsAHashOfTheBytesItActuallySent()
     {
-        // The validator is computed by running the same writer into a hashing sink first, so a 304
-        // on a dump is a promise about the body rather than a guess from a version stamp.
         await using var host = await ApiHost.StartAsync();
 
         var response = await host.Client.GetAsync(ApiRoutes.Dump);
@@ -131,8 +120,6 @@ public class DumpApiTests
     [Test]
     public async Task TheDumpCarriesTheSameFactsTheGameRouteDoes()
     {
-        // One mapper, so a consumer who takes the dump and a consumer who walks the routes have the
-        // same catalogue rather than two that quietly differ.
         await using var host = await ApiHost.StartAsync();
 
         var dump = await Json.ElementAsync(await host.Client.GetAsync(ApiRoutes.Dump));

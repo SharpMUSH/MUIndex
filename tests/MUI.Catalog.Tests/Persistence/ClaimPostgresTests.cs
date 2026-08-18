@@ -23,9 +23,8 @@ public class ClaimPostgresTests
     /// The whole point of §8.1: the claim binds to the account that asked, not to the token holder.
     /// </summary>
     /// <remarks>
-    /// We ask an operator to publish the token where every anonymous connection reads it, so a design
-    /// in which holding it confers anything is broken the instant it succeeds. Mallory reads Alice's
-    /// token off the connect screen and can do nothing with it.
+    /// The token is published where every anonymous connection reads it, so holding it must confer
+    /// nothing: Mallory reads Alice's token off the connect screen and can do nothing with it.
     /// </remarks>
     [Test]
     public async Task AVerifiedClaimBelongsToTheAccountThatMintedTheTokenNotWhoeverHoldsIt()
@@ -58,10 +57,8 @@ public class ClaimPostgresTests
 
     /// <summary>§8.4 — presence establishes, absence never revokes.</summary>
     /// <remarks>
-    /// Absence-revokes would hand revocation to any transient failure: a restart, an MSSP hiccup, a
-    /// compression bug eating a subnegotiation. This project has watched MCCP swallow a connection's
-    /// payload whole, and a silent unclaiming on that basis is indistinguishable from an owner walking
-    /// away.
+    /// Absence-revokes would hand revocation to any transient failure — a restart, an MSSP hiccup, a
+    /// compression bug eating a subnegotiation — indistinguishable from an owner actually walking away.
     /// </remarks>
     [Test]
     public async Task AProbeThatSeesNoBeaconLeavesAVerifiedClaimAlone()
@@ -115,9 +112,8 @@ public class ClaimPostgresTests
     /// A second attempt returns the token already published rather than minting a rival.
     /// </summary>
     /// <remarks>
-    /// Replacing it would invalidate what the operator has just finished pasting into
-    /// <c>mush.cnf</c> — the most annoying possible failure, because it looks like the site being
-    /// broken. The partial unique index makes it a schema guarantee rather than a service courtesy.
+    /// Replacing it would invalidate what the operator just pasted into <c>mush.cnf</c>. The partial
+    /// unique index makes it a schema guarantee rather than a service courtesy.
     /// </remarks>
     [Test]
     public async Task AskingTwiceReturnsTheTokenAlreadyPublished()

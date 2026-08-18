@@ -1,30 +1,16 @@
 @using MUI.Web.Localization
 
 @*
-    A row in one of the three change lists: the game's name, and one right-aligned cell holding what
-    happened and when.
+    A row in one of the three change lists: name left, age right, no boxed card.
 
-    A row, not a card. Three lists of five boxed cards was three columns of boxes on a page whose
-    only other framed thing is a connect screen — and a card per game gives a name, an age and at
-    most six words the furniture of a section. Name left, age right, a hairline between: the shape
-    the handoff draws, and the shape a list of "what changed" wants.
-
-    **No explanatory suffix under the row.** It carried "first seen", "answered again", "we keep
-    knocking" and, on the discovery feed, a mono line naming the referral that found the game and
-    the codebase it answered with. The column heading above already says which register this is, so
-    every one of those was the same fact announced twice — twenty extra lines for a screen reader to
-    wade through on the front page. Where a *cause* exists it is not a repetition of the heading and
-    it is kept, folded into the one right-hand cell beside the age: "refused · 16h" rather than a
-    second line saying "connection refused".
-
-    The return no longer raises its voice with a tinted card and a glow. It is the same row as the
-    other two lists, with the accent on the cell that says it is back — one shape for one kind of
-    thing, which is what lets the eye run down three columns at once.
+    No explanatory suffix line under the row — the column heading already says which register this
+    is, so a repeated "first seen"/"answered again" line was the same fact announced twice per row.
+    Where a cause exists (why a game went dark) it's not a repeat of the heading, so it's kept,
+    folded into the right-hand cell: "refused · 16h".
 *@
 <article class="feed-row @Register">
-    @* Off when the row sits under a column that already names the register, so the page does not
-       read "newly discovered newly discovered". A screen reader still gets it: the columns are
-       sections labelled by their own heading. *@
+    @* Off when the enclosing column already names the register, to avoid "newly discovered newly
+       discovered"; the column heading still labels the section for a screen reader. *@
     @if (ShowRegister)
     {
         <div class="kicker">@Heading</div>
@@ -59,20 +45,9 @@
     private string Tag => Http.LocaleOf().Tag;
 
     /// <summary>
-    /// Why a game went dark, where the feed knows — and nothing at all on the other two registers.
+    /// Why a game went dark (a measurement: refused, unresolved, timed out) — shown only on that
+    /// register. The discovery feed's equivalent detail lives on the game's own page instead.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// A cause is a measurement: the socket was refused, or the name did not resolve, or nothing
-    /// came back before the timeout. It belongs on the row because it is not what the heading says.
-    /// </para>
-    /// <para>
-    /// The discovery feed's detail is the opposite case — "found via REFERRAL from M*U*S*H ·
-    /// answered MSSP on first probe · PennMUSH 1.8.8p0" is three facts that are all on the game's
-    /// own page, printed under a heading that already says the game is new. It is dropped here, not
-    /// hidden: the page it belongs on is one click away and states each of them with its provenance.
-    /// </para>
-    /// </remarks>
     private string? Cause => Kind is FeedKind.WentDark ? Entry.Detail : null;
 
     private string Register => Kind switch

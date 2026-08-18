@@ -9,38 +9,21 @@ namespace MUI.Web.Components;
 /// The about page, as one view model both surfaces render.
 /// </summary>
 /// <remarks>
+/// Spec §7.6 and §11: credit what we read, publish who is knocking and how to make it stop, and
+/// state the limits of what a measurement here proves. The prose is data because both surfaces have
+/// to carry it identically — see <see cref="PlainText"/> — so the page is a list of sections and the
+/// parity test reads words rather than tags.
 /// <para>
-/// The page is an obligation rather than a feature. This project reads other people's directories
-/// and connects to other people's servers, and spec §7.6 and §11 both say the same thing about that:
-/// credit what we read, publish who is knocking and how to make it stop, and state the limits of
-/// what a measurement here actually proves.
+/// <b>Nothing here is written from the design document alone.</b> Stating the design's intentions as
+/// the deployment's actual behaviour is the shape of the <c>ContactedMaintainer</c> defect this
+/// repository already has a record of — a claim about the world compiled in by whoever typed it.
 /// </para>
 /// <para>
-/// The prose is data because both surfaces have to carry it. A sentence that exists only in the
-/// graphical page would be a sentence the plain page could not say, and on this site that is the
-/// definition of decoration — see <see cref="PlainText"/>. So the page is a list of sections, the
-/// renderers differ in markup and in nothing else, and the parity test reads words rather than tags.
-/// </para>
-/// <para>
-/// <b>Nothing here is written from the design document alone.</b> Writing the design's intentions
-/// here as though they were the deployment's behaviour is the exact shape of the
-/// <c>ContactedMaintainer</c> defect this repository already has a record of: a claim about the world
-/// compiled in by whoever typed it. The page said for several releases that there was no automated
-/// opt-out, which was true and which is the reason that sentence was there.
-/// </para>
-/// <para>
-/// <b>So the opt-out's spellings are read off <see cref="OptOutVocabulary"/> rather than typed into
-/// this file.</b> The variable and the record named here are the ones
-/// <see cref="MUI.Discovery.OptOutGate"/> actually reads, and a page that advertised a switch wired to
-/// nothing would be worse than a page admitting there was none.
-/// </para>
-/// <para>
-/// <b>The prose is read out of <see cref="Messages"/> rather than typed here.</b> This was the last
-/// long page on the site still answering in English whatever language it was asked for, and it is
-/// the page that states the rules everything else is built from — so it is the worst one to leave
-/// untranslated and the one where a paraphrase does the most damage. The English moved without a
-/// word changing; only its home did. The two spellings and the command list stay arguments, so the
-/// page still cannot advertise a switch wired to something else.
+/// The opt-out's spellings are read off <see cref="OptOutVocabulary"/> rather than typed into this
+/// file, since those are the values <see cref="MUI.Discovery.OptOutGate"/> actually reads — a page
+/// advertising a switch wired to nothing would be worse than admitting there was none. The prose
+/// itself is read out of <see cref="Messages"/> rather than typed here, since this page states the
+/// rules everything else is built from and is the worst one to leave untranslated.
 /// </para>
 /// </remarks>
 public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections)
@@ -133,8 +116,8 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
             Point(tag, "about.sources.etiquette"),
         ])
     {
-        // The names and the addresses are the directories' own and are never translated; what each
-        // gave us, and whether we read it at all, is our sentence about them and so is a message.
+        // Names and addresses are the directories' own and are never translated; what each gave us
+        // is our sentence about them, and so is a message.
         Sources =
         [
             new("TinTin++ MSSP Mud Crawler", "https://tintin.mudhalla.net/protocols/mssp/",
@@ -175,9 +158,8 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
     /// One point, from the pair of ids its two halves live under.
     /// </summary>
     /// <remarks>
-    /// The <c>.lead</c>/<c>.body</c> suffixes are a convention rather than a scheme: the id a caller
-    /// passes is what a search for either half finds, and the two are always translated together
-    /// because they are one sentence a renderer is allowed to set in two weights.
+    /// The <c>.lead</c>/<c>.body</c> suffixes are always translated together — one sentence a
+    /// renderer is allowed to set in two weights.
     /// </remarks>
     private static AboutPoint Point(string tag, string id, params (string Key, object? Value)[] args) =>
         new(Messages.For(tag, $"{id}.lead"),
@@ -189,8 +171,7 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
 /// <summary>One headed run of prose, plus whatever structured block belongs under it.</summary>
 /// <remarks>
 /// The extras are nullable rather than a separate ordered list, so both renderers walk one sequence
-/// and neither has an if-ladder deciding where a block goes. A block that appeared in one surface
-/// and not the other is the failure this page is a test of.
+/// with no if-ladder deciding where a block goes.
 /// </remarks>
 public sealed record AboutSection(string Id, string Heading, IReadOnlyList<AboutPoint> Points)
 {
@@ -208,9 +189,8 @@ public sealed record AboutSection(string Id, string Heading, IReadOnlyList<About
 /// A lead-in and the paragraph it introduces.
 /// </summary>
 /// <remarks>
-/// Split rather than one string because the graphical page sets the lead in bold and the plain page
-/// cannot. Keeping them apart means the emphasis is presentational and the sentence is not — the two
-/// surfaces read identically aloud.
+/// Split rather than one string, since the graphical page sets the lead in bold and the plain page
+/// cannot — the two surfaces read identically aloud.
 /// </remarks>
 public sealed record AboutPoint(string Lead, string Body)
 {
@@ -221,8 +201,8 @@ public sealed record AboutPoint(string Lead, string Body)
 /// What a server administrator sees when we knock, and what to do about it.
 /// </summary>
 /// <remarks>
-/// Read off <see cref="ProbeOptions"/> rather than written out here, so the name published on the
-/// page is a property of the object the probe is built from.
+/// Read off <see cref="ProbeOptions"/> rather than written out here, so the name published is a
+/// property of the object the probe is built from.
 /// </remarks>
 public sealed record AboutIdentity(string Name, string InfoUrl, bool Announced, bool ContactConfigured)
 {
@@ -230,16 +210,14 @@ public sealed record AboutIdentity(string Name, string InfoUrl, bool Announced, 
         probe.TerminalTypes.Count > 0 ? probe.TerminalTypes[0] : "MUINDEX-CRAWLER",
         probe.InfoUrl,
         Announced: true,
-        // The built-in value is a placeholder on a domain that has not been chosen. Publishing it as
-        // the way to reach us, unmarked, would be publishing an address that answers nobody.
+        // The built-in value is a placeholder on an unchosen domain — publishing it unmarked would
+        // be publishing an address that answers nobody.
         ContactConfigured: probe.InfoUrl != new ProbeOptions().InfoUrl);
 
     /// <summary>The honest version of "who is this in my logs", in one sentence.</summary>
     /// <remarks>
-    /// Two whole messages rather than one with a branch in it. The announced case is a line and the
-    /// other is a paragraph about a library gap, so they share nothing but the name — which is an
-    /// argument in both, because it is read off <see cref="ProbeOptions"/> and a deployment that
-    /// configures its own has to see its own on the page.
+    /// Two whole messages rather than one with a branch in it — they share nothing but the name,
+    /// which is an argument in both since a deployment that configures its own has to see it here.
     /// </remarks>
     public string Wording(string tag = Locales.SourceTag) => Messages.For(
         tag,
@@ -254,9 +232,9 @@ public enum ImportSourceState
     Read,
 
     /// <summary>
-    /// Implemented and deliberately not run, because it is a scrape and nobody has asked its
-    /// maintainer yet. Credited anyway: the reader is owed the whole list, and a source we have
-    /// chosen not to fetch is a different fact from one we never considered.
+    /// Implemented and deliberately not run — it is a scrape and nobody has asked its maintainer
+    /// yet. Credited anyway: a source we chose not to fetch is a different fact from one we never
+    /// considered.
     /// </summary>
     Withheld,
 }
@@ -268,9 +246,8 @@ public sealed record ImportSource(string Name, string Url, ImportSourceState Sta
     /// The badge beside the name — which is the only place a reader meets the difference.
     /// </summary>
     /// <remarks>
-    /// Two ids and never one with a negation glued on: "read" and "not read" are two claims about
-    /// what this project did, and a language that negates by inflecting the verb has nowhere to put
-    /// a prefix somebody else chose.
+    /// Two ids, never one with a negation glued on — "read" and "not read" are two claims a
+    /// translator needs to state independently.
     /// </remarks>
     public string StatusWording(string tag = Locales.SourceTag) => Messages.For(
         tag, State is ImportSourceState.Read ? "about.source.read" : "about.source.withheld");

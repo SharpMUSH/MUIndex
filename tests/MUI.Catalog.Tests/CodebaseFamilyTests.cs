@@ -33,11 +33,8 @@ public class CodebaseFamilyTests
 
     /// <summary>Everything from the version onwards goes, not merely a trailing version token.</summary>
     /// <remarks>
-    /// Every value here is live, off <c>mu-index.com/ecosystem</c>. Folding only a trailing token
-    /// left one codebase published as four — <c>MUX</c>, <c>MUX 2.12.0.3 Alpha</c>,
-    /// <c>MUX 2.13.0.0-MP MPARK-ST</c> and <c>MUX 2.13.0.0-MP MPARK-BB-ST</c> each had their own bar
-    /// on the dashboard — because what a game appends after its version is a build tag and never the
-    /// name of a different codebase.
+    /// Folding only a trailing token can still leave one codebase published as several bars: what a
+    /// game appends after its version is a build tag, never the name of a different codebase.
     /// </remarks>
     [Test]
     [Arguments("MUX 2.13.0.0-MP MPARK-ST", "MUX")]
@@ -58,9 +55,8 @@ public class CodebaseFamilyTests
 
     /// <summary>A real two-word name is not a name plus a qualifier, and survives whole.</summary>
     /// <remarks>
-    /// The cost of the wider fold, paid for by a closed list rather than a heuristic. Every one of
-    /// these is a live catalogue value, and a rule clever enough to drop <c>Alpha</c> by its shape
-    /// would take <c>Aeon</c> or <c>Magica</c> with it.
+    /// The cost of the wider fold, paid for by a closed list rather than a heuristic: a rule clever
+    /// enough to drop <c>Alpha</c> by its shape would take <c>Aeon</c> or <c>Magica</c> with it.
     /// </remarks>
     [Test]
     [Arguments("Alter Aeon")]
@@ -78,11 +74,8 @@ public class CodebaseFamilyTests
 
     /// <summary>A version hyphenated straight onto the name is still a version.</summary>
     /// <remarks>
-    /// Both values are live. The fold looks for the version at a space, so a game that typed no space
-    /// kept its patchlevel in the family name and got a bar of its own on the dashboard —
-    /// <c>MorgenGrauen-3.3.5</c> sat beside the <c>MorgenGrauen</c> key <see cref="CodebaseLineage"/>
-    /// already carries, and matched it only through the fallback that reads the words of a string it
-    /// could not fold.
+    /// The fold looks for the version at a space, so a game that typed no space would otherwise keep
+    /// its patchlevel in the family name and get a bar of its own on the dashboard.
     /// </remarks>
     [Test]
     [Arguments("MorgenGrauen-3.3.5", "MorgenGrauen")]
@@ -92,10 +85,8 @@ public class CodebaseFamilyTests
 
     /// <summary>…and a hyphen inside a name is not a version boundary.</summary>
     /// <remarks>
-    /// The rule that pays for the one above, and it is why the suffix has to be a <em>dotted</em>
-    /// version rather than anything version-shaped. <c>TMI-2</c> is a mudlib whose name ends in a
-    /// digit, and a rule loose enough to fold it would publish two live codebases under a name
-    /// nobody uses — the same mid-phrase truncation this fold is careful about everywhere else.
+    /// Why the suffix must be a dotted version, not anything version-shaped: <c>TMI-2</c> is a
+    /// mudlib whose name ends in a digit, and a looser rule would fold it away.
     /// </remarks>
     [Test]
     [Arguments("TMI-2 1.3-pre2(modified)", "TMI-2")]
@@ -108,8 +99,8 @@ public class CodebaseFamilyTests
 
     /// <summary>Punctuation left standing between the name and the version is not the name.</summary>
     /// <remarks>
-    /// Live, and it rendered as the family <c>AnsalonMUD -</c>: the cut stops before the version, and
-    /// the dash the operator typed to separate the two was on the name's side of it.
+    /// Without this, the family renders as <c>AnsalonMUD -</c>: the separator dash sits on the name's
+    /// side of the cut.
     /// </remarks>
     [Test]
     public async Task ASeparatorBeforeTheVersionIsNotPartOfTheName()
@@ -126,21 +117,17 @@ public class CodebaseFamilyTests
     [Test]
     public async Task AFoldNeverTruncatesMidPhrase()
     {
-        // The failure the fold has to avoid on the other side: cutting inside a parenthesis leaves
-        // "Rhost 4.0.4 (patchlevel", which is a name no game runs and no reader recognises. Cutting
-        // at the version is not that cut — it stops before the version begins.
+        // Cutting inside a parenthesis would leave "Rhost 4.0.4 (patchlevel", a name nobody runs.
         await Assert.That(CodebaseFamily.Of("Rhost 4.0.4 (patchlevel 1)")).IsEqualTo("Rhost");
     }
 
     [Test]
     public async Task AVersionOnItsOwnIsNotFoldedToNothing()
     {
-        // A game whose whole CODEBASE is a version has published no name, and folding it away would
-        // put an empty bar on the dashboard. The cut is never taken from the first word.
+        // A game whose whole CODEBASE is a version has published no name; folding it away would put
+        // an empty bar on the dashboard, so the cut is never taken from the first word.
         await Assert.That(CodebaseFamily.Of("2.12")).IsEqualTo("2.12");
 
-        // The qualifier strip stops at the first word for the same reason, so this keeps a version
-        // where a name should be rather than keeping nothing at all.
         await Assert.That(CodebaseFamily.Of("2.12 beta")).IsEqualTo("2.12");
     }
 
@@ -155,9 +142,7 @@ public class CodebaseFamilyTests
     [Test]
     public async Task EveryPatchlevelFoldsToOneFamily()
     {
-        // The question a reader asks is never version-shaped, so every patchlevel gathers — and it
-        // gathers by folding to one string rather than by any looser test, because the panel counts
-        // what the fold returns and a count is a promise about what clicking it returns.
+        // The panel counts what the fold returns, so a count stays a promise about what clicking it returns.
         await Assert.That(CodebaseFamily.For("PennMUSH 1.8.8p0")).IsEqualTo("PennMUSH");
         await Assert.That(CodebaseFamily.For("PennMUSH 1.8.5")).IsEqualTo("PennMUSH");
         await Assert.That(CodebaseFamily.For("PennMUSH")).IsEqualTo("PennMUSH");
@@ -166,8 +151,7 @@ public class CodebaseFamilyTests
     [Test]
     public async Task ANeighbouringFamilyIsNotAbsorbed()
     {
-        // The three spellings this rule exists for: a family whose name is a prefix of another's, a
-        // family whose name is a suffix of another's, and the one a prefix test gets wrong outright.
+        // A name that is a prefix or suffix of another's must not fold into it.
         await Assert.That(CodebaseFamily.For("TinyMUX 2.12")).IsNotEqualTo("TinyMUSH");
         await Assert.That(CodebaseFamily.For("LambdaMOO 1.8.1")).IsNotEqualTo("MOO");
         await Assert.That(CodebaseFamily.For("ROMulus 3")).IsNotEqualTo("ROM");
@@ -177,8 +161,7 @@ public class CodebaseFamilyTests
     [Test]
     public async Task AGameWithNoIdentifiedCodebaseBelongsToNoFamily()
     {
-        // Failing to identify a codebase is a measurement, and it is not a measurement of this. Null
-        // rather than an empty string, because the facets spell that absence as its own value.
+        // Null, not an empty string — the facets spell that absence as its own value.
         await Assert.That(CodebaseFamily.For(null)).IsNull();
         await Assert.That(CodebaseFamily.For("")).IsNull();
         await Assert.That(CodebaseFamily.For("   ")).IsNull();

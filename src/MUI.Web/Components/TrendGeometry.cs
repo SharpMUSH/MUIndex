@@ -12,10 +12,10 @@ public sealed record TrendColumn(double X, double Width, TrendDay Day);
 /// A day we counted, as the two stacked rectangles that carry it.
 /// </summary>
 /// <remarks>
-/// <see cref="MeanTop"/> is the top of the solid bar — the mean of the counts read that day, grown
-/// from the baseline like any magnitude. <see cref="PeakTop"/> is the top of the pale cap above it,
-/// which reaches the busiest probe of that day: a game that peaks at forty and idles at two has the
-/// same mean as one that sits at twenty-one all evening, and the cap is what tells them apart.
+/// <see cref="MeanTop"/> is the top of the solid bar (that day's mean). <see cref="PeakTop"/> is the
+/// top of the pale cap above it (that day's busiest probe) — a game that peaks at forty and idles at
+/// two has the same mean as one that sits at twenty-one all evening, and the cap is what tells them
+/// apart.
 /// </remarks>
 public sealed record TrendBar(double X, double Width, double PeakTop, double MeanTop, TrendDay Day)
 {
@@ -26,9 +26,9 @@ public sealed record TrendBar(double X, double Width, double PeakTop, double Mea
     /// Whether the spread is worth a cap at all.
     /// </summary>
     /// <remarks>
-    /// Below a couple of user units the cap is thinner than the gap under it and renders as a smudge
-    /// on the bar rather than as a fact. The number itself is never lost: the day's own tooltip and
-    /// the "read as text" lines carry min, mean and max whatever the chart does with them.
+    /// Below a couple of user units the cap renders as a smudge rather than a fact. The number is
+    /// never lost regardless: the tooltip and the "read as text" lines carry min, mean and max either
+    /// way.
     /// </remarks>
     public bool HasCap => CapBottom - PeakTop >= TrendGeometry.MinimumCap;
 }
@@ -46,25 +46,12 @@ public sealed record TrendMonth(double X, double Fraction, string Label);
 /// The trend chart's geometry, as plain arithmetic over a series.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A separate type from the component because the rule this chart has to keep is a geometric one and
-/// wants testing as arithmetic rather than as markup: <b>a day nobody measured gets no ink at all</b>.
-/// MUDStats and every status-page chart draw one continuous polyline, which interpolates across a
-/// gap — and an interpolated gap is our crawl schedule drawn as their quiet fortnight. §5.4's third
-/// state is the absence of a measurement, so here it is the absence of a bar.
-/// </para>
-/// <para>
-/// <b>Columns rather than a line, because most games are measured sparsely.</b> The first draft drew
-/// a broken line with a min–max band, which is the right picture for a game probed every day and an
-/// empty box for everyone else: a game counted on three days of ninety rendered as a single two-pixel
-/// dot in a dark rectangle, and a run of one day cannot be a line at all. A bar does not need its
-/// neighbours to exist, so a day we measured looks like a day we measured however alone it is.
-/// </para>
-/// <para>
-/// No script. The paths are computed on the server and the SVG is inert, which is what lets the
-/// same numbers reach a text browser through <see cref="TrendSeries.PerWeek"/> rather than through a
-/// second implementation that could disagree with this one.
-/// </para>
+/// A separate type from the component so the chart's core rule is testable as arithmetic: <b>a day
+/// nobody measured gets no ink at all</b>. A continuous polyline interpolates across a gap — drawing
+/// our crawl schedule as their quiet fortnight — so this draws columns instead, which need no
+/// neighbour to exist. No script: paths are computed server-side, and the same numbers reach a text
+/// browser through <see cref="TrendSeries.PerWeek"/> rather than a second implementation that could
+/// disagree with this one.
 /// </remarks>
 public static class TrendGeometry
 {
@@ -83,10 +70,8 @@ public static class TrendGeometry
     /// The least ink a counted day may have.
     /// </summary>
     /// <remarks>
-    /// A measured zero is a measurement — we got in and nobody was there — and a bar of no height is
-    /// indistinguishable from the day beside it that nobody looked at. So every counted day keeps a
-    /// sliver on the baseline, which is also what saves a count of one against a ceiling of a
-    /// thousand from rounding away to nothing.
+    /// A measured zero is a measurement, and a bar of no height would be indistinguishable from a day
+    /// nobody looked at — every counted day keeps a sliver on the baseline.
     /// </remarks>
     public const double MinimumInk = 2;
 
@@ -150,9 +135,8 @@ public static class TrendGeometry
     /// The mean line, as one path per unbroken run of measured days.
     /// </summary>
     /// <remarks>
-    /// A run of one day produces no path at all — a single point is not a line — and reaches the
-    /// reader through <see cref="Dots"/> instead. Returning a one-point path would render as
-    /// nothing at all in most engines, which is a measurement silently dropped.
+    /// A run of one day produces no path — a single point is not a line, and a one-point path renders
+    /// as nothing in most engines. It reaches the reader through <see cref="Dots"/> instead.
     /// </remarks>
     public static IReadOnlyList<string> MeanPaths(TrendSeries series)
     {
@@ -168,9 +152,8 @@ public static class TrendGeometry
     /// The min–max band, as one closed area per unbroken run.
     /// </summary>
     /// <remarks>
-    /// Out along the maxima and back along the minima, so the band shows the spread between a game's
-    /// quietest and busiest probe that day — the same fact the columns put in their cap, and drawn
-    /// in the same colour so a reader who switches shape is not shown two encodings of one number.
+    /// Out along the maxima and back along the minima. The same fact the columns put in their cap,
+    /// drawn in the same colour so switching shape does not show two encodings of one number.
     /// </remarks>
     public static IReadOnlyList<string> BandPaths(TrendSeries series)
     {
@@ -205,9 +188,8 @@ public static class TrendGeometry
 
     /// <summary>Days probed and never counted. Beneath the plot, never on the zero line.</summary>
     /// <remarks>
-    /// Below the baseline rather than at it, because a mark <em>on</em> the zero line reads as a
-    /// measured zero — which is the collapse of §5.4's middle state into a filled cell, and the
-    /// worst bug this codebase can ship. It sits in its own gutter and the legend names it.
+    /// Below the baseline, never on it — a mark on the zero line reads as a measured zero, collapsing
+    /// §5.4's middle state into a filled cell, which is the worst bug this codebase can ship.
     /// </remarks>
     public static IReadOnlyList<TrendTick> Ticks(string tag, TrendSeries series) =>
         Columns(series)
@@ -219,11 +201,9 @@ public static class TrendGeometry
     /// Where a month begins, as a rule in the plot and a label under it.
     /// </summary>
     /// <remarks>
-    /// The calendar is what a reader orients by, and without it ninety columns are ninety columns of
-    /// nothing in particular. Labels are dropped rather than crowded once they come closer than a
-    /// ninth of the canvas, so a five-year range says which years it covers instead of overprinting
-    /// sixty month names into a grey smear. The exact ends of the range are printed as words above
-    /// the chart, so thinning here loses nothing.
+    /// Labels are dropped rather than crowded once closer than a ninth of the canvas, so a five-year
+    /// range says which years it covers instead of overprinting sixty names into a smear. The exact
+    /// range endpoints are printed as words above the chart, so thinning here loses nothing.
     /// </remarks>
     public static IReadOnlyList<TrendMonth> Months(string tag, TrendSeries series)
     {
@@ -270,10 +250,8 @@ public static class TrendGeometry
     /// <summary>
     /// A column as a path: rounded where the data ends, square where it meets zero.
     /// </summary>
-    /// <remarks>
-    /// A path rather than a <c>rect</c> with a radius, because a radius rounds all four corners and a
-    /// bar with a rounded foot floats off its own baseline.
-    /// </remarks>
+    /// <remarks>A path, not a <c>rect</c> with a radius — that would round all four corners, and a
+    /// bar with a rounded foot floats off its own baseline.</remarks>
     public static string Column(double x, double width, double top, double bottom)
     {
         var radius = Math.Min(CornerRadius, Math.Min(width / 2, Math.Max(bottom - top, 0) / 2));
@@ -295,8 +273,8 @@ public static class TrendGeometry
     /// A number as SVG wants it: two decimals, invariant.
     /// </summary>
     /// <remarks>
-    /// The culture is not a detail: SVG path data is comma-and-space separated and a machine running
-    /// under a locale that writes <c>0,5</c> would emit coordinates a renderer reads as two numbers.
+    /// Not a detail: SVG path data is comma-and-space separated, and a locale that writes <c>0,5</c>
+    /// would emit coordinates a renderer reads as two numbers.
     /// </remarks>
     public static string Round(double value) =>
         Math.Round(value, 2).ToString("0.##", CultureInfo.InvariantCulture);
@@ -310,11 +288,8 @@ public static class TrendGeometry
     }
 
     /// <summary>Unbroken runs of counted days. A day that was not counted ends the run it touches.</summary>
-    /// <remarks>
-    /// The line's half of the rule the columns keep by construction: the break is in the path data,
-    /// not in a style, because a CSS dash cannot express "no measurement" and a continuous line under
-    /// a faint stroke would still be our crawl schedule drawn as their quiet fortnight.
-    /// </remarks>
+    /// <remarks>The break is in the path data, not a CSS style — a dash cannot express "no
+    /// measurement".</remarks>
     private static List<List<TrendColumn>> Runs(TrendSeries series)
     {
         var runs = new List<List<TrendColumn>>();
@@ -363,11 +338,9 @@ public static class TrendGeometry
     /// A rule's label: the month, and the year as well where the calendar turns over.
     /// </summary>
     /// <remarks>
-    /// Through the message pipeline rather than <c>ToString("MMM")</c>, which reads the month name
-    /// off whatever culture the thread happens to be under — the request's, in one place, and the
-    /// invariant one in the headless renderer and the tests. The pattern carries the date style, so
-    /// a locale that writes the year first says so in its own copy instead of being given an
-    /// English ordering with translated words in it.
+    /// Through the message pipeline rather than <c>ToString("MMM")</c>, so a locale that writes the
+    /// year first says so in its own copy instead of getting an English ordering with translated
+    /// words in it.
     /// </remarks>
     private static string Month(string tag, DateOnly date) =>
         Messages.For(

@@ -82,13 +82,10 @@ public interface II3BindingRepository
     /// name already does or this mud was already bound.
     /// </returns>
     /// <remarks>
-    /// <b>A refusal is an answer here, not an error, and that distinction was measured.</b> One game
-    /// routinely appears on I3 under several names: <c>The Zone</c> is also <c>The Zone-dalet</c>,
-    /// <c>The Zone-i4</c> and <c>The Zone-wpr</c> — one mud registered once per router — and
-    /// <c>Battlespace MUD</c> is also <c>Battlespace_MUD</c>. Whichever name binds first is the one
-    /// that counts the game, and the others are duplicates of a fact we already have. Letting the
-    /// unique index throw out of a pass meant that every game with a second I3 name broke the whole
-    /// cycle, for ever, on every retry.
+    /// A refusal is an answer here, not an error: one game routinely registers several I3 names (e.g.
+    /// <c>The Zone</c> / <c>The Zone-dalet</c> / <c>The Zone-i4</c>, one mud per router), so whichever
+    /// name binds first counts the game. Letting the unique index throw broke the whole cycle on
+    /// retry for every game with a second I3 name.
     /// </remarks>
     Task<bool> BindAsync(string mudName, Guid gameId, CancellationToken ct);
 

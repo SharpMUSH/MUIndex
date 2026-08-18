@@ -6,28 +6,16 @@ namespace MUI.Web.Tests;
 /// What a rendered document put in its <c>&lt;head&gt;</c>.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The head is the one part of the site no reader sees and every other program does — a search
-/// engine, a chat client unfurling a pasted link, a browser choosing a tab icon. So the assertions
-/// about it are assertions about markup rather than about words, and <c>Render.Words</c> is the
-/// wrong tool: it collapses exactly the attribute structure that carries the meaning.
-/// </para>
-/// <para>
-/// Deliberately a reader and not a parser. It answers "what is the content of the meta whose name
-/// or property is X" and nothing else, because a test that needed more than that would be a test
-/// asserting on how the head is laid out rather than on what it says.
-/// </para>
+/// No reader sees the head, but every unfurler and search engine does — so assertions here are about
+/// markup, not words, and <c>Render.Words</c> is the wrong tool. Deliberately a reader, not a parser:
+/// it answers "what's the content of the meta named X" and nothing about layout.
 /// </remarks>
 public static partial class Head
 {
     /// <summary>
     /// The content of a <c>&lt;meta&gt;</c>, found by either spelling of its key.
     /// </summary>
-    /// <remarks>
-    /// Open Graph keys ride on <c>property</c> and Twitter's on <c>name</c>, which is not a
-    /// stylistic difference — the two vocabularies were specified separately and consumers look for
-    /// their own spelling. Reading both here keeps that out of every call site.
-    /// </remarks>
+    /// <remarks>Open Graph keys ride on <c>property</c>, Twitter's on <c>name</c> — reading both here keeps that out of every call site.</remarks>
     public static string? Meta(string document, string key)
     {
         ArgumentNullException.ThrowIfNull(document);

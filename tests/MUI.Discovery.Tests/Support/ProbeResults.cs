@@ -14,11 +14,9 @@ public static class ProbeResults
     /// An MSSP report, in the shape the probe now produces: name → value <b>list</b>, in wire order.
     /// </summary>
     /// <remarks>
-    /// Repeating a variable here repeats it on the wire, which is MSSP's own way of expressing a list
-    /// and the one <c>REFERRAL</c> and <c>PORT</c> arrive in — <c>coffeemud.net:2327</c> reports
-    /// <c>PORT</c> nine times. This used to be a flat map, so a fixture had to glue several entries
-    /// into one value and the parser had to pull them apart again; both halves of that are gone.
-    /// <see cref="List"/> remains for the other real shape, several entries <em>inside</em> one value.
+    /// Repeating a variable here repeats it on the wire — MSSP's own way of expressing a list, and how
+    /// <c>REFERRAL</c> and <c>PORT</c> arrive (<c>coffeemud.net:2327</c> reports <c>PORT</c> nine
+    /// times). <see cref="List"/> covers the other real shape: several entries inside one value.
     /// </remarks>
     public static IReadOnlyDictionary<string, IReadOnlyList<string>> Mssp(
         params (string Variable, string Value)[] variables)

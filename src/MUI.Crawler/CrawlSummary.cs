@@ -45,20 +45,14 @@ public sealed record CrawlSummaryData(
 /// What actually landed, read back out of the database.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Read back rather than accumulated in memory, deliberately.</b> The claim being checked is "the
-/// site will show measured data instead of a fixture", and the site reads these tables — so a summary
-/// tallied from what the cycle thought it wrote would agree with the code and prove nothing. The
-/// three presence states of §5.4 are broken out for the same reason: a counted row, an uncountable
-/// row and a missing row are the three things this whole design turns on, and a single "samples"
-/// figure hides which of them a cycle produced.
-/// </para>
-/// <para>
-/// <b>Split into <see cref="CollectAsync"/> and <see cref="PrintAsync"/> rather than one method that
-/// writes to <see cref="Console"/>.</b> <c>mui-crawl</c> is not the only caller any more — the MCP
-/// <c>crawl_summary</c> tool (<c>MUI.Web.Mcp.MuiMcpTools</c>) wants the same query without a terminal
-/// on the other end, and a second copy of the SQL is a second place for the two to drift apart.
-/// </para>
+/// Read back rather than accumulated in memory, since the claim being checked is "the site shows
+/// what's in these tables" — a summary tallied from what the cycle thought it wrote would prove
+/// nothing. The three presence states of §5.4 are broken out separately rather than one "samples"
+/// figure, since which of the three a cycle produced is the whole point.
+///
+/// Split into <see cref="CollectAsync"/> and <see cref="PrintAsync"/> because <c>mui-crawl</c> is not
+/// the only caller: the MCP <c>crawl_summary</c> tool wants the same query without a terminal on the
+/// other end, and a second copy of the SQL is a second place for the two to drift apart.
 /// </remarks>
 public static class CrawlSummary
 {

@@ -27,10 +27,8 @@ public sealed class NpgsqlDuplicateReviewRepository(NpgsqlDataSource source) : I
     /// Opens the pair, or returns the id of the one already open.
     /// </summary>
     /// <remarks>
-    /// <b>The pair is unordered and the storage orders it.</b> That is what makes "have we already
-    /// opened this?" one lookup rather than two that can race each other into two rows for one pair —
-    /// and with the partial unique index behind it, a probe that keeps scoring middling cannot
-    /// accumulate a row per cycle.
+    /// The pair is unordered and storage orders it, so "have we already opened this?" is one lookup
+    /// rather than two racing into two rows for one pair.
     /// </remarks>
     public async Task<Guid> OpenAsync(
         Guid a,

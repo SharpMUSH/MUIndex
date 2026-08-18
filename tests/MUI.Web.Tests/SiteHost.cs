@@ -15,29 +15,13 @@ namespace MUI.Web.Tests;
 /// loopback port.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <see cref="Api.ApiHost"/>'s counterpart, and it exists for the same reason: some of what this
-/// project promises is HTTP rather than markup. "A slug a game used to have redirects to its page,
-/// permanently" cannot be read off a rendered component — <c>Render</c> invokes a component with a
-/// stubbed navigation manager and no <c>HttpContext</c>, which is the right tool for a claim about
-/// what a browser is handed and no tool at all for a claim about a status line.
-/// </para>
-/// <para>
-/// It calls <see cref="SiteComposition.AddMuiSite"/> and <see cref="SiteComposition.UseMuiSite"/>
-/// rather than booting <c>Program</c>, so a test can vary what a deployment would have decided — the
-/// catalogue behind it, the configured aliases — without an environment variable and without the
-/// solution taking a test-hosting package for one file. <b>It calls them rather than restating
-/// them</b>: this host assembled the graph and the pipeline by hand until <c>SiteComposition</c>
-/// existed, and a harness that reassembles a pipeline is a harness that can quietly stop describing
-/// the site. Every assertion here about a status line is worth something only if the middleware
-/// order under it is the deployed one.
-/// </para>
-/// <para>
-/// Composed with a null connection string by default, which is the demo-fixture half: no database,
-/// so no accounts and no submission endpoint, and the page says what it is showing was not measured
-/// — exactly what a reader of the real site with no <c>MUI_POSTGRES</c> sees. A caller that passes
-/// one gets the other composition, for the tests that need a real one running behind real HTTP.
-/// </para>
+/// <see cref="Api.ApiHost"/>'s counterpart: some of what this project promises is HTTP rather than
+/// markup, and a claim about a status line can't be read off a rendered component. Calls
+/// <see cref="SiteComposition.AddMuiSite"/>/<see cref="SiteComposition.UseMuiSite"/> rather than
+/// booting <c>Program</c>, so a test can vary the composition without an environment variable — but
+/// calls them rather than restating them, so a status-line assertion here is only worth something if
+/// the middleware order under it is the deployed one. Composed with a null connection string by
+/// default (the demo-fixture half); a caller that passes one gets the database-backed composition.
 /// </remarks>
 public sealed class SiteHost : IAsyncDisposable
 {
@@ -58,30 +42,20 @@ public sealed class SiteHost : IAsyncDisposable
         StartAsync(null, services);
 
     /// <param name="measured">
-    /// Whether the site should believe a catalogue is configured. <see cref="Fixtures.FixtureGameQueries"/>
-    /// still answers every read — this asks what the site renders when the numbers are real, not
-    /// what a real database holds, which is the same knob <c>Render.PageAsync</c> already has and
-    /// exists for the same reason: several surfaces are deliberately different over the demo
-    /// fixture, and a suite that can only start one of the two worlds can only test one of them.
-    /// It goes on after <see cref="SiteComposition.AddMuiSite"/> because that call registers the
-    /// marker itself, from the connection string it was handed.
+    /// Whether the site should believe a catalogue is configured — <see cref="Fixtures.FixtureGameQueries"/>
+    /// still answers every read either way. Several surfaces render differently over the demo
+    /// fixture depending on this. Set after <see cref="SiteComposition.AddMuiSite"/>, which
+    /// registers the marker itself from the connection string.
     /// </param>
     /// <param name="clock">
-    /// What the site should believe the time is. The fixture stamps its facts at a fixed instant on
-    /// purpose — a demo on which nothing is ever old would not show the state worth showing — so
-    /// every age it renders is measured against the wall clock and grows by a day each day. A test
-    /// asserting on "4m ago" has to pin the other end of that subtraction or it is asserting on the
-    /// date it was written.
+    /// What the site should believe the time is. The fixture's facts are stamped at a fixed instant,
+    /// so a test asserting on "4m ago" must pin the other end of that subtraction.
     /// </param>
     /// <param name="connectionString">
-    /// <c>null</c> for the demo fixture (the default, and every existing caller). A non-null value
-    /// composes the real database graph instead — <see cref="AddMuiSite"/> and
-    /// <see cref="UseMuiSite"/> both branch on this the same way <c>Program</c> does, so a test asking
-    /// for the database-backed composition gets the composition rather than a restatement of it.
-    /// Passing one turns off the two things that only make sense against the fixture: the sign-in
-    /// stub below, because <see cref="UseMuiSite"/> maps a real one when there is a database, and the
-    /// <paramref name="measured"/> override, because the real composition already registers
-    /// <see cref="MUI.Web.Data.CatalogueSource"/> from the connection string itself.
+    /// <c>null</c> for the demo fixture (the default). A non-null value composes the real database
+    /// graph instead, the same way <c>Program</c> branches — and turns off the sign-in stub below
+    /// (a real one is mapped once there's a database) and the <paramref name="measured"/> override
+    /// (the real composition already registers <see cref="MUI.Web.Data.CatalogueSource"/> itself).
     /// </param>
     public static async Task<SiteHost> StartAsync(
         Dictionary<string, string?>? settings = null,
@@ -90,17 +64,14 @@ public sealed class SiteHost : IAsyncDisposable
         TimeProvider? clock = null,
         string? connectionString = null)
     {
-        // Named for the web project, so UseStaticWebAssets below finds the manifest that project
-        // wrote into this one's output — see the call for why that matters.
+        // Named for the web project, so UseStaticWebAssets below finds that project's manifest.
         var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
         {
             ApplicationName = typeof(SiteComposition).Assembly.GetName().Name,
         });
 
-        // wwwroot. Without this the site's own stylesheet, its icons and its manifest are 404s here
-        // and nowhere else, because the content root of a test host is the test project's output
-        // directory — so the one thing that would notice a renamed or unshipped asset could not see
-        // any of them. CreateSlimBuilder does not wire it up; that is what makes it slim.
+        // Without this the site's stylesheet, icons and manifest 404 here (the test host's content
+        // root is the test project's output directory). CreateSlimBuilder doesn't wire it up.
         builder.WebHost.UseStaticWebAssets();
 
         builder.Logging.ClearProviders();
@@ -131,21 +102,16 @@ public sealed class SiteHost : IAsyncDisposable
 
         var app = builder.Build();
 
-        // The pipeline and the routes, through the one call Program makes. That includes the read
-        // API, because the deployable is one process and a rule about how *pages* answer must not
-        // reach the endpoints beside them: an unmatched route under /api is a 404 nobody wrote a
-        // body for, which is exactly the shape a not-found page would have swallowed.
+        // The pipeline and routes, through the one call Program makes — including the read API, so
+        // an unmatched /api route is a 404 and not swallowed by the not-found page.
         app.UseMuiSite(connectionString);
 
         if (connectionString is null)
         {
             // Standing in for MUI.Web.Accounts, which UseMuiSite leaves unmapped with no connection
-            // string: passkeys need a database and this host has none. The status line is what
-            // matters — Passkeys.cs answers a bad sign-in with Results.Unauthorized(), a bodiless
-            // 401, and passkey.js renders `throw new Error(await response.text())` straight into the
-            // sign-in status line. If anything in the pipeline fills that body with HTML, a reader
-            // who mistyped their passkey is shown a page of markup. With a database configured
-            // UseMuiSite maps a real one at this same path, so the stub would only ever shadow it.
+            // string. The status line is what matters: Passkeys.cs answers a bad sign-in with a
+            // bodiless 401, and passkey.js reads the body as the error text — any pipeline step that
+            // filled it with HTML would show a reader a page of markup instead of an error.
             app.MapPost(SignInPath, () => Results.Unauthorized()).DisableAntiforgery();
         }
 

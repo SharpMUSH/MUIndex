@@ -11,15 +11,11 @@ namespace MUI.Catalog.Tests.Persistence;
 /// Migration 0019's distribution, against a real database.
 /// </summary>
 /// <remarks>
-/// The distribution exists so that a median outlives the raw rows it was taken from, and it is worth
-/// exactly as much as its agreement with the thing it replaces. So the load-bearing test here is not
-/// a shape assertion: it is that summing these maps over a window and walking to the half-way
-/// position returns <b>the same number</b> <c>percentile_disc(0.5)</c> returns over the same raw
-/// samples, across a set of distributions written to break a naive implementation — even counts, odd
-/// counts, ties, and a single sample.
-///
-/// The rest guard §5.4 at the new seam: a bucket that was probed and never counted must not acquire
-/// a distribution, because a distribution is a statement that something was counted.
+/// The load-bearing test here is not a shape assertion: it's that summing these maps over a window
+/// and walking to the half-way position returns the same number <c>percentile_disc(0.5)</c> returns
+/// over the same raw samples, across distributions chosen to break a naive implementation — even
+/// counts, odd counts, ties, a single sample. The rest guard §5.4 at the new seam: a bucket probed
+/// and never counted must not acquire a distribution.
 /// </remarks>
 public class PresenceHistogramPostgresTests
 {
@@ -28,14 +24,12 @@ public class PresenceHistogramPostgresTests
     [Test]
     public async Task EveryCountedBucketCarriesItsDistributionAndItAddsUp()
     {
-        // The converse the schema deliberately does not assert — see 0019 — is a property of the
-        // writer, so it is asserted here instead.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
 
-        // Four probes in one hour: two read 3, one read 0 — a measured zero is a measurement and is
-        // a key like any other — and one read 7.
+        // Four probes in one hour: two read 3, one read 0 (a measured zero is a key like any
+        // other), and one read 7.
         foreach (var (minute, count) in new[] { (0, 3), (15, 3), (30, 0), (45, 7) })
         {
             await writer.WriteAsync(game, PresenceReading.Counted(count, FieldSource.Who), Hour.AddMinutes(minute));
@@ -68,9 +62,8 @@ public class PresenceHistogramPostgresTests
     [Test]
     public async Task AProbedAndUncountableBucketGetsNoDistribution()
     {
-        // §5.4's middle state at the new seam. A distribution on a bucket nothing was counted in
-        // would be a statement that something was, which is the collapse this schema exists to
-        // prevent — and an empty `{}` would be the same lie in punctuation.
+        // §5.4's middle state at the new seam: a distribution on a bucket nothing was counted in
+        // would be a statement that something was — an empty `{}` would be the same lie.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
@@ -92,9 +85,9 @@ public class PresenceHistogramPostgresTests
     [Test]
     public async Task TheSchemaRefusesADistributionThatDoesNotAddUp()
     {
-        // Half the design is in CHECK constraints. A histogram totalling something other than the
-        // tally beside it is a median computed over a different number of probes from the one the
-        // page prints under it, and no hand-typed UPDATE may produce one.
+        // Half the design is in CHECK constraints: a histogram totalling something other than the
+        // tally beside it is a median over the wrong number of probes, and no hand-typed UPDATE may
+        // produce one.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
 
@@ -124,9 +117,8 @@ public class PresenceHistogramPostgresTests
     [Test]
     public async Task ALateSampleIsFoldedInRatherThanAppended()
     {
-        // The rollup is a projection and not an accumulation, so re-rolling an hour must rewrite the
-        // distribution rather than add to it. A histogram is the one column where "upsert" could
-        // plausibly have been written as a merge, and a merge would double-count every re-roll.
+        // The rollup is a projection, not an accumulation: re-rolling an hour must rewrite the
+        // distribution rather than merge into it, or every re-roll would double-count.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
@@ -155,10 +147,10 @@ public class PresenceHistogramPostgresTests
     /// The whole point, asserted directly: the rolled-up median equals the raw one.
     /// </summary>
     /// <remarks>
-    /// Several distributions, chosen for where an off-by-one lives. An even number of samples, an
-    /// odd number, every sample identical, a single sample, and a set with a tie across the middle —
-    /// <c>percentile_disc</c> takes the element at <c>ceil(n / 2)</c> and any implementation that
-    /// picks <c>n / 2</c>, or averages the two middle values, disagrees on at least one of these.
+    /// Distributions chosen for where an off-by-one lives: even/odd sample counts, all-identical, a
+    /// single sample, a tie across the middle. <c>percentile_disc</c> takes the element at
+    /// <c>ceil(n / 2)</c>; an implementation using <c>n / 2</c> or averaging the two middle values
+    /// disagrees on at least one of these.
     /// </remarks>
     [Test]
     public async Task TheRolledUpMedianIsTheMedianOfTheRawSamples()
@@ -185,8 +177,8 @@ public class PresenceHistogramPostgresTests
             var game = await Seed.GameAsync(db, $"shape-{d}", $"Shape {d}");
             games.Add(game);
 
-            // Spread across a day so the hour buckets differ, which is the case that would expose a
-            // median taken per bucket and then averaged rather than summed across the window.
+            // Spread across a day so hour buckets differ, exposing a median taken per bucket and
+            // averaged rather than summed across the window.
             for (var i = 0; i < counts.Length; i++)
             {
                 await writer.WriteAsync(
@@ -207,7 +199,7 @@ public class PresenceHistogramPostgresTests
                 """,
                 new { game });
 
-            // The same walk the rankings query does, over the day rollup's distributions.
+            // The same walk the rankings query does, over the day rollup's distributions
             var rolled = await connection.ExecuteScalarAsync<int>(
                 """
                 WITH frequency AS (

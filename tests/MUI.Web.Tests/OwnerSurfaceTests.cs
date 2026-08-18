@@ -13,10 +13,9 @@ namespace MUI.Web.Tests;
 /// The owner dashboard's write path, as markup and as the parse behind it (spec §8.5, §11).
 /// </summary>
 /// <remarks>
-/// A claim about what an owner can reach has to be read off the rendered form, because the form is
-/// the only part of this a person sees. The gate itself is asserted against a real database in
-/// <c>OwnerEnrichmentPostgresTests</c> — these say that the surface offers exactly what the gate
-/// permits, which is the half that goes wrong quietly.
+/// A claim about what an owner can reach has to be read off the rendered form. The gate itself is
+/// asserted against a real database in <c>OwnerEnrichmentPostgresTests</c>; these say the surface
+/// offers exactly what the gate permits.
 /// </remarks>
 public class OwnerSurfaceTests
 {
@@ -38,11 +37,8 @@ public class OwnerSurfaceTests
             await Assert.That(markup).Contains($"name=\"{OwnerWrites.FieldPrefix}{definition.Name}\"");
         }
 
-        // GENRE is on the form now and was in this list, which was the list conflating two things.
-        // §8.5's rule is that an owner may never edit a MEASUREMENT, and a hand-typed MSSP GENRE is
-        // not one — §5.1 calls `mssp` a game filling in a self-description it maintains. What stays
-        // off the form is what a probe observed, plus the fields the codebase fills in about the
-        // connection, where a typed answer and a measured one would mean different things.
+        // GENRE is on the form: §8.5 says an owner may never edit a MEASUREMENT, and a hand-typed
+        // MSSP GENRE is not one (§5.1). What stays off the form is what a probe observed.
         foreach (var refused in new[]
                  {
                      "PLAYERS", "UPTIME", "CODEBASE", "HOSTNAME", "PORT", "IP", "FAMILY",
@@ -57,10 +53,9 @@ public class OwnerSurfaceTests
     /// An override box shows what the game reports beside it, and never inside it.
     /// </summary>
     /// <remarks>
-    /// Two claims in one, and the second is the one worth a test. Showing the report is what makes
-    /// the form an override rather than a blank second opinion. Putting it in the box would invite an
-    /// owner to retype their own MSSP into a row that says the same thing — a second value, a second
-    /// age, and a second thing that goes stale independently of the first.
+    /// Showing the report is what makes the form an override rather than a blank second opinion.
+    /// Putting it in the box would invite an owner to retype their own MSSP into a row that says the
+    /// same thing — a second value ageing independently of the first.
     /// </remarks>
     [Test]
     public async Task AnOverrideBoxShowsTheReportBesideItRatherThanInIt()
@@ -76,9 +71,8 @@ public class OwnerSurfaceTests
     /// The name box says that saving it moves the game's address, and that the old one keeps working.
     /// </summary>
     /// <remarks>
-    /// §5.7's promise is to whoever holds the old URL, and the person about to change it is the one
-    /// who has not read the spec. A URL changing under somebody is the kind of surprise they should
-    /// have been told about before pressing the button rather than after.
+    /// §5.7's promise is to whoever holds the old URL — a change in address should be told about
+    /// before the button is pressed, not discovered after.
     /// </remarks>
     [Test]
     public async Task ThePanelSaysThatRenamingMovesTheGamesAddress()
@@ -202,9 +196,8 @@ public class OwnerSurfaceTests
     /// A key naming a measurement is carried through to be refused, never dropped on the way.
     /// </summary>
     /// <remarks>
-    /// §8.5 requires the refusal to be out loud. A parser that filtered here would turn it back into
-    /// the silent no-op the rule exists to prevent — and the filtering would be a second spelling of
-    /// the writable set, in the one place nobody would think to look for it.
+    /// §8.5 requires the refusal to be out loud — filtering here would turn it back into the silent
+    /// no-op the rule exists to prevent, and in the one place nobody would think to look for it.
     /// </remarks>
     [Test]
     public async Task AKeyNamingAMeasurementReachesTheGateRatherThanBeingDroppedQuietly()
@@ -221,9 +214,8 @@ public class OwnerSurfaceTests
     /// The unlisting control is not offered to a game we are still dialling.
     /// </summary>
     /// <remarks>
-    /// The panel is where the gate is visible, and a button rendered here that the endpoint would
-    /// refuse is worse than no button: it reads as an offer. Null and "may not" render identically —
-    /// where nothing records whether we are crawling somebody, the panel does not guess for them.
+    /// A button rendered here that the endpoint would refuse reads as an offer. Null and "may not"
+    /// render identically — the panel does not guess when nothing records whether we're crawling.
     /// </remarks>
     [Test]
     [Arguments(null)]
@@ -284,9 +276,8 @@ public class OwnerSurfaceTests
     /// A stand-in for the token provider the host supplies, so a form can be rendered headlessly.
     /// </summary>
     /// <remarks>
-    /// It answers null, which is what the real one answers outside a request — the token is a
-    /// property of the response, and these tests are about what the form asks for rather than about
-    /// what protects it.
+    /// Answers null, matching the real provider outside a request — these tests are about what the
+    /// form asks for, not what protects it.
     /// </remarks>
     private sealed class NoAntiforgery : AntiforgeryStateProvider
     {

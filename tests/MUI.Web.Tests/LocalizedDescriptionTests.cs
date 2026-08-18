@@ -54,8 +54,7 @@ public class LocalizedDescriptionTests
     [Test]
     public async Task ARegionOnlyDeclaredVariantIsNotMatchedByASiblingRegion()
     {
-        // The site does not invent en-US from en-GB, or vice versa — the match is on the whole
-        // declared field name, keyed exactly the way the game spelled its suffix.
+        // No inventing en-US from en-GB or vice versa — matched on the field name exactly as spelled.
         var declared = Declared(("description-pt-br", "Português do Brasil"));
 
         var chosen = LocalizedDescription.Choose("pt-PT", fallback: "default", declared);
@@ -66,9 +65,8 @@ public class LocalizedDescriptionTests
     [Test]
     public async Task AnEmptyDeclaredValueDoesNotWin()
     {
-        // A cleared owner row is an absence, not an answer (see OwnerEnrichment) — the same rule
-        // DeclaredOf already applies before a value reaches this dictionary at all, asserted here so
-        // a caller that skips that filter still gets the fallback rather than an empty lede.
+        // A cleared owner row is an absence, not an answer — a caller that skips DeclaredOf's filter
+        // still gets the fallback rather than an empty lede.
         var declared = Declared(("description-de", string.Empty));
 
         var chosen = LocalizedDescription.Choose("de", fallback: "default", declared);
@@ -88,8 +86,7 @@ public class LocalizedDescriptionTests
             http: http,
             queries: new GermanVariant());
 
-        // "Declared by the game" always lists description-de regardless of the browser's language —
-        // it is the lede, and only the lede, that this feature is meant to change.
+        // Only the lede changes with the browser's language; the declared-fields list does not.
         await Assert.That(Lede(html)).Contains("Der Entwicklungsserver für PennMUSH");
         await Assert.That(Lede(html)).DoesNotContain("The development server for PennMUSH");
     }
@@ -119,11 +116,9 @@ public class LocalizedDescriptionTests
     }
 
     /// <summary>
-    /// Wraps the shared demo fixture rather than editing it: m-u-s-h is a real game (spec §9's own
-    /// remarks on <c>FixtureGameQueries</c> — "every hard state here came off a real game"), and it
-    /// has never published a German description. Adding one to the fixture itself would misrepresent
-    /// it on the one page every reader without a database sees. This decorator's German variant
-    /// exists only for the lifetime of this test.
+    /// Wraps the shared demo fixture rather than editing it: m-u-s-h is a real game that has never
+    /// published a German description, and adding one to the fixture would misrepresent it on the
+    /// page every reader without a database sees.
     /// </summary>
     private sealed class GermanVariant : IGameQueries
     {

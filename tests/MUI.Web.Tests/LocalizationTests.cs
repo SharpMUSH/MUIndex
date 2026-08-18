@@ -10,11 +10,9 @@ namespace MUI.Web.Tests;
 /// The localization pipeline: plural rules, ICU messages, the locked glossary, and the routing.
 /// </summary>
 /// <remarks>
-/// Nothing here asserts that a translation is <em>good</em> — no test can, and the handoff is
-/// explicit that Han glyph correctness and register both need review by somebody who reads the
-/// language. What these hold is the part a machine can: that a message reaches every form its locale
-/// needs, that a locked string cannot quietly become a paraphrase, and that a locale nobody has
-/// translated is never offered to a reader.
+/// Nothing here asserts a translation is <em>good</em> — only what a machine can check: a message
+/// reaches every plural form its locale needs, a locked string can't quietly become a paraphrase, and
+/// an untranslated locale is never offered to a reader.
 /// </remarks>
 public class LocalizationTests
 {
@@ -41,8 +39,7 @@ public class LocalizationTests
     [Arguments(0, "many")]
     public async Task RussianHasThreeAndTheyAreNotObvious(int count, string expected)
     {
-        // 11 and 12 end in 1 and 2 and take neither `one` nor `few`. A rule written from the first
-        // three examples anybody tries is wrong for both, which is why the canary exists.
+        // 11 and 12 end in 1 and 2 but take neither `one` nor `few`.
         await Assert.That(PluralRules.Keyword(PluralRules.Of("ru", count))).IsEqualTo(expected);
     }
 
@@ -52,8 +49,7 @@ public class LocalizationTests
     [Arguments(5)]
     public async Task ChineseHasOneFormAndSoCannotFailAnAgreementBug(int count)
     {
-        // The reason Chinese ships first and Russian goes in CI. Chinese agrees with any string
-        // architecture, including one that is wrong for every inflected language.
+        // Chinese agrees with any string architecture, including one wrong for every inflected language.
         await Assert.That(PluralRules.Of("zh-Hans", count)).IsEqualTo(PluralCategory.Other);
         await Assert.That(PluralRules.CategoriesOf("zh-Hans").Count).IsEqualTo(1);
     }
@@ -61,8 +57,6 @@ public class LocalizationTests
     [Test]
     public async Task AScriptOrPrivateSubtagDoesNotChangeHowANumberAgrees()
     {
-        // zh-Hans and zh-Hant draw different glyphs; ru and the canary's ru-x-canary read different
-        // bundles. Neither changes the arithmetic.
         await Assert.That(PluralRules.Of("zh-Hant", 5)).IsEqualTo(PluralRules.Of("zh", 5));
         await Assert.That(PluralRules.Of("ru-x-canary", 2)).IsEqualTo(PluralRules.Of("ru", 2));
     }
@@ -72,9 +66,7 @@ public class LocalizationTests
     [Test]
     public async Task TurkishSaysOneForOneAndForNothingElse()
     {
-        // CLDR 46 tr — one: n = 1. The table said `n = 0..1`, which is a real rule in CLDR and
-        // belongs to Akan and Punjabi, not to Turkish. It put zero in the form Turkish reserves
-        // for exactly one thing.
+        // CLDR 46 tr — one: n = 1. `n = 0..1` is a real CLDR rule, but belongs to Akan and Punjabi.
         await Assert.That(PluralRules.Keyword(PluralRules.Of("tr", 0))).IsEqualTo("other");
         await Assert.That(PluralRules.Keyword(PluralRules.Of("tr", 1))).IsEqualTo("one");
         await Assert.That(PluralRules.Keyword(PluralRules.Of("tr", 2))).IsEqualTo("other");
@@ -93,9 +85,8 @@ public class LocalizationTests
     [Arguments("ru", "other")]      // one: v = 0 and i % 10 = 1 and i % 100 != 11
     public async Task OnePointZeroIsWhatSeparatesARuleStatedOnNFromOneStatedOnI(string tag, string expected)
     {
-        // 1.0 is the only value that tells the two shapes apart, and transcribing every language
-        // into `i = 1 and v = 0` because English is written that way is wrong for six of the
-        // thirty-one here. It is also the exact error the operands in this file exist to catch.
+        // 1.0 is the only value telling the two rule shapes apart; transcribing every language as
+        // `i = 1 and v = 0` because English is written that way is wrong for six of the thirty-one here.
         var oneDotZero = PluralOperands.Of(1.0m, visibleFractionDigits: 1);
 
         await Assert.That(PluralRules.Keyword(PluralRules.Of(tag, oneDotZero))).IsEqualTo(expected);
@@ -104,8 +95,8 @@ public class LocalizationTests
     [Test]
     public async Task DanishSaysOneForAFractionBelowTwo()
     {
-        // CLDR 46 da — one: n = 1 or t != 0 and i = 0,1. Danish is the only language in this table
-        // whose `one` reaches a value that is not 1, and a rule copied from Swedish loses it.
+        // CLDR 46 da — one: n = 1 or t != 0 and i = 0,1. Danish is the only language here whose `one`
+        // reaches a value that isn't 1.
         await Assert.That(PluralRules.Keyword(PluralRules.Of("da", PluralOperands.Of(0.5m)))).IsEqualTo("one");
         await Assert.That(PluralRules.Keyword(PluralRules.Of("da", PluralOperands.Of(1.5m)))).IsEqualTo("one");
         await Assert.That(PluralRules.Keyword(PluralRules.Of("da", PluralOperands.Of(2.5m)))).IsEqualTo("other");
@@ -119,8 +110,7 @@ public class LocalizationTests
     [Arguments("it")]
     public async Task AMillionTakesItsOwnFormInEveryRomanceLanguageCldrStatesOneFor(string tag)
     {
-        // many: e = 0 and i != 0 and i % 1000000 = 0 and v = 0 — "un millón de juegos" takes a
-        // preposition the other forms do not. fr and pt had it; es and it were given English's
+        // many: e = 0 and i != 0 and i % 1000000 = 0 and v = 0 — es and it had been given English's
         // rule and so had no `many` at all.
         await Assert.That(PluralRules.Keyword(PluralRules.Of(tag, 1_000_000))).IsEqualTo("many");
         await Assert.That(PluralRules.Keyword(PluralRules.Of(tag, 2_000_000))).IsEqualTo("many");
@@ -130,16 +120,13 @@ public class LocalizationTests
     [Test]
     public async Task HebrewLostItsManyFormAndAllOfItsOrdinalsBeforeCldr46()
     {
-        // Both were removed upstream, and a table still carrying them selects a branch no
-        // translator was asked to write — the failure this file's `other` fallback cannot catch,
-        // because the branch exists and is simply wrong.
+        // Both removed upstream; a table still carrying them selects a branch no translator wrote.
         await Assert.That(PluralRules.Keyword(PluralRules.Of("he", 20))).IsEqualTo("other");
         await Assert.That(PluralRules.Keyword(PluralRules.Of("he", 100))).IsEqualTo("other");
 
         await Assert.That(PluralRules.CategoriesOf("he", PluralKind.Ordinal))
             .IsEquivalentTo(new[] { PluralCategory.Other });
 
-        // one: i = 1 and v = 0 or i = 0 and v != 0 — the second clause was missing entirely.
         await Assert.That(PluralRules.Keyword(PluralRules.Of("he", PluralOperands.Of(0.5m)))).IsEqualTo("one");
     }
 
@@ -159,16 +146,15 @@ public class LocalizationTests
     [Arguments("ms", 1, "one")]     // one: n = 1
     public async Task TheOrdinalTableStatesARuleForEveryLanguageCldrStatesOneFor(string tag, int n, string expected)
     {
-        // An ordinal rule missing from the table is not a missing translation — it is every rank
-        // rendered in the `other` form, silently, in a language that inflects them.
+        // A missing ordinal rule is not a missing translation — it silently renders every rank in the
+        // `other` form in a language that inflects them.
         await Assert.That(PluralRules.Keyword(PluralRules.Of(tag, n, PluralKind.Ordinal))).IsEqualTo(expected);
     }
 
     [Test]
     public async Task ACldrRangeMatchesAWholeNumberAndNothingElse()
     {
-        // `n % 100 = 3..10` is a range over integers: 3.5 is not in it. Reading it as `i % 100`
-        // makes every fraction take the category of its integer part.
+        // `n % 100 = 3..10` is a range over integers: 3.5 is not in it.
         await Assert.That(PluralRules.Keyword(PluralRules.Of("ar", PluralOperands.Of(3.5m)))).IsEqualTo("other");
         await Assert.That(PluralRules.Keyword(PluralRules.Of("ar", 3))).IsEqualTo("few");
         await Assert.That(PluralRules.Keyword(PluralRules.Of("ar", 11))).IsEqualTo("many");
@@ -182,15 +168,12 @@ public class LocalizationTests
     [Arguments(2, "2 games")]
     public async Task ACountAndItsNounAgree(int count, string expected)
     {
-        // The panel shipped "1 games" and "0 games" on every accessible name until this existed.
         await Assert.That(Messages.Count("en", count)).IsEqualTo(expected);
     }
 
     [Test]
     public async Task TheSameMessageReachesADifferentFormInADifferentLocale()
     {
-        // One message, one argument, three answers — which is the whole point of the message being
-        // a message rather than a number glued to a word.
         await Assert.That(Messages.Count("ru-x-canary", 1)).IsEqualTo("1 игра");
         await Assert.That(Messages.Count("ru-x-canary", 2)).IsEqualTo("2 игры");
         await Assert.That(Messages.Count("ru-x-canary", 5)).IsEqualTo("5 игр");
@@ -199,8 +182,7 @@ public class LocalizationTests
     [Test]
     public async Task AnExactMatchWinsOverACategory()
     {
-        // `=0` is how a message says "no games" rather than "0 games" without inventing a plural
-        // category that CLDR does not give English.
+        // `=0` says "no games" without inventing a plural category CLDR doesn't give English.
         var listing = Messages.For("en", "listing.total", new Dictionary<string, object?> { ["count"] = 0 });
 
         await Assert.That(listing).StartsWith("No games");
@@ -209,8 +191,8 @@ public class LocalizationTests
     [Test]
     public async Task ABranchMayHoldAnotherArgument()
     {
-        // "1 of 6 disagree" nests {total} inside a plural branch. A parser that stopped at the first
-        // closing brace would cut the branch in half and read the rest as a key.
+        // Nests {total} inside a plural branch; a parser stopping at the first closing brace would
+        // cut it in half.
         var args = new Dictionary<string, object?> { ["disagreeing"] = 1, ["total"] = 6 };
 
         await Assert.That(Messages.For("en", "capabilities.agree", args))
@@ -225,8 +207,6 @@ public class LocalizationTests
     [Test]
     public async Task SyntaxThisFormatterDoesNotImplementIsRefusedRatherThanGuessed()
     {
-        // A formatter that accepts what it cannot do fails as a wrong string rather than as a build
-        // error, and a wrong string on this site is a wrong claim.
         await Assert.That(() => IcuMessage.Format("{n, date, short}", "en", new Dictionary<string, object?> { ["n"] = 1 }))
             .Throws<FormatException>();
 
@@ -237,7 +217,6 @@ public class LocalizationTests
     [Test]
     public async Task AHashOutsideAPluralBranchIsALiteral()
     {
-        // ICU says so, and a game called "#1 MUSH" would otherwise render its own count.
         await Assert.That(IcuMessage.Format("channel #general", "en")).IsEqualTo("channel #general");
     }
 
@@ -246,8 +225,8 @@ public class LocalizationTests
     [Test]
     public async Task EveryLockedIdIsAMessageTheSiteActuallySays()
     {
-        // A glossary entry with no message behind it is a promise to translators about a string
-        // that does not exist, and it would go on being translated for ever.
+        // A glossary entry with no message behind it is a promise to translators about a string that
+        // doesn't exist.
         foreach (var locked in Glossary.Locked)
         {
             await Assert.That(Messages.Pattern(Locales.SourceTag, locked.Id))
@@ -259,10 +238,8 @@ public class LocalizationTests
     [Test]
     public async Task TheFourKindsOfAbsenceAreFourDifferentStrings()
     {
-        // The finding this whole file exists for. "not measured", "uncounted", "unreachable" and
-        // "not counted" are four claims, and a translation engine treats them as stylistic variants
-        // of *unavailable* — after which a reader cannot tell a game that answered from one that did
-        // not, which is the one thing this site is for.
+        // The finding this file exists for: four distinct claims a translation engine will collapse
+        // into stylistic variants of "unavailable" if nothing stops it.
         string[] ids = ["state.notMeasured", "state.uncounted", "state.unreachable", "state.notCounted"];
 
         var english = ids.Select(id => Messages.For("en", id)).ToList();
@@ -278,26 +255,20 @@ public class LocalizationTests
     [Test]
     public async Task OneEnglishWordWithSeveralSubjectsIsSeveralIds()
     {
-        // "measured" is one string in English and four in Russian, chosen by what it describes. The
-        // ids have to be granular enough for a translator to reach each case at all — collapsing
-        // them because the source language cannot tell them apart is how three cases out of four end
-        // up ungrammatical.
+        // "measured" is one string in English and four in Russian, chosen by what it describes; the
+        // ids must be granular enough for a translator to reach each case.
         var measured = Glossary.Locked.Where(l => l.English == "measured").ToList();
 
         await Assert.That(measured.Count).IsGreaterThanOrEqualTo(4);
         await Assert.That(measured.Select(m => m.Id).Distinct().Count()).IsEqualTo(measured.Count);
         await Assert.That(measured.Select(m => m.Subject).Distinct().Count()).IsGreaterThanOrEqualTo(4);
 
-        // And the bare column header is one of them, because it modifies nothing and so takes a form
-        // none of the others do.
         await Assert.That(Glossary.Of("kicker.measured")!.Subject).IsEqualTo(Subject.Standalone);
     }
 
     [Test]
     public async Task EveryLockedStringShipsWithTheReasonItIsLocked()
     {
-        // The lock reads as distrust without it, and a well-meaning "improvement" arrives as a pull
-        // request nobody knows how to refuse.
         foreach (var locked in Glossary.Locked)
         {
             await Assert.That(string.IsNullOrWhiteSpace(locked.Rationale)).IsFalse();
@@ -313,38 +284,33 @@ public class LocalizationTests
     [Test]
     public async Task AnUntranslatedStringFallsBackToTheEnglishRatherThanToNothing()
     {
-        // A reader meeting one English phrase inside another language learns something true. A
-        // smoothed-over approximation of a locked string teaches them something false and gives them
-        // no way to tell.
+        // A visible English phrase teaches a reader something true; a smoothed-over paraphrase of a
+        // locked string teaches something false with no way to tell.
         await Assert.That(Messages.HasOwn("ru-x-canary", "term.connected")).IsFalse();
         await Assert.That(Messages.For("ru-x-canary", "term.connected")).IsEqualTo("connected");
 
-        // And where it has been translated, the translation wins.
         await Assert.That(Messages.For("ru-x-canary", "kicker.measured")).IsEqualTo("ИЗМЕРЕНО");
     }
 
     [Test]
     public async Task TheCanaryFailsOnAMissingPluralFormRatherThanRenderingOne()
     {
-        // The whole reason Russian is wired into CI while Chinese ships first. `listing.total` in
-        // the canary bundle declares `one` and `other` — complete in English, and silently missing
-        // the `few` form that a count of two takes in Russian.
+        // `listing.total` in the canary bundle is complete for English but silently missing the
+        // `few` form a count of two takes in Russian.
         var incomplete = Missing("ru-x-canary", "listing.total");
 
-        // Reported per argument, because a message with two counts in it can be complete for one
-        // and not the other.
+        // Reported per argument: a message with two counts can be complete for one and not the other.
         await Assert.That(incomplete).Contains("count:few");
         await Assert.That(incomplete).Contains("count:many");
 
-        // Where the message is complete, nothing is reported.
         await Assert.That(Missing("ru-x-canary", "facet.count")).IsEmpty();
     }
 
     [Test]
     public async Task EveryOfferedLocaleIsCompleteInEveryPluralFormItNeeds()
     {
-        // The gate. A locale reaches LocaleStatus.Shipped only when this holds for it — which is why
-        // the canary above is TestOnly and is not walked here.
+        // A locale reaches LocaleStatus.Shipped only when this holds — the canary is TestOnly and
+        // isn't walked here.
         foreach (var locale in Locales.Offered)
         {
             foreach (var id in Messages.Ids)
@@ -359,9 +325,7 @@ public class LocalizationTests
     [Test]
     public async Task NoLocaleIsOfferedBeforeItsLockedStringsAreTranslated()
     {
-        // Nothing ships to a reader before the glossary exists. Today that means English alone, and
-        // this test is what stops somebody moving a status enum and shipping a mostly-English page
-        // under a Chinese flag.
+        // Stops somebody moving a status enum and shipping a mostly-English page under a Chinese flag.
         foreach (var locale in Locales.Offered.Where(l => l.Tag != Locales.SourceTag))
         {
             foreach (var locked in Glossary.Locked)
@@ -376,16 +340,15 @@ public class LocalizationTests
     [Test]
     public async Task ThePseudolocaleExercisesTheMachineryAndTheWidthBudget()
     {
-        // Accented and expanded, so a string that never went through the pipeline is visible at a
-        // glance and every string is reviewed at the 1.4x width German and Russian actually need.
+        // Accented and expanded so a string that skipped the pipeline is visible at a glance, at
+        // roughly the width German and Russian actually need.
         var pseudo = Messages.Count("qps-ploc", 3);
 
         await Assert.That(pseudo).Contains("⟦");
         await Assert.That(pseudo).Contains("3");
         await Assert.That(pseudo.Length).IsGreaterThan(Messages.Count("en", 3).Length);
 
-        // And the ICU syntax survived: a pseudolocale that mangled a branch keyword would prove
-        // nothing, because the message would not parse.
+        // ICU syntax survived: a pseudolocale that mangled a branch keyword would fail to parse.
         await Assert.That(Messages.Count("qps-ploc", 1)).Contains("1");
     }
 
@@ -402,13 +365,10 @@ public class LocalizationTests
     [Arguments("kl,fo", null)]                        // nothing offered answers
     public async Task AcceptLanguageIsReadForTheFirstVisitOnly(string header, string? expected)
     {
-        // A header is a standing preference about content in general, not a choice about this site —
-        // worth one redirect and no more. The parse honours q-values because a browser sends them
-        // meaning something, and matches on the language subtag so zh-CN reaches zh-Hans.
-        //
-        // Note every case answers null today, because English is the only offered locale and English
-        // is where the reader already is. The rule is asserted against the offered set rather than
-        // against a hard-coded answer, so this starts biting the day a locale ships.
+        // A header is a standing preference, worth one redirect and no more. Matches on the language
+        // subtag so zh-CN reaches zh-Hans. Every case answers null today (English is the only offered
+        // locale); asserted against the offered set rather than a hard-coded answer, so this starts
+        // biting the day a locale ships.
         var chosen = LocaleRouting.Preferred(header);
 
         if (expected is null || Locales.Find(expected) is not { IsOffered: true })
@@ -429,10 +389,9 @@ public class LocalizationTests
     [Arguments("", "/")]
     public async Task TheReturnPathIsAPathOnThisSiteAndNothingElse(string posted, string expected)
     {
-        // It arrives in a form field and is written into a Location header. A protocol-relative URL
-        // is a different host wearing a path's clothes and walks straight through a StartsWith('/')
-        // check; several browsers read /\host the same way; a CR here is response splitting.
-        // Any locale prefix comes off, because the endpoint decides which language the page is in.
+        // Written into a Location header. A protocol-relative URL walks through a naive
+        // StartsWith('/') check; several browsers read /\host the same way; a CR here is response
+        // splitting.
         await Assert.That(LocaleRouting.Back(posted)).IsEqualTo(expected);
     }
 
@@ -440,19 +399,11 @@ public class LocalizationTests
     /// The document states the language it is written in, and it is the one the reader asked for.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <c>lang</c> was the constant <c>"en"</c> while the whole page below it came back translated,
-    /// so a reader on <c>/ja/games</c> was handed a fully Japanese document that told the browser it
-    /// was English. That is not a tidiness point on the two locales this site shipped first: Unicode
-    /// unified thousands of Han characters across Chinese and Japanese, the correct drawn form
-    /// differs, and <c>lang</c> is the only thing that selects between the two font families. The
-    /// wrong one renders at exactly the same width, so nothing in the overflow audit could see it.
-    /// </para>
-    /// <para>
-    /// It is also what a screen reader switches voice on, and what the <c>hreflang</c> links in the
-    /// head are claiming about this document — three separate promises that were all being made in
-    /// the wrong language.
-    /// </para>
+    /// If <c>lang</c> stayed the constant <c>"en"</c> while the page rendered Japanese, three things
+    /// would be wrong at once: Han unification means <c>lang</c> is what selects the correct glyph
+    /// form for Chinese vs. Japanese (rendering at the same width, invisible to an overflow audit); a
+    /// screen reader switches voice on it; and it's what the <c>hreflang</c> links in the head claim
+    /// about the document.
     /// </remarks>
     [Test]
     [Arguments("/games", "en")]
@@ -473,20 +424,11 @@ public class LocalizationTests
     /// A locale is a property of a document, so nothing else is ever moved to reach one.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>The locale was a one-way door, and the switcher out of it was the thing it shut.</b> The
-    /// middleware answered any unprefixed request from a reader with <c>mui_locale=de</c> with a
-    /// redirect to <c>/de/...</c> — including a POST. A browser follows a 302 as a GET and drops the
-    /// body, and <c>/de/theme</c> is served by nothing, so a German reader could not change the
-    /// theme; <c>POST /locale</c> went the same way, so they could not change the language back
-    /// either. Every control on this site is a form, which is what made one redirect reach all of
-    /// them.
-    /// </para>
-    /// <para>
-    /// The API and the crawler's own files are excluded for a different reason: they are not
-    /// documents in a language. <c>/api/…</c> answers the same JSON to everybody and
-    /// <c>robots.txt</c> has one canonical address, which is where a crawler looks for it.
-    /// </para>
+    /// <b>The locale was a one-way door, and the switcher out of it was the thing it shut.</b> A
+    /// blanket redirect on every unprefixed request (including POST) meant a browser followed a 302
+    /// as a GET, dropped the body, and hit a route nothing served — so a German reader could change
+    /// neither the theme nor the language back. The API and crawler files are excluded separately:
+    /// they aren't documents in a language.
     /// </remarks>
     [Test]
     public async Task AChoiceOfLocaleNeverMovesARequestThatIsNotADocument()
@@ -508,7 +450,6 @@ public class LocalizationTests
         await Assert.That(themed.Headers.TryGetValues("Set-Cookie", out var themeCookies)).IsTrue();
         await Assert.That(string.Join(' ', themeCookies!)).Contains("mui_theme=light");
 
-        // And the way out of German is still open from inside German.
         var switched = new HttpRequestMessage(HttpMethod.Post, Locales.Path)
         {
             Content = new FormUrlEncodedContent([
@@ -544,11 +485,9 @@ public class LocalizationTests
     /// A redirect re-emits the address that was asked for, and not a decoded reading of it.
     /// </summary>
     /// <remarks>
-    /// <c>Request.Path.Value</c> is decoded, so writing it back into a <c>Location</c> header
-    /// changes what the URL means: <c>%2F</c> comes back as a separator and makes one segment into
-    /// two, <c>%23</c> comes back as a <c>#</c> and truncates everything after it, and a non-ASCII
-    /// character comes back raw into a header field that cannot carry one. A game whose slug
-    /// contains any of them is a game a reader cannot reach in any language but English.
+    /// <c>Request.Path.Value</c> is decoded, so writing it back into a <c>Location</c> header changes
+    /// what the URL means: <c>%2F</c> becomes a separator, <c>%23</c> truncates the rest as a
+    /// fragment, and non-ASCII comes back raw into a header field that can't carry it.
     /// </remarks>
     [Test]
     [Arguments("/g/a%2Fb")]
@@ -586,10 +525,9 @@ public class LocalizationTests
     /// A file is the same file in every language, including the ones whose names we cannot know.
     /// </summary>
     /// <remarks>
-    /// The stylesheet carries a content fingerprint, so no list of paths can name it — and a reader
-    /// with a locale cookie was paying a redirect for the stylesheet, the script and the touch icon
-    /// on every page load. Recognised by extension rather than by "the last segment has a dot",
-    /// because <c>{Slug}</c> is a route parameter and a game's slug is not this rule's to constrain.
+    /// The stylesheet carries a content fingerprint, so no fixed path list can name it. Recognised by
+    /// extension rather than "the last segment has a dot", since <c>{Slug}</c> is a route parameter
+    /// and a game's slug is not this rule's to constrain.
     /// </remarks>
     [Test]
     [Arguments("/app.gt0hup1p9v.css")]
@@ -638,10 +576,9 @@ public class LocalizationTests
     /// One address, in the locale the page carrying it is read in.
     /// </summary>
     /// <remarks>
-    /// The table is the whole rule: an app path takes the prefix, the source locale takes none, and
-    /// four shapes are left exactly as they arrived — a query-only address, which means <em>this
-    /// page, asked differently</em>; a file that has one canonical address in every language; an
-    /// absolute URL; and a protocol-relative one, which is another host wearing a path's clothes.
+    /// An app path takes the prefix, the source locale takes none, and four shapes are left exactly
+    /// as they arrived: a query-only address (<em>this page, asked differently</em>), a file with one
+    /// canonical address, an absolute URL, and a protocol-relative one.
     /// </remarks>
     [Test]
     [Arguments("en", "/games", "/games")]
@@ -672,21 +609,11 @@ public class LocalizationTests
     /// Every link on a localized page stays inside that locale.
     /// </summary>
     /// <remarks>
-    /// <para>
     /// <b>Every internal link was an absolute path emitted verbatim, so a German page's links all
-    /// pointed out of German.</b> <c>/de/games</c> rendered <c>href="/games"</c>,
-    /// <c>href="/about"</c> and <c>href="/find"</c>, and a reader who followed a shared
-    /// <c>/de/…</c> link carries no cookie — so nothing could send them back and their first click
-    /// landed in English. Putting the locale in the path is what makes it linkable, shareable,
-    /// cacheable and indexable, and a page that discards it on every link has the property in its
-    /// own address and nowhere else.
-    /// </para>
-    /// <para>
-    /// Swept rather than spot-checked, over every anchor and every form on the page, because the
-    /// bug was fifty separate link sites and any one of them left behind is the same bug for
-    /// whichever reader clicks it. Nothing here is asked with a cookie: this is the reader who was
-    /// sent a link.
-    /// </para>
+    /// pointed out of German.</b> A reader who followed a shared <c>/de/…</c> link carries no cookie,
+    /// so nothing could send them back. Swept over every anchor and form on the page (the bug was
+    /// fifty separate link sites) rather than spot-checked, and asked with no cookie — this is the
+    /// reader who was sent a link.
     /// </remarks>
     [Test]
     [Arguments("/de/")]
@@ -708,7 +635,6 @@ public class LocalizationTests
         var markup = await site.Client.GetStringAsync(path);
         var addresses = Addresses(markup);
 
-        // The page was read, rather than a 404 body with nothing on it being swept clean.
         await Assert.That(addresses.Count).IsGreaterThan(3);
 
         foreach (var address in addresses)
@@ -725,11 +651,7 @@ public class LocalizationTests
     }
 
     /// <summary>And the source locale is the absence of a prefix, on the same pages.</summary>
-    /// <remarks>
-    /// <c>/games</c> is the canonical English address and <c>/en/games</c> redirects to it, so a
-    /// prefix written here would be a second URL for a document that already has one — and every
-    /// bookmark and inbound link already spells the unprefixed one.
-    /// </remarks>
+    /// <remarks><c>/games</c> is the canonical English address and <c>/en/games</c> redirects to it, so a prefix here would be a second URL for a document that already has one.</remarks>
     [Test]
     [Arguments("/")]
     [Arguments("/games")]
@@ -757,12 +679,7 @@ public class LocalizationTests
     /// <summary>
     /// A query-only address means <em>this page, asked differently</em>, in every language.
     /// </summary>
-    /// <remarks>
-    /// The plain-text link and all five trend range links are written as a bare querystring so they
-    /// resolve against the page they are on — which is what removing <c>&lt;base href="/"&gt;</c>
-    /// from <c>App.razor</c> made true, and which giving one a prefix would undo just as
-    /// thoroughly: <c>/de/?plain=1</c> is the home page, not the listing the reader was reading.
-    /// </remarks>
+    /// <remarks>Written as a bare querystring so it resolves against the page it's on; prefixing it would make <c>/de/?plain=1</c> the home page, not the listing the reader was reading.</remarks>
     [Test]
     [Arguments("/de/games")]
     [Arguments("/de/g/ashen-court")]
@@ -785,11 +702,7 @@ public class LocalizationTests
     /// <summary>
     /// A file with one canonical address never gets a prefix, whatever language the page is in.
     /// </summary>
-    /// <remarks>
-    /// The head's own links are not swept above — a stylesheet is not a document in a language —
-    /// so the list the middleware refuses to redirect is asserted here directly against the markup
-    /// that carries it.
-    /// </remarks>
+    /// <remarks>The head's own links aren't swept above (a stylesheet isn't a document in a language), so this asserts the list directly against the markup.</remarks>
     [Test]
     public async Task AFileWithOneAddressIsNeverPrefixedInTheMarkupEither()
     {
@@ -808,18 +721,11 @@ public class LocalizationTests
     /// A control that answers with a <c>Location</c> header keeps the reader's language too.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>These are the links a sweep of the markup cannot see</b>, and the walk found them where
-    /// the sweep could not: "surprise me" is in the nav of every page, and from <c>/de/games</c> it
-    /// answered with <c>Location: /g/eldertale</c> — a reader two clicks into German, put back into
-    /// English by the one destination that is a header rather than an attribute. The theme control
-    /// did the same for the reader who preferred a light background.
-    /// </para>
-    /// <para>
-    /// No cookie on any of these, deliberately. A reader who followed a shared <c>/de/…</c> link has
-    /// none, so the path is the only thing that knows what language they are reading in — which is
-    /// the whole reason the locale is in the path.
-    /// </para>
+    /// <b>These are the links a sweep of the markup cannot see</b>: "surprise me" from
+    /// <c>/de/games</c> answered with <c>Location: /g/eldertale</c>, putting a reader two clicks into
+    /// German back into English via a header rather than an attribute. No cookie on any of these,
+    /// deliberately — a reader who followed a shared link has none, so the path is the only thing
+    /// that knows the language.
     /// </remarks>
     [Test]
     public async Task AControlThatAnswersWithARedirectKeepsTheReadersLanguage()
@@ -844,12 +750,10 @@ public class LocalizationTests
         await Assert.That((int)themed.StatusCode).IsEqualTo(303);
         await Assert.That(themed.Headers.Location?.OriginalString).IsEqualTo("/de/games");
 
-        // And the crawler's own short URL, which lands on a page and so is a document in a language.
         var crawler = await site.Client.GetAsync("/de/crawler");
 
         await Assert.That(Where(crawler)).StartsWith("/de/about");
 
-        // The source locale keeps the address it always had.
         var english = await site.Client.GetAsync("/games/random");
 
         await Assert.That(Where(english)).StartsWith("/g/");
@@ -860,17 +764,9 @@ public class LocalizationTests
     /// The plain surface prints its addresses in the locale it is printing.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>They are links, whatever they look like.</b> There are no anchors on this surface, so a
-    /// path is printed for a reader to type, to follow in a text browser, or to paste to somebody —
-    /// and a German reader who copies <c>/g/ashen-court</c> off <c>/de/games?plain=1</c> arriving in
-    /// English is the same defect as the fifty in the markup, on the surface whose whole promise is
-    /// that it mirrors the page.
-    /// </para>
-    /// <para>
-    /// The trend's seek link stays a bare querystring here for the reason it does in the markup: it
-    /// means <em>this page, asked differently</em>, and the page it is on is already the German one.
-    /// </para>
+    /// <b>They are links, whatever they look like.</b> No anchors on this surface — a path is printed
+    /// to type, follow in a text browser, or paste — so a German reader copying an English address
+    /// off the plain surface is the same defect as the fifty in the markup.
     /// </remarks>
     [Test]
     public async Task ThePlainSurfacePrintsItsAddressesInTheLocaleItIsPrintingIn()
@@ -885,7 +781,6 @@ public class LocalizationTests
         await Assert.That(english).Contains("/g/ashen-court");
         await Assert.That(english).DoesNotContain("/de/g/ashen-court");
 
-        // The seek link is relative to the page and is not given a prefix it would break under.
         await Assert.That(game).Contains("?from=");
         await Assert.That(game).DoesNotContain("/de?from=");
     }
@@ -894,11 +789,10 @@ public class LocalizationTests
     /// A reference article is the article in every locale, and not the section's empty state.
     /// </summary>
     /// <remarks>
-    /// The page looked itself up by <c>NavigationManager.Uri</c>, whose local path still carries
-    /// the prefix the middleware moved into <c>PathBase</c> — so <c>/de/reference/codebases/pennmush</c>
-    /// asked the library for a document filed under <c>/reference/codebases/pennmush</c>, was told
-    /// there is none, and answered every non-English reader with "no reference page here" for all
-    /// thirty-odd articles. It is the request's own path that names the document, in every language.
+    /// <c>NavigationManager.Uri</c>'s local path still carries the prefix the middleware moved into
+    /// <c>PathBase</c>, so looking the article up by it asked for a document filed under the
+    /// unprefixed path, found none, and answered every non-English reader with "no reference page
+    /// here" for all thirty-odd articles.
     /// </remarks>
     [Test]
     [Arguments("/reference/codebases/pennmush")]
@@ -915,10 +809,7 @@ public class LocalizationTests
     }
 
     /// <summary>Every anchor and every form on a rendered page, as the browser receives them.</summary>
-    /// <remarks>
-    /// Read off the frame rather than the source, because that is where the bug was: the components
-    /// held the right paths all along and the markup is what pointed out of the locale.
-    /// </remarks>
+    /// <remarks>Read off the frame rather than the source — the components held the right paths, the markup is what pointed out of the locale.</remarks>
     private static IReadOnlyList<string> Addresses(string markup) =>
     [
         .. System.Text.RegularExpressions.Regex
@@ -931,11 +822,7 @@ public class LocalizationTests
     /// <summary>
     /// Where a redirect sends the reader, as a path.
     /// </summary>
-    /// <remarks>
-    /// The two shapes are both correct and both shipped: an endpoint writes a relative
-    /// <c>Location</c>, and a page redirecting through <c>NavigationManager</c> gets an absolute one
-    /// built off the request's own base. What a test is asking about is where the reader lands.
-    /// </remarks>
+    /// <remarks>An endpoint writes a relative <c>Location</c>; a page redirecting through <c>NavigationManager</c> gets an absolute one. Both are correct — this normalizes to where the reader lands.</remarks>
     private static string Where(HttpResponseMessage response) =>
         response.Headers.Location is not { } location ? string.Empty
         : location.IsAbsoluteUri ? location.AbsolutePath
@@ -956,12 +843,10 @@ public class LocalizationTests
     /// A sentence with links in it is one message, and what a translator writes is never markup.
     /// </summary>
     /// <remarks>
-    /// The random-game empty state is "No game matches that filter. Try {listing}, or {archive}." —
-    /// two anchors inside one sentence. Gluing English round the anchors would give a language that
-    /// wants the archive named first, or a different preposition before each, nowhere to say so; but
-    /// formatting the anchors *into* the string and trusting the result through a
-    /// <c>MarkupString</c> would make every bundle a place a tag could be put. The message places
-    /// two private-use markers and the page walks them, so the bundle holds text either way.
+    /// Gluing English word order around the anchors would give a language wanting different order or
+    /// prepositions nowhere to say so; formatting anchors into the string and trusting it through
+    /// <c>MarkupString</c> would make every bundle a place a tag could be put. Instead the message
+    /// places two private-use markers and the page walks them.
     /// </remarks>
     [Test]
     public async Task ASentenceWithLinksInItPlacesThemWithoutCarryingMarkup()
@@ -971,7 +856,6 @@ public class LocalizationTests
             await Assert.That(Messages.Ids).Contains(id);
         }
 
-        // The body places both links and holds no markup of its own, in every locale.
         foreach (var locale in Locales.All.Where(l => l.IsChoosable))
         {
             var body = Messages.Pattern(locale.Tag, "random.empty.body");
@@ -989,8 +873,7 @@ public class LocalizationTests
 
         await Assert.That(alternates.Select(a => a.HrefLang)).Contains("x-default");
 
-        // x-default is the unprefixed address: the one to show a reader whose language nothing here
-        // matches, rather than leaving a crawler to pick among them.
+        // x-default is the unprefixed address, shown to a reader whose language matches nothing here.
         await Assert.That(alternates.Single(a => a.HrefLang == "x-default").Path).IsEqualTo("/games");
 
         foreach (var locale in Locales.Offered)
@@ -1005,10 +888,8 @@ public class LocalizationTests
     [Test]
     public async Task ARenderOnlyScriptIsNeverAnInterfaceLanguage()
     {
-        // An Arabic game name inside an English page is correct permanently — that is <bdi> and a
-        // per-element lang, and it needs nothing further. An entire Arabic interface still flowing
-        // left-to-right is not, so it is not offered. The boundary is data rather than a comment, so
-        // it is publishable and so this can hold it.
+        // An Arabic game name inside an English page (<bdi> + per-element lang) is correct
+        // permanently; a whole Arabic interface still flowing left-to-right is not, so it's not offered.
         foreach (var script in Locales.RenderOnlyScripts)
         {
             await Assert.That(Locales.Offered.Any(l => l.Tag.StartsWith(script, StringComparison.Ordinal)))
@@ -1021,21 +902,10 @@ public class LocalizationTests
     /// The plural forms a locale needs for a message and does not declare.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Read off the parsed message rather than off the string, so a branch inside a nested selector
-    /// counts exactly as one at the top level does.
-    /// </para>
-    /// <para>
-    /// An <c>other</c> branch does not excuse a missing form, and that is the point: ICU will
-    /// happily route a Russian 2 through <c>other</c> and render a word no native speaker would
-    /// write, silently. A form the language distinguishes has to be declared rather than fallen
-    /// into.
-    /// </para>
-    /// <para>
-    /// Only what the locale itself carries is checked. A locale that has translated nothing reports
-    /// nothing missing here, which is correct: an untranslated string is a fallback and a
-    /// half-translated plural is a bug, and only the second is this test's business.
-    /// </para>
+    /// An <c>other</c> branch does not excuse a missing form — ICU will happily route a Russian 2
+    /// through <c>other</c> silently. Only what the locale itself carries is checked: an untranslated
+    /// string is a fallback, a half-translated plural is a bug, and only the second is this test's
+    /// business.
     /// </remarks>
     private static IReadOnlyList<string> Missing(string tag, string id)
     {
@@ -1063,10 +933,9 @@ public class LocalizationTests
     [Test]
     public async Task EveryPatternInEveryBundleParses()
     {
-        // The whole reason the pattern is parsed rather than interpreted: a message with a missing
-        // `other`, an unbalanced brace or a branch keyword no category uses is broken for exactly
-        // one reader — whichever one's count reaches it. Parsing every bundle here turns all three
-        // into a build failure.
+        // A message with a missing `other`, unbalanced brace, or unused branch keyword is broken for
+        // exactly the one reader whose count reaches it; parsing every bundle here turns that into a
+        // build failure instead.
         foreach (var locale in Locales.All)
         {
             foreach (var id in Messages.Ids)
@@ -1088,9 +957,8 @@ public class LocalizationTests
     [Test]
     public async Task EveryTranslationReadsTheSameArgumentsTheEnglishDoes()
     {
-        // A translator who drops {total} from a sentence leaves a fact off the page, and one who
-        // invents {name} writes a message the site will refuse to render at all. Both are caught
-        // here rather than by whoever opens that page in that language.
+        // A translator who drops {total} leaves a fact off the page; one who invents {name} writes a
+        // message that refuses to render at all. Both caught here.
         foreach (var locale in Locales.All.Where(l => l.Tag != Locales.SourceTag))
         {
             foreach (var id in Messages.Ids.Where(i => Messages.HasOwn(locale.Tag, i)))
@@ -1111,8 +979,7 @@ public class LocalizationTests
     [Test]
     public async Task EveryLocaleTheSiteNamesHasAPluralRuleWrittenForIt()
     {
-        // An unlisted language answers `other` for every count — right for Chinese, wrong for
-        // German, and silent either way. This is the gate on adding one.
+        // An unlisted language answers `other` for every count, silently — right for Chinese, wrong for German.
         foreach (var locale in Locales.All)
         {
             await Assert.That(PluralRules.Covers(locale.Tag))
@@ -1124,11 +991,9 @@ public class LocalizationTests
     [Test]
     public async Task TheResxAndTheCompiledInSourceSayTheSameThing()
     {
-        // Two copies of the English exist on purpose — resx is where a translation lives and where
-        // every translation tool looks, and the compiled-in bundle is the fallback that must not
-        // depend on a satellite assembly having loaded. Two copies with no test between them is how
-        // a message gets fixed in one and not the other, and the reader who finds out is whichever
-        // one is served by the copy nobody updated.
+        // Two copies of English exist on purpose: resx is where a translation lives, the compiled-in
+        // bundle is the fallback that must not depend on a satellite assembly loading. With no test
+        // between them, a message gets fixed in one and not the other.
         var resx = ResxMessages();
 
         await Assert.That(resx).IsNotEmpty();
@@ -1156,15 +1021,9 @@ public class LocalizationTests
     /// The English resx, read as XML rather than through the resource manager.
     /// </summary>
     /// <remarks>
-    /// Deliberately not through <see cref="Microsoft.Extensions.Localization.IStringLocalizer"/>:
-    /// that would read whatever the build embedded, which is the thing being checked. Reading the
-    /// file compares what a translator would edit against what the site compiles.
-    /// <para>
-    /// The file is copied beside the test binary by the project — see the comment on that item for
-    /// why, which is that counting <c>..</c> segments up from <see cref="AppContext.BaseDirectory"/>
-    /// only reaches the repository root at one exact output depth, and failed as a missing file in
-    /// a test whose subject is message content.
-    /// </para>
+    /// Deliberately not through <see cref="Microsoft.Extensions.Localization.IStringLocalizer"/>,
+    /// which would read whatever the build embedded — the thing being checked. Reading the file
+    /// compares what a translator would edit against what the site compiles.
     /// </remarks>
     private static IReadOnlyDictionary<string, string> ResxMessages()
     {
@@ -1184,11 +1043,8 @@ public class LocalizationTests
     [Test]
     public async Task ALocaleIsOfferedWhenItHasTheWordsAndNotBefore()
     {
-        // The gate, and now the only one. `Offered` is what a default may reach — Accept-Language, a
-        // remembered cookie, an hreflang alternate — and what opens it is the bundle carrying the
-        // locked glossary, not somebody's claim to have read it. There used to be a second tier that
-        // was translated and deliberately unreachable; it made four languages undiscoverable in
-        // exchange for a promise the site made only to itself.
+        // `Offered` is what a default may reach (Accept-Language, a cookie, an hreflang alternate);
+        // what opens it is the bundle carrying the locked glossary, not a claim of having read it.
         foreach (var locale in Locales.Offered.Where(l => l.Tag != Locales.SourceTag))
         {
             foreach (var locked in Glossary.Locked)
@@ -1199,7 +1055,6 @@ public class LocalizationTests
             }
         }
 
-        // A locale with nothing translated is never offered, whatever else changes.
         foreach (var locale in Locales.All.Where(l => l.Status is LocaleStatus.Planned))
         {
             await Assert.That(locale.IsOffered)
@@ -1207,8 +1062,8 @@ public class LocalizationTests
                 .Because($"{locale.Tag} is planned and has no words yet");
         }
 
-        // And a review locale is reachable by choice and never by default: it exists to be tested
-        // against, and a reader must not be sent to a pseudolocale by their browser's settings.
+        // A review locale is reachable by choice and never by default — a reader must not be sent to
+        // a pseudolocale by their browser's settings.
         foreach (var locale in Locales.All.Where(l => l.Status is LocaleStatus.TestOnly))
         {
             await Assert.That(locale.IsOffered)
@@ -1216,11 +1071,10 @@ public class LocalizationTests
                 .Because($"{locale.Tag} is a review locale and must not be offered");
         }
 
-        // And no default reaches a review locale, whatever a browser asks for.
         await Assert.That(LocaleRouting.Preferred("qps-ploc,ru;q=0.9")).IsNull();
 
-        // The alternates name only what is offered: an hreflang pointing at a pseudolocale would
-        // invite a search engine to index accented English as a language.
+        // Alternates name only what's offered — an hreflang pointing at a pseudolocale would invite a
+        // search engine to index accented English as a language.
         var alternates = LocaleRouting.Alternates("/games").Select(a => a.HrefLang).ToList();
 
         await Assert.That(alternates).DoesNotContain("qps-ploc");
@@ -1230,31 +1084,26 @@ public class LocalizationTests
     [Test]
     public async Task AReviewBuildListsTheLocalesThatAreNotLanguages()
     {
-        // Without this the switcher has one option, draws nothing, and cannot be reviewed at all —
-        // which is how it shipped invisible.
         var production = Locales.Switchable(preview: false);
         var review = Locales.Switchable(preview: true);
 
-        // A machine-translated locale is in both — it has real words and it says on every page that
-        // a machine wrote them. The pseudolocale and the canary are in neither, because they are not
-        // languages and nothing but a review build should list them.
+        // A machine-translated locale is in both. The pseudolocale and canary are in neither — not languages.
         await Assert.That(production.Select(l => l.Tag)).Contains("de");
         await Assert.That(production.Select(l => l.Tag)).DoesNotContain("qps-ploc");
         await Assert.That(review.Select(l => l.Tag)).Contains("qps-ploc");
         await Assert.That(review.Count).IsGreaterThan(production.Count);
 
-        // A planned locale is in neither: nothing is translated, so listing it would offer a page
-        // that is still English under a name saying it is not.
+        // A planned locale is in neither: listing it would offer a page still English under a name
+        // saying it isn't.
         await Assert.That(review.Select(l => l.Tag)).DoesNotContain("ru");
     }
 
     [Test]
     public async Task WhetherTheReviewLocalesAreListedIsAskedOfTheRequestAndNotOfTheProcess()
     {
-        // It was a static flag that every host start wrote, and this suite starts hosts in both
-        // Development and Production inside one process — so the switcher listed whatever the last
-        // host to start had decided, on every request served by any of them. Two requests, two
-        // answers, and no dependency on which host began first.
+        // Previously a static flag every host start wrote — this suite starts hosts in both
+        // Development and Production in one process, so the switcher listed whatever the last host
+        // decided, for every request.
         var review = Request(Environments.Development);
         var production = Request(Environments.Production);
 
@@ -1264,10 +1113,8 @@ public class LocalizationTests
         await Assert.That(Locales.Switchable(review.IsReviewBuild()).Select(l => l.Tag)).Contains("qps-ploc");
         await Assert.That(Locales.Switchable(production.IsReviewBuild()).Select(l => l.Tag)).DoesNotContain("qps-ploc");
 
-        // And a component rendered with no request behind it at all — which is every headless
-        // component test in this suite — is not a review build. That is the case that made taking
-        // IWebHostEnvironment as a dependency impossible, and it is why this is asked of the
-        // request rather than injected.
+        // A component rendered with no request at all (every headless component test) is not a
+        // review build — why this is asked of the request rather than injected as a dependency.
         await Assert.That(((HttpContext?)null).IsReviewBuild()).IsFalse();
     }
 
@@ -1295,19 +1142,14 @@ public class LocalizationTests
     [Test]
     public async Task AChosenReviewLocaleIsHonouredEvenThoughItIsNeverOffered()
     {
-        // The difference between offering a locale and honouring a choice. Nothing sends a reader to
-        // the pseudolocale; having picked it, they stay in it across an unprefixed URL, or the
-        // switcher would appear to do nothing on the next page.
+        // The difference between offering a locale and honouring a choice: nothing sends a reader to
+        // the pseudolocale, but having picked it, they stay in it.
         await Assert.That(Locales.Find("qps-ploc")!.IsOffered).IsFalse();
         await Assert.That(Locales.Find("qps-ploc")!.IsChoosable).IsTrue();
 
-        // A translated locale is both: it can be chosen, and a browser asking for it is answered.
-        // That is the tier collapse — there is no longer a state that has the words and withholds
-        // them.
         await Assert.That(Locales.Find("de")!.IsOffered).IsTrue();
         await Assert.That(Locales.Find("de")!.IsChoosable).IsTrue();
 
-        // A planned locale is neither. There is nothing to choose.
         await Assert.That(Locales.Find("ru")!.IsChoosable).IsFalse();
         await Assert.That(Locales.Find("ru")!.IsOffered).IsFalse();
     }
@@ -1315,9 +1157,8 @@ public class LocalizationTests
     [Test]
     public async Task EveryOfferedLocaleTranslatedTheWholeGlossary()
     {
-        // Not the review gate — that is a person reading them. This is the weaker thing worth
-        // asserting: a bundle that stopped halfway would leave a page in two languages, with the
-        // English half being exactly the provenance words a reader most needs to trust.
+        // A bundle stopped halfway would leave a page in two languages, the English half being
+        // exactly the provenance words a reader most needs to trust.
         foreach (var locale in Locales.All.Where(l => l.IsOffered && l.Tag != Locales.SourceTag))
         {
             foreach (var locked in Glossary.Locked)
@@ -1332,10 +1173,7 @@ public class LocalizationTests
     [Test]
     public async Task TheFourKindsOfAbsenceStayFourInEveryTranslation()
     {
-        // The finding the glossary exists for, checked against what the translators actually wrote.
-        // A machine translating "not measured", "uncounted", "unreachable" and "not counted" will
-        // reach for the same target phrase for at least two of them if nothing stops it — and a
-        // reader then cannot tell a game that answered from one that did not.
+        // Checked against what translators actually wrote, not just the source bundle.
         string[] ids = ["state.notMeasured", "state.uncounted", "state.unreachable", "state.notCounted"];
 
         foreach (var locale in Locales.All.Where(l => l.IsOffered && l.Tag != Locales.SourceTag))

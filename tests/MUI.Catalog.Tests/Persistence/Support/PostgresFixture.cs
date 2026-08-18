@@ -14,19 +14,12 @@ namespace MUI.Catalog.Tests.Persistence.Support;
 /// One PostgreSQL 17 container for the whole suite, and a fresh database per test.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A real database rather than a fake, because half of this design is written in <c>CHECK</c>
-/// constraints — the three presence states, the availability vocabulary, "at most one open interval
-/// per game" — and a writer asserted only against an in-memory dictionary has not been tested against
-/// the thing that enforces them.
-/// </para>
-/// <para>
-/// Where no container runtime is available the tests <b>skip</b>, loudly and by name. A green suite
-/// that never touched Postgres would be worse than an honestly skipped one: it would report that the
-/// schema works when nothing had run it. Set <c>MUI_TEST_POSTGRES</c> to a connection string to use a
-/// database you already have, and Testcontainers reads <c>DOCKER_HOST</c>, so a rootless Podman
-/// socket works as well as Docker.
-/// </para>
+/// A real database rather than a fake: half of this design is written in <c>CHECK</c> constraints,
+/// and a writer asserted only against an in-memory dictionary is untested against the thing that
+/// enforces them. Where no container runtime is available the tests skip, loudly and by name — a
+/// green suite that never touched Postgres would report the schema works when nothing had run it.
+/// Set <c>MUI_TEST_POSTGRES</c> to use a database you already have; Testcontainers reads
+/// <c>DOCKER_HOST</c>, so rootless Podman works too.
 /// </remarks>
 public static class PostgresFixture
 {
@@ -101,14 +94,11 @@ public static class PostgresFixture
                 _container = new PostgreSqlBuilder("postgres:17-alpine")
                     .WithCleanUp(true)
 
-                    // A database per test, and tests in parallel, means one live connection pool per
-                    // test against one server. Postgres allows a hundred clients by default and the
-                    // suite reached that ceiling on the run that took it past a hundred and thirty
-                    // tests — as "sorry, too many clients already", which fails whichever tests
-                    // happened to be starting and so reports itself as a flake in twenty unrelated
-                    // places. The ceiling is a property of this fixture's shape and not of anything
-                    // under test, so it is lifted here rather than paid for by whoever adds the next
-                    // storage test.
+                    // A database per test, run in parallel, means one live connection pool per test
+                    // against one server — Postgres's default 100-client ceiling was hit past ~130
+                    // tests, failing arbitrary tests as "sorry, too many clients already" and
+                    // reporting as a flake in unrelated places. Lifted here since it's a property of
+                    // this fixture's shape, not of anything under test.
                     .WithCommand("-c", "max_connections=500")
                     .Build();
 
@@ -119,9 +109,9 @@ public static class PostgresFixture
             }
             catch (Exception error)
             {
-                // Deliberately broad: Testcontainers reports "no container runtime", a socket
-                // refusal and an image pull failure as three unrelated exception types, and the
-                // honest answer to all three is the same one.
+                // Deliberately broad: "no container runtime", a socket refusal and an image pull
+                // failure arrive as three unrelated exception types, and the honest answer to all
+                // three is the same one.
                 _unavailable =
                     "No PostgreSQL was reachable, so the persistence tests did not run. Start a "
                     + "container runtime (Testcontainers reads DOCKER_HOST) or set MUI_TEST_POSTGRES "
@@ -137,9 +127,9 @@ public static class PostgresFixture
     }
 
     /// <summary>
-    /// Skipping is the honest answer on a laptop with no container runtime. It is the wrong answer in
-    /// CI, where a silently skipped storage suite is a green build that tested no storage — so the
-    /// Linux leg sets <c>MUI_REQUIRE_POSTGRES</c> and turns the skip into a failure.
+    /// Skipping is honest on a laptop with no container runtime, but wrong in CI, where a silently
+    /// skipped storage suite is a green build that tested no storage — so the Linux leg sets
+    /// <c>MUI_REQUIRE_POSTGRES</c> to turn the skip into a failure.
     /// </summary>
     private static Exception Unavailable(string reason) =>
         string.Equals(

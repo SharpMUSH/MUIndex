@@ -16,10 +16,9 @@ public class EcosystemSnapshotPostgresTests
     /// The components are stored and the share is divided out of them.
     /// </summary>
     /// <remarks>
-    /// A snapshot holding "41%" would be a number whose denominator had been thrown away —
-    /// uncheckable afterwards and impossible to recompute if a share is ever defined differently.
-    /// Keeping the four counts means a point on a curve is divided by the same record the live
-    /// dashboard divides, so the two cannot come to mean different things.
+    /// A snapshot holding "41%" would be a number whose denominator was thrown away — uncheckable and
+    /// unrecomputable. Keeping the counts means a curve point divides the same record the live
+    /// dashboard divides.
     /// </remarks>
     [Test]
     public async Task APointKeepsTheCountsAndNotTheRatio()
@@ -43,8 +42,8 @@ public class EcosystemSnapshotPostgresTests
     /// A pass that runs twice leaves one point on the day, and the later reading wins.
     /// </summary>
     /// <remarks>
-    /// The maintenance pass runs on an interval rather than at midnight, and a replica taking the
-    /// lease mid-afternoon runs it again. Two points on one day would put a step in every curve that
+    /// The maintenance pass runs on an interval, not at midnight, so a replica taking the lease
+    /// mid-afternoon runs it again. Two points on one day would put a step in every curve that
     /// measured our scheduling.
     /// </remarks>
     [Test]
@@ -66,9 +65,8 @@ public class EcosystemSnapshotPostgresTests
     /// Never measured stays null, and is not stored as nought games offering it.
     /// </summary>
     /// <remarks>
-    /// §3.1's rule reaching the snapshot table. A protocol we have never observed either way is not
-    /// a protocol nobody offers, and a curve drawn through a fabricated zero would show a rise that
-    /// is entirely our own instrumentation arriving.
+    /// §3.1's rule reaching the snapshot table: a curve drawn through a fabricated zero would show a
+    /// rise that is entirely our own instrumentation arriving.
     /// </remarks>
     [Test]
     public async Task NeverMeasuredIsNullAndNotZero()
@@ -110,9 +108,8 @@ public class EcosystemSnapshotPostgresTests
     /// A share above one is refused by the schema rather than drawn.
     /// </summary>
     /// <remarks>
-    /// A numerator larger than its denominator is an arithmetic mistake, not a surprising
-    /// measurement, and the failure it produces on a public page is a bar past the end of its track.
-    /// Caught where it cannot be forgotten.
+    /// An arithmetic mistake, not a surprising measurement — the failure on a public page would be a
+    /// bar past the end of its track.
     /// </remarks>
     [Test]
     public async Task ANumeratorLargerThanItsDenominatorIsRefused()

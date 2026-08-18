@@ -17,9 +17,8 @@ public sealed class ScriptedDns : IDnsTxtResolver
     private readonly Dictionary<string, DnsTxtAnswer> _answers = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Every name asked about. Concurrent because a crawl cycle asks from its worker pool, and the
-    /// sibling <see cref="ScriptedProbe"/> is a queue for exactly the same reason: a plain list
-    /// written from several threads is a flake waiting for a busy machine.
+    /// Every name asked about. Concurrent because a crawl cycle asks from its worker pool — a plain
+    /// list written from several threads is a flake waiting for a busy machine.
     /// </summary>
     public ConcurrentQueue<string> Asked { get; } = [];
 

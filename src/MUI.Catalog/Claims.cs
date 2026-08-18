@@ -4,11 +4,9 @@ namespace MUI.Catalog;
 /// Where a claim token was read from. Only channels a probe can see are here.
 /// </summary>
 /// <remarks>
-/// DNS is deliberately absent (spec §8.3), and not merely for want of a resolver: a TXT record proves
-/// control of a <em>hostname</em>, and a hostname is not a game. MU* hosting routinely puts many
-/// unrelated games on one domain separated only by port, so the host's operator could claim all of
-/// them and a game on somebody else's domain could use the channel not at all. Both members here
-/// prove control of <em>that listener</em>, which is the thing being claimed.
+/// DNS is deliberately absent (spec §8.3): a TXT record proves control of a <em>hostname</em>, not a
+/// game, and MU* hosting routinely puts many unrelated games on one domain behind one port. Both
+/// members here prove control of <em>that listener</em> instead.
 /// </remarks>
 public enum ClaimChannel
 {
@@ -20,22 +18,11 @@ public enum ClaimChannel
 /// Whether a claimant is joining a game's owners or taking it over (spec §8.4, §8.5).
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Declared, never inferred.</b> §8.5 allows a game several owners, each having verified a token
-/// of their own; §8.4 makes a counter-claim the way a game changes hands. Both are real, they are
-/// opposite outcomes, and nothing in a probe can tell them apart — a co-founder joining and a new
-/// operator taking over publish the identical line in the identical config file. So the claimant says
-/// which, when they ask for the token, on a page that explains both.
-/// </para>
-/// <para>
-/// Guessing was the alternative and it is wrong in both directions. "A claim on an already-claimed
-/// game is a takeover" silently unclaims a partner the first time two people run one game; the
-/// opposite leaves a departed operator holding a listing they no longer run.
-/// </para>
-/// <para>
-/// Neither is the more trusted. Both publish a token on the server, which is the whole test — so the
-/// choice decides what happens to the <em>other</em> claims, not how hard this one was to make.
-/// </para>
+/// Declared, never inferred: a co-founder joining and a new operator taking over publish the
+/// identical token in the identical config file, so nothing in a probe can tell them apart. Guessing
+/// fails both ways — treating every claim on an already-claimed game as a takeover unclaims a
+/// partner; the opposite leaves a departed operator holding a listing. Neither intent is more
+/// trusted; both publish the same token, so the choice only decides what happens to the other claims.
 /// </remarks>
 public enum ClaimIntent
 {
@@ -50,18 +37,11 @@ public enum ClaimIntent
 /// A claim on a game by an account: pending while <see cref="ClaimedAt"/> is null, verified after.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>One record covers both states on purpose.</b> A pending claim and a verified one are the same
-/// fact at two moments, and splitting them would make "has this account already asked?" a question
-/// with two places to look — which is how a second token gets minted while the first is still printed
-/// on somebody's connect screen.
-/// </para>
-/// <para>
-/// <b><see cref="Token"/> is a nonce, not a credential.</b> We ask an operator to publish it where
-/// every anonymous connection reads it (spec §8.1), so holding it can never confer anything. It
-/// proves that somebody with write access to that server published it; <see cref="UserId"/> answers
-/// the separate question of who asked.
-/// </para>
+/// One record covers both states on purpose: splitting pending from verified would make "has this
+/// account already asked?" a question with two places to look, risking a second token minted while
+/// the first is still live. <see cref="Token"/> is a nonce, not a credential — published where every
+/// anonymous connection reads it (spec §8.1), so holding it confers nothing; it proves only that
+/// whoever published it had write access to that server.
 /// </remarks>
 public sealed record GameClaim
 {
@@ -91,10 +71,9 @@ public sealed record GameClaim
     /// When a probe last still saw the token, which is a different fact from <see cref="ClaimedAt"/>.
     /// </summary>
     /// <remarks>
-    /// Spec §8.4: presence establishes, absence never revokes. Two timestamps exist so that "this
-    /// account proved control" and "the beacon is still up" can be told apart — collapsing them would
-    /// hand revocation to any transient failure, and this project has already watched MCCP swallow a
-    /// connection's payload whole.
+    /// Spec §8.4: presence establishes, absence never revokes. Two timestamps let "this account
+    /// proved control" and "the beacon is still up" be told apart — collapsing them would hand
+    /// revocation to any transient failure.
     /// </remarks>
     public DateTimeOffset? BeaconLastSeenAt { get; init; }
 
@@ -133,16 +112,9 @@ public enum ClaimEventKind
 /// Mints the token an operator publishes.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Randomness rather than a derivation of the game or the account, because a token an observer can
-/// <em>predict</em> is one they can publish first. It is public once verified — that is the point —
-/// but it must be unguessable until the operator chooses to put it somewhere.
-/// </para>
-/// <para>
-/// The alphabet excludes the characters people confuse when reading a connect screen back to
-/// themselves. The token is meant to be copied, never transcribed, but a scheme that punishes the
-/// person who does transcribe it is a support mail waiting to happen.
-/// </para>
+/// Random, not derived from the game or the account — a predictable token is one an observer could
+/// publish first. The alphabet excludes characters people confuse when reading a connect screen back,
+/// since the token is meant to be copied, not transcribed.
 /// </remarks>
 public static class ClaimToken
 {
@@ -180,9 +152,8 @@ public static class ClaimToken
     /// Whether a string read off a server could be one of ours — a cheap filter, never a verification.
     /// </summary>
     /// <remarks>
-    /// A token that passes this has still proved nothing. Verification is a lookup against an issued
-    /// pending claim and cannot be replaced by a shape check, however tempting that is at the call
-    /// site.
+    /// A token that passes this has proved nothing. Verification is a lookup against an issued
+    /// pending claim and cannot be replaced by a shape check.
     /// </remarks>
     public static bool LooksLikeOne(string? candidate) =>
         candidate is not null
@@ -206,10 +177,9 @@ public interface IClaimStore
     /// or null.
     /// </summary>
     /// <remarks>
-    /// Scoped to the game as well as the token. A token is unique across the table, so the game is
-    /// redundant for correctness — and it is passed anyway, because a lookup that would silently
-    /// complete <em>a different game's</em> claim if the uniqueness ever lapsed is one refactor away
-    /// from being a real hole.
+    /// Scoped to the game as well as the token, even though a token is unique across the table: a
+    /// lookup that could silently complete a different game's claim if uniqueness ever lapsed is one
+    /// refactor away from a real hole.
     /// </remarks>
     Task<GameClaim?> FindPendingByTokenAsync(
         Guid gameId,
@@ -250,19 +220,11 @@ public enum ClaimVerdict
 /// Brings a game's next probe forward, for §8.1's on-demand check.
 /// </summary>
 /// <remarks>
-/// <para>
-/// An interface here and an implementation over <c>crawl_target</c> in <c>MUI.Crawler</c>, because
-/// due-ness is the crawl registry's business and <c>MUI.Catalog</c> may not know a socket exists.
-/// <see cref="ClaimService"/> decides <em>whether</em> a claimant may ask; this decides nothing and
-/// only moves the schedule.
-/// </para>
-/// <para>
-/// <b>It brings a probe forward; it does not dial.</b> The crawler's own loop still does the
-/// dialling, still honours <c>CRAWL DELAY</c> and still refuses a target outside scope — so a button
-/// on a page cannot become a way to make us connect to a stranger's server on demand. What §8.1 asks
-/// for is that an operator who has just edited <c>mush.cnf</c> is not left waiting on the scheduler,
-/// and that is exactly this and no more.
-/// </para>
+/// An interface here, implemented over <c>crawl_target</c> in <c>MUI.Crawler</c>, since due-ness is
+/// the crawl registry's business and <c>MUI.Catalog</c> may not know a socket exists.
+/// <see cref="ClaimService"/> decides whether a claimant may ask; this only moves the schedule. It
+/// brings a probe forward and never dials — the crawler's own loop still honours <c>CRAWL DELAY</c>
+/// and scope, so a button on a page cannot become a way to connect to a stranger's server on demand.
 /// </remarks>
 public interface IOnDemandProbes
 {

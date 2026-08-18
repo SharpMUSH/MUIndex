@@ -10,10 +10,9 @@ namespace MUI.Web.Tests;
 /// Spec §5.7 at the URL people actually hold — <c>/g/{slug}</c>, over real HTTP.
 /// </summary>
 /// <remarks>
-/// A bookmark, a link in a channel topic and a search-engine result all point at the page rather
-/// than at <c>/api/games/{key}</c>, so these are the assertions the promise is made of: the status
-/// line is 301 and not 302, the <c>Location</c> is the page the game has now, an archived game's
-/// former URL behaves exactly as a live one's, and a slug nobody ever held is still an honest 404.
+/// A bookmark, a channel-topic link and a search result all point at the page rather than at
+/// <c>/api/games/{key}</c>: the status line is 301 (not 302), <c>Location</c> is the game's current
+/// page, an archived game's former URL behaves like a live one's, and an unknown slug is a 404.
 /// </remarks>
 public class FormerSlugPageTests
 {
@@ -180,9 +179,9 @@ public class FormerSlugPageTests
     }
 
     /// <summary>
-    /// The former-slug table, already resolved: what the real query returns after its join, which is
-    /// the current slug of the game that used to wear the one asked for. It answers nothing for a
-    /// slug that is current, which is the query's own <c>g.slug &lt;&gt; h.slug</c>.
+    /// The former-slug table, already resolved to the current slug of the game that used to wear the
+    /// one asked for. Answers nothing for a slug that is current, matching the real query's own
+    /// <c>g.slug &lt;&gt; h.slug</c>.
     /// </summary>
     private sealed class FakeSlugHistory : ISlugHistoryStore
     {

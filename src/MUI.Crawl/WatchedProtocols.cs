@@ -6,18 +6,10 @@ namespace MUI.Crawl;
 /// Protocol plugins that report the moment the server agrees to them.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <c>OnEnabledAsync</c> fires when an option is actually negotiated, which is the fact layer 1
-/// wants. The per-protocol callbacks are not a substitute: <c>OnGMCPMessage</c> fires when a
-/// <em>message</em> arrives, so a server that supports GMCP and happens to say nothing during the
-/// probe would go unrecorded — reported as not supporting a protocol it supports.
-/// </para>
-/// <para>
-/// Each subclass exists only to observe. None changes behaviour, and every one calls its base, so
-/// the negotiation the library performs is exactly the negotiation it would have performed anyway.
-/// The name is taken from the plugin's own <c>ProtocolName</c> rather than a string here, so the
-/// vocabulary cannot drift from the library's.
-/// </para>
+/// <c>OnEnabledAsync</c> fires when an option is actually negotiated, which is the layer-1 fact we
+/// want. The per-protocol message callbacks are not a substitute — <c>OnGMCPMessage</c> only fires
+/// when a message arrives, so a server that supports GMCP but says nothing during the probe would go
+/// unrecorded. Each subclass only observes; every one calls its base so negotiation is unaffected.
 /// </remarks>
 internal static class Watched
 {

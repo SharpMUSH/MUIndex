@@ -12,22 +12,13 @@ namespace MUI.Web.Tests;
 /// failures.
 /// </summary>
 /// <remarks>
-/// <para>
-/// This is a <see cref="BackgroundService"/> in the same process as the crawler, and .NET's default
-/// <c>BackgroundServiceExceptionBehavior</c> is <c>StopHost</c> — so an exception that escapes
-/// <c>ExecuteAsync</c> here does not skip an icon, it stops the site. The crawl loop, the web tier
-/// and the lease all go with it, over a decoration.
-/// </para>
-/// <para>
-/// It happened. A stalled web server made <c>HttpClient</c> raise its own timeout as a
-/// <see cref="TaskCanceledException"/>; both catch filters on the path read "everything except a
-/// cancellation" and let it through, because a cancellation was assumed to mean the host was
-/// stopping. Three hundred restarts, and a crawler that never finished a cycle.
-/// </para>
-/// <para>
-/// Each test here waits on the loop's own warning rather than on a delay, and races it against the
-/// service's task, so the bug fails the assertion outright instead of failing a timeout slowly.
-/// </para>
+/// .NET's default <c>BackgroundServiceExceptionBehavior</c> is <c>StopHost</c>, so an exception
+/// escaping <c>ExecuteAsync</c> here stops the whole site, not just an icon fetch. It happened: a
+/// stalled web server made <c>HttpClient</c> raise its own timeout as a
+/// <see cref="TaskCanceledException"/>, and a catch filter reading "everything except a cancellation"
+/// let it through, assuming a cancellation meant the host was stopping. Each test here races the
+/// loop's own warning against the service's task, so the bug fails the assertion rather than a slow
+/// timeout.
 /// </remarks>
 public class IconRefresherTests
 {
@@ -38,16 +29,12 @@ public class IconRefresherTests
     /// </summary>
     [Test]
     public async Task APassThatFailsWithATimeoutLeavesTheServiceRunning() =>
-        // The exception HttpClient raises when its own Timeout elapses, which is what reached this
-        // loop in production: a cancellation by type, and a far end that went quiet by cause.
+        // The exact exception HttpClient raises when its own Timeout elapses.
         await AssertSurvives(new TaskCanceledException(
             "The request was canceled due to the configured HttpClient.Timeout of 10 seconds elapsing.",
             new TimeoutException()));
 
-    /// <summary>
-    /// And an ordinary failure is still handled the same way — the broad catch is not narrowed by
-    /// the fix.
-    /// </summary>
+    /// <summary>An ordinary failure is still handled the same way — the broad catch isn't narrowed by the fix.</summary>
     [Test]
     public async Task APassThatFailsAtAllLeavesTheServiceRunning() =>
         await AssertSurvives(new InvalidOperationException("the database said no"));
@@ -65,9 +52,8 @@ public class IconRefresherTests
 
         try
         {
-            // Whichever happens first: the loop logs the failed pass and carries on, or it does not
-            // survive the pass at all and its task completes. Waiting on the log alone would turn
-            // the bug into a timeout rather than an assertion.
+            // Races both outcomes: waiting on the log alone would turn the bug into a slow timeout
+            // rather than a failing assertion.
             await Task.WhenAny(logger.Warned.Task, service.ExecuteTask!).WaitAsync(TimeSpan.FromSeconds(30));
 
             await Assert.That(service.ExecuteTask!.IsCompleted).IsFalse();

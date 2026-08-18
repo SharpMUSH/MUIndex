@@ -6,10 +6,9 @@
 @*
     Everything a program reads about this page, and nothing a reader sees.
 
-    One component rather than a block of tags per page, because the rules it enforces are the site's
-    and not each page's: the query string comes off the canonical URL, the fixture confesses in the
-    metadata because the banner cannot follow a link into somebody's chat client, and the title is
-    spelled with the wordmark once instead of fifteen times.
+    One component rather than tags per page, because these rules are the site's and not each page's:
+    the query string comes off the canonical URL, the fixture confesses in the metadata (the demo
+    banner can't follow a link into a chat client), and the title carries the wordmark once.
 *@
 
 <PageTitle>@Heading</PageTitle>
@@ -21,14 +20,11 @@
     @*
         The same document in every language it exists in.
 
-        A locale that lives only in a cookie or in Accept-Language gives one URL two bodies, and a
-        search engine indexes whichever it happened to be served. These say the addresses out loud,
-        and x-default points at the unprefixed one — which is what tells a crawler that the English
-        URL is the one to show a reader whose language nothing here matches, rather than leaving it
-        to pick among them.
+        A locale that lives only in a cookie or Accept-Language gives one URL two bodies, and a
+        search engine indexes whichever it happened to be served. x-default points at the unprefixed
+        URL, telling a crawler that's the fallback for an unmatched language.
 
-        Emitted only where there is more than one to name. Ceremony for a site that ships one
-        language would be markup asserting a choice nobody has.
+        Emitted only where there is more than one locale to name.
     *@
     @if (Http is { } request && Locales.Offered.Count > 1)
     {
@@ -46,11 +42,8 @@
     <meta property="og:image" content="@Image" />
     <meta property="og:image:alt" content="@PreviewCopy.CardAlt(Tag, Title)" />
 
-    @*
-        summary_large_image and not summary: the cards are 1200×630 and a small card would letterbox
-        them into an unreadable strip. The name is Twitter's; every other unfurler that reads these
-        tags reads them under the same names.
-    *@
+    @* summary_large_image, not summary: the cards are 1200×630 and a small card would letterbox
+       them into an unreadable strip. *@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="@Heading" />
     <meta name="twitter:description" content="@Text" />
@@ -58,13 +51,8 @@
 
     @if (StructuredData is { } graph)
     {
-        @*
-            Raw, because it is JSON and not markup. Safe to write raw for one specific reason:
-            GameStructuredData serialises with System.Text.Json's default encoder, which escapes
-            angle brackets to < and > — so a game that named itself with a closing script
-            tag cannot close this element. See that type's remarks; the encoder is not a detail to
-            be tuned there.
-        *@
+        @* Raw, because it's JSON not markup. Safe only because GameStructuredData serialises with
+           the default encoder, which escapes angle brackets — see that type's remarks. *@
         @((MarkupString)$"<script type=\"application/ld+json\">{graph}</script>")
     }
 </HeadContent>
@@ -74,9 +62,8 @@
     /// The request being answered, for the absolute URLs an unfurler cannot resolve for itself.
     /// </summary>
     /// <remarks>
-    /// Null under a headless render, which is how the component tests invoke a page. The absolute
-    /// forms fall back to the path, which is wrong for an unfurler and unreachable by one — nothing
-    /// pastes a link to a test renderer.
+    /// Null under a headless render (how component tests invoke a page); the absolute forms fall
+    /// back to the path, which an unfurler never reaches anyway.
     /// </remarks>
     [CascadingParameter]
     public HttpContext? Http { get; set; }
@@ -87,17 +74,16 @@
 
     /// <summary>The locale this request is being answered in, which the metadata is written in too.</summary>
     /// <remarks>
-    /// A German page used to carry an English title, description and card. Nothing visible said so —
-    /// no reader sees a <c>&lt;meta&gt;</c> — and the surfaces that do render it are a search
-    /// result, a chat client unfurling a link and a bookmark, none of which the reader can correct.
+    /// A German page used to carry an English title, description and card — invisible on the page
+    /// itself, but wrong on a search result, an unfurled link, or a bookmark.
     /// </remarks>
     private string Tag => Http.LocaleOf().Tag;
 
     /// <summary>What this page is, in a sentence or two. Required — a page without one is summarised
     /// by whoever links to it, from whatever text happens to come first in the body.</summary>
     /// <remarks>
-    /// Defaulted to null and resolved against the request's locale, because the default sentence is
-    /// itself a translated one and a parameter initialiser has no locale to resolve it in.
+    /// Defaulted to null and resolved against the request's locale, since a parameter initialiser
+    /// has no locale to resolve the default sentence in.
     /// </remarks>
     [Parameter, EditorRequired]
     public string? Description { get; set; }
@@ -109,9 +95,8 @@
     /// Whether this page shows catalogue data, and so has to confess when the catalogue is a fixture.
     /// </summary>
     /// <remarks>
-    /// False for the pages that are prose and forms — signing in, submitting a game, a page that is
-    /// not there. Those say the same true thing with or without a database behind them, and
-    /// prefixing them with "nothing here was measured" would be a disclaimer about nothing.
+    /// False for prose/form pages — signing in, submitting a game, a 404. Those say the same true
+    /// thing with or without a database behind them, so the demo disclaimer would be about nothing.
     /// </remarks>
     [Parameter]
     public bool Data { get; set; } = true;
@@ -120,9 +105,8 @@
     /// Builds the schema.org graph, given this site's origin. Only a game page has one.
     /// </summary>
     /// <remarks>
-    /// A function and not a string, so that a page does not have to resolve the origin for itself —
-    /// and so the builder is never run at all over the fixture, where its output would have to be
-    /// thrown away.
+    /// A function rather than a string, so the builder never runs at all over the fixture, where
+    /// its output would just be thrown away.
     /// </remarks>
     [Parameter]
     public Func<Uri, string>? Graph { get; set; }
@@ -149,10 +133,9 @@
     /// The graph, or nothing at all over the fixture.
     /// </summary>
     /// <remarks>
-    /// <b>There is no honest way to ship invented structured data.</b> Its whole audience is
-    /// programs, none of which render the demo banner, and the vocabulary has no field meaning "and
-    /// none of this was measured". Absent is the only correct answer, and it is decided here rather
-    /// than in the builder so the rule sits beside the other thing the fixture changes.
+    /// <b>There is no honest way to ship invented structured data.</b> Its audience is programs,
+    /// none of which render the demo banner, and the vocabulary has no field meaning "unmeasured" —
+    /// so absent is the only correct answer over the fixture.
     /// </remarks>
     private string? StructuredData => Catalogue.IsMeasured && Graph is not null && Http is not null
         ? Graph(SiteUrls.OriginOf(Http))

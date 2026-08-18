@@ -6,45 +6,15 @@ namespace MUI.Crawl;
 /// The codebase a connect screen credits, read from the attribution the screen carries.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>This is not pattern-matching a stranger's ASCII art for a family name. It is reading a licence
-/// notice.</b> The DikuMUD licence requires the original authors to be credited on the login screen,
-/// and every descendant carries the line forward and adds its own — which is why the same five names
-/// appear verbatim on games thirty years apart, and why <c>badtrip</c> credits Diku, Merc <em>and</em>
-/// ROM in three consecutive sentences.
-/// </para>
-/// <para>
-/// <b>Run over the 303 stored connect screens of games with no codebase on record, this names 132 of
-/// them</b> — 27 DikuMUD, 26 CircleMUD, 21 Merc, 21 ROM, 10 SMAUG, and the rest across the LP line and
-/// CoffeeMUD and Rapture. Every one of those 132 has either an author's name in it or an attribution
-/// phrase within 120 characters of the family it named; none was matched loosely. That check is worth
-/// re-running after any widening here, because it is the difference between this file and the guess
-/// the comment above says it is not.
-/// </para>
-/// <para>
-/// <b>The most derived family wins, because that is what the stack of credits means.</b> A screen
-/// naming Diku and Merc and ROM is a ROM: each layer credits the one below it, so the outermost is
-/// the answer and the ones beneath it are its ancestry. Reading Diku off <c>badtrip</c> would be
-/// technically true and useless.
-/// </para>
-/// <para>
-/// <b>The family name and never a version.</b> <c>addictmud</c> says
-/// <c>Based on CircleMUD 3.0bpl10</c> and this reads <c>CircleMUD</c>. Lifting the version out is
-/// where PR #51 went wrong — the value that comes out of free text is the one nobody thinks to
-/// doubt, and a version parsed out of prose is a guess wearing a decimal point. The value lands on
-/// <see cref="MUI.Catalog.FieldSource.Banner"/>, the bottom rung, where a game that fills in its own
-/// MSSP <c>CODEBASE</c> outranks it and the disagreement between them is the interesting fact
-/// (rule 1).
-/// </para>
-/// <para>
-/// <b>Two tiers, because two kinds of evidence are not the same evidence.</b> <c>Katja Nyboe</c> and
-/// <c>Russ Taylor</c> are people who appear on a MU* connect screen for exactly one reason, so they
-/// are read wherever they occur. <c>SMAUG</c> and <c>MudOS</c> are words that could be a realm, a
-/// player or a room, so they are read only on a line that is doing attribution — <c>based on</c>,
-/// <c>derived from</c>, <c>powered by</c>, <c>copyright</c>. <c>rom</c>, <c>merc</c> and <c>moo</c>
-/// are in neither tier at any length: three letters that occur inside ordinary words, and their
-/// families are reachable through their authors' names instead.
-/// </para>
+/// This reads a licence notice, not a stranger's ASCII art: the DikuMUD licence requires the original
+/// authors to be credited on the login screen, and every descendant carries the line forward and adds
+/// its own, so a screen can credit several families at once (outermost/most-derived first — a screen
+/// naming Diku, Merc and ROM is a ROM). The family name is kept, never a version — a version parsed
+/// out of free text is a guess wearing a decimal point, so it lands on
+/// <see cref="MUI.Catalog.FieldSource.Banner"/>, the bottom rung, where a game's own MSSP
+/// <c>CODEBASE</c> outranks it. Two evidence tiers: a person's name (<c>Russ Taylor</c>) is credited
+/// wherever it occurs, but an engine name that's also an ordinary word (<c>SMAUG</c>, <c>MudOS</c>)
+/// only counts on a line that's doing attribution (<c>based on</c>, <c>derived from</c>, …).
 /// </remarks>
 public static partial class CodebaseCredits
 {
@@ -60,11 +30,9 @@ public static partial class CodebaseCredits
 
         var lines = Sentences(banner);
 
-        // A credit is read within one sentence, never across a whole screen. Two physical lines are
-        // joined first, because a licence notice wraps — Diku's five authors span three lines on
-        // most screens that carry them — and then split on sentence punctuation, because a screen
-        // that says "Powered by dreams." above "Come and visit MudOS Tavern." must not lend the
-        // second sentence the first one's attribution.
+        // A credit is read within one sentence, never across the whole screen — otherwise an
+        // unrelated line below an attribution (e.g. a tavern's name mentioning "MudOS") would borrow
+        // its credit.
         foreach (var (marker, family, tier) in Credits)
         {
             foreach (var line in lines)
@@ -98,20 +66,9 @@ public static partial class CodebaseCredits
     /// Every marker, in precedence order: the first family whose credit appears is the answer.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The order is the derivation graph read outwards, and every entry in the Diku half of it was
-    /// taken from a live connect screen: <c>tbaMUD</c> and <c>SMAUG</c> and <c>ROM</c> all sit on
-    /// Merc, Merc sits on Diku, and CircleMUD sits on Diku beside Merc rather than under it. A screen
-    /// that credits two of them is not ambiguous — it is a game telling us its ancestry, outermost
-    /// layer first.
-    /// </para>
-    /// <para>
-    /// <b>The named-engine block is first and unordered within itself</b>, because those are families
-    /// nothing else derives from: a screen that says <c>Evennia</c> or <c>CoffeeMud</c> or
-    /// <c>AresMUSH</c> is not also a ROM. <c>achaea-dreams-of-divine-lands</c> opens
-    /// <c>Rapture Runtime Environment v2.4.9.1 -- (c) 2026 -- Iron Realms Entertainment</c>, which is
-    /// the only public statement that engine makes about itself anywhere.
-    /// </para>
+    /// Order follows the derivation graph, outermost first: tbaMUD/SMAUG/ROM sit on Merc, Merc sits
+    /// on Diku, CircleMUD sits on Diku beside Merc rather than under it. The named-engine block comes
+    /// first and is unordered within itself, since those families derive from nothing else.
     /// </remarks>
     private static readonly (string Marker, string Family, Tier Tier)[] Credits =
     [
@@ -164,12 +121,8 @@ public static partial class CodebaseCredits
     /// rather than a word.
     /// </summary>
     /// <remarks>
-    /// Every phrase is one a live screen uses: <c>Based on CircleMUD 3.0bpl10,</c> (addictmud),
-    /// <c>Based upon DikuMUD I (GAMMA 0.0) created by</c> (alexmud),
-    /// <c>A derivative of DikuMUD (GAMMA 0.0)</c> (addictmud),
-    /// <c>running the MudOSa4DGD v1.1 mudlib on DGD v1.2p2</c> (asgard-s-honor),
-    /// <c>Rom 2.4 copyright (c) 1993-1996</c> (badtrip), and
-    /// <c>Rapture Runtime Environment v2.4.9.1 -- (c) 2026</c> (achaea).
+    /// E.g. <c>Based on CircleMUD 3.0bpl10,</c>, <c>A derivative of DikuMUD (GAMMA 0.0)</c>,
+    /// <c>Rom 2.4 copyright (c) 1993-1996</c>.
     /// </remarks>
     [GeneratedRegex(
         @"\b(?:based\s+(?:on|upon)|derivative\s+of|derived\s+from|powered\s+by|running(?:\s+on)?"

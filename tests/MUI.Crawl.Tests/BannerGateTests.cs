@@ -6,9 +6,7 @@ namespace MUI.Crawl.Tests;
 /// Telling a connect screen from the one question a server asks before it paints one.
 /// </summary>
 /// <remarks>
-/// Every fixture is a stored connect screen from the live catalogue on 2026-08-16 — which is to say
-/// every one of them is a screen this crawler had already recorded as a game's connect screen, and
-/// most of them are under thirty characters long.
+/// Every fixture is a stored connect screen from the live catalogue, most under thirty characters.
 /// </remarks>
 public class BannerGateTests
 {
@@ -34,15 +32,10 @@ public class BannerGateTests
     }
 
     /// <summary>
-    /// The look-alike that is the opposite fact, and the reason this file is a whitelist.
+    /// A server saying "please wait" is <em>not</em> waiting for us — it paints on its own, and
+    /// <c>ProbeOptions.BannerPatience</c> already covers that. Reading it as a gate would send a
+    /// stray Return to a server that never asked anything.
     /// </summary>
-    /// <remarks>
-    /// A server saying "please wait" is telling us it is <em>not</em> waiting for us: it will paint
-    /// on its own, and <c>ProbeOptions.BannerPatience</c> already waits for it. Reading one of these
-    /// as a gate would extend the banner across the flush on a server that never asked anything,
-    /// which is where a stray Return produces a goodbye on a DIKU and a repainted screen on a
-    /// TinyMUSH.
-    /// </remarks>
     [Test]
     [Arguments("Detecting client, please wait...")]
     [Arguments("Attempting to detect client, please wait...")]
@@ -58,10 +51,8 @@ public class BannerGateTests
     [Test]
     public async Task AScreenThatHasAlreadyPaintedIsNeverAGateHoweverItEnds()
     {
-        // The load-bearing negative. A game that painted a screen and *then* asked about colour has
-        // already told us everything the gate exists to recover, and extending its banner across the
-        // flush would sweep in whatever it says to a stray Return. Length is the cheap half of the
-        // test and this is what it buys.
+        // A game that painted a screen and *then* asked about colour has already told us everything
+        // the gate exists to recover; extending its banner would sweep in a reply to a stray Return.
         var painted = new string('=', 300) + "\nDo you want ANSI colour? (Y/n)";
 
         await Assert.That(BannerGate.IsAnsweredByReturn(painted)).IsFalse();

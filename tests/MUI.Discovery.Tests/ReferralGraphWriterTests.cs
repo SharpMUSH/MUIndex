@@ -176,9 +176,8 @@ public class ReferralGraphWriterTests
     [Test]
     public async Task AProbeThatLearnedNoMsspAtAllLeavesTheEdgesAlone()
     {
-        // MSSP being absent means we learned nothing about this game's referrals — not that they went
-        // away. Marking them absent here would erase a graph on every probe of a server whose MSSP
-        // happened to be unavailable that hour.
+        // MSSP being absent means we learned nothing about referrals, not that they went away —
+        // marking them absent would erase the graph on any hour MSSP was unavailable.
         var (writer, edges, _) = Build();
 
         await writer.ApplyAsync(Source, 0, Referring("b.example.org 4000"), None);

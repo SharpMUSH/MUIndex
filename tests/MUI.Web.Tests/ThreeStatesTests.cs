@@ -9,12 +9,10 @@ namespace MUI.Web.Tests;
 /// The three states an hour can be in, checked on the rendered grid and in the words beside it.
 /// </summary>
 /// <remarks>
-/// Conflating any two of these is the worst bug this codebase can ship. A measured zero is a filled
-/// cell — we got in and nobody was there. An unmeasurable hour is hatched — we got in and could not
-/// count. An hour with no measurement at all is empty, and says only that: a failed probe writes no
-/// presence row, so silence here cannot tell an outage of theirs from a gap of ours, and the strip
-/// beside the grid is what answers that. They are three different elements in the markup and three
-/// different sentences in the text, and no difference is carried by a colour.
+/// Conflating any two of these is the worst bug this codebase can ship (rule 2). A measured zero is
+/// a filled cell; an unmeasurable hour is hatched; a never-probed hour is empty and names no cause —
+/// a failed probe writes no presence row at all. Three different elements and three different
+/// sentences, never carried by colour alone.
 /// </remarks>
 public class ThreeStatesTests
 {
@@ -22,12 +20,10 @@ public class ThreeStatesTests
     /// The listing's absent count says the count is absent, and does not name a cause.
     /// </summary>
     /// <remarks>
-    /// <b>Three cases were wearing one word, and the word named a cause.</b> The count column
-    /// printed <c>state.notCounted</c> — the glossary's phrase for a probe that answered without a
-    /// number — whenever the window had no measurement, which also covers a window we never probed
-    /// in and a game with no rows at all. Two of the three are our crawl schedule, and rule 5 says
-    /// our schedule is never published as a fact about somebody's game. The same conflation was
-    /// found and fixed on the game page's hero; this is the listing's half of it.
+    /// Three different cases were wearing one word: the count column printed <c>state.notCounted</c>
+    /// (a probe that answered without a number) for any window with no measurement, which also covers
+    /// a window we never probed. Two of the three are our crawl schedule, and rule 5 forbids
+    /// publishing that as a fact about the game.
     /// </remarks>
     [Test]
     public async Task TheListingSaysACountIsAbsentWithoutSayingWhy()
@@ -35,12 +31,9 @@ public class ThreeStatesTests
         var absent = Messages.For(Locales.SourceTag, "listing.count.none");
         var probed = Messages.For(Locales.SourceTag, "state.notCounted");
 
-        // Two different facts, so two different strings — in every language, not just this one.
-        //
-        // Walked over every locale the site has a bundle for, not the choosable ones. The filtered
-        // set can shrink to English alone — a locale that is not yet complete is not offered — and
-        // then this loop proves nothing while still passing, which is the failure mode a
-        // cross-locale claim is most prone to. The count is asserted so it cannot go quiet.
+        // Two different facts, so two different strings, in every language, not just this one.
+        // Walked over every locale the site has a bundle for; the count is asserted so a filtered
+        // set shrinking to nothing can't make this loop pass vacuously.
         var locales = Locales.All.Where(l => l.Tag != Locales.SourceTag).ToList();
 
         await Assert.That(locales.Count).IsGreaterThan(1)
@@ -59,12 +52,7 @@ public class ThreeStatesTests
     }
 
     /// <summary>The plain listing marks and its break line are the bundle's words, not English.</summary>
-    /// <remarks>
-    /// The rendered listing was localized and its <c>?plain=1</c> mirror was not: "-- from here:",
-    /// "[archived]" and "[claimed]" were literals, so a German reader's text alternative carried
-    /// three English words the page beside it does not. A mirror that answers in a different
-    /// language from the page is not a mirror.
-    /// </remarks>
+    /// <remarks>The plain mirror once shipped these as English literals while the rendered listing was localized — a mirror that answers in a different language from the page isn't a mirror.</remarks>
     [Test]
     public async Task ThePlainListingMarksAreTranslatedLikeTheRestOfIt()
     {
@@ -102,10 +90,8 @@ public class ThreeStatesTests
     [Test]
     public async Task TheGridIsDrawnWithHeadersAndIsNotWhatAScreenReaderIsGiven()
     {
-        // The drawing keeps its row and column headers — they are what make the picture legible and
-        // what the mouse tooltips hang off — but it is hidden from assistive tech, because announced
-        // cell by cell it is 168 utterances that deliver one shape. The seven rows below it are the
-        // text alternative, and they are a real table with a caption and headers of their own.
+        // The drawing is hidden from assistive tech — 168 cells announced individually is 168
+        // utterances for one shape. The seven rows below are the real text alternative.
         var html = await GridAsync(OneOfEach());
 
         await Assert.That(html).Contains("<div class=\"heat-wrap\" aria-hidden=\"true\"");
@@ -119,16 +105,13 @@ public class ThreeStatesTests
     [Test]
     public async Task ACellCarriesNoAnnouncedTextOfItsOwn()
     {
-        // 168 cells with a word in each is the whole of finding B2: on a sparsely measured game a
-        // screen reader was made to hear "not measured" 167 times before reaching the one number
-        // that existed. The words stay in the tooltip, where a mouse reader gets them, and the facts
-        // stay in the table below, where a listener gets them in seven rows.
+        // A sparsely measured game once made a screen reader hear "not measured" 167 times before
+        // the one real number. Words stay in the tooltip; facts stay in the table below.
         var html = Render.Words(await GridAsync(OneOfEach()));
 
         await Assert.That(html).Contains("title=\"Mon 03:00 — no measurement in this hour\"></td>");
 
-        // Nothing announced anywhere in the grid's body — no cell text, and no sr-only span smuggling
-        // one back in. The words are in the table below, seven rows of them.
+        // Nothing announced in the grid's body — no cell text, no sr-only span smuggling one back in.
         var body = html[html.IndexOf("<tbody", StringComparison.Ordinal)..];
         var grid = body[..body.IndexOf("</table>", StringComparison.Ordinal)];
 
@@ -139,9 +122,7 @@ public class ThreeStatesTests
     [Test]
     public async Task BelowSevenMeasuredDaysThereIsNoGridAtAll()
     {
-        // A 7×24 grid holding one probe is 167 empty cells, and it reads as a broken page to a
-        // sighted reader and as a wall to a listening one. What we have, and what has to arrive
-        // before there is a week to draw.
+        // A 7×24 grid holding one probe is 167 empty cells — reads as broken rather than sparse.
         var html = Render.Words(await GridAsync(
         [
             new(0, 0, 42, Probed: true),
@@ -151,20 +132,14 @@ public class ThreeStatesTests
         await Assert.That(html).Contains("the busiest 42 on Monday at 00:00 UTC");
         await Assert.That(html).DoesNotContain("<table");
 
-        // And no sentence about a week: "busiest Monday, small hours" off one Monday morning is a
-        // claim about a shape one measurement cannot have.
+        // And no sentence about a week — one measurement can't have a weekly shape.
         await Assert.That(html).DoesNotContain("Busiest");
     }
 
     /// <summary>
     /// The threshold itself, from both sides.
     /// </summary>
-    /// <remarks>
-    /// The test above uses one measured day, which passes whether the comparison is <c>&gt;=</c>,
-    /// <c>&gt;</c> or off by one. Six against seven is the only pair that pins
-    /// <see cref="ActivitySummary.MeasuredDaysForGrid"/> down, and two surfaces read it — the grid's
-    /// own gate and the plain surface's.
-    /// </remarks>
+    /// <remarks>Six against seven is the only pair that pins <see cref="ActivitySummary.MeasuredDaysForGrid"/> down exactly; both the grid's gate and the plain surface's read it.</remarks>
     [Test]
     public async Task SixMeasuredDaysIsNotAWeekAndTheSeventhIsWhatDrawsTheGrid()
     {
@@ -183,8 +158,7 @@ public class ThreeStatesTests
 
         await Assert.That(Render.Words(await GridAsync(seven))).Contains("<table class=\"perday\"");
 
-        // And the plain surface turns on the same day, or the two disagree about how much was
-        // measured — which is the failure mode a shared constant with one caller invites.
+        // The plain surface must turn on the same day, or the two disagree about how much was measured.
         await Assert.That(ActivitySummary.MeasuredDays(six))
             .IsLessThan(ActivitySummary.MeasuredDaysForGrid);
         await Assert.That(ActivitySummary.MeasuredDays(seven))
@@ -205,9 +179,7 @@ public class ThreeStatesTests
     [Test]
     public async Task AMeasuredZeroSaysMeasuredAndAnUnmeasuredHourSaysSo()
     {
-        // The distinction has to survive with no cell shape and no colour at all, so it is in words
-        // as well as in the cell's class: the whole sentence in the tooltip, and a column each in
-        // the table below, where "not measured" and "no count" are two headings and never one.
+        // Must survive with no cell shape and no colour: the sentence in the tooltip, and its own column below.
         var html = await GridAsync(OneOfEach());
 
         await Assert.That(html).Contains("0 players, measured");
@@ -220,13 +192,9 @@ public class ThreeStatesTests
     [Test]
     public async Task AnAnnouncedCellIsAValueRatherThanARepeatedSentence()
     {
-        // The headers already say which hour of which day a cell is. Repeating that in every cell
-        // turns 168 cells into 168 paragraphs, which is what the summary and the disclosure exist
-        // to prevent.
-        //
-        // The two words are read from the glossary rather than written out here: they are locked ids
-        // and this test's business is that the cell says the right *state*, not that English spells
-        // it a particular way. A number is a number in every locale and stays written out.
+        // Headers already say which hour of which day a cell is; repeating that per cell would turn
+        // 168 cells into 168 paragraphs. Words read from the glossary, not written out — this test's
+        // business is that the cell says the right *state*.
         await Assert.That(ActivitySummary.CellValue(English, new ActivityCell(0, 0, 4, true))).IsEqualTo("4");
         await Assert.That(ActivitySummary.CellValue(English, new ActivityCell(0, 1, 0, true))).IsEqualTo("0");
 
@@ -241,11 +209,8 @@ public class ThreeStatesTests
     /// The worst bug this codebase can ship, checked in every language the site answers in.
     /// </summary>
     /// <remarks>
-    /// An hour that answered and could not be counted and an hour nobody has a measurement for are
-    /// two facts, and a translation engine reaches for one phrase — <em>nicht verfügbar</em> — for
-    /// both. A reader who cannot tell them apart cannot tell a game that answered from one that did
-    /// not, which is the single thing this site exists to say. Asserted through the cell rather than
-    /// through the glossary, because the cell is where a reader meets them.
+    /// Two different facts that a translation engine collapses to one phrase (<em>nicht verfügbar</em>).
+    /// A reader who can't tell them apart can't tell a game that answered from one that didn't.
     /// </remarks>
     [Test]
     public async Task NotMeasuredAndNotCountedAreTwoDifferentWordsInEveryLocale()
@@ -262,8 +227,7 @@ public class ThreeStatesTests
                 .IsNotEqualTo(notCounted)
                 .Because($"{locale.Tag} says the same thing about two different hours");
 
-            // And neither is a nought. A zero is a count we took, and both of these are the absence
-            // of one — in every language, including the ones that have not been translated yet.
+            // Neither is a nought: a zero is a count we took, and both these are the absence of one.
             await Assert.That(notMeasured).IsNotEqualTo("0");
             await Assert.That(notCounted).IsNotEqualTo("0");
         }
@@ -272,12 +236,7 @@ public class ThreeStatesTests
     /// <summary>
     /// A German page names the days in German, and it does not get them from us.
     /// </summary>
-    /// <remarks>
-    /// Seven weekday strings compiled into a component are seven strings no translator is ever sent,
-    /// and the symptom was a fully German sentence with "Monday" in the middle of it. They come from
-    /// CLDR now, so the mapping is what can break: Monday is 0 in this codebase because that is how
-    /// the store keys a week, and .NET's arrays start at Sunday.
-    /// </remarks>
+    /// <remarks>Day names come from CLDR, not a compiled-in array, so a translator can reach them. The mapping can still break: Monday is 0 here (how the store keys a week), .NET's arrays start at Sunday.</remarks>
     [Test]
     [Arguments("en", 0, "Monday", "Mon")]
     [Arguments("en", 6, "Sunday", "Sun")]
@@ -303,10 +262,8 @@ public class ThreeStatesTests
         var english = ActivitySummary.Sentence(English, cells);
         var german = ActivitySummary.Sentence("de", cells);
 
-        // Every id here is untranslated today, so the German sentence is the English one — with the
-        // day names, which are CLDR's rather than ours, already in German. That is the fallback
-        // behaving: an English phrase in a German page says truthfully that this claim has not been
-        // translated, and a day name has no excuse, because nobody had to translate it.
+        // Every id here is untranslated today, so the German sentence is the English one, but with
+        // CLDR's day names (not ours) already in German — a day name has no excuse either way.
         await Assert.That(german).IsNotEqualTo(english);
 
         var named = 0;
@@ -331,18 +288,10 @@ public class ThreeStatesTests
     /// No count is ever said in a plural form the reader's language does not have.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The whole reason the counts are ICU arguments rather than numbers glued to English nouns.
-    /// English distinguishes one hour from two and Chinese distinguishes nothing, so an English
-    /// message with a <c>one</c> branch must not hand that branch to a Chinese reader merely because
-    /// it is there — which is precisely what a fallback does if the formatter picks branches by the
-    /// source language rather than by the target.
-    /// </para>
-    /// <para>
-    /// Counted as shapes rather than compared to expected strings: with the number blanked out, the
-    /// number of distinct renderings a message can produce is the number of forms it emits, and that
-    /// may never exceed the count of categories CLDR gives the language.
-    /// </para>
+    /// A fallback formatter that picks plural branches by source language rather than target would
+    /// hand an English <c>one</c> branch to Chinese, which has none. Counted as shapes (number blanked
+    /// out, distinct renderings) rather than compared to expected strings, and checked against the
+    /// count of plural categories CLDR actually gives the language.
     /// </remarks>
     [Test]
     public async Task ACountIsSaidInAFormItsOwnLanguageHas()
@@ -379,12 +328,7 @@ public class ThreeStatesTests
     /// <summary>
     /// Every sentence the panel can write renders in every locale, with no argument left unsupplied.
     /// </summary>
-    /// <remarks>
-    /// A message that names <c>{day}</c> where the caller passes none is a <c>FormatException</c> on
-    /// somebody's page rather than a wrong word, and the branch it hides in is the one that only a
-    /// particular week reaches. This walks the shapes: a week measured at zero, a week nobody
-    /// counted, a week of gaps, and a week with one hour in it.
-    /// </remarks>
+    /// <remarks>A message naming an argument the caller doesn't pass is a <c>FormatException</c>, not a wrong word — walks the shapes a particular week's branch could hide in.</remarks>
     [Test]
     public async Task EverySentenceShapeRendersInEveryLocale()
     {
@@ -416,13 +360,9 @@ public class ThreeStatesTests
     [Test]
     public async Task AnArchivedGamesGridIsEmptyRatherThanHatched()
     {
-        // Hatched means "we got in and could not count". A game that has not answered the door
-        // since 2023 did not get in, and saying it did is the same conflation one square over.
-        //
-        // Empty says only that no measurement exists for the hour — not that the game was down. A
-        // presence row is written only when a probe got far enough to try counting, so silence here
-        // cannot tell an outage of theirs from a gap of ours; that question belongs to the strip,
-        // which is derived from intervals that can.
+        // Hatched means "we got in and could not count" — a game that hasn't answered since 2023
+        // didn't get in. Empty says only that no measurement exists for the hour, never that the
+        // game was down; that question belongs to the strip, derived from intervals.
         var page = await new FixtureGameQueries().FindAsync("gaslight-row");
 
         await Assert.That(page!.Activity.All(c => c.IsGap)).IsTrue();
@@ -434,8 +374,7 @@ public class ThreeStatesTests
     [Test]
     public async Task TheSummarySentenceArrivesBeforeTheGrid()
     {
-        // The answer is a sentence, not a picture, and a reader should not have to reach the
-        // picture to get it.
+        // The answer is a sentence, not a picture; a reader shouldn't have to reach the picture for it.
         var html = await GridAsync(FixtureActivity());
 
         var sentence = html.IndexOf("Busiest", StringComparison.Ordinal);
@@ -448,8 +387,7 @@ public class ThreeStatesTests
     [Test]
     public async Task AReadAsTextDisclosureGivesOneRowPerDayRatherThanAHundredAndSixtyEightCells()
     {
-        // Seven rows — day, quietest, busiest, the hour the peak was in, and the two kinds of hour
-        // that produced no number — behind one keystroke rather than a wall to scroll past.
+        // Seven rows behind one keystroke rather than a wall to scroll past.
         var html = Render.Words(await GridAsync(FixtureActivity()));
 
         await Assert.That(html).Contains("read as text — 7 rows");
@@ -461,8 +399,7 @@ public class ThreeStatesTests
     [Test]
     public async Task ThePlainSurfaceSaysTheSameThingAboutASparselyMeasuredGame()
     {
-        // Plain mode is the mirror people actually rely on, so a change that removes a graphic has
-        // to reach it too — otherwise the two surfaces disagree about how much was measured.
+        // Plain mode must stay in sync with the graphic surface's claim about how much was measured.
         var page = await new FixtureGameQueries().FindAsync("gaslight-row");
         var text = Render.Words(PlainText.Render(page!, Now));
 
@@ -473,9 +410,7 @@ public class ThreeStatesTests
     [Test]
     public async Task TheSentenceNamesUnmeasuredAndUncountableHoursSeparately()
     {
-        // The design's own specimen sentence says only "could not be measured", which covers both.
-        // They are different facts about a game and the summary keeps them apart — an hour nobody
-        // has a measurement for, and an hour we reached and could not count.
+        // Two different facts the summary keeps apart: no measurement at all, vs. reached but uncountable.
         var sentence = ActivitySummary.Sentence(English, FixtureActivity());
 
         await Assert.That(sentence).Contains("have no measurement yet");
@@ -485,7 +420,7 @@ public class ThreeStatesTests
     [Test]
     public async Task AGameCountedAtZeroAllWeekIsNotDescribedAsUnmeasured()
     {
-        // A week of measured zeros is a strong measurement, not an absence of one.
+        // A week of measured zeros is a measurement, not an absence of one.
         var cells = Enumerable.Range(0, 7)
             .SelectMany(d => Enumerable.Range(0, 24).Select(h => new ActivityCell(d, h, 0, Probed: true)))
             .ToList();
@@ -499,8 +434,7 @@ public class ThreeStatesTests
     [Test]
     public async Task AGameThatAnswersAndCannotBeCountedIsNeverDescribedAsQuietOrDark()
     {
-        // Midnight Sun II answers on every probe and offers nothing countable. Rendering that as a
-        // week of zeros — or as darkness — would be the reported bug in both directions.
+        // Answers on every probe and offers nothing countable — must render as neither zeros nor darkness.
         var page = await new FixtureGameQueries().FindAsync("midnight-sun");
         var text = Render.Words(PlainText.Render(page!, Now));
 

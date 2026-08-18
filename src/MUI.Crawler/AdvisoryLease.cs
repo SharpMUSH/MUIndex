@@ -8,31 +8,13 @@ namespace MUI.Crawler;
 /// The one-worker-per-database gate (spec §12).
 /// </summary>
 /// <remarks>
-/// <para>
-/// The crawler is an in-process <c>BackgroundService</c> in the web deployable, so N web replicas
-/// would otherwise be N crawlers: N times the traffic at every game in the catalogue, N presence rows
-/// racing for one <c>(game_id, at)</c> key, and a politeness contract broken N ways. A PostgreSQL
-/// <b>session-level advisory lock</b> makes the worker conditionally active instead — every replica
-/// asks, one gets it, and the rest sit in a retry loop doing nothing.
-/// </para>
-/// <para>
-/// <b>One mechanism, a key per worker.</b> Presence maintenance (§5.2) has the same problem and a
-/// worse failure — two passes racing are two <c>DROP TABLE</c>s for one partition — and takes its own
-/// key rather than sharing the crawl's, so neither worker's cycle length can delay the other's.
-/// </para>
-/// <para>
-/// <b>Session-level, which is why the lease owns a connection and holds it open.</b> The lock lives
-/// for as long as the session that took it, so returning the connection to the pool would return the
-/// lock with it. Disposal closes the connection, which is also what makes the failure mode right: a
-/// replica that is killed, loses the network, or has its process die releases the lock when the
-/// backend notices the socket has gone, with no lease table to clean up and no expiry to tune.
-/// </para>
-/// <para>
-/// <b>A lease also has to be re-checked, not merely taken.</b> A connection that dropped and was not
-/// noticed is a replica that believes it is the crawler and holds nothing — and the moment a second
-/// replica takes the lock, both are crawling. <see cref="IsHeldAsync"/> is the cheap question the
-/// loop asks every cycle.
-/// </para>
+/// The crawler is an in-process <c>BackgroundService</c> in the web deployable, so N replicas would
+/// otherwise be N crawlers racing on the same targets. A PostgreSQL session-level advisory lock makes
+/// one replica active; the rest retry. Presence maintenance (§5.2) takes its own key rather than
+/// sharing the crawl's, so neither worker's cycle length can delay the other's. The lock lives as long
+/// as the session, so the lease owns its connection and holds it open rather than returning it to the
+/// pool; a killed or disconnected replica releases the lock when the backend notices the socket is
+/// gone. <see cref="IsHeldAsync"/> lets the loop re-check each cycle in case that happened unnoticed.
 /// </remarks>
 public sealed class AdvisoryLease : IAsyncDisposable
 {
@@ -51,10 +33,9 @@ public sealed class AdvisoryLease : IAsyncDisposable
     /// The crawl loop's key, chosen once and never derived from anything that could change.
     /// </summary>
     /// <remarks>
-    /// Advisory locks share one namespace per database, so the number matters only in that nothing
-    /// else in this database may pick it. It is a literal rather than a hash of a string precisely
-    /// because a hash invites someone to change the string. Spelled <c>MUI_CRAW</c> in ASCII, which is
-    /// a courtesy to whoever finds it in <c>pg_locks</c> at four in the morning.
+    /// Advisory locks share one namespace per database, so nothing else here may reuse this number. A
+    /// literal, not a hash of a string, so it can't drift if the string changes. Spells <c>MUI_CRAW</c>
+    /// in ASCII.
     /// </remarks>
     public const long CrawlKey = 0x4D55495F4352_4157L;
 
@@ -65,10 +46,8 @@ public sealed class AdvisoryLease : IAsyncDisposable
     /// The Intermud-3 pass's key. <c>MUI_IMUD</c>.
     /// </summary>
     /// <remarks>
-    /// Its own rather than the crawl lease's, so a long crawl cycle cannot delay an I3 pass and an I3
-    /// pass cannot delay a crawl — and so a deployment running the site with the crawler off still
-    /// keeps its I3 bindings current. Two replicas passing at once would ask every mud on the network
-    /// twice as often as we told it we would.
+    /// Its own key rather than the crawl lease's, so a long crawl cycle cannot delay an I3 pass and a
+    /// deployment running with the crawler off still keeps its I3 bindings current.
     /// </remarks>
     public const long I3Key = 0x4D55495F494D_5544L;
 
@@ -113,17 +92,15 @@ public sealed class AdvisoryLease : IAsyncDisposable
     /// Whether this lease still holds the lock, asked of the database rather than of our own memory.
     /// </summary>
     /// <remarks>
-    /// Answers false rather than throwing when the connection has gone, because "we no longer hold it"
-    /// is exactly what a dead connection means and the caller's response to both is the same: stop
-    /// crawling and ask again.
+    /// Answers false rather than throwing when the connection has gone, since that's exactly what a
+    /// dead connection means and the caller's response to both is the same: stop crawling and ask again.
     /// </remarks>
     public async Task<bool> IsHeldAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            // The lock is ours only if this session is the one holding it. Asking pg_locks rather
-            // than re-taking it: pg_try_advisory_lock is re-entrant within a session and would answer
-            // true while stacking a second hold we would then have to unwind.
+            // Asks pg_locks rather than re-taking it: pg_try_advisory_lock is re-entrant within a
+            // session and would answer true while stacking a second hold we'd then have to unwind.
             return await _connection.ExecuteScalarAsync<bool>(new CommandDefinition(
                 """
                 SELECT EXISTS (
@@ -149,20 +126,11 @@ public sealed class AdvisoryLease : IAsyncDisposable
     /// Releases the lock, explicitly, and then lets the connection go.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Closing the connection is not enough, and assuming it was is a deadlock that would only
-    /// appear in production.</b> Npgsql pools: disposing an <c>NpgsqlConnection</c> returns the
-    /// connector to the pool rather than closing the socket, so the backend session — and with it a
-    /// session-level advisory lock — outlives this object. Measured, by
-    /// <c>ReleasingTheLeaseLetsTheNextReplicaTakeIt</c>, which failed exactly that way before this
-    /// call existed: a replica that stood down left the crawl stopped for the whole deployment until
-    /// its process exited.
-    /// </para>
-    /// <para>
-    /// The session-scoped lock is still what makes the <em>crash</em> case right — a killed process
-    /// releases everything when the backend notices the socket has gone, with no lease table to clean
-    /// up and no expiry to tune. This call handles the orderly case, which is the common one.
-    /// </para>
+    /// Disposing the connection alone is not enough: Npgsql pools connections, so disposing an
+    /// <c>NpgsqlConnection</c> returns the connector to the pool rather than closing the socket, and
+    /// the backend session — with the advisory lock still held — outlives this object. An explicit
+    /// unlock is required for the orderly shutdown case; the crash case is still handled by the
+    /// session dying when the backend notices the socket has gone.
     /// </remarks>
     public async ValueTask DisposeAsync()
     {

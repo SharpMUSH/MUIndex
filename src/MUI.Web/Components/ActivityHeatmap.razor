@@ -1,25 +1,14 @@
 @using MUI.Web.Localization
 @*
-    The activity heatmap: day-of-week × hour, in three states.
+    Day-of-week × hour heatmap. Three layers: the summary sentence, a seven-row text-alternative
+    table, and the grid itself — which is aria-hidden, since the table already carries every fact
+    it draws and announcing it cell by cell is 168 utterances for one shape.
 
-    Three layers, in the order a listener meets them. **The sentence** is the answer — when is
-    anyone actually on — and most readers need nothing after it. **The table** under "read as text"
-    is seven rows, one per day, and is the drawing's text alternative: every fact the grid carries
-    is in it. **The drawing itself** is hidden from assistive tech, because it now says nothing the
-    first two do not, and announced cell by cell it is 168 utterances to deliver one shape.
+    Below the measured-days threshold, no grid is drawn: a near-empty grid announces "not measured"
+    dozens of times before reaching the one real number, and reads as broken.
 
-    Below seven measured days there is no drawing at all. A grid with one probe in it announced
-    "not measured" 167 times before reaching the single number that existed, and looked like a fault
-    to everybody else.
-
-    Flat fill for counted (including a measured zero), hatched outline for probed-but-uncountable,
-    empty for not-reachable. That distinction is the whole of spec §5.4, it is carried by cell shape
-    and not by colour, and it survives greyscale printing.
-
-    Every word of it — the sentence, the legend, the column headings and the day names in the row
-    headers — is answered in the language the request asked for. The day names come from CLDR
-    rather than from this project, because seven weekday strings compiled into a component are
-    seven strings no translator is ever sent.
+    Cell state (counted incl. zero / probed-but-uncountable / not-measured, spec §5.4) is carried by
+    shape, not colour, so it survives greyscale.
 *@
 
 @if (Cells.Count == 0)
@@ -28,12 +17,8 @@
 }
 else if (!Enough)
 {
-    @*
-        The panel replaces the summary rather than following it. On two measured hours the summary
-        reads "busiest Monday, small hours" — a claim about a week, drawn from a Monday morning, and
-        the one kind of sentence this site may not write. What there is, and what has to arrive
-        before there is a shape to describe.
-    *@
+    @* Replaces the summary rather than following it: with only a couple of measured hours, a
+       "busiest day" sentence would claim a week's pattern from a morning's data. *@
     <div class="sparse">
         <p class="kicker">@L("activity.sparse.kicker")</p>
         <p>@ActivitySummary.Sparse(Tag, Cells)</p>
@@ -51,9 +36,8 @@ else
                     <td></td>
                     @foreach (var hour in Hours)
                     {
-                        @* Every third hour is labelled; the rest keep the column header for the
-                           table's own semantics and hide the text, so navigation still announces
-                           which hour a cell is in. *@
+                        @* Every third hour shows a visible label; the rest keep an sr-only header
+                           so screen-reader navigation still announces the hour. *@
                         <th scope="col" class="@(hour % 3 == 0 ? null : "quiet")">
                             <span class="@(hour % 3 == 0 ? null : "sr-only")">@hour.ToString("00")</span>
                         </th>
@@ -68,9 +52,8 @@ else
                         @foreach (var hour in Hours)
                         {
                             var cell = Cell(day, hour);
-                            @* The whole sentence is the mouse tooltip. The cell carries no announced
-                               text: this grid is hidden from assistive tech and the seven rows under
-                               it hold the same facts in seven utterances rather than 168. *@
+                            @* Full label lives in the tooltip; the cell itself carries no announced
+                               text since the grid is aria-hidden. *@
                             <td class="@CellClass(cell)" style="@CellStyle(cell)" title="@Label(cell)"></td>
                         }
                     </tr>
@@ -79,18 +62,14 @@ else
         </table>
     </div>
 
-    @* The key to a drawing nothing announces, so it is hidden with the drawing it explains. *@
+    @* Legend for a drawing that announces nothing, so it's hidden along with it. *@
     <ul class="legend" aria-hidden="true">
         <li><span class="swatch counted"></span>@L("activity.legend.counted")</li>
         <li><span class="swatch unmeasurable"></span>@L("activity.legend.notCounted")</li>
         <li><span class="swatch gap"></span>@L("activity.legend.notMeasured")</li>
     </ul>
 
-    @*
-        The text alternative, and one keystroke away rather than a wall to scroll past. A real table
-        with a caption and headers, so a screen reader can read one cell in the context of its day
-        and its column — which is the thing the 7×24 grid was providing at 168 times the cost.
-    *@
+    @* Text alternative to the grid, collapsed behind <details> rather than always-visible. *@
     <details class="read-as-text">
         <summary>@L("game.readAsTextRows", ("count", Rows.Count))</summary>
         <table class="perday">
@@ -101,8 +80,7 @@ else
                     <th scope="col">@L("activity.column.quietest")</th>
                     <th scope="col">@L("activity.column.busiest")</th>
                     <th scope="col">@L("activity.column.at")</th>
-                    @* The same locked id the cell values use. One word for that hour on the whole
-                       panel, or a reader meets two and has to decide whether they mean one thing. *@
+                    @* Same string id the cells use, so the panel never uses two words for one state. *@
                     <th scope="col">@L("state.notMeasured")</th>
                     <th scope="col">@L("activity.column.noCount")</th>
                 </tr>
@@ -135,15 +113,8 @@ else
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<ActivityCell> Cells { get; set; } = [];
 
-    /// <summary>
-    /// How many weeks the average covers, because a heatmap without its window is an unlabelled
-    /// average.
-    /// </summary>
-    /// <remarks>
-    /// A number rather than the sentence it used to be: "8-week rolling average" was a phrase a
-    /// caller passed in, so the one part of this panel a page could set was the one part no
-    /// translator could reach.
-    /// </remarks>
+    /// <summary>How many weeks the rolling average covers.</summary>
+    /// <remarks>A number, not a pre-built sentence, so it stays translatable.</remarks>
     [Parameter] public int Weeks { get; set; } = 8;
 
     [CascadingParameter] private HttpContext? Http { get; set; }
@@ -166,18 +137,12 @@ else
     /// <summary>Whether there is a week here to draw. See <see cref="ActivitySummary.MeasuredDaysForGrid"/>.</summary>
     private bool Enough => ActivitySummary.MeasuredDays(Cells) >= ActivitySummary.MeasuredDaysForGrid;
 
-    /// <summary>A tally of hours, where none of them is a dash rather than a nought.</summary>
-    /// <remarks>
-    /// Zero hours unmeasured and zero players on are different noughts, and this column sits beside
-    /// the one holding the other. The dash is what the rest of the site prints where a number would
-    /// be read as a measurement.
-    /// </remarks>
+    /// <summary>Zero hours is printed as a dash, not "0" — a count of zero would misread as a measured zero.</summary>
     private static string Hourly(int hours) => hours == 0 ? "–" : hours.ToString();
 
     private ActivityCell Cell(int day, int hour) =>
         Cells.FirstOrDefault(c => c.DayOfWeek == day && c.Hour == hour)
-        // A cell the store never mentioned has no measurement — which is all silence can honestly
-        // be read as here. Whether the game was reachable in that hour is the strip's question.
+        // A cell the store never mentioned was never measured — not "not reachable".
         ?? new ActivityCell(day, hour, null, Probed: false);
 
     private string Label(ActivityCell cell) => ActivitySummary.CellLabel(Tag, cell);
@@ -190,10 +155,7 @@ else
         _ => "counted",
     };
 
-    /// <summary>
-    /// Only the counted cells carry an intensity, and it is the one place a colour ramp appears on
-    /// this site. The other two states have no number to be a shade of.
-    /// </summary>
+    /// <summary>Only counted cells get a fill intensity — the other two states have no number to shade.</summary>
     private string? CellStyle(ActivityCell cell)
     {
         if (!cell.IsCounted || cell.Count is not { } n || n == 0)

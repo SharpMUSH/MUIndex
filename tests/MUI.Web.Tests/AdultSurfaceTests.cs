@@ -10,12 +10,7 @@ namespace MUI.Web.Tests;
 /// <summary>
 /// The adult default where a reader meets it: the listing, the checkbox, the chip and the text.
 /// </summary>
-/// <remarks>
-/// The rule itself is asserted in <c>MUI.Catalog.Tests.AdultListingTests</c>, with no markup in the
-/// way. What is here is the part that can go wrong between the rule and a person: a default nobody
-/// asked for, whose only sign is a control in the bar — so the control has to be there, it has to be
-/// there in plain text as well, and the URL it produces has to mean the same thing to the read API.
-/// </remarks>
+/// <remarks>The rule itself is asserted in <c>MUI.Catalog.Tests.AdultListingTests</c>; this covers what can go wrong between the rule and a person — the control must exist, in plain text too, and its URL must mean the same thing to the read API.</remarks>
 public class AdultSurfaceTests
 {
     private static readonly FixtureGameQueries Queries = new();
@@ -53,8 +48,7 @@ public class AdultSurfaceTests
     [Test]
     public async Task OutOfTheListingAndOfNothingElse()
     {
-        // The same shape as archiving (spec §7.5), and the reason this is a listing default rather
-        // than a deletion: the game's own page still answers, and every fact on it is untouched.
+        // Same shape as archiving (spec §7.5): a listing default, not a deletion — the page still answers.
         await Assert.That(await Queries.FindAsync(Adult)).IsNotNull();
     }
 
@@ -69,18 +63,13 @@ public class AdultSurfaceTests
     [Test]
     public async Task TheBarCarriesTheControlWhetherOrNotItIsTicked()
     {
-        // Drawn on every request, ticked or not. A default whose only undo appears once you have
-        // already undone it is a default a reader cannot find, and this one hides games silently.
-        //
-        // A link now rather than a checkbox waiting on a submit button: the panel's "show" button
-        // is gone, so a control that only armed itself would be one nothing could fire.
+        // Drawn on every request, ticked or not — a default whose only undo appears once already
+        // undone is one a reader can't find. A link, not a checkbox on a submit button.
         foreach (var filter in new[] { Listing(), Listing($"?{FacetKeys.Adult}=true") })
         {
             var html = await PanelAsync(filter);
 
-            // The control, whichever way it is set. Its href is the *other* position, so asserting
-            // on a fixed URL would only ever find one of the two states — which is how a control
-            // that vanished once it had been used would pass a test.
+            // Href is the *other* position, so a fixed-URL assertion would only ever find one state.
             await Assert.That(html).Contains("adult content,");
             await Assert.That(Render.Words(html)).Contains("adult");
         }
@@ -89,8 +78,7 @@ public class AdultSurfaceTests
     [Test]
     public async Task TheSwitchSaysWhichWayItIsSetAndLinksToTheOther()
     {
-        // The URL is the whole of this page's state, so a shared link has to come back with the
-        // switch in the position that produced it — and the way out has to be the other position.
+        // The URL is the whole of this page's state, so a shared link comes back in the position that produced it.
         var off = await PanelAsync(Listing());
         var on = await PanelAsync(Listing($"?{FacetKeys.Adult}=1"));
 
@@ -98,8 +86,7 @@ public class AdultSurfaceTests
         await Assert.That(off).Contains("adult content, hidden");
         await Assert.That(off).Contains($"href=\"/games?{FacetKeys.Adult}=true\"");
 
-        // On: says so, and its link is the one that clears the key rather than setting it false —
-        // the address a reader copies says only what they asked for.
+        // On: its link clears the key rather than setting it false, so a copied address says only what was asked for.
         await Assert.That(on).Contains("adult content, shown");
         await Assert.That(on).DoesNotContain($"href=\"/games?{FacetKeys.Adult}=true\"");
     }
@@ -112,9 +99,8 @@ public class AdultSurfaceTests
         var filter = Listing(Query);
         var listing = await Queries.SearchAsync(filter);
 
-        // Both halves of the chip come out of the bundle now, so this asks the bundle what they say
-        // rather than repeating the English. The fact under test is unchanged and is not wording:
-        // the chip for this key exists, it says the key is included, and its link takes it back off.
+        // Asks the bundle what the chip says rather than repeating the English — the fact under test
+        // is not wording.
         var chips = ActiveFilters.For(Locales.SourceTag, listing.Facets, filter, Query);
         var chip = chips.Single(
             c => c.Facet == FacetWords.Group(Locales.SourceTag, FacetKeys.Adult));
@@ -127,8 +113,7 @@ public class AdultSurfaceTests
     [Test]
     public async Task ThePlainListingSaysWhichOfTheTwoItIs()
     {
-        // A text browser cannot see a checkbox. Both exclusions are named on the line that says what
-        // this listing is, because a reader who cannot see the control cannot infer the default.
+        // A text browser can't see a checkbox, so the line naming what this listing is must say which state it's in.
         var hidden = PlainText.RenderListing(
             await Queries.SearchAsync(Listing()), Listing(), FixtureGameQueries.Now);
 
@@ -146,10 +131,8 @@ public class AdultSurfaceTests
     [Test]
     public async Task TheWizardCannotOfferAChoiceTheListingAnswersWithNothing()
     {
-        // /find is a GET straight at /games, so its options are the listing's own vocabulary. Built
-        // from an unfiltered catalogue it would offer "Adult (1)" and then submit ?genre=Adult,
-        // which this listing returns nothing for — a count promising a result it cannot deliver,
-        // which is the one thing the facet counts exist to make impossible.
+        // Built from an unfiltered catalogue this would offer "Adult (1)" and submit ?genre=Adult,
+        // which this listing returns nothing for — a count promising a result it can't deliver.
         var html = await Render.PageAsync<FindAGame>([]);
 
         await Assert.That(html).DoesNotContain($"value=\"{AdultContent.Genre}\"");
@@ -158,10 +141,8 @@ public class AdultSurfaceTests
     [Test]
     public async Task TheFiguresBuiltInCodeStillCountTheWholeCatalogue()
     {
-        // The scope of the default, pinned. It belongs to the listing surface — the home page's
-        // counts, the ecosystem dashboard and the data dump build their filters in code and never
-        // read a querystring, so they go on counting adult games exactly as they count archived
-        // ones. A default that leaked into those would quietly move published aggregates.
+        // The default belongs to the listing surface only; aggregates built in code (never reading a
+        // querystring) must go on counting adult games exactly as they count archived ones.
         var everything = await Queries.ListAsync(new GameFilter { IncludeArchived = true });
         var dashboard = await Queries.EcosystemAsync();
         var archived = await Queries.ListAsync(new GameFilter { Band = ActivityBand.Archived });

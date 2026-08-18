@@ -17,38 +17,26 @@ namespace MUI.Crawler;
 /// at, and decide when each is next due.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Every bound spec §12 asks for is here, and none of them is hygiene.</b> The crawler shares a
-/// process with the web tier, so a probe that wedges against a black-holed host is a request thread
-/// that never comes back. So: a global concurrency cap (<see cref="DiscoveryOptions.MaxConcurrency"/>,
-/// a semaphore, because it is a fact about connections in flight); per-host serialisation
-/// (<see cref="HostGate"/>, keyed on the host alone, because a game advertising six ports is one
-/// machine and one operator); a rate floor between any two connections and a longer one per host
-/// (<see cref="CrawlRateLimiter"/>); and a hard timeout on every probe, linked to the cycle's own
-/// token, applied by this loop <em>on top of</em> whatever the probe promises. The loop does not get
-/// to trust a collaborator for the one bound that keeps the site up.
-/// </para>
-/// <para>
-/// <b>The order of operations per target is itself the design.</b> Consent first, because a game that
-/// has asked us to stop is owed nothing further and the cheapest way to honour that is not to look it
-/// up at all (§11); then scope, because the gate is what stops a stranger's <c>REFERRAL</c> pointing a
-/// socket inside our own network; then the rate limit; then the dial; then attribution; then storage;
-/// then referrals; then the schedule. Storage happens before referrals so that a game exists to hang
-/// an edge on, and the schedule happens last so that it can be computed from what the probe actually
-/// found.
-/// </para>
+/// Every bound spec §12 asks for is here, none of it hygiene: the crawler shares a process with the
+/// web tier, so a probe wedged on a black-holed host is a request thread that never comes back — a
+/// global concurrency cap, per-host serialisation (<see cref="HostGate"/>, keyed on host alone since
+/// a game on six ports is one machine), a rate floor via <see cref="CrawlRateLimiter"/>, and a hard
+/// timeout linked to the cycle's own token, applied on top of whatever the probe promises. The order
+/// per target is deliberate: consent (§11) before scope, since a game that asked us to stop is owed
+/// nothing further; then scope, which stops a stranger's <c>REFERRAL</c> pointing a socket inside our
+/// own network; then rate limit, dial, attribution, storage, referrals, schedule last — storage
+/// before referrals so a game exists to hang an edge on, schedule last since it's computed from what
+/// the probe found.
 /// </remarks>
 public sealed class CrawlCycle(
     ICrawlTargetRepository targets,
     IProbe probe,
-    // §11's opt-out, asked before every dial. Not optional and not nullable: a gate that a caller can
-    // leave out is a gate that a composition root forgets, and the thing it would forget is somebody
-    // else's stated wishes.
+    // §11's opt-out, asked before every dial. Not nullable: a gate a caller can leave out is a gate a
+    // composition root forgets.
     OptOutGate optOut,
-    // The concrete guard rather than IHostScopeGuard: only the class has RuleOnAsync, which is the
-    // arm that honours CrawlTarget.IsOperatorSeed — and it cannot be on the interface, because
-    // MUI.Crawl (where the interface lives) does not know what a CrawlTarget is. The resolver behind
-    // it is injectable, so this stays testable without live DNS.
+    // The concrete guard rather than IHostScopeGuard: only the class has RuleOnAsync, honouring
+    // CrawlTarget.IsOperatorSeed — it can't be on the interface since MUI.Crawl doesn't know what a
+    // CrawlTarget is.
     HostScopeGuard scope,
     ProbeIngestor ingestor,
     CatalogueBinder binder,
@@ -114,10 +102,8 @@ public sealed class CrawlCycle(
             tally.Errored();
             logger?.LogError(error, "Probing {Host}:{Port} threw", target.Host, target.Port);
 
-            // And it must not go on costing a batch slot either. A target that threw is a target
-            // nothing rescheduled, so DueAsync selects it again next cycle and for ever — and the
-            // batch it crowds out is other games' freshness. Backed off as a failure, which is what
-            // an attempt that did not complete is, and the backoff is ProbeSchedule's own.
+            // A target that threw is a target nothing rescheduled, so DueAsync would select it again
+            // forever unless it's backed off here.
             await BackOffAsync(target, cancellationToken);
         }
         finally
@@ -160,24 +146,13 @@ public sealed class CrawlCycle(
     /// One retry around one dial, so a failure is confirmed before it is published.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>The measurement this fixes.</b> Over four days of production ending 2026-08-18, 182 dark
-    /// episodes were published across 171 of 538 listed games, and 173 of them were a single failed
-    /// probe followed immediately by a successful one — 86% of all downtime the site reported. The
-    /// games were fine. What failed was one dial: a cold DNS lookup that took five seconds and gave
-    /// up, a reset, a momentary refusal. Publishing that as the game's reachability is rule 5 —
-    /// a limitation of ours recorded as a fact about them.
-    /// </para>
-    /// <para>
-    /// <b>What is inside the retried region and why.</b> Resolution as well as the dial, because a
-    /// transient lookup failure was the largest single share of the blips and the guard fails closed
-    /// on one. The rate limiter too, so a confirming dial waits its turn like any other. Outside it:
-    /// the opt-out check, which is a standing answer rather than a measurement, and the scope
-    /// guard's <em>refusal</em>, which is our policy and does not become true by being asked twice.
-    /// </para>
-    /// <para>
-    /// Only failures retry, so the common path pays nothing at all.
-    /// </para>
+    /// A single failed dial is dominated in production by transient blips — a cold DNS lookup, a
+    /// reset — where the game was fine and only the dial failed; publishing that as the game's
+    /// reachability is rule 5, our own limitation recorded as a fact about them. The retried region
+    /// covers resolution as well as the dial, and the rate limiter so a confirming dial waits its
+    /// turn. Outside it: the opt-out check (a standing answer, not a measurement) and the scope
+    /// guard's refusal (our policy, which doesn't become true by being asked twice). Only failures
+    /// retry, so the common path pays nothing.
     /// </remarks>
     private ResiliencePipeline<Attempt> Confirming { get; } = options.ConfirmationAttempts == 0
         ? ResiliencePipeline<Attempt>.Empty
@@ -213,17 +188,13 @@ public sealed class CrawlCycle(
 
         var result = attempt.Result!;
 
-        // Nothing measured while this host was being taken down is a fact about the far end, and the
-        // writes below are fast enough against a Postgres on the same network to land before Npgsql
-        // ever looks at the token. TelnetProbe already refuses to dress our cancellation as a
-        // timeout, so this is the second lock on the same door rather than the only one — and it is
-        // worth having, because the failure it prevents is silent, permanent (rule 3) and published.
+        // A cancellation here is our own shutdown, not a fact about the far end; the writes below are
+        // fast enough to land before Npgsql looks at the token, so this guard is worth having even
+        // though TelnetProbe already refuses to dress cancellation as a timeout.
         cancellationToken.ThrowIfCancellationRequested();
 
-        // Read before anything is stored, so that a game which used this reply to ask us to stop is
-        // never dialled again — including by the rest of this same cycle (§11's "within one cycle").
-        // What this probe measured is still stored: the reply was sent to a connection already made,
-        // nothing here is ever deleted, and the about page says as much.
+        // Read before anything is stored, so a game that used this reply to opt out is never dialled
+        // again, including by the rest of this cycle (§11). What this probe measured is still stored.
         await optOut.HearAsync(target, result, cancellationToken);
 
         await StoreAsync(target, result, tally, cancellationToken);
@@ -243,26 +214,17 @@ public sealed class CrawlCycle(
                 return new Attempt(Unresolved(target, decision), null);
         }
 
-        // Politeness applies to a confirming dial exactly as it does to a first one, which is why
-        // this is inside the retried region: PerHostInterval is the floor under the gap between two
-        // dials at one host, and being unsure about a game is not a reason to knock harder.
+        // Politeness applies to a confirming dial exactly as a first one, which is why this is inside
+        // the retried region — being unsure about a game is not a reason to knock harder.
         await limiter.WaitForTurnAsync(target.Host, cancellationToken);
 
-        // The loop's own bound, on top of ProbeOptions.Timeout. Linked, so a stopping host cancels a
-        // probe in flight rather than waiting out its budget.
-        //
-        // NEITHER OF THE TWO WAYS THIS TOKEN CANCELS IS A MEASUREMENT, and they are not the same
-        // non-measurement. A stopping host is nobody's business but ours and leaves the target due
-        // (VisitAsync). This ceiling firing means the probe overran the twenty seconds it promised
-        // by another forty, which is a fault in our probe — so it lands in VisitAsync's generic
-        // handler, is counted as Errored on the cycle where failures of ours belong, and is backed
-        // off. What must never happen on either path is an availability row: a host we never
+        // The loop's own bound on top of ProbeOptions.Timeout, linked so a stopping host cancels a
+        // probe in flight. Neither way this token cancels is a measurement: a stopping host leaves
+        // the target due (VisitAsync); this ceiling firing is a fault in our probe, so it's counted
+        // as Errored and backed off there — never as an availability row, since a host we never
         // finished dialling has not been measured, and "unreachable" would be our own limitation
-        // published as their downtime (rule 5). Pinned by
-        // CrawlCyclePostgresTests.TheCrawlLoopsOwnCeilingIsCountedOnTheCycleAndNotAgainstTheGame.
-        //
-        // The measurement ceiling is ProbeOptions.Timeout, inside the probe, and it still records
-        // cause "timeout" — that one is a fact about the far end and is unchanged.
+        // published as their downtime (rule 5). The measurement ceiling stays ProbeOptions.Timeout,
+        // inside the probe, and still records cause "timeout" as a real fact about the far end.
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(options.ProbeTimeout);
 
@@ -272,7 +234,7 @@ public sealed class CrawlCycle(
                 Charset = target.Charset,
 
                 // The addresses the guard just vetted, so the dial reaches what was ruled on and the
-                // name is resolved once rather than twice. See ProbeTarget.Addresses.
+                // name is resolved once rather than twice.
                 Addresses = decision.Addresses,
             },
             budget.Token);
@@ -284,10 +246,9 @@ public sealed class CrawlCycle(
     /// What one attempt produced: a probe result, or the scope guard's reason for not dialling.
     /// </summary>
     /// <remarks>
-    /// The two are kept apart rather than folded into one <c>ProbeResult</c>, and
-    /// <see cref="DialRefusal"/> says why: a refusal happens before a probe exists, and dressing our
-    /// own policy as a measured failure puts it into a game's public reachability history where
-    /// nothing downstream can tell the two apart again.
+    /// Kept apart rather than folded into one <c>ProbeResult</c>: a refusal happens before a probe
+    /// exists, and dressing our own policy as a measured failure puts it into a game's public
+    /// reachability history where nothing downstream can tell the two apart again.
     /// </remarks>
     private sealed record Attempt(ProbeResult? Result, string? Refusal)
     {
@@ -300,24 +261,13 @@ public sealed class CrawlCycle(
     /// asked us not to (§11).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Nothing is written to the game's record.</b> No availability sample, no presence row, no
-    /// field. We declined to dial; we did not measure. Recording either as downtime would put our own
-    /// security policy or our own politeness into a game's public reachability history, which is the
-    /// same class of lie as recording an unparseable <c>WHO</c> as zero players. Both are counted on
-    /// the cycle instead, which is where decisions of ours belong — and counted <em>separately</em>,
-    /// because "we would not go there" and "they asked us not to" are different facts and an operator
-    /// reading one number could not tell them apart.
-    /// </para>
-    /// <para>
-    /// <b>The schedule is the one thing that must move</b>, or the target is due for ever and re-burns
-    /// a batch slot every cycle. <see cref="ICrawlTargetRepository.RecordAttemptAsync"/> offers two
-    /// arms and neither means "leave the failure count alone", so this takes <c>succeeded: true</c>:
-    /// a refusal is not the host failing, and lengthening the backoff would be exactly the
-    /// policy-as-measurement this whole paragraph exists to prevent. The cost is that a previously
-    /// failing target has its count cleared — which nothing acts on, because a refused target is never
-    /// dialled. A third arm on that interface would remove the choice.
-    /// </para>
+    /// Nothing is written to the game's record — no availability sample, presence row, or field. We
+    /// declined to dial; we did not measure. Recording either as downtime is rule 5, so both are
+    /// counted on the cycle instead, and separately: "we would not go there" and "they asked us not
+    /// to" are different facts. The schedule still must move, or the target is due forever; this
+    /// takes <c>succeeded: true</c> since a refusal is not the host failing, at the cost of clearing a
+    /// previously failing target's count — which nothing acts on, since a refused target is never
+    /// dialled.
     /// </remarks>
     private async Task RefuseAsync(
         CrawlTarget target,
@@ -354,14 +304,11 @@ public sealed class CrawlCycle(
     /// (spec §7.2).
     /// </summary>
     /// <remarks>
-    /// <b>This is the one place a <see cref="ProbeResult"/> is constructed outside the probe, and the
-    /// distinction that makes it legitimate is §7.2's own.</b> "Could not resolve" and "resolved
-    /// somewhere we won't go" are different facts, and only the second is a refusal — the first is a
-    /// measurement of the world, and it is the same measurement <c>TelnetProbe</c> would have produced
-    /// (its <c>Classify</c> maps <c>SocketError.HostNotFound</c> to the same <c>dns</c> cause) had the
-    /// guard let the dial through. Manufacturing a result for a <em>refusal</em> would be the opposite
-    /// and is forbidden; see <see cref="HostScopeGuard"/>'s remarks for why the two can never be
-    /// allowed to look alike downstream.
+    /// The one place a <see cref="ProbeResult"/> is constructed outside the probe. Legitimate only
+    /// because "could not resolve" and "resolved somewhere we won't go" are different facts, and only
+    /// the second is a refusal — this is a real measurement, the same one <c>TelnetProbe</c> would
+    /// have produced had the guard let the dial through. Manufacturing a result for a refusal instead
+    /// is forbidden; see <see cref="HostScopeGuard"/>.
     /// </remarks>
     private ProbeResult Unresolved(CrawlTarget target, HostScopeDecision decision) => new()
     {
@@ -376,17 +323,10 @@ public sealed class CrawlCycle(
     /// Offers whatever claim beacon this probe carried to the claim store (spec §8.1).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// This is the whole of the verification step, and it is deliberately this small: the crawler
-    /// reads the beacon and knows nothing about what it means, and <see cref="ClaimService"/> decides
-    /// and knows nothing about sockets. Every probe of a claimed game passes through here, which is
-    /// also how <c>beacon_last_seen_at</c> stays current without a second schedule.
-    /// </para>
-    /// <para>
-    /// <b>A probe that read no beacon does nothing at all</b>, rather than reporting an absence. §8.4:
-    /// presence establishes, absence never revokes — and a silence here would be indistinguishable
-    /// from a compression bug eating the subnegotiation that carried it.
-    /// </para>
+    /// Deliberately this small: the crawler reads the beacon and knows nothing about what it means,
+    /// <see cref="ClaimService"/> decides and knows nothing about sockets. A probe that read no beacon
+    /// does nothing, rather than reporting an absence — §8.4: presence establishes, absence never
+    /// revokes.
     /// </remarks>
     private async Task SettleClaimsAsync(Guid gameId, ProbeResult result, CancellationToken cancellationToken)
     {
@@ -414,10 +354,8 @@ public sealed class CrawlCycle(
         var answered = result.Outcome is ProbeOutcome.Answered;
         var binding = await binder.BindAsync(target, result, cancellationToken);
 
-        // §11's shape, recorded once the game is known rather than before. The binder is what turns
-        // an address into a game, so recording ahead of it wrote a null game_id for the FIRST
-        // successful probe of every game — the one probe whose shape a replay most wants, filtered
-        // out of the window by the very query that reads it.
+        // §11's shape, recorded once the game is known rather than before — recording ahead of the
+        // binder would write a null game_id for the first successful probe of every game.
         await RecordShapeAsync(target, binding?.GameId ?? target.GameId, result, cancellationToken);
 
         var activity = SchedulerBand.Unknown;
@@ -448,8 +386,7 @@ public sealed class CrawlCycle(
 
         if (!answered)
         {
-            // The message as well as the word. The cause vocabulary is six words wide and three of
-            // them are wastebaskets, so "timeout" alone has never been enough to act on.
+            // The detail as well as the cause word: the cause vocabulary alone is too coarse to act on.
             logger?.LogInformation(
                 "{Host}:{Port} did not answer — {Cause}: {Detail}",
                 result.Host,
@@ -458,9 +395,8 @@ public sealed class CrawlCycle(
                 result.Failure?.Detail ?? "no detail recorded");
         }
 
-        // Last, because it is computed from what the probe found: max(CRAWL DELAY, backoff), with the
-        // backoff clamped to a week and the server's own request applied afterwards, so politeness
-        // wins (§7.7). ProbeSchedule owns that arithmetic; nothing here reimplements it.
+        // Last, because it is computed from what the probe found. ProbeSchedule owns the arithmetic;
+        // nothing here reimplements it.
         var failures = answered ? 0 : target.ConsecutiveFailures + 1;
         var now = time.GetUtcNow();
 
@@ -473,14 +409,13 @@ public sealed class CrawlCycle(
             cancellationToken);
     }
 
-    /// <summary>Mutable running total for one cycle. Written from every worker, so it locks.</summary>
     /// <summary>
     /// Records the shape of what this probe read, for §11's replay window.
     /// </summary>
     /// <remarks>
-    /// Failure here is swallowed to a warning. A shape is evidence about our parser and nothing on
-    /// the site is derived from one, so a write that fails must not cost the measurement the probe
-    /// just took — which is stored after this and is what the crawl exists for.
+    /// Failure here is swallowed to a warning: a shape is evidence about our parser and nothing on
+    /// the site is derived from one, so a write that fails must not cost the measurement stored after
+    /// it.
     /// </remarks>
     private async Task RecordShapeAsync(
         CrawlTarget target,
@@ -513,6 +448,7 @@ public sealed class CrawlCycle(
         }
     }
 
+    /// <summary>Mutable running total for one cycle. Written from every worker, so it locks.</summary>
     private sealed class Tally
     {
         private readonly Lock _gate = new();
@@ -626,11 +562,10 @@ public sealed class CrawlCycle(
 /// What one pass did. Enough for an operator to tell a quiet night from a broken crawler.
 /// </summary>
 /// <remarks>
-/// <see cref="Refused"/> and <see cref="OptedOut"/> are on this report and in no game's record, which
-/// is §7.2's and §11's rule expressed as a place: a decision of ours is counted where decisions of
-/// ours are counted. They are two figures rather than one because they are two different decisions —
-/// "we would not dial there" is a security policy and "they asked us not to" is somebody else's
-/// wishes, and a single "refused" column would hide the second inside the first.
+/// <see cref="Refused"/> and <see cref="OptedOut"/> are on this report and in no game's record — a
+/// decision of ours counted where decisions of ours belong, and kept as two figures because "we
+/// would not dial there" and "they asked us not to" are different decisions a single column would
+/// hide.
 /// </remarks>
 public sealed record CycleReport(
     int Considered,

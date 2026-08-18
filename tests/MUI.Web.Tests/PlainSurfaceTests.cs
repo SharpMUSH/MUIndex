@@ -8,11 +8,7 @@ namespace MUI.Web.Tests;
 /// <summary>
 /// The plain surface, which is the test of whether a fact is being communicated at all.
 /// </summary>
-/// <remarks>
-/// These assertions are deliberately about <em>words</em>. If a state can only be told apart by a
-/// colour, a glyph or a cell shape, it fails here — and failing here means the graphic version was
-/// decoration rather than information.
-/// </remarks>
+/// <remarks>Deliberately about <em>words</em>: a state told apart only by colour, glyph, or cell shape fails here, meaning the graphic version was decoration rather than information.</remarks>
 public class PlainSurfaceTests
 {
     private static readonly DateTimeOffset Now = new(2026, 7, 30, 20, 0, 0, TimeSpan.Zero);
@@ -28,17 +24,11 @@ public class PlainSurfaceTests
     /// The three states that withhold a listing are three markers, not one.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// This is the surface a reader reaches with a script, so the marker is the whole answer. Folding
-    /// `unlisted` into `[archived]` would put the wrong fact — "it stopped answering" — in the one
-    /// field a parser reads, about a game that is running and simply not being dialled.
-    /// </para>
-    /// <para>
-    /// <b>The line endings are normalised before the split, and that is not tidiness.</b>
-    /// <c>StringBuilder.AppendLine</c> writes <see cref="Environment.NewLine"/>, so splitting on
-    /// <c>'\n'</c> leaves a carriage return on the end of every line on Windows and an assertion
-    /// about the end of one passes on Linux and fails there. This test did exactly that.
-    /// </para>
+    /// A script-reading surface where the marker is the whole answer — folding `unlisted` into
+    /// `[archived]` would put the wrong fact in the one field a parser reads. Line endings are
+    /// normalised before the split: <c>StringBuilder.AppendLine</c> writes
+    /// <see cref="Environment.NewLine"/>, so a raw <c>'\n'</c> split leaves a trailing <c>\r</c> that
+    /// passes on Linux and fails on Windows.
     /// </remarks>
     [Test]
     [Arguments(LifecycleState.Archived, "[archived]")]
@@ -59,11 +49,8 @@ public class PlainSurfaceTests
     [Test]
     public async Task AMissingCountSaysSoInWordsRatherThanBeingBlank()
     {
-        // A blank reads as zero to a human exactly as it does to a parser. Midnight Sun answers,
-        // offers no MSSP and no pre-login WHO, so there is genuinely nothing to count.
-        //
-        // Read off the id rather than the English: what this guards is that the absence is written
-        // out at all, not that it is written out in any particular words.
+        // A blank reads as zero to a human exactly as to a parser. Read off the id, not the English:
+        // this guards that the absence is written out at all, not in any particular words.
         var text = await RenderAsync("midnight-sun");
 
         await Assert.That(text).Contains(Messages.For(Locales.SourceTag, "game.plain.playersNoCount"));
@@ -73,8 +60,7 @@ public class PlainSurfaceTests
     [Test]
     public async Task AMeasuredZeroIsPrintedAsZeroAndNotAsAnAbsence()
     {
-        // Eldertale really has nobody on. That is a measurement and must not be softened into a
-        // shrug — the two are different facts and the plain surface has to keep them apart.
+        // A real measurement, not softened into a shrug — kept apart from "no count" as a different fact.
         var text = await RenderAsync("eldertale");
 
         await Assert.That(text).Contains("Players now: 0");
@@ -84,17 +70,14 @@ public class PlainSurfaceTests
     [Test]
     public async Task TheGamePagesOwnCountSaysHowItWasObtainedJustAsTheListingDoes()
     {
-        // The game page is the surface a reader trusts most, and it was the one left saying
-        // "Players now: 9" flat while the listing beside it said the game had asserted that number.
-        // A page cannot be less labelled than the index that points at it.
+        // A page can't be less labelled than the index that points at it.
         var declared = await RenderAsync("ashen-court");
         var measured = await RenderAsync("m-u-s-h");
 
         await Assert.That(declared).Contains("Players now: 9  (declared, 9m)");
         await Assert.That(measured).Contains("Players now: 15  (measured, 4m)");
 
-        // A count that does not exist keeps its sentence and gains no label — a provenance chip over
-        // nothing would attest to a measurement nobody took.
+        // A count that doesn't exist keeps its sentence and gains no label.
         await Assert.That(await RenderAsync("midnight-sun"))
             .Contains(Messages.For(Locales.SourceTag, "game.plain.playersNoCount"));
     }
@@ -105,9 +88,7 @@ public class PlainSurfaceTests
         var text = await RenderAsync("m-u-s-h");
         var page = await Queries.FindAsync("m-u-s-h");
 
-        // The mark on the row, and the tally in the heading — the latter read off the id, so the
-        // assertion is that the count reached the heading rather than that English inflects the
-        // verb one particular way.
+        // The mark on the row, and the tally read off the id (not asserting English's inflection).
         await Assert.That(text).Contains("** disagree");
         await Assert.That(text).Contains(Messages.For(
             Locales.SourceTag,
@@ -131,8 +112,7 @@ public class PlainSurfaceTests
     [Test]
     public async Task AStaleFieldSaysItIsStale()
     {
-        // "created 2009, declared, 6y, stale" — the age and the judgement both survive without a
-        // colour to carry them.
+        // The age and the judgement both survive without a colour to carry them.
         var text = await RenderAsync("m-u-s-h");
 
         await Assert.That(text).Contains("stale");
@@ -171,8 +151,8 @@ public class ListingTests
     [Test]
     public async Task ArchivedGamesComeBackWhenAskedFor()
     {
-        // Excluded from the listing and from nothing else — the page, the URL and the history all
-        // survive, so the toggle is the only thing standing between a reader and the record.
+        // Excluded from the listing and nothing else (rule 3) — the toggle is the only thing between
+        // a reader and the record.
         var games = await Queries.ListAsync(new GameFilter { IncludeArchived = true });
 
         await Assert.That(games.Any(g => g.State is LifecycleState.Archived)).IsTrue();
@@ -190,8 +170,7 @@ public class ListingTests
     [Test]
     public async Task TheActivityGridCarriesAllThreeStates()
     {
-        // A fixture that only ever produced counted cells would let a renderer conflate the other
-        // two and still look right. All three have to be present for the grid to be testable at all.
+        // All three states must be present, or a renderer conflating two of them would still look right.
         var page = await Queries.FindAsync("m-u-s-h");
         var cells = page!.Activity;
 

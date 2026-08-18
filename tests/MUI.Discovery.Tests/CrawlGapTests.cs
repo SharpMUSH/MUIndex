@@ -22,9 +22,7 @@ public class CrawlGapTests
     [Test]
     public async Task ARestartIsNotAnOutage()
     {
-        // The case this must not fire on, and it is the common one: deploys and reboots. Measured on
-        // the production host 2026-08-18, two watchtower deploys produced crawl silences of about
-        // forty seconds and a reboot about two minutes.
+        // The common case this must not fire on: ordinary deploys and reboots.
         await Assert.That(CrawlGap.StoppedLookingAt(Now.AddSeconds(-40), Now)).IsNull();
         await Assert.That(CrawlGap.StoppedLookingAt(Now.AddMinutes(-2), Now)).IsNull();
         await Assert.That(CrawlGap.StoppedLookingAt(Now.AddMinutes(-119), Now)).IsNull();
@@ -42,9 +40,8 @@ public class CrawlGapTests
     [Test]
     public async Task TheAnswerIsWhenWeStoppedLookingAndNotWhenWeNoticed()
     {
-        // The whole point of the instant. An interval closed at "now" would credit the outage as
-        // observed time and merely stop it growing; closed at the last cycle it is the truth. This is
-        // the value the 2026-08-18 repair had to reconstruct from the edges of gaps after the fact.
+        // An interval closed at "now" would credit the outage as observed time and merely stop it
+        // growing; closed at the last cycle, it's the truth.
         var stopped = Now.AddDays(-15);
 
         await Assert.That(CrawlGap.StoppedLookingAt(stopped, Now)).IsEqualTo(stopped);

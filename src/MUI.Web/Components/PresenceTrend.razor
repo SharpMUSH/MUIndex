@@ -1,27 +1,23 @@
 @using MUI.Web.Localization
 
 @*
-    The presence trend: measured players per day, over a calendar range the reader can move.
+    The presence trend: measured players per day, over a calendar range the reader can move. The
+    heatmap beside it answers "when is anyone on" and destroys "is this game growing" — this is that
+    second question.
 
-    The heatmap beside it folds every week into one grid, which answers "when is anyone on" and
-    destroys "is this game growing". This is that second question, and it is the one a directory is
-    usually read for.
+    Two drawings of the same numbers, chosen in the address and defaulting to the line — see
+    TrendShape for which fits which crawl cadence.
 
-    Two drawings of the same numbers, chosen in the address and defaulting to the line. The line and
-    its min–max band read the direction of a game we probe most days; the columns say every counted
-    day plainly, which is the only one of the two that shows a game counted three times in a quarter.
-    TrendShape has the argument.
+    One rule outlives the choice: nothing is drawn on a day nobody measured. The line breaks in its
+    path data, the columns simply have no column, and neither shape interpolates across the gap — a
+    continuous line over one would draw our crawl schedule as their quiet fortnight. A day probed
+    without a readable count is a mark in its own gutter *below* the baseline, never a point or bar
+    at zero, which would read as a measured empty game (§5.4's middle state collapsed into a filled
+    one).
 
-    One rule outlives the choice: **nothing is drawn on a day nobody measured**. The line breaks in
-    its path data rather than by any style, the columns simply have no column, and neither shape ever
-    interpolates across the gap — a continuous line over one is our crawl schedule drawn as their
-    quiet fortnight. A day probed without a readable count is a mark in its own gutter *below* the
-    baseline in both, never a point or a bar at zero: on the plot it would read as a measured empty
-    game, which is §5.4's middle state collapsed into a filled one.
-
-    Inert SVG, computed on the server. No script, so it works in the same places the rest of the
-    page does, and the numbers reach a text browser through the same PerWeek() lines the disclosure
-    under the graphic uses rather than through a second implementation that could disagree.
+    Inert SVG, computed on the server, so the numbers reach a text browser through the same
+    PerWeek() lines the disclosure below uses rather than a second implementation that could
+    disagree.
 *@
 
 <p class="summary">@Sentence</p>
@@ -30,12 +26,12 @@
 @if (Series.HasAnyCount)
 {
     <div class="trend-wrap">
-        @* One image with one label. Every day is announced through the disclosure below rather than
-           as ninety focusable shapes, which is the same choice the availability strip makes. *@
+        @* One image with one label; every day is announced through the disclosure below rather than
+           as ninety focusable shapes, same choice as the availability strip. *@
         <svg class="trend" viewBox="0 0 @Box" preserveAspectRatio="none"
              role="img" aria-label="@Sentence">
-            @* The plot is a surface rather than a hole in the page. Without it ninety unmeasured
-               days are the page's own background, and the graphic reads as a fault. *@
+            @* The plot is a surface rather than a hole in the page — without it, ninety unmeasured
+               days are the page's own background and the graphic reads as a fault. *@
             <rect class="plot" x="0" y="0" width="@N(TrendGeometry.Width)" height="@N(TrendGeometry.Zero)"></rect>
 
             @foreach (var month in TrendGeometry.Months(Tag, Series))
@@ -80,9 +76,8 @@
                     <path class="line" d="@path"></path>
                 }
 
-                @* A day with no measured neighbour, which no path can carry. Bigger than the mark a
-                   line would give it and ringed in the surface colour, because on a sparsely probed
-                   game these dots are the whole chart. *@
+                @* A day with no measured neighbour, which no path can carry — bigger than the mark a
+                   line would give it, since on a sparsely probed game these dots are the whole chart. *@
                 @foreach (var dot in TrendGeometry.Dots(Tag, Series))
                 {
                     <circle class="dot" cx="@N(dot.X)" cy="@N(dot.Y)" r="3.5">
@@ -100,9 +95,8 @@
                 </rect>
             }
 
-            @* A transparent strip per day, so a mouse reader gets a label on every column —
-               including the ones with nothing drawn in them, which is where "not measured" is
-               said rather than merely left blank. *@
+            @* A transparent strip per day, so a mouse reader gets a label on every column, including
+               the ones with nothing drawn — where "not measured" is said, not merely left blank. *@
             @foreach (var column in TrendGeometry.Columns(Series))
             {
                 <rect class="hit" x="@N(column.X)" y="0"
@@ -112,8 +106,8 @@
             }
         </svg>
 
-        @* Positioned by the same fractions the rules are drawn at, and outside the SVG because the
-           canvas is stretched to the page width — text inside it would be stretched with it. *@
+        @* Outside the SVG because the canvas is stretched to the page width — text inside it would
+           be stretched with it. *@
         <div class="trend-axis mono faint" aria-hidden="true">
             @foreach (var month in TrendGeometry.Months(Tag, Series))
             {
@@ -140,8 +134,8 @@
         }
         <li><span class="swatch uncounted" aria-hidden="true"></span>@L("trend.legend.notCounted")</li>
         <li>
-            @* The whole clause is the id, not "not measured" plus a dash and a fragment: what
-               follows the dash is a fact about the drawing and moves inside the sentence. *@
+            @* The whole clause is the id, not "not measured" plus a dash and a fragment — what
+               follows the dash moves inside the sentence for translation. *@
             <span class="swatch gap" aria-hidden="true"></span>
             @L(Shape is TrendShape.Bar ? "trend.legend.notMeasured.bar" : "trend.legend.notMeasured.line")
         </li>
@@ -160,8 +154,8 @@
 else
 {
     @* No cause given, and none available: a failed probe writes no presence row at all, so an empty
-       range covers days we could not reach and days we never probed alike. Naming one of them would
-       be recording a decision of ours as a measurement of theirs. *@
+       range covers unreachable and never-probed days alike — naming one would record our own
+       decision as a measurement of theirs. *@
     <p class="faint">@L("trend.empty")</p>
 }
 
@@ -178,8 +172,7 @@ else
 
     /// <summary>
     /// The chart said in words. Rendered once and used twice — as the paragraph above the drawing
-    /// and as the drawing's own label — because they are one sentence and a second call would be a
-    /// second chance for them to differ.
+    /// and as its own label — since a second call would be a second chance for them to differ.
     /// </summary>
     private string Sentence => Series.Sentence(Tag);
 
@@ -196,8 +189,8 @@ else
     /// A number as SVG wants it.
     /// </summary>
     /// <remarks>
-    /// Invariant, always. Razor would otherwise render a coordinate under the request's culture, and
-    /// a machine that writes <c>0,5</c> emits path data every renderer reads as two numbers.
+    /// Invariant, always — Razor would otherwise render a coordinate under the request's culture,
+    /// and <c>0,5</c> in path data reads as two numbers to every renderer.
     /// </remarks>
     private static string N(double value) => TrendGeometry.Round(value);
 }

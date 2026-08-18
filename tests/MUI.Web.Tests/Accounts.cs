@@ -7,19 +7,7 @@ namespace MUI.Web.Tests;
 /// <summary>
 /// Enough of a user store to find an account and list its passkeys.
 /// </summary>
-/// <remarks>
-/// <para>
-/// Identity's <c>UserManager</c> is a concrete type over a store interface, so a page that calls it
-/// needs one. This is persistence rather than authorisation: which account a page is for comes from
-/// the cascaded principal, and what that account may see comes from the claim store.
-/// </para>
-/// <para>
-/// Its own file because two surfaces need it. The dashboard and the claim page both go through
-/// <c>UserManager.GetUserAsync</c> before they render anything an owner can act on, and the second
-/// one could not be rendered at all while this was private to the first — so the claim page's
-/// signed-in states had no test, which is the same gap the dashboard was in before it got one.
-/// </para>
-/// </remarks>
+/// <remarks>Persistence, not authorisation: which account a page is for comes from the cascaded principal, and what it may see comes from the claim store.</remarks>
 internal sealed class Accounts(List<MuiUser> users, DateTimeOffset now)
     : IUserStore<MuiUser>, IUserPasskeyStore<MuiUser>
 {

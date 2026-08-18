@@ -11,26 +11,11 @@ namespace MUI.Crawler;
 /// Whose game is this probe? Spec §7.3's judgement, carried out.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A probe has to be attributed to a game before anything it measured can be stored, and the wrong
-/// answer is the failure that clutters every incumbent catalogue: duplicate listings on one side,
-/// silently fused unrelated games on the other. <see cref="IdentityMatcher"/> scores; this acts.
-/// </para>
-/// <para>
-/// <b>Nothing here invents a game for a probe that failed.</b> A dial that never got in carries no
-/// MSSP, no banner and no handshake, and minting a listing from an address alone is how a directory
-/// fills up with hosts nobody ever reached. A target that has answered before already has its game
-/// id on it, so a later failure still records downtime against the right game.
-/// </para>
-/// <para>
-/// <b>Attribution is decided once; duplication is asked on every probe.</b> An address that already
-/// has a game keeps it — re-pointing one behind an operator's back is a merge, and merges are §7.3's
-/// business rather than a crawl cycle's side effect. But the catalogue can only find out that two of
-/// its listings are one game from evidence that arrives *later*, so a bound target is still scored
-/// against the rest of the catalogue and can still open a suspected-duplicate pair. It could not,
-/// once, and aardmud.org:23 and :4000 sat in the catalogue with identical connect screens and
-/// nothing between them.
-/// </para>
+/// <see cref="IdentityMatcher"/> scores; this acts. A probe that never got in mints nothing — an
+/// address alone is how a directory fills up with hosts nobody ever reached — but a target that
+/// already has a game keeps it, so a later failure still records downtime against the right game.
+/// Attribution is decided once; duplication is checked on every probe, since two listings can only be
+/// found to be one game from evidence that arrives later.
 /// </remarks>
 public sealed class CatalogueBinder(
     IGameStore games,
@@ -63,12 +48,9 @@ public sealed class CatalogueBinder(
 
             await AttachAsync(known, result, cancellationToken);
 
-            // Attribution is settled — this address is that game and stays that game. Whether the
-            // catalogue is listing one game twice is a different question, and it used to be asked
-            // only once, here, on the first probe that ever reached this address. Two ports of one
-            // game that looked different the single time they were compared stayed two listings for
-            // ever, because nothing looked again: aardmud.org:23 and :4000 have byte-identical
-            // connect screens and no open pair between them.
+            // Attribution is settled, but whether the catalogue is listing one game twice is
+            // re-checked on every probe, not just the first: two ports of one game can look different
+            // the one time they're compared and never be re-scored otherwise.
             if (await matcher.RivalAsync(result, known, cancellationToken) is not { CandidateGameId: { } rival } score)
             {
                 return new Binding(known, Created: false, ReviewedAgainst: null);
@@ -149,35 +131,12 @@ public sealed class CatalogueBinder(
     /// <c>NAME</c>/<c>HOSTNAME</c> before it is listed"</b>.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>The gate is on "a stranger proposed this", and a referral is one of two ways that
-    /// happens.</b> The other is the public submission form. A target a human operator configured,
-    /// or one the backfill seeded, was not proposed by a stranger, so answering at all is enough for
-    /// it — which is what keeps a game like Aardwolf, with no MSSP whatsoever, listable by an
-    /// operator. Reading the gate as "referrals only" left the form outside it, and a form is a
-    /// stranger's proposal with a lower barrier than editing your own MSSP.
-    /// </para>
-    /// <para>
-    /// <b>What that let through was not a hidden listing, it was the identity matcher.</b> This runs
-    /// <em>before</em> <c>IdentityMatcher.ResolveAsync</c>, so an ungated target is scored against
-    /// the whole catalogue on whatever it cared to publish — a VPS answering <c>NAME "Aardwolf"</c>
-    /// and a plausible <c>CREATED</c> is a merge candidate for the real one, and short of that it
-    /// mints a game and takes the <c>aardwolf</c> slug, because <c>GameSlug.UniqueAsync</c> asks the
-    /// <em>store</em> whether a slug is free and the store does not know that a submitted game is
-    /// hidden. The real Aardwolf then arrives and is listed at <c>aardwolf-2</c>, for ever, by
-    /// somebody who filled in a form.
-    /// </para>
-    /// <para>
-    /// <b>The cost is §7.2's own, stated there and accepted:</b> a real, reachable game whose
-    /// operator never edited one line of MSSP stays unlisted, and submitting it does not change
-    /// that. The address is kept and re-probed for ever, so it lists itself the moment a name is
-    /// published, with nobody involved.
-    /// </para>
-    /// <para>
-    /// <c>MeaningfulName</c> rather than any <c>NAME</c>: an unedited codebase publishing its own name
-    /// has not identified itself, and admitting one would let a referral list — or a submitter with a
-    /// default install — mint a listing per unedited PennMUSH it can point at.
-    /// </para>
+    /// "A stranger proposed this" covers both a referral and the public submission form; an operator
+    /// seed or a backfill target was not proposed by a stranger, so answering at all is enough for it.
+    /// The gate runs before <see cref="IdentityMatcher.ResolveAsync"/> — an ungated target would
+    /// otherwise be scored against the whole catalogue on whatever it published, and could mint a
+    /// listing and take a rival's slug before the real game ever shows up. The cost, accepted by
+    /// §7.2 itself: a real game whose operator never edited MSSP stays unlisted until it does.
     /// </remarks>
     private static bool MayBeListed(CrawlTarget target, ProbeResult result) =>
         !ProposedByAStranger(target) || IdentifiedItself(result);
@@ -186,28 +145,13 @@ public sealed class CatalogueBinder(
     /// Whether the <em>server</em> told us what it is, by any means it chose.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>The gate is on evidence, not on one protocol.</b> It read MSSP alone for a fortnight, which
-    /// quietly meant "a game may be listed if its codebase implements telnet option 70" — a fact
-    /// about somebody's build, dressed as a judgement about whether they exist.
-    /// <c>game.convergencemush.org:10000</c> is the case that made it plain: RhostMUSH, no MSSP, and
-    /// an <c>INFO</c> reply naming the game, its engine and its sixty-four connected players. It was
-    /// probed fourteen seconds after it was submitted, answered every six hours for a fortnight, and
-    /// was refused a listing every time.
-    /// </para>
-    /// <para>
-    /// <b>What the gate is actually for survives intact.</b> §7.2 exists so a stranger cannot mint a
-    /// listing by pointing us at an address, and — the sharper half — so the identity matcher never
-    /// scores an unvouched target against the whole catalogue on nothing. Each signal below is the
-    /// far end speaking a MU\* protocol about itself, which is exactly the bar MSSP was standing in
-    /// for. A banner is deliberately <em>not</em> among them: every TCP service on earth can print
-    /// text at a stranger, and admitting one would make the gate a formality.
-    /// </para>
-    /// <para>
-    /// <c>MeaningfulName</c> rather than any name, in both readers, and that is what keeps the
-    /// Aardwolf case closed: an unedited install answering with its engine's name has identified its
-    /// codebase and not itself, so it still does not list and still cannot take the slug.
-    /// </para>
+    /// The gate is on evidence a MU\* protocol was spoken, not on MSSP alone — a game like
+    /// <c>game.convergencemush.org</c> (RhostMUSH, no MSSP, but an <c>INFO</c> reply naming itself)
+    /// used to be refused a listing purely for lacking telnet option 70, a fact about its codebase
+    /// rather than whether it exists. A banner is deliberately not among the signals: every TCP
+    /// service can print text at a stranger, and admitting one would make the gate a formality.
+    /// <c>MeaningfulName</c> rather than any name keeps an unedited install — which has identified its
+    /// codebase, not itself — from listing or taking a slug.
     /// </remarks>
     private static bool IdentifiedItself(ProbeResult result) =>
         // It named itself, over MSSP or over INFO. Either is the game answering for the game.
@@ -241,18 +185,11 @@ public sealed class CatalogueBinder(
     /// Mints the game, carrying <see cref="CrawlTarget.SubmittedAt"/> across.
     /// </summary>
     /// <remarks>
-    /// <para>
     /// A submitted address answering is still a game and still gets a row, a slug and a permanent
     /// place in the registry — what the marker changes is that <c>NpgsqlGameQueries</c> keeps it off
-    /// every public surface until somebody claims it (§8, migration 0010). It is copied at creation
-    /// rather than joined on read because the listing asks the question once per row.
-    /// </para>
-    /// <para>
-    /// <b>The merge arm above does not come through here, and that is the interesting case.</b> A
-    /// submitted address that turns out to be a second port of a game we already list attaches to
-    /// that game and leaves it exactly as public as it was. Anything else would make the form a way
-    /// to hide a listed game by naming one of its addresses.
-    /// </para>
+    /// every public surface until somebody claims it (§8, migration 0010). A submitted address that
+    /// turns out to be a second port of a game we already list attaches to that game via the merge
+    /// arm instead, and stays exactly as public as it was — never a way to hide a listed game.
     /// </remarks>
     private async Task<Guid> CreateAsync(
         CrawlTarget target,
@@ -308,56 +245,20 @@ public sealed class CatalogueBinder(
         // Below MSSP because a server that publishes both has said the MSSP one on purpose, and above
         // the address because "Convergence MUSH" is what its players call it.
         ?? LoginCommandReading.MeaningfulName(result.Info, result.Version)
-        // The last resort, and honest: a game that told us nothing about itself is listed under the
-        // only thing we know about it, never under its codebase's name. A target admitted by the
-        // codebase or WHO signals alone lands here, which is the intended outcome — it earned a
+        // A target admitted by codebase or WHO signals alone lands here by design — it earned a
         // listing by existing, not a name it never gave.
         ?? $"{result.Host}:{result.Port}";
 
     /// <summary>
-    /// Records that this game answers at this address, and fingerprints the connect screen.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The banner hash is written here and nowhere else, and without it §7.3's banner signal could
-    /// never fire: a game would have to move house before we had ever fingerprinted it. A probe that
-    /// saw no banner writes nothing — silence is not a redesign, and the hash of an empty screen is a
-    /// value every silent server would share, at half the merge threshold.
-    /// </para>
-    /// <para>
-    /// <b>The identity signals the matcher reads are the MSSP rows the reconciler already wrote.</b>
-    /// <c>IdentityFields</c> spells them lower-case (<c>name</c>, <c>created</c>, <c>website</c>,
-    /// <c>contact</c>, <c>codebase</c>) and MSSP spells them upper-case, and the two meet because
-    /// both <c>IdentityMatcher.StoredAsync</c> and <c>IGameFieldIndex</c> compare field names
-    /// case-insensitively. That is load-bearing and not obvious: a lookup that folded only the value
-    /// would find nothing, and the matcher would score every probe as fresh while passing its own
-    /// tests against a fixture that used its own spelling.
-    /// </para>
-    /// </remarks>
-    /// <summary>
     /// Publishes a submitted game the moment a probe shows it to be a game (spec §7.8).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Here rather than at creation, because a submission that shows nothing today may show
-    /// something next year.</b> Every arm of <see cref="BindAsync"/> reaches
-    /// <see cref="AttachAsync"/> — the new listing, the game we already knew, and the merge — so a
-    /// rule written once here cannot be the rule one path forgot. The address is kept and re-probed
-    /// for ever (§7.4), so an operator who switches MSSP on has published their own game by
-    /// teatime, with nobody at this end involved. That is the same self-healing property §7.2 claims
-    /// for the name gate, and it is the reason this is not a decision taken once at creation.
-    /// </para>
-    /// <para>
-    /// <b>Games nobody submitted are left alone.</b> They were never hidden, so corroborating them
-    /// would write a record of a decision that was never taken, and <c>corroborated_at</c> would
-    /// stop meaning what the queue reads it as.
-    /// </para>
-    /// <para>
-    /// <b>The merge arm reaches this too, and that is correct.</b> A hidden submission that turns out
-    /// to be a second port of a game we already list is absorbed and no longer offered separately —
-    /// but if it is instead the survivor, the probe that corroborates it publishes it like any
-    /// other. Nothing here can hide a game that was already visible: the write is one-way.
-    /// </para>
+    /// Checked on every <see cref="AttachAsync"/> call, not only at creation, since a submission that
+    /// shows nothing today may show something next year — the address is kept and re-probed for ever
+    /// (§7.4), so an operator who switches MSSP on publishes their own game without us involved. Games
+    /// nobody submitted are left alone: they were never hidden, so corroborating them would misrecord
+    /// a decision that was never taken. The merge arm reaches this too: a hidden submission that turns
+    /// out to be a second port of a listed game is absorbed rather than published separately.
     /// </remarks>
     private async Task CorroborateAsync(
         Guid gameId,
@@ -386,6 +287,16 @@ public sealed class CatalogueBinder(
             result.Host, result.Port, string.Join(", ", signals));
     }
 
+    /// <summary>
+    /// Records that this game answers at this address, and fingerprints the connect screen.
+    /// </summary>
+    /// <remarks>
+    /// The banner hash is written here and nowhere else — without it §7.3's banner signal could never
+    /// fire. A probe that saw no banner writes nothing, since the hash of an empty screen is a value
+    /// every silent server would share. The identity signals the matcher reads are the MSSP rows the
+    /// reconciler already wrote; <c>IdentityFields</c> spells them lower-case and MSSP upper-case, and
+    /// the two meet only because field-name lookups are case-insensitive throughout.
+    /// </remarks>
     private async Task AttachAsync(Guid gameId, ProbeResult result, CancellationToken cancellationToken)
     {
         var now = time.GetUtcNow();
@@ -407,9 +318,8 @@ public sealed class CatalogueBinder(
 
         if (existing is null || existing.GameId != gameId)
         {
-            // A change feed is a table of events that actually happened (§5.1). A second sighting of
-            // an address we already attribute to this game is not one, and writing a row per probe
-            // would bury every real event under the crawler's own footsteps.
+            // A change feed is a table of events that actually happened (§5.1); a re-sighting of an
+            // address already attributed to this game isn't one.
             await fields.RecordChangeAsync(
                 new FieldChange(
                     gameId,
@@ -430,10 +340,9 @@ public sealed class CatalogueBinder(
             new GameField(gameId, IdentityFields.BannerHash, FieldSource.Banner, BannerFingerprint.Of(banner), now, now),
             cancellationToken);
 
-        // Displayed on the grounds that the server sends it unauthenticated to every anonymous
-        // connection (§11), ANSI intact, and suppressible on owner request. Upserted rather than
-        // reconciled, for the reason FieldObservations.From records: a banner that states its own live
-        // player count would otherwise write a change-feed row on every probe, for ever.
+        // Displayed on the grounds the server sends it unauthenticated to every connection (§11).
+        // Upserted rather than reconciled: a banner stating its own live player count would otherwise
+        // write a change-feed row on every probe.
         await fields.UpsertAsync(
             new GameField(gameId, ConnectScreenField, FieldSource.Banner, banner, now, now),
             cancellationToken);

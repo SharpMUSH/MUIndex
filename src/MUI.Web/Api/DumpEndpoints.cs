@@ -12,19 +12,10 @@ namespace MUI.Web.Api;
 /// The bulk dump: the whole catalogue in one response, written straight to the socket.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A directory that publishes an unusable dump has published nothing, so this ships in the two
-/// shapes a consumer actually wants. <c>games.json</c> is one document with its licence and
-/// attribution in the payload, for anyone who will hand it to a JSON parser whole.
-/// <c>games.ndjson</c> is one game per line, for anyone who will pipe it into <c>jq -c</c>, a
-/// bulk loader, or a process that must not hold a catalogue in memory. Both carry the licence in
-/// headers as well.
-/// </para>
-/// <para>
-/// <b>Archived games are in the dump.</b> Archiving takes a game out of the default listing and out
-/// of nothing else (spec §7.5); the dump is the historical record the incumbents threw away, and a
-/// record with the dead games removed is the thing this project exists to replace.
-/// </para>
+/// Two shapes: <c>games.json</c> is one document for a whole-payload JSON parser, <c>games.ndjson</c>
+/// is one game per line for <c>jq -c</c>, a bulk loader, or a process that must not hold the catalogue
+/// in memory. <b>Archived games are in the dump</b> — archiving removes a game from the default
+/// listing and nothing else (spec §7.5).
 /// </remarks>
 public static class DumpEndpoints
 {
@@ -73,14 +64,10 @@ public static class DumpEndpoints
             attribution.Sources(),
             licence.Value.Notice);
 
-        // Pass one: the same writer, into a sink that keeps only the hash. The ETag is therefore a
-        // hash of the exact bytes pass two writes, not of a version stamp standing in for them — a
-        // 304 on a dump has to be a promise about the body and not a guess at it.
-        //
-        // The cost is that the catalogue is read twice, and the correctness condition is that both
-        // passes see the same data. Against the in-memory catalogue that is free. Against Postgres,
-        // wrap the two in one repeatable-read transaction; without that, a write landing between
-        // them would leave the validator describing a body nobody was sent.
+        // Pass one: the same writer, into a sink that keeps only the hash, so the ETag is a hash of
+        // the exact bytes pass two writes rather than a stamp standing in for them. Correctness
+        // requires both passes see the same data — free against the in-memory catalogue, but against
+        // Postgres this needs one repeatable-read transaction around both.
         using var hasher = new ETag.HashSink();
         await WriteBodyAsync(
             hasher, _ => ValueTask.CompletedTask, format, header, queries, availability, now,
@@ -93,21 +80,16 @@ public static class DumpEndpoints
 
         ApiResponse.Prepare(http, contentType, etag);
 
-        // The dump is large and changes at the pace of a crawl cycle, so it is the one route where a
-        // conditional request saves something worth saving.
+        // Large and changes only at the pace of a crawl cycle — the one route where a conditional
+        // request saves something worth saving.
         if (ApiResponse.NotModified(http, etag))
         {
             return;
         }
 
-        // No Content-Length: the body is produced as it is written and never exists in one place,
-        // which is the whole point. Kestrel chunks it.
-        //
-        // Response.BodyWriter and not Response.Body: a Utf8JsonWriter over a Stream flushes itself
-        // synchronously when its buffer fills, and Kestrel forbids synchronous writes — so a dump
-        // over the stream dies partway through the first response big enough to need a flush. Over
-        // the pipe, the writer's flush only advances a buffer and the socket write stays async and
-        // explicit.
+        // No Content-Length: the body is produced as it is written, never assembled in one place.
+        // Response.BodyWriter, not Response.Body — a Utf8JsonWriter over a Stream flushes itself
+        // synchronously when its buffer fills, and Kestrel forbids synchronous writes.
         var body = http.Response.BodyWriter;
         await WriteBodyAsync(
             body,
@@ -138,10 +120,7 @@ public static class DumpEndpoints
             Indented = false,
             Encoder = ApiJson.Options.Encoder,
 
-            // NDJSON is a sequence of root-level values, which is precisely what the writer's
-            // validator exists to forbid. The records are still written one at a time by the
-            // serialiser, so the shape of each is checked; what is switched off is the rule that
-            // there may only be one.
+            // NDJSON is a sequence of root-level values, which the writer's validator otherwise forbids.
             SkipValidation = format is DumpFormat.Lines,
         });
 
@@ -149,9 +128,7 @@ public static class DumpEndpoints
         {
             writer.WriteStartObject();
 
-            // The header's own properties, spliced into a hand-driven writer rather than re-described
-            // here: one definition of what a dump header is (DumpHeaderView), whichever end of the
-            // file it is written from.
+            // Spliced from DumpHeaderView rather than re-described here, so there's one definition.
             using (var head = JsonSerializer.SerializeToDocument(header, ApiJson.Options))
             {
                 foreach (var property in head.RootElement.EnumerateObject())
@@ -179,8 +156,8 @@ public static class DumpEndpoints
 
             if (format is DumpFormat.Lines)
             {
-                // Newline-terminated per record, and the writer reset to root, so a reader on the
-                // other end can act on game one without waiting for game ten thousand.
+                // Newline-terminated per record, writer reset to root — a reader can act on game one
+                // without waiting for game ten thousand.
                 writer.Flush();
                 sink.GetSpan(1)[0] = (byte)'\n';
                 sink.Advance(1);

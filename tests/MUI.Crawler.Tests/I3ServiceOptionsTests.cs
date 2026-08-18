@@ -6,10 +6,8 @@ namespace MUI.Crawler.Tests;
 public class I3ServiceOptionsTests
 {
     /// <summary>
-    /// <b>Off unless asked for.</b> The pass needs a sidecar that sits behind a compose profile,
-    /// because joining I3 registers a name on somebody else's network permanently and must never
-    /// happen as a side effect of <c>compose up</c>. A default of true would make every deployment
-    /// without that container fail a connection on a loop for a feature nobody turned on.
+    /// Off unless asked for: joining I3 registers a name on somebody else's network permanently and
+    /// must never happen as a side effect of <c>compose up</c>.
     /// </summary>
     [Test]
     public async Task TheI3PassIsOffByDefault()
@@ -19,8 +17,7 @@ public class I3ServiceOptionsTests
     }
 
     /// <summary>
-    /// Its own lock. Two replicas passing at once would ask every mud twice as often as we said we
-    /// would, and sharing the crawl lease would let a long cycle delay a pass and vice versa.
+    /// Its own lock, so a long crawl cycle can't delay an I3 pass and vice versa.
     /// </summary>
     [Test]
     public async Task TheI3PassCompetesForItsOwnLock()
@@ -37,9 +34,7 @@ public class I3ServiceOptionsTests
     }
 
     /// <summary>
-    /// Refused at startup rather than discovered as an authentication failure every five minutes. The
-    /// sidecar's shipped configuration contains example keys; a deployment that enabled this without
-    /// setting one has not finished.
+    /// Refused at startup rather than discovered as an authentication failure every five minutes.
     /// </summary>
     [Test]
     public async Task EnablingThePassWithoutAKeyIsRefusedAtStartup()

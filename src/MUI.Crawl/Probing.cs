@@ -9,15 +9,9 @@ public sealed record ProbeTarget(string Host, int Port)
     /// The addresses the scope guard already resolved and vetted, when there are any.
     /// </summary>
     /// <remarks>
-    /// Empty means "resolve the name yourself", which is what the on-demand and CLI paths want.
-    /// <para>
-    /// The crawl loop fills it, and that is not an optimisation. <c>HostScopeGuard</c> checks that
-    /// every address a name resolves to is globally routable, and a dial that resolves the name a
-    /// second time is free to reach an address the guard never ruled on — so the guard was checking
-    /// one answer and the socket was using another. Carrying the vetted list forward closes that,
-    /// and it also halves the lookups: a probe used to resolve twice, and a transient failure in
-    /// either one is published as the game going dark.
-    /// </para>
+    /// Empty means "resolve the name yourself", for the on-demand and CLI paths. Filled by the crawl
+    /// loop so the dial cannot re-resolve the name and reach an address the guard never ruled on —
+    /// otherwise the guard checks one answer and the socket uses another.
     /// </remarks>
     public IReadOnlyList<IPAddress> Addresses { get; init; } = [];
 
@@ -25,10 +19,8 @@ public sealed record ProbeTarget(string Host, int Port)
     /// The encoding an operator has said this game's bytes are in, overriding what it declares.
     /// </summary>
     /// <remarks>
-    /// Null on every target that has not needed one, which is nearly all of them. It rides on the
-    /// target rather than on <see cref="ProbeOptions"/> because it is a fact about one game and the
-    /// options are one instance shared by the whole crawl; and it is a name rather than an
-    /// <c>Encoding</c> so that this seam stays a value a fixture can carry. See
+    /// Null on every target that has not needed one. Rides on the target rather than
+    /// <see cref="ProbeOptions"/> because it is a fact about one game, not the whole crawl. See
     /// <see cref="WireEncoding"/> for why the crawler cannot work this out for itself.
     /// </remarks>
     public string? Charset { get; init; }

@@ -10,15 +10,11 @@ namespace MUI.Crawler;
 /// <see cref="IFieldReconciler"/> stores (spec §5.1, §6.1).
 /// </summary>
 /// <remarks>
-/// <para>
-/// Three sources come out of one probe and they are kept apart, because <c>game_field</c> is keyed
-/// <c>(game, field, source)</c> and the capability matrix's two columns are the whole point:
-/// <see cref="FieldSource.Handshake"/> for what the server actually negotiated,
-/// <see cref="FieldSource.Mssp"/> for what it claims about itself, and
-/// <see cref="FieldSource.Banner"/> for what we parsed out of the text it painted before login.
-/// "Declared GMCP, not offered in the handshake" is a fact the site exists to publish, and it is only
+/// Three sources come out of one probe and are kept apart, since <c>game_field</c> is keyed
+/// <c>(game, field, source)</c>: <see cref="FieldSource.Handshake"/> for what the server actually
+/// negotiated, <see cref="FieldSource.Mssp"/> for what it claims, and <see cref="FieldSource.Banner"/>
+/// for what we parsed from the pre-login text. "Declared GMCP, not offered in the handshake" is only
 /// expressible because these never contend for one row.
-/// </para>
 /// </remarks>
 public static class FieldObservations
 {
@@ -31,10 +27,11 @@ public static class FieldObservations
 
     /// <summary>The field the encoding a session's bytes were actually read with is stored under.</summary>
     /// <remarks>
-    /// Not <see cref="CharsetField"/> under another source, because they are not two accounts of one
-    /// fact: <c>CHARSET</c> is what the session settled on and this is what the bytes proved to be,
-    /// and on <c>mud.pkuxkx.net:8080</c> both are true at once. Folding them into one field would
-    /// make the ladder pick a winner between two statements that do not contend.
+    /// Not <see cref="CharsetField"/> under another source: they are not two accounts of one fact.
+    /// <c>CHARSET</c> is what the session settled on; this is what the bytes proved to be — a server
+    /// can negotiate UTF-8 and still send bytes that prove to be something else, and both are true at
+    /// once. Folding them into one field would make the ladder pick a winner between statements that
+    /// don't contend.
     /// </remarks>
     public const string CharsetReadField = "charset.read";
 
@@ -42,11 +39,9 @@ public static class FieldObservations
     /// The field a codebase is stored under, whoever read it.
     /// </summary>
     /// <remarks>
-    /// <b>Deliberately the same name MSSP uses</b>, so that a codebase we parsed out of a
-    /// <c>VERSION</c> reply and one a game declared land in the same field with different sources.
-    /// That is the whole point of keying <c>(game, field, source)</c>: the ladder picks the declared
-    /// one, and the page can still show that its own <c>VERSION</c> says something else — which is a
-    /// fact worth publishing rather than a conflict to hide (§5.1).
+    /// Deliberately the same name MSSP uses, so a codebase parsed from a <c>VERSION</c> reply and one
+    /// a game declared land in the same field with different sources: the ladder picks the declared
+    /// one, but the page can still show its own <c>VERSION</c> saying something else (§5.1).
     /// </remarks>
     public const string CodebaseField = "CODEBASE";
 
@@ -64,23 +59,13 @@ public static class FieldObservations
     /// Every field this probe observed that goes through the reconciler.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Empty for a probe that did not answer — a failed dial saw nothing, and handing its (necessarily
-    /// empty) observations to the reconciler would be worse than useless: reconciling an absent value
-    /// is silent, but reconciling a <em>stale</em> one would bump <c>last_confirmed_at</c> on rows
-    /// nothing confirmed, which is a probe of ours reported as a measurement of theirs.
-    /// </para>
-    /// <para>
-    /// <b>The connect screen is deliberately not here.</b> It is written by
-    /// <c>CatalogueBinder.AttachAsync</c>, beside the banner fingerprint it is the other half of,
-    /// because the reconciler's contract is that a changed value is a change-feed <em>event</em> — and
-    /// a banner is not. Measured on <c>aardmud.org:4000</c>, whose connect screen states its own live
-    /// player count, so a first cycle and a second one apart wrote
-    /// "connect_screen changed from ####… to ####…" and would have done so for ever, at one row per
-    /// probe per game. That is exactly the cost §5.1 exists to avoid, and it would have buried every
-    /// real event under a diff nobody can read. A redesign is still noticed: that is what the
-    /// <c>banner_hash</c> signal is for.
-    /// </para>
+    /// Empty for a probe that did not answer: a failed dial saw nothing, and reconciling a stale value
+    /// as if confirmed would bump <c>last_confirmed_at</c> on rows nothing confirmed. The connect
+    /// screen is deliberately not here — it's written separately by
+    /// <c>CatalogueBinder.AttachAsync</c>, because the reconciler's contract is that a changed value is
+    /// a change-feed event, and a banner is not: one that states its own live player count would
+    /// otherwise write a change-feed row every probe, burying every real event under noise. A redesign
+    /// is still noticed via the <c>banner_hash</c> signal instead.
     /// </remarks>
     public static IReadOnlyList<FieldObservation> From(ProbeResult result)
     {
@@ -107,37 +92,15 @@ public static class FieldObservations
     /// Layer 2 — what we read out of the free text the server painted before login (spec §6.2).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// §6.2 asks for this in as many words: "version banners identify the codebase when
-    /// <c>CODEBASE</c> is unset or wrong", and it is measured, because a <c>VERSION</c> reply is text
-    /// this crawler asked for and parsed on this probe rather than a field the game reported. The
-    /// value sits on <see cref="FieldSource.Banner"/>, which is the bottom of the precedence ladder
-    /// and exactly where a conservatively-parsed free-form string belongs: a game that declares its
-    /// own codebase wins, and one that declares nothing gets a page with something on it.
-    /// </para>
-    /// <para>
-    /// <b>The reading itself is not new; its only consumer was.</b>
-    /// <see cref="LoginCommandReading.MeaningfulCodebase"/> has been deciding this since <c>INFO</c>
-    /// and <c>VERSION</c> were added to the probe, and the only caller was
-    /// <c>IdentityMatcher</c>, which used it to tell two games apart and then dropped it. Of the 409
-    /// games in the first real crawl, 281 answered the socket and published no MSSP at all — for
-    /// every one of those, this is the difference between a page that names what they run and a page
-    /// that does not.
-    /// </para>
-    /// <para>
-    /// Unlike the connect screen (see above) this is safe to reconcile: the value is a codebase name,
-    /// not a screen with a player count in it, so a change here is a game that upgraded — an event
-    /// worth a change-feed row rather than noise that buries them.
-    /// </para>
-    /// <para>
-    /// <b>Last of all, and only into an otherwise empty space, comes the one assumption:</b> a game
-    /// whose own text calls itself a MUCK is running one (<see cref="MuckNaming"/>). It is reached
-    /// only when nothing was declared and nothing was labelled, because the MUCK line is the family
-    /// least able to answer either question — no MSSP, no <c>INFO</c>, no labelled <c>VERSION</c> —
-    /// and 21 of the 23 games in the catalogue that say <c>MUCK</c> in their own words carried no
-    /// codebase whatsoever. It sits on the same rung as the reading above it: least trusted, still
-    /// ours to have read (§6.2).
-    /// </para>
+    /// §6.2: "version banners identify the codebase when <c>CODEBASE</c> is unset or wrong". Measured,
+    /// because a <c>VERSION</c> reply is text this crawler asked for and parsed, not a field the game
+    /// reported. Sits on <see cref="FieldSource.Banner"/>, the bottom of the precedence ladder: a game
+    /// that declares its own codebase wins, and one that declares nothing gets a page with something
+    /// on it. Unlike the connect screen this is safe to reconcile, since a change here is a game that
+    /// upgraded — an event, not noise. Last, and only into an otherwise empty space, comes the one
+    /// assumption: a game whose own text calls itself a MUCK is running one
+    /// (<see cref="MuckNaming"/>), reached only when nothing was declared or labelled — least trusted,
+    /// still ours to have read (§6.2).
     /// </remarks>
     private static IEnumerable<FieldObservation> Parsed(
         ProbeResult result,
@@ -146,14 +109,10 @@ public static class FieldObservations
         // Null unless the text labelled a value or plainly named a known family. Rule 4: a parser
         // that guessed here would be inventing a fact about somebody else's server.
         //
-        // The credit line is second because it is coarser and not because it is weaker: a labelled
-        // `Codebase:` or `Version:` line names an engine and a release, and `Based on CircleMUD
-        // 3.0bpl10` is read as `CircleMUD` on purpose (see CodebaseCredits). Both are the same rung
-        // and contend for the same (game, CODEBASE, banner) row, so exactly one of them may win, and
-        // the more specific reading wins. It is reached far more often than the first: run over the
-        // 303 stored connect screens of games with no codebase on record on 2026-08-16, the credit
-        // reader names 132 of them, while a labelled INFO or VERSION line is a MUSH-family habit that
-        // most of the hobby does not have.
+        // The credit line is second because it is coarser, not weaker: a labelled `Codebase:` or
+        // `Version:` line names an engine and release, and `Based on CircleMUD 3.0bpl10` is read as
+        // `CircleMUD` on purpose (see CodebaseCredits). Both contend for the same (game, CODEBASE,
+        // banner) row, and the more specific reading wins.
         if ((LoginCommandReading.MeaningfulCodebase(result.Info, result.Version)
                 ?? CodebaseCredits.Named(result.Banner)) is { Length: > 0 } codebase)
         {
@@ -161,15 +120,12 @@ public static class FieldObservations
             yield break;
         }
 
-        // The one assumption, and only where there is nothing else at all. A game that declared what
-        // it runs — or a family, which is the same answer coarsened — is never guessed over: our
-        // value would lose to theirs on the ladder anyway, and all it could do on the way is turn a
-        // guess of ours into a published disagreement with their own report (§5.1, rule 5).
+        // The one assumption, and only where there is nothing else at all — a game that declared what
+        // it runs, or its family, is never guessed over (§5.1, rule 5).
         //
-        // Asked of the rows this probe is about to store rather than of the report, because that is
-        // the question: MsspReading.Meaningful answers a different one, reading CODEBASE "PennMUSH"
-        // as unset because a *name* of "PennMUSH" is somebody who never edited mush.cnf — and a
-        // codebase of PennMUSH is the answer itself.
+        // Asked of the rows this probe is about to store, not of the report: MsspReading.Meaningful
+        // answers a different question, reading CODEBASE "PennMUSH" as unset because a *name* of
+        // "PennMUSH" means an unedited mush.cnf — but a codebase of PennMUSH is the answer itself.
         if (alreadyObserved.Any(o =>
                 o.Field.Equals(CodebaseField, StringComparison.OrdinalIgnoreCase)
                 || o.Field.Equals(FamilyField, StringComparison.OrdinalIgnoreCase)))
@@ -200,34 +156,19 @@ public static class FieldObservations
     /// Layer 1 — what the server actually negotiated (spec §6.1).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>A capability is written <c>true</c> when it was observed and is otherwise not written at
-    /// all. There is exactly one exception, and it is MSSP.</b> The temptation is to write
-    /// <c>false</c> for every capability the handshake did not produce, because that is what makes
-    /// "declared GMCP, never offered" render as a disagreement. It would be a lie: the MSSP plugin
-    /// is registered and TNC responds to <c>IAC WILL MSSP</c> when the server sends it, but for
-    /// other options TNC fires <c>OnEnabledAsync</c> unreliably — measured not firing on live servers
-    /// where the payload callbacks did. Publishing "Alter Aeon does not offer MSDP" on the strength
-    /// of that is our own instrumentation recorded as a fact about their game, which rule 5 forbids
-    /// in the same breath as an unparseable <c>WHO</c> read as zero.
-    /// </para>
-    /// <para>
-    /// MSSP is different because the MSSP spec says a server "should send <c>IAC WILL MSSP</c> during
-    /// the initial negotiation of the telnet session". We give every server a full connected session
-    /// to do so. A server that connected, exchanged telnet options, and never sent <c>IAC WILL MSSP</c>
-    /// has had its opportunity: that absence is a measurement. Note that servers which only respond to
-    /// <c>IAC DO MSSP</c> (never sending <c>IAC WILL MSSP</c> on their own) will appear as
-    /// <see cref="MsspOutcome.NotOffered"/> until TelnetNegotiationCore gains a client-side
-    /// <c>RequestMSSPAsync()</c>. <see cref="MsspOutcome.RejectedTooLarge"/> is emphatically
-    /// <b>not</b> that case and is recorded as present: the server offered, we accepted the handshake,
-    /// and we chose not to hold the reply (§6.4).
-    /// </para>
-    /// <para>
-    /// A protocol the library named that is not in <see cref="CapabilityFields.Names"/> is still
-    /// recorded, under the same naming convention. The registry is not a gate on ingestion, and a
-    /// crawler whose premise is faithful measurement does not get to drop an observation because no
-    /// column of the matrix renders it.
-    /// </para>
+    /// A capability is written <c>true</c> when observed and otherwise not written at all — with
+    /// exactly one exception, MSSP. Writing <c>false</c> for every capability the handshake didn't
+    /// produce would be tempting but wrong: TNC fires <c>OnEnabledAsync</c> unreliably for most
+    /// options, so publishing "does not offer MSDP" on that strength is our own instrumentation
+    /// recorded as a fact about their game (rule 5). MSSP is different because the spec says a server
+    /// should send <c>IAC WILL MSSP</c> during initial negotiation, and we give every server a full
+    /// connected session to do so — an absence after that is a real measurement. Servers that only
+    /// respond to <c>IAC DO MSSP</c> rather than advertising it themselves will appear as
+    /// <see cref="MsspOutcome.NotOffered"/> until TNC gains a client-side request.
+    /// <see cref="MsspOutcome.RejectedTooLarge"/> is not that case and is recorded as present: the
+    /// server offered, we just chose not to hold the reply (§6.4). A protocol the library named that
+    /// isn't in <see cref="CapabilityFields.Names"/> is still recorded — the registry isn't a gate on
+    /// ingestion.
     /// </remarks>
     private static IEnumerable<FieldObservation> Measured(ProbeResult result)
     {
@@ -239,14 +180,9 @@ public static class FieldObservations
                 "true");
         }
 
-        // MXP read off the wire rather than out of a negotiation, and recorded under the source that
-        // produced it. A server may negotiate option 91 — in which case it is already in the loop
-        // above under `handshake` — or it may simply start emitting MXP, whose line-mode sequences
-        // are ANSI-legal and so cost it nothing to send at a client that cannot read them. The
-        // second case is common and the handshake sees none of it.
-        //
-        // `banner` and not `handshake`: this is text we parsed, which is the same class of
-        // observation as a count found on a connect screen, and calling it a negotiation would put
+        // MXP read off the wire rather than out of a negotiation: a server may simply start emitting
+        // MXP without negotiating option 91, and the handshake sees none of that. Recorded under
+        // `banner`, not `handshake` — this is text we parsed, and calling it a negotiation would put
         // our reading method into a game's record as something the server did.
         if (result.MxpObserved)
         {
@@ -254,31 +190,22 @@ public static class FieldObservations
                 CapabilityFields.Measured("MXP"), FieldSource.Banner, "true");
         }
 
-        // The one honest negative. The server had a full connected session to send IAC WILL MSSP
-        // and did not — that absence is a measurement. See the Measured remarks for the caveat
-        // about servers that only answer IAC DO MSSP rather than advertising it themselves.
+        // The one honest negative — see the remarks above for the caveat about IAC DO MSSP-only servers.
         if (result.MsspOutcome is MsspOutcome.NotOffered)
         {
             yield return new FieldObservation(
                 CapabilityFields.Measured(MsspCapability), FieldSource.Handshake, "false");
         }
 
-        // What the bytes turned out to be — a different question from what the session agreed to,
-        // and answered by a strict decoder rather than by anybody's say-so.
+        // What the bytes turned out to be, answered by a strict decoder rather than anybody's say-so.
         //
-        // NOTHING IS WRITTEN WHEN THE ENCODING IS UNDETERMINED, and that is the point of consulting
-        // the source rather than the name. A screen that is not UTF-8 and that nobody has explained
-        // is read with Latin-1 to keep its bytes whole — a way of holding them, not a reading of
-        // them. Storing "iso-8859-1" for it would put our own fallback into the game's record as
-        // something we measured about the game, which is rule 4 producing a value where the honest
-        // answer is unknown, and rule 5 signing it with a measured source. The screen still renders;
-        // it simply carries no claim about its encoding, which is exactly what we know.
+        // Nothing is written when the encoding is undetermined: an unexplained non-UTF-8 screen is
+        // read with Latin-1 just to keep its bytes whole, and storing "iso-8859-1" for that would be
+        // our own fallback recorded as a measurement (rules 4 and 5).
         //
-        // The two determined cases carry the source of the determination, because they genuinely
-        // have different ones: the bytes proved UTF-8 to a decoder that cannot be talked round, and
-        // an override is a person's assertion. A staff row here outranks the handshake one, so an
-        // override that is later withdrawn must be deleted by hand — the same as every other staff
-        // override in this catalogue (see the NAME overrides), and for the same reason.
+        // The two determined cases carry different sources because they are different claims: the
+        // bytes proved UTF-8 to a decoder, an override is a person's assertion. A staff row outranks
+        // the handshake one, so a withdrawn override must be deleted by hand like any other.
         if (result.ReadAs is { Length: > 0 } readAs)
         {
             switch (result.CharsetSource)
@@ -302,9 +229,9 @@ public static class FieldObservations
             yield break;
         }
 
-        // CHARSET settling is a measurement; the interpreter merely *having* an encoding is not, which
-        // is what CharsetNegotiated distinguishes. The game's own MSSP CHARSET lands on the same field
-        // under a different source, and handshake outranks mssp — which is the ladder working.
+        // CHARSET settling is a measurement; merely *having* an encoding is not, which is what
+        // CharsetNegotiated distinguishes. The game's own MSSP CHARSET lands on the same field under
+        // a different source, and handshake outranks mssp.
         yield return new FieldObservation(CharsetField, FieldSource.Handshake, charset);
 
         if (string.Equals(charset, "utf-8", StringComparison.OrdinalIgnoreCase))
@@ -318,37 +245,20 @@ public static class FieldObservations
     /// Layer 4 — everything the game claims about itself, exactly as it said it (spec §6.4).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Nothing is filtered.</b> Every variable the server reported becomes a row, including names
-    /// no specification lists — a protocol whose entire purpose is servers describing themselves does
-    /// not get an allow-list, and a field declined at the socket cannot be reconsidered downstream.
-    /// <c>PLAYERS</c> and <c>UPTIME</c> are the exception in <em>storage</em> rather than here:
-    /// <see cref="FieldReconciler.VolatileFields"/> drops them, so that rule has one home and this
-    /// projection does not acquire a second copy of it.
-    /// </para>
-    /// <para>
-    /// <b>A variable with several values is reduced by MSSP's own rule</b> — "the last reported value
-    /// should be used as the default value" — and never by joining them. A value may legitimately
-    /// contain a comma, so <c>string.Join</c> would manufacture something that looks like a value and
-    /// cannot be split back apart, which is a fabrication and the rule against those does not stop at
-    /// player counts. The variables where every value matters are read from
-    /// <see cref="ProbeResult.Mssp"/> directly by the code that cares: <c>REFERRAL</c> by
-    /// <c>MsppReferrals</c>, and the descriptive row is not where a game's ports live —
-    /// <c>game_endpoint</c> is (§5.5).
-    /// </para>
-    /// <para>
-    /// A capability variable produces a <c>.declared</c> row, and additionally a descriptive row when
-    /// its value carries information beyond the yes: <c>SSL 4202</c> is a claim and a port,
-    /// <c>GMCP 1</c> is only a claim, and listing the second among a game's descriptive fields would
-    /// be the capability matrix restated as noise.
-    /// </para>
+    /// Nothing is filtered — every variable the server reported becomes a row, including names no
+    /// specification lists. <c>PLAYERS</c> and <c>UPTIME</c> are the exception in storage rather than
+    /// here: <see cref="FieldReconciler.VolatileFields"/> drops them, so that rule has one home. A
+    /// variable with several values is reduced by MSSP's own rule (last value wins) and never by
+    /// joining them, since a value may legitimately contain a comma and <c>string.Join</c> would
+    /// fabricate one that can't be split back apart. A capability variable produces a
+    /// <c>.declared</c> row, plus a descriptive row only when its value carries information beyond
+    /// yes/no: <c>SSL 4202</c> is a claim and a port, <c>GMCP 1</c> is only a claim.
     /// </remarks>
     private static IEnumerable<FieldObservation> Declared(ProbeResult result)
     {
         if (result.MsspOutcome is not MsspOutcome.Received)
         {
-            // NotOffered says nothing, and RejectedTooLarge says only that we declined to hold what
-            // arrived. Neither is a game withdrawing its answers, so neither writes one.
+            // Neither NotOffered nor RejectedTooLarge is a game withdrawing its answers.
             yield break;
         }
 

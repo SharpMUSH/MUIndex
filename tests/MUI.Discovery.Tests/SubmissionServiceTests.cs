@@ -35,8 +35,7 @@ public class SubmissionServiceTests
         var targets = new InMemoryCrawlTargetRepository();
         var endpoints = new InMemoryEndpointDirectory();
         var log = new InMemorySubmissionLog();
-        // Every name a test submits and expects to be taken has an answer, so that "accepted" is
-        // asserted for the reason the test is about rather than falling out of an unscripted lookup.
+        // Every name a test expects to be taken has an answer, so "accepted" is never an unscripted lookup.
         var dns = new FakeHostResolver()
             .Resolving("mud.example.org", "203.0.113.10")
             .Resolving("a.example.org", "203.0.113.11")
@@ -93,10 +92,8 @@ public class SubmissionServiceTests
     /// §7.2, on the resolved address, before anything is written.
     /// </summary>
     /// <remarks>
-    /// This is the whole reason the gate cannot be a check on the string. Anybody may type
-    /// <c>internal.example.org</c> into a public form, and publishing an A record pointing it at
-    /// <c>169.254.169.254</c> — the cloud metadata address, which hands out credentials — costs an
-    /// attacker nothing. The name passes every check that can be made before DNS answers.
+    /// The gate can't be a string check — see <see cref="HostScopeGuard"/> — since a name passes
+    /// every check that can be made before DNS answers.
     /// </remarks>
     [Test]
     [Arguments("127.0.0.1")]
@@ -138,10 +135,8 @@ public class SubmissionServiceTests
     /// A refusal is recorded as a submission and never as anything about a game.
     /// </summary>
     /// <remarks>
-    /// The distinction CLAUDE.md is emphatic about, asserted where it can be: there is no probe
-    /// result, no availability sample and no game id anywhere near this — <see cref="SubmissionRecord"/>
-    /// has no field one could be put in. What a refusal produces is a row saying we declined, which
-    /// is where a decision of ours belongs.
+    /// No probe result, availability sample or game id anywhere near this —
+    /// <see cref="SubmissionRecord"/> has no field one could be put in.
     /// </remarks>
     [Test]
     public async Task ARefusalIsRecordedAgainstTheSubmissionAndNotAgainstAGame()
@@ -156,9 +151,8 @@ public class SubmissionServiceTests
         await Assert.That(recorded.Outcome).IsEqualTo(SubmissionOutcome.RefusedNotRoutable);
         await Assert.That(recorded.CrawlTargetId).IsNull();
 
-        // Held by reflection, because the argument is about the shape rather than about this row: a
-        // log that *could* name a game is a log somebody will eventually attach one to. Neither
-        // method on the interface takes a game id, and the table has no column for one.
+        // Reflection, not just this row: a log that *could* name a game is one somebody will
+        // eventually attach one to.
         var parameters = typeof(ISubmissionLog).GetMethods()
             .SelectMany(m => m.GetParameters())
             .Select(p => p.Name!)
@@ -201,8 +195,7 @@ public class SubmissionServiceTests
         await Assert.That(receipt.GameId).IsEqualTo(game);
         await Assert.That(world.Targets.All).IsEmpty();
 
-        // And no lookup was made, which is the point of doing this before DNS: the form is not a
-        // resolver anybody may drive.
+        // No lookup was made: the form is not a resolver anybody may drive.
         await Assert.That(world.Dns.Asked).IsEmpty();
     }
 
@@ -211,8 +204,7 @@ public class SubmissionServiceTests
     /// </summary>
     /// <remarks>
     /// <b>Including the submission marker.</b> If a second submission could set it, the form would
-    /// be a way to hide any listed game on the site by typing its address — the one thing a
-    /// hidden-until-claimed rule makes possible if it is written the wrong way round.
+    /// be a way to hide any listed game by typing its address.
     /// </remarks>
     [Test]
     public async Task SubmittingATargetWeAlreadyCrawlChangesNothingAboutIt()
@@ -245,11 +237,8 @@ public class SubmissionServiceTests
     /// An address whose operator has asked us to stop is refused at the door (spec §11).
     /// </summary>
     /// <remarks>
-    /// <b>The crawl loop's own gate already held, and that is what made this worth fixing rather
-    /// than urgent.</b> A target with a standing opt-out is never dialled, so nothing leaked and no
-    /// game was ever minted — the form simply told somebody "accepted" for an address we had already
-    /// promised never to touch, and then did nothing about it for ever. A refusal we know at the
-    /// door belongs at the door.
+    /// The crawl loop's gate already holds this, but the form would otherwise tell somebody
+    /// "accepted" for an address we'd already promised never to touch.
     /// </remarks>
     [Test]
     [Arguments(OptOutSource.Request)]
@@ -276,8 +265,7 @@ public class SubmissionServiceTests
         await Assert.That(receipt.Outcome).IsEqualTo(SubmissionOutcome.RefusedOptOut);
         await Assert.That(world.Targets.All).IsEmpty();
 
-        // The cheap register answered, so no TXT lookup was spent — and neither route may be
-        // re-read without doing the thing they asked us to stop doing, so no answer could act on it.
+        // The cheap register answered first, so no TXT lookup was spent.
         await Assert.That(world.Txt.Asked).IsEmpty();
     }
 
@@ -299,10 +287,8 @@ public class SubmissionServiceTests
     /// A TXT opt-out naming a port speaks about that port and not about its neighbours.
     /// </summary>
     /// <remarks>
-    /// §11 scopes a DNS opt-out to a port when the record names one, because MU* hosting routinely
-    /// runs unrelated games on one domain separated only by a port. <c>opt-out=4201</c> and a bare
-    /// <c>opt-out</c> are therefore different answers for a submission naming 4000, and a form that
-    /// read them alike would either refuse an address nobody objected to or take one somebody did.
+    /// §11 scopes a DNS opt-out to a port when the record names one — MU* hosting routinely runs
+    /// unrelated games on one domain, separated only by a port.
     /// </remarks>
     [Test]
     public async Task APortQualifiedOptOutOnlyAnswersForThatPort()
@@ -333,13 +319,7 @@ public class SubmissionServiceTests
             .IsEqualTo(SubmissionOutcome.RefusedOptOut);
     }
 
-    /// <summary>
-    /// Nothing is spent on an address §7.2 has already refused.
-    /// </summary>
-    /// <remarks>
-    /// A form that resolved, refused, and then went on to ask DNS a second question about the same
-    /// name would be paying twice to reach the answer it already had.
-    /// </remarks>
+    /// <summary>Nothing is spent on an address §7.2 has already refused.</summary>
     [Test]
     public async Task AScopeRefusalCostsNoOptOutLookup()
     {
@@ -356,10 +336,8 @@ public class SubmissionServiceTests
     /// The rate-limit reservation is what bounds the TXT lookups this form can cause.
     /// </summary>
     /// <remarks>
-    /// An unauthenticated form that triggers a DNS query is a request amplifier, and the bound has
-    /// to be the one that is taken <em>before</em> any of the work — which is why the reservation is
-    /// first. The resolver behind it is the crawler's own, un-retried and caching failures, so the
-    /// worst case is one bounded lookup per slot.
+    /// An unauthenticated form that triggers a DNS query is a request amplifier, so the reservation
+    /// is taken before any of the work.
     /// </remarks>
     [Test]
     public async Task ASourceAtItsBoundCausesNoLookupsAtAll()
@@ -398,9 +376,8 @@ public class SubmissionServiceTests
     /// A resolver that did not answer concludes nothing, and the address is taken.
     /// </summary>
     /// <remarks>
-    /// §11's own shape: "no such record" is an answer and "the resolver did not reply" is not. A
-    /// nameserver having a bad minute must not become a refusal a submitter cannot understand — and
-    /// the crawl loop asks again before every dial, so nothing is lost by proceeding.
+    /// §11's own shape: "no such record" is an answer, "the resolver did not reply" is not. A
+    /// nameserver having a bad minute must not become a refusal a submitter cannot understand.
     /// </remarks>
     [Test]
     public async Task ASilentResolverDoesNotRefuseTheSubmission()
@@ -422,9 +399,8 @@ public class SubmissionServiceTests
     [Arguments("-example.org", "4201")]
     public async Task NothingThatIsNotAnAddressBecomesOne(string host, string port)
     {
-        // A single-label name is the one worth naming: accepting "intranet 80" would aim the crawler
-        // at whatever our own search domain resolves that to, which is the §7.2 hole arriving
-        // without anybody having to own a domain.
+        // "intranet 80" is the one worth naming: accepting a single-label host would aim the
+        // crawler at whatever our own search domain resolves that to.
         var world = Build();
 
         var receipt = await world.Service.SubmitAsync(host, port, Source, None);
@@ -476,8 +452,7 @@ public class SubmissionServiceTests
 
         await Assert.That(third.Outcome).IsEqualTo(SubmissionOutcome.TooMany);
 
-        // Nothing was parsed, resolved or written — a source at its bound must not be able to make us
-        // do work, which is why the check is first.
+        // Nothing was parsed, resolved or written — a source at its bound must not make us do work.
         await Assert.That(world.Log.Rows.Count).IsEqualTo(2);
         await Assert.That(world.Targets.All.Any(t => t.Host == "mud.example.org")).IsFalse();
     }
@@ -498,8 +473,7 @@ public class SubmissionServiceTests
             .IsEqualTo(SubmissionOutcome.Accepted);
 
         // Past the window rather than exactly onto its edge: the count is `submitted_at >= now -
-        // window`, in the fake and in the index the real one reads, so a row of exactly that age is
-        // still inside it.
+        // window`, so a row of exactly that age is still inside it.
         world.Clock.Advance(TimeSpan.FromHours(1) + TimeSpan.FromSeconds(1));
 
         await Assert.That((await world.Service.SubmitAsync("mud.example.org", "4201", Source, None)).Outcome)
@@ -510,8 +484,7 @@ public class SubmissionServiceTests
     [Test]
     public async Task ASourceAtItsBoundIsNotLogged()
     {
-        // Otherwise the window slides forward for as long as somebody keeps knocking, and a bound
-        // that lengthens under load is not a bound.
+        // Otherwise the window would slide forward for as long as somebody keeps knocking.
         var world = Build(new SubmissionOptions { PerSource = 1, Window = TimeSpan.FromHours(1) });
 
         await world.Service.SubmitAsync("a.example.org", "4201", Source, None);
@@ -535,10 +508,8 @@ public class SubmissionServiceTests
         await Assert.That(one).IsEqualTo(await epoch.OfAsync(IPAddress.Parse("203.0.113.10")));
         await Assert.That(one).IsNotEqualTo(await epoch.OfAsync(IPAddress.Parse("203.0.113.11")));
 
-        // A retired epoch's rows cannot be lined up against a current one's, by anybody, including
-        // us. Four billion IPv4 guesses is an afternoon, so the salt is what makes "we do not store
-        // the address" true rather than nearly true, and the rotation is what bounds what one salt
-        // can ever link together.
+        // A retired epoch's rows can't be lined up against a current one's — the salt is what makes
+        // "we do not store the address" true rather than nearly true.
         await Assert.That(one).IsNotEqualTo(await next.OfAsync(IPAddress.Parse("203.0.113.10")));
 
         // A request with no address at all still falls into one bucket, so it is still bounded.
@@ -550,10 +521,8 @@ public class SubmissionServiceTests
     /// Every replica derives the same digest for one address, which is what makes the bound a bound.
     /// </summary>
     /// <remarks>
-    /// The first version generated a random salt per process. It read as the stronger privacy
-    /// property and quietly removed the limit: two replicas hash one address two ways, so five per
-    /// hour becomes five per replica per hour, and a restart clears it outright. The salt is shared
-    /// and rotates on an epoch instead — which is what §11 actually describes.
+    /// A random per-process salt reads as stronger privacy but silently removes the limit: two
+    /// replicas would hash one address two ways.
     /// </remarks>
     [Test]
     public async Task TwoReplicasSharingASaltAgreeAboutOneAddress()
@@ -570,9 +539,8 @@ public class SubmissionServiceTests
     /// An IPv6 submitter is bounded by their /64, not by an address they have unlimited supply of.
     /// </summary>
     /// <remarks>
-    /// The smallest block anybody is assigned is a /64, and home connections routinely get a /48 or
-    /// a /56. Keyed on the full address, one attacker holds eighteen quintillion buckets and a limit
-    /// of five per hour is decorative.
+    /// The smallest block anybody is assigned is a /64. Keyed on the full address, one attacker
+    /// holds eighteen quintillion buckets and the limit is decorative.
     /// </remarks>
     [Test]
     public async Task EveryAddressInOneIPv6PrefixIsOneSource()
@@ -584,21 +552,14 @@ public class SubmissionServiceTests
         await Assert.That(SubmissionSource.Bucket(IPAddress.Parse("2001:db8:1:2::1")))
             .IsNotEqualTo(SubmissionSource.Bucket(IPAddress.Parse("2001:db8:1:3::1")));
 
-        // IPv4 is kept whole — there a single address is already scarce — including the mapped form,
-        // which would otherwise be a free second bucket for every IPv4 client.
+        // IPv4 is kept whole, including the mapped form, which would otherwise be a free second
+        // bucket for every IPv4 client.
         await Assert.That(SubmissionSource.Bucket(IPAddress.Parse("203.0.113.10"))).IsEqualTo("203.0.113.10");
         await Assert.That(SubmissionSource.Bucket(IPAddress.Parse("::ffff:203.0.113.10")))
             .IsEqualTo("203.0.113.10");
     }
 
-    /// <summary>
-    /// A concurrent burst does not walk through the bound.
-    /// </summary>
-    /// <remarks>
-    /// The reason the limit is a reservation rather than a count. Counting rows and then inserting
-    /// one is check-then-act: every request in a burst reads a count none of them has written to,
-    /// and every one of them passes. On an unauthenticated form that check is the whole limit.
-    /// </remarks>
+    /// <summary>A concurrent burst does not walk through the bound.</summary>
     [Test]
     public async Task ABurstFromOneSourceStillOnlyGetsItsShare()
     {
@@ -615,9 +576,8 @@ public class SubmissionServiceTests
     [Test]
     public async Task EveryOutcomeRecordedIsOneTheTableWillTake()
     {
-        // The one that is not, TooMany, is the one never written — asserted above. This is the other
-        // half: nothing else may be added to the enum without a migration, and the missing arm here
-        // is what says so.
+        // TooMany is the one never written, asserted above. This is the other half: nothing else may
+        // be added to the enum without a migration.
         var recordable = Enum.GetValues<SubmissionOutcome>()
             .Where(o => o is not SubmissionOutcome.TooMany)
             .ToList();

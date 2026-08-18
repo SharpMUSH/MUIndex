@@ -39,20 +39,11 @@ public interface IHostResolver
 /// Decides whether the crawler may open a socket to a host.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>The gate is on the resolved address, not the name.</b> Refusing <c>10.0.0.5</c> and
-/// <c>localhost</c> by inspection is not enough: <c>games.example.com</c> with an A record pointing
-/// at <c>127.0.0.1</c> or <c>169.254.169.254</c> passes a name check and the socket goes somewhere it
-/// must never go. <c>REFERRAL</c> is attacker-controlled, so this is reachable by anyone willing to
-/// put a line in their own MSSP.
-/// </para>
-/// <para>
-/// <b>Known limitation.</b> This is a time-of-check-to-time-of-use gap — the name is resolved, then
-/// connected by name, so an answer that changes in between is not caught. The fix is to connect to
-/// the pinned address that was checked. Caching resolutions would widen the window rather than close
-/// it, which is why there is no cache here. Do not restate this guard as airtight: it raises the cost
-/// of the attack, it does not close it.
-/// </para>
+/// The gate is on the resolved address, not the name (spec §7.2) — a name check alone would pass
+/// <c>games.example.com</c> pointing at <c>169.254.169.254</c>, and <c>REFERRAL</c> is
+/// attacker-controlled. <b>Known limitation:</b> this is a TOCTOU gap — resolved here, connected by
+/// name later, so an answer that changes in between is not caught. Do not restate this guard as
+/// airtight; it raises the cost of the attack, it does not close it.
 /// </remarks>
 public interface IHostScopeGuard
 {

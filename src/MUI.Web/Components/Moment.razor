@@ -1,19 +1,8 @@
 @using MUI.Web.Localization
 @*
-    A relative age that can be resolved to a real time.
-
-    "19m" is the right length for a column and the wrong amount of information for somebody who
-    arrived on this page from a search result cached last Tuesday: relative to *what*? Every age on
-    the site is now a <time> carrying the machine-readable instant and, in its title, the absolute
-    one — "19m ago, 17 Aug 2026 14:02 UTC" — so the short form stays short and the long one is a
-    hover, a copy-paste or a reading-mode extraction away.
-
-    Spoken is off by default and on where a reader is weighing one fact rather than scanning five
-    hundred. A listing row that announced the absolute time of every age would be the wall of
-    repetition this whole pass exists to remove.
-
-    The datetime attribute is the one string here that never localizes: it is what a browser and a
-    reading-mode extractor resolve the visible age against, and it is not read by anybody.
+    A relative age ("19m ago") rendered as <time>, with the absolute instant in the title for a
+    hover or reading-mode extraction. The datetime attribute never localizes — it's what browsers
+    and extractors resolve the visible age against, not something a person reads.
 *@
 
 <time datetime="@Dates.Machine(At)" title="@Title" class="@Class">@Text@if (Spoken)
@@ -30,8 +19,7 @@
     /// than <c>19m</c>.
     /// </summary>
     /// <remarks>
-    /// Off in a column whose heading carries the verb, on in a sentence. <see cref="Relative.Ago"/>
-    /// owns the wording either way, because "now ago" was a real bug and it was fixed there.
+    /// <see cref="Relative.Ago"/> owns the wording (including the "now ago" edge case), not this file.
     /// </remarks>
     [Parameter] public bool Ago { get; set; }
 
@@ -39,11 +27,8 @@
     /// Which question this age answers.
     /// </summary>
     /// <remarks>
-    /// The title says "2w ago" for a value we confirmed two weeks ago and for a game we have not
-    /// reached in two weeks, and those are not the same sentence — English merely spells them the
-    /// same. The visible text is a bare duration and takes no register; the title always carries the
-    /// phrase, so a listing's "reached" column gets the distinction even where its own text is
-    /// nothing but a number and a letter.
+    /// "2w ago" means different things for a confirmed value vs. an unreached game — English spells
+    /// them the same, but the title text must carry the distinction since the visible text can't.
     /// </remarks>
     [Parameter] public AgeSense Sense { get; set; } = AgeSense.Confirmed;
 
@@ -58,14 +43,8 @@
 
     private string Text => Ago ? Relative.Ago(Tag, Now - At, Sense) : Relative.Format(Tag, Now - At);
 
-    /// <summary>
-    /// The age and the instant, in one string. Both, because a title reading only "17 Aug 2026
-    /// 14:02 UTC" makes a reader do the subtraction the page had already done for them.
-    /// </summary>
-    /// <remarks>
-    /// Which of the two comes first is <c>time.title</c>'s and not this file's. It was a comma in an
-    /// interpolated string, which is a word order chosen for English and offered to nobody else.
-    /// </remarks>
+    /// <summary>The age and the instant, in one string, so a reader isn't left to do the subtraction.</summary>
+    /// <remarks>Word order belongs to the <c>time.title</c> message, not this file.</remarks>
     private string Title => Messages.For(Tag, "time.title", new Dictionary<string, object?>(StringComparer.Ordinal)
     {
         ["age"] = Relative.Ago(Tag, Now - At, Sense),

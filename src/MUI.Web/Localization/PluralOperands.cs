@@ -14,26 +14,19 @@ namespace MUI.Web.Localization;
 /// <param name="E">The compact-decimal exponent, which is zero for everything this site formats.</param>
 /// <remarks>
 /// <para>
-/// <b>Visible is the load-bearing word, and it is why this type exists rather than an <c>int</c>.</b>
-/// In English <c>1</c> is <c>one</c> and <c>1.0</c> is <c>other</c> — "1.0 stars" is correct and
-/// "1.0 star" is not — and the two are the same quantity. A rule cannot tell them apart from the
-/// value alone; it needs to know how the number was <em>written</em>. That is what <c>v</c> and
-/// <c>f</c> carry, and it is the single most commonly missed thing in a hand-rolled plural
-/// implementation.
+/// <b>Visible is the load-bearing word.</b> In English <c>1</c> is <c>one</c> and <c>1.0</c> is
+/// <c>other</c> — the same quantity, different plural category — and a rule can only tell them apart
+/// by how the number was <em>written</em>, which is what <c>v</c> and <c>f</c> carry.
 /// </para>
 /// <para>
-/// Every count this site pluralises is an integer, so <c>v</c> is zero throughout and none of this
-/// changes an answer today. It is here because a plural implementation that only works for integers
-/// is one that silently gives the wrong form the first time somebody formats a rate or an average,
-/// and because the rules below are transcribed from CLDR in the operands CLDR states them in — a
-/// transcription into a different vocabulary is a transcription that cannot be checked.
+/// Every count this site pluralises is an integer (<c>v</c> is always zero here), but the fields are
+/// transcribed straight from CLDR's own operand vocabulary so the rules below can be checked against
+/// the spec directly.
 /// </para>
 /// <para>
-/// <b>These are absolute values and this type cannot print a number.</b> CLDR takes the absolute
-/// value to choose a category, never to display one, so a <c>Format</c> here would drop the sign of
-/// every number it was handed — and it did, along with the group separator, which put "1234 games"
-/// in a sentence beside "1,234" in the column. Rendering belongs to <see cref="IcuMessage"/>, which
-/// still holds the signed value the caller passed.
+/// <b>This type cannot print a number.</b> CLDR uses the absolute value only to choose a plural
+/// category, never to display one — a <c>Format</c> here would drop the sign and the group separator
+/// (it did, once). Rendering belongs to <see cref="IcuMessage"/>, which holds the signed value.
 /// </para>
 /// </remarks>
 public readonly record struct PluralOperands(
@@ -61,10 +54,9 @@ public readonly record struct PluralOperands(
     /// How many fraction digits the rendered string shows, or null to read them off the value.
     /// </param>
     /// <remarks>
-    /// The parameter is what makes <c>1</c> and <c>1.0</c> different: a caller formatting to two
-    /// decimal places has to say so, because by the time the number reaches here as a
-    /// <see cref="decimal"/> the trailing zeros it will be printed with are a fact about the format
-    /// string and not about the value.
+    /// What makes <c>1</c> and <c>1.0</c> different: the trailing zeros a value is printed with are
+    /// a fact about the format string, not about the <see cref="decimal"/> itself, so a caller
+    /// formatting to two decimal places has to say so explicitly.
     /// </remarks>
     public static PluralOperands Of(decimal value, int? visibleFractionDigits = null)
     {

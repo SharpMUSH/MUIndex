@@ -9,20 +9,13 @@ namespace MUI.Catalog.Persistence;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Deliberately not behind an interface.</b> Every method here is an aggregation the database does
-/// in place — the rows never travel to this process to be summed — and an in-memory stand-in for it
-/// would be a second implementation of §5.4's three states written by the same person as the first,
-/// agreeing with it for the same reasons. What proves this correct is a real PostgreSQL, which is
-/// what the tests use.
+/// Deliberately not behind an interface: every method is an aggregation the database does in place,
+/// and only a real PostgreSQL (what the tests use) proves it correct.
 /// </para>
 /// <para>
-/// <b>Both grains are aggregated from the raw table, and the day is not aggregated from the hour.</b>
-/// It would be cheaper, and it would make the day depend on the hour surviving: the two grains have
-/// different retentions by design (§5.2 keeps the day for ever and the hour for two years), so a day
-/// built from hours would be a permanent copy derived from an impermanent one, and re-running it
-/// after the hours had been dropped would silently produce a different answer from the first run.
-/// Reading raw for both means each grain is a projection of the same source, and retention never runs
-/// ahead of the rollup, so that source is there when it matters.
+/// Both grains aggregate from the raw table; the day is never aggregated from the hour. The two
+/// grains have different retentions (day forever, hour two years), so a day built from hours would
+/// silently change answer once the hours it depended on were dropped.
 /// </para>
 /// </remarks>
 public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source) : IPresenceSeries
@@ -32,9 +25,8 @@ public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source) : IPresen
     /// many buckets it wrote.
     /// </summary>
     /// <remarks>
-    /// An upsert, so re-running it over a window that has already been rolled produces the same rows:
-    /// the rollup is a projection of the raw table rather than an accumulation, which is what lets a
-    /// late-arriving sample be folded in by simply reading its hour again.
+    /// An upsert: re-running it over an already-rolled window reproduces the same rows, which is what
+    /// lets a late-arriving sample be folded in by simply reading its hour again.
     /// </remarks>
     public async Task<int> RollUpAsync(
         PresenceGrain grain,
@@ -49,21 +41,16 @@ public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source) : IPresen
 
         var (table, bucket, unit) = Shape(grain);
 
-        // Truncation happens in UTC on both sides so that a session's TimeZone setting can never move
-        // a measurement into the neighbouring hour.
+        // Truncation is UTC on both sides so a session's TimeZone setting can never shift a
+        // measurement into the neighbouring hour.
         //
-        // The three-state rule is in the two FILTERs and in what is missing: min/max/sum are over
-        // counted samples alone and come back NULL when there were none, and a group is only produced
-        // for a bucket some probe actually wrote a row in — so an hour nobody measured stays absent
-        // rather than arriving as a zero.
-        // The distribution (migration 0019) needs a second level of grouping — one row per distinct
-        // count before one row per bucket — so the aggregate is built in a CTE and joined back. It
-        // is exact rather than bucketed: an entry per count some probe actually read, which is
-        // bounded by the number of counted samples in the bucket and is a handful.
+        // The three-state rule lives in the FILTERs: min/max/sum run over counted samples only and
+        // come back NULL when there were none, and a group only exists for a bucket some probe
+        // actually wrote a row in — an unmeasured hour stays absent rather than becoming a zero.
         //
-        // A LEFT JOIN, because a bucket that was probed and never counted has no distribution at all
-        // and must still produce its row — that is §5.4's hatched cell, and dropping it here would
-        // turn "probed, could not count" into "not measured".
+        // The distribution needs a second grouping level (one row per count, then per bucket), so
+        // it's built in a CTE and joined back with a LEFT JOIN — a probed-but-uncountable bucket has
+        // no distribution but must still produce its row (§5.4's hatched cell).
         var sql = $"""
             WITH tally AS (
                 SELECT s.game_id,
@@ -158,10 +145,8 @@ public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source) : IPresen
     /// Records that everything before <paramref name="through"/> has been aggregated at this grain.
     /// </summary>
     /// <remarks>
-    /// Only ever moves forward. Two replicas racing a maintenance pass are already prevented by the
-    /// advisory lock the hosted service takes, but a watermark that could go backwards would make
-    /// retention's "already rolled up" question answerable with a stale yes, and that question guards
-    /// a <c>DROP TABLE</c>.
+    /// Only ever moves forward: a watermark that could regress would let retention's "already rolled
+    /// up" check answer a stale yes, and that check guards a <c>DROP TABLE</c>.
     /// </remarks>
     public async Task SetWatermarkAsync(
         PresenceGrain grain,
@@ -182,15 +167,11 @@ public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source) : IPresen
             cancellationToken: cancellationToken));
     }
 
-    /// <summary>
-    /// Whether the tables a pass reads and writes exist yet.
-    /// </summary>
+    /// <summary>Whether the tables a pass reads and writes exist yet.</summary>
     /// <remarks>
-    /// The maintenance service starts with the web tier, and on a fresh database the migrations are
-    /// being applied by whichever replica holds the crawl lease at the same moment. Asking is one
-    /// catalogue lookup; not asking means every replica's first pass throws <c>42P01</c> and stands
-    /// down for the whole retry interval, which turns "the schema arrived a second later" into five
-    /// minutes of no maintenance and an error in the log that looks like a real fault.
+    /// On a fresh database, migrations may still be applying when the maintenance service starts. Not
+    /// checking means every replica's first pass throws <c>42P01</c> and stands down for a full retry
+    /// interval, turning a one-second race into minutes of no maintenance.
     /// </remarks>
     public async Task<bool> IsInstalledAsync(CancellationToken cancellationToken = default)
     {
@@ -221,9 +202,8 @@ public sealed class NpgsqlPresenceRollupStore(NpgsqlDataSource source) : IPresen
     /// Deletes rolled-up buckets that start before <paramref name="cutoff"/>, and returns how many.
     /// </summary>
     /// <remarks>
-    /// Row-by-row rather than by partition, because these two tables are not partitioned: they are
-    /// smaller than the raw one by the number of probes an hour holds, and §5.2 keeps the daily grain
-    /// for ever, so the table that would most want partitioning is the one nothing ever deletes from.
+    /// Row-by-row, not by partition: these tables aren't partitioned, since §5.2 keeps the daily grain
+    /// forever, so the table that would most want partitioning is the one nothing ever deletes from.
     /// </remarks>
     public async Task<int> DeleteBeforeAsync(
         PresenceGrain grain,

@@ -9,22 +9,17 @@ namespace MUI.Discovery;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>These spellings are a published contract, exactly as <see cref="ClaimTokenBeacon"/>'s are.</b>
-/// They appear on the about page and in this reader, and the about page reads them off this class
-/// rather than restating them, so the page cannot advertise a switch that is wired to something else.
-/// Changing a value here is changing what every operator who already opted out has typed into their
-/// configuration or their zone file, which makes it a migration rather than an edit.
+/// <b>These spellings are a published contract</b>, exactly as <see cref="ClaimTokenBeacon"/>'s are.
+/// They appear on the about page, which reads them off this class rather than restating them.
+/// Changing a value here is a migration, not an edit: it changes what every operator who already
+/// opted out has typed into their config or zone file.
 /// </para>
 /// <para>
 /// <b>The two channels are scoped differently on purpose.</b> An MSSP field is published by the
-/// listener that answered us, and it stops that listener: a hostname is not a game (§8.3), and two
-/// unrelated games on one hosting domain are separated only by a port, so one of them must never be
-/// able to silence the other. A TXT record at <c>_muindex.&lt;host&gt;</c> is the domain's own
-/// operator speaking about a machine they run, so it stops every port on that host unless it names
-/// one. That asymmetry is the reason §8.3 defers DNS for <em>claiming</em> and §11 keeps it for
-/// opting out: the failure mode of a hostname-scoped claim is somebody taking a game that is not
-/// theirs, and the failure mode of a hostname-scoped opt-out is us not connecting to a machine whose
-/// owner told us not to — which they could have achieved with a firewall rule and less courtesy.
+/// listener that answered and stops only that listener — two unrelated games sharing a hosting
+/// domain, separated only by port, must never be able to silence each other. A TXT record at
+/// <c>_muindex.&lt;host&gt;</c> is the domain's own operator speaking about a machine they run, so it
+/// stops every port on that host unless it names one.
 /// </para>
 /// </remarks>
 public static class OptOutVocabulary
@@ -36,11 +31,9 @@ public static class OptOutVocabulary
     /// Every MSSP spelling an opt-out is accepted from, canonical first.
     /// </summary>
     /// <remarks>
-    /// <b>More than one spelling, for the reason §8's beacon accepts more than one:</b> a variable
-    /// name does not reliably survive a config file, and an operator who did what they were told must
-    /// not go on being crawled because their codebase folded a space into an underscore. Of every
-    /// place in this codebase to be strict, the one where somebody is asking us to go away is the
-    /// worst.
+    /// A variable name doesn't reliably survive a config file, and an operator who did what they were
+    /// told must not go on being crawled because their codebase folded a space into an underscore —
+    /// of every place to be strict, the one where somebody is asking us to go away is the worst.
     /// </remarks>
     public static readonly IReadOnlyList<string> AcceptedMsspVariables =
         [MsspVariable, "MUINDEX_OPT_OUT", "MUINDEX OPTOUT", "CRAWL_OPT_OUT"];
@@ -64,21 +57,12 @@ public static class OptOutVocabulary
     /// The opt-out this MSSP report carries, or null.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Any value that is not one of <see cref="Negatives"/> is an opt-out, and that is the safe
-    /// direction rather than the sloppy one.</b> An operator who typed the variable at all meant
-    /// something by it, and of the two ways to misread <c>MUINDEX OPT-OUT stop please</c>, only one
-    /// of them keeps connecting to somebody who asked us not to. The negatives are enumerated so that
-    /// leaving the line in place set to <c>0</c> works, which is what an operator who has changed
-    /// their mind will do.
-    /// </para>
-    /// <para>
-    /// <b>Every spelling is read, and one saying stop is the report saying stop.</b> A negative does
-    /// not end the search: a codebase or a hosting template that ships
-    /// <c>MUINDEX OPT-OUT 0</c> would otherwise silently overrule the <c>CRAWL_OPT_OUT 1</c> the
-    /// operator added themselves, and the whole reason several spellings are accepted is that we do
-    /// not know which one they will reach for.
-    /// </para>
+    /// <b>Any value not in <see cref="Negatives"/> is an opt-out</b> — the safe direction: an operator
+    /// who typed the variable meant something by it. Negatives are enumerated so leaving the line set
+    /// to <c>0</c> works, for an operator who changed their mind. A negative does not end the search:
+    /// one spelling saying stop is the report saying stop, so a template shipping
+    /// <c>MUINDEX OPT-OUT 0</c> can't silently overrule the <c>CRAWL_OPT_OUT 1</c> an operator added
+    /// themselves.
     /// </remarks>
     public static MsspOptOut? ReadMssp(IReadOnlyDictionary<string, IReadOnlyList<string>> mssp)
     {
@@ -108,18 +92,10 @@ public static class OptOutVocabulary
     /// What a TXT answer says about dialling this port, or null when it says nothing about it.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The grammar is deliberately forgiving in the ways a zone file is unforgiving. A record is read
-    /// as a list of tokens separated by whitespace or semicolons, so <c>"v=muindex1; opt-out"</c> and
-    /// a bare <c>"opt-out"</c> both work; a token may qualify itself with ports as
-    /// <c>opt-out=4201,4202</c> or <c>opt-out:4201</c>; and matching is case-insensitive because DNS
-    /// is.
-    /// </para>
-    /// <para>
-    /// <b>A qualified record that names other ports is not an answer about this one.</b> It is not a
-    /// permission either — it is a record about a different listener, and the caller goes on to ask
-    /// whatever it would have asked had there been no record at all.
-    /// </para>
+    /// The grammar is deliberately forgiving: tokens separated by whitespace or semicolons, so
+    /// <c>"v=muindex1; opt-out"</c> and a bare <c>"opt-out"</c> both work; a token may qualify itself
+    /// with ports as <c>opt-out=4201,4202</c>; matching is case-insensitive. A record naming other
+    /// ports is not an answer about this one — the caller proceeds as if there were no record at all.
     /// </remarks>
     public static DnsOptOut? ReadDns(IEnumerable<string> records, int port)
     {
@@ -172,17 +148,14 @@ public static class OptOutVocabulary
 
             if (qualifier.Length == 0)
             {
-                // Unqualified: the whole host, which is what the record's owner runs.
+                // Unqualified: the whole host.
                 return true;
             }
 
             var parts = qualifier.Split(',', StringSplitOptions.RemoveEmptyEntries);
 
-            // A qualifier is a port list or it is not readable as one, and the only safe reading of
-            // the second is the whole host — the same reading an unqualified record gets, and the
-            // same direction ReadMssp takes with a value nobody anticipated. Otherwise "opt-out=all"
-            // and "opt-out=*", which are the plausible things to type, would be read as saying
-            // nothing and the crawler would carry on. That is the one failure this must not have.
+            // An unparseable qualifier (e.g. "opt-out=all") reads as the whole host, not as no
+            // opt-out — the crawler must not carry on dialling because it didn't recognise the value.
             if (parts.Any(part => !int.TryParse(part.Trim(), out _)))
             {
                 return true;
@@ -235,10 +208,9 @@ public enum OptOutSource
     /// Somebody asked, and an operator of this deployment recorded it.
     /// </summary>
     /// <remarks>
-    /// Recorded by a person who can say who asked, never defaulted and never inferred. The
-    /// <c>ContactedMaintainer</c> defect this repository already has a record of was a claim about
-    /// somebody else's wishes compiled in by whoever typed it; a request that arrives by mail is the
-    /// same kind of claim, so the detail is required and says who.
+    /// Recorded by a person who can say who asked — never defaulted, never inferred. A claim about
+    /// somebody else's wishes must never be compiled in by whoever typed the code; the detail is
+    /// required and must say who asked.
     /// </remarks>
     Request,
 }
@@ -307,13 +279,11 @@ public interface ICrawlOptOutRepository
     /// Records an opt-out, or confirms one we already hold, and returns what is now stored.
     /// </summary>
     /// <remarks>
-    /// A repeat sighting moves <c>last_confirmed_at</c> and un-withdraws, and <b>leaves the date they
-    /// first asked alone</b>: when they asked and when we last heard it are two facts.
-    /// <b><see cref="OptOutRecording.IsFirstAsk"/> is reported by the store rather than worked out by
-    /// the caller</b>, because the obvious way to work it out — compare the stored date against the
-    /// clock — is wrong against a real database: <c>timestamptz</c> keeps microseconds and a
-    /// <see cref="DateTimeOffset"/> counts 100ns ticks, so the value that comes back is not the value
-    /// that went in and the comparison is false nearly always.
+    /// A repeat sighting moves <c>last_confirmed_at</c> and un-withdraws, leaving the date they first
+    /// asked alone. <see cref="OptOutRecording.IsFirstAsk"/> is reported by the store rather than
+    /// worked out by the caller: comparing the stored date against the clock is wrong against a real
+    /// database, since <c>timestamptz</c> keeps microseconds and <see cref="DateTimeOffset"/> counts
+    /// 100ns ticks, so the round-tripped value rarely equals the one that went in.
     /// </remarks>
     Task<OptOutRecording> RecordAsync(CrawlOptOut optOut, CancellationToken ct);
 
@@ -326,18 +296,14 @@ public interface ICrawlOptOutRepository
 
 /// <summary>What one write to the register did.</summary>
 /// <param name="OptOut">The row as it now stands, with the date they first asked.</param>
-/// <param name="IsFirstAsk">
-/// Whether this call is the one that recorded it. The store answers this because it is the thing that
-/// inserted or did not; a caller comparing timestamps would be reading a value the database rounded.
-/// </param>
+/// <param name="IsFirstAsk">Whether this call is the one that recorded it (see <see cref="ICrawlOptOutRepository.RecordAsync"/>).</param>
 public sealed record OptOutRecording(CrawlOptOut OptOut, bool IsFirstAsk);
 
 /// <summary>A TXT lookup's answer, which has three outcomes and not two.</summary>
 /// <param name="Answered">
-/// Whether DNS answered at all. <b>"No such record" is an answer and "the resolver did not reply" is
-/// not</b>, and only the first may withdraw a standing opt-out — the same shape as §8.4's "presence
-/// establishes, absence never revokes". Treating a timeout as a withdrawal would let a resolver
-/// hiccup put us back on somebody's doorstep.
+/// Whether DNS answered at all. <b>"No such record" is an answer; "the resolver did not reply" is
+/// not</b>, and only the first may withdraw a standing opt-out — treating a timeout as a withdrawal
+/// would let a resolver hiccup put us back on somebody's doorstep.
 /// </param>
 /// <param name="Records">The TXT records at that name, each already joined from its wire chunks.</param>
 public sealed record DnsTxtAnswer(bool Answered, IReadOnlyList<string> Records)
@@ -369,26 +335,20 @@ public interface IDnsTxtResolver
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>This is a gate and not a measurement, and the difference is the whole design.</b> A refusal
-/// here happens <em>before</em> a <see cref="ProbeResult"/> exists, so there is no route by which an
-/// opt-out can write an availability transition, a presence row or a field — the same structural
-/// guarantee <see cref="HostScopeGuard"/> gives §7.2's refusals, for the same reason. <b>Do not reach
-/// for <c>ProbeResult.Failed("refused", …)</c>:</b> <see cref="MUI.Catalog.FailureCause.Refused"/>
-/// means the far end sent an RST, which is a real measurement of a real host, and dressing our own
-/// politeness as one would put it into a game's public reachability history for ever.
+/// <b>This is a gate, not a measurement.</b> A refusal happens before a <see cref="ProbeResult"/>
+/// exists, so there is no route by which an opt-out can write an availability transition, a presence
+/// row or a field — the same structural guarantee <see cref="HostScopeGuard"/> gives §7.2's refusals.
+/// <b>Do not reach for <c>ProbeResult.Failed("refused", …)</c></b>:
+/// <see cref="MUI.Catalog.FailureCause.Refused"/> means the far end sent an RST, a real measurement of
+/// a real host, and dressing our own politeness as one would put it into a game's public reachability
+/// history for ever.
 /// </para>
 /// <para>
-/// <b>Honoured within one cycle</b> (§11), and the arithmetic is simply that this runs per dial rather
-/// than per pass: an opt-out recorded during a cycle stops the next dial in that same cycle, and one
-/// recorded between cycles stops the first dial of the next.
-/// </para>
-/// <para>
-/// <b>DNS is re-read every time, and the other two routes are never re-read.</b> That is not
-/// inconsistency: a TXT record is readable without connecting to a server that has asked us not to,
-/// so an operator can take their opt-out back by deleting a record and we will notice within one
-/// cycle. An MSSP field cannot be re-read without doing the exact thing they asked us to stop doing,
-/// so an MSSP or a requested opt-out stands until somebody says otherwise. Both halves are stated on
-/// the about page, because an opt-out whose exit is undocumented is a trap.
+/// <b>DNS is re-read every time; the other two routes are never re-read.</b> A TXT record is readable
+/// without connecting to a server that asked us not to, so an operator can take their opt-out back by
+/// deleting it and we notice within one cycle. An MSSP field can't be re-read without doing the exact
+/// thing they asked us to stop doing, so an MSSP or requested opt-out stands until somebody says
+/// otherwise.
 /// </para>
 /// </remarks>
 public sealed class OptOutGate(
@@ -411,23 +371,13 @@ public sealed class OptOutGate(
     /// The same ruling on a bare address, for a caller that has no target and must not invent one.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The gate has always been about an address — it is keyed on one, it reads a TXT record at one,
-    /// and nothing in it touches a schedule, a depth or a game. The overload above is a convenience
-    /// for the crawl loop, which happens to hold a target.
-    /// </para>
-    /// <para>
-    /// <b>The public submission form is the other caller</b> (spec §9). It has a host and a port that
-    /// somebody typed and nothing else, and fabricating a <see cref="CrawlTarget"/> to ask this
-    /// question would put a value into the world that is not a target and will never be one — the
-    /// kind of thing that reads as a registry row to whoever finds it next.
-    /// </para>
-    /// <para>
-    /// <b>Ordering is the same on both paths and it is deliberate</b>: the stored register first,
-    /// because it is one indexed read of our own database, and DNS only if that says nothing. An
-    /// unauthenticated form reaching this must not be able to spend a lookup per request, so it is
-    /// also the caller's job to have bounded how often it gets here at all.
-    /// </para>
+    /// The gate is about an address — keyed on one, reads a TXT record at one — and touches no
+    /// schedule, depth or game. The overload above is a convenience for the crawl loop, which happens
+    /// to hold a target; <b>the public submission form is the other caller</b> (spec §9), with only a
+    /// host and port somebody typed, so fabricating a <see cref="CrawlTarget"/> just to ask this
+    /// question would put a fake registry row into the world. Ordering is deliberate: the stored
+    /// register first (one indexed read), DNS only if that says nothing — an unauthenticated form
+    /// reaching this must not spend a lookup per request.
     /// </remarks>
     public async Task<CrawlOptOut?> RuleOnAsync(
         string host,
@@ -502,17 +452,10 @@ public sealed class OptOutGate(
     /// Records an opt-out a probe just read off an MSSP report, and returns it.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>The probe that reads the field is the last one.</b> What it measured is stored like every
-    /// other measurement — the reply was sent to an anonymous connection that had already been made,
-    /// nothing here is ever deleted, and dropping it would leave a game's history ending one probe
-    /// earlier than it did for no reader's benefit. Everything after it is refused before a socket is
-    /// opened.
-    /// </para>
-    /// <para>
-    /// Scoped to the listener that published it: see <see cref="OptOutVocabulary"/> for why an MSSP
-    /// field may not speak for a port it did not answer on.
-    /// </para>
+    /// The probe that reads the field is the last one: what it measured is stored like any other
+    /// measurement, and everything after it is refused before a socket is opened. Scoped to the
+    /// listener that published it — see <see cref="OptOutVocabulary"/> for why an MSSP field may not
+    /// speak for a port it did not answer on.
     /// </remarks>
     public async Task<CrawlOptOut?> HearAsync(
         CrawlTarget target,
@@ -559,8 +502,7 @@ public sealed class OptOutGate(
     /// <param name="port">One port, or null for every port on that host.</param>
     /// <param name="detail">
     /// <b>Who asked and how, and it is required.</b> This deployment's operator is making a claim
-    /// about somebody else's wishes, which is the one kind of claim this codebase has already got
-    /// wrong once by letting a default make it.
+    /// about somebody else's wishes, and that claim must never come from a default.
     /// </param>
     public async Task<CrawlOptOut> RecordRequestAsync(
         string host,
@@ -592,18 +534,10 @@ public sealed class OptOutGate(
     /// Takes back a recorded request, on the say-so of somebody who can make it.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The counterpart to <see cref="RecordRequestAsync"/> and deliberately narrower than it looks:
-    /// it withdraws the <see cref="OptOutSource.Request"/> route alone. An MSSP field or a TXT record
-    /// is the game still saying stop on every probe, and a caller here cannot answer for that — the
-    /// way to take one of those back is to stop publishing it. Withdrawing them from this side would
-    /// be the worst version of the mistake, because we would have stopped connecting and so could
-    /// never hear the retraction we had assumed.
-    /// </para>
-    /// <para>
-    /// The row is kept, withdrawn. "They asked us to stop, and later asked us back" is a thing the
-    /// register has to be able to say.
-    /// </para>
+    /// Deliberately narrower than it looks: withdraws only the <see cref="OptOutSource.Request"/>
+    /// route. An MSSP field or TXT record is the game still saying stop on every probe, and the only
+    /// way to take one of those back is to stop publishing it — withdrawing them from here would leave
+    /// us assuming a retraction we never actually heard, having stopped connecting.
     /// </remarks>
     public Task WithdrawRequestAsync(
         string host,

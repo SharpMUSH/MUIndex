@@ -11,11 +11,9 @@ namespace MUI.Catalog.Tests.Persistence;
 /// A game whose owners asked to come out of the listing (migration 0025).
 /// </summary>
 /// <remarks>
-/// <b>The property under test is that it is neither of its neighbours.</b> Archiving says the game
-/// stopped answering, which would be a false statement about a game that is running perfectly well
-/// and simply not being dialled. Exclusion says we decided it is not a game somebody can play, which
-/// would be a false statement about a game. This state says what actually happened, and the two
-/// halves of that — an account that asked, and a probe that can undo it — are what these tests pin.
+/// Distinct from both neighbours: archiving would falsely say the game stopped answering, and
+/// exclusion would falsely say it isn't a real game. This state records what actually happened — an
+/// account asked, and a probe can undo it.
 /// </remarks>
 public class UnlistedGamePostgresTests
 {
@@ -74,11 +72,7 @@ public class UnlistedGamePostgresTests
     /// An unlisting nobody can attribute is the thing the constraint exists to prevent, and it is the
     /// database that refuses rather than a writer that happens to check.
     /// </summary>
-    /// <remarks>
-    /// The lesson is <c>ContactedMaintainer</c>'s: a claim about what a third party wants, made by
-    /// whoever typed it and traceable to nobody, shipped once already. A NOT NULL account is what
-    /// that defect did not have.
-    /// </remarks>
+    /// <remarks>A NOT NULL account column enforces this in the database, not just in application code.</remarks>
     [Test]
     public async Task AnUnlistingWithNobodyBehindItIsRefusedByTheSchema()
     {
@@ -97,10 +91,9 @@ public class UnlistedGamePostgresTests
     /// The sweeper and the ingestor both go through <c>SetStateAsync</c>, and neither may move it.
     /// </summary>
     /// <remarks>
-    /// Rarely reached and load-bearing anyway. A game that opted out writes no availability
-    /// transition at all, so it has no open unreachable interval for the sweeper to archive it on —
-    /// but a game that had already gone dark before its owners asked does, and archiving that one
-    /// would replace "they asked" with "it stopped answering" in the column the listing reads.
+    /// A game that opted out writes no availability transition, so the sweeper has no open interval
+    /// to archive it on — but a game that had already gone dark before asking does, and archiving
+    /// that one would replace "they asked" with "it stopped answering" in the listing's state.
     /// </remarks>
     [Test]
     [Arguments(LifecycleState.Active)]
@@ -123,9 +116,8 @@ public class UnlistedGamePostgresTests
     /// the exit an operator can work alone into a real exit.
     /// </summary>
     /// <remarks>
-    /// Safe by construction rather than by a check: an opted-out address is refused before the dial
-    /// (§11), so a probe that answered is proof no opt-out stands on it any more. Nobody has to ask
-    /// us twice, and nobody has to hold an account here to be listed again.
+    /// Safe by construction: an opted-out address is refused before the dial (§11), so a probe that
+    /// answered proves no opt-out stands on it any more. No account is needed to be listed again.
     /// </remarks>
     [Test]
     public async Task AProbeThatAnswersPutsItBackInTheListing()
@@ -148,10 +140,9 @@ public class UnlistedGamePostgresTests
     /// listing.
     /// </summary>
     /// <remarks>
-    /// Nothing stops an excluded instance being claimed and opted out, and the two states are not
-    /// interchangeable: exclusion says what an address <em>is</em>, and only a person who can argue
-    /// with that reverses it. Refusing costs the caller nothing — the game is already out of the
-    /// listing — and layering an unlisting over it would erase the reason.
+    /// Exclusion says what an address <em>is</em>; only an editor reverses that, not an owner's
+    /// unlisting. Refusing costs nothing — the game is already out of the listing — and layering an
+    /// unlisting over it would erase the reason for the exclusion.
     /// </remarks>
     [Test]
     public async Task AnExcludedGameCannotBeUnlistedOutOfItsExclusion()
@@ -198,8 +189,8 @@ public class UnlistedGamePostgresTests
 
         await using var connection = await db.DataSource.OpenConnectionAsync();
 
-        // Both, because game_unlisting_is_attributed holds them in step and a row keeping the account
-        // that asked, under a state that no longer says anybody did, is a fact about nothing.
+        // Both must clear together: game_unlisting_is_attributed ties them, and an account surviving
+        // under a state that no longer says anyone asked would be a fact about nothing.
         await Assert.That(await connection.QuerySingleAsync<DateTimeOffset?>(
                 "SELECT unlisted_at FROM game WHERE id = @id", new { id }))
             .IsNull();

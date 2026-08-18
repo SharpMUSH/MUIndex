@@ -6,12 +6,11 @@ namespace MUI.Discovery.Tests.Support;
 /// the microsecond on the way in</b>.
 /// </summary>
 /// <remarks>
-/// That last one is not pedantry. <c>timestamptz</c> stores microseconds and a
-/// <see cref="DateTimeOffset"/> counts 100ns ticks, so a date written here and read back in
-/// production is a <em>different value</em> — which is exactly what broke the first version of the
-/// gate's "have we heard this before" test, by comparing the stored date against the clock. A fake
-/// that round-tripped the value exactly would be a fake kinder than the database, and every test
-/// would pass while the log line never fired.
+/// The microsecond rounding is not pedantry: <c>timestamptz</c> stores microseconds while
+/// <see cref="DateTimeOffset"/> counts 100ns ticks, so a value written and read back in production
+/// differs — which broke the first version of the gate's "have we heard this before" test by
+/// comparing the stored date against the clock. A fake that round-tripped exactly would be kinder
+/// than the database, and every test would pass while the log line never fired.
 /// </remarks>
 public sealed class InMemoryCrawlOptOutRepository : ICrawlOptOutRepository
 {

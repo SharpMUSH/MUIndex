@@ -55,10 +55,8 @@ public class SchemaTests
     [Test]
     public async Task NoSchemaIdentifierSaysUptime()
     {
-        // Spec §5.8 is a naming rule with teeth: we measured a socket from one vantage point and did
-        // not measure whether the game was up. The rule binds identifiers — MSSP's own UPTIME
-        // variable may still appear as a VALUE in game_field.field, which is why this reads the
-        // catalogue and not our data.
+        // Spec §5.8 binds identifiers, not values — MSSP's own UPTIME variable may still appear as a
+        // VALUE in game_field.field, which is why this reads the catalogue and not our data.
         await using var db = await PostgresFixture.MigratedAsync();
         await using var connection = await db.DataSource.OpenConnectionAsync();
 

@@ -6,23 +6,19 @@ namespace MUI.Catalog;
 /// <remarks>
 /// <para>
 /// One predicate, because two implementations of <see cref="IGameQueries"/> feed one
-/// <see cref="FacetedSearch"/>: Postgres reads it off <c>game_field</c> rows and the demo fixture
-/// assigns it. Those two already disagreed once about what <c>band=archived</c> returned, which is
-/// why the filtering itself is a single function — a second spelling of this rule would put them
-/// back in the same position, and this time the disagreement would be about which games a default
-/// hides.
+/// <see cref="FacetedSearch"/> (Postgres reads it off <c>game_field</c> rows, the demo fixture
+/// assigns it) — a second spelling of this rule risks the two disagreeing about which games a
+/// default hides.
 /// </para>
 /// <para>
-/// <b>Both inputs are declared and neither is a measurement.</b> We have not inspected anybody's
-/// game; we have read what its operator typed into <c>mush.cnf</c>. Hiding it by default is a
-/// decision of ours about our own listing, and it may never be recorded or rendered as a fact we
-/// established about the game (rule 5).
+/// Both inputs are declared, neither is a measurement — we've read what the operator typed into
+/// <c>mush.cnf</c>, not inspected the game. Hiding it by default is our own listing decision and may
+/// never be rendered as a fact we established about the game (rule 5).
 /// </para>
 /// <para>
 /// <c>ADULT MATERIAL</c> is read as well as <c>GENRE</c> because they catch different games: MSSP
-/// gives <c>GENRE</c> one value, so a game whose setting is Fantasy and whose content is adult has
-/// only the flag to say so — and one of the four games this catches in production is exactly that,
-/// declaring <c>ADULT MATERIAL 1</c> under <c>GENRE Adventure</c>.
+/// gives <c>GENRE</c> one value, so a game whose setting is Fantasy and content is adult has only the
+/// flag to say so.
 /// </para>
 /// </remarks>
 public static class AdultContent

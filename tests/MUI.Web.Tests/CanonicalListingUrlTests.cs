@@ -8,26 +8,12 @@ namespace MUI.Web.Tests;
 /// A listing URL says what was asked for, and nothing else.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The facet panel is a plain GET form (spec §9), and a browser submits every named control in one
-/// — including the nine <c>&lt;select&gt;</c>s sitting on "any". So pressing <b>show</b> having
-/// touched nothing produced
-/// <c>/games?q=&amp;sort=players&amp;band=&amp;seen=&amp;charset=&amp;lineage=&amp;codebase=&amp;version=&amp;family=&amp;genre=&amp;language=</c>:
-/// 117 characters to say "no filters", and that is the URL the reader then copies to somebody else.
-/// <c>/find</c>'s wizard does the same through its "doesn't matter" radios, and both post here.
-/// </para>
-/// <para>
-/// It cannot be fixed at the form — a browser with no script submits an empty control and there is
-/// no markup that says otherwise — so it is fixed on arrival, by redirecting to the URL that means
-/// the same thing.
-/// </para>
-/// <para>
-/// <b>The claim that makes this safe is already in <c>GameFilterBinding</c>:</b> a blank parameter
-/// is no selection. <c>Choice</c> returns null on blank, <c>TryBand</c> and <c>TryLastSeen</c> and
-/// <c>TrySort</c> fall through to their defaults. So dropping the blanks provably cannot change
-/// which games come back — and these are the tests that keep the two halves of that sentence
-/// together.
-/// </para>
+/// The facet panel is a plain GET form (§9), and a browser submits every named control, including
+/// selects sitting on "any" — so an untouched submit produced a 117-character URL saying "no
+/// filters", which the reader then copies onward. It can't be fixed at the form (no markup stops an
+/// empty control from submitting), so it's fixed on arrival by redirecting to the equivalent
+/// canonical URL. Safe because <c>GameFilterBinding</c> already treats a blank parameter as no
+/// selection — dropping blanks provably can't change which games come back.
 /// </remarks>
 public class CanonicalListingUrlTests
 {
@@ -84,10 +70,9 @@ public class CanonicalListingUrlTests
     /// Values are never re-encoded, only dropped.
     /// </summary>
     /// <remarks>
-    /// A canonicaliser that parsed and rebuilt would rewrite <c>%20</c> as <c>+</c> and redirect
-    /// every URL carrying one — a redirect that changes nothing, on a URL somebody typed correctly.
-    /// The output is a subsequence of the input, which is also what makes reaching a fixed point in
-    /// one hop provable rather than hoped for.
+    /// A canonicaliser that parsed and rebuilt would rewrite <c>%20</c> as <c>+</c> and redirect a
+    /// correctly-typed URL for nothing. The output is a subsequence of the input, which is what makes
+    /// reaching a fixed point in one hop provable.
     /// </remarks>
     [Test]
     public async Task AValueIsNeverRewrittenOnlyDropped()
@@ -112,9 +97,9 @@ public class CanonicalListingUrlTests
 
     /// <summary>Anything we do not recognise, carrying a value, is left alone.</summary>
     /// <remarks>
-    /// This function's business is emptiness, not vocabulary. The binder is what refuses a facet it
-    /// cannot read, and it says so to the reader; a canonicaliser that silently deleted the
-    /// parameter first would turn that refusal into an unfiltered catalogue presented as the answer.
+    /// This function's business is emptiness, not vocabulary — the binder refuses a facet it cannot
+    /// read and says so; silently deleting the parameter here would turn that refusal into an
+    /// unfiltered catalogue presented as the answer.
     /// </remarks>
     [Test]
     public async Task AParameterWeDoNotKnowIsNotOursToDelete()
@@ -124,16 +109,13 @@ public class CanonicalListingUrlTests
     }
 
     /// <summary>
-    /// <c>?codebase=</c> is not empty in the sense the rest of this file means. It is a caller
-    /// clearing the filter over a stale alias, and dropping it alone would re-apply what they
-    /// cleared.
+    /// <c>?codebase=</c> clears the filter over a stale alias; dropping it alone would re-apply what
+    /// was just cleared.
     /// </summary>
     /// <remarks>
-    /// <b>The one case where "blank means unset" is false.</b> <c>GameFilterBinding</c> reads
-    /// <c>codebase</c> by <em>presence</em>, so <c>?codebase=&amp;codebase-family=PennMUSH</c> means
-    /// no codebase filter — the current spelling, blank, beats the old one. Drop the blank and the
-    /// same URL suddenly filters by PennMUSH: a canonicalisation that changed the answer, which is
-    /// the only way this whole idea could have been wrong. So the pair goes or stays together.
+    /// The one case where "blank means unset" is false: <c>GameFilterBinding</c> reads
+    /// <c>codebase</c> by presence, so blank beats the old <c>codebase-family</c> alias — drop the
+    /// blank and the same URL suddenly filters by the alias's value. The pair goes or stays together.
     /// </remarks>
     [Test]
     public async Task ClearingACodebaseOverAStaleAliasTakesTheAliasWithIt()
@@ -225,9 +207,8 @@ public class CanonicalListingUrlTests
     /// The API is handed whatever URL its consumer built and answers it.
     /// </summary>
     /// <remarks>
-    /// This exists for a form a browser submits. A client library following a redirect is a wasted
-    /// round trip at best, and one that does not follow redirects — which is a perfectly ordinary
-    /// way to write one — reads a 302 with no body as a failure. §10's surface answers for itself.
+    /// This redirect exists for a browser-submitted form. A client library following it wastes a
+    /// round trip, and one that doesn't follow redirects reads a bodiless 302 as a failure.
     /// </remarks>
     [Test]
     public async Task TheApiIsLeftAlone()

@@ -24,7 +24,6 @@ public class FeedApiTests
         await Assert.That(feeds.GetProperty("wentDark").GetArrayLength()).IsGreaterThan(0);
         await Assert.That(feeds.GetProperty("cameBack").GetArrayLength()).IsGreaterThan(0);
 
-        // Each register says where its RSS is, so a reader who found the JSON never has to guess.
         var rss = feeds.GetProperty("rss");
         await Assert.That(rss.GetProperty("went-dark").GetString()).IsEqualTo(ApiRoutes.WentDarkRss);
     }
@@ -49,10 +48,8 @@ public class FeedApiTests
     [Test]
     public async Task TheFeedKnowsEachGamesIdWithoutReadingTheWholeListingToFindIt()
     {
-        // §10.1's second gap. FeedEntry carried a slug and no id, so answering /api/feeds meant
-        // reading the entire catalogue to join identifiers onto ten rows. The id belongs to the
-        // query that already had the game in hand — and a listing this endpoint never asks for
-        // cannot be the thing it is answering from.
+        // The query supplies the id directly now; this asserts /api/feeds never falls back to
+        // scanning the whole catalogue to join it on.
         var expected = (await new FixtureGameQueries().ListAsync(new GameFilter { IncludeArchived = true }))
             .ToDictionary(g => g.Slug, g => g.Id, StringComparer.Ordinal);
 
@@ -95,8 +92,7 @@ public class FeedApiTests
         await Assert.That(again.Descendants("guid").First().Value)
             .IsEqualTo(item.Element("guid")!.Value);
 
-        // And it names the event rather than only the game, so a game that goes dark twice is two
-        // items rather than one that a reader has already dismissed.
+        // Names the event, not just the game, so a game going dark twice is two distinct items.
         await Assert.That(item.Element("guid")!.Value).Contains("went-dark");
         await Assert.That(item.Element("guid")!.Value).Contains("verdigris");
     }
@@ -119,8 +115,7 @@ public class FeedApiTests
     [Test]
     public async Task AllThreeRegistersAreServedAndNoneOfThemIsACallback()
     {
-        // RSS is the whole notification story in v1. Webhooks are deferred (spec §14) and there is
-        // deliberately nothing here that takes a URL to call back.
+        // Webhooks are deferred deliberately (spec §14); nothing here takes a URL to call back.
         await using var host = await ApiHost.StartAsync();
 
         foreach (var path in new[]
@@ -143,8 +138,7 @@ public class FeedApiTests
     [Test]
     public async Task NothingAboutAPlayerLeavesTheProcess()
     {
-        // WHO is parsed in memory and player names are never persisted (spec §11). Counts and shares
-        // are the only thing presence produces, so nothing name-shaped can reach a payload.
+        // WHO is parsed in memory; player names are never persisted (spec §11).
         await using var host = await ApiHost.StartAsync();
 
         var game = await Json.ElementAsync(

@@ -45,18 +45,10 @@ public sealed record FieldDefinition(
 /// What kind of value a field holds, where that decides what may be done with it.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Three shapes, because exactly three things ask.</b> The enrichment form refuses a value that is
-/// not the shape its field holds, the game page renders a link only for a value that is one, and the
-/// MSSP scorecard names the mismatch to the operator whose config produced it. All three were about
-/// to grow a private list of "the URL fields", and a rule spelled three times is a rule that drifts
-/// twice.
-/// </para>
-/// <para>
-/// <see cref="Text"/> is the default and is deliberately not "unknown": a <c>GENRE</c> holds prose,
-/// and prose is never a destination. It is the answer for every field that has not made a case for
-/// something narrower.
-/// </para>
+/// Shared by the enrichment form (rejects a wrong-shape value), the game page (links only a
+/// <see cref="Url"/> or <see cref="Email"/>) and the MSSP scorecard — one rule instead of three
+/// private "is this a URL field" lists. <see cref="Text"/> is the default and deliberately not
+/// "unknown": prose is never a destination.
 /// </remarks>
 public enum FieldShape
 {
@@ -74,19 +66,11 @@ public enum FieldShape
 /// Whether a verified owner may write a field, and on what grounds (spec §8.5).
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Three states rather than a flag, because the two writable ones are different offers.</b>
-/// <see cref="Enrichment"/> is a field MSSP has no variable for, so the dashboard asks an open
-/// question and the owner is the only possible source. <see cref="Override"/> is one MSSP does have,
-/// so the dashboard shows what the game already reports and asks whether the owner would rather we
-/// showed something else. Collapsed into one state the form offers an empty box beside a field we
-/// already have an answer for, which reads as an invitation to retype it.
-/// </para>
-/// <para>
-/// <b>The distinction is presentational; the authorisation is not.</b> Everything that is not
-/// <see cref="No"/> is writable, and that predicate lives in <c>OwnerEnrichment</c> alone — a second
-/// spelling of it is a second thing to keep in step with this enum.
-/// </para>
+/// Three states rather than a flag because the two writable ones are different offers:
+/// <see cref="Enrichment"/> is a field MSSP has no variable for (an open question); <see cref="Override"/>
+/// is one MSSP does have (the dashboard shows the game's own report and asks whether the owner wants
+/// to supersede it). "Is this writable at all" lives in <c>OwnerEnrichment</c> alone — do not
+/// re-derive it here.
 /// </remarks>
 public enum OwnerWritable
 {
@@ -128,10 +112,9 @@ public interface IGameFieldStore
 
     /// <summary>One source's rows for one game.</summary>
     /// <remarks>
-    /// Narrow on purpose. The owner dashboard wants at most four <see cref="FieldSource.Owner"/>
-    /// rows per claimed game, and reading every row to keep them means dragging the connect screen
-    /// — routinely thousands of characters, and 9,376 at the longest in this catalogue — across the
-    /// wire once per game per page load, to discard it.
+    /// Narrow on purpose: reading every row just to keep the handful of
+    /// <see cref="FieldSource.Owner"/> ones would drag the connect screen — thousands of characters —
+    /// across the wire on every page load, only to discard it.
     /// </remarks>
     Task<IReadOnlyList<GameField>> ForGameAsync(
         Guid gameId,
@@ -148,12 +131,9 @@ public interface IGameFieldStore
     /// When this field last moved, across every source, or null if it never has.
     /// </summary>
     /// <remarks>
-    /// <b>How long a value has been what it is cannot be read off the row.</b>
-    /// <see cref="GameField.FirstSeenAt"/> means "when this (game, field, source) was first seen" and
-    /// survives a change deliberately, so the age a provenance chip shows is the age of the row.
-    /// §5.7's "the name has been stable for one grace period" is a different question and the change
-    /// feed is the only thing that answers it. Matched case-insensitively on the field name, as MSSP
-    /// variables are everywhere else: <c>NAME</c> and <c>name</c> are one field.
+    /// <see cref="GameField.FirstSeenAt"/> survives a value change, so it cannot answer "how long has
+    /// this value held" — only the change feed can. Matched case-insensitively on field name, as MSSP
+    /// variables are everywhere else.
     /// </remarks>
     Task<DateTimeOffset?> LastChangedAtAsync(
         Guid gameId, string field, CancellationToken cancellationToken = default);

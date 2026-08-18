@@ -62,10 +62,8 @@ public class LoginCommandReadingTests
     [Test]
     public async Task AFamilyNameInsideAnotherWordIsNotAFamily()
     {
-        // darcness.net:4201, verbatim. "RetroMUX" contains "rom", so the family search returned ROM —
-        // a Diku derivative — and prefixed it to a TinyMUD derivative's version, producing
-        // "ROM MUX 2.12.0.10" for a game that had claimed neither. The game's own answer is the
-        // version line and nothing more.
+        // Real capture: "RetroMUX" contains "rom", so a naive family search misidentified it as ROM
+        // (a Diku derivative) and prefixed that to the actual version line.
         var info = """
             ### Begin INFO 1.1
             Name: RetroMUX
@@ -84,10 +82,8 @@ public class LoginCommandReadingTests
     [Test]
     public async Task TheWordsThatUsedToMatchAFamilyNoLongerDo()
     {
-        // The unlabelled path, where recognising a family is the only reason a line is taken at all.
-        // Every one of these was a codebase before the boundary check: "from" and "Rome" carry rom,
-        // "smooth" carries moo, "mucked" carries muck. A wrong codebase is worse than none — it is
-        // the value the page shows, on exactly the games with no MSSP to contradict it.
+        // Substring matches without a word boundary: "from"/"Rome" carry rom, "smooth" carries moo,
+        // "mucked" carries muck. A wrong codebase is worse than none on games with no MSSP to contradict it.
         foreach (var line in new[]
                  {
                      "3 messages from the staff, build 2",
@@ -121,19 +117,10 @@ public class LoginCommandReadingTests
 
         await Assert.That(read).IsNull();
     }
-    /// <summary>A line that merely mentions a codebase yields the codebase, not the line.</summary>
+    /// <summary>A line that merely mentions a codebase yields the codebase, not the whole sentence.</summary>
     /// <remarks>
-    /// <para>
-    /// Every input here is a real value that reached production and was stored as a game's
-    /// <c>CODEBASE</c>, because a line mentioning a known codebase used to be returned intact. Nine
-    /// of the eighty-two bars on the ecosystem dashboard's codebase chart were sentences, and four
-    /// separate LambdaMOOs each had a bar named after one.
-    /// </para>
-    /// <para>
-    /// The LambdaMOO case is also why <c>lambdamoo</c> had to join the marker list. With only
-    /// <c>moo</c> in it the extraction produced <c>MOO</c>, which <see cref="MsspDefaults"/> refuses
-    /// as a placeholder — so the choice was the whole sentence or nothing, and the whole sentence won.
-    /// </para>
+    /// <c>lambdamoo</c> is on the marker list because extracting only <c>moo</c> from it produces
+    /// <c>MOO</c>, which <see cref="MsspDefaults"/> refuses as a placeholder.
     /// </remarks>
     [Test]
     [Arguments(
@@ -149,9 +136,8 @@ public class LoginCommandReadingTests
     [Test]
     public async Task AWholeConnectScreenIsNotACodebase()
     {
-        // Abridged from the 697-character value a Pueblo-enabled PennMUSH put on the dashboard. The
-        // version is one space past the name, which is precisely what the first cut of the scan
-        // could not step over — and with no version to pin, the line was kept entire.
+        // Abridged real capture: a Pueblo-enabled PennMUSH banner where the version sits one space
+        // past the name — a first-cut scan without a version anchor kept the whole line instead.
         const string Banner =
             "\" ATT=\"src height width border=0 ismap=0\" EMPTY> Welcome to The Original Tolkien "
             + "Middle-earth MUSH! http://www.elendor.net Founded October 1991 Running: PennMUSH "
@@ -164,8 +150,7 @@ public class LoginCommandReadingTests
     [Test]
     public async Task ProseThatNamesOnlyACodebaseFamilyIsRefused()
     {
-        // "MUCK" on its own is a placeholder, so these lines carry no identification at all — and a
-        // copyright year is not a release. Nothing is the right answer; the sentence never was.
+        // "MUCK" alone is a placeholder and a copyright year is not a release — neither identifies anything.
         await Assert.That(LoginCommandReading.MeaningfulCodebase(
             null, "Tapestries MUCK Copyright 1991-2020 by tapestries.fur.com. All rights reserved."))
             .IsNull();
@@ -178,11 +163,7 @@ public class LoginCommandReadingTests
     /// <summary>
     /// A game that names itself over <c>INFO</c> has named itself, MSSP or no MSSP.
     /// </summary>
-    /// <remarks>
-    /// The real reply from <c>game.convergencemush.org:10000</c>, which offers no MSSP at all and was
-    /// therefore refused a listing for a fortnight while answering every probe perfectly. RhostMUSH,
-    /// TinyMUX and TinyMUSH all answer <c>INFO</c> this way.
-    /// </remarks>
+    /// <remarks>RhostMUSH, TinyMUX and TinyMUSH all answer <c>INFO</c> this way, with no MSSP at all.</remarks>
     [Test]
     public async Task AnInfoBlockThatNamesTheGameIsRead()
     {
@@ -197,8 +178,6 @@ public class LoginCommandReadingTests
             """;
 
         await Assert.That(LoginCommandReading.MeaningfulName(Info, null)).IsEqualTo("Convergence MUSH");
-
-        // And the codebase still reads out of the same block, unchanged.
         await Assert.That(LoginCommandReading.MeaningfulCodebase(Info, null)).IsEqualTo("RhostMUSH 4.27.3");
     }
 
@@ -206,16 +185,13 @@ public class LoginCommandReadingTests
     /// A name that only restates the codebase identifies nobody, whichever command carried it.
     /// </summary>
     /// <remarks>
-    /// The same rule <c>MsspDefaults.MeaningfulName</c> applies to <c>NAME</c>, and the reason it has
-    /// to apply here too: every unedited install on the internet answers this way, so admitting one
-    /// would let a submitter mint a listing per default install they can point at — and take the
-    /// slug the real game will want.
+    /// Same rule as <c>MsspDefaults.MeaningfulName</c> for <c>NAME</c>: every unedited install answers
+    /// this way, so admitting one would let a submitter mint a listing per default install.
     /// </remarks>
     [Test]
     [Arguments("Name: PennMUSH")]
     [Arguments("Name: PennMUSH 1.8.8p0")]
-    // Template text, from MsspDefaults' own list — the vocabulary is shared rather than restated,
-    // which is the point of routing this through MeaningfulName instead of writing a second filter.
+    // Template text from MsspDefaults' own list, routed through MeaningfulName rather than duplicated.
     [Arguments("Name: Unnamed")]
     [Arguments("Name: Your MUD Name")]
     [Arguments("Name:")]
@@ -236,8 +212,7 @@ public class LoginCommandReadingTests
     }
 
     /// <summary>
-    /// PennMUSH's <c>dump_info()</c>, verbatim in shape. <c>Uptime</c> is a ctime string and not a
-    /// timestamp, which is why nothing here may go looking for "the number on the line".
+    /// PennMUSH's <c>dump_info()</c> shape. <c>Uptime</c> is a ctime string, not a timestamp.
     /// </summary>
     private const string PennInfo = """
         ### Begin INFO 1.1
@@ -251,8 +226,7 @@ public class LoginCommandReadingTests
         """;
 
     /// <summary>
-    /// Evennia's, which reimplements the same block deliberately differently: two hashes, an
-    /// uppercase BEGIN and END, and no <c>Address</c> line at all.
+    /// Evennia's variant: two hashes, uppercase BEGIN/END, no <c>Address</c> line.
     /// </summary>
     private const string EvenniaInfo = """
         ## BEGIN INFO 1.1
@@ -285,8 +259,8 @@ public class LoginCommandReadingTests
     [Arguments("")]
     public async Task TheBlockVersionIsNeverPartOfTheContract(string version)
     {
-        // INFO_VERSION is a string a codebase bumps when it likes. Keying on today's value would
-        // make this reader silently stop measuring the day somebody ships 1.2.
+        // INFO_VERSION is a string a codebase bumps freely — keying on today's value would silently
+        // break this reader the day one ships a new number.
         var info = $"### Begin INFO {version}\nConnected: 4\n### End INFO";
 
         await Assert.That(LoginCommandReading.ConnectedPlayers(info)).IsEqualTo(4);
@@ -300,10 +274,8 @@ public class LoginCommandReadingTests
     [Arguments("### Begin MSSP\nConnected: 41\n### End MSSP")]
     public async Task ALooseConnectedLineIsNotAnInfoBlockAndIsNotRead(string info)
     {
-        // The delimiters are the whole defence. Outside a block that opened and closed, "Connected:"
-        // is a word on a connect screen — a countdown, a last-reboot line, or the game telling you
-        // that you are — and reading a number out of it would be rule 4's fabrication with a colon
-        // in front of it.
+        // The delimiters are the whole defence: outside an opened-and-closed block, "Connected:" is
+        // just a word on a connect screen, and reading a number out of it would be fabrication.
         await Assert.That(LoginCommandReading.ConnectedPlayers(info)).IsNull();
     }
 

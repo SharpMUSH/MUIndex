@@ -6,10 +6,8 @@ namespace MUI.Crawl.Tests;
 /// The one byte that has to be removed before text is stored, and everything that must survive.
 /// </summary>
 /// <remarks>
-/// Found live: a CircleMUD sending <c>CR NUL</c> line endings aborted its own ingestion with
-/// PostgreSQL <c>22021</c>, half-created its game, and lost the <c>REFERRAL</c> list that crawl was
-/// following. A hostile server can do the same on purpose with one byte, so this is not only a
-/// compatibility fix.
+/// A CircleMUD sending <c>CR NUL</c> once aborted ingestion with PostgreSQL <c>22021</c>; a hostile
+/// server can trigger the same failure on purpose, so this is a security fix, not just compatibility.
 /// </remarks>
 public class WireTextTests
 {

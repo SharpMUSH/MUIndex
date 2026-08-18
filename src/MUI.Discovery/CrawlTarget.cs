@@ -4,22 +4,17 @@ namespace MUI.Discovery;
 /// One address the crawler probes, on its own schedule, for ever.
 /// </summary>
 /// <remarks>
+/// Spec §7.1: the moment a host answers it is promoted to a target with its own
+/// <c>next_probe_at</c> and is probed forever after on its own account. <see cref="DiscoveredFromGameId"/>
+/// is provenance, not a dependency — it lets a hostile or careless <c>REFERRAL</c> list be traced and
+/// its subtree pruned (§7.2), and a target whose referring game disappears stays due on schedule.
 /// <para>
-/// Spec §7.1: "the moment a host answers, it is promoted to a <c>CrawlTarget</c> with its own
-/// independent <c>next_probe_at</c> and is probed forever after on its own account". The referral that
-/// found it is provenance, not a dependency — <see cref="DiscoveredFromGameId"/> exists so a hostile
-/// or careless <c>REFERRAL</c> list can be traced and its whole subtree pruned (§7.2), and a target
-/// whose referring game disappears is still due on schedule.
-/// </para>
-/// <para>
-/// <b>There is no retirement flag, and adding one would be the single worst regression this
-/// repository could ship.</b> Not a <c>Retired</c> boolean, not a <c>RetiredAt</c>, not an
-/// <c>Enabled</c>, and not a <c>NextProbeAt</c> of <see cref="DateTimeOffset.MaxValue"/> meaning
-/// "never" — the last is the folklore version of the same bug and is just as final. §7.4 says a game
-/// dark for two years is still probed weekly, forever, including after archiving, because a returning
-/// game re-listing itself with no human involved is the thing every incumbent failed at.
-/// <c>CrawlTargetTests.NothingInTheRegistryCanRetireATarget</c> holds the absence in place by
-/// reflection, so a well-meant addition fails a test rather than quietly ending a game's listing.
+/// <b>There is no retirement flag. Do not add one</b> — not <c>Retired</c>, not <c>RetiredAt</c>,
+/// not <c>Enabled</c>, and not a <c>NextProbeAt</c> of <see cref="DateTimeOffset.MaxValue"/> meaning
+/// "never". §7.4 requires a game dark for years to still be probed weekly, forever, including after
+/// archiving, because a returning game re-listing itself with no human involved is the point.
+/// <c>CrawlTargetTests.NothingInTheRegistryCanRetireATarget</c> enforces this by reflection, so a
+/// well-meant addition fails a test rather than quietly ending a game's listing.
 /// </para>
 /// </remarks>
 public sealed record CrawlTarget
@@ -49,10 +44,9 @@ public sealed record CrawlTarget
     /// source <c>staff</c> — or null, which is nearly every target.
     /// </summary>
     /// <remarks>
-    /// It travels with the target because the probe has no database and the encoding must be known
-    /// before a single byte is decoded. Read-only here: this is the one property on a target that
-    /// belongs to the game rather than to the address, so it is loaded with the row and never
-    /// written back through it.
+    /// Travels with the target because the probe has no database and must know the encoding before
+    /// decoding a byte. Read-only: the one property here that belongs to the game rather than the
+    /// address, so it is loaded with the row and never written back through it.
     /// </remarks>
     public string? Charset { get; init; }
 
@@ -66,11 +60,10 @@ public sealed record CrawlTarget
     /// Exempts this target from <see cref="HostScopeGuard"/>'s resolved-address check (spec §7.2).
     /// </summary>
     /// <remarks>
-    /// True only for an address a human operator configured. Someone pointing the crawler at
-    /// <c>127.0.0.1</c> to test against their own server has said what they mean; a stranger's
-    /// <c>REFERRAL</c> list has not. <b>The default is false, and that is the security-relevant half of
-    /// this property</b> — every referral and every import is constructed by code that never mentions
-    /// it, and what they get by not thinking about it must be the guarded behaviour.
+    /// True only for an address a human operator configured directly (e.g. <c>127.0.0.1</c> for local
+    /// testing) — never for a stranger's <c>REFERRAL</c> list. <b>Defaults to false</b>, which is the
+    /// security-relevant half: every referral and import is constructed without setting it, so the
+    /// un-configured case is always the guarded behaviour.
     /// </remarks>
     public bool IsOperatorSeed { get; init; }
 
@@ -79,17 +72,13 @@ public sealed record CrawlTarget
     /// ourselves (spec §7.6, migration 0010).
     /// </summary>
     /// <remarks>
+    /// A submission creates no game — a game exists only once a host answers for itself (§7.1) — so
+    /// this holds the fact until <c>CatalogueBinder</c> mints one and copies it across. It keeps a
+    /// submitted game off every public surface until somebody claims it (§8).
     /// <para>
-    /// A submission creates no game — §7.1's promotion is unchanged, and a game exists when a host
-    /// answers for itself — so this is where the fact waits until <c>CatalogueBinder</c> mints one and
-    /// copies it across. It is what keeps a submitted game off every public surface until somebody
-    /// claims it (§8).
-    /// </para>
-    /// <para>
-    /// <b>Nothing sets this on a target that already exists</b>, and that is a security property
-    /// rather than an optimisation: <see cref="ICrawlTargetRepository.AddAsync"/> collapses onto the
-    /// existing row and changes nothing but depth, so submitting an address we already crawl is a
-    /// no-op. Otherwise the form would be a way to hide any listed game on the site by naming it.
+    /// <b>Nothing sets this on a target that already exists</b> — <see cref="ICrawlTargetRepository.AddAsync"/>
+    /// collapses onto the existing row and changes nothing but depth, so submitting an address we
+    /// already crawl is a no-op. Otherwise the form would be a way to hide any listed game by naming it.
     /// </para>
     /// </remarks>
     public DateTimeOffset? SubmittedAt { get; init; }
@@ -100,18 +89,16 @@ public sealed record CrawlTarget
 /// stop a target being probed (spec §7.1, §7.4).
 /// </summary>
 /// <remarks>
-/// The absence is the contract. <c>CrawlTargetTests.NothingInTheRegistryCanRetireATarget</c> reads
-/// this interface's members by reflection and fails on any name that sounds like removal, so
-/// "nothing is ever retired" is a tested state rather than a convention somebody has to remember.
+/// The absence is the contract: <c>CrawlTargetTests.NothingInTheRegistryCanRetireATarget</c> reads
+/// this interface's members by reflection and fails on any name that sounds like removal.
 /// </remarks>
 public interface ICrawlTargetRepository
 {
     Task<CrawlTarget?> ByAddressAsync(string host, int port, CancellationToken ct);
 
     /// <summary>
-    /// Adds a target, or returns the existing one's id. Adding a known address never resets its
-    /// schedule and never resurfaces it — the only thing a repeat sighting may change is the recorded
-    /// depth, and only downward.
+    /// Adds a target, or returns the existing one's id. Never resets or resurfaces a known address's
+    /// schedule — a repeat sighting may only lower the recorded depth.
     /// </summary>
     Task<Guid> AddAsync(CrawlTarget target, CancellationToken ct);
 

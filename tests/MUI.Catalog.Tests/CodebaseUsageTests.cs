@@ -58,10 +58,9 @@ public class CodebaseUsageTests
     /// ones we managed to place.
     /// </summary>
     /// <remarks>
-    /// This is the whole test. Evennia is identified and unclassified, so the honest reading is that
-    /// four of five placed games are MUSH-or-Diku and one is neither — not that the four are 100% of
-    /// anything. Dividing by the classified count would take our own abstention and hand it out as
-    /// extra market share to everybody we did place.
+    /// Evennia is identified but unclassified, so four of five placed games are MUSH-or-Diku and one
+    /// is neither — not that the four are 100% of anything. Dividing by the classified count would
+    /// hand our own abstention out as extra share to everybody we did place.
     /// </remarks>
     [Test]
     public async Task OurAbstentionInflatesNobodysShare()
@@ -78,23 +77,11 @@ public class CodebaseUsageTests
 
     /// <summary>A codebase exactly one game runs is separated from the shares that are shares.</summary>
     /// <remarks>
-    /// <para>
-    /// The dashboard's question is which codebases the hobby <em>shares</em>, and a population of one
-    /// cannot answer it. Live, that tail was two-thirds of the panel: 49 of the 72 rows on
-    /// <c>/ecosystem</c> were one game at 0.5%, and among them <c>Alter Aeon</c>, <c>Materia
-    /// Magica</c>, <c>LuminariMUD</c> and <c>EternityMUD</c> — a game's own name, restated as its
-    /// codebase, sitting in a chart about market share.
-    /// </para>
-    /// <para>
-    /// <b>The split is on the count and never on the name.</b> Testing whether the codebase matches
-    /// the game's name was the obvious rule and it is wrong in both directions: <c>LambdaMOO</c>,
-    /// <c>EmpireMUD</c>, <c>CircleMUD</c>, <c>Evennia</c> and <c>CoffeeMUD</c> are codebases other
-    /// games run whose flagship game shares the name, so it would blank a true field for exactly one
-    /// member of a real family; and it would leave <c>Rapture</c>, <c>Anatolia</c> and <c>OSB</c>
-    /// where they are, which are one-game rows too. Rejecting the measurement outright would be
-    /// worse still — a game that told us what it runs would be counted among the ones that told us
-    /// nothing, which is our editorial decision recorded as their silence.
-    /// </para>
+    /// The dashboard's question is which codebases the hobby shares; a population of one can't
+    /// answer it. The split is on the count, never on the name — matching codebase to game name would
+    /// wrongly blank real families sharing a name with their flagship game, and rejecting the
+    /// measurement outright would count a game that told us what it runs among the ones that told us
+    /// nothing.
     /// </remarks>
     [Test]
     public async Task ACodebaseOnlyOneGameRunsIsNotAShare()
@@ -114,9 +101,8 @@ public class CodebaseUsageTests
     [Test]
     public async Task TheFoldedGamesStayInsideTheDenominator()
     {
-        // The arithmetic a reader can do on the page: the bars plus the folded line is every game
-        // that told us, exactly. A fold that quietly shrank the denominator would inflate every
-        // share above it — the same failure as dividing a lineage by the games we placed.
+        // The bars plus the folded line must equal every game that told us, exactly — a fold that
+        // quietly shrank the denominator would inflate every share above it.
         var usage = CodebaseUsage.Of(Catalogue, listed: 8);
 
         await Assert.That(usage.SoleUseTotal.Denominator).IsEqualTo(usage.Identified);

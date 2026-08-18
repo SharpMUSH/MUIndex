@@ -14,10 +14,8 @@ using Microsoft.Extensions.Logging;
 using Npgsql;
 
 // One crawl cycle against a real database, printed. mui-probe answers "what did this server say";
-// this answers "what did a cycle write", which is the only question a fixture cannot.
-//
-// It builds the same graph AddMuiCrawler builds, by hand and without a host, so that what a person
-// verifies here is what the web deployable runs — see Arguments.Usage for the switches.
+// this answers "what did a cycle write". Builds the same graph AddMuiCrawler builds, by hand and
+// without a host, so what's verified here is what the web deployable runs.
 
 var arguments = Arguments.Parse(args);
 
@@ -27,9 +25,8 @@ if (arguments.Help)
     return 0;
 }
 
-// §11, and deliberately before the connection string is required: "has this host asked us to stop"
-// is a question about DNS and about nothing else, and an operator who wants to check that their
-// record took effect should not need our database to do it.
+// §11, deliberately before the connection string is required: checking an opt-out record is a DNS
+// question and shouldn't need our database.
 if (arguments.OptOutCheck is { } check)
 {
     var name = OptOutVocabulary.DnsNameFor(check.Host);
@@ -53,8 +50,8 @@ if (arguments.OptOutCheck is { } check)
         Console.WriteLine("answer        no such record");
     }
 
-    // A host with no port named is checked at the port an opt-out record would have to cover to stop
-    // everything, which is any of them; 4201 stands in for "some listener".
+    // No port named: check the port an opt-out covering everything would have to cover, i.e. any of
+    // them — 4201 stands in for "some listener".
     var reading = OptOutVocabulary.ReadDns(answer.Records, check.Port ?? 4201);
 
     Console.WriteLine(reading is null
@@ -103,9 +100,8 @@ var fields = new NpgsqlGameFieldStore(source);
 var availability = new NpgsqlAvailabilityStore(source);
 var slugs = new NpgsqlSlugHistoryStore(source);
 
-// One Intermud-3 pass, and then out. It shares the registry and the presence store with the crawl
-// above and touches nothing else — which is the point of running it here: what a person watches is
-// the same code the hosted service runs, against the same tables, with the graph built by hand.
+// One Intermud-3 pass, then out. Shares the registry and presence store with the crawl above and
+// touches nothing else — the same code the hosted service runs, against the same tables.
 if (arguments.I3)
 {
     var separator = arguments.I3Gateway.LastIndexOf(':');
@@ -155,8 +151,8 @@ var optOut = new OptOutGate(
     time,
     loggerFactory.CreateLogger<OptOutGate>());
 
-// §11 — recording a request somebody made off the wire. It writes one row and stops: an operator
-// recording an opt-out is not asking for a crawl, and the next cycle honours it before it dials.
+// §11. Writes one row and stops — recording an opt-out isn't a request to crawl; the next cycle
+// honours it before it dials.
 if (arguments.OptOut is { } request)
 {
     var recorded = await optOut.RecordRequestAsync(
@@ -167,9 +163,8 @@ if (arguments.OptOut is { } request)
     return 0;
 }
 
-// §7.8's residue, and the whole of the operator surface over it. A submission the rubric could not
-// publish is otherwise a row nobody sees, waiting on a claim from an operator with no reason to know
-// this site exists — which is the state one game was in for a fortnight before §7.8 was written.
+// §7.8's residue: a submission the rubric couldn't publish is otherwise a row nobody sees, waiting on
+// a claim from an operator with no reason to know this site exists.
 if (arguments.Submissions)
 {
     var pending = await new NpgsqlSubmissionQueue(source).AwaitingAsync(CancellationToken.None);
@@ -190,8 +185,8 @@ if (arguments.Submissions)
 
     if (pending.Count > 0)
     {
-        // Never a verdict of ours: the rubric's signals are read from a live probe and are not in
-        // the database, so the honest thing to print is where to go and look for them.
+        // Never a verdict of ours: the rubric's signals come from a live probe and aren't in the
+        // database, so print where to go look for them.
         Console.WriteLine();
         Console.WriteLine(
             "  mui-probe <host> <port> shows what one says now. --release <slug> --because \"…\" "
@@ -213,12 +208,9 @@ if (arguments.Release is { } slug)
     return released ? 0 : 1;
 }
 
-// §5.7's grace, waived by hand for one pass. The rule waits fourteen days because it cannot tell a
-// settled name from a flapping one without watching; a person with the change feed in front of them
-// can, and this is where they say so. Nothing else about the rename is different — the same minter
-// makes the same decision, writes the same game_slug_history row, and the retired slug redirects for
-// ever — so a name this refuses is a name a cycle would refuse too, and the reason to run it twice
-// is that the catalogue has moved, not that it might answer differently.
+// §5.7's grace, waived by hand for one pass. The fourteen-day wait exists because the rule can't tell
+// a settled name from a flapping one without watching; a person with the change feed in front of them
+// can. Nothing else about the rename differs — same minter, same decision, same history row.
 if (arguments.MintNow)
 {
     var minter = new SlugMinter(
@@ -226,9 +218,8 @@ if (arguments.MintNow)
 
     await using var connection = await source.OpenConnectionAsync();
 
-    // Every game, including the archived and the excluded: §3 keeps their pages, their URLs and
-    // their history, so a game that is off the listing is still one somebody can reach and still
-    // one whose URL should say what it is called.
+    // Every game, including archived and excluded ones: §3 keeps their pages and URLs, so a delisted
+    // game's URL should still say what it's called.
     var everyGame = (await connection.QueryAsync<Guid>("SELECT id FROM game ORDER BY name")).ToList();
 
     Console.WriteLine($"mint          {everyGame.Count} games considered with no grace — {arguments.Because}");
@@ -253,9 +244,8 @@ if (arguments.MintNow)
     return 0;
 }
 
-// §7.3's operator surface: duplicate_review accumulates and nothing before this drained it. A person
-// names the winner and the loser; an open review row for exactly this pair carries its score and
-// signals onto the merge log and is closed, and a pair with no open review is still mergeable as a
+// §7.3's operator surface: a person names the winner and loser; an open review for this pair carries
+// its score onto the merge log and is closed, and a pair with no open review is still mergeable as a
 // judgement with no signals (migration 0018).
 if (arguments.Merge is { } mergeRequest)
 {
@@ -304,9 +294,8 @@ if (arguments.Merge is { } mergeRequest)
     }
     catch (PostgresException error)
     {
-        // merge_log's own guards: a game already absorbed elsewhere, or a redirect chain. Both are
-        // the schema refusing at the moment somebody would create the shape, exactly as designed —
-        // the message it raised is more specific than anything worth restating here.
+        // merge_log's own guards: a game already absorbed elsewhere, or a redirect chain — the
+        // schema refusing rather than us, so its message is more specific than anything we'd add.
         Console.Error.WriteLine($"merge         refused by the database: {error.MessageText}");
         return 1;
     }
@@ -380,8 +369,8 @@ if (arguments.Rename is { } renameRequest)
 var planted = await CrawlSeeds.PlantAsync(targets, arguments.Seeds, time);
 Console.WriteLine($"seeds         {arguments.Seeds.Count} configured, {planted} new in the registry");
 
-// §11. A dry run dials nobody, so it owes nobody an address; a real one about to open sockets under
-// the placeholder is telling every server it reaches to complain to a domain that does not exist.
+// §11. A dry run dials nobody so owes nobody an address; a real one under the placeholder would tell
+// every server it reaches to complain to a domain that doesn't exist.
 if (!arguments.DryRun && arguments.InfoUrl == new ProbeOptions().InfoUrl)
 {
     Console.WriteLine(
@@ -389,10 +378,8 @@ if (!arguments.DryRun && arguments.InfoUrl == new ProbeOptions().InfoUrl)
         + "answers nobody. Set MUI_CRAWL_INFO_URL, or pass --info-url.");
 }
 
-// One resolver, shared: HostScopeGuard is where live DNS is meant to be reached from, and the
-// identity matcher's ResolvedEndpoint signal (spec §7.3) reads the same answers rather than standing
-// up a second lookup path — see IdentityMatcher's own remarks on why this is scoring, not the address
-// matching I3Cycle deliberately refuses to do.
+// One resolver, shared: HostScopeGuard and the identity matcher's ResolvedEndpoint signal (§7.3) both
+// read the same DNS answers rather than standing up a second lookup path.
 var hostResolver = new SystemHostResolver();
 
 var cycle = new CrawlCycle(
@@ -430,8 +417,8 @@ var cycle = new CrawlCycle(
     new HostGate(),
     discovery,
     time,
-    // §8 — a probe of a claimed game refreshes what we last saw, and a probe of a game whose owner
-    // has just published their token settles the claim. Both happen on the ordinary schedule.
+    // §8 — a probe of a claimed game refreshes what we last saw; a probe of one whose owner just
+    // published their token settles the claim.
     new ClaimService(new NpgsqlClaimStore(source), games, time),
     // §11 — a CLI crawl fills the same replay window an in-process one does.
     new NpgsqlProbePayloads(source),

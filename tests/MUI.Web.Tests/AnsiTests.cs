@@ -16,8 +16,7 @@ public class AnsiTests
     [Test]
     public async Task IndexedColourResolvesToTheLockedTableAndNotToASiteColour()
     {
-        // The frame's palette is theme-independent by design: games assume a dark terminal, and a
-        // light page repainting their green would be fidelity in name only.
+        // The frame's palette is theme-independent by design: games assume a dark terminal.
         var screen = Ansi.Parse($"{Esc}32mgreen{Esc}0m plain\nb\nc", suppressedByOwner: false);
         var runs = screen.Rows[0].Runs;
 
@@ -29,8 +28,7 @@ public class AnsiTests
     [Test]
     public async Task BoldBrightensAnIndexedForeground()
     {
-        // Every game that draws with ESC[1;32m is relying on this, and a renderer that ignores it
-        // makes half the connect screens on the internet look muddy.
+        // Every game drawing with ESC[1;32m relies on this.
         var screen = Ansi.Parse($"{Esc}1;32mbright{Esc}0m\nb\nc", suppressedByOwner: false);
 
         await Assert.That(screen.Rows[0].Runs[0].Style.Foreground).IsEqualTo("#55ff55");
@@ -47,8 +45,7 @@ public class AnsiTests
     [Test]
     public async Task CursorMovesAndErasesAreDroppedRatherThanRendered()
     {
-        // We are quoting a picture, not emulating a terminal. Honouring a cursor move badly is
-        // worse than ignoring it.
+        // We're quoting a picture, not emulating a terminal.
         var screen = Ansi.Parse($"{Esc}2J{Esc}Hclean\nb\nc", suppressedByOwner: false);
 
         await Assert.That(screen.Rows[0].Text).IsEqualTo("clean");
@@ -57,8 +54,6 @@ public class AnsiTests
     [Test]
     public async Task LinesWrapAtTheColumnGridAndTheWrappedRowIsCounted()
     {
-        // The art is a fixed character grid and the row count in the caption has to be the number
-        // of rows a reader will actually scroll past.
         var screen = Ansi.Parse(new string('x', Ansi.Columns * 2 + 40) + "\na\nb", suppressedByOwner: false);
 
         await Assert.That(screen.Rows[0].Text.Length).IsEqualTo(Ansi.Columns);
@@ -85,8 +80,7 @@ public class AnsiTests
     [Test]
     public async Task NothingCapturedIsDistinctFromTooSmall()
     {
-        // "We have never captured one" and "what came back was two lines" are different facts about
-        // a game and the page says which.
+        // "Never captured one" and "captured two lines" are different facts about a game.
         await Assert.That(Ansi.Parse(null, false).State).IsEqualTo(AnsiScreenState.Absent);
         await Assert.That(Ansi.Parse("   ", false).State).IsEqualTo(AnsiScreenState.Absent);
     }
@@ -94,10 +88,6 @@ public class AnsiTests
     [Test]
     public async Task ALongScreenIsParsedWholeRatherThanCropped()
     {
-        // There is no crop any more. The frame used to hold the first twenty-four rows, offer the
-        // whole screen again under "show all N rows" and its text a third time under "read as text"
-        // — three copies of one piece of box-drawing, and three passes through it for anybody
-        // listening. One region, every row, and it scrolls.
         var screen = Ansi.Parse(Screen(214), suppressedByOwner: false);
 
         await Assert.That(screen.RowCount).IsEqualTo(214);
@@ -107,9 +97,6 @@ public class AnsiTests
     [Test]
     public async Task AWidthIsCountedInTerminalCellsAndPerRowRatherThanPerScreen()
     {
-        // The row that made a screen-wide flag wrong: one column short of the grid in ASCII
-        // characters and one Han glyph. One character short of the grid's cell count — and the
-        // caption used to halve the whole screen the moment any wide rune appeared anywhere.
         var mixed = new string('x', Ansi.Columns - 2) + "漢";
         var screen = Ansi.Parse($"{mixed}\nplain\nplain", suppressedByOwner: false);
 
@@ -118,19 +105,13 @@ public class AnsiTests
         await Assert.That(screen.CellColumns).IsEqualTo(Ansi.Columns);
         await Assert.That(screen.HasWideRunes).IsTrue();
 
-        // And one cell over the grid cannot be one row of that terminal. A double-width glyph that
-        // would straddle the right margin is moved whole to the next line rather than split across
-        // it, which is what a terminal does — so a row one short of the grid plus one Han glyph is
-        // two rows, not one over-wide one. The layout counts cells and the caption reads them;
-        // before this the layout counted UTF-16 units, so a screen of wide glyphs wrapped after one
-        // grid's worth of runes, which is twice that many cells.
+        // A double-width glyph straddling the right margin moves whole to the next line, matching a
+        // real terminal. Layout counts cells now, not UTF-16 units.
         var straddling = Ansi.Parse(new string('x', Ansi.Columns - 1) + "漢\nplain", suppressedByOwner: false);
 
         await Assert.That(straddling.Rows[0].Cells).IsEqualTo(Ansi.Columns - 1);
         await Assert.That(straddling.Rows[1].Text).IsEqualTo("漢");
 
-        // And a screen drawn entirely out of wide glyphs is twice its character count, which is the
-        // case the halving was written for and the only one it got right.
         var halfGrid = Ansi.Columns / 2;
         var wide = Ansi.Parse(
             $"{new string('漢', halfGrid)}\n{new string('漢', halfGrid)}\n{new string('漢', halfGrid)}",
@@ -142,8 +123,7 @@ public class AnsiTests
     [Test]
     public async Task AWideRuneOnOneRowDoesNotWidenTheRowsAroundIt()
     {
-        // The width reported is the widest row, not the widest row's arithmetic applied to all of
-        // them. A banner with one Japanese line in it is as wide as that line and no wider.
+        // The width reported is the widest row, not that row's arithmetic applied to all of them.
         var screen = Ansi.Parse("ascii\n漢字\nascii", suppressedByOwner: false);
 
         await Assert.That(screen.Rows[0].Cells).IsEqualTo(5);
@@ -154,12 +134,8 @@ public class AnsiTests
     [Test]
     public async Task ACombiningMarkCostsNoCellOfItsOwn()
     {
-        // It is drawn onto the cell before it. Counted as a character, an accented Greek or
-        // Devanagari banner would be reported wider than it is drawn.
-        //
-        // Composed here rather than written as a literal, so the decomposition is this test's and
-        // not whatever normalisation the file was saved under: three letters, each carrying a
-        // combining acute of its own.
+        // Drawn onto the cell before it; counted as a character, an accented banner would be
+        // reported wider than it's drawn.
         var acute = (char)0x0301;
         var decomposed = string.Concat(Enumerable.Repeat($"e{acute}", 3));
         var screen = Ansi.Parse($"{decomposed}\nplain\nplain", suppressedByOwner: false);
@@ -178,12 +154,7 @@ public class AnsiTests
     /// <summary>
     /// The whole accessible alternative to the picture is outside the picture.
     /// </summary>
-    /// <remarks>
-    /// <c>role="img"</c> makes every descendant presentational, so a disclosure inside
-    /// <c>div.quote</c> is announced as nothing at all and the one-line <c>aria-label</c> becomes
-    /// the only alternative there is — a label saying the screen exists, in place of the screen.
-    /// The disclosure therefore sits beside the quoted region and inside the figure.
-    /// </remarks>
+    /// <remarks><c>role="img"</c> makes every descendant presentational, so a disclosure inside <c>div.quote</c> would be announced as nothing.</remarks>
     [Test]
     public async Task TheReadAsTextDisclosureIsOutsideTheRoleImgSubtree()
     {
@@ -196,8 +167,6 @@ public class AnsiTests
         await Assert.That(html).Contains("aria-label=");
         await Assert.That(html).Contains("class=\"screen-text\"");
 
-        // The quoted region holds one <pre> and no other element that closes with </div>, so the
-        // first </div> after it is its own — and the disclosure has to come after that.
         var quote = html.IndexOf("class=\"quote\"", StringComparison.Ordinal);
         var closes = html.IndexOf("</div>", quote, StringComparison.Ordinal);
         var disclosure = html.IndexOf("class=\"screen-text\"", StringComparison.Ordinal);
@@ -205,7 +174,6 @@ public class AnsiTests
         await Assert.That(quote).IsGreaterThanOrEqualTo(0);
         await Assert.That(disclosure).IsGreaterThan(closes);
 
-        // And it is still inside the figure, which is what makes the two one block.
         var figure = html.IndexOf("</figure>", StringComparison.Ordinal);
         await Assert.That(disclosure).IsLessThan(figure);
     }
@@ -213,9 +181,6 @@ public class AnsiTests
     [Test]
     public async Task TheCaptionStatesTheWidestRowInCellsRatherThanAHalvedGrid()
     {
-        // One column short of the grid in ASCII characters and one Han glyph: a full grid's worth of
-        // cells, the widest a row of that terminal can be. The caption said half that, because one
-        // wide rune anywhere halved the whole screen.
         var html = Render.Words(await Render.ComponentAsync<AnsiQuote>(new()
         {
             ["Screen"] = Ansi.Parse(new string('x', Ansi.Columns - 2) + "漢\nplain\nplain", suppressedByOwner: false),
@@ -228,7 +193,6 @@ public class AnsiTests
     [Test]
     public async Task TheTextAlternativeCarriesNoColourCodes()
     {
-        // A screen reader is told what the screen says, not how it was painted.
         var screen = Ansi.Parse($"{Esc}31mred{Esc}0m\nb\nc", suppressedByOwner: false);
 
         await Assert.That(screen.PlainText).DoesNotContain("\u001b");

@@ -200,11 +200,9 @@ public class PresenceChoiceTests
     /// The fourth reason, and the one that is not about us.
     /// </summary>
     /// <remarks>
-    /// <c>who_unparseable</c> says our parser met a dialect it could not read — a defect with an
-    /// owner and a fix — and this says the game has no pre-login <c>WHO</c> at all: the word went in
-    /// as a character name and <c>Illegal name, try again.</c> came back. Of the 107 payloads stored
-    /// under the first word and read on 2026-08-17, 43 were the second, so the largest population in
-    /// the parser backlog was games with nothing to parse.
+    /// <c>who_unparseable</c> says our parser met a dialect it couldn't read — a defect with an owner
+    /// and a fix — and this says the game has no pre-login <c>WHO</c> at all: the word went in as a
+    /// character name and <c>Illegal name, try again.</c> came back.
     /// </remarks>
     [Test]
     public async Task AGameWhoseLoginPromptAteTheWordIsNotAParserWeOwe()

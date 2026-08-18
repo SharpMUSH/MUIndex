@@ -8,20 +8,10 @@ namespace MUI.Web.Tests.Api;
 /// <summary>
 /// The owner-published badge (spec §8.5), on a page we do not control.
 /// </summary>
-/// <remarks>
-/// Every rule this site has, asserted at its hardest point. A badge is embedded where there is no
-/// footnote, no provenance chip and no second sentence — so if a number can be published unlabelled
-/// or a silence can be published as a zero, it happens here first and we never see it.
-/// </remarks>
+/// <remarks>The hardest point to assert these rules at: a badge has no footnote, no provenance chip, no second sentence to fall back on.</remarks>
 public class BadgeApiTests
 {
-    /// <summary>
-    /// The count carries its own age, because there is nowhere else to put one.
-    /// </summary>
-    /// <remarks>
-    /// "15" on somebody's front page is the incumbents' badge. "15 now · 4m ago" is this site's
-    /// claim, in nine more characters.
-    /// </remarks>
+    /// <summary>The count carries its own age, because there is nowhere else to put one.</summary>
     [Test]
     public async Task AMeasuredCountIsPublishedWithItsAge()
     {
@@ -38,24 +28,10 @@ public class BadgeApiTests
     /// A count the game asserted about itself never goes out as a measurement of ours.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Ashen Court publishes <c>PLAYERS</c> in MSSP and answers no pre-login <c>WHO</c>, which is
-    /// the commonest way a directory ends up quoting a game's own number as though it had counted
-    /// it. This badge writes "N players measured 4m ago" and paints it in the accent that means
-    /// measured on every other surface here — on a page we do not control and cannot correct — so
-    /// the one thing it must never carry is somebody else's assertion.
-    /// </para>
-    /// <para>
-    /// The badge and <c>/api/games/{slug}</c> are held to the same predicate rather than to two
-    /// judgements that agree today: the JSON below says <c>unknown</c> where the API says
-    /// <c>declared</c>, and both reach <c>FieldSources.IsMeasured</c> through
-    /// <c>ProvenanceChip</c>. Two controls, one on each side of that line — M*U*S*H's <c>WHO</c>
-    /// count, and Aardwolf's, which exists only because we read it off the connect screen. The
-    /// second is the whole point of the line being drawn on the <em>source</em> and not on who
-    /// authored the number: we open the socket and parse that text ourselves on every probe, so
-    /// its freshness is ours, and a badge that refused to show it would be withholding a
-    /// measurement we took.
-    /// </para>
+    /// Ashen Court publishes <c>PLAYERS</c> in MSSP and answers no pre-login <c>WHO</c>; the badge
+    /// must not launder that into "measured". Aardwolf's count, read off the connect screen
+    /// ourselves, is the control showing the line is drawn on <em>source</em>, not on who authored
+    /// the number.
     /// </remarks>
     [Test]
     public async Task ADeclaredCountIsNotPublishedAsAMeasuredOne()
@@ -85,12 +61,7 @@ public class BadgeApiTests
     /// <summary>
     /// A measured zero is a measurement and says so; an unmeasured count never borrows its shape.
     /// </summary>
-    /// <remarks>
-    /// This is rule 4 at the point it would do the most damage. Eldertale was probed and nobody was
-    /// there — a real fact, published. Midnight Sun answered and could not be counted, and renders
-    /// as unknown; a "0" there would be our parser's limit printed as a fact about their game, on
-    /// their own website, where we could not correct it.
-    /// </remarks>
+    /// <remarks>Rule 4: Eldertale was probed and empty (a real zero); Midnight Sun couldn't be counted and renders as unknown, never "0".</remarks>
     [Test]
     public async Task AMeasuredZeroIsAZeroAndAnUnknownCountIsNever()
     {
@@ -125,11 +96,7 @@ public class BadgeApiTests
     /// <summary>
     /// An archived game's badge says archived rather than showing the last number it had.
     /// </summary>
-    /// <remarks>
-    /// §7.5: archiving takes a game out of the listing and out of nothing else, so the badge still
-    /// answers — but a live-count badge for a game that stopped answering in 2023 has no live count,
-    /// and a stale one under a live label is the one thing it must not print.
-    /// </remarks>
+    /// <remarks>§7.5: archiving doesn't stop the badge answering, but a live-count label on a stale number is what it must not print.</remarks>
     [Test]
     public async Task AnArchivedGameGetsABadgeThatSaysSo()
     {
@@ -144,11 +111,7 @@ public class BadgeApiTests
     /// <summary>
     /// A game's name is MSSP text, and MSSP text is attacker-controlled.
     /// </summary>
-    /// <remarks>
-    /// The name reaches the accessible title and nowhere else, escaped. An SVG is a document, so a
-    /// game named <c>&lt;/text&gt;&lt;script&gt;</c> would otherwise be markup on every page that
-    /// embeds the badge — a stored injection with a distribution mechanism.
-    /// </remarks>
+    /// <remarks>An SVG is a document; an unescaped name would be a stored XSS with a distribution mechanism (every page embedding the badge).</remarks>
     [Test]
     public async Task AGamesOwnNameCannotBecomeMarkup()
     {
@@ -160,12 +123,7 @@ public class BadgeApiTests
         await Assert.That(svg).Contains("&lt;script&gt;");
     }
 
-    /// <summary>A badge is cached longer than the API, and still well inside a count's own life.</summary>
-    /// <remarks>
-    /// Every reader of somebody's front page fetches this, so a minute is too little; a count is
-    /// stale at two hours, so anything approaching that would serve a stale number under a live
-    /// label.
-    /// </remarks>
+    /// <summary>A badge is cached longer than the API, and still well inside a count's own two-hour staleness window.</summary>
     [Test]
     public async Task ABadgeIsCacheableAndRevalidates()
     {
@@ -185,12 +143,7 @@ public class BadgeApiTests
         await Assert.That((await second.Content.ReadAsByteArrayAsync()).Length).IsEqualTo(0);
     }
 
-    /// <summary>The JSON route gets the same five minutes, and used to get sixty seconds.</summary>
-    /// <remarks>
-    /// The override was assigned after <c>WriteJsonAsync</c> had already started the response, so it
-    /// was dropped and the route shipped the API default. Only the SVG route was asserted on, which
-    /// is exactly why nothing caught it: the two routes are one decision and are now tested as one.
-    /// </remarks>
+    /// <summary>The JSON route gets the same five minutes as the SVG one — previously only the SVG route was asserted on, and the JSON route silently shipped the 60s API default.</summary>
     [Test]
     public async Task TheJsonBadgeIsCachedForAsLongAsTheImage()
     {
@@ -217,14 +170,7 @@ public class BadgeApiTests
             .IsEqualTo("nosniff");
     }
 
-    /// <summary>
-    /// A slug the game used to wear still serves its badge, permanently.
-    /// </summary>
-    /// <remarks>
-    /// A badge is the likeliest thing here to outlive the URL it was copied from — pasted into a
-    /// template once and left for years — so §5.7's forever-redirect matters more for this route
-    /// than for any other.
-    /// </remarks>
+    /// <summary>A slug the game used to wear still serves its badge, permanently — §5.7's forever-redirect, tested where it matters most (a badge pasted into a template and forgotten).</summary>
     [Test]
     public async Task ABadgeUrlSurvivesARename()
     {
@@ -252,13 +198,7 @@ public class BadgeApiTests
         await Assert.That(response.Headers.CacheControl!.NoStore).IsTrue();
     }
 
-    /// <summary>
-    /// The JSON publishes null and a named state, so a consumer cannot coerce silence to zero.
-    /// </summary>
-    /// <remarks>
-    /// Both, because §5.4's middle case is the one every reimplementation loses. A consumer reading
-    /// only <c>count</c> gets a null it has to handle; one reading <c>state</c> cannot mistake it.
-    /// </remarks>
+    /// <summary>The JSON publishes null and a named state, so a consumer cannot coerce silence to zero.</summary>
     [Test]
     public async Task TheJsonNamesTheStateAsWellAsCarryingTheNumber()
     {
@@ -291,15 +231,7 @@ public class BadgeApiTests
             .IsEqualTo("/g/ashen-court/badge.svg");
     }
 
-    /// <summary>
-    /// A count and its age travel together or not at all.
-    /// </summary>
-    /// <remarks>
-    /// A number we cannot label is a number this site may not publish, so a summary carrying a count
-    /// with no provenance chip reads as unknown rather than as a bare figure. That combination
-    /// should not occur — the query fills both from one row — and the badge does not rely on it not
-    /// occurring.
-    /// </remarks>
+    /// <summary>A count and its age travel together or not at all — a count with no provenance chip reads as unknown, not as a bare figure.</summary>
     [Test]
     public async Task ACountWithNoAgeIsNotPublishedAsACount()
     {

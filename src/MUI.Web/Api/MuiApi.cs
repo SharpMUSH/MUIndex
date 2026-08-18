@@ -8,16 +8,9 @@ namespace MUI.Web.Api;
 /// The read API: registration and routing, in two calls a host makes.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Minimal APIs alongside the Razor Components in one deployable (spec §4). Both surfaces read
-/// through <see cref="MUI.Catalog.IGameQueries"/> and neither knows how the other renders, which is
-/// what stops the API and the page disagreeing about a fact.
-/// </para>
-/// <para>
-/// Every route is a GET. This surface writes nothing, offers no callback, and has no vote, star or
-/// rating anywhere in it — the last is what killed Top Mud Sites, and a guard test says the words
-/// are absent rather than trusting anyone to remember.
-/// </para>
+/// Minimal APIs alongside the Razor Components in one deployable (spec §4); both read through
+/// <see cref="MUI.Catalog.IGameQueries"/> so neither can disagree with the other about a fact.
+/// Every route is a GET — no writes, no callback, no vote/star/rating, enforced by a guard test.
 /// </remarks>
 public static class MuiApi
 {
@@ -27,17 +20,13 @@ public static class MuiApi
         services.Configure<DatasetLicenceOptions>(
             configuration.GetSection(DatasetLicenceOptions.Section));
 
-        // The section IS the map — SlugAliases:{former} = {current} — rather than a nested
-        // "Aliases" key, because an operator writing one down should not have to learn our
-        // options class to say that /g/old-name became /g/new-name.
+        // The section IS the map — SlugAliases:{former} = {current} — rather than a nested key.
         services.Configure<SlugAliasOptions>(
             options => configuration.GetSection(SlugAliasOptions.Section).Bind(options.Aliases));
 
         services.AddSingleton<IAttributionSource, ConfiguredAttributionSource>();
 
-        // The table where there is a database and the configuration where there is not, decided when
-        // the graph is built rather than by registration order — this call happens before a host has
-        // said whether it has a catalogue behind it, and on the fixture there is nothing to ask.
+        // The table where there is a database, the configuration where there is not.
         services.AddSingleton<ISlugHistory>(s =>
         {
             var configured = new ConfiguredSlugHistory(
@@ -60,9 +49,7 @@ public static class MuiApi
         DumpEndpoints.Map(endpoints);
         SeriesEndpoints.Map(endpoints);
 
-        // §8.5's owner-published outputs. Off /g/ rather than /api/, because these are pasted into
-        // somebody else's template by hand and the shortest honest URL is the one that survives
-        // being retyped.
+        // §8.5's owner-published outputs — off /g/ rather than /api/, since these get pasted by hand.
         BadgeEndpoints.Map(endpoints);
 
         return endpoints;
@@ -125,8 +112,7 @@ public static class MuiApi
                 + "connect screen are both text we parsed off the socket this probe and are "
                 + "measured; PLAYERS in MSSP is the game reporting a field it maintains, and is "
                 + "declared. source names which of the three it was.",
-                // The word this sentence is careful not to use is the whole point of it, and the
-                // rule binds published copy as much as it binds field names.
+                // "Uptime" is deliberately not used — the rule binds published copy, not just field names.
                 "reachable describes a socket we opened from one vantage point at intervals. It "
                 + "is not a claim about whether the game was running: a game with a routing "
                 + "problem to our host is unreachable and perfectly alive.",

@@ -7,12 +7,9 @@ namespace MUI.Crawler.Tests.Support;
 /// The catalogue's stores in memory, so the ingestion rules can be asserted without a database.
 /// </summary>
 /// <remarks>
-/// <b>A fake must never be more lenient than the real thing.</b> Where the real table has a key, these
-/// have the same one — <c>game_field</c> is keyed <c>(game, field, source)</c> here as there, because
-/// a fake keyed only on <c>(game, field)</c> would silently collapse measured and declared into one
-/// row and make the capability matrix untestable. The same behaviours are asserted against a real
-/// PostgreSQL in <c>CrawlCyclePostgresTests</c>, because a fake agreeing with the code proves only
-/// that they were written by the same person.
+/// A fake must never be more lenient than the real thing: where the real table has a key, these have
+/// the same one — <c>game_field</c> is keyed <c>(game, field, source)</c> here as there. The same
+/// behaviours are also asserted against a real PostgreSQL in <c>CrawlCyclePostgresTests</c>.
 /// </remarks>
 public sealed class FakeGameStore : IGameStore
 {
@@ -30,9 +27,8 @@ public sealed class FakeGameStore : IGameStore
     public IReadOnlyCollection<GameRecord> All => _games.Values.ToList();
 
     /// <summary>
-    /// The slugs this store has retired (spec §5.7). Held here because the real
-    /// <see cref="RenameAsync"/> writes the retirement and the re-mint in one statement, and a fake
-    /// that renamed a game without retiring its URL would be more lenient than the real thing.
+    /// The slugs this store has retired (spec §5.7). Held here since the real <see cref="RenameAsync"/>
+    /// writes the retirement and the re-mint in one statement.
     /// </summary>
     public FakeSlugHistory Slugs { get; }
 
@@ -70,9 +66,8 @@ public sealed class FakeGameStore : IGameStore
     /// The crawl's own way in, and it may not move a game out of a state a person put it in.
     /// </summary>
     /// <remarks>
-    /// The store's <c>state NOT IN ('excluded', 'unlisted')</c> clause, mirrored. A double without it
-    /// would let the ingestor restore an unlisted game and the sweeper archive an excluded one, and
-    /// report the crawler as honouring a guard that had been deleted.
+    /// Mirrors the store's <c>state NOT IN ('excluded', 'unlisted')</c> clause: without it, a test
+    /// could pass against a guard the fake had silently dropped.
     /// </remarks>
     public Task SetStateAsync(
         Guid id,

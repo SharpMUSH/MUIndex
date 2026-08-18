@@ -30,10 +30,8 @@ public class IdentitySignalsTests
     }
 
     /// <summary>
-    /// CodeRabbit's finding on PR #108: the doc comment already promised "an unreadable or absent
-    /// payload is an empty list, not a failure", but only the absent half was actually guarded —
-    /// malformed JSON reached <c>JsonSerializer.Deserialize</c> uncaught. A merge should not refuse to
-    /// complete because its own paper trail from an earlier pass turned out corrupted.
+    /// A merge must not refuse to complete because its own paper trail from an earlier pass turned
+    /// out corrupted.
     /// </summary>
     [Test]
     public async Task MalformedJsonIsAnEmptyListNotAnException()

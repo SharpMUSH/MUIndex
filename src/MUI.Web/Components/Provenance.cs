@@ -8,18 +8,10 @@ namespace MUI.Web.Components;
 /// How we know a value, in one word — and what carried it to us, in one name.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Three words and not two.</b> "Declared" alone would put what a game's operator typed into our
-/// form and what its own config file emits under one word, and those are different claims by
-/// different people.
-/// </para>
-/// <para>
-/// It lives here rather than beside any one caller because the count of callers keeps going up:
-/// the listing's chips, the game page's, the archive's, plain mode's, and now the preview metadata
-/// a chat client renders when somebody pastes a link. <c>PlainText</c>'s own copy carried a comment
-/// observing that a rule spelled at one of four call sites is a rule the other three break — and
-/// then a fifth surface arrived that could not reach the spelling at all, because it was private.
-/// </para>
+/// Three words, not two: "declared" alone would put what an operator typed into our form and what
+/// their own config file emits under one word, and those are different claims by different people.
+/// Centralized here since every call site (listing, game page, archive, plain mode, preview
+/// metadata) must apply the same rule.
 /// </remarks>
 public static class Provenance
 {
@@ -41,25 +33,12 @@ public static class Provenance
     /// What carried the value to us, as a reader should see it written.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>A display name is not an enum member, and the difference reached a reader.</b> The chip's
-    /// tooltip interpolated <see cref="FieldSource"/> directly and said a value arrived "via Mssp":
-    /// an acronym mis-cased by C#'s naming convention, in a sentence no translator could reach,
-    /// because the word was never in a file they are sent. Upper-casing it at the call site would
-    /// have fixed the four letters and left both problems — the next member added is mis-cased
-    /// again, and the ones that are not acronyms are still English hard-coded into markup.
-    /// </para>
-    /// <para>
-    /// Which half a member falls in is the same line the message bundle draws everywhere else.
-    /// <c>MSSP</c>, <c>WHO</c>, <c>INFO</c> and <c>I3</c> are protocol and command names — machine
-    /// voice, identical in every locale, and translating one destroys evidence. The handshake, the
-    /// connect screen, the owner and this project's staff are ours to say, so they are said in the
-    /// reader's language.
-    /// </para>
-    /// <para>
-    /// The switch is exhaustive and throws rather than falling back to <c>ToString</c>, because a
-    /// silent fallback is precisely how <c>Mssp</c> reached a page in the first place.
-    /// </para>
+    /// A display name is not an enum member — never interpolate <see cref="FieldSource"/> directly
+    /// into a sentence, since C#'s naming convention mis-cases acronyms and the result can't be
+    /// translated. <c>MSSP</c>, <c>WHO</c>, <c>INFO</c> and <c>I3</c> are protocol names and stay as
+    /// machine voice in every locale; the rest are ours to say and go through the message bundle.
+    /// The switch throws rather than falling back to <c>ToString</c>, so a missing case fails loudly
+    /// instead of leaking an enum name onto a page.
     /// </remarks>
     public static string Via(string tag, FieldSource source)
     {

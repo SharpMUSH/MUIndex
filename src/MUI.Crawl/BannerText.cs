@@ -6,10 +6,8 @@ namespace MUI.Crawl;
 /// The connect screen reduced to the text it actually carries.
 /// </summary>
 /// <remarks>
-/// It lives in this project rather than beside its first caller because the probe needs it too: the
-/// connect-screen phase decides whether what it has is a screen or a placeholder, and "a kilobyte of
-/// colour and one word" has to measure as one word. One normaliser with two readers cannot drift;
-/// two would, and then a banner would be judged slight by one rule and fingerprinted under another.
+/// One normaliser shared by every reader of banner content, so a screen judged slight by one rule
+/// and fingerprinted by another can't disagree about what the text actually is.
 /// </remarks>
 public static class BannerText
 {
@@ -17,20 +15,16 @@ public static class BannerText
     /// The banner with escape sequences removed and whitespace collapsed.
     /// </summary>
     /// <remarks>
-    /// A beacon sitting inside an SGR run is still a beacon, and a colourised connect screen is the
-    /// normal case rather than the exception, so every reader of a banner's *content* comes through
-    /// here.
+    /// A colourised connect screen is the normal case, not the exception, so every reader of a
+    /// banner's content comes through here.
     /// </remarks>
     public static string Flatten(string banner)
     {
         ArgumentNullException.ThrowIfNull(banner);
 
-        // MXP's own markup goes first, and it has to happen here rather than in a caller so that the
-        // probe's "is this a screen or a placeholder" judgement and the duplicate fingerprint agree.
-        // The escape sequences below already fall to SkipEscape — ESC[1z is a CSI like any other —
-        // but the tags between them are ordinary characters and survived: tirradyn.com opens with
-        // nothing but a version request, which was stored and hashed as the literal "<VERSION>" and
-        // put up as a duplicate of another game that answers the same way.
+        // MXP tags are ordinary characters, not escape sequences, and survive SkipEscape below — strip
+        // them here so a banner that is nothing but MXP markup doesn't get stored and fingerprinted as
+        // its literal tag text.
         banner = MxpSignal.Strip(banner);
 
         var text = new StringBuilder(banner.Length);

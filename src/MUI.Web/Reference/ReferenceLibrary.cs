@@ -9,33 +9,10 @@ namespace MUI.Web.Reference;
 /// The hand-written reference section, read once from Markdown files embedded in this assembly.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Why Markdown files and not Razor pages.</b> Spec §9 wants this content curated, single-author
-/// and versioned in git — that is the whole argument for having it at all, since it is how wiki
-/// value is obtained without wiki governance. Governance here means <em>review</em>, and review of
-/// prose only works if the diff reads as prose. A codebase description inside a component arrives in
-/// a pull request as escaped string literals interleaved with layout, which nobody proof-reads; the
-/// same paragraph in a <c>.md</c> file arrives as the sentence that changed. It also keeps the
-/// section editable by somebody who does not write C#, which for curated content is the difference
-/// between a page that gets corrected and one that goes stale.
-/// </para>
-/// <para>
-/// The cost is one dependency and a parser, and it is paid deliberately. Razor would have avoided
-/// both, at the price of putting the content and the rendering shell in one file — the one thing the
-/// section may not do, because then every editorial fix recompiles the layout and every layout
-/// change touches the prose.
-/// </para>
-/// <para>
-/// <b>Embedded rather than read from disk.</b> The content ships with the binary, so there is no
-/// content root to resolve, no file that can be missing in one deployment and present in another,
-/// and no way for the running site to serve something that is not in the repository. "Editable by a
-/// non-programmer" means editable in a pull request, which is exactly what versioned-in-git meant.
-/// </para>
-/// <para>
-/// <b>No count is loaded from here.</b> Every number a reference page shows comes from
-/// <see cref="MUI.Catalog.IGameQueries"/> on the request that renders it. The prose is ours; the
-/// figures are measured, and the two never swap places.
-/// </para>
+/// Markdown rather than Razor, per spec §9: prose reviews cleanly as a diff and stays editable by a
+/// non-programmer, which a component's escaped string literals do not. Embedded rather than read from
+/// disk, so content ships with the binary and can't go missing in one deployment. No count is loaded
+/// from here — every number comes from <see cref="MUI.Catalog.IGameQueries"/> at request time.
 /// </remarks>
 public sealed class ReferenceLibrary
 {
@@ -61,18 +38,9 @@ public sealed class ReferenceLibrary
     /// do not.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>A translation supplies prose and nothing else.</b> The document handed out is the English
-    /// record with its title, summary and body replaced — so the slug, the kind, the
-    /// <c>see-also</c> graph, the protocol name and the upstream link come from one file in one
-    /// language, whatever a translator does to their copy. A slug is a URL and a URL has one page;
-    /// this makes that true by construction rather than by asking forty files to agree.
-    /// </para>
-    /// <para>
-    /// An article with no translation is served in English rather than withheld. The alternative is
-    /// a reference section that is missing pages in four languages, and a missing page is worse
-    /// than a page in the wrong language: one of them still answers the question.
-    /// </para>
+    /// A translation supplies only title, summary and body; slug, kind, see-also graph, protocol and
+    /// upstream link always come from the English record, by construction. An untranslated article is
+    /// served in English rather than withheld — a page in the wrong language still answers the question.
     /// </remarks>
     public static ReferenceLibrary For(string tag)
     {
@@ -118,11 +86,9 @@ public sealed class ReferenceLibrary
     {
         ArgumentNullException.ThrowIfNull(assembly);
 
-        // MSBuild builds a manifest name out of the file's path and replaces what cannot appear in
-        // an identifier, so `content/reference/zh-Hans/` is embedded as `…reference.zh_Hans.…`. The
-        // tag is BCP-47 and its only such character is the dash. Without this, Chinese was the one
-        // locale whose articles loaded and were never found — three locales working is exactly the
-        // evidence that hides it, which is why the test below names zh-Hans rather than "a locale".
+        // MSBuild replaces characters that can't appear in a manifest identifier, so
+        // `content/reference/zh-Hans/` embeds as `…reference.zh_Hans.…` — the dash must be
+        // translated here or that locale silently loads zero articles.
         var prefix = tag is null ? ".reference." : $".reference.{tag.Replace('-', '_')}.";
 
         var documents = new List<ReferenceDocument>();
@@ -154,13 +120,9 @@ public sealed class ReferenceLibrary
     }
 
     /// <summary>
-    /// Whether a resource name names a translation rather than a source article.
+    /// Whether a resource name names a translation rather than a source article: file names never
+    /// carry dots, so a translation's extra tag segment is what shows up as one.
     /// </summary>
-    /// <remarks>
-    /// The file names carry dashes and never dots, so everything between <c>.reference.</c> and
-    /// <c>.md</c> is one segment for a source article and two for a translation — and the extra
-    /// segment is the tag. <c>zh-Hans</c> survives that because its dash is not a separator here.
-    /// </remarks>
     private static bool IsLocalized(string resource)
     {
         const string Marker = ".reference.";

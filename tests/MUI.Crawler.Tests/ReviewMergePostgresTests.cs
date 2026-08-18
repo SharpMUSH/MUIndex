@@ -100,9 +100,8 @@ public class ReviewMergePostgresTests
     [Test]
     public async Task AGameAlreadyAbsorbedElsewhereRefusesASecondMerge()
     {
-        // merge_log_absorbed_once_idx, surfaced through the service rather than worked around by it —
-        // an operator asking to merge an already-absorbed loser into a second winner is exactly the
-        // "page with two answers" the constraint exists to refuse.
+        // merge_log_absorbed_once_idx, surfaced rather than worked around: merging an already-absorbed
+        // loser into a second winner is exactly the "page with two answers" it refuses.
         await using var database = await PostgresFixture.MigratedAsync();
 
         var firstWinner = await GameAsync(database.DataSource, "aardwolf-mud");

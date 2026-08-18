@@ -18,10 +18,8 @@ public sealed class NpgsqlI3BindingRepository(NpgsqlDataSource source) : II3Bind
         """;
 
     /// <remarks>
-    /// <b>The upsert never touches <c>game_id</c>.</b> A binding is established once, by
-    /// <see cref="BindAsync"/>, after an address has answered for itself; a routine mudlist refresh
-    /// has learned nothing about identity and must not be able to unset one. The router relisting a
-    /// mud at a new address is a fact about the address, not a reason to forget which game it is.
+    /// Never touches <c>game_id</c>: a binding is established once, by <see cref="BindAsync"/>, and a
+    /// routine mudlist refresh has learned nothing about identity and must not be able to unset one.
     /// </remarks>
     public async Task UpsertAsync(
         string mudName,
@@ -52,19 +50,11 @@ public sealed class NpgsqlI3BindingRepository(NpgsqlDataSource source) : II3Bind
     }
 
     /// <remarks>
-    /// <para>
-    /// Idempotent, and it will not move a binding that already points somewhere. Two muds resolving
-    /// onto one game is refused by <c>i3_mud_one_per_game_idx</c> rather than by a check here: a
-    /// read-then-write would lose the race, and what it would produce is one game counted twice.
-    /// </para>
-    /// <para>
-    /// <b>That refusal is caught and turned into an answer</b>, because on this network it is
-    /// ordinary rather than exceptional — <c>The Zone</c> is also <c>The Zone-dalet</c>,
-    /// <c>The Zone-i4</c> and <c>The Zone-wpr</c>, one mud registered once per router. The index is
-    /// still the guarantee; what changes is that a caller learns "somebody else has it" instead of
-    /// having a pass torn down. Only this constraint is caught: any other integrity failure is a
-    /// surprise and stays one.
-    /// </para>
+    /// Idempotent; won't move a binding that already points somewhere. Two muds resolving onto one
+    /// game is refused by <c>i3_mud_one_per_game_idx</c> rather than a check here, since a
+    /// read-then-write would lose the race. That refusal is caught and turned into a false return,
+    /// because one game holding several I3 names is ordinary on this network, not exceptional — only
+    /// this specific constraint is caught; any other integrity failure stays a surprise.
     /// </remarks>
     public async Task<bool> BindAsync(string mudName, Guid gameId, CancellationToken ct)
     {

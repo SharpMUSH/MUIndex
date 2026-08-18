@@ -27,9 +27,8 @@ public class FieldPrecedenceTests
     [Test]
     public async Task TheLosingSourceSurvivesSoTheDisagreementCanBeShown()
     {
-        // This is the whole reason the row is keyed by source. "Declared GMCP, never offered in
-        // 214 handshakes" is the single most interesting fact a capability matrix can carry, and a
-        // store keyed on (game, field) alone cannot hold both halves of it.
+        // The whole reason the row is keyed by source: a store keyed on (game, field) alone cannot
+        // hold both halves of a disagreement.
         var store = new InMemoryGameFieldStore();
 
         await store.UpsertAsync(Row(FieldSource.Mssp, "1", 2000));
@@ -66,10 +65,8 @@ public class FieldPrecedenceTests
     [Test]
     public async Task EverySourceOnTheLadderIsOneThisCrawlerCanProduce()
     {
-        // The ladder had two rungs below Banner — ImportedMeasured and ImportedAsserted — for values
-        // taken from other directories. Nothing imports values any more (spec §7.6): the backfill
-        // contributes addresses, and every field is then measured here. A source no writer can
-        // produce is not harmless on an enum; it is an invitation to write one.
+        // Nothing imports values (spec §7.6): the backfill contributes addresses only, every field
+        // is measured here. A source no writer can produce is an invitation to write one.
         await Assert.That(Enum.GetNames<FieldSource>()).DoesNotContain("ImportedMeasured");
         await Assert.That(Enum.GetNames<FieldSource>()).DoesNotContain("ImportedAsserted");
         await Assert.That(Enum.GetNames<IntervalOrigin>().Length).IsEqualTo(1);
@@ -107,15 +104,10 @@ public class FieldPrecedenceTests
     [Test]
     public async Task WhatWeReadOffTheWireIsMeasuredAndWhatAGameReportsIsDeclared()
     {
-        // The line is who read the value, not who authored it. `banner` is on the measured side
-        // because we open a socket and parse that text ourselves on every probe — migration 0003
-        // has said so in as many words since the presence table was written: several games publish
-        // their count only on the connect screen, "and that is still a measurement of ours". Its
-        // freshness is ours even where its arithmetic is theirs.
-        //
-        // `mssp` stays declared, and that is not a contradiction: a game filling in a structured
-        // self-description is reporting, and PLAYERS there may be whatever the codebase last cached.
-        // `owner` and `staff` are people typing, one of them us.
+        // The line is who read the value, not who authored it. `banner` is measured because we open
+        // a socket and parse that text ourselves on every probe, even where its arithmetic is
+        // theirs. `mssp` stays declared: a game filling in a structured self-description is
+        // reporting, not us measuring.
         foreach (var source in new[] { FieldSource.Handshake, FieldSource.Who, FieldSource.Banner })
         {
             await Assert.That(FieldSources.IsMeasured(source)).IsTrue();
@@ -130,10 +122,8 @@ public class FieldPrecedenceTests
     [Test]
     public async Task EverySourceGetsTheSameVerdictWhicheverTypeCarriesIt()
     {
-        // Two records carry provenance and both once spelled the predicate out for themselves, so a
-        // decision about one source had to be remembered in two files. It is one function now, and
-        // this is what stops a second copy growing back: the badge on somebody else's site, the chip
-        // on the listing and the state in the API all resolve through here.
+        // One function, so the badge, the listing chip and the API state all resolve through here
+        // rather than each carrying its own copy of the predicate.
         foreach (var source in Enum.GetValues<FieldSource>())
         {
             var provenance = new Provenance(source, Now, Now).IsMeasured;

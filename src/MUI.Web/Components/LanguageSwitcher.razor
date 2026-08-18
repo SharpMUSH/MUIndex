@@ -3,54 +3,30 @@
 @*
     The language switcher.
 
-    **No flags.** A flag denotes a state, and a state is not a language — which is wrong everywhere
-    and actively wrong here, on a directory whose Chinese-language games run on American hosts and
-    whose English-language games run in half a dozen countries.
+    No flags: a flag denotes a state, not a language, and this directory's games don't map one to
+    one with countries. Each language is named in itself (Deutsch, Русский, 中文), never in English —
+    a reader looking for their own language wants the word they call it by.
 
-    **Each language named in itself** — Deutsch, Русский, 中文 — never in English. A reader looking
-    for their own language is looking for the word they call it by; "German" is help for somebody who
-    already reads English, which is the one reader who does not need this control.
+    A select and a submit, because this site runs no script: choosing posts, the server writes the
+    cookie and redirects back to the page the reader was on (not a localized home page).
 
-    **A select and a submit, because this site runs no script.** The same shape as the theme control
-    beside it in the footer: choosing posts, the server writes the cookie and redirects, and the
-    reader lands on the page they were reading in the language they picked rather than on a localized
-    home page — losing somebody's place is a strange way to answer "I would rather read this in
-    German".
-
-    **It renders only where there is a choice to make.** One option is not a control, and a switcher
-    offering a language whose locked strings are not translated yet would be offering a page that is
-    mostly still English — see LocaleStatus for why nothing ships before its glossary does. Today
-    that means it draws nothing in production, because English is the only shipped locale.
-
-    In a development build it also lists the two review locales, which is how the control gets looked
-    at at all: a switcher with one option is invisible, and an invisible control is one nobody can
-    review. Neither of them claims to be a translation — one is accented English and the other is
-    machine output missing plural forms on purpose — and neither is ever reached by a default, only
-    by somebody choosing it here.
+    Renders only where there is a choice to make — one option is not a control, and a locale with
+    untranslated strings shouldn't be offered (see LocaleStatus). Draws nothing in production today;
+    a development build also lists the two review locales so the control can be looked at at all.
 *@
 
 @if (Offered.Count > 1)
 {
-    @* This locale's copy of the endpoint, for the same reason the theme control beside it posts to
-       one: nothing else on the request says which language the reader is leaving. *@
+    @* This locale's copy of the endpoint: nothing else on the request says which language the
+       reader is leaving. *@
     <form class="locale" method="post" action="@HttpContext.Link(Locales.Path)">
         <input type="hidden" name="@Locales.ReturnField" value="@Here" />
-        @*
-            The label wraps the control rather than pointing at it by id, and that is what lets this
-            component be rendered twice in one document: the bar carries it at one width and the nav
-            disclosure at another, and `for="locale-select"` made those two copies a duplicate id and
-            a label that named whichever select the browser found first. An implicit label names the
-            control it contains, so there is nothing left to collide.
-        *@
+        @* The label wraps the control rather than pointing at it by id, so this component can be
+           rendered twice in one document without a duplicate-id collision. *@
         <label>
             <span class="kick">@Messages.For(Tag, "locale.label")</span>
-        @*
-            One box holding the choice and the way to commit it, which is the shape the search field
-            already taught the reader on the listing — rather than a native dropdown and a wide
-            button beside it, which drew two heavy rectangles into a footer that is otherwise text.
-            The caret is the bar's own chevron and the submit is the search's own arrow, so the
-            control is assembled out of vocabulary this site already has instead of the browser's.
-        *@
+        @* One box holding the choice and the way to commit it, echoing the search field's shape
+           rather than a native dropdown plus a wide button. *@
         <span class="locale-field">
             <select name="@Locales.Field">
                 @foreach (var locale in Offered)
@@ -82,9 +58,9 @@
     /// What this switcher lists: the shipped locales, plus the review ones in a development build.
     /// </summary>
     /// <remarks>
-    /// Asked of the request rather than injected or read from a static: a component that required
-    /// <c>IWebHostEnvironment</c> could not be rendered without a web host, and every headless page
-    /// test in this suite renders one. See <see cref="LocaleRouting.IsReviewBuild"/>.
+    /// Asked of the request rather than injected: a component requiring <c>IWebHostEnvironment</c>
+    /// couldn't render without a web host, and headless page tests need to. See
+    /// <see cref="LocaleRouting.IsReviewBuild"/>.
     /// </remarks>
     private IReadOnlyList<Locale> Offered => Locales.Switchable(HttpContext.IsReviewBuild());
 
@@ -94,16 +70,12 @@
     /// The page this control was rendered on, without its locale prefix.
     /// </summary>
     /// <remarks>
+    /// The querystring travels with it: changing language shouldn't reset a narrowed listing.
     /// <para>
-    /// The querystring travels with it: a reader who has narrowed the listing to three facets and
-    /// then changes language has not asked to start the listing again.
-    /// </para>
-    /// <para>
-    /// <c>ToUriComponent</c> and not the values. <c>Request.Path</c> is decoded, so a path with
-    /// anything escaped in it comes back as raw characters — and this value is posted to us and
-    /// written into a <c>Location</c> header, where a raw character is refused by
-    /// <see cref="LocaleRouting.Back"/> and lands the reader on the front page instead of where they
-    /// were. The prefix is already off, because the middleware moved it into <c>PathBase</c>.
+    /// <c>ToUriComponent</c>, not the decoded values — <c>Request.Path</c> comes back with raw
+    /// characters for anything escaped, and a raw character here is refused by
+    /// <see cref="LocaleRouting.Back"/> and lands the reader on the front page instead. The locale
+    /// prefix is already off, since the middleware moved it into <c>PathBase</c>.
     /// </para>
     /// </remarks>
     private string Here =>

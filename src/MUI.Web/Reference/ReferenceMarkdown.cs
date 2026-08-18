@@ -13,19 +13,9 @@ namespace MUI.Web.Reference;
 /// Markdown to HTML, and Markdown to the plain surface.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>The pipeline is the "no external hosts" guarantee, not a coding convention.</b> Raw HTML is
-/// disabled, so a content file cannot carry a <c>&lt;script src&gt;</c>, an iframe or a remote font
-/// even by accident; and an image — the one remaining piece of syntax that makes a browser fetch
-/// from somewhere else — is rewritten into an ordinary link to the same URL. A reader still gets to
-/// the picture; the page never reaches for it. Both are properties of the parser, so they hold for
-/// content nobody re-reviewed as well as for content somebody did.
-/// </para>
-/// <para>
-/// Headings are shifted down one level on the way out. The page's <c>h1</c> is the document title,
-/// which the shell renders, so a <c>#</c> in the body would produce a second first-level heading and
-/// break the outline every screen reader navigates by.
-/// </para>
+/// Raw HTML is disabled and images are rewritten to plain links, so a content file can never make the
+/// page fetch from a third-party host — this holds for the parser regardless of review. Headings are
+/// shifted down one level, since the shell already renders the document title as <c>h1</c>.
 /// </remarks>
 public static class ReferenceMarkdown
 {
@@ -39,13 +29,9 @@ public static class ReferenceMarkdown
     /// The locale this article is being read in, which its own cross-references are written in.
     /// </param>
     /// <remarks>
-    /// <b>The links inside the prose are localized here and not in the page.</b> The body reaches
-    /// the markup as one <c>MarkupString</c>, so nothing downstream can see the anchors inside it —
-    /// and every article in this section cites two or three others. A German reader following "see
-    /// MSSP" from a German page was put back into English by a link nobody had written on a page,
-    /// which is the same defect as the fifty in the components and invisible to the same sweep.
-    /// It is done on the parsed document rather than on the rendered HTML, because a rewrite over
-    /// markup is a second, worse HTML parser.
+    /// Links are localized here, on the parsed document, rather than on the rendered HTML (a rewrite
+    /// over markup would need a second HTML parser) — the body reaches the page as one opaque
+    /// <c>MarkupString</c>, so nothing downstream can see the anchors to localize them later.
     /// </remarks>
     public static string ToHtml(string markdown, string tag = Locales.SourceTag)
     {
@@ -53,8 +39,7 @@ public static class ReferenceMarkdown
 
         foreach (var image in document.Descendants<LinkInline>().Where(l => l.IsImage))
         {
-            // Kept as a link rather than deleted: the author meant to point at something, and
-            // silently dropping it would lose the reference as well as the fetch.
+            // Kept as a link, not deleted: the reference survives even though the fetch does not.
             image.IsImage = false;
         }
 
@@ -76,20 +61,10 @@ public static class ReferenceMarkdown
     /// telling themselves apart.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// This walks the document rather than calling Markdig's own <c>ToPlainText</c>, and the reason
-    /// is the rule the plain surface exists to enforce. <c>ToPlainText</c> collapses every block to
-    /// one unwrapped line each: a heading, a paragraph and a bullet come out identical, a `telnet
-    /// host port` example lands mid-sentence, and every line inherits whatever width the author's
-    /// editor happened to wrap the source at. That is not a plain rendering of the page — it is the
-    /// page with its structure removed, which is the failure this surface is the test for.
-    /// </para>
-    /// <para>
-    /// Inline links render as their text. A site-internal target is appended in brackets, because in
-    /// plain text a path is something a reader can act on and it is short; an external URL is not
-    /// appended, because a long one cannot be wrapped and would break the eighty-column rule for a
-    /// reference the page's own header and citation list already carry.
-    /// </para>
+    /// Walks the document rather than calling Markdig's own <c>ToPlainText</c>, which collapses every
+    /// block — heading, paragraph, bullet, code line — to one unwrapped line, losing structure rather
+    /// than rendering it plainly. Internal links are appended in brackets since a reader can act on a
+    /// short path; external URLs are not, since they can't be wrapped to eighty columns.
     /// </remarks>
     public static string ToPlainText(string markdown)
     {
@@ -182,10 +157,8 @@ public static class ReferenceMarkdown
     /// Wrapped text whose first line carries the marker and whose continuations line up under it.
     /// </summary>
     /// <remarks>
-    /// Done by wrapping to the continuation indent and then overwriting its first line's leading
-    /// spaces, rather than by wrapping twice — text wrapped at eighty and then re-wrapped with two
-    /// more columns of indent comes out ragged, because every line that was exactly full breaks
-    /// again on its last word.
+    /// Wraps once to the continuation indent and overwrites the first line's leading spaces, rather
+    /// than wrapping twice — a re-wrap at a different indent breaks full lines again on their last word.
     /// </remarks>
     private static void Hanging(StringBuilder b, string text, string indent, string marker, string hanging)
     {

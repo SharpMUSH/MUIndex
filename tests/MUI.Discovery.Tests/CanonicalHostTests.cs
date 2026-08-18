@@ -29,12 +29,9 @@ public class CanonicalHostTests
     [Test]
     public async Task AnOctalLookingOctetIsCanonicalisedTheSameWayTheScopeCheckReadsIt()
     {
-        // `203.000.113.010` is not 203.0.113.10: the platform's parser reads a leading zero as octal,
-        // so that literal is 203.0.113.8. This is normalised through the *same* parse that
-        // AddressScope classifies, which is the property that matters — a spelling that resolves one
-        // way for the registry key and another way for the scope guard would be a hole. It is recorded
-        // here rather than "fixed", because deciding what the operator meant is exactly the guessing a
-        // canonicaliser must not do.
+        // `203.000.113.010` is not 203.0.113.10: the platform reads a leading zero as octal, so this
+        // literal is 203.0.113.8. It must normalise through the *same* parse AddressScope classifies,
+        // or the registry key and the scope guard could disagree about one address.
         await Assert.That(CanonicalHost.Normalize("203.000.113.010")).IsEqualTo("203.0.113.8");
         await Assert.That(CanonicalHost.Normalize("010.0.0.1")).IsEqualTo("8.0.0.1");
     }

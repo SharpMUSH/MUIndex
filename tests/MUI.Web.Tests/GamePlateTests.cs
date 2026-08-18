@@ -6,20 +6,13 @@ namespace MUI.Web.Tests;
 /// <summary>
 /// The face a game gets on a listing row and on its own page (spec §11).
 /// </summary>
-/// <remarks>
-/// Two properties, and both of them are about what the plate may not say. It may not hot-link — a
-/// listing that pointed five hundred <c>img</c> elements at five hundred strangers' web servers would
-/// hand every reader's address to all of them for a decoration. And it may not distinguish a game
-/// that declared no icon from one whose server we could not reach, because only the first of those is
-/// a fact about the game.
-/// </remarks>
+/// <remarks>May not hot-link (§11 — hands every reader's address to a stranger's server for a decoration) and may not distinguish "declared no icon" from "server unreachable", since only the first is a fact about the game.</remarks>
 public class GamePlateTests
 {
     [Test]
     public async Task AMonogramReadsTheNameTheHobbyActuallyWrites()
     {
-        // The star is a separator here and nowhere else in .NET's idea of one: M*U*S*H is one word to
-        // a reader and would monogram as a lone M without it.
+        // The star is a separator here, not in .NET's idea of one — M*U*S*H would monogram as a lone M without it.
         await Assert.That(Monogram.Of("M*U*S*H")).IsEqualTo("MU");
         await Assert.That(Monogram.Of("Midnight Sun II")).IsEqualTo("MS");
         await Assert.That(Monogram.Of("Gaslight-Row")).IsEqualTo("GR");
@@ -29,8 +22,7 @@ public class GamePlateTests
     [Test]
     public async Task APlateIsNeverEmpty()
     {
-        // An empty plate reads as an image that failed to load, which is a statement about our
-        // afternoon rather than about the game.
+        // An empty plate reads as a failed image load, a statement about us, not the game.
         await Assert.That(Monogram.Of(null)).IsEqualTo("?");
         await Assert.That(Monogram.Of("   ")).IsEqualTo("?");
         await Assert.That(Monogram.Of("***")).IsEqualTo("?");
@@ -39,10 +31,8 @@ public class GamePlateTests
     [Test]
     public async Task NoRowDrawsAPlateAndNoIconPointsOffThisOrigin()
     {
-        // The handoff's listing row is identity, measurement and freshness and nothing else: a 36px
-        // square per row is a fourth column of furniture down a list five hundred long, and the face
-        // a game published is on its own page at a size that shows it. The component is unchanged
-        // and the game page still draws it.
+        // The listing row is identity, measurement and freshness only — a 36px square per row is
+        // furniture down a list of five hundred; the game's own page shows the face at real size.
         var html = await Render.PageAsync<Games>([]);
         var rows = html.Split("class=\"game-row").Length - 1;
         var plates = html.Split("class=\"plate").Length - 1;
@@ -50,7 +40,7 @@ public class GamePlateTests
         await Assert.That(rows).IsGreaterThan(0);
         await Assert.That(plates).IsEqualTo(0);
 
-        // §11. An icon is served from this origin or not at all: every src is the site's own route.
+        // §11: an icon is served from this origin or not at all.
         foreach (var src in html.Split("<img").Skip(1))
         {
             await Assert.That(src[..src.IndexOf('>')]).DoesNotContain("src=\"http");
@@ -60,29 +50,23 @@ public class GamePlateTests
     [Test]
     public async Task AMissingIconAndAnUnreachableOneAreDrawnIdentically()
     {
-        // The one thing the plate may not do. A placeholder, a broken image or a "logo unavailable"
-        // would publish our failed fetch as a fact about somebody's game (rule 5) — and the second
-        // and third of those states are indistinguishable from the first anywhere in the markup.
+        // A placeholder, broken image, or "logo unavailable" would publish our failed fetch as a fact
+        // about the game (rule 5).
         var html = await Render.PageAsync<Game>(new() { ["Slug"] = "m-u-s-h" });
 
         await Assert.That(html).DoesNotContain("no icon");
         await Assert.That(html).DoesNotContain("icon unavailable");
 
-        // And no element at all where there is no icon. "When absent, render no element: no
-        // monogram, no grey square, no initial in a circle" — an empty frame on five hundred pages
-        // is noise, and a generated monogram invents a brand the game never supplied, which on a
-        // site that publishes only what it measured is the one decoration that costs something.
+        // No element at all where there's no icon — a generated monogram would invent a brand the
+        // game never supplied.
         await Assert.That(html).DoesNotContain("class=\"plate");
     }
 
     [Test]
     public async Task AnIconIsServedFromThisOriginAndReservesItsSpaceBeforeItArrives()
     {
-        // The fixture holds no bytes, so the branch a real deployment takes is rendered here on its
-        // own. Two things it has to do: point at our route rather than at the game's web server
-        // (§11 — hot-linking hands every reader's address to a stranger for a decoration), and carry
-        // the box's dimensions, because five hundred lazily-loaded images with no reserved space is
-        // a page that reflows under the reader as they scroll.
+        // Two requirements: point at our route, not the game's server (§11), and carry the box's
+        // dimensions so lazily-loaded images don't reflow the page as the reader scrolls.
         var html = await Render.ComponentAsync<GamePlate>(new()
         {
             ["Slug"] = "aardwolf",
@@ -95,9 +79,7 @@ public class GamePlateTests
         await Assert.That(html).Contains("height=\"36\"");
         await Assert.That(html).Contains("loading=\"lazy\"");
 
-        // The name is the link beside it, so the picture is decoration in the accessibility tree
-        // rather than the same words announced twice. The renderer writes an empty attribute value
-        // as a bare attribute, which HTML defines as the empty string — the same decorative alt.
+        // The name is the link beside it, so the picture is decoration, not words announced twice.
         await Assert.That(html).Contains(" alt ");
         await Assert.That(html).DoesNotContain("Aardwolf");
     }
@@ -105,18 +87,15 @@ public class GamePlateTests
     [Test]
     public async Task NoSurfaceInventsAFaceForAGameThatPublishedNone()
     {
-        // Neither the listing nor the game page draws a monogram now. The component still knows how
-        // — a surface that needs a fixed left edge down a list of rows is a different argument — but
-        // nothing passes Fallback, so a game with no icon gets no element on either surface and the
-        // title simply starts at the left edge.
+        // Neither surface passes Fallback, so a game with no icon gets no element and the title
+        // starts at the left edge.
         var page = await Render.PageAsync<Game>(new() { ["Slug"] = "m-u-s-h" });
         var listing = await Render.PageAsync<Games>([]);
 
         await Assert.That(page).DoesNotContain("class=\"plate");
         await Assert.That(listing).DoesNotContain("class=\"plate");
 
-        // And the one implementation is still there, behind the parameter, so the two surfaces
-        // cannot grow two spellings of "the first letters of the name".
+        // Still one implementation behind the parameter, so the two surfaces can't diverge.
         var withFallback = await Render.ComponentAsync<GamePlate>(new()
         {
             ["Slug"] = "m-u-s-h",

@@ -45,10 +45,9 @@ public class MsspScorecardSurfaceTests
     /// The linter's judgement about defaults is the probe's, not a second copy of it.
     /// </summary>
     /// <remarks>
-    /// <c>MsspDefaults</c> lives in <c>MUI.Crawl</c> and <c>MUI.Catalog</c> may never reference it,
-    /// so <see cref="MsspLint.Inspect"/> takes the test as a parameter and the composition supplies
-    /// the real one. This pins the two together: a placeholder the probe already knows about must
-    /// produce an <c>Unanswered</c> finding rather than passing as an answer.
+    /// <c>MsspDefaults</c> lives in <c>MUI.Crawl</c>, which <c>MUI.Catalog</c> may never reference,
+    /// so <see cref="MsspLint.Inspect"/> takes the test as a parameter. This pins the two together: a
+    /// placeholder the probe already knows about must produce an <c>Unanswered</c> finding.
     /// </remarks>
     [Test]
     public async Task TheLinterAndTheProbeAgreeAboutWhatCountsAsUnanswered()

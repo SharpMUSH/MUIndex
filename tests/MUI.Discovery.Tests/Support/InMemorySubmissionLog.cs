@@ -4,16 +4,10 @@ namespace MUI.Discovery.Tests.Support;
 /// The submission log in memory, with the same bound the table enforces.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <c>submitted_at &gt;= since</c> and ordinal equality on the source, because a fake that counted
-/// more loosely would let the rate limit's tests pass against a bound the database never enforced.
-/// </para>
-/// <para>
-/// <b>The lock is not decoration.</b> The real implementation takes a Postgres advisory lock on the
-/// source so that counting and inserting cannot interleave, and a fake without one would let the
-/// concurrency test pass here and fail against the database — which is the wrong way round for a
-/// bound whose entire failure mode is concurrent.
-/// </para>
+/// <c>submitted_at &gt;= since</c> and ordinal equality on the source, so this fake doesn't count more
+/// loosely than the database would. <b>The lock is not decoration</b>: the real implementation takes a
+/// Postgres advisory lock so counting and inserting cannot interleave, and a fake without one would
+/// pass here and fail against the database.
 /// </remarks>
 public sealed class InMemorySubmissionLog : ISubmissionLog
 {

@@ -35,15 +35,12 @@ public class CrawlerStripTests
             .IsEqualTo("crawler live · last probe " + Messages.For(Locales.SourceTag, "age.ago.now"));
     }
 
-    /// <summary>
-    /// <b>Silence is quiet and is never given a cause.</b>
-    /// </summary>
+    /// <summary><b>Silence is quiet and is never given a cause.</b></summary>
     /// <remarks>
-    /// The one that matters. A stale pulse is consistent with a crashed host, a lease held by a
-    /// replica this process cannot see, a batch of slow servers and an empty registry — and on the
-    /// day this was written three of those were live hypotheses at once. Rule 5 forbids publishing
-    /// our own limits as facts about somebody else's game; pointed inward it forbids publishing a
-    /// guess as a fact about our own instrument.
+    /// A stale pulse is consistent with a crashed host, an invisible replica lease, a batch of slow
+    /// servers, or an empty registry. Rule 5 forbids publishing our own limits as facts about
+    /// somebody else's game; pointed inward it forbids publishing a guess as fact about our own
+    /// instrument.
     /// </remarks>
     [Test]
     public async Task AStalePulseIsQuietAndNamesNoCause()
