@@ -3,6 +3,7 @@ using MUI.Catalog.Persistence;
 using MUI.Discovery;
 using MUI.Web.Components;
 using MUI.Web.Components.Pages;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Tests;
 
@@ -75,6 +76,48 @@ public class SubmitSurfaceTests
         var page = Render.Words(await PageAsync());
 
         await Assert.That(page).Contains("Nothing appears on the site until somebody proves they run it");
+    }
+
+    /// <summary>
+    /// Every word this form says comes out of the message bundle.
+    /// </summary>
+    /// <remarks>
+    /// The pseudolocale brackets and accents anything that reached a reader through
+    /// <see cref="Messages"/>, so an English sentence surviving here is one typed into the page or
+    /// into <see cref="SubmitCopy"/>. The address is the exception and is asserted to survive
+    /// intact: it is what a stranger typed, it is machine voice, and a form that handed back a
+    /// translated version of somebody's hostname would be answering about a different address.
+    /// </remarks>
+    [Test]
+    public async Task EveryAnswerComesFromTheBundleAndTheAddressComesBackUntouched()
+    {
+        foreach (var outcome in Enum.GetValues<SubmissionOutcome>())
+        {
+            var english = SubmitCopy.Answer(outcome, "mud.example.org 4201")!;
+            var pseudo = PlainText.RenderSubmit(
+                SubmitCopy.Answer(outcome, "mud.example.org 4201", null, "qps-ploc"),
+                hasCatalogue: true,
+                "qps-ploc");
+
+            await Assert.That(pseudo).Contains("⟦");
+            await Assert.That(Render.Words(pseudo))
+                .DoesNotContain(Render.Words(english.Heading))
+                .Because($"the {outcome} heading never went through the message pipeline");
+        }
+
+        // The lede, the five points and the address, in one render.
+        var form = Render.Words(PlainText.RenderSubmit(
+            SubmitCopy.Answer(SubmissionOutcome.Accepted, "mud.example.org 4201", null, "qps-ploc"),
+            hasCatalogue: true,
+            "qps-ploc"));
+
+        await Assert.That(form).Contains("mud.example.org 4201");
+        await Assert.That(form).DoesNotContain(Render.Words(SubmitCopy.Lede()));
+
+        foreach (var point in SubmitCopy.Points())
+        {
+            await Assert.That(form).DoesNotContain(Render.Words(point));
+        }
     }
 
     /// <summary>Over the demo fixture the form is absent rather than present and doing nothing.</summary>

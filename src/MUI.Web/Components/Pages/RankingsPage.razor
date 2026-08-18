@@ -1,3 +1,4 @@
+@using MUI.Web.Localization
 @page "/rankings"
 @inject IGameQueries Queries
 @inject TimeProvider Clock
@@ -22,18 +23,18 @@
 
 @if (Plain)
 {
-    <pre class="mono plain">@PlainText.RenderRankings(Table, Now)</pre>
+    <pre class="mono plain">@PlainText.RenderRankings(Table, Now, Tag)</pre>
 }
 else
 {
-    <SitePreview Title="Rankings" Description="@PreviewCopy.Pages.Rankings"
+    <SitePreview Title="@PreviewCopy.Titles.Rankings(Tag)" Description="@PreviewCopy.Pages.Rankings(Tag)"
                  Card="PreviewCard.Rankings" />
 
-    <h1>Rankings</h1>
-    <p class="dim">@EcosystemCopy.NoVote</p>
+    <h1>@L("rankings.title")</h1>
+    <p class="dim">@EcosystemCopy.NoVote(Tag)</p>
 
     <section aria-labelledby="busiest">
-        <h2 id="busiest">Busiest, by measured concurrent players</h2>
+        <h2 id="busiest">@L("rankings.busiest.title")</h2>
 
         @*
             Three windows, as links rather than as a control. The page is a document and the window
@@ -41,51 +42,45 @@ else
             text browser gets the same three choices — which is the whole test §9 sets for a
             graphic. aria-current marks the live one, so the state is announced and not only shaded.
         *@
-        <nav class="spans" aria-label="Ranking window">
+        <nav class="spans" aria-label="@L("rankings.window.label")">
             @foreach (var span in RankingSpans.All)
             {
                 <a href="@Href(span)"
                    class="@(span == Table.Span ? "span on" : "span")"
-                   aria-current="@(span == Table.Span ? "page" : null)">@EcosystemCopy.SpanLabel(span)</a>
+                   aria-current="@(span == Table.Span ? "page" : null)">@EcosystemCopy.SpanLabel(Tag, span)</a>
             }
         </nav>
 
-        <p class="dim">@EcosystemCopy.BusiestBasis(Table)</p>
-        <p class="faint">@EcosystemCopy.SpanChoice</p>
+        <p class="dim">@EcosystemCopy.BusiestBasis(Tag, Table)</p>
+        <p class="faint">@EcosystemCopy.SpanChoice(Tag)</p>
 
         @if (Table.Busiest.Count == 0)
         {
-            <p class="faint">
-                No listed game has enough counted samples to rank yet — a statement about how long we
-                have been measuring, not about how busy anybody is.
-            </p>
+            <p class="faint">@L("rankings.busiest.empty")</p>
         }
         else
         {
             <div class="table-wrap">
                 <table class="ranking">
                     <caption class="sr-only">
-                        Games ranked by the median of the player counts we measured over the last
-                        @((int)Table.Window.TotalDays) days.
+                        @Say("rankings.busiest.caption", ("days", (int)Table.Window.TotalDays))
                     </caption>
                     <thead>
                         <tr>
-                            <th scope="col" class="place">#</th>
-                            <th scope="col">game</th>
-                            <th scope="col">median</th>
-                            <th scope="col">peak</th>
-                            <th scope="col">counted samples</th>
-                            <th scope="col">days measured</th>
+                            <th scope="col" class="place">@L("rankings.column.place")</th>
+                            <th scope="col">@L("rankings.column.game")</th>
+                            <th scope="col">@L("rankings.column.median")</th>
+                            <th scope="col">@L("rankings.column.peak")</th>
+                            <th scope="col">@L("rankings.column.samples")</th>
+                            <th scope="col">@L("rankings.column.days")</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @{ var place = 0; }
                         @foreach (var game in Table.Busiest)
                         {
-                            place++;
                             <tr>
-                                <td class="place mono">@place</td>
-                                <th scope="row"><a href="/g/@game.Slug">@game.Name</a></th>
+                                <td class="place mono">@Place(Table.Busiest.Select(g => g.Median), game.Median)</td>
+                                <th scope="row"><a href="@Http.Link($"/g/{game.Slug}")">@game.Name</a></th>
                                 @* The rank is on the median, so the median is the emphasised cell and
                                    the peak sits beside it as context. A peak is one sample, and a game
                                    that had forty players for a minute is not busier than one that has
@@ -105,37 +100,59 @@ else
     </section>
 
     <section aria-labelledby="spells">
-        <h2 id="spells">Longest unbroken reachable spell</h2>
-        <p class="dim">@EcosystemCopy.SpellBasis</p>
+        <h2 id="spells">@L("rankings.spells.title")</h2>
+        <p class="dim">@EcosystemCopy.SpellBasis(Tag)</p>
 
         @if (Table.LongestUnbroken.Count == 0)
         {
-            <p class="faint">No listed game is in an unbroken reachable spell right now.</p>
+            <p class="faint">@L("rankings.spells.empty")</p>
         }
         else
         {
             <div class="table-wrap">
                 <table class="ranking">
-                    <caption class="sr-only">
-                        Games whose every probe since the date given found them reachable.
-                    </caption>
+                    <caption class="sr-only">@L("rankings.spells.caption")</caption>
                     <thead>
                         <tr>
-                            <th scope="col" class="place">#</th>
-                            <th scope="col">game</th>
-                            <th scope="col">reachable since</th>
-                            <th scope="col">that is</th>
+                            <th scope="col" class="place">@L("rankings.column.place")</th>
+                            <th scope="col">@L("rankings.column.game")</th>
+                            <th scope="col">@L("rankings.column.since")</th>
+                            <th scope="col">@L("rankings.column.duration")</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @{ var place = 0; }
                         @foreach (var spell in Table.LongestUnbroken)
                         {
-                            place++;
                             <tr>
-                                <td class="place mono">@place</td>
-                                <th scope="row"><a href="/g/@spell.Slug">@spell.Name</a></th>
-                                <td class="mono">@spell.Since.ToString("d MMMM yyyy")</td>
+                                @*
+                                    Tied games share a place. Every one of the twenty rows here read
+                                    "31 July 2026" and they were numbered 1 to 20 — an order the
+                                    measurements do not contain, printed by a site whose whole
+                                    argument is that it prints only what it measured.
+                                *@
+                                @*
+                                    Earliest first, because a spell that started sooner is the
+                                    longer one — and `Place` gives the first place to the *greatest*
+                                    value, so ranking on `Since.Ticks` ranked this table backwards:
+                                    Midnight Sun II, reachable on every probe since June, was
+                                    printed as seventh of seven under a heading that says longest,
+                                    while the `?plain=1` mirror numbered the same rows from a
+                                    counter and got them right. The page and its own text
+                                    alternative disagreed about a ranking.
+
+                                    On `Since` rather than on the duration, even though the duration
+                                    is what the heading names. `Now` is `Clock.GetUtcNow()` and each
+                                    read of it is a fresh instant, so `LengthAt(Now)` differs by
+                                    microseconds between the row and the sequence it is compared
+                                    against — which breaks every tie and invents a place. The start
+                                    date is the measurement; the duration is that date read against
+                                    a clock, and only one of the two is stable enough to sort on.
+                                *@
+                                <td class="place mono">
+                                    @PlaceEarliest(Table.LongestUnbroken.Select(s => s.Since), spell.Since)
+                                </td>
+                                <th scope="row"><a href="@Http.Link($"/g/{spell.Slug}")">@spell.Name</a></th>
+                                <td class="mono">@Dates.Absolute(Tag, spell.Since)</td>
                                 <td class="mono state-present">@Wording.Duration(spell.LengthAt(Now))</td>
                             </tr>
                         }
@@ -146,14 +163,15 @@ else
     </section>
 
     <p class="faint">
-        Archived games are out of both tables and nothing else; one successful probe puts them back.
-        <a href="/archive">archive</a> ·
-        <a href="/ecosystem">ecosystem</a> ·
-        <a href="?window=@Span.Slug()&plain=1">plain text</a>
+        @L("rankings.archivedNote")
+        <a href="@Http.Link("/archive")">@L("nav.archive")</a> ·
+        <a href="@Http.Link("/ecosystem")">@L("nav.ecosystem")</a> ·
+        <a href="?window=@Span.Slug()&plain=1">@L("a11y.plainText")</a>
     </p>
 }
 
 @code {
+
     [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
 
     /// <summary>Which window to rank over: <c>7d</c>, <c>30d</c> or <c>90d</c>.</summary>
@@ -172,9 +190,49 @@ else
 
     private Rankings Table = Rankings.Empty(default, TimeSpan.Zero, 0);
 
+    /// <summary>
+    /// Where a row places, with tied rows sharing a place.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Competition ranking: a row's place is one more than the number of rows strictly above it, so
+    /// four games on the same median are four number 4s and the next is a 8. Numbering them 4, 5, 6,
+    /// 7 would state an order the measurement does not contain — the whole of finding S5, and the
+    /// opposite of what every other surface here is careful about.
+    /// </para>
+    /// <para>
+    /// Rows are ordered as the query returned them, and the table's caption says the ties are ties
+    /// rather than leaving a reader to infer a tiebreaker we did not apply.
+    /// </para>
+    /// </remarks>
+    private static int Place<T>(IEnumerable<T> values, T value) where T : IComparable<T> =>
+        1 + values.Count(v => v.CompareTo(value) > 0);
+
+    /// <summary>
+    /// The same place, for a column where the smallest value is the best one.
+    /// </summary>
+    /// <remarks>
+    /// The longest unbroken spell is the one that started earliest, and an earlier date is a smaller
+    /// number — so it needs the opposite comparison from a median or a peak, and sharing
+    /// <see cref="Place{T}"/> between them ranked it backwards. Ties still share a place, which is
+    /// the rule the whole column exists for.
+    /// </remarks>
+    private static int PlaceEarliest<T>(IEnumerable<T> values, T value) where T : IComparable<T> =>
+        1 + values.Count(v => v.CompareTo(value) < 0);
+
     /// <summary>The address of one window, carrying plain mode through if that is how we arrived.</summary>
     private string Href(RankingSpan span) =>
         Plain ? $"?window={span.Slug()}&plain=1" : $"?window={span.Slug()}";
 
     protected override async Task OnParametersSetAsync() => Table = await Queries.RankingsAsync(Span);
+
+    /// <summary>The locale this league table is being read in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    private string L(string id) => Messages.For(Tag, id);
+
+    private string Say(string id, params (string Key, object? Value)[] args) =>
+        Messages.For(Tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 }

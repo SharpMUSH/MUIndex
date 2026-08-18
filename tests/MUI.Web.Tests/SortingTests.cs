@@ -1,3 +1,4 @@
+using MUI.Web.Localization;
 using MUI.Catalog;
 using MUI.Web.Api;
 using MUI.Web.Components;
@@ -115,8 +116,12 @@ public class SortingTests
 
         await Assert.That(sorted).Contains("unranked-break");
         await Assert.That(Render.Words(sorted)).Contains("from here");
-        await Assert.That(Render.Words(sorted)).Contains(FacetWords.Unranked(GameSort.Players));
-        await Assert.That(FacetWords.Unranked(GameSort.Players)).Contains("not zero");
+        await Assert.That(Render.Words(sorted)).Contains(FacetWords.Unranked(Locales.SourceTag, GameSort.Players));
+        // The break names the state rather than arguing with a reading of it. It said "reachable,
+        // count unreadable — not zero", which spends most of its words denying something nobody had
+        // thought yet; the state has a name, the site uses that name everywhere else, and the rows
+        // under the break say "not counted" in their own cells.
+        await Assert.That(FacetWords.Unranked(Locales.SourceTag, GameSort.Players)).IsEqualTo("Unknown count");
     }
 
     [Test]
@@ -128,8 +133,8 @@ public class SortingTests
         var html = Render.Words(await Render.PageAsync<Games>([]));
 
         await Assert.That(html).DoesNotContain("now ago");
-        await Assert.That(Relative.Ago(TimeSpan.FromSeconds(10))).IsEqualTo("just now");
-        await Assert.That(Relative.Ago(TimeSpan.FromMinutes(20))).IsEqualTo("20m ago");
+        await Assert.That(Relative.Ago(Locales.SourceTag, TimeSpan.FromSeconds(10))).IsEqualTo("just now");
+        await Assert.That(Relative.Ago(Locales.SourceTag, TimeSpan.FromMinutes(20))).IsEqualTo("20m ago");
     }
 
     [Test]
@@ -143,8 +148,8 @@ public class SortingTests
         var text = PlainText.RenderListing(
             await Queries.SearchAsync(query.Filter), query.Filter, FixtureGameQueries.Now);
 
-        await Assert.That(Render.Words(text)).Contains($"Sorted by {FacetWords.Sort(GameSort.Players)}");
-        await Assert.That(Render.Words(text)).Contains(FacetWords.Unranked(GameSort.Players));
+        await Assert.That(Render.Words(text)).Contains($"Sorted by {FacetWords.Sort(Locales.SourceTag, GameSort.Players)}");
+        await Assert.That(Render.Words(text)).Contains(FacetWords.Unranked(Locales.SourceTag, GameSort.Players));
 
         // And the parameter that changes it, because a text browser cannot operate a <select>.
         await Assert.That(text).Contains($"?{FacetKeys.Sort}=");
@@ -220,8 +225,8 @@ public class SortingTests
 
         await Assert.That(order[0].Name).IsEqualTo("counted");
         await Assert.That(GameSorting.IsUnranked(uncountable, GameSort.MedianMonth)).IsTrue();
-        await Assert.That(FacetWords.Unranked(GameSort.MedianMonth)).Contains("not a typical count of zero");
-        await Assert.That(FacetWords.Unranked(GameSort.PeakMonth)).Contains("not a game nobody was on");
+        await Assert.That(FacetWords.Unranked(Locales.SourceTag, GameSort.MedianMonth)).Contains("not a typical count of zero");
+        await Assert.That(FacetWords.Unranked(Locales.SourceTag, GameSort.PeakMonth)).Contains("not a game nobody was on");
     }
 
     [Test]
@@ -255,19 +260,19 @@ public class SortingTests
         // "name" — which is an order the reader did not choose, silently.
         foreach (var sort in Enum.GetValues<GameSort>())
         {
-            await Assert.That(FacetWords.Sort(sort)).IsNotEmpty();
-            await Assert.That(FacetWords.SortGroup(sort)).IsNotEmpty();
+            await Assert.That(FacetWords.Sort(Locales.SourceTag, sort)).IsNotEmpty();
+            await Assert.That(FacetWords.SortGroup(Locales.SourceTag, sort)).IsNotEmpty();
 
             if (sort is not GameSort.Name)
             {
-                await Assert.That(FacetWords.Unranked(sort))
+                await Assert.That(FacetWords.Unranked(Locales.SourceTag, sort))
                     .IsNotEmpty()
                     .Because($"{sort} can leave games unranked and has to say what they have in common");
             }
         }
 
         // Distinct labels, or two options in the control are one choice wearing two rows.
-        await Assert.That(Enum.GetValues<GameSort>().Select(FacetWords.Sort).Distinct().Count())
+        await Assert.That(Enum.GetValues<GameSort>().Select(s => FacetWords.Sort(Locales.SourceTag, s)).Distinct().Count())
             .IsEqualTo(Enum.GetValues<GameSort>().Length);
     }
 

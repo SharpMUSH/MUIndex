@@ -1,3 +1,5 @@
+@using MUI.Web.Localization
+
 @*
     The presence trend: measured players per day, over a calendar range the reader can move.
 
@@ -22,8 +24,8 @@
     under the graphic uses rather than through a second implementation that could disagree.
 *@
 
-<p class="summary">@Series.Sentence</p>
-<p class="faint mono">days in UTC · @Series.From.ToString("d MMM yyyy") – @Series.To.ToString("d MMM yyyy")</p>
+<p class="summary">@Sentence</p>
+<p class="faint mono">@L("trend.range", ("from", Series.From), ("to", Series.To))</p>
 
 @if (Series.HasAnyCount)
 {
@@ -31,12 +33,12 @@
         @* One image with one label. Every day is announced through the disclosure below rather than
            as ninety focusable shapes, which is the same choice the availability strip makes. *@
         <svg class="trend" viewBox="0 0 @Box" preserveAspectRatio="none"
-             role="img" aria-label="@Series.Sentence">
+             role="img" aria-label="@Sentence">
             @* The plot is a surface rather than a hole in the page. Without it ninety unmeasured
                days are the page's own background, and the graphic reads as a fault. *@
             <rect class="plot" x="0" y="0" width="@N(TrendGeometry.Width)" height="@N(TrendGeometry.Zero)"></rect>
 
-            @foreach (var month in TrendGeometry.Months(Series))
+            @foreach (var month in TrendGeometry.Months(Tag, Series))
             {
                 <line class="monthline" x1="@N(month.X)" x2="@N(month.X)"
                       y1="0" y2="@N(TrendGeometry.Zero)"></line>
@@ -57,12 +59,12 @@
                     @if (bar.HasCap)
                     {
                         <path class="peak" d="@TrendGeometry.Column(bar.X, bar.Width, bar.PeakTop, bar.CapBottom)">
-                            <title>@bar.Day.Label</title>
+                            <title>@bar.Day.Label(Tag)</title>
                         </path>
                     }
 
                     <path class="mean" d="@TrendGeometry.Column(bar.X, bar.Width, bar.MeanTop, TrendGeometry.Zero)">
-                        <title>@bar.Day.Label</title>
+                        <title>@bar.Day.Label(Tag)</title>
                     </path>
                 }
             }
@@ -81,7 +83,7 @@
                 @* A day with no measured neighbour, which no path can carry. Bigger than the mark a
                    line would give it and ringed in the surface colour, because on a sparsely probed
                    game these dots are the whole chart. *@
-                @foreach (var dot in TrendGeometry.Dots(Series))
+                @foreach (var dot in TrendGeometry.Dots(Tag, Series))
                 {
                     <circle class="dot" cx="@N(dot.X)" cy="@N(dot.Y)" r="3.5">
                         <title>@dot.Label</title>
@@ -90,7 +92,7 @@
             }
 
             @* The hatched state, in its own gutter under the baseline. *@
-            @foreach (var tick in TrendGeometry.Ticks(Series))
+            @foreach (var tick in TrendGeometry.Ticks(Tag, Series))
             {
                 <rect class="uncounted" x="@N(tick.X)" y="@N(TrendGeometry.Zero + 4)"
                       width="@N(Math.Max(tick.Width - 0.5, 0.5))" height="6">
@@ -105,7 +107,7 @@
             {
                 <rect class="hit" x="@N(column.X)" y="0"
                       width="@N(column.Width)" height="@TrendGeometry.Height">
-                    <title>@column.Day.Label</title>
+                    <title>@column.Day.Label(Tag)</title>
                 </rect>
             }
         </svg>
@@ -113,40 +115,42 @@
         @* Positioned by the same fractions the rules are drawn at, and outside the SVG because the
            canvas is stretched to the page width — text inside it would be stretched with it. *@
         <div class="trend-axis mono faint" aria-hidden="true">
-            @foreach (var month in TrendGeometry.Months(Series))
+            @foreach (var month in TrendGeometry.Months(Tag, Series))
             {
                 <span style="left: @N(month.Fraction * 100)%">@month.Label</span>
             }
         </div>
 
         <div class="trend-scale mono faint">
-            <span>@Series.Ceiling at the top</span>
-            <span>@Series.CountedDays of @Series.Days.Count days counted</span>
+            <span>@L("trend.ceiling", ("value", Series.Ceiling))</span>
+            <span>@L("trend.counted", ("counted", Series.CountedDays), ("days", Series.Days.Count))</span>
         </div>
     </div>
 
     <ul class="legend">
         @if (Shape is TrendShape.Bar)
         {
-            <li><span class="swatch mean" aria-hidden="true"></span>mean of the counts we read that day</li>
-            <li><span class="swatch peak" aria-hidden="true"></span>up to the busiest count that day</li>
+            <li><span class="swatch mean" aria-hidden="true"></span>@L("trend.legend.mean")</li>
+            <li><span class="swatch peak" aria-hidden="true"></span>@L("trend.legend.peak")</li>
         }
         else
         {
-            <li><span class="swatch line" aria-hidden="true"></span>mean of the counts we read that day</li>
-            <li><span class="swatch band" aria-hidden="true"></span>lowest to highest count that day</li>
+            <li><span class="swatch line" aria-hidden="true"></span>@L("trend.legend.mean")</li>
+            <li><span class="swatch band" aria-hidden="true"></span>@L("trend.legend.band")</li>
         }
-        <li><span class="swatch uncounted" aria-hidden="true"></span>probed, no count could be read</li>
+        <li><span class="swatch uncounted" aria-hidden="true"></span>@L("trend.legend.notCounted")</li>
         <li>
+            @* The whole clause is the id, not "not measured" plus a dash and a fragment: what
+               follows the dash is a fact about the drawing and moves inside the sentence. *@
             <span class="swatch gap" aria-hidden="true"></span>
-            @(Shape is TrendShape.Bar ? "not measured — no bar at all" : "not measured — a break in the line")
+            @L(Shape is TrendShape.Bar ? "trend.legend.notMeasured.bar" : "trend.legend.notMeasured.line")
         </li>
     </ul>
 
     <details class="disclosure">
-        <summary>read as text</summary>
+        <summary>@L("a11y.readAsText")</summary>
         <ul class="weeks mono">
-            @foreach (var line in Series.PerWeek())
+            @foreach (var line in Series.PerWeek(Tag))
             {
                 <li>@line</li>
             }
@@ -158,7 +162,7 @@ else
     @* No cause given, and none available: a failed probe writes no presence row at all, so an empty
        range covers days we could not reach and days we never probed alike. Naming one of them would
        be recording a decision of ours as a measurement of theirs. *@
-    <p class="faint">Nothing counted in this range.</p>
+    <p class="faint">@L("trend.empty")</p>
 }
 
 @code {
@@ -166,6 +170,24 @@ else
 
     /// <summary>Which drawing of the same numbers — see <see cref="TrendShape"/> for why there are two.</summary>
     [Parameter] public TrendShape Shape { get; set; } = TrendShape.Line;
+
+    /// <summary>The request, for the locale its ninety tooltips are written in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    /// <summary>
+    /// The chart said in words. Rendered once and used twice — as the paragraph above the drawing
+    /// and as the drawing's own label — because they are one sentence and a second call would be a
+    /// second chance for them to differ.
+    /// </summary>
+    private string Sentence => Series.Sentence(Tag);
+
+    private string L(string id) => Messages.For(Tag, id);
+
+    /// <summary>This component's tag, supplied once — the rendering is <see cref="Messages.Say"/>.</summary>
+    private string L(string id, params (string Key, object? Value)[] args) =>
+        Messages.Say(Tag, id, args);
 
     private static string Box =>
         $"{N(TrendGeometry.Width)} {N(TrendGeometry.Height)}";

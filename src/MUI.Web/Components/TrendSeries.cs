@@ -1,6 +1,7 @@
 using System.Globalization;
 
 using MUI.Catalog;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Components;
 
@@ -45,16 +46,49 @@ public sealed record TrendDay(
     /// </remarks>
     public int? Typical => Mean is { } m ? (int)Math.Floor(m) : null;
 
-    public string Label => this switch
+    /// <summary>
+    /// What one column says, as a sentence in the reader's language.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Four shapes and the reader gets exactly one, so all four are ids and none is assembled. The
+    /// English this replaces glued a date to a fragment and a number to the word "probes", which is
+    /// two facts about English — the month name and the plural rule — standing where a measurement
+    /// was supposed to be. Ninety of these are drawn per game, which is why this one method was most
+    /// of what the site still said in English however it was asked.
+    /// </para>
+    /// <para>
+    /// <b>The gap and the uncountable day are two different ids and must stay two.</b> A day nobody
+    /// measured names no cause — a failed probe writes no presence row at all, so it covers a dial
+    /// we could not complete and a day we never dialled alike — and a day probed all through without
+    /// a readable count is a measurement of a game that was answering. Collapsing them is §5.4's
+    /// worst bug, and it is a collapse a translator could make silently, so the two ids read nothing
+    /// like each other and a test holds them apart in every locale.
+    /// </para>
+    /// </remarks>
+    public string Label(string tag) => this switch
     {
-        { IsGap: true } => $"{Date:d MMM yyyy} — no measurement",
-        { IsUncountable: true } => $"{Date:d MMM yyyy} — probed, no count could be read",
-        { Min: { } lo, Max: { } hi } when lo == hi =>
-            $"{Date:d MMM yyyy} — {lo} players, every one of {Probes(CountedSamples)}",
-        _ => $"{Date:d MMM yyyy} — {Typical} on average, {Min}–{Max} across {Probes(CountedSamples)}",
-    };
+        { IsGap: true } => Messages.Say(tag, "trend.day.notMeasured", ("d", Date)),
+        { IsUncountable: true } => Messages.Say(tag, "trend.day.notCounted", ("d", Date)),
 
-    private static string Probes(int n) => n == 1 ? "1 probe" : $"{n} probes";
+        // Every probe returning the same number is its own sentence rather than a range with that
+        // number written twice: "24–24" is arithmetic printed where a measurement was asked for.
+        { Min: { } lo, Max: { } hi } when lo == hi => Messages.Say(
+            tag,
+            "trend.day.flat",
+            ("d", Date),
+            ("count", lo),
+            ("probes", CountedSamples)),
+
+        _ => Messages.Say(
+            tag,
+            "trend.day.counted",
+            ("d", Date),
+            ("typical", Typical),
+            ("low", Min),
+            ("high", Max),
+            ("probes", CountedSamples)),
+    };
 }
 
 /// <summary>
@@ -113,26 +147,32 @@ public sealed record TrendSeries(DateOnly From, DateOnly To, IReadOnlyList<Trend
     /// thirds have something in them: a range measured at one end is not a trend, and calling it one
     /// would be our sampling described as their decline.
     /// </remarks>
-    public string Sentence
+    public string Sentence(string tag)
     {
-        get
+        if (!HasAnyCount)
         {
-            if (!HasAnyCount)
-            {
-                return HasAnyMeasurement
-                    ? "Probed in this range, and no player count could be read from any of it."
-                    : "No measurement in this range.";
-            }
-
-            var counted = Days.Where(d => d.IsCounted).ToList();
-            var typical = Median(counted.Select(d => d.Average!.Value));
-            var peak = Ceiling;
-
-            var start = $"Typically {Number(typical)} on, peaking at {peak}, "
-                + $"over {CountedDays} of {Measured(Days.Count)}.";
-
-            return Direction(counted) is { } direction ? $"{start} {direction}" : start;
+            // Neither of these names a cause, and the two are different facts: probed and never
+            // countable is a measurement of a game that answered, and no measurement is a statement
+            // about our crawl and not about their game.
+            return Messages.For(tag, HasAnyMeasurement
+                ? "trend.none.probed"
+                : "trend.none.notMeasured");
         }
+
+        var counted = Days.Where(d => d.IsCounted).ToList();
+        var typical = Median(counted.Select(d => d.Average!.Value));
+
+        var start = Messages.Say(
+            tag,
+            "trend.summary",
+            ("typical", Number(typical)),
+            ("peak", Ceiling),
+            ("counted", CountedDays),
+            ("days", Days.Count));
+
+        // Two sentences and not one with a word substituted in: "Steady across the range" is a whole
+        // clause, and a language that opens with the direction has nowhere to put it otherwise.
+        return Direction(tag, counted) is { } direction ? $"{start} {direction}" : start;
     }
 
     /// <summary>One line per week, which is the "read as text" disclosure and the plain rendering.</summary>
@@ -148,13 +188,13 @@ public sealed record TrendSeries(DateOnly From, DateOnly To, IReadOnlyList<Trend
     /// with nothing counted still says which kind of nothing it was.
     /// </para>
     /// </remarks>
-    public IEnumerable<string> PerWeek()
+    public IEnumerable<string> PerWeek(string tag)
     {
         foreach (var week in Days.Chunk(7))
         {
             var span = week.Length == 1
-                ? $"{week[0].Date:d MMM}"
-                : $"{week[0].Date:d MMM}–{week[^1].Date:d MMM}";
+                ? Messages.Say(tag, "trend.week.oneDay", ("d", week[0].Date))
+                : Messages.Say(tag, "trend.week.span", ("from", week[0].Date), ("to", week[^1].Date));
 
             var counted = week.Where(d => d.IsCounted).ToList();
             var uncountable = week.Count(d => d.IsUncountable);
@@ -162,30 +202,40 @@ public sealed record TrendSeries(DateOnly From, DateOnly To, IReadOnlyList<Trend
 
             if (counted.Count == 0)
             {
-                yield return uncountable > 0
-                    ? $"{span}: probed, no count could be read"
-                    : $"{span}: not measured";
+                yield return Messages.Say(
+                    tag,
+                    uncountable > 0 ? "trend.week.notCounted" : "trend.week.notMeasured",
+                    ("span", span));
 
                 continue;
             }
 
-            var typical = Number(Median(counted.Select(d => d.Average!.Value)));
-            var high = counted.Max(d => d.Max!.Value);
-            var line = $"{span}: typically {typical}, peak {high}, {Measured(counted.Count)} counted";
+            var line = Messages.Say(
+                tag,
+                "trend.week.counted",
+                ("span", span),
+                ("typical", Number(Median(counted.Select(d => d.Average!.Value)))),
+                ("peak", counted.Max(d => d.Max!.Value)),
+                ("days", counted.Count));
 
+            // Folded through a two-argument message rather than joined on a comma written here: the
+            // separator belongs to a language, and Chinese uses neither of ours.
             if (uncountable > 0)
             {
-                line += $", {Measured(uncountable)} probed without a count";
+                line = Join(tag, line, Messages.Say(tag, "trend.week.uncounted", ("count", uncountable)));
             }
 
             if (unmeasured > 0)
             {
-                line += $", {Measured(unmeasured)} not measured";
+                line = Join(tag, line, Messages.Say(tag, "trend.week.unmeasured", ("count", unmeasured)));
             }
 
             yield return line;
         }
     }
+
+    private static string Join(string tag, string line, string clause) =>
+        Messages.Say(tag, "trend.week.and", ("line", line), ("clause", clause));
 
     /// <summary>
     /// The rollup's buckets as a day per column, with the days it does not hold left as gaps.
@@ -213,7 +263,7 @@ public sealed record TrendSeries(DateOnly From, DateOnly To, IReadOnlyList<Trend
         return new TrendSeries(from, to, days);
     }
 
-    private static string? Direction(IReadOnlyList<TrendDay> counted)
+    private static string? Direction(string tag, IReadOnlyList<TrendDay> counted)
     {
         if (counted.Count < 6)
         {
@@ -236,15 +286,20 @@ public sealed record TrendSeries(DateOnly From, DateOnly To, IReadOnlyList<Trend
         // with noise on it, and reporting a direction would be reading our probe schedule.
         if (before <= 0 || Math.Abs(after - before) / before < 0.1)
         {
-            return "Steady across the range.";
+            return Messages.For(tag, "trend.direction.steady");
         }
 
-        var change = (int)Math.Round(Math.Abs(after - before) / before * 100);
+        // Rounded to whole points here and handed to the formatter as a fraction, so the sign and
+        // its spacing are the locale's — several languages put a space before it and one writes it
+        // after the noun.
+        var change = Math.Round(Math.Abs(after - before) / before, 2);
 
-        return after > before
-            ? $"Up about {change}% from the start of the range to the end."
-            : $"Down about {change}% from the start of the range to the end.";
+        return Messages.Say(
+            tag,
+            after > before ? "trend.direction.up" : "trend.direction.down",
+            ("change", change));
     }
+
 
     private static double Median(IEnumerable<double> values)
     {
@@ -256,6 +311,4 @@ public sealed record TrendSeries(DateOnly From, DateOnly To, IReadOnlyList<Trend
     /// <summary>A count of players, floored — see <see cref="TrendDay.Typical"/> for why down.</summary>
     private static string Number(double value) =>
         Math.Floor(value).ToString("0", CultureInfo.InvariantCulture);
-
-    private static string Measured(int n) => n == 1 ? "1 day" : $"{n} days";
 }

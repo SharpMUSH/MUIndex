@@ -1,6 +1,7 @@
 using MUI.Crawl;
 using MUI.Discovery;
 using MUI.Web.Api;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Components;
 
@@ -33,6 +34,14 @@ namespace MUI.Web.Components;
 /// <see cref="MUI.Discovery.OptOutGate"/> actually reads, and a page that advertised a switch wired to
 /// nothing would be worse than a page admitting there was none.
 /// </para>
+/// <para>
+/// <b>The prose is read out of <see cref="Messages"/> rather than typed here.</b> This was the last
+/// long page on the site still answering in English whatever language it was asked for, and it is
+/// the page that states the rules everything else is built from — so it is the worst one to leave
+/// untranslated and the one where a paraphrase does the most damage. The English moved without a
+/// word changing; only its home did. The two spellings and the command list stay arguments, so the
+/// page still cannot advertise a switch wired to something else.
+/// </para>
 /// </remarks>
 public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections)
 {
@@ -47,209 +56,111 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
     /// constructed from rather than a copy of it that can drift.
     /// </param>
     /// <param name="dataset">The licence terms this deployment serves its dumps under.</param>
-    public static AboutPage Build(ProbeOptions probe, DatasetLicenceOptions dataset) => new(
-        "Every game here was measured by a machine that connected to it, and every value says where "
-        + "it came from and when. This page covers what that proves, what we get wrong, whose "
-        + "directories we read, and how to make the crawler stop.",
+    /// <param name="tag">The locale this page is being answered in.</param>
+    public static AboutPage Build(
+        ProbeOptions probe, DatasetLicenceOptions dataset, string tag = Locales.SourceTag) => new(
+        Say(tag, "about.lede"),
         [
-            Measures(),
-            Limits(),
-            Never(),
-            Crawler(probe),
-            Attribution(),
-            Licence(dataset),
+            Measures(tag),
+            Limits(tag),
+            Never(tag),
+            Crawler(tag, probe),
+            Attribution(tag),
+            Licence(tag, dataset),
         ]);
 
-    private static AboutSection Measures() => new(
+    private static AboutSection Measures(string tag) => new(
         "measures",
-        "What a fact here is",
+        Say(tag, "about.measures.heading"),
         [
-            new("Measured beats declared, and both are shown.",
-                "A game's MSSP report is the game describing itself. The telnet handshake is what we "
-                + "watched it do. Both appear on its page, labelled with how and when. Where they "
-                + "disagree, we show the disagreement."),
-            new("A player count says where it came from.",
-                "Either a WHO or DOING read at the connect screen, which we counted, or the game's "
-                + "own MSSP PLAYERS field, which it published. Never merged."),
-            new("An answer we cannot read is unknown, never zero.",
-                "Servers customise their WHO headers freely, and past a point our parser cannot read "
-                + "one. That is uncountable, its own state. A measured zero — we got in, nobody was "
-                + "there — is a count, and prints as one."),
-            new("Reachable, never uptime.",
-                "We open a socket from one host at intervals. A game we cannot route to is "
-                + "unreachable and perfectly alive. Nothing here claims a game's uptime, because "
-                + "nothing here measured it."),
-            new("An hour is counted, uncountable, or not measured.",
-                "The activity grid has three states. The third is empty and names no cause: an hour "
-                + "we could not reach and an hour we never probed are the same absence, and neither "
-                + "is that server's downtime."),
+            Point(tag, "about.measures.declared"),
+            Point(tag, "about.measures.count"),
+            Point(tag, "about.measures.unknown"),
+            Point(tag, "about.measures.reachable"),
+            Point(tag, "about.measures.hour"),
         ]);
 
-    private static AboutSection Limits() => new(
+    private static AboutSection Limits(string tag) => new(
         "limits",
-        "What we know we get wrong",
+        Say(tag, "about.limits.heading"),
         [
-            new("Archive grace is measured from the day we found you.",
-                "A game that stops answering leaves the default listing after its grace period: a "
-                + "quarter of the reachable time we probed, floored at 60 days and capped at 365. A "
-                + "game running since 1995 starts at the floor on the day we discover it. We import "
-                + "nothing to fill in the years before we arrived."),
-            new("We do not credit MSSP CREATED toward that grace.",
-                "It is one hand-typed line in a config file, so crediting it would make the archive "
-                + "threshold gameable. It is shown as a declaration and buys nothing."),
-            new("Claiming a game earns the ceiling.",
-                "Proving server access is worth the full year of grace, however long we have been "
-                + "watching."),
-            new("Everything here is one host, looking at intervals.",
-                "A percentage of reachable time is a fraction of the window we observed, never of "
-                + "one we did not. No graphic here fills in the rest."),
-            new("Nothing is ever deleted.",
-                "Archiving takes a game out of the default listing, the rankings and the "
-                + "active-today figure, and nothing else. Its page, URL, history and address "
-                + "survive, it keeps being probed, and one successful probe puts it back."),
+            Point(tag, "about.limits.grace"),
+            Point(tag, "about.limits.created"),
+            Point(tag, "about.limits.claim"),
+            Point(tag, "about.limits.oneHost"),
+            Point(tag, "about.limits.deletion"),
         ]);
 
-    private static AboutSection Never() => new(
+    private static AboutSection Never(string tag) => new(
         "never",
-        "What this site will not do",
+        Say(tag, "about.never.heading"),
         [
-            new("No votes, stars, ratings or recommendations.",
-                "Rankings are computed from measured data only. A directory ranked by who can "
-                + "mobilise the most clicks describes the campaigning, not the hobby, and that is "
-                + "what killed the incumbents."),
-            new("No forums, reviews, wikis, comments or player profiles.",
-                "Orientation material — what a MUSH is, which codebase suits collaborative "
-                + "roleplay — is written, signed and versioned like the rest of the site."),
-            new("Player names are never persisted.",
-                "A WHO reply is parsed in memory for a count and the shape of the header. The names "
-                + "are not written down; aggregates use a salted hash with a rotating salt."),
-            new("No absolute population figure is published.",
-                "Per-codebase and per-protocol shares ship: a ratio over the measured set survives "
-                + "the games we cannot count. \"How many people play MU*\" does not, because that "
-                + "number would not survive being quoted."),
+            Point(tag, "about.never.votes"),
+            Point(tag, "about.never.forums"),
+            Point(tag, "about.never.names"),
+            Point(tag, "about.never.population"),
         ]);
 
-    private static AboutSection Crawler(ProbeOptions probe) => new(
+    private static AboutSection Crawler(string tag, ProbeOptions probe) => new(
         "crawler",
-        "The crawler, and how to make it stop",
+        Say(tag, "about.crawler.heading"),
         [
-            new("A probe is one connection that never logs in.",
-                "It opens a socket, negotiates telnet options, reads the connect screen, asks for "
-                + "MSSP by negotiating option 70, sends "
-                + $"{string.Join(", ", TelnetProbe.PermittedCommands)}, and disconnects. No "
-                + "character, no login, nothing changed on the far side. A timeout bounds the "
-                + "session so a wedged probe cannot sit on a connection slot."),
-            new("CRAWL DELAY wins.",
-                "A game that states a preferred minimum gap in its MSSP report gets it, over our own "
-                + "schedule in both directions: 720 hours means monthly, not weekly. A dark game is "
-                + "still tried for ever at the longer interval, which is how it re-lists itself when "
-                + "it comes back."),
-            new("A referred address is verified, never trusted.",
-                "MSSP lets a game name other games. Every name is resolved before anything is "
-                + "dialled, and refused unless every address it resolves to is globally routable. A "
-                + "mixed answer refuses the whole target. Our refusal is filed as ours and never "
-                + "appears in a game's record as downtime."),
-            new("Connect screens are shown because they are sent to everybody.",
-                "A server paints its connect screen, unauthenticated, to every anonymous connection. "
-                + "We display it as evidence and label it. Ask and it comes down."),
-            new("Say stop, and we stop — three ways.",
-                $"Publish {OptOutVocabulary.MsspVariable} 1 in your MSSP report, and the probe that "
-                + "reads it is the last one. Or publish a TXT record at "
-                + $"{OptOutVocabulary.DnsLabel}.your.host reading \"{OptOutVocabulary.DnsValue}\", "
-                + "which needs no MSSP support and no account here. Or write to a person. All three "
-                + "are honoured within one crawl cycle, recorded with the date and what we read, and "
-                + "enforced on the submission form too."),
-            new("The MSSP field stops that listener; the record stops the host.",
-                "MSSP is published by the port that answered, so it speaks for that port — MU* "
-                + "hosting routinely runs unrelated games on one domain, and one must not silence "
-                + "its neighbour. A TXT record covers every port unless it names one, as "
-                + $"\"{OptOutVocabulary.DnsValue}=4201\". Anything there we cannot read as a port "
-                + $"list means the whole host, so \"{OptOutVocabulary.DnsValue}=all\" works."),
-            new("The DNS route is the one you can undo without asking us.",
-                "A TXT record is readable without connecting to a server that told us not to, so we "
-                + "re-read it before every dial. Delete it and we dial again within a week. An MSSP "
-                + "field cannot be re-read without doing the thing you asked us to stop, so MSSP "
-                + "opt-outs and written requests stand until you say otherwise. That TXT lookup is "
-                + "all an opted-out address gets: it touches your nameserver, never your game."),
-            new("Stopping is not deleting, and it is not downtime.",
-                "A game that opts out keeps its page, its address and everything we measured before "
-                + "it asked. Only new data stops: the activity grid stops gaining hours and names no "
-                + "cause, because our decision to stop knocking is a fact about us. It is recorded "
-                + "on the crawl that did not happen, and in the register of who asked."),
-            new("If stopping is not enough, the listing can go too.",
-                "Once we have stopped on every address your game answers on, your dashboard offers "
-                + "one more thing: take it out of the listing, the rankings and the daily figure. "
-                + "The page and every address it has ever had still answer, and nothing is deleted — "
-                + "it stops being somewhere a reader arrives by browsing. It needs a verified claim, "
-                + "because it is a decision about your game and we record who made it. And a probe "
-                + "undoes it: take your opt-out back, and the next dial that gets an answer puts you "
-                + "back in the listing without asking us twice."),
+            Point(tag, "about.crawler.probe",
+                ("commands", string.Join(", ", TelnetProbe.PermittedCommands))),
+            Point(tag, "about.crawler.delay"),
+            Point(tag, "about.crawler.referral"),
+            Point(tag, "about.crawler.screens"),
+            Point(tag, "about.crawler.stop",
+                ("variable", OptOutVocabulary.MsspVariable),
+                ("label", OptOutVocabulary.DnsLabel),
+                ("value", OptOutVocabulary.DnsValue)),
+            Point(tag, "about.crawler.scope", ("value", OptOutVocabulary.DnsValue)),
+            Point(tag, "about.crawler.dns"),
+            Point(tag, "about.crawler.stopping"),
+            Point(tag, "about.crawler.unlist"),
         ])
     {
         Identity = AboutIdentity.For(probe),
     };
 
-    private static AboutSection Attribution() => new(
+    private static AboutSection Attribution(string tag) => new(
         "sources",
-        "Where the list of games came from",
+        Say(tag, "about.sources.heading"),
         [
-            new("We take addresses. Nothing else.",
-                "A backfill takes a host and a port. No player counts, no reachability history, no "
-                + "descriptions, no fields, and no note of which site an address came from."),
-            new("Deliberately less than those sites can give.",
-                "Several hold years of dated player counts. Importing that would fill the heatmaps "
-                + "of the games somebody else was already watching, and rest this site's central "
-                + "claim on another party's prober."),
-            new("A game's origin is not one fact.",
-                "Any game worth listing appears in several of these directories, so \"imported "
-                + "from\" would name whichever fetch ran first. That a game exists is public "
-                + "information; where we read it adds nothing and is the part of somebody else's "
-                + "work with the least claim to be ours."),
-            new("Reading somebody's site is still reading somebody's site.",
-                "We ask for a bulk export or a documented endpoint before scraping, read robots.txt "
-                + "first, and rate-limit scrapes hard. A source that needs its maintainer's say-so "
-                + "is not fetched until a person can state they were asked."),
+            Point(tag, "about.sources.addresses"),
+            Point(tag, "about.sources.less"),
+            Point(tag, "about.sources.origin"),
+            Point(tag, "about.sources.etiquette"),
         ])
     {
+        // The names and the addresses are the directories' own and are never translated; what each
+        // gave us, and whether we read it at all, is our sentence about them and so is a message.
         Sources =
         [
             new("TinTin++ MSSP Mud Crawler", "https://tintin.mudhalla.net/protocols/mssp/",
                 ImportSourceState.Read,
-                "One page, one request. Published by a crawler that connects to each game and "
-                + "prints what it read."),
+                Say(tag, "about.source.tintinMssp.note")),
             new("TinTin++ MSDP Mud Crawler", "https://tintin.mudhalla.net/protocols/msdp/",
                 ImportSourceState.Read,
-                "The same crawler's MSDP listing. Nearly a subset of its MSSP sibling, read for the "
-                + "few addresses it reaches that the other does not."),
+                Say(tag, "about.source.tintinMsdp.note")),
             new("The Mud Connector", "https://www.mudconnect.com/",
                 ImportSourceState.Read,
-                "Publishes its whole catalogue on one page, so reading it costs a single request. "
-                + "Our largest source of addresses, and of no measurements."),
+                Say(tag, "about.source.mudConnector.note")),
             new("MudStats", "https://mudstats.com/",
                 ImportSourceState.Read,
-                "One index page and one page per world, so a scrape rather than an export. On 30 "
-                + "July 2026 we fetched 143 of their pages, fifteen seconds apart and honouring "
-                + "robots.txt, but before anyone had written to them. That should not have "
-                + "happened. The gate now takes a person willing to state the maintainer was "
-                + "asked."),
+                Say(tag, "about.source.mudStats.note")),
             new("MudVerse", "https://www.mudverse.com/",
                 ImportSourceState.Withheld,
-                "Implemented, tested, never run. The strongest source here on every axis except "
-                + "permission, and nothing will be fetched until somebody has written to them."),
+                Say(tag, "about.source.mudVerse.note")),
         ],
     };
 
-    private static AboutSection Licence(DatasetLicenceOptions dataset) => new(
+    private static AboutSection Licence(string tag, DatasetLicenceOptions dataset) => new(
         "licence",
-        "Licence",
+        Say(tag, "about.licence.heading"),
         [
-            new("The code is MIT.",
-                "The site, the crawler and the parsers are open source under the MIT licence."),
-            new("The licence for the data is an open question.",
-                "A separate decision from the code's, and not yet taken. Treat the terms below as "
-                + "this deployment's current answer, not the project's settled position. A rival "
-                + "directory taking the whole catalogue is a success condition here, so whatever is "
-                + "settled will not stand in the way of one."),
+            Point(tag, "about.licence.code"),
+            Point(tag, "about.licence.open"),
         ])
     {
         Licence = new AboutLicence(
@@ -259,6 +170,20 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
             dataset.Attribution,
             dataset.Notice),
     };
+
+    /// <summary>
+    /// One point, from the pair of ids its two halves live under.
+    /// </summary>
+    /// <remarks>
+    /// The <c>.lead</c>/<c>.body</c> suffixes are a convention rather than a scheme: the id a caller
+    /// passes is what a search for either half finds, and the two are always translated together
+    /// because they are one sentence a renderer is allowed to set in two weights.
+    /// </remarks>
+    private static AboutPoint Point(string tag, string id, params (string Key, object? Value)[] args) =>
+        new(Messages.For(tag, $"{id}.lead"),
+            Messages.For(tag, $"{id}.body", args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal)));
+
+    private static string Say(string tag, string id) => Messages.For(tag, id);
 }
 
 /// <summary>One headed run of prose, plus whatever structured block belongs under it.</summary>
@@ -310,13 +235,16 @@ public sealed record AboutIdentity(string Name, string InfoUrl, bool Announced, 
         ContactConfigured: probe.InfoUrl != new ProbeOptions().InfoUrl);
 
     /// <summary>The honest version of "who is this in my logs", in one sentence.</summary>
-    public string Wording => Announced
-        ? $"The crawler names itself {Name} when a server asks what it is."
-        : $"The crawler is configured to call itself {Name} but cannot yet say so. Its telnet "
-        + "library gives a client no way to set the terminal type, so your logs see that library's "
-        + "default, and NEW-ENVIRON is answered from the crawler host's environment. Both are gaps "
-        + "in the library and ours to fix there. Until then, recognise a probe by its shape: one "
-        + "connection, no login, a short read-only command set, gone.";
+    /// <remarks>
+    /// Two whole messages rather than one with a branch in it. The announced case is a line and the
+    /// other is a paragraph about a library gap, so they share nothing but the name — which is an
+    /// argument in both, because it is read off <see cref="ProbeOptions"/> and a deployment that
+    /// configures its own has to see its own on the page.
+    /// </remarks>
+    public string Wording(string tag = Locales.SourceTag) => Messages.For(
+        tag,
+        Announced ? "about.identity.announced" : "about.identity.unannounced",
+        new Dictionary<string, object?> { ["name"] = Name });
 }
 
 /// <summary>Whether a directory was actually read, which is not the same as whether we can read it.</summary>
@@ -336,11 +264,16 @@ public enum ImportSourceState
 /// <summary>One directory, credited by name, with what was taken from it and whether it was read.</summary>
 public sealed record ImportSource(string Name, string Url, ImportSourceState State, string Note)
 {
-    public string StatusWording => State switch
-    {
-        ImportSourceState.Read => "read — addresses only",
-        _ => "not read — awaiting permission",
-    };
+    /// <summary>
+    /// The badge beside the name — which is the only place a reader meets the difference.
+    /// </summary>
+    /// <remarks>
+    /// Two ids and never one with a negation glued on: "read" and "not read" are two claims about
+    /// what this project did, and a language that negates by inflecting the verb has nowhere to put
+    /// a prefix somebody else chose.
+    /// </remarks>
+    public string StatusWording(string tag = Locales.SourceTag) => Messages.For(
+        tag, State is ImportSourceState.Read ? "about.source.read" : "about.source.withheld");
 }
 
 /// <summary>The two licences, which are two decisions and only one of them has been taken.</summary>

@@ -1,5 +1,6 @@
 @page "/archive"
 @using MUI.Web.Data
+@using MUI.Web.Localization
 @inject IGameQueries Queries
 @inject IAvailabilityHistory History
 @inject TimeProvider Clock
@@ -17,29 +18,30 @@
 
 @if (Plain)
 {
-    <pre class="mono plain">@PlainText.RenderArchive(Entries, Query, Now)</pre>
+    <pre class="mono plain">@PlainText.RenderArchive(Entries, Query, Now, Tag)</pre>
 }
 else
 {
-    <SitePreview Title="The archive" Description="@PreviewCopy.Pages.Archive"
+    <SitePreview Title="@PreviewCopy.Titles.Archive(Tag)" Description="@PreviewCopy.Pages.Archive(Tag)"
                  Card="PreviewCard.Archive" />
 
-    <h1>The archive</h1>
-    <p class="dim">
-        Games that have stopped answering. Nothing was deleted. Still probed weekly, and one
-        successful probe puts a game back in the listing the same day.
-    </p>
+    <h1>@L("archive.title")</h1>
+    @* Three facts and no fourth: they stopped answering, nothing was deleted, and one probe puts
+       them back. Said as one message so no locale can drop the second or the third and leave a
+       page that reads as an obituary. *@
+    <p class="dim">@L("archive.lede")</p>
 
-    <form method="get" action="/archive" role="search">
+    <form method="get" action="@Http.Link("/archive")" role="search">
         <fieldset class="facets">
-            <legend>search the archive</legend>
-            <label for="q" class="sr-only">Search archived games</label>
-            <input id="q" type="search" name="q" value="@Query" placeholder="name, codebase or description" />
-            <button type="submit">show</button>
+            <legend>@L("archive.search.legend")</legend>
+            <label for="q" class="sr-only">@L("archive.search.label")</label>
+            <input id="q" type="search" name="q" value="@Query"
+                   placeholder="@L("archive.search.placeholder")" />
+            <button type="submit">@L("archive.search.submit")</button>
         </fieldset>
     </form>
 
-    <p class="kicker">@Entries.Count archived @(Entries.Count == 1 ? "game" : "games")</p>
+    <p class="kicker">@Say("archive.count", ("count", Entries.Count))</p>
 
     <ul class="archive">
         @foreach (var entry in Entries)
@@ -47,8 +49,8 @@ else
             <li>
                 <div class="row-main">
                     <div>
-                        <a class="name" href="/g/@entry.Summary.Slug">@entry.Summary.Name</a>
-                        <span class="badge archived">archived</span>
+                        <a class="name" href="@Http.Link($"/g/{entry.Summary.Slug}")">@entry.Summary.Name</a>
+                        <span class="badge archived">@L("archive.badge")</span>
                         @if (entry.Summary.Tagline is { } tagline)
                         {
                             <div class="dim">@tagline</div>
@@ -65,14 +67,17 @@ else
                             {
                                 <text>@bare · </text>
                             }
-                            @entry.Run
+                            @entry.Run(Tag)
                         </div>
                     </div>
                     <dl class="archive-facts mono">
-                        <dt class="kicker">last reachable</dt>
-                        <dd>@entry.LastAnswered <span class="faint">(@entry.DarkFor(Now) ago)</span></dd>
-                        <dt class="kicker">known live</dt>
-                        <dd>@entry.KnownLiveWording</dd>
+                        <dt class="kicker">@L("archive.lastReachable")</dt>
+                        <dd>
+                            @entry.LastAnswered(Tag)
+                            <span class="faint">@Say("archive.darkFor", ("age", entry.DarkFor(Tag, Now)))</span>
+                        </dd>
+                        <dt class="kicker">@L("archive.knownLive")</dt>
+                        <dd>@entry.KnownLiveWording(Tag)</dd>
                     </dl>
                 </div>
             </li>
@@ -81,13 +86,14 @@ else
 
     @if (Entries.Count == 0)
     {
-        <p class="dim">Nothing matched.</p>
+        <p class="dim">@L("archive.empty")</p>
     }
 
-    <p class="faint"><a href="@PlainHref">plain text</a></p>
+    <p class="faint"><a href="@PlainHref">@L("a11y.plainText")</a></p>
 }
 
 @code {
+
     [SupplyParameterFromQuery(Name = "q")] private string? Query { get; set; }
     [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
 
@@ -121,4 +127,14 @@ else
         // Most recently lost first: a game that stopped last month is the one a reader came for.
         Entries = [.. entries.OrderByDescending(e => e.LastReachableAt ?? DateTimeOffset.MinValue)];
     }
+
+    /// <summary>The locale this catalogue entry is being read in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    private string L(string id) => Messages.For(Tag, id);
+
+    private string Say(string id, params (string Key, object? Value)[] args) =>
+        Messages.For(Tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 }

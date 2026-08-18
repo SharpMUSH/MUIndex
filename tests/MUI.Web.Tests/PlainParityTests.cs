@@ -2,6 +2,7 @@ using MUI.Catalog;
 using MUI.Web.Components;
 using MUI.Web.Components.Pages;
 using MUI.Web.Fixtures;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Tests;
 
@@ -15,6 +16,65 @@ namespace MUI.Web.Tests;
 /// </remarks>
 public class PlainParityTests
 {
+    /// <summary>
+    /// The longest unbroken spell is first, on the page as well as in its text mirror.
+    /// </summary>
+    /// <remarks>
+    /// <b>The page and its own <c>?plain=1</c> alternative disagreed about a ranking.</b> The table
+    /// ranked by <c>Since.Ticks</c> and the place goes to the greatest value, but an earlier date is
+    /// a *smaller* number of ticks — so the longest spell on the site was printed as last of seven
+    /// under a heading that says longest, while the mirror numbered the same rows from a counter and
+    /// got them right. Ranking by the span the section is named for is what makes the two agree, and
+    /// this asserts the property rather than the arithmetic: whoever the plain renderer prints first
+    /// is whoever the table gives place 1.
+    /// </remarks>
+    [Test]
+    public async Task TheLongestSpellIsFirstOnThePageAndInTheMirror()
+    {
+        var rankings = await Queries.RankingsAsync(RankingSpan.Week);
+        var spells = rankings.LongestUnbroken;
+
+        await Assert.That(spells.Count).IsGreaterThan(1);
+
+        // The one the section is about: the longest span, not the earliest start.
+        var longest = spells.MaxBy(s => s.LengthAt(Now))!;
+
+        // The plain mirror numbers the rows from a counter, in the order the query returned them,
+        // so its first row is the first spell. Asserted against the list rather than by searching
+        // the rendered text: a game's name appears in the busiest table higher up the same page,
+        // and an index search finds that one instead.
+        await Assert.That(spells[0].Slug).IsEqualTo(longest.Slug);
+
+        // The mirror does print it first, which is the half of the parity that was already right.
+        var text = PlainText.RenderRankings(rankings, Now, Locales.SourceTag);
+        var section = text[text.LastIndexOf(spells[0].Name, StringComparison.Ordinal)..];
+
+        await Assert.That(section).StartsWith(spells[0].Name);
+
+        // And a shorter spell never outranks a longer one. The page's rule, on the page's value:
+        // the start date, which is the measurement, rather than the duration, which is that date
+        // read against a clock that moves between one comparison and the next.
+        var places = spells.Select(s => s.Since).ToList();
+
+        await Assert.That(PlaceEarliest(places, longest.Since)).IsEqualTo(1);
+
+        foreach (var spell in spells.Where(s => s.Since > longest.Since))
+        {
+            await Assert.That(PlaceEarliest(places, spell.Since)).IsGreaterThan(1);
+        }
+
+        // Ties share a place, which is the rule the column exists for: no row is numbered past the
+        // number of rows.
+        foreach (var spell in spells)
+        {
+            await Assert.That(PlaceEarliest(places, spell.Since)).IsLessThanOrEqualTo(spells.Count);
+        }
+    }
+
+    /// <summary>The page's own rule for a place where the earliest value wins.</summary>
+    private static int PlaceEarliest<T>(IEnumerable<T> values, T value) where T : IComparable<T> =>
+        1 + values.Count(v => v.CompareTo(value) < 0);
+
     private static readonly DateTimeOffset Now = FixtureGameQueries.Now;
     private static readonly FixtureGameQueries Queries = new();
 
@@ -53,6 +113,33 @@ public class PlainParityTests
         await Assert.That(text).Contains("Wed —");
     }
 
+    /// <summary>
+    /// The mirror answers in the language the reader asked in, day names included.
+    /// </summary>
+    /// <remarks>
+    /// Over HTTP rather than through the renderer, because the thing being checked is that the
+    /// locale reaches this surface at all: the plain page is composed by a different code path from
+    /// the rendered one, and the heatmap's words were the last on the site to be answered in English
+    /// whatever the address said. A German reader's per-day lines start "Mo", not "Mon".
+    /// </remarks>
+    [Test]
+    public async Task ThePlainMirrorIsAnsweredInTheLanguageTheAddressAsksFor()
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var english = Render.Words(await site.Client.GetStringAsync("/g/m-u-s-h?plain=1"));
+        var german = Render.Words(await site.Client.GetStringAsync("/de/g/m-u-s-h?plain=1"));
+
+        await Assert.That(english).Contains("Mon —");
+        await Assert.That(german).Contains("Mo —");
+        await Assert.That(german).DoesNotContain("Mon —");
+
+        // The same three states, and still three. The words for two of them are the glossary's, so
+        // in German they are German — and they are still two different words.
+        await Assert.That(german).Contains(Messages.For("de", "state.notMeasured"));
+        await Assert.That(german).Contains(Messages.For("de", "state.uncounted"));
+    }
+
     [Test]
     public async Task TheTrendSurvivesAsASentenceALinePerWeekAndAWayToSeek()
     {
@@ -62,10 +149,14 @@ public class PlainParityTests
         // change it would have the navigation and none of its function.
         var text = await GameAsync("m-u-s-h");
 
-        await Assert.That(text).Contains("HOW MANY, OVER TIME");
+        // The heading through the bundle rather than shouted in English. It used to be upper-cased
+        // here with ToUpperInvariant, which is an English typographic habit applied to a string a
+        // translator writes — and one that mangles ß and Turkish i on the way past.
+        await Assert.That(text).Contains(Messages.For(Locales.SourceTag, "trend.plain.heading"));
         await Assert.That(text).Contains("typically");
         await Assert.That(text).Contains("peak");
-        await Assert.That(text).Contains("earlier: ?from=");
+        await Assert.That(text)
+            .Contains($"{Messages.For(Locales.SourceTag, "trend.plain.earlier")}: ?from=");
     }
 
     [Test]
@@ -83,10 +174,13 @@ public class PlainParityTests
 
         // And no cause is named for either: a failed probe writes no presence row, so silence
         // cannot tell an outage of theirs from a gap of ours.
-        var trend = text[text.IndexOf("HOW MANY, OVER TIME", StringComparison.Ordinal)..];
-        var reachable = trend.IndexOf("Reachable (", StringComparison.Ordinal);
+        var trend = text[text.IndexOf(
+            Messages.For(Locales.SourceTag, "trend.plain.heading"), StringComparison.Ordinal)..];
+        var reachable = trend.IndexOf(
+            Messages.For(Locales.SourceTag, "reach.plain.heading") + " (", StringComparison.Ordinal);
 
-        await Assert.That(reachable > 0 ? trend[..reachable] : trend).DoesNotContain("unreachable");
+        await Assert.That(reachable > 0 ? trend[..reachable] : trend)
+            .DoesNotContain(Messages.For(Locales.SourceTag, "state.unreachable"));
     }
 
     [Test]
@@ -122,7 +216,9 @@ public class PlainParityTests
     {
         var text = await GameAsync("m-u-s-h");
 
-        await Assert.That(text).Contains("Capabilities (1 of 6 disagree)");
+        // One disagreement takes a singular verb here exactly as it does in the caption over the
+        // graphical matrix. The two surfaces are one fact and had two grammars.
+        await Assert.That(text).Contains("Capabilities (1 of 6 disagrees)");
         await Assert.That(text).Contains("measured: NO      declared: yes  ** disagree");
     }
 
@@ -140,16 +236,25 @@ public class PlainParityTests
     {
         var text = await GameAsync("midnight-sun");
 
-        await Assert.That(text).Contains("Only 2 row(s) came back");
+        // Through the bundle, which is also how it stopped saying "row(s)": a parenthesised s is a
+        // fact about English written where a plural rule belongs, and the graphical frame and this
+        // surface now render the one ICU message rather than two spellings of it.
+        await Assert.That(text).Contains(Messages.For(
+            Locales.SourceTag,
+            "ansi.tooSmall",
+            new Dictionary<string, object?>(StringComparer.Ordinal) { ["count"] = 2 }));
     }
 
     [Test]
-    public async Task AnOversizedScreenSaysHowLongItIs()
+    public async Task ALongScreenSaysHowLongItIsAndPrintsAllOfIt()
     {
+        // No crop on either surface any more, so no note about one. The graphical page scrolls the
+        // whole screen in one frame rather than showing the first twenty-four rows and offering the
+        // rest twice more; this surface prints every row, as it always did.
         var text = await GameAsync("batmud");
 
         await Assert.That(text).Contains("connect screen: 214 lines");
-        await Assert.That(text).Contains("Unusually long");
+        await Assert.That(text).DoesNotContain("Unusually long");
     }
 
     [Test]
@@ -167,12 +272,63 @@ public class PlainParityTests
     {
         // The register the cards carry is a tone, and a tone is not a fact. In text the words do
         // all of the work.
-        var text = PlainText.RenderFeeds(await Queries.FeedsAsync(), Now);
+        var text = PlainText.RenderFeeds(Locales.SourceTag, await Queries.FeedsAsync(), Now);
 
         await Assert.That(text).Contains("NEWLY DISCOVERED");
         await Assert.That(text).Contains("WENT DARK");
         await Assert.That(text).Contains("CAME BACK");
         await Assert.That(text).Contains("Aardwolf MUD");
+    }
+
+    /// <summary>
+    /// The three feeds are three sections in the reader's language, not three English headings.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>They were literals in the renderer, and a <c>tag</c> that reached only the ages.</b>
+    /// Passing a locale to <c>RenderFeeds</c> and asserting the result therefore proved nothing:
+    /// every locale printed "NEWLY DISCOVERED" and "Nothing new." and the test that passed
+    /// <c>Locales.SourceTag</c> was asserting English against English.
+    /// </para>
+    /// <para>
+    /// So this asks in two languages at once. The pseudolocale is the discriminating half — it is
+    /// generated from the source bundle, so a string that reaches it came through <c>Messages</c>
+    /// and a string that did not is still plain English on the page. German is the half that proves
+    /// the tag threads all the way down to a real satellite: the empty states are translated there
+    /// already, so a German render has to print German sentences and not the fallback.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task TheFeedHeadingsAndEmptyStatesComeFromTheBundleAndNotFromTheRenderer()
+    {
+        var feeds = await Queries.FeedsAsync();
+        var empty = new LivenessFeeds([], [], []);
+
+        // Through the bundle: the pseudolocale accents and brackets every source string, and only a
+        // string that went through Messages can come back accented.
+        var pseudo = PlainText.RenderFeeds("qps-ploc", empty, Now);
+
+        await Assert.That(pseudo).DoesNotContain("NEWLY DISCOVERED");
+        await Assert.That(pseudo).Contains(
+            Messages.For("qps-ploc", "feed.plain.newlyDiscovered").ToUpperInvariant());
+        await Assert.That(pseudo).Contains(Messages.For("qps-ploc", "feed.nothingNew"));
+
+        // And in German, where the empty states are translated: the sentences the satellite carries,
+        // not the English they fall back from.
+        var german = PlainText.RenderFeeds("de", empty, Now);
+
+        await Assert.That(german).Contains("Nichts Neues.");
+        await Assert.That(german).Contains("Nichts ist verstummt.");
+        await Assert.That(german).Contains("Nichts ist zurückgekehrt. Wir klopfen weiter.");
+        await Assert.That(german).DoesNotContain("Nothing new.");
+
+        // The headings are asked of the bundle rather than spelled here, so this keeps holding on
+        // the day feed.plain.* is translated and stops being the English fallback.
+        foreach (var id in new[] { "feed.plain.newlyDiscovered", "feed.plain.wentDark", "feed.plain.cameBack" })
+        {
+            await Assert.That(PlainText.RenderFeeds("de", feeds, Now))
+                .Contains(Messages.For("de", id).ToUpperInvariant());
+        }
     }
 
     [Test]
@@ -185,10 +341,12 @@ public class PlainParityTests
             entries.Add(ArchiveEntry.For(game, await Queries.ForGameAsync(game.Id), Now));
         }
 
-        var text = PlainText.RenderArchive(entries, null, Now);
+        var text = PlainText.RenderArchive(entries, null, Now, Locales.SourceTag);
 
-        await Assert.That(text).Contains("Last reachable:");
-        await Assert.That(text).Contains("Known live:");
+        // The labels, asked of the bundle rather than spelled again here: the mirror has to carry
+        // the same two facts as the page, and which words say them is the bundle's business.
+        await Assert.That(text).Contains(Messages.For(Locales.SourceTag, "archive.plain.lastReachable"));
+        await Assert.That(text).Contains(Messages.For(Locales.SourceTag, "archive.plain.knownLive"));
         await Assert.That(text).Contains("Gaslight Row");
     }
 
@@ -203,7 +361,7 @@ public class PlainParityTests
             entries.Add(ArchiveEntry.For(game, await Queries.ForGameAsync(game.Id), Now));
         }
 
-        var text = PlainText.RenderArchive(entries, null, Now).ToLowerInvariant();
+        var text = PlainText.RenderArchive(entries, null, Now, Locales.SourceTag).ToLowerInvariant();
 
         await Assert.That(text).Contains("[archived]");
         await Assert.That(text).DoesNotContain("dead");
@@ -218,16 +376,46 @@ public class PlainParityTests
         {
             await GameAsync("m-u-s-h"),
             await GameAsync("midnight-sun"),
-            PlainText.RenderFeeds(await Queries.FeedsAsync(), Now),
+            PlainText.RenderFeeds(Locales.SourceTag, await Queries.FeedsAsync(), Now),
             PlainText.RenderListing(await Queries.SearchAsync(new GameFilter()), new GameFilter(), Now),
 
             // The archive too, because its lines are the ones a label lengthens most: an archived
             // game's codebase carries the oldest age on the site.
-            PlainText.RenderArchive(await ArchiveAsync(), query: null, Now),
+            PlainText.RenderArchive(await ArchiveAsync(), query: null, Now, Locales.SourceTag),
         };
 
+        // These five hold to the cap on every line, addresses included, and that is not relaxed:
+        // the exemption below belongs to one surface and must not spread to the others by being
+        // written as a blanket rule.
         foreach (var line in surfaces.SelectMany(s => s.Split('\n')))
         {
+            await Assert.That(line.TrimEnd().Length).IsLessThanOrEqualTo(PlainText.Columns);
+        }
+
+        // Find was the one surface the cap was never checked on. It is checked on the prose only,
+        // because its addresses genuinely cannot hold to it — a query carrying six answers is past
+        // eighty columns before any wrapping decision is made, and a wrapped address is not
+        // clickable in the browsers this surface exists for. See the note on PlainText.Columns.
+        // German as well as English: a translated option label is the longest thing this renderer
+        // writes and the one no fixed vocabulary bounds. And loaded rather than empty, so the long
+        // addresses are actually present and the prose is measured beside them.
+        const string Loaded = "?plain=1&genre=Fantasy&language=English&lineage=MUSH&archived=true";
+
+        string[] find =
+        [
+            PlainText.RenderFind(await FindScreen.BuildAsync(Queries, "?plain=1")),
+            PlainText.RenderFind(await FindScreen.BuildAsync(Queries, "?plain=1", "de"), "de"),
+            PlainText.RenderFind(await FindScreen.BuildAsync(Queries, Loaded)),
+            PlainText.RenderFind(await FindScreen.BuildAsync(Queries, Loaded, "de"), "de"),
+        ];
+
+        foreach (var line in find.SelectMany(s => s.Split('\n')))
+        {
+            if (line.TrimStart().StartsWith('/'))
+            {
+                continue;
+            }
+
             await Assert.That(line.TrimEnd().Length).IsLessThanOrEqualTo(PlainText.Columns);
         }
     }
@@ -282,39 +470,72 @@ public class PlainParityTests
         await Assert.That(text).Contains("Players now: 9   (declared, 9m)");
 
         // And a value nobody has confirmed in years says so in the word, not in an amber colour.
-        await Assert.That(text).Contains("PennMUSH 1.8.5  (declared, 3y, stale)");
+        // Asserted through the bundle rather than as a literal: the label is four messages now
+        // — the shape, the word, the rung and its plural — and a literal here would pass while the
+        // German page said something else entirely.
+        var label = Messages.For(
+            Locales.SourceTag,
+            "chip.plain.stale",
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["how"] = Messages.For(Locales.SourceTag, "provenance.game.declared"),
+                ["age"] = Relative.Format(Locales.SourceTag, TimeSpan.FromDays(365 * 3)),
+            });
+
+        await Assert.That(text).Contains($"PennMUSH 1.8.5  {label}");
     }
 
     [Test]
     public async Task TheRenderedListingRowCarriesTheSameLabelThePlainOneSpells()
     {
-        // The rendered row and the plain row have to be two renderings of one fact. The chip is the
-        // vocabulary the game page already uses — glyph, relative age, amber when it has aged out —
-        // and the row reuses it rather than inventing a second way of saying "we read this off a
-        // banner forty minutes ago".
+        // The rendered row and the plain row have to be two renderings of one fact. The fields on
+        // the meta line keep the chip the game page uses — glyph, relative age, amber when it has
+        // aged out — rather than inventing a second way of saying "nobody has confirmed this since
+        // 2023".
         var html = await Render.PageAsync<Games>([]);
 
-        await Assert.That(html).Contains("class=\"chip measured");
         await Assert.That(html).Contains("class=\"chip declared");
 
-        // Never colour or glyph alone: the word is in the accessibility tree either as the chip's
-        // own title or as text only a screen reader reads.
-        await Assert.That(Render.Words(html)).Contains("declared");
-        await Assert.That(Render.Words(html)).Contains("measured");
+        // The count is the exception, and finding S1 took it all the way: no glyph and no word
+        // beside a number on a listing row at all. Where a number came from is what a reader weighs
+        // when choosing between two games, not while scanning five hundred, so it lives on the game
+        // page and on the facet groups' own badges — which is where it tells them whether a filter
+        // is trustworthy *before* they apply it. Rule 1 is intact one surface along.
+        await Assert.That(html).DoesNotContain("class=\"declared-note\"");
+        await Assert.That(html).DoesNotContain("class=\"pip");
+
+        // And the chip that stays — the codebase — prints no age, because the row has a freshness
+        // column of its own and every row used to state one age twice, four characters apart.
+        var meta = html[html.IndexOf("class=\"meta", StringComparison.Ordinal)..];
+        await Assert.That(meta[..meta.IndexOf("</p>", StringComparison.Ordinal)])
+            .DoesNotContain("<time");
     }
 
     [Test]
-    public async Task TheRowsGlyphAgreesWithTheChipBesideIt()
+    public async Task TheCountColumnCarriesANumberAndNothingElse()
     {
-        // The chip was added to the row and the glyph in front of it was left hard-coded measured,
-        // so a declared count rendered a green ● beside a ◇ chip — one number described two ways in
-        // the same breath, which is the disagreement the chip exists to end. The game page was fixed
-        // and the listing that points at it was not.
+        // Finding S1, and the localization win with it. The cell used to read "●545 on" — a
+        // provenance glyph whose legend lived elsewhere on the page, then the number, then one
+        // English word repeated on all 515 rows. The column is named once, above the rows, and the
+        // cells hold the bare figure.
         var html = await Render.PageAsync<Games>([]);
+        var counts = html.Split("class=\"row-count").Skip(1).ToList();
 
-        // Razor encodes both glyphs, so the assertion reads them as the markup carries them.
-        await Assert.That(html).Contains("class=\"pip state-declared\" aria-hidden=\"true\">&#x25C7;");
-        await Assert.That(html).Contains("class=\"pip state-present\" aria-hidden=\"true\">&#x25CF;");
+        await Assert.That(counts).IsNotEmpty();
+
+        foreach (var cell in counts)
+        {
+            var text = Render.Words(cell[..cell.IndexOf("</p>", StringComparison.Ordinal)]);
+
+            // Either a bare number, or the words that say there is no number. Never a zero standing
+            // in for an unknown, and never a unit.
+            await Assert.That(text).DoesNotContain(" on");
+            await Assert.That(text).DoesNotContain("●");
+            await Assert.That(text).DoesNotContain("◇");
+        }
+
+        // The column head is where the noun went, once.
+        await Assert.That(Render.Words(html)).Contains("connected · reached");
     }
 
     [Test]
@@ -356,13 +577,25 @@ public class PlainParityTests
         var declared = await Render.PageAsync<Game>(new() { ["Slug"] = "ashen-court" });
         var measured = await Render.PageAsync<Game>(new() { ["Slug"] = "m-u-s-h" });
 
-        await Assert.That(declared).Contains("class=\"chip declared");
+        // The chip became the figure's own kicker: the count over the word and the age that
+        // produced it, which is one fact read as one block rather than a number with a label
+        // trailing it at metadata size.
         await Assert.That(Render.Words(declared)).Contains("declared");
-        await Assert.That(measured).Contains("class=\"chip measured");
+        await Assert.That(declared).Contains("figure-count mono declared");
+        await Assert.That(Render.Words(measured)).Contains("measured");
+        await Assert.That(measured).Contains("figure-count mono");
+        await Assert.That(measured).DoesNotContain("figure-count mono declared");
 
-        // A count nobody could take gets no chip, because there is nothing to label.
+        // A count the page does not have says so in words, and never as a zero. Read off the id,
+        // and off the figure rather than the whole document: what the hero may not do is pick one of
+        // rule 2's three states when the null it was handed covers all of them, so the word here is
+        // the absence itself and the assertion is that it is present and legible.
         var none = await Render.PageAsync<Game>(new() { ["Slug"] = "midnight-sun" });
-        await Assert.That(none).Contains("count unknown");
+        var figure = none[none.IndexOf("class=\"game-figure\"", StringComparison.Ordinal)..];
+        var words = Render.Words(figure[..figure.IndexOf("</div>", StringComparison.Ordinal)]);
+
+        await Assert.That(words).Contains(Messages.For(Locales.SourceTag, "game.count.none"));
+        await Assert.That(words).DoesNotContain("0");
     }
 
     [Test]
@@ -372,9 +605,21 @@ public class PlainParityTests
         // "Codebase: PennMUSH 1.8.5" on /archive — the same value, one surface saying nobody has
         // confirmed it since 2023 and the other not. The archive is where a value is oldest and
         // where the label matters most.
-        var text = PlainText.RenderArchive(await ArchiveAsync(), query: null, Now);
+        var text = PlainText.RenderArchive(await ArchiveAsync(), query: null, now: Now, tag: Locales.SourceTag);
 
-        await Assert.That(text).Contains("PennMUSH 1.8.5  (declared, 3y, stale)");
+        // Asserted through the bundle rather than as a literal: the label is four messages now
+        // — the shape, the word, the rung and its plural — and a literal here would pass while the
+        // German page said something else entirely.
+        var label = Messages.For(
+            Locales.SourceTag,
+            "chip.plain.stale",
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["how"] = Messages.For(Locales.SourceTag, "provenance.game.declared"),
+                ["age"] = Relative.Format(Locales.SourceTag, TimeSpan.FromDays(365 * 3)),
+            });
+
+        await Assert.That(text).Contains($"PennMUSH 1.8.5  {label}");
 
         // And the rendered page wears the same chip the listing row does.
         var html = await Render.PageAsync<Archive>([]);
@@ -385,11 +630,87 @@ public class PlainParityTests
     public async Task TheHomePageCountsOnlyWhatWasMeasured()
     {
         var counts = SiteCounts.From(await Queries.ListAsync(new GameFilter { IncludeArchived = true }));
-        var text = PlainText.RenderHome(counts, await Queries.FeedsAsync(), CrawlerPulse.Unknown, Now);
+        var text = PlainText.RenderHome(Locales.SourceTag, counts, await Queries.FeedsAsync(), CrawlerPulse.Unknown, Now);
 
         await Assert.That(text).Contains("games known");
-        await Assert.That(text).Contains("with players on now (measured)");
-        await Assert.That(text).Contains("answering, count unknown");
+        await Assert.That(text).Contains("connected now (measured)");
+        await Assert.That(text).Contains("answering, uncounted");
+    }
+
+    /// <summary>
+    /// The four front-page figures, and the crawler's own line, in the reader's language.
+    /// </summary>
+    /// <remarks>
+    /// <b>The count labels and the crawler strip were the last English on a localized page.</b>
+    /// The strip is the worst of the two: it is the provenance of the four figures above it, so a
+    /// reader who cannot read it is a reader with no way to discount them — and it printed
+    /// "crawler live · last probe" in English around an age that had been carefully localized.
+    /// The wordmark is exempt and stays: a site's name is machine voice, like a hostname.
+    /// </remarks>
+    [Test]
+    public async Task TheHomeCountsAndTheCrawlerLineComeFromTheBundle()
+    {
+        var counts = SiteCounts.From(await Queries.ListAsync(new GameFilter { IncludeArchived = true }));
+        var cycle = new CrawlCycleRecord(
+            Now.AddMinutes(-2), Now.AddMinutes(-1), 8, 8, 6, 2, 0, 0, 0, 0, 0, 6, 0, 0, 0);
+        var pulse = new CrawlerPulse(Now.AddMinutes(-1), Now.AddMinutes(3), 4, 710, cycle);
+
+        var pseudo = PlainText.RenderHome("qps-ploc", counts, await Queries.FeedsAsync(), pulse, Now);
+
+        // The wordmark is the one line that must not have gone through the bundle.
+        await Assert.That(pseudo).Contains("MU*INDEX");
+
+        // Everything else did. "crawler live" carries no plural branch, so the pseudolocale accents
+        // it end to end and its English spelling cannot survive a trip through the bundle.
+        await Assert.That(pseudo).DoesNotContain("crawler live");
+
+        // The counts do carry plural branches, and the pseudolocale steps over anything inside
+        // braces — accenting a branch keyword would make the message unparseable. So the signal
+        // there is the ⟦⟧ the transform wraps the whole message in, which is what asking the bundle
+        // for the expected string tests: a renderer that interpolated its own line would print the
+        // same words with no brackets round them.
+        await Assert.That(pseudo)
+            .Contains(Messages.For("qps-ploc", "home.plain.known", Count(counts.Known)));
+        await Assert.That(pseudo)
+            .Contains(Messages.For("qps-ploc", "home.plain.archived", Count(counts.Archived)));
+        await Assert.That(pseudo).DoesNotContain($"\n{counts.Known} games known");
+        await Assert.That(pseudo)
+            .Contains(CrawlerCopy.Registry("qps-ploc", pulse))
+            .And.DoesNotContain($"\n{pulse.TargetsKnown} addresses in the registry");
+
+        // And the whole surface threads one tag: the German render says what the German bundle says
+        // for every id, whether that is a translation or the English it still falls back to.
+        var german = PlainText.RenderHome("de", counts, await Queries.FeedsAsync(), pulse, Now);
+
+        foreach (var id in new[]
+                 {
+                     "home.plain.known", "home.plain.connectedNow",
+                     "home.plain.uncounted", "home.plain.archived",
+                 })
+        {
+            await Assert.That(german).Contains(Messages.For("de", id, Count(CountFor(id, counts))));
+        }
+
+        await Assert.That(german).Contains(CrawlerCopy.State("de", pulse, Now));
+        await Assert.That(german).Contains(CrawlerCopy.LastCycle("de", pulse)!);
+        await Assert.That(german).Contains(CrawlerCopy.Registry("de", pulse));
+
+        // The feeds it appends carry German ages, which is the one part of a feed row that was
+        // already localized and so the one that proves the tag survived the call into RenderFeeds.
+        var first = (await Queries.FeedsAsync()).NewlyDiscovered[0];
+
+        await Assert.That(german).Contains(Relative.Ago("de", Now - first.At));
+
+        static Dictionary<string, object?> Count(int count) =>
+            new(StringComparer.Ordinal) { ["count"] = count };
+
+        static int CountFor(string id, SiteCounts counts) => id switch
+        {
+            "home.plain.known" => counts.Known,
+            "home.plain.connectedNow" => counts.WithPlayersOn,
+            "home.plain.uncounted" => counts.CountUnknown,
+            _ => counts.Archived,
+        };
     }
 
     [Test]
@@ -401,7 +722,7 @@ public class PlainParityTests
         var surfaces = new[]
         {
             await GameAsync("m-u-s-h"),
-            PlainText.RenderHome(counts, await Queries.FeedsAsync(), CrawlerPulse.Unknown, Now),
+            PlainText.RenderHome(Locales.SourceTag, counts, await Queries.FeedsAsync(), CrawlerPulse.Unknown, Now),
             PlainText.RenderListing(await Queries.SearchAsync(new GameFilter()), new GameFilter(), Now),
         };
 

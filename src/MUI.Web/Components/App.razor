@@ -1,4 +1,5 @@
 @using MUI.Web.Theme
+@using MUI.Web.Localization
 
 @*
     data-theme is written only when the reader has asked for one. Dark is the stylesheet's default
@@ -7,8 +8,18 @@
     "there is one theme". So the absence of the attribute is load-bearing: it is what hands the
     decision to prefers-color-scheme in app.css.
 *@
+@*
+    The document's language, and it is the locale rather than the constant it was.
+
+    Unicode unified thousands of Han characters across Chinese and Japanese and the correct drawn
+    form differs between them, so `lang` is the only thing that picks the right font family — a
+    fully translated Japanese page inside `<html lang="en">` is rendered by a browser that has been
+    told it is English, which on the two locales this site most needed to get right means the wrong
+    glyphs at exactly the same width. Nothing measures that; a reader of either sees it instantly.
+    It is also what a screen reader switches voice on, and what `hreflang` in the head is claiming.
+*@
 <!DOCTYPE html>
-<html lang="en" data-theme="@ReaderTheme.Attribute(Theme)">
+<html lang="@Locale.Tag" data-theme="@ReaderTheme.Attribute(Theme)">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -95,6 +106,9 @@
     /// chrome — and all three have to agree or the reader gets a light page inside dark furniture.
     /// </remarks>
     private ThemeChoice Theme => ReaderTheme.Of(HttpContext);
+
+    /// <summary>The locale this document is being answered in, which is what <c>lang</c> states.</summary>
+    private Locale Locale => HttpContext.LocaleOf().Locale;
 
     /// <summary>
     /// The stylesheet's address: absolute, and carrying the content fingerprint.

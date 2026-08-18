@@ -1,5 +1,6 @@
 @page "/games/random"
 @using MUI.Web.Api
+@using MUI.Web.Localization
 @inject IGameQueries Queries
 @inject NavigationManager Nav
 
@@ -12,9 +13,9 @@
     OnInitializedAsync, which never reaches markup.
 *@
 
-<SitePreview Title="Random game" Description="@PreviewCopy.Pages.Random" />
+<SitePreview Title="@PreviewCopy.Titles.Random(Tag)" Description="@PreviewCopy.Pages.Random(Tag)" />
 
-<h1>Nothing to pick from</h1>
+<h1>@Messages.For(Tag, "random.empty.title")</h1>
 
 @if (Error is { } problem)
 {
@@ -22,13 +23,55 @@
 }
 else
 {
+    @*
+        One sentence with two links in it, as a message rather than as English glued round anchors:
+        a language that puts the links in the other order, or needs a different preposition before
+        each, has nowhere to say so if the markup owns the word order.
+
+        The message places two markers and Sentences walks them, so what a translator writes is
+        text and never markup. Formatting anchors into the string and trusting them through a
+        MarkupString would make every bundle a place someone could put a tag.
+    *@
     <p class="dim">
-        No game matches that filter. Try <a href="/games">the whole listing</a>, or
-        <a href="/games?archived=true">include the archive</a>.
+        @foreach (var run in Sentence)
+        {
+            @if (run.Slot is { } slot)
+            {
+                <a href="@Http.Link(Address(slot))">@run.Text</a>
+            }
+            else
+            {
+                @run.Text
+            }
+        }
     </p>
 }
 
 @code {
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    /// <summary>
+    /// The empty state's sentence, split into the runs the markup renders.
+    /// </summary>
+    /// <remarks>
+    /// The message places two markers and <see cref="Sentences"/> walks them, so a translator writes
+    /// text and never markup — formatting anchors into the string and trusting the result through a
+    /// <c>MarkupString</c> would make every bundle a place someone could put a tag. The message owns
+    /// the word order: a language that wants the archive named first, or a different preposition
+    /// before each link, writes that and this follows.
+    /// </remarks>
+    private IReadOnlyList<Sentences.Run> Sentence => Sentences.Place(
+        Tag,
+        "random.empty.body",
+        ("listing", Messages.For(Tag, "random.empty.listing")),
+        ("archive", Messages.For(Tag, "random.empty.archive")));
+
+    /// <summary>Where each slot of that sentence leads.</summary>
+    private static string Address(string slot) =>
+        slot == "listing" ? "/games" : "/games?archived=true";
+
     private string? Error { get; set; }
 
     protected override async Task OnInitializedAsync()
@@ -54,6 +97,11 @@ else
 
         // In static SSR this raises a NavigationException the framework turns into a redirect, so
         // the markup below is only ever reached when there was nothing to redirect to.
-        Nav.NavigateTo($"/g/{Uri.EscapeDataString(pick.Slug)}");
+        //
+        // Written in this page's own locale, because a leading slash here is relative to the host
+        // and not to the base: "surprise me" is in the nav of every page, and from German it landed
+        // the reader on an English game page — the one link on the site whose destination no sweep
+        // of the markup can see, because it is a Location header rather than an anchor.
+        Nav.NavigateTo(Http.Link($"/g/{Uri.EscapeDataString(pick.Slug)}"));
     }
 }

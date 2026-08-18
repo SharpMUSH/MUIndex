@@ -1,4 +1,5 @@
 @page "/reference"
+@using MUI.Web.Localization
 @using MUI.Web.Reference
 
 @*
@@ -8,23 +9,36 @@
     the content is curated, single-author and versioned in git. That has to be said on the page —
     a reader who assumes they are looking at a wiki will read a gap as vandalism rather than as work
     nobody has done yet, and will look for an edit button that will never exist.
+
+    Every word this page writes is a message; every word it lists is not. A document's title and
+    summary come out of the article's own front matter, which the library resolves for this locale —
+    so this page asks for the words and never decides what language they are in.
 *@
 
 @if (Plain)
 {
-    <pre class="mono plain">@ReferencePlainText.RenderIndex(Library)</pre>
+    <pre class="mono plain">@ReferencePlainText.RenderIndex(Tag, Library)</pre>
 }
 else
 {
-    <SitePreview Title="Reference" Description="@PreviewCopy.Pages.Reference"
+    <SitePreview Title="@PreviewCopy.Titles.Reference(Tag)" Description="@PreviewCopy.Pages.Reference(Tag)"
                  Card="PreviewCard.Reference" />
 
-    <h1>Reference</h1>
+    <h1>@Messages.For(Tag, "reference.title")</h1>
     <p class="dim">
-        What the codebases are, what the clients do, and what the protocols mean. Written by hand and
-        kept in the repository beside the crawler — not a wiki, and there is nothing on this page to
-        edit. Every <em>number</em> here is a different thing: it comes from the catalogue and is
-        recomputed each time you load the page.
+        @* The emphasis is placed by the message rather than wrapped round a word of it, so the
+           bundle holds text and a language that stresses a different word can move it. *@
+        @foreach (var run in Lede)
+        {
+            @if (run.Slot is null)
+            {
+                @run.Text
+            }
+            else
+            {
+                <em>@run.Text</em>
+            }
+        }
     </p>
 
     @foreach (var kind in Kinds)
@@ -37,12 +51,12 @@ else
         }
 
         <section aria-labelledby="ref-@kind">
-            <h2 id="ref-@kind">@ReferencePlainText.Heading(kind)</h2>
+            <h2 id="ref-@kind">@ReferencePlainText.Heading(Tag, kind)</h2>
             <ul class="reference-index">
                 @foreach (var document in documents)
                 {
                     <li>
-                        <a class="name" href="@document.Path">@document.Title</a>
+                        <a class="name" href="@Http.Link(document.Path)">@document.Title</a>
                         <span class="dim">@document.Summary</span>
                     </li>
                 }
@@ -50,10 +64,17 @@ else
         </section>
     }
 
-    <p class="faint"><a href="?plain=1">plain text</a></p>
+    <p class="faint"><a href="?plain=1">@Messages.For(Tag, "a11y.plainText")</a></p>
 }
 
 @code {
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    private IReadOnlyList<Sentences.Run> Lede => Sentences.Place(
+        Tag, "reference.lede", ("number", Messages.For(Tag, "reference.lede.number")));
+
     [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
 
     private bool Plain => Truthy.Is(PlainFlag);
@@ -63,5 +84,12 @@ else
         ReferenceKind.Orientation, ReferenceKind.Codebase, ReferenceKind.Client, ReferenceKind.Protocol,
     ];
 
-    private static ReferenceLibrary Library => ReferenceLibrary.Shipped;
+    /// <summary>
+    /// The section as this reader gets it — one call site, scoped to the request's locale.
+    /// </summary>
+    /// <remarks>
+    /// Instance rather than static because it is a per-request question: the loader answers it with
+    /// this locale's articles and the English ones where a translation does not exist yet.
+    /// </remarks>
+    private ReferenceLibrary Library => ReferenceLibrary.For(Tag);
 }

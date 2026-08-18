@@ -30,6 +30,15 @@
   <ItemGroup>
     <EmbeddedResource Include="..\..\content\reference\*.md"
                       Link="Content\reference\%(Filename)%(Extension)" />
+
+    <!--
+      And one directory per locale beside it. The English is the source and stays at the top level;
+      a translation is the same article with the same slug in another language, so it is named the
+      same and filed under its tag. The resource name that results carries the tag as a segment,
+      which is what the library keys on.
+    -->
+    <EmbeddedResource Include="..\..\content\reference\*\*.md"
+                      Link="Content\reference\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
   <!--

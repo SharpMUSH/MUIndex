@@ -12,22 +12,73 @@
 */
 
 :root {
-    --cpad: 14px;               /* the density control writes this, and only this */
-    --row-pad: 9px;
+    /*
+      Spacing, radii and motion, in the relationships the design handoff's own token files carry.
+      The values are theirs; the colours below are ours — the handoff's palette is a different
+      product's and its README says so. What transfers is the scale: content padding at 20px rather
+      than the 14 this site had, one radius for controls and a larger one for the surfaces that hold
+      them, and a single easing curve at an eighth of a second.
+    */
+    --cpad: 24px;               /* the density control writes this, and only this */
+    --row-pad: 13px;            /* a listing row: 13px 20px, over a 44px floor */
+
+    /*
+      The one horizontal inset the whole site shares — the bar, every content band, every listing
+      row. Fluid rather than fixed because the page is full-bleed now: at the width the handoff was
+      drawn to it lands on the 24px the drawing uses, and it grows a little rather than leaving a
+      wide monitor's chrome pinned to the very edge of the glass.
+    */
+    --gutter: clamp(14px, 1.6vw, 28px);
+
+    --radius: 9px;              /* controls, chips, rows, nav items */
+    --radius-lg: 14px;          /* cards and panels — the things controls sit in */
+    --radius-pill: 99px;        /* pills and badges */
+
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --dur: 0.14s;
 
     --bg: #0f1113;
     --surface: #16191c;
     --raised: #1d2125;
     --recessed: #0b0d0f;
+
+    /*
+      Two hairline steps, as the handoff's tokens carry them: --line is a control's own edge and
+      --line-soft is the rule between two panels. One value did both, so a filter column's edge and
+      a button's border were the same weight — and the panel rules, which are ten times longer,
+      read as the loudest thing on the page.
+    */
     --line: #262b30;
+    --line-soft: #1c2024;
 
     --text: #e8eaec;           /* values and names */
     --dim: #9aa2a9;            /* prose and secondary */
     --faint: #6b747c;          /* provenance, ages, meta */
 
     --accent: #35d29a;         /* measured */
+
+    /*
+      The accent as *text on an accent tint* — the selected facet row, which paints a 12% wash of
+      the accent behind accent-coloured words. Every ratio beside a token here is measured against
+      the page, and a tinted row is not the page: in light, --accent is 5.0:1 on the background it
+      was tuned for and 3.9:1 on this one, which is the row a reader has just clicked. Dark clears
+      it either way, so there the two are the same colour.
+    */
+    --accent-ink: var(--accent);
     --amber: #d8a13a;          /* declared / ageing */
     --derived: #a394f0;        /* our own classification, and nobody else's */
+
+    /*
+      Refusal, and only refusal. Not a provenance colour — nothing on this site is red because of
+      what we did or did not measure. It marks one thing: a facet value the reader has excluded,
+      where the handoff draws a danger tint, a danger ring and a struck-through label. A state the
+      reader put the control into, never a state of the data.
+    */
+    --danger: #f4574c;
+
+    /* The card's own elevation, and the one glow the accent is allowed. */
+    --shadow: 0 1px 0 rgb(255 255 255 / 3%) inset, 0 4px 16px rgb(0 0 0 / 40%);
+    --glow: 0 0 8px color-mix(in srgb, var(--accent) 55%, transparent);
 
     --sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
     --mono: "Cascadia Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
@@ -60,38 +111,69 @@
   data-theme wins over the system in both directions, so a toggle can be added without moving any of
   this.
 */
+/*
+  ── the light theme, and why none of it is white ───────────────────────────
+  The page surface was #ffffff, and once the card went full-bleed that stopped being a panel and
+  became the whole window. A large field of pure white glares: the halation it produces around dark
+  text is worst for readers with astigmatism and is one of the things dyslexic readers most often
+  ask to be turned down, and 21:1 body contrast is past the point where more helps and into the
+  point where it tires. Nobody's guideline forbids it — WCAG has a floor and no ceiling — which is
+  why every design system that has thought about it lands in the same place by convention instead:
+  GitHub Primer's canvas.subtle #f6f8fa, IBM Carbon's #f4f4f4 background under white layers,
+  Material 3's tinted surfaces, Solarized Light's cream. All of them are off-white.
+
+  So the ramp is a soft cool grey and the near-white is reserved for the things that are supposed to
+  sit *above* it — tiles, the hover plane. That also restores a distinction the light theme had lost
+  entirely: --surface and --raised were both #ffffff, so a card lifted off the page by a step in the
+  dark theme was lifted by nothing at all here, and its border was doing all the work.
+
+  Text is a near-black with the ramp's own hue rather than #000, at ~15:1 — comfortably past the
+  4.5:1 floor and short of the glare. Every step below was measured against the new surface, and
+  --faint moved because it did not clear 4.5:1 against the old one: it carries ages and provenance
+  at 12px, which is exactly the small low-contrast text the handoff asked to have checked.
+*/
 @media (prefers-color-scheme: light) {
     :root {
-        --bg: #f7f8f9;
-        --surface: #ffffff;
-        --raised: #ffffff;
-        --recessed: #eef0f2;
-        --line: #dfe3e6;
+        --bg: #eef1f2;         /* behind the page; barely visible now the shell is full-bleed */
+        --surface: #f4f6f7;    /* the page itself */
+        --raised: #fbfcfc;     /* tiles, hover planes — above the page, never below it */
+        --recessed: #e9edee;   /* the bar, the filter column */
+        --line: #d3d9dc;
+        --line-soft: #e2e7e9;
 
-        --text: #14181b;
-        --dim: #4d565d;
-        --faint: #79838a;
+        --text: #1a1f23;       /* 15.3:1 — past the floor, short of the glare */
+        --dim: #4d585f;        /* 6.7:1 */
+        --faint: #646f76;      /* 4.8:1 — was 3.5:1 and carried 12px ages */
 
-        --accent: #04795b;     /* same hue, dropped in value to clear 4.5:1 on white */
-        --amber: #8a5d00;
-        --derived: #5b46c4;
+        --accent: #04795b;     /* same hue, dropped in value: 5.0:1 */
+        --accent-ink: #036349; /* 5.3:1 on the accent's own 12% tint, where --accent is 3.9:1 */
+        --amber: #7d5400;      /* 6.2:1 */
+        --derived: #5240b8;    /* 7.0:1 */
+        --danger: #a8261e;     /* 6.5:1 */
+
+        --shadow: 0 1px 2px rgb(16 24 32 / 4%), 0 4px 16px rgb(16 24 32 / 5%);
     }
 }
 
 :root[data-theme="light"] {
-    --bg: #f7f8f9;
-    --surface: #ffffff;
-    --raised: #ffffff;
-    --recessed: #eef0f2;
-    --line: #dfe3e6;
+    --bg: #eef1f2;
+    --surface: #f4f6f7;
+    --raised: #fbfcfc;
+    --recessed: #e9edee;
+    --line: #d3d9dc;
+    --line-soft: #e2e7e9;
 
-    --text: #14181b;
-    --dim: #4d565d;
-    --faint: #79838a;
+    --text: #1a1f23;
+    --dim: #4d585f;
+    --faint: #646f76;
 
     --accent: #04795b;
-    --amber: #8a5d00;
-    --derived: #5b46c4;
+    --accent-ink: #036349;
+    --amber: #7d5400;
+    --derived: #5240b8;
+    --danger: #a8261e;
+
+    --shadow: 0 1px 2px rgb(16 24 32 / 4%), 0 4px 16px rgb(16 24 32 / 5%);
 }
 
 :root[data-theme="dark"] {
@@ -100,19 +182,29 @@
     --raised: #1d2125;
     --recessed: #0b0d0f;
     --line: #262b30;
+    --line-soft: #1c2024;
 
     --text: #e8eaec;
     --dim: #9aa2a9;
     --faint: #6b747c;
 
     --accent: #35d29a;
+
+    /* Reset with the rest of them. The light media block sets this unconditionally, so a reader who
+       pinned dark on a light-preferring system kept the light ink — a dark green on a dark tint,
+       2.7:1, which is worse than the value it was added to fix. Every token this block redeclares
+       is redeclared for that reason; this one was missed. */
+    --accent-ink: var(--accent);
     --amber: #d8a13a;
     --derived: #a394f0;
+    --danger: #f4574c;
+
+    --shadow: 0 1px 0 rgb(255 255 255 / 3%) inset, 0 4px 16px rgb(0 0 0 / 40%);
 }
 
 :root[data-density="compact"] {
-    --cpad: 9px;
-    --row-pad: 5px;
+    --cpad: 13px;
+    --row-pad: 8px;
 }
 
 * { box-sizing: border-box; }
@@ -125,16 +217,74 @@ body {
     text-wrap: pretty;
 }
 
-main { max-width: 1080px; margin: 0 auto; padding: calc(var(--cpad) * 2) var(--cpad); }
+/*
+  The shell: everything the handoff draws sits in one card — the bar along its top edge, the content
+  under it — rather than loose on the page. It is the difference between a document and an
+  instrument, and this site is the second: a directory whose bar, filters and rows are one panel.
+*/
+/*
+  ── the shell ──────────────────────────────────────────────────────────────
+  Full-bleed. The handoff draws the site as one card floating on a ground, and that is a drawing
+  convention rather than a product decision — a directory is an instrument you fill the window with,
+  not a document you frame. So the card's border, radius, shadow and side margins are gone and the
+  page IS the surface; what the card was actually carrying — one bar along the top, bands separated
+  by hairlines, every block sharing one left edge — is unchanged and is the part that mattered.
+
+  The radial that used to sit on the body moves here, because the body is no longer visible behind
+  anything. It is the one thing keeping a full-height dark page from reading as flat black.
+*/
+.shell {
+    min-height: 100vh;
+    margin: 0;
+    background: var(--surface) radial-gradient(80% 90% at 78% -20%,
+        color-mix(in srgb, var(--raised) 45%, var(--surface)) 0%, var(--surface) 100%) fixed;
+
+    /*
+      Clipped sideways and open downwards. `hidden` on both axes is what a card wants and it
+      swallowed the nav's own menu: at the width where both groups collapse into a disclosure, the
+      panel is positioned under the bar and every pixel of it was being clipped away, so the one
+      control that carries the whole catalogue on a narrow window opened onto nothing. `clip` pairs
+      with `visible` — `hidden` would coerce it to `auto` and hand the page a scrollbar.
+    */
+    overflow-x: clip;
+    overflow-y: visible;
+}
+
+/*
+  The content column's own padding, at the handoff's 30px/24px/26px. A page whose blocks bleed to
+  the card's edges — the listing's two columns, the game page's hairline-separated bands — cancels
+  it and pads each block itself, because a full-bleed rule cannot be drawn inside a padded box.
+*/
+main { padding: 30px var(--gutter) 40px; }
+main:has(> .card-page) { padding: 0; }
+
+/*
+  One vertical rhythm for the whole content column, as a gap rather than as margins on each block.
+  Margins collapse, disagree with each other and leave a dead band wherever a block renders nothing
+  — which is what the absent crawler strip did to the front page.
+*/
+main > .card-page,
+.hero { display: flex; flex-direction: column; gap: 22px; }
 
 h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 6px; }
-h2 { font-size: 19px; font-weight: 600; margin: calc(var(--cpad) * 2) 0 var(--cpad); }
+h2 { font-size: 20px; font-weight: 600; margin: calc(var(--cpad) * 1.4) 0 10px; }
 a { color: inherit; }
 
 .dim { color: var(--dim); }
 .faint { color: var(--faint); }
 .mono { font-family: var(--mono); font-variant-ligatures: none; }
 
+/* Every count and every age, so the columns scan. */
+.mono, .tabular { font-variant-numeric: tabular-nums; }
+
+/*
+  ── the kicker, and why its typography is locale-gated ──────────────────────
+  Uppercase plus 0.16em tracking is this site's most recognisable label, and it is Latin-specific
+  twice over (i18n S1). Letter-spacing severs the cursive joins in Arabic, so connected words come
+  apart into unrelated shapes; Devanagari and Thai lose conjuncts and mark stacks the same way.
+  text-transform: uppercase is a no-op in CJK, turns ß into SS, and gets Turkish dotted/dotless i
+  wrong. The class is the semantics; :lang() decides the typography.
+*/
 .kicker {
     font: 10px/1 var(--kick);
     letter-spacing: 0.16em;
@@ -142,18 +292,100 @@ a { color: inherit; }
     color: var(--faint);
 }
 
-/* ── site chrome ───────────────────────────────────────────────────────── */
-
-header.site {
-    border-bottom: 1px solid var(--line);
-    padding: var(--cpad);
-    display: flex;
-    gap: var(--cpad);
-    align-items: baseline;
+/* Cursive and complex scripts: prominence from weight and size, never from tracking. */
+:is(.kicker, .nav-label, .bar-label, .facet-name, .evidence, .kick):is(
+    :lang(ar), :lang(he), :lang(fa), :lang(ur), :lang(th), :lang(hi), :lang(mr), :lang(ne)) {
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: 600;
+    font-size: 11.5px;
+    line-height: 1.5;
 }
 
-header.site .mark { font-family: var(--mono); font-weight: 600; text-decoration: none; }
-header.site .mark .star { color: var(--accent); }
+/* CJK: uppercase does nothing, tracking looks like a fault, and 10px is unreadable. */
+:is(.kicker, .nav-label, .bar-label, .facet-name, .evidence, .kick):is(
+    :lang(zh), :lang(ja), :lang(ko)) {
+    text-transform: none;
+    letter-spacing: 0.02em;
+    font-size: 12px;
+}
+
+/* ── site chrome ───────────────────────────────────────────────────────────
+   A fixed 60px bar that never wraps. It stretches rather than centres, so a nav item is a
+   full-height box and its current-page marker can land on the bar's own bottom edge.            */
+
+header.site {
+    /* One row is 60px and stays 60px; a bar that has wrapped is as tall as what it holds. */
+    min-height: 60px;
+    row-gap: 4px;
+    flex: none;
+    border-bottom: 1px solid var(--line);
+    background: var(--recessed);
+    padding: 0 var(--gutter);
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 20px;
+
+    /*
+      A bar spanning the window is chrome, so it stays where chrome belongs. The game page runs to
+      three and a half thousand pixels and the catalogue is at the top of it; scrolling back up to
+      reach the nav is a cost the card layout hid by being short.
+    */
+    position: sticky;
+    top: 0;
+    z-index: 30;
+
+    /*
+      Sideways only. `overflow: hidden` is what a fixed-height bar wants — nothing may spill out of
+      it — but it clipped the nav's own dropdown to nothing at the width where that dropdown IS the
+      navigation. `clip` on one axis leaves `visible` legal on the other; `hidden` would coerce it.
+    */
+    overflow-x: clip;
+    overflow-y: visible;
+}
+
+/*
+  The bar is one line of chrome and the demo banner above it is a statement about the whole site, so
+  the banner scrolls away and the bar does not. Where there is no banner the bar is simply at the
+  top of the document.
+*/
+.demo-banner { position: relative; z-index: 31; }
+
+/*
+  The bar measures itself.
+
+  Every threshold in the ladder below used to be a pixel count, and every one of them was really a
+  measurement of *English*: the seven catalogue links are 430px in English and 517px in Japanese, so
+  860 was the width at which the English bar stopped fitting and German, Dutch and Japanese spent the
+  whole 861–1100 band with links running out of their box. 1024 is one of the four widths this design
+  is reviewed at, and all three failed at it.
+
+  `max-content` is the browser's own answer to "how wide is this text, in this language, in this
+  font" — so the nav asks for exactly what its links need and `flex-wrap` gives it its own row the
+  moment the bar cannot. No number to keep in step with a translation, nothing to re-tune when a
+  string changes, and a language nobody has measured yet is right on arrival.
+
+  What the reader gets in that band is a two-row bar rather than a menu, which is the trade: every
+  destination stays visible and in the same order, and the row that moves is the one that was being
+  clipped. Below the collapse width it is still one disclosure, because a menu is the right shape on
+  a phone whatever the language.
+*/
+header.site { flex-wrap: wrap; }
+header.site .mark { flex: 0 0 auto; }
+header.site .site-nav { flex: 1 1 auto; min-width: max-content; }
+header.site nav.account { flex: 0 0 auto; }
+header.site form.theme { flex: 0 0 auto; }
+
+header.site .mark {
+    display: flex;
+    align-items: center;
+    font: 700 17px/1 var(--sans);
+    letter-spacing: -0.01em;
+    text-decoration: none;
+    white-space: nowrap;
+}
+header.site .mark .star { color: var(--accent); text-shadow: var(--glow); }
 
 /* ── provenance chip ───────────────────────────────────────────────────────
    Not a box. At rest it is the value, one state glyph and a relative age — no border, no fill,
@@ -178,14 +410,43 @@ header.site .mark .star { color: var(--accent); }
 
 /* ── capability matrix ─────────────────────────────────────────────────── */
 
-table.matrix { border-collapse: collapse; width: 100%; }
+/*
+  A framed table, as the handoff draws it: a header row on the recessed surface, hairlines between
+  the rows, and the caption as a foot band inside the same frame rather than a loose line under it.
+  A caption that sits outside the border reads as a note about the section; inside it, it reads as
+  what it is — the table's own summary, with the table still in view.
+*/
+table.matrix {
+    border-collapse: collapse;
+    width: 100%;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
 table.matrix th, table.matrix td {
     text-align: left;
-    padding: var(--row-pad) var(--cpad);
-    border-bottom: 1px solid var(--line);
+    /* Its own padding rather than the row token: this table is six rows of two-word states, and a
+       listing row's 13px by 20px turns each of them into a paragraph. */
+    padding: 11px 16px;
+    border-top: 1px solid var(--line-soft);
+    white-space: nowrap;
 }
-table.matrix thead th { font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
+table.matrix thead th {
+    font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint);
+    background: var(--recessed);
+    border-top: 0;
+    padding: 10px 16px;
+}
+table.matrix tbody tr:first-child th, table.matrix tbody tr:first-child td { border-top: 1px solid var(--line-soft); }
 table.matrix tr.disagrees { background: color-mix(in srgb, var(--amber) 9%, transparent); }
+/* At the foot and inside the frame, where a caption belongs on a table whose heading is directly
+   above it — and stated once, here, rather than in the heading as well. */
+table.matrix caption.count {
+    caption-side: bottom; text-align: left; font-size: 12.5px;
+    padding: 10px 16px;
+    background: var(--recessed);
+    border-top: 1px solid var(--line-soft);
+}
 .state-present { color: var(--accent); }
 .state-absent  { color: var(--dim); }
 .state-unknown { color: var(--faint); }
@@ -210,15 +471,30 @@ td.gap          { background: transparent; outline: 1px dashed var(--faint); out
    Foreign colour is quoted, not hosted. Its own fixed black ground and its own locked 16-colour
    table in both themes, so arbitrary SGR is expected inside and nothing bleeds either way.      */
 
-figure.ansi { margin: 0; border: 1px solid var(--line); background: #000; }
+/*
+  One panel holding the art, the words and the caption — rather than a black box with a kicker strip
+  welded under it and the words in a separate disclosure below. The frame is the site's own recessed
+  surface at the controls' radius; the art keeps its fixed black ground inside, because the SGR it
+  carries is somebody else's and has to sit on the terminal it was drawn for.
+*/
+figure.ansi {
+    margin: 0;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--radius);
+    background: var(--recessed);
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+}
 figure.ansi figcaption {
-    font: 10px/1 var(--kick);
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
+    font-family: var(--mono);
+    font-size: 11.5px;
     color: var(--faint);
-    padding: 8px var(--cpad);
-    border-top: 1px solid var(--line);
-    background: var(--surface);
+    padding: 0;
+    background: none;
+    border: 0;
 }
 
 /*
@@ -258,22 +534,259 @@ figure.ansi figcaption {
 
 .skip:focus { left: 8px; top: 8px; }
 
-:where(a, button, input, summary):focus-visible {
+:where(a, button, input, select, summary):focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
 }
 
 /* ── chrome ────────────────────────────────────────────────────────────── */
 
-/* Wrapping, because seven catalogue links do not fit a 390px phone on one line and the alternative
-   is a page that scrolls sideways — which the whole layout is otherwise careful never to do. */
-header.site nav { display: flex; gap: var(--cpad); flex-wrap: wrap; }
-header.site nav a { color: var(--dim); text-decoration: none; }
+/*
+  Every item is a full-height flex box, and nothing wraps. The bar's job is to be one line of
+  chrome; when it stops fitting it degrades through the steps below rather than reflowing.
+*/
+header.site nav { display: flex; align-items: stretch; min-width: 0; }
+header.site nav a, header.site nav span.nav-item {
+    display: flex; align-items: center; white-space: nowrap;
+    color: var(--dim); text-decoration: none; font-size: 13.5px;
+}
 header.site nav a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 
-/* The one link in this bar that leads somewhere only you can go, so it is not dimmed like the
-   catalogues beside it. */
+/* ── the two groups ────────────────────────────────────────────────────────
+   Places to browse, and things to read about the hobby. The label is the kicker face the rest of
+   the site uses for column heads, and it is aria-hidden: the group carries the same word as its
+   accessible name, and a screen reader announcing "browse" as a text node and again as a label is
+   the duplication this pass exists to remove.                                                   */
+
+header.site .site-nav { display: flex; align-items: stretch; justify-content: center; gap: 14px; }
+header.site .nav-group { display: flex; align-items: stretch; gap: 11px; min-width: 0; }
+header.site .nav-label {
+    display: flex; align-items: center; white-space: nowrap;
+    font: 9px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint);
+}
+
+/* A hairline between the groups rather than a wider gap: the bar is short and the gap that would
+   read as a separation is one that reads as a wrap. 18px, centred in the 60px bar. */
+header.site .nav-rule { flex: 0 0 auto; width: 1px; margin: 21px 0; background: var(--line); }
+
+/*
+  The page you are on, marked *inside* the item's own box.
+
+  The marker is an inset shadow and NOTHING else — no border, no padding change. Either of those
+  adds a pixel to the current item's box, and because the bar is a flex line that grows to its
+  tallest child, the whole row moved down one pixel the moment a marked item was on it. A bar that
+  shifts when you arrive is a bar you cannot aim at, and it is the defect the handoff names by hand.
+*/
+header.site nav a.on { color: var(--text); box-shadow: inset 0 -2px 0 0 var(--accent); }
+header.site nav a.on:hover { text-decoration: none; }
+
+/* The far end of the bar: what to do, rather than where to go. Submit is an action and about is
+   site meta, so neither is a catalogue and neither sits in a group above. */
+header.site nav.account { display: flex; align-items: center; gap: 12px; }
 header.site nav.account a { color: var(--text); }
+header.site nav.account a.action {
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 12px;
+    font-size: 13px; white-space: nowrap;
+}
+header.site nav.account a.action:hover { border-color: var(--dim); text-decoration: none; }
+
+/* The accent button: ring and tint together, as the handoff draws it — the fill is what tells it
+   apart from the bordered one beside it at a glance. */
+header.site nav.account a.action.primary {
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
+}
+
+/*
+  ── the nav's degradation order (i18n S2) ──────────────────────────────────
+  Width triggers the steps, never language: a German reader on a wide monitor never leaves step 0
+  and an English reader in a narrow window reaches step 2. Each step loses DECORATION, never a
+  destination — which is the whole point, and why the collapse at the end is a disclosure holding
+  every link rather than a shorter bar.
+
+    step 1  group labels drop; the divider keeps the grouping
+    step 2  submit loses its border, becoming a plain link
+    step 3  both groups collapse into one `menu` disclosure
+
+  Budget every nav string at 1.4x the English width when reviewing a locale.
+*/
+
+/*
+  Step 0 to 2 the disclosure is not a disclosure: the summary is hidden and its content forced
+  visible, so the two groups sit in the bar exactly as if the <details> were not there. Guarded on
+  ::details-content, because a browser without it cannot be made to show a closed <details> — there
+  the summary stays and the nav is a menu button at every width, which is a worse bar and a working
+  one.
+*/
+header.site .nav-menu { display: flex; position: relative; align-items: stretch; min-width: 0; }
+header.site .nav-menu > summary {
+    display: flex; align-items: center; gap: 6px; cursor: pointer;
+    color: var(--dim); font-size: 13.5px; white-space: nowrap; list-style: none;
+}
+header.site .nav-menu > summary::-webkit-details-marker { display: none; }
+header.site .nav-menu > summary:hover { color: var(--text); }
+header.site .nav-menu[open] > summary { color: var(--text); }
+
+/* The panel, as a dropdown. Above the collapse width the same element is the bar's own centre row. */
+header.site .nav-menu .menu-panel {
+    position: absolute; top: 100%; left: 0; z-index: 20; min-width: 200px;
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 8px; margin-top: 1px;
+    background: var(--raised); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+}
+header.site .nav-menu .menu-panel > .nav-group { flex-direction: column; align-items: stretch; gap: 2px; }
+header.site .nav-menu .menu-panel a { padding: 6px 10px; border-radius: 6px; }
+header.site .nav-menu .menu-panel a:hover { background: var(--surface); text-decoration: none; }
+
+/*
+  The current page, marked for a list rather than for a bar — and only while the panel IS a list.
+  The inset shadow that lands on the bar's bottom edge becomes a full-width rule under one row of a
+  dropdown, which reads as a text field rather than as "you are here", so in the panel the marker
+  moves to the leading edge. Scoped to the collapsed width: unscoped it drew a vertical accent bar
+  and a tinted box down the side of the current item in the open bar.
+*/
+@media (max-width: 880px) {
+    header.site .nav-menu .menu-panel a.on {
+        box-shadow: inset 2px 0 0 0 var(--accent);
+        background: color-mix(in srgb, var(--accent) 10%, transparent);
+        color: var(--accent);
+    }
+}
+header.site .nav-menu .menu-panel .nav-label { padding: 6px 8px 2px; }
+header.site .nav-menu .menu-panel .nav-rule { display: none; }
+header.site .menu-tail { display: flex; flex-direction: column; gap: 2px; }
+
+@supports selector(::details-content) {
+    @media (min-width: 881px) {
+        header.site .nav-menu > summary { display: none; }
+
+        /*
+          The wrapper has to carry the bar's full height, not its content's. A nav item is a
+          full-height box so that the current-page marker — an inset shadow, drawn inside the box —
+          lands on the bar's own bottom edge; with the wrapper sized to its text the marker floated
+          eighteen pixels above it, which is the underline hanging in mid-bar rather than sitting on
+          it. `display: flex` is what makes the panel below a stretched flex item.
+        */
+        header.site .nav-menu::details-content {
+            content-visibility: visible;
+            block-size: 100%;
+            display: flex;
+            align-items: stretch;
+        }
+
+        /* The panel is the bar's middle row: a static flex line, not a dropdown. */
+        header.site .nav-menu .menu-panel {
+            position: static; min-width: 0; height: 100%;
+            display: flex; flex-direction: row; align-items: stretch; gap: 14px;
+            padding: 0; margin: 0; background: none; border: 0; border-radius: 0; box-shadow: none;
+        }
+        header.site .nav-menu .menu-panel > .nav-group { flex-direction: row; align-items: stretch; gap: 11px; }
+        header.site .nav-menu .menu-panel a { padding: 0; border-radius: 0; }
+        header.site .nav-menu .menu-panel a:hover { background: none; }
+        header.site .nav-menu .menu-panel .nav-rule { display: block; }
+        header.site .nav-menu .menu-panel .nav-label { padding: 0; }
+
+        /* Step 4's overflow home, which the bar itself still carries at these widths. */
+        header.site .menu-tail { display: none; }
+    }
+
+    /*
+      Step 1 — the labels go and the divider stays. The grouping is the fact; the words naming the
+      groups are a gloss on it, and the rule between them carries the same fact in one pixel. Losing
+      both at once would leave seven links in a row in no order anybody could name, which is the
+      state this bar was rebuilt out of.
+    */
+    @media (min-width: 881px) and (max-width: 1180px) {
+        header.site .nav-label { display: none; }
+        header.site .nav-menu .menu-panel { gap: 14px; }
+        header.site .nav-menu .menu-panel > .nav-group { gap: 11px; }
+    }
+}
+
+@media (max-width: 1000px) {                    /* step 2 — submit keeps the word, loses the box */
+    header.site nav.account a.action:not(.primary) {
+        border-color: transparent; padding: 6px 0; color: var(--dim);
+    }
+    header.site nav.account a.action:not(.primary):hover { color: var(--text); }
+}
+
+@media (max-width: 880px) {                     /* step 3 — one disclosure, every destination kept */
+    header.site .site-nav { justify-content: flex-start; }
+
+    /*
+      And it stops being the bar's shock absorber. Above this width the nav holds seven links and
+      `flex: 1 1 auto; min-width: 0` is what lets it give room back to the two ends; below it the
+      nav is one word and a chevron, and the same rule let flexbox squeeze that word to 33px — the
+      German bar rendered "Men" with the chevron cut off, on the only control that reaches the other
+      six pages. The ends are sized by their content and the middle was the only thing that could
+      yield, so a longer word at either end came out of the one item that must never shrink.
+    */
+    header.site .site-nav { flex: 0 0 auto; }
+}
+
+/*
+  Step 4 — the right cluster runs out too. `submit` joins the menu, which is where the markup
+  already carries it; `about` and `sign in` stay, the first because it is two words and the second
+  because it is the one item at that end that changes what the site will let a reader do. Still no
+  destination lost.
+*/
+@media (max-width: 640px) {
+    header.site { padding: 0 14px; gap: 12px; }
+    header.site nav.account a.action:not(.primary) { display: none; }
+    header.site form.theme { gap: 6px; }
+}
+
+/*
+  Step 5 — below a small phone the type gives way before anything else does. Nothing is dropped and
+  nothing moves; the two clusters at the ends are simply set a step smaller, which is the last
+  decoration the bar has left to spend.
+*/
+@media (max-width: 460px) {
+    header.site { padding: 0 8px; gap: 6px; }
+    header.site .mark { font-size: 15px; }
+    header.site form.theme { gap: 4px; }
+    header.site form.theme button { font-size: 12px; }
+    header.site nav.account { gap: 6px; }
+    header.site nav.account a { font-size: 12.5px; }
+    header.site nav.account a.action { padding: 5px 8px; }
+}
+
+/*
+  Step 6 — and the bar is measured in a language, not in English.
+
+  Every step above was tuned against a bar reading "menu · about · submit · sign in · auto light
+  dark", which is the shortest this chrome is ever going to be. The same bar in German is "Menü ·
+  über uns · anmelden · auto hell dunkel" and wanted seventeen more pixels than a 430px phone has;
+  Dutch was twelve pixels from the same wall. So the last step is a real one rather than a hedge,
+  and it spends the only thing left that is not a destination: the theme control's three words
+  become the row's tightest type, and the wordmark gives up a point with them. Nothing moves and
+  nothing is dropped — the German bar and the English bar hold the same seven pages either side of
+  it, which is the property the whole ladder exists to keep.
+*/
+/*
+  Step 7 — and on the narrowest phone the bar stops being one line, for whichever language needs it.
+
+  At 360px the German bar wants 412px: "mu*index · Menü ▾ · über uns · anmelden · auto hell dunkel".
+  Everything above this step spends decoration and the ladder has none left — and the item that fell
+  off the end was the theme control, clipped past `.shell`'s `overflow-x: clip` and so not merely
+  cramped but gone. A reader on a 360px phone in German could not change the theme at all.
+
+  No width triggers this and no language is named in it: the bar already wraps on content, so the
+  theme control takes a second row exactly where it stops fitting. German and Dutch reach it at 360
+  and English and Chinese do not, which is the ladder working rather than a rule about German. The
+  one thing set here is what happens *after* a wrap — the control keeps the trailing edge it has on
+  one line, so the bar does not appear to change its mind about which end it belongs to.
+*/
+header.site form.theme { margin-inline-start: auto; }
+
+@media (max-width: 480px) {
+    header.site .mark { font-size: 14px; letter-spacing: 0; }
+    header.site form.theme { gap: 4px; }
+    header.site form.theme button { font-size: 11.5px; }
+    header.site nav.account a { font-size: 12px; }
+}
 
 /* ── the reader's theme ────────────────────────────────────────────────────
    Buttons drawn as the links beside them, because they belong to that row and a row of three real
@@ -281,7 +794,10 @@ header.site nav.account a { color: var(--text); }
    brighter: a state carried by colour alone is a state a greyscale display does not carry, which is
    the same rule the heatmap's hatch exists for.                                                  */
 
-form.theme { display: flex; align-items: baseline; gap: 8px; margin: 0; }
+/* Centred in the bar rather than baseline-aligned to it: the bar stretches its children to 60px,
+   and a baseline inside a stretched box lands wherever the box's first line happens to be — which
+   put this cluster sixteen pixels above the buttons beside it. */
+form.theme { display: flex; align-items: center; gap: 8px; margin: 0; }
 form.theme .kick {
     font: 10px/1 var(--kick);
     letter-spacing: 0.16em;
@@ -312,19 +828,55 @@ pre.plain { white-space: pre-wrap; font-size: 13px; line-height: 1.6; color: var
 
 /* ── home ──────────────────────────────────────────────────────────────── */
 
-.hero h1 { font-size: 28px; max-width: 24ch; line-height: 1.2; }
+.page-flow { display: flex; flex-direction: column; gap: 22px; }
 
-form.search { display: flex; gap: 8px; max-width: 560px; margin: var(--cpad) 0; }
-form.search input { flex: 1; min-width: 0; }
+/*
+  The heading runs to whatever width it has. It carried a 24ch clamp, which broke "A directory of
+  the MU* hobby" across two lines at every width including 1440 — a measure is for paragraphs, and
+  this is one short line whose whole job is to be read at a glance.
+*/
+.hero-head { display: flex; flex-direction: column; gap: 8px; }
+.hero h1 { font-size: 26px; line-height: 1.2; letter-spacing: -0.01em; margin: 0; }
 
+/* The one sentence a stranger needs before they read a count. Dimmed a step so the heading above it
+   stays the first thing the eye takes, and measured so it never runs past a comfortable line. */
+.hero .lede { font-size: 14.5px; line-height: 1.6; color: var(--dim); max-width: 62ch; margin: 0; }
+
+/*
+  One field with the search glyph inside it, and the submit beside it at the field's own height.
+  The two used to be separate boxes at two different sizes, which read as a form rather than as the
+  one control it is.
+*/
+form.search { display: flex; gap: 8px; max-width: 520px; margin: 0; }
+.search-field {
+    flex: 1 1 auto; min-width: 0;
+    display: flex; align-items: center; gap: 10px;
+    background: var(--recessed);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0 14px;
+}
+.search-field:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.search-glyph { color: var(--accent); font-size: 15px; line-height: 1; }
 input[type="search"], input[type="text"] {
     background: var(--recessed);
     border: 1px solid var(--line);
     color: var(--text);
     font: 14px var(--sans);
     padding: 8px 11px;
-    border-radius: 6px;
+    border-radius: var(--radius);
 }
+
+/* After the generic input rule, not before it: the field's own box is the bordered thing here and
+   the input inside it is only the caret. Ordered the other way round the generic rule won on equal
+   specificity and drew a second border inside the first. */
+.search-field input[type="search"] {
+    flex: 1; min-width: 0;
+    background: none; border: 0; padding: 11px 0; border-radius: 0;
+    color: var(--text); font: 14px var(--sans);
+}
+.search-field input[type="search"]:focus { outline: none; }
+.search-field input[type="search"]::placeholder { color: var(--faint); }
 
 button {
     background: var(--raised);
@@ -332,95 +884,268 @@ button {
     color: var(--text);
     font: 14px var(--sans);
     padding: 8px 14px;
-    border-radius: 6px;
+    border-radius: var(--radius);
     cursor: pointer;
 }
 
-ul.counts {
+/* ── the four figures ──────────────────────────────────────────────────────
+   A label and a value, in a framed tile, at the size a front page's whole claim deserves. They were
+   one 12px mono line reading like a caption, which is what a count of the hobby is not.        */
+
+ul.tiles {
     list-style: none; margin: 0; padding: 0;
-    display: flex; flex-wrap: wrap; gap: 20px; font-size: 12px; color: var(--dim);
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px;
 }
-ul.counts strong { color: var(--text); font-weight: 400; }
+ul.tiles li {
+    border: 1px solid var(--line-soft); border-radius: var(--radius-lg);
+    background: var(--surface); box-shadow: var(--shadow); padding: 16px;
+    display: grid; gap: 8px; align-content: start;
+}
+ul.tiles a { text-decoration: none; display: grid; gap: 8px; }
+
+/*
+  The value stays in the machine face. The drawing sets it in the UI sans, and the handoff's own
+  token rules say the opposite two pages earlier — "mono for anything the machine said: counts,
+  versions, ages … the one typographic rule carrying meaning". A count of the hobby is the purest
+  case of a machine-said value on this site, so the prose wins over the component. The size is the
+  drawing's.
+*/
+ul.tiles .kicker { color: var(--faint); }
+ul.tiles .figure {
+    font-size: 28px; font-weight: 600; letter-spacing: -0.01em; color: var(--text);
+    line-height: 1;
+}
+ul.tiles .figure.state-present { color: var(--accent); }
 
 /* The crawler strip, under the counts it is the provenance of. A step smaller and dimmer than they
    are, because it is about the instrument rather than about the hobby — a reader who never notices
    it has lost nothing, and one who comes looking for it knows where to look. */
+/* Hairlines top and bottom, as the handoff frames it: the strip is a band of provenance under the
+   figures it qualifies, and a band reads as one thing where a loose line reads as a footnote. */
 p.crawler {
-    margin: 10px 0 0; font-size: 11px;
+    margin: 0; padding: 12px 0; font-size: 12.5px;
+    display: flex; align-items: center; gap: 10px;
+    border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
 }
+p.crawler .state-present { text-shadow: var(--glow); }
 
 .feeds {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: var(--cpad);
-    margin: calc(var(--cpad) * 2) 0;
+    gap: 22px;
+    margin: 0;
 }
+
+/* A column: its heading, then rows. The heading carried a 33.6px top margin from the global h2
+   rule, which put each of the three columns a block lower than the rhythm the page is set on. */
+.feeds .feed { display: flex; flex-direction: column; }
+.feeds .feed h2 { margin: 0 0 10px; }
+.feeds .feed-lit h2 { color: var(--accent); }
+.feeds .feed-dark h2 { color: var(--amber); }
 
 /* ── liveness feed cards ───────────────────────────────────────────────────
    One shape, three registers. Neutral, unlit, and — for a return — the one place the site raises
    its voice, because a game dark for two years answering is what no incumbent can tell you.    */
 
-.feed-card {
-    border: 1px solid var(--line);
+/* A row: name left, age right, a hairline between. Three columns of boxed cards gave a name and an
+   age the furniture of a section, and framed things on this site are supposed to mean something —
+   the connect screen is quoted in a frame because it is somebody else's. */
+
+.feed-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line-soft);
+}
+
+/* The last row of a column closes on the column's own edge rather than on a rule to nothing. */
+.feeds .feed-row:last-child { border-bottom: 0; }
+
+.feed-row .feed-name {
+    min-width: 0; font-size: 14px; color: var(--text); text-decoration: none;
+}
+.feed-row .feed-name:hover { text-decoration: underline; text-underline-offset: 3px; }
+.feed-row .feed-state {
+    flex: none; display: inline-flex; align-items: baseline; gap: 5px;
+    font-size: 12.5px; color: var(--faint);
+}
+.feed-row .feed-state .sep { color: var(--faint); }
+.feed-row.unlit .feed-name { color: var(--dim); }
+
+/* The return is the same row as the other two. The accent is on the word that says it is back and
+   nowhere else — a tinted card with a glow gave one column furniture the other two did not have,
+   and the eye cannot run down three lists that are drawn as different kinds of thing. */
+.feed-row.returned .feed-state .state-present { color: var(--accent); }
+
+/* ── the card's own footer ─────────────────────────────────────────────────
+   The same row on every page: where else to go, and the text mirror last. A rule above it, because
+   it is the end of the card and not another block in the column.                                */
+
+.card-footer {
+    display: flex; flex-wrap: wrap; gap: 16px;
+    margin: 0; padding-top: 14px;
+    border-top: 1px solid var(--line-soft);
+    font-size: 13px; color: var(--dim);
+}
+
+/* On a card page the footer is a band of the card rather than a block in a padded column, so it
+   pads itself to the same edge every other band uses. */
+.card-page > .card-footer { padding: 14px var(--gutter) 22px; }
+.card-footer { align-items: baseline; }
+.card-footer a { text-decoration: none; }
+.card-footer a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.card-footer .sep { color: var(--faint); }
+
+/*
+  The language switcher, at the far end of the footer beside the plain-text link — the two controls
+  that change how the page is read rather than which page it is. Pushed there rather than placed, so
+  the destinations keep the left edge they had.
+*/
+form.locale { display: flex; align-items: center; gap: 10px; margin: 0 0 0 auto; }
+
+/* The label is the theme control's kicker, because these two sit side by side and are the same kind
+   of thing: a small named control that changes how the page is read. */
+form.locale .kick {
+    font: 10px/1 var(--kick);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
+}
+
+/*
+  One box, drawn as the search field is: the control and its submit inside a single hairline rather
+  than a native dropdown and a wide button beside it. The footer is otherwise text, and two heavy
+  rectangles in it read as the loudest thing on the page — which a language switcher is not.
+*/
+.locale-field {
+    display: flex; align-items: center; gap: 2px;
     background: var(--recessed);
-    border-radius: 8px;
-    padding: 12px 14px;
-    margin-bottom: 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0 4px 0 11px;
+}
+.locale-field:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+
+/* Stripped of the platform's own chrome so it matches the site rather than the OS — a native select
+   is a different shade, a different radius and a different caret on each of the three, and none of
+   them is this one. */
+form.locale select {
+    appearance: none;
+    background: none; border: 0; border-radius: 0; margin: 0;
+    padding: 7px 18px 7px 0;
+    color: var(--text); font: 13px var(--sans);
+    cursor: pointer;
+
+    /* Sized to the option in force rather than to the longest one in the list. A select is as wide
+       as its widest child by default, so "English" sat in a box cut for "Русский (CI canary)" and
+       the caret ended up a hand's width from the word it belongs to. Where this is not supported the
+       box is merely the old width, which is the behaviour it replaces — nothing is lost by it. */
+    field-sizing: content;
+}
+/*
+  The ring goes round the box, not round the flat control inside it. Stripping `appearance` takes the
+  platform's focus ring with it, and the border tint below is a mouse affordance rather than an
+  indicator a keyboard reader can rely on — 2.4.7 wants something that survives at any contrast.
+*/
+form.locale select:focus { outline: none; }
+.locale-field:has(select:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 
-.feed-card .feed-name { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-.feed-card .feed-name a { font-size: 15px; font-weight: 600; text-decoration: none; }
-.feed-card .detail { font-size: 11.5px; color: var(--dim); margin: 4px 0 0; }
-.feed-card.unlit { opacity: 0.78; }
-.feed-card.unlit .feed-name a { color: var(--dim); }
-
-.feed-card.returned {
-    border-color: color-mix(in srgb, var(--accent) 34%, transparent);
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
-    animation: return-glow 1.4s ease-out 1;
+/* The nav's chevron, not a new glyph. Pulled back over the select's right padding and transparent to
+   the pointer, so the caret is part of the same click target rather than a dead spot beside it. */
+.locale-caret {
+    margin-left: -16px;
+    color: var(--faint); font-size: 11px; line-height: 1;
+    pointer-events: none;
 }
 
-/* Motion budget, one of three: once, on arrival, never repeating. */
-@keyframes return-glow {
-    from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
-    to   { box-shadow: 0 0 0 14px transparent; }
+/* The search's own arrow. A submit is needed because this site runs no script, and this is the
+   smallest shape that says "commit" in a vocabulary the reader has already met. */
+.locale-go {
+    flex: none; display: flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; padding: 0;
+    background: none; border: 0; border-radius: 6px;
+    color: var(--faint); font-size: 13px; cursor: pointer;
 }
+.locale-go:hover { color: var(--accent); background: var(--raised); }
 
-.feed-card.returned .return-line { font-size: 15px; line-height: 1.5; color: var(--text); margin: 6px 0 0; }
+
 
 /* ── game page ─────────────────────────────────────────────────────────── */
 
-.game-head { display: flex; gap: var(--cpad); flex-wrap: wrap; align-items: flex-start; }
-.game-head .game-title { flex: 1; min-width: 260px; }
+/* The header band: padded like every other band on a card page, with a rule under it running the
+   card's full width. */
+.game-head {
+    display: flex; gap: 20px; flex-wrap: wrap;
+    align-items: flex-start; justify-content: space-between;
+    padding: 24px var(--gutter);
+    border-bottom: 1px solid var(--line-soft);
+}
+
+.game-identity { display: flex; gap: 16px; align-items: flex-start; min-width: 0; flex: 1 1 340px; }
+.game-head .game-title { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.game-head .game-title h1 { margin: 0; }
+.game-head .claim-line { margin: 0; font-size: 13.5px; }
 .game-head .plate {
-    width: 68px; height: 68px; flex: none;
-    border: 1px solid var(--line); border-radius: 8px;
+    width: 64px; height: 64px; flex: none;
+    border: 1px solid var(--line-soft); border-radius: 12px;
     background: var(--recessed); color: var(--dim);
     display: grid; place-items: center; font-size: 22px;
+    padding: 8px; box-sizing: border-box;
 }
+
+/*
+  The count and the probe that produced it, as one block. It was a number and a provenance chip on
+  one line at body size, which set the fact most readers came for at the size of the metadata
+  qualifying it.
+*/
+.game-figure {
+    flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+    text-align: right;
+}
+.game-figure .figure-count {
+    margin: 0; font-size: 20px; color: var(--accent);
+    text-shadow: var(--glow); font-variant-numeric: tabular-nums;
+}
+.game-figure .figure-count .unit { font-size: 15px; }
+
+/* A count the game states about itself rather than one we read: amber, which is what declared means
+   everywhere else here, and no glow — the glow is the accent's, and the accent means measured. */
+.game-figure .figure-count.declared { color: var(--amber); text-shadow: none; }
+.game-figure .figure-count.unknown {
+    color: var(--faint); text-shadow: none; font-size: 15px; font-variant-numeric: normal;
+}
+.game-figure .figure-age { margin: 0; }
+
+/* One column, and the sections spaced by it rather than by margins that disagree. */
+.game-body { display: flex; flex-direction: column; gap: 28px; padding: 28px var(--gutter) 8px; }
+.game-body > section { display: flex; flex-direction: column; gap: 10px; }
+.game-body > section > h2 { margin: 0; font-size: 17px; }
 /* An icon sits in the monogram's place and at its size. `contain` rather than `cover`: a logo that
    is not square is letterboxed rather than cropped, because cropping somebody's artwork to fit our
    box is a small edit to a thing they published. The plate's own background shows through where the
    image does not reach, so a transparent PNG lands on the same recessed square as the monogram. */
 .game-head img.plate { object-fit: contain; padding: 4px; }
 
-.game-head .connect { flex: none; min-width: 240px; }
-.game-head .lede { font-size: 15px; line-height: 1.65; max-width: 62ch; }
-.game-head .tagline { font-size: 16px; }
-.game-head .live { font-size: 14px; }
+.game-head .lede { font-size: 14.5px; line-height: 1.6; max-width: 62ch; margin: 0; color: var(--dim); }
+.game-head .tagline { font-size: 15px; margin: 0; }
 
-/* The count's label, beside the count. Spaced in CSS rather than by a space in the markup, because
-   the renderer trims whitespace around a conditional — and sized to the line it qualifies. */
-.game-head .live .chip { margin-left: 6px; }
-.game-head .live .chip .age { font-size: inherit; }
+/*
+  An address is a line, not a card. Each was a bordered panel the full width of the title column,
+  which gave a hostname the furniture of the one framed thing on this page — somebody else's output,
+  quoted.
+*/
 .game-head .endpoint {
-    background: var(--raised); border: 1px solid var(--line); border-radius: 6px;
-    padding: 7px 10px; font-size: 12.5px; margin-bottom: 6px;
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px;
+    margin: 0; padding-top: 4px;
+    font-size: 13.5px; color: var(--text);
 }
-/* Same reason as the chip above, and it shipped as "penultimatemush.com 9500answering here since
-   Jul 2026": the renderer trims the whitespace between the port and a conditional span, so the gap
-   has to be a margin rather than a space in the markup. */
-.game-head .endpoint > span { margin-left: 8px; }
+.game-head .endpoint .faint { font-size: 12.5px; }
+.game-head .endpoint.former .address { color: var(--dim); }
 
 .badges { margin: 4px 0 6px; }
 .badge.claimed { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 34%, transparent); }
@@ -433,6 +1158,7 @@ p.crawler {
 }
 .archive-plate strong { color: var(--text); font-weight: 500; }
 
+/* Kept for any surface that still wants two columns; the game page is one column now. */
 .two-up { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: calc(var(--cpad) * 2); }
 
 /*
@@ -441,7 +1167,7 @@ p.crawler {
   on it was clipped, while .heat-wrap's own overflow-x sat there doing nothing. The only region
   allowed to scroll sideways is the ANSI frame.
 */
-.two-up > *, .feeds > *, .row-main > * { min-width: 0; }
+.two-up > *, .feeds > *, .row-main > *, .game-body > * { min-width: 0; }
 
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--cpad); flex-wrap: wrap; }
 .section-head .count { font-size: 12px; margin: 0; }
@@ -556,8 +1282,14 @@ nav.spans .span {
     padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px;
     color: var(--dim); text-decoration: none;
 }
-nav.spans .span:hover { border-color: var(--dim); color: var(--text); }
-nav.spans .span.on { border-color: var(--accent); color: var(--accent); }
+nav.spans a.span:hover { border-color: var(--dim); color: var(--text); }
+
+/* The pressed one, which is a span rather than a link to the page you are on. Tinted as well as
+   outlined, because with no hover to distinguish it the border alone was doing all the work. */
+nav.spans .span.on {
+    border-color: var(--accent); color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
 /* The shape sits under the range and is the smaller question of the two, so it follows immediately
    rather than being spaced as a second block. */
 nav.spans.shapes { margin-top: -4px; }
@@ -569,11 +1301,37 @@ details.read-as-text[open] > *:not(summary) { animation: reveal 120ms ease-out; 
 /* Motion budget, three of three. */
 @keyframes reveal { from { opacity: 0; } to { opacity: 1; } }
 
-ul.perday, ul.spells {
+ul.spells {
     list-style: none; margin: 6px 0 0; padding: 0;
     font-family: var(--mono); font-size: 12px; color: var(--dim);
 }
-ul.perday li, ul.spells li { padding: 2px 0; }
+ul.spells li { padding: 2px 0; }
+
+/* The grid's text alternative: seven rows rather than a hundred and sixty-eight cells. Numbers are
+   tabular so the columns scan, and the caption sits under the table it describes. */
+table.perday {
+    width: 100%; margin: 6px 0 0; border-collapse: collapse;
+    font-family: var(--mono); font-size: 12px; color: var(--dim);
+    caption-side: bottom;
+}
+table.perday caption { padding: 8px 0 0; color: var(--faint); text-align: left; }
+table.perday th, table.perday td { padding: 4px 8px 4px 0; text-align: left; }
+table.perday thead th {
+    font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint);
+    border-bottom: 1px solid var(--line); padding-bottom: 6px;
+}
+table.perday tbody th { color: var(--text); font-weight: 600; }
+table.perday td.num { font-variant-numeric: tabular-nums; }
+
+/* Not enough measured days to draw a week. A panel rather than a bare line, so the section reads as
+   answered rather than as a graphic that failed to load. */
+.sparse {
+    margin: 10px 0 var(--cpad); padding: calc(var(--cpad) * 1.5) var(--cpad);
+    border: 1px dashed var(--line); border-radius: 8px;
+    background: var(--recessed); color: var(--dim); text-align: center;
+}
+.sparse p { margin: 0; }
+.sparse .kicker { margin-bottom: 6px; }
 
 /* ── availability strip ────────────────────────────────────────────────────
    Ninety bars, oldest left. Degraded is a *short* bar and not merely another colour; unreachable
@@ -600,19 +1358,50 @@ dl.stats dd { margin: 3px 0 0; font-size: 17px; }
 
 /* ── the ANSI quotation frame ──────────────────────────────────────────── */
 
-figure.ansi .quote { position: relative; background: #000; }
-figure.ansi .quote pre {
-    margin: 0; padding: var(--cpad);
-    font: 13px/1.5 var(--mono-cjk); font-variant-ligatures: none;
-    color: #aaaaaa; white-space: pre; overflow-x: auto;
+/* Every row, once, in a region that scrolls — a screen twice the height of the frame is scrolled
+   rather than cropped and offered again below. The cap is about 26 rows, which is what a terminal
+   showed the player; past that the reader scrolls the same way they would have on connecting.
+   Focusable, because a scrolling region a keyboard cannot reach is one a keyboard cannot read. */
+figure.ansi .quote {
+    position: relative; background: #000;
+    border-radius: 6px;
+    max-height: 33em; overflow: auto; overscroll-behavior: contain;
 }
-figure.ansi .crop-fade {
-    position: absolute; left: 0; right: 0; bottom: 0; height: 56px;
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0), #000);
-    pointer-events: none;
+figure.ansi .quote:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+figure.ansi .quote pre {
+    margin: 0; padding: 14px 16px;
+    font: 12px/1.4 var(--mono-cjk); font-variant-ligatures: none;
+    color: #aaaaaa; white-space: pre;
 }
 figure.ansi figcaption { display: flex; gap: 8px; flex-wrap: wrap; }
-details.read-as-text .ansi { border: 1px solid var(--line); }
+
+/*
+  ── the words, in the same figure ──────────────────────────────────────────
+  The prose lines are what a player actually needs — the address and the connect/create/QUIT
+  instructions — and they were behind a disclosure outside the frame, which made the block a picture
+  with a footnote rather than a quotation with a reading. Under a hairline, with the kicker the
+  handoff names, and open: this is the one text copy of the art, and a text alternative a reader has
+  to open is one most readers never see.
+*/
+.screen-text {
+    border-top: 1px solid var(--line-soft);
+    padding-top: 12px;
+}
+.screen-text > summary { cursor: pointer; list-style: none; }
+.screen-text > summary::-webkit-details-marker { display: none; }
+.screen-text > summary::after { content: " ▾"; color: var(--faint); letter-spacing: normal; }
+.screen-text[open] > summary::after { content: " ▴"; }
+.screen-text .kicker { color: var(--accent); }
+.screen-text > summary:hover .kicker { color: var(--text); }
+.screen-text > pre { margin-top: 8px; }
+.screen-text pre {
+    margin: 0;
+    font: 12.5px/1.7 var(--mono-cjk); font-variant-ligatures: none;
+    color: var(--text);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
 pre.plain-screen { background: var(--recessed); padding: var(--cpad); overflow-x: auto; font-size: 12px; }
 
 .ansi-plate {
@@ -637,27 +1426,53 @@ pre.plain-screen { background: var(--recessed); padding: var(--cpad); overflow-x
 
 ul.games, ul.archive { list-style: none; margin: 0; padding: 0; }
 
+/*
+  The row pads itself and the hairline runs the column's full width. It used to hang on a negative
+  margin so a hover plane could reach past the reading measure — the results column owns its own
+  padding now, so the row simply is the width it is drawn at.
+*/
 ul.games > li, ul.archive > li {
-    border-bottom: 1px solid var(--line);
-    padding: var(--row-pad) var(--cpad);
-
-    /* Negative margin so the hover plane runs to the reading measure's own edge and the text does
-       not shift when it appears — a row that moves under the pointer is a row you mis-click. */
-    margin: 0 calc(var(--cpad) * -1);
+    border-bottom: 1px solid var(--line-soft);
+    padding: var(--row-pad) var(--gutter);
+    margin: 0;
 }
 
-ul.games > li.game-row:hover { background: var(--surface); }
+ul.games > li.game-row:hover { background: var(--raised); }
+
+/* The row is a touch target before it is a layout: the game's name is the link, and on a phone a
+   list of five hundred of them is a list of five hundred things to hit. The handoff's geometry —
+   13px by 20px over a 46px floor — is what puts a comfortable target under every name. */
+ul.games > li.game-row { min-height: 46px; padding: var(--row-pad) var(--gutter); }
 
 /* Three columns: the game's face, what it is, and what we measured. The plate is what gives a
    five-hundred-row list a left edge the eye can run down — before it, every row began with a
    different-length name and the only way to find a game was to read them. `start` rather than
    `baseline` because a 36px box has no baseline worth aligning a name to. */
+/* Two zones on the row and a third under them: identity on the left, measurement on the right, and
+   the meta line spanning beneath the name. The handoff's geometry exactly. */
+/*
+  Three columns and two lines: identity, measurement, freshness across the top, and the machine
+  facts spanning beneath. The count and the age are siblings on one baseline — they were a nested
+  two-row grid in the third column, which stacked the age under the count and left neither able to
+  line up down the page.
+*/
 .row-main {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 2px var(--cpad);
-    align-items: start;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 3px 20px;
+    align-items: baseline;
 }
+
+/*
+  `contents` so the name and the metadata are grid items of the row itself rather than of a box
+  inside column one — that is what lets the metadata span all three columns while the name occupies
+  only the first.
+*/
+.row-main .row-text { display: contents; }
+.row-main .row-head  { grid-column: 1; grid-row: 1; min-width: 0; }
+.row-main .row-count { grid-column: 2; grid-row: 1; }
+.row-main .row-seen  { grid-column: 3; grid-row: 1; }
+.row-main .meta      { grid-column: 1 / -1; grid-row: 2; min-width: 0; }
 
 /* The row's own plate. Same recessed square, same border, same monogram treatment as the game
    page's — one vocabulary at two sizes, so a reader who has seen the page recognises the row. */
@@ -683,9 +1498,9 @@ ul.games .name, ul.archive .name { font-size: 15px; font-weight: 600; text-decor
 ul.games .name:hover { text-decoration: underline; text-underline-offset: 3px; }
 ul.archive .name { color: var(--dim); }
 
-/* The majority state of the catalogue, so it is the quiet word rather than the third pill. A badge
-   every row wears distinguishes no row from any other, and at 700 rows it is chrome. */
-ul.games .unclaimed { font: 10px/1 var(--kick); letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+/* No rule for "unclaimed": it is not on a row any more. The majority state of the catalogue said on
+   every row is an administrative fact about our records, repeated once per game at a reader looking
+   for somewhere to play. It stays on the game page, where it arrives with the way to change it. */
 
 .row-text .tagline {
     margin: 2px 0 0;
@@ -699,70 +1514,75 @@ ul.games .unclaimed { font: 10px/1 var(--kick); letter-spacing: 0.14em; text-tra
     white-space: nowrap;
 }
 
-ul.games .meta, ul.archive .meta { margin: 3px 0 0; font-size: 11.5px; color: var(--faint); }
+ul.games .meta, ul.archive .meta { margin: 3px 0 0; font-size: 12.5px; color: var(--dim); }
 ul.games .meta .protocol { white-space: nowrap; }
+
+/* The protocols this row did not print. A count rather than a name, and the names are in its title
+   for a pointer and on the game's page for everybody. */
+ul.games .meta .protocol.more { color: var(--dim); }
 
 /* A provenance chip on a listing or archive row. The chip's own age size is set for body copy, and
    these contexts are already smaller than that — so the age rides the row's size rather than growing
    larger than the text it qualifies. Everything else about the chip is unchanged, deliberately: the
    row, the archive and the game page have to be one vocabulary and not three that resemble each
    other. `.meta` is the class both lists give that line, so both are covered by naming it once. */
-.meta .chip .age, .row-figure .chip .age { font-size: inherit; }
+.meta .chip .age { font-size: inherit; }
 
-/* The measured column. Tabular figures so the counts line up down the page without a table. */
-.row-figure {
+/* ── the two measured columns ──────────────────────────────────────────────
+   Tabular figures so the counts line up down the page without a table, and right-aligned so the
+   units place is the edge the eye runs down.
+
+   The count carries no unit and no provenance glyph. "on" after every number was one English word
+   repeated 515 times — the column is named once, above, which is also one string per locale rather
+   than five hundred — and where a number came from is a fact you weigh when choosing between two
+   games rather than while scanning five hundred, so it lives on the game page and on the facet
+   badges instead.                                                                                */
+
+.row-count {
     margin: 0;
+    grid-column: 2;
     text-align: right;
-    font-size: 12px;
     white-space: nowrap;
+    font-size: 15px;
     font-variant-numeric: tabular-nums;
-    display: grid;
-    gap: 2px;
-    justify-items: end;
+    color: var(--text);
 }
 
-/* ── the count, which is the fact most readers came for ────────────────────
-   Players on now is a fact like any other and is labelled like any other — the glyph beside it means
-   measured or declared exactly as it does in every other column, because a second meaning for the
-   accent dot would cost it the first one. What sets it apart is scale and position, which carry no
-   meaning to lose: the number is 17px and nothing else in a row is above 15, so it is what the eye
-   lands on, and it sits at the head of a column that lines up down the page.
+/* Somebody is on. The one place a live count is marked as such, and the glow follows the digits
+   rather than a pip beside them. */
+.row-count.live { color: var(--accent); }
 
-   The number's own weight then does the rest of the work. A count with somebody in it is at full
-   text colour; a measured zero is dimmed one step — still a measurement, still glyphed, still above
-   the break, and visibly not somewhere to go tonight. An unknown says so in words and is dimmer
-   again. Three states, three weights, no new colours.                                            */
+/* A measured zero: dimmed one step, never faint. We got in and nobody was there is a result, and
+   it is not the same fact as a count we could not read. */
+.row-count.empty { color: var(--dim); }
 
-.row-figure .players { color: var(--text); display: block; }
-.row-figure .players .count { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
-.row-figure .players .pip { margin-right: 5px; }
+/* Not a number at all, so it is not set as one: smaller, faint, and in words. */
+.row-count.unknown { color: var(--faint); font-size: 13.5px; font-variant-numeric: normal; }
 
-/* A count of nobody, measured. Dimmed rather than hidden — we got in and nobody was there is a
-   result, and the row above the break is where it belongs. */
-.row-figure .players.empty .count { color: var(--dim); font-weight: 400; }
-
-/* The one place a live count is marked as such: a soft glow on the pip where somebody is actually on
-   right now. A text-shadow rather than a ring, because a ring is drawn on the glyph's inline box —
-   which is a tall narrow rectangle, not the dot — and rendered as a lozenge round a circle. This
-   follows the glyph itself at any font and any size.
-
-   Static. Five hundred of these animating is a page that cannot be read, and the motion budget is
-   spent on the "came back" card. It is a reinforcement and never the carrier: the count, the glyph
-   and the word behind it all say the same thing without it. */
-.row-figure .players.live .pip.state-present {
-    text-shadow: 0 0 7px color-mix(in srgb, var(--accent) 60%, transparent);
+.row-seen {
+    margin: 0;
+    grid-column: 3;
+    text-align: right;
+    white-space: nowrap;
+    font-size: 12.5px;
+    color: var(--faint);
+    font-variant-numeric: tabular-nums;
 }
 
-/* The count's own chip rides beside the figure. Spaced in CSS and not by a space in the markup,
-   because the renderer trims whitespace around a conditional and "219 on" ran into its own glyph. */
-.row-figure .players .chip { margin-left: 6px; }
-.row-figure .players .unit { color: var(--faint); }
-.row-figure .players.unknown { color: var(--faint); }
-.row-figure .seen { color: var(--faint); font-size: 11.5px; }
-
-/* What a window sort ranked this row on, printed on the row it ranked. Faint and small: it is the
-   basis for the order rather than a fact the row is about, and the count above it stays the figure. */
-.row-figure .window { color: var(--faint); font-size: 11.5px; }
+/*
+  Claimed: a ring with a tick in it and no visible word. It was a pill the width of "claimed" on the
+  handful of rows that carry it — furniture for a fact a browsing reader did not come for. The name
+  is on the element, where a screen reader and a tooltip both reach it.
+*/
+.claim-ring {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; flex: none;
+    border-radius: 99px;
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
+    font: 10px/1 var(--mono);
+}
 
 /* Archived: dimmed one step, and that is the whole treatment. No red, no strikethrough, no "dead" —
    the entry is a library record for a periodical that ceased publication. */
@@ -788,26 +1608,84 @@ li.unranked-break {
 
 li.unranked-break:hover { background: var(--surface); }
 
-dl.archive-facts { margin: 0; font-size: 12px; min-width: 220px; }
+/*
+  The archive row is two zones, not the listing's three — it has no count column, and its facts
+  panel is a definition list rather than two cells. It shares .row-main with the listing for the
+  gap and the baseline, so it names its own columns rather than inheriting a third it has nothing
+  to put in.
+*/
+ul.archive .row-main { grid-template-columns: minmax(0, 1fr) auto; }
+
+dl.archive-facts { margin: 0; font-size: 12px; min-width: 200px; }
 dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
+
+/* Below the width where a 200px facts panel and a game's metadata both fit, they stack — the panel
+   was holding its minimum and clipping the name and codebase beside it. */
+@media (max-width: 620px) {
+    ul.archive .row-main { grid-template-columns: minmax(0, 1fr); }
+    dl.archive-facts { min-width: 0; }
+}
 
 /* ── the listing's own header ────────────────────────────────────────────── */
 
-.listing-head { margin-bottom: var(--cpad); }
-.listing-head p { margin: 0; max-width: 62ch; }
+/* The card's own header band: padded like the drawing, with a rule under it running the full
+   width of the card rather than stopping at a content measure. */
+.listing-head {
+    margin: 0;
+    padding: 22px var(--gutter) 18px;
+    border-bottom: 1px solid var(--line-soft);
+    display: flex; flex-direction: column; gap: 7px;
+}
+.listing-head h1 { margin: 0; }
+.listing-head p { margin: 0; max-width: 62ch; font-size: 14px; }
+
+/* ── the listing's toolbar ─────────────────────────────────────────────────
+   What order this is in on the left, the control that changes it and the two column names on the
+   right, over the columns they name.                                                            */
 
 .listing-bar {
     display: flex;
     align-items: baseline;
-    gap: var(--cpad);
+    justify-content: space-between;
+    gap: 12px 20px;
     flex-wrap: wrap;
-    margin: calc(var(--cpad) * 1.5) 0 4px;
+    margin: 0;
+    padding: 11px var(--gutter);
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 13px;
+    color: var(--dim);
 }
 
-.listing-bar .result-count { margin: 0; font-size: 13px; }
-.listing-bar .result-count strong { font-size: 19px; font-weight: 600; }
 .listing-bar .listing-order { margin: 0; }
-.listing-bar .listing-order a { color: var(--faint); }
+.listing-bar .listing-order .order-name { color: var(--text); }
+.listing-bar .listing-order .sep { margin: 0 6px; color: var(--faint); }
+.listing-bar .listing-order a { color: var(--dim); }
+
+.listing-tools { display: flex; align-items: baseline; gap: 20px; }
+.listing-tools .column-head { margin: 0; }
+
+/* ── a pressed-state toggle group ──────────────────────────────────────────
+   Not links to the page you are already reading. The one in force is a <span> with aria-current, so
+   there is no keystroke that lands on a control whose only effect is to re-fetch this page — the
+   same fix the trend range and shape selectors already carry.                                    */
+
+.switch { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; }
+.switch a { color: var(--dim); text-decoration: none; }
+.switch a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.switch .on { color: var(--accent); }
+/* A rule, not a wider gap: the two halves of the switch are different kinds of order — three that
+   change which measurement the column shows, and two that only change the stacking. */
+.switch .switch-rule {
+    width: 1px; height: 13px; align-self: center; margin: 0 2px; background: var(--line);
+}
+
+/* The window under the statistic it belongs to, quieter than the switch that produced it. */
+.switch.windows {
+    padding: 8px var(--gutter);
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 12px;
+    justify-content: flex-end;
+}
 
 /*
   Nothing matched. A plate rather than a paragraph, because an empty listing is a state and not an
@@ -829,9 +1707,25 @@ dl.archive-facts dd { margin: 0 0 6px; color: var(--dim); }
 /* ── one column below 900px; no horizontal scroll except inside the frame ── */
 
 @media (max-width: 900px) {
-    .two-up, .feeds { grid-template-columns: minmax(0, 1fr); }
-    .game-head { flex-direction: column; }
-    header.site { flex-wrap: wrap; }
+    .feeds { grid-template-columns: minmax(0, 1fr); }
+
+    /*
+      The theme control is the one thing in the bar that goes nowhere, so it is what the bar gives
+      up its words for first: three buttons become their initials' worth of room.
+
+      Taken out of the drawing and left in the accessibility tree, because the form names itself
+      with `aria-labelledby="theme-label"` and this is that label. `display: none` removed it from
+      both, so below 900px a screen reader met three buttons in a group with no name at all — the
+      one width where the surrounding words that would have explained them are gone too.
+    */
+    header.site form.theme .kick {
+        position: absolute;
+        width: 1px; height: 1px;
+        padding: 0; margin: -1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
 
     /*
       All 168 cells at 12px rather than a scrolling grid — the whole week at a glance is the reason
@@ -933,7 +1827,22 @@ ul.sole-use-names {
 ul.sole-use-names li { color: var(--dim); }
 
 /* Wide content scrolls inside its own box; the page body never scrolls sideways. */
-.table-wrap { overflow-x: auto; margin: var(--cpad) 0; }
+/*
+  A scroller contains its own absolutely positioned descendants — and until it did, the game page
+  scrolled sideways.
+
+  `.sr-only` is `position: absolute`, and with no positioned ancestor its containing block was the
+  initial one: the text a screen reader reads out of the capability matrix was laid out at the
+  matrix's own width, 463px in German, *outside* this box and outside `.shell`'s `overflow-x: clip`.
+  So five spans nobody can see pushed the document 59px wider than a 360px phone, and the whole page
+  scrolled to reveal nothing. Visually-hidden is not the same as out of the layout, and one
+  `position: relative` is what makes the difference invisible in both directions.
+*/
+.table-wrap { position: relative; overflow-x: auto; margin: var(--cpad) 0; }
+
+/* Inside a section that already spaces its children, the wrapper carries no margin of its own —
+   and it keeps the table's rounded frame from being clipped square by the scroll box. */
+.game-body .table-wrap { margin: 0; border-radius: var(--radius); }
 
 table.protocols, table.ranking { border-collapse: collapse; width: 100%; }
 table.protocols th, table.protocols td,
@@ -981,13 +1890,12 @@ table.ranking tbody th { font-weight: 400; }
    is the only reason they are there.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-form.facet-form {
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--surface);
-    padding: var(--cpad);
-    margin: 0 0 var(--cpad);
-}
+/*
+  No box. It was a panel on a page — border, radius, its own surface — and inside the card it became
+  a box within a box, fighting the hairline that already separates it from the rows. The column's
+  own edge is the separation; the form is just its contents.
+*/
+form.facet-form { border: 0; background: none; padding: 0; margin: 0; }
 
 /* ── the bar ─────────────────────────────────────────────────────────────── */
 
@@ -995,7 +1903,58 @@ form.facet-form {
   The archive's own search box is the same control with a legend on it, so it is styled here rather
   than growing a second look for one question asked on two pages.
 */
-.filter-bar, fieldset.facets {
+/* ── the panel, as one disclosure below 900px ──────────────────────────────
+   Above that width the summary is hidden and the content is forced open, so the same markup is a
+   column on a laptop and a disclosure on a phone with no second rendering and no script.
+
+   Guarded on ::details-content: where a browser does not have it, forcing a closed <details> open
+   from CSS is not possible, so the summary stays visible at every width — a "filters" disclosure at
+   the top of the column rather than an unreachable panel behind a hidden control.              */
+
+.facet-collapse { min-width: 0; }
+.facet-collapse > summary {
+    display: flex; align-items: center; gap: 8px;
+    cursor: pointer; list-style: none;
+    padding: 9px 8px; margin-bottom: 4px;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--dim);
+}
+.facet-collapse > summary::-webkit-details-marker { display: none; }
+.facet-collapse > summary:hover { color: var(--text); border-color: var(--dim); }
+.facet-collapse > summary::after {
+    content: "▾"; margin-left: auto; font-size: 11px; letter-spacing: normal;
+}
+.facet-collapse[open] > summary::after { content: "▴"; }
+.facet-collapse .summary-count {
+    font-family: var(--mono); font-size: 11px; letter-spacing: normal; color: var(--accent);
+}
+.facet-body { display: flex; flex-direction: column; gap: 24px; }
+
+@supports selector(::details-content) {
+    @media (min-width: 901px) {
+        .facet-collapse > summary { display: none; }
+        .facet-collapse::details-content { content-visibility: visible; block-size: auto; }
+    }
+}
+
+/* One field, and nothing else — the sort and the two inclusion switches that used to share this row
+   are a toolbar switch and two facet rows now. */
+.filter-bar { display: block; margin: 0; }
+.filter-bar .search-field { padding: 0 8px 0 12px; }
+.filter-bar .search-field input[type="search"] { padding: 7px 0; font-size: 13px; }
+
+/* The submit, inside the field. A 268px column has no room for a second box on that row, and a
+   submit that exists only as the return key is one a pointer-only reader cannot press. */
+.search-go {
+    flex: none; display: flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; padding: 0;
+    background: none; border: 0; border-radius: 6px;
+    color: var(--faint); font-size: 13px; cursor: pointer;
+}
+.search-go:hover { color: var(--text); background: var(--raised); }
+
+fieldset.facets {
     display: flex;
     gap: 10px;
     align-items: center;
@@ -1004,7 +1963,7 @@ form.facet-form {
 
 fieldset.facets {
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: var(--radius-lg);
     background: var(--surface);
     padding: var(--cpad);
     margin: 0 0 var(--cpad);
@@ -1017,7 +1976,8 @@ fieldset.facets legend {
     color: var(--faint);
 }
 
-.filter-bar input[type="search"], fieldset.facets input[type="search"] { flex: 1 1 16rem; min-width: 0; }
+.filter-bar input[type="search"] { min-width: 0; width: 100%; }
+fieldset.facets input[type="search"] { flex: 1 1 16rem; min-width: 0; }
 
 .bar-field { display: inline-flex; align-items: center; gap: 6px; }
 .bar-label { font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
@@ -1030,37 +1990,123 @@ fieldset.facets legend {
   auto-fit at a narrow floor, so eight facets pack four to a row on a laptop, two on a tablet and one
   on a phone without a breakpoint being written for any of them.
 */
-.facet-grid {
+/* ── the listing's two columns ─────────────────────────────────────────────
+   What you are asking on the left, what came back on the right. `stretch` so the filter column's
+   own edge runs the full height of the card: aligned to its content it stops under a short panel
+   and leaves a well beside the rows.                                                            */
+
+.listing-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
-    gap: 10px var(--cpad);
-    margin-top: var(--cpad);
+    grid-template-columns: minmax(0, 268px) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0;
+    margin: 0;
 }
 
-/* The control sits at the bottom of its cell, so a label that wraps grows upward and every select in
-   the row stays on one line. Left to itself the grid aligns the tops, and one long facet name puts
-   one control half a row below its neighbours. */
+/*
+  Placed explicitly, and that is load-bearing: the panel renders TWO siblings into this grid — the
+  form, and the row of active-filter chips that sits outside it because a chip is a link and not a
+  control. Left to auto-placement the chips took the second column and the listing dropped to the
+  first, under a filter column a thousand pixels tall — so applying a filter looked like a page that
+  had lost its results.
+*/
+/*
+  The filter column is a surface a step below the card, so it reads as a column even where its rows
+  run out — the border alone left it as an unmarked area of the same fill as the results beside it.
+*/
+.listing-grid > .facet-form {
+    grid-column: 1;
+    grid-row: 1 / span 99;
+    background: var(--recessed);
+    border-right: 1px solid var(--line-soft);
+
+    /* Less 8px than the gutter, because every row inside pads itself by that — which is what puts
+       a facet label on exactly the same left edge as the wordmark above it. */
+    padding: 20px max(6px, calc(var(--gutter) - 8px));
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+.listing-grid > * { grid-column: 2; min-width: 0; }
+.listing-side { min-width: 0; }
+.listing-grid > .active-filters { padding: 12px var(--gutter) 0; margin: 0; }
+
+/*
+  ── the filter column, narrow ──────────────────────────────────────────────
+  A disclosure above the listing rather than eleven hundred pixels of open panel to scroll past
+  before the first game. Closed by default and open whenever the reader has actually asked
+  something, because a filter in force that nothing shows is the defect this control replaces.
+*/
+@media (max-width: 900px) {
+    .listing-grid { grid-template-columns: minmax(0, 1fr); }
+    .listing-grid > * { grid-column: 1; }
+    .listing-grid > .facet-form {
+        grid-column: 1; grid-row: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line-soft);
+    }
+    .listing-grid > .active-filters { padding: 12px var(--gutter) 0; }
+
+    /* Two columns of groups where there is room for them, so the opened panel is a band rather
+       than a column a reader has to scroll the length of. */
+    .facet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; }
+}
+
+/* In a 268px column the facets stack, one group per row. Twenty-four pixels between groups, which
+   is the panel's own rhythm and twice the gap between a group's header and its rows. */
+.facet-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin: 0;
+}
+
+/* A facet is a heading, a note and a list of rows. */
 .facet {
     min-width: 0;
-    display: grid;
-    grid-template-rows: 1fr auto;
-    align-content: end;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    border: 0;
+    padding: 0;
+    margin: 0;
 }
 
+/*
+  The header block sits at the rows' own left padding, so the group name, the note and every row
+  label share one left edge — which is the whole reason the rows are padded rather than the panel.
+*/
 .facet > label, .facet > legend {
     display: flex;
-    gap: 6px;
-    align-items: baseline;
-    flex-wrap: wrap;
-    margin-bottom: 3px;
-    padding: 0;
+    flex-direction: column;
+    gap: 3px;
+    margin: 0;
+    padding: 0 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.facet .facet-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
 
 .facet .facet-name {
     font: 10px/1.4 var(--kick);
-    letter-spacing: 0.14em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--dim);
+}
+
+/*
+  The one sentence a group needs at the moment somebody uses it, under its own heading rather than
+  once at the foot of the panel — the three groups say three different things and the line that
+  used to serve all of them contradicted the first.
+*/
+.facet-note {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--faint);
 }
 
 select {
@@ -1074,9 +2120,139 @@ select {
 
 .facet select { width: 100%; max-width: 100%; }
 
-/* A facet that is doing something says so at rest, and not only in colour — the chip row above the
-   results names it in words, and the select's own text is the value it is set to. */
-.facet select.chosen { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+/* ── the three-state facet row ─────────────────────────────────────────────
+   Off, only, anything but — one row per value, and the state legible without opening anything. The
+   two radios are hidden and the glyph is drawn, but they are real radios: the browser's own group
+   behaviour is what makes this work with no script, and every state is a word in the accessible
+   name as well as a shape and a tint.                                                          */
+
+.facet .rows { display: grid; gap: 2px; margin: 0; }
+
+/*
+  The row's geometry, and it is a grid rather than a flex run for one reason: every column has to
+  land in the same place on every row of every group. As a flex run the widest label in a group
+  pushed that group's count and exclude columns ten pixels right of every other group's — and past
+  the panel's own edge, which is what the audit measured as a 253px row inside a 243px box.
+
+    15px   the state glyph
+    1fr    the value, which is the one cell allowed to give up width
+    auto   the count, right-aligned against the 1fr's slack so every count shares an edge
+    18px   the exclusion, where a "remove" belongs
+*/
+.facet-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 18px;
+    align-items: center;
+    gap: 9px;
+    min-height: 30px;
+    padding: 0 8px;
+    border-radius: 9px;
+    font-size: 13.5px;
+    color: var(--dim);
+    border: 1px solid transparent;
+}
+
+/* One ordered scale: no exclusion, so no column for one. */
+.facet-row.single { grid-template-columns: minmax(0, 1fr); }
+
+.facet-row .pick {
+    display: grid;
+    grid-template-columns: 15px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    cursor: pointer;
+}
+.facet-row .tick { text-align: center; color: var(--faint); font-family: var(--mono); font-size: 12px; }
+.facet-row .row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/*
+  `--dim` rather than `--faint`, because the panel is not the page.
+
+  `--faint` was raised to 4.8:1 once already, measured against the page background — and the facet
+  panel is a more recessed surface than that, where the same token falls to 4.09:1 in dark and
+  4.37:1 in light. Both are under the 4.5:1 this site holds itself to, and both are carried by a
+  12px number, which is the smallest text in the panel and the one a reader most needs to read.
+  Raising the token instead would have moved every age and provenance line on the site to fix a
+  contrast the page itself does not have.
+*/
+.facet-row .count {
+    font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--dim);
+}
+
+/* The exclusion affordance, at the far edge where a "remove" belongs. Quiet until it is the state
+   the row is in. */
+.facet-row .drop {
+    display: block; text-align: center; cursor: pointer;
+    color: var(--faint); font-family: var(--mono); font-size: 12.5px;
+}
+.facet-row .drop:hover { color: var(--text); }
+/* Links, so a click applies the filter rather than arming a control that waits for a button. */
+.facet-row a { text-decoration: none; color: inherit; border-radius: var(--radius); }
+
+.facet-row:hover { background: var(--raised); }
+
+/*
+  A rung of a scale that this filter leaves empty. It stays — a bounded facet is four named
+  thresholds a reader picks between, and deleting the empty ones meant narrowing the codebase
+  silently removed two of activity's four rows and shifted the panel under the reader's pointer. It
+  is dimmed rather than disabled, because 0 is an answer: "no Evennia game was active this week" is
+  a fact about the catalogue, and clicking it lands on the listing's own empty state.
+*/
+.facet-row.empty { opacity: 0.55; }
+.facet-row.empty:hover { opacity: 1; }
+
+/* Included: the accent as a tint and a ring, and the count goes accent with the label — the number
+   is the part of the row that says what the filter will return, so it is the part that has to look
+   chosen. */
+.facet-row.on {
+    color: var(--accent-ink);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.facet-row.on .tick, .facet-row.on .count { color: var(--accent-ink); }
+.facet-row.on:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+
+/*
+  Excluded: the danger tint, ring and strikethrough the handoff draws.
+
+  Red is not a provenance colour here and never becomes one — it marks a state the reader put the
+  control into, not a state of the data. That is why nothing else on the site is red: the accent
+  means measured, amber means declared, and this means refused.
+*/
+.facet-row.excluded {
+    color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 10%, transparent);
+    border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+}
+.facet-row.excluded .tick, .facet-row.excluded .count { color: var(--danger); }
+.facet-row.excluded .row-name {
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in srgb, var(--danger) 50%, transparent);
+}
+.facet-row.excluded .drop { color: var(--danger); }
+.facet-row.excluded:hover { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+
+/* The radios are hidden, so the focus ring belongs to the row that holds them. */
+.facet-row a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The tail. A summary is a control, so it gets the row's own height and hit area. */
+.facet .facet-tail { margin-top: 2px; }
+.facet .facet-tail summary {
+    cursor: pointer; padding: 4px 8px; font-size: 12px; color: var(--faint); border-radius: 9px;
+}
+.facet .facet-tail summary:hover { color: var(--text); background: var(--raised); }
+
+/* Said once, under the groups it applies to. */
+.facet-hint { margin: 12px 0 0; font-size: 11.5px; color: var(--dim); }
+
+/* The facets a reader goes looking for, rather than the three they arrive with. */
+.facet-more-groups { margin: 0; border-top: 1px solid var(--line-soft); padding-top: 14px; }
+.facet-more-groups > summary {
+    cursor: pointer; font: 10px/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--faint); padding: 4px 8px; border-radius: var(--radius);
+}
+.facet-more-groups > summary:hover { color: var(--text); background: var(--raised); }
+.facet-more-groups .facet-grid { margin-top: 14px; }
 
 /* ── the presence facet ──────────────────────────────────────────────────── */
 
@@ -1088,11 +2264,15 @@ select {
 fieldset.facet.presence {
     border: 0;
     padding: 0;
-    margin: var(--cpad) 0 0;
+    margin: 0;
     min-width: 0;
 }
 
-fieldset.facet.presence .checks { display: flex; flex-wrap: wrap; gap: 6px; }
+fieldset.facet.presence .checks {
+    display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; padding: 0 8px;
+}
+fieldset.facet.presence .check { max-width: 100%; }
+fieldset.facet.presence .check .check-name { overflow-wrap: anywhere; min-width: 0; }
 
 fieldset.facet.presence .check {
     display: inline-flex;
@@ -1110,9 +2290,6 @@ fieldset.facet.presence .check:hover { border-color: var(--dim); }
 fieldset.facet.presence .check:has(:checked) { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 fieldset.facet.presence .check .count { color: var(--faint); font-variant-numeric: tabular-nums; }
 
-/* Where the unticked-is-not-a-no sentence lives: inside the fieldset it is about, at the moment of
-   ticking, rather than in a key at the bottom of the panel. */
-fieldset.facet.presence .hint { margin: 6px 0 0; font-size: 11.5px; color: var(--faint); max-width: 62ch; }
 
 /* Measured, declared, and the one thing we concluded ourselves — three registers, never the only
    carrier of the difference, because the chip spells each out in words as well and colour is not a
@@ -1137,25 +2314,28 @@ fieldset.facet.presence .hint { margin: 6px 0 0; font-size: 11.5px; color: var(-
   a title attribute: this is the difference the whole site exists to publish, and it stays in the
   document whether or not a pointer ever hovers anything.
 */
+/*
+  One line and one disclosure. The three-row provenance legend that used to stand here is behind the
+  disclosure now: every group wears its own evidence badge, which is where the word is actually
+  needed — before a filter is applied rather than after the panel has been read to the bottom. It
+  also wrapped its descriptions right-aligned, which is what a flex row does to a text node it did
+  not expect to break.
+*/
 .facet-key {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px 18px;
-    align-items: baseline;
-    margin-top: var(--cpad);
-    padding-top: 10px;
-    border-top: 1px solid var(--line);
-    font-size: 11.5px;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0 8px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line-soft);
+    font-size: 12px;
     color: var(--faint);
+    text-align: left;
 }
 
-.facet-key .key-item { display: inline-flex; gap: 5px; align-items: baseline; }
-.facet-key .facet-more { margin-left: auto; }
-.facet-key summary { cursor: pointer; color: var(--dim); }
-
-.facet-key .facet-more[open] { flex: 1 0 100%; margin-left: 0; margin-top: 6px; }
-.facet-key .facet-more ul { margin: 6px 0 0; padding-left: 1.2em; max-width: 72ch; }
-.facet-key .facet-more li { margin-bottom: 5px; color: var(--dim); }
+.facet-key summary { cursor: pointer; color: var(--dim); font-size: 11.5px; }
+.facet-key .facet-more ul { margin: 8px 0 0; padding-left: 1.2em; }
+.facet-key .facet-more li { margin-bottom: 6px; color: var(--dim); line-height: 1.5; }
 
 /* ── what the query is currently asking for ──────────────────────────────── */
 
@@ -1202,18 +2382,16 @@ fieldset.facet.presence .hint { margin: 6px 0 0; font-size: 11.5px; color: var(-
 
 /* ── the panel and the rows, narrow ──────────────────────────────────────── */
 
+/*
+  Narrow rows keep all three columns and all three stay aligned. They used to collapse into a flex
+  run under the name, which put the age beside the count on some rows and under it on others — the
+  same list drawn two ways down one screen. The name gives up width first, which is the one cell
+  that can spare it, and the two right-hand columns hold their edge.
+*/
 @media (max-width: 620px) {
-    /* The bar stacks: a search box sharing a row with a sort and a toggle has room for none of them. */
-    .filter-bar input[type="search"] { flex: 1 0 100%; }
-    .filter-bar button { margin-left: auto; }
-
-    /* The measured column goes under the name rather than fighting it for a width neither has —
-       under the name and not under the plate, so the row keeps the left edge the plate gives it and
-       the figure lines up with the text it belongs to. */
-    .row-main { grid-template-columns: auto minmax(0, 1fr); }
-    .row-main .plate { grid-row: span 2; }
-    .row-figure { text-align: left; justify-items: start; margin-top: 4px; }
-    .row-figure { display: flex; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+    .row-main { gap: 3px 12px; }
+    .row-count { font-size: 14px; }
+    .row-count.unknown { font-size: 12.5px; }
 }
 /* ── reference and orientation pages ───────────────────────────────────────
    The hand-written section (spec §9). Two things it has to communicate that no
@@ -1375,3 +2553,283 @@ ol.events .faint { margin-right: 8px; }
 
 details.resign form { margin-top: 6px; }
 details.resign input[type="text"] { display: block; margin: 6px 0; max-width: 16ch; }
+
+/* ── find a game ───────────────────────────────────────────────────────────
+   The questions on the left, the count on the right, and the count still on
+   screen when the last question is answered — which is the whole premise of
+   this page. Until this block existed the page had no rule of its own at all:
+   it was the one surface left on user-agent form styling, drawn full-bleed
+   with 2px groove borders and 5px of padding.                              */
+
+.find-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 310px);
+    align-items: stretch;
+    gap: 0;
+    margin: 0;
+
+    /*
+      `clip`, never `hidden`. An ancestor with overflow: hidden is a scroll
+      container, and a sticky element can only travel inside its own — so the
+      panel would pin for a few hundred pixels and then scroll away for the
+      rest, leaving the count invisible while questions four to six were
+      answered. That is the exact failure this page was redrawn to fix, and
+      `clip` clips without establishing the container.
+    */
+    overflow: clip;
+}
+
+.find-questions { min-width: 0; grid-column: 1; }
+
+/* ── one question ─────────────────────────────────────────────────────────
+   24 above the heading, 14 under it, 24 to the next rule. Symmetric outside,
+   tighter inside, so the heading binds to the options it labels and the
+   questions separate from each other. The numbers are on the elements
+   themselves rather than on a container: a <legend> renders on the border
+   edge and outside the padding box, which is why the drawing's own first
+   attempt produced 13px above the heading and 2px below it.                */
+
+.find-q {
+    padding: 24px var(--gutter);
+    border-top: 1px solid var(--line-soft);
+}
+
+.find-q-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 14px;
+}
+
+/* The question is a heading, so a screen reader can jump between the six and
+   the page has an outline. h2's own rhythm belongs to prose sections and
+   would fight the 24/14 above. */
+.find-q-head h2 { font-size: 16px; font-weight: 600; margin: 0; color: var(--text); }
+
+.find-opts { display: flex; flex-wrap: wrap; gap: 10px 8px; }
+
+/*
+  An option chip. 40px is the floor, not the height: a long gloss wraps and
+  the chip grows rather than clipping it. The row gap is deliberately larger
+  than the column gap — equal gaps make wrapped rows read as a grid instead of
+  as rows.
+*/
+.find-opt {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 40px;
+    padding: 8px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--raised);
+    color: var(--dim);
+    font-size: 13.5px;
+    text-decoration: none;
+    transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.find-opt .tick { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+.find-opt .count { font-size: 12px; color: var(--faint); }
+.find-opt:hover { background: color-mix(in srgb, var(--accent) 8%, var(--raised)); }
+.find-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Chosen: the tint, the ring and the count in the accent, because the number
+   is the part of the chip that says what answering will return. */
+.find-opt.on {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.find-opt.on .tick, .find-opt.on .count { color: var(--accent); }
+
+/* The long tail. A summary is a control, so it gets a control's hit area. */
+.find-tail { margin-top: 10px; }
+.find-tail > summary {
+    cursor: pointer;
+    display: inline-block;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--faint);
+    border-radius: var(--radius);
+}
+.find-tail > summary:hover { color: var(--text); background: var(--raised); }
+.find-tail .find-opts { margin-top: 10px; }
+
+/* ── the name field ───────────────────────────────────────────────────────
+   Label above the field, not beside it: beside it the field lost half the
+   column and a typed name could not be read back.                          */
+
+.find-name { padding: 0 var(--gutter); margin: 0; }
+.find-name label { display: block; margin-bottom: 8px; }
+.find-name .search-field { max-width: 460px; }
+
+/* ── the count ────────────────────────────────────────────────────────────
+   The outer cell carries the fill and the edge at full row height; the inner
+   wrapper is what sticks. Splitting the two is what lets the column read as a
+   column even where the panel is short.                                    */
+
+.find-panel {
+    grid-column: 2;
+    background: var(--recessed);
+    border-left: 1px solid var(--line-soft);
+    min-width: 0;
+}
+
+.find-panel-inner {
+    position: sticky;
+    top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    /* 24 at the top so the first line lands on the first question's heading. */
+    padding: 24px 22px;
+}
+
+.find-count { display: flex; align-items: baseline; gap: 8px; margin: 0; }
+
+.find-n {
+    font-size: 40px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+}
+
+.find-noun { font-size: 13.5px; color: var(--dim); }
+.find-basis { margin: 0; font-size: 12px; color: var(--faint); }
+
+.find-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.find-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 11px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    background: var(--raised);
+    color: var(--dim);
+    font-size: 12px;
+    text-decoration: none;
+    max-width: 100%;
+}
+.find-chip .chip-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.find-chip .chip-x { color: var(--faint); }
+.find-chip:hover { color: var(--text); border-color: var(--dim); }
+
+/*
+  The way out of a combination that returned almost nothing. Quiet on purpose:
+  no amber, no warning box, no sentence about the result being narrow. The
+  reader can see the count; this is the one thing they cannot work out.
+*/
+.find-loosen {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 12px;
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+    color: var(--dim);
+    font-size: 12.5px;
+    text-decoration: none;
+}
+.find-loosen:hover { color: var(--text); border-color: var(--dim); background: var(--raised); }
+
+/* The one accented control on the page, and it is a link: it navigates to the
+   listing with this question asked, and nothing here is a form to fire. */
+.find-go {
+    display: block;
+    padding: 11px 16px;
+    border-radius: var(--radius);
+    border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    box-shadow: var(--glow);
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+}
+.find-go:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.find-go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.find-clear { margin: 0; font-size: 12px; }
+.find-clear a { color: var(--faint); }
+.find-clear a:hover { color: var(--text); }
+
+/*
+  ── the panel, narrow ─────────────────────────────────────────────────────
+  The drawing has no responsive treatment and cannot be followed here: at
+  430px its own grid crushes the question column to 139px while the panel
+  keeps all 310. So the panel stacks — above the questions, because the count
+  is the thing the page exists to show and putting it under six questions
+  would mean scrolling past every one of them to find out what they returned.
+  It stays sticky at the top of the viewport, which is the same promise the
+  side column makes at a width that has room for one.
+*/
+@media (max-width: 860px) {
+    .find-grid { grid-template-columns: minmax(0, 1fr); }
+    .find-questions, .find-panel { grid-column: 1; }
+
+    /*
+      Below the questions in the visual order because it is below them in the
+      DOM, and a column that disagrees with the tab order is a worse answer
+      than a long page. It sticks to the *bottom* instead of the top, which
+      keeps the same promise from the other end: the count and the submit are
+      on screen while the last question is being answered, without a reader
+      having to find them again afterwards.
+    */
+    .find-panel {
+        border-left: 0;
+        border-top: 1px solid var(--line-soft);
+        position: sticky;
+        bottom: 0;
+    }
+
+    /*
+      Laid across rather than down, because a bar pinned to the bottom of a
+      phone spends every pixel it takes: short controls share a line, so the
+      whole panel costs four rows with two answers given rather than seven.
+
+      A wrapping row *in document order*, and that part is not cosmetic. This
+      was a two-column bar with the call to action pinned right and spanning
+      three rows, which put it first to the eye and fourth to the keyboard:
+      tabbing ran chips, loosen, then 114px back up the screen to the button.
+      Flex-wrap packs the same controls in the order they are written, so the
+      focus ring only ever travels forwards.
+    */
+    .find-panel-inner {
+        position: static;
+        display: flex;
+        /* The base rule stacks; this is the one place the direction changes, and
+           leaving it out gives a centred column that reads as a broken card. */
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        padding: 12px var(--gutter);
+    }
+
+    /*
+      The kicker labels a column, and this is a bar. The sub-line beside the
+      count says the same thing in more words, and the sentence a screen reader
+      is given — "2 games match every answer" — is untouched, so nothing is
+      lost that was only being carried here.
+    */
+    .find-panel-inner > .kicker { display: none; }
+
+    .find-chips { flex: 0 1 auto; }
+    .find-go { padding: 9px 14px; }
+    .find-n { font-size: 28px; }
+
+    /*
+      The bar is pinned over the foot of the viewport, and a browser scrolling a
+      newly focused option into view does not know it is there — so tabbing down
+      the last question lands the focus ring behind the panel. `scroll-padding`
+      is the scriptless way to tell it, and `:has` is what keeps the rule on the
+      one page that has a bar rather than on every scroll on the site.
+    */
+    html:has(.find-page) { scroll-padding-bottom: 200px; }
+}

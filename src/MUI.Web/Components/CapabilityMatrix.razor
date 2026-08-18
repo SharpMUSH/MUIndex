@@ -1,3 +1,5 @@
+@using MUI.Web.Localization
+
 @*
     The capability matrix: measured and declared as two columns, never merged into one badge.
 
@@ -8,26 +10,38 @@
 *@
 
 <div class="section-head">
-    <h2 id="@Id">Capabilities</h2>
-    @* The count lives in the section head so it survives a collapsed section and a screen reader
-       alike — a tint on a row does neither. *@
-    <p class="count @(Disagreements.Count > 0 ? "warn" : "faint")">
-        @Disagreements.Count of @Rows.Count capabilities
-        @(Disagreements.Count == 1 ? "disagrees" : "disagree") with what the game declares
-    </p>
+    <h2 id="@Id">@Messages.For(Tag, "game.capabilities")</h2>
 </div>
 
+@* Six columns of nowrap cells do not fit a phone, and the page body may never scroll sideways —
+   so the table scrolls inside its own box, which is the same rule the ANSI frame follows. *@
+<div class="table-wrap">
 <table class="matrix">
-    <caption class="sr-only">
-        Capabilities measured in the handshake beside the ones the game declares.
-        @Disagreements.Count of @Rows.Count @(Disagreements.Count == 1 ? "disagrees" : "disagree").
+    @*
+        The tally, once. It was the section's heading text and then, verbatim, this table's caption —
+        so a screen reader heard the same sentence twice before reaching a row. As the caption it is
+        the table's own accessible description, it survives a collapsed section, and it is on screen
+        for everybody rather than only for a screen reader.
+    *@
+    @*
+        Short of the long form on purpose. "0 of 6 capabilities disagree with what the game declares"
+        was the section's heading text and then, verbatim, this caption; said once and set beside the
+        table it describes, the shorter sentence carries the same fact and reads as a summary rather
+        than as a restatement.
+    *@
+    <caption class="count @(Disagreements.Count > 0 ? "warn" : "faint")">
+        @Messages.For(Tag, "capabilities.agree", new Dictionary<string, object?>
+        {
+            ["disagreeing"] = Disagreements.Count,
+            ["total"] = Rows.Count,
+        })
     </caption>
     <thead>
         <tr>
-            <th scope="col">capability</th>
-            <th scope="col">measured</th>
-            <th scope="col">declared</th>
-            <th scope="col">age</th>
+            <th scope="col">@Messages.For(Tag, "capability.column")</th>
+            <th scope="col">@Messages.For(Tag, "kicker.measured")</th>
+            <th scope="col">@Messages.For(Tag, "kicker.declared")</th>
+            <th scope="col">@Messages.For(Tag, "capability.age")</th>
         </tr>
     </thead>
     <tbody>
@@ -40,44 +54,42 @@
                     {
                         @* The mark is a word in the row, not a background tint. A tint is invisible
                            in greyscale, to a screen reader, and to anyone who prints the page. *@
-                        <span class="mark warn">disagrees</span>
+                        <span class="mark warn">@Messages.For(Tag, "capability.disagrees")</span>
                     }
                 </th>
-                <td class="mono">@((MarkupString)Cell(row.Measured, measured: true))</td>
-                <td class="mono">@((MarkupString)Cell(row.Declared, measured: false))</td>
-                <td class="mono faint">@Age(row)</td>
+                <td class="mono">@((MarkupString)Cell(Tag, row.Measured, measured: true))</td>
+                <td class="mono">@((MarkupString)Cell(Tag, row.Declared, measured: false))</td>
+                <td class="mono faint">
+                    @if (row.LastConfirmedAt is { } at)
+                    {
+                        <Moment At="at" Now="Now" Spoken="true" />
+                    }
+                    else
+                    {
+                        <text>@Messages.For(Tag, "listing.never")</text>
+                    }
+                </td>
             </tr>
         }
     </tbody>
 </table>
+</div>
 
 @if (Disagreements.Count > 0)
 {
     <details class="disagreement">
-        <summary>where they disagree (@Disagreements.Count)</summary>
+        <summary>@Messages.For(Tag, "capability.whereTheyDisagree", new Dictionary<string, object?> { ["count"] = Disagreements.Count })</summary>
         @foreach (var row in Disagreements)
         {
             <p>
                 <strong class="mono">@row.Protocol</strong> —
-                @if (row.Measured is CapabilityState.Absent)
-                {
-                    <text>
-                        the game declares it, and the server has never offered it in a handshake.
-                    </text>
-                }
-                else
-                {
-                    <text>
-                        the server offers it, and the game's own record says it does not.
-                    </text>
-                }
+                @Messages.For(Tag, row.Measured is CapabilityState.Absent
+                    ? "capability.disagree.declaredNotOffered"
+                    : "capability.disagree.offeredNotDeclared")
             </p>
         }
         @* Said once, under the whole list. Inside the loop it repeated verbatim per protocol. *@
-        <p class="dim">
-            Usually a stale hand-typed field, not a lie. Shown because a client should not rely on
-            what the two disagree about.
-        </p>
+        <p class="dim">@Messages.For(Tag, "capability.disagree.note")</p>
     </details>
 }
 
@@ -87,6 +99,12 @@
     [Parameter] public string Id { get; set; } = "capabilities";
 
     [Parameter] public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>The request, for the locale its caption is written in.</summary>
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string Tag => HttpContext.LocaleOf().Tag;
 
     /// <summary>Disagreements first, then measured-present, then absent, then unknown.</summary>
     private IEnumerable<CapabilityRow> Sorted => Rows
@@ -101,19 +119,25 @@
 
     private IReadOnlyList<CapabilityRow> Disagreements => [.. Rows.Where(r => r.Disagrees).OrderBy(r => r.Protocol, StringComparer.Ordinal)];
 
-    private string Age(CapabilityRow row) =>
-        row.LastConfirmedAt is { } at ? Relative.Format(Now - at) : "never";
-
     /// <summary>
     /// Glyph and word together. The glyph is the state and the colour only reinforces it, so the
     /// cell still says which of the four things it is when there is no colour at all.
     /// </summary>
-    private static string Cell(CapabilityState state, bool measured) => (state, measured) switch
+    private static string Cell(string tag, CapabilityState state, bool measured)
     {
-        (CapabilityState.Present, true) => "<span class=\"state-present\">● offered</span>",
-        (CapabilityState.Present, false) => "<span class=\"state-declared\">◇ claimed</span>",
-        (CapabilityState.Absent, true) => "<span class=\"state-absent\">✕ absent</span>",
-        (CapabilityState.Absent, false) => "<span class=\"state-absent\">✕ denied</span>",
-        _ => "<span class=\"state-unknown\">– silent</span>",
-    };
+        var (css, glyph, id) = (state, measured) switch
+        {
+            (CapabilityState.Present, true) => ("state-present", "●", "capability.offered"),
+            (CapabilityState.Present, false) => ("state-declared", "◇", "capability.claimed"),
+            (CapabilityState.Absent, true) => ("state-absent", "✕", "capability.absent"),
+            (CapabilityState.Absent, false) => ("state-absent", "✕", "capability.denied"),
+            _ => ("state-unknown", "–", "capability.silent"),
+        };
+
+        // Escaped, because the word now comes out of a bundle a translator writes rather than out of
+        // this file. A message is not markup and must not be able to become any.
+        var word = System.Net.WebUtility.HtmlEncode(Messages.For(tag, id));
+
+        return $"<span class=\"{css}\">{glyph} {word}</span>";
+    }
 }

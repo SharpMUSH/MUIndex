@@ -1,5 +1,6 @@
 @page "/not-found"
 @layout MUI.Web.Components.Layout.MainLayout
+@using MUI.Web.Localization
 
 @*
     The site's one not-found page, and the status line says so as well as the sentence.
@@ -15,10 +16,17 @@
     (spec §5.7). Arriving here means no game ever answered to this URL.
 *@
 
-<SitePreview Title="Not found" Description="@PreviewCopy.Pages.NotFound" Data="false" />
+<SitePreview Title="@PreviewCopy.Titles.NotFound(Tag)" Description="@PreviewCopy.Pages.NotFound(Tag)"
+             Data="false" />
 
-<h1>Not found</h1>
-<p class="dim">
-    No game at this address. Check the spelling.
-</p>
-<p class="faint"><a href="/games">All games</a></p>
+@* The two ids the game page's own not-found state already says, rather than a second English
+   spelling of the same two sentences sitting in this template. *@
+<h1>@Messages.For(Tag, "game.notFound")</h1>
+<p class="dim">@Messages.For(Tag, "game.notFound.hint")</p>
+<p class="faint"><a href="@Http.Link("/games")">@Messages.For(Tag, "nav.games")</a></p>
+
+@code {
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+}

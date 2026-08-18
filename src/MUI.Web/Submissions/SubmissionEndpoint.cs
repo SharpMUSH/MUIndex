@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using MUI.Catalog.Persistence;
 using MUI.Discovery;
 using MUI.Web.Components;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Submissions;
 
@@ -56,7 +57,9 @@ public static class SubmissionEndpoint
                 ? game.Slug
                 : null;
 
-            return Results.Redirect(SubmitLinks.For(receipt.Outcome, receipt.Address, slug));
+            return Results.Redirect(LocaleRouting.Link(
+                context.LocaleOf().Tag,
+                SubmitLinks.For(receipt.Outcome, receipt.Address, slug)));
         });
     }
 }

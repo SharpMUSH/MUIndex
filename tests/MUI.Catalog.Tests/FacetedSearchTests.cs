@@ -24,7 +24,9 @@ public class FacetedSearchTests
         string? charset = null,
         bool tls = false,
         DateTimeOffset? lastReachableAt = null,
-        string[]? protocols = null)
+        string[]? protocols = null,
+        bool uncounted = false,
+        bool unreachable = false)
     {
         var summary = new GameSummary(
             Guid.NewGuid(), slug, slug, Tagline: null, LifecycleState.Active, IsClaimed: false,
@@ -43,7 +45,12 @@ public class FacetedSearchTests
 
             // Adult content has its own suite (AdultListingTests). Every row here declares none, so
             // these counts are taken over the whole set and are not quietly shaped by that default.
-            IsAdult: false);
+            IsAdult: false,
+
+            // Both default to false, so a row is a game we reached and counted unless a test says
+            // otherwise — the ordinary case, and the one every count in this file is taken over.
+            uncounted,
+            unreachable);
     }
 
     private static FacetGroup Group(GameListing listing, string key) =>
@@ -213,7 +220,12 @@ public class FacetedSearchTests
                     null),
                 ActivityBand.Dark,
                 FacetedSearch.LastSeenOf(null, Now),
-                false, null, null, null, null, null, false),
+                false, null, null, null, null, null, false,
+
+                // Never once reached, so unreachable — and NOT uncounted, because we hold no
+                // presence row for it at all. Naming a cause for that is what rule 2 forbids.
+                Uncounted: false,
+                Unreachable: true),
         ];
 
         await Assert.That(FacetedSearch.LastSeenOf(null, Now)).IsEqualTo(LastSeenBand.Never);
@@ -371,10 +383,145 @@ public class FacetedSearchTests
         await Assert.That(codebase.Count).IsEqualTo(3);
     }
 
+    // ── what we could measure ────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The set these four rows describe, once, so every assertion below is about the same catalogue.
+    /// </summary>
+    /// <remarks>
+    /// <b>The first two are the whole point.</b> <c>zero</c> is a game we got into and counted
+    /// nobody in, and <c>unreadable</c> is a game we got into and could not count at all. Both sit in
+    /// <see cref="ActivityBand.Quiet"/> — the band cannot tell them apart, which is why these facets
+    /// exist — and only the second is uncounted. <c>gone</c> is the third state twice over: never
+    /// reached, and with nothing measured to be uncounted about.
+    /// </remarks>
+    private static GameFacetRow[] Measured() =>
+    [
+        Row("zero", band: ActivityBand.Quiet, genre: "Fantasy"),
+        Row("unreadable", band: ActivityBand.Quiet, genre: "Fantasy", uncounted: true),
+        Row("busy", genre: "Historical"),
+        Row("gone", band: ActivityBand.Dark, genre: "Fantasy",
+            lastReachableAt: Now.AddDays(-90), unreachable: true),
+    ];
+
+    [Test]
+    public async Task AGameMeasuredAtZeroIsNotUncounted()
+    {
+        // The failure this facet was written to make impossible. A measured nought is a count — we
+        // got in and nobody was there (rule 2) — and it shares an activity band with a game whose
+        // every WHO was past our parser. A filter that returned both under a word meaning the second
+        // would publish our own parser's limits as somebody's empty game.
+        var rows = Measured();
+
+        var uncounted = FacetedSearch.Search(rows, new GameFilter { Uncounted = FacetChoice.Of(FacetTokens.Yes) });
+
+        await Assert.That(uncounted.Games.Select(g => g.Slug)).IsEquivalentTo(new[] { "unreadable" });
+
+        // And both are still in the band, which is the band being right rather than the facet being
+        // redundant with it.
+        var quiet = FacetedSearch.Search(rows, new GameFilter { Band = ActivityBand.Quiet });
+
+        await Assert.That(quiet.Games.Select(g => g.Slug)).IsEquivalentTo(new[] { "zero", "unreadable" });
+    }
+
+    [Test]
+    public async Task AGameWeHaveNotMeasuredIsNeitherUncountedNorCounted()
+    {
+        // §5.4's third state, which names no cause. `gone` has no presence rows at all, so it is not
+        // uncounted — the facet says "we tried and could not read", and claiming that of a game we
+        // never got into would be the same fabrication in the other direction.
+        var rows = Measured();
+
+        var uncounted = FacetedSearch.Search(rows, new GameFilter { Uncounted = FacetChoice.Of(FacetTokens.Yes) });
+        var unreachable = FacetedSearch.Search(rows, new GameFilter { Unreachable = FacetChoice.Of(FacetTokens.Yes) });
+
+        await Assert.That(uncounted.Games.Any(g => g.Slug == "gone")).IsFalse();
+        await Assert.That(unreachable.Games.Select(g => g.Slug)).IsEquivalentTo(new[] { "gone" });
+    }
+
+    [Test]
+    public async Task TheTwoSwitchesComposeWithEachOtherAndWithAnUnrelatedFacet()
+    {
+        // The reason they are two FacetChoices rather than two values of `band`: a reader narrowing
+        // by genre has to be able to drop both kinds of unmeasured game without spending the one
+        // selection `band` has. Three questions at once, and all three applied.
+        var rows = Measured();
+
+        var listing = FacetedSearch.Search(rows, new GameFilter
+        {
+            Genre = FacetChoice.Of("Fantasy"),
+            Uncounted = FacetChoice.Not(FacetTokens.Yes),
+            Unreachable = FacetChoice.Not(FacetTokens.Yes),
+        });
+
+        // Fantasy, minus the one we could not read and the one we could not reach — leaving the
+        // measured nought, which is a game we counted and must survive both exclusions.
+        await Assert.That(listing.Games.Select(g => g.Slug)).IsEquivalentTo(new[] { "zero" });
+    }
+
+    [Test]
+    public async Task ExcludingBothStillLeavesAListingThatExplainsItself()
+    {
+        // Hiding is a decision about the listing, so the controls that made it have to stay
+        // reachable — a selection whose only affordance has vanished is the defect the whole panel
+        // was rebuilt to remove. Both rows survive at the count their own selection returns.
+        var rows = Measured();
+
+        var listing = FacetedSearch.Search(rows, new GameFilter
+        {
+            Uncounted = FacetChoice.Not(FacetTokens.Yes),
+            Unreachable = FacetChoice.Not(FacetTokens.Yes),
+        });
+
+        await Assert.That(listing.Games.Select(g => g.Slug)).IsEquivalentTo(new[] { "zero", "busy" });
+
+        foreach (var key in new[] { FacetKeys.Uncounted, FacetKeys.Unreachable })
+        {
+            var value = Value(listing, key, FacetTokens.Yes);
+
+            await Assert.That(value.State).IsEqualTo(FacetState.Excluded);
+            await Assert.That(value.Count).IsEqualTo(1);
+        }
+    }
+
+    [Test]
+    public async Task TheCountBesideEachSwitchIsWhatChoosingItReturns()
+    {
+        // The panel's own promise, made over the set that has both hard states in it. The generic
+        // walk above covers this too; this one names the facets, so a change that made the counts
+        // fall out of a wider denominator fails here with the right words on it.
+        var rows = Measured();
+        var listing = FacetedSearch.Search(rows, new GameFilter());
+
+        foreach (var key in new[] { FacetKeys.Uncounted, FacetKeys.Unreachable })
+        {
+            var value = Value(listing, key, FacetTokens.Yes);
+
+            await Assert.That(value.Count).IsEqualTo(1);
+            await Assert.That(FacetedSearch.Search(rows, Choose(key, value.Token)).Games.Count)
+                .IsEqualTo(value.Count);
+        }
+    }
+
+    [Test]
+    public async Task ASwitchNothingMatchesIsNotDrawnAtAll()
+    {
+        // A bounded facet keeps every rung of a scale, because a scale with a rung missing is not
+        // the same scale. This is not a scale — it is one fact, held or not — so a catalogue we
+        // could count and reach in full offers no control, which is the honest rendering of a
+        // measurement with nothing in it.
+        var listing = FacetedSearch.Search([Row("busy"), Row("also")], new GameFilter());
+
+        await Assert.That(listing.Facets.Any(f => f.Key == FacetKeys.Uncounted)).IsFalse();
+        await Assert.That(listing.Facets.Any(f => f.Key == FacetKeys.Unreachable)).IsFalse();
+    }
+
     private static GameFilter Choose(string key, string token) => key switch
     {
         FacetKeys.Band => new GameFilter { Band = Band(token) },
         FacetKeys.LastSeen => new GameFilter { LastSeen = Seen(token) },
+        FacetKeys.Uncounted => new GameFilter { Uncounted = FacetChoice.Parse(token) },
+        FacetKeys.Unreachable => new GameFilter { Unreachable = FacetChoice.Parse(token) },
         FacetKeys.Protocol => new GameFilter { MeasuredProtocols = [token] },
         FacetKeys.Tls => new GameFilter { Tls = true },
         FacetKeys.Charset => new GameFilter { Charset = FacetChoice.Parse(token) },

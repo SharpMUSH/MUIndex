@@ -1,3 +1,4 @@
+@using MUI.Web.Localization
 @*
     The provenance chip. One glyph, one relative age, no border.
 
@@ -20,7 +21,15 @@
     {
         <span class="glyph" aria-hidden="true">@Glyph</span>
     }
-    <span class="age">@Age</span>
+    @*
+        The age, as a <time> that can be resolved. Spoken where the chip is carrying its own value —
+        the game page's fields, where a reader is weighing one fact and "declared 3y ago" is exactly
+        the fact they are weighing — and short where it rides a row in a listing.
+    *@
+    @if (AgeShown)
+    {
+        <Moment At="Fact.LastConfirmedAt" Now="Now" Spoken="ValueShown" Class="age" />
+    }
 </span>
 
 @code {
@@ -50,17 +59,46 @@
     /// </remarks>
     [Parameter] public bool GlyphShown { get; set; } = true;
 
-    private string Word => Fact.IsMeasured ? "measured" : "declared";
+    /// <summary>Whether the chip prints the age of the thing it labels.</summary>
+    /// <remarks>
+    /// Off on a listing row, where the row already has a freshness column of its own. The chip's age
+    /// and that column dated the same probe, so every row printed one age twice, four characters
+    /// apart, in two different alignments — which is the run the handoff describes as arriving at a
+    /// screen reader as one slur. The title still carries the absolute time, so nothing is lost to a
+    /// reader who wants it; what is dropped is the second copy.
+    /// </remarks>
+    [Parameter] public bool AgeShown { get; set; } = true;
+
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    private string Word => Messages.For(
+        Tag, Fact.IsMeasured ? "provenance.game.measured" : "provenance.game.declared");
 
     private string Glyph => Fact.IsMeasured ? "●" : "◇";
 
-    private string Class => Word + (Fact.IsStale ? " stale" : string.Empty);
-
-    private string Age => Relative.Format(Now - Fact.LastConfirmedAt);
+    // The class name is a stylesheet selector and not a word anybody reads, so it stays English
+    // while the word beside it localizes. A CSS class that changed with the reader's language would
+    // take the colour and the glyph with it.
+    private string Class => (Fact.IsMeasured ? "measured" : "declared")
+        + (Fact.IsStale ? " stale" : string.Empty);
 
     // The full record belongs in the title as well as the expanded view: a reader hovering wants
     // the absolute time, and a screen reader gets the source named rather than inferred from colour.
-    private string Title =>
-        $"{Fact.Value} — {Word} via {Fact.Source}, "
-        + $"last confirmed {Fact.LastConfirmedAt:u}{(Fact.IsStale ? " (past its expected refresh)" : string.Empty)}";
+    //
+    // The value and the source token pass through as they are — a version string and a protocol
+    // name are evidence — and every word around them comes from the bundle. "last confirmed" says
+    // when *we* last saw the value and never when the game did anything, which is the difference
+    // between recording a measurement of theirs and recording a decision of ours.
+    private string Title => Messages.For(
+        Tag,
+        Fact.IsStale ? "chip.title.stale" : "chip.title",
+        new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["value"] = Fact.Value,
+            ["how"] = Word,
+            ["source"] = Provenance.Via(Tag, Fact.Source),
+            ["date"] = Dates.Stamp(Tag, Fact.LastConfirmedAt),
+        });
 }

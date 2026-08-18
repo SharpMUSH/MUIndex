@@ -5,6 +5,7 @@ using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
 using MUI.Web.Components;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Reference;
 
@@ -34,7 +35,19 @@ public static class ReferenceMarkdown
         .UsePipeTables()
         .Build();
 
-    public static string ToHtml(string markdown)
+    /// <param name="tag">
+    /// The locale this article is being read in, which its own cross-references are written in.
+    /// </param>
+    /// <remarks>
+    /// <b>The links inside the prose are localized here and not in the page.</b> The body reaches
+    /// the markup as one <c>MarkupString</c>, so nothing downstream can see the anchors inside it —
+    /// and every article in this section cites two or three others. A German reader following "see
+    /// MSSP" from a German page was put back into English by a link nobody had written on a page,
+    /// which is the same defect as the fifty in the components and invisible to the same sweep.
+    /// It is done on the parsed document rather than on the rendered HTML, because a rewrite over
+    /// markup is a second, worse HTML parser.
+    /// </remarks>
+    public static string ToHtml(string markdown, string tag = Locales.SourceTag)
     {
         var document = Markdown.Parse(markdown ?? string.Empty, Pipeline);
 
@@ -43,6 +56,11 @@ public static class ReferenceMarkdown
             // Kept as a link rather than deleted: the author meant to point at something, and
             // silently dropping it would lose the reference as well as the fetch.
             image.IsImage = false;
+        }
+
+        foreach (var link in document.Descendants<LinkInline>())
+        {
+            link.Url = LocaleRouting.Link(tag, link.Url);
         }
 
         foreach (var heading in document.Descendants<HeadingBlock>())

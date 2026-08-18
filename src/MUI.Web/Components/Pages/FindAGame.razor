@@ -1,184 +1,348 @@
 @page "/find"
+@using Microsoft.AspNetCore.WebUtilities
+@using Microsoft.Extensions.Primitives
 @using MUI.Catalog
 @using MUI.Web.Api
+@using MUI.Web.Localization
 @inject IGameQueries Queries
+@inject NavigationManager Nav
 
 @*
-    §9's find-a-game facet wizard.
+    §9's find-a-game wizard.
 
     The listing's own facet panel is exhaustive and assumes you already know the MSSP taxonomy — it
     is the right surface for somebody narrowing a result set and the wrong one for somebody who has
     never played a MU* and does not know whether they want a MUSH or a MUD. This asks in a reader's
     language and answers in facets.
 
-    THE FORM IS A GET STRAIGHT AT THE LISTING, and every control's name is a FacetKeys constant. So
-    there is no translation step between this page and the query it produces: the browser composes
-    the querystring and the listing's own binding parses it. A wizard that built its own filter
-    object would be a second implementation of the facet vocabulary, kept in step by hand, and the
-    first thing to drift would be a wizard offering a choice the listing cannot apply.
+    THE QUERYSTRING IS THE STATE, and every control's name is a FacetKeys constant. This page reads
+    its own URL through the listing's own binding, so there is no translation step between an answer
+    here and the query it produces, and an answered Find page is a page: linkable, reloadable, and —
+    the reason it had to change — countable, because there is now a server-side moment at which a set
+    of answers exists. It used to be a form aimed at /games and nothing else, so every number on it
+    was marginal and no two of them could be combined by eye.
 
-    Every option is read from the live facet counts rather than written down here, which is the same
-    rule from the other end: this page cannot offer a genre no game has, and it cannot claim a count
-    the listing would not produce.
+    EVERY OPTION IS A LINK, which is the only scriptless control that applies on click. There is no
+    script on this site: the count is computed on the server and rendered statically, so the
+    handoff's debounced aria-live region is unnecessary rather than unimplemented — a page load
+    announces its own heading, which is what the debounce was approximating.
+
+    NOT SIX FIELDSETS. The drawing's options are aria-pressed buttons and its questions are
+    fieldset/legend pairs; ours are links, and a <legend> is announced when focus enters a form
+    control in its group. With no controls to enter, the legend would name the group for nobody. A
+    heading is announced, is navigable by a screen reader's own heading key, and puts the six
+    questions in the document outline — so each question is a labelled group with a real <h2>, which
+    the handoff explicitly allows as the substitution.
 *@
 
-<PageTitle>Find a game — mu*index</PageTitle>
+<PageTitle>@Say("find.title") — mu*index</PageTitle>
 
-<h1>Find a game</h1>
-
-<p class="dim">
-    Six questions, none of them required. Every answer narrows the listing — and every number beside
-    an answer is how many games we have measured that way, not an estimate.
-    <a href="/games">Skip to the whole listing</a> if you would rather browse.
-</p>
-
-@if (Listing is null)
+@if (Plain)
 {
-    <p class="dim">The catalogue is not answering, so there is nothing to choose between.</p>
+    <pre class="mono plain">@PlainText.RenderFind(Screen, Tag)</pre>
 }
 else
 {
-    <form method="get" action="/games" class="wizard">
+<div class="card-page find-page">
+
+<header class="listing-head">
+    @*
+        The heading, and nothing under it. Two paragraphs explained that the answers filter rather
+        than rank and that every number was measured; the live count says the first by demonstration,
+        and the second is the claim the whole site makes rather than a fact about this page. The
+        escape hatch that was buried in the first of them is in the footer row below, where every
+        other page keeps its way out.
+    *@
+    <h1>@Say("find.title")</h1>
+</header>
+
+@if (Screen.Error is { } problem)
+{
+    @*
+        A querystring we cannot read is refused rather than dropped, exactly as the listing refuses
+        it. Offering the unfiltered catalogue under a filter that did not apply would present our own
+        parse failure as the answer to somebody's question.
+    *@
+    <p class="problem" role="alert">@problem</p>
+    <p><a href="@Http.Link("/find")">@Say("find.startAgain")</a></p>
+}
+else
+{
+@*
+    Free text first, because somebody arriving with a name in mind should not have to read past five
+    taxonomies to type it — and above the two columns rather than in the left one, so the panel's
+    first line lands on the first question's heading. It is the one thing on this page that is still
+    a form, since a field has nothing to click. Every answer already given rides along as a hidden
+    input, so typing a name refines what is on screen instead of replacing it.
+*@
+<form class="find-name" method="get" action="@Http.Link("/find")">
+    @foreach (var (key, value) in Carried)
+    {
+        <input type="hidden" name="@key" value="@value" />
+    }
+    <label for="find-q" class="kicker">@Say("find.name.label")</label>
+    <span class="search-field">
+        <span class="search-glyph mono" aria-hidden="true">⌕</span>
+        <input id="find-q" type="search" name="@FacetKeys.Text" value="@Text"
+               placeholder="@Say("find.name.placeholder")" />
+        @* A submit that exists only as the return key is one a pointer-only reader cannot fire. *@
+        <button type="submit" class="search-go" aria-label="@Say("find.name.submit")">
+            <span aria-hidden="true">→</span>
+        </button>
+    </span>
+</form>
+
+<div class="find-grid">
+
+<div class="find-questions">
+
+    @foreach (var (question, index) in Screen.Questions.Select((q, i) => (q, i)))
+    {
+        <div class="find-q" role="group" aria-labelledby="@Heading(index)">
+            <div class="find-q-head">
+                <h2 id="@Heading(index)">@question.Text</h2>
+                @*
+                    On every question, not once at the foot of the page. Whether a filter reads
+                    something we watched, something a game typed into its config, or a grouping of
+                    ours is what a reader needs before they trust a count enough to answer with it —
+                    and the derived badge is the sentence that says a grouped option is our judgement
+                    about their string rather than a measurement of it.
+                *@
+                <EvidenceChip Evidence="question.Evidence" />
+            </div>
+
+            <div class="find-opts">
+                @*
+                    Always first, always the widest: a question you cannot un-answer is a trap, and
+                    "doesn't matter" is an answer to the same question the options after it answer.
+                *@
+                @if (question.Any is { } any)
+                {
+                    @Option(any)
+                }
+                @foreach (var option in question.Options)
+                {
+                    @Option(option)
+                }
+            </div>
+
+            @if (question.Tail is { Count: > 0 } tail)
+            {
+                @*
+                    The long tail, behind a native disclosure holding the real values. An option
+                    returning one game is trivia rather than a filter, and a submittable "3 more
+                    genres" bucket would be this page offering a choice /games cannot express — the
+                    first thing this page's own design says would drift.
+                *@
+                <details class="find-tail">
+                    <summary>@Say("find.more", ("count", tail.Count))</summary>
+                    <div class="find-opts">
+                        @foreach (var option in tail)
+                        {
+                            @Option(option)
+                        }
+                    </div>
+                </details>
+            }
+        </div>
+    }
+</div>
+
+@*
+    The count, and everything that acts on it. The outer cell carries the fill and the edge at full
+    height; the inner wrapper is what sticks, so the number stays in view while the last questions
+    are answered — which is the whole premise of the page and the one thing worth asserting after a
+    change to this stylesheet.
+*@
+<div class="find-panel">
+    <div class="find-panel-inner">
+        <p class="kicker">@Say("find.kicker")</p>
+
         @*
-            Free text first, because somebody arriving with a name in mind should not have to read
-            past five taxonomies to type it.
+            One number, and it is a count of games from the pass that would list them — never the
+            product of the marginals beside the options, which assumes the answers are independent
+            and is wrong whenever they are not. The sentence beside it is what a screen reader gets:
+            a bare "19" is the one thing on this page nobody can act on.
         *@
-        <label>
-            <span class="kicker">a name, if you have one</span>
-            <input type="search" name="@FacetKeys.Text" placeholder="part of a game's name" />
-        </label>
+        <p class="find-count">
+            <span class="find-n mono" aria-hidden="true">@Screen.Matching</span>
+            <span class="find-noun" aria-hidden="true">@Say("find.noun", ("count", Screen.Matching))</span>
+            <span class="sr-only">@Say("find.matching", ("count", Screen.Matching))</span>
+        </p>
 
-        <fieldset>
-            <legend>Is anyone playing right now?</legend>
+        <p class="find-basis">
+            @Say("find.basis", ("listed", Screen.Listed), ("answers", Screen.Answers.Count))
+        </p>
+
+        @if (Screen.Answers.Count > 0)
+        {
+            <div class="find-chips">
+                @foreach (var chip in Screen.Answers)
+                {
+                    @*
+                        One chip per answer given, each undoing exactly that one — which no single
+                        "clear" can do. The × alone is not a description, so the accessible name says
+                        which question it clears.
+                    *@
+                    <a class="find-chip" href="@Http.Link(chip.ClearHref)"
+                       aria-label="@Say("find.clear", ("question", chip.Question))">
+                        <span class="chip-value">@chip.Label</span>
+                        <span class="chip-x" aria-hidden="true">✕</span>
+                    </a>
+                }
+            </div>
+        }
+
+        @if (Screen.Loosen is { } loosen)
+        {
             @*
-                The band facet, in the words §5.2 defines it with. "Quiet" is a real answer and not
-                a euphemism — a game we can reach and cannot count is quiet, and a reader deciding
-                between games deserves to know that is different from dark.
+                A way out, not a diagnosis. No warning box and no sentence telling the reader their
+                result is narrow — they can see the count; what they cannot work out is which of six
+                answers produced it and what dropping that one returns. The figure on it is the size
+                of the listing with exactly this answer lifted, counted rather than estimated.
             *@
-            <label><input type="radio" name="@FacetKeys.Band" value="" checked /> doesn't matter</label>
-            @foreach (var band in Bands)
-            {
-                <label>
-                    <input type="radio" name="@FacetKeys.Band" value="@FacetTokens.Of(band)" />
-                    @BandWording(band)
-                </label>
-            }
-        </fieldset>
+            <a class="find-loosen" href="@Http.Link(loosen.Href)">
+                <span aria-hidden="true">×</span>
+                @Say("find.drop", ("answer", loosen.Label), ("count", loosen.Count))
+            </a>
+        }
 
-        @Choose(FacetKeys.Genre, "What do you want to play?", "any genre")
-        @Choose(FacetKeys.Family, "What kind of game?", "any kind")
-        @Choose(FacetKeys.Language, "In which language?", "any language")
-
-        <fieldset>
-            <legend>Anything your client needs?</legend>
+        @if (Screen.Matching > 0)
+        {
             @*
-                Measured support only. capability.*.measured and capability.*.declared are two fields
-                precisely so a facet can read the first, and a wizard that quietly read the second
-                would be recommending games on the strength of what they claim about themselves.
+                The listing, asked exactly what this page was asked — the same querystring, handed to
+                the surface that can keep adjusting it. Drawn only where there is something to show:
+                a control that cannot do what it offers is worse than one that is not there, and the
+                loosen button above is the affordance that case needs.
             *@
-            <label>
-                <input type="checkbox" name="@FacetKeys.Tls" value="true" />
-                an encrypted connection, which we completed ourselves
-            </label>
-            @foreach (var protocol in Protocols)
-            {
-                <label>
-                    <input type="checkbox" name="@FacetKeys.Protocol" value="@protocol.Token" />
-                    @protocol.Token.ToUpperInvariant()
-                    <span class="faint">@protocol.Count games</span>
-                </label>
-            }
-        </fieldset>
+            <a class="find-go" href="@Http.Link(Screen.ShowHref)">@Say("find.show", ("count", Screen.Matching))</a>
+        }
 
-        <fieldset>
-            <legend>Include games that have gone dark?</legend>
-            @*
-                Offered rather than assumed. The archive is a first-class section here (§9) and the
-                historical record the incumbents threw away, so "no" is a default and not a
-                judgement.
-            *@
-            <label><input type="radio" name="@FacetKeys.Archived" value="" checked /> no, only live games</label>
-            <label><input type="radio" name="@FacetKeys.Archived" value="true" /> yes, show me those too</label>
-        </fieldset>
+        @if (Screen.Answers.Count > 0)
+        {
+            <p class="find-clear"><a href="@Http.Link(Screen.ClearHref)">@Say("find.clearAll")</a></p>
+        }
+    </div>
+</div>
 
-        <button type="submit">Show me the games</button>
-    </form>
+</div>
+}
 
-    <p class="faint">
-        This does not choose for you. Every answer above filters on something we measured, and what
-        comes back is the listing in the listing's own order.
-    </p>
+@*
+    The card's own footer, in the same place as every other page's. "all games" is where the deleted
+    intro paragraph's escape hatch went: it survives as a link somebody browsing can reach rather
+    than as a clause inside prose nobody reads.
+*@
+<div class="card-footer">
+    <a href="@Http.Link("/games")">@Say("footer.allGames")</a>
+    <span class="sep" aria-hidden="true">·</span>
+    <a href="@Http.Link("/games/random")">@Say("footer.randomGame")</a>
+    <span class="sep" aria-hidden="true">·</span>
+    <a href="@PlainHref">@Say("a11y.plainText")</a>
+    <LanguageSwitcher />
+</div>
+
+</div>
 }
 
 @code {
-    private GameListing? Listing { get; set; }
+    /// <summary>The querystring this render is answering, exactly as the request carried it.</summary>
+    /// <remarks>
+    /// Read off <c>Nav.Uri</c> once per render rather than on every access. It was a computed
+    /// property that allocated a <see cref="Uri"/> each time it was touched, and four members read
+    /// it — one of them, <see cref="Carried"/>, from inside a <c>foreach</c> — so a page whose whole
+    /// state is its querystring reparsed that querystring several times to draw one screen.
+    /// </remarks>
+    private string Query { get; set; } = string.Empty;
+
+    /// <summary>The same querystring, parsed once, for the members that read parameters out of it.</summary>
+    private Dictionary<string, StringValues> Parsed { get; set; } = [];
+
+    private bool Plain =>
+        Truthy.Is(Parsed.TryGetValue("plain", out var flag) ? flag.ToString() : null);
+
+    private string PlainHref => ListingLinks.With(Query, "plain", "1");
+
+    private FindScreen Screen { get; set; } = null!;
+
+    /// <summary>The request, for the locale these sentences are spoken in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
 
     /// <summary>
-    /// The bands worth offering here, spelled by <see cref="FacetTokens"/> rather than by this page.
+    /// The locale the whole page is built in, screen included.
     /// </summary>
     /// <remarks>
-    /// Archived is excluded because the archive has its own question below, and dark is excluded
-    /// because "show me games nobody can reach" is not a thing somebody looking for a game to play
-    /// is asking — both remain reachable from the listing's own panel, which is exhaustive by design.
-    /// The spelling comes from the enum either way, so this cannot offer a band the binding refuses.
+    /// Handed to <see cref="FindScreen.BuildAsync"/> rather than applied to what it returns. The
+    /// question texts, the answer labels and the capability glosses are part of the screen, and the
+    /// plain rendering reads them straight off it — so a locale applied afterwards would reach one
+    /// surface and not the other, which is the exact split this page was rebuilt to close.
     /// </remarks>
-    private static readonly ActivityBand[] Bands =
-        [ActivityBand.PlayersNow, ActivityBand.ActiveThisWeek, ActivityBand.Quiet];
-
-    private static string BandWording(ActivityBand band) => band switch
-    {
-        ActivityBand.PlayersNow => "somebody is on now",
-        ActivityBand.ActiveThisWeek => "somebody was on this week",
-        _ => "quiet is fine — we can reach it, and could not count",
-    };
-
-    /// <summary>The measured-protocol facet, which is a checkbox set rather than a choice.</summary>
-    private IReadOnlyList<FacetValue> Protocols =>
-        Group(FacetKeys.Protocol)?.Values.OrderByDescending(v => v.Count).Take(6).ToList() ?? [];
+    private string Tag => Http.LocaleOf().Tag;
 
     /// <summary>
-    /// The options, read off the listing this form submits to — and off it with nothing asked of
-    /// it, which is the state the reader will land in.
+    /// One sentence, as a message rather than as English fragments glued round a number.
     /// </summary>
     /// <remarks>
-    /// Through the binding rather than from <c>new GameFilter()</c>, because "the listing with
-    /// nothing asked of it" is a fact about an empty <em>querystring</em> and the binding is what
-    /// turns one into a filter — it is where the listing's own defaults live. Built from the bare
-    /// filter instead, this page would offer the adult genre with a count beside it and then submit
-    /// a query the listing answers with nothing, which is exactly the affordance the counts exist
-    /// to make impossible.
+    /// Every count on this page is a plural agreement somewhere: Russian has three forms, Arabic
+    /// six, and several languages put the noun before the number. "1 games" shipped on the version
+    /// of this page these replace, in two places, because nothing between the count and the noun
+    /// could tell them apart.
     /// </remarks>
-    protected override async Task OnInitializedAsync()
-    {
-        GameFilterBinding.TryRead(string.Empty, out var unasked, out _);
+    private string Say(string id, params (string Key, object? Value)[] args) =>
+        Messages.For(
+            Tag,
+            id,
+            args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 
-        Listing = await Queries.SearchAsync(unasked.Filter);
+    private static string Heading(int index) => $"find-q{index}";
+
+    private string? Text =>
+        Parsed.TryGetValue(FacetKeys.Text, out var typed) ? typed.ToString() : null;
+
+    /// <summary>
+    /// Every answer the name field has to carry with it, as hidden inputs.
+    /// </summary>
+    /// <remarks>
+    /// Read off the live querystring rather than from a list of parameters kept by hand. That list
+    /// is what the plain-text link used to be built from — it held <c>q</c> and <c>archived</c> and
+    /// nothing else — so the day a facet arrived, submitting a name would quietly have dropped every
+    /// other answer and called the result the same question. <c>q</c> itself is excluded because the
+    /// field supplies it, and a second copy would reach the binding as <c>old,new</c>.
+    /// </remarks>
+    private IEnumerable<KeyValuePair<string, string>> Carried =>
+        Parsed
+            .Where(p => !string.Equals(p.Key, FacetKeys.Text, StringComparison.Ordinal))
+            .SelectMany(p => p.Value.Select(v => new KeyValuePair<string, string>(p.Key, v ?? string.Empty)));
+
+    /// <summary>One answer, as the state it is in and the address that changes it.</summary>
+    /// <remarks>
+    /// The glyph is the second carrier of the same fact the pressed state has, because colour is
+    /// never the only one; the count is the number choosing it returns, which is what makes the
+    /// option a promise rather than a label. A chosen option's own link clears it, so the control
+    /// is reachable in both directions with no second affordance.
+    /// <para>
+    /// The class is written whole rather than interpolated round a null: Razor renders a null branch
+    /// as an empty string and leaves the space around it, so an attribute assembled inline ships as
+    /// <c>class="find-opt "</c> — harmless to a browser and one more thing every selector, test and
+    /// diff has to know to tolerate.
+    /// </para>
+    /// </remarks>
+    private RenderFragment Option(FindOption option) =>
+        @<a class="@(option.IsChosen ? "find-opt on" : "find-opt")" href="@Http.Link(option.Href)"
+            aria-current="@(option.IsChosen ? "true" : null)"
+            aria-label="@Say("facet.value.choose", ("value", option.Label), ("count", option.Count))">
+            <span class="tick" aria-hidden="true">@(option.IsChosen ? "◉" : "○")</span>
+            <span class="opt-name">@option.Label</span>
+            <span class="count mono">@option.Count</span>
+        </a>;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Both set before the screen is built, because every member that reads a parameter reads
+        // them and the screen is the first thing that does.
+        Query = new Uri(Nav.Uri).Query;
+        Parsed = QueryHelpers.ParseQuery(Query);
+
+        Screen = await FindScreen.BuildAsync(Queries, Query, Tag);
     }
-
-    private FacetGroup? Group(string key) =>
-        Listing?.Facets.FirstOrDefault(f => string.Equals(f.Key, key, StringComparison.Ordinal));
-
-    /// <summary>
-    /// One facet as a select, built from the values the catalogue actually holds.
-    /// </summary>
-    /// <remarks>
-    /// A select rather than a radio set because these are open vocabularies — a genre list is as
-    /// long as the games are varied — and the empty option is first so that not answering is the
-    /// default rather than something to undo.
-    /// </remarks>
-    private RenderFragment? Choose(string key, string question, string anyLabel) =>
-        Group(key) is { Values.Count: > 0 } group
-            ? @<fieldset>
-                <legend>@question</legend>
-                <label>
-                    <select name="@key">
-                        <option value="">@anyLabel</option>
-                        @foreach (var value in group.Values.Where(v => !v.IsUnknown).OrderByDescending(v => v.Count))
-                        {
-                            <option value="@value.Token">@value.Token (@value.Count)</option>
-                        }
-                    </select>
-                </label>
-            </fieldset>
-            : null;
 }

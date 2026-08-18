@@ -1,4 +1,5 @@
 @page "/g/{Slug}"
+@using MUI.Web.Localization
 @using MUI.Web.Data
 @using MUI.Catalog.Persistence
 @inject IGameQueries Queries
@@ -15,7 +16,7 @@
         which is what stops one game being indexed as two.
     *@
     <SitePreview Title="@Page.Summary.Name"
-                 Description="@PreviewCopy.ForGame(Page, Now)"
+                 Description="@PreviewCopy.ForGame(Http.LocaleOf().Tag, Page, Now)"
                  Card="PreviewCard.Game"
                  Graph="GraphFor" />
 }
@@ -25,45 +26,38 @@
     @* Not reached over HTTP: OnParametersSetAsync signals not-found, and the framework answers with
        the site's own page and a 404 rather than with this. It is what a headless render of this
        component produces, where there is no response to give a status line to. *@
-    <h1>Not found</h1>
-    <p class="dim">No game at this address. Check the spelling.</p>
+    <h1>@L("game.notFound")</h1>
+    <p class="dim">@L("game.notFound.hint")</p>
 }
 else if (Plain)
 {
     @* Plain mode is a real second surface, not a courtesy. If a fact cannot survive here, its
        graphic on the main page is decoration. It renders from the same view models — this page is
        the graphical one with the graphics removed, which is what bounds its cost (spec §9). *@
-    <pre class="mono plain">@PlainText.Render(Page, Now, Reach, Trend)</pre>
+    <pre class="mono plain">@PlainText.Render(Page, Now, Reach, Trend, Http.LocaleOf().Tag)</pre>
 }
 else
 {
     @* The game is the hero; the connect screen follows as evidence. Leading with the art would hand
        the top of every page to whatever a stranger's server happens to send. *@
-    <article class="game @(Archived ? "archived" : null)">
+    <article class="game card-page @(Archived ? "archived" : null)">
         <header class="game-head">
+          <div class="game-identity">
             @*
-                The icon a game publishes, where we hold one, and the monogram otherwise — the same
-                component the listing draws, at this page's larger size. Two spellings of one plate is
-                how a game comes to be M*U*S*H's own logo on one surface and "MU" on the next.
+                The icon a game publishes, and nothing where it published none. No monogram, no grey
+                square, no initial in a circle: an empty frame on five hundred pages is noise, and a
+                generated monogram invents a brand the game never supplied — which on a site that
+                publishes only what it measured is the one decoration that costs something. The
+                indent collapses by itself, because it is the row's gap and not a padding value.
             *@
             <GamePlate Slug="@Page.Summary.Slug" Name="@Page.Summary.Name"
-                       HasIcon="Icon is not null" Size="68" />
+                       HasIcon="Icon is not null" Size="64" />
             <div class="game-title">
-                <h1>@Page.Summary.Name</h1>
-                <p class="badges">
-                    @if (Archived)
-                    {
-                        <span class="badge archived">archived</span>
-                    }
-                    else if (Page.Summary.IsClaimed)
-                    {
-                        <span class="badge claimed">claimed</span>
-                    }
-                    else
-                    {
-                        <span class="badge">unclaimed</span>
-                    }
-                </p>
+                <h1><GameName Name="@Page.Summary.Name" /></h1>
+                @if (Archived)
+                {
+                    <p class="badges"><span class="badge archived">@L("facet.archived")</span></p>
+                }
                 @if (Page.Summary.Tagline is { } tagline)
                 {
                     <p class="tagline dim">@tagline</p>
@@ -72,74 +66,115 @@ else
                 {
                     <p class="lede">@description</p>
                 }
-                @if (!Page.Summary.IsClaimed && !Archived)
+                @*
+                    The claim state as one sentence rather than a badge and a paragraph three blocks
+                    apart. "Unclaimed" was a pill on the page and the same fact was restated below in
+                    prose; the invitation sits with the fact because an owner arriving at their own
+                    listing is the one reader for whom it is an action. A link and not a button —
+                    nothing happens until they are signed in (spec §8.1).
+                *@
+                @if (Page.Summary.IsClaimed)
                 {
-                    @*
-                        The invitation sits with the fact rather than in a banner. An owner arriving
-                        at their own listing is the one reader for whom "nobody has claimed this" is
-                        an action rather than a note — and it is a link, not a button, because
-                        nothing happens until they are signed in (spec §8.1).
-                    *@
-                    <p class="faint">
-                        Everything here was measured, not entered by an owner.
+                    <p class="claim-line dim">
+                        @L("game.claimed")
+                    </p>
+                }
+                else if (!Archived)
+                {
+                    <p class="claim-line dim">
+                        @L("game.unclaimed")
                         @if (Claimable)
                         {
-                            <a href="/g/@Page.Summary.Slug/claim">Claim this game</a>
+                            <a href="@Http.Link($"/g/{Page.Summary.Slug}/claim")">@L("game.claim")</a>
                         }
                     </p>
                 }
-            </div>
-            <div class="connect">
-                <p class="live mono">
-                    @if (Page.Summary.PlayersNow is { } n)
-                    {
-                        @*
-                            The count, and how we came by it. This page is the surface a reader
-                            trusts most, and it was the one printing the measured glyph over every
-                            number it had — including the ones a game states about itself, which the
-                            listing that points here already labels as such. One vocabulary.
-                        *@
-                        <span class="@(Counted?.IsMeasured is false ? "state-declared" : "state-present")">
-                            @(Counted?.IsMeasured is false ? "◇" : "●") @n players on now
-                        </span>
-                        @if (Counted is { } counted)
-                        {
-                            <Chip Fact="counted" Now="Now" ValueShown="false" />
-                        }
-                    }
-                    else
-                    {
-                        @* Never a zero and never a blank: those are different facts and only one of
-                           them is a measurement. *@
-                        <span class="state-unknown">– count unknown</span>
-                    }
-                </p>
+
                 @*
+                    The address, inside the title's own column and sharing its left edge. It used to
+                    be a sibling of the outer row, beside the count — so it hung under the logo and
+                    read as belonging to it, and on a game with no logo it sat in a column of its
+                    own for no reason. Nested like this the indent is the title's, and it collapses
+                    to nothing by itself when there is no logo.
+
                     Current addresses first, then the ones the game has left. A departed address is
                     rendered rather than dropped, because the reader most in need of this page is the
                     one holding an address that stopped answering — and §7.5's promise that nothing is
                     deleted is invisible if the row is simply not shown.
                 *@
+                @*
+                    The addresses, as lines rather than boxes. Each was a bordered panel the full
+                    width of the title column, which gave a hostname the furniture of a card on a
+                    page whose only framed thing is the connect screen — somebody else's output,
+                    quoted.
+                *@
                 @foreach (var e in Page.Endpoints.OrderByDescending(e => e.IsCurrent).ThenBy(e => e.Port))
                 {
-                    <p class="endpoint mono @(e.IsCurrent ? null : "former")">
-                        @e.Host @e.Port
+                    <p class="endpoint mono @(e.IsCurrent ? null : "former")" translate="no">
+                        <span class="address">@e.Host @e.Port</span>
                         @if (e.TlsMeasured)
                         {
                             <span class="state-present">● tls</span>
                         }
                         @if (e.IsCurrent)
                         {
-                            <span class="faint">answering here since @e.FirstSeenAt.ToString("MMM yyyy")</span>
+                            <span class="faint">@L("game.answeringSince", ("date", Dates.Absolute(Http.LocaleOf().Tag, e.FirstSeenAt)))</span>
                         }
                         else
                         {
-                            @* Named as ours to have stopped reaching, never as theirs to have gone. *@
+                            @* Named as ours to have stopped reaching, never as theirs to have gone.
+                               The state itself is the catalogue's own token and stays machine voice. *@
                             <span class="faint">
-                                @e.State — last answered @Relative.Ago(Now - e.LastSeenAt)
+                                <span translate="no">@e.State</span> — @L("game.endpoint.lastAnswered")
+                                <Moment At="e.LastSeenAt" Now="Now" Ago="true" Spoken="true" />
                             </span>
                         }
                     </p>
+                }
+            </div>
+          </div>
+
+            @*
+                The figure, and the kicker that dates it. Both are one fact — a count is only as good
+                as the probe that produced it — so they read as one block at the far end of the
+                header rather than as a number and a chip on one line.
+
+                "connected" and not "players on now": the crawler counts open connections, not
+                people, and one person with two clients is two connections. The word that localizes
+                cleanly is the one that is true.
+            *@
+            <div class="game-figure">
+                @if (Page.Summary.PlayersNow is { } n)
+                {
+                    <p class="figure-count mono @(Counted?.IsMeasured is false ? "declared" : null)">
+                        @n <span class="unit">@L("term.connected")</span>
+                    </p>
+                    <p class="kicker figure-age">
+                        @L(Counted?.IsMeasured is false ? "kicker.declared" : "kicker.measured")
+                        <Moment At="@(Counted?.LastConfirmedAt ?? Now)" Now="Now" Ago="true" Spoken="true" />
+                    </p>
+                }
+                else
+                {
+                    @*
+                        Never a zero and never a blank: those are different facts and only one of
+                        them is a measurement.
+
+                        And never "not counted" either, which is what stood here. That is the
+                        glossary's word for an hour we reached and could not read a number out of —
+                        the middle of rule 2's three states. A null count is not that state; it is
+                        every state at once. `PlayersNow` comes back null when nobody has measured
+                        this game, when a probe answered with nothing countable, and when the last
+                        count is older than the window this figure covers, and nothing on this page
+                        can tell those apart. Naming the middle one files our own silence as a probe
+                        of theirs, which is rule 5 in the one place a reader looks first.
+
+                        So the figure states the absence and the kicker declines to explain it. The
+                        cause is knowable from the strip and the grid below, which are derived from
+                        intervals and from presence rows respectively and *can* tell them apart.
+                    *@
+                    <p class="figure-count mono unknown">@L("game.count.none")</p>
+                    <p class="kicker figure-age">@L("game.count.none.why")</p>
                 }
             </div>
         </header>
@@ -148,12 +183,16 @@ else
         {
             <div class="archive-plate">
                 <p>
-                    Last answered <strong>@Entry.LastAnswered</strong>, @Entry.DarkFor(Now) ago.
-                    Still probed weekly; this page updates the day it answers.
+                    @L("game.archived.lastAnswered",
+                        ("date", Entry.LastAnswered(Http.LocaleOf().Tag)), ("ago", Entry.DarkFor(Http.LocaleOf().Tag, Now)))
+                    @L("game.archived.stillProbed")
                 </p>
-                @if (Entry.Run is { } run)
+                @if (Entry.Run(Http.LocaleOf().Tag) is { } run)
                 {
-                    <p class="mono faint">@run · @Entry.KnownLiveWording known live</p>
+                    <p class="mono faint">
+                        <span translate="no">@run</span> ·
+                        @L("game.archived.knownLive", ("span", Entry.KnownLiveWording(Http.LocaleOf().Tag)))
+                    </p>
                 }
             </div>
         }
@@ -172,37 +211,43 @@ else
         @if (Excluded)
         {
             <div class="archive-plate">
-                <p>
-                    Not in the listing, the rankings or the daily figure: we do not think this address
-                    is a game somebody can play. Everything below is what it told us, unchanged.
-                </p>
+                <p>@L("game.excluded")</p>
                 @if (Page.ExcludedReason is { Length: > 0 } why)
                 {
-                    <p class="faint">Our reason: @why</p>
+                    <p class="faint">@L("game.excluded.reason", ("why", why))</p>
                 }
             </div>
         }
         else if (Unlisted)
         {
             <div class="archive-plate">
-                <p>
-                    Not in the listing, the rankings or the daily figure, at the request of the people
-                    who run it. Everything below is preserved as it was, this page and every address
-                    it has ever had go on answering, and we are not dialling it.
-                </p>
+                <p>@L("game.unlisted")</p>
             </div>
         }
 
+        @*
+            One column. The page was two — the charts on the left, capabilities and the declared
+            fields in a right rail — which put the DOM's whole left column ahead of a panel the eye
+            meets at the top right, so the tab key ran to the bottom of the page and jumped back up.
+            Stacked, reading order and focus order are the same order.
+        *@
+        <div class="game-body">
+
         <section aria-labelledby="screen-heading">
-            <h2 id="screen-heading">Connect screen</h2>
+            <h2 id="screen-heading">@L("game.connectScreen")</h2>
             <AnsiQuote Screen="ConnectScreen" CapturedAt="Captured" Now="Now"
+                       Name="@Page.Summary.Name"
                        Frozen="@(Archived || Unlisted)"
-                       Charset="Page.ConnectScreenCharset" />
+                       Charset="@Page.ConnectScreenCharset" />
         </section>
 
-        <div class="two-up">
             <section aria-labelledby="activity-heading">
-                <h2 id="activity-heading">When people are on</h2>
+                @*
+                    "Connections by hour" and not "when people are on": the grid counts connections,
+                    which is what the crawler can see, and naming it for people is a claim about who
+                    is behind them that no probe can make.
+                *@
+                <h2 id="activity-heading">@L("game.connectionsByHour")</h2>
                 <ActivityHeatmap Cells="Page.Activity" />
 
                 @*
@@ -212,21 +257,32 @@ else
                 *@
                 @if (Trend is not null)
                 {
-                    <h2 id="trend-heading">How many, over time</h2>
+                    <h2 id="trend-heading">@L("game.howMany")</h2>
                     <PresenceTrend Series="Trend" Shape="Shape" />
 
                     @* The range is in the address, so seeking is links and needs no script. *@
-                    <nav class="spans" aria-label="Trend range">
+                    @*
+                        The option you are already on is not a link to itself. A pressed state, said
+                        with aria-current and drawn with the accent — the pair reads as a toggle
+                        because it is one, and there is no keystroke that lands on a control whose
+                        only effect is to re-fetch the page you are reading.
+                    *@
+                    <nav class="spans" aria-label="@L("trend.spans.label")">
                         @foreach (var days in RangePresets)
                         {
-                            <a href="@RangeHref(TrendRange.Preset(days, Today))"
-                               class="@(Range.Covers(days, Today) ? "span on" : "span")"
-                               aria-current="@(Range.Covers(days, Today) ? "page" : null)">@days days</a>
+                            @if (Range.Covers(days, Today))
+                            {
+                                <span class="span on" aria-current="true">@L("trend.preset", ("days", days))</span>
+                            }
+                            else
+                            {
+                                <a href="@RangeHref(TrendRange.Preset(days, Today))" class="span">@L("trend.preset", ("days", days))</a>
+                            }
                         }
-                        <a class="span" href="@RangeHref(Range.Previous())" rel="prev">← earlier</a>
+                        <a class="span" href="@RangeHref(Range.Previous())" rel="prev">@L("trend.earlier")</a>
                         @if (Range.Next(Today) is { } next)
                         {
-                            <a class="span" href="@RangeHref(next)" rel="next">later →</a>
+                            <a class="span" href="@RangeHref(next)" rel="next">@L("trend.later")</a>
                         }
                     </nav>
 
@@ -235,17 +291,22 @@ else
                         right for every game on the site — see TrendShape — so it is a link rather
                         than a preference, and a reader who found the one they wanted can send it.
                     *@
-                    <nav class="spans shapes" aria-label="Trend shape">
+                    <nav class="spans shapes" aria-label="@L("trend.shapes.label")">
                         @foreach (var shape in new[] { TrendShape.Line, TrendShape.Bar })
                         {
-                            <a href="@ShapeHref(shape)"
-                               class="@(Shape == shape ? "span on" : "span")"
-                               aria-current="@(Shape == shape ? "page" : null)">@shape.Label()</a>
+                            @if (Shape == shape)
+                            {
+                                <span class="span on" aria-current="true">@shape.Label(Tag)</span>
+                            }
+                            else
+                            {
+                                <a href="@ShapeHref(shape)" class="span">@shape.Label(Tag)</a>
+                            }
                         }
                     </nav>
                 }
 
-                <h2>Reachable</h2>
+                <h2>@L("game.reachable")</h2>
                 <AvailabilityStrip Summary="Reach" />
 
                 @*
@@ -257,32 +318,32 @@ else
                 *@
                 @if (Page.Referrals.Count > 0)
                 {
-                    <h2>Referrals</h2>
+                    <h2>@L("game.referrals")</h2>
 
                     @foreach (var group in Page.Referrals.GroupBy(n => n.Direction))
                     {
                         <p class="faint">
-                            @(group.Key is ReferralDirection.Lists
-                                ? "This game's own referral list names:"
-                                : "Named by the referral list of:")
+                            @L(group.Key is ReferralDirection.Lists
+                                ? "game.referrals.lists"
+                                : "game.referrals.listedBy")
                         </p>
                         <ul class="neighbours">
                             @foreach (var neighbour in group)
                             {
                                 <li class="@(neighbour.Present ? null : "former")">
-                                    <a href="/g/@neighbour.Slug">@neighbour.Name</a>
+                                    <a href="@Http.Link($"/g/{neighbour.Slug}")">@neighbour.Name</a>
                                     @if (neighbour.Present)
                                     {
                                         <span class="faint">
-                                            since @neighbour.FirstSeenAt.ToString("MMM yyyy")
+                                            @L("game.referral.since", ("date", Dates.Absolute(Http.LocaleOf().Tag, neighbour.FirstSeenAt)))
                                         </span>
                                     }
                                     else
                                     {
                                         @* Dropped from the list, not deleted — the edge is kept. *@
                                         <span class="faint">
-                                            no longer listed, last seen
-                                            @Relative.Ago(Now - neighbour.LastSeenAt)
+                                            @L("game.referral.dropped")
+                                            <Moment At="neighbour.LastSeenAt" Now="Now" Ago="true" />
                                         </span>
                                     }
                                 </li>
@@ -293,37 +354,59 @@ else
 
                 @if (Page.Changes.Count > 0)
                 {
-                    <h2>What changed</h2>
+                    <h2 id="changed">@L("game.whatChanged")</h2>
                     <ol class="changes mono">
                         @foreach (var change in Page.Changes.OrderByDescending(c => c.At))
                         {
-                            <li><span class="faint">@change.At.ToString("yyyy-MM-dd")</span> @change.Summary</li>
+                            <li>
+                                @* One date format, site-wide: this list said 2026-08-17 while the
+                                   address line above it said Aug 2026 and the rankings said
+                                   31 July 2026. *@
+                                <span class="faint">@Dates.Absolute(Http.LocaleOf().Tag, change.At)</span> @change.Summary
+                            </li>
                         }
                     </ol>
                 }
             </section>
 
-            <section aria-labelledby="capabilities">
+            <section aria-labelledby="capabilities" class="cap-section">
                 <CapabilityMatrix Rows="Page.Capabilities" Now="Now" />
 
-                <h2>Declared by the game</h2>
+                <h2 id="declared">@L("game.declaredByGame")</h2>
                 <dl class="declared">
+                    @*
+                        The field name is the MSSP token the game itself published, lowercased — an
+                        open set we neither choose nor could translate without inventing a word for
+                        somebody's `FANDOM`. Machine voice, and marked so a browser's own translator
+                        obeys too.
+                    *@
                     @foreach (var (name, chip) in Page.Declared)
                     {
-                        <dt class="kicker">@name</dt>
+                        <dt class="kicker" translate="no">@name</dt>
                         <dd><Chip Fact="chip" Now="Now" /></dd>
                     }
                 </dl>
                 @if (StaleCount > 0)
                 {
-                    <p class="note faint">
-                        @StaleCount are past their refresh window. Old, not wrong.
-                    </p>
+                    <p class="note faint">@L("game.stale", ("count", StaleCount))</p>
                 }
             </section>
+
         </div>
 
-        <p class="faint"><a href="?plain=1">plain text</a></p>
+        <div class="card-footer">
+            <a href="#declared">@L("footer.declaredByGame")</a>
+            @* Only where there is a #changed to land on. The heading is rendered under the same
+               condition, so on a game with no recorded change this link went nowhere at all. *@
+            @if (Page.Changes.Count > 0)
+            {
+                <span class="sep" aria-hidden="true">·</span>
+                <a href="#changed">@L("footer.whatChanged")</a>
+            }
+            <span class="sep" aria-hidden="true">·</span>
+            <a href="?plain=1">@L("a11y.plainText")</a>
+                    <LanguageSwitcher />
+        </div>
     </article>
 }
 
@@ -378,7 +461,7 @@ else
     /// </summary>
     /// <remarks>
     /// A query with no path in front of it, which means <em>this page, asked differently</em> — and
-    /// meant it only once <c>&lt;base href="/"&gt;</c> was gone from <c>App.razor</c>, since a base
+    /// meant it only once <c>&lt;base href="@Http.Link("/")"&gt;</c> was gone from <c>App.razor</c>, since a base
     /// resolves a query-only href against itself and sent all five of these to the home page.
     /// </remarks>
     private string RangeHref(TrendRange range) => Href(range, Shape);
@@ -482,4 +565,14 @@ else
         Entry = ArchiveEntry.For(Page.Summary, intervals, Now);
         ConnectScreen = Ansi.Parse(Page.ConnectScreen, Page.ConnectScreenSuppressed);
     }
+
+    /// <summary>The locale this page is being answered in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    private string L(string id) => Messages.For(Tag, id);
+
+    private string L(string id, params (string Key, object? Value)[] args) =>
+        Messages.For(Tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
 }

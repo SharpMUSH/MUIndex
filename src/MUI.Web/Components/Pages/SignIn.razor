@@ -1,6 +1,7 @@
 @page "/account/sign-in"
 @using Microsoft.AspNetCore.Identity
 @using MUI.Web.Accounts
+@using MUI.Web.Localization
 @inject IServiceProvider Services
 
 @*
@@ -17,70 +18,68 @@
     form on this site reaches one.
 *@
 
-<SitePreview Title="Sign in" Data="false"
-             Description="Sign in with a passkey to claim a game you run. There is no password to lose and none to steal." />
+<SitePreview Title="@L("account.signIn.title")" Data="false"
+             Description="@L("account.signIn.preview")" />
 
 @if (!Available)
 {
     <section class="prose">
-        <h1>Sign in</h1>
-        <p>
-            Claiming needs a database, and this site is running on the demo fixture. There is
-            nothing to sign in to.
-        </p>
+        <h1>@L("account.signIn.title")</h1>
+        <p>@L("account.signIn.noDatabase")</p>
     </section>
 }
 else
 {
     <section class="prose auth">
-        <h1>Sign in</h1>
+        <h1>@L("account.signIn.title")</h1>
 
+        @*
+            The lead is bold and is its own sentence, rather than one word emphasised inside a
+            longer one. A <strong> in the middle of a sentence is a sentence a translator cannot
+            move: the emphasised word lands in a different place in most languages and in no place
+            at all in some. This is the same split AboutPoint makes, for the same reason.
+        *@
         <p>
-            Sign-in is a <strong>passkey</strong>. Your device or password manager holds the
-            private key; we hold only the public half. No password, no email.
+            <strong>@L("account.signIn.passkey.lead")</strong> @L("account.signIn.passkey.body")
         </p>
 
-        <form data-passkey="sign-in" method="post" action="/account/sign-in">
-            <button type="submit" disabled>Sign in with a passkey</button>
-            <p class="faint" data-passkey-status>
-                The one page here that needs JavaScript. Passkeys cannot work without it.
-            </p>
+        <form data-passkey="sign-in" method="post" action="@Http.Link("/account/sign-in")">
+            <button type="submit" disabled>@L("account.signIn.button")</button>
+            <p class="faint" data-passkey-status>@L("account.signIn.script")</p>
         </form>
 
-        <h2>No account yet?</h2>
+        <h2>@L("account.register.heading")</h2>
 
-        <p>
-            You need one only to claim a game you run. Pick a name to be known by — a label
-            beside your claim, not a real name.
-        </p>
+        <p>@L("account.register.lede")</p>
 
-        <form data-passkey="register" method="post" action="/account/register">
-            <label for="name">Name</label>
+        <form data-passkey="register" method="post" action="@Http.Link("/account/register")">
+            <label for="name">@L("account.register.name.label")</label>
             <input id="name" name="name" type="text" maxlength="40" autocomplete="username"
-                   placeholder="e.g. corvid-admin" />
-            <button type="submit" disabled>Create an account with a passkey</button>
+                   placeholder="@L("account.register.name.placeholder")" />
+            <button type="submit" disabled>@L("account.register.button")</button>
             <p class="faint" data-passkey-status></p>
         </form>
 
-        <h2>What we store</h2>
+        <h2>@L("account.store.heading")</h2>
 
         <ul>
-            <li>The name you chose.</li>
-            <li>The public key of each passkey you register, and what your device called it.</li>
-            <li>Which games you have claimed, and when.</li>
+            <li>@L("account.store.name")</li>
+            <li>@L("account.store.keys")</li>
+            <li>@L("account.store.claims")</li>
         </ul>
 
-        <p class="faint">
-            No email address, no password, no IP log tied to your account. Lose every passkey and
-            you can publish a fresh claim token on your game and start again: the game is the proof,
-            not the account.
-        </p>
+        <p class="faint">@L("account.store.note")</p>
     </section>
 
     <script src="/passkey.js" defer></script>
 }
 
 @code {
+    /// <summary>The locale this page is being answered in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string L(string id) => Messages.For(Http.LocaleOf().Tag, id);
+
     /// <summary>
     /// Whether there is a database to sign in against.
     /// </summary>

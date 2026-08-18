@@ -4,6 +4,7 @@
 @using MUI.Catalog.Persistence
 @using MUI.Discovery
 @using MUI.Web.Data
+@using MUI.Web.Localization
 @inject IServiceProvider Services
 @inject CatalogueSource Catalogue
 @inject NavigationManager Nav
@@ -23,17 +24,17 @@
     a cookie to remember what it just did.
 *@
 
-<SitePreview Title="@SubmitCopy.Title" Description="@SubmitCopy.Lede" Data="false" />
+<SitePreview Title="@SubmitCopy.Title(Tag)" Description="@SubmitCopy.Lede(Tag)" Data="false" />
 
 @if (Plain)
 {
-    <pre class="mono plain">@PlainText.RenderSubmit(Answer, Catalogue.IsMeasured)</pre>
+    <pre class="mono plain">@PlainText.RenderSubmit(Answer, Catalogue.IsMeasured, Tag)</pre>
 }
 else
 {
     <section class="prose">
-        <h1>@SubmitCopy.Title</h1>
-        <p>@SubmitCopy.Lede</p>
+        <h1>@SubmitCopy.Title(Tag)</h1>
+        <p>@SubmitCopy.Lede(Tag)</p>
     </section>
 
     @if (Answer is { } answer)
@@ -43,47 +44,47 @@ else
             <p>@answer.Sentence</p>
             @if (answer.Link is { } link)
             {
-                <p><a href="@link.Href">@link.Label</a></p>
+                <p><a href="@Http.Link(link.Href)">@link.Label</a></p>
             }
         </section>
     }
 
     @if (!Catalogue.IsMeasured)
     {
-        <section class="prose"><p>@SubmitCopy.NoCatalogue</p></section>
+        <section class="prose"><p>@SubmitCopy.NoCatalogue(Tag)</p></section>
     }
 }
 
 @if (Catalogue.IsMeasured)
 {
     <section class="prose">
-        <form method="post" action="@SubmitLinks.Path" class="submit-address">
+        <form method="post" action="@Http.Link(SubmitLinks.Path)" class="submit-address">
             <AntiforgeryToken />
 
-            <label for="submit-host">@SubmitCopy.HostLabel</label>
+            <label for="submit-host">@SubmitCopy.HostLabel(Tag)</label>
             <input id="submit-host" name="host" type="text" inputmode="url" autocomplete="off"
                    maxlength="@SubmittedAddressReader.MaxHostLength" value="@Host" required />
-            <span class="faint">@SubmitCopy.HostHint</span>
+            <span class="faint">@SubmitCopy.HostHint(Tag)</span>
 
-            <label for="submit-port">@SubmitCopy.PortLabel</label>
+            <label for="submit-port">@SubmitCopy.PortLabel(Tag)</label>
             <input id="submit-port" name="port" type="text" inputmode="numeric" autocomplete="off"
                    maxlength="5" value="@Port" />
 
-            <button type="submit">@SubmitCopy.SubmitLabel</button>
+            <button type="submit">@SubmitCopy.SubmitLabel(Tag)</button>
         </form>
     </section>
 
     @if (!Plain)
     {
         <section class="prose">
-            <h2>What happens to an address</h2>
+            <h2>@L("submit.what.heading")</h2>
             <ol>
-                @foreach (var point in SubmitCopy.Points)
+                @foreach (var point in SubmitCopy.Points(Tag))
                 {
                     <li>@point</li>
                 }
             </ol>
-            <p class="faint"><a href="?plain=1">plain text</a></p>
+            <p class="faint"><a href="?plain=1">@L("a11y.plainText")</a></p>
         </section>
     }
 }
@@ -139,10 +140,17 @@ else
             // Hidden means submitted and unclaimed — the state whose only exit is a claim, so that
             // is what the link offers. Everything else gets its public page.
             link = game.SubmittedAt is not null && !game.IsClaimed
-                ? SubmitLink.Claim(game.Slug)
+                ? SubmitLink.Claim(game.Slug, Tag)
                 : SubmitLink.Game(game.Slug);
         }
 
-        Answer = SubmitCopy.Answer(outcome, SubmitLinks.Address(Host, Port), link);
+        Answer = SubmitCopy.Answer(outcome, SubmitLinks.Address(Host, Port), link, Tag);
     }
+
+    /// <summary>The locale this page is being answered in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    private string L(string id) => Messages.For(Tag, id);
 }

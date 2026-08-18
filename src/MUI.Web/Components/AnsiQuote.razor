@@ -1,3 +1,5 @@
+@using MUI.Web.Localization
+
 @*
     The ANSI quotation frame.
 
@@ -8,6 +10,12 @@
 
     It is a figure with a text alternative, skippable in one keystroke, and SGR codes are never
     announced.
+
+    **One copy.** The art is drawn once, in full, in a region that scrolls — not cropped here,
+    repeated under "show all N rows", and repeated again as text. Three copies of the same
+    box-drawing was the largest block on the page and, to a screen reader, three passes through
+    characters that carry no words. The drawing is one image with a one-line alternative; the words
+    live under "read as text", once.
 *@
 
 @switch (Screen.State)
@@ -16,7 +24,7 @@
         @* The owner's choice, stated and nothing more. No accusation, no empty box, and the plate
            holds the same place the frame would have. *@
         <div class="ansi-plate">
-            <p>The owner asked us not to republish this game's connect screen.</p>
+            <p>@L("ansi.suppressed")</p>
         </div>
         break;
 
@@ -27,76 +35,81 @@
            measurement. *@
         <p class="faint">
             @(Screen.State is AnsiScreenState.Absent
-                ? "No connect screen has been captured from this game."
-                : $"Only {Screen.RowCount} {(Screen.RowCount == 1 ? "row" : "rows")} came back — too little to show.")
+                ? L("ansi.absent")
+                : L("ansi.tooSmall", ("count", Screen.RowCount)))
         </p>
         break;
 
     default:
-        <figure class="ansi" aria-labelledby="@($"{Id}-caption")">
-            <p id="@($"{Id}-caption")" class="sr-only">
-                Connect screen, @Screen.RowCount @(Screen.RowCount == 1 ? "row" : "rows"), as sent
-                by the server. The text follows under "read as text".
-            </p>
-            <div class="quote">
-                <pre lang="@Language">@Paint(Screen.Visible)</pre>
-                @if (Screen.IsCropped)
-                {
-                    <div class="crop-fade" aria-hidden="true"></div>
-                }
+        <figure class="ansi">
+            @*
+                One image with one alternative. role="img" prunes the art from the accessibility
+                tree the way aria-hidden would, and unlike aria-hidden it leaves the region
+                focusable — which it has to be, because the region scrolls and a keyboard is how
+                some readers scroll it. The trend chart beside this is labelled the same way.
+            *@
+            <div class="quote" role="img" aria-label="@Alternative" tabindex="0">
+                <pre lang="@Language">@Paint(Screen.Rows)</pre>
             </div>
+            @*
+                The words, inside the same figure rather than in a block below it.
+
+                **Still a disclosure, and the handoff draws it open.** Its version exposes "only the
+                lines that are actually prose" — the address and the connect / create / QUIT
+                instructions — and that is the one instruction here we cannot follow: deciding which
+                of a stranger's lines are artwork and which are prose is a judgement about somebody
+                else's screen, and rules 4 and 5 forbid us presenting our reading of their output as
+                a fact about their game. So the alternative stays the *whole* screen, unaltered.
+
+                Which is why it stays folded. Shown open it would draw the same eighty columns of
+                box-drawing twice on one page — the exact triplication B1 exists to remove, at two
+                copies instead of three. One figure, one drawing, and the complete text a keystroke
+                away: the disclosure moved inside the frame so the two are visibly one block, and
+                the summary wears the kicker the handoff names.
+            *@
+            <details class="screen-text">
+                <summary><span class="kicker">@L("a11y.readAsText")</span></summary>
+                <pre lang="@Language" translate="no">@Screen.PlainText</pre>
+            </details>
             <figcaption>
-                <span>as sent by the server</span>
+                <span>@L("ansi.asSent")</span>
                 <span aria-hidden="true">·</span>
-                <span>@Ansi.Columns×@Screen.RowCount</span>
+                @*
+                    The width in cells the screen actually occupies, not the width in characters.
+                    East Asian Wide codepoints take two terminal cells, so a Chinese banner drawn to
+                    80 columns is forty glyphs — and a caption claiming 80 tells anyone trying to
+                    render it faithfully the wrong number (i18n S4).
+                *@
+                <span>@L(DoubleWidth ? "ansi.size.doubleWidth" : "ansi.size",
+                        ("columns", Columns), ("rows", Screen.RowCount))</span>
                 <span aria-hidden="true">·</span>
-                <span>@Depth</span>
+                <span>@L(Depth)</span>
                 @if (Charset is { Length: > 0 } charset)
                 {
                     @* Only when it is not UTF-8 — see NpgsqlGameQueries.ScreenCharset. "read as"
                        rather than "encoded in", because that is the honest verb: it is what we
                        decoded the bytes with, and on a game that declares one encoding and sends
-                       another the two are different sentences. *@
+                       another the two are different sentences. The charset token itself is machine
+                       voice and goes in as an argument. *@
                     <span aria-hidden="true">·</span>
-                    <span>read as @charset</span>
+                    <span>@L("ansi.readAs", ("charset", charset))</span>
                 }
                 @if (CapturedAt is { } at)
                 {
+                    @* The word and the <time> beside it, rather than one message with the age
+                       substituted in: the age is a resolvable element with its own title, and
+                       flattening it to a string to make one sentence would cost a reader the
+                       machine-readable timestamp. See Moment. *@
                     <span aria-hidden="true">·</span>
-                    <span>captured @Relative.Format(Now - at) ago</span>
+                    <span>@L("ansi.captured") <Moment At="at" Now="Now" Ago="true" Spoken="true" /></span>
                 }
                 @if (Frozen)
                 {
                     <span aria-hidden="true">·</span>
-                    <span>frozen — the last screen we saw</span>
+                    <span>@L("ansi.frozen")</span>
                 }
             </figcaption>
         </figure>
-
-        @if (Screen.IsOversized)
-        {
-            <p class="faint">
-                Unusually long at @Screen.RowCount rows. The first @Ansi.CropRows are shown; the
-                rest is under "show all rows".
-            </p>
-        }
-
-        @if (Screen.IsCropped)
-        {
-            <details class="read-as-text">
-                <summary>show all @Screen.RowCount rows</summary>
-                <div class="ansi">
-                    <div class="quote">
-                        <pre lang="@Language">@Paint(Screen.Rows)</pre>
-                    </div>
-                </div>
-            </details>
-        }
-
-        <details class="read-as-text">
-            <summary>read as text</summary>
-            <pre class="mono plain-screen" lang="@Language">@Screen.PlainText</pre>
-        </details>
         break;
 }
 
@@ -104,6 +117,9 @@
     [Parameter, EditorRequired] public AnsiScreen Screen { get; set; } = default!;
 
     [Parameter] public string Id { get; set; } = "connect-screen";
+
+    /// <summary>The game whose screen this is, for the one-line alternative to name.</summary>
+    [Parameter] public string? Name { get; set; }
 
     [Parameter] public DateTimeOffset? CapturedAt { get; set; }
 
@@ -123,9 +139,49 @@
     /// </summary>
     private string? Language => ScreenLanguage.For(Charset);
 
+    /// <summary>The request, for the locale the frame around somebody else's screen is written in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    private string L(string id) => Messages.For(Tag, id);
+
+    private string L(string id, params (string Key, object? Value)[] args) =>
+        Messages.For(Tag, id, args.ToDictionary(a => a.Key, a => a.Value, StringComparer.Ordinal));
+
     private string Depth => Screen.Rows.SelectMany(r => r.Runs).Any(r => !r.Style.IsPlain)
-        ? "16-colour SGR"
-        : "no colour";
+        ? "ansi.depth.colour"
+        : "ansi.depth.plain";
+
+    /// <summary>
+    /// Whether this screen is drawn out of double-width glyphs, which the caption says as well as
+    /// counting: the number alone cannot tell an eighty-cell ASCII banner from a forty-glyph Han one.
+    /// </summary>
+    private bool DoubleWidth => Screen.HasWideRunes;
+
+    /// <summary>
+    /// The width the screen occupies in terminal cells — the widest row, summed rune by rune.
+    /// </summary>
+    /// <remarks>
+    /// Not <c>Ansi.Columns</c> halved when a wide rune appears anywhere. That reported forty for a
+    /// row of seventy-nine ASCII characters with one Han glyph at the end, which is eighty-one cells
+    /// on a terminal and is exactly the row a reader would be redrawing from this caption.
+    /// </remarks>
+    private int Columns => Screen.CellColumns;
+
+    /// <summary>
+    /// What the drawing is, in one line — the whole of what the art says to a reader who cannot see
+    /// it.
+    /// </summary>
+    /// <remarks>
+    /// It names the screen and points at the text, and it does not attempt to describe the
+    /// box-drawing: a paragraph about somebody else's ASCII would be our reading of their artwork
+    /// presented as a fact about their game. The words the screen contains are under "read as text"
+    /// immediately below, unaltered.
+    /// </remarks>
+    private string Alternative => Name is { Length: > 0 } name
+        ? L("ansi.alt.named", ("game", name))
+        : L("ansi.alt");
 
     /// <summary>
     /// Rows into spans. Written against the builder rather than as markup because a connect screen

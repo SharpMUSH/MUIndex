@@ -37,16 +37,18 @@ public class GamePlateTests
     }
 
     [Test]
-    public async Task EveryRowHasAPlateAndNoneOfThemPointsOffThisOrigin()
+    public async Task NoRowDrawsAPlateAndNoIconPointsOffThisOrigin()
     {
-        // The fixture holds no icon bytes, so every row is the monogram — which is exactly the state
-        // a deployment with an empty cache renders, and it has to be a plate rather than a hole.
+        // The handoff's listing row is identity, measurement and freshness and nothing else: a 36px
+        // square per row is a fourth column of furniture down a list five hundred long, and the face
+        // a game published is on its own page at a size that shows it. The component is unchanged
+        // and the game page still draws it.
         var html = await Render.PageAsync<Games>([]);
         var rows = html.Split("class=\"game-row").Length - 1;
         var plates = html.Split("class=\"plate").Length - 1;
 
         await Assert.That(rows).IsGreaterThan(0);
-        await Assert.That(plates).IsEqualTo(rows);
+        await Assert.That(plates).IsEqualTo(0);
 
         // §11. An icon is served from this origin or not at all: every src is the site's own route.
         foreach (var src in html.Split("<img").Skip(1))
@@ -61,13 +63,16 @@ public class GamePlateTests
         // The one thing the plate may not do. A placeholder, a broken image or a "logo unavailable"
         // would publish our failed fetch as a fact about somebody's game (rule 5) — and the second
         // and third of those states are indistinguishable from the first anywhere in the markup.
-        var html = await Render.PageAsync<Games>([]);
+        var html = await Render.PageAsync<Game>(new() { ["Slug"] = "m-u-s-h" });
 
         await Assert.That(html).DoesNotContain("no icon");
         await Assert.That(html).DoesNotContain("icon unavailable");
 
-        // The name is beside it either way, so the picture is never the thing announced.
-        await Assert.That(html).Contains("class=\"plate mono\" aria-hidden=\"true\"");
+        // And no element at all where there is no icon. "When absent, render no element: no
+        // monogram, no grey square, no initial in a circle" — an empty frame on five hundred pages
+        // is noise, and a generated monogram invents a brand the game never supplied, which on a
+        // site that publishes only what it measured is the one decoration that costs something.
+        await Assert.That(html).DoesNotContain("class=\"plate");
     }
 
     [Test]
@@ -98,15 +103,29 @@ public class GamePlateTests
     }
 
     [Test]
-    public async Task TheGamePageAndTheListingDrawOneVocabularyAtTwoSizes()
+    public async Task NoSurfaceInventsAFaceForAGameThatPublishedNone()
     {
-        // Two spellings of "the first letters of the name" is how a game comes to be MU on one page
-        // and M* on the next. Both surfaces render the same component.
+        // Neither the listing nor the game page draws a monogram now. The component still knows how
+        // — a surface that needs a fixed left edge down a list of rows is a different argument — but
+        // nothing passes Fallback, so a game with no icon gets no element on either surface and the
+        // title simply starts at the left edge.
         var page = await Render.PageAsync<Game>(new() { ["Slug"] = "m-u-s-h" });
         var listing = await Render.PageAsync<Games>([]);
 
-        await Assert.That(page).Contains("class=\"plate mono\"");
-        await Assert.That(Render.Words(page)).Contains(Monogram.Of("M*U*S*H"));
-        await Assert.That(listing).Contains("class=\"plate mono\"");
+        await Assert.That(page).DoesNotContain("class=\"plate");
+        await Assert.That(listing).DoesNotContain("class=\"plate");
+
+        // And the one implementation is still there, behind the parameter, so the two surfaces
+        // cannot grow two spellings of "the first letters of the name".
+        var withFallback = await Render.ComponentAsync<GamePlate>(new()
+        {
+            ["Slug"] = "m-u-s-h",
+            ["Name"] = "M*U*S*H",
+            ["HasIcon"] = false,
+            ["Fallback"] = true,
+        });
+
+        await Assert.That(withFallback).Contains("class=\"plate mono\" aria-hidden=\"true\"");
+        await Assert.That(Render.Words(withFallback)).Contains(Monogram.Of("M*U*S*H"));
     }
 }

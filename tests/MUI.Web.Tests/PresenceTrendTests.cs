@@ -1,5 +1,6 @@
 using MUI.Catalog;
 using MUI.Web.Components;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Tests;
 
@@ -16,6 +17,9 @@ namespace MUI.Web.Tests;
 public class PresenceTrendTests
 {
     private static readonly DateOnly Start = new(2026, 5, 1);
+
+    /// <summary>The locale these assertions read in. The source bundle is what they are written against.</summary>
+    private const string English = Locales.SourceTag;
 
     [Test]
     public async Task ADayNobodyMeasuredGetsNoInkAtAll()
@@ -54,7 +58,7 @@ public class PresenceTrendTests
         var bars = TrendGeometry.Bars(series);
 
         await Assert.That(bars).Count().IsEqualTo(1);
-        await Assert.That(bars[0].Day.Label).Contains("14");
+        await Assert.That(bars[0].Day.Label(English)).Contains("14");
         await Assert.That(TrendGeometry.Zero - bars[0].MeanTop)
             .IsGreaterThan(100d)
             .Because("the only measurement in the range is also the ceiling, so its bar is the plot");
@@ -71,10 +75,16 @@ public class PresenceTrendTests
             Uncountable(2),
             Counted(3, 5), Counted(4, 4));
 
-        var ticks = TrendGeometry.Ticks(series);
+        var ticks = TrendGeometry.Ticks(English, series);
 
         await Assert.That(ticks).Count().IsEqualTo(1);
-        await Assert.That(ticks[0].Label).Contains("no count could be read");
+        // The gutter mark carries the "probed, no count could be read" sentence and never the
+        // "no measurement" one — the middle state of §5.4 said as itself, in whatever language the
+        // reader asked for.
+        var uncountableDay = Start.AddDays(2);
+
+        await Assert.That(ticks[0].Label).IsEqualTo(Say("trend.day.notCounted", uncountableDay));
+        await Assert.That(ticks[0].Label).IsNotEqualTo(Say("trend.day.notMeasured", uncountableDay));
 
         await Assert.That(TrendGeometry.Bars(series)).Count().IsEqualTo(4);
         await Assert.That(TrendGeometry.Bars(series).Any(b => b.Day.IsUncountable)).IsFalse();
@@ -92,8 +102,8 @@ public class PresenceTrendTests
 
         await Assert.That(TrendGeometry.Zero - zero.MeanTop)
             .IsGreaterThanOrEqualTo(TrendGeometry.MinimumInk);
-        await Assert.That(TrendGeometry.Ticks(series)).IsEmpty();
-        await Assert.That(series.Days[1].Label).Contains("0 players");
+        await Assert.That(TrendGeometry.Ticks(English, series)).IsEmpty();
+        await Assert.That(series.Days[1].Label(English)).Contains("0 players");
     }
 
     [Test]
@@ -158,11 +168,11 @@ public class PresenceTrendTests
         // an axis, so they thin instead of overprinting.
         var quarter = TrendSeries.Over(new DateOnly(2026, 5, 19), new DateOnly(2026, 8, 16), []);
 
-        await Assert.That(TrendGeometry.Months(quarter).Select(m => m.Label))
+        await Assert.That(TrendGeometry.Months(English, quarter).Select(m => m.Label))
             .IsEquivalentTo(new[] { "Jun", "Jul", "Aug" });
 
         var years = TrendSeries.Over(new DateOnly(2021, 1, 1), new DateOnly(2025, 12, 31), []);
-        var months = TrendGeometry.Months(years);
+        var months = TrendGeometry.Months(English, years);
 
         await Assert.That(months.Count).IsLessThanOrEqualTo(9);
         await Assert.That(months.Zip(months.Skip(1)).All(p => p.Second.X > p.First.X)).IsTrue();
@@ -197,12 +207,12 @@ public class PresenceTrendTests
         // rather than nearest, so the figure is one we are sure of.
         var series = Series(Counted(0, 601, 731, 666.1m), Counted(1, 590, 640, 620.4m));
 
-        await Assert.That(series.Sentence).Contains("Typically 666 on");
-        await Assert.That(series.Sentence).DoesNotContain("666.1");
-        await Assert.That(series.Days[0].Label).Contains("666 on average");
-        await Assert.That(series.Days[0].Label).DoesNotContain("666.1");
-        await Assert.That(series.PerWeek().Single()).Contains("typically 666");
-        await Assert.That(series.PerWeek().Single()).DoesNotContain("666.1");
+        await Assert.That(series.Sentence(English)).Contains("Typically 666 on");
+        await Assert.That(series.Sentence(English)).DoesNotContain("666.1");
+        await Assert.That(series.Days[0].Label(English)).Contains("666 on average");
+        await Assert.That(series.Days[0].Label(English)).DoesNotContain("666.1");
+        await Assert.That(series.PerWeek(English).Single()).Contains("typically 666");
+        await Assert.That(series.PerWeek(English).Single()).DoesNotContain("666.1");
 
         // The wording is floored; the geometry is not, or the bar would be shortened by a sentence.
         await Assert.That(series.Days[0].Average).IsEqualTo(666.1d);
@@ -218,14 +228,20 @@ public class PresenceTrendTests
         var probed = Series(Uncountable(0), Uncountable(1));
         var measured = Series(Counted(0, 6), Counted(1, 6), Counted(2, 8));
 
-        await Assert.That(nothing.Sentence).IsEqualTo("No measurement in this range.");
-        await Assert.That(probed.Sentence).Contains("no player count could be read");
-        await Assert.That(measured.Sentence).Contains("Typically 6");
-        await Assert.That(measured.Sentence).Contains("peaking at 8");
+        // The fact, through the bundle: a range with nothing in it says exactly the "no measurement"
+        // message and never the "probed and uncountable" one. Written this way the assertion still
+        // holds after a translation, which is the point — the two must stay two in every locale.
+        await Assert.That(nothing.Sentence(English))
+            .IsEqualTo(Messages.For(English, "trend.none.notMeasured"));
+        await Assert.That(nothing.Sentence(English))
+            .IsNotEqualTo(Messages.For(English, "trend.none.probed"));
+        await Assert.That(probed.Sentence(English)).Contains("no player count could be read");
+        await Assert.That(measured.Sentence(English)).Contains("Typically 6");
+        await Assert.That(measured.Sentence(English)).Contains("peaking at 8");
 
         // And none of them names a cause: a failed probe writes no presence row, so silence here
         // cannot tell an outage of theirs from a gap of ours.
-        foreach (var sentence in new[] { nothing.Sentence, probed.Sentence })
+        foreach (var sentence in new[] { nothing.Sentence(English), probed.Sentence(English) })
         {
             await Assert.That(sentence).DoesNotContain("unreachable");
             await Assert.That(sentence).DoesNotContain("down");
@@ -241,14 +257,18 @@ public class PresenceTrendTests
             Counted(0, 20), Counted(1, 20), Counted(2, 20),
             Gap(3), Gap(4), Gap(5), Gap(6), Gap(7));
 
-        await Assert.That(lopsided.Sentence).DoesNotContain("Down");
-        await Assert.That(lopsided.Sentence).DoesNotContain("Up about");
+        await Assert.That(lopsided.Sentence(English)).DoesNotContain("Down");
+        await Assert.That(lopsided.Sentence(English)).DoesNotContain("Up about");
 
         var falling = Series(
             Counted(0, 30), Counted(1, 30), Counted(2, 28),
             Counted(3, 20), Counted(4, 12), Counted(5, 10));
 
-        await Assert.That(falling.Sentence).Contains("Down about");
+        // And the change is a percentage a person reads, not the fraction behind it: the sign and
+        // its spacing come off the locale's number format rather than being a literal in a template.
+        await Assert.That(falling.Sentence(English)).Contains("Down about");
+        await Assert.That(falling.Sentence(English)).Contains("63%");
+        await Assert.That(falling.Sentence(English)).DoesNotContain("0.63");
     }
 
     [Test]
@@ -265,12 +285,25 @@ public class PresenceTrendTests
             })
             .ToArray());
 
-        var lines = series.PerWeek().ToList();
+        var lines = series.PerWeek(English).ToList();
 
         await Assert.That(lines).Count().IsEqualTo(3);
         await Assert.That(lines[0]).Contains("typically 5");
         await Assert.That(lines[0]).Contains("7 days counted");
-        await Assert.That(lines[1]).IsEqualTo($"{Start.AddDays(7):d MMM}–{Start.AddDays(13):d MMM}: not measured");
+        await Assert.That(lines[1]).IsEqualTo(Messages.For(
+            English,
+            "trend.week.notMeasured",
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["span"] = Messages.For(
+                    English,
+                    "trend.week.span",
+                    new Dictionary<string, object?>(StringComparer.Ordinal)
+                    {
+                        ["from"] = Start.AddDays(7),
+                        ["to"] = Start.AddDays(13),
+                    }),
+            }));
         await Assert.That(lines[2]).Contains("probed, no count could be read");
     }
 
@@ -285,12 +318,85 @@ public class PresenceTrendTests
             Uncountable(4), Uncountable(5),
             Gap(6));
 
-        var line = series.PerWeek().Single();
+        var line = series.PerWeek(English).Single();
 
         await Assert.That(line).Contains("4 days counted");
         await Assert.That(line).Contains("2 days probed without a count");
         await Assert.That(line).Contains("1 day not measured");
     }
+
+    /// <summary>
+    /// A German request gets German month names, from CLDR rather than from an array in a component.
+    /// </summary>
+    /// <remarks>
+    /// This is the whole reason the date became a <c>{d, date}</c> argument instead of a
+    /// <c>ToString("d MMM yyyy")</c> at the call site. The old spelling read the month name off
+    /// whatever culture the thread happened to carry — the request's in one place and the invariant
+    /// one in the headless renderer — so a German page said "21 May 2026" in the middle of a German
+    /// sentence, and no translator could have fixed it because the word was not in a file they are
+    /// ever sent.
+    /// </remarks>
+    [Test]
+    public async Task ADateIsNamedInTheLanguageThePageWasAskedFor()
+    {
+        var day = Counted(20, 12);      // 21 May 2026
+        var may = new System.Globalization.CultureInfo("de")
+            .DateTimeFormat.AbbreviatedMonthNames[4];
+
+        await Assert.That(day.Label("de")).Contains(may);
+        await Assert.That(day.Label(English))
+            .Contains(System.Globalization.CultureInfo
+                .GetCultureInfo("en").DateTimeFormat.AbbreviatedMonthNames[4]);
+
+        // And the axis label under the chart, which is the same data through a different message.
+        var year = TrendSeries.Over(new DateOnly(2026, 4, 20), new DateOnly(2026, 6, 10), []);
+
+        await Assert.That(TrendGeometry.Months("de", year).Select(m => m.Label))
+            .Contains(may);
+    }
+
+    /// <summary>
+    /// The two absences stay two, in every locale this site offers.
+    /// </summary>
+    /// <remarks>
+    /// A day probed all through that produced no count is a measurement of a game that was
+    /// answering; a day with no measurement is a statement about our crawl. Collapsing them is the
+    /// worst bug §5.4 can carry, and it is a collapse a translator makes silently — both English
+    /// sentences begin with a date and end in a negative — so it is asserted per locale rather than
+    /// once against the source bundle. Neither may reach for a cause: a failed probe writes no
+    /// presence row at all, so an empty day cannot tell an outage of theirs from a gap of ours.
+    /// </remarks>
+    [Test]
+    public async Task NoMeasurementAndNoReadableCountStayTwoDifferentStringsInEveryLocale()
+    {
+        var gap = Gap(0);
+        var uncountable = Uncountable(1);
+
+        foreach (var locale in Locales.All)
+        {
+            await Assert.That(gap.Label(locale.Tag))
+                .IsNotEqualTo(uncountable.Label(locale.Tag))
+                .Because($"{locale.Tag} renders both absences as one sentence");
+
+            await Assert.That(Messages.Pattern(locale.Tag, "trend.day.notMeasured"))
+                .IsNotEqualTo(Messages.Pattern(locale.Tag, "trend.day.notCounted"))
+                .Because($"{locale.Tag} translated the two absences to one pattern");
+
+            // And neither names a cause, in any of them. "unreachable" is a locked id with its own
+            // translation in every bundle, and a day with no presence row is not one.
+            foreach (var absence in new[] { gap.Label(locale.Tag), uncountable.Label(locale.Tag) })
+            {
+                await Assert.That(absence)
+                    .DoesNotContain(Messages.For(locale.Tag, "state.unreachable"));
+            }
+        }
+    }
+
+    private static string Say(string id, DateOnly date) =>
+        Messages.For(
+            English,
+            id,
+            new Dictionary<string, object?>(StringComparer.Ordinal) { ["d"] = date });
 
     private static TrendSeries Series(params TrendDay[] days) =>
         new(days[0].Date, days[^1].Date, days);

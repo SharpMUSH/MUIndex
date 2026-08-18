@@ -1,4 +1,5 @@
 using MUI.Catalog;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Components;
 
@@ -30,6 +31,7 @@ public sealed record ActiveFilter(string Facet, string Value, string RemoveHref)
 public static class ActiveFilters
 {
     public static IReadOnlyList<ActiveFilter> For(
+        string tag,
         IReadOnlyList<FacetGroup> facets,
         GameFilter filter,
         string? query)
@@ -42,7 +44,9 @@ public static class ActiveFilters
         if (!string.IsNullOrWhiteSpace(filter.Text))
         {
             chips.Add(new ActiveFilter(
-                "search", filter.Text.Trim(), Href(ListingLinks.With(query, FacetKeys.Text, null))));
+                FacetWords.Group(tag, FacetKeys.Text),
+                filter.Text.Trim(),
+                Href(ListingLinks.With(query, FacetKeys.Text, null))));
         }
 
         var drawn = new HashSet<string>(StringComparer.Ordinal);
@@ -54,10 +58,10 @@ public static class ActiveFilters
                 drawn.Add(group.Key);
 
                 chips.Add(new ActiveFilter(
-                    FacetWords.Group(group.Key),
+                    FacetWords.Group(tag, group.Key),
                     value.State is FacetState.Excluded
-                        ? FacetWords.Excluded(group.Key, value)
-                        : FacetWords.Value(group.Key, value),
+                        ? FacetWords.Excluded(tag, group.Key, value)
+                        : FacetWords.Value(tag, group.Key, value),
 
                     // A choice facet holds one selection, so removing it drops the parameter; a
                     // presence facet holds several in one repeatable, comma-separated parameter, so
@@ -90,24 +94,30 @@ public static class ActiveFilters
                 IsExcluded: choice.Exclude);
 
             chips.Add(new ActiveFilter(
-                FacetWords.Group(key),
-                choice.Exclude ? FacetWords.Excluded(key, stand) : FacetWords.Value(key, stand),
+                FacetWords.Group(tag, key),
+                choice.Exclude ? FacetWords.Excluded(tag, key, stand) : FacetWords.Value(tag, key, stand),
                 Href(ListingLinks.With(query, key, null))));
         }
 
         // Last, because it widens the answer rather than narrowing it and reads oddly among the
         // things that narrow it — but present, because it is a thing the URL is asking for and a
         // reader who cannot see it asked has no way to stop asking.
+        var included = Messages.For(tag, "facet.value.included");
+
         if (filter.IncludeArchived)
         {
             chips.Add(new ActiveFilter(
-                "archived", "included", Href(ListingLinks.With(query, FacetKeys.Archived, null))));
+                FacetWords.Group(tag, FacetKeys.Archived),
+                included,
+                Href(ListingLinks.With(query, FacetKeys.Archived, null))));
         }
 
         if (filter.IncludeAdult)
         {
             chips.Add(new ActiveFilter(
-                "adult", "included", Href(ListingLinks.With(query, FacetKeys.Adult, null))));
+                FacetWords.Group(tag, FacetKeys.Adult),
+                included,
+                Href(ListingLinks.With(query, FacetKeys.Adult, null))));
         }
 
         return chips;

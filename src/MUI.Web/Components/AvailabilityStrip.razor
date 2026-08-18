@@ -1,3 +1,5 @@
+@using MUI.Web.Localization
+
 @*
     The availability strip: ninety bars, oldest at the left.
 
@@ -9,58 +11,58 @@
     measure whether the game was up. The wording matters more than the graphic.
 *@
 
-<div class="kicker">reachable · last @Summary.Window days</div>
-<p class="summary">@Summary.Sentence</p>
+<div class="kicker">@L("reach.kicker", ("days", Summary.Window))</div>
+<p class="summary">@Sentence</p>
 
 @if (Summary.HasAnyMeasurement)
 {
     @* One image with one label, rather than ninety announced bars. The spells are underneath in
        words, so nothing here is only available to a reader who can see it. *@
-    <div class="strip" role="img" aria-label="@Summary.Sentence">
+    <div class="strip" role="img" aria-label="@Sentence">
         @foreach (var day in Summary.Days)
         {
-            <span class="bar @Class(day.State)" title="@day.Label"></span>
+            <span class="bar @Class(day.State)" title="@day.Label(Tag)"></span>
         }
     </div>
     <div class="strip-scale mono faint">
-        <span>@Summary.Window days ago</span>
-        <span>today</span>
+        <span>@L("reach.scale.ago", ("days", Summary.Window))</span>
+        <span>@L("reach.scale.today")</span>
     </div>
 
     <dl class="stats">
         <div>
-            <dt class="kicker">reachable</dt>
+            <dt class="kicker">@L("reach.stat.reachable")</dt>
             <dd class="mono state-present">
-                @(Summary.ReachableFraction is { } f ? Wording.Percent(f) : "not measured")
+                @(Summary.ReachableFraction is { } f ? Wording.Percent(f) : L("state.notMeasured"))
             </dd>
         </div>
         <div>
-            <dt class="kicker">longest outage</dt>
+            <dt class="kicker">@L("reach.stat.longestOutage")</dt>
             <dd class="mono">
-                @(Summary.LongestOutage is { } o ? Wording.Duration(o) : "none in the window")
+                @(Summary.LongestOutage is { } o ? Wording.Duration(o) : L("reach.noOutage"))
             </dd>
         </div>
         <div>
-            <dt class="kicker">last cause</dt>
+            <dt class="kicker">@L("reach.stat.lastCause")</dt>
             <dd class="mono @(Summary.LastCause is FailureCause.None ? "faint" : "warn")">
-                @(Summary.LastCause is FailureCause.None ? "nothing recorded" : Wording.Cause(Summary.LastCause))
+                @(Summary.LastCause is FailureCause.None ? L("reach.noCause") : Wording.Cause(Tag, Summary.LastCause))
             </dd>
         </div>
     </dl>
 
     <ul class="legend">
-        <li><span class="swatch bar-reachable" aria-hidden="true"></span>reachable</li>
-        <li><span class="swatch bar-degraded" aria-hidden="true"></span>degraded — answered, could not finish</li>
-        <li><span class="swatch bar-unreachable" aria-hidden="true"></span>unreachable</li>
-        <li><span class="swatch bar-unmeasured" aria-hidden="true"></span>not measured</li>
+        <li><span class="swatch bar-reachable" aria-hidden="true"></span>@L("reach.legend.reachable")</li>
+        <li><span class="swatch bar-degraded" aria-hidden="true"></span>@L("reach.legend.degraded")</li>
+        <li><span class="swatch bar-unreachable" aria-hidden="true"></span>@L("reach.legend.unreachable")</li>
+        <li><span class="swatch bar-unmeasured" aria-hidden="true"></span>@L("reach.legend.notMeasured")</li>
     </ul>
 
-    @if (Summary.Spells.Count > 0)
+    @if (Spells.Count > 0)
     {
         <details class="read-as-text">
-            <summary>read as text</summary>
+            <summary>@L("a11y.readAsText")</summary>
             <ul class="spells">
-                @foreach (var spell in Summary.Spells)
+                @foreach (var spell in Spells)
                 {
                     <li>@spell</li>
                 }
@@ -71,6 +73,35 @@
 
 @code {
     [Parameter, EditorRequired] public ReachSummary Summary { get; set; } = default!;
+
+    /// <summary>The request, for the locale its ninety bar titles are written in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    /// <summary>
+    /// Rendered once and used twice, as the paragraph and as the graphic's own label.
+    /// </summary>
+    /// <remarks>
+    /// Computed in <see cref="OnParametersSet"/> rather than on each read, which is what "once"
+    /// means: both of these walk the ninety-day series and format a message per span, and the markup
+    /// reads each of them twice.
+    /// </remarks>
+    private string Sentence = string.Empty;
+
+    private IReadOnlyList<string> Spells = [];
+
+    protected override void OnParametersSet()
+    {
+        Sentence = Summary.Sentence(Tag);
+        Spells = Summary.Spells(Tag);
+    }
+
+    private string L(string id) => Messages.For(Tag, id);
+
+    /// <summary>This component's tag, supplied once — the rendering is <see cref="Messages.Say"/>.</summary>
+    private string L(string id, params (string Key, object? Value)[] args) =>
+        Messages.Say(Tag, id, args);
 
     private static string Class(ReachState state) => state switch
     {

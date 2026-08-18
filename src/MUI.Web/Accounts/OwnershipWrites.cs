@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Identity;
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
 
+using MUI.Web.Localization;
+
 namespace MUI.Web.Accounts;
 
 /// <summary>
@@ -16,6 +18,17 @@ namespace MUI.Web.Accounts;
 /// </remarks>
 public static class OwnershipWrites
 {
+    /// <summary>
+    /// The word an operator types to confirm giving up a claim.
+    /// </summary>
+    /// <remarks>
+    /// A constant because the dashboard prints it and this endpoint compares against it, and the
+    /// two must agree. It is never translated and is placed into the instruction as an argument:
+    /// a German page telling somebody to type <c>aufgeben</c> would be instructing them to type
+    /// the one thing this comparison rejects.
+    /// </remarks>
+    public const string ResignConfirmation = "resign";
+
     public static void MapMuiOwnership(this WebApplication app)
     {
         ArgumentNullException.ThrowIfNull(app);
@@ -35,7 +48,7 @@ public static class OwnershipWrites
             if (await users.GetUserAsync(context.User) is not { } user
                 || await queries.FindAsync(slug) is not { } page)
             {
-                return Results.Redirect($"/g/{slug}/claim");
+                return Back(context, $"/g/{slug}/claim");
             }
 
             var intent = string.Equals(form["intent"], "assume", StringComparison.Ordinal)
@@ -44,7 +57,7 @@ public static class OwnershipWrites
 
             await claims.IssueAsync(page.Summary.Id, user.Id, intent);
 
-            return Results.Redirect($"/g/{slug}/claim");
+            return Back(context, $"/g/{slug}/claim");
         }).RequireAuthorization();
 
         // Giving up a game. Explicit, which §8.4 requires of every revocation that is not a
@@ -65,14 +78,22 @@ public static class OwnershipWrites
             // that getting back in means publishing a fresh token — recoverable, but not by pressing
             // undo — and a bare button beside a game's name is one misclick from a listing an
             // operator no longer owns.
-            if (!string.Equals(form["confirm"], "resign", StringComparison.Ordinal))
+            if (!string.Equals(form["confirm"], ResignConfirmation, StringComparison.Ordinal))
             {
-                return Results.Redirect($"{Passkeys.DashboardPath}?resign={claimId}");
+                return Back(context, $"{Passkeys.DashboardPath}?resign={claimId}");
             }
 
             return await claims.ResignAsync(claimId, user.Id)
-                ? Results.Redirect($"{Passkeys.DashboardPath}?resigned=1")
+                ? Back(context, $"{Passkeys.DashboardPath}?resigned=1")
                 : Results.StatusCode(StatusCodes.Status403Forbidden);
         }).RequireAuthorization();
     }
+
+    /// <summary>The page the operator came from, in the language they were reading it in.</summary>
+    /// <remarks>
+    /// The form they posted carries this locale in its own action, so the request has one. Same rule
+    /// as every link on the site, applied where the address is a header rather than an attribute.
+    /// </remarks>
+    private static IResult Back(HttpContext context, string path) =>
+        Results.Redirect(LocaleRouting.Link(context.LocaleOf().Tag, path));
 }

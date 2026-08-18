@@ -280,10 +280,116 @@ public class FacetQueriesPostgresTests
         }
     }
 
+    [Test]
+    public async Task AMeasuredZeroIsNotUncountedAndTheBandCannotTellThemApart()
+    {
+        // The one this facet exists for, against the reader that actually computes it.
+        //
+        // Both games are reachable, both have no count above nought this week, and both therefore
+        // land in `quiet` — the band is one threshold and cannot say why. `empty` was probed and
+        // answered nought, which is a measurement of theirs; `unreadable` was probed and produced no
+        // number, which is a limit of ours. Returning the first under a word meaning the second is
+        // rules 2, 4 and 5 in one control, and the digest threw the distinction away until now.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var empty = await Seed.GameAsync(db, "empty", "Measured empty", lastReachableAt: Now);
+        var unreadable = await Seed.GameAsync(db, "unreadable", "Unreadable", lastReachableAt: Now);
+        var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
+
+        // Three probes each, over the same hours, differing only in what came back.
+        foreach (var hours in new[] { 1, 20, 60 })
+        {
+            await writer.WriteAsync(
+                empty, PresenceReading.Counted(0, FieldSource.Who), Now.AddHours(-hours));
+            await writer.WriteAsync(
+                unreadable,
+                PresenceReading.Unmeasurable(UnmeasurableReason.WhoUnparseable),
+                Now.AddHours(-hours));
+        }
+
+        var queries = QueriesOn(db);
+
+        var quiet = await queries.ListAsync(new GameFilter { Band = ActivityBand.Quiet });
+        await Assert.That(quiet.Select(g => g.Slug)).IsEquivalentTo(new[] { "empty", "unreadable" });
+
+        var uncounted = await queries.ListAsync(
+            new GameFilter { Uncounted = FacetChoice.Of(FacetTokens.Yes) });
+        await Assert.That(uncounted.Select(g => g.Slug)).IsEquivalentTo(new[] { "unreadable" });
+
+        // And the count each game's row carries agrees: nought is a number, and the other is null.
+        var listed = await queries.ListAsync(new GameFilter());
+        await Assert.That(listed.Single(g => g.Id == empty).PlayersNow).IsEqualTo(0);
+        await Assert.That(listed.Single(g => g.Id == unreadable).PlayersNow).IsNull();
+    }
+
+    [Test]
+    public async Task AGameWithNoPresenceRowsAtAllIsNotUncounted()
+    {
+        // §5.4's third state. A probe that failed writes no presence row (`PresenceWriter`), so a
+        // game with nothing stored is one we did not measure — and "we tried and could not read it"
+        // is a cause, which that state may not be given. It is unreachable instead, from the
+        // availability series, which can tell the two apart.
+        await using var db = await PostgresFixture.MigratedAsync();
+        await Seed.GameAsync(db, "never", "Never answered", lastReachableAt: null);
+        var probed = await Seed.GameAsync(db, "probed", "Probed", lastReachableAt: Now);
+        var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
+
+        await writer.WriteAsync(
+            probed, PresenceReading.Unmeasurable(UnmeasurableReason.WhoLoginPrompt), Now.AddHours(-2));
+
+        var queries = QueriesOn(db);
+
+        await Assert.That(
+            (await queries.ListAsync(new GameFilter { Uncounted = FacetChoice.Of(FacetTokens.Yes) }))
+                .Select(g => g.Slug))
+            .IsEquivalentTo(new[] { "probed" });
+
+        await Assert.That(
+            (await queries.ListAsync(new GameFilter { Unreachable = FacetChoice.Of(FacetTokens.Yes) }))
+                .Select(g => g.Slug))
+            .IsEquivalentTo(new[] { "never" });
+    }
+
+    [Test]
+    public async Task TheTwoSwitchesNarrowTogetherAndTheCountsSayWhatTheyReturn()
+    {
+        // Orthogonal, and orthogonal to the rest of the panel: excluding both leaves the games we
+        // measured, with the two controls still drawn so the reader can undo what they did.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var counted = await Seed.GameAsync(db, "counted", "Counted", lastReachableAt: Now);
+        var unreadable = await Seed.GameAsync(db, "unreadable", "Unreadable", lastReachableAt: Now);
+        await Seed.GameAsync(db, "gone", "Gone", lastReachableAt: Now.AddDays(-90));
+        var writer = new PresenceWriter(new NpgsqlPresenceStore(db.DataSource));
+
+        await writer.WriteAsync(counted, PresenceReading.Counted(4, FieldSource.Who), Now.AddHours(-1));
+        await writer.WriteAsync(
+            unreadable, PresenceReading.Unmeasurable(UnmeasurableReason.I3NoReply), Now.AddHours(-1));
+
+        var queries = QueriesOn(db);
+
+        var kept = await queries.SearchAsync(new GameFilter
+        {
+            Uncounted = FacetChoice.Not(FacetTokens.Yes),
+            Unreachable = FacetChoice.Not(FacetTokens.Yes),
+        });
+
+        await Assert.That(kept.Games.Select(g => g.Slug)).IsEquivalentTo(new[] { "counted" });
+
+        foreach (var key in new[] { FacetKeys.Uncounted, FacetKeys.Unreachable })
+        {
+            var value = Group(kept, key)!.Values.Single(v => v.Token == FacetTokens.Yes);
+
+            await Assert.That(value.State).IsEqualTo(FacetState.Excluded);
+            await Assert.That((await queries.ListAsync(Choose(key, value.Token))).Count)
+                .IsEqualTo(value.Count);
+        }
+    }
+
     private static GameFilter Choose(string key, string token) => key switch
     {
         FacetKeys.Band => new GameFilter { Band = Band(token) },
         FacetKeys.LastSeen => new GameFilter { LastSeen = Seen(token) },
+        FacetKeys.Uncounted => new GameFilter { Uncounted = FacetChoice.Parse(token) },
+        FacetKeys.Unreachable => new GameFilter { Unreachable = FacetChoice.Parse(token) },
         FacetKeys.Protocol => new GameFilter { MeasuredProtocols = [token] },
         FacetKeys.Tls => new GameFilter { Tls = true },
         FacetKeys.Charset => new GameFilter { Charset = FacetChoice.Parse(token) },

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
 
@@ -15,8 +16,10 @@ using MUI.Catalog;
 using MUI.Catalog.Persistence;
 using MUI.Web;
 using MUI.Web.Accounts;
+using MUI.Web.Components;
 using MUI.Web.Components.Pages;
 using MUI.Web.Fixtures;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Tests;
 
@@ -64,10 +67,122 @@ public class AccountSurfaceTests
 
         var body = Render.Words(await host.Client.GetStringAsync("/account"));
 
-        await Assert.That(body).Contains("Accounts need a database");
-        await Assert.That(body).DoesNotContain("Sign in");
-        await Assert.That(body).DoesNotContain("give up this claim");
+        // The fact, through the bundle, rather than a pasted sentence: the claim is that this page
+        // says the one thing and offers neither the way in nor a write surface, and it goes on
+        // being that claim when somebody rewords the copy.
+        await Assert.That(body).Contains(En("account.noDatabase"));
+        await Assert.That(body).DoesNotContain(En("account.signInButton"));
+        await Assert.That(body).DoesNotContain(En("account.resign.summary"));
     }
+
+    /// <summary>One message in the source language, as it reads once rendered.</summary>
+    private static string En(string id) => Render.Words(Messages.For(Locales.SourceTag, id));
+
+    /// <summary>
+    /// A placed sentence in the source language, with its slots filled as the page fills them.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Sentence.Place"/> hands back runs and markers so the markup can choose an element
+    /// per slot; a test wants the sentence a reader ends up with. Reassembling it here means these
+    /// assertions read the same bundle the page does — the alternative is a pasted English string,
+    /// which is exactly what this pass exists to remove.
+    /// </remarks>
+    private static string EnPlaced(
+        string id,
+        IReadOnlyDictionary<string, string> fills,
+        params (string Key, object? Value)[] args) =>
+        Render.Words(string.Concat(Sentence
+            .Place(Locales.SourceTag, id, [.. fills.Keys], args)
+            .Select(part => part.Slot is null ? part.Text : fills[part.Slot])));
+
+    /// <summary>
+    /// Every word of the sign-in page comes out of the message bundle.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Both branches, because they are two different pages: over the demo fixture it is one sentence
+    /// saying there is nothing to sign in to, and behind a database it is the whole passkey
+    /// explanation — and the second was never rendered by any test at all, so it could have drifted
+    /// into English without anything noticing.
+    /// </para>
+    /// <para>
+    /// The pseudolocale is the instrument: it accents and brackets anything that reached a reader
+    /// through <see cref="Messages"/>, so an English sentence surviving here is one typed into the
+    /// markup. Asserted against the English render rather than against pasted strings, so this keeps
+    /// holding when the copy is edited.
+    /// </para>
+    /// </remarks>
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task EveryWordOfSigningInComesFromTheBundle(bool withDatabase)
+    {
+        var english = Render.Words(await SignInAsync(Locales.SourceTag, withDatabase));
+        var pseudo = Render.Words(await SignInAsync("qps-ploc", withDatabase));
+
+        await Assert.That(pseudo).Contains("⟦");
+
+        // Which page this is, asserted rather than assumed: a harness that failed to register
+        // identity would render the one-sentence branch twice and the loop below would pass on a
+        // page nobody had looked at.
+        await Assert.That(english.Contains(
+                Messages.For(Locales.SourceTag, "account.store.heading"), StringComparison.Ordinal))
+            .IsEqualTo(withDatabase);
+
+        await Assert.That(english.Contains(
+                Messages.For(Locales.SourceTag, "account.signIn.noDatabase"), StringComparison.Ordinal))
+            .IsEqualTo(!withDatabase);
+
+        // Every sentence of the English page, absent from the same page in another language.
+        //
+        // Argument-free ids only, and that costs this sweep nothing: the sign-in page says no
+        // message that takes one. The `account.` prefix now also covers the owner dashboard, whose
+        // sentences name a game, a date or a count — and a pattern cannot be rendered at all
+        // without its arguments, so including them here would throw rather than assert.
+        foreach (var id in Sayable("account."))
+        {
+            var sentence = Render.Words(Messages.For(Locales.SourceTag, id));
+
+            if (!english.Contains(sentence, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            await Assert.That(pseudo)
+                .DoesNotContain(sentence)
+                .Because($"{id} is rendered as English whatever language the page was asked for");
+        }
+    }
+
+    /// <summary>
+    /// The sign-in page, in one locale, with or without a database behind it.
+    /// </summary>
+    /// <remarks>
+    /// The locale arrives the way the middleware leaves it — in <c>HttpContext.Items</c> — because
+    /// that is what the page reads. Identity is registered only for the second case, which is
+    /// exactly the condition the page itself branches on.
+    /// </remarks>
+    private static Task<string> SignInAsync(string tag, bool withDatabase) =>
+        Render.ComponentAsync<MUI.Web.Components.Pages.SignIn>([], services =>
+        {
+            services.AddLogging();
+            services.AddSingleton(new MUI.Web.Data.CatalogueSource(IsMeasured: withDatabase));
+
+            var context = new DefaultHttpContext();
+            context.Items[LocaleRouting.ItemKey] =
+                new LocaleContext(Locales.Find(tag)!, FromPath: tag != Locales.SourceTag);
+            services.AddCascadingValue(_ => context);
+
+            if (!withDatabase)
+            {
+                return;
+            }
+
+            services.AddHttpContextAccessor();
+            services.AddAuthentication();
+            services.AddSingleton<IUserStore<MuiUser>>(new Accounts([], FixtureGameQueries.Now));
+            services.AddIdentityCore<MuiUser>().AddSignInManager();
+        });
 
     /// <summary>A signed-out visitor is offered the way in and nothing else.</summary>
     [Test]
@@ -77,7 +192,7 @@ public class AccountSurfaceTests
 
         await Assert.That(markup).Contains("/account/sign-in");
         await Assert.That(markup).DoesNotContain("<form");
-        await Assert.That(Render.Words(markup)).DoesNotContain("Claimed");
+        await Assert.That(Render.Words(markup)).DoesNotContain(En("account.claimed.heading"));
     }
 
     /// <summary>An account with nothing claimed is told where to start.</summary>
@@ -87,9 +202,20 @@ public class AccountSurfaceTests
         var markup = await World.New().SignedIn().RenderAsync();
         var words = Render.Words(markup);
 
-        await Assert.That(words).Contains("You have not claimed anything yet");
+        // The whole sentence, reassembled from the bundle including the two runs the markup turns
+        // into a link and an emphasis — so this holds on the words a reader gets rather than on
+        // the fragments the markup happens to be split into. Read off the visible text, because a
+        // placed sentence has elements inside it.
+        await Assert.That(Render.Text(markup)).Contains(EnPlaced(
+            "account.empty.body",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["listing"] = En("account.empty.listing"),
+                ["claimControl"] = En("account.empty.claimControl"),
+            }));
+
         await Assert.That(words).Contains("/games");
-        await Assert.That(words).DoesNotContain("Waiting on a token");
+        await Assert.That(words).DoesNotContain(En("account.pending.heading"));
         await Assert.That(markup).DoesNotContain("resign");
     }
 
@@ -100,11 +226,11 @@ public class AccountSurfaceTests
         var markup = await World.New().SignedIn().Pending(Mush).RenderAsync();
         var words = Render.Words(markup);
 
-        await Assert.That(words).Contains("Waiting on a token");
+        await Assert.That(words).Contains(En("account.pending.heading"));
         await Assert.That(markup).Contains("/g/m-u-s-h/claim");
 
         // Pending is not owning: none of the owner surfaces appear for it.
-        await Assert.That(words).DoesNotContain("Claimed");
+        await Assert.That(words).DoesNotContain(En("account.claimed.heading"));
         await Assert.That(markup).DoesNotContain("badge.svg");
     }
 
@@ -122,7 +248,7 @@ public class AccountSurfaceTests
         var markup = await World.New().SignedIn().Verified(Ashen).RenderAsync();
         var words = Render.Words(markup);
 
-        await Assert.That(words).Contains("Claimed");
+        await Assert.That(words).Contains(En("account.claimed.heading"));
         await Assert.That(markup).Contains("/g/ashen-court");
 
         // §8.5's enrichment, through OwnerPanel.
@@ -136,7 +262,7 @@ public class AccountSurfaceTests
         await Assert.That(markup).Contains("/g/ashen-court/mssp");
         await Assert.That(markup).Contains("/g/ashen-court/badge.svg");
         await Assert.That(markup).Contains("/g/ashen-court/badge.json");
-        await Assert.That(words).Contains("history");
+        await Assert.That(words).Contains(En("account.history.summary"));
         await Assert.That(markup).Contains("/resign");
     }
 
@@ -185,11 +311,19 @@ public class AccountSurfaceTests
         var markup = await World.New().SignedIn().Verified(Ashen).CoOwnedBy("thistle").RenderAsync();
         var words = Render.Words(markup);
 
-        await Assert.That(words).Contains("Also owned by thistle");
-        await Assert.That(words).Contains("verified a token of their own");
+        // One co-owner, so the message's `one` branch — which is a different sentence from the
+        // plural in English and in most languages, and naming the branch is the point.
+        await Assert.That(words).Contains(
+            Render.Words(Messages.Say(
+                Locales.SourceTag, "account.claim.coOwners", ("count", 1), ("names", "thistle"))));
 
         // The resign copy is the one that differs when somebody else holds the game too.
-        await Assert.That(words).Contains("the game stays claimed if anybody else owns it");
+        await Assert.That(Render.Text(markup)).Contains(EnPlaced(
+            "account.resign.confirm",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["word"] = OwnershipWrites.ResignConfirmation,
+            }));
     }
 
     /// <summary>A sole owner sees no co-owner line at all.</summary>
@@ -198,7 +332,10 @@ public class AccountSurfaceTests
     {
         var words = Render.Words(await World.New().SignedIn().Verified(Ashen).RenderAsync());
 
-        await Assert.That(words).DoesNotContain("Also owned by");
+        // The whole rendered line for one co-owner, which cannot appear when there are none.
+        await Assert.That(words).DoesNotContain(
+            Render.Words(Messages.Say(
+                Locales.SourceTag, "account.claim.coOwners", ("count", 1), ("names", "thistle"))));
     }
 
     // ── the status banner ─────────────────────────────────────────────────────
@@ -213,11 +350,15 @@ public class AccountSurfaceTests
     /// branch — so every arm is driven here, by the querystring the redirect actually carries.
     /// </remarks>
     [Test]
-    [Arguments("?saved={game}&did=fields", "now shows it as owner-declared")]
-    [Arguments("?saved={game}&did=screen-hidden", "stopped republishing")]
-    [Arguments("?saved={game}&did=screen-shown", "connect screen is on its page again")]
-    [Arguments("?resigned=1", "Given up.")]
-    [Arguments("?refused=CODEBASE&because=NotEnrichable", "CODEBASE was not changed")]
+    [Arguments("?saved={game}&did=fields", "account.saved.fields")]
+    [Arguments("?saved={game}&did=screen-hidden", "account.saved.screenHidden")]
+    [Arguments("?saved={game}&did=screen-shown", "account.saved.screenShown")]
+    [Arguments("?saved={game}&did=crawl-stopped", "account.saved.crawlStopped")]
+    [Arguments("?saved={game}&did=crawl-resumed", "account.saved.crawlResumed")]
+    [Arguments("?saved={game}&did=unlisted", "account.saved.unlisted")]
+    [Arguments("?saved={game}&did=relisted", "account.saved.relisted")]
+    [Arguments("?resigned=1", "account.resigned.lead")]
+    [Arguments("?refused=CODEBASE&because=NotEnrichable", "account.refused.lead")]
     public async Task EveryOutcomeReportsTheActionThatHappened(string query, string expected)
     {
         var words = Render.Words(await World.New()
@@ -225,8 +366,18 @@ public class AccountSurfaceTests
             .Verified(Ashen)
             .RenderAsync(query.Replace("{game}", Ashen.ToString(), StringComparison.Ordinal)));
 
-        await Assert.That(words).Contains(expected);
+        // The id rather than a pasted fragment, so a reworded banner still has to be the banner for
+        // the action that happened. The four §11 and listing arms were added to OwnerWrites and
+        // never to this table, which is the exact omission the remark above describes — the switch
+        // had already reported the wrong branch once for the same reason.
+        //
+        // Both arguments are supplied to every arm; a pattern that names neither ignores them.
+        await Assert.That(words).Contains(Render.Words(Messages.Say(
+            Locales.SourceTag, expected, ("game", AshenName), ("field", "CODEBASE"))));
     }
+
+    /// <summary>The fixture game's own name, which the banner quotes and never translates.</summary>
+    private const string AshenName = "Ashen Court";
 
     /// <summary>
     /// Two outcomes at once is one banner, and it is the one the chain says it is.
@@ -244,12 +395,154 @@ public class AccountSurfaceTests
             .Verified(Ashen)
             .RenderAsync($"?resigned=1&saved={Ashen}&did=fields&refused=CODEBASE"));
 
-        await Assert.That(words).Contains("Given up.");
-        await Assert.That(words).DoesNotContain("now shows it as owner-declared");
-        await Assert.That(words).DoesNotContain("was not changed");
+        await Assert.That(words).Contains(En("account.resigned.lead"));
+        await Assert.That(words).DoesNotContain(Render.Words(
+            Messages.Say(Locales.SourceTag, "account.saved.fields", ("game", AshenName))));
+        await Assert.That(words).DoesNotContain(Render.Words(
+            Messages.Say(Locales.SourceTag, "account.refused.lead", ("field", "CODEBASE"))));
     }
 
+    // ── the language the dashboard is answered in ─────────────────────────────
+
+    /// <summary>
+    /// Every word of the dashboard comes out of the bundle, on the fullest page it has.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The pseudolocale is the instrument, as it is for the sign-in page: it accents and brackets
+    /// anything that reached a reader through <see cref="Messages"/>, so an English sentence
+    /// surviving here is one somebody typed into the markup. Driven on a verified claim with a
+    /// co-owner and a banner, because that is the state that renders the owner panel, the badge
+    /// block, the audit log and the resignation form — most of this page's words are in there.
+    /// </para>
+    /// <para>
+    /// What stays English is named rather than tolerated: a game's name, an operator's chosen
+    /// display name, a field name out of the registry, the confirmation word the form compares
+    /// against, the badge's own text and an ISO stamp. Every one of those is machine voice, and
+    /// translating any of them would break the thing it names.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task EveryWordOfTheDashboardComesFromTheBundle()
+    {
+        var english = Render.Text(await Full(Locales.SourceTag));
+        var pseudo = Render.Text(await Full("qps-ploc"));
+
+        await Assert.That(pseudo).Contains("⟦");
+
+        // The page really is the full one, rather than a guard branch rendered twice.
+        await Assert.That(english).Contains(En("account.claimed.heading"));
+        await Assert.That(english).Contains(En("owner.crawl.heading"));
+
+        foreach (var id in Sayable("account.", "owner."))
+        {
+            var sentence = Render.Words(Messages.For(Locales.SourceTag, id));
+
+            if (!english.Contains(sentence, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            await Assert.That(pseudo)
+                .DoesNotContain(sentence)
+                .Because($"{id} is rendered as English whatever language the page was asked for");
+        }
+    }
+
+    /// <summary>
+    /// A German request gets German wherever German exists, and the machine voice survives it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Gated on <see cref="Messages.HasOwn"/> rather than on a list of ids, and that is the
+    /// point.</b> This page's own ids are new and the four satellites are translated in one round
+    /// afterwards, so today most of them fall back to English — which is the designed behaviour and
+    /// not a failure. Naming ids here would either freeze that state in or fail the moment the
+    /// translations land. Asking the bundle instead means the assertion is "German where there is
+    /// German", which is true now and stays true as each id is translated.
+    /// </para>
+    /// <para>
+    /// The counter proves it is not vacuous: the owner panel already renders the provenance word,
+    /// which is translated, so this has real German to find today.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AGermanRequestGetsGermanOnTheDashboard()
+    {
+        var english = Render.Text(await Full(Locales.SourceTag));
+        var german = Render.Text(await Full("de"));
+
+        var translated = 0;
+
+        // The provenance family joins by the one id these pages render, not by prefix: the others
+        // carry the bare word "measured", which occurs inside half the sentences on this page and
+        // would match as a substring rather than as the chip the panel promises.
+        foreach (var id in Sayable("account.", "owner.").Append("provenance.game.ownerDeclared"))
+        {
+            var en = Render.Words(Messages.For(Locales.SourceTag, id));
+            var de = Render.Words(Messages.For("de", id));
+
+            // An id that fell back has nothing to assert, and a word German spells the same way
+            // proves nothing either way.
+            if (!Messages.HasOwn("de", id)
+                || string.Equals(en, de, StringComparison.Ordinal)
+                || !english.Contains(en, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            await Assert.That(german).Contains(de).Because($"{id} is not answered in German");
+
+            translated++;
+        }
+
+        await Assert.That(translated)
+            .IsGreaterThan(0)
+            .Because("no id on this page has German yet, so this test asserted nothing");
+
+        // The page is answered in German rather than merely served under a German tag.
+        await Assert.That(german).IsNotEqualTo(english);
+
+        // A fallback shows the English and never the id. That is the one failure mode a reader
+        // cannot recover from — English inside a German sentence tells them something true, and
+        // `account.title` on the page tells them the site is broken.
+        foreach (var id in Sayable("account.", "owner.").Where(i => !Messages.HasOwn("de", i)))
+        {
+            await Assert.That(german).DoesNotContain(id).Because($"{id} reached a reader as its id");
+        }
+
+        // Machine voice is untouched: the game's name and the confirmation word are not translated.
+        await Assert.That(german).Contains(AshenName);
+        await Assert.That(german).Contains(OwnershipWrites.ResignConfirmation);
+    }
+
+    /// <summary>Ids under these prefixes that can be rendered without arguments.</summary>
+    /// <remarks>
+    /// A pattern cannot be formatted at all without the arguments it names, so a sweep that walks
+    /// whole sentences has to leave those out. It costs little: the parameterised ids on these
+    /// pages are the ones carrying a game's name, a date or a count, and each has its own test.
+    /// </remarks>
+    private static IEnumerable<string> Sayable(params string[] prefixes) =>
+        Messages.Ids
+            .Where(i => prefixes.Any(p => i.StartsWith(p, StringComparison.Ordinal)))
+            .Where(i => !IcuMessage.Compile(Messages.Pattern(Locales.SourceTag, i)!).Arguments().Any());
+
+    /// <summary>The dashboard in one locale, in the state that renders the most of it.</summary>
+    private static Task<string> Full(string tag) =>
+        World.New()
+            .In(tag)
+            .SignedIn()
+            .Verified(Ashen)
+            .CoOwnedBy("thistle")
+            .RenderAsync($"?saved={Ashen}&did=fields");
+
     /// <summary>An enrichment refusal names the field and says which rule refused it.</summary>
+    /// <remarks>
+    /// The two reasons are different sentences and must not be swapped: one says an answer was too
+    /// long, the other says the field is measured and that nobody edits a measurement, us included.
+    /// A refusal that gave the second reason for the first cause would be the site claiming a rule
+    /// it does not have.
+    /// </remarks>
     [Test]
     public async Task ARefusalOverLengthSaysSoRatherThanBlamingTheField()
     {
@@ -258,9 +551,15 @@ public class AccountSurfaceTests
             .Verified(Ashen)
             .RenderAsync("?refused=FANDOM&because=TooLong"));
 
-        await Assert.That(words).Contains("FANDOM was not changed");
-        await Assert.That(words).Contains($"{OwnerEnrichment.MaxValueLength} characters");
-        await Assert.That(words).DoesNotContain("That field is measured");
+        await Assert.That(words).Contains(Render.Words(
+            Messages.Say(Locales.SourceTag, "account.refused.lead", ("field", "FANDOM"))));
+
+        await Assert.That(words).Contains(Render.Words(Messages.Say(
+            Locales.SourceTag,
+            "account.refused.tooLong",
+            ("max", OwnerEnrichment.MaxValueLength.ToString(CultureInfo.InvariantCulture)))));
+
+        await Assert.That(words).DoesNotContain(En("account.refused.measured"));
     }
 
     // ── the routes the page posts to ──────────────────────────────────────────
@@ -363,8 +662,22 @@ public class AccountSurfaceTests
         private readonly List<GameClaim> _claims = [];
 
         private bool _signedIn;
+        private string _tag = Locales.SourceTag;
 
         public static World New() => new();
+
+        /// <summary>
+        /// The locale the request was answered in, as the middleware leaves it.
+        /// </summary>
+        /// <remarks>
+        /// In <c>HttpContext.Items</c> rather than on a thread's culture, because that is where the
+        /// page reads it from — every surface here is handed its locale rather than inferring one.
+        /// </remarks>
+        public World In(string tag)
+        {
+            _tag = tag;
+            return this;
+        }
 
         public World SignedIn()
         {
@@ -442,7 +755,7 @@ public class AccountSurfaceTests
                 services.AddSingleton(new OwnerEnrichment(
                     claims, fields, new FieldReconciler(fields), FieldRegistry.Instance, new Frozen(Now)));
 
-                services.AddSingleton<IUserStore<MuiUser>>(new Accounts(_accounts));
+                services.AddSingleton<IUserStore<MuiUser>>(new Accounts(_accounts, Now));
                 services.AddIdentityCore<MuiUser>();
             });
 
@@ -456,9 +769,12 @@ public class AccountSurfaceTests
             ExpiresAt = Now.AddDays(20),
         };
 
-        private static HttpContext Context(MuiUser? user)
+        private HttpContext Context(MuiUser? user)
         {
             var context = new DefaultHttpContext();
+
+            context.Items[LocaleRouting.ItemKey] =
+                new LocaleContext(Locales.Find(_tag)!, FromPath: _tag != Locales.SourceTag);
 
             if (user is not null)
             {
@@ -599,79 +915,5 @@ public class AccountSurfaceTests
             DateTimeOffset at,
             CancellationToken ct = default) =>
             Task.FromResult<string?>(null);
-    }
-
-    /// <summary>
-    /// Enough of a user store to find an account and list its passkeys.
-    /// </summary>
-    /// <remarks>
-    /// Identity's <c>UserManager</c> is a concrete type over a store interface, so a page that calls
-    /// it needs one. This is persistence rather than authorisation: which account the page is for
-    /// comes from the cascaded principal, and what that account may see comes from the claim store.
-    /// </remarks>
-    private sealed class Accounts(List<MuiUser> users) : IUserStore<MuiUser>, IUserPasskeyStore<MuiUser>
-    {
-        public Task<MuiUser?> FindByIdAsync(string id, CancellationToken ct) =>
-            Task.FromResult(users.FirstOrDefault(u => u.Id.ToString() == id));
-
-        public Task<string> GetUserIdAsync(MuiUser user, CancellationToken ct) =>
-            Task.FromResult(user.Id.ToString());
-
-        public Task<string?> GetUserNameAsync(MuiUser user, CancellationToken ct) =>
-            Task.FromResult<string?>(user.DisplayName);
-
-        public Task<string?> GetNormalizedUserNameAsync(MuiUser user, CancellationToken ct) =>
-            Task.FromResult<string?>(user.NormalisedName);
-
-        public Task<MuiUser?> FindByNameAsync(string name, CancellationToken ct) =>
-            Task.FromResult(users.FirstOrDefault(u => u.NormalisedName == name));
-
-        public Task SetUserNameAsync(MuiUser user, string? name, CancellationToken ct) => Task.CompletedTask;
-
-        public Task SetNormalizedUserNameAsync(MuiUser user, string? name, CancellationToken ct) =>
-            Task.CompletedTask;
-
-        public Task<IdentityResult> CreateAsync(MuiUser user, CancellationToken ct) =>
-            Task.FromResult(IdentityResult.Success);
-
-        public Task<IdentityResult> UpdateAsync(MuiUser user, CancellationToken ct) =>
-            Task.FromResult(IdentityResult.Success);
-
-        public Task<IdentityResult> DeleteAsync(MuiUser user, CancellationToken ct) =>
-            Task.FromResult(IdentityResult.Success);
-
-        public Task AddOrUpdatePasskeyAsync(MuiUser user, UserPasskeyInfo passkey, CancellationToken ct) =>
-            Task.CompletedTask;
-
-        public Task<IList<UserPasskeyInfo>> GetPasskeysAsync(MuiUser user, CancellationToken ct) =>
-            Task.FromResult<IList<UserPasskeyInfo>>(
-            [
-                new UserPasskeyInfo(
-                    [1, 2, 3],
-                    [4, 5, 6],
-                    Now.AddYears(-1),
-                    0u,
-                    ["internal"],
-                    true,
-                    true,
-                    true,
-                    [],
-                    [])
-                {
-                    Name = "the yubikey in the drawer",
-                },
-            ]);
-
-        public Task<MuiUser?> FindByPasskeyIdAsync(byte[] id, CancellationToken ct) =>
-            Task.FromResult<MuiUser?>(null);
-
-        public Task<UserPasskeyInfo?> FindPasskeyAsync(MuiUser user, byte[] id, CancellationToken ct) =>
-            Task.FromResult<UserPasskeyInfo?>(null);
-
-        public Task RemovePasskeyAsync(MuiUser user, byte[] id, CancellationToken ct) => Task.CompletedTask;
-
-        public void Dispose()
-        {
-        }
     }
 }

@@ -3,6 +3,8 @@ using Microsoft.Extensions.Primitives;
 
 using MUI.Catalog.Persistence;
 
+using MUI.Web.Localization;
+
 namespace MUI.Web.Accounts;
 
 /// <summary>
@@ -102,7 +104,8 @@ public static class OwnerWrites
                 return Results.StatusCode(StatusCodes.Status403Forbidden);
             }
 
-            return Landing(await enrichment.ApplyAsync(gameId, user.Id, EditsIn(form)), gameId, Saved.Fields);
+            return Landing(
+                context, await enrichment.ApplyAsync(gameId, user.Id, EditsIn(form)), gameId, Saved.Fields);
         });
 
         // §11: suppressed on owner request, no questions asked. One button, no reason field, and no
@@ -122,6 +125,7 @@ public static class OwnerWrites
             var suppress = string.Equals(form["suppress"], "true", StringComparison.Ordinal);
 
             return Landing(
+                context,
                 await enrichment.SetConnectScreenSuppressedAsync(gameId, user.Id, suppress),
                 gameId,
                 suppress ? Saved.ScreenHidden : Saved.ScreenShown);
@@ -157,13 +161,13 @@ public static class OwnerWrites
 
             return outcome.Verdict switch
             {
-                OwnerOptOutVerdict.Applied => Results.Redirect(
+                OwnerOptOutVerdict.Applied => Back(context,
                     $"{Dashboard}?saved={gameId}&did={(stop ? Saved.Stopped : Saved.Resumed)}"),
                 OwnerOptOutVerdict.NotAnOwner => Results.StatusCode(StatusCodes.Status403Forbidden),
 
                 // Out loud, because the failure mode of saying nothing here is an owner who believes
                 // we have stopped crawling them and has not been told we never had an address to stop.
-                _ => Results.Redirect(
+                _ => Back(context,
                     $"{Dashboard}?refused=crawl&because={OwnerOptOutVerdict.NoAddresses}"),
             };
         });
@@ -190,10 +194,10 @@ public static class OwnerWrites
 
             return outcome.Verdict switch
             {
-                OwnerListingVerdict.Applied => Results.Redirect(
+                OwnerListingVerdict.Applied => Back(context,
                     $"{Dashboard}?saved={gameId}&did={(unlist ? Saved.Unlisted : Saved.Relisted)}"),
                 OwnerListingVerdict.NotAnOwner => Results.StatusCode(StatusCodes.Status403Forbidden),
-                _ => Results.Redirect(
+                _ => Back(context,
                     $"{Dashboard}?refused=listing&because={OwnerListingVerdict.NotOptedOut}"),
             };
         });
@@ -208,12 +212,25 @@ public static class OwnerWrites
     /// correct arrives back on the dashboard naming the field, which is §8.5's out-loud refusal: a
     /// silent no-op teaches an owner that the site is broken.
     /// </remarks>
-    private static IResult Landing(EnrichmentOutcome outcome, Guid gameId, string what) => outcome.Verdict switch
+    private static IResult Landing(
+        HttpContext context, EnrichmentOutcome outcome, Guid gameId, string what) => outcome.Verdict switch
     {
-        EnrichmentVerdict.Applied => Results.Redirect($"{Dashboard}?saved={gameId}&did={what}"),
+        EnrichmentVerdict.Applied => Back(context, $"{Dashboard}?saved={gameId}&did={what}"),
         EnrichmentVerdict.NotAnOwner => Results.StatusCode(StatusCodes.Status403Forbidden),
-        _ => Results.Redirect(
+        _ => Back(context,
             $"{Dashboard}?refused={Uri.EscapeDataString(outcome.Field ?? string.Empty)}"
             + $"&because={Uri.EscapeDataString(outcome.Verdict.ToString())}"),
     };
+
+    /// <summary>
+    /// The dashboard the operator came from, in the language they were reading it in.
+    /// </summary>
+    /// <remarks>
+    /// The form they posted carries this locale in its own action, so the request has one — and a
+    /// redirect that dropped it would answer a German operator's saved edit with an English page.
+    /// Same rule as every link on the site, applied where the address is a header rather than an
+    /// attribute; in the source locale it is the string it always was.
+    /// </remarks>
+    private static IResult Back(HttpContext context, string path) =>
+        Results.Redirect(LocaleRouting.Link(context.LocaleOf().Tag, path));
 }

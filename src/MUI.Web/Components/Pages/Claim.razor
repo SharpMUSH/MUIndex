@@ -4,6 +4,7 @@
 @using MUI.Catalog.Persistence
 @using MUI.Discovery
 @using MUI.Web.Accounts
+@using MUI.Web.Localization
 @inject IServiceProvider Services
 @inject TimeProvider Clock
 
@@ -20,28 +21,28 @@
     access to that server published it, and the account this claim is bound to answers who asked.
 *@
 
-<SitePreview Title="@($"Claim {Game?.Name ?? Slug}")" Data="false"
-             Description="Prove you run this game by publishing a token where only its operator could put it." />
+@* The game's name is its own bytes and goes into the message as an argument, not as text a
+   translator could edit — the same rule that keeps a hostname out of the bundle. *@
+<SitePreview Title="@PreviewCopy.Titles.Claim(Tag, Game?.Name ?? Slug)" Data="false"
+             Description="@PreviewCopy.Pages.Claim(Tag)" />
 
 @if (Game is null)
 {
-    <section class="prose"><h1>No such game</h1></section>
+    <section class="prose"><h1>@L("claim.noGame")</h1></section>
 }
 else if (Claims is null)
 {
     <section class="prose">
-        <h1>Claim @Game.Name</h1>
-        <p>Claiming needs a database behind it, and this site is running on the demo fixture.</p>
+        <h1>@Title</h1>
+        <p>@L("claim.noDatabase")</p>
     </section>
 }
 else if (User is null)
 {
     <section class="prose">
-        <h1>Claim @Game.Name</h1>
-        <p>
-            You need an account first. It takes a passkey and a name.
-        </p>
-        <p><a class="button" href="/account/sign-in">Sign in or create an account</a></p>
+        <h1>@Title</h1>
+        <p>@L("claim.needAccount")</p>
+        <p><a class="button" href="@HttpContext.Link("/account/sign-in")">@L("claim.signIn")</a></p>
     </section>
 }
 else if (Pending is null)
@@ -53,114 +54,146 @@ else if (Pending is null)
         choice is made before the token exists, by the person who knows which they mean.
     *@
     <section class="prose">
-        <h1>Claim @Game.Name</h1>
+        <h1>@Title</h1>
 
-        <p>
-            This game already has @(Owners.Count == 1 ? "an owner" : $"{Owners.Count} owners") who
-            proved control of the server. You can prove it too — the test is the same either way —
-            but we need to know what you mean by it, because we cannot tell from the token.
-        </p>
+        @*
+            The owner count agrees inside the message rather than being chosen here: picking
+            "an owner" or "3 owners" in C# is an English plural rule compiled into a page, and the
+            languages with three or six forms have nowhere to put the rest.
+        *@
+        <p>@Say("claim.hasOwners", ("count", Owners.Count))</p>
 
-        <form method="post" action="/g/@Slug/claim/start">
+        <form method="post" action="@HttpContext.Link($"/g/{Slug}/claim/start")">
             <AntiforgeryToken />
             <input type="hidden" name="intent" value="join" />
-            <button type="submit">I run it too — add me as an owner</button>
-            <p class="faint">
-                Everyone keeps their claim. This is two people running one game.
-            </p>
+            <button type="submit">@L("claim.join.button")</button>
+            <p class="faint">@L("claim.join.note")</p>
         </form>
 
-        <form method="post" action="/g/@Slug/claim/start">
+        <form method="post" action="@HttpContext.Link($"/g/{Slug}/claim/start")">
             <AntiforgeryToken />
             <input type="hidden" name="intent" value="assume" />
-            <button type="submit">I have taken it over — transfer it to me</button>
-            <p class="faint">
-                When your token verifies, the existing @(Owners.Count == 1 ? "claim is" : "claims are")
-                revoked and the game is yours. They will see why in their own history. Nothing is
-                deleted, and they can prove control again the same way you are about to.
-            </p>
+            <button type="submit">@L("claim.assume.button")</button>
+            <p class="faint">@Say("claim.assume.note", ("count", Owners.Count))</p>
         </form>
     </section>
 }
 else
 {
     <section class="prose">
-        <h1>Claim @Game.Name</h1>
+        <h1>@Title</h1>
 
         @if (Pending!.IsVerified)
         {
+            @*
+                What we read, and where we read it — a fact about our records rather than about the
+                game. Two ids and not one sentence with the channel slotted into it: "from the
+                game's MSSP report" and "from the connect screen" take different prepositions and
+                different cases in the languages that have them.
+            *@
             <p class="verified">
-                <strong>Verified.</strong> We read your token from
-                @(Pending.VerifiedVia == ClaimChannel.Mssp ? "the game's MSSP report" : "the connect screen")
-                on @Pending.ClaimedAt!.Value.ToString("d MMMM yyyy").
+                <strong>@L("claim.verified.lead")</strong>
+                @Say(
+                    Pending.VerifiedVia == ClaimChannel.Mssp
+                        ? "claim.verified.viaMssp"
+                        : "claim.verified.viaScreen",
+                    ("date", Dates.Absolute(Tag, Pending.ClaimedAt!.Value)))
             </p>
-            <p>
-                Leave the token where it is. It doubles as an identity signal, so this game stays
-                recognisable if it moves host or changes name. Removing it will not un-claim you.
-            </p>
-            <p><a href="/account">Your games</a></p>
+            <p>@L("claim.verified.leaveIt")</p>
+            <p><a href="@HttpContext.Link("/account")">@L("claim.yourGames")</a></p>
         }
         else
         {
-            <p>
-                Publish this token anywhere the game shows it to an anonymous connection. The next
-                probe picks it up, which proves you can write to that server.
-            </p>
+            <p>@L("claim.publish")</p>
 
             @if (Pending.Intent is ClaimIntent.Assume)
             {
                 <p class="refused">
-                    <strong>This is a transfer.</strong> When we read this token, the
-                    @(Owners.Count == 1 ? "current owner's claim" : "current owners' claims") on this
-                    game are revoked and it becomes yours.
+                    <strong>@L("claim.transfer.lead")</strong>
+                    @Say("claim.transfer.body", ("count", Owners.Count))
                 </p>
             }
 
-            <p class="token mono">@Pending.Token</p>
+            @*
+                The token itself. translate="no" for the reason a hostname carries it: translating
+                it would destroy the evidence rather than localize anything, and what an operator
+                pastes into their config has to be these exact bytes in every language.
+            *@
+            <p class="token mono" translate="no">@Pending.Token</p>
 
-            <h2>Either of these will do</h2>
+            <h2>@L("claim.either.heading")</h2>
 
-            <h3>An MSSP variable</h3>
+            <h3>@L("claim.mssp.heading")</h3>
             <pre class="mono">@ClaimTokenBeacon.MsspVariable @Pending.Token</pre>
+            @*
+                Every name in these two sentences is machine voice and is placed rather than
+                translated: a codebase string, a config file name, and the variables a probe
+                actually looks for. The accepted spellings come from ClaimTokenBeacon rather than
+                being retyped here — two lists that must agree is one list that eventually does not.
+            *@
+            @*
+                Each sentence sits in its own <span>. Razor drops the whitespace on a line that
+                opens a code block, so a bare @foreach beside a sibling sentence renders as
+                "…has an equivalent.MUINDEX_CLAIM…". Between elements the space is ordinary markup.
+            *@
             <p class="faint">
-                In PennMUSH that is a line in <code>mush.cnf</code>; every codebase with MSSP has an
-                equivalent. <code>MUINDEX_CLAIM</code> and <code>CONTACT_TOKEN</code> are accepted too.
+                <span>
+                    @foreach (var part in Sentence.Place(Tag, "claim.mssp.note", ["codebase", "file"]))
+                    {
+                        @if (part.Slot is "codebase")
+                        {
+                            <span translate="no">PennMUSH</span>
+                        }
+                        else if (part.Slot is "file")
+                        {
+                            <code translate="no">mush.cnf</code>
+                        }
+                        else
+                        {
+                            @part.Text
+                        }
+                    }
+                </span>
+                <span>
+                    @foreach (var part in Sentence.Place(Tag, "claim.mssp.aliases", ["aliases"]))
+                    {
+                        @if (part.Slot is "aliases")
+                        {
+                            for (var i = 0; i < Aliases.Count; i++)
+                            {
+                                if (i > 0)
+                                {
+                                    <text>, </text>
+                                }
+
+                                <code translate="no">@Aliases[i]</code>
+                            }
+                        }
+                        else
+                        {
+                            @part.Text
+                        }
+                    }
+                </span>
             </p>
 
-            <h3>A line on the connect screen</h3>
+            <h3>@L("claim.screen.heading")</h3>
             <pre class="mono">@ClaimTokenBeacon.ConnectScreenPrefix @Pending.Token</pre>
-            <p class="faint">
-                Anywhere in the screen, and colour codes around it are fine.
-            </p>
+            <p class="faint">@L("claim.screen.note")</p>
 
-            <h2>Then</h2>
-            <p>
-                We check on the ordinary crawl schedule. This token is good until
-                @Pending.ExpiresAt.ToString("d MMMM yyyy"). Come back any time; nothing needs
-                writing down.
-            </p>
+            <h2>@L("claim.then.heading")</h2>
+            <p>@Say("claim.then.body", ("date", Dates.Absolute(Tag, Pending.ExpiresAt)))</p>
 
-            <form method="post" action="/g/@Slug/claim/check">
+            <form method="post" action="@HttpContext.Link($"/g/{Slug}/claim/check")">
                 <AntiforgeryToken />
-                <button type="submit" disabled="@(!CanCheck)">Look sooner</button>
+                <button type="submit" disabled="@(!CanCheck)">@L("claim.check.button")</button>
                 @*
                     It moves your game to the front of the crawl queue; the crawler still does the
                     dialling, on its own schedule and under CRAWL DELAY. Saying it "dials a real
                     server" was both an overstatement and — for as long as nothing moved the
                     schedule — a description of something that did not happen at all.
                 *@
-                <span class="faint">
-                    @if (CanCheck)
-                    {
-                        @("Brings your game to the front of the queue. We dial on our own schedule, "
-                            + "so this is sooner rather than now.")
-                    }
-                    else
-                    {
-                        @("Just asked. Try again in a few minutes — it is rationed because it dials a "
-                            + "real server sooner than we would have.")
-                    }
-                </span>
+                <span class="faint">@L(CanCheck ? "claim.check.can" : "claim.check.rationed")</span>
             </form>
         }
     </section>
@@ -241,4 +274,33 @@ else
 
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }
+
+    private string Tag => HttpContext.LocaleOf().Tag;
+
+    private string L(string id) => Messages.For(Tag, id);
+
+    private string Say(string id, params (string Key, object? Value)[] args) =>
+        Messages.Say(Tag, id, args);
+
+    /// <summary>
+    /// The heading, with the game's name placed by the message.
+    /// </summary>
+    /// <remarks>
+    /// A separate id from <c>preview.title.claim</c> even though the English is identical: that one
+    /// is a noun phrase in a browser tab and this is the first line of a document, and the
+    /// languages that decline the two differently have nowhere to stand if they share an id.
+    /// </remarks>
+    private string Title => Say("claim.title", ("game", Game!.Name));
+
+    /// <summary>
+    /// The other MSSP variable names a probe accepts, as the crawler spells them.
+    /// </summary>
+    /// <remarks>
+    /// Read from <see cref="ClaimTokenBeacon.AcceptedMsspVariables"/> rather than retyped into the
+    /// markup, which is where they were: the page listed two of the three by hand, so adding a
+    /// fourth spelling to the parser would have left this page quietly telling operators about a
+    /// set that no longer matched. The first entry is the one printed in full above.
+    /// </remarks>
+    private static IReadOnlyList<string> Aliases =>
+        [.. ClaimTokenBeacon.AcceptedMsspVariables.Skip(1)];
 }

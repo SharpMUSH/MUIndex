@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Localization;
+
 using MUI.Catalog;
 using MUI.Crawler;
 using MUI.Web.Accounts;
@@ -6,6 +8,7 @@ using MUI.Web.Components;
 using MUI.Web.Data;
 using MUI.Web.Fixtures;
 using MUI.Web.Icons;
+using MUI.Web.Localization;
 using MUI.Web.Submissions;
 using MUI.Web.Theme;
 
@@ -51,6 +54,9 @@ public static class SiteComposition
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddRazorComponents();
+
+        // The chrome's own words, before anything that renders them.
+        services.AddMuiLocalization();
 
         // The read API (spec §10) reads through the same IGameQueries the pages do, so the two
         // surfaces cannot disagree about a fact. What it adds of its own — the dataset licence, the
@@ -113,6 +119,25 @@ public static class SiteComposition
     }
 
     /// <summary>
+    /// The resource set the chrome's strings are read from.
+    /// </summary>
+    /// <remarks>
+    /// The arrangement SharpMUSH's portal uses for its own chrome — <c>AddLocalization</c> over a
+    /// <c>Resources</c> folder, resolved through a marker class, with the SDK compiling one
+    /// satellite assembly per culture and no <c>&lt;EmbeddedResource&gt;</c> entries anywhere. What
+    /// differs is the values: theirs are composite-format strings and these are ICU patterns,
+    /// because <c>{0}</c> substitutes and cannot agree. See <see cref="Localization.Messages"/>.
+    /// </remarks>
+    public static IServiceCollection AddMuiLocalization(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddLocalization(options => options.ResourcesPath = "Resources");
+
+        return services;
+    }
+
+    /// <summary>
     /// The middleware and the routes, in the order they have to be in.
     /// </summary>
     /// <remarks>
@@ -128,6 +153,18 @@ public static class SiteComposition
         // a header anybody may write — and the one thing that reads a client address here is a rate
         // limit.
         app.UseSubmitterAddress();
+
+        // Before anything routes, because the locale is a path segment and every @page directive is
+        // written without it: the middleware moves the prefix into PathBase so one route table
+        // serves every language. It is also before the not-found page, so a mistyped URL inside a
+        // locale is answered in that locale rather than in English.
+        app.UseMuiLocale();
+
+        // Explicit, and that is load-bearing rather than tidy: with no UseRouting call of its own an
+        // app gets one inserted at the very top of the pipeline, which resolved the endpoint before
+        // the middleware above had rewritten the path — so every localized URL 404'd while the
+        // unprefixed one worked. Naming it here is what puts routing after the rewrite.
+        app.UseRouting();
 
         // A reader who mistyped a URL, and a crawler indexing one, both got a 404 with an empty body:
         // the <NotFound> fragment inside <Router> is never rendered under static server rendering, so
@@ -167,6 +204,10 @@ public static class SiteComposition
         // Outside the guard above, because it writes a cookie and nothing else: a reader of the demo
         // deployment has the same eyes as a reader of the real one.
         app.MapMuiTheme();
+
+        // Beside the theme endpoint and for the same reason: it writes a cookie and redirects, and
+        // a reader of the demo deployment reads the same language as a reader of the real one.
+        app.MapMuiLocale();
 
         // §5.7, and before the route that would answer with "not found": a slug this game used to
         // have is a URL somebody is still holding, and it redirects to the page it has now —

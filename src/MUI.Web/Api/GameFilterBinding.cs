@@ -65,6 +65,8 @@ public static class GameFilterBinding
 
         if (!TryBand(read, out var band, out error)
             || !TryLastSeen(read, out var seen, out error)
+            || !TryToggle(read, FacetKeys.Uncounted, out var uncounted, out error)
+            || !TryToggle(read, FacetKeys.Unreachable, out var unreachable, out error)
             || !TrySort(read, out var sort, out error))
         {
             return false;
@@ -101,6 +103,8 @@ public static class GameFilterBinding
             Tls = Truthy.Is(read(FacetKeys.Tls)),
             Band = band,
             LastSeen = seen,
+            Uncounted = uncounted,
+            Unreachable = unreachable,
             Charset = Choice(read, FacetKeys.Charset),
             Codebase = codebase,
             CodebaseVersion = Choice(read, FacetKeys.CodebaseVersion),
@@ -147,6 +151,52 @@ public static class GameFilterBinding
         var value = read(key).ToString();
 
         return string.IsNullOrWhiteSpace(value) ? null : FacetChoice.Parse(value.Trim());
+    }
+
+    /// <summary>
+    /// One of the two measurement switches: <c>yes</c>, <c>!yes</c>, or not asked.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Refused rather than ignored, like <c>band</c> and <c>seen</c> and unlike the open-ended
+    /// facets. Its vocabulary is one word, so anything else is a typo rather than a value the
+    /// catalogue happens not to hold — and a typo silently narrowing a listing to nothing would hand
+    /// a consumer an empty answer to read as "no game is uncounted", which is our own parser
+    /// published as a measurement.
+    /// </para>
+    /// <para>
+    /// <c>~unknown</c> is accepted because <see cref="FacetChoice"/> means something by it here: the
+    /// games this facet has no value for, which is every game that is <em>not</em> uncounted. It is a
+    /// spelling of <c>!yes</c> and lands on the same set rather than being a second question.
+    /// </para>
+    /// </remarks>
+    private static bool TryToggle(
+        Func<string, StringValues> read,
+        string key,
+        out FacetChoice? choice,
+        out string? error)
+    {
+        choice = null;
+        error = null;
+        var text = read(key).ToString();
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return true;
+        }
+
+        var parsed = FacetChoice.Parse(text.Trim());
+
+        if (!parsed.IsUnknown && !string.Equals(parsed.Value, FacetTokens.Yes, StringComparison.OrdinalIgnoreCase))
+        {
+            error = $"'{text}' is not a value of '{key}'. "
+                + $"Accepted: {FacetTokens.Yes}, {FacetChoice.ExcludeToken}{FacetTokens.Yes}, "
+                + $"{FacetChoice.UnknownToken}.";
+            return false;
+        }
+
+        choice = parsed;
+        return true;
     }
 
     private static bool TryBand(Func<string, StringValues> read, out ActivityBand? band, out string? error)

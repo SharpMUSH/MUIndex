@@ -1,6 +1,8 @@
 using System.Collections.Frozen;
 using System.Reflection;
 
+using MUI.Web.Localization;
+
 namespace MUI.Web.Reference;
 
 /// <summary>
@@ -54,15 +56,81 @@ public sealed class ReferenceLibrary
     /// </summary>
     public static ReferenceLibrary Shipped { get; } = Load(typeof(ReferenceLibrary).Assembly);
 
-    public static ReferenceLibrary Load(Assembly assembly)
+    /// <summary>
+    /// The library a reader in this locale gets: their language where we have it, English where we
+    /// do not.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A translation supplies prose and nothing else.</b> The document handed out is the English
+    /// record with its title, summary and body replaced — so the slug, the kind, the
+    /// <c>see-also</c> graph, the protocol name and the upstream link come from one file in one
+    /// language, whatever a translator does to their copy. A slug is a URL and a URL has one page;
+    /// this makes that true by construction rather than by asking forty files to agree.
+    /// </para>
+    /// <para>
+    /// An article with no translation is served in English rather than withheld. The alternative is
+    /// a reference section that is missing pages in four languages, and a missing page is worse
+    /// than a page in the wrong language: one of them still answers the question.
+    /// </para>
+    /// </remarks>
+    public static ReferenceLibrary For(string tag)
+    {
+        ArgumentNullException.ThrowIfNull(tag);
+
+        return Localized.GetOrAdd(tag, static t =>
+        {
+            if (string.Equals(t, Locales.SourceTag, StringComparison.OrdinalIgnoreCase))
+            {
+                return Shipped;
+            }
+
+            var translated = Load(typeof(ReferenceLibrary).Assembly, t)
+                .Documents.ToDictionary(d => d.Path, StringComparer.OrdinalIgnoreCase);
+
+            return new ReferenceLibrary(
+            [
+                .. Shipped.Documents.Select(english =>
+                    translated.TryGetValue(english.Path, out var localized)
+                        ? english with
+                        {
+                            Title = localized.Title,
+                            Summary = localized.Summary,
+                            Body = localized.Body,
+                        }
+                        : english),
+            ]);
+        });
+    }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, ReferenceLibrary> Localized =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    public static ReferenceLibrary Load(Assembly assembly) => Load(assembly, tag: null);
+
+    /// <param name="tag">
+    /// The locale directory to read, or null for the English articles at the top level. The two are
+    /// told apart by the resource name: a translation carries its tag as a segment before the file
+    /// name, so <c>…reference.de.protocol-mssp.md</c> is German and <c>…reference.protocol-mssp.md</c>
+    /// is the source.
+    /// </param>
+    public static ReferenceLibrary Load(Assembly assembly, string? tag)
     {
         ArgumentNullException.ThrowIfNull(assembly);
+
+        // MSBuild builds a manifest name out of the file's path and replaces what cannot appear in
+        // an identifier, so `content/reference/zh-Hans/` is embedded as `…reference.zh_Hans.…`. The
+        // tag is BCP-47 and its only such character is the dash. Without this, Chinese was the one
+        // locale whose articles loaded and were never found — three locales working is exactly the
+        // evidence that hides it, which is why the test below names zh-Hans rather than "a locale".
+        var prefix = tag is null ? ".reference." : $".reference.{tag.Replace('-', '_')}.";
 
         var documents = new List<ReferenceDocument>();
 
         foreach (var resource in assembly.GetManifestResourceNames()
-            .Where(n => n.Contains(".reference.", StringComparison.Ordinal)
-                && n.EndsWith(".md", StringComparison.Ordinal))
+            .Where(n => n.Contains(prefix, StringComparison.OrdinalIgnoreCase)
+                && n.EndsWith(".md", StringComparison.Ordinal)
+                && (tag is not null || !IsLocalized(n)))
             .Order(StringComparer.Ordinal))
         {
             using var stream = assembly.GetManifestResourceStream(resource)
@@ -83,6 +151,24 @@ public sealed class ReferenceLibrary
         }
 
         return new ReferenceLibrary([.. documents.OrderBy(d => d.Kind).ThenBy(d => d.Title, StringComparer.OrdinalIgnoreCase)]);
+    }
+
+    /// <summary>
+    /// Whether a resource name names a translation rather than a source article.
+    /// </summary>
+    /// <remarks>
+    /// The file names carry dashes and never dots, so everything between <c>.reference.</c> and
+    /// <c>.md</c> is one segment for a source article and two for a translation — and the extra
+    /// segment is the tag. <c>zh-Hans</c> survives that because its dash is not a separator here.
+    /// </remarks>
+    private static bool IsLocalized(string resource)
+    {
+        const string Marker = ".reference.";
+
+        var start = resource.IndexOf(Marker, StringComparison.Ordinal) + Marker.Length;
+        var rest = resource[start..^".md".Length];
+
+        return rest.Contains('.', StringComparison.Ordinal);
     }
 
     public IReadOnlyList<ReferenceDocument> OfKind(ReferenceKind kind) =>

@@ -1,5 +1,6 @@
 using MUI.Catalog;
 using MUI.Web.Components;
+using MUI.Web.Localization;
 using MUI.Web.Reference;
 
 namespace MUI.Web.Tests;
@@ -194,16 +195,27 @@ public class ReferenceContentTests
 /// The plain rendering of every reference page, which is the test of whether the section is
 /// communicating anything at all.
 /// </summary>
+/// <remarks>
+/// Rendered in the source locale here and asserted through <see cref="Messages"/> rather than
+/// against English literals: what these guard is that the state survives as a word at all, and a
+/// test spelling the word itself would have to be edited every time a translator is allowed to
+/// choose a better one. <see cref="ReferenceLocalizationTests"/> is where the language is the
+/// subject.
+/// </remarks>
 public class ReferencePlainTests
 {
     private static readonly ReferenceLibrary Library = ReferenceLibrary.Shipped;
+
+    private const string Tag = Locales.SourceTag;
+
+    private static string Word(CapabilityState state) => ClientCapabilities.Word(Tag, state);
 
     [Test]
     public async Task EveryReferencePageHasAPlainRendering()
     {
         foreach (var document in Library.Documents)
         {
-            var text = ReferencePlainText.Render(document, related: Library.Related(document));
+            var text = ReferencePlainText.Render(Tag, document, related: Library.Related(document));
 
             await Assert.That(text).Contains(document.Title.ToUpperInvariant());
             await Assert.That(text.Length).IsGreaterThan(document.Summary.Length);
@@ -214,11 +226,14 @@ public class ReferencePlainTests
     public async Task AClientMatrixSurvivesInWordsWithUnknownSpelledOut()
     {
         var mudlet = Library.Find(ReferenceKind.Client, "mudlet")!;
-        var text = ReferencePlainText.Render(mudlet);
+        var text = ReferencePlainText.Render(Tag, mudlet);
 
-        await Assert.That(text).Contains("screen reader    yes");
-        await Assert.That(text).Contains("MCCP             unknown");
-        await Assert.That(text).Contains("It never means no.");
+        await Assert.That(text).Contains($"screen reader    {Word(CapabilityState.Present)}");
+        await Assert.That(text).Contains($"MCCP             {Word(CapabilityState.Unknown)}");
+
+        // The caveat quotes the same word the cells use, and says what it does not mean.
+        await Assert.That(Render.Words(text))
+            .Contains(Render.Words(ReferencePlainText.ClientMatrixCaveat(Tag)));
     }
 
     [Test]
@@ -228,11 +243,11 @@ public class ReferencePlainTests
         // reason this surface exists.
         foreach (var document in Library.OfKind(ReferenceKind.Client))
         {
-            var text = ReferencePlainText.Render(document);
+            var text = ReferencePlainText.Render(Tag, document);
 
             foreach (var claim in ClientCapabilities.For(document).Where(c => c.State is CapabilityState.Unknown))
             {
-                await Assert.That(text).Contains($"{claim.Name,-16} unknown");
+                await Assert.That(text).Contains($"{claim.Name,-16} {Word(CapabilityState.Unknown)}");
             }
         }
     }
@@ -241,23 +256,32 @@ public class ReferencePlainTests
     public async Task ThePlainProtocolPageSaysWhatTheRemainderIsNot()
     {
         var gmcp = Library.Find(ReferenceKind.Protocol, "gmcp")!;
-        var text = ReferencePlainText.Render(gmcp, protocol: new ProtocolFigures(3, 10, []));
+        var text = ReferencePlainText.Render(Tag, gmcp, protocol: new ProtocolFigures(3, 10, []));
 
-        await Assert.That(text).Contains("3 of 10 listed games were observed offering it");
-        await Assert.That(Render.Words(text)).Contains("not games without the protocol");
+        await Assert.That(Render.Words(text)).Contains(Render.Words(Messages.Say(
+            Tag,
+            "reference.plain.protocol.share",
+            ("offering", 3),
+            ("listed", 10),
+            ("percent", Wording.Percent(0.3)))));
+
+        // Rule 5: the games not counted are not games without the protocol.
+        await Assert.That(Render.Words(text))
+            .Contains(Render.Words(ReferencePlainText.ProtocolRemainderCaveat(Tag)));
     }
 
     [Test]
     public async Task ThePlainIndexListsEverySectionItHas()
     {
-        var text = ReferencePlainText.RenderIndex(Library);
+        var text = ReferencePlainText.RenderIndex(Tag, Library);
 
-        foreach (var heading in new[] { "START HERE", "CODEBASES", "CLIENTS", "PROTOCOLS" })
+        foreach (var kind in Enum.GetValues<ReferenceKind>())
         {
-            await Assert.That(text).Contains(heading);
+            await Assert.That(text).Contains(ReferencePlainText.Heading(Tag, kind).ToUpperInvariant());
         }
 
-        await Assert.That(Render.Words(text)).Contains("This is not a wiki");
+        await Assert.That(Render.Words(text))
+            .Contains(Render.Words(Messages.For(Tag, "reference.plain.lede")));
     }
 
     [Test]
@@ -268,7 +292,7 @@ public class ReferencePlainTests
         // has to fit.
         foreach (var document in Library.Documents)
         {
-            var text = ReferencePlainText.Render(document, related: Library.Related(document));
+            var text = ReferencePlainText.Render(Tag, document, related: Library.Related(document));
 
             foreach (var line in text.Split('\n').Select(l => l.TrimEnd()))
             {

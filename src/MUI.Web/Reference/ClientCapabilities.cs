@@ -1,4 +1,5 @@
 using MUI.Catalog;
+using MUI.Web.Localization;
 
 namespace MUI.Web.Reference;
 
@@ -65,13 +66,20 @@ public static class ClientCapabilities
     }
 
     /// <summary>
-    /// The word for a state. Never a glyph on its own, and <em>unknown</em> is spelled out rather
-    /// than left blank: a blank cell reads as a no to a human exactly as it does to a parser.
+    /// The word for a state, in the reader's language. Never a glyph on its own, and
+    /// <em>unknown</em> is spelled out rather than left blank: a blank cell reads as a no to a human
+    /// exactly as it does to a parser.
     /// </summary>
-    public static string Word(CapabilityState state) => state switch
+    /// <remarks>
+    /// Three ids rather than three literals, and they are this table's own rather than the game
+    /// pages' capability words: those answer <em>was it offered on a wire</em> and these answer
+    /// <em>does the project's documentation say so</em>. A locale that let the third collapse into
+    /// the second would publish our own failure to find a page as the client lacking the feature.
+    /// </remarks>
+    public static string Word(string tag, CapabilityState state) => Messages.For(tag, state switch
     {
-        CapabilityState.Present => "yes",
-        CapabilityState.Absent => "no",
-        _ => "unknown",
-    };
+        CapabilityState.Present => "reference.capability.yes",
+        CapabilityState.Absent => "reference.capability.no",
+        _ => "reference.capability.unknown",
+    });
 }

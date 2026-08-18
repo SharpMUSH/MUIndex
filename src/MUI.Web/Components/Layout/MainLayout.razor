@@ -1,10 +1,11 @@
 @inherits LayoutComponentBase
 @using MUI.Web.Data
+@using MUI.Web.Localization
 @inject CatalogueSource Catalogue
 
 @* A connect screen is a figure a reader may want past in one keystroke, so the page needs somewhere
    for that keystroke to land. *@
-<a class="skip" href="#content">skip to content</a>
+<a class="skip" href="#content">@L("a11y.skipToContent")</a>
 
 @*
     A site whose whole claim is that its data is measured may not show invented data silently. This
@@ -14,23 +15,69 @@
 @if (!Catalogue.IsMeasured)
 {
     <p class="demo-banner" role="status">
-        <strong>Demo data.</strong> No database is configured, so this is a fixture. Nothing here was
-        measured.
+        <strong>@L("banner.demo.lead")</strong> @L("banner.demo")
     </p>
 }
 
+@*
+    Nine links in one flat row, in no order anybody could name, and no mark on the one you were
+    reading. They are two ideas and two odd ones out: games · archive · find · random are places to
+    browse, reference · ecosystem · rankings are things to read about the hobby — and submit is an
+    action rather than a category, about is site meta. The first two are labelled groups, the last
+    two moved to the far end beside sign in, where a reader looks for what to *do*.
+*@
+<div class="shell">
 <header class="site">
-    <a class="mark mono" href="/">mu<span class="star">*</span>index</a>
-    <nav aria-label="Catalogues">
-        <a href="/games">games</a>
-        <a href="/archive">archive</a>
-        <a href="/find">find a game</a>
-        <a href="/games/random">random</a>
-        <a href="/reference">reference</a>
-        <a href="/ecosystem">ecosystem</a>
-        <a href="/rankings">rankings</a>
-        <a href="/submit">submit</a>
-        <a href="/about">about</a>
+    <a class="mark" href="@HttpContext.Link("/")">mu<span class="star">*</span>index</a>
+    @*
+        The bar degrades through a defined order rather than through whatever flexbox decides
+        (i18n S2): group labels first, then submit's border, then both groups into one disclosure.
+        Width triggers each step, never language — a German reader on a wide monitor never leaves
+        step 0 and an English reader in a narrow window reaches step 2.
+
+        Every destination survives all three steps. That is what makes the disclosure a `details`
+        holding the same seven links rather than a shorter bar: a step that dropped a link would be
+        a navigation that changes what the site contains depending on the window.
+    *@
+    @*
+        **Every link exists exactly once.** Step 3 is a disclosure wrapping the same two groups, not
+        a second copy of them beside the first — a duplicate set would put two `aria-current="page"`
+        markers in one document and hand a screen reader the catalogue twice. Above the collapse
+        width the summary is hidden and the disclosure's content is forced visible, so one markup is
+        a bar on a laptop and a menu on a phone with no script and no second rendering.
+    *@
+    <nav class="site-nav" aria-label="@L("nav.catalogues")">
+        <details class="nav-menu">
+            <summary>@L("nav.menu") <span aria-hidden="true">▾</span></summary>
+            <div class="menu-panel">
+                <span class="nav-group" role="group" aria-label="@L("nav.browse")">
+                    <span class="nav-label" aria-hidden="true">@L("nav.browse")</span>
+                    @Item("/games", L("nav.games"))
+                    @Item("/find", L("nav.find"))
+                    @Item("/games/random", L("nav.random"))
+                    @Item("/archive", L("nav.archive"))
+                </span>
+                <span class="nav-rule" aria-hidden="true"></span>
+                <span class="nav-group" role="group" aria-label="@L("nav.learn")">
+                    <span class="nav-label" aria-hidden="true">@L("nav.learn")</span>
+                    @Item("/reference", L("nav.reference"))
+                    @Item("/ecosystem", L("nav.ecosystem"))
+                    @Item("/rankings", L("nav.rankings"))
+                </span>
+
+                @*
+                    Step 4. On a phone the right cluster runs out of room too, so submit comes in
+                    here rather than being dropped — the rule is still that a step loses decoration
+                    and never a destination. About and sign in stay in the bar: the first is two
+                    words, and the second is the only item at that end that changes what the site
+                    will let a reader do.
+                *@
+                <span class="menu-tail">
+                    <span class="nav-label" aria-hidden="true">@L("nav.thisSite")</span>
+                    <a href="@HttpContext.Link("/submit")">@L("nav.submitGame")</a>
+                </span>
+            </div>
+        </details>
     </nav>
     @*
         The account, in a slot of its own rather than as a tenth entry above — that list names places
@@ -41,14 +88,16 @@
         connect-screen decision, the opt-out. All of them rendered, tested and reachable only by
         somebody who remembered to type /account.
     *@
-    <nav class="account" aria-label="Your account">
+    <nav class="account" aria-label="@L("nav.account")">
+        @Item("/about", L("nav.about"))
+        <a class="action" href="@HttpContext.Link("/submit")">@L("nav.submit")</a>
         @if (HttpContext?.User is { Identity.IsAuthenticated: true })
         {
-            <a href="/account">your games</a>
+            <a class="action primary" href="@HttpContext.Link("/account")">@L("nav.yourGames")</a>
         }
         else
         {
-            <a href="/account/sign-in">sign in</a>
+            <a class="action primary" href="@HttpContext.Link("/account/sign-in")">@L("nav.signIn")</a>
         }
     </nav>
     @*
@@ -58,8 +107,72 @@
     <ThemeToggle />
 </header>
 <main id="content">@Body</main>
+</div>
 
 @code {
+    /// <summary>
+    /// One nav item, marked when it is the page being read.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>aria-current="page"</c> is the fact; the underline is the drawing of it. The marker is an
+    /// inset box-shadow rather than a border or a padding change, because either of those adds a
+    /// pixel to the item's box and shifts every link beside it the moment it becomes current — a
+    /// bar that moves when you arrive is a bar you cannot aim at.
+    /// </para>
+    /// <para>
+    /// A section matches its own root and everything under it, so a reference article marks
+    /// "reference" — but "/" matches only itself, or every item on the site would be current on the
+    /// home page.
+    /// </para>
+    /// <para>
+    /// <b>The item is named by the path it has in every language and written in the one this page
+    /// is being read in.</b> Those are two different strings and only the first can be compared
+    /// against the request: the middleware moves the locale into <c>PathBase</c>, so
+    /// <c>Request.Path</c> on <c>/de/games</c> is <c>/games</c> — and a nav that marked the current
+    /// page by its written form would mark nothing at all outside English.
+    /// </para>
+    /// </remarks>
+    private RenderFragment Item(string href, string text) =>
+        @<a href="@HttpContext.Link(href)" class="@(IsCurrent(href) ? "on" : null)"
+            aria-current="@(IsCurrent(href) ? "page" : null)">@text</a>;
+
+    /// <summary>
+    /// Every destination this bar offers, longest first, so the most specific match wins.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two items were marked at once.</b> A section matches its own root and everything under it,
+    /// which is what makes a reference article mark "reference" — but <c>/games/random</c> is its own
+    /// destination in the same bar, so standing on it matched <c>/games</c> as well and a screen
+    /// reader was handed two "current page" markers in one document. `aria-current` names the page
+    /// you are on, and there is one of those.
+    /// </remarks>
+    private static readonly string[] Destinations =
+    [
+        .. new[] { "/games/random", "/games", "/find", "/archive", "/reference", "/ecosystem", "/rankings", "/about", "/" }
+            .OrderByDescending(d => d.Length),
+    ];
+
+    private bool IsCurrent(string href)
+    {
+        var path = HttpContext?.Request.Path.Value?.TrimEnd('/');
+
+        if (string.IsNullOrEmpty(path))
+        {
+            path = "/";
+        }
+
+        // The best match, not merely a match: the first destination this path sits under is the one
+        // that gets the marker, and every shorter one that also contains it gets nothing.
+        var best = Destinations.FirstOrDefault(d => Matches(d, path));
+
+        return best is not null && best == href;
+
+        static bool Matches(string destination, string path) => destination == "/"
+            ? path == "/"
+            : path == destination || path.StartsWith(destination + "/", StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// The request, for the one question this layout asks it: is anybody signed in.
     /// </summary>
@@ -71,4 +184,7 @@
     /// </remarks>
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }
+
+    /// <summary>One message, in the locale this request is being answered in.</summary>
+    private string L(string id) => Messages.For(HttpContext.LocaleOf().Tag, id);
 }

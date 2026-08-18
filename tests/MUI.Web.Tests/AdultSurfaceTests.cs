@@ -1,3 +1,4 @@
+using MUI.Web.Localization;
 using MUI.Catalog;
 using MUI.Web.Api;
 using MUI.Web.Components;
@@ -70,23 +71,37 @@ public class AdultSurfaceTests
     {
         // Drawn on every request, ticked or not. A default whose only undo appears once you have
         // already undone it is a default a reader cannot find, and this one hides games silently.
+        //
+        // A link now rather than a checkbox waiting on a submit button: the panel's "show" button
+        // is gone, so a control that only armed itself would be one nothing could fire.
         foreach (var filter in new[] { Listing(), Listing($"?{FacetKeys.Adult}=true") })
         {
             var html = await PanelAsync(filter);
 
-            await Assert.That(html).Contains($"name=\"{FacetKeys.Adult}\"");
-            await Assert.That(Render.Words(html)).Contains("include adult");
+            // The control, whichever way it is set. Its href is the *other* position, so asserting
+            // on a fixed URL would only ever find one of the two states — which is how a control
+            // that vanished once it had been used would pass a test.
+            await Assert.That(html).Contains("adult content,");
+            await Assert.That(Render.Words(html)).Contains("adult");
         }
     }
 
     [Test]
-    public async Task TheTickedBoxIsCheckedWhenTheUrlAsksForThem()
+    public async Task TheSwitchSaysWhichWayItIsSetAndLinksToTheOther()
     {
-        // The URL is the whole of this page's state, so a shared link has to come back with the box
-        // in the position that produced it.
-        await Assert.That(await PanelAsync(Listing())).DoesNotContain($"name=\"{FacetKeys.Adult}\" value=\"true\" checked");
-        await Assert.That(await PanelAsync(Listing($"?{FacetKeys.Adult}=1")))
-            .Contains($"name=\"{FacetKeys.Adult}\" value=\"true\" checked");
+        // The URL is the whole of this page's state, so a shared link has to come back with the
+        // switch in the position that produced it — and the way out has to be the other position.
+        var off = await PanelAsync(Listing());
+        var on = await PanelAsync(Listing($"?{FacetKeys.Adult}=1"));
+
+        // Off: says so, and its link turns them on.
+        await Assert.That(off).Contains("adult content, hidden");
+        await Assert.That(off).Contains($"href=\"/games?{FacetKeys.Adult}=true\"");
+
+        // On: says so, and its link is the one that clears the key rather than setting it false —
+        // the address a reader copies says only what they asked for.
+        await Assert.That(on).Contains("adult content, shown");
+        await Assert.That(on).DoesNotContain($"href=\"/games?{FacetKeys.Adult}=true\"");
     }
 
     [Test]
@@ -96,9 +111,16 @@ public class AdultSurfaceTests
 
         var filter = Listing(Query);
         var listing = await Queries.SearchAsync(filter);
-        var chip = ActiveFilters.For(listing.Facets, filter, Query).Single(c => c.Facet is "adult");
 
-        await Assert.That(chip.Value).IsEqualTo("included");
+        // Both halves of the chip come out of the bundle now, so this asks the bundle what they say
+        // rather than repeating the English. The fact under test is unchanged and is not wording:
+        // the chip for this key exists, it says the key is included, and its link takes it back off.
+        var chips = ActiveFilters.For(Locales.SourceTag, listing.Facets, filter, Query);
+        var chip = chips.Single(
+            c => c.Facet == FacetWords.Group(Locales.SourceTag, FacetKeys.Adult));
+
+        await Assert.That(chip.Value)
+            .IsEqualTo(Messages.For(Locales.SourceTag, "facet.value.included"));
         await Assert.That(chip.RemoveHref).DoesNotContain(FacetKeys.Adult);
     }
 

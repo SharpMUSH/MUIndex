@@ -68,10 +68,12 @@ public class ReferenceFiguresTests
         await Assert.That(figures.Known).IsEqualTo(0);
 
         var page = Library.Find(ReferenceKind.Codebase, "pennmush")!;
-        var text = MUI.Web.Components.ReferencePlainText.Render(page, codebase: figures);
+        var text = MUI.Web.Components.ReferencePlainText.Render(
+            MUI.Web.Localization.Locales.SourceTag, page, codebase: figures);
 
-        await Assert.That(Render.Words(text)).Contains("None yet");
-        await Assert.That(Render.Words(text)).Contains("not about what exists");
+        await Assert.That(Render.Words(text)).Contains(Render.Words(
+            MUI.Web.Localization.Messages.For(
+                MUI.Web.Localization.Locales.SourceTag, "reference.plain.codebase.none")));
     }
 
     [Test]

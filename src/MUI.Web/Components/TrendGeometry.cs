@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text;
 
+using MUI.Web.Localization;
+
 namespace MUI.Web.Components;
 
 /// <summary>One column of the trend chart — a day, and the strip of canvas it owns.</summary>
@@ -188,7 +190,7 @@ public static class TrendGeometry
     }
 
     /// <summary>Counted days with no counted neighbour, which no path can carry.</summary>
-    public static IReadOnlyList<TrendDot> Dots(TrendSeries series)
+    public static IReadOnlyList<TrendDot> Dots(string tag, TrendSeries series)
     {
         var ceiling = Ceiling(series);
 
@@ -197,7 +199,7 @@ public static class TrendGeometry
             .Select(run => new TrendDot(
                 X(run[0]),
                 Y(run[0].Day.Average ?? 0, ceiling),
-                run[0].Day.Label))
+                run[0].Day.Label(tag)))
             .ToList();
     }
 
@@ -207,10 +209,10 @@ public static class TrendGeometry
     /// measured zero — which is the collapse of §5.4's middle state into a filled cell, and the
     /// worst bug this codebase can ship. It sits in its own gutter and the legend names it.
     /// </remarks>
-    public static IReadOnlyList<TrendTick> Ticks(TrendSeries series) =>
+    public static IReadOnlyList<TrendTick> Ticks(string tag, TrendSeries series) =>
         Columns(series)
             .Where(c => c.Day.IsUncountable)
-            .Select(c => new TrendTick(c.X, c.Width, c.Day.Label))
+            .Select(c => new TrendTick(c.X, c.Width, c.Day.Label(tag)))
             .ToList();
 
     /// <summary>
@@ -223,7 +225,7 @@ public static class TrendGeometry
     /// sixty month names into a grey smear. The exact ends of the range are printed as words above
     /// the chart, so thinning here loses nothing.
     /// </remarks>
-    public static IReadOnlyList<TrendMonth> Months(TrendSeries series)
+    public static IReadOnlyList<TrendMonth> Months(string tag, TrendSeries series)
     {
         var apart = Width / 9;
         var months = new List<TrendMonth>();
@@ -240,7 +242,7 @@ public static class TrendGeometry
                 continue;
             }
 
-            months.Add(new TrendMonth(column.X, column.X / Width, Month(column.Day.Date)));
+            months.Add(new TrendMonth(column.X, column.X / Width, Month(tag, column.Day.Date)));
         }
 
         return months;
@@ -357,8 +359,21 @@ public static class TrendGeometry
         return b.ToString().TrimEnd();
     }
 
-    private static string Month(DateOnly date) =>
-        date.Month == 1 ? date.ToString("MMM yyyy") : date.ToString("MMM");
+    /// <summary>
+    /// A rule's label: the month, and the year as well where the calendar turns over.
+    /// </summary>
+    /// <remarks>
+    /// Through the message pipeline rather than <c>ToString("MMM")</c>, which reads the month name
+    /// off whatever culture the thread happens to be under — the request's, in one place, and the
+    /// invariant one in the headless renderer and the tests. The pattern carries the date style, so
+    /// a locale that writes the year first says so in its own copy instead of being given an
+    /// English ordering with translated words in it.
+    /// </remarks>
+    private static string Month(string tag, DateOnly date) =>
+        Messages.For(
+            tag,
+            date.Month == 1 ? "trend.axis.monthYear" : "trend.axis.month",
+            new Dictionary<string, object?>(StringComparer.Ordinal) { ["d"] = date });
 
     private static double Y(double value, int ceiling) =>
         Baseline - (value / ceiling * (Baseline - TopPad));

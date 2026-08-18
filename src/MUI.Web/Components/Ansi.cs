@@ -1,3 +1,5 @@
+using System.Buffers;
+using System.Globalization;
 using System.Text;
 
 namespace MUI.Web.Components;
@@ -25,14 +27,45 @@ public static class Ansi
     /// <summary>The grid the art was drawn for. Games assume it; scaling breaks the box-drawing.</summary>
     public const int Columns = 80;
 
-    /// <summary>How much of a screen the page shows before it asks the reader to open the rest.</summary>
-    public const int CropRows = 24;
-
-    /// <summary>Past this the screen is unusual enough that the caption says so as well as cropping.</summary>
-    public const int OversizeRows = 200;
-
     /// <summary>Below this there is not enough screen to be worth a frame, so the hero collapses.</summary>
     public const int MinimumRows = 3;
+
+    /// <summary>
+    /// How many terminal cells one rune occupies: two, one, or none.
+    /// </summary>
+    /// <remarks>
+    /// This is the arithmetic a terminal does, and it is per rune rather than per screen. A row of
+    /// seventy-nine ASCII characters ending in one Han glyph is eighty-one cells wide, and no single
+    /// flag over the whole screen can say so — a caption that halves everything because one wide
+    /// rune appeared somewhere reports forty for that row, which is the wrong number for anybody
+    /// trying to redraw it faithfully (i18n S4).
+    /// </remarks>
+    public static int CellWidth(Rune rune) => Rune.GetUnicodeCategory(rune) switch
+    {
+        // A combining mark is drawn onto the cell before it and claims none of its own.
+        UnicodeCategory.NonSpacingMark or UnicodeCategory.EnclosingMark => 0,
+        _ => IsWide(rune) ? 2 : 1,
+    };
+
+    /// <summary>
+    /// The East Asian Wide and Fullwidth ranges, which is what "two cells" means in practice.
+    /// </summary>
+    public static bool IsWide(Rune rune) => rune.Value switch
+    {
+        >= 0x1100 and <= 0x115f => true,        // Hangul Jamo initial consonants
+        >= 0x2e80 and <= 0x303e => true,        // CJK radicals, Kangxi, CJK symbols
+        >= 0x3041 and <= 0x33ff => true,        // kana, Hangul compatibility, CJK compatibility
+        >= 0x3400 and <= 0x4dbf => true,        // CJK extension A
+        >= 0x4e00 and <= 0x9fff => true,        // CJK unified ideographs
+        >= 0xa000 and <= 0xa4cf => true,        // Yi
+        >= 0xac00 and <= 0xd7a3 => true,        // Hangul syllables
+        >= 0xf900 and <= 0xfaff => true,        // CJK compatibility ideographs
+        >= 0xfe30 and <= 0xfe6f => true,        // CJK compatibility forms
+        >= 0xff00 and <= 0xff60 => true,        // fullwidth forms
+        >= 0xffe0 and <= 0xffe6 => true,        // fullwidth signs
+        >= 0x20000 and <= 0x3fffd => true,      // CJK extensions B and beyond
+        _ => false,
+    };
 
     private const char Escape = '\u001b';
 
@@ -121,7 +154,7 @@ public static class Ansi
                     var stop = ((column / 8) + 1) * 8;
                     while (column < stop && column < Columns)
                     {
-                        Append(' ');
+                        Append(" ", 1);
                     }
 
                     continue;
@@ -132,7 +165,25 @@ public static class Ansi
             // part of the picture and are dropped rather than rendered as replacement glyphs.
             if (!char.IsControl(c))
             {
-                Append(c);
+                // A rune at a time, not a UTF-16 unit at a time. The width model beside this counts
+                // terminal cells — two for a wide glyph, none for a combining mark — and a loop that
+                // advanced once per char disagreed with it three ways: a CJK screen wrapped after
+                // eighty runes, which is a hundred and sixty cells; an astral rune counted twice for
+                // the two units it is stored in; and a combining mark claimed a cell it never draws
+                // in. The wrap has to be where the terminal put it or the picture is not the one the
+                // game sent.
+                if (Rune.DecodeFromUtf16(raw.AsSpan(i), out var rune, out var consumed)
+                    is OperationStatus.Done)
+                {
+                    Append(raw.AsSpan(i, consumed), CellWidth(rune));
+                    i += consumed - 1;
+                }
+                else
+                {
+                    // Lone surrogate: not a rune, so it has no width the terminal agrees on. Kept
+                    // as the byte the game sent rather than dropped or replaced (rule 5).
+                    Append(raw.AsSpan(i, 1), 1);
+                }
             }
         }
 
@@ -146,7 +197,7 @@ public static class Ansi
 
         return rows;
 
-        void Append(char ch)
+        void Append(ReadOnlySpan<char> glyph, int cells)
         {
             if (style != emitted)
             {
@@ -154,8 +205,15 @@ public static class Ansi
                 emitted = style;
             }
 
-            text.Append(ch);
-            column++;
+            // A wide glyph that will not fit in the last cell of a row is put on the next one, which
+            // is what a terminal does: it does not split a character across the wrap.
+            if (cells > 1 && column + cells > Columns)
+            {
+                FlushRow();
+            }
+
+            text.Append(glyph);
+            column += cells;
 
             // Wrap exactly where a terminal would. The wrapped row is a real row and is counted as
             // one, because the reader has to scroll past it either way.
@@ -419,23 +477,83 @@ public sealed record AnsiRun(string Text, AnsiStyle Style);
 public sealed record AnsiRow(IReadOnlyList<AnsiRun> Runs)
 {
     public string Text => string.Concat(Runs.Select(r => r.Text));
+
+    /// <summary>
+    /// The terminal cells this row occupies, which is not the number of characters in it.
+    /// </summary>
+    /// <remarks>
+    /// Summed rune by rune rather than derived from a screen-wide flag: a row may mix a wide script
+    /// with a narrow one, and that mixed row is precisely the one whose width a reader cannot guess.
+    /// </remarks>
+    public int Cells
+    {
+        get
+        {
+            var cells = 0;
+
+            foreach (var run in Runs)
+            {
+                // EnumerateRunes yields a ref struct enumerator, so this is a loop rather than a
+                // LINQ Sum — there is no IEnumerable here to hang one off.
+                foreach (var rune in run.Text.EnumerateRunes())
+                {
+                    cells += Ansi.CellWidth(rune);
+                }
+            }
+
+            return cells;
+        }
+    }
+
+    /// <summary>Whether any rune in this row is drawn two cells wide.</summary>
+    public bool HasWideRunes
+    {
+        get
+        {
+            foreach (var run in Runs)
+            {
+                foreach (var rune in run.Text.EnumerateRunes())
+                {
+                    if (Ansi.IsWide(rune))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+    }
 }
 
 /// <summary>
 /// A parsed connect screen and the honest facts about its size.
 /// </summary>
+/// <remarks>
+/// There is no crop here any more, and the absence is the point. The frame used to show the first
+/// twenty-four rows, offer the whole screen again under "show all N rows", and offer its text a third
+/// time under "read as text" — three copies of the same box-drawing in one document, which a screen
+/// reader walks three times to reach four lines of prose. The frame now renders every row once and
+/// scrolls, and the text alternative below it is the only other copy.
+/// </remarks>
 public sealed record AnsiScreen(AnsiScreenState State, IReadOnlyList<AnsiRow> Rows, int RowCount)
 {
-    public bool IsCropped => RowCount > Ansi.CropRows;
-
-    /// <summary>Unusually long. Still cropped at the same place; the caption says why it had to be.</summary>
-    public bool IsOversized => RowCount > Ansi.OversizeRows;
-
-    public IEnumerable<AnsiRow> Visible => Rows.Take(Ansi.CropRows);
-
     /// <summary>
     /// The text alternative. Colour codes are never announced — a screen reader is told what the
     /// screen says, not how it was painted.
     /// </summary>
     public string PlainText => string.Join('\n', Rows.Select(r => r.Text.TrimEnd()));
+
+    /// <summary>
+    /// The width this screen occupies in terminal cells: the widest row, measured cell by cell.
+    /// </summary>
+    /// <remarks>
+    /// The widest row and not a screen-wide halving. <see cref="Ansi.Columns"/> is the grid the
+    /// parser lays out to, in characters; this is what those characters cost a terminal, and on a
+    /// screen that mixes scripts the two differ row by row.
+    /// </remarks>
+    public int CellColumns => Rows.Count == 0 ? 0 : Rows.Max(r => r.Cells);
+
+    /// <summary>Whether any rune anywhere on the screen is drawn two cells wide.</summary>
+    public bool HasWideRunes => Rows.Any(r => r.HasWideRunes);
 }
