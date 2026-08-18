@@ -1231,6 +1231,13 @@ public static class Messages
         ["cause.tls"] = "tls failed",
         ["cause.timeout"] = "timed out",
         ["cause.handshakeStalled"] = "handshake stalled",
+
+        // Names our vantage point, because that is the whole of what was measured. Reachable is
+        // measured from one host at intervals — a game with a routing problem to us is unreachable
+        // and perfectly alive — so "no route" without "from here" would be the one thing this
+        // vocabulary refuses to say. The errno that distinguishes network-unreachable from
+        // host-unreachable is on the interval, for a reader who needs it.
+        ["cause.noRoute"] = "no route from here",
         ["cause.none"] = "no cause recorded",
 
         // ── the ANSI capture's frame ──────────────────────────────────────────────────────────

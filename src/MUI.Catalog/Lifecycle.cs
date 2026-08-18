@@ -25,6 +25,27 @@ public enum FailureCause
     Tls,
     Timeout,
     HandshakeStalled,
+
+    /// <summary>
+    /// No path from here to there: the network or the host was unreachable, or our own interface
+    /// was down.
+    /// </summary>
+    /// <remarks>
+    /// <b>Legitimately a game's record, because of what the word already means here.</b> Reachable
+    /// is measured from one vantage point at intervals — that is why nothing in this schema is
+    /// called uptime, and why "a game with a routing problem to our host is unreachable and
+    /// perfectly alive" is a sentence the vocabulary already had to be able to say. This is that
+    /// sentence with a cause attached.
+    /// <para>
+    /// Before it existed, <c>ENETUNREACH</c> and <c>EHOSTUNREACH</c> fell through
+    /// <c>DialFailure.Classify</c>'s catch-all to cause <c>error</c>, which
+    /// <c>FailureReading.CauseOf</c> then mapped to <see cref="Timeout"/> — so a route that did not
+    /// exist was published as a game that did not answer in time. Two different facts under one
+    /// word, and the wrong one. <c>availability_interval.detail</c> keeps the errno that tells the
+    /// three apart.
+    /// </para>
+    /// </remarks>
+    NoRoute,
 }
 
 /// <summary>
