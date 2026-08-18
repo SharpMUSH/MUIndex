@@ -90,6 +90,35 @@ public class CompositionTests
     }
 
     /// <summary>
+    /// The crawl loop is given the guard that lets the catalogue say we stopped watching.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same shape as the claim service above, and it would fail the same way in the same silence.
+    /// <see cref="CrawlGapGuard"/> is an optional parameter on <c>CrawlerService</c>, so a container
+    /// that supplies none leaves the default standing and <c>CloseAnyGapAsync</c> is never called —
+    /// and the guard only ever logs when it <em>fires</em>, so a guard that was never wired and a
+    /// guard with nothing to do produce identical logs, identical tables and identical pages. There
+    /// is no symptom to notice.
+    /// </para>
+    /// <para>
+    /// Its own <c>ICrawlCycles</c> is asserted for the same reason one level down: without it the
+    /// guard cannot know when the crawl last ran, returns on its first line, and is again silent.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task TheHostedCrawlerIsGivenTheGuardThatClosesACrawlGap()
+    {
+        await using var site = Site();
+
+        var crawler = site.Services.GetServices<IHostedService>().OfType<CrawlerService>().Single();
+        var guard = Collaborator<CrawlGapGuard>(crawler);
+
+        await Assert.That(guard).IsNotNull();
+        await Assert.That(Collaborator<ICrawlCycles>(guard!)).IsNotNull();
+    }
+
+    /// <summary>
     /// The claim service is not scoped, because the thing that needs it most is a singleton.
     /// </summary>
     /// <remarks>
