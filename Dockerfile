@@ -61,9 +61,29 @@ EXPOSE 8080
 # one moment it exists for — which is how it was found: by trying, in production, after the fact.
 RUN mkdir -p /dumps && chown $APP_UID:$APP_UID /dumps
 
+# curl, for the HEALTHCHECK below. The aspnet runtime image ships neither curl nor wget — it is
+# Ubuntu underneath, not distroless — so this is the smallest addition that lets something inside the
+# container ask the process itself whether it is ready, in the same vocabulary Docker/Podman's own
+# health state and Compose's `condition: service_healthy` already speak. Cleaned up in the same layer
+# so the apt cache does not ride along in the image.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # The `app` user the base image already provides (UID 1654). The process writes nothing to disk in
 # the ordinary course — every write goes to Postgres, and /dumps above is only touched on the way
 # out — so a read-only root filesystem is a reasonable thing to ask of it.
 USER $APP_UID
+
+# GET /health is the readiness contract: 200 once the process can actually serve a request (it checks
+# Postgres reachability when a connection string is configured, and is always ready on the demo
+# fixture). This is what makes a version cutover not look like downtime — Traefik's own active
+# healthcheck (deploy/compose.production.yaml) polls the same path from outside the container to
+# decide whether to route to it at all, which is the check that actually gates traffic; this
+# HEALTHCHECK is what feeds Docker/Podman's own health state for everything else that reads it —
+# `docker compose ps`, and any orchestration that keys off it. start-period gives startup — including
+# a migration run, when one is pending — room to finish before a slow first check counts as a failure.
+HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
+    CMD curl -fsS http://localhost:8080/health || exit 1
 
 ENTRYPOINT ["dotnet", "MUI.Web.dll"]
