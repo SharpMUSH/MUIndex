@@ -612,11 +612,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             .AddPlugin(new Watched.Echo(Note));
     }
 
-    /// <summary>
-    /// Failure causes, kept apart because only a change of cause writes an availability transition
-    /// (spec §5.3) — a hundred consecutive timeouts are one interval, not a hundred.
-    /// </summary>
-
     /// <summary>Mutable scratch for one probe. Callbacks arrive on the read loop, so it locks.</summary>
     private sealed class Observations
     {

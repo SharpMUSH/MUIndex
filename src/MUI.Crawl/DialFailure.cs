@@ -13,6 +13,11 @@ namespace MUI.Crawl;
 public static class DialFailure
 {
     /// <summary>The cause and the message, for one exception from a dial.</summary>
+    /// <remarks>
+    /// Causes are kept apart because only a change of cause writes an availability transition (spec
+    /// §5.3) — a hundred consecutive timeouts are one interval, not a hundred. The message beside it
+    /// is evidence and takes no part in that comparison.
+    /// </remarks>
     public static FailureDetail Classify(Exception error)
     {
         ArgumentNullException.ThrowIfNull(error);

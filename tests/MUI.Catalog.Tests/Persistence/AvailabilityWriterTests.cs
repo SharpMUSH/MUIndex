@@ -124,6 +124,19 @@ public class AvailabilityWriterTests
     }
 
     [Test]
+    public async Task AReachableIntervalMayNotCarryFailureEvidenceEither()
+    {
+        // The sibling of the guard above, and it exists for the same reason. `detail` is what a dial
+        // said when it failed; on a reachable interval there is no failed dial for it to be about, so
+        // a non-null one is a message from some other probe filed under this one.
+        var writer = new AvailabilityWriter(new InMemoryAvailabilityStore());
+
+        await Assert.That(async () => await writer.ObserveAsync(
+                Game, AvailabilityState.Reachable, FailureCause.None, Start, "Connection reset by peer"))
+            .Throws<ArgumentException>();
+    }
+
+    [Test]
     public async Task AnIntervalThatIsNotReachableMustSayWhatStoppedUs()
     {
         // Rule 5: never record a decision of ours as a measurement of theirs. An unreachable interval
