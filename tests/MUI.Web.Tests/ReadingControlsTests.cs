@@ -41,6 +41,58 @@ public class ReadingControlsTests
     }
 
     /// <summary>
+    /// The caret that holds them is a disclosure with a name, and it works with no script.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A <c>summary</c> whose whole content is <c>▾</c> has no accessible name: a screen reader
+    /// announces "disclosure triangle, collapsed" and nothing about what is behind it. The word is
+    /// in there for whoever is not looking at the glyph, and the glyph is hidden from them so the
+    /// name is not "reading ▾".
+    /// </para>
+    /// <para>
+    /// <c>details</c> rather than a button, because this site runs no script — the same reason the
+    /// nav's own menu is one and the reason the switcher is a form with a submit.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task TheReadingCaretIsANamedDisclosureThatNeedsNoScript()
+    {
+        var markup = await HeaderAsync(path: "/games", review: true);
+
+        await Assert.That(markup).Contains("<details class=\"read-menu\"");
+        await Assert.That(markup).DoesNotContain("<script");
+
+        var summary = markup[markup.IndexOf("<summary", markup.IndexOf("read-menu", StringComparison.Ordinal), StringComparison.Ordinal)..];
+        summary = summary[..summary.IndexOf("</summary>", StringComparison.Ordinal)];
+
+        await Assert.That(summary).Contains(Messages.For(Locales.SourceTag, "nav.reading"));
+        await Assert.That(summary).Contains("sr-only");
+        await Assert.That(summary).Contains("aria-hidden=\"true\"");
+    }
+
+    /// <summary>
+    /// The theme control is not behind the caret.
+    /// </summary>
+    /// <remarks>
+    /// It is the one of the three a reader reaches for <em>because</em> they cannot comfortably read
+    /// the page, and a click in front of that is the wrong direction. It is also what pays for the
+    /// caret: with its own label taken out of the drawing the cluster measures 105px where the theme
+    /// alone used to, so the bar never grew.
+    /// </remarks>
+    [Test]
+    public async Task TheThemeControlStaysDrawnInTheBar()
+    {
+        var markup = await HeaderAsync(path: "/games", review: true);
+
+        var panel = markup[markup.IndexOf("read-panel", StringComparison.Ordinal)..];
+        panel = panel[..panel.IndexOf("</details>", StringComparison.Ordinal)];
+
+        await Assert.That(panel).DoesNotContain("form class=\"theme\"");
+        await Assert.That(markup).Contains("form class=\"theme\"");
+    }
+
+    /// <summary>
     /// And says nothing on a page that has none.
     /// </summary>
     /// <remarks>
@@ -217,7 +269,7 @@ public class ReadingControlsTests
             .Because($"{path} still offers the text mirror somewhere of its own");
 
         // And the two are the two the bar renders, not a survivor at the bottom of the column.
-        foreach (var slot in new[] { "class=\"reading\"", "class=\"menu-reading\"" })
+        foreach (var slot in new[] { "class=\"read-panel\"", "class=\"menu-reading\"" })
         {
             var at = markup.IndexOf(slot, StringComparison.Ordinal);
 

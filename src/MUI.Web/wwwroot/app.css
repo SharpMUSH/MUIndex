@@ -647,7 +647,7 @@ header.site .nav-menu .menu-panel a:hover { background: var(--surface); text-dec
   moves to the leading edge. Scoped to the collapsed width: unscoped it drew a vertical accent bar
   and a tinted box down the side of the current item in the open bar.
 */
-@media (max-width: 1019px) {
+@media (max-width: 900px) {
     header.site .nav-menu .menu-panel a.on {
         box-shadow: inset 2px 0 0 0 var(--accent);
         background: color-mix(in srgb, var(--accent) 10%, transparent);
@@ -671,7 +671,7 @@ header.site .menu-tail { display: none; flex-direction: column; gap: 2px; }
 }
 
 @supports selector(::details-content) {
-    @media (min-width: 1020px) {
+    @media (min-width: 901px) {
         header.site .nav-menu > summary { display: none; }
 
         /*
@@ -708,21 +708,21 @@ header.site .menu-tail { display: none; flex-direction: column; gap: 2px; }
       both at once would leave seven links in a row in no order anybody could name, which is the
       state this bar was rebuilt out of.
     */
-    @media (min-width: 1020px) and (max-width: 1400px) {
+    @media (min-width: 901px) and (max-width: 1180px) {
         header.site .nav-label { display: none; }
         header.site .nav-menu .menu-panel { gap: 14px; }
         header.site .nav-menu .menu-panel > .nav-group { gap: 11px; }
     }
 }
 
-@media (max-width: 1180px) {                    /* step 2 — submit keeps the word, loses the box */
+@media (max-width: 1000px) {                    /* step 2 — submit keeps the word, loses the box */
     header.site nav.account a.action:not(.primary) {
         border-color: transparent; padding: 6px 0; color: var(--dim);
     }
     header.site nav.account a.action:not(.primary):hover { color: var(--text); }
 }
 
-@media (max-width: 1019px) {                    /* step 3 — one disclosure, every destination kept */
+@media (max-width: 900px) {                     /* step 3 — one disclosure, every destination kept */
     header.site .site-nav { justify-content: flex-start; }
 
     /*
@@ -796,98 +796,91 @@ header.site .reading { margin-inline-start: auto; }
    language, read it against another background. They were a footer under a bar that already
    carried every link beside them, so the two that were not duplicates were the two nobody found.
 
-   One cluster and not three siblings, so a wrap moves them together. Split across the bar's two
-   rows they read as unrelated controls that happened to run out of room in the same place.       */
+   One cluster and not three siblings, so they are one thing at the trailing end rather than three
+   that happen to be adjacent — and so the caret and the buttons it sits beside cannot be separated
+   by anything the bar does.                                                                      */
 
-header.site .reading { display: flex; align-items: center; gap: 18px; }
+header.site .reading { display: flex; align-items: center; gap: 10px; }
 
-/* Drawn as the links to its left, not as a fourth kind of thing. It is an offer to re-read this
-   page, which is the same sort of act as going to another one. */
-header.site .reading .mirror {
-    color: var(--dim); font-size: 13.5px; white-space: nowrap; text-decoration: none;
-}
-header.site .reading .mirror:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
-
-/*
-  In the bar the switcher is one control among several rather than the far end of a text row, so it
-  gives up the auto margin that pushed it there and the box tightens by a hair. Everything else about
-  it — the hairline, the caret, the arrow — is the same control it was in the footer.
-*/
+/* It gives up the auto margin that pushed it to the far end of a footer row; the cluster around it
+   does that job now. Everything else — the hairline, the caret, the arrow — is the same control. */
 header.site .reading form.locale { margin: 0; }
-header.site .reading form.locale > label { gap: 8px; }
-header.site .reading .locale-field { padding: 0 3px 0 9px; }
-header.site .reading form.locale select { padding: 5px 18px 5px 0; font-size: 12.5px; }
 
 /*
-  Step 5 — the bar hands the two reading controls to the menu, and keeps the theme.
+  Step 5 — the two reading controls go behind a caret, and the theme does not.
 
-  This is the same trade `submit` makes at 640: a control the bar cannot fit moves to the disclosure
-  rather than being dropped. The theme stays because it is the one of the three that the ladder has
-  already bought room for twice over, and because a reader who cannot see the page well enough to
-  find a menu is exactly the reader reaching for it.
+  **The bar may not get wider than it was.** Every threshold in the ladder above is a pixel count
+  measured in English, which the ladder says out loud, and the wrap is the escape valve those
+  numbers rely on. Two controls added at the trailing end spend that valve: with the text link and
+  the switcher drawn in the bar it cost 406px, and swept from 340 to 1440 it put a second row under
+  German and Dutch at 1020–1220 and again at 1410, under Japanese at 1020–1200. Pushing the numbers
+  until German fits lands the nav's collapse near 1220 — which takes the seven inline links off an
+  English reader at 1200px, and is the exact failure the ladder's own comment was written about.
 
-  880 rather than a measured width, because it is where the nav is already a disclosure: below it
-  there is a menu to put things in, and above it there is not.
+  So the cluster is sized instead. A caret and a panel cost about thirty pixels where the two
+  controls cost three hundred, and the trailing cluster comes to 147px against the 151px the theme
+  alone used to occupy: the bar is never wider than the one this branch started from, at any width,
+  in any language. Nothing about the ladder needed changing after that, and nothing was.
 
-  Measured, on the fixture with all five locales offered: one row at 1024 and wider, one row at 880
-  and narrower, and a two-row bar in the 881–1023 band, where seven inline links and three trailing
-  controls want 1191px between them. That band is left as two rows deliberately — the ladder above
-  already states the trade for exactly this case, and states it the same way round: "what the reader
-  gets in that band is a two-row bar rather than a menu". A 1000px window is not a phone.
+  The theme stays drawn. It is the control a reader reaches for because they cannot comfortably read
+  the page, and putting it one click further away is the wrong direction for exactly that reader.
+  Its label is what pays for the caret beside it — `auto light dark` says what the buttons are.
 */
-/*
-  Step 4½ — the cluster loses its two words before the bar loses a row.
 
-  Three controls at the trailing end cost 406px with their labels on, and the bar is 1442px wide at
-  that point: at 1400 it wrapped, and a two-row bar on a laptop is not what this ladder is for. The
-  words naming them are the cheapest thing here — `English ▾` and `auto light dark` say what they
-  are, which is the same argument that took the group labels off the nav one step earlier.
-
-  Taken out of the drawing and left in the accessibility tree. The theme form names itself with
-  `aria-labelledby="theme-label"` and the switcher's label wraps its select, so `display: none`
-  would leave a screen reader three buttons in an unnamed group and a select called nothing at all —
-  at exactly the width where the surrounding words that would have explained them are gone too.
-*/
-/*
-  The words go at 1400 and stay gone, at every width below it. Not because the room is needed the
-  whole way down — below 1020 the nav is one word and there is room to spare — but because a label
-  that reappears at 900 after vanishing at 1400 is a bar that looks like it is deciding as it goes.
-*/
-@media (max-width: 1400px) {
-    header.site .reading .kick {
-        position: absolute;
-        width: 1px; height: 1px;
-        padding: 0; margin: -1px;
-        overflow: hidden;
-        clip-path: inset(50%);
-        white-space: nowrap;
-    }
+/* Taken out of the drawing and left in the accessibility tree: the form names itself with
+   `aria-labelledby="theme-label"` and this is that label, so `display: none` would leave a screen
+   reader three buttons in a group with no name. Scoped with `>` so the switcher's own label, which
+   sits inside the panel where there is room for it, keeps its word. */
+header.site .reading > form.theme .kick {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
 }
 
-/*
-  The tightening, bounded at both ends, because it is a fix for one band and not a global.
-
-  Unbounded below, it did two things it was never meant to do. `gap: 14px` sits after step 5's
-  `gap: 6px` in this file, so it won the cascade on a 340px phone and cost the bar a second row for
-  eight pixels it did not need — the four items measure 298px there either way, and the only
-  difference between one row and two was the space between them. And the panel gaps reached the
-  collapsed dropdown, where the panel is a column with a designed 2px between rows, and opened it
-  out to 11.
-
-  Above 1020 the panel is the bar's middle row and these are its inline gaps; below it the panel is
-  a menu and these must not apply.
-*/
-@media (min-width: 1020px) and (max-width: 1400px) {
-    header.site { gap: 14px; }
-    header.site .reading { gap: 12px; }
-    header.site .reading .locale-field { padding: 0 2px 0 7px; }
-    header.site .nav-menu .menu-panel { gap: 11px; }
-    header.site .nav-menu .menu-panel > .nav-group { gap: 9px; }
+/* The caret is the bar's own chevron, at the size the nav's summary uses, so the disclosure reads as
+   the same kind of control as `menu ▾` rather than as a new one. */
+header.site .read-menu { display: flex; position: relative; align-items: center; min-width: 0; }
+header.site .read-menu > summary {
+    display: flex; align-items: center; cursor: pointer;
+    padding: 4px 6px; border-radius: 6px;
+    color: var(--dim); font-size: 13.5px; line-height: 1; list-style: none;
 }
+header.site .read-menu > summary::-webkit-details-marker { display: none; }
+header.site .read-menu > summary:hover { color: var(--text); background: var(--raised); }
+header.site .read-menu[open] > summary { color: var(--text); background: var(--raised); }
 
-@media (max-width: 1019px) {
-    header.site .reading .mirror,
-    header.site .reading form.locale { display: none; }
+/* Right-anchored, because it opens at the trailing end of the bar and a panel that grew rightwards
+   from there would open off the edge of the window. */
+header.site .read-panel {
+    position: absolute; top: 100%; right: 0; z-index: 20; min-width: 190px;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+    padding: 10px; margin-top: 1px;
+    background: var(--raised); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+}
+header.site .read-panel .mirror {
+    align-self: stretch;
+    padding: 6px 8px; border-radius: 6px;
+    color: var(--dim); font-size: 13.5px; text-decoration: none; white-space: nowrap;
+}
+header.site .read-panel .mirror:hover { background: var(--surface); color: var(--text); }
+header.site .read-panel form.locale > label { flex-direction: column; align-items: flex-start; gap: 4px; padding: 0 8px; }
+
+/*
+  Below the nav's own collapse width the caret goes and the two controls ride in the nav menu, where
+  the markup already carries them. Two disclosures side by side in a bar that is four items wide is
+  one more tap target than that width has room to explain, and the menu is right there.
+
+  That width is 900 rather than the 880 it was, and the twenty pixels are the whole point: 900 is
+  where the theme control's own label goes, so below it the trailing cluster measured 105px on the
+  bar this branch started from and 134px with a caret added — the one band where this bar was *wider*
+  than that one. Both steps happen at one width now, and the cluster is 105px there, as before.
+*/
+@media (max-width: 900px) {
+    header.site .read-menu { display: none; }
 }
 
 /*
@@ -897,7 +890,7 @@ header.site .reading form.locale select { padding: 5px 18px 5px 0; font-size: 12
 */
 header.site .menu-reading { display: none; flex-direction: column; gap: 2px; }
 
-@media (max-width: 1019px) {
+@media (max-width: 900px) {
     header.site .menu-reading { display: flex; }
 }
 header.site .menu-reading .mirror { padding: 6px 10px; border-radius: 6px; color: var(--dim); }

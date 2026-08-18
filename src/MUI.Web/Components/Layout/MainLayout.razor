@@ -129,8 +129,33 @@
         buried at the end of it. The duplicates are gone and the two survivors came up here.
     *@
     <div class="reading">
-        @Mirror
-        <LanguageSwitcher />
+        @*
+            Two of the three behind a caret, and the reason is a measurement rather than a taste.
+
+            Drawn in the bar they cost 406px, and every threshold in this ladder is a pixel count
+            taken in English with `flex-wrap` as the escape valve. Swept from 340 to 1440 that valve
+            opened: a second row under German and Dutch at 1020–1220 and again at 1410, under
+            Japanese at 1020–1200. A caret and a panel cost about thirty, so the bar is never wider
+            than the one this branch started from — see app.css on why the numbers were left alone.
+
+            The theme is not in here. It is the control a reader reaches for *because* they cannot
+            comfortably read the page, and a click is the wrong thing to put in front of that.
+        *@
+        <details class="read-menu">
+            @*
+                The caret is the glyph; the word is for whoever is not looking at it. A summary whose
+                whole content is `▾` has no accessible name at all — a screen reader announces
+                "disclosure triangle, collapsed" and nothing about what it holds.
+            *@
+            <summary>
+                <span class="sr-only">@L("nav.reading")</span>
+                <span aria-hidden="true">▾</span>
+            </summary>
+            <div class="read-panel">
+                @Mirror
+                <LanguageSwitcher />
+            </div>
+        </details>
         <ThemeToggle />
     </div>
 </header>
