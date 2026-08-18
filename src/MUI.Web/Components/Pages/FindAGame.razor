@@ -263,7 +263,14 @@ else
 
     private string PlainHref => ListingLinks.With(Query, "plain", "1");
 
-    private FindScreen Screen { get; set; } = null!;
+    /// <summary>The six questions and their counts, once the catalogue has answered.</summary>
+    /// <remarks>
+    /// <see cref="FindScreen.Empty"/> rather than <c>null!</c>: the first render of this page
+    /// happens before <see cref="OnParametersSetAsync"/> has finished, and the null it used to hold
+    /// was dereferenced on line 59 of this file every time the load actually suspended — which is
+    /// every request against a real database, and none against the fixture the tests use.
+    /// </remarks>
+    private FindScreen Screen { get; set; } = FindScreen.Empty;
 
     /// <summary>The request, for the locale these sentences are spoken in.</summary>
     [CascadingParameter] private HttpContext? Http { get; set; }
