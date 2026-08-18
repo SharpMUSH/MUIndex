@@ -20,16 +20,17 @@ public static class I3Summary
 
         await using var connection = await source.OpenConnectionAsync();
 
-        var muds = await connection.QuerySingleAsync<(int Total, int Bound, int Answering, int Asked)>(
+        var muds = await connection.QuerySingleAsync<(int Total, int Bound, int Up, int Answering, int Asked)>(
             """
             SELECT count(*)::int AS "Total",
                    count(*) FILTER (WHERE game_id IS NOT NULL)::int AS "Bound",
+                   count(*) FILTER (WHERE is_up)::int AS "Up",
                    count(*) FILTER (WHERE answers_who)::int AS "Answering",
                    count(*) FILTER (WHERE last_asked_at IS NOT NULL)::int AS "Asked"
             FROM i3_mud
             """);
 
-        Console.WriteLine($"i3 muds       {muds.Total} known, {muds.Bound} bound, "
+        Console.WriteLine($"i3 muds       {muds.Total} known, {muds.Bound} bound, {muds.Up} up, "
             + $"{muds.Answering} answer who, {muds.Asked} asked");
 
         var targets = await connection.ExecuteScalarAsync<int>(

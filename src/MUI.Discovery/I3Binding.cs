@@ -36,6 +36,17 @@ public sealed record I3Binding
     /// </remarks>
     public bool AnswersWho { get; init; }
 
+    /// <summary>
+    /// Whether the router last reported this mud up.
+    /// </summary>
+    /// <remarks>
+    /// The network's own words, not a guess: I3 never removes a listing, only marks it down, so a
+    /// mud that has left keeps a row here forever. Refreshed on every mudlist pass the same way
+    /// <see cref="AnswersWho"/> is, and read together with it at ask time — a down mud will not
+    /// answer, so asking spends a packet to learn what the mudlist already said.
+    /// </remarks>
+    public bool IsUp { get; init; } = true;
+
     public required DateTimeOffset FirstSeenAt { get; init; }
 
     public required DateTimeOffset LastSeenAt { get; init; }
@@ -59,6 +70,7 @@ public interface II3BindingRepository
         string host,
         int port,
         bool answersWho,
+        bool isUp,
         DateTimeOffset seenAt,
         CancellationToken ct);
 
@@ -84,7 +96,8 @@ public interface II3BindingRepository
     Task<IReadOnlyList<I3Binding>> AllAsync(CancellationToken ct);
 
     /// <summary>
-    /// Bound muds that advertise <c>who</c> and have not been asked since <paramref name="notSince"/>.
+    /// Bound muds that advertise <c>who</c>, that the router last reported up, and that have not been
+    /// asked since <paramref name="notSince"/>.
     /// </summary>
     Task<IReadOnlyList<I3Binding>> AskableAsync(
         DateTimeOffset notSince,

@@ -26,8 +26,8 @@ public class I3BindingPostgresTests
         await using var db = await PostgresFixture.MigratedAsync();
         var repository = new NpgsqlI3BindingRepository(db.DataSource);
 
-        await repository.UpsertAsync("Nightfall", "82.153.225.173", 4242, true, At, default);
-        await repository.UpsertAsync("Nightfall", "82.153.225.173", 4243, false, At.AddDays(1), default);
+        await repository.UpsertAsync("Nightfall", "82.153.225.173", 4242, true, true, At, default);
+        await repository.UpsertAsync("Nightfall", "82.153.225.173", 4243, false, true, At.AddDays(1), default);
 
         var row = (await repository.AllAsync(default)).Single();
 
@@ -48,9 +48,9 @@ public class I3BindingPostgresTests
         var repository = new NpgsqlI3BindingRepository(db.DataSource);
         var game = await GameAsync(db);
 
-        await repository.UpsertAsync("Nightfall", "82.153.225.173", 4242, true, At, default);
+        await repository.UpsertAsync("Nightfall", "82.153.225.173", 4242, true, true, At, default);
         await repository.BindAsync("Nightfall", game, default);
-        await repository.UpsertAsync("Nightfall", "198.51.100.7", 4242, true, At.AddDays(1), default);
+        await repository.UpsertAsync("Nightfall", "198.51.100.7", 4242, true, true, At.AddDays(1), default);
 
         await Assert.That((await repository.AllAsync(default)).Single().GameId).IsEqualTo(game);
     }
@@ -73,8 +73,8 @@ public class I3BindingPostgresTests
         var repository = new NpgsqlI3BindingRepository(db.DataSource);
         var game = await GameAsync(db);
 
-        await repository.UpsertAsync("The Zone", "136.144.155.250", 8888, true, At, default);
-        await repository.UpsertAsync("The Zone-i4", "136.144.155.250", 8888, true, At, default);
+        await repository.UpsertAsync("The Zone", "136.144.155.250", 8888, true, true, At, default);
+        await repository.UpsertAsync("The Zone-i4", "136.144.155.250", 8888, true, true, At, default);
 
         await Assert.That(await repository.BindAsync("The Zone", game, default)).IsTrue();
         await Assert.That(await repository.BindAsync("The Zone-i4", game, default)).IsFalse();
@@ -96,7 +96,7 @@ public class I3BindingPostgresTests
         var first = await GameAsync(db);
         var second = await GameAsync(db);
 
-        await repository.UpsertAsync("Nightfall", "82.153.225.173", 4242, true, At, default);
+        await repository.UpsertAsync("Nightfall", "82.153.225.173", 4242, true, true, At, default);
         await Assert.That(await repository.BindAsync("Nightfall", first, default)).IsTrue();
         await Assert.That(await repository.BindAsync("Nightfall", second, default)).IsFalse();
 
@@ -116,15 +116,15 @@ public class I3BindingPostgresTests
         var quiet = await GameAsync(db);
         var recent = await GameAsync(db);
 
-        await repository.UpsertAsync("Bound", "203.0.113.1", 4000, true, At, default);
+        await repository.UpsertAsync("Bound", "203.0.113.1", 4000, true, true, At, default);
         await repository.BindAsync("Bound", bound, default);
 
-        await repository.UpsertAsync("Unbound", "203.0.113.2", 4000, true, At, default);
+        await repository.UpsertAsync("Unbound", "203.0.113.2", 4000, true, true, At, default);
 
-        await repository.UpsertAsync("NoWho", "203.0.113.3", 4000, false, At, default);
+        await repository.UpsertAsync("NoWho", "203.0.113.3", 4000, false, true, At, default);
         await repository.BindAsync("NoWho", quiet, default);
 
-        await repository.UpsertAsync("JustAsked", "203.0.113.4", 4000, true, At, default);
+        await repository.UpsertAsync("JustAsked", "203.0.113.4", 4000, true, true, At, default);
         await repository.BindAsync("JustAsked", recent, default);
         await repository.MarkAskedAsync("JustAsked", At, default);
 
@@ -133,13 +133,36 @@ public class I3BindingPostgresTests
         await Assert.That(askable.Select(b => b.MudName)).IsEquivalentTo(new[] { "Bound" });
     }
 
+    /// <summary>
+    /// I3 never removes a listing, only marks it down — so without this gate a mud the router has
+    /// given up on would be asked forever on the ordinary pacing floor.
+    /// </summary>
+    [Test]
+    public async Task ADownMudIsNotAskable()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var repository = new NpgsqlI3BindingRepository(db.DataSource);
+        var down = await GameAsync(db);
+        var up = await GameAsync(db);
+
+        await repository.UpsertAsync("Fallen", "203.0.113.5", 4000, true, false, At, default);
+        await repository.BindAsync("Fallen", down, default);
+
+        await repository.UpsertAsync("Standing", "203.0.113.6", 4000, true, true, At, default);
+        await repository.BindAsync("Standing", up, default);
+
+        var askable = await repository.AskableAsync(At.AddMinutes(-30), 50, default);
+
+        await Assert.That(askable.Select(b => b.MudName)).IsEquivalentTo(new[] { "Standing" });
+    }
+
     [Test]
     public async Task BeingAskedIsRecordedSoThePacingFloorSurvivesARestart()
     {
         await using var db = await PostgresFixture.MigratedAsync();
         var repository = new NpgsqlI3BindingRepository(db.DataSource);
 
-        await repository.UpsertAsync("Nightfall", "82.153.225.173", 4242, true, At, default);
+        await repository.UpsertAsync("Nightfall", "82.153.225.173", 4242, true, true, At, default);
         await repository.MarkAskedAsync("Nightfall", At, default);
 
         await Assert.That((await repository.AllAsync(default)).Single().LastAskedAt).IsEqualTo(At);
