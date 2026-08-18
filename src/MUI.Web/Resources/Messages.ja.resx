@@ -606,6 +606,9 @@
   <data name="facet.band.activeThisWeek" xml:space="preserve">
     <value>今週アクティブ</value>
   </data>
+  <data name="facet.band.quiet" xml:space="preserve">
+    <value>閑散 — 計数は0を超えず</value>
+  </data>
   <data name="facet.band.dark" xml:space="preserve">
     <value>消息不明 — 1か月間到達なし</value>
   </data>
@@ -2849,5 +2852,26 @@
   </data>
   <data name="owner.listing.unlist" xml:space="preserve">
     <value>一覧からも外してほしい</value>
+  </data>
+  <data name="facet.group.measure" xml:space="preserve">
+    <value>実測できたもの</value>
+  </data>
+  <data name="facet.measure.note" xml:space="preserve">
+    <value>非表示にすると一覧から外れる — そのゲームが無人だという意味ではない。</value>
+  </data>
+  <data name="facet.group.uncounted" xml:space="preserve">
+    <value>接続数読み取り不可</value>
+  </data>
+  <data name="facet.group.unreachable" xml:space="preserve">
+    <value>到達不可</value>
+  </data>
+  <data name="facet.excluded.uncounted" xml:space="preserve">
+    <value>この一覧では非表示</value>
+  </data>
+  <data name="facet.excluded.unreachable" xml:space="preserve">
+    <value>この一覧では非表示</value>
+  </data>
+  <data name="facet.plain.marks" xml:space="preserve">
+    <value>左の列で、* はこの一覧が絞り込みに使っている値、- は除外に使っている値。どちらもクエリでの選択であって、ゲームについての事実ではない。</value>
   </data>
 </root>

@@ -606,6 +606,9 @@
   <data name="facet.band.activeThisWeek" xml:space="preserve">
     <value>本周活跃</value>
   </data>
+  <data name="facet.band.quiet" xml:space="preserve">
+    <value>冷清——没有高于 0 的计数</value>
+  </data>
   <data name="facet.band.dark" xml:space="preserve">
     <value>失联——一个月未连通</value>
   </data>
@@ -2849,5 +2852,26 @@
   </data>
   <data name="owner.listing.unlist" xml:space="preserve">
     <value>把我们也移出列表</value>
+  </data>
+  <data name="facet.group.measure" xml:space="preserve">
+    <value>实测到了什么</value>
+  </data>
+  <data name="facet.measure.note" xml:space="preserve">
+    <value>隐藏这些会把它们从当前列表中移出；这并不表示该游戏里没有人。</value>
+  </data>
+  <data name="facet.group.uncounted" xml:space="preserve">
+    <value>未能计数</value>
+  </data>
+  <data name="facet.group.unreachable" xml:space="preserve">
+    <value>无法连通</value>
+  </data>
+  <data name="facet.excluded.uncounted" xml:space="preserve">
+    <value>已从此列表中隐藏</value>
+  </data>
+  <data name="facet.excluded.unreachable" xml:space="preserve">
+    <value>已从此列表中隐藏</value>
+  </data>
+  <data name="facet.plain.marks" xml:space="preserve">
+    <value>左栏中，* 表示此列表已筛选为该值，- 表示此列表已把该值排除。两者都是查询中的选择，而不是关于某个游戏的事实。</value>
   </data>
 </root>

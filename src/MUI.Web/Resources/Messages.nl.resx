@@ -606,6 +606,9 @@
   <data name="facet.band.activeThisWeek" xml:space="preserve">
     <value>actief deze week</value>
   </data>
+  <data name="facet.band.quiet" xml:space="preserve">
+    <value>rustig — nooit boven 0 geteld</value>
+  </data>
   <data name="facet.band.dark" xml:space="preserve">
     <value>stil — een maand niet bereikt</value>
   </data>
@@ -2849,5 +2852,26 @@
   </data>
   <data name="owner.listing.unlist" xml:space="preserve">
     <value>Haal ons ook uit de lijst</value>
+  </data>
+  <data name="facet.group.measure" xml:space="preserve">
+    <value>wat we konden meten</value>
+  </data>
+  <data name="facet.measure.note" xml:space="preserve">
+    <value>Deze verbergen haalt ze uit deze lijst; het betekent niet dat het spel leeg is.</value>
+  </data>
+  <data name="facet.group.uncounted" xml:space="preserve">
+    <value>konden niet tellen</value>
+  </data>
+  <data name="facet.group.unreachable" xml:space="preserve">
+    <value>konden niet bereiken</value>
+  </data>
+  <data name="facet.excluded.uncounted" xml:space="preserve">
+    <value>niet getoond in deze lijst</value>
+  </data>
+  <data name="facet.excluded.unreachable" xml:space="preserve">
+    <value>niet getoond in deze lijst</value>
+  </data>
+  <data name="facet.plain.marks" xml:space="preserve">
+    <value>In de linkerkolom is * een waarde waarop deze lijst gefilterd is en - een waarde die is uitgesloten. Beide zijn keuzes in de zoekopdracht, geen feiten over een spel.</value>
   </data>
 </root>

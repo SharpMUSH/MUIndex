@@ -606,6 +606,9 @@
   <data name="facet.band.activeThisWeek" xml:space="preserve">
     <value>diese Woche aktiv</value>
   </data>
+  <data name="facet.band.quiet" xml:space="preserve">
+    <value>ruhig — nie mehr als 0 gezählt</value>
+  </data>
   <data name="facet.band.dark" xml:space="preserve">
     <value>verstummt — seit einem Monat nicht erreicht</value>
   </data>
@@ -2849,5 +2852,26 @@
   </data>
   <data name="owner.listing.unlist" xml:space="preserve">
     <value>Uns auch aus dem Verzeichnis nehmen</value>
+  </data>
+  <data name="facet.group.measure" xml:space="preserve">
+    <value>was wir messen konnten</value>
+  </data>
+  <data name="facet.measure.note" xml:space="preserve">
+    <value>Diese auszublenden nimmt sie aus der Auflistung heraus; es heißt nicht, dass das Spiel leer ist.</value>
+  </data>
+  <data name="facet.group.uncounted" xml:space="preserve">
+    <value>ungezählt</value>
+  </data>
+  <data name="facet.group.unreachable" xml:space="preserve">
+    <value>nicht erreichbar</value>
+  </data>
+  <data name="facet.excluded.uncounted" xml:space="preserve">
+    <value>aus dieser Auflistung ausgeblendet</value>
+  </data>
+  <data name="facet.excluded.unreachable" xml:space="preserve">
+    <value>aus dieser Auflistung ausgeblendet</value>
+  </data>
+  <data name="facet.plain.marks" xml:space="preserve">
+    <value>In der linken Spalte steht * für einen Wert, nach dem diese Auflistung gefiltert ist, und - für einen, gegen den gefiltert wird. Beides sind Entscheidungen in der Suche, keine Tatsachen über ein Spiel.</value>
   </data>
 </root>
