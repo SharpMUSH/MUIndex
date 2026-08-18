@@ -1213,6 +1213,10 @@ public static class Messages
         ["reach.degraded.days"] = "{count, plural, one {# day degraded — we got in and could not finish.} other {# days degraded — we got in and could not finish.}}",
         ["reach.longestOutage"] = "Longest outage {duration}.",
         ["reach.longestOutage.cause"] = "Longest outage {duration} ({cause}).",
+        // Its sibling below is not a rewording of it. "Predates" is how long we have been looking;
+        // this is that we stopped, and a reader looking at a hole in the middle of a strip is owed
+        // the difference. No cause on either — an unwatched day is ours, never theirs.
+        ["reach.gap"] = "{count, plural, one {# day went unmeasured — we were not watching.} other {# days went unmeasured — we were not watching.}}",
         ["reach.predate"] = "{count, plural, one {# day predates anything we measured.} other {# days predate anything we measured.}}",
         ["reach.spell.range"] = "{from, date, d MMM} – {to, date, d MMM}",
         ["reach.spell.oneDay"] = "{d, date, d MMM}",

@@ -2028,6 +2028,9 @@
   <data name="reach.longestOutage.cause" xml:space="preserve">
     <value>Längste Unterbrechung {duration} ({cause}).</value>
   </data>
+  <data name="reach.gap" xml:space="preserve">
+    <value>{count, plural, one {# Tag blieb ungemessen — wir haben nicht hingesehen.} other {# Tage blieben ungemessen — wir haben nicht hingesehen.}}</value>
+  </data>
   <data name="reach.predate" xml:space="preserve">
     <value>{count, plural, one {# Tag liegt vor allem, was wir gemessen haben.} other {# Tage liegen vor allem, was wir gemessen haben.}}</value>
   </data>

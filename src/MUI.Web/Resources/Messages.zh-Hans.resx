@@ -2028,6 +2028,9 @@
   <data name="reach.longestOutage.cause" xml:space="preserve">
     <value>最长中断 {duration}（{cause}）。</value>
   </data>
+  <data name="reach.gap" xml:space="preserve">
+    <value>{count, plural, other {有#天未实测 — 当时没有观察。}}</value>
+  </data>
   <data name="reach.predate" xml:space="preserve">
     <value>{count, plural, other {有#天早于我们的任何实测。}}</value>
   </data>

@@ -2028,6 +2028,9 @@
   <data name="reach.longestOutage.cause" xml:space="preserve">
     <value>最長の途絶は{duration}（{cause}）。</value>
   </data>
+  <data name="reach.gap" xml:space="preserve">
+    <value>{count, plural, other {#日は未計測 — 見ていなかった。}}</value>
+  </data>
   <data name="reach.predate" xml:space="preserve">
     <value>{count, plural, other {#日は、実測が始まる前。}}</value>
   </data>
