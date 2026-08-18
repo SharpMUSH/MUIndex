@@ -95,6 +95,47 @@ public class FieldReconcilerTests
     }
 
     [Test]
+    public async Task AReflowedLineWrapIsNotAChange()
+    {
+        // Found on beutelland's DESCRIPTION-DE: its MSSP report toggled a mid-sentence line wrap in
+        // and out of the value on alternating probes — same words, different whitespace — and that
+        // is not an event about the game.
+        var store = new InMemoryGameFieldStore();
+        var reconciler = new FieldReconciler(store);
+        var wrapped = new FieldObservation(
+            "DESCRIPTION-DE", FieldSource.Mssp, "NPC erscheinen\n  in jedweder Form.");
+        var unwrapped = new FieldObservation(
+            "DESCRIPTION-DE", FieldSource.Mssp, "NPC erscheinen in jedweder Form.");
+
+        await reconciler.ApplyAsync(Game, [wrapped], Noon);
+        var reflowed = await reconciler.ApplyAsync(Game, [unwrapped], Noon.AddHours(2));
+        var flippedBack = await reconciler.ApplyAsync(Game, [wrapped], Noon.AddHours(4));
+
+        await Assert.That(reflowed).IsEqualTo(new FieldReconciliation(Confirmed: 1, Changed: 0, Added: 0));
+        await Assert.That(flippedBack).IsEqualTo(new FieldReconciliation(Confirmed: 1, Changed: 0, Added: 0));
+        await Assert.That(store.Changes).IsEmpty();
+    }
+
+    [Test]
+    public async Task ARewordingThatAlsoReflowsIsStillAChange()
+    {
+        // The whitespace collapse must not swallow a real edit just because the edit also happens to
+        // land on a different line.
+        var store = new InMemoryGameFieldStore();
+        var reconciler = new FieldReconciler(store);
+
+        await reconciler.ApplyAsync(
+            Game, [new FieldObservation("DESCRIPTION-DE", FieldSource.Mssp, "Alte Beschreibung.")], Noon);
+        var moved = await reconciler.ApplyAsync(
+            Game,
+            [new FieldObservation("DESCRIPTION-DE", FieldSource.Mssp, "Neue\n  Beschreibung.")],
+            Noon.AddHours(2));
+
+        await Assert.That(moved).IsEqualTo(new FieldReconciliation(Confirmed: 0, Changed: 1, Added: 0));
+        await Assert.That(store.Changes.Single().NewValue).IsEqualTo("Neue\n  Beschreibung.");
+    }
+
+    [Test]
     public async Task MeasuredAndDeclaredDoNotContendForOneRow()
     {
         // The capability matrix is the reason the key carries the source. A handshake that did not

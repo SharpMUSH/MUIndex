@@ -71,7 +71,7 @@ else
                 {
                     <p class="tagline dim">@tagline</p>
                 }
-                @if (Page.Description is { } description)
+                @if (LocalizedLede is { } description)
                 {
                     <p class="lede">@description</p>
                 }
@@ -569,6 +569,20 @@ else
     [CascadingParameter] private HttpContext? Http { get; set; }
 
     private string Tag => Http.LocaleOf().Tag;
+
+    /// <summary>
+    /// The game's own description, in whichever <c>DESCRIPTION-&lt;lang&gt;</c> the browser asked
+    /// for, if it published one — plain <c>DESCRIPTION</c> otherwise.
+    /// </summary>
+    /// <remarks>
+    /// A content-language match against what THIS game published, not <see cref="Tag"/> — the site's
+    /// own interface locale is a different question with a different (and much narrower) answer set.
+    /// See <see cref="LocalizedDescription"/>.
+    /// </remarks>
+    private string? LocalizedLede => Page is null
+        ? null
+        : LocalizedDescription.Choose(
+            Http?.Request.Headers.AcceptLanguage.ToString(), Page.Description, Page.Declared);
 
     private string L(string id) => Messages.For(Tag, id);
 

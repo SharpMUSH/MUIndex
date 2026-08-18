@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace MUI.Catalog.Persistence;
 
 /// <summary>
@@ -17,7 +19,7 @@ namespace MUI.Catalog.Persistence;
 /// us rather than about the game.
 /// </para>
 /// </remarks>
-public sealed class FieldReconciler(IGameFieldStore store) : IFieldReconciler
+public sealed partial class FieldReconciler(IGameFieldStore store) : IFieldReconciler
 {
     /// <summary>
     /// Fields that move on every probe and are therefore never stored as descriptive fields.
@@ -77,7 +79,7 @@ public sealed class FieldReconciler(IGameFieldStore store) : IFieldReconciler
                 continue;
             }
 
-            if (string.Equals(existing.Value, observation.Value, StringComparison.Ordinal))
+            if (LayoutEquivalent(existing.Value, observation.Value))
             {
                 // Confirm. The value is unchanged, so first_seen_at is untouched and nothing reaches
                 // the change feed. This is the common case by a wide margin and it costs one UPDATE.
@@ -106,4 +108,26 @@ public sealed class FieldReconciler(IGameFieldStore store) : IFieldReconciler
 
         return new FieldReconciliation(confirmed, changed, added);
     }
+
+    /// <summary>
+    /// Whether two values are the same fact reflowed, not two different facts.
+    /// </summary>
+    /// <remarks>
+    /// Found on <c>beutelland</c>'s <c>DESCRIPTION-DE</c> (2026-08-18): its MSSP report toggled a
+    /// mid-sentence line wrap in and out of the value every couple of hours — one probe carried a
+    /// newline and two spaces of indentation where the next carried a single space — and ordinal
+    /// equality is unequal on both, so the change feed recorded a "change" on a paragraph whose
+    /// words never moved. Runs of whitespace are layout, not content, so collapsing each run to one
+    /// space before comparing is what tells "reflowed" apart from "reworded". Nothing stored or
+    /// shown is touched by this — <c>GameField.Value</c> still holds the value exactly as the game
+    /// sent it, because a value judged unchanged is not written at all (see the confirm branch
+    /// above).
+    /// </remarks>
+    private static bool LayoutEquivalent(string a, string b) =>
+        string.Equals(CollapseWhitespace(a), CollapseWhitespace(b), StringComparison.Ordinal);
+
+    private static string CollapseWhitespace(string value) => WhitespaceRun().Replace(value, " ").Trim();
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex WhitespaceRun();
 }
