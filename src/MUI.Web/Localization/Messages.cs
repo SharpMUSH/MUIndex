@@ -413,9 +413,9 @@ public static class Messages
 
         // ── about: the page, and what a fact here is ──────────────────────────────────────────
         ["about.title"] = "About mu*index",
-        ["about.lede"] = "Every game here was measured by a machine that connected to it, and every "
-            + "value says where it came from and when. This page covers what that proves, what we "
-            + "get wrong, whose directories we read, and how to make the crawler stop.",
+        ["about.lede"] = "Every game here was measured by the crawler, and every value says where it "
+            + "came from and when. This page covers what we gather, its limits, what we won't do, "
+            + "and how to make the crawler stop.",
 
         ["about.measures.heading"] = "What a fact here is",
         ["about.measures.declared.lead"] = "Measured beats declared, and both are shown.",
@@ -463,16 +463,16 @@ public static class Messages
         // ── about: what this site will not do ─────────────────────────────────────────────────
         ["about.never.heading"] = "What this site will not do",
         ["about.never.votes.lead"] = "No votes, stars, ratings or recommendations.",
-        ["about.never.votes.body"] = "Rankings are computed from measured data only. A directory "
-            + "ranked by who can mobilise the most clicks describes the campaigning, not the hobby, "
-            + "and that is what killed the incumbents.",
+        ["about.never.votes.body"] = "Rankings are computed from measured data only.",
         ["about.never.forums.lead"] = "No forums, reviews, wikis, comments or player profiles.",
         ["about.never.forums.body"] = "Orientation material — what a MUSH is, which codebase suits "
-            + "collaborative roleplay — is written, signed and versioned like the rest of the site.",
+            + "collaborative roleplay — is written, signed and versioned like the rest of the site, "
+            + "not left to a comment section.",
         ["about.never.names.lead"] = "Player names are never persisted.",
         ["about.never.names.body"] = "A WHO reply is parsed in memory for a count and the shape of "
             + "the header. The names are not written down; aggregates use a salted hash with a "
-            + "rotating salt.",
+            + "rotating salt. We don't derive a unique-player estimate from it either — renames make "
+            + "that unmeasurable in principle.",
         ["about.never.population.lead"] = "No absolute population figure is published.",
         ["about.never.population.body"] = "Per-codebase and per-protocol shares ship: a ratio over "
             + "the measured set survives the games we cannot count. \"How many people play MU*\" "
@@ -500,8 +500,8 @@ public static class Messages
         ["about.crawler.screens.lead"] = "Connect screens are shown because they are sent to "
             + "everybody.",
         ["about.crawler.screens.body"] = "A server paints its connect screen, unauthenticated, to "
-            + "every anonymous connection. We display it as evidence and label it. Ask and it comes "
-            + "down.",
+            + "every anonymous connection. We display it as evidence and label it. Claiming a game "
+            + "gives its owner the option to stop it being shown.",
         ["about.crawler.stop.lead"] = "Say stop, and we stop — three ways.",
         ["about.crawler.stop.body"] = "Publish {variable} 1 in your MSSP report, and the probe that "
             + "reads it is the last one. Or publish a TXT record at {label}.your.host reading "
@@ -747,10 +747,15 @@ public static class Messages
         ["ecosystem.lineages.notClassified"] = "{count, plural, one {# of those games runs a codebase} other {# of those games run codebases}} we do not place in any lineage — several say as much themselves, publishing {family}. They are inside the denominator above and in nobody's share.",
 
         ["ecosystem.protocols.title"] = "Protocols",
-        ["ecosystem.protocols.floor"] = "Read every measured figure below as a floor. We ask for MSSP by name, so silence there is an answer. Nothing else here is requested, and a server may support a protocol without ever offering it.",
-        ["ecosystem.mssp.instrument"] = "{instrument} is the one row below that is not a floor: we ask every server for it by name, so the games that did not offer it were asked and declined. It is also the only one with no declared figure, because every game whose report we hold supports it by demonstration and a count of the ones that also listed it would measure a habit against that.",
-        ["ecosystem.mssp.gap"] = "We hold {reports, number} reports and {offered, plural, one {# game} other {# games}} offer MSSP today: the other {gap, number} stopped publishing one after we read it, and a report is not thrown away because it stopped being reissued.",
-        ["ecosystem.protocols.caption"] = "Protocol adoption. Measured is what a server offered in a completed handshake; declared is what its MSSP claims. Two sets of games, so two denominators.",
+        ["ecosystem.protocols.floor"] = "Read every measured figure below as a floor. " +
+                                        "Nothing else here is requested, and a server may support a protocol without ever offering it.",
+        ["ecosystem.mssp.instrument"] = "{instrument} is the one row below that is not a floor: we ask every server " +
+                                        "for it by name, so the games that did not offer it were asked and declined.",
+        ["ecosystem.mssp.gap"] = "We hold {reports, number} reports and {offered, plural, one {# game} other {# games}} offer MSSP today: " +
+                                 "the other {gap, number} stopped publishing one after we read it, and a report is not thrown away " +
+                                 "because it stopped being reissued.",
+        ["ecosystem.protocols.caption"] = "Protocol adoption. 'Measured' is what a server offered in a completed handshake; " +
+                                          "'declared' is what its MSSP claims.",
         ["ecosystem.column.protocol"] = "protocol",
         ["ecosystem.column.measured"] = "measured — of {basis}",
         ["ecosystem.column.declared"] = "declared — of {basis}",
