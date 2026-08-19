@@ -142,23 +142,18 @@ public sealed record AboutPoint(string Lead, string Body)
 /// Read off <see cref="ProbeOptions"/> rather than written out here, so the name published is a
 /// property of the object the probe is built from.
 /// </remarks>
-public sealed record AboutIdentity(string Name, string InfoUrl, bool Announced, bool ContactConfigured)
+public sealed record AboutIdentity(string Name, string InfoUrl, bool ContactConfigured)
 {
     public static AboutIdentity For(ProbeOptions probe) => new(
         probe.TerminalTypes.Count > 0 ? probe.TerminalTypes[0] : "MUINDEX-CRAWLER",
         probe.InfoUrl,
-        Announced: true,
         // The built-in value is a placeholder on an unchosen domain — publishing it unmarked would
         // be publishing an address that answers nobody.
         ContactConfigured: probe.InfoUrl != new ProbeOptions().InfoUrl);
 
     /// <summary>The honest version of "who is this in my logs", in one sentence.</summary>
-    /// <remarks>
-    /// Two whole messages rather than one with a branch in it — they share nothing but the name,
-    /// which is an argument in both since a deployment that configures its own has to see it here.
-    /// </remarks>
     public string Wording(string tag = Locales.SourceTag) => Messages.For(
         tag,
-        Announced ? "about.identity.announced" : "about.identity.unannounced",
+        "about.identity.announced",
         new Dictionary<string, object?> { ["name"] = Name });
 }

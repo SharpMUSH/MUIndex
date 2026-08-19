@@ -1496,10 +1496,6 @@
     <value>The crawler names itself {name} when a server asks what it is.</value>
     <comment>about: who is knocking</comment>
   </data>
-  <data name="about.identity.unannounced" xml:space="preserve">
-    <value>The crawler is configured to call itself {name} but cannot yet say so. Its telnet library gives a client no way to set the terminal type, so your logs see that library's default, and NEW-ENVIRON is answered from the crawler host's environment. Both are gaps in the library and ours to fix there. Until then, recognise a probe by its shape: one connection, no login, a short read-only command set, gone.</value>
-    <comment>about: who is knocking</comment>
-  </data>
   <data name="about.identity.crawler" xml:space="preserve">
     <value>crawler</value>
     <comment>about: who is knocking</comment>

@@ -71,14 +71,13 @@ public class AboutPageTests
     }
 
     [Test]
-    public async Task TheCrawlerIsAnnouncedNowThatTncSupportsClientIdentity()
+    public async Task TheCrawlerNamesItselfOnThePage()
     {
         // TelnetNegotiationCore wires the configured name into TTYPE and MNES CLIENT_NAME, so what an
         // administrator sees in their logs is ProbeOptions.TerminalTypes.
         var identity = Page.Sections.Single(s => s.Id == "crawler").Identity;
 
         await Assert.That(identity).IsNotNull();
-        await Assert.That(identity!.Announced).IsTrue();
         await Assert.That(Render.Words(Plain)).Contains("names itself");
     }
 

@@ -1131,9 +1131,6 @@
   <data name="about.identity.announced" xml:space="preserve">
     <value>Der Crawler nennt sich {name}, wenn ein Server fragt, was er ist.</value>
   </data>
-  <data name="about.identity.unannounced" xml:space="preserve">
-    <value>Der Crawler ist so konfiguriert, dass er sich {name} nennt, kann das aber noch nicht mitteilen. Seine Telnet-Bibliothek bietet einem Client keine Möglichkeit, den Terminaltyp zu setzen; deshalb steht in Ihren Logs der Standardwert dieser Bibliothek, und NEW-ENVIRON wird aus der Umgebung des Crawler-Hosts beantwortet. Beides sind Lücken in der Bibliothek und von uns dort zu beheben. Bis dahin erkennen Sie eine Abfrage an ihrer Form: eine Verbindung, keine Anmeldung, ein kurzer, nur lesender Befehlssatz, weg.</value>
-  </data>
   <data name="about.identity.crawler" xml:space="preserve">
     <value>Crawler</value>
   </data>

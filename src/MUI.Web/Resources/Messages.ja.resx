@@ -1131,9 +1131,6 @@
   <data name="about.identity.announced" xml:space="preserve">
     <value>サーバーから何者かと尋ねられたとき、クローラーは自らを{name}と名乗る。</value>
   </data>
-  <data name="about.identity.unannounced" xml:space="preserve">
-    <value>クローラーは自らを{name}と名乗るよう設定されているが、まだそう伝えられない。使っているtelnetライブラリには、クライアント側から端末種別を設定する手段がなく、そちらのログにはそのライブラリの既定値が見える。NEW-ENVIRONもクローラーホストの環境から応答される。どちらもライブラリ側の欠落であり、そこを直すのは当方の仕事。それまでは、探査はその形で見分けられる：1本の接続、ログインなし、読み取り専用の短いコマンド列、そして退出。</value>
-  </data>
   <data name="about.identity.crawler" xml:space="preserve">
     <value>クローラー</value>
   </data>

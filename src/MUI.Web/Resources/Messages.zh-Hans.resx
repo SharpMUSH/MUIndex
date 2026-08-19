@@ -1131,9 +1131,6 @@
   <data name="about.identity.announced" xml:space="preserve">
     <value>服务器询问来者何人时，爬虫自报为 {name}。</value>
   </data>
-  <data name="about.identity.unannounced" xml:space="preserve">
-    <value>爬虫已配置为自称 {name}，但目前还说不出口。它使用的 telnet 库没有给客户端设置终端类型的途径，所以你的日志里看到的是那个库的默认值，而 NEW-ENVIRON 是用爬虫主机的环境作答的。这两处都是那个库的缺口，该由我们去那里修补。在此之前，请靠形态辨认一次探测：一个连接，不登录，一组简短的只读命令，然后就走。</value>
-  </data>
   <data name="about.identity.crawler" xml:space="preserve">
     <value>爬虫</value>
   </data>

@@ -542,12 +542,6 @@ public static class Messages
         // that names it.
         ["about.identity.announced"] = "The crawler names itself {name} when a server asks what it "
             + "is.",
-        ["about.identity.unannounced"] = "The crawler is configured to call itself {name} but cannot "
-            + "yet say so. Its telnet library gives a client no way to set the terminal type, so "
-            + "your logs see that library's default, and NEW-ENVIRON is answered from the crawler "
-            + "host's environment. Both are gaps in the library and ours to fix there. Until then, "
-            + "recognise a probe by its shape: one connection, no login, a short read-only command "
-            + "set, gone.",
         ["about.identity.crawler"] = "crawler",
         ["about.identity.contact"] = "contact",
         ["about.identity.crawler.line"] = "Crawler: {name}",
