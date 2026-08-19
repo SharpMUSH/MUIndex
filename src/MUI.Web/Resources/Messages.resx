@@ -1337,7 +1337,7 @@
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.limits.heading" xml:space="preserve">
-    <value>What we know we get wrong</value>
+    <value>How we gather and adjust data</value>
     <comment>about: what we know we get wrong</comment>
   </data>
   <data name="about.limits.grace.lead" xml:space="preserve">
@@ -1353,7 +1353,7 @@
     <comment>about: what we know we get wrong</comment>
   </data>
   <data name="about.limits.created.body" xml:space="preserve">
-    <value>It is one hand-typed line in a config file, so crediting it would make the archive threshold gameable. It is shown as a declaration and buys nothing.</value>
+    <value>It is one hand-typed line in a config file, so crediting it would make the archive threshold gameable. We also can't guess at its format.</value>
     <comment>about: what we know we get wrong</comment>
   </data>
   <data name="about.limits.claim.lead" xml:space="preserve">
@@ -1361,15 +1361,7 @@
     <comment>about: what we know we get wrong</comment>
   </data>
   <data name="about.limits.claim.body" xml:space="preserve">
-    <value>Proving server access is worth the full year of grace, however long we have been watching.</value>
-    <comment>about: what we know we get wrong</comment>
-  </data>
-  <data name="about.limits.oneHost.lead" xml:space="preserve">
-    <value>Everything here is one host, looking at intervals.</value>
-    <comment>about: what we know we get wrong</comment>
-  </data>
-  <data name="about.limits.oneHost.body" xml:space="preserve">
-    <value>A percentage of reachable time is a fraction of the window we observed, never of one we did not. No graphic here fills in the rest.</value>
+    <value>Proving server access is worth the full year of archival grace.</value>
     <comment>about: what we know we get wrong</comment>
   </data>
   <data name="about.limits.deletion.lead" xml:space="preserve">
@@ -1397,7 +1389,7 @@
     <comment>about: what this site will not do</comment>
   </data>
   <data name="about.never.forums.body" xml:space="preserve">
-    <value>Orientation material — what a MUSH is, which codebase suits collaborative roleplay — is written, signed and versioned like the rest of the site, not left to a comment section.</value>
+    <value>We aim to only provide data and information.</value>
     <comment>about: what this site will not do</comment>
   </data>
   <data name="about.never.names.lead" xml:space="preserve">
@@ -1405,15 +1397,7 @@
     <comment>about: what this site will not do</comment>
   </data>
   <data name="about.never.names.body" xml:space="preserve">
-    <value>A WHO reply is parsed in memory for a count and the shape of the header. The names are not written down; aggregates use a salted hash with a rotating salt. We don't derive a unique-player estimate from it either — renames make that unmeasurable in principle.</value>
-    <comment>about: what this site will not do</comment>
-  </data>
-  <data name="about.never.population.lead" xml:space="preserve">
-    <value>No absolute population figure is published.</value>
-    <comment>about: what this site will not do</comment>
-  </data>
-  <data name="about.never.population.body" xml:space="preserve">
-    <value>Per-codebase and per-protocol shares ship: a ratio over the measured set survives the games we cannot count. "How many people play MU*" does not, because that number would not survive being quoted.</value>
+    <value>A WHO reply is parsed in memory for a count or other sources, and counted. Self-published MSSP values are the exception to this rule.</value>
     <comment>about: what this site will not do</comment>
   </data>
   <data name="about.crawler.heading" xml:space="preserve">
@@ -1433,15 +1417,15 @@
     <comment>about: the crawler, and how to make it stop</comment>
   </data>
   <data name="about.crawler.delay.body" xml:space="preserve">
-    <value>A game that states a preferred minimum gap in its MSSP report gets it, over our own schedule in both directions: 720 hours means monthly, not weekly. A dark game is still tried for ever at the longer interval, which is how it re-lists itself when it comes back.</value>
+    <value>A game that states a preferred minimum gap in its MSSP report is heeded. A dark game is still tried for ever at the longer interval, which is how it re-lists itself when it comes back.</value>
     <comment>about: the crawler, and how to make it stop</comment>
   </data>
   <data name="about.crawler.referral.lead" xml:space="preserve">
-    <value>We check where a referral points. A game's word for it is not enough.</value>
+    <value>We check where REFERRAL points.</value>
     <comment>about: the crawler, and how to make it stop</comment>
   </data>
   <data name="about.crawler.referral.body" xml:space="preserve">
-    <value>MSSP lets a game name other games. Every name is resolved before anything is dialled, and refused unless every address it resolves to is globally routable. A mixed answer refuses the whole target. Our refusal is filed as ours and never appears in a game's record as downtime.</value>
+    <value>MSSP lets a game name other games. We use the endpoint as the source of truth however.</value>
     <comment>about: the crawler, and how to make it stop</comment>
   </data>
   <data name="about.crawler.screens.lead" xml:space="preserve">
@@ -1449,7 +1433,7 @@
     <comment>about: the crawler, and how to make it stop</comment>
   </data>
   <data name="about.crawler.screens.body" xml:space="preserve">
-    <value>A server paints its connect screen, unauthenticated, to every anonymous connection. We display it as evidence and label it. Claiming a game gives its owner the option to stop it being shown.</value>
+    <value>Claiming a game gives its owner the option to stop it being shown.</value>
     <comment>about: the crawler, and how to make it stop</comment>
   </data>
   <data name="about.crawler.stop.lead" xml:space="preserve">
@@ -1877,7 +1861,7 @@
     <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
   </data>
   <data name="ecosystem.noTotals" xml:space="preserve">
-    <value>We publish a share, not a headcount: a ratio over the games we measured survives the ones we cannot reach, so there is no figure here for how many people play MU* overall.</value>
+    <value>We publish the share, a ratio over the games we measured survives the ones we cannot reach.</value>
     <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
   </data>
   <data name="ecosystem.listed" xml:space="preserve">
@@ -1913,7 +1897,7 @@
     <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
   </data>
   <data name="ecosystem.codebases.basis" xml:space="preserve">
-    <value>Of the {listed, plural, one {# game} other {# games}} listed, {identified, number} told us what they run, and every share below is over those {identified, number}. A codebase we could not read is left out of the denominator, never counted as something else.</value>
+    <value>Of the {listed, plural, one {# game} other {# games}} listed, {identified, number} told us what they run, and every share below is over those {identified, number}. A codebase we could not read is left out of the denominator</value>
     <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
   </data>
   <data name="ecosystem.codebases.none" xml:space="preserve">
@@ -1921,7 +1905,7 @@
     <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
   </data>
   <data name="ecosystem.soleUse" xml:space="preserve">
-    <value>{share} run a codebase no other listed game runs — one game each, which is a name rather than a share. They are inside the denominator above and folded out of the bars, not dropped:</value>
+    <value>{share} run a codebase no other listed game runs — one game each, which is assumed to be just that game. They are inside the denominator above:</value>
     <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
   </data>
   <data name="ecosystem.lineages.title" xml:space="preserve">
