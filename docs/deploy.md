@@ -589,3 +589,16 @@ message — on a loser already absorbed elsewhere (`merge_log_absorbed_once_idx`
 real (non-dry) run reuses the exact same `CrawlCycle` and advisory-lock machinery the hosted crawler
 uses, so it correctly no-ops rather than double-crawls while the hosted crawler holds the lease — see
 the tool's own description for why that is not a bug.
+
+`crawl_summary` returns the registry totals in full but only a page of the per-game listing (`games`,
+default 25; `offset` to walk the rest; `games=0` for totals alone). The whole listing outgrew what an
+MCP client will accept in one answer — at ~900 games it is 140 KB, and a client that refuses the
+result gives the caller nothing at all, so a page beats a complete answer nobody can read. `mui-crawl`'s
+own printout is unpaged, since a terminal can take it.
+
+**A deploy ends every open MCP session.** Watchtower recreates `muindex-web-1`/`-2` within five
+minutes of an image push, and the new container knows nothing of a client's connection: an MCP client
+mid-task starts reporting `MCP server "muindex" is not connected` and will not necessarily reconnect
+on its own. This is expected, not a fault in the endpoint — reconnect the client (in Claude Code,
+`/mcp`) once the new containers report healthy. Do not run a long batch of MCP administration while
+PRs are landing.

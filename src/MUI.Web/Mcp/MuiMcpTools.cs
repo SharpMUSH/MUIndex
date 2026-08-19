@@ -52,6 +52,13 @@ public sealed class MuiMcpTools(
     TimeProvider time,
     ILogger<MuiMcpTools>? logger = null)
 {
+    /// <summary>
+    /// How many game lines <c>crawl_summary</c> lists when nobody says. The registry is far larger
+    /// than an answer can carry -- an unbounded listing is not a long answer, it is a refused one --
+    /// so the default is a page and the totals carry the whole count.
+    /// </summary>
+    private const int DefaultSummaryGames = 25;
+
     [McpServerTool(Name = "crawl_seed_add", Destructive = false)]
     [Description("""
         Adds one address to the crawl registry -- same semantics as mui-crawl's --seed/--seed-exempt.
@@ -251,9 +258,26 @@ public sealed class MuiMcpTools(
     [Description("""
         Registry/crawl snapshot read back out of the database -- the same figures mui-crawl prints
         after a cycle (see MUI.Crawler.CrawlSummary, which this calls directly).
+
+        The totals always count the whole registry. The per-game listing is a page, because there are
+        far more games than fit in one answer: ask for the next page with `offset`, or for `games` = 0
+        when the totals are all you wanted.
         """)]
-    public Task<CrawlSummaryData> CrawlSummaryAsync(CancellationToken cancellationToken = default) =>
-        CrawlSummary.CollectAsync(source, cancellationToken);
+    public Task<CrawlSummaryData> CrawlSummaryAsync(
+        [Description(
+            "How many game lines to list, in slug order. Default 25; 0 for totals alone.")]
+        int games = DefaultSummaryGames,
+        [Description("How many game lines to skip before taking that page. Default 0.")]
+        int offset = 0,
+        CancellationToken cancellationToken = default)
+    {
+        if (games < 0 || offset < 0)
+        {
+            throw new McpException("games and offset cannot be negative.");
+        }
+
+        return CrawlSummary.CollectAsync(source, games, offset, cancellationToken);
+    }
 
     [McpServerTool(Name = "game_field_set")]
     [Description("""
