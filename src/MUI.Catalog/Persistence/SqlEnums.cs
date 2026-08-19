@@ -54,10 +54,6 @@ public static class SqlEnums
         _ => throw Unread(value, nameof(ClaimIntent)),
     };
 
-    /// <summary>
-    /// The channel a claim token was read from (spec §8.3). DNS is absent from the enum itself — a
-    /// TXT record proves control of a hostname, not of a game.
-    /// </summary>
     public static string ToDb(ProbePayloadKind kind) => kind switch
     {
         ProbePayloadKind.Who => "who",
@@ -74,10 +70,12 @@ public static class SqlEnums
         _ => throw Unread(value, nameof(ProbePayloadKind)),
     };
 
+    /// <summary>The channel a claim token was read from (spec §8.3, migration 0031).</summary>
     public static string ToDb(ClaimChannel channel) => channel switch
     {
         ClaimChannel.Mssp => "mssp",
         ClaimChannel.ConnectScreen => "connect_screen",
+        ClaimChannel.DnsTxt => "dns_txt",
         _ => throw Unmapped(channel),
     };
 
@@ -85,6 +83,7 @@ public static class SqlEnums
     {
         "mssp" => ClaimChannel.Mssp,
         "connect_screen" => ClaimChannel.ConnectScreen,
+        "dns_txt" => ClaimChannel.DnsTxt,
         _ => throw Unread(value, nameof(ClaimChannel)),
     };
 

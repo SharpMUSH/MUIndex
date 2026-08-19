@@ -2713,7 +2713,7 @@
     <value>{count, plural, one {Zodra we dit token lezen, wordt de claim van de huidige eigenaar op dit spel ingetrokken en wordt het van jou.} other {Zodra we dit token lezen, worden de claims van de huidige eigenaren op dit spel ingetrokken en wordt het van jou.}}</value>
   </data>
   <data name="claim.either.heading" xml:space="preserve">
-    <value>Een van deze twee volstaat</value>
+    <value>Een van deze volstaat</value>
   </data>
   <data name="claim.mssp.heading" xml:space="preserve">
     <value>Een MSSP-variabele</value>
@@ -2729,6 +2729,21 @@
   </data>
   <data name="claim.screen.note" xml:space="preserve">
     <value>Overal op het scherm, en kleurcodes eromheen zijn geen probleem.</value>
+  </data>
+  <data name="claim.dns.heading" xml:space="preserve">
+    <value>Een DNS-TXT-record</value>
+  </data>
+  <data name="claim.dns.note" xml:space="preserve">
+    <value>De poort is niet optioneel. Die zegt voor welke listener op deze host het record spreekt; zonder poort bewijst het niets — één domein kan meerdere spellen dragen die niets met elkaar te maken hebben. We lezen dit zonder verbinding te maken met je spel, dus het werkt ook als de server plat ligt, en de knop hieronder leest het meteen.</value>
+  </data>
+  <data name="claim.dns.noAssume" xml:space="preserve">
+    <value>Een TXT-record kan geen overdracht afronden. Wie een domein beheert, is niet altijd wie het spel erop draait; een overname moet daarom vanaf de server zelf worden bewezen — gebruik een van de twee hierboven.</value>
+  </data>
+  <data name="claim.verified.viaDns" xml:space="preserve">
+    <value>We hebben je token op {date} uit een TXT-record in je DNS gelezen.</value>
+  </data>
+  <data name="claim.verified.leaveItDns" xml:space="preserve">
+    <value>Laat het record staan waar het staat. Het weghalen maakt je claim niet ongedaan, en zolang het er staat zien we zonder verbinding te maken dat je dit spel nog draait.</value>
   </data>
   <data name="claim.then.heading" xml:space="preserve">
     <value>Daarna</value>

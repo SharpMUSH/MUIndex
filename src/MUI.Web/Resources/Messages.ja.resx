@@ -2713,7 +2713,7 @@
     <value>{count, plural, other {このトークンを読み取った時点で、このゲームに対する現所有者の申請は取り消され、こちらのものになる。}}</value>
   </data>
   <data name="claim.either.heading" xml:space="preserve">
-    <value>どちらか一方でよい</value>
+    <value>いずれか一つでよい</value>
   </data>
   <data name="claim.mssp.heading" xml:space="preserve">
     <value>MSSPの変数</value>
@@ -2729,6 +2729,21 @@
   </data>
   <data name="claim.screen.note" xml:space="preserve">
     <value>画面内のどこでもよく、周りに色コードがあっても構わない。</value>
+  </data>
+  <data name="claim.dns.heading" xml:space="preserve">
+    <value>DNS の TXT レコード</value>
+  </data>
+  <data name="claim.dns.note" xml:space="preserve">
+    <value>ポートは省略できない。このホストのどの待ち受けについての記述かを示すもので、なければ何も証明しない — 一つのドメインに無関係なゲームが何つも乗ることがある。これはゲームに接続せずに読むので、サーバーが落ちていても使え、下のボタンを押せばその場で読む。</value>
+  </data>
+  <data name="claim.dns.noAssume" xml:space="preserve">
+    <value>TXT レコードでは引き継ぎは完了できない。ドメインを管理する者がそのゲームの運営者とは限らないので、引き継ぎはサーバー自体から証明する必要がある — 上の二つのどちらかを使うこと。</value>
+  </data>
+  <data name="claim.verified.viaDns" xml:space="preserve">
+    <value>{date}、DNS の TXT レコードからトークンを読み取った。</value>
+  </data>
+  <data name="claim.verified.leaveItDns" xml:space="preserve">
+    <value>レコードはそのままにしておく。外しても申請が解けるわけではなく、置いてある間は接続せずに運営継続が分かる。</value>
   </data>
   <data name="claim.then.heading" xml:space="preserve">
     <value>そのあと</value>

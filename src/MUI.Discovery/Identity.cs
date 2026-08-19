@@ -169,10 +169,12 @@ public static class IdentityMsspVariables
 /// given a <see cref="ProbeResult"/>, what token string, if any, did the server show us.
 /// </para>
 /// <para>
-/// Two of §8's three channels are visible to a probe (an MSSP variable, a connect-screen line); the
-/// third, a DNS TXT record, is not — nothing in a telnet session can see it. Until something writes a
-/// verified token into <c>claim_token</c>, this signal never fires, which is correct rather than
-/// degraded.
+/// <b>Two of §8's three channels are visible to a probe, and <see cref="Find"/> reads only those.</b>
+/// An MSSP variable and a connect-screen line arrive on the wire; a TXT record does not, and no
+/// telnet session can see one. The DNS channel is read by <see cref="DnsClaimVerifier"/> instead,
+/// which opens no socket — so a token that verified through DNS is a real claim and is nonetheless
+/// <em>not</em> §7.3's identity beacon, because nothing on a probe carries it. The two facts are
+/// separate and this type owns only the second.
 /// </para>
 /// <para>
 /// <b>The spellings are a published contract with server operators</b> — they appear in the claim
@@ -193,7 +195,7 @@ public static class ClaimTokenBeacon
     /// <summary>The labelled connect-screen form, e.g. <c>MUINDEX-CLAIM: muidx-a2b3-c4d5</c>.</summary>
     public const string ConnectScreenPrefix = "MUINDEX-CLAIM:";
 
-    /// <summary>The DNS label of §8's third channel, which no telnet probe can see. Named here so both halves agree.</summary>
+    /// <summary>The DNS label §8's third channel lives under. Shared with §11's opt-out so a deployment owns one underscore label.</summary>
     public const string DnsLabel = "_muindex";
 
     /// <summary>
@@ -202,6 +204,70 @@ public static class ClaimTokenBeacon
     /// </summary>
     public static readonly IReadOnlyList<string> AcceptedMsspVariables =
         [MsspVariable, "MUINDEX_CLAIM", "CONTACT_TOKEN"];
+
+    /// <summary>The fully-qualified name a claim record for this host lives at.</summary>
+    public static string DnsNameFor(string host) => $"{DnsLabel}.{CanonicalHost.Normalize(host)}";
+
+    /// <summary>
+    /// The claim token a TXT answer publishes <em>for this port</em>, or null (spec §8.3).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The grammar is <see cref="OptOutVocabulary.ReadDns"/>'s: tokens separated by whitespace or
+    /// semicolons, each able to qualify itself with <c>=</c> or <c>:</c> and a comma-separated port
+    /// list, so <c>"v=muindex1; muidx-…=4201"</c> and a bare <c>"muidx-…=4201,4202"</c> both work.
+    /// Several games on one domain publish several records, or several tokens in one.
+    /// </para>
+    /// <para>
+    /// <b>It diverges from the opt-out grammar in the two places the safe direction reverses.</b> A
+    /// qualifier is <em>required</em> here and unparseable ones are refused, where an opt-out reads
+    /// both as covering the whole host. There the cost of guessing wrong is crawling somebody who
+    /// asked us to stop, so an unreadable record must still stop us; here it is handing a listing to
+    /// whoever controls the domain, so an unreadable record must verify nothing. The qualifier is
+    /// also what answers §8.3's objection to the channel at all — a TXT record proves control of a
+    /// hostname, and naming the port is how a publisher says which listener they are speaking for.
+    /// </para>
+    /// <para>
+    /// A returned token has proved nothing yet: like every other channel, it is a candidate for
+    /// <c>ClaimService.OfferBeaconAsync</c> to look up against an issued pending claim.
+    /// </para>
+    /// </remarks>
+    public static string? ReadDns(IEnumerable<string> records, int port)
+    {
+        ArgumentNullException.ThrowIfNull(records);
+
+        foreach (var record in records)
+        {
+            foreach (var part in record.Split([' ', '\t', ';'], StringSplitOptions.RemoveEmptyEntries))
+            {
+                var cut = part.IndexOfAny(['=', ':']);
+
+                // No qualifier at all. Not an answer about this port, or about any other.
+                if (cut < 0)
+                {
+                    continue;
+                }
+
+                // Lower-cased because the mint alphabet is, so this recovers the exact bytes we
+                // issued from a control panel that normalised the value's case on the way in.
+                var token = part[..cut].ToLowerInvariant();
+
+                if (ClaimToken.LooksLikeOne(token) && NamesPort(part[(cut + 1)..], port))
+                {
+                    return token;
+                }
+            }
+        }
+
+        return null;
+
+        static bool NamesPort(string qualifier, int port)
+        {
+            var named = qualifier.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+            return named.Any(part => int.TryParse(part.Trim(), out var value) && value == port);
+        }
+    }
 
     /// <summary>The token this probe carries, from any channel a probe can see, or null.</summary>
     /// <remarks>

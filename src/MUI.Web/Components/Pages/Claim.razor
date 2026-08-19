@@ -77,17 +77,25 @@ else
 
         @if (Pending!.IsVerified)
         {
-            @* Two ids, not one sentence with the channel slotted in: "from the MSSP report" and
-               "from the connect screen" take different prepositions and cases in some languages. *@
+            @* One id per channel, not one sentence with the channel slotted in: "from the MSSP
+               report", "from the connect screen" and "from a TXT record" take different
+               prepositions and cases in some languages. *@
             <p class="verified">
                 <strong>@L("claim.verified.lead")</strong>
                 @Say(
-                    Pending.VerifiedVia == ClaimChannel.Mssp
-                        ? "claim.verified.viaMssp"
-                        : "claim.verified.viaScreen",
+                    Pending.VerifiedVia switch
+                    {
+                        ClaimChannel.Mssp => "claim.verified.viaMssp",
+                        ClaimChannel.DnsTxt => "claim.verified.viaDns",
+                        _ => "claim.verified.viaScreen",
+                    },
                     ("date", Dates.Absolute(Tag, Pending.ClaimedAt!.Value)))
             </p>
-            <p>@L("claim.verified.leaveIt")</p>
+            @* A TXT record is never read off a probe, so it is not §7.3's identity beacon — the
+               general sentence would be the page claiming a mechanism this channel does not have. *@
+            <p>@L(Pending.VerifiedVia == ClaimChannel.DnsTxt
+                     ? "claim.verified.leaveItDns"
+                     : "claim.verified.leaveIt")</p>
             <p><a href="@HttpContext.Link("/account")">@L("claim.yourGames")</a></p>
         }
         else
@@ -159,6 +167,35 @@ else
             <h3>@L("claim.screen.heading")</h3>
             <pre class="mono">@ClaimTokenBeacon.ConnectScreenPrefix @Pending.Token</pre>
             <p class="faint">@L("claim.screen.note")</p>
+
+            @* §8.3's third channel. Shown only when we know an address to tell them to publish
+               under — a game with no endpoint on record has no zone we could look in, and printing
+               a record with a blank name would be instructions that cannot work. *@
+            @if (Zones.Count > 0)
+            {
+                <h3>@L("claim.dns.heading")</h3>
+
+                @if (Pending.Intent is ClaimIntent.Assume)
+                {
+                    @* Said before the record rather than after it: an operator who has already
+                       published a TXT record and come back to find nothing happened has been let
+                       down by the page, not by the channel. *@
+                    <p class="refused">@L("claim.dns.noAssume")</p>
+                }
+                else
+                {
+                    @* One line per host, ports and all — a game on six ports is one zone, and the
+                       qualifier is what says which listener the record speaks for. The whole line
+                       is machine voice and is placed, never translated. *@
+                    <pre class="mono" translate="no">@foreach (var zone in Zones)
+{
+    @($"{zone.Name}. IN TXT \"{Pending.Token}={string.Join(',', zone.Ports)}\"")
+    <text>
+</text>
+}</pre>
+                    <p class="faint">@L("claim.dns.note")</p>
+                }
+            }
 
             <h2>@L("claim.then.heading")</h2>
             <p>@Say("claim.then.body", ("date", Dates.Absolute(Tag, Pending.ExpiresAt)))</p>
@@ -241,6 +278,20 @@ else
         {
             Pending = await Claims.IssueAsync(Game.Id, User.Id);
         }
+
+        if (Pending is { IsVerified: false } && Services.GetService<IEndpointStore>() is { } endpoints)
+        {
+            Zones =
+            [
+                .. (await endpoints.ForGameAsync(Game.Id))
+                    .Where(endpoint => endpoint.State is not EndpointState.Gone)
+                    .GroupBy(endpoint => endpoint.Host, StringComparer.OrdinalIgnoreCase)
+                    .Select(host => new Zone(
+                        ClaimTokenBeacon.DnsNameFor(host.Key),
+                        [.. host.Select(endpoint => endpoint.Port).Distinct().Order()]))
+                    .OrderBy(zone => zone.Name, StringComparer.Ordinal),
+            ];
+        }
     }
 
     [CascadingParameter]
@@ -261,6 +312,24 @@ else
     /// the other a document heading, and languages that decline the two differently need both ids.
     /// </remarks>
     private string Title => Say("claim.title", ("game", Game!.Name));
+
+    /// <summary>
+    /// One TXT record's name and the ports it has to name, per host this game answers on.
+    /// </summary>
+    /// <param name="Name">The record's fully-qualified name, from <see cref="ClaimTokenBeacon"/>.</param>
+    /// <param name="Ports">Every port this game holds on that host, so one record covers them all.</param>
+    private sealed record Zone(string Name, IReadOnlyList<int> Ports);
+
+    /// <summary>
+    /// The records this operator should create, grouped the way DNS is: one name per host.
+    /// </summary>
+    /// <remarks>
+    /// Addresses the game has moved off are left out, matching <see cref="DnsClaimVerifier"/> — a
+    /// page that told somebody to publish under a hostname the verifier will not read would be
+    /// instructions that cannot work. Empty when the site has no endpoint store behind it, which is
+    /// also when the section is not rendered at all.
+    /// </remarks>
+    private IReadOnlyList<Zone> Zones { get; set; } = [];
 
     /// <summary>
     /// The other MSSP variable names a probe accepts, as the crawler spells them.

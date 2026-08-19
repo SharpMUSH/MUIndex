@@ -24,6 +24,7 @@ public class CrawlerSettingsTests
     private string? _seeds;
     private string? _enabled;
     private string? _infoUrl;
+    private string? _dnsClaims;
 
     [Before(HookType.Test)]
     public void ClearTheAmbientEnvironment()
@@ -31,10 +32,12 @@ public class CrawlerSettingsTests
         _seeds = Environment.GetEnvironmentVariable(CrawlerSettings.SeedsEnvironmentVariable);
         _enabled = Environment.GetEnvironmentVariable(CrawlerSettings.EnabledEnvironmentVariable);
         _infoUrl = Environment.GetEnvironmentVariable(CrawlerSettings.InfoUrlEnvironmentVariable);
+        _dnsClaims = Environment.GetEnvironmentVariable(CrawlerSettings.DnsClaimsEnabledEnvironmentVariable);
 
         Environment.SetEnvironmentVariable(CrawlerSettings.SeedsEnvironmentVariable, null);
         Environment.SetEnvironmentVariable(CrawlerSettings.EnabledEnvironmentVariable, null);
         Environment.SetEnvironmentVariable(CrawlerSettings.InfoUrlEnvironmentVariable, null);
+        Environment.SetEnvironmentVariable(CrawlerSettings.DnsClaimsEnabledEnvironmentVariable, null);
     }
 
     [After(HookType.Test)]
@@ -43,12 +46,44 @@ public class CrawlerSettingsTests
         Environment.SetEnvironmentVariable(CrawlerSettings.SeedsEnvironmentVariable, _seeds);
         Environment.SetEnvironmentVariable(CrawlerSettings.EnabledEnvironmentVariable, _enabled);
         Environment.SetEnvironmentVariable(CrawlerSettings.InfoUrlEnvironmentVariable, _infoUrl);
+        Environment.SetEnvironmentVariable(CrawlerSettings.DnsClaimsEnabledEnvironmentVariable, _dnsClaims);
     }
 
     private static IConfiguration Config(params (string Key, string Value)[] settings) =>
         new ConfigurationBuilder()
             .AddInMemoryCollection(settings.Select(s => KeyValuePair.Create(s.Key, (string?)s.Value)))
             .Build();
+
+    /// <summary>
+    /// §8.3's sweep is on unless a deployment says otherwise, and a typo is not "otherwise".
+    /// </summary>
+    /// <remarks>
+    /// On by default because it dials nothing and its cost is set by how many people are mid-claim.
+    /// It has an off switch all the same: it is the one thing here that makes outbound DNS queries,
+    /// and a deployment with no egress should be able to stop it rather than read a warning on a
+    /// loop. Refused on an unparseable value for the same reason <c>MUI_CRAWL_ENABLED</c> is —
+    /// <c>=no</c> must not be read as "not false, so leave it on".
+    /// </remarks>
+    [Test]
+    public async Task TheDnsClaimSweepIsOnUnlessADeploymentSaysOtherwise()
+    {
+        await Assert.That(new CrawlerOptionsBuilder().Apply(Config()).Build().DnsClaims.Enabled).IsTrue();
+
+        var off = new CrawlerOptionsBuilder()
+            .Apply(Config((CrawlerSettings.DnsClaimsEnabledConfigurationKey, "false")))
+            .Build();
+
+        await Assert.That(off.DnsClaims.Enabled).IsFalse();
+    }
+
+    [Test]
+    public async Task ADnsClaimSweepSettingThatIsNeitherTrueNorFalseIsRefused()
+    {
+        await Assert.That(() => new CrawlerOptionsBuilder()
+                .Apply(Config((CrawlerSettings.DnsClaimsEnabledConfigurationKey, "no")))
+                .Build())
+            .Throws<ArgumentException>();
+    }
 
     [Test]
     public async Task NoSeedsConfiguredIsNoSeeds()

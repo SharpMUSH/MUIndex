@@ -56,6 +56,19 @@ public static class CrawlerSettings
 
     public const string I3ApiKeyConfigurationKey = "Crawler:I3:ApiKey";
 
+    /// <summary>
+    /// <c>false</c> stops this deployment reading TXT records for games somebody is claiming (§8.3).
+    /// </summary>
+    /// <remarks>
+    /// On by default, unlike I3: the sweep opens no socket to any game and its cost is set by how
+    /// many people are mid-claim rather than by the catalogue. It has a switch all the same, because
+    /// it is the only pass here that makes outbound DNS queries of its own, and a deployment without
+    /// egress should be able to turn it off rather than read a warning on a loop.
+    /// </remarks>
+    public const string DnsClaimsEnabledEnvironmentVariable = "MUI_DNS_CLAIMS_ENABLED";
+
+    public const string DnsClaimsEnabledConfigurationKey = "Crawler:DnsClaims:Enabled";
+
     private static readonly char[] Separators = [',', ' ', '\t', '\r', '\n'];
 
     /// <summary>Applies what the environment said, and throws rather than shrugging at a typo.</summary>
@@ -83,6 +96,18 @@ public static class CrawlerSettings
             // Here rather than only at CrawlerOptions.Validate, so a typo fails beside the setting it
             // came from instead of after the rest of the graph has been assembled around it.
             builder.Probe.Validate();
+        }
+
+        if (Read(configuration, DnsClaimsEnabledEnvironmentVariable, DnsClaimsEnabledConfigurationKey)
+            is { } sweeping)
+        {
+            builder.DnsClaims = builder.DnsClaims with
+            {
+                Enabled = bool.TryParse(sweeping, out var value)
+                    ? value
+                    : throw new ArgumentException(
+                        $"{DnsClaimsEnabledEnvironmentVariable} is '{sweeping}', which is neither true nor false."),
+            };
         }
 
         ApplyI3(builder, configuration);

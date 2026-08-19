@@ -1,17 +1,26 @@
 namespace MUI.Catalog;
 
 /// <summary>
-/// Where a claim token was read from. Only channels a probe can see are here.
+/// Where a claim token was read from (spec §8.3).
 /// </summary>
 /// <remarks>
-/// DNS is deliberately absent (spec §8.3): a TXT record proves control of a <em>hostname</em>, not a
-/// game, and MU* hosting routinely puts many unrelated games on one domain behind one port. Both
-/// members here prove control of <em>that listener</em> instead.
+/// <b>The three are not equally strong, and the difference is load-bearing.</b> An MSSP field and a
+/// connect-screen line are published by the listener being claimed, so reading one proves control of
+/// <em>that listener</em> — the thing a claim is about. A TXT record proves control of a
+/// <em>hostname</em>, and MU* hosting routinely puts many unrelated games on one domain behind
+/// different ports, so on a shared host the publisher is the hosting operator rather than the game's.
+/// The record must therefore name the port it speaks for, and
+/// <see cref="Persistence.ClaimService.OfferBeaconAsync"/> will not let it complete a
+/// <see cref="ClaimIntent.Assume"/>: DNS may add an owner and may never displace one who proved
+/// control of the server itself.
 /// </remarks>
 public enum ClaimChannel
 {
     Mssp,
     ConnectScreen,
+
+    /// <summary>A port-qualified TXT record at <c>_muindex.&lt;host&gt;</c>. Join-only; see above.</summary>
+    DnsTxt,
 }
 
 /// <summary>
@@ -177,13 +186,38 @@ public interface IClaimStore
     /// or null.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Scoped to the game as well as the token, even though a token is unique across the table: a
     /// lookup that could silently complete a different game's claim if uniqueness ever lapsed is one
     /// refactor away from a real hole.
+    /// </para>
+    /// <para>
+    /// <b><paramref name="now"/> is passed in rather than read from the store's own clock.</b>
+    /// <see cref="GameClaim.IsPending"/> asks a <see cref="TimeProvider"/> and this used to ask
+    /// <c>now()</c> in SQL, so one claim could be pending in C# and expired in the database — which
+    /// is not a fixture problem: it is the same predicate answered by two clocks, and the caller's is
+    /// the one every other decision about the claim already uses.
+    /// </para>
     /// </remarks>
     Task<GameClaim?> FindPendingByTokenAsync(
         Guid gameId,
         string token,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Every claim a DNS lookup could still change: live pending ones, and the ones DNS itself proved.
+    /// </summary>
+    /// <remarks>
+    /// The set the §8.3 sweep walks, and it is deliberately not "every claim". A pending claim is
+    /// swept because a record may have appeared; a DNS-verified one because its beacon should keep
+    /// moving while the record is up (§8.4's second timestamp is worth nothing if nothing writes it).
+    /// A claim proved on the wire is left alone — re-reading a zone says nothing about whether a
+    /// listener still publishes anything, so the lookup could only ever be wasted. An expired or
+    /// revoked claim is left alone because no answer could revive it.
+    /// </remarks>
+    Task<IReadOnlyList<GameClaim>> PendingOrDnsVerifiedAsync(
+        DateTimeOffset now,
         CancellationToken cancellationToken = default);
 
     Task InsertAsync(GameClaim claim, CancellationToken cancellationToken = default);
