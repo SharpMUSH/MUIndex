@@ -556,65 +556,6 @@ public static class Messages
         ["about.identity.placeholder.plain"] = "No contact address is configured, so the one above "
             + "is a placeholder and answers nobody.",
 
-        // ── about: where the list of games came from ──────────────────────────────────────────
-        ["about.sources.heading"] = "Where the list of games came from",
-        ["about.sources.addresses.lead"] = "We take addresses. Nothing else.",
-        ["about.sources.addresses.body"] = "A backfill takes a host and a port. No player counts, no "
-            + "reachability history, no descriptions, no fields, and no note of which site an "
-            + "address came from.",
-        ["about.sources.less.lead"] = "Deliberately less than those sites can give.",
-        ["about.sources.less.body"] = "Several hold years of dated player counts. Importing that "
-            + "would fill the heatmaps of the games somebody else was already watching, and rest "
-            + "this site's central claim on another party's prober.",
-        ["about.sources.origin.lead"] = "A game's origin is not one fact.",
-        ["about.sources.origin.body"] = "Any game worth listing appears in several of these "
-            + "directories, so \"imported from\" would name whichever fetch ran first. That a game "
-            + "exists is public information; where we read it adds nothing and is the part of "
-            + "somebody else's work with the least claim to be ours.",
-        ["about.sources.etiquette.lead"] = "Reading somebody's site is still reading somebody's "
-            + "site.",
-        ["about.sources.etiquette.body"] = "We ask for a bulk export or a documented endpoint before "
-            + "scraping, read robots.txt first, and rate-limit scrapes hard. A source that needs its "
-            + "maintainer's say-so is not fetched until a person can state they were asked.",
-
-        // "not read" (chose not to) and "withheld" (could not) are different facts.
-        ["about.source.read"] = "read — addresses only",
-        ["about.source.withheld"] = "not read — awaiting permission",
-
-        ["about.source.tintinMssp.note"] = "One page, one request. Published by a crawler that "
-            + "connects to each game and prints what it read.",
-        ["about.source.tintinMsdp.note"] = "The same crawler's MSDP listing. Nearly a subset of its "
-            + "MSSP sibling, read for the few addresses it reaches that the other does not.",
-        ["about.source.mudConnector.note"] = "Publishes its whole catalogue on one page, so reading "
-            + "it costs a single request. Our largest source of addresses, and of no measurements.",
-        ["about.source.mudStats.note"] = "One index page and one page per world, so a scrape rather "
-            + "than an export. On 30 July 2026 we fetched 143 of their pages, fifteen seconds apart "
-            + "and honouring robots.txt, but before anyone had written to them. That should not "
-            + "have happened. The gate now takes a person willing to state the maintainer was "
-            + "asked.",
-        ["about.source.mudVerse.note"] = "Implemented, tested, never run. The strongest source here "
-            + "on every axis except permission, and nothing will be fetched until somebody has "
-            + "written to them.",
-
-        // ── about: licence ────────────────────────────────────────────────────────────────────
-        ["about.licence.heading"] = "Licence",
-        ["about.licence.code.lead"] = "The code is MIT.",
-        ["about.licence.code.body"] = "The site, the crawler and the parsers are open source under "
-            + "the MIT licence.",
-        ["about.licence.open.lead"] = "The licence for the data is an open question.",
-        ["about.licence.open.body"] = "A separate decision from the code's, and not yet taken. Treat "
-            + "the terms below as this deployment's current answer, not the project's settled "
-            + "position. A rival directory taking the whole catalogue is a success condition here, "
-            + "so whatever is settled will not stand in the way of one.",
-        ["about.licence.codeLabel"] = "code",
-        ["about.licence.dataLabel"] = "data, as this deployment serves it",
-        ["about.licence.creditLabel"] = "credit as",
-        ["about.licence.code.line"] = "Code: {licence}",
-        ["about.licence.data.line"] = "Data: {licence}",
-        ["about.licence.credit.line"] = "Credit as: {credit}",
-        ["about.licence.deployment"] = "(what this deployment serves. The project's own answer is "
-            + "still open.)",
-
         // ── submit a game ─────────────────────────────────────────────────────────────────────
         // A host and a port, nothing else — the form has no name/description box.
         ["submit.title"] = "Submit a game",

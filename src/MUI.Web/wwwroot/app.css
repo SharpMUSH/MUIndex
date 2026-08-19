@@ -1942,10 +1942,6 @@ dl.identity { font-size: var(--fs-sm2); margin: var(--cpad) 0; }
 dl.identity dt { margin-top: 8px; }
 dl.identity dd { margin: 2px 0 0; color: var(--dim); }
 
-ul.sources { list-style: none; margin: var(--cpad) 0 0; padding: 0; }
-ul.sources li { border-top: 1px solid var(--line); padding: var(--cpad) 0; }
-ul.sources .name { font-size: var(--fs-md); font-weight: 600; text-decoration: none; }
-ul.sources .source-head { display: flex; gap: var(--cpad); align-items: baseline; flex-wrap: wrap; }
 /*
   ── ecosystem dashboard & rankings ──
 

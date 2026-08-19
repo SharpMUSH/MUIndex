@@ -1,6 +1,5 @@
 using MUI.Crawl;
 using MUI.Discovery;
-using MUI.Web.Api;
 using MUI.Web.Localization;
 
 namespace MUI.Web.Components;
@@ -9,10 +8,10 @@ namespace MUI.Web.Components;
 /// The about page, as one view model both surfaces render.
 /// </summary>
 /// <remarks>
-/// Spec §7.6 and §11: credit what we read, publish who is knocking and how to make it stop, and
-/// state the limits of what a measurement here proves. The prose is data because both surfaces have
-/// to carry it identically — see <see cref="PlainText"/> — so the page is a list of sections and the
-/// parity test reads words rather than tags.
+/// Spec §11: publish who is knocking and how to make it stop, and state the limits of what a
+/// measurement here proves. The prose is data because both surfaces have to carry it identically —
+/// see <see cref="PlainText"/> — so the page is a list of sections and the parity test reads words
+/// rather than tags.
 /// <para>
 /// <b>Nothing here is written from the design document alone.</b> Stating the design's intentions as
 /// the deployment's actual behaviour is the shape of the <c>ContactedMaintainer</c> defect this
@@ -28,28 +27,21 @@ namespace MUI.Web.Components;
 /// </remarks>
 public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections)
 {
-    /// <summary>Every directory credited anywhere on the page, in the order they are shown.</summary>
-    public IReadOnlyList<ImportSource> Sources => [.. Sections.SelectMany(s => s.Sources)];
-
     /// <summary>
-    /// Builds the page from the two things about it a deployment can change.
+    /// Builds the page from the one thing about it a deployment can change.
     /// </summary>
     /// <param name="probe">
     /// The crawler's own options, so the identity published here is the object the probe is
     /// constructed from rather than a copy of it that can drift.
     /// </param>
-    /// <param name="dataset">The licence terms this deployment serves its dumps under.</param>
     /// <param name="tag">The locale this page is being answered in.</param>
-    public static AboutPage Build(
-        ProbeOptions probe, DatasetLicenceOptions dataset, string tag = Locales.SourceTag) => new(
+    public static AboutPage Build(ProbeOptions probe, string tag = Locales.SourceTag) => new(
         Say(tag, "about.lede"),
         [
             Measures(tag),
             Limits(tag),
             Never(tag),
             Crawler(tag, probe),
-            Attribution(tag),
-            Licence(tag, dataset),
         ]);
 
     private static AboutSection Measures(string tag) => new(
@@ -106,54 +98,6 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
         Identity = AboutIdentity.For(probe),
     };
 
-    private static AboutSection Attribution(string tag) => new(
-        "sources",
-        Say(tag, "about.sources.heading"),
-        [
-            Point(tag, "about.sources.addresses"),
-            Point(tag, "about.sources.less"),
-            Point(tag, "about.sources.origin"),
-            Point(tag, "about.sources.etiquette"),
-        ])
-    {
-        // Names and addresses are the directories' own and are never translated; what each gave us
-        // is our sentence about them, and so is a message.
-        Sources =
-        [
-            new("TinTin++ MSSP Mud Crawler", "https://tintin.mudhalla.net/protocols/mssp/",
-                ImportSourceState.Read,
-                Say(tag, "about.source.tintinMssp.note")),
-            new("TinTin++ MSDP Mud Crawler", "https://tintin.mudhalla.net/protocols/msdp/",
-                ImportSourceState.Read,
-                Say(tag, "about.source.tintinMsdp.note")),
-            new("The Mud Connector", "https://www.mudconnect.com/",
-                ImportSourceState.Read,
-                Say(tag, "about.source.mudConnector.note")),
-            new("MudStats", "https://mudstats.com/",
-                ImportSourceState.Read,
-                Say(tag, "about.source.mudStats.note")),
-            new("MudVerse", "https://www.mudverse.com/",
-                ImportSourceState.Withheld,
-                Say(tag, "about.source.mudVerse.note")),
-        ],
-    };
-
-    private static AboutSection Licence(string tag, DatasetLicenceOptions dataset) => new(
-        "licence",
-        Say(tag, "about.licence.heading"),
-        [
-            Point(tag, "about.licence.code"),
-            Point(tag, "about.licence.open"),
-        ])
-    {
-        Licence = new AboutLicence(
-            "MIT",
-            dataset.LicenceName,
-            dataset.LicenceUrl,
-            dataset.Attribution,
-            dataset.Notice),
-    };
-
     /// <summary>
     /// One point, from the pair of ids its two halves live under.
     /// </summary>
@@ -177,12 +121,6 @@ public sealed record AboutSection(string Id, string Heading, IReadOnlyList<About
 {
     /// <summary>Who the crawler says it is, when this section is the one about the crawler.</summary>
     public AboutIdentity? Identity { get; init; }
-
-    /// <summary>The directories credited under this section.</summary>
-    public IReadOnlyList<ImportSource> Sources { get; init; } = [];
-
-    /// <summary>The terms the data goes out under, when this section is the one about licensing.</summary>
-    public AboutLicence? Licence { get; init; }
 }
 
 /// <summary>
@@ -224,39 +162,3 @@ public sealed record AboutIdentity(string Name, string InfoUrl, bool Announced, 
         Announced ? "about.identity.announced" : "about.identity.unannounced",
         new Dictionary<string, object?> { ["name"] = Name });
 }
-
-/// <summary>Whether a directory was actually read, which is not the same as whether we can read it.</summary>
-public enum ImportSourceState
-{
-    /// <summary>Fetched. Addresses were taken from it.</summary>
-    Read,
-
-    /// <summary>
-    /// Implemented and deliberately not run — it is a scrape and nobody has asked its maintainer
-    /// yet. Credited anyway: a source we chose not to fetch is a different fact from one we never
-    /// considered.
-    /// </summary>
-    Withheld,
-}
-
-/// <summary>One directory, credited by name, with what was taken from it and whether it was read.</summary>
-public sealed record ImportSource(string Name, string Url, ImportSourceState State, string Note)
-{
-    /// <summary>
-    /// The badge beside the name — which is the only place a reader meets the difference.
-    /// </summary>
-    /// <remarks>
-    /// Two ids, never one with a negation glued on — "read" and "not read" are two claims a
-    /// translator needs to state independently.
-    /// </remarks>
-    public string StatusWording(string tag = Locales.SourceTag) => Messages.For(
-        tag, State is ImportSourceState.Read ? "about.source.read" : "about.source.withheld");
-}
-
-/// <summary>The two licences, which are two decisions and only one of them has been taken.</summary>
-public sealed record AboutLicence(
-    string CodeLicence,
-    string DataLicenceName,
-    string? DataLicenceUrl,
-    string Attribution,
-    string Notice);

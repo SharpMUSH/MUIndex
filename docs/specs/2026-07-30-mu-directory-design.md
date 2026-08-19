@@ -733,9 +733,9 @@ their address and one probe's worth of everything else. That is the intended sha
 
 **Etiquette is unchanged, and still binds** — asking for a bulk export or a documented API in
 preference to scraping, honouring `robots.txt`, rate-limiting hard where scraping is the only option,
-and crediting every source we read on the about page. Taking less data does not make a crawl of
-somebody's site less of a crawl of somebody's site. **The contacted-maintainer gate is satisfied by a
-caller who can make the claim, never by a default in a source file**: it once defaulted to true for
+and crediting every source we read in `docs/import-sources.md`. Taking less data does not make a
+crawl of somebody's site less of a crawl of somebody's site. **The contacted-maintainer gate is
+satisfied by a caller who can make the claim, never by a default in a source file**: it once defaulted to true for
 MudStats with a comment asserting the maintainer had been approached, and a 143-page crawl went out
 before anyone had emailed them.
 

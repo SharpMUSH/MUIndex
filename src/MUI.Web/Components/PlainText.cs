@@ -778,32 +778,6 @@ public static class PlainText
                 }
             }
 
-            foreach (var source in section.Sources)
-            {
-                b.AppendLine();
-                b.AppendLine($"  {source.Name} — {source.StatusWording(tag)}");
-                b.AppendLine($"  {source.Url}");
-                Wrap(b, source.Note, "    ");
-            }
-
-            if (section.Licence is { } licence)
-            {
-                b.AppendLine();
-                // Every one of these goes through the wrapper rather than columns: a licence name or
-                // attribution is deployment configuration and could run long.
-                Wrap(b, Say(tag, "about.licence.code.line", ("licence", licence.CodeLicence)), "  ");
-                Wrap(b, Say(tag, "about.licence.data.line", ("licence", licence.DataLicenceName)), "  ");
-
-                if (licence.DataLicenceUrl is { } url)
-                {
-                    Wrap(b, url, "  ");
-                }
-
-                Wrap(b, Say(tag, "about.licence.deployment"), "  ");
-                Wrap(b, Say(tag, "about.licence.credit.line", ("credit", licence.Attribution)), "  ");
-                b.AppendLine();
-                Wrap(b, licence.Notice, "  ");
-            }
         }
 
         return b.ToString();

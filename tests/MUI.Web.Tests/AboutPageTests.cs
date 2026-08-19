@@ -18,14 +18,12 @@ namespace MUI.Web.Tests;
 /// The about page, which is an obligation this project incurred by crawling rather than a feature.
 /// </summary>
 /// <remarks>
-/// The load-bearing test is that the attribution list names every directory
-/// <c>docs/import-sources.md</c> records as read (spec §7.6) — drift there silently drops a credit.
-/// The rest assert sentences rather than markup, since a claim only present in the graphical layout
-/// isn't really stated.
+/// Asserts sentences rather than markup, since a claim only present in the graphical layout isn't
+/// really stated.
 /// </remarks>
 public class AboutPageTests
 {
-    private static AboutPage Page => AboutPage.Build(new ProbeOptions(), new DatasetLicenceOptions());
+    private static AboutPage Page => AboutPage.Build(new ProbeOptions());
 
     private static string Plain => PlainText.RenderAbout(Page);
 
@@ -40,53 +38,6 @@ public class AboutPageTests
     /// checked across the whole bundle instead.
     /// </remarks>
     private static string Says(string id) => Messages.For(Locales.SourceTag, id);
-
-    [Test]
-    public async Task EveryDirectoryTheBackfillReadIsCreditedByNameAndByAddress()
-    {
-        // Parsed from the record, not pasted from it, so a source added to the doc and not the page
-        // fails here.
-        var documented = DocumentedSources();
-
-        await Assert.That(documented).IsNotEmpty();
-        await Assert.That(Page.Sources).IsNotEmpty();
-
-        foreach (var (name, url) in documented)
-        {
-            await Assert.That(Plain).Contains(name);
-            await Assert.That(Plain).Contains(url);
-        }
-    }
-
-    [Test]
-    public async Task ASourceWeChoseNotToFetchIsCreditedAndSaidToBeUnread()
-    {
-        // MudVerse is deliberately never fetched; crediting it as read would misrepresent that.
-        var mudverse = Page.Sources.Single(s => s.Name == "MudVerse");
-
-        await Assert.That(mudverse.State).IsEqualTo(ImportSourceState.Withheld);
-        await Assert.That(Plain).Contains(Says("about.source.withheld"));
-
-        // A distinct string, not a negation — "we chose not to" vs. "we could not".
-        await Assert.That(Says("about.source.read")).IsNotEqualTo(Says("about.source.withheld"));
-    }
-
-    [Test]
-    public async Task TheAttributionSaysAddressesOnlyAndSaysWhy()
-    {
-        await Assert.That(Render.Words(Plain)).Contains(Says("about.sources.addresses.lead"));
-        await Assert.That(Render.Words(Plain)).Contains("No player counts");
-        await Assert.That(Render.Words(Plain)).Contains("no reachability history");
-    }
-
-    [Test]
-    public async Task TheCrawlOfMudStatsThatWentOutUnaskedIsOnThePage()
-    {
-        var text = Render.Words(Plain);
-
-        await Assert.That(text).Contains("143 of their pages");
-        await Assert.That(text).Contains("before anyone had written to them");
-    }
 
     [Test]
     public async Task TheArchiveGraceLimitationIsStatedInTheSpecsOwnTerms()
@@ -112,7 +63,7 @@ public class AboutPageTests
         // Must read off the actual probe object, or a deployment that configures it gets a page
         // confidently naming somebody else.
         var probe = new ProbeOptions { TerminalTypes = ["EXAMPLE-CRAWLER"], InfoUrl = "https://example.test/bot" };
-        var text = PlainText.RenderAbout(AboutPage.Build(probe, new DatasetLicenceOptions()));
+        var text = PlainText.RenderAbout(AboutPage.Build(probe));
 
         await Assert.That(text).Contains("EXAMPLE-CRAWLER");
         await Assert.That(text).Contains("https://example.test/bot");
@@ -138,7 +89,7 @@ public class AboutPageTests
         await Assert.That(Render.Words(Plain)).Contains(Says("about.identity.placeholder.plain"));
 
         var configured = PlainText.RenderAbout(AboutPage.Build(
-            new ProbeOptions { InfoUrl = "https://example.test/crawler" }, new DatasetLicenceOptions()));
+            new ProbeOptions { InfoUrl = "https://example.test/crawler" }));
 
         await Assert.That(Render.Words(configured))
             .DoesNotContain(Says("about.identity.placeholder.plain"));
@@ -279,20 +230,6 @@ public class AboutPageTests
     }
 
     [Test]
-    public async Task TheDataLicenceIsPresentedAsUndecidedRatherThanAsSettled()
-    {
-        var text = Render.Words(Plain);
-
-        await Assert.That(text).Contains(Says("about.licence.code.lead"));
-        await Assert.That(text).Contains("licence for the data is an open question");
-        await Assert.That(text).Contains("not yet taken");
-
-        // Framed as this deployment's answer, not the project's.
-        await Assert.That(text).Contains("this deployment serves");
-        await Assert.That(text).Contains(new DatasetLicenceOptions().LicenceName);
-    }
-
-    [Test]
     public async Task NoPlainLineIsWiderThanEightyColumns()
     {
         // All the over-long lines, not just the first — the count is the diagnosis.
@@ -319,15 +256,6 @@ public class AboutPageTests
             {
                 await Assert.That(text).Contains(Render.Words(point.Sentence));
             }
-
-            foreach (var source in section.Sources)
-            {
-                await Assert.That(text).Contains(source.Name);
-                await Assert.That(text).Contains(Render.Words(source.Note));
-
-                // The URL is a link here, not printed text — asserted against markup, not text.
-                await Assert.That(markup).Contains(source.Url);
-            }
         }
     }
 
@@ -336,14 +264,12 @@ public class AboutPageTests
     /// </summary>
     /// <remarks>
     /// The pseudolocale marks every string that passed through <see cref="Messages"/>; anything still
-    /// legible as English here was hard-coded. Directory names and URLs are asserted
-    /// <em>unchanged</em> instead — translating someone else's name would misattribute the credit
-    /// §7.6 owes.
+    /// legible as English here was hard-coded.
     /// </remarks>
     [Test]
     public async Task EverySentenceComesFromTheBundleAndTheDirectoriesOwnNamesDoNot()
     {
-        var page = AboutPage.Build(new ProbeOptions(), new DatasetLicenceOptions(), "qps-ploc");
+        var page = AboutPage.Build(new ProbeOptions(), "qps-ploc");
         var pseudo = PlainText.RenderAbout(page, "qps-ploc");
 
         await Assert.That(pseudo).Contains("⟦");
@@ -364,13 +290,6 @@ public class AboutPageTests
 
         // Machine voice too; read off the objects that own them rather than out of the bundle.
         await Assert.That(pseudo).Contains(page.Sections.Single(s => s.Id == "crawler").Identity!.Name);
-        await Assert.That(pseudo).Contains(new DatasetLicenceOptions().LicenceName);
-
-        foreach (var source in Page.Sources)
-        {
-            await Assert.That(pseudo).Contains(source.Name);
-            await Assert.That(pseudo).Contains(source.Url);
-        }
     }
 
     /// <summary>
@@ -404,8 +323,6 @@ public class AboutPageTests
     {
         var services = new ServiceCollection();
         services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
-        services.AddSingleton<IOptions<DatasetLicenceOptions>>(
-            Options.Create(new DatasetLicenceOptions()));
 
         // Fixture mode, matching the rest of this harness.
         services.AddSingleton(new MUI.Web.Data.CatalogueSource(IsMeasured: false));
@@ -418,54 +335,5 @@ public class AboutPageTests
             var output = await renderer.RenderComponentAsync<MUI.Web.Components.Pages.About>();
             return output.ToHtmlString();
         });
-    }
-
-    /// <summary>
-    /// The sources <c>docs/import-sources.md</c> records under <c>## Read</c>, as name and address.
-    /// </summary>
-    /// <remarks>
-    /// Rows are <c>| [Name](url) | … |</c>; the second table in that stretch is a yield summary with
-    /// no links in its first cell, so requiring the link is what separates them.
-    /// </remarks>
-    private static IReadOnlyList<(string Name, string Url)> DocumentedSources()
-    {
-        var lines = File.ReadAllLines(Path.Combine(RepositoryRoot(), "docs", "import-sources.md"));
-        var found = new List<(string, string)>();
-        var reading = false;
-
-        foreach (var line in lines)
-        {
-            if (line.StartsWith("## ", StringComparison.Ordinal))
-            {
-                reading = line.StartsWith("## Read", StringComparison.Ordinal);
-                continue;
-            }
-
-            if (!reading)
-            {
-                continue;
-            }
-
-            var match = Regex.Match(line, @"^\|\s*\[([^\]]+)\]\(([^)]+)\)");
-            if (match.Success)
-            {
-                found.Add((match.Groups[1].Value, match.Groups[2].Value));
-            }
-        }
-
-        return found;
-    }
-
-    private static string RepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MUIndex.slnx")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory?.FullName
-            ?? throw new InvalidOperationException("No MUIndex.slnx above " + AppContext.BaseDirectory);
     }
 }
