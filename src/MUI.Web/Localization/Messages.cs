@@ -173,8 +173,8 @@ public static class Messages
         ["home.search.placeholder"] = "search by name, theme, codebase or host",
         ["home.search.submit"] = "search",
         ["tile.gamesKnown"] = "games known",
-        ["tile.connectedNow"] = "connected now",
-        ["tile.answeringUncounted"] = "answering, uncounted",
+        ["tile.connectedNow"] = "populated",
+        ["tile.answeringUncounted"] = "unknown population",
         ["tile.archived"] = "archived",
         ["feed.newlyDiscovered"] = "newly discovered",
         ["feed.wentDark"] = "went dark — still probed",
@@ -1217,8 +1217,8 @@ public static class Messages
         ["feed.plain.cameBack"] = "Came back",
 
         ["home.plain.known"] = "{count, plural, one {# game known} other {# games known}}",
-        ["home.plain.connectedNow"] = "{count, plural, one {# connected now (measured)} other {# connected now (measured)}}",
-        ["home.plain.uncounted"] = "{count, plural, one {# answering, uncounted} other {# answering, uncounted}}",
+        ["home.plain.connectedNow"] = "{count, plural, one {# populated (measured)} other {# populated (measured)}}",
+        ["home.plain.uncounted"] = "{count, plural, one {# unknown population} other {# unknown population}}",
         ["home.plain.archived"] = "{count, plural, one {# archived, still probed} other {# archived, still probed}}",
 
         // ── THE REFERENCE SECTION'S CHROME ────────────────────────────────────────────────────

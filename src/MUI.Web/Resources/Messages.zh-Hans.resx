@@ -400,10 +400,10 @@
     <value>已知游戏</value>
   </data>
   <data name="tile.connectedNow" xml:space="preserve">
-    <value>当前连接数</value>
+    <value>有人口</value>
   </data>
   <data name="tile.answeringUncounted" xml:space="preserve">
-    <value>有应答，未能计数</value>
+    <value>人口未知</value>
   </data>
   <data name="tile.archived" xml:space="preserve">
     <value>已归档</value>
@@ -2338,10 +2338,10 @@
     <value>{count, plural, other {已知#个游戏}}</value>
   </data>
   <data name="home.plain.connectedNow" xml:space="preserve">
-    <value>{count, plural, other {当前#人连接（实测）}}</value>
+    <value>{count, plural, other {#个游戏有人口（实测）}}</value>
   </data>
   <data name="home.plain.uncounted" xml:space="preserve">
-    <value>{count, plural, other {#个游戏有应答，未能计数}}</value>
+    <value>{count, plural, other {#个游戏人口未知}}</value>
   </data>
   <data name="home.plain.archived" xml:space="preserve">
     <value>{count, plural, other {#个已归档，仍在探测}}</value>

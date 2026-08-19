@@ -521,11 +521,11 @@
     <comment>home</comment>
   </data>
   <data name="tile.connectedNow" xml:space="preserve">
-    <value>connected now</value>
+    <value>populated</value>
     <comment>home</comment>
   </data>
   <data name="tile.answeringUncounted" xml:space="preserve">
-    <value>answering, uncounted</value>
+    <value>unknown population</value>
     <comment>home</comment>
   </data>
   <data name="tile.archived" xml:space="preserve">
@@ -3149,11 +3149,11 @@
     <comment>the plain mirror's feed headings and home counts</comment>
   </data>
   <data name="home.plain.connectedNow" xml:space="preserve">
-    <value>{count, plural, one {# connected now (measured)} other {# connected now (measured)}}</value>
+    <value>{count, plural, one {# populated (measured)} other {# populated (measured)}}</value>
     <comment>the plain mirror's feed headings and home counts</comment>
   </data>
   <data name="home.plain.uncounted" xml:space="preserve">
-    <value>{count, plural, one {# answering, uncounted} other {# answering, uncounted}}</value>
+    <value>{count, plural, one {# unknown population} other {# unknown population}}</value>
     <comment>the plain mirror's feed headings and home counts</comment>
   </data>
   <data name="home.plain.archived" xml:space="preserve">

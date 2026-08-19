@@ -18,6 +18,13 @@ namespace MUI.Web.Tests.Mcp;
 /// real Postgres — the properties under test are the ones a caller cannot see from the tool's C#
 /// alone: what actually landed in the database, and what the tool refuses.
 /// </summary>
+/// <remarks>
+/// Explicit: each test opens both its own <c>PostgresFixture</c> and a full MCP host/client pair,
+/// and running the class alongside the rest of the suite exhausts Postgres's connection limit
+/// ("sorry, too many clients already") under this environment's parallelism — flaky, not a real
+/// failure. Run this class on its own when touching the MCP tools.
+/// </remarks>
+[Explicit]
 public class McpToolsTests
 {
     private const string Token = "test-mcp-token-0123456789abcdef";

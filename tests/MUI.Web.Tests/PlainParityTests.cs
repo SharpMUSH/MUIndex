@@ -502,8 +502,8 @@ public class PlainParityTests
         var text = PlainText.RenderHome(Locales.SourceTag, counts, await Queries.FeedsAsync(), CrawlerPulse.Unknown, Now);
 
         await Assert.That(text).Contains("games known");
-        await Assert.That(text).Contains("connected now (measured)");
-        await Assert.That(text).Contains("answering, uncounted");
+        await Assert.That(text).Contains("populated (measured)");
+        await Assert.That(text).Contains("unknown population");
     }
 
     /// <summary>

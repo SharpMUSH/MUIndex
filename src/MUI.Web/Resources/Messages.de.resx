@@ -400,10 +400,10 @@
     <value>bekannte Spiele</value>
   </data>
   <data name="tile.connectedNow" xml:space="preserve">
-    <value>jetzt verbunden</value>
+    <value>bevölkert</value>
   </data>
   <data name="tile.answeringUncounted" xml:space="preserve">
-    <value>antwortend, ungezählt</value>
+    <value>unbekannte Bevölkerung</value>
   </data>
   <data name="tile.archived" xml:space="preserve">
     <value>archiviert</value>
@@ -2338,10 +2338,10 @@
     <value>{count, plural, one {# Spiel bekannt} other {# Spiele bekannt}}</value>
   </data>
   <data name="home.plain.connectedNow" xml:space="preserve">
-    <value>{count, plural, one {# jetzt verbunden (gemessen)} other {# jetzt verbunden (gemessen)}}</value>
+    <value>{count, plural, one {# bevölkert (gemessen)} other {# bevölkert (gemessen)}}</value>
   </data>
   <data name="home.plain.uncounted" xml:space="preserve">
-    <value>{count, plural, one {# antwortend, ungezählt} other {# antwortend, ungezählt}}</value>
+    <value>{count, plural, one {# unbekannte Bevölkerung} other {# unbekannte Bevölkerung}}</value>
   </data>
   <data name="home.plain.archived" xml:space="preserve">
     <value>{count, plural, one {# archiviert, wird weiter abgefragt} other {# archiviert, werden weiter abgefragt}}</value>

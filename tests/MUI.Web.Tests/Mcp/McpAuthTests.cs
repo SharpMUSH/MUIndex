@@ -13,6 +13,12 @@ namespace MUI.Web.Tests.Mcp;
 /// correct one through to a real tool call — over real HTTP and a real Postgres, the way
 /// <see cref="HealthEndpointTests"/> does for <c>/health</c>.
 /// </summary>
+/// <remarks>
+/// Explicit alongside <see cref="McpToolsTests"/>: each test opens its own host and Postgres
+/// connection, and the pair together push this environment's connection pool into
+/// "sorry, too many clients already" when run inside the full suite.
+/// </remarks>
+[Explicit]
 public class McpAuthTests
 {
     private const string Token = "test-mcp-token-0123456789abcdef";

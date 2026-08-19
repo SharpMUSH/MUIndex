@@ -400,10 +400,10 @@
     <value>既知のゲーム</value>
   </data>
   <data name="tile.connectedNow" xml:space="preserve">
-    <value>現在の接続数</value>
+    <value>人口あり</value>
   </data>
   <data name="tile.answeringUncounted" xml:space="preserve">
-    <value>応答あり・読み取り不可</value>
+    <value>人口不明</value>
   </data>
   <data name="tile.archived" xml:space="preserve">
     <value>アーカイブ済み</value>
@@ -2338,10 +2338,10 @@
     <value>{count, plural, other {既知のゲーム#件}}</value>
   </data>
   <data name="home.plain.connectedNow" xml:space="preserve">
-    <value>{count, plural, other {現在接続中#人（実測）}}</value>
+    <value>{count, plural, other {人口あり#件（実測）}}</value>
   </data>
   <data name="home.plain.uncounted" xml:space="preserve">
-    <value>{count, plural, other {応答あり・読み取り不可#件}}</value>
+    <value>{count, plural, other {人口不明#件}}</value>
   </data>
   <data name="home.plain.archived" xml:space="preserve">
     <value>{count, plural, other {アーカイブ済み#件、探査は継続中}}</value>
