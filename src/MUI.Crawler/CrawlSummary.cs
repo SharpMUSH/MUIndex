@@ -74,11 +74,27 @@ public static class CrawlSummary
         ("duplicate reviews open", "SELECT count(*) FROM duplicate_review WHERE resolved_at IS NULL"),
     ];
 
+    /// <summary>Reads the totals, and a slice of the per-game lines behind them.</summary>
+    /// <param name="source">The database to read.</param>
+    /// <param name="games">
+    /// How many game lines to read, or <see langword="null"/> for all of them. The totals always
+    /// count every game either way — it is only the listing that is a page.
+    /// </param>
+    /// <param name="offset">How many game lines to skip before taking that page.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
     public static async Task<CrawlSummaryData> CollectAsync(
         NpgsqlDataSource source,
+        int? games = null,
+        int offset = 0,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(source);
+        ArgumentOutOfRangeException.ThrowIfNegative(offset);
+
+        if (games is < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(games), games, "A page cannot be negative.");
+        }
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
@@ -90,6 +106,11 @@ public static class CrawlSummary
                 label,
                 await connection.ExecuteScalarAsync<long>(new CommandDefinition(
                     sql, cancellationToken: cancellationToken))));
+        }
+
+        if (games == 0)
+        {
+            return new CrawlSummaryData(totals, []);
         }
 
         var rows = await connection.QueryAsync<GameRow>(new CommandDefinition(
@@ -108,7 +129,10 @@ public static class CrawlSummary
                      WHERE a.game_id = g.id AND a.to_at IS NULL) AS Cause
               FROM game g
              ORDER BY g.slug
+             LIMIT @games OFFSET @offset
             """,
+            // LIMIT NULL is LIMIT ALL in Postgres, so a null page reads every game.
+            new { games, offset },
             cancellationToken: cancellationToken));
 
         return new CrawlSummaryData(

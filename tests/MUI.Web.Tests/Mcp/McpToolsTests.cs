@@ -277,6 +277,54 @@ public class McpToolsTests
         await Assert.That(summary.Games.Any(g => g.Slug == "summarised-game")).IsTrue();
     }
 
+    [Test]
+    public async Task CrawlSummaryTakesOnlyAPageOfGamesSoTheAnswerStaysReadable()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+
+        for (var i = 0; i < 30; i++)
+        {
+            await SeedGameAsync(source, $"paged-game-{i:D2}", now);
+        }
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString);
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var first = await client.CallAsync<CrawlSummaryData>("crawl_summary");
+
+        // The totals still count every game -- it is only the per-game listing that is a page.
+        await Assert.That(first.Totals.Single(t => t.Label == "games").Count).IsEqualTo(30);
+        await Assert.That(first.Games.Count).IsEqualTo(25);
+        await Assert.That(first.Games[0].Slug).IsEqualTo("paged-game-00");
+
+        var second = await client.CallAsync<CrawlSummaryData>(
+            "crawl_summary", new Dictionary<string, object?> { ["games"] = 25, ["offset"] = 25 });
+
+        await Assert.That(second.Games.Count).IsEqualTo(5);
+        await Assert.That(second.Games[0].Slug).IsEqualTo("paged-game-25");
+    }
+
+    [Test]
+    public async Task CrawlSummaryAsksForTotalsAloneWithZeroGames()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        await SeedGameAsync(source, "counted-not-listed", DateTimeOffset.UtcNow);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString);
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var summary = await client.CallAsync<CrawlSummaryData>(
+            "crawl_summary", new Dictionary<string, object?> { ["games"] = 0 });
+
+        await Assert.That(summary.Totals.Single(t => t.Label == "games").Count).IsEqualTo(1);
+        await Assert.That(summary.Games.Count).IsEqualTo(0);
+    }
+
     // ── game_field_set ──────────────────────────────────────────────────────────────────────────
 
     [Test]
