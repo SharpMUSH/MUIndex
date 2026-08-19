@@ -144,6 +144,52 @@ public class FindAGameTests
         await Assert.That(screen.Loosen.Count).IsGreaterThan(screen.Matching);
     }
 
+    /// <summary>
+    /// A typed name narrows the count and hands the same name on to the listing.
+    /// </summary>
+    /// <remarks>
+    /// The free-text field was the one answer no test followed all the way through, which made
+    /// <c>/find?q=…</c> look broken to anyone who read the page expecting the games themselves: this
+    /// wizard answers in a count and a way through to <c>/games</c>, and never lists a game itself.
+    /// Both halves are asserted here — the count is really filtered, and <c>ShowHref</c> carries the
+    /// name on, so the number on the button is the number the listing then renders.
+    /// </remarks>
+    [Test]
+    public async Task ATypedNameNarrowsTheCountAndReachesTheListing()
+    {
+        var screen = await ScreenAsync($"?{FacetKeys.Text}=Aardwolf");
+
+        await Assert.That(screen.Matching).IsGreaterThan(0);
+        await Assert.That(screen.Matching).IsLessThan(screen.Listed);
+
+        // The button promises a listing of exactly this size, so it has to ask what this page asked.
+        GameFilterBinding.TryRead(QueryOf(screen.ShowHref), out var bound, out _);
+
+        var listing = await new FixtureGameQueries().SearchAsync(bound.Filter);
+
+        await Assert.That(listing.Games.Count).IsEqualTo(screen.Matching);
+        await Assert.That(listing.Games.Select(g => g.Name)).Contains("Aardwolf MUD");
+
+        var html = await FindAsync($"?{FacetKeys.Text}=Aardwolf");
+
+        await Assert.That(html).Contains("find-go");
+        await Assert.That(html).Contains($"/games?{FacetKeys.Text}=Aardwolf");
+    }
+
+    /// <summary>A name nothing is called returns nothing, rather than the unfiltered catalogue.</summary>
+    /// <remarks>The failure mode a dropped text filter would produce is 791 games, not zero — assert the zero.</remarks>
+    [Test]
+    public async Task ANameNothingIsCalledReturnsNothing()
+    {
+        var screen = await ScreenAsync($"?{FacetKeys.Text}=zzzznotagame");
+
+        await Assert.That(screen.Matching).IsEqualTo(0);
+
+        var html = await FindAsync($"?{FacetKeys.Text}=zzzznotagame");
+
+        await Assert.That(html).DoesNotContain("find-go");
+    }
+
     /// <summary>Nothing offers a way to see nothing — at zero the affordance is the answer responsible, not a button onto an empty listing.</summary>
     [Test]
     public async Task AtZeroThePageOffersTheWayOutAndNotTheEmptyListing()
