@@ -438,8 +438,8 @@ public static class Messages
             + "names no cause: an hour we could not reach and an hour we never probed are the same "
             + "absence, and neither is that server's downtime.",
 
-        // ── about: what we know we get wrong ──────────────────────────────────────────────────
-        ["about.limits.heading"] = "What we know we get wrong",
+        // ── about: How we gather and adjust data ──────────────────────────────────────────────────
+        ["about.limits.heading"] = "How we gather and adjust data",
         ["about.limits.grace.lead"] = "Archive grace is measured from the day we found you.",
         ["about.limits.grace.body"] = "A game that stops answering leaves the default listing after "
             + "its grace period: a quarter of the reachable time we probed, floored at 60 days and "
@@ -447,14 +447,9 @@ public static class Messages
             + "it. We import nothing to fill in the years before we arrived.",
         ["about.limits.created.lead"] = "We do not credit MSSP CREATED toward that grace.",
         ["about.limits.created.body"] = "It is one hand-typed line in a config file, so crediting it "
-            + "would make the archive threshold gameable. It is shown as a declaration and buys "
-            + "nothing.",
+            + "would make the archive threshold gameable. We also can't guess at its format.",
         ["about.limits.claim.lead"] = "Claiming a game earns the ceiling.",
-        ["about.limits.claim.body"] = "Proving server access is worth the full year of grace, "
-            + "however long we have been watching.",
-        ["about.limits.oneHost.lead"] = "Everything here is one host, looking at intervals.",
-        ["about.limits.oneHost.body"] = "A percentage of reachable time is a fraction of the window "
-            + "we observed, never of one we did not. No graphic here fills in the rest.",
+        ["about.limits.claim.body"] = "Proving server access is worth the full year of archival grace.",
         ["about.limits.deletion.lead"] = "Nothing is ever deleted.",
         ["about.limits.deletion.body"] = "Archiving takes a game out of the default listing, the "
             + "rankings and the active-today figure, and nothing else. Its page, URL, history and "
@@ -465,18 +460,10 @@ public static class Messages
         ["about.never.votes.lead"] = "No votes, stars, ratings or recommendations.",
         ["about.never.votes.body"] = "Rankings are computed from measured data only.",
         ["about.never.forums.lead"] = "No forums, reviews, wikis, comments or player profiles.",
-        ["about.never.forums.body"] = "Orientation material — what a MUSH is, which codebase suits "
-            + "collaborative roleplay — is written, signed and versioned like the rest of the site, "
-            + "not left to a comment section.",
+        ["about.never.forums.body"] = "We aim to only provide data and information.",
         ["about.never.names.lead"] = "Player names are never persisted.",
-        ["about.never.names.body"] = "A WHO reply is parsed in memory for a count and the shape of "
-            + "the header. The names are not written down; aggregates use a salted hash with a "
-            + "rotating salt. We don't derive a unique-player estimate from it either — renames make "
-            + "that unmeasurable in principle.",
-        ["about.never.population.lead"] = "No absolute population figure is published.",
-        ["about.never.population.body"] = "Per-codebase and per-protocol shares ship: a ratio over "
-            + "the measured set survives the games we cannot count. \"How many people play MU*\" "
-            + "does not, because that number would not survive being quoted.",
+        ["about.never.names.body"] = "A WHO reply is parsed in memory for a count or other sources, and counted. " +
+                                     "Self-published MSSP values are the exception to this rule.",
 
         // ── about: the crawler, and how to make it stop ───────────────────────────────────────
         // The command list, MSSP variable, and DNS label/value are read off the objects that
@@ -489,19 +476,13 @@ public static class Messages
             + "bounds the session so a wedged probe cannot sit on a connection slot.",
         ["about.crawler.delay.lead"] = "CRAWL DELAY wins.",
         ["about.crawler.delay.body"] = "A game that states a preferred minimum gap in its MSSP "
-            + "report gets it, over our own schedule in both directions: 720 hours means monthly, "
-            + "not weekly. A dark game is still tried for ever at the longer interval, which is how "
+            + "report is heeded. A dark game is still tried for ever at the longer interval, which is how "
             + "it re-lists itself when it comes back.",
-        ["about.crawler.referral.lead"] = "We check where a referral points. A game's word for it is not enough.",
-        ["about.crawler.referral.body"] = "MSSP lets a game name other games. Every name is resolved "
-            + "before anything is dialled, and refused unless every address it resolves to is "
-            + "globally routable. A mixed answer refuses the whole target. Our refusal is filed as "
-            + "ours and never appears in a game's record as downtime.",
+        ["about.crawler.referral.lead"] = "We check where REFERRAL points.",
+        ["about.crawler.referral.body"] = "MSSP lets a game name other games. We use the endpoint as the source of truth however.",
         ["about.crawler.screens.lead"] = "Connect screens are shown because they are sent to "
             + "everybody.",
-        ["about.crawler.screens.body"] = "A server paints its connect screen, unauthenticated, to "
-            + "every anonymous connection. We display it as evidence and label it. Claiming a game "
-            + "gives its owner the option to stop it being shown.",
+        ["about.crawler.screens.body"] = "Claiming a game gives its owner the option to stop it being shown.",
         ["about.crawler.stop.lead"] = "Say stop, and we stop — three ways.",
         ["about.crawler.stop.body"] = "Publish {variable} 1 in your MSSP report, and the probe that "
             + "reads it is the last one. Or publish a TXT record at {label}.your.host reading "
@@ -715,7 +696,7 @@ public static class Messages
         // §15.7 withholds an absolute population figure; every id here carries its denominator in
         // the same string as the percentage.
         ["ecosystem.title"] = "The ecosystem",
-        ["ecosystem.noTotals"] = "We publish a share, not a headcount: a ratio over the games we measured survives the ones we cannot reach, so there is no figure here for how many people play MU* overall.",
+        ["ecosystem.noTotals"] = "We publish the share, a ratio over the games we measured survives the ones we cannot reach.",
 
         // {value} is the drawn numeral, passed as an argument rather than embedded in markup.
         ["ecosystem.listed"] = "{count, plural, one {{value} game listed} other {{value} games listed}}",
@@ -731,14 +712,17 @@ public static class Messages
 
         ["ecosystem.codebases.title"] = "Codebases",
         // Both numbers: identified count must not be mistaken for total listed games.
-        ["ecosystem.codebases.basis"] = "Of the {listed, plural, one {# game} other {# games}} listed, {identified, number} told us what they run, and every share below is over those {identified, number}. A codebase we could not read is left out of the denominator, never counted as something else.",
+        ["ecosystem.codebases.basis"] = "Of the {listed, plural, one {# game} other {# games}} listed, {identified, number} told us what they run, and every share below is over those {identified, number}. " +
+                                        "A codebase we could not read is left out of the denominator",
         ["ecosystem.codebases.none"] = "No listed game has told us its codebase yet.",
-        ["ecosystem.soleUse"] = "{share} run a codebase no other listed game runs — one game each, which is a name rather than a share. They are inside the denominator above and folded out of the bars, not dropped:",
+        ["ecosystem.soleUse"] = "{share} run a codebase no other listed game runs — one game each, which is assumed to be just that game. They are inside the denominator above:",
 
         ["ecosystem.lineages.title"] = "Lineages",
-        ["ecosystem.lineages.basis"] = "The same games, grouped by the tradition their server descends from — our reading of the codebase, not anything a game published. No game reports \"MUSH\": MSSP has no such value, and most of the MUSH world publishes no MSSP at all, so this is the only way the question can be asked.",
+        ["ecosystem.lineages.basis"] = "The same games, grouped by the tradition their server descends from — our reading of the codebase, not anything a game published. " +
+                                       "No game reports \"MUSH\": MSSP has no such value, and most of the MUSH world publishes no MSSP at all, so this is the only way the question can be asked.",
         ["ecosystem.lineages.none"] = "No listed game runs a codebase we place in a lineage yet.",
-        ["ecosystem.lineages.notClassified"] = "{count, plural, one {# of those games runs a codebase} other {# of those games run codebases}} we do not place in any lineage — several say as much themselves, publishing {family}. They are inside the denominator above and in nobody's share.",
+        ["ecosystem.lineages.notClassified"] = "{count, plural, one {# of those games runs a codebase} other {# of those games run codebases}} we do not place in any lineage — several say as much themselves, publishing {family}. " +
+                                               "They are inside the denominator above and in nobody's share.",
 
         ["ecosystem.protocols.title"] = "Protocols",
         ["ecosystem.protocols.floor"] = "Read every measured figure below as a floor. " +
