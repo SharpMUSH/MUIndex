@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@using MUI.Web.Accounts
 @using MUI.Web.Data
 @using MUI.Web.Localization
 @inject CatalogueSource Catalogue
@@ -86,7 +87,8 @@
         }
         else
         {
-            <a class="action primary" href="@HttpContext.Link("/account/sign-in")">@L("nav.signIn")</a>
+            @* Carries the page being read, so signing in from the bar comes back to it. *@
+            <a class="action primary" href="@ReturnPath.SignInFrom(HttpContext)">@L("nav.signIn")</a>
         }
     </nav>
     @* Last in the bar: everything to their left names a page, these three change the one you're

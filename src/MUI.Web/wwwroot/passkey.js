@@ -99,7 +99,9 @@
       registering ? '/account/passkey/register' : '/account/passkey/sign-in',
       { credential: serialise(credential) });
 
-    window.location.assign(result.redirect);
+    // Back to the page that sent them here, when one did — the page carries it, validated
+    // server-side, because a redirect target read out of the address bar is an open redirect.
+    window.location.assign(form.dataset.passkeyReturn || result.redirect);
   };
 
   document.querySelectorAll('form[data-passkey]').forEach((form) => {

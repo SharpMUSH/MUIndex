@@ -34,7 +34,7 @@ else
             <strong>@L("account.signIn.passkey.lead")</strong> @L("account.signIn.passkey.body")
         </p>
 
-        <form data-passkey="sign-in" method="post" action="@Http.Link("/account/sign-in")">
+        <form data-passkey="sign-in" data-passkey-return="@Return" method="post" action="@Http.Link(Passkeys.SignInPath)">
             <button type="submit" disabled>@L("account.signIn.button")</button>
             <p class="faint" data-passkey-status>@L("account.signIn.script")</p>
         </form>
@@ -43,7 +43,7 @@ else
 
         <p>@L("account.register.lede")</p>
 
-        <form data-passkey="register" method="post" action="@Http.Link("/account/register")">
+        <form data-passkey="register" data-passkey-return="@Return" method="post" action="@Http.Link("/account/register")">
             <label for="name">@L("account.register.name.label")</label>
             <input id="name" name="name" type="text" maxlength="40" autocomplete="username"
                    placeholder="@L("account.register.name.placeholder")" />
@@ -70,6 +70,21 @@ else
     [CascadingParameter] private HttpContext? Http { get; set; }
 
     private string L(string id) => Messages.For(Http.LocaleOf().Tag, id);
+
+    /// <summary>
+    /// Where to send this operator once their device has answered.
+    /// </summary>
+    /// <remarks>
+    /// Empty unless the link that reached this page carried a page of this site to come back to;
+    /// <c>passkey.js</c> falls back to the dashboard the endpoint names. Localized on the way out,
+    /// since the address that arrived is locale-free — signing in is not a language change.
+    /// <see cref="ReturnPath.Of"/> is what stands between a querystring anybody can write and a
+    /// redirect this page performs.
+    /// </remarks>
+    private string Return =>
+        ReturnPath.Of(Http?.Request.Query[ReturnPath.Parameter]) is { } path
+            ? Http.Link(path)
+            : string.Empty;
 
     /// <summary>
     /// Whether there is a database to sign in against.
