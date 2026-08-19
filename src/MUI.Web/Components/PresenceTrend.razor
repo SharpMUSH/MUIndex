@@ -106,6 +106,15 @@
             }
         </svg>
 
+        @* Outside the SVG for the same reason as the month labels below: the canvas stretches to the
+           page width but its height does not, so a value's y-coordinate is already a CSS pixel. *@
+        <div class="trend-yaxis mono faint" aria-hidden="true">
+            @foreach (var (value, y) in TrendGeometry.Gridlines(Series))
+            {
+                <span style="top: @N(y)px">@value</span>
+            }
+        </div>
+
         @* Outside the SVG because the canvas is stretched to the page width — text inside it would
            be stretched with it. *@
         <div class="trend-axis mono faint" aria-hidden="true">

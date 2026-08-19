@@ -143,6 +143,25 @@ public class PresenceTrendTests
     }
 
     [Test]
+    public async Task TheVerticalAxisIsLabelledWithTheValueEachGridlineStandsFor()
+    {
+        // The lines were already drawn (TrendGeometry.Gridlines); a reader still can't turn "a bar
+        // this tall" into a number without a printed value beside each one.
+        var series = Series(Counted(0, 4), Counted(1, 8), Counted(2, 20));
+
+        var html = await Render.ComponentAsync<PresenceTrend>(
+            new Dictionary<string, object?> { ["Series"] = series });
+
+        await Assert.That(html).Contains("class=\"trend-yaxis")
+            .Because("the value belongs beside the line it labels, not only in the caption below the chart");
+
+        foreach (var (value, _) in TrendGeometry.Gridlines(series))
+        {
+            await Assert.That(html).Contains($">{value}<");
+        }
+    }
+
+    [Test]
     public async Task TheCalendarIsLabelledWhereAMonthStartsAndIsNeverCrowded()
     {
         // A five-year range has sixty month starts, and sixty labels is a grey smear, so they thin instead of overprinting.
