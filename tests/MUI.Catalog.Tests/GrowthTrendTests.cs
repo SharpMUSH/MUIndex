@@ -60,4 +60,56 @@ public class GrowthTrendTests
     public async Task NoCurrentWindowAtAllHasNoDirection() =>
         await Assert.That(GrowthTrend.Of(median: null, samples: null, priorMedian: 12, priorSamples: 30))
             .IsNull();
+
+    [Test]
+    public async Task ARequiredFloorBelowTheDefaultLetsAThinnerWindowRank() =>
+        await Assert.That(GrowthTrend.Of(
+                median: 12, samples: 10, priorMedian: 10, priorSamples: 10,
+                requiredSamples: 8, requiredPriorSamples: 8))
+            .IsEqualTo(GrowthDirection.Up);
+
+    [Test]
+    public async Task DefaultFloorsStillApplyWhenNotOverridden() =>
+        await Assert.That(GrowthTrend.Of(median: 12, samples: 10, priorMedian: 10, priorSamples: 10))
+            .IsNull();
+}
+
+/// <summary>
+/// The sample floor a window needs before its median may enter a comparison at all — scaled down
+/// from the full-week floor by how much of the window a young game could actually have been probed
+/// in, so a game short of two weeks old is not permanently <c>null</c> (spec's "best effort" ask).
+/// </summary>
+public class GrowthTrendRequiredSamplesTests
+{
+    private static readonly DateTimeOffset WindowFrom = new(2026, 7, 1, 0, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset WindowTo = WindowFrom + SortWindows.Week;
+
+    [Test]
+    public async Task AGameSeenWellBeforeTheWindowNeedsTheFullFloor() =>
+        await Assert.That(GrowthTrend.RequiredSamples(WindowFrom, WindowTo, WindowFrom.AddYears(-1)))
+            .IsEqualTo(SortWindows.MinimumSamples);
+
+    [Test]
+    public async Task NoFirstSeenDateStillNeedsTheFullFloor() =>
+        // Every real row has the column set (not nullable); a caller with no better data must not be
+        // handed a lowered floor it never earned.
+        await Assert.That(GrowthTrend.RequiredSamples(WindowFrom, WindowTo, null))
+            .IsEqualTo(SortWindows.MinimumSamples);
+
+    [Test]
+    public async Task AGameSeenPartwayThroughTheWindowNeedsAProportionallyScaledFloor() =>
+        // Only the window's last 3 of 7 days were even possible to probe in.
+        await Assert.That(GrowthTrend.RequiredSamples(WindowFrom, WindowTo, WindowTo.AddDays(-3)))
+            .IsEqualTo((int)Math.Ceiling(SortWindows.MinimumSamples * 3.0 / 7));
+
+    [Test]
+    public async Task AGameSeenLessThanTwoDaysBeforeTheWindowEndsIsUnreachable() =>
+        // There is no such thing as a trend read off a few hours of data — no floor is low enough.
+        await Assert.That(GrowthTrend.RequiredSamples(WindowFrom, WindowTo, WindowTo.AddHours(-6)))
+            .IsEqualTo(int.MaxValue);
+
+    [Test]
+    public async Task AGameNotYetSeenWhenTheWindowEndsIsUnreachable() =>
+        await Assert.That(GrowthTrend.RequiredSamples(WindowFrom, WindowTo, WindowTo.AddDays(1)))
+            .IsEqualTo(int.MaxValue);
 }

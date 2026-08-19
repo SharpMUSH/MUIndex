@@ -550,7 +550,7 @@ public static class PlainText
 
     /// <summary>
     /// One liveness feed's rows, in the shape every caller of <see cref="RenderFeeds"/> and the
-    /// pages that render a subset of the three (<see cref="RenderHome"/>, <c>RenderActivity</c>)
+    /// pages that render a subset of the three (<see cref="RenderHome"/>, <see cref="RenderCrawler"/>)
     /// share.
     /// </summary>
     private static void Feed(
@@ -639,28 +639,6 @@ public static class PlainText
             }
         }
 
-        b.AppendLine();
-        b.AppendLine(Say(tag, "home.plain.activityLink") + ": " + Path(tag, "/activity"));
-
-        return b.ToString();
-    }
-
-    /// <summary>
-    /// The activity page: the two feeds the front page no longer carries — went dark, came back.
-    /// </summary>
-    public static string RenderActivity(string tag, LivenessFeeds feeds, DateTimeOffset now)
-    {
-        ArgumentNullException.ThrowIfNull(feeds);
-
-        var b = new StringBuilder();
-
-        b.AppendLine(Say(tag, "activity.title").ToUpperInvariant());
-        Wrap(b, Say(tag, "activity.lede"), string.Empty);
-        b.AppendLine();
-
-        Feed(b, tag, "feed.plain.wentDark", feeds.WentDark, "feed.nothingDark", now);
-        Feed(b, tag, "feed.plain.cameBack", feeds.CameBack, "feed.nothingBack", now);
-
         return b.ToString();
     }
 
@@ -671,12 +649,14 @@ public static class PlainText
         IReadOnlyList<CrawlCycleRecord> recent,
         IReadOnlyList<RecentGameChange> recentChanges,
         IReadOnlyList<DueTarget> dueSoon,
+        LivenessFeeds feeds,
         DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(pulse);
         ArgumentNullException.ThrowIfNull(recent);
         ArgumentNullException.ThrowIfNull(recentChanges);
         ArgumentNullException.ThrowIfNull(dueSoon);
+        ArgumentNullException.ThrowIfNull(feeds);
 
         var b = new StringBuilder();
 
@@ -721,6 +701,13 @@ public static class PlainText
         }
 
         b.AppendLine();
+        b.AppendLine(Messages.For(tag, "crawler.liveness.title"));
+        Wrap(b, Messages.For(tag, "crawler.liveness.lede"), string.Empty);
+        b.AppendLine();
+
+        Feed(b, tag, "feed.plain.wentDark", feeds.WentDark, "feed.nothingDark", now);
+        Feed(b, tag, "feed.plain.cameBack", feeds.CameBack, "feed.nothingBack", now);
+
         b.AppendLine(Messages.For(tag, "crawler.recent.title"));
         Wrap(b, Messages.For(tag, "crawler.recent.lede"), string.Empty);
 

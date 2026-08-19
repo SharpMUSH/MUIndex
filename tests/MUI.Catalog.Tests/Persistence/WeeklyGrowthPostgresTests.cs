@@ -136,6 +136,33 @@ public class WeeklyGrowthPostgresTests
         await Assert.That(await GrowthOf(db, "edge")).IsEqualTo(GrowthDirection.Up);
     }
 
+    [Test]
+    public async Task AGameYoungerThanTheWindowGetsAProportionallyScaledFloorInsteadOfNull()
+    {
+        // Discovered 10 days ago: only the prior week's last 3 days (day 10 through day 7) were ever
+        // reachable, so 11 samples there clears the scaled floor though it is far short of the full
+        // week's 24 — the "best effort" this game gets rather than a permanent null for its first
+        // fortnight.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, "toddler", "Toddler", firstSeenAt: Now.AddDays(-10));
+
+        await WriteWeekAsync(db, game, Now.AddDays(-9), count: 10, samples: 11);
+        await WriteWeekAsync(db, game, Now.AddDays(-6), count: 20);
+
+        await Assert.That(await GrowthOf(db, "toddler")).IsEqualTo(GrowthDirection.Up);
+    }
+
+    [Test]
+    public async Task AGameSeenLessThanTwoDaysAgoStillHasNoDirectionEvenAtTheScaledFloor()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, "newborn", "Newborn", firstSeenAt: Now.AddHours(-30));
+
+        await WriteWeekAsync(db, game, Now.AddDays(-1), count: 10, samples: 24);
+
+        await Assert.That(await GrowthOf(db, "newborn")).IsNull();
+    }
+
     private static async Task<GrowthDirection?> GrowthOf(TestDatabase db, string slug)
     {
         var listing = await QueriesOn(db).ListAsync(new GameFilter { IncludeArchived = true });

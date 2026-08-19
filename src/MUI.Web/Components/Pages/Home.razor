@@ -9,8 +9,8 @@
     this week is a record, not a list. Search sits above them because "find one specific game" is
     the second-most-common visit.
 
-    Two of the three liveness feeds live on /activity now, not here: went dark and came back are
-    still measured, still linked from every page, but they answer "what happened to a game I
+    Two of the three liveness feeds live on /crawler now, not here: went dark and came back are
+    still measured, still reachable from the nav, but they answer "what happened to a game I
     already know", which is a different visit from the one this page is tuned for — someone who
     doesn't have a game in mind yet and wants to know what's new or what's growing. Newly
     discovered stays, since it answers exactly that question; trending this week (§9's growth
@@ -85,8 +85,8 @@ else
     </section>
 
     @* Two registers now, not three: accent means measured and rising. Went dark and came back
-       moved to /activity (linked below), which is where "what happened to a game I already know"
-       belongs rather than beside "what's new" and "what's growing". *@
+       moved to /crawler, which is where "what happened to a game I already know" belongs rather
+       than beside "what's new" and "what's growing". *@
     <div class="feeds">
         <section class="feed feed-lit" aria-labelledby="feed-new">
             <h2 id="feed-new" class="kicker">@L("feed.newlyDiscovered")</h2>
@@ -117,8 +117,6 @@ else
             }
         </section>
     </div>
-
-    <p class="dim"><a href="@Http.Link("/activity")">@L("home.activityLink")</a></p>
 
     </div>
 }

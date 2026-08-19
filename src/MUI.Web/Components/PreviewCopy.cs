@@ -48,8 +48,6 @@ public static class PreviewCopy
     {
         public static string Games(string tag) => Messages.For(tag, "preview.desc.games");
 
-        public static string Activity(string tag) => Messages.For(tag, "preview.desc.activity");
-
         public static string Archive(string tag) => Messages.For(tag, "preview.desc.archive");
 
         public static string Rankings(string tag) => Messages.For(tag, "preview.desc.rankings");
@@ -78,8 +76,6 @@ public static class PreviewCopy
     public static class Titles
     {
         public static string Games(string tag) => Messages.For(tag, "preview.title.games");
-
-        public static string Activity(string tag) => Messages.For(tag, "preview.title.activity");
 
         public static string Archive(string tag) => Messages.For(tag, "preview.title.archive");
 

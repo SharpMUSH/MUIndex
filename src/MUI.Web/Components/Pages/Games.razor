@@ -220,16 +220,34 @@ else
                             </p>
                         }
 
-                        @* Never-reached is its own sentence, never dated from our first sighting. *@
+                        @* Never-reached is its own sentence, never dated from our first sighting.
+                           The column reads whichever date the active sort ranks on — reached by
+                           default, first-seen while sorting by discovery — rather than showing
+                           reached even when the row order says something else. *@
                         <p class="row-seen mono">
-                            <span class="sr-only">@Messages.For(Tag, "listing.row.reached")&#160;</span>
-                            @if (g.LastReachableAt is { } seen)
+                            @if (Filter.Sort == GameSort.Discovered)
                             {
-                                <Moment At="seen" Now="Now" />
+                                <span class="sr-only">@Messages.For(Tag, "listing.row.discovered")&#160;</span>
+                                @if (g.FirstSeenAt is { } discovered)
+                                {
+                                    <Moment At="discovered" Now="Now" />
+                                }
+                                else
+                                {
+                                    <span class="state-unknown">@Messages.For(Tag, "listing.never")</span>
+                                }
                             }
                             else
                             {
-                                <span class="state-unknown">@Messages.For(Tag, "listing.never")</span>
+                                <span class="sr-only">@Messages.For(Tag, "listing.row.reached")&#160;</span>
+                                @if (g.LastReachableAt is { } seen)
+                                {
+                                    <Moment At="seen" Now="Now" />
+                                }
+                                else
+                                {
+                                    <span class="state-unknown">@Messages.For(Tag, "listing.never")</span>
+                                }
                             }
                         </p>
                     </div>
@@ -300,6 +318,7 @@ else
         new(GameSort.PeakWeek, Messages.For(Tag, "switch.peak")),
         new(GameSort.Name, Messages.For(Tag, "switch.name"), Rule: true),
         new(GameSort.Reached, Messages.For(Tag, "switch.reached")),
+        new(GameSort.Discovered, Messages.For(Tag, "switch.discovered")),
     ];
 
     /// <summary>

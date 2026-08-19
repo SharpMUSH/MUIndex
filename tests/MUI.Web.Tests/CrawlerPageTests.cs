@@ -1,7 +1,10 @@
 using MUI.Web.Localization;
 
+using Microsoft.AspNetCore.Http;
+
 using MUI.Catalog;
 using MUI.Web.Components;
+using MUI.Web.Components.Layout;
 using MUI.Web.Data;
 using MUI.Web.Fixtures;
 using Microsoft.Extensions.DependencyInjection;
@@ -171,6 +174,35 @@ public class CrawlerPageTests
         await Assert.That(text).Contains("soonest.example:4201");
     }
 
+    /// <summary>The page draws went-dark and came-back too, the two liveness feeds Home no longer carries.</summary>
+    [Test]
+    public async Task ThePageDrawsWentDarkAndCameBack()
+    {
+        var pulse = Pulse(Cycle(1, 1, 1, 0, 0, 0));
+        var dark = new FeedEntry(Guid.NewGuid(), "verdigris", "Verdigris", Now.AddHours(-3), "connection refused");
+        var back = new FeedEntry(Guid.NewGuid(), "aardwolf", "Aardwolf MUD", Now.AddMinutes(-40), string.Empty);
+
+        var html = await Render.ComponentAsync<Components.Pages.Crawler>(
+            new Dictionary<string, object?>(),
+            services =>
+            {
+                services.AddSingleton<ICrawlerPulse>(new StubCrawlerPulse(pulse, [Cycle(1, 1, 1, 0, 0, 0)]));
+                services.AddSingleton<TimeProvider>(new FixedClock(Now));
+                services.AddSingleton<IGameQueries>(new StubChangeQueries
+                {
+                    Feeds = new LivenessFeeds([], [dark], [back]),
+                });
+            });
+
+        var text = Render.Text(html);
+
+        await Assert.That(text).Contains(Messages.For(Locales.SourceTag, "feed.wentDark"));
+        await Assert.That(text).Contains(Messages.For(Locales.SourceTag, "feed.cameBack"));
+        await Assert.That(text).Contains("Verdigris");
+        await Assert.That(text).Contains("connection refused");
+        await Assert.That(text).Contains("Aardwolf MUD");
+    }
+
     /// <summary>Absent, not a fabricated "nothing changed" claim with an implied cause.</summary>
     [Test]
     public async Task WithNothingRecentOrDueThePageSaysSoRatherThanShowingEmptyLists()
@@ -188,6 +220,29 @@ public class CrawlerPageTests
 
         await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "crawler.recent.empty"));
         await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "crawler.due.empty"));
+        await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "feed.nothingDark"));
+        await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "feed.nothingBack"));
+    }
+
+    /// <summary>The nav offers the crawler page directly, where went dark/came back moved to.</summary>
+    [Test]
+    public async Task TheNavOffersTheCrawlerPageAlongsideTheOtherBrowseDestinations()
+    {
+        var markup = await Render.ComponentAsync<MainLayout>(new Dictionary<string, object?>(), services =>
+        {
+            services.AddSingleton(new CatalogueSource(IsMeasured: true));
+            services.AddCascadingValue(_ =>
+            {
+                var context = new DefaultHttpContext();
+
+                context.Request.Path = "/games";
+
+                return (HttpContext)context;
+            });
+        });
+
+        await Assert.That(markup).Contains("href=\"/crawler\"");
+        await Assert.That(Render.Words(markup)).Contains(Messages.For(Locales.SourceTag, "nav.crawler"));
     }
 
     /// <summary>The plain mirror carries the same facts as the rendered page.</summary>
@@ -233,12 +288,16 @@ public class CrawlerPageTests
             Task.FromResult(Due);
     }
 
-    /// <summary>Answers only <see cref="RecentFieldChangesAsync"/>, which is all this page asks of it.</summary>
+    /// <summary>Answers only <see cref="RecentFieldChangesAsync"/> and <see cref="FeedsAsync"/>, which is all this page asks of it.</summary>
     private sealed class StubChangeQueries(params RecentGameChange[] changes) : IGameQueries
     {
+        public LivenessFeeds Feeds { get; init; } = new([], [], []);
+
         public Task<IReadOnlyList<RecentGameChange>> RecentFieldChangesAsync(
             int limit, int perGameLimit = 3, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<RecentGameChange>>(changes);
+
+        public Task<LivenessFeeds> FeedsAsync(CancellationToken ct = default) => Task.FromResult(Feeds);
 
         public Task<GameListing> SearchAsync(GameFilter filter, CancellationToken ct = default) =>
             throw new NotSupportedException();
@@ -253,9 +312,6 @@ public class CrawlerPageTests
             throw new NotSupportedException();
 
         public Task<GameSummary?> FindByIdAsync(Guid id, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public Task<LivenessFeeds> FeedsAsync(CancellationToken ct = default) =>
             throw new NotSupportedException();
 
         public Task<EcosystemDashboard> EcosystemAsync(CancellationToken ct = default) =>

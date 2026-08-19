@@ -8,7 +8,8 @@ namespace MUI.Web.Tests;
 
 /// <summary>
 /// The front page after the went-dark/came-back split: newly discovered and trending this week are
-/// what's left, with a link to <c>/activity</c> for the two that moved.
+/// what's left. The other two liveness feeds live on <c>/crawler</c> now, reachable from the nav
+/// rather than from a link on this page.
 /// </summary>
 public class HomePageTests
 {
@@ -23,19 +24,9 @@ public class HomePageTests
         await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "feed.newlyDiscovered"));
         await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "home.trending.title"));
 
-        // Not the literal heading words: "came back" also appears in the activity-link sentence
-        // below the feeds, so the section ids are what actually distinguishes "drawn" from "linked".
         await Assert.That(html).DoesNotContain("id=\"feed-dark\"");
         await Assert.That(html).DoesNotContain("id=\"feed-back\"");
-    }
-
-    [Test]
-    public async Task ThePageLinksToActivityForWhatMoved()
-    {
-        var html = await Render.PageAsync<Home>([]);
-
-        await Assert.That(html).Contains("href=\"/activity\"");
-        await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "home.activityLink"));
+        await Assert.That(html).DoesNotContain("href=\"/activity\"");
     }
 
     [Test]
@@ -64,6 +55,5 @@ public class HomePageTests
         await Assert.That(text).Contains(Messages.For(Locales.SourceTag, "home.plain.trending").ToUpperInvariant());
         await Assert.That(text).DoesNotContain("WENT DARK");
         await Assert.That(text).DoesNotContain("CAME BACK");
-        await Assert.That(text).Contains(Messages.For(Locales.SourceTag, "home.plain.activityLink"));
     }
 }

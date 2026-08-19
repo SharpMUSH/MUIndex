@@ -428,8 +428,8 @@
     <value>random</value>
     <comment>site chrome</comment>
   </data>
-  <data name="nav.activity" xml:space="preserve">
-    <value>activity</value>
+  <data name="nav.crawler" xml:space="preserve">
+    <value>crawler</value>
     <comment>site chrome</comment>
   </data>
   <data name="nav.archive" xml:space="preserve">
@@ -572,18 +572,6 @@
     <value>No game is trending up this week.</value>
     <comment>home</comment>
   </data>
-  <data name="home.activityLink" xml:space="preserve">
-    <value>went dark or came back recently</value>
-    <comment>home</comment>
-  </data>
-  <data name="activity.title" xml:space="preserve">
-    <value>Activity</value>
-    <comment>activity: went dark and came back, moved off the front page</comment>
-  </data>
-  <data name="activity.lede" xml:space="preserve">
-    <value>Which games stopped answering, and which came back — moved here from the front page, which now leads with what's new and what's growing.</value>
-    <comment>activity: went dark and came back, moved off the front page</comment>
-  </data>
   <data name="games.title" xml:space="preserve">
     <value>Games</value>
     <comment>the listing</comment>
@@ -666,6 +654,10 @@
   </data>
   <data name="switch.reached" xml:space="preserve">
     <value>reached</value>
+    <comment>the order switch</comment>
+  </data>
+  <data name="switch.discovered" xml:space="preserve">
+    <value>discovered</value>
     <comment>the order switch</comment>
   </data>
   <data name="window.7" xml:space="preserve">
@@ -928,6 +920,10 @@
     <value>last reached</value>
     <comment>sort orders</comment>
   </data>
+  <data name="sort.discovered" xml:space="preserve">
+    <value>newest discovered</value>
+    <comment>sort orders</comment>
+  </data>
   <data name="sort.medianWeek" xml:space="preserve">
     <value>typically on · 7 days</value>
     <comment>sort orders</comment>
@@ -970,6 +966,10 @@
   </data>
   <data name="sort.unranked.reached" xml:space="preserve">
     <value>never once reached — not reached long ago</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.unranked.discovered" xml:space="preserve">
+    <value>when we first saw this address is not on record</value>
     <comment>sort orders</comment>
   </data>
   <data name="sort.unranked.median" xml:space="preserve">
@@ -2872,6 +2872,10 @@
     <value>reached</value>
     <comment>appended block: the listing row's own labels and the last three chips</comment>
   </data>
+  <data name="listing.row.discovered" xml:space="preserve">
+    <value>discovered</value>
+    <comment>appended block: the listing row's own labels and the last three chips</comment>
+  </data>
   <data name="facet.group.search" xml:space="preserve">
     <value>search</value>
     <comment>appended block: the listing row's own labels and the last three chips</comment>
@@ -2968,6 +2972,14 @@
     <value>No completed cycles are recorded yet.</value>
     <comment>the crawler status page's history list, before any cycle has completed</comment>
   </data>
+  <data name="crawler.liveness.title" xml:space="preserve">
+    <value>went dark, came back</value>
+    <comment>the crawler status page's went-dark/came-back section</comment>
+  </data>
+  <data name="crawler.liveness.lede" xml:space="preserve">
+    <value>The other two liveness feeds — newly discovered stays on the front page.</value>
+    <comment>the crawler status page's went-dark/came-back section</comment>
+  </data>
   <data name="crawler.recent.title" xml:space="preserve">
     <value>recently updated</value>
     <comment>the crawler status page's recently-updated list heading</comment>
@@ -3016,10 +3028,6 @@
     <value>Games</value>
     <comment>what this site says about itself where it is not this site</comment>
   </data>
-  <data name="preview.title.activity" xml:space="preserve">
-    <value>Activity</value>
-    <comment>what this site says about itself where it is not this site</comment>
-  </data>
   <data name="preview.title.archive" xml:space="preserve">
     <value>The archive</value>
     <comment>what this site says about itself where it is not this site</comment>
@@ -3058,10 +3066,6 @@
   </data>
   <data name="preview.desc.games" xml:space="preserve">
     <value>Every MU* we have reached, faceted on what we measured: codebase, the protocols a server offered in the handshake, TLS, charset, language, and when we last got in.</value>
-    <comment>what this site says about itself where it is not this site</comment>
-  </data>
-  <data name="preview.desc.activity" xml:space="preserve">
-    <value>Which games stopped answering, and which came back — measured, not asserted, and never described as an outage or a claim that a game is down for good.</value>
     <comment>what this site says about itself where it is not this site</comment>
   </data>
   <data name="preview.desc.archive" xml:space="preserve">
@@ -3146,10 +3150,6 @@
   </data>
   <data name="home.plain.trending" xml:space="preserve">
     <value>Trending this week</value>
-    <comment>the plain mirror's feed headings and home counts</comment>
-  </data>
-  <data name="home.plain.activityLink" xml:space="preserve">
-    <value>went dark or came back recently</value>
     <comment>the plain mirror's feed headings and home counts</comment>
   </data>
   <data name="reference.title" xml:space="preserve">

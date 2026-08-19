@@ -135,6 +135,9 @@ public enum GameSort
     /// <summary>Most recently reached first.</summary>
     Reached,
 
+    /// <summary>Most recently discovered first — when we first saw this address, not when it answered.</summary>
+    Discovered,
+
     /// <summary>Highest median count over the last 7 days, first.</summary>
     MedianWeek,
 
@@ -246,6 +249,7 @@ public static class GameSorting
         {
             GameSort.Players => game.PlayersNow is null,
             GameSort.Reached => game.LastReachableAt is null,
+            GameSort.Discovered => game.FirstSeenAt is null,
             _ => false,
         };
     }
@@ -255,15 +259,20 @@ public static class GameSorting
         ArgumentNullException.ThrowIfNull(games);
 
         // Ranked before unranked always, then the sort's own key, then name — a total order so
-        // identical requests don't reshuffle. Each key reads zero for sorts it doesn't belong to;
-        // that's safe only because unranked games are already pushed below ranked ones by the first
-        // clause — zero here means "this sort ignores this column," never "measured nothing."
+        // identical requests don't reshuffle. Each key reads zero (or MinValue) for sorts it doesn't
+        // belong to; that's safe only because unranked games are already pushed below ranked ones by
+        // the first clause — zero here means "this sort ignores this column," never "measured
+        // nothing." Reached and Discovered share one date-typed clause since exactly one is active at
+        // a time.
         var ordered = games
             .OrderBy(g => IsUnranked(g, sort) ? 1 : 0)
             .ThenByDescending(g => sort is GameSort.Players ? g.PlayersNow ?? 0 : 0)
-            .ThenByDescending(g => sort is GameSort.Reached
-                ? g.LastReachableAt ?? DateTimeOffset.MinValue
-                : DateTimeOffset.MinValue)
+            .ThenByDescending(g => sort switch
+            {
+                GameSort.Reached => g.LastReachableAt ?? DateTimeOffset.MinValue,
+                GameSort.Discovered => g.FirstSeenAt ?? DateTimeOffset.MinValue,
+                _ => DateTimeOffset.MinValue,
+            })
             .ThenByDescending(g => Ranked(g, sort))
             .ThenBy(g => g.Name, StringComparer.OrdinalIgnoreCase);
 

@@ -172,7 +172,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         var rows = (await connection.QueryAsync<GameRow>(new CommandDefinition(
             $"""
             SELECT g.id AS Id, g.slug AS Slug, g.name AS Name, g.tagline AS Tagline,
-                   g.state AS State, g.is_claimed AS IsClaimed, g.last_reachable_at AS LastReachableAt
+                   g.state AS State, g.is_claimed AS IsClaimed, g.last_reachable_at AS LastReachableAt,
+                   g.first_seen_at AS FirstSeenAt
               FROM game g
              WHERE g.state NOT IN {NeverBrowsable}
                AND (@includeArchived OR g.state <> 'archived')
@@ -202,7 +203,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         // Unlike windows, always computed: trending is a facet now (Games list), not only a figure a
         // window sort happens to show, so a reader has to be able to filter on it without first
         // having to sort by a typical count.
-        var growth = await WeekOverWeekGrowthAsync(connection, ids, now, cancellationToken);
+        var firstSeenAt = rows.ToDictionary(row => row.Id, row => row.FirstSeenAt);
+        var growth = await WeekOverWeekGrowthAsync(connection, ids, firstSeenAt, now, cancellationToken);
 
         var facetRows = new List<GameFacetRow>(rows.Count);
 
@@ -230,7 +232,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 Chip(codebase, now),
                 icons.Contains(row.Id),
                 windows.GetValueOrDefault(row.Id),
-                growth.GetValueOrDefault(row.Id));
+                growth.GetValueOrDefault(row.Id),
+                row.FirstSeenAt);
 
             facetRows.Add(new GameFacetRow(
                 summary,
@@ -440,6 +443,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     private static async Task<Dictionary<Guid, GrowthDirection?>> WeekOverWeekGrowthAsync(
         NpgsqlConnection connection,
         Guid[] ids,
+        IReadOnlyDictionary<Guid, DateTimeOffset?> firstSeenAt,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
@@ -453,8 +457,12 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             {
                 current.TryGetValue(id, out var c);
                 prior.TryGetValue(id, out var p);
+                var seen = firstSeenAt.GetValueOrDefault(id);
 
-                return GrowthTrend.Of(c?.Median, c?.Samples, p?.Median, p?.Samples);
+                return GrowthTrend.Of(
+                    c?.Median, c?.Samples, p?.Median, p?.Samples,
+                    GrowthTrend.RequiredSamples(bounds.CurrentFrom, now, seen),
+                    GrowthTrend.RequiredSamples(bounds.PriorFrom, bounds.Boundary, seen));
             });
     }
 
@@ -642,7 +650,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         $"""
         SELECT id AS Id, slug AS Slug, name AS Name, tagline AS Tagline, state AS State,
                is_claimed AS IsClaimed, last_reachable_at AS LastReachableAt,
-               excluded_reason AS ExcludedReason
+               excluded_reason AS ExcludedReason, first_seen_at AS FirstSeenAt
           FROM game
          WHERE {Public}
         """;
@@ -683,7 +691,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             row.LastReachableAt,
             CountChip(digest, now),
             Chip(codebase, now),
-            (await IconsForAsync(connection, ids, cancellationToken)).Contains(row.Id));
+            (await IconsForAsync(connection, ids, cancellationToken)).Contains(row.Id),
+            FirstSeenAt: row.FirstSeenAt);
     }
 
     public async Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default)
@@ -754,7 +763,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             row.LastReachableAt,
             CountChip(digest, now),
             Chip(codebase, now),
-            (await IconsForAsync(connection, ids, cancellationToken)).Contains(row.Id));
+            (await IconsForAsync(connection, ids, cancellationToken)).Contains(row.Id),
+            FirstSeenAt: row.FirstSeenAt);
 
         return new GamePage(
             summary,
@@ -1146,10 +1156,15 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         NpgsqlConnection connection, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var eligible = (await connection.QueryAsync<EligibleGameRow>(new CommandDefinition(
-            $"SELECT id AS Id, slug AS Slug, name AS Name FROM game WHERE state NOT IN {ListedStates} AND {Public}",
+            $"""
+            SELECT id AS Id, slug AS Slug, name AS Name, first_seen_at AS FirstSeenAt
+              FROM game
+             WHERE state NOT IN {ListedStates} AND {Public}
+            """,
             cancellationToken: cancellationToken))).ToList();
 
         var ids = eligible.Select(g => g.Id).ToArray();
+        var bounds = WeekBounds(now);
         var (current, prior) = await CurrentAndPriorWeekAsync(connection, ids, now, cancellationToken);
 
         return
@@ -1157,7 +1172,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             .. eligible
                 .Select(g => (Game: g, Current: current.GetValueOrDefault(g.Id), Prior: prior.GetValueOrDefault(g.Id)))
                 .Where(row => GrowthTrend.Of(
-                    row.Current?.Median, row.Current?.Samples, row.Prior?.Median, row.Prior?.Samples)
+                    row.Current?.Median, row.Current?.Samples, row.Prior?.Median, row.Prior?.Samples,
+                    GrowthTrend.RequiredSamples(bounds.CurrentFrom, now, row.Game.FirstSeenAt),
+                    GrowthTrend.RequiredSamples(bounds.PriorFrom, bounds.Boundary, row.Game.FirstSeenAt))
                     == GrowthDirection.Up)
                 .Select(row => new TrendingGame(
                     row.Game.Slug, row.Game.Name,
@@ -1176,6 +1193,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         public string Slug { get; init; } = string.Empty;
 
         public string Name { get; init; } = string.Empty;
+
+        public DateTimeOffset? FirstSeenAt { get; init; }
     }
 
     /// <summary>
@@ -1627,6 +1646,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         /// not select it — the listing has no excluded games in it to explain.
         /// </summary>
         public string? ExcludedReason { get; init; }
+
+        /// <summary>When we first saw this address, for <see cref="GameSort.Discovered"/>.</summary>
+        public DateTimeOffset? FirstSeenAt { get; init; }
     }
 
     private sealed class FieldRow

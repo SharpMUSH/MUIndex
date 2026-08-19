@@ -157,7 +157,7 @@ public class ReadingControlsTests
     {
         string[] mirrored =
         [
-            "/", "/about", "/activity", "/archive", "/crawler", "/ecosystem", "/find", "/g/{Slug}",
+            "/", "/about", "/archive", "/crawler", "/ecosystem", "/find", "/g/{Slug}",
             "/games", "/rankings", "/reference", "/reference/clients/{Slug}",
             "/reference/codebases/{Slug}", "/reference/protocols/{Slug}", "/reference/{Slug}", "/submit",
         ];

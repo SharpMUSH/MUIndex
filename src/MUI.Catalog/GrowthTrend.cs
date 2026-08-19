@@ -26,15 +26,27 @@ public static class GrowthTrend
     public const double SteadyBand = 0.10;
 
     /// <summary>
-    /// The direction, or <c>null</c> where either window falls short of the sample floor every
-    /// median needs before it ranks (<see cref="SortWindows.MinimumSamples"/>) — a game with a
-    /// thin current week, a thin prior week, or no prior week at all has nothing to compare.
+    /// How little of a window a game must have existed in before there is no such thing as a trend to
+    /// read off it — no floor, however scaled, rescues a game seen for a few hours.
     /// </summary>
-    public static GrowthDirection? Of(int? median, int? samples, int? priorMedian, int? priorSamples)
+    public static readonly TimeSpan MinimumOverlap = TimeSpan.FromDays(2);
+
+    /// <summary>The floor <see cref="RequiredSamples"/> never scales below, even for a sliver of a window.</summary>
+    private const int MinimumFloor = 6;
+
+    /// <summary>
+    /// The direction, or <c>null</c> where either window falls short of the sample floor every
+    /// median needs before it ranks (<see cref="SortWindows.MinimumSamples"/> by default —
+    /// <see cref="RequiredSamples"/> scales it down for a game younger than the window). A thin
+    /// current week, a thin prior week, or no prior week at all leaves nothing to compare.
+    /// </summary>
+    public static GrowthDirection? Of(
+        int? median, int? samples, int? priorMedian, int? priorSamples,
+        int requiredSamples = SortWindows.MinimumSamples, int requiredPriorSamples = SortWindows.MinimumSamples)
     {
-        if (median is not { } current || samples is not { } n || n < SortWindows.MinimumSamples
+        if (median is not { } current || samples is not { } n || n < requiredSamples
             || priorMedian is not { } prior || priorSamples is not { } priorN
-            || priorN < SortWindows.MinimumSamples)
+            || priorN < requiredPriorSamples)
         {
             return null;
         }
@@ -54,5 +66,32 @@ public static class GrowthTrend
             < -SteadyBand => GrowthDirection.Down,
             _ => GrowthDirection.Steady,
         };
+    }
+
+    /// <summary>
+    /// How many counted samples <paramref name="windowFrom"/>–<paramref name="windowTo"/> needs
+    /// before its median may enter a comparison — the full <see cref="SortWindows.MinimumSamples"/>
+    /// for a game that existed for the whole window, scaled down for one that only overlapped part of
+    /// it, so a game short of two weeks old gets a best-effort read rather than a permanent
+    /// <c>null</c> for its whole first fortnight.
+    /// </summary>
+    /// <remarks>
+    /// A null <paramref name="firstSeenAt"/> is treated as "existed for the whole window" — every real
+    /// row has the column set, and a caller with no better data must not be handed a floor lower than
+    /// it has actually earned.
+    /// </remarks>
+    public static int RequiredSamples(DateTimeOffset windowFrom, DateTimeOffset windowTo, DateTimeOffset? firstSeenAt)
+    {
+        var overlapFrom = firstSeenAt is { } seen && seen > windowFrom ? seen : windowFrom;
+        var overlap = windowTo - overlapFrom;
+
+        if (overlap < MinimumOverlap)
+        {
+            return int.MaxValue;
+        }
+
+        var span = windowTo - windowFrom;
+
+        return Math.Max(MinimumFloor, (int)Math.Ceiling(SortWindows.MinimumSamples * (overlap / span)));
     }
 }

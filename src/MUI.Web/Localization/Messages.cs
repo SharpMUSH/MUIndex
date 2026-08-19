@@ -146,7 +146,7 @@ public static class Messages
         ["nav.games"] = "games",
         ["nav.find"] = "find",
         ["nav.random"] = "random",
-        ["nav.activity"] = "activity",
+        ["nav.crawler"] = "crawler",
         ["nav.archive"] = "archive",
         ["nav.reference"] = "reference",
         ["nav.ecosystem"] = "ecosystem",
@@ -186,12 +186,6 @@ public static class Messages
         ["feed.live"] = "live",
         ["home.trending.title"] = "trending this week",
         ["home.trending.empty"] = "No game is trending up this week.",
-        ["home.activityLink"] = "went dark or came back recently",
-
-        // ── activity: went dark and came back, moved off the front page ──────────────────────────
-        ["activity.title"] = "Activity",
-        ["activity.lede"] = "Which games stopped answering, and which came back — moved here from the "
-            + "front page, which now leads with what's new and what's growing.",
 
         // ── the listing ───────────────────────────────────────────────────────────────────────
         ["games.title"] = "Games",
@@ -217,6 +211,7 @@ public static class Messages
         ["switch.peak"] = "peak",
         ["switch.name"] = "name",
         ["switch.reached"] = "reached",
+        ["switch.discovered"] = "discovered",
         ["window.7"] = "7 days",
         ["window.30"] = "30 days",
         ["window.90"] = "90 days",
@@ -297,6 +292,7 @@ public static class Messages
         ["sort.name"] = "name",
         ["sort.players"] = "connected now",
         ["sort.reached"] = "last reached",
+        ["sort.discovered"] = "newest discovered",
         ["sort.medianWeek"] = "typically on · 7 days",
         ["sort.medianMonth"] = "typically on · 30 days",
         ["sort.medianQuarter"] = "typically on · 90 days",
@@ -308,6 +304,7 @@ public static class Messages
         ["sort.group.peak"] = "peak",
         ["sort.unranked.players"] = "Unknown count",
         ["sort.unranked.reached"] = "never once reached — not reached long ago",
+        ["sort.unranked.discovered"] = "when we first saw this address is not on record",
         ["sort.unranked.median"] = "fewer than {minimum} counts in the window, or none at all — not a typical count of zero",
         ["sort.unranked.window"] = "nothing we could count in the window — not a game nobody was on",
         ["sort.window.median"] = "median {value} · {days, plural, one {#d} other {#d}}"
@@ -1067,6 +1064,7 @@ public static class Messages
         // and a screen-reader-only row needs its own "12"/"2h ago" labelled.
         ["listing.row.connected"] = "connected",
         ["listing.row.reached"] = "reached",
+        ["listing.row.discovered"] = "discovered",
 
         ["facet.group.search"] = "search",
         ["facet.group.archived"] = "archived",
@@ -1109,6 +1107,8 @@ public static class Messages
         ["crawler.cycle.finishedAt"] = "last cycle finished {when} · took {took}",
         ["crawler.history.title"] = "recent cycles",
         ["crawler.history.empty"] = "No completed cycles are recorded yet.",
+        ["crawler.liveness.title"] = "went dark, came back",
+        ["crawler.liveness.lede"] = "The other two liveness feeds — newly discovered stays on the front page.",
         ["crawler.recent.title"] = "recently updated",
         ["crawler.recent.lede"] = "The newest field changes the crawler has written, across every listed game.",
         ["crawler.recent.empty"] = "No field has changed recently.",
@@ -1130,7 +1130,6 @@ public static class Messages
         // is a sentence, and a language that declines the first differently from the second has
         // nowhere to stand if they share an id.
         ["preview.title.games"] = "Games",
-        ["preview.title.activity"] = "Activity",
         ["preview.title.archive"] = "The archive",
         ["preview.title.rankings"] = "Rankings",
         ["preview.title.ecosystem"] = "The ecosystem",
@@ -1144,8 +1143,6 @@ public static class Messages
         ["preview.desc.games"] = "Every MU* we have reached, faceted on what we measured: codebase, "
             + "the protocols a server offered in the handshake, TLS, charset, language, and when we "
             + "last got in.",
-        ["preview.desc.activity"] = "Which games stopped answering, and which came back — measured, "
-            + "not asserted, and never described as an outage or a claim that a game is down for good.",
         ["preview.desc.archive"] = "The games that went dark, kept. Each keeps its page, history and "
             + "URL, is still probed weekly, and returns to the listing on one successful connection.",
         ["preview.desc.rankings"] = "Busiest, most reachable, longest running — computed from "
@@ -1182,7 +1179,6 @@ public static class Messages
         ["home.plain.uncounted"] = "{count, plural, one {# unknown population} other {# unknown population}}",
         ["home.plain.archived"] = "{count, plural, one {# archived, still probed} other {# archived, still probed}}",
         ["home.plain.trending"] = "Trending this week",
-        ["home.plain.activityLink"] = "went dark or came back recently",
 
         // ── THE REFERENCE SECTION'S CHROME ────────────────────────────────────────────────────
         // ═════════════════════════════════════════════════════════════════════════════════════

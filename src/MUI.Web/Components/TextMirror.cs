@@ -21,7 +21,7 @@ public static class TextMirror
     /// </remarks>
     private static readonly string[] Mirrored =
     [
-        "/", "/games", "/archive", "/activity", "/find", "/ecosystem", "/rankings", "/about",
+        "/", "/games", "/archive", "/find", "/ecosystem", "/rankings", "/about",
         "/submit", "/crawler",
     ];
 

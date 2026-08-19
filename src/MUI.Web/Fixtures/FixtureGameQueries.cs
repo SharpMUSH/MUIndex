@@ -34,13 +34,13 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), "m-u-s-h", "M*U*S*H",
         "The PennMUSH development server.", LifecycleState.Active, IsClaimed: false,
         PlayersNow: 15, Codebase: "PennMUSH 1.8.8p0", MeasuredProtocols: ["MSSP", "CHARSET"],
-        LastReachableAt: Now.AddMinutes(-4), Growth: GrowthDirection.Up);
+        LastReachableAt: Now.AddMinutes(-4), Growth: GrowthDirection.Up, FirstSeenAt: Now.AddYears(-2));
 
     private static readonly GameSummary Eldertale = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000002"), "eldertale", "Eldertale Online",
         null, LifecycleState.Active, IsClaimed: false,
         PlayersNow: 0, Codebase: "PennMUSH 1.8.8p0", MeasuredProtocols: ["MSSP", "CHARSET"],
-        LastReachableAt: Now.AddHours(-3));
+        LastReachableAt: Now.AddHours(-3), FirstSeenAt: Now.AddYears(-1));
 
     // No MSSP PLAYERS, no pre-login WHO. Its count exists only because the connect screen states it.
     private static readonly GameSummary Aardwolf = new(
@@ -48,28 +48,28 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         "Counted from the connect screen, which is the only place this game publishes a number.",
         LifecycleState.Active, IsClaimed: false,
         PlayersNow: 219, Codebase: null, MeasuredProtocols: ["MSSP", "GMCP", "MCCP", "MSDP"],
-        LastReachableAt: Now.AddMinutes(-40), Growth: GrowthDirection.Down);
+        LastReachableAt: Now.AddMinutes(-40), Growth: GrowthDirection.Down, FirstSeenAt: Now.AddMonths(-8));
 
     // Answers, but nothing we can count. Renders "count unknown" — never a zero.
     private static readonly GameSummary MidnightSun = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000004"), "midnight-sun", "Midnight Sun II",
         null, LifecycleState.Active, IsClaimed: false,
         PlayersNow: null, Codebase: "Midnight Sun", MeasuredProtocols: [],
-        LastReachableAt: Now.AddHours(-1));
+        LastReachableAt: Now.AddHours(-1), FirstSeenAt: Now.AddMonths(-3));
 
     private static readonly GameSummary Enormous = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000006"), "batmud", "BatMUD",
         "An intro screen long enough that the frame has to explain why it stopped.",
         LifecycleState.Active, IsClaimed: false,
         PlayersNow: 71, Codebase: null, MeasuredProtocols: ["MSSP", "MCCP"],
-        LastReachableAt: Now.AddDays(-2));
+        LastReachableAt: Now.AddDays(-2), FirstSeenAt: Now.AddDays(-30));
 
     // Claimed, and the owner turned republication off. Stated without editorial (spec §8).
     private static readonly GameSummary Ashen = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000007"), "ashen-court", "Ashen Court",
         "Courtly intrigue, low fantasy. Application required.", LifecycleState.Active,
         IsClaimed: true, PlayersNow: 9, Codebase: "Evennia", MeasuredProtocols: ["MSSP", "GMCP", "TLS"],
-        LastReachableAt: Now.AddMinutes(-9), Growth: GrowthDirection.Steady);
+        LastReachableAt: Now.AddMinutes(-9), Growth: GrowthDirection.Steady, FirstSeenAt: Now.AddDays(-10));
 
     /// <summary>
     /// Stopped answering six weeks ago and has not been archived: unreachable, and not uncounted.
@@ -84,21 +84,21 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         "Has not answered since June. Still probed, and one answer puts it back.",
         LifecycleState.Dark, IsClaimed: false,
         PlayersNow: null, Codebase: "PennMUSH 1.8.5", MeasuredProtocols: ["MSSP"],
-        LastReachableAt: Now.AddDays(-44));
+        LastReachableAt: Now.AddDays(-44), FirstSeenAt: Now.AddYears(-3));
 
     private static readonly GameSummary Gaslight = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000005"), "gaslight-row", "Gaslight Row",
         "Ceased answering in March 2023. We still try the door every week.",
         LifecycleState.Archived, IsClaimed: false,
         PlayersNow: null, Codebase: "PennMUSH 1.8.5", MeasuredProtocols: [],
-        LastReachableAt: Now.AddDays(-1237));
+        LastReachableAt: Now.AddDays(-1237), FirstSeenAt: Now.AddYears(-5));
 
     private static readonly GameSummary Verdigris = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000008"), "verdigris", "Verdigris",
         "Stopped answering in 2024; the host still refuses the port every week.",
         LifecycleState.Archived, IsClaimed: false,
         PlayersNow: null, Codebase: "TinyMUX 2.12", MeasuredProtocols: [],
-        LastReachableAt: Now.AddDays(-700));
+        LastReachableAt: Now.AddDays(-700), FirstSeenAt: Now.AddYears(-4));
 
     // Declares GENRE Adult, so the default listing leaves it out and the bar's checkbox brings it back.
     private static readonly GameSummary Cinder = new(
@@ -106,7 +106,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         "Declares adult content, so it is off the default listing until the box is ticked.",
         LifecycleState.Active, IsClaimed: false,
         PlayersNow: 4, Codebase: "Evennia", MeasuredProtocols: ["MSSP"],
-        LastReachableAt: Now.AddMinutes(-25));
+        LastReachableAt: Now.AddMinutes(-25), FirstSeenAt: Now.AddDays(-5));
 
     private static readonly GameSummary[] All =
     [

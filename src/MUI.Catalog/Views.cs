@@ -115,7 +115,10 @@ public sealed record GameSummary(
     /// sort is active — a reader has to be able to filter on <c>trending</c> without having to also
     /// sort by a typical count first. See <c>NpgsqlGameQueries.WeekOverWeekGrowthAsync</c>.
     /// </remarks>
-    GrowthDirection? Growth = null);
+    GrowthDirection? Growth = null,
+
+    /// <summary>When we first saw this address, for <see cref="GameSort.Discovered"/>.</summary>
+    DateTimeOffset? FirstSeenAt = null);
 
 /// <summary>
 /// What a game's counts added up to over one window — the basis a window sort ranks on (spec §9).

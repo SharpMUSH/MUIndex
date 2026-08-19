@@ -84,6 +84,7 @@ public static class FacetWords
     {
         GameSort.Players => "sort.players",
         GameSort.Reached => "sort.reached",
+        GameSort.Discovered => "sort.discovered",
         GameSort.MedianWeek => "sort.medianWeek",
         GameSort.MedianMonth => "sort.medianMonth",
         GameSort.MedianQuarter => "sort.medianQuarter",
@@ -144,6 +145,7 @@ public static class FacetWords
     {
         GameSort.Players => Messages.For(tag, "sort.unranked.players"),
         GameSort.Reached => Messages.For(tag, "sort.unranked.reached"),
+        GameSort.Discovered => Messages.For(tag, "sort.unranked.discovered"),
 
         // Neither reason ("nothing countable in the window" / "too few counts for a median") is
         // "nobody plays here", and a tail of noughts would say exactly that.

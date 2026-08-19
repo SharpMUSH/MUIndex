@@ -83,4 +83,18 @@ public class TrendingThisWeekPostgresTests
 
         await Assert.That(trending.Any(g => g.Slug == "thin")).IsFalse();
     }
+
+    [Test]
+    public async Task AGameYoungerThanTwoWeeksCanStillAppearOnTheBoardAtAScaledFloor()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, "toddler", "Toddler", firstSeenAt: Now.AddDays(-10));
+
+        await WriteWeekAsync(db, game, Now.AddDays(-9), count: 10, samples: 11);
+        await WriteWeekAsync(db, game, Now.AddDays(-6), count: 20);
+
+        var trending = (await QueriesOn(db).RankingsAsync()).TrendingThisWeek;
+
+        await Assert.That(trending.Any(g => g.Slug == "toddler")).IsTrue();
+    }
 }
