@@ -1,0 +1,96 @@
+@page "/crawler"
+@inject ICrawlerPulse Pulses
+@inject TimeProvider Clock
+
+@*
+    /crawler used to be a 302 to About's crawler-identity section — deliberately a redirect rather
+    than a page, per the doc comment on the old CrawlerContact endpoint, specifically so this
+    substitution stayed possible later without an un-withdrawable cached 301. That identity/etiquette
+    content stays on About, which already has its own tested audience: an operator retyping this
+    exact URL off a log line, wanting to know who is knocking and how to stop it. This page answers a
+    different question — is the instrument behind every measurement on the site actually running, and
+    what did it just do — so it links to About rather than repeating it.
+*@
+
+@if (Plain)
+{
+    <pre class="mono plain">@PlainText.RenderCrawler(Tag, Pulse, Recent, Now)</pre>
+}
+else
+{
+    <section class="prose">
+        <h1>@L("crawler.page.title")</h1>
+        <p class="lede">@L("crawler.page.lede")</p>
+        <p class="faint"><a href="@Http.Link("/about")">@L("crawler.page.aboutLink")</a></p>
+
+        @if (Pulse.State(Now) is CrawlState.NotYet)
+        {
+            @* Names no cause: a fresh deployment and an unreachable database both look like this. *@
+            <p class="faint">@L("crawler.page.empty")</p>
+        }
+        else
+        {
+            <dl class="identity mono">
+                <dt class="kicker" translate="yes">@L("crawler.page.statusLabel")</dt>
+                <dd>@CrawlerCopy.State(Tag, Pulse, Now)</dd>
+                <dt class="kicker" translate="yes">@L("crawler.page.registryLabel")</dt>
+                <dd>@CrawlerCopy.Registry(Tag, Pulse)</dd>
+
+                @if (CrawlerCopy.FullCycle(Tag, Pulse) is { } cycle)
+                {
+                    <dt class="kicker" translate="yes">@L("crawler.page.cycleLabel")</dt>
+                    <dd>
+                        @cycle
+                        @if (CrawlerCopy.CycleFinishedAt(Tag, Pulse) is { } finished)
+                        {
+                            <br /><span class="faint">@finished</span>
+                        }
+                    </dd>
+                }
+            </dl>
+
+            <h2 class="kicker">@L("crawler.history.title")</h2>
+
+            @if (Recent.Count == 0)
+            {
+                <p class="faint">@L("crawler.history.empty")</p>
+            }
+            else
+            {
+                <ul class="mono">
+                    @foreach (var past in Recent)
+                    {
+                        <li>@Dates.Stamp(Tag, past.FinishedAt) — @CrawlerCopy.Cycle(Tag, past)</li>
+                    }
+                </ul>
+            }
+        }
+    </section>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
+
+    private bool Plain => Truthy.Is(PlainFlag);
+
+    /// <summary>The locale this page is being answered in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    private string L(string id) => Messages.For(Tag, id);
+
+    private DateTimeOffset Now => Clock.GetUtcNow();
+
+    private CrawlerPulse Pulse = CrawlerPulse.Unknown;
+
+    private IReadOnlyList<CrawlCycleRecord> Recent = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Neither call can throw: both answer the demo-safe fallback (Unknown / empty) for a missing
+        // table or a failed query, so this page never costs a reader a 500.
+        Pulse = await Pulses.ReadAsync(Now);
+        Recent = await Pulses.RecentAsync(10);
+    }
+}

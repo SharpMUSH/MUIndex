@@ -5,37 +5,21 @@ namespace MUI.Crawl;
 /// </summary>
 /// <remarks>
 /// <para>
-/// This is the one place where a codebase is <em>assumed</em> rather than read, and the licence is
-/// narrow on purpose. MUCKs are the family least likely to tell us what they run — Fuzzball offers
-/// no MSSP, answers no <c>INFO</c>, and its <c>VERSION</c> is not a reply
-/// <see cref="LoginCommandReading"/> can label — so of the 23 games in the catalogue whose own text
-/// says <c>MUCK</c>, 21 carried no codebase at all. What they do have is the word itself, in the
-/// name they wear on their connect screen: <c>FurryMuck</c>, <c>Tapestries MUCK</c>,
-/// <c>tinymuck</c>, <c>Tiny-Muck *2.2* fb5.60</c>.
+/// The one place a codebase is <em>assumed</em> rather than read. MUCKs are the family least likely
+/// to declare what they run — Fuzzball offers no MSSP, no <c>INFO</c>, and its <c>VERSION</c> reply
+/// isn't one <see cref="LoginCommandReading"/> can label — so the word in the game's own connect
+/// screen name (<c>FurryMuck</c>, <c>tinymuck</c>) is often all there is.
 /// </para>
 /// <para>
-/// <b>It is an assumption and is treated as the weakest thing on the ladder.</b> The value lands on
-/// the <c>banner</c> source — the bottom rung of both ladders — and the caller
-/// only asks at all when nothing better exists: no <c>CODEBASE</c> or <c>FAMILY</c> declared over
-/// MSSP, and no version banner <see cref="LoginCommandReading.MeaningfulCodebase"/> could read. A
-/// game that says what it runs is never guessed over.
+/// It is the weakest source on the ladder: lands on <c>banner</c>, the bottom rung, and is only
+/// consulted when no <c>CODEBASE</c>/<c>FAMILY</c> was declared over MSSP and no version banner
+/// <see cref="LoginCommandReading.MeaningfulCodebase"/> could read. Any other known family named
+/// anywhere in the same text withdraws the assumption entirely — a game whose banner says "Muck" but
+/// also credits ROM/Merc/Diku stays a MUD.
 /// </para>
 /// <para>
-/// <b>The contradiction guard is the whole safety of it, and it was measured.</b>
-/// <c>mud.stick.org:9000</c> is listed as <em>Stick in the Mud</em>: a ROM/Merc/Diku derivative
-/// whose ASCII art reads <c>"Don't get Stuck... in da Muck"</c>. The word is there; so are
-/// <c>Original DikuMUD</c>, <c>Based on MERC 2.1</c> and <c>Based on ROM II</c>, three lines lower.
-/// Any other known family named anywhere in the same text withdraws the assumption entirely, which
-/// is what keeps that game a MUD. Of the 23 games whose text says <c>MUCK</c> it is the only one the
-/// guard rejects, and the only one that is not a MUCK.
-/// </para>
-/// <para>
-/// <b>What is read is the game's own words, never ours.</b> The connect screen, the pre-login
-/// command replies, the MSSP <c>NAME</c> and the address it answers at are all theirs and all read
-/// by us on this probe, so the result is a measurement in the sense §6.2 means. A name a member of
-/// staff typed is not — deriving a codebase from a name we chose and publishing it as measured is
-/// rule 5 exactly, and a game whose only claim to being a MUCK is our own listing name is a staff
-/// field write by a person, not a crawler inference wearing the same coat.
+/// Only the game's own words are read, never ours — deriving a codebase from a name we chose and
+/// publishing it as measured would be rule 5 exactly.
 /// </para>
 /// </remarks>
 public static class MuckNaming
@@ -47,8 +31,7 @@ public static class MuckNaming
 
     /// <summary>
     /// Words that end in the marker without a game being named. English is short of these, which is
-    /// what makes matching a suffix safe at all: <c>FurryMUCK</c> and <c>run amuck</c> are told apart
-    /// by a list of two, where insisting on a word boundary before the marker would lose
+    /// what makes matching a suffix safe: a strict word-boundary check before the marker would lose
     /// <c>FluffMUCK</c>, <c>KitsuMUCK</c> and every <c>…muck.org</c> in the catalogue.
     /// </summary>
     private static readonly string[] NotAGame = ["amuck", "schmuck"];
@@ -94,11 +77,9 @@ public static class MuckNaming
     /// Members of the MUCK line whose names do not contain the word.
     /// </summary>
     /// <remarks>
-    /// <b>Fuzzball is the reason this is not an <c>EndsWith</c> and nothing else.</b>
-    /// <c>feathermuck.avians.net</c> tells its own history on its connect screen — "Originally we ran
-    /// Tiny-Muck 2.2 fb5.60, now Fuzzball on UNIX box" — and a guard that read <c>Fuzzball</c> as a
-    /// competing family withdrew the assumption from the most MUCK-shaped banner in the catalogue.
-    /// Measured, on the whole of it: this was the one game the rule lost that way.
+    /// A MUCK's connect screen sometimes narrates switching codebases (e.g. "Originally we ran
+    /// Tiny-Muck 2.2 fb5.60, now Fuzzball") — without this, the family-contradiction guard below would
+    /// read <c>Fuzzball</c> as a competing codebase and withdraw a correct MUCK assumption.
     /// </remarks>
     private static readonly string[] AlsoTheMuckLine = ["Fuzzball"];
 
@@ -106,10 +87,9 @@ public static class MuckNaming
     /// Whether the text names a known family that is not the MUCK line.
     /// </summary>
     /// <remarks>
-    /// <c>TinyMUCK</c> and <c>ProtoMUCK</c> agree with the assumption rather than rejecting it, and
-    /// so does any spelling of the word a later survey adds — which is what the suffix test is for,
-    /// because a family added to <see cref="LoginCommandReading"/> must not silently become a reason
-    /// to disbelieve the family it belongs to.
+    /// <c>TinyMUCK</c> and <c>ProtoMUCK</c> agree with the assumption rather than rejecting it, so a
+    /// spelling added later to <see cref="LoginCommandReading"/> doesn't silently become a reason to
+    /// disbelieve the family it belongs to.
     /// </remarks>
     private static bool NamesAnotherFamily(string text) =>
         LoginCommandReading.FamiliesNamedIn(text).Any(family =>
@@ -121,10 +101,9 @@ public static class MuckNaming
     /// of a longer word.
     /// </summary>
     /// <remarks>
-    /// A letter after the marker disqualifies it — <c>MUCKer</c> and <c>mucking about</c> are other
-    /// words — while a letter before it does not, because that is how these games are written:
-    /// <c>FurryMUCK</c>, <c>fluffmuck.org</c>, <c>PokemonFusionMUCK@…</c>. A digit after is kept, for
-    /// <c>TinyMUCK2.3b2</c> as <c>mud.pegasus…</c> sends it.
+    /// A letter after the marker disqualifies it (<c>MUCKer</c>, "mucking about" are other words); a
+    /// letter before does not, since that's how these games are named (<c>FurryMUCK</c>,
+    /// <c>fluffmuck.org</c>). A digit after is kept, for names like <c>TinyMUCK2.3b2</c>.
     /// </remarks>
     private static bool SaysMuck(string text)
     {

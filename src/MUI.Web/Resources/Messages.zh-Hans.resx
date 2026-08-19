@@ -345,6 +345,9 @@
   <data name="nav.about" xml:space="preserve">
     <value>关于</value>
   </data>
+  <data name="nav.discord" xml:space="preserve">
+    <value>Discord</value>
+  </data>
   <data name="nav.submit" xml:space="preserve">
     <value>提交</value>
   </data>
@@ -544,7 +547,7 @@
     <value>自述含成人内容的游戏，{shown, select, true {显示} other {隐藏}}</value>
   </data>
   <data name="facet.countsNote" xml:space="preserve">
-    <value>计数均为我们实测到的游戏，绝非估算。</value>
+    <value>这里的每一个数字都来自我们实测过的游戏——不是估算。</value>
   </data>
   <data name="facet.key.summary" xml:space="preserve">
     <value>徽标与留空的含义</value>
@@ -991,7 +994,7 @@
     <value>要么是我们在连接画面上读到并数出的 WHO 或 DOING，要么是游戏自己发布的 MSSP PLAYERS 字段。二者从不合并。</value>
   </data>
   <data name="about.measures.unknown.lead" xml:space="preserve">
-    <value>读不出来的回应是未知，绝不是零。</value>
+    <value>只有完整读到的结果才能算作零。其余一律算未知。</value>
   </data>
   <data name="about.measures.unknown.body" xml:space="preserve">
     <value>服务器可以随意定制自己的 WHO 表头，超过一定程度，我们的解析器就读不出来了。那是无法计数，自成一种状态。而实测到的零——我们连上了，里面没有人——是一个计数，也按计数显示。</value>
@@ -1084,7 +1087,7 @@
     <value>游戏若在 MSSP 报告中给出希望的最小间隔，我们就照办，并在两个方向上都优先于我们自己的排期：720 小时就是每月一次，而不是每周一次。失联的游戏仍会按这个更长的间隔被一直尝试下去，它恢复之后，正是这样重新回到列表的。</value>
   </data>
   <data name="about.crawler.referral.lead" xml:space="preserve">
-    <value>转介来的地址只做核验，从不轻信。</value>
+    <value>推荐地址指向哪里，由我们自己核实。仅凭游戏自己的说法是不够的。</value>
   </data>
   <data name="about.crawler.referral.body" xml:space="preserve">
     <value>MSSP 允许一个游戏点名其他游戏。任何拨号之前，每个名称都先做解析；除非它解析出的每一个地址都是全球可路由的，否则一律拒绝。解析结果混杂时，整个目标都被拒绝。这种拒绝记在我们自己名下，绝不会作为停机出现在某个游戏的记录里。</value>
@@ -1501,7 +1504,7 @@
     <value>生态</value>
   </data>
   <data name="ecosystem.noTotals" xml:space="preserve">
-    <value>只讲占比，绝不讲总量。我们不发布有多少人在玩 MU* 的数字：在我们实测过的游戏上算出的比例，即使还有连不上的游戏也依然成立，人头总数则不然。</value>
+    <value>我们发布的是占比，不是人头总数：基于我们实测过的游戏算出的比例，即使还有连不上的游戏也依然成立，所以这里不给出全体在玩 MU* 的人数。</value>
   </data>
   <data name="ecosystem.listed" xml:space="preserve">
     <value>{count, plural, other {已列出的游戏 {value} 个}}</value>
@@ -1693,7 +1696,7 @@
     <value>连续可连通时间最长</value>
   </data>
   <data name="rankings.spells.basis" xml:space="preserve">
-    <value>自所给日期起的每一次探测，都发现该游戏可连通。是可连通，不是在线：我们从一台主机上测一个套接字，路由不到的游戏完全可能好好活着。一段连续时长不可能超过我们观察的时长，所以日期才是事实，时长由它推出。</value>
+    <value>自所给日期起的每一次探测，都发现该游戏可连通——套接字有应答，但这并不是说游戏在这段时间里一直在运行。一段连续时长不可能超过我们观察的时长，所以日期才是事实，时长由它推出。</value>
   </data>
   <data name="rankings.spells.empty" xml:space="preserve">
     <value>目前没有已列出的游戏处在连续可连通的时段中。</value>
@@ -2401,7 +2404,7 @@
     <value>{count, plural, other {已归档#个}}</value>
   </data>
   <data name="reference.measuredNeverAsserted" xml:space="preserve">
-    <value>实测，绝非断言</value>
+    <value>实测，而非自述</value>
   </data>
   <data name="reference.codebase.note" xml:space="preserve">
     <value>这是本次请求时从目录中数出的，用的正是上方链接所带的同一个筛选条件——所以这个数字和那份列表出自同一个查询，不可能对不上。</value>

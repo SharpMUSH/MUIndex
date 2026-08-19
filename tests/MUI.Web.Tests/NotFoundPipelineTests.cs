@@ -8,19 +8,11 @@ namespace MUI.Web.Tests;
 /// The not-found page answers for pages, and for nothing else.
 /// </summary>
 /// <remarks>
-/// <para>
-/// One process serves three surfaces — the site, the read API, and the account endpoints
-/// (spec §4, §8, §10) — so a rule about how a <em>page</em> says "there is nothing here" must not
-/// reach the two that answer for themselves. A status-code page applied to the whole pipeline
-/// rewrites every bodiless error in the process: <c>Results.Unauthorized()</c> from a failed passkey
-/// sign-in comes back as a page of HTML, and <c>passkey.js</c> renders
-/// <c>throw new Error(await response.text())</c> into the sign-in status line — so a reader who
-/// mistyped their passkey is shown <c>&lt;!DOCTYPE html&gt;</c>.
-/// </para>
-/// <para>
-/// These are the tests that were missing when it shipped: the harness knew only about pages, so
-/// nothing in the suite ever asked what the API or an account endpoint answered.
-/// </para>
+/// One process serves three surfaces — the site, the read API, and the account endpoints — so a rule
+/// about how a <em>page</em> says "nothing here" must not reach the two that answer for themselves. A
+/// status-code page applied to the whole pipeline would rewrite every bodiless error in the process:
+/// <c>Results.Unauthorized()</c> from a failed passkey sign-in would come back as HTML, and
+/// <c>passkey.js</c> would render <c>&lt;!DOCTYPE html&gt;</c> into the sign-in status line.
 /// </remarks>
 public class NotFoundPipelineTests
 {
@@ -40,8 +32,7 @@ public class NotFoundPipelineTests
     [Test]
     public async Task AnUnmatchedApiRouteIsNotAnsweredWithAPage()
     {
-        // A consumer reading /api gets JSON or nothing. A page of markup under an API route is a
-        // parse error at the far end and tells them nothing about what went wrong.
+        // A consumer reading /api gets JSON or nothing; a markup page there is a parse error at the far end.
         await using var site = await SiteHost.StartAsync();
 
         var response = await site.Client.GetAsync($"{ApiRoutes.Base}/nothing-here");
@@ -56,8 +47,7 @@ public class NotFoundPipelineTests
     [Test]
     public async Task TheApiKeepsItsOwnProblemDocumentForAGameNobodyHas()
     {
-        // The API already says this well, in the vocabulary §10 publishes. Nothing in front of it
-        // may replace that with the site's copy.
+        // Nothing in front of the API may replace its own §10 problem document with the site's copy.
         await using var site = await SiteHost.StartAsync();
 
         var response = await site.Client.GetAsync($"{ApiRoutes.Games}/never-existed");
@@ -71,7 +61,7 @@ public class NotFoundPipelineTests
     [Test]
     public async Task APageThatIsNotThereStillGetsTheSitesOwnAnswer()
     {
-        // The other half of the rule, so scoping it does not quietly undo the page behaviour.
+        // The other half of the rule: scoping it must not quietly undo the page behaviour.
         await using var site = await SiteHost.StartAsync();
 
         var response = await site.Client.GetAsync("/nothing-here");

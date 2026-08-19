@@ -24,10 +24,9 @@ public class CrawlTargetTests
     [Test]
     public async Task NothingInTheRegistryCanRetireATarget()
     {
-        // Spec §7.4, held in place by reflection rather than by convention. This registry is permanent,
-        // so it has no retirement verdict at all: a game that comes back must re-list itself with no
-        // human involved, which is the one thing no incumbent managed. If this test ever fails, the fix
-        // is to delete the member, not the test.
+        // Spec §7.4, held in place by reflection rather than convention: this registry is permanent
+        // and has no retirement verdict at all. If this test ever fails, delete the member, not the
+        // test.
         var forbidden = new[] { "delete", "remove", "retire", "retired", "abandon", "disable", "forget", "purge" };
 
         var members = typeof(ICrawlTargetRepository).GetMethods().Select(m => m.Name)
@@ -44,8 +43,8 @@ public class CrawlTargetTests
     public async Task ATargetIsGuardedUnlessSomebodySaidOtherwise()
     {
         // IsOperatorSeed exempts a target from the resolved-address gate, so its default decides what
-        // happens to every target built by code that had not thought about it — every referral and
-        // every import. The safe value must be the default, not the considered one.
+        // happens to every referral and import built without thinking about it — the safe value must
+        // be the default.
         await Assert.That(Target().IsOperatorSeed).IsFalse();
     }
 

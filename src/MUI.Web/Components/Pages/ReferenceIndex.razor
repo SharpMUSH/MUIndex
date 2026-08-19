@@ -3,16 +3,10 @@
 @using MUI.Web.Reference
 
 @*
-    The reference section's front door.
-
-    Spec §9's argument for this whole section is that it obtains wiki value without wiki governance:
-    the content is curated, single-author and versioned in git. That has to be said on the page —
-    a reader who assumes they are looking at a wiki will read a gap as vandalism rather than as work
-    nobody has done yet, and will look for an edit button that will never exist.
-
-    Every word this page writes is a message; every word it lists is not. A document's title and
-    summary come out of the article's own front matter, which the library resolves for this locale —
-    so this page asks for the words and never decides what language they are in.
+    The reference section's front door (spec §9): curated, single-author content versioned in git,
+    not a wiki — the page says so, since a reader assuming otherwise will read a gap as vandalism.
+    Document titles/summaries come from each article's own front matter for this locale; this page
+    never decides what language they're in.
 *@
 
 @if (Plain)
@@ -26,8 +20,8 @@ else
 
     <h1>@Messages.For(Tag, "reference.title")</h1>
     <p class="dim">
-        @* The emphasis is placed by the message rather than wrapped round a word of it, so the
-           bundle holds text and a language that stresses a different word can move it. *@
+        @* Emphasis is placed by the message, not wrapped around a word here, so translations can
+           stress a different word. *@
         @foreach (var run in Lede)
         {
             @if (run.Slot is null)
@@ -82,12 +76,6 @@ else
         ReferenceKind.Orientation, ReferenceKind.Codebase, ReferenceKind.Client, ReferenceKind.Protocol,
     ];
 
-    /// <summary>
-    /// The section as this reader gets it — one call site, scoped to the request's locale.
-    /// </summary>
-    /// <remarks>
-    /// Instance rather than static because it is a per-request question: the loader answers it with
-    /// this locale's articles and the English ones where a translation does not exist yet.
-    /// </remarks>
+    /// <summary>The section as this reader gets it: this locale's articles, falling back to English.</summary>
     private ReferenceLibrary Library => ReferenceLibrary.For(Tag);
 }

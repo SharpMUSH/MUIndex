@@ -9,9 +9,8 @@ namespace MUI.Crawler.Tests;
 /// </summary>
 /// <remarks>
 /// <see cref="MUI.Discovery.CrawlGap"/> decides whether a silence was an outage; this is what the
-/// decision is worth. The failure it exists to prevent is silent, published, and was found only by
-/// reading a game's page: an interval that spans a crawl outage counts the whole span as observed,
-/// so a hole in our crawl is rendered as measurement of somebody's game.
+/// decision is worth. Without it, an interval spanning a crawl outage counts the whole span as
+/// observed, rendering a hole in our crawl as a measurement of somebody's game.
 /// </remarks>
 public class CrawlGapGuardTests
 {
@@ -54,8 +53,7 @@ public class CrawlGapGuardTests
     [Test]
     public async Task ARestartLeavesTheCatalogueAlone()
     {
-        // The common case by far, and the one that must cost nothing: two container replacements and
-        // a host reboot on 2026-08-18 produced crawl silences of forty seconds and two minutes.
+        // The common case by far, and the one that must cost nothing: a routine restart, not an outage.
         var (guard, store) = Build(Now.AddMinutes(-2));
         Watching(store, Guid.NewGuid(), Guid.NewGuid());
 
@@ -78,9 +76,7 @@ public class CrawlGapGuardTests
     [Test]
     public async Task WithoutTheCycleTableThereIsNothingToCompareAgainst()
     {
-        // CrawlerService takes ICrawlCycles optionally, so a deployment predating migration 0017
-        // keeps crawling rather than failing on a missing relation. It must also keep its history:
-        // not knowing when we stopped is a reason to write nothing, never a reason to guess.
+        // Not knowing when we stopped is a reason to write nothing, never a reason to guess.
         var store = new FakeAvailabilityStore();
         var guard = new CrawlGapGuard(store, cycles: null, new SettableClock(Now));
         Watching(store, Guid.NewGuid());
@@ -103,6 +99,11 @@ public sealed class FakeCrawlCycles(DateTimeOffset? lastFinishedAt) : ICrawlCycl
 
     public Task<int> SweepAsync(DateTimeOffset before, CancellationToken cancellationToken = default) =>
         Task.FromResult(0);
+
+    public Task<IReadOnlyList<CrawlCycleRecord>> RecentAsync(
+        int count,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<CrawlCycleRecord>>([]);
 
     public Task<bool> IsInstalledAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(true);

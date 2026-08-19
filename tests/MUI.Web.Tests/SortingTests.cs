@@ -10,13 +10,7 @@ namespace MUI.Web.Tests;
 /// <summary>
 /// The listing's order, and the one thing it may not do with the games it cannot rank.
 /// </summary>
-/// <remarks>
-/// A large share of this catalogue answers with nothing we can count — we got in and the
-/// <c>WHO</c> was past our parser, or the game published no <c>PLAYERS</c>. Sorted as zeroes those
-/// games pile up at the bottom of "players on now" indistinguishable from the games we measured and
-/// found empty, which is this project's central claim made backwards on the page most likely to be
-/// read off. Every test here is about that one sentence.
-/// </remarks>
+/// <remarks>Games we can't count must never sort as zeroes — that would make them indistinguishable from games measured and found empty.</remarks>
 public class SortingTests
 {
     private static readonly FixtureGameQueries Queries = new();
@@ -27,7 +21,7 @@ public class SortingTests
         var listing = await Queries.SearchAsync(new GameFilter { Sort = GameSort.Players });
         var counted = listing.Games.Select(g => g.PlayersNow is not null).ToList();
 
-        // Every counted game before every uncounted one: no true may follow a false.
+        // No true may follow a false.
         await Assert.That(counted.SkipWhile(c => c).Any(c => c)).IsFalse();
         await Assert.That(counted).Contains(true);
         await Assert.That(counted).Contains(false);
@@ -36,9 +30,7 @@ public class SortingTests
     [Test]
     public async Task AMeasuredZeroSortsAmongTheCountsAndNotAmongTheUnknowns()
     {
-        // The whole distinction, in one row. We got in and nobody was there, which is a measurement;
-        // the games below the break are ones we could not count at all. Ranking the zero with them
-        // would throw away the difference the sort exists to preserve.
+        // A measured zero must rank above the uncounted break, not with it.
         var listing = await Queries.SearchAsync(new GameFilter { Sort = GameSort.Players });
         var zero = listing.Games.Single(g => g.PlayersNow is 0);
         var firstUnknown = listing.Games.First(g => g.PlayersNow is null);
@@ -52,8 +44,7 @@ public class SortingTests
     [Test]
     public async Task AGameWeHaveNeverReachedIsNotAGameWeReachedLongAgo()
     {
-        // The same rule on the other sort. Null has no date, so it cannot be the oldest date — and
-        // ordering it as one would date our own ignorance as somebody's outage.
+        // Null has no date and cannot be the oldest date — ordering it as one would date our own ignorance as somebody's outage.
         var never = Summary("never", players: null, reached: null);
         var ancient = Summary("ancient", players: null, reached: FixtureGameQueries.Now.AddYears(-4));
 
@@ -67,12 +58,8 @@ public class SortingTests
     [Test]
     public async Task TheDefaultOrderLeadsWithTheMeasurementRatherThanTheSpelling()
     {
-        // The default was the alphabet, on the argument that a pre-ranked listing makes an editorial
-        // claim. The argument holds against a ranking and not against this: the alphabet is an order
-        // too, and the one it produces puts whichever game starts with a digit above the whole
-        // hobby for no reason anybody chose. Neither is an opinion of ours — one reads a measurement
-        // and the other reads a spelling — so the default is the one that answers what a reader came
-        // for. What it may never do is rank an unknown, and the test below that one still holds.
+        // Default was previously the alphabet — an order too, but one ranking by spelling instead of
+        // measurement for no reason anybody chose.
         await Assert.That(new GameFilter().Sort).IsEqualTo(GameSort.Players);
 
         GameFilterBinding.TryRead(string.Empty, out var unasked, out _);
@@ -82,9 +69,6 @@ public class SortingTests
     [Test]
     public async Task ThePageAndTheApiCannotDisagreeAboutWhatOrderAUrlAsksFor()
     {
-        // The default lives on GameFilter and the binding reads it off a default instance rather
-        // than naming it a second time. Two literals is how /games?band=quiet and
-        // /api/games?band=quiet come to answer one URL two ways.
         GameFilterBinding.TryRead(string.Empty, out var unasked, out _);
 
         await Assert.That(unasked.Filter.Sort).IsEqualTo(new GameFilter().Sort);
@@ -93,7 +77,7 @@ public class SortingTests
     [Test]
     public async Task TheAlphabetIsStillOneClickAwayAndStillMeansWhatItMeant()
     {
-        // A default changing may not re-point a URL that named an order explicitly.
+        // A default change may not re-point a URL that named an order explicitly.
         await Assert.That(GameFilterBinding.TryRead("?sort=name", out var query, out _)).IsTrue();
         await Assert.That(query.Filter.Sort).IsEqualTo(GameSort.Name);
 
@@ -105,10 +89,7 @@ public class SortingTests
     [Test]
     public async Task TheListingSaysWhereTheSortRanOutOfThingsToRank()
     {
-        // Without this the page reads 219, 71, 15, 9, 0, and then a long tail of rows showing no
-        // number — a list that looks exactly like the lie. The break is a real list item, so it is in
-        // the accessibility tree rather than being a border a sighted reader might notice.
-        // Alphabetically there is nothing the order failed to rank and so nothing to announce.
+        // Alphabetically there is nothing the order failed to rank, so nothing to announce.
         await Assert.That(await Render.PageAsync<Games>([], "?sort=name"))
             .DoesNotContain("unranked-break");
 
@@ -117,19 +98,13 @@ public class SortingTests
         await Assert.That(sorted).Contains("unranked-break");
         await Assert.That(Render.Words(sorted)).Contains("from here");
         await Assert.That(Render.Words(sorted)).Contains(FacetWords.Unranked(Locales.SourceTag, GameSort.Players));
-        // The break names the state rather than arguing with a reading of it. It said "reachable,
-        // count unreadable — not zero", which spends most of its words denying something nobody had
-        // thought yet; the state has a name, the site uses that name everywhere else, and the rows
-        // under the break say "not counted" in their own cells.
         await Assert.That(FacetWords.Unranked(Locales.SourceTag, GameSort.Players)).IsEqualTo("Unknown count");
     }
 
     [Test]
     public async Task ARowNeverPrintsAnAgeAsNowAgo()
     {
-        // Relative.Format's freshest bucket is the word "now", and every caller appending " ago" to
-        // it wrote "last reached now ago" for the ninety seconds after each probe — which, on a
-        // listing rendered while a crawl is running, was most of the rows on the page.
+        // Relative.Format's freshest bucket is "now"; appending " ago" to it used to write "last reached now ago".
         var html = Render.Words(await Render.PageAsync<Games>([]));
 
         await Assert.That(html).DoesNotContain("now ago");
@@ -140,9 +115,6 @@ public class SortingTests
     [Test]
     public async Task ThePlainSurfaceSaysWhatOrderItIsInAndWhereTheBreakFell()
     {
-        // A sorted list that does not say what it is sorted by is one a reader has to
-        // reverse-engineer from the first few rows, which is how the tail gets misread. If a fact
-        // only survives graphically, its graphic was decoration.
         await Assert.That(GameFilterBinding.TryRead("?sort=players", out var query, out _)).IsTrue();
 
         var text = PlainText.RenderListing(
@@ -151,16 +123,13 @@ public class SortingTests
         await Assert.That(Render.Words(text)).Contains($"Sorted by {FacetWords.Sort(Locales.SourceTag, GameSort.Players)}");
         await Assert.That(Render.Words(text)).Contains(FacetWords.Unranked(Locales.SourceTag, GameSort.Players));
 
-        // And the parameter that changes it, because a text browser cannot operate a <select>.
+        // The parameter that changes it, since a text browser can't operate a <select>.
         await Assert.That(text).Contains($"?{FacetKeys.Sort}=");
     }
 
     [Test]
     public async Task SortingMovesNoFacetCount()
     {
-        // Counts are taken over a set and a set has no order, so this is true by construction — and
-        // asserted anyway, because the day it stops being true the panel starts promising one number
-        // and delivering another depending on how the reader happened to be reading.
         var unsorted = await Queries.SearchAsync(new GameFilter());
         var sorted = await Queries.SearchAsync(new GameFilter { Sort = GameSort.Players });
 
@@ -176,10 +145,7 @@ public class SortingTests
     [Test]
     public async Task AWindowSortRanksOnTheWindowAndNotOnTheCountOnTheRow()
     {
-        // The point of the three window orders: a game with two people on right now and a steady
-        // forty most of the time outranks one that happens to have five on at the moment this page
-        // was drawn — and the same two games swap places when the question is the biggest night
-        // either of them had.
+        // A game steady at forty outranks one that happens to have five on right now; they swap when the question is the biggest night either had.
         var steady = Windowed("steady", playersNow: 2, median: 40, peak: 44, samples: 300);
         var spiking = Windowed("spiking", playersNow: 5, median: 3, peak: 90, samples: 300);
 
@@ -193,31 +159,25 @@ public class SortingTests
     [Test]
     public async Task AMedianNeedsEnoughCountsToBeAMedianAndAPeakDoesNot()
     {
-        // They fail differently, so they are floored differently. A median over four probes is not a
-        // median of anything and would put a game found on Friday above one measured three hundred
-        // times — that is ranking our crawl schedule. A peak is one observation and is true however
-        // few of them there were: we counted that many people on at once, and suppressing it would
-        // hide a measurement we actually took.
+        // A median over four probes would rank our crawl schedule; a peak is one true observation however few there were.
         var thin = Windowed("thin", playersNow: 1, median: 90, peak: 90, samples: 4);
 
         await Assert.That(GameSorting.IsUnranked(thin, GameSort.MedianWeek)).IsTrue();
         await Assert.That(GameSorting.IsUnranked(thin, GameSort.PeakWeek)).IsFalse();
 
-        // A game measured enough times clears it, so the floor is a floor and not a wall.
+        // Enough measurements clears the floor — it's a floor, not a wall.
         var thick = thin with { PlayersOverWindow = thin.PlayersOverWindow! with { Samples = 24 } };
 
         await Assert.That(GameSorting.IsUnranked(thick, GameSort.MedianWeek)).IsFalse();
 
-        // That this floor is the one /rankings puts under its median is not asserted here: it is
-        // NpgsqlGameQueries.MinimumRankingSamples = SortWindows.MinimumSamples, so the two cannot
-        // drift without a compiler error, which is a better guarantee than a test.
+        // Not asserted here that this matches /rankings' floor — a compiler error
+        // (NpgsqlGameQueries.MinimumRankingSamples = SortWindows.MinimumSamples) guarantees that instead.
     }
 
     [Test]
     public async Task AGameWithNoWindowSortsBelowTheBreakAndNeverAsAZero()
     {
-        // The same rule as every other sort here, on the newest columns. A game we could not count
-        // in the window has no typical count, and a typical count of nought is a different claim.
+        // A game we couldn't count in the window has no typical count — not a typical count of zero.
         var counted = Windowed("counted", playersNow: 0, median: 2, peak: 6, samples: 200);
         var uncountable = Summary("uncountable", players: null, reached: FixtureGameQueries.Now);
 
@@ -232,18 +192,13 @@ public class SortingTests
     [Test]
     public async Task TheRowSaysWhatTheWindowSortRankedItOnAndOverHowManyCounts()
     {
-        // A listing ordered by a figure that appears nowhere on its rows is one a reader has to take
-        // on trust — and the sample tally rides along because a mean is a mean of something (§15.7):
-        // thirty counts and three hundred are not the same evidence.
+        // The sample tally rides along because a mean is a mean of something (§15.7).
         var html = Render.Words(await Render.PageAsync<Games>([], "?sort=medianMonth"));
 
-        // "median" on the row even though the control says "typically on": the control is the
-        // question and the row is the basis, labelled with the statistic it actually is.
         await Assert.That(html).Contains("median");
         await Assert.That(html).Contains("counts");
         await Assert.That(html).Contains("30d");
 
-        // And in plain text, or the figure on the rendered row is decoration.
         await Assert.That(GameFilterBinding.TryRead("?sort=peakWeek", out var query, out _)).IsTrue();
 
         var text = PlainText.RenderListing(
@@ -256,8 +211,7 @@ public class SortingTests
     [Test]
     public async Task EverySortHasWordsAndAGroupToBeOfferedUnder()
     {
-        // The panel enumerates the enum, so a member added without a label renders an option reading
-        // "name" — which is an order the reader did not choose, silently.
+        // A member added without a label renders as "name" silently.
         foreach (var sort in Enum.GetValues<GameSort>())
         {
             await Assert.That(FacetWords.Sort(Locales.SourceTag, sort)).IsNotEmpty();
@@ -271,7 +225,6 @@ public class SortingTests
             }
         }
 
-        // Distinct labels, or two options in the control are one choice wearing two rows.
         await Assert.That(Enum.GetValues<GameSort>().Select(s => FacetWords.Sort(Locales.SourceTag, s)).Distinct().Count())
             .IsEqualTo(Enum.GetValues<GameSort>().Length);
     }

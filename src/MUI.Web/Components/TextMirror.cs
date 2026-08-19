@@ -6,40 +6,26 @@ namespace MUI.Web.Components;
 /// Which pages have a text mirror, and the URL that asks for it.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The offer used to live at the bottom of each page that honoured <c>?plain=1</c>, so the page that
-/// rendered the mirror was the page that advertised it and the two could not disagree. Moving the
-/// offer into the bar breaks that: the header is rendered by the layout, above <c>@Body</c> and
-/// before the routed page has rendered anything, so nothing the page knows can reach it. Under
-/// static server rendering a cascade only runs downwards.
-/// </para>
-/// <para>
-/// So the fact is stated here, once, against the request's own path — and
-/// <c>SiteHeaderTests.EveryRoutablePageIsClassified</c> walks the assembly's route table to prove no
-/// page has been added that this has never been asked about. An ungated link would be worse than no
-/// link: <c>/account?plain=1</c> answers with the dashboard it always answers with, and an offer
-/// that silently does nothing is a lie told on every page of the site.
-/// </para>
+/// The header offering this link is rendered by the layout, above <c>@Body</c> and before the routed
+/// page runs, so the page itself cannot inform it — under static server rendering a cascade only
+/// runs downwards. So the fact is stated here, once, against the request's path, and
+/// <c>SiteHeaderTests.EveryRoutablePageIsClassified</c> walks the route table to prove no page was
+/// added that this was never asked about.
 /// </remarks>
 public static class TextMirror
 {
     /// <summary>The pages whose whole content is also written as text, by the path that reaches them.</summary>
     /// <remarks>
-    /// Exact, not prefixed — <c>/games/random</c> is a redirect under <c>/games</c> and
-    /// <c>/g/{slug}/mssp</c> is a scorecard under a game. Both are matched by any rule that reads a
-    /// path as a section, and neither has a mirror. <c>/reference</c> is the one section here, and
-    /// it is named as one below.
+    /// Exact, not prefixed: <c>/games/random</c> and <c>/g/{slug}/mssp</c> would both match a
+    /// prefix rule that reads a path as a section, and neither has a mirror.
     /// </remarks>
     private static readonly string[] Mirrored =
     [
-        "/", "/games", "/archive", "/find", "/ecosystem", "/rankings", "/about", "/submit",
+        "/", "/games", "/archive", "/find", "/ecosystem", "/rankings", "/about", "/submit", "/crawler",
     ];
 
     /// <summary>Whether this request is looking at a page that can be read as text instead.</summary>
-    /// <remarks>
-    /// A request already in plain mode is not offered it again. The page it is reading <em>is</em>
-    /// the mirror, and a link back to itself in the site's chrome reads as a way out of something.
-    /// </remarks>
+    /// <remarks>A request already in plain mode is not offered it again — the page it's reading <em>is</em> the mirror.</remarks>
     public static bool Offers(HttpContext? context) =>
         context is not null
         && !Truthy.Is(context.Request.Query["plain"])
@@ -77,11 +63,9 @@ public static class TextMirror
     /// This page, asked for as text — carrying whatever question it was already answering.
     /// </summary>
     /// <remarks>
-    /// A query-only href, so it resolves against the page being read (see <c>App.razor</c> on why
-    /// there is no <c>&lt;base&gt;</c>). The existing query rides along because a reader who has
-    /// narrowed the listing to three facets and then asks for text has not asked to start again —
-    /// the four footers that offered this were split between doing that and dropping the query on
-    /// the floor, and the two that dropped it sent a filtered listing to the whole catalogue.
+    /// A query-only href, resolving against the page being read (see <c>App.razor</c> on why there
+    /// is no <c>&lt;base&gt;</c>). The existing query rides along, or a reader who narrowed a
+    /// listing by facets and asked for text would get the whole catalogue instead.
     /// </remarks>
     public static string Href(HttpContext? context) =>
         ListingLinks.With(context?.Request.QueryString.Value, "plain", "1");

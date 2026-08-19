@@ -1,16 +1,11 @@
--- spec §5.1 — one row per (game, field, source), and no append-only ledger. Every probe does exactly
--- one of two things to each field: confirm (bump last_confirmed_at and write nothing else) or change
--- (rewrite this row AND append one row to field_change). A game whose GENRE never moves therefore
--- costs one row per source for ever, not one per hour.
+-- game_field: one row per (game, field, source) — no append-only ledger. A probe either
+-- confirms (bumps last_confirmed_at) or changes a value (rewrites the row and appends to
+-- field_change). Keyed by source, not just field, so the capability matrix can hold
+-- disagreeing values from different sources at once (§9); the winning value is derived on
+-- read by FieldPrecedence, never stored.
 --
--- Keyed by SOURCE as well as by field, which is the whole reason the capability matrix can exist: one
--- row per (game, field) cannot hold both "the handshake offered GMCP" and "MSSP claims GMCP", and
--- §9 requires both, each with its own age, at the same time. The winner is derived on read by
--- FieldPrecedence and is never stored, so it cannot go stale against the rows it summarises.
---
--- There is deliberately no `confidence` column (§5.1). Provenance and age carry the meaning between
--- them, and an unspecified numeric confidence would be a field nothing sets consistently and nothing
--- renders.
+-- No `confidence` column (§5.1): provenance + age carry the meaning; a numeric confidence
+-- would be unset by most writers and unread by most readers.
 CREATE TABLE game_field (
     game_id           uuid NOT NULL REFERENCES game (id),
     field             text NOT NULL,
@@ -21,24 +16,18 @@ CREATE TABLE game_field (
 
     PRIMARY KEY (game_id, field, source),
 
-    -- The §5.1 precedence ladder's vocabulary. The declared order of MUI.Catalog.FieldSource is the
-    -- ladder itself; this list is only the spelling.
+    -- §5.1 precedence ladder vocabulary; order matches MUI.Catalog.FieldSource.
     CONSTRAINT game_field_source_vocabulary CHECK (source IN (
         'staff', 'handshake', 'owner', 'who', 'mssp', 'banner')),
 
-    -- A value cannot have been confirmed before it was first seen.
     CONSTRAINT game_field_confirmed_after_first_seen CHECK (last_confirmed_at >= first_seen_at)
 );
 
--- The game page renders every field of one game at once (§9), which the primary key's leading column
--- already serves. This index serves the other direction: §9's faceted search asks which games have
--- CODEBASE = PennMUSH, or capability.gmcp.measured = true.
+-- Serves §9's faceted search (e.g. CODEBASE = PennMUSH).
 CREATE INDEX game_field_field_value_idx ON game_field (field, value);
 
--- spec §5.1 — the per-game change feed, which is a table of events that actually happened, and which
--- is also what one wants to render. A first sighting is deliberately not one of them: that is the
--- "newly discovered" feed's business (§9), and old_value is NULL only where an importer or a staff
--- correction genuinely had nothing to replace.
+-- field_change: the per-game change feed (§9). First sightings are not events here;
+-- old_value is NULL only where an importer or staff correction had nothing to replace.
 CREATE TABLE field_change (
     id        bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     game_id   uuid NOT NULL REFERENCES game (id),
@@ -52,5 +41,5 @@ CREATE TABLE field_change (
         'staff', 'handshake', 'owner', 'who', 'mssp', 'banner'))
 );
 
--- §9's change feed is "the most recent N changes for this game", newest first, which is exactly this.
+-- The most-recent-N-changes query, newest first.
 CREATE INDEX field_change_game_at_idx ON field_change (game_id, at DESC);

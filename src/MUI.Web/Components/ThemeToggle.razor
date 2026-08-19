@@ -2,22 +2,15 @@
 @using MUI.Web.Theme
 
 @*
-    Three buttons rather than one flip, and the reason is not thoroughness.
+    Three buttons rather than one flip. A flip needs a label like "switch to light", but the server
+    doesn't know what to write for a reader who's never chosen — prefers-color-scheme never reaches
+    us — and it has no way back: once flipped off "follow my system", a reader is pinned for good.
 
-    A flip has to be labelled — "switch to light" — and for a reader who has never chosen, the
-    server does not know what to write on it: prefers-color-scheme is a fact about their machine
-    that never reaches us. It would also have no way back. Once a flip has moved somebody off
-    "follow my system" they are pinned for good, and the reader most likely to want that setting is
-    the one whose desktop switches at dusk — the reader for whom being pinned is worst.
-
-    Each button is its own submit with its own value, so choosing is one press from anywhere in the
-    set. A radio group would have been the other honest shape and costs two.
+    Each button is its own submit with its own value, so choosing is one press from anywhere.
 *@
 @*
-    Posted to this locale's copy of the endpoint, which is what tells it which language to send the
-    reader back into. A reader who followed a shared /de/… link carries no cookie, so the locale is
-    in the path or it is nowhere — and a theme control that answered in English would take a German
-    reader out of German for the crime of preferring a light background.
+    Posted to this locale's copy of the endpoint: a reader who followed a shared /de/… link carries
+    no cookie, so the locale is in the path or nowhere.
 *@
 <form class="theme" method="post" action="@HttpContext.Link(ReaderTheme.Path)" aria-labelledby="theme-label">
     <span id="theme-label" class="kick">@Messages.For(Tag, "theme.label")</span>
@@ -41,16 +34,10 @@
     /// The page this control was rendered on, so choosing does not lose the reader's place.
     /// </summary>
     /// <remarks>
+    /// The query string travels with it: changing the theme shouldn't reset a narrowed listing.
     /// <para>
-    /// The query string travels with it: a reader who has narrowed the listing to three facets and
-    /// then changes the theme has not asked to start the listing again.
-    /// </para>
-    /// <para>
-    /// <b>ToUriComponent and not the values.</b> <c>Request.Path</c> is decoded, so a path with
-    /// anything escaped in it comes back as raw characters — and this value is posted to us and
-    /// written into a <c>Location</c> header, where a raw character is refused by
-    /// <see cref="ReaderTheme.Back"/> and lands the reader on the front page instead of the page
-    /// they were reading.
+    /// <c>ToUriComponent</c>, not the decoded values — a raw character here is refused by
+    /// <see cref="ReaderTheme.Back"/> and lands the reader on the front page instead.
     /// </para>
     /// </remarks>
     private string Here =>
@@ -62,9 +49,8 @@
     /// Which one is in force, written out rather than left to colour.
     /// </summary>
     /// <remarks>
-    /// A literal string and not a bool: Razor renders a bool-valued attribute by presence, so
-    /// <c>aria-pressed</c> would vanish for the two that are not pressed — and a set of toggle
-    /// buttons where only one carries the attribute is a set a screen reader announces two ways.
+    /// A literal string, not a bool: Razor renders a bool-valued attribute by presence, so
+    /// <c>aria-pressed</c> would vanish for the two buttons that aren't pressed.
     /// </remarks>
     private string Pressed(ThemeChoice choice) => choice == InForce ? "true" : "false";
 }

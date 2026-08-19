@@ -8,21 +8,11 @@ namespace MUI.Crawler.Persistence;
 /// The submissions §7.8's rubric did not publish, and the operator's one lever over them.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>The rubric stops where measurement stops, and this is what stands behind that line.</b> Half
-/// the live catalogue answers a login screen with a banner and nothing else — a probe cannot tell
-/// those from a host that merely prints, so they are not published, and Achaea is among them. What
-/// makes that survivable rather than merely strict is that somebody can look.
-/// </para>
-/// <para>
-/// <b>It is a read and a write and no judgement of its own.</b> Nothing here scores anything: a rule
-/// spelled once in <c>MuLikeness</c> and again in SQL would be two rules within a release, and the
-/// question this answers is only "which addresses answered, and nobody has decided about".
-/// </para>
-/// <para>
-/// Deliberately not a web surface. There is no staff role on <c>app_user</c> and inventing one for a
-/// single screen would be a new authentication surface guarding a list of hostnames.
-/// </para>
+/// The rubric stops where measurement stops — a probe can't tell a real game from a host that merely
+/// prints a banner, so some submissions go unpublished — and this is what stands behind that line: a
+/// person can look. It is a read and a write and no judgement of its own; nothing here scores
+/// anything, since a rule spelled once in <c>MuLikeness</c> and again in SQL would be two rules within
+/// a release. Deliberately not a web surface — there's no staff role on <c>app_user</c>.
 /// </remarks>
 public sealed class NpgsqlSubmissionQueue(NpgsqlDataSource source)
 {
@@ -73,11 +63,10 @@ public sealed class NpgsqlSubmissionQueue(NpgsqlDataSource source)
     /// Publishes one by hand, recorded as <c>staff</c>. False when there was nothing waiting.
     /// </summary>
     /// <remarks>
-    /// <b><c>staff</c> rather than a signal name.</b> No probe measured this game to be a game; a
-    /// person decided it was, and writing that decision as though the rubric had made it would put
-    /// our judgement into the record as somebody else's measurement — the failure rule 5 names. The
-    /// same <c>WHERE corroborated_at IS NULL</c> that makes the crawler's write once-only makes this
-    /// one once-only, so releasing a published game cannot overwrite why it was published.
+    /// <c>staff</c> rather than a signal name: no probe measured this game to be a game, a person
+    /// decided it was, and recording it as though the rubric had made the call would be exactly rule
+    /// 5's forbidden move. The same <c>WHERE corroborated_at IS NULL</c> that makes the crawler's
+    /// write once-only makes this once-only too.
     /// </remarks>
     public async Task<bool> ReleaseAsync(
         string slug,

@@ -7,25 +7,9 @@ namespace MUI.Web.Data;
 /// A game's presence trend over a calendar range, for the page that draws it.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Why this is not just <see cref="IPresenceSeries"/>.</b> It is that, over Postgres — see
-/// <see cref="PresenceTrends"/>, which is a dozen lines of mapping. The port exists because the two
-/// consumers have different obligations. §10's series route publishes JSON, and a JSON body carries
-/// no demo banner, so <c>FixturePresenceSeries</c> answers empty over the fixture on purpose: handing
-/// a consumer rolled-up buckets of measurements nobody took would be a lie in a format whose whole
-/// contract is that a bucket tallies real probes.
-/// </para>
-/// <para>
-/// A page is the other case. Every fixture surface — the heatmap, the counts, the change feed — is
-/// invented already, and every page rendering it carries the banner saying so. Making the trend the
-/// one graphic that stays blank over the demo would not be more honest; it would just hide the
-/// component that most needs looking at from the only deployment somebody can start without a
-/// database.
-/// </para>
-/// <para>
-/// So the split is the banner: this port feeds surfaces that carry one, and <see cref="IPresenceSeries"/>
-/// feeds the route that cannot.
-/// </para>
+/// A separate port from <see cref="IPresenceSeries"/> because the two consumers differ in whether they
+/// carry a demo banner: §10's JSON route does not, so its fixture stays empty rather than inventing
+/// measurements; a page always does, so its fixture can safely invent a trend.
 /// </remarks>
 public interface IPresenceTrends
 {

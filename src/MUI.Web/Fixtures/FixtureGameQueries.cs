@@ -11,30 +11,13 @@ namespace MUI.Web.Fixtures;
 /// real servers, so the site can be built and reviewed before the database exists.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Every hard state here came off a real game: M*U*S*H disagrees with itself (its MSSP says
-/// <c>1.8.8p0</c> and its banner says <c>1.8.7</c>), Eldertale sits at a measured zero, Aardwolf
-/// publishes its count only in the connect screen, and Midnight Sun II answers with nothing we can
-/// count at all. A fixture of well-behaved games renders a site that never has to show its hard
-/// states, and those states are the product.
-/// </para>
-/// <para>
-/// <b>Eldertale and Midnight Sun II are the pair the whole catalogue turns on</b>, and Hollow Bell is
-/// the third of them. Both of the first two show a listing row with no number above it, and one is a
-/// game we counted and found empty while the other is a game we got into and could not read; Hollow
-/// Bell is a game we could not get into at all. Three rows that look alike and three different facts,
-/// which is what the <c>uncounted</c> and <c>unreachable</c> switches exist to keep apart — and a
-/// fixture holding only one of the three could not tell whether they had been implemented or merely
-/// spelled.
-/// </para>
-/// <para>
-/// The archived and suppressed entries are the design handoff's own exemplars rather than real
-/// games, deliberately: asserting that a named game is dead, or that its owner asked us to stop
-/// republishing it, is exactly the kind of claim this site may not make without a measurement.
-/// </para>
-/// <para>
-/// Replaced by a Postgres implementation behind the same interfaces. No page changes when it is.
-/// </para>
+/// Every hard state here came off a real game: M*U*S*H disagrees with itself on version, Eldertale
+/// sits at a measured zero, Aardwolf publishes its count only in the connect screen, and Midnight Sun
+/// II answers with nothing countable. Eldertale, Midnight Sun II and Hollow Bell each show a listing
+/// row with no number, for three different reasons, which the <c>uncounted</c>/<c>unreachable</c>
+/// switches keep apart. Archived and suppressed entries are the design handoff's own exemplars, not
+/// real games. Replaced by a Postgres implementation behind the same interfaces; no page changes when
+/// it is.
 /// </remarks>
 public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
 {
@@ -92,18 +75,9 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// Stopped answering six weeks ago and has not been archived: unreachable, and not uncounted.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The state between "went dark" and "archived", which nothing else here occupies — every other
-    /// silent game in this fixture is already archived, so the whole of the demo's
-    /// <c>unreachable</c> facet sat behind the archive switch and the <c>dark</c> activity band was
-    /// a rung no game stood on.
-    /// </para>
-    /// <para>
-    /// <b>It is the counter-example the pair of switches needs.</b> Midnight Sun answers and cannot
-    /// be counted; this one cannot be reached at all. Both listing rows show no number and the
-    /// reasons are opposite, which is exactly the distinction a reader is being offered — and its
-    /// grid is <em>empty</em> rather than hatched, because we did not get in to fail to count.
-    /// </para>
+    /// The counter-example the <c>uncounted</c>/<c>unreachable</c> pair needs: Midnight Sun answers
+    /// and cannot be counted, this one cannot be reached at all — its grid is empty rather than
+    /// hatched, since we never got in to fail to count.
     /// </remarks>
     private static readonly GameSummary HollowBell = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-00000000000a"), "hollow-bell", "Hollow Bell",
@@ -126,10 +100,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         PlayersNow: null, Codebase: "TinyMUX 2.12", MeasuredProtocols: [],
         LastReachableAt: Now.AddDays(-700));
 
-    // Declares GENRE Adult, so the default listing leaves it out and the bar's checkbox brings it
-    // back. Present for the same reason Midnight Sun declares no genre at all: a fixture with
-    // nothing in a bucket does not exercise the bucket, and this one is a *default* — the state a
-    // reader lands on without asking for anything, and the easiest one to break unnoticed.
+    // Declares GENRE Adult, so the default listing leaves it out and the bar's checkbox brings it back.
     private static readonly GameSummary Cinder = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000009"), "cinder", "Cinder",
         "Declares adult content, so it is off the default listing until the box is ticked.",
@@ -151,20 +122,10 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// The two bare values on a listing row, given the label the rest of the site puts on everything.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Both are dated from the probe that produced them — a game's last reachable moment — because a
-    /// fixture that stamped every fact with the current instant would render a listing on which
-    /// nothing is ever old, and the state worth showing here is exactly the old one. Gaslight Row
-    /// last answered in 2023, so its codebase is three years unconfirmed and says so.
-    /// </para>
-    /// <para>
-    /// The sources are not decoration either, and all three a count can have are here. M*U*S*H
-    /// answers a pre-login <c>WHO</c>. Aardwolf's number exists only because its connect screen
-    /// states it, which we parse off the screen ourselves — <em>measured</em>, like the <c>WHO</c>,
-    /// and still its own source. Ashen Court publishes <c>PLAYERS</c> in MSSP and answers no
-    /// pre-login <c>WHO</c>, which is the commonest way a directory ends up quoting a game's own
-    /// report as a measurement — <em>declared</em>, and the row that makes the labelling visible.
-    /// </para>
+    /// Both are dated from the probe that produced them, not the current instant, so a stale value
+    /// (like Gaslight Row's three-year-old codebase) says so. All three count sources are exercised:
+    /// M*U*S*H's <c>WHO</c>, Aardwolf's parsed connect screen (still measured), and Ashen Court's
+    /// MSSP <c>PLAYERS</c> (declared, not measured).
     /// </remarks>
     private static GameSummary Labelled(GameSummary g)
     {
@@ -200,11 +161,8 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// The listing and its facets, through the same <see cref="FacetedSearch"/> the database uses.
     /// </summary>
     /// <remarks>
-    /// The filtering is emphatically not reimplemented here. A fixture with its own idea of what a
-    /// filter means can pass a test the real query fails, and this one already did: it read
-    /// <c>band=archived</c> as lifting the archive exclusion and Postgres did not, so one filter had
-    /// two answers and only the fixture's was ever exercised. All this owes the shared search now is
-    /// one row per game.
+    /// The filtering is not reimplemented here — a fixture with its own idea of what a filter means
+    /// can pass a test the real query fails. This owes the shared search only one row per game.
     /// </remarks>
     public Task<GameListing> SearchAsync(
         GameFilter filter, CancellationToken cancellationToken = default)
@@ -223,23 +181,9 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// heatmap draws.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Derived rather than tabulated, so the demo cannot show a listing sorted by an average that
-    /// contradicts the grid on the game page beside it — the two would then be two answers to one
-    /// question, which is the failure the fixture's own remarks say it exists to avoid.
-    /// </para>
-    /// <para>
-    /// <b>Null where the grid has no counted hour</b>: a game we cannot count and an archived game
-    /// that answered in none of these hours both fall below the break, which is the state this
-    /// fixture exists to make renderable. The sample tally is the week's counted hours scaled to the
-    /// window, so the thirty- and ninety-day sorts clear the median's floor and the seven-day one
-    /// shows what a game near it looks like.
-    /// </para>
-    /// <para>
-    /// The median is the lower of the two middle values on an even count, which is what
-    /// <c>percentile_disc(0.5)</c> returns and what the database's own walk reproduces. Averaging the
-    /// pair would put a number on the demo page that no hour of the grid beside it contains.
-    /// </para>
+    /// Derived rather than tabulated, so a listing sort can't contradict the grid on the game page.
+    /// Null where the grid has no counted hour. The median is the lower of the two middle values on
+    /// an even count, matching <c>percentile_disc(0.5)</c> rather than averaging the pair.
     /// </remarks>
     private static PresenceWindow? OverWindow(GameSummary game, TimeSpan window)
     {
@@ -269,10 +213,8 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// One game's facet values.
     /// </summary>
     /// <remarks>
-    /// The bands are assigned rather than derived, because there is no presence series here to
-    /// derive them from — which is the fixture's whole nature, and why every page it renders carries
-    /// the demo banner. Midnight Sun is <see cref="ActivityBand.Quiet"/> and never
-    /// <see cref="ActivityBand.Dark"/> on purpose: every one of its counts is unmeasurable, and
+    /// Bands are assigned rather than derived, since there's no real presence series to derive them
+    /// from. Midnight Sun is <see cref="ActivityBand.Quiet"/>, never <see cref="ActivityBand.Dark"/>:
     /// being uncountable is not being absent (spec §5.2).
     /// </remarks>
     private static GameFacetRow FacetRow(GameSummary game) => new(
@@ -280,8 +222,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         Band(game),
         FacetedSearch.LastSeenOf(game.LastReachableAt, Now),
 
-        // An endpoint we opened, never an SSL line in a self-description — the same distinction the
-        // real query draws, so the demo cannot show a facet the database could not.
+        // An endpoint we opened, never an SSL line in a self-description.
         TlsMeasured: Endpoints(game).Any(e => e.TlsMeasured),
         Charset: Charset(game),
         Language: game.Slug is "midnight-sun" ? "Swedish" : "English",
@@ -289,33 +230,19 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         Family: Family(game),
         Genre: Genre(game),
 
-        // Through the same predicate the database reads, rather than a slug test of its own — the
-        // two implementations disagreeing about which games a filter returns is the failure that
-        // put the filtering itself into one shared function.
+        // Through the same predicate the database reads, not a slug test of its own.
         IsAdult: AdultContent.Declared(Genre(game), AdultMaterial(game)),
         Uncounted: Uncounted(game),
-
-        // The same rule and the same constant the Postgres reader applies, for the same reason the
-        // line above is derived rather than declared.
         Unreachable: FacetedSearch.NotReachedRecently(game.LastReachableAt, Now));
 
     /// <summary>
     /// Whether every hour this game answered in produced no number.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Read off the fixture's own grid rather than listed beside it</b>, so the panel cannot
-    /// promise something the heatmap on the game's page contradicts — the same argument
-    /// <see cref="OverWindow"/> is derived by. A slug switch here would let the demo advertise
-    /// "uncounted" over a week of filled cells.
-    /// </para>
-    /// <para>
-    /// <b>Both clauses matter, and the fixture exercises both.</b> Eldertale is a measured zero in
-    /// every hour: counted, and emphatically not this. Hollow Bell answered in no hour at all: not
-    /// measured, which names no cause and is not this either. Midnight Sun answered in every hour and
-    /// produced a number in none, which is the one game here that is uncounted. Every other game has
-    /// one hatched hour beside its counts and is not uncounted for it.
-    /// </para>
+    /// Read off the fixture's own grid, not a slug switch, so the panel can't promise something the
+    /// heatmap contradicts. Both clauses matter: Eldertale (measured zero every hour) is not this,
+    /// Hollow Bell (never answered) is not this either — only Midnight Sun (answered every hour,
+    /// produced no number) is uncounted.
     /// </remarks>
     private static bool Uncounted(GameSummary game)
     {
@@ -330,8 +257,6 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         "eldertale" => ActivityBand.ActiveThisWeek,
         "midnight-sun" => ActivityBand.Quiet,
 
-        // Not reached in six weeks, and not archived — the one rung of this scale no fixture game
-        // stood on, so the demo panel never drew it.
         "hollow-bell" => ActivityBand.Dark,
         _ => ActivityBand.PlayersNow,
     };
@@ -444,10 +369,8 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// The addresses, with the history the real table keeps.
     /// </summary>
     /// <remarks>
-    /// m-u-s-h carries a <c>gone</c> row on purpose. §7.5 promises that nothing is deleted, and a
-    /// fixture in which every address is current cannot show what that promise looks like — the
-    /// departed row rendered as departed, beside the one that replaced it, for the benefit of
-    /// somebody holding the old address.
+    /// m-u-s-h carries a <c>gone</c> row on purpose, per §7.5 (nothing is deleted): the departed
+    /// address renders as departed, beside the one that replaced it.
     /// </remarks>
     private static GameEndpointView[] Endpoints(GameSummary g) => g.Slug switch
     {
@@ -485,10 +408,8 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         "midnight-sun" => FixtureScreens.MidnightSun,
         "batmud" => FixtureScreens.Enormous,
 
-        // Ashen Court's owner asked us not to republish theirs, and we hold it all the same — the
-        // crawler goes on reading it as an identity signal (§7.3). Held-and-withheld is the state
-        // suppression actually produces, and a fixture whose suppressed game had no screen at all
-        // could not tell it apart from a game we never captured one from.
+        // Ashen Court's owner asked us not to republish theirs; we hold it all the same and the
+        // crawler still reads it as an identity signal (§7.3) — held-and-withheld, not absent.
         "ashen-court" => FixtureScreens.Mush,
 
         // An archived game's last screen is preserved and labelled, not withdrawn.
@@ -498,8 +419,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
 
     /// <summary>
     /// The disagreement is real and observed: M*U*S*H's MSSP says 1.8.8p0 while its banner says
-    /// 1.8.7, and every one of these games declares GMCP in a hand-typed field it has never offered.
-    /// That row is the one a reader should not be able to scroll past.
+    /// 1.8.7, and each game declares GMCP in a hand-typed field it has never offered.
     /// </summary>
     private static CapabilityRow[] Capabilities(GameSummary g)
     {
@@ -520,15 +440,11 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     }
 
     /// <summary>
-    /// All three cell states, because a grid that only ever shows two is not a test of anything.
-    /// Wednesday's daytime gap is a real outage; the scattered hatched hours are probes that
-    /// answered and produced no number.
+    /// All three cell states. Wednesday's daytime gap is a real outage; the scattered hatched hours
+    /// are probes that answered and produced no number.
     /// </summary>
     private static ActivityCell[] Activity(GameSummary g)
     {
-        // A week with a shape: night owls after midnight, nobody at all between five and noon, and
-        // an evening peak that is highest on Tuesday and Friday. A flat grid would let a renderer
-        // that never computes anything look right.
         double[] shape =
         [
             0.40, 0.24, 0.16, 0.10, 0.06, 0, 0, 0, 0, 0, 0, 0,
@@ -536,21 +452,17 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         ];
         double[] byDay = [0.72, 1.00, 0.78, 0.84, 0.92, 0.88, 0.66];
 
-        // Scaled to the game's own count rather than to one number for every game. A fixture where
-        // Aardwolf reports 219 players and draws the same week as a nine-player game is internally
-        // inconsistent in the way that matters here: the demo ranking reads off this series, and a
-        // league table whose every row ties is a table that cannot show whether it ranks anything.
+        // Scaled to the game's own count, not one number for every game — the demo ranking reads off
+        // this series, and a league table whose every row ties can't show whether it ranks anything.
         var peak = g.PlayersNow ?? 17;
 
         var cells = new List<ActivityCell>(168);
 
-        // A game we cannot count is hatched in every hour it answered. It is not dark, and it is
-        // emphatically not a week of measured zeros.
+        // A game we cannot count is hatched in every hour it answered, not dark and not zero.
         var uncountable = g.PlayersNow is null;
 
-        // An archived game was not reachable in any of these hours, so every cell is empty. Hatching
-        // them would say we got in and could not count, which is a claim about a game that has not
-        // answered the door since 2023.
+        // An archived game was not reachable in any of these hours, so every cell is empty rather
+        // than hatched — hatching would claim we got in and could not count.
         var dark = g.State is LifecycleState.Archived or LifecycleState.Dark;
 
         for (var day = 0; day < 7; day++)
@@ -586,10 +498,8 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// What the game says about itself, as the page shows it.
     /// </summary>
     /// <remarks>
-    /// The codebase entry is the summary's own chip rather than a second one written here. A page
-    /// and a listing that disagreed about when the same value was last confirmed would be two
-    /// answers to one question, and this file had exactly that: every game's codebase was dated four
-    /// minutes ago, including one that has not answered the door since 2023.
+    /// The codebase entry reuses the summary's own chip rather than a second one written here, so a
+    /// page and its listing can't disagree about when the value was last confirmed.
     /// </remarks>
     private static Dictionary<string, ProvenanceChip> Declared(GameSummary g)
     {
@@ -602,9 +512,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
             ["language"] = new ProvenanceChip("English", FieldSource.Mssp, Now.AddYears(-6), IsStale: true),
         };
 
-        // Every link is also a declared field, because on the real page it IS one — the row beside
-        // the name is drawn from these. A fixture where the two disagreed would be a demo of a page
-        // that cannot exist, and this fixture is the one the site falls back on with no database.
+        // Every link is also a declared field, since on the real page it is one.
         foreach (var link in Reach(g))
         {
             declared[link.Field.ToLowerInvariant()] =
@@ -618,11 +526,8 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// The ways to reach each game's people, where the fixture gives them any.
     /// </summary>
     /// <remarks>
-    /// Two games and not all eight, on purpose. Most games in the real catalogue publish a WEBSITE
-    /// and nothing else — fifty-five publish no address at all — and a fixture where every game had
-    /// a full row would demo a site nobody will see. m-u-s-h carries what MSSP can express;
-    /// ashen-court carries the half that only an owner can, which is the difference the panel on the
-    /// dashboard exists to explain.
+    /// m-u-s-h carries what MSSP can express; ashen-court carries the half only an owner can — the
+    /// distinction the dashboard panel exists to explain.
     /// </remarks>
     private static QuickLink[] Reach(GameSummary g) => g.Slug switch
     {
@@ -677,7 +582,6 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
 
         return g.Slug switch
         {
-            // Dark since March 2023 and still knocked on weekly. The strip is one long hatched run.
             "gaslight-row" =>
             [
                 Span(5100, 1237, AvailabilityState.Reachable, FailureCause.None),
@@ -689,9 +593,8 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
                 Span(700, null, AvailabilityState.Unreachable, FailureCause.Refused),
             ],
 
-            // Found six weeks ago: the first half of the 90-day window predates anything we
-            // measured, and painting it as unreachable would record our own ignorance as a fact
-            // about the game.
+            // Found six weeks ago: painting the unmeasured half of the window as unreachable would
+            // record our own ignorance as a fact about the game.
             "eldertale" =>
             [
                 Span(44, 12, AvailabilityState.Reachable, FailureCause.None),
@@ -705,9 +608,8 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
                 Span(58, null, AvailabilityState.Reachable, FailureCause.None),
             ],
 
-            // Answered for years and then stopped, with the run still open. This is what the
-            // `unreachable` facet actually reads: an interval, which can say we tried and got
-            // nothing — where the empty half of a heatmap could not, and may not be asked to.
+            // Answered for years then stopped, run still open — an interval can say we tried and got
+            // nothing, where an empty heatmap cell cannot.
             "hollow-bell" =>
             [
                 Span(2400, 44, AvailabilityState.Reachable, FailureCause.None),
@@ -728,18 +630,10 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// The dashboard, derived from this fixture's own games rather than from a table of percentages.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// A hand-written set of shares would be the one thing this file may not contain: a page whose
-    /// whole subject is that a ratio has a denominator, showing ratios that never had one. So every
-    /// figure here is counted off the eight games above by the same rules the Postgres reader uses —
-    /// archived games are out, the protocol denominator is the games with a reachable interval, and a
-    /// protocol no fixture game offers is <em>unmeasured</em> rather than nought per cent.
-    /// </para>
-    /// <para>
-    /// <c>MSSP</c> is the one protocol whose absence is written down as an absence, here as in the
-    /// crawler: we ask for it by name on every probe, so a game that answered and never engaged it has
-    /// declined a question that was put. Every other silence stays a silence.
-    /// </para>
+    /// Every figure is counted off the fixture games by the same rules the Postgres reader uses:
+    /// archived games are out, the protocol denominator is games with a reachable interval, and a
+    /// protocol no fixture game offers is unmeasured rather than nought per cent. <c>MSSP</c> is the
+    /// one protocol whose absence is written down as an absence, since we ask for it on every probe.
     /// </remarks>
     public Task<EcosystemDashboard> EcosystemAsync(CancellationToken cancellationToken = default)
     {
@@ -748,16 +642,13 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
             .Where(g => Intervals(g).Any(i => i.State is AvailabilityState.Reachable))
             .ToList();
 
-        // Built by the catalogue rather than here: the fixture used to fold and label codebases with
-        // its own copy of the rule, and its copy named a family after whichever row it read first.
         var codebases = listed.Select(g => g.Codebase).OfType<string>().ToList();
 
         var offeredAnywhere = handshaked
             .SelectMany(g => g.MeasuredProtocols)
             .ToHashSet(StringComparer.Ordinal);
 
-        // Games whose MSSP report we hold — not every listed game, because Midnight Sun answers and
-        // offers no MSSP at all. That is the second denominator, and it is a different set.
+        // Games whose MSSP report we hold — not every listed game (Midnight Sun offers no MSSP).
         var reporting = listed
             .Where(g => g.MeasuredProtocols.Contains("MSSP", StringComparer.Ordinal))
             .ToList();
@@ -771,7 +662,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
                     ? handshaked.Count(g => g.MeasuredProtocols.Contains(protocol, StringComparer.Ordinal))
                     : null,
 
-                // The one honest negative: asked for on every probe, so silence is an answer.
+                // The one honest negative: asked on every probe, so silence is an answer.
                 protocol is "MSSP"
                     ? handshaked.Count(g => !g.MeasuredProtocols.Contains("MSSP", StringComparer.Ordinal))
                     : 0,
@@ -788,9 +679,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
             reporting.Count,
             Now.AddMinutes(-4),
 
-            // Nothing in this fixture's change feed is a capability transition, which is the state a
-            // young crawl is really in: the page has to say the curve is not drawable yet, and a
-            // fixture that faked one would be teaching the page to lie.
+            // Nothing here is a capability transition — the page must say the curve isn't drawable yet.
             CapabilityTransitions: 0,
             CodebaseUsage.Of(codebases, listed.Count),
             protocols));
@@ -800,10 +689,9 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// The rankings, computed off the same sampled week the heatmap renders.
     /// </summary>
     /// <remarks>
-    /// The activity grid <em>is</em> a series of measured samples, so the median and the peak here are
-    /// real arithmetic over it rather than numbers typed beside a name. A game whose every sample is
-    /// unmeasurable produces no median and drops out of the table — which is the behaviour that has to
-    /// be visible, because reading those as zeros is the failure §5.4 exists to prevent.
+    /// The activity grid is a series of measured samples, so median and peak are real arithmetic over
+    /// it. A game whose every sample is unmeasurable produces no median and drops out — reading those
+    /// as zeros is the failure §5.4 exists to prevent.
     /// </remarks>
     public Task<Rankings> RankingsAsync(
         RankingSpan span = RankingSpan.Week,
@@ -812,8 +700,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         var listed = All.Where(g => g.State is not LifecycleState.Archived).ToList();
 
         // The grid is one week of hours, so a wider span is the same shape measured for longer:
-        // the median and the peak are unchanged and only the basis grows. Nothing here is a
-        // measurement of anything — the demo banner says so on every page this renders.
+        // median and peak are unchanged and only the basis grows.
         var weeks = span.Days() / 7d;
 
         var busiest = listed
@@ -861,8 +748,6 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
             ],
             WentDark:
             [
-                // The cause, and not the promise to keep probing: the section heading says that
-                // once, rather than every row saying it again.
                 Event("verdigris", Now.AddDays(-6), "connection refused"),
             ],
             CameBack:
@@ -875,9 +760,8 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     /// One feed event, taking its id and name from the game it is about.
     /// </summary>
     /// <remarks>
-    /// Named from the catalogue rather than retyped, because a feed entry whose name or id drifted
-    /// from the game's would send a reader to a page about something else — and the id is the whole
-    /// point of the entry carrying one (spec §5.7).
+    /// Named from the catalogue rather than retyped, so a drifted name or id can't send a reader to a
+    /// page about something else (spec §5.7).
     /// </remarks>
     private static FeedEntry Event(string slug, DateTimeOffset at, string detail)
     {

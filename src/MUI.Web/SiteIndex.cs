@@ -13,23 +13,12 @@ namespace MUI.Web;
 /// The two documents a crawler asks for before it asks for a page.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A measurement nobody can find is a measurement nobody reads, and the parts of this catalogue
-/// most worth finding are the parts least likely to be reached by following links. The archive is
-/// the clearest case: spec §7.4 keeps every dark game's page alive for ever, which is the historical
-/// record the incumbents threw away — and nothing on the live site links to most of it. The
-/// reference section is the second: hand-written prose whose only inbound link is its own index.
-/// </para>
-/// <para>
-/// <b>Endpoints and not files in <c>wwwroot</c>.</b> A sitemap enumerates the catalogue, so a static
-/// one is a second copy of it that is wrong by the end of the first crawl cycle.
-/// </para>
-/// <para>
-/// <b>Nothing invented is submitted.</b> Over the demo fixture the game URLs are left out entirely.
-/// A sitemap is a request that somebody index these pages, it is read only by programs, and it has
-/// no field in which to say the games are made up — the same reasoning that keeps the structured
-/// data off a fixture page. What stays is the hand-written pages, which are ours and true either way.
-/// </para>
+/// The archive (spec §7.4 keeps every dark game's page alive forever) and the reference section are
+/// the parts of this catalogue least likely to be reached by following links, and most worth finding.
+/// <b>Endpoints, not files in <c>wwwroot</c></b> — a static sitemap is a second copy wrong by the end
+/// of the first crawl cycle.
+/// <b>Nothing invented is submitted.</b> Over the demo fixture, game URLs are left out entirely — a
+/// sitemap has no field to say the games are made up.
 /// </remarks>
 public static class SiteIndex
 {
@@ -51,8 +40,8 @@ public static class SiteIndex
                     http.RequestAborted)
                 : [];
 
-            // Through the API's writer for the ETag: a sitemap is re-fetched on a schedule by
-            // clients that all send If-None-Match, and it changes only when the catalogue does.
+            // Through the API's writer for the ETag: re-fetched on a schedule by clients that send
+            // If-None-Match.
             await ApiResponse.WriteTextAsync(http, Sitemap(http, games), "application/xml; charset=utf-8");
         });
 
@@ -63,18 +52,10 @@ public static class SiteIndex
     /// What a crawler may have.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Everything, less the routes that are not documents. <c>/games/random</c> answers with a
-    /// different game every time, so a crawler following it indexes nothing and comes back for ever;
-    /// the account and claim routes belong to whoever is signed in; <c>/api</c> answers the same
-    /// facts in a format built for a program that already knows it wants them.
-    /// </para>
-    /// <para>
-    /// <b>No <c>Crawl-delay</c> and no rate advice.</b> This site's own crawler is polite because
-    /// spec §11 makes it so, and asking for the same courtesy in a file the impolite ignore buys
-    /// nothing. The facet permutations that would otherwise be the real cost are handled by the
-    /// canonical link instead, which is the mechanism specified for it.
-    /// </para>
+    /// Everything but the routes that aren't documents: <c>/games/random</c> answers differently
+    /// every time, and account/claim routes belong to whoever is signed in.
+    /// <b>No <c>Crawl-delay</c> and no rate advice</b> — the facet permutations that would otherwise
+    /// be the real cost are handled by the canonical link instead.
     /// </remarks>
     private static string Robots(string sitemap)
     {
@@ -95,12 +76,9 @@ public static class SiteIndex
     {
         var output = new StringBuilder();
 
-        // Through a writer that admits to being UTF-8. XmlWriter takes the encoding it declares from
-        // the TextWriter it is given and ignores XmlWriterSettings.Encoding when there is one — and
-        // a StringWriter says UTF-16, because a .NET string is. The bytes on the wire are UTF-8, so
-        // the default spelling of this ships a document whose declaration contradicts its own
-        // content: strict parsers reject it outright and the rest guess. Nothing in a rendered page
-        // would ever show it.
+        // Through a writer that admits to being UTF-8: XmlWriter takes its declared encoding from the
+        // TextWriter, and a plain StringWriter reports UTF-16, contradicting the UTF-8 bytes actually
+        // sent — strict parsers reject that outright.
         using (var text = new Utf8StringWriter(output))
         using (var xml = XmlWriter.Create(text, new XmlWriterSettings
         {
@@ -123,9 +101,8 @@ public static class SiteIndex
 
             foreach (var game in games)
             {
-                // Archived games included, and with no marking that says so. Rule 3: archiving takes
-                // a game out of the default listing and out of nothing else, and a sitemap that
-                // dropped them would quietly make it out of the record too.
+                // Archived games included, unmarked — rule 3: archiving removes a game from the
+                // default listing and nothing else.
                 Entry(xml, SiteUrls.Absolute(http, $"/g/{game.Slug}"), game.LastReachableAt);
             }
 
@@ -139,11 +116,7 @@ public static class SiteIndex
     /// <summary>
     /// The hand-written surfaces, in the order the header lists them.
     /// </summary>
-    /// <remarks>
-    /// No <c>changefreq</c> and no <c>priority</c>. Both are hints a crawler is free to ignore and
-    /// every major one does; writing "hourly" beside a page would also be this site asserting
-    /// something about itself that it had not measured, which is a habit worth not starting.
-    /// </remarks>
+    /// <remarks>No <c>changefreq</c> or <c>priority</c> — both are hints every major crawler ignores, and writing "hourly" would be an unmeasured claim about itself.</remarks>
     private static readonly string[] Pages =
     [
         "/",
@@ -163,9 +136,8 @@ public static class SiteIndex
 
         if (modified is { } at)
         {
-            // When we last reached the game, which is when what the page says last changed for a
-            // reason. Not the render time — a page regenerated hourly from a three-year-old
-            // measurement is three years old, and saying otherwise is a freshness claim nobody made.
+            // When we last reached the game, not the render time — a page regenerated hourly from a
+            // three-year-old measurement is still three years old.
             xml.WriteElementString("lastmod", at.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture));
         }
 

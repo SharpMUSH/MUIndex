@@ -5,12 +5,9 @@
 @inject NavigationManager Nav
 
 @*
-    Random game (spec §9). A link rather than a control, so it works with scripting off and can be
-    bookmarked — and it carries whatever filters were on screen, because "surprise me" after
-    narrowing to Evennia games means surprise me among those.
-
-    It renders only when it could not choose. The ordinary path is a redirect raised out of
-    OnInitializedAsync, which never reaches markup.
+    Random game (spec §9): a link, not a control, so it works with scripting off, is bookmarkable,
+    and carries whatever filters were on screen. Renders only when it couldn't pick one — the normal
+    path redirects from OnInitializedAsync and never reaches this markup.
 *@
 
 <SitePreview Title="@PreviewCopy.Titles.Random(Tag)" Description="@PreviewCopy.Pages.Random(Tag)" />
@@ -23,15 +20,6 @@
 }
 else
 {
-    @*
-        One sentence with two links in it, as a message rather than as English glued round anchors:
-        a language that puts the links in the other order, or needs a different preposition before
-        each, has nowhere to say so if the markup owns the word order.
-
-        The message places two markers and Sentences walks them, so what a translator writes is
-        text and never markup. Formatting anchors into the string and trusting them through a
-        MarkupString would make every bundle a place someone could put a tag.
-    *@
     <p class="dim">
         @foreach (var run in Sentence)
         {
@@ -52,15 +40,10 @@ else
 
     private string Tag => Http.LocaleOf().Tag;
 
-    /// <summary>
-    /// The empty state's sentence, split into the runs the markup renders.
-    /// </summary>
+    /// <summary>The empty state's sentence (two links), split into the runs the markup renders.</summary>
     /// <remarks>
-    /// The message places two markers and <see cref="Sentences"/> walks them, so a translator writes
-    /// text and never markup — formatting anchors into the string and trusting the result through a
-    /// <c>MarkupString</c> would make every bundle a place someone could put a tag. The message owns
-    /// the word order: a language that wants the archive named first, or a different preposition
-    /// before each link, writes that and this follows.
+    /// <see cref="Sentences"/> walks message-placed markers so a translator writes text, never markup
+    /// or anchors trusted through a <c>MarkupString</c> — and the message owns word order per locale.
     /// </remarks>
     private IReadOnlyList<Sentences.Run> Sentence => Sentences.Place(
         Tag,
@@ -89,19 +72,12 @@ else
             return;
         }
 
-        // A whole-listing read for one game, which is what IGameQueries can currently answer. It is
-        // the same scan every listing request already does; the cheaper shape is an
-        // ORDER BY random() LIMIT 1 on the read side, and it needs a new query rather than a
-        // different caller here.
+        // IGameQueries can only answer with a whole-listing read; a cheaper ORDER BY random() LIMIT 1
+        // needs a new query, not a different caller here.
         var pick = games[Random.Shared.Next(games.Count)];
 
-        // In static SSR this raises a NavigationException the framework turns into a redirect, so
-        // the markup below is only ever reached when there was nothing to redirect to.
-        //
-        // Written in this page's own locale, because a leading slash here is relative to the host
-        // and not to the base: "surprise me" is in the nav of every page, and from German it landed
-        // the reader on an English game page — the one link on the site whose destination no sweep
-        // of the markup can see, because it is a Location header rather than an anchor.
+        // Http.Link keeps this in the page's own locale — a bare leading slash is host-relative, not
+        // base-relative, and previously sent a German reader to the English game page.
         Nav.NavigateTo(Http.Link($"/g/{Uri.EscapeDataString(pick.Slug)}"));
     }
 }

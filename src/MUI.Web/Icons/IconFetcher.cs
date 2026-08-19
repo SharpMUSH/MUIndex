@@ -10,35 +10,13 @@ namespace MUI.Web.Icons;
 /// Fetches the image a game's <c>ICON</c> field names, so this site can serve it from its own origin.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>We fetch it; we do not hot-link it.</b> Rendering <c>&lt;img src="https://their-host/logo.png"&gt;</c>
-/// would hand every reader's IP address, user-agent and referring URL to a third-party server on every
-/// page view, for a decoration. §11 is a section about not doing that to people who did not ask, and a
-/// reader looking at a game page did not ask.
-/// </para>
-/// <para>
-/// <b>This is the first HTTP client in this codebase, and that is worth noticing rather than
-/// slipping in.</b> Every other network operation here is a raw socket the crawler opens. It arrives
-/// as a typed client through <c>IHttpClientFactory</c> — never <c>new HttpClient()</c> and never a
-/// static one — because the factory is what gives the handler a bounded lifetime. On a component
-/// whose whole job is fetching URLs strangers control, a socket handler that pins DNS for the life of
-/// the process is the same class of bug as §7.2's time-of-check-to-time-of-use gap, and it would
-/// compound it.
-/// </para>
-/// <para>
-/// <b>The URL is owner-controlled, which is §7.2's exact hazard in a new place.</b> It goes through
-/// the same gate as every dial: resolve first, refuse unless every returned address is globally
-/// routable, refuse a mixed answer whole rather than picking the good one. The guard is reused rather
-/// than re-derived, because a second copy of those range checks is two sets of rules that must agree
-/// for ever. <b>Do not restate this as airtight</b> — the same time-of-check-to-time-of-use gap
-/// applies here as there, and redirects are refused precisely because a redirect is a second address
-/// the gate never ruled on.
-/// </para>
-/// <para>
-/// <b>Every failure is a null and writes nothing.</b> A refusal, a timeout, an oversized body, an
-/// unreadable header: none of them is a fact about the game, and none reaches its record (rule 5).
-/// The page renders no element rather than a broken image or an apology.
-/// </para>
+/// We fetch it; we do not hot-link it (§11) — the client is typed through <c>IHttpClientFactory</c>,
+/// never <c>new HttpClient()</c>, since an unbounded handler pins DNS for the process lifetime on a
+/// component that fetches attacker-chosen URLs. The URL is owner-controlled, so it goes through the
+/// same §7.2 host-scope gate as every dial (resolve first, refuse unless every address is globally
+/// routable) — do not restate this as airtight, the same TOCTOU gap applies here, and redirects are
+/// refused because a redirect is a second address the gate never ruled on. Every failure returns null
+/// and writes nothing: none of it is a fact about the game (rule 5).
 /// </remarks>
 public sealed class IconFetcher(
     HttpClient client,
@@ -50,9 +28,7 @@ public sealed class IconFetcher(
     /// The most we will hold for one icon.
     /// </summary>
     /// <remarks>
-    /// A ceiling that refuses rather than truncates. Half an image is not a smaller image, and a
-    /// site that quietly kept the first quarter-megabyte of somebody's logo would be serving a
-    /// corrupt file under their name.
+    /// A ceiling that refuses rather than truncates — half an image is not a smaller image.
     /// </remarks>
     public const int MaxBytes = 256 * 1024;
 
@@ -60,9 +36,8 @@ public sealed class IconFetcher(
     /// The largest picture worth holding, in either direction.
     /// </summary>
     /// <remarks>
-    /// It is rendered at a few dozen pixels beside a game's title. Anything past this is a poster
-    /// rather than an icon, and refusing is better than resizing: an image quietly rewritten on the
-    /// way through is a different picture from the one its owner published.
+    /// Refusing is better than resizing: an image quietly rewritten on the way through is a different
+    /// picture from the one its owner published.
     /// </remarks>
     public const int MaxDimension = 512;
 
@@ -86,14 +61,11 @@ public sealed class IconFetcher(
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
             || uri.Scheme is not ("http" or "https"))
         {
-            // Not a URL we could dial at all. A `javascript:` or `file:` ICON is somebody's config
-            // being odd rather than an attack, and either way there is nothing to fetch.
+            // Not a URL we could dial at all, e.g. a `javascript:` or `file:` ICON.
             return null;
         }
 
-        // §7.2, before any socket exists. The gate is on the resolved address and not on the name:
-        // icons.example.org with an A record pointing at 169.254.169.254 passes every check that
-        // reads the string.
+        // §7.2, before any socket exists — the gate is on the resolved address, not the name.
         var ruling = await gate.InspectAsync(uri.Host, cancellationToken);
 
         if (!ruling.IsAllowed)
@@ -117,16 +89,14 @@ public sealed class IconFetcher(
             using var response = await client.SendAsync(
                 request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
-            // Unchanged, which is the ordinary answer and not a failure. Nothing to write: what we
-            // hold is already right, and rewriting the row would only move fetched_at.
+            // Unchanged is the ordinary answer, not a failure — nothing to write.
             if (response.StatusCode is HttpStatusCode.NotModified || !response.IsSuccessStatusCode)
             {
                 return null;
             }
 
-            // A redirect is a second address the gate never ruled on, and the handler is configured
-            // not to follow one. Reaching here with a 3xx means the far end answered with a redirect
-            // we are declining, which is not an error worth a log line.
+            // A 3xx here means a redirect we're declining — the handler doesn't follow them, since a
+            // redirect is a second address the gate never ruled on.
             if (await ReadBoundedAsync(response, cancellationToken) is not { } bytes)
             {
                 return null;
@@ -158,16 +128,11 @@ public sealed class IconFetcher(
         catch (Exception error)
             when (error is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            // Deliberately broad, and deliberately quiet. Somebody's web server being unreachable is
-            // a fact about our afternoon; it does not enter their game's record and it is not
-            // something a reader of their page should be told.
-            //
-            // The second clause is what makes the first one true. `HttpClient` reports its OWN
-            // Timeout elapsing as a TaskCanceledException — an OperationCanceledException by type,
-            // with a stalled stranger as its cause — so a filter that read only the type let a far
-            // end that went quiet escape as though this host were shutting down. It reached
-            // IconRefresher, which had the same filter, and StopHost took the site with it. Ask the
-            // token who actually cancelled, never the exception.
+            // Deliberately broad and quiet: a web server being unreachable is not a fact about the
+            // game. The second clause matters — `HttpClient` reports its own Timeout elapsing as a
+            // TaskCanceledException (an OperationCanceledException by type), so a filter that trusted
+            // the type alone let a stalled far end masquerade as this host shutting down and
+            // propagate into a real shutdown. Ask the token who actually cancelled, never the exception.
             logger?.LogDebug(error, "Could not fetch the icon at {Url}. Nothing is written", uri);
 
             return null;
@@ -178,11 +143,9 @@ public sealed class IconFetcher(
     /// The body, or null if it is larger than we will hold.
     /// </summary>
     /// <remarks>
-    /// <b>Read to a ceiling rather than trusted to <c>Content-Length</c>.</b> That header is what the
-    /// far end says it will send, and this is a far end somebody else chose — a server that declares
-    /// two kilobytes and streams two gigabytes is the whole reason the limit lives on the read.
-    /// Reading one byte past the ceiling is what tells the two cases apart, so an image of exactly
-    /// <see cref="MaxBytes"/> is kept and one byte more is refused rather than truncated.
+    /// Read to a ceiling rather than trusted to <c>Content-Length</c>, which the far end could declare
+    /// falsely. An image of exactly <see cref="MaxBytes"/> is kept; one byte more is refused, not
+    /// truncated.
     /// </remarks>
     private static async Task<byte[]?> ReadBoundedAsync(
         HttpResponseMessage response,

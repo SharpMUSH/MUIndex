@@ -49,9 +49,8 @@ public class MsspCrawlDelayTests
     [Test]
     public async Task AStatedMonthOutranksTheWeeklyFloor()
     {
-        // §7.7 resolves §7.4 against §11 in favour of politeness: the backoff is clamped to a week
-        // first and the server's request applied afterwards, so a server asking for thirty days gets
-        // thirty days. ProbeSchedule owns that; this is the pin that the value reaches it intact.
+        // §7.7 resolves §7.4 against §11 in favour of politeness: the server's request is applied
+        // after the weekly clamp, so a server asking for thirty days gets thirty days.
         var asked = MsspCrawlDelay.From(Probes.Answered(mssp: Probes.Mssp(("CRAWL DELAY", "720"))));
 
         await Assert.That(ProbeSchedule.Next(consecutiveFailures: 0, asked))
@@ -131,10 +130,9 @@ public class GameSlugTests
     [Test]
     public async Task TheLastResortReallyDoesTerminate()
     {
-        // The comment above it said "this always terminates" and it threw: the fallback appends a
-        // 32-character GUID and then took a fixed-length slice of the result, which is out of range
-        // for any stem shorter than 31 characters. Ten thousand collisions is a bug upstream, and a
-        // listing that dies with ArgumentOutOfRangeException is a worse answer to it than an ugly URL.
+        // Regression: the fallback used to slice a fixed length off the GUID-appended result, which
+        // threw for any stem shorter than 31 characters. A listing dying on ArgumentOutOfRangeException
+        // is a worse answer to upstream collisions than an ugly URL.
         var slug = await GameSlug.UniqueAsync("Corvid", (_, _) => Task.FromResult(true));
 
         await Assert.That(slug).StartsWith("corvid-");

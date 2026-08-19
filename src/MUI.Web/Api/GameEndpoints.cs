@@ -30,13 +30,11 @@ public static class GameEndpoints
             return;
         }
 
-        // The facets come back with the listing rather than from a second call, so a consumer
-        // building a filter UI over this endpoint gets counts that describe the page it was handed
-        // — the same guarantee the site's own panel has, for the same reason.
+        // The facets come back with the listing rather than from a second call, so counts describe
+        // the page a consumer was actually handed.
         var matched = await queries.SearchAsync(query.Filter, http.RequestAborted);
 
-        // One instant for the whole response: every age on a row is measured from the same moment
-        // the body is stamped with, so a listing cannot disagree with its own generatedAt.
+        // One instant for the whole response, so a listing can't disagree with its own generatedAt.
         var now = ApiClock.Now(clock);
         var page = matched.Games
             .Skip(query.Offset)
@@ -68,9 +66,7 @@ public static class GameEndpoints
         ISlugHistory slugs,
         TimeProvider clock)
     {
-        // Two keys, one read each (spec §5.7). The id used to cost the whole catalogue: it listed
-        // every game to turn a GUID into a slug and then read the page anyway, so the identifier
-        // this API tells consumers to store was the expensive way to ask for a game.
+        // Two keys, one read each (spec §5.7).
         var isId = Guid.TryParse(key, out var id);
         var page = isId
             ? await queries.FindAsync(id, http.RequestAborted)
@@ -78,13 +74,8 @@ public static class GameEndpoints
 
         if (page is null)
         {
-            // Not found *here* is not the end of the question: a slug this game used to wear is a
-            // URL somebody is still holding, and it redirects rather than 404s. Forever.
-            //
-            // Through SlugDestination, which is what the page uses too. This asked the former-slug
-            // table alone and knew nothing about §7.3's merge, so /g/{slug} sent a reader on while
-            // this answered 404 for the same game — one promise with two answers, and a consumer
-            // following the API would have concluded the game was gone.
+            // Not found here isn't the end of the question: a former slug redirects rather than
+            // 404s, forever, through the same SlugDestination the page uses.
             if (!isId
                 && await SlugDestination.ForAsync(
                     key,

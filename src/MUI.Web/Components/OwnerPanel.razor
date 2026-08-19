@@ -4,27 +4,19 @@
 @using MUI.Web.Accounts
 
 @*
-    What a claim actually grants, as two forms (spec §8.5, §11).
+    What a claim actually grants, as two forms (spec §8.5, §11). Everything here is enrichment —
+    fields MSSP has no room for, and the connect-screen decision — never a player count, capability,
+    or reachability history; the writable set is the field registry's own OwnerEnrichable flag.
 
-    Everything here is enrichment: the fields MSSP has no room for, and the owner's decision about
-    their own connect screen. Nothing on this panel can reach a player count, a capability or a
-    reachability history — the writable set is the field registry's own OwnerEnrichable flag, read
-    below rather than listed here, and the endpoint refuses anything outside it out loud.
-
-    An owner's answer is DECLARED. It is stored under its own field source beside whatever the
-    crawler measured, shown with its age like every other fact, and it never replaces, hides or
-    silences a measurement. The panel says so, because an operator typing into a box on a site whose
-    whole claim is that its data is measured deserves to know which of the two they are producing.
+    An owner's answer is DECLARED: stored under its own field source beside whatever the crawler
+    measured, shown with its age, and it never replaces, hides or silences a measurement.
 *@
 
 <section class="owner-panel">
     <h3>@Say("owner.declare.heading", ("game", Name))</h3>
 
-    @*
-        The provenance word is placed rather than written into the sentence, and it is the SAME id
-        the chip on the game's page uses. That is deliberate: this paragraph promises an owner what
-        their page will say, and two ids for one word is how the promise and the page drift apart.
-    *@
+    @* The provenance word is placed rather than written into the sentence, and is the SAME id the
+       chip on the game's page uses — two ids for one word is how the promise and the page drift. *@
     <p class="faint">
         @foreach (var part in Sentence.Place(Tag, "owner.declare.lede", ["declared"]))
         {
@@ -48,8 +40,8 @@
                 @* The registry's own field name: machine voice, like a hostname or a codebase. *@
                 <span class="kicker" translate="no">@definition.Name.ToLowerInvariant()</span>
                 @* type=url on the fields that hold one, so a browser catches the typo the
-                   endpoint would otherwise refuse the whole form for. The shape is the registry's
-                   own, not a list of field names kept here — see FieldShape. *@
+                   endpoint would otherwise refuse the whole form for — shape comes from the
+                   registry, see FieldShape. *@
                 <input type="@Box(definition.Shape)"
                        name="@(OwnerWrites.FieldPrefix + definition.Name)"
                        value="@(Current(definition.Name)?.Value)"
@@ -68,29 +60,18 @@
     </form>
 
     @*
-        The overridable half (§8.5). MSSP has a variable for every one of these, so the form shows
-        what the game reports beside the box rather than offering an empty one — and says plainly
-        that fixing mush.cnf is the better repair, because an answer typed here reaches this site and
-        no other crawler.
-
-        The report is shown as text and never as the box's value. Pre-filling an editable field with
-        a game's own report invites somebody to retype it into an override saying exactly the same
-        thing: a second row, a second age, a second thing to keep current, in exchange for nothing.
+        The overridable half (§8.5): the form shows what the game reports beside the box rather than
+        an empty one, and says fixing mush.cnf is the better repair since an override here reaches
+        only this site. The report is shown as text and never as the box's value — pre-filling it
+        would invite retyping it into a second row nobody needs to keep current.
     *@
     <h3>@Say("owner.override.heading", ("game", Name))</h3>
 
-    @*
-        Three sentences rather than one with a <strong> inside it. An emphasised clause in the
-        middle of a sentence is one a translator cannot move — it lands elsewhere in most languages
-        and nowhere in some — and this is the clause that must survive translation intact, because
-        it is the site's whole claim. Its own id, its own sentence, its own element.
-    *@
-    @*
-        The placed sentence sits in its own <span>, and that is load-bearing rather than tidy:
-        Razor drops the whitespace on a line that opens a code block, so a bare @foreach after a
-        sibling sentence renders as "…not an hour of reachability.If a line below…". Between two
-        elements the space is ordinary markup and survives.
-    *@
+    @* Three sentences rather than one with a <strong> inside it: an emphasised clause mid-sentence
+       is one a translator cannot move, and this clause is the site's whole claim. *@
+    @* The placed sentence sits in its own <span> deliberately: Razor drops whitespace on a line
+       that opens a code block, so a bare @foreach after a sibling sentence used to render
+       "…not an hour of reachability.If a line below…" with no space. *@
     <p class="faint">
         @L("owner.override.lede")
         <strong>@L("owner.override.nothingMeasured")</strong>
@@ -116,9 +97,6 @@
         {
             <label>
                 <span class="kicker" translate="no">@definition.Name.ToLowerInvariant()</span>
-                @* type=url on the fields that hold one, so a browser catches the typo the
-                   endpoint would otherwise refuse the whole form for. The shape is the registry's
-                   own, not a list of field names kept here — see FieldShape. *@
                 <input type="@Box(definition.Shape)"
                        name="@(OwnerWrites.FieldPrefix + definition.Name)"
                        value="@(Current(definition.Name)?.Value)"
@@ -185,21 +163,14 @@
         </form>
     }
 
-    @*
-        §11's third route. The other two — the MSSP variable and the DNS TXT record — are answered by
-        the game itself and need no account, which is why they are named here beside the button
-        rather than hidden behind it: an owner who would rather not depend on us having their claim
-        on file can say it in their own config and we will honour it on the next cycle.
-    *@
+    @* §11's third route. The other two — MSSP variable and DNS TXT record — need no account, so
+       they're named here beside the button: an owner can self-serve via their own config instead. *@
     <h3>@L("owner.crawl.heading")</h3>
 
     @if (OptOut is { AllStopped: true })
     {
-        @*
-            The empty hours this leaves may not be given a cause (rule 2, rule 5): "you asked us to
-            stop" is OUR fact and not a measurement of the game. The clause is emphasised and is
-            placed by the message, so a language that puts it first can.
-        *@
+        @* The empty hours this leaves may not be given a cause (rule 2, rule 5): "you asked us to
+           stop" is OUR fact, not a measurement of the game. *@
         <p>
             @foreach (var part in Sentence.Place(Tag, "owner.crawl.stopped", ["ourFact"], ("game", Name)))
             {
@@ -230,10 +201,8 @@
     }
     else if (OptOut is { Partial: true })
     {
-        @*
-            Neither state, and shown as neither. Rounding this to "stopped" would tell an owner we
-            had left them alone while we went on dialling the port that is still open.
-        *@
+        @* Neither state, shown as neither: rounding to "stopped" would tell an owner we had left
+           them alone while still dialling the port that is still open. *@
         <p class="warn">
             @Say(
                 "owner.crawl.partial",
@@ -277,13 +246,9 @@
         </form>
     }
 
-    @*
-        The second decision (migration 0025), and it is a second one rather than a stronger version of
-        the first. Stopping the crawl is what most people who press that button want; this is for the
-        ones who want the page out of the directory as well, and it is offered only underneath a
-        standing opt-out on every address — a game we are still dialling has not made the first
-        decision, and there is nothing here to extend.
-    *@
+    @* The second decision (migration 0025), not a stronger version of the first: stopping the crawl
+       is what most people want, this is for taking the page out of the directory as well — offered
+       only under a standing opt-out, since a game still being dialled has made no first decision. *@
     @if (Listing is { IsUnlisted: true })
     {
         <h3>@L("owner.listing.heading")</h3>
@@ -335,10 +300,8 @@
     {
         FieldShape.Url => "url",
 
-        // Not type=email, deliberately. CONTACT holds an address in the specification and a contact
-        // page in practice — one game in this catalogue publishes an https:// form there, and it is
-        // accepted — so a browser refusing anything without an @ would block a value the endpoint
-        // takes.
+        // Not type=email, deliberately: CONTACT holds an address in spec but a contact-page URL in
+        // practice (one game in this catalogue uses an https:// form), which the endpoint accepts.
         _ => "text",
     };
 
@@ -350,9 +313,9 @@
     /// What this game's owners have already declared, keyed by field.
     /// </summary>
     /// <remarks>
-    /// Owner rows only, and passed in rather than fetched here so that one page load reads the
-    /// catalogue once. A measurement is deliberately not offered back as a draft of itself: an
-    /// editable box pre-filled with something we measured is an invitation to overwrite it.
+    /// Owner rows only, passed in rather than fetched here so one page load reads the catalogue
+    /// once. A measurement is deliberately never offered back as a draft — an editable box
+    /// pre-filled with something we measured invites overwriting it.
     /// </remarks>
     [Parameter] public IReadOnlyDictionary<string, GameField> Declared { get; set; } =
         new Dictionary<string, GameField>(StringComparer.Ordinal);
@@ -381,7 +344,7 @@
     /// null where nothing here records that — the demo fixture, which has no register to ask.
     /// </summary>
     /// <remarks>
-    /// Null and "may not" render identically, and deliberately: a control offered where we cannot
+    /// Null and "may not" render identically, deliberately: offering the control when we cannot
     /// tell whether we are still crawling somebody would be the panel guessing on their behalf.
     /// </remarks>
     [Parameter] public OwnerListingState? Listing { get; set; }
@@ -407,10 +370,9 @@
     /// The owner's own decision, read from the field they set rather than from the rendered page.
     /// </summary>
     /// <remarks>
-    /// The surfaces resolve suppression through the §5.1 precedence ladder, which is right for a
-    /// reader and wrong for this form: the control has to reflect what <em>this owner</em> asked for
-    /// and offer the opposite of it, and a ladder that ever put another source above theirs would
-    /// otherwise show them a button that does nothing.
+    /// The §5.1 precedence ladder is right for a reader and wrong for this form: the control must
+    /// reflect what <em>this owner</em> asked for and offer the opposite, or a higher-precedence
+    /// source would show them a button that does nothing.
     /// </remarks>
     private bool Suppressed => string.Equals(
         Current(InternalFields.ConnectScreenSuppressed)?.Value, "true", StringComparison.Ordinal);
@@ -419,9 +381,8 @@
     /// The owner's row for a field, withdrawn or not.
     /// </summary>
     /// <remarks>
-    /// A withdrawn field keeps an empty row (nothing is ever deleted), and the box beside it must
-    /// not then claim it was "declared 5w ago" — an age on a value nobody can see is an age on
-    /// nothing. Callers that render a declaration check the value as well as the row.
+    /// A withdrawn field keeps an empty row (nothing is ever deleted), so the box beside it must not
+    /// claim it was "declared 5w ago" — callers check the value as well as the row.
     /// </remarks>
     private GameField? Current(string field) =>
         Declared.TryGetValue(field, out var row) ? row : null;

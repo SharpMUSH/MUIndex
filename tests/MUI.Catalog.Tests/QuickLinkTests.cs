@@ -6,16 +6,10 @@ namespace MUI.Catalog.Tests;
 /// The links beside a game's name: which values become one, and which are shown and not linked.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The values here are real. Every malformed one is a value this catalogue actually holds —
-/// <c>www.slothmud.org</c>, <c>msocorcim (at) gmail (dot) com</c>, an <c>https://</c> contact form
-/// where MSSP asks for an address — because the interesting half of this feature is what it refuses,
-/// and inventing the refusals would test a guess about strangers rather than the strangers.
-/// </para>
-/// <para>
-/// Rule 5 runs through all of it: a value we decline to link is still a value the game published, so
-/// the refusal never reaches the row, the declared list or the plain surface. We render it as text.
-/// </para>
+/// The malformed values here are real, drawn from what this catalogue actually holds, because the
+/// interesting half of this feature is what it refuses, and inventing refusals would test a guess
+/// about strangers rather than the strangers. Rule 5 runs through all of it: a value declined as a
+/// link is still a value the game published, so it renders as text, never dropped.
 /// </remarks>
 public class QuickLinkTests
 {
@@ -33,9 +27,9 @@ public class QuickLinkTests
     [Test]
     public async Task TheThreeMsspVariablesThatCarryAnAddressBecomeLinks()
     {
-        // WEBSITE, DISCORD and CONTACT are the whole of what MSSP offers here. The protocol has no
-        // variable for a forum, a wiki or any other social account — DISCORD is the only one it
-        // ever added — which is why the other six fields exist and why only an owner can fill them.
+        // WEBSITE, DISCORD and CONTACT are the whole of what MSSP offers — the protocol added
+        // DISCORD and stopped, which is why the other six link fields exist and why only an owner
+        // can fill them.
         var links = Links(
             Row("WEBSITE", FieldSource.Mssp, "https://www.slothmud.org/"),
             Row("DISCORD", FieldSource.Mssp, "https://discord.gg/5GtCY52"),
@@ -99,9 +93,8 @@ public class QuickLinkTests
     [Test]
     public async Task AContactPageIsAcceptedWhereMsspAsksForAnAddress()
     {
-        // One game in this catalogue publishes an https:// form as its CONTACT. It is a way to reach
-        // the same people, and refusing it on the specification's technicality would drop a working
-        // address to enforce a distinction no reader has.
+        // An https:// form is a way to reach the same people; refusing it on the specification's
+        // technicality would drop a working address to enforce a distinction no reader has.
         var link = Links(Row("CONTACT", FieldSource.Mssp, "https://www.eternitymud.com/contact/")).Single();
 
         await Assert.That(link.Kind).IsEqualTo(LinkKind.Email);
@@ -115,10 +108,9 @@ public class QuickLinkTests
     [Arguments("play.arxgame.org")]
     public async Task AWebsiteWithNoSchemeIsNotLinkedAndIsNotRepaired(string published)
     {
-        // Three games here publish WEBSITE this way. Prepending https:// would be us guessing
-        // whether their server answers on TLS and publishing the guess as their address; the value
-        // still prints under "declared by the game", and the scorecard on their own page names the
-        // missing prefix. A link we invented that 404s is worse than the text they actually wrote.
+        // Prepending https:// would be us guessing whether their server answers on TLS and
+        // publishing the guess as their address; the value still prints as declared text. A link we
+        // invented that 404s is worse than the text they actually wrote.
         await Assert.That(Links(Row("WEBSITE", FieldSource.Mssp, published))).IsEmpty();
     }
 
@@ -132,9 +124,9 @@ public class QuickLinkTests
     [Arguments("   ")]
     public async Task AValueThatIsNotAnAddressNeverReachesAnHref(string hostile)
     {
-        // The MSSP side of this is not a hypothetical: 135 of the WEBSITE values in this catalogue
-        // came off strangers' sockets. Blazor encodes the text of an attribute and not the meaning
-        // of its scheme, so `javascript:` in an href is script running on our origin.
+        // The MSSP side isn't hypothetical: these values come off strangers' sockets. Blazor encodes
+        // the text of an attribute, not the meaning of its scheme, so `javascript:` in an href is
+        // script running on our origin.
         await Assert.That(Links(Row("WEBSITE", FieldSource.Mssp, hostile))).IsEmpty();
     }
 
@@ -144,9 +136,9 @@ public class QuickLinkTests
     [Arguments("ausinpowetrs<at>jedimud.net")]
     public async Task AnAddressObfuscatedAgainstHarvestersIsPrintedRatherThanDialled(string written)
     {
-        // Six CONTACT values here are written this way on purpose. Turning "(at)" back into "@" is
-        // undoing a decision the operator made about their own inbox — and one of these has a real
-        // @ in it already, so a naive repair would produce an address with two.
+        // Turning "(at)" back into "@" would undo a decision the operator made about their own
+        // inbox — and one of these already has a real @, so a naive repair would produce an address
+        // with two.
         await Assert.That(Links(Row("CONTACT", FieldSource.Mssp, written))).IsEmpty();
     }
 
@@ -196,10 +188,9 @@ public class QuickLinkTests
     [Test]
     public async Task TheSixFieldsMsspHasNoVariableForAreTheOwnersToFill()
     {
-        // MSSP added DISCORD and stopped. There is no FORUM, WIKI, MASTODON, BLUESKY, X or TELEGRAM
-        // variable in the specification and none in the wild — every URL-valued field in this
-        // catalogue is WEBSITE, ICON or DISCORD — so a crawler will never fill these and the owner
-        // is the only source there could be.
+        // MSSP added DISCORD and stopped — there is no FORUM, WIKI, MASTODON, BLUESKY, X or
+        // TELEGRAM variable, so a crawler will never fill these and the owner is the only source
+        // there could be.
         foreach (var field in new[] { "WIKI", "FORUM", "TELEGRAM", "MASTODON", "BLUESKY", "X" })
         {
             await Assert.That(FieldRegistry.Instance.Find(field)?.OwnerWritable)

@@ -20,18 +20,10 @@ namespace MUI.Web.Tests;
 /// The graph <c>Program</c> builds, resolved.
 /// </summary>
 /// <remarks>
-/// <para>
-/// This exists because the site has two compositions and only one of them was ever exercised.
-/// <c>mui-crawl</c> constructs the crawl loop by hand and passes every collaborator explicitly, so
-/// its claim path works and has tests; the deployed site assembles the same objects through DI, and
-/// there a missing registration is not a compile error — it is a null in an optional parameter, a
-/// service locator answering null, or an exception on the first request to one endpoint.
-/// </para>
-/// <para>
-/// Every assertion below was a live hole when it was written. None of them could have been caught by
-/// a unit test of the thing that was broken, because none of the things were broken: the wiring
-/// between them was.
-/// </para>
+/// The site has two compositions and only one was ever exercised: <c>mui-crawl</c> constructs the
+/// crawl loop by hand, so its path has tests, while the deployed site assembles the same objects
+/// through DI, where a missing registration is not a compile error but a null in an optional
+/// parameter or an exception on first request. Every assertion below was a live hole when written.
 /// </remarks>
 public class CompositionTests
 {
@@ -46,10 +38,9 @@ public class CompositionTests
     /// </summary>
     /// <remarks>
     /// <c>Account.razor</c> asks the container for <see cref="IClaimStore"/> and treats a null as
-    /// "this site has no database", which is exactly what it looked like: the page rendered, said
-    /// nothing was claimed, and was wrong for every operator who had ever claimed anything. A
-    /// service-located dependency fails silently by construction, which is why this is asserted at
-    /// the composition root rather than left to the page.
+    /// "this site has no database" — the page rendered, said nothing was claimed, and was wrong for
+    /// every operator. A service-located dependency fails silently, so this is asserted at the
+    /// composition root.
     /// </remarks>
     [Test]
     public async Task TheDashboardCanReachTheClaimsItListsAndTheEndpointThatChecksThem()
@@ -65,18 +56,10 @@ public class CompositionTests
     /// The crawl loop can settle a claim, which is the only thing that ever verifies one.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <see cref="CrawlCycle"/> takes its <see cref="ClaimService"/> as an optional parameter — a
-    /// crawl with no database behind it is a crawl doing slightly less, not one that should refuse to
-    /// run — and the deployed site registered no <c>ClaimService</c> the container could put there.
-    /// So the parameter took its default, <c>SettleClaimsAsync</c> returned on its first line, and no
-    /// probe has ever verified a claim on the one deployment that has operators.
-    /// </para>
-    /// <para>
-    /// The symptom named in §8.5 — nothing sets <c>game.is_claimed</c>, so the listing badge and
-    /// §7.5's ceiling grace are unexercised — is this, and it survived claiming shipping because
+    /// <see cref="CrawlCycle"/> takes its <see cref="ClaimService"/> as an optional parameter, and the
+    /// deployed site registered no <c>ClaimService</c> for the container to supply — so the parameter
+    /// took its default and no probe ever verified a claim in production. Survived because
     /// <c>mui-crawl</c> passes the service by hand and its tests construct the cycle the same way.
-    /// </para>
     /// </remarks>
     [Test]
     public async Task TheHostedCrawlerIsGivenTheServiceThatVerifiesAClaim()
@@ -93,18 +76,10 @@ public class CompositionTests
     /// The crawl loop is given the guard that lets the catalogue say we stopped watching.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The same shape as the claim service above, and it would fail the same way in the same silence.
-    /// <see cref="CrawlGapGuard"/> is an optional parameter on <c>CrawlerService</c>, so a container
-    /// that supplies none leaves the default standing and <c>CloseAnyGapAsync</c> is never called —
-    /// and the guard only ever logs when it <em>fires</em>, so a guard that was never wired and a
-    /// guard with nothing to do produce identical logs, identical tables and identical pages. There
-    /// is no symptom to notice.
-    /// </para>
-    /// <para>
-    /// Its own <c>ICrawlCycles</c> is asserted for the same reason one level down: without it the
-    /// guard cannot know when the crawl last ran, returns on its first line, and is again silent.
-    /// </para>
+    /// Same shape as the claim service above: <see cref="CrawlGapGuard"/> is an optional parameter on
+    /// <c>CrawlerService</c>, and a guard that was never wired logs identically to one with nothing to
+    /// do, so there is no symptom to notice. Its own <c>ICrawlCycles</c> is asserted for the same
+    /// reason one level down.
     /// </remarks>
     [Test]
     public async Task TheHostedCrawlerIsGivenTheGuardThatClosesACrawlGap()
@@ -123,9 +98,8 @@ public class CompositionTests
     /// </summary>
     /// <remarks>
     /// A background service outlives every request scope, so a scoped <see cref="ClaimService"/> is
-    /// one <see cref="CrawlCycle"/> can never be given: with scope validation on it is a startup
-    /// failure, and with it off it is a captive dependency holding one scope's objects for the
-    /// lifetime of the process. Validation is switched on here so the wrong answer cannot pass.
+    /// one <see cref="CrawlCycle"/> can never be given cleanly — with scope validation on, the wrong
+    /// wiring is a startup failure rather than a captive dependency.
     /// </remarks>
     [Test]
     public async Task TheGraphSurvivesScopeValidation()
@@ -151,12 +125,9 @@ public class CompositionTests
         await Assert.That(scope.ServiceProvider.GetService<IGameFieldStore>()).IsNotNull();
         await Assert.That(scope.ServiceProvider.GetService<IFieldReconciler>()).IsNotNull();
 
-        // Resolving OwnerEnrichment itself, because the interesting half of it is a constructor
-        // argument rather than a registration: the minter that applies an owner's NAME (§5.7) is
-        // optional on the type and required from this composition. Asked for softly it would come
-        // back null on a broken graph and owners would rename their games while every URL stayed
-        // where it was, silently — which is §8.5's lesson about optional dependencies, restated by
-        // the one path that acquired a new one.
+        // Resolving OwnerEnrichment itself: the minter that applies an owner's NAME (§5.7) is
+        // optional on the type but required from this composition — asked for softly it would come
+        // back null on a broken graph and owners would silently rename games while URLs stayed put.
         await Assert.That(scope.ServiceProvider.GetRequiredService<OwnerEnrichment>()).IsNotNull();
         await Assert.That(scope.ServiceProvider.GetRequiredService<SlugMinter>()).IsNotNull();
     }
@@ -165,12 +136,10 @@ public class CompositionTests
     /// The icon path, which reaches across three registrations that are made in three places.
     /// </summary>
     /// <remarks>
-    /// <see cref="IconFetcher"/> is a typed client from <c>AddMuiIcons</c>, and it takes
-    /// <c>IHostScopeGuard</c> and <c>ProbeOptions</c> from <c>AddMuiCrawler</c> — which runs before
-    /// it, under the same connection-string guard, and would go on compiling if somebody reordered
-    /// them. Resolving it here is what makes that ordering a tested fact rather than a comment: the
-    /// gate is §7.2's, and a fetcher composed without one would reach a URL a stranger chose with
-    /// nothing standing in front of it.
+    /// <see cref="IconFetcher"/> is a typed client from <c>AddMuiIcons</c> and takes
+    /// <c>IHostScopeGuard</c>/<c>ProbeOptions</c> from <c>AddMuiCrawler</c>, which must run first.
+    /// Resolving it here makes that ordering a tested fact — a fetcher composed without the gate
+    /// would reach an attacker-chosen URL with nothing standing in front of it (§7.2).
     /// </remarks>
     [Test]
     public async Task TheIconPathResolvesWithTheAddressGateBehindIt()
@@ -183,8 +152,8 @@ public class CompositionTests
         await Assert.That(scope.ServiceProvider.GetRequiredService<IIconStore>()).IsNotNull();
         await Assert.That(provider.GetRequiredService<IHostScopeGuard>()).IsNotNull();
 
-        // And the refresher is actually hosted, rather than merely constructible. A fetcher nothing
-        // ever calls is a cache that stays empty and a page that renders a monogram for ever.
+        // And the refresher is actually hosted, not merely constructible — otherwise the cache stays
+        // empty forever.
         await Assert.That(provider.GetServices<IHostedService>().OfType<IconRefresher>()).IsNotEmpty();
     }
 
@@ -192,18 +161,10 @@ public class CompositionTests
     /// The same graph in Production, where nothing validates it for us.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Asserted separately because the two environments behaved differently, and this one is the
-    /// control rather than the finding: it <b>passed on the parent commit</b>. Production leaves
-    /// scope validation off, so the container resolved the scoped <c>ClaimService</c> from the root
-    /// and handed <c>CrawlCycle</c> a working one — a captive dependency, harmless for a stateless
-    /// service over a pooled data source, and the reason claims verified in production while
-    /// Development would not start at all.
-    /// </para>
-    /// <para>
-    /// It is kept because it is what stops the fix regressing in the other direction: Production
-    /// must go on resolving the cycle once the lifetime changes.
-    /// </para>
+    /// The control, not the finding — it <b>passed on the parent commit</b>. Production leaves scope
+    /// validation off, so the container resolves the scoped <c>ClaimService</c> from the root: a
+    /// captive dependency, harmless for a stateless service over a pooled data source, and why claims
+    /// verified in production while Development wouldn't start.
     /// </remarks>
     [Test]
     public async Task TheHostedCrawlerCanBeResolvedInProductionToo()
@@ -217,10 +178,8 @@ public class CompositionTests
     /// The store the dashboard reads, asked for in the environment that can build a container.
     /// </summary>
     /// <remarks>
-    /// Separated from the Development assertion so the two findings cannot be confused for one. The
-    /// lifetime mistake stops Development dead and leaves Production working; this one is a plain
-    /// missing registration and is missing in both, which is why every operator's dashboard was
-    /// empty on a running production site.
+    /// Separated from the Development assertion: the lifetime mistake stops Development dead but
+    /// leaves Production working, while this one is a plain missing registration present in both.
     /// </remarks>
     [Test]
     public async Task TheDashboardsClaimStoreIsMissingInEveryEnvironmentNotJustTheValidatedOne()
@@ -234,10 +193,8 @@ public class CompositionTests
     /// The crawl loop is handed a claim service in Production, where the container tolerates it.
     /// </summary>
     /// <remarks>
-    /// This is what makes §8.5's closing note stale rather than true: a production site does settle
-    /// beacons and does set <c>game.is_claimed</c>. It gets there by resolving a scoped service from
-    /// the root, which the container permits only because Production leaves scope validation off — so
-    /// the behaviour is correct by accident and stops the moment anybody switches validation on.
+    /// A production site does settle claims, but only by resolving a scoped service from the root —
+    /// permitted only because Production leaves scope validation off, so it's correct by accident.
     /// </remarks>
     [Test]
     public async Task TheProductionCrawlLoopDoesGetItsClaimService()
@@ -251,10 +208,8 @@ public class CompositionTests
     /// The demo composition, which is a different graph and not a smaller one.
     /// </summary>
     /// <remarks>
-    /// With no connection string there are no accounts, no crawler and no claims — the sign-in and
-    /// claim surfaces are absent rather than present and broken (§8), and half a claim flow over
-    /// invented games would be a worse answer than none. The assertion that matters is the last one:
-    /// the fixture composition must still say on every page that nothing on it was measured.
+    /// With no connection string, sign-in, crawling and claiming are absent rather than present and
+    /// broken (§8) — a half-working claim flow over invented games would be worse than none.
     /// </remarks>
     [Test]
     public async Task TheDemoCompositionStandsUpAndAdmitsWhatItIs()
@@ -277,11 +232,9 @@ public class CompositionTests
     /// One availability store, however many names it answers to.
     /// </summary>
     /// <remarks>
-    /// The crawler registers it once and exposes it through two interfaces, saying in a comment that
-    /// two instances would be two connection paths answering one question. The web tier then
-    /// registered its own with <c>AddSingleton</c>, so the crawler's <c>TryAdd</c> for
-    /// <c>IAvailabilityStore</c> was skipped and the concrete type and <c>IReachableHistory</c>
-    /// pointed at a second one. Harmless on a shared pool, and a comment that had stopped being true.
+    /// The crawler registers <c>IAvailabilityStore</c> once and exposes it under two interfaces; the
+    /// web tier's own <c>AddSingleton</c> skipped the crawler's <c>TryAdd</c>, pointing the concrete
+    /// type and <c>IReachableHistory</c> at a second instance. Harmless on a shared pool.
     /// </remarks>
     [Test]
     public async Task TheAvailabilityStoreIsOneObjectUnderEveryNameItHas()
@@ -299,11 +252,9 @@ public class CompositionTests
     /// §8.1's on-demand check can reach the schedule it claims to move.
     /// </summary>
     /// <remarks>
-    /// The same shape as the bug this file exists for: <c>ClaimService</c> takes
-    /// <see cref="IOnDemandProbes"/> optionally, because it is constructible without a crawl registry
-    /// and <c>mui-crawl</c> constructs it that way — so nothing but the composition can say whether
-    /// the deployed site has one. Without it the button records an ask, moves no probe, and tells the
-    /// operator it dialled their server.
+    /// <c>ClaimService</c> takes <see cref="IOnDemandProbes"/> optionally, so only the composition
+    /// can say whether it's wired. Without it, the button records an ask, moves no probe, and tells
+    /// the operator it dialled their server.
     /// </remarks>
     [Test]
     public async Task TheOnDemandCheckIsGivenSomethingToBringForward()
@@ -318,18 +269,9 @@ public class CompositionTests
     /// The pipeline half of the composition maps the routes the site's two POST forms submit to.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <see cref="SiteComposition.UseMuiSite"/> is the other half of this file's argument and had no
-    /// test at all: the graph was asserted and the routes were not, so a <c>Map…</c> call could be
-    /// dropped and every service it needs would still resolve. That is not hypothetical — the
-    /// submission route was registered in <c>Program</c>'s top-level statements on one branch while
-    /// the pipeline moved into <see cref="SiteComposition"/> on another, and merging the two is
-    /// exactly the edit that loses a line like this one.
-    /// </para>
-    /// <para>
-    /// A form that posts to a route nobody mapped is a 404 on submit, with the page, the service and
-    /// every unit test around them perfectly correct.
-    /// </para>
+    /// <see cref="SiteComposition.UseMuiSite"/> had no test: the graph was asserted and the routes
+    /// were not, so a <c>Map…</c> call could be dropped and every service would still resolve. A form
+    /// posting to a route nobody mapped is a 404 on submit, with everything else perfectly correct.
     /// </remarks>
     [Test]
     public async Task ThePipelineMapsTheRoutesTheFormsPostTo()
@@ -337,13 +279,12 @@ public class CompositionTests
         await using var site = Site();
         site.UseMuiSite(ConnectionString);
 
-        // The builder's own data sources rather than the container's EndpointDataSource, which is not
-        // composed until the host starts and nothing here starts a server.
+        // The builder's own data sources rather than the container's EndpointDataSource, which isn't
+        // composed until the host starts.
         //
-        // Matched on the display name and not on the route pattern, because a Razor page is also an
-        // endpoint at "/submit" and static server-side rendering makes it answer POST as well — so
-        // asserting the path, or even the path and the verb, passes with MapMuiSubmissions deleted.
-        // Both weaker forms were written first and both went green with the line removed.
+        // Matched on display name, not route pattern: a Razor page is also an endpoint at "/submit"
+        // and answers POST too via static SSR, so matching on path alone would pass with
+        // MapMuiSubmissions deleted.
         var mapped = ((IEndpointRouteBuilder)site).DataSources
             .SelectMany(source => source.Endpoints)
             .Select(endpoint => endpoint.DisplayName)
@@ -359,18 +300,10 @@ public class CompositionTests
     /// What a deployment says about the crawler reaches the crawler.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <c>CrawlerSettings.Apply</c> has thorough tests and every one of them calls it on a builder it
-    /// constructed itself, so all of them pass on a site that never calls it. The call is one line
-    /// inside <see cref="SiteComposition.AddMuiSite"/> and it has already moved once — it was written
-    /// in <c>Program</c>'s top-level statements and the pipeline moved out from under it during a
-    /// restack.
-    /// </para>
-    /// <para>
-    /// Losing it is silent and expensive in both directions: <c>MUI_CRAWL_ENABLED=false</c> is a
-    /// deployment that believes it is a pure web tier and is still dialling other people's servers,
-    /// and <c>MUI_CRAWL_SEEDS</c> is the only thing a first deployment knows about.
-    /// </para>
+    /// <c>CrawlerSettings.Apply</c> is thoroughly tested against builders it constructs itself, so
+    /// none of those tests exercise a site that never calls it — one line inside
+    /// <see cref="SiteComposition.AddMuiSite"/>. Losing it is silent: <c>MUI_CRAWL_ENABLED=false</c>
+    /// would leave a "pure web tier" deployment still dialling other servers.
     /// </remarks>
     [Test]
     public async Task TheDeploymentsCrawlerSettingsReachTheCrawler()
@@ -402,30 +335,14 @@ public class CompositionTests
     /// <c>Program</c>'s graph, built by calling <c>Program</c>'s own registration.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b><see cref="SiteComposition.AddMuiSite"/> and not a copy of it.</b> This restated the
-    /// registrations to begin with, which is a second copy that agrees with the first only until
-    /// somebody edits one of them — and the edit that breaks it is precisely the one these tests
-    /// exist to catch: a scoped service consumed by a singleton, or <c>AddMuiAccounts</c> moving.
-    /// The graph therefore moved out of <c>Program</c>'s top-level statements so that the site and
-    /// this can call the same thing.
-    /// </para>
-    /// <para>
-    /// A real <see cref="WebApplicationBuilder"/> rather than a bare <see cref="ServiceCollection"/>,
-    /// because half the framework's own registrations want <c>IConfiguration</c> and
-    /// <c>IHostEnvironment</c> and a hand-built collection fails validation on those before it can say
-    /// anything about ours. What is left after the host supplies them is our graph, and only ours.
-    /// </para>
-    /// <para>
-    /// Development by default, where <see cref="WebApplication.CreateBuilder(WebApplicationOptions)"/>
-    /// switches scope validation on by itself — so this is the check a developer already gets on
-    /// <c>dotnet run</c> and a production deployment does not.
-    /// </para>
-    /// <para>
-    /// Nothing is started and no migration runs: <c>Program</c> does both after the graph is built,
-    /// and this stops at the graph. <see cref="ConnectionString"/> is never connected to —
+    /// <b><see cref="SiteComposition.AddMuiSite"/> and not a copy of it</b> — a restated copy agrees
+    /// with the original only until one of them is edited. A real <see cref="WebApplicationBuilder"/>
+    /// rather than a bare <see cref="ServiceCollection"/>, because much of the framework's own
+    /// registrations want <c>IConfiguration</c>/<c>IHostEnvironment</c>. Development by default, where
+    /// <see cref="WebApplication.CreateBuilder(WebApplicationOptions)"/> switches scope validation on
+    /// — the check a developer already gets on <c>dotnet run</c> and production does not. Nothing is
+    /// started and no migration runs; <see cref="ConnectionString"/> is never connected to since
     /// <c>NpgsqlDataSource</c> is lazy.
-    /// </para>
     /// </remarks>
     private static WebApplication Site(
         string? environment = null,
@@ -453,24 +370,16 @@ public class CompositionTests
     /// The cycle's claim service, read off the instance.
     /// </summary>
     /// <remarks>
-    /// Reflection, because the collaborator is a private primary-constructor parameter and the
-    /// property under test is precisely that the container supplied one rather than letting the
-    /// default stand. Exposing it publicly to be asserted on would widen the type for the test's
-    /// convenience; a wiring test is allowed to look at the wiring.
+    /// Reflection, because the collaborator is a private primary-constructor parameter and what's
+    /// under test is precisely that the container supplied one. Exposing it publicly for the test
+    /// would widen the type for the test's convenience.
     /// </remarks>
     private static object? ClaimsOf(CrawlCycle cycle) => Collaborator<ClaimService>(cycle);
 
     private static object? ProbesOf(ClaimService claims) => Collaborator<IOnDemandProbes>(claims);
 
-    /// <summary>
-    /// One privately-held collaborator, read off an instance.
-    /// </summary>
-    /// <remarks>
-    /// Reflection, because both of these are private primary-constructor parameters and the property
-    /// under test is precisely that the container supplied one rather than letting the default stand.
-    /// Exposing them publicly to be asserted on would widen two types for a test's convenience; a
-    /// wiring test is allowed to look at the wiring.
-    /// </remarks>
+    /// <summary>One privately-held collaborator, read off an instance.</summary>
+    /// <remarks>Reflection, for the same reason as <see cref="ClaimsOf"/> — a wiring test is allowed to look at the wiring.</remarks>
     private static object? Collaborator<T>(object instance) =>
         instance.GetType()
             .GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)

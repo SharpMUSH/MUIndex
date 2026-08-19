@@ -4,12 +4,10 @@ namespace MUI.Web.Localization;
 /// The grammatical gender and number of the noun a provenance word describes.
 /// </summary>
 /// <remarks>
-/// <b>Metadata for the translator, not a fact about English.</b> "Measured" is one string in
-/// English and four in Russian — измерен / измерена / измерено / измерены — chosen by the gender and
-/// number of whatever it describes, and this site applies that one word to a count, a game, a value,
-/// a capability and a connect screen. A single reused string is guaranteed to be wrong somewhere,
-/// and a wrong-gender adjective does not read as a typo to a native speaker; it reads as illiterate,
-/// which is an expensive impression for a site whose credibility is its product.
+/// Metadata for the translator, not a fact about English. "Measured" is one string in English and
+/// four in Russian, chosen by the gender/number of what it describes — and this site applies the
+/// same word to a count, a game, a value, a capability, and a connect screen, so a single reused
+/// string is guaranteed to be wrong somewhere.
 /// </remarks>
 public enum Subject
 {
@@ -35,36 +33,13 @@ public sealed record LockedString(string Id, string English, Subject Subject, st
 /// The strings a translation may not paraphrase.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Every row here exists because a plausible synonym in the target language would make the site
-/// claim something it did not measure.</b> That is the only kind of localization bug that damages
-/// this product rather than merely embarrassing it. "not measured", "uncounted",
-/// "reachable, count unreadable" and "unreachable" are four distinct states and the whole argument
-/// of the site is that it never conflates them — and a translation engine treats them as stylistic
-/// variants of *unavailable* and picks whichever target phrase is most frequent. In German all four
-/// plausibly become "nicht verfügbar", and the reader can no longer tell a game that answered from
-/// one that did not.
-/// </para>
-/// <para>
-/// <b>Ownership is maintainers only, and the rationale ships with the string.</b> Contributors
-/// translate everything outside this file freely. Inside it, a change is a maintainer action — and
-/// the reason is published alongside each entry so a contributor can see why a string is locked
-/// rather than reading the lock as distrust. A well-meaning "improvement" that arrives as a pull
-/// request nobody knows how to refuse is the failure this is written to prevent.
-/// </para>
-/// <para>
-/// <b>Where a locale has no approved translation for a locked string, the English shows.</b> A
-/// reader who meets one English phrase inside a German sentence learns something true — that this
-/// particular claim has not been translated yet. A smoothed-over mistranslation teaches them
-/// something false, and they have no way to tell.
-/// </para>
-/// <para>
-/// <b>And never machine-translate these, even temporarily.</b> A sighted reader who meets a garbled
-/// label can look at the graphic and correct for it. A blind reader has only the label: a bad
-/// translation of alt text or of a provenance word is the one case where a wrong string leaves
-/// somebody with no way to recover, and it is precisely the case where English would have served
-/// them better.
-/// </para>
+/// Every row here exists because a plausible synonym in the target language would make the site
+/// claim something it did not measure — e.g. "not measured", "uncounted", and "unreachable" are
+/// distinct states a translation engine may collapse into stylistic variants of "unavailable".
+/// Only maintainers may change an entry; contributors translate everything else freely. Where a
+/// locale has no approved translation, the English shows rather than a smoothed-over guess — and
+/// these are never machine-translated, since a blind reader has only the label to go on, with no
+/// graphic to correct against.
 /// </remarks>
 public static class Glossary
 {

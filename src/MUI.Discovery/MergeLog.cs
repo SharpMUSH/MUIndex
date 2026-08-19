@@ -4,11 +4,9 @@ namespace MUI.Discovery;
 /// One merge, and the evidence for it (spec §7.3).
 /// </summary>
 /// <remarks>
-/// <b>A merge is a redirect, not a move.</b> It does not carry endpoint rows, field rows or history
-/// from one game to another: it records this row and points the absorbed game at the surviving one. Its
-/// page redirects, listings skip it, and its own history stays exactly where it was. Reverting is
-/// therefore clearing one pointer, which is why "merges are reversible and logged" costs no bookkeeping
-/// and cannot half-fail — and it is the only representation consistent with nothing ever being deleted.
+/// <b>A merge is a redirect, not a move.</b> It records this row and points the absorbed game at the
+/// surviving one — no endpoint, field or history rows move, so reverting is just clearing one pointer,
+/// and nothing is ever deleted.
 /// </remarks>
 public sealed record MergeRecord(
     Guid Id,
@@ -31,7 +29,12 @@ public sealed record MergeRecord(
 /// </summary>
 public interface IMergeLog
 {
-    Task<Guid> RecordAsync(MergeRecord record, CancellationToken ct);
+    /// <param name="unitOfWork">
+    /// When given, this write joins it rather than committing on its own -- see
+    /// <see cref="ReviewMergeService.MergeAsync"/>, the one caller that needs this write and the
+    /// following <c>duplicate_review</c> resolve to commit or roll back together.
+    /// </param>
+    Task<Guid> RecordAsync(MergeRecord record, CancellationToken ct, IUnitOfWork? unitOfWork = null);
 
     /// <summary>
     /// Undoes the redirect and stamps the row. Reverting twice must not rewrite when the first revert

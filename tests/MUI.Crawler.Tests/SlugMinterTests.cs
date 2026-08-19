@@ -9,10 +9,9 @@ namespace MUI.Crawler.Tests;
 /// Spec §5.7 — a game renames itself, and its URL follows it once the name has held.
 /// </summary>
 /// <remarks>
-/// Two halves, and the second is the one with teeth. A rename that re-minted immediately would churn
-/// the URL of any game that flips its name, so nothing moves until the grace period has passed; and a
-/// re-mint that did not record the old slug would break every link anybody had — which is the promise
-/// <c>game_slug_history</c> exists to keep, and the reason the minter and the table are one act.
+/// A rename that re-minted immediately would churn the URL of any game that flips its name, so
+/// nothing moves until the grace period passes; a re-mint that didn't record the old slug would break
+/// every existing link.
 /// </remarks>
 public class SlugMinterTests
 {
@@ -189,11 +188,9 @@ public class SlugMinterTests
     [Test]
     public async Task AUrlGivenUpTwiceIsReportedAsGivenUpBothTimes()
     {
-        // A -> B -> A -> B, and the fourth rename retires a slug the history already holds. The
-        // store keeps the first retirement and still reports the move; this pins the fake to the
-        // same answer, which is where the real one diverged — it read the answer off an insert that
-        // ON CONFLICT had suppressed. The same sequence is asserted against Postgres in
-        // AGameThatGivesUpAUrlItHasGivenUpBeforeStillReportsTheMove.
+        // A -> B -> A -> B: the fourth rename retires a slug the history already holds. The store
+        // keeps the first retirement and still reports the move; the same sequence is asserted
+        // against Postgres in AGameThatGivesUpAUrlItHasGivenUpBeforeStillReportsTheMove.
         var catalogue = new Catalogue();
         var game = catalogue.Listed();
         var minter = catalogue.Minter(Grace);
@@ -358,12 +355,10 @@ public class SlugMinterTests
     /// A game whose name is in a script the slug fold cannot keep takes the name and keeps the URL.
     /// </summary>
     /// <remarks>
-    /// <c>GameSlug.Mint</c> keeps ASCII and Latin-1 and nothing else, so a Hangul, Cyrillic or Kanji
-    /// name folds to the empty string — and the empty stem's fallback is the word <c>game</c>, which
-    /// this game would then hold for ever while the next such game took <c>game-2</c>. The address it
-    /// was already listed at is a real URL and its own; the name belongs on the page, where the fold
-    /// does not reach. Found by rehearsing a catalogue-wide re-mint against a copy of production,
-    /// where the first name the Intermud-3 mudlist supplied for an unnamed game was <c>엘리시안 전기</c>.
+    /// <c>GameSlug.Mint</c> keeps ASCII and Latin-1 only, so a Hangul, Cyrillic or Kanji name folds to
+    /// the empty string, whose fallback is the word <c>game</c> — a slug this game would then hold
+    /// forever while the next such game took <c>game-2</c>. The address it's already listed at is a
+    /// real URL of its own; the name belongs only on the page, where the fold doesn't reach.
     /// </remarks>
     [Test]
     public async Task ANameTheFoldCannotKeepLeavesTheAddressInTheUrl()

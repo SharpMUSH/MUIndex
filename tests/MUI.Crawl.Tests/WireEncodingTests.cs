@@ -8,18 +8,10 @@ namespace MUI.Crawl.Tests;
 /// Which encoding a session's bytes are read with, pinned against bytes a real server really sent.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The fixture is one line of <c>mud.pkuxkx.net:8080</c>'s connect screen — the game's own name in
-/// GBK, inside the SGR it arrived in. It is here rather than invented because the whole class of bug
-/// is a disagreement between what a server declares and what it sends, and only a real server
-/// produces one: this one negotiates CHARSET, offers UTF-8 and nothing else, accepts our ACCEPTED,
-/// and then sends this.
-/// </para>
-/// <para>
-/// What is being defended is not "we render Chinese". It is that <b>a byte we cannot read is never
-/// replaced by <c>U+FFFD</c> on the way in</b>. That is unrecoverable, it happened to thirteen of
-/// 522 connect screens in production, and no later fix can undo it.
-/// </para>
+/// The fixture is a real line of GBK from a server that negotiated UTF-8 CHARSET and then sent GBK
+/// anyway — the whole class of bug is a disagreement between what a server declares and what it
+/// sends, and only a real server produces one. What is defended is not "we render Chinese"; it is
+/// that a byte we cannot read is never replaced by <c>U+FFFD</c> on the way in, which is unrecoverable.
 /// </remarks>
 public class WireEncodingTests
 {
@@ -42,8 +34,7 @@ public class WireEncodingTests
     /// </summary>
     /// <remarks>
     /// <c>Encoding.UTF8.GetString</c> — the default instance, with its replacing fallback — turns
-    /// this line into eleven <c>U+FFFD</c>. That is what shipped, and it is asserted here so that a
-    /// future simplification back to it fails rather than passes quietly.
+    /// this line into eleven <c>U+FFFD</c>, asserted here so a future simplification back to it fails.
     /// </remarks>
     [Test]
     public async Task BytesThatAreNotUtf8AreNeverReplacedWithU00FFFD()
@@ -74,12 +65,9 @@ public class WireEncodingTests
 
     /// <summary>An operator's override is honoured, and it is the thing that makes the screen right.</summary>
     /// <remarks>
-    /// <b>The recorded name is the encoding's, not the operator's.</b> <c>gbk</c>, <c>GBK</c> and
+    /// The recorded name is the encoding's, not the operator's: <c>gbk</c>, <c>GBK</c> and
     /// <c>gb2312</c> all resolve to code page 936, whose <see cref="Encoding.WebName"/> is
-    /// <c>gb2312</c> — so every spelling of one encoding lands in the catalogue as one value, which
-    /// is what a facet needs and what stops the same encoding appearing three times in a count.
-    /// <c>ScreenLanguage</c> maps every spelling anyway, so nothing downstream depends on which the
-    /// operator typed.
+    /// <c>gb2312</c>, so every spelling lands in the catalogue as one value instead of three.
     /// </remarks>
     [Test]
     public async Task AnOverrideReadsWhatTheServerActuallySent()
@@ -183,12 +171,9 @@ public class WireEncodingTests
     /// Why there is no detection ladder, kept as an executable statement rather than a comment.
     /// </summary>
     /// <remarks>
-    /// Both decoders accept these bytes — .NET's Big5 does not throw on them the way Python's does —
-    /// so validity cannot separate the two and the choice would rest on scoring how plausible the
-    /// output looks. That score is decisive on 2.5 KB of dense CJK and a coin flip on a game that
-    /// sends forty non-ASCII bytes, and a coin flip written into a game's public record is rule 5.
-    /// The operator decides; this test exists so that anybody proposing to automate it sees the
-    /// reason first.
+    /// Both decoders accept these bytes, so validity cannot separate the two — any automatic choice
+    /// would rest on scoring how plausible the output looks, which is a coin flip on a short screen,
+    /// and a coin flip written into a game's public record is rule 5. The operator decides.
     /// </remarks>
     [Test]
     public async Task GbkAndBig5BothAcceptTheseBytesAndMeanDifferentThings()

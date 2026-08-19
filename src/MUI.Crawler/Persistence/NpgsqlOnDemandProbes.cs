@@ -10,21 +10,11 @@ namespace MUI.Crawler.Persistence;
 /// §8.1's on-demand check, against the crawl registry: bring this game's next probe forward.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <c>LEAST</c> rather than an assignment, so an ask can only ever make a probe sooner. A target
-/// already overdue stays where it is in the queue rather than being pushed back to now, and a
-/// claimant pressing the button twice cannot walk their own game backwards.
-/// </para>
-/// <para>
-/// Every endpoint of the game moves, because a game is claimed and a target is an address: an
-/// operator who has just edited <c>mush.cnf</c> does not know or care which of their listeners we
-/// happen to have a row for.
-/// </para>
-/// <para>
-/// It schedules and does not dial. The crawl loop picks the target up on its next pass, where
-/// <c>CRAWL DELAY</c>, the concurrency cap and §7.2's resolved-address gate all still apply — none
-/// of which a page may bypass.
-/// </para>
+/// <c>LEAST</c> rather than an assignment, so an ask can only ever make a probe sooner — a target
+/// already overdue stays put, and pressing the button twice can't walk it backwards. Every endpoint
+/// of the game moves, since a game is claimed but a target is one address. This schedules and does
+/// not dial: the crawl loop still applies <c>CRAWL DELAY</c>, the concurrency cap, and §7.2's
+/// resolved-address gate on its next pass.
 /// </remarks>
 public sealed class NpgsqlOnDemandProbes(NpgsqlDataSource source) : IOnDemandProbes
 {

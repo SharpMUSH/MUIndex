@@ -66,6 +66,12 @@ services:
 
       Passkeys__ServerDomain: ${MUI_PASSKEY_DOMAIN:-}
 
+      # The shared bearer secret for /mcp — the authenticated MCP endpoint that replaces the
+      # ssh/scp/mui-crawl administration dance. Unset means the endpoint refuses every request rather
+      # than accepting any (fail closed); MUI.Web logs a warning at startup while it is unset. Generate
+      # one with `openssl rand -hex 32` and set it in .env, never here.
+      MUI_MCP_TOKEN: ${MUI_MCP_TOKEN:-}
+
       ASPNETCORE_ENVIRONMENT: Production
     ports:
       # An interface may be written into this value — MUI_PORT=127.0.0.1:8080 publishes to loopback

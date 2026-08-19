@@ -9,20 +9,12 @@ namespace MUI.Catalog.Tests.Persistence;
 /// A submitted game stays off every public surface until it is claimed (spec §8, migration 0010).
 /// </summary>
 /// <remarks>
-/// <para>
-/// The rule is one sentence — <em>a game is public if nobody submitted it, or if it has been
-/// claimed</em> — and the danger is not the rule, it is the number of places it has to hold. The
-/// listing, the faceted search, all three liveness feeds, both halves of the rankings, six
-/// subqueries behind the ecosystem dashboard and both lookups, and the failure mode of forgetting
-/// one is a game on a public page that nobody vouched for.
-/// </para>
-/// <para>
-/// The first cut of the filter covered the queries that name <c>game</c> directly and missed every
-/// one that reaches it through <c>JOIN game g</c>. A submitted game therefore stayed off the listing
-/// and appeared in the rankings, which is exactly the shape a test asserting one surface at a time
-/// would have missed — so this seeds a submitted game with data on every series the site reads and
-/// then asks each surface in turn.
-/// </para>
+/// The rule is one sentence — a game is public if nobody submitted it, or if it has been claimed —
+/// but it has to hold across the listing, faceted search, all three liveness feeds, both rankings,
+/// the ecosystem dashboard and both lookups. The first cut of the filter missed every query that
+/// reaches <c>game</c> through <c>JOIN game g</c> rather than naming it directly, so a submitted game
+/// stayed off the listing but appeared in the rankings — exactly what a per-surface test would miss.
+/// This seeds a submitted game with data on every series the site reads and checks each surface.
 /// </remarks>
 public class SubmittedGameTests
 {
@@ -101,9 +93,9 @@ public class SubmittedGameTests
     /// A game the crawler found for itself is listed on sight, claimed or not.
     /// </summary>
     /// <remarks>
-    /// §7.1's auto-listing is the feature this must not break. If the new column had been read as
-    /// "unclaimed games are hidden" rather than "unclaimed <em>submissions</em> are hidden", the
-    /// whole catalogue would have vanished — every game found so far is unclaimed.
+    /// §7.1's auto-listing must not break: reading the new column as "unclaimed games are hidden"
+    /// rather than "unclaimed <em>submissions</em> are hidden" would vanish the whole catalogue,
+    /// since every game found so far is unclaimed.
     /// </remarks>
     [Test]
     public async Task AnUnclaimedGameTheCrawlerFoundIsStillListed()
@@ -186,9 +178,8 @@ public class SubmittedGameTests
     /// Gives a game something on every series the public surfaces read.
     /// </summary>
     /// <remarks>
-    /// A game with no data is invisible to the rankings and the ecosystem shares whether it is
-    /// filtered or not, so a test that seeded only a bare row would have passed against a filter
-    /// that did not exist. Everything here is what one crawl of a reachable game writes.
+    /// A game with no data is invisible to the rankings and ecosystem shares whether it's filtered or
+    /// not, so a bare row would pass against a filter that didn't exist.
     /// </remarks>
     private static async Task FurnishAsync(TestDatabase db, Guid gameId)
     {

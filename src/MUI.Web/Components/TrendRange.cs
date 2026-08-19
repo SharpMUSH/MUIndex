@@ -6,20 +6,10 @@ namespace MUI.Web.Components;
 /// The calendar range a trend chart is drawn over, and the addresses of the ranges beside it.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A range is part of the page's address rather than a control's state, which is what makes seeking
-/// work here at all: no script, the back button behaves, a range is shareable, and a text browser
-/// gets the same navigation as everybody else. §9's canonical URL already drops the query string, so
-/// none of this multiplies the URLs the page is indexed under.
-/// </para>
-/// <para>
-/// Everything is clamped rather than refused. A range that reaches past what one response will
-/// answer, or that arrives back-to-front, or that names a day nobody could parse, resolves to the
-/// nearest sensible window instead of erroring — a chart is a browsable surface and a mistyped date
-/// is not worth a 400 in front of a page that has an answer to give. What it must never do is
-/// silently draw a *different* range from the one the reader asked for without the dates over the
-/// graphic saying so, which is why the resolved range is what the caption prints.
-/// </para>
+/// The range lives in the URL rather than in control state, so seeking needs no script and is
+/// shareable. Everything is clamped rather than refused — a bad or back-to-front range resolves to
+/// the nearest sensible window instead of erroring — but a clamped range must never be drawn silently:
+/// the resolved range is always what the caption prints.
 /// </remarks>
 public sealed record TrendRange(DateOnly From, DateOnly To)
 {

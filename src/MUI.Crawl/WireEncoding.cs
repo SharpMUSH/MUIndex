@@ -6,37 +6,17 @@ namespace MUI.Crawl;
 /// Which encoding a session's bytes are read with, and the one place that decides it.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>A server's declared charset is not a measurement of its bytes.</b> Measured on
-/// <c>mud.pkuxkx.net:8080</c>, which offers <c>IAC WILL CHARSET</c>, answers the REQUEST with a list
-/// containing UTF-8 and nothing else, accepts our ACCEPTED — and then sends 2,573 bytes of GBK,
-/// because on that game the encoding is chosen from a menu on the login screen
-/// (<c>Input 1 for GBK, 2 for UTF8, 3 for BIG5</c>) rather than from the option we just negotiated.
-/// Nothing was negotiated wrongly by either side. The declaration is simply about a later state of
-/// the session than the connect screen we are reading.
-/// </para>
-/// <para>
-/// <b>UTF-8 is checked rather than guessed.</b> A strict decoder is a grammar check, not a
-/// heuristic: a lead byte must be followed by continuation bytes in <c>0x80–0xBF</c>, so legacy
-/// multi-byte text essentially never forms well-formed UTF-8 by accident, and one stray 8-bit byte
-/// is an invalid lead that fails immediately. That is the whole detector, and it is the reason there
-/// is no ladder below it. Both GBK and Big5 <em>accept</em> pkuxkx's bytes — .NET's Big5 decoder
-/// does not throw on them, it just puts 228 characters in odd blocks and 18 in the private use
-/// area — so telling those two apart means scoring plausibility, and a score that is decisive on
-/// 2.5 KB of dense CJK is a coin flip on a game that sends forty non-ASCII bytes. Guessing there and
-/// writing the winner down would put our guess into a game's public record as a fact about the game,
-/// which is rule 5. So we do not guess: the operator sets <see cref="Override"/>.
-/// </para>
-/// <para>
-/// <b>The fallback is Latin-1 because it is reversible.</b> It maps all 256 byte values to
-/// <c>U+0000–U+00FF</c> and cannot fail, so a banner read this way still *contains* its original
-/// bytes and a later override repairs it exactly. Windows-1252 renders real Western text more often
-/// than not, but it leaves five byte values undefined and would need a fallback of its own — and a
-/// replacement character is the one outcome this type exists to prevent. What shipped before did
-/// exactly that: <c>Encoding.UTF8</c>'s default replacing fallback turned every byte it could not
-/// read into <c>U+FFFD</c> on the way in, permanently, for thirteen of the catalogue's 522 connect
-/// screens.
-/// </para>
+/// A server's declared charset is not a measurement of its bytes: <c>mud.pkuxkx.net:8080</c>
+/// negotiates <c>CHARSET</c> down to UTF-8 and then sends GBK anyway, because the actual encoding is
+/// chosen from a menu on the login screen, a later point in the session than what we negotiated.
+/// So UTF-8 is checked with a strict decoder rather than guessed — a lead byte must be followed by
+/// continuation bytes in <c>0x80–0xBF</c>, so legacy multi-byte text essentially never forms
+/// well-formed UTF-8 by accident. Anything else falls back to Latin-1, which is total over all 256
+/// byte values and round-trips exactly, so a banner survives until an operator's <see
+/// cref="Override"/> says what it really is. Guessing between other encodings (e.g. GBK vs Big5) and
+/// writing the winner down would be recording our guess as a fact about the game, which is rule 5 —
+/// and a replacement-character fallback (what shipped before this type) throws the original bytes
+/// away permanently.
 /// </remarks>
 public static class WireEncoding
 {
@@ -52,10 +32,8 @@ public static class WireEncoding
 
     static WireEncoding()
     {
-        // .NET ships UTF-*, ASCII and Latin-1 in the box and nothing else: GBK, Big5, EUC-KR,
-        // Shift-JIS and the Windows code pages all raise ArgumentException from GetEncoding until
-        // this provider is registered. Measured on .NET 10 rather than assumed — the NU1510 the
-        // package reference raises claims it is unnecessary, and it is not.
+        // Required despite the NU1510 warning claiming otherwise: without this, GetEncoding throws
+        // ArgumentException for GBK, Big5, EUC-KR, Shift-JIS and the Windows code pages.
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
     }
 
@@ -76,9 +54,8 @@ public static class WireEncoding
 
         try
         {
-            // Replacing fallbacks, deliberately, and only here. A strict decoder is how we test a
-            // guess; an override is not a guess, and one malformed byte in a screen somebody has
-            // already told us how to read must not throw the screen away.
+            // Replacing fallback, deliberately, and only here: an override isn't a guess, so one
+            // malformed byte must not throw the whole screen away.
             return Encoding.GetEncoding(name.Trim());
         }
         catch (ArgumentException)
@@ -93,10 +70,8 @@ public static class WireEncoding
     /// <param name="lines">Every line the session produced, as it came off the wire.</param>
     /// <param name="overrideName">The operator's <c>CHARSET</c> override for this game, if any.</param>
     /// <remarks>
-    /// <b>Once, from all of them.</b> A single line of pure ASCII is well-formed under every
-    /// candidate and says nothing, so deciding per line would read the same server two ways within
-    /// one screen. Testing every line is the same test as testing the concatenation, because a
-    /// UTF-8 sequence cannot contain the <c>0x0A</c> these were split on.
+    /// Decided once for all lines, not per line — a single line of pure ASCII is well-formed under
+    /// every candidate and would let the same server be read two ways within one screen.
     /// </remarks>
     public static WireReading Read(IReadOnlyList<byte[]> lines, string? overrideName = null)
     {
@@ -151,9 +126,9 @@ public static class WireEncoding
 /// How much is actually known about the encoding a session's bytes were read with.
 /// </summary>
 /// <remarks>
-/// <b>Three states, because two of them are knowledge and one is the absence of it</b> — and a
-/// caller that cannot tell them apart will write our fallback down as a fact about the game. The
-/// distinction is on the type rather than inferred from the charset name so that it cannot be lost.
+/// Three states because two are knowledge and one is its absence — a caller that can't tell them
+/// apart will write our fallback down as a fact about the game. Kept on the type, not inferred from
+/// the charset name, so the distinction can't be lost.
 /// </remarks>
 public enum WireCharset
 {
@@ -168,11 +143,8 @@ public enum WireCharset
     /// reversible fallback to keep them whole.
     /// </summary>
     /// <remarks>
-    /// <b>This is not a measurement of ISO-8859-1 and must never be recorded as one.</b> Latin-1 was
-    /// chosen because it is total over all 256 byte values and round-trips, so the screen survives
-    /// until somebody says what it is — the encoding is <em>undetermined</em>, and an undetermined
-    /// value stored as a determined one is rule 4 twice over: it fabricates an answer, and it does
-    /// it under a source that says we measured it.
+    /// Not a measurement of ISO-8859-1 and must never be recorded as one — the encoding is genuinely
+    /// <em>undetermined</em>; storing it as determined would be rule 4 twice over.
     /// </remarks>
     Undetermined,
 }

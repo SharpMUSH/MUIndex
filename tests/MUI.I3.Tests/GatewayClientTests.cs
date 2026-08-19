@@ -42,8 +42,7 @@ public class GatewayClientTests
     }
 
     /// <summary>
-    /// The count is the length of the users array, and an empty array is a measured zero rather than
-    /// an absence — see <c>I3PresenceChoice</c>, which is where that distinction is acted on.
+    /// An empty users array is a measured zero, not an absence — see <c>I3PresenceChoice</c>.
     /// </summary>
     [Test]
     public async Task AWhoReplyArrivingAsAnEventAnswersTheCall()
@@ -56,8 +55,7 @@ public class GatewayClientTests
                 return;
             }
 
-            // Exactly what the gateway does: acknowledge the send, then deliver the answer later as
-            // an unsolicited event carrying only the mud's name.
+            // Gateway behavior: acknowledge the send, then deliver the answer later as an unsolicited event.
             await g.ReplyAsync(
                 FakeGateway.IdOf(line),
                 new Dictionary<string, object?> { ["status"] = "requested", ["mud_name"] = "Nightfall" });
@@ -187,9 +185,8 @@ public class GatewayClientTests
     }
 
     /// <summary>
-    /// The gateway has spelled the mudlist both ways across releases — a bare object, and an envelope
-    /// with the muds under a key. Both parse, because pinning a beta API's shape is how a working
-    /// integration breaks on somebody else's refactor.
+    /// The gateway has spelled the mudlist both ways across releases — a bare object and an envelope
+    /// with the muds under a key. Both must parse.
     /// </summary>
     [Test]
     [Arguments(true)]
@@ -241,8 +238,7 @@ public class GatewayClientTests
         await Assert.That(nightfall.Answers("who")).IsTrue();
         await Assert.That(nightfall.Answers("locate")).IsFalse();
 
-        // Zero is a published fact, not a missing value: the spec permits it for a mud that is not
-        // connectable, and MUIndex publishes it about itself.
+        // Zero is a published fact, not a missing value: the spec permits it for a non-connectable mud.
         await Assert.That(list.Single(m => m.Name == "Epitaph").PlayerPortNumber).IsEqualTo(0);
     }
 
@@ -250,11 +246,9 @@ public class GatewayClientTests
     /// The shape the live gateway actually answers with, captured off <c>*i4</c> verbatim.
     /// </summary>
     /// <remarks>
-    /// <b>Written because assuming the shape was wrong once already.</b> The handler reads as though
-    /// it returns a small object keyed by name; what comes back is an array whose elements spell the
-    /// endpoint <c>host</c> and <c>port</c> — not <c>address</c> and <c>player_port</c>, which is how
-    /// the same gateway spells them in the state file it writes to disk. A client written against
-    /// either one alone parses the other into nothing at all, silently.
+    /// The live reply is an array keyed <c>host</c>/<c>port</c> — not <c>address</c>/<c>player_port</c>,
+    /// which is how the same gateway spells them in its on-disk state file. A client parsing only one
+    /// shape silently reads the other as empty.
     /// </remarks>
     [Test]
     public async Task TheLiveShapeParsesWholeIncludingTheDescriptiveFields()
@@ -371,8 +365,8 @@ public class GatewayClientTests
     }
 
     /// <summary>
-    /// A line the client cannot parse must not stop it reading the ones after it — the gateway is a
-    /// beta whose event vocabulary is still moving, and one unknown shape is not a reason to go deaf.
+    /// A line the client cannot parse must not stop it reading the ones after it — the gateway's
+    /// event vocabulary is still a moving beta.
     /// </summary>
     [Test]
     public async Task AnUnreadableLineDoesNotStopThePump()

@@ -11,7 +11,7 @@
       IS the capability measurement (spec §6.1), so what a server offers is observed rather than
       taken from a game's own MSSP claim.
     -->
-    <PackageVersion Include="TelnetNegotiationCore" Version="2.8.2" />
+    <PackageVersion Include="TelnetNegotiationCore" Version="2.9.1" />
 
     <!-- Logging abstractions (TelnetNegotiationCore takes an ILogger). -->
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.2" />
@@ -80,6 +80,19 @@
       care.
     -->
     <PackageVersion Include="Markdig" Version="1.3.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      The MCP endpoint (docs/deploy.md, CLAUDE.md's "Administering the site" section): the official
+      C# SDK's ASP.NET Core extensions, Streamable HTTP transport, mounted as a route group inside
+      MUI.Web rather than a second deployable. 2.2.0's nuspec targets net8.0/net9.0/net10.0 each with
+      an explicit net10.0 group and an ASP.NET Core FrameworkReference of its own, so this is the
+      version to pin rather than trusting a floating one against a runtime it has not stated it
+      targets. ModelContextProtocol.Core (client+server core types, including the test-only client
+      used by MUI.Web.Tests) comes in transitively.
+    -->
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
   </ItemGroup>
 
   <ItemGroup>

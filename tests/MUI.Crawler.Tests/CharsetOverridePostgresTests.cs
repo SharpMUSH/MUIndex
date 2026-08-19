@@ -10,18 +10,11 @@ namespace MUI.Crawler.Tests;
 /// The one seam that carries an operator's <c>CHARSET</c> override to the probe.
 /// </summary>
 /// <remarks>
-/// <para>
 /// The probe has no database and must not grow one, so the override is loaded with the target it
-/// applies to and travels on <c>ProbeTarget.Charset</c>. Everything else about the feature is
-/// testable without Postgres; <b>this half is only true if the SQL is</b>, and the SQL is a
-/// correlated subquery against a table the target row does not join to.
-/// </para>
-/// <para>
-/// Why it matters that this be pinned: with the subquery silently returning null, every probe still
-/// succeeds, every test still passes, and the only symptom is that thirteen connect screens stay
-/// unreadable for ever. A feature that fails by doing nothing needs a test that asserts it did
-/// something.
-/// </para>
+/// applies to via a correlated subquery against a table the target row does not join to. If that
+/// subquery silently returns null, every probe still succeeds and every non-Postgres test still
+/// passes — the only symptom is unreadable connect screens. A feature that fails by doing nothing
+/// needs a test that asserts it did something.
 /// </remarks>
 public class CharsetOverridePostgresTests
 {
@@ -74,10 +67,9 @@ public class CharsetOverridePostgresTests
     /// Only <c>staff</c>, never the precedence winner.
     /// </summary>
     /// <remarks>
-    /// The other rungs on this field are the game's own MSSP claim and what CHARSET negotiated, and
-    /// neither is a statement about how these bytes should be read — pkuxkx negotiates UTF-8 and
-    /// sends GBK, so taking the handshake's answer here would reinstate exactly the bug the override
-    /// exists to fix, and taking MSSP's would let a server choose how we decode it.
+    /// The other rungs on this field — the game's own MSSP claim and what CHARSET negotiated — are
+    /// not statements about how these bytes should be read: pkuxkx negotiates UTF-8 and sends GBK, so
+    /// taking the handshake's answer would reinstate exactly the bug the override exists to fix.
     /// </remarks>
     [Test]
     public async Task WhatTheGameItselfSaysIsNotAnOverride()
@@ -105,9 +97,9 @@ public class CharsetOverridePostgresTests
     /// A target not yet attributed to a game has no override and must still load.
     /// </summary>
     /// <remarks>
-    /// 269 of production's 710 targets have a null <c>game_id</c>. A subquery that turned those into
-    /// an error, or worse into somebody else's value, would take the crawl down rather than one
-    /// game's screen.
+    /// Many production targets have a null <c>game_id</c>. A subquery that turned those into an
+    /// error, or worse into somebody else's value, would take the crawl down rather than one game's
+    /// screen.
     /// </remarks>
     [Test]
     public async Task ATargetWithNoGameYetIsFine()

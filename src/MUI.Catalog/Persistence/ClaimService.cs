@@ -4,18 +4,10 @@ namespace MUI.Catalog.Persistence;
 /// Issues claim tokens and decides what a beacon read off a server means (spec §8).
 /// </summary>
 /// <remarks>
-/// <para>
-/// The rules live here rather than in the crawler or a page handler because all three of the callers
-/// that matter — the dashboard minting a token, the probe loop offering one it read, and an owner
-/// pressing <em>check now</em> — must reach the same conclusions. A rule implemented twice is a rule
-/// that will disagree with itself.
-/// </para>
-/// <para>
-/// <b>It takes no <c>ProbeResult</c>, and cannot.</b> <c>MUI.Catalog</c> may not reference
-/// <c>MUI.Crawl</c>: the writers that consume a probe must not know a socket exists. The crawler reads
-/// the beacon (<c>ClaimTokenBeacon</c>, which knows about MSSP variables and connect screens) and
-/// hands this a string and a channel.
-/// </para>
+/// The rules live here so all three callers that matter — the dashboard minting a token, the probe
+/// loop offering one, an owner pressing <em>check now</em> — reach the same conclusions. Takes no
+/// <c>ProbeResult</c>: <c>MUI.Catalog</c> may not reference <c>MUI.Crawl</c>. The crawler reads the
+/// beacon and hands this a string and a channel.
 /// </remarks>
 public sealed class ClaimService(
     IClaimStore claims,
@@ -27,10 +19,10 @@ public sealed class ClaimService(
     /// How often a claimant may ask us to look again (spec §8.1).
     /// </summary>
     /// <remarks>
-    /// Short enough that an operator who has just edited <c>mush.cnf</c> is not left waiting on the
-    /// scheduler, long enough that the button is not a way to make us dial a stranger repeatedly. The
-    /// bound is per claim rather than per source address, because the claim is the thing that must
-    /// already exist — an attacker cannot create one for a game they have not been offered.
+    /// Short enough not to leave an operator who just edited <c>mush.cnf</c> waiting on the
+    /// scheduler, long enough that the button can't be used to dial a stranger repeatedly. Bounded
+    /// per claim rather than per source address, since a claim can't be created for a game nobody
+    /// offered.
     /// </remarks>
     public static readonly TimeSpan RecheckInterval = TimeSpan.FromMinutes(3);
 
@@ -39,10 +31,9 @@ public sealed class ClaimService(
     /// if they have none outstanding.
     /// </summary>
     /// <remarks>
-    /// <b>An existing pending claim is returned rather than replaced.</b> The previous token may
-    /// already be printed on a connect screen, and minting a rival would invalidate what the operator
-    /// has just finished publishing — the most annoying possible failure, because it looks like the
-    /// site not working. A token is only replaced once it has expired.
+    /// An existing pending claim is returned rather than replaced: the previous token may already be
+    /// printed on a connect screen, and minting a rival would invalidate what the operator just
+    /// published. Replaced only once expired.
     /// </remarks>
     public async Task<GameClaim> IssueAsync(
         Guid gameId,
@@ -83,16 +74,10 @@ public sealed class ClaimService(
     /// Offers a token read off <paramref name="gameId"/> to the claim store.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Called on every probe that read a beacon at all, which is why <see cref="ClaimVerdict.NothingToDo"/>
-    /// is the ordinary answer rather than a failure. A game publishing somebody else's token, or a
-    /// token from a claim that expired, is a normal state of the world and not a problem to report.
-    /// </para>
-    /// <para>
-    /// <b>An already-verified claim is refreshed, never re-verified</b> (§8.4). Seeing the beacon
-    /// updates <c>beacon_last_seen_at</c> and nothing else; not seeing it does nothing at all, which
-    /// is the point — absence must never revoke.
-    /// </para>
+    /// Called on every probe that read a beacon at all, so <see cref="ClaimVerdict.NothingToDo"/> is
+    /// the ordinary answer, not a failure. An already-verified claim is refreshed, never re-verified
+    /// (§8.4): seeing the beacon updates <c>beacon_last_seen_at</c> and nothing else; not seeing it
+    /// does nothing — absence must never revoke.
     /// </remarks>
     public async Task<ClaimVerdict> OfferBeaconAsync(
         Guid gameId,
@@ -122,8 +107,7 @@ public sealed class ClaimService(
                 new ClaimEvent(pending.Id, now, ClaimEventKind.Verified, channel.ToString()),
                 cancellationToken);
 
-            // The listing badge and §7.5's ceiling grace both read this, and neither has ever been
-            // reachable before now.
+            // The listing badge and §7.5's ceiling grace both read this.
             await games.SetClaimedAsync(gameId, true, cancellationToken);
 
             if (pending.Intent is not ClaimIntent.Assume)
@@ -131,13 +115,10 @@ public sealed class ClaimService(
                 return ClaimVerdict.Verified;
             }
 
-            // §8.4's counter-claim, which is how a game changes hands. The displaced owners are
-            // revoked here and nowhere else: this is the ONE revocation nobody typed, and it is
-            // sound because the account that caused it published a token on the same server the
-            // others did. It proves control now, which is the only thing ownership here ever meant.
-            //
-            // The game stays claimed throughout — SetClaimedAsync was called above — so a takeover
-            // never flickers the listing badge off and on.
+            // §8.4's counter-claim, how a game changes hands. Displaced owners are revoked here and
+            // nowhere else: the one revocation nobody typed, sound because the triggering account
+            // published a token on the same server the others did. The game stays claimed
+            // throughout (SetClaimedAsync above), so a takeover never flickers the listing badge.
             var displaced = (await claims.ForGameAsync(gameId, cancellationToken))
                 .Where(other => other.Id != pending.Id && other.IsVerified)
                 .ToList();
@@ -152,8 +133,7 @@ public sealed class ClaimService(
                     },
                     cancellationToken);
 
-                // On the LOSING claim, because that is whose record changed. An owner reading their
-                // own history has to be able to see what happened to them and when.
+                // On the LOSING claim, because that is whose record changed.
                 await claims.RecordEventAsync(
                     new ClaimEvent(other.Id, now, ClaimEventKind.CounterClaimed),
                     cancellationToken);
@@ -196,19 +176,11 @@ public sealed class ClaimService(
     /// Brings the game's next probe forward, and records that the claimant asked.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>It moves the schedule; the crawler still does the dialling.</b> Keeping the two apart is
-    /// what stops a button on a page becoming a way to make us connect to a stranger's server on
-    /// demand: the rate limit is per claim, a claim cannot exist for a game nobody has been offered,
-    /// and <c>CRAWL DELAY</c> and the address gate both still bind when the loop gets there.
-    /// </para>
-    /// <para>
-    /// This recorded the ask and moved nothing for as long as it existed. Due-ness comes only from
-    /// <c>crawl_target.next_probe_at</c>, so <c>last_checked_at</c> and the <c>check_requested</c>
-    /// event went into the database and no probe ever came of it, while the page told the operator
-    /// the button dialled a real server. A rate limiter on an action that does not happen is the
-    /// most convincing possible no-op.
-    /// </para>
+    /// Moves the schedule; the crawler still does the dialling. That keeps a button on a page from
+    /// becoming a way to connect to a stranger's server on demand: the rate limit is per claim, and
+    /// <c>CRAWL DELAY</c> and the address gate still bind when the loop gets there. Due-ness comes
+    /// only from <c>crawl_target.next_probe_at</c> — this must actually move it, or the recorded ask
+    /// is a no-op dressed as a real check.
     /// </remarks>
     public async Task<bool> RequestCheckAsync(Guid claimId, CancellationToken cancellationToken = default)
     {
@@ -219,9 +191,8 @@ public sealed class ClaimService(
 
         var now = time.GetUtcNow();
 
-        // Recorded whether or not a target moved. An ask is a thing that happened, and a claim on a
-        // game the registry has no target for — merged away, or added by hand — is not the
-        // claimant's mistake to be told about in an audit log.
+        // Recorded whether or not a target moved — a claim on a game with no crawl target (merged
+        // away, or added by hand) is not the claimant's mistake to log.
         await claims.UpdateAsync(claim with { LastCheckedAt = now }, cancellationToken);
         await claims.RecordEventAsync(
             new ClaimEvent(claim.Id, now, ClaimEventKind.CheckRequested),
@@ -239,10 +210,8 @@ public sealed class ClaimService(
     /// An owner giving up a game they hold.
     /// </summary>
     /// <remarks>
-    /// Scoped to the account, because <see cref="RevokeAsync"/> takes a claim id and a claim id is
-    /// not a credential — anybody who learns one could otherwise unclaim somebody else's game. The
-    /// caller is the account, so the check belongs here rather than in whichever page happens to
-    /// call it.
+    /// Scoped to the account: <see cref="RevokeAsync"/> takes a claim id, and a claim id is not a
+    /// credential — anybody who learns one could otherwise unclaim somebody else's game.
     /// </remarks>
     public async Task<bool> ResignAsync(
         Guid claimId,
@@ -277,10 +246,9 @@ public sealed class ClaimService(
     /// Withdraws a claim, explicitly.
     /// </summary>
     /// <remarks>
-    /// The only way a verified claim ends, along with a counter-claim. <b>Never called because a
-    /// beacon went missing</b> — see <see cref="OfferBeaconAsync"/> and §8.4. The game stops being
-    /// claimed only when no verified claim is left, because §8.5 allows several owners and one
-    /// walking away does not unclaim the game for the others.
+    /// The only way a verified claim ends, along with a counter-claim. Never called because a
+    /// beacon went missing (see <see cref="OfferBeaconAsync"/>, §8.4). The game stops being claimed
+    /// only when no verified claim is left, since §8.5 allows several owners.
     /// </remarks>
     public async Task RevokeAsync(Guid claimId, string reason, CancellationToken cancellationToken = default)
     {

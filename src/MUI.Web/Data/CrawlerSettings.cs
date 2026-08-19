@@ -7,22 +7,10 @@ namespace MUI.Web.Data;
 /// addresses it knows before it has followed anything, and the address it gives out when it dials.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Environment first and a configuration key behind it, exactly as <see cref="PostgresData"/> reads
-/// the connection string, so a container is pointed at a database and given a seed list the same way
-/// and neither needs a config file shipped beside it.
-/// </para>
-/// <para>
-/// <b>Nothing here can exempt an address from the resolved-address gate.</b> §7.2's exemption is a
-/// claim a human makes about one address they chose on purpose, and an environment variable copied
-/// between deployments is not that human. Pointing the crawler at a private address stays
-/// <c>mui-crawl --seed-exempt</c>, where somebody types it and means it.
-/// </para>
-/// <para>
-/// Seeds matter on day one and are then a convenience: §7.1's effective seed set is every game ever
-/// found, and seeding is idempotent, so a restart with the same list does not drag anything forward
-/// or repeat a burst of traffic at somebody else's server.
-/// </para>
+/// Environment first, configuration key behind it, exactly as <see cref="PostgresData"/> reads the
+/// connection string. Nothing here can exempt an address from §7.2's resolved-address gate — that
+/// exemption is a human's deliberate choice, made with <c>mui-crawl --seed-exempt</c>, never an
+/// environment variable copied between deployments.
 /// </remarks>
 public static class CrawlerSettings
 {
@@ -40,9 +28,8 @@ public static class CrawlerSettings
     /// Where an admin who has just been dialled can read what we do and ask us to stop (spec §11).
     /// </summary>
     /// <remarks>
-    /// It is a setting rather than a constant because the address belongs to the deployment doing the
-    /// dialling: the compiled default is a placeholder that answers nobody, and a fork inheriting our
-    /// contact page would point the servers <em>it</em> probed at us.
+    /// A setting rather than a constant, since the address belongs to the deployment doing the
+    /// dialling — a fork inheriting our contact page would point the servers it probed at us.
     /// </remarks>
     public const string InfoUrlEnvironmentVariable = "MUI_CRAWL_INFO_URL";
 
@@ -52,8 +39,8 @@ public static class CrawlerSettings
     /// <c>true</c> runs the Intermud-3 pass, which needs the <c>i3</c> sidecar to be running.
     /// </summary>
     /// <remarks>
-    /// Off unless said out loud, because turning it on connects a container to a public network and
-    /// registers a name there permanently. That is not a thing to acquire by upgrading an image.
+    /// Off unless said out loud: turning it on connects a container to a public network and registers
+    /// a name there permanently.
     /// </remarks>
     public const string I3EnabledEnvironmentVariable = "MUI_I3_ENABLED";
 
@@ -73,9 +60,8 @@ public static class CrawlerSettings
 
     /// <summary>Applies what the environment said, and throws rather than shrugging at a typo.</summary>
     /// <remarks>
-    /// A misspelled value is an error for the reason <c>mui-crawl</c> refuses an unrecognised switch:
-    /// <c>MUI_CRAWL_ENABLED=no</c> read as "not the word false, so leave it on" is a deployment that
-    /// believes it turned the crawler off and is still dialling.
+    /// A misspelled value throws rather than being read as "not false, so leave it on" —
+    /// <c>MUI_CRAWL_ENABLED=no</c> should not leave a deployment dialling while it believes it's off.
     /// </remarks>
     public static CrawlerOptionsBuilder Apply(this CrawlerOptionsBuilder builder, IConfiguration configuration)
     {
@@ -113,10 +99,9 @@ public static class CrawlerSettings
     /// Applies the Intermud-3 settings, and refuses a half-configured pass rather than starting one.
     /// </summary>
     /// <remarks>
-    /// The address is parsed here rather than left as a string so that <c>MUI_I3_GATEWAY=i3:notaport</c>
-    /// fails beside the setting that caused it. <see cref="I3ServiceOptions.Validate"/> catches the
-    /// missing key separately, at startup, for the same reason: the alternative is an authentication
-    /// failure on a five-minute loop that reads like the sidecar is broken.
+    /// Parsed here rather than left as a string, so <c>MUI_I3_GATEWAY=i3:notaport</c> fails beside the
+    /// setting that caused it. <see cref="I3ServiceOptions.Validate"/> catches a missing key the same
+    /// way, rather than as an authentication failure on a loop that reads like the sidecar is broken.
     /// </remarks>
     private static void ApplyI3(CrawlerOptionsBuilder builder, IConfiguration configuration)
     {

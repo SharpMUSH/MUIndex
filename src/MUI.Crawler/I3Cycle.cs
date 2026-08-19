@@ -12,27 +12,15 @@ namespace MUI.Crawler;
 /// count the games that consent to being counted.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Why this exists.</b> 240 of 428 sampled games have no player count, and roughly 210 of those
-/// are one problem: outside the TinyMUD lineage, <c>WHO</c> at a login prompt is read as a character
-/// name, so there is nothing on the connect screen to parse. The LP family, which is most of what is
-/// dark, predates MSSP and never adopted it. I3 answers the same question a different way —
-/// <c>who-req</c> returns an array of users, and the count is the length of the array.
-/// </para>
-/// <para>
-/// <b>Three steps and they are deliberately in this order.</b> Seeding comes first because it is
-/// worth the most: of 179 muds on the network, 134 are addresses we do not have and 85 of those are
-/// up, against 8 dark games that binding rescues. Binding comes second because it is a *lookup*
-/// rather than a match — the address we just seeded gets probed by the ordinary crawl, promoted by
-/// the ordinary identity path, and this asks which game that turned out to be. Counting comes last
-/// because it is the only step that sends anything to a stranger.
-/// </para>
-/// <para>
-/// <b>Nothing here matches addresses, resolves a name or compares an IP</b>, and that is the point.
-/// Deciding whether an address is a game we already have is <c>CatalogueBinder</c>'s and
-/// <c>IdentityMatcher</c>'s job; it is tested, it knows how to tell one game on two ports from two
-/// games on one host, and duplicating any of it here would be a second opinion nobody asked for.
-/// </para>
+/// Most player-count-less games are one problem: outside the TinyMUD lineage, <c>WHO</c> at a login
+/// prompt reads as a character name, so there's nothing on the connect screen to parse, and the
+/// LP family predates MSSP entirely. I3's <c>who-req</c> answers the same question a different way —
+/// an array of users, counted by length. The three steps run in this order deliberately: seeding
+/// first since new addresses are worth the most; binding second because it's a lookup, not a match —
+/// the address gets probed and identified by the ordinary crawl path, and this only asks which game
+/// that turned out to be; counting last because it's the only step that sends anything to a stranger.
+/// Nothing here matches addresses, resolves a name or compares an IP — that's <c>CatalogueBinder</c>'s
+/// and <c>IdentityMatcher</c>'s job, and duplicating it here would be a second opinion nobody asked for.
 /// </remarks>
 public sealed class I3Cycle(
     II3Gateway gateway,
@@ -54,8 +42,7 @@ public sealed class I3Cycle(
         if (muds.Count == 0)
         {
             // The router pushes the mudlist unasked and the gateway caches it, so an empty answer
-            // means the gateway is not connected rather than that the network is empty. Doing
-            // nothing is right; seeding nothing and counting nothing are both already the case.
+            // means the gateway isn't connected, not that the network is empty.
             _log.LogInformation("The I3 gateway returned no muds; skipping this cycle.");
             return new I3CycleResult();
         }
@@ -66,9 +53,8 @@ public sealed class I3Cycle(
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // A mud that publishes no player port has said there is nothing to dial — the spec
-            // permits 0 for a mud that is private or closed, and MUIndex publishes it about itself.
-            // Recording it is right; seeding an address at port 0 is not.
+            // A mud that publishes no player port has said there's nothing to dial — the spec permits
+            // 0 for a private or closed mud. Recording it is right; seeding port 0 is not.
             if (mud.PlayerPortNumber <= 0 || string.IsNullOrWhiteSpace(mud.HostAddress))
             {
                 await bindings.UpsertAsync(
@@ -86,14 +72,10 @@ public sealed class I3Cycle(
 
             if (target is null)
             {
-                // §7.6's rule, applied to a new source: host and port and nothing else. The name, the
-                // driver, the mudlib and the contact address the router also handed us are the mud's
-                // claims relayed by a third party; every fact this site shows about a game is
-                // measured by our own crawler, so the address is all we take.
-                //
-                // IsOperatorSeed stays false, which is the security-relevant half: these are
-                // stranger-supplied addresses and HostScopeGuard must rule on every one of them, the
-                // same way it rules on a REFERRAL.
+                // §7.6's rule applied to a new source: host and port and nothing else — the name,
+                // driver, mudlib and contact the router also handed us are a third party's claims, not
+                // measurements. IsOperatorSeed stays false: these are stranger-supplied addresses and
+                // HostScopeGuard must rule on every one, same as a REFERRAL.
                 await targets.AddAsync(
                     new CrawlTarget
                     {
@@ -109,18 +91,12 @@ public sealed class I3Cycle(
                 continue;
             }
 
-            // The mud's own name for itself, recorded under a source that says how weak it is.
-            //
-            // §7.6 says the seed contributes an address and nothing else, and this is the deliberate
-            // exception rather than an erosion of it: 31 games are listed as an IP because they are
-            // LP-family, offer no MSSP, and print a login prompt with no title in it. There is no
-            // measurement of their names to be had through the telnet probe — not "not yet", but not
-            // at all — and `82-153-225-173-4242` is not a more honest listing than `Nightfall`, only
-            // an unusable one. The provenance system exists to carry a weak value labelled weak.
-            //
-            // It cannot displace a name a human typed: `staff` outranks `i3_mudlist`, which matters
-            // because the live network carries `Your MUD Name`, `test` and `DeadSouls-FluffOS2019`
-            // beside the real ones. Nothing polices what a mud calls itself.
+            // The mud's own name, recorded under a source that says how weak it is. This is a
+            // deliberate exception to §7.6's "address only" rule: some LP-family games offer no MSSP
+            // and print a login prompt with no title, so there's no measurement of their name to be
+            // had through telnet at all, and an IP is not a more honest listing than a name, just an
+            // unusable one. It can't displace a name a human typed — `staff` outranks `i3_mudlist` —
+            // which matters since nothing polices what a mud calls itself on the network.
             if (target.GameId is { } named && !string.IsNullOrWhiteSpace(mud.Name))
             {
                 await fields.UpsertAsync(
@@ -128,10 +104,8 @@ public sealed class I3Cycle(
                     cancellationToken);
             }
 
-            // And what it says it runs, which is three more fields of the same kind arriving in the
-            // same packet. They were modelled when the gateway was written and never read; 179 of
-            // 179 live entries fill in all three, and 47 of the games bound to an I3 name carry no
-            // codebase at all. See I3Description for which field is which and why this is declared.
+            // What it says it runs: three more fields of the same kind, arriving in the same packet.
+            // See I3Description for which field is which and why.
             if (target.GameId is { } described)
             {
                 foreach (var observation in I3Description.From(mud))
@@ -143,13 +117,9 @@ public sealed class I3Cycle(
                 }
             }
 
-            // Promoted by the ordinary crawl since we last looked, so we now know which game it is.
-            //
-            // A refusal here is ordinary rather than exceptional: one game routinely holds several I3
-            // names — The Zone is also The Zone-dalet, The Zone-i4 and The Zone-wpr, one mud
-            // registered once per router — and whichever binds first is the one that counts it. The
-            // rest are duplicates of a fact we already have, and were once enough to tear down every
-            // pass for ever.
+            // Promoted by the ordinary crawl since we last looked, so we now know which game it is. A
+            // refusal here is ordinary, not exceptional: one game can hold several I3 names (one mud
+            // registered once per router), and whichever binds first is the one that counts.
             if (target.GameId is { } game
                 && await bindings.BindAsync(mud.Name, game, cancellationToken))
             {
@@ -172,9 +142,9 @@ public sealed class I3Cycle(
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Marked before the answer, not after. The floor exists to bound what we send, and a mud
-            // that stays silent must not therefore be asked again on the next cycle — that would
-            // turn the quietest participants into the ones we bother most.
+            // Marked before the answer, not after: a mud that stays silent must not be asked again
+            // next cycle just because it never answered — that would make the quietest participants
+            // the ones we bother most.
             await bindings.MarkAskedAsync(binding.MudName, now, cancellationToken);
 
             var reply = await gateway.WhoAsync(binding.MudName, cancellationToken);
@@ -229,10 +199,8 @@ public sealed record I3Options
     /// The floor between two <c>who-req</c>s to one mud.
     /// </summary>
     /// <remarks>
-    /// <b>Chosen rather than honoured.</b> MSSP has a <c>CRAWL DELAY</c> a server can state and the
-    /// telnet crawler obeys it; I3 has no equivalent, so there is nobody to defer to and the restraint
-    /// has to be ours. Thirty minutes over ~177 muds is a packet every ten seconds — nothing to a
-    /// router, and invisible to any single game.
+    /// Chosen rather than honoured: I3 has no <c>CRAWL DELAY</c> equivalent for a server to state, so
+    /// the restraint has to be ours.
     /// </remarks>
     public TimeSpan AskEvery { get; init; } = TimeSpan.FromMinutes(30);
 
@@ -241,12 +209,9 @@ public sealed record I3Options
 
     /// <summary>Spacing between consecutive asks, so a pass is a trickle rather than a flood.</summary>
     /// <remarks>
-    /// <b>The gateway's own limit, not just etiquette.</b> <c>deploy/i3/config.yaml</c> caps
-    /// <c>who</c> at 10 requests per minute on the sidecar's API. A 2-second spacing sends up to 30,
-    /// three times that — measured on 2026-08-18: 60-ask cycles lost 13-34% of asks to
-    /// <c>i3_no_reply</c>, 25-ask cycles lost 4-8%, 11-ask cycles lost none, tracking a token bucket
-    /// exhausting faster in bigger batches. 8 seconds is 7.5/minute, under the cap with margin, and a
-    /// full 60-ask cycle still finishes in 8 minutes — inside the 30-minute floor with room to grow.
+    /// The gateway's own limit, not just etiquette: <c>deploy/i3/config.yaml</c> caps <c>who</c> at 10
+    /// requests per minute on the sidecar's API. 8 seconds is 7.5/minute, under the cap with margin,
+    /// and a full 60-ask cycle still finishes inside the 30-minute floor.
     /// </remarks>
     public TimeSpan BetweenAsks { get; init; } = TimeSpan.FromSeconds(8);
 }

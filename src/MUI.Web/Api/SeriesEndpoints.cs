@@ -12,29 +12,18 @@ namespace MUI.Web.Api;
 /// §10's time series: presence over time, and reachability over time.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Presence is served from the hourly and daily rollups rather than from raw samples, because §5.2
-/// lets retention drop the raw partitions once they have been aggregated — a series read off the raw
-/// table would quietly shorten as a deployment aged. The rollup is the copy that outlives them.
-/// </para>
-/// <para>
-/// Both routes resolve the game through <see cref="IGameQueries"/> rather than reading a store by id
-/// directly, which is not indirection for its own sake: <c>FindAsync</c> carries the rule that keeps
-/// an unclaimed submission off every public surface, and a series route that went to the store itself
-/// would be a way to read presence for a game the listing refuses to show.
-/// </para>
+/// Presence is served from the hourly and daily rollups, not raw samples — §5.2 lets retention drop
+/// raw partitions once aggregated, so a series read off the raw table would quietly shorten as a
+/// deployment aged. Both routes resolve the game through <see cref="IGameQueries"/> rather than a
+/// store, since <c>FindAsync</c> carries the rule that keeps an unclaimed submission off every public
+/// surface.
 /// </remarks>
 public static class SeriesEndpoints
 {
     /// <summary>
     /// The widest window each grain will answer in one response.
     /// </summary>
-    /// <remarks>
-    /// A bound on the response and not on the history: the data behind an hourly series runs to
-    /// §5.2's two years and the daily series is kept for ever. Ninety days of hours is 2,160 buckets
-    /// and five years of days is 1,826 — both a few hundred kilobytes, and a consumer wanting more
-    /// pages the window rather than being handed a body that times out mid-write.
-    /// </remarks>
+    /// <remarks>A bound on the response, not the history: a consumer wanting more pages the window rather than being handed a body that times out mid-write.</remarks>
     public static readonly IReadOnlyDictionary<PresenceGrain, TimeSpan> WidestWindow =
         new Dictionary<PresenceGrain, TimeSpan>
         {
@@ -140,9 +129,8 @@ public static class SeriesEndpoints
 
         var intervals = await availability.ForGameAsync(game.Summary.Id, http.RequestAborted);
 
-        // Overlap rather than containment: the span a reader most wants is the one running when the
-        // window opened, and it started before it. An open span has no end to compare, and is
-        // therefore still overlapping anything that has begun.
+        // Overlap rather than containment: the span running when the window opened started before it.
+        // An open span has no end to compare, so it still overlaps anything that has begun.
         var spans = intervals
             .Where(i => i.FromAt <= window.To && (i.ToAt is null || i.ToAt >= window.From))
             .OrderBy(i => i.FromAt)
@@ -164,11 +152,7 @@ public static class SeriesEndpoints
     /// <summary>
     /// The game a key names, 301ing from a slug it used to wear (spec §5.7) and 404ing otherwise.
     /// </summary>
-    /// <remarks>
-    /// Returns null when it has already written the response, which is the shape the badge routes use
-    /// for the same reason: the redirect and the problem document are both answers, and a caller that
-    /// had to distinguish them would be re-deciding what this already decided.
-    /// </remarks>
+    /// <remarks>Returns null when it has already written the response — the redirect and the problem document are both answers, same shape the badge routes use.</remarks>
     private static async Task<GamePage?> ResolveAsync(
         HttpContext http,
         string key,
@@ -238,11 +222,7 @@ public static class SeriesEndpoints
     /// <summary>
     /// Reads <c>from</c> and <c>to</c>, defaulting the window and refusing one too wide to serve.
     /// </summary>
-    /// <remarks>
-    /// A window wider than the cap is a 400 rather than a silent clamp. Truncating it would answer a
-    /// different question from the one asked and say so nowhere, and a consumer paging through
-    /// history would never learn its pages were short.
-    /// </remarks>
+    /// <remarks>A window wider than the cap is a 400, not a silent clamp — truncating would answer a different question than the one asked, and say so nowhere.</remarks>
     private static bool TryReadWindow(
         HttpContext http,
         DateTimeOffset now,

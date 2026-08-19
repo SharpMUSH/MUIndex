@@ -10,10 +10,9 @@ namespace MUI.Catalog.Tests.Persistence;
 /// Migration 0017's cycle log, against a real PostgreSQL.
 /// </summary>
 /// <remarks>
-/// The pulse query is a cross join over two unrelated aggregates and a lateral for the newest cycle.
-/// That shape is easy to get subtly wrong in a way that only shows on an empty table — which is the
-/// state every fresh deployment starts in and the one the front page must survive — so the empty
-/// cases are tested first and by name.
+/// The pulse query cross-joins two unrelated aggregates with a lateral for the newest cycle — a shape
+/// that's easy to get subtly wrong in ways that only show on an empty table, the state every fresh
+/// deployment starts in. Empty cases are tested first, by name.
 /// </remarks>
 public class CrawlCyclePostgresTests
 {
@@ -101,6 +100,35 @@ public class CrawlCyclePostgresTests
 
         // A probe thirty seconds ago is the loop working, which is the only claim this makes.
         await Assert.That(pulse.State(Now)).IsEqualTo(CrawlState.Working);
+    }
+
+    /// <summary>The newest cycles first, and no more than asked for.</summary>
+    /// <remarks>The crawler status page's history table — a different question from the pulse's
+    /// single newest row, so its own query rather than a limit bolted onto <c>PulseAsync</c>.</remarks>
+    [Test]
+    public async Task RecentReturnsTheNewestCyclesFirstAndStopsAtTheLimit()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var cycles = new NpgsqlCrawlCycles(database.DataSource);
+
+        await cycles.RecordAsync(Cycle(Now.AddMinutes(-30), considered: 5, answered: 5));
+        await cycles.RecordAsync(Cycle(Now.AddMinutes(-20), considered: 6, answered: 6));
+        await cycles.RecordAsync(Cycle(Now.AddMinutes(-10), considered: 7, answered: 7));
+
+        var recent = await cycles.RecentAsync(2);
+
+        await Assert.That(recent.Select(c => c.Considered)).IsEquivalentTo([7, 6])
+            .Because("newest first, and the limit keeps only two of the three recorded");
+    }
+
+    /// <summary>An empty table answers an empty list, not an exception.</summary>
+    [Test]
+    public async Task RecentOnAFreshDeploymentIsAnEmptyListRatherThanAFault()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var cycles = new NpgsqlCrawlCycles(database.DataSource);
+
+        await Assert.That(await cycles.RecentAsync(10)).IsEmpty();
     }
 
     /// <summary>

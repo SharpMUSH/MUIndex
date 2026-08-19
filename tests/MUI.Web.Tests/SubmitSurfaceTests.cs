@@ -11,9 +11,8 @@ namespace MUI.Web.Tests;
 /// The submission form (spec §7.6, §9).
 /// </summary>
 /// <remarks>
-/// Two things are asserted here that nothing else can assert: that the form has no field a submitter
-/// could put a claim into, and that every sentence it can say survives in plain text. The second is
-/// §9's test of itself — a refusal a text browser cannot read is a refusal nobody was given.
+/// Asserts two things nothing else does: the form has no field a submitter could put a claim into,
+/// and every sentence it can say survives in plain text.
 /// </remarks>
 public class SubmitSurfaceTests
 {
@@ -35,10 +34,9 @@ public class SubmitSurfaceTests
     /// A host, a port, and nothing a submitter could assert.
     /// </summary>
     /// <remarks>
-    /// <b>This is the whole feature.</b> The moment there is a name box the site is taking somebody's
-    /// word for something, and every argument on the front page about measured data has a hole in it
-    /// shaped like a form field. Asserted by naming the fields that must not exist, because the way
-    /// this regresses is somebody adding one helpfully.
+    /// <b>This is the whole feature.</b> The moment there's a name box, the site is taking somebody's
+    /// word for something. Asserted by naming the fields that must not exist, since this regresses
+    /// via someone adding one helpfully.
     /// </remarks>
     [Test]
     public async Task TheFormTakesAnAddressAndNothingElse()
@@ -82,11 +80,9 @@ public class SubmitSurfaceTests
     /// Every word this form says comes out of the message bundle.
     /// </summary>
     /// <remarks>
-    /// The pseudolocale brackets and accents anything that reached a reader through
-    /// <see cref="Messages"/>, so an English sentence surviving here is one typed into the page or
-    /// into <see cref="SubmitCopy"/>. The address is the exception and is asserted to survive
-    /// intact: it is what a stranger typed, it is machine voice, and a form that handed back a
-    /// translated version of somebody's hostname would be answering about a different address.
+    /// The pseudolocale marks anything that passed through <see cref="Messages"/>; legible English
+    /// here was hard-coded. The address is asserted to survive intact — it's what a stranger typed,
+    /// and a "translated" hostname would answer about a different address.
     /// </remarks>
     [Test]
     public async Task EveryAnswerComesFromTheBundleAndTheAddressComesBackUntouched()
@@ -133,11 +129,7 @@ public class SubmitSurfaceTests
     /// <summary>
     /// A refusal is a sentence, and it says what we decided rather than what the game is.
     /// </summary>
-    /// <remarks>
-    /// The rule CLAUDE.md is emphatic about, read off the surface: our own security policy may not
-    /// appear anywhere as a fact about somebody's game. The page has to say no and say why the no is
-    /// ours.
-    /// </remarks>
+    /// <remarks>Rule 5: our own security policy must never appear as a fact about somebody's game — the page has to say no and say the no is ours.</remarks>
     [Test]
     public async Task ARefusalIsOursAndSaysSo()
     {
@@ -153,11 +145,7 @@ public class SubmitSurfaceTests
     /// <summary>
     /// A refusal never names what the host resolved to.
     /// </summary>
-    /// <remarks>
-    /// Echoing the address back would make this form a free scan of whatever network the crawler runs
-    /// inside — submit a name, read which internal address it landed on — which is the thing §7.2's
-    /// gate exists to prevent, handed back through the error message.
-    /// </remarks>
+    /// <remarks>Echoing the resolved address back would make this form a free network scan — submit a name, read where it landed — which is what §7.2's gate exists to prevent.</remarks>
     [Test]
     public async Task ARefusalNeverNamesTheAddressItResolvedTo()
     {
@@ -166,8 +154,6 @@ public class SubmitSurfaceTests
         await Assert.That(answer!.Sentence).DoesNotContain("169.254");
         await Assert.That(answer.Sentence).DoesNotContain("10.0.0");
 
-        // And the receipt's detail, which does name it, is not a thing the copy can reach: it takes
-        // an outcome and an address string and has nowhere to put one.
         await Assert.That(typeof(SubmitAnswer).GetProperties().Select(p => p.Name))
             .IsEquivalentTo(new[] { "Heading", "Sentence", "Link" });
     }
@@ -177,17 +163,14 @@ public class SubmitSurfaceTests
     /// </summary>
     /// <remarks>
     /// <b>The two sentences were an internal-DNS oracle.</b> §7.2 keeps "did not resolve" and
-    /// "resolved somewhere we will not go" apart because they are two facts, and our own record has
-    /// to hold them apart — but handing the distinction to whoever asked turns a public form into a
-    /// scanner. Submit <c>internal.corp.example</c>: one answer means it exists on our side of a
-    /// split horizon and the other means it does not, and a few hundred guesses is a map of somebody
-    /// else's network drawn from outside it.
+    /// "resolved somewhere we will not go" apart internally, but exposing the distinction turns a
+    /// public form into a scanner: a few hundred submitted guesses map somebody else's split-horizon
+    /// DNS from outside it.
     /// </remarks>
     [Test]
     public async Task TheRefusalsAreIndistinguishableToASubmitter()
     {
-        // Every refusal a submitter can be given, whatever produced it: §7.2's scope gate, an
-        // ordinary DNS failure, and §11's opt-out.
+        // Every refusal a submitter can be given: §7.2's scope gate, an ordinary DNS failure, §11's opt-out.
         SubmissionOutcome[] refusals =
         [
             SubmissionOutcome.RefusedNotRoutable,
@@ -201,16 +184,14 @@ public class SubmitSurfaceTests
 
         await Assert.That(answers.Distinct().Count()).IsEqualTo(1);
 
-        // Including in the URL, which is where a script would look rather than at the prose.
+        // Including in the URL, where a script would look rather than at the prose.
         await Assert.That(refusals.Select(SubmitLinks.Token).Distinct().Count()).IsEqualTo(1);
 
-        // And the page says out loud that it is refusing to say, rather than seeming vague.
         var words = Render.Words(await PageAsync("?result=undialable&host=internal.example.org&port=4201"));
 
         await Assert.That(words).Contains("We deliberately do not say which");
 
-        // The facts still exist, and are still three, where they belong: in our own record. The enum
-        // keeps every member and the table keeps every word; only the surface collapses them.
+        // The facts still exist, in our own record — only the surface collapses them.
         await Assert.That(Enum.GetNames<SubmissionOutcome>())
             .Contains(nameof(SubmissionOutcome.RefusedNotRoutable))
             .And.Contains(nameof(SubmissionOutcome.Unresolvable))
@@ -220,13 +201,7 @@ public class SubmitSurfaceTests
     /// <summary>
     /// An opt-out refusal is byte-identical to a scope refusal, as a whole rendered page.
     /// </summary>
-    /// <remarks>
-    /// The copy being equal is the assertion above; this is the one that would catch a difference
-    /// arriving anywhere else — a class on the panel, an extra link, a hidden field. An opt-out is
-    /// published publicly and there is nothing to conceal about it, but a second word for a second
-    /// fact is a second thing a stranger can enumerate the crawler's view with, and that vocabulary
-    /// was collapsed once already to close exactly that.
-    /// </remarks>
+    /// <remarks>Catches a difference arriving anywhere else — a panel class, an extra link, a hidden field — not just in the copy asserted above.</remarks>
     [Test]
     public async Task AnOptOutRefusalRendersByteIdenticallyToAScopeRefusal()
     {
@@ -239,9 +214,6 @@ public class SubmitSurfaceTests
         await Assert.That(viaOptOut).IsEqualTo(viaScope);
         await Assert.That(viaOptOut).IsEqualTo(viaDns);
 
-        // Equality is the whole assertion — three identical pages cannot tell anybody apart. This is
-        // the separate worry: the published record itself, which the gate has in hand and which no
-        // amount of equality would stop appearing on all three.
         await Assert.That(viaOptOut).DoesNotContain("opt-out=");
         await Assert.That(viaOptOut).DoesNotContain(OptOutVocabulary.DnsLabel);
     }
@@ -249,11 +221,7 @@ public class SubmitSurfaceTests
     /// <summary>
     /// The form says an opt-out stops a submission, because an operator needs to know that.
     /// </summary>
-    /// <remarks>
-    /// Saying the three refusals exist tells nobody which one they got, and leaving them unlisted
-    /// would make an honest refusal read as a malfunction. This is also the sentence that answers
-    /// "can somebody else put my game back on your site" — which is the question §11 exists for.
-    /// </remarks>
+    /// <remarks>Answers "can somebody else put my game back on your site" — the question §11 exists for.</remarks>
     [Test]
     public async Task TheFormSaysAnOptOutStopsASubmission()
     {
@@ -271,7 +239,6 @@ public class SubmitSurfaceTests
         await Assert.That(words).Contains("mud.example.org 4201");
         await Assert.That(words).Contains("will be dialled on the next crawl cycle");
 
-        // And how to get it listed, which is the question the answer raises.
         await Assert.That(words).Contains("It appears here once somebody proves they run it");
         await Assert.That(words).Contains("come back to this form with the same address");
     }
@@ -291,11 +258,7 @@ public class SubmitSurfaceTests
     /// <summary>
     /// A hidden game's answer offers the claim page, which is the only exit it has.
     /// </summary>
-    /// <remarks>
-    /// Hidden-until-claimed is only a state and not a trap because there is a way out of it, and a
-    /// person who has just told us the address is exactly who should be handed it. Before this the
-    /// answer said "we have it, nobody has claimed it" and stopped — true, and a dead end.
-    /// </remarks>
+    /// <remarks>Hidden-until-claimed is a state and not a trap only because there's a way out of it, handed to exactly the person who just told us the address.</remarks>
     [Test]
     public async Task ASubmissionOfAHeldBackGameOffersTheWayToClaimIt()
     {
@@ -305,19 +268,13 @@ public class SubmitSurfaceTests
         await Assert.That(page).Contains("href=\"/g/tidewater-nights/claim\"");
         await Assert.That(Render.Words(page)).Contains("If that is you, this is the way in");
 
-        // And not its listing, which does not exist.
         await Assert.That(page).DoesNotContain("href=\"/g/tidewater-nights\"");
     }
 
     /// <summary>
     /// A hand-made link cannot make this page link to a game the site is hiding.
     /// </summary>
-    /// <remarks>
-    /// The slug travels in a querystring, so it is looked up again before it is rendered. A slug that
-    /// is not public comes back null, and the answer then says we have the address without linking
-    /// anywhere — which is the hidden-until-claimed filter holding on the one page that talks about
-    /// it.
-    /// </remarks>
+    /// <remarks>The slug travels in a querystring and is looked up again before rendering; a non-public slug comes back null and the page links nowhere.</remarks>
     [Test]
     public async Task ASlugThatNamesNoGameIsNotLinked()
     {
@@ -340,12 +297,7 @@ public class SubmitSurfaceTests
     /// <summary>
     /// Every sentence the form can say survives in plain text, and the form survives with it.
     /// </summary>
-    /// <remarks>
-    /// §9's own test: if a fact cannot survive here, its rendering on the main site was decoration.
-    /// The form itself is not described in the plain block because two text boxes and a button
-    /// already <em>are</em> plain text — a text browser posts them — so the page keeps the real form
-    /// underneath rather than a paragraph about one.
-    /// </remarks>
+    /// <remarks>The form isn't described in the plain block because two text boxes and a button already are plain text; the page keeps the real form rather than a paragraph about one.</remarks>
     [Test]
     public async Task PlainModeCarriesEveryAnswerAndKeepsTheForm()
     {
@@ -383,11 +335,7 @@ public class SubmitSurfaceTests
     /// <summary>
     /// Every outcome has words, and every token reads back as something the surface treats alike.
     /// </summary>
-    /// <remarks>
-    /// Not a strict round trip, and deliberately: the two scope outcomes share one token, so one of
-    /// them reads back as the other. What has to hold is that the answer is unchanged either way —
-    /// which is the property the shared token exists for.
-    /// </remarks>
+    /// <remarks>Not a strict round trip: the two scope outcomes deliberately share one token, so one reads back as the other. What must hold is that the answer is unchanged either way.</remarks>
     [Test]
     public async Task EveryOutcomeHasSomethingToSayAndAWordToSayItWith()
     {
@@ -405,11 +353,7 @@ public class SubmitSurfaceTests
     }
 
     /// <summary>The site says where the form is, or nobody finds it.</summary>
-    /// <remarks>
-    /// Asked of the bar rather than of the home page. The home page said it in a footer that also
-    /// said "all games" and "archive" under a bar already carrying both, so the whole row went — and
-    /// the link that mattered is the one the bar had all along.
-    /// </remarks>
+    /// <remarks>Asked of the bar rather than the home page — the link lives there now, not in a footer.</remarks>
     [Test]
     public async Task TheSiteLinksToTheForm()
     {
@@ -421,13 +365,7 @@ public class SubmitSurfaceTests
     /// <summary>
     /// The claim page finds a game the listing is holding back.
     /// </summary>
-    /// <remarks>
-    /// <b>The exit, at the surface.</b> Claiming looked its game up with
-    /// <c>IGameQueries.FindAsync</c> — the same read that had just been taught to hide submitted
-    /// games — so the one page that could end the hidden state answered "No such game" for exactly
-    /// the games that needed it. Claiming reads the stored row instead, because a claim is about a
-    /// game and not about whether we publish it yet.
-    /// </remarks>
+    /// <remarks>Claiming reads the stored row directly rather than the listing's <c>IGameQueries.FindAsync</c>, which is taught to hide submitted games — a claim is about a game, not about whether we publish it yet.</remarks>
     [Test]
     public async Task TheClaimPageFindsAGameTheListingIsHoldingBack()
     {

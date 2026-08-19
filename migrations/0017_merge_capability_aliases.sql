@@ -1,37 +1,20 @@
--- Moves capability rows written under a spelling that names a capability we already carry.
+-- Folds game_field rows written under a capability spelling we now treat as a duplicate of
+-- another (CapabilityFields.Canonical folds both on the way in; this backfills what was already
+-- written so the read path never needs a second fold).
 --
--- Two vocabularies reach `game_field` and they disagree about two names. The telnet handshake
--- records the option it negotiated, which is MCCP2, while MSSP's variable is the version-less MCCP;
--- and MSSP's own specification says SSL where a good many games write TLS. The dashboard tallies
--- games per field name, so each disagreement rendered as two half-empty rows: MCCP2 measured by 87
--- games and declared by none, above MCCP declared by 35 and never measured. Holding measured beside
--- declared exists so the two can be compared, and they cannot be compared across two rows.
+-- MCCP2 -> MCCP is a pure rename: nothing writes both spellings for the same field, so no
+-- collision is possible.
 --
--- `CapabilityFields.Canonical` now folds both on the way in. This moves what was already written, so
--- that every stored row is under the canonical name and the read path never has to fold a second
--- time — which it must not do, because folding two field names into one capability at read time
--- would add their game counts rather than merge them, and count a game offering both spellings
--- twice in its own share.
+-- SSL -> TLS can collide (six games declare both), so those rows are merged first: `true` wins
+-- if either says so, the row keeps the earliest first_seen_at and latest last_confirmed_at, and
+-- any SSL row with a matching TLS row is then dropped before the remaining SSL rows are renamed.
+-- A capability value beyond a plain boolean (e.g. `SSL 4202`) survives verbatim under its new name.
 --
--- MCCP2 -> MCCP cannot collide: nothing writes `capability.mccp.measured` (the handshake only ever
--- names the option) and nothing writes `capability.mccp2.declared` (MSSP has no such variable), so
--- the update is a rename.
+-- field_change is untouched — it records what was recorded and when, not to be retyped for a
+-- later renaming choice.
 --
--- SSL -> TLS can, and does: six games declare both. `true` wins the merge, because a game naming an
--- encrypted port under either word has declared one and the disagreement is between our two names
--- for it rather than between two claims of theirs. The row keeps the earliest first_seen_at and the
--- latest last_confirmed_at, so neither "we have known this since" nor "we saw this again on" is
--- moved by our own renaming.
---
--- No value a game published is lost. The boolean is what merges; a capability variable carrying more
--- than a yes still writes its own descriptive row, so `SSL 4202` survives verbatim under SSL.
---
--- `field_change` is left exactly as it is. Those rows say what this site recorded and when, and a
--- game's history is not ours to retype because we later chose a different name for a column.
---
--- No BEGIN/COMMIT here, and that is not an oversight: MigrationRunner opens a transaction around
--- each script and writes the ledger entry inside it, so a script opening its own commits half the
--- work and then fails the ledger insert with "transaction is already completed".
+-- No BEGIN/COMMIT: MigrationRunner opens its own transaction per script and writes the ledger
+-- entry inside it.
 
 UPDATE game_field
    SET field = 'capability.mccp.measured'

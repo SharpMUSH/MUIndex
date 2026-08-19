@@ -10,11 +10,8 @@
 
 @if (Page is not null)
 {
-    @*
-        Above the plain switch and outside it, because ?plain=1 is the same document rendered for a
-        text browser and gets the same metadata — its canonical URL is this page without the query,
-        which is what stops one game being indexed as two.
-    *@
+    @* Above the plain switch: ?plain=1 is the same document and gets the same metadata, with a
+       canonical URL that drops the query so one game isn't indexed as two. *@
     <SitePreview Title="@Page.Summary.Name"
                  Description="@PreviewCopy.ForGame(Http.LocaleOf().Tag, Page, Now)"
                  Card="PreviewCard.Game"
@@ -23,44 +20,35 @@
 
 @if (Page is null)
 {
-    @* Not reached over HTTP: OnParametersSetAsync signals not-found, and the framework answers with
-       the site's own page and a 404 rather than with this. It is what a headless render of this
-       component produces, where there is no response to give a status line to. *@
+    @* Not reached over HTTP — OnParametersSetAsync signals not-found and the framework answers with
+       its own 404 page. This is what a headless render produces instead, with no response to
+       status. *@
     <h1>@L("game.notFound")</h1>
     <p class="dim">@L("game.notFound.hint")</p>
 }
 else if (Plain)
 {
-    @* Plain mode is a real second surface, not a courtesy. If a fact cannot survive here, its
-       graphic on the main page is decoration. It renders from the same view models — this page is
-       the graphical one with the graphics removed, which is what bounds its cost (spec §9). *@
+    @* Plain mode is a real second surface, not a courtesy: if a fact cannot survive here, its
+       graphic on the main page is decoration. Renders from the same view models (spec §9). *@
     <pre class="mono plain">@PlainText.Render(Page, Now, Reach, Trend, Http.LocaleOf().Tag)</pre>
 }
 else
 {
-    @* The game is the hero; the connect screen follows as evidence. Leading with the art would hand
-       the top of every page to whatever a stranger's server happens to send. *@
+    @* The game is the hero; the connect screen follows as evidence, rather than leading and handing
+       the top of the page to whatever a stranger's server happens to send. *@
     <article class="game card-page @(Archived ? "archived" : null)">
         <header class="game-head">
           <div class="game-identity">
-            @*
-                The icon a game publishes, and nothing where it published none. No monogram, no grey
-                square, no initial in a circle: an empty frame on five hundred pages is noise, and a
-                generated monogram invents a brand the game never supplied — which on a site that
-                publishes only what it measured is the one decoration that costs something. The
-                indent collapses by itself, because it is the row's gap and not a padding value.
-            *@
+            @* The icon a game publishes, and nothing where it published none — a generated monogram
+               would invent a brand the game never supplied. Indent collapses by itself: it's the
+               row's gap, not a padding value. *@
             <GamePlate Slug="@Page.Summary.Slug" Name="@Page.Summary.Name"
                        HasIcon="Icon is not null" Size="64" />
             <div class="game-title">
                 <h1><GameName Name="@Page.Summary.Name" /></h1>
 
-                @*
-                    Where this game's people are, under its name and above everything we have to say
-                    about it. A reader who came here to find the Discord has found it before reading
-                    a word of ours — and every one of these is printed in full, with its chip, in the
-                    self-description below, which is the record these are drawn from.
-                *@
+                @* Where this game's people are, under its name and above everything we have to say
+                   about it — a reader looking for the Discord finds it before reading a word of ours. *@
                 <ReachRow Links="Page.Links" Now="Now" />
 
                 @if (Archived)
@@ -75,13 +63,9 @@ else
                 {
                     <p class="lede">@description</p>
                 }
-                @*
-                    The claim state as one sentence rather than a badge and a paragraph three blocks
-                    apart. "Unclaimed" was a pill on the page and the same fact was restated below in
-                    prose; the invitation sits with the fact because an owner arriving at their own
-                    listing is the one reader for whom it is an action. A link and not a button —
-                    nothing happens until they are signed in (spec §8.1).
-                *@
+                @* The claim state as one sentence rather than a badge and a paragraph three blocks
+                   apart. A link and not a button — nothing happens until they are signed in
+                   (spec §8.1). *@
                 @if (Page.Summary.IsClaimed)
                 {
                     <p class="claim-line dim">
@@ -94,29 +78,19 @@ else
                         @L("game.unclaimed")
                         @if (Claimable)
                         {
-                            <a href="@Http.Link($"/g/{Page.Summary.Slug}/claim")">@L("game.claim")</a>
+                            @* A bare space here is whitespace-only text next to a Razor code block,
+                               which the compiler drops — without this escape the sentence and link
+                               ran together with no space between them. *@
+                            <text>&#32;</text><a href="@Http.Link($"/g/{Page.Summary.Slug}/claim")">@L("game.claim")</a>
                         }
                     </p>
                 }
 
-                @*
-                    The address, inside the title's own column and sharing its left edge. It used to
-                    be a sibling of the outer row, beside the count — so it hung under the logo and
-                    read as belonging to it, and on a game with no logo it sat in a column of its
-                    own for no reason. Nested like this the indent is the title's, and it collapses
-                    to nothing by itself when there is no logo.
-
-                    Current addresses first, then the ones the game has left. A departed address is
-                    rendered rather than dropped, because the reader most in need of this page is the
-                    one holding an address that stopped answering — and §7.5's promise that nothing is
-                    deleted is invisible if the row is simply not shown.
-                *@
-                @*
-                    The addresses, as lines rather than boxes. Each was a bordered panel the full
-                    width of the title column, which gave a hostname the furniture of a card on a
-                    page whose only framed thing is the connect screen — somebody else's output,
-                    quoted.
-                *@
+                @* The address, nested in the title's own column so the indent collapses when there
+                   is no logo. Current addresses first, then departed ones — rendered rather than
+                   dropped, since §7.5's promise that nothing is deleted is invisible otherwise. Lines
+                   rather than boxes: a bordered panel gave a hostname the furniture of a card on a
+                   page whose only framed thing is the connect screen. *@
                 @foreach (var e in Page.Endpoints.OrderByDescending(e => e.IsCurrent).ThenBy(e => e.Port))
                 {
                     <p class="endpoint mono @(e.IsCurrent ? null : "former")" translate="no">
@@ -144,13 +118,11 @@ else
           </div>
 
             @*
-                The figure, and the kicker that dates it. Both are one fact — a count is only as good
-                as the probe that produced it — so they read as one block at the far end of the
-                header rather than as a number and a chip on one line.
+                The figure and the kicker that dates it read as one block, since a count is only as
+                good as the probe that produced it.
 
-                "connected" and not "players on now": the crawler counts open connections, not
-                people, and one person with two clients is two connections. The word that localizes
-                cleanly is the one that is true.
+                "connected" and not "players on now": the crawler counts open connections, and one
+                person with two clients is two connections.
             *@
             <div class="game-figure">
                 @if (Page.Summary.PlayersNow is { } n)
@@ -166,21 +138,13 @@ else
                 else
                 {
                     @*
-                        Never a zero and never a blank: those are different facts and only one of
-                        them is a measurement.
-
-                        And never "not counted" either, which is what stood here. That is the
-                        glossary's word for an hour we reached and could not read a number out of —
-                        the middle of rule 2's three states. A null count is not that state; it is
-                        every state at once. `PlayersNow` comes back null when nobody has measured
-                        this game, when a probe answered with nothing countable, and when the last
-                        count is older than the window this figure covers, and nothing on this page
-                        can tell those apart. Naming the middle one files our own silence as a probe
-                        of theirs, which is rule 5 in the one place a reader looks first.
-
-                        So the figure states the absence and the kicker declines to explain it. The
-                        cause is knowable from the strip and the grid below, which are derived from
-                        intervals and from presence rows respectively and *can* tell them apart.
+                        Never a zero and never a blank — different facts, only one a measurement.
+                        And never "not counted" either: that's the glossary's word for rule 2's
+                        middle state, but a null count here is every state at once — unmeasured,
+                        uncountable, or stale — and nothing on this page can tell them apart. Naming
+                        the middle one would file our own silence as a probe of theirs (rule 5), so
+                        the figure states the absence and leaves the cause to the strip and grid
+                        below, which *can* tell them apart.
                     *@
                     <p class="figure-count mono unknown">@L("game.count.none")</p>
                     <p class="kicker figure-age">@L("game.count.none.why")</p>
@@ -207,15 +171,10 @@ else
         }
 
         @*
-            The other two ways out of the listing, which had no copy at all until now: migration 0024
-            shipped `excluded` with a reason column and nothing that printed it, so a reader who
-            arrived at one of the nine stock instances saw an ordinary page and no sign that anybody
-            had decided anything about it.
-
             The two plates say different things because the decisions are different. An exclusion is
             OURS and has to be arguable, so it prints the argument. An unlisting is THEIRS, so it
-            prints no reason at all — publishing our paraphrase of somebody's request on the page they
-            asked us to take down would be answering it with a smaller version of itself.
+            prints no reason at all — publishing our paraphrase of somebody's take-down request would
+            be answering it with a smaller version of itself.
         *@
         @if (Excluded)
         {
@@ -234,12 +193,8 @@ else
             </div>
         }
 
-        @*
-            One column. The page was two — the charts on the left, capabilities and the declared
-            fields in a right rail — which put the DOM's whole left column ahead of a panel the eye
-            meets at the top right, so the tab key ran to the bottom of the page and jumped back up.
-            Stacked, reading order and focus order are the same order.
-        *@
+        @* One column, not two: a right rail put the DOM's whole left column ahead of a panel the eye
+           meets at the top right, so the tab key ran to the bottom and jumped back up. *@
         <div class="game-body">
 
         <section aria-labelledby="screen-heading">
@@ -251,31 +206,22 @@ else
         </section>
 
             <section aria-labelledby="activity-heading">
-                @*
-                    "Connections by hour" and not "when people are on": the grid counts connections,
-                    which is what the crawler can see, and naming it for people is a claim about who
-                    is behind them that no probe can make.
-                *@
+                @* "Connections by hour" and not "when people are on": naming it for people is a
+                   claim about who is behind a connection that no probe can make. *@
                 <h2 id="activity-heading">@L("game.connectionsByHour")</h2>
                 <ActivityHeatmap Cells="Page.Activity" />
 
-                @*
-                    The heatmap above folds every week measured into one grid, which answers "when
-                    is anyone on" and destroys "is this game growing" — a game that doubled last
-                    month and one that halved draw the same 168 cells. This is the second question.
-                *@
+                @* The heatmap above folds every week into one grid, answering "when is anyone on"
+                   and destroying "is this game growing" — a game that doubled and one that halved
+                   draw the same 168 cells. This is the second question. *@
                 @if (Trend is not null)
                 {
                     <h2 id="trend-heading">@L("game.howMany")</h2>
                     <PresenceTrend Series="Trend" Shape="Shape" />
 
                     @* The range is in the address, so seeking is links and needs no script. *@
-                    @*
-                        The option you are already on is not a link to itself. A pressed state, said
-                        with aria-current and drawn with the accent — the pair reads as a toggle
-                        because it is one, and there is no keystroke that lands on a control whose
-                        only effect is to re-fetch the page you are reading.
-                    *@
+                    @* The option you are already on is not a link to itself — no keystroke lands on
+                       a control whose only effect is to re-fetch the page you're reading. *@
                     <nav class="spans" aria-label="@L("trend.spans.label")">
                         @foreach (var days in RangePresets)
                         {
@@ -295,11 +241,8 @@ else
                         }
                     </nav>
 
-                    @*
-                        And the shape, for the same reason and in the same way. Neither drawing is
-                        right for every game on the site — see TrendShape — so it is a link rather
-                        than a preference, and a reader who found the one they wanted can send it.
-                    *@
+                    @* And the shape, same reasoning: neither drawing is right for every game — see
+                       TrendShape — so it's a link rather than a preference. *@
                     <nav class="spans shapes" aria-label="@L("trend.shapes.label")">
                         @foreach (var shape in new[] { TrendShape.Line, TrendShape.Bar })
                         {
@@ -319,11 +262,9 @@ else
                 <AvailabilityStrip Summary="Reach" />
 
                 @*
-                    §9's referral neighbours, off edges the crawler has been storing since migration
-                    0006 and nothing has read. Split by direction on purpose: "we list them" is a
-                    fact about what THIS game published, and "they list us" is a fact about what
-                    somebody else published. One combined list would attribute each to the other,
-                    and neither is a claim that the two games are related.
+                    §9's referral neighbours. Split by direction on purpose: "we list them" is a fact
+                    about what THIS game published, "they list us" is a fact about what somebody else
+                    published — one combined list would attribute each to the other.
                 *@
                 @if (Page.Referrals.Count > 0)
                 {
@@ -368,9 +309,8 @@ else
                         @foreach (var change in Page.Changes.OrderByDescending(c => c.At))
                         {
                             <li>
-                                @* One date format, site-wide: this list said 2026-08-17 while the
-                                   address line above it said Aug 2026 and the rankings said
-                                   31 July 2026. *@
+                                @* One date format, site-wide — this list, the address line, and the
+                                   rankings used to each say it differently. *@
                                 <span class="faint">@Dates.Absolute(Http.LocaleOf().Tag, change.At)</span> @change.Summary
                             </li>
                         }
@@ -383,12 +323,8 @@ else
 
                 <h2 id="declared">@L("game.declaredByGame")</h2>
                 <dl class="declared">
-                    @*
-                        The field name is the MSSP token the game itself published, lowercased — an
-                        open set we neither choose nor could translate without inventing a word for
-                        somebody's `FANDOM`. Machine voice, and marked so a browser's own translator
-                        obeys too.
-                    *@
+                    @* The field name is the MSSP token the game itself published, lowercased — an
+                       open set we could not translate without inventing a word for `FANDOM`. *@
                     @foreach (var (name, chip) in Page.Declared)
                     {
                         <dt class="kicker" translate="no">@name</dt>
@@ -410,8 +346,8 @@ else
     /// Whether claiming is available at all — it needs a database, and the demo has none.
     /// </summary>
     /// <remarks>
-    /// Asked of the container rather than re-derived from a connection string, so the page and the
-    /// endpoints cannot disagree about whether accounts exist.
+    /// Asked of the container so the page and the endpoints cannot disagree about whether accounts
+    /// exist.
     /// </remarks>
     private bool Claimable => Services.GetService<MUI.Catalog.Persistence.ClaimService>() is not null;
 
@@ -422,8 +358,8 @@ else
     /// <summary>The first and last day of the trend range, as <c>yyyy-MM-dd</c>.</summary>
     /// <remarks>
     /// Clamped rather than validated: see <see cref="TrendRange.Parse"/>. What the reader gets is
-    /// always printed over the graphic, so a range that was adjusted says so rather than quietly
-    /// drawing a different fortnight from the one asked for.
+    /// always printed over the graphic, so an adjusted range says so rather than silently drawing a
+    /// different one.
     /// </remarks>
     [SupplyParameterFromQuery(Name = "from")] private string? RangeFrom { get; set; }
 
@@ -431,8 +367,8 @@ else
 
     /// <summary>Which drawing of the trend: <c>line</c> or <c>bar</c>.</summary>
     /// <remarks>
-    /// Anything else falls back to the line rather than erroring, and the selector under the graphic
-    /// then shows which shape the reader actually got — the same choice the ranking window makes.
+    /// Anything else falls back to the line rather than erroring; the selector under the graphic
+    /// shows which shape the reader actually got.
     /// </remarks>
     [SupplyParameterFromQuery(Name = TrendShapes.Query)] private string? ChartShape { get; set; }
 
@@ -455,9 +391,9 @@ else
     /// The address of one range, keeping whatever else the reader is already looking at.
     /// </summary>
     /// <remarks>
-    /// A query with no path in front of it, which means <em>this page, asked differently</em> — and
-    /// meant it only once <c>&lt;base href="@Http.Link("/")"&gt;</c> was gone from <c>App.razor</c>, since a base
-    /// resolves a query-only href against itself and sent all five of these to the home page.
+    /// A query with no path in front of it, meaning <em>this page, asked differently</em> — only
+    /// worked once <c>&lt;base href="@Http.Link("/")"&gt;</c> was gone from <c>App.razor</c>, since a
+    /// base resolves a query-only href against itself.
     /// </remarks>
     private string RangeHref(TrendRange range) => Href(range, Shape);
 
@@ -482,11 +418,10 @@ else
     /// fetch it" and "no database behind this site" alike.
     /// </summary>
     /// <remarks>
-    /// Service-located rather than injected, like <see cref="Claimable"/> above and for the same
-    /// reason: the store is registered only when a connection string is, so the demo fixture renders
-    /// the monogram exactly as a game with no icon does. Nothing here says which of the reasons it
-    /// was — a failed fetch is our afternoon and not a fact about the game (rule 5), so it gets no
-    /// sentence, no placeholder and no broken image.
+    /// Service-located like <see cref="Claimable"/>: the store is registered only when a connection
+    /// string is, so the demo fixture renders the monogram exactly as a game with no icon does. A
+    /// failed fetch is our afternoon and not a fact about the game (rule 5), so it gets no sentence,
+    /// no placeholder and no broken image.
     /// </remarks>
     private GameIcon? Icon;
     private ReachSummary Reach = default!;
@@ -499,10 +434,9 @@ else
     /// The schema.org graph for this game, built once the origin is known.
     /// </summary>
     /// <remarks>
-    /// Handed to <c>SitePreview</c> as a function rather than a string because only that component
-    /// knows the two things this needs: the absolute origin the request came in on, and whether a
-    /// catalogue exists at all. Over the demo fixture it is never called, which is the point —
-    /// nothing that reads a graph would ever see the banner saying the games are invented.
+    /// Handed to <c>SitePreview</c> as a function rather than a string, since only that component
+    /// knows the absolute origin and whether a catalogue exists at all. Never called over the demo
+    /// fixture — nothing reading a graph would see the banner saying the games are invented.
     /// </remarks>
     private string GraphFor(Uri origin) => GameStructuredData.For(Page!, origin);
 
@@ -516,10 +450,9 @@ else
     /// When what is on this page was last true.
     /// </summary>
     /// <remarks>
-    /// An unlisted game is frozen for the same reason an archived one is — nothing new arrives, and
-    /// the opt-out under it means nothing will — so its connect screen is dated from the last probe
-    /// that answered rather than presented as four minutes old. Saying "just now" over a capture from
-    /// before somebody asked us to stop would be the freshest lie on the page.
+    /// An unlisted game is frozen for the same reason an archived one is: its connect screen is dated
+    /// from the last probe that answered, not presented as minutes old. Saying "just now" over a
+    /// capture from before somebody asked us to stop would be the freshest lie on the page.
     /// </remarks>
     private DateTimeOffset? Captured =>
         Archived || Unlisted ? Entry.LastReachableAt : Now.AddMinutes(-4);
@@ -537,20 +470,19 @@ else
             ? await icons.ForGameAsync(Page.Summary.Id)
             : null;
 
-        // Service-located like the icon store above, and for the same reason: a deployment without
-        // a trend source renders the page without the chart rather than failing to render at all.
+        // Service-located like the icon store above: a deployment without a trend source renders
+        // the page without the chart rather than failing entirely.
         Trend = Page is not null && Services.GetService<IPresenceTrends>() is { } trends
             ? await trends.ForGameAsync(Page.Summary.Id, Range.From, Range.To)
             : null;
 
         if (Page is null)
         {
-            // Said in the status line and not only in the sentence. A slug a game used to have is
-            // redirected before this page is reached (§5.7), so arriving here means no game ever
-            // answered to this URL — and a 200 tells a crawler to index a page about a game that
-            // does not exist. Under a request this hands the reader the site's not-found page with
-            // a 404; under the headless renderer the tests use it does nothing, which is what the
-            // block at the top of this file is still for.
+            // A slug a game used to have is redirected before this page is reached (§5.7), so
+            // arriving here means no game ever answered to this URL — a 200 would tell a crawler to
+            // index a page about a game that does not exist. Under a request this yields a 404;
+            // under the headless renderer the tests use it does nothing, which is what the block at
+            // the top of this file is still for.
             Navigation.NotFound();
             return;
         }
@@ -572,8 +504,7 @@ else
     /// </summary>
     /// <remarks>
     /// A content-language match against what THIS game published, not <see cref="Tag"/> — the site's
-    /// own interface locale is a different question with a different (and much narrower) answer set.
-    /// See <see cref="LocalizedDescription"/>.
+    /// interface locale is a different question. See <see cref="LocalizedDescription"/>.
     /// </remarks>
     private string? LocalizedLede => Page is null
         ? null

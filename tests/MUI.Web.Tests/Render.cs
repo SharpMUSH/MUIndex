@@ -18,10 +18,8 @@ namespace MUI.Web.Tests;
 /// Renders one component to HTML, headlessly.
 /// </summary>
 /// <remarks>
-/// A claim about markup has to be read off a rendered frame rather than off the source. "The
-/// heatmap is a real table with headers" and "a hatched hour is a different element from an empty
-/// one" are assertions about what a browser and a screen reader receive, and the only way to check
-/// them is to look at what came out.
+/// A claim about markup has to be read off a rendered frame rather than off the source — "the
+/// heatmap is a real table with headers" is a claim about what a browser or screen reader receives.
 /// </remarks>
 public static class Render
 {
@@ -30,9 +28,8 @@ public static class Render
     /// </summary>
     /// <remarks>
     /// Wired to the same fixture the site falls back on, and deliberately <em>without</em> the
-    /// account services — which is the condition under test for anything about claiming: those are
-    /// registered only when a connection string is, so a page rendered here sees exactly what a
-    /// reader of the demo site sees.
+    /// account services, which are registered only when a connection string is — so a page rendered
+    /// here sees exactly what a reader of the demo site sees.
     /// </remarks>
     public static Task<string> PageAsync<TComponent>(Dictionary<string, object?> parameters)
         where TComponent : IComponent =>
@@ -42,27 +39,16 @@ public static class Render
     /// The same page, rendered at a URL.
     /// </summary>
     /// <remarks>
-    /// The listing reads its own querystring rather than binding parameter by parameter, because one
+    /// The listing reads its own querystring rather than binding parameter by parameter, since one
     /// parser answers both it and the read API — so rendering it at all means giving it somewhere to
-    /// read that from. Nothing here did until there was a sort whose survival of the URL had to be
-    /// proved, which is also how "last reached now ago" reached a real page: no test had ever looked
-    /// at a rendered listing row.
+    /// read that from.
     /// </remarks>
     /// <param name="yielding">
     /// Whether the catalogue answers on a later turn of the scheduler, as a real one does.
-    /// <para>
-    /// <b>The fixture answers synchronously, and that hid a page that 500s in production.</b>
-    /// <see cref="ComponentBase"/> calls <c>StateHasChanged</c> immediately after starting
-    /// <c>OnParametersSetAsync</c> and before awaiting it, so a page renders once with whatever its
-    /// fields held before the load. When the load completes inside its own first turn — which is
-    /// what every <c>Task.FromResult</c> here does — that interim render sees the finished state and
-    /// nothing is proved. Against Postgres the load genuinely suspends, the interim render sees the
-    /// initial state, and a field that starts null is dereferenced.
-    /// </para>
-    /// <para>
-    /// So this is not a slower fixture for its own sake: it is the difference between a page test
-    /// that renders the real first frame and one that renders only the last.
-    /// </para>
+    /// <see cref="ComponentBase"/> calls <c>StateHasChanged</c> before awaiting
+    /// <c>OnParametersSetAsync</c>, so a synchronous fixture's load completes within its own first
+    /// turn and the interim render never sees the initial (possibly null) state that a suspended,
+    /// real-database load would expose. This parameter reproduces that suspension.
     /// </param>
     public static Task<string> PageAsync<TComponent>(
         Dictionary<string, object?> parameters,
@@ -70,6 +56,7 @@ public static class Render
         bool measured = false,
         IReadOnlyList<GameRecord>? games = null,
         bool yielding = false,
+        ClaimService? claimService = null,
         HttpContext? http = null,
         IGameQueries? queries = null)
         where TComponent : IComponent =>
@@ -81,13 +68,19 @@ public static class Render
             services.AddSingleton<IAvailabilityHistory>(fixture);
             services.AddSingleton(TimeProvider.System);
 
-            // The same answer the demo path gives: there is no crawler behind a fixture, so the
-            // front page's strip renders nothing rather than a heartbeat nobody measured.
+            // Absent by default, matching the demo fixture's "no database" state — several pages
+            // switch on whether this resolves.
+            if (claimService is not null)
+            {
+                services.AddSingleton(claimService);
+            }
+
+            // The demo path's own answer: no crawler behind a fixture, so the strip renders nothing
+            // rather than an unmeasured heartbeat.
             services.AddSingleton<ICrawlerPulse, NoCrawlerPulse>();
 
-            // The stored rows, for the surfaces that read a game rather than a game page — claiming,
-            // and the submission form's link. Registered only when a caller supplies them, because
-            // its absence is what the demo fixture looks like and several pages switch on that.
+            // The stored rows, for surfaces that read a game rather than a game page — claiming, and
+            // the submission form's link. Registered only when a caller supplies them.
             if (games is not null)
             {
                 services.AddSingleton<IGameStore>(new StubGameStore(games));
@@ -95,15 +88,12 @@ public static class Render
 
             // Whether a database is configured, which several surfaces switch on: claiming and
             // submitting are absent over the fixture rather than present and unable to do anything.
-            // The queries behind them stay the fixture's either way — this asks what the page renders
-            // when a catalogue exists, not what a real one holds.
             services.AddSingleton(new CatalogueSource(measured));
             services.AddSingleton<NavigationManager>(new StubNavigation(query));
             services.AddSingleton<AntiforgeryStateProvider, StubAntiforgery>();
 
-            // Absent by default, matching a component rendered with no HttpContext at all — the
-            // condition LocaleRouting.IsReviewBuild's own remarks describe. Supplied only by a
-            // caller that has something to ask of the request, e.g. an Accept-Language header.
+            // Absent by default, matching a component rendered with no HttpContext at all. Supplied
+            // only by a caller with something to ask of the request, e.g. an Accept-Language header.
             if (http is not null)
             {
                 services.AddCascadingValue(_ => http);
@@ -114,11 +104,9 @@ public static class Render
     /// The fixture's answers, delivered on a later turn of the scheduler.
     /// </summary>
     /// <remarks>
-    /// One <c>await Task.Yield()</c> in front of each call is the whole of it. That is enough to
-    /// make the returned task incomplete when the caller first looks at it, which is the only
-    /// property of a real database this needs to reproduce: it is what separates the first rendered
-    /// frame from the last. See the <c>yielding</c> parameter above for why a page test that cannot
-    /// tell them apart proves less than it appears to.
+    /// One <c>await Task.Yield()</c> in front of each call is enough to make the returned task
+    /// incomplete when the caller first looks at it — the one property of a real database this needs
+    /// to reproduce. See the <c>yielding</c> parameter above.
     /// </remarks>
     private sealed class Suspending(IGameQueries inner) : IGameQueries
     {
@@ -242,10 +230,9 @@ public static class Render
     /// Enough of an antiforgery provider for <c>&lt;AntiforgeryToken /&gt;</c> to render.
     /// </summary>
     /// <remarks>
-    /// The framework's own provider is internal and wants a request behind it. Without one the
-    /// component renders nothing at all, silently — so a test asking "is this form token-protected"
-    /// would pass on a page that had never had a token, and fail on one that did. This is what makes
-    /// the absence of a hidden field mean something.
+    /// The framework's own provider is internal and wants a request behind it; without one the
+    /// component renders nothing at all, silently — so a test for "is this token-protected" needs
+    /// this to make the field's absence mean something.
     /// </remarks>
     private sealed class StubAntiforgery : AntiforgeryStateProvider
     {
@@ -289,8 +276,7 @@ public static class Render
     /// </summary>
     /// <remarks>
     /// An assertion about a sentence should not fail because the renderer escaped an em dash or the
-    /// plain surface wrapped at eighty columns. Both are correct behaviour, and a test that reads
-    /// the raw bytes is asserting on the formatting rather than on the claim.
+    /// plain surface wrapped at eighty columns — both are correct behaviour.
     /// </remarks>
     public static string Words(string markupOrText) =>
         string.Join(' ', System.Net.WebUtility.HtmlDecode(markupOrText)
@@ -300,18 +286,10 @@ public static class Render
     /// What a reader actually sees: the elements removed, then decoded and collapsed.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <see cref="Words"/> keeps the tags, which is right for most assertions here and wrong for one
-    /// kind: a sentence that places its own link or code span is broken up by elements, so asserting
-    /// it against <c>Words</c> asserts the markup as well as the sentence. It is also why a
-    /// class name — <c>&lt;details class="history"&gt;</c> — reads as the word "history" and can
-    /// satisfy a check that was about the copy.
-    /// </para>
-    /// <para>
-    /// Tags are stripped <em>before</em> decoding, on purpose. The owner dashboard prints a badge
-    /// snippet as escaped markup for an operator to copy; decoding first would turn it into
-    /// something this regex then ate, and the snippet is text a reader is meant to see.
-    /// </para>
+    /// <see cref="Words"/> keeps the tags, which breaks a sentence that places its own link or code
+    /// span across elements, and lets a class name like <c>class="history"</c> read as the word
+    /// "history". Tags are stripped <em>before</em> decoding: the owner dashboard prints a badge
+    /// snippet as escaped markup, and decoding first would corrupt it before this regex ran.
     /// </remarks>
     public static string Text(string markup) =>
         Words(Regex.Replace(markup, "<[^>]*>", " ", RegexOptions.None, TimeSpan.FromSeconds(5)));

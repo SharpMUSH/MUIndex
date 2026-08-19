@@ -8,28 +8,19 @@ namespace MUI.Web.Components;
 /// Turns a captured connect screen into rows of styled runs, server-side.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Foreign colour is <em>quoted, not hosted</em>. A game's SGR is arbitrary and will clash with any
-/// palette, so the site does not try to absorb it: the parser resolves every indexed colour against
-/// one locked 16-colour table that is identical in both themes, and the frame it renders into keeps
-/// its own fixed black ground. Nothing bleeds either way — no colour from a game is ever sampled for
-/// chrome, and no site colour tints the art.
-/// </para>
-/// <para>
-/// The art is a fixed character grid, so it is laid out at exactly <see cref="Columns"/> columns and
-/// never scaled. Longer lines wrap the way a terminal wraps them, and the wrapped rows are counted,
-/// because the row count the caption states has to be the number of rows a reader would actually
-/// scroll past.
-/// </para>
+/// Foreign colour is <em>quoted, not hosted</em>: indexed colours resolve against one locked
+/// 16-colour table identical in both themes, and the frame keeps its own fixed black ground, so
+/// nothing bleeds either way. The art is laid out at exactly <see cref="Columns"/> columns and never
+/// scaled; wrapped rows are counted, since the caption's row count has to match what a reader
+/// actually scrolls past.
 /// </remarks>
 public static class Ansi
 {
     /// <summary>
     /// The grid the art was drawn for. Games assume it; scaling breaks the box-drawing. 80 clipped
-    /// a real cluster of AresMUSH-family banners mid-glyph (measured against captured connect
-    /// screens in prod, 2026-08-18); 100 clears that cluster's widest observed line (97) with a
-    /// little headroom without absorbing the much longer lines that are cursor-addressed screens
-    /// misread as one row, not honest width.
+    /// a real cluster of AresMUSH-family banners mid-glyph; 100 clears their widest observed line
+    /// (97) without absorbing the much longer lines that are cursor-addressed screens misread as
+    /// one row, not honest width.
     /// </summary>
     public const int Columns = 100;
 
@@ -40,11 +31,8 @@ public static class Ansi
     /// How many terminal cells one rune occupies: two, one, or none.
     /// </summary>
     /// <remarks>
-    /// This is the arithmetic a terminal does, and it is per rune rather than per screen. A row of
-    /// seventy-nine ASCII characters ending in one Han glyph is eighty-one cells wide, and no single
-    /// flag over the whole screen can say so — a caption that halves everything because one wide
-    /// rune appeared somewhere reports forty for that row, which is the wrong number for anybody
-    /// trying to redraw it faithfully (i18n S4).
+    /// Per rune, not per screen (i18n S4): a row of seventy-nine ASCII characters ending in one Han
+    /// glyph is eighty-one cells wide, and no single screen-wide flag can say so.
     /// </remarks>
     public static int CellWidth(Rune rune) => Rune.GetUnicodeCategory(rune) switch
     {
@@ -76,9 +64,9 @@ public static class Ansi
     private const char Escape = '\u001b';
 
     /// <summary>
-    /// The locked table, close to xterm's. Theme-independent by design: games assume a dark terminal
-    /// — nearly all of them do — so a light page must not repaint their palette and call it fidelity.
-    /// Only the sixteen indexed slots are ours to choose; 256-colour and truecolor pass through.
+    /// The locked table, close to xterm's. Theme-independent by design: games assume a dark
+    /// terminal, so a light page must not repaint their palette and call it fidelity. Only the
+    /// sixteen indexed slots are ours to choose; 256-colour and truecolor pass through.
     /// </summary>
     private static readonly string[] Indexed16 =
     [
@@ -88,8 +76,8 @@ public static class Ansi
 
     public static AnsiScreen Parse(string? raw, bool suppressedByOwner)
     {
-        // The owner's choice is a fact about us, not about the game, so it is answered before
-        // anything is parsed and never dressed up as an empty or broken screen.
+        // The owner's choice is a fact about us, not the game — answered before parsing, never
+        // dressed up as an empty or broken screen.
         if (suppressedByOwner)
         {
             return new AnsiScreen(AnsiScreenState.Suppressed, [], 0);
@@ -103,8 +91,8 @@ public static class Ansi
         var rows = Layout(raw);
         var substantial = rows.Count(r => r.Text.Trim().Length > 0);
 
-        // Blank, tiny or hostile: below three rows there is nothing to show and a frame around it
-        // would be a layout hole pretending to be evidence.
+        // Below three rows there is nothing to show, and a frame around it would be a layout hole
+        // pretending to be evidence.
         return substantial < MinimumRows
             ? new AnsiScreen(AnsiScreenState.TooSmall, rows, rows.Count)
             : new AnsiScreen(AnsiScreenState.Rendered, rows, rows.Count);
@@ -167,17 +155,13 @@ public static class Ansi
                 }
             }
 
-            // Control bytes a game emits for its own reasons — bell, backspace, form feed — are not
-            // part of the picture and are dropped rather than rendered as replacement glyphs.
+            // Control bytes a game emits for its own reasons — bell, backspace, form feed — are
+            // dropped rather than rendered as replacement glyphs.
             if (!char.IsControl(c))
             {
-                // A rune at a time, not a UTF-16 unit at a time. The width model beside this counts
-                // terminal cells — two for a wide glyph, none for a combining mark — and a loop that
-                // advanced once per char disagreed with it three ways: a CJK screen wrapped after
-                // eighty runes, which is a hundred and sixty cells; an astral rune counted twice for
-                // the two units it is stored in; and a combining mark claimed a cell it never draws
-                // in. The wrap has to be where the terminal put it or the picture is not the one the
-                // game sent.
+                // A rune at a time, not a UTF-16 unit at a time: a loop advancing once per char
+                // wrapped a CJK screen after eighty runes (a hundred and sixty cells), double-counted
+                // an astral rune, and gave a combining mark a cell it never draws in.
                 if (Rune.DecodeFromUtf16(raw.AsSpan(i), out var rune, out var consumed)
                     is OperationStatus.Done)
                 {
@@ -186,8 +170,8 @@ public static class Ansi
                 }
                 else
                 {
-                    // Lone surrogate: not a rune, so it has no width the terminal agrees on. Kept
-                    // as the byte the game sent rather than dropped or replaced (rule 5).
+                    // Lone surrogate: no width the terminal agrees on. Kept as the byte the game
+                    // sent rather than dropped or replaced (rule 5).
                     Append(raw.AsSpan(i, 1), 1);
                 }
             }
@@ -211,8 +195,8 @@ public static class Ansi
                 emitted = style;
             }
 
-            // A wide glyph that will not fit in the last cell of a row is put on the next one, which
-            // is what a terminal does: it does not split a character across the wrap.
+            // A wide glyph that won't fit in the last cell moves to the next row — a terminal does
+            // not split a character across the wrap.
             if (cells > 1 && column + cells > Columns)
             {
                 FlushRow();
@@ -221,8 +205,6 @@ public static class Ansi
             text.Append(glyph);
             column += cells;
 
-            // Wrap exactly where a terminal would. The wrapped row is a real row and is counted as
-            // one, because the reader has to scroll past it either way.
             if (column >= Columns)
             {
                 FlushRow();
@@ -240,8 +222,8 @@ public static class Ansi
 
         if (raw[start + 1] != '[')
         {
-            // Anything that is not CSI — a charset selection, a save-cursor — is consumed and
-            // dropped. We are quoting a picture, not emulating a terminal.
+            // Not CSI — a charset selection, a save-cursor — consumed and dropped. We are quoting a
+            // picture, not emulating a terminal.
             return start + 1;
         }
 
@@ -257,8 +239,8 @@ public static class Ansi
             return raw.Length - 1;
         }
 
-        // Only SGR changes how the picture looks. Cursor moves and erases are the ones that would
-        // need a screen buffer to honour, and honouring them badly is worse than ignoring them.
+        // Only SGR changes how the picture looks; honouring cursor moves and erases badly is worse
+        // than ignoring them.
         if (raw[i] == 'm')
         {
             ApplySgr(raw.AsSpan(parameters, i - parameters), ref style);
@@ -488,8 +470,7 @@ public sealed record AnsiRow(IReadOnlyList<AnsiRun> Runs)
     /// The terminal cells this row occupies, which is not the number of characters in it.
     /// </summary>
     /// <remarks>
-    /// Summed rune by rune rather than derived from a screen-wide flag: a row may mix a wide script
-    /// with a narrow one, and that mixed row is precisely the one whose width a reader cannot guess.
+    /// Summed rune by rune, not a screen-wide flag — a row may mix a wide script with a narrow one.
     /// </remarks>
     public int Cells
     {
@@ -536,11 +517,8 @@ public sealed record AnsiRow(IReadOnlyList<AnsiRun> Runs)
 /// A parsed connect screen and the honest facts about its size.
 /// </summary>
 /// <remarks>
-/// There is no crop here any more, and the absence is the point. The frame used to show the first
-/// twenty-four rows, offer the whole screen again under "show all N rows", and offer its text a third
-/// time under "read as text" — three copies of the same box-drawing in one document, which a screen
-/// reader walks three times to reach four lines of prose. The frame now renders every row once and
-/// scrolls, and the text alternative below it is the only other copy.
+/// No crop: the frame renders every row once and scrolls, so a screen reader meets the art once and
+/// the text alternative once — not three copies of the same box-drawing in one document.
 /// </remarks>
 public sealed record AnsiScreen(AnsiScreenState State, IReadOnlyList<AnsiRow> Rows, int RowCount)
 {
@@ -554,9 +532,9 @@ public sealed record AnsiScreen(AnsiScreenState State, IReadOnlyList<AnsiRow> Ro
     /// The width this screen occupies in terminal cells: the widest row, measured cell by cell.
     /// </summary>
     /// <remarks>
-    /// The widest row and not a screen-wide halving. <see cref="Ansi.Columns"/> is the grid the
-    /// parser lays out to, in characters; this is what those characters cost a terminal, and on a
-    /// screen that mixes scripts the two differ row by row.
+    /// The widest row, not a screen-wide halving. <see cref="Ansi.Columns"/> is the layout grid in
+    /// characters; this is what those characters cost a terminal, and the two differ row by row on
+    /// a screen that mixes scripts.
     /// </remarks>
     public int CellColumns => Rows.Count == 0 ? 0 : Rows.Max(r => r.Cells);
 

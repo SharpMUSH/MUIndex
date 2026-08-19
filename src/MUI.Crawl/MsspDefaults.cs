@@ -4,18 +4,9 @@ namespace MUI.Crawl;
 /// MSSP values that are the codebase's own defaults rather than anything an operator chose.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Observed rather than theorised: the second real server this crawler ever probed publishes
-/// <c>NAME "PennMUSH"</c>, because whoever installed it never edited that line. A directory that
-/// trusts the field lists the game under its codebase's name.
-/// </para>
-/// <para>
-/// <b>The dangerous consequence is identity, not display.</b> Spec §7.3 weights MSSP <c>NAME</c>
-/// heavily when deciding whether two endpoints are the same game — and every unedited PennMUSH on
-/// the internet publishes the same one. Treating that as a signal would score dozens of unrelated
-/// games as matches for each other and auto-merge them. A default is not a weak signal to be
-/// discounted; it is <b>the absence of a signal</b>, and must be read as unset.
-/// </para>
+/// A default is not a weak signal to be discounted — spec §7.3 weights MSSP <c>NAME</c> heavily
+/// when matching identity, and every unedited PennMUSH publishes the same <c>NAME "PennMUSH"</c>.
+/// Treating it as a signal would auto-merge unrelated games; it must be read as unset.
 /// </remarks>
 public static class MsspDefaults
 {
@@ -24,14 +15,9 @@ public static class MsspDefaults
     /// </summary>
     /// <remarks>
     /// ONLY NAMES NOBODY WOULD CALL A GAME. This list erases a name, so a codebase whose name is also
-    /// a plausible game title stays off it however often it is left unedited — Last Outpost, Luminari
-    /// and GodWars are games as well as codebases, and refusing them would delete a real answer to
-    /// stop a default. <see cref="MeaningfulName"/> already catches those from the other side, by
-    /// refusing a name that merely restates the game's own <c>CODEBASE</c>.
-    ///
-    /// AresMUSH and CobraMUSH were missing and are the reason this comment exists: both are MUSH
-    /// codebases an operator can leave unedited, both are in the survey, and the list had every one
-    /// of their siblings.
+    /// a plausible game title (Last Outpost, Luminari, GodWars) stays off it — deleting a real answer
+    /// to stop a default is worse than missing one. <see cref="MeaningfulName"/> catches the other
+    /// case, a name that merely restates the game's own <c>CODEBASE</c>.
     /// </remarks>
     private static readonly HashSet<string> CodebaseNames = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -55,10 +41,8 @@ public static class MsspDefaults
     /// was never answered.
     /// </summary>
     /// <remarks>
-    /// <b>For fields where a codebase's name is not an answer.</b> Its first caller was
-    /// <c>NAME</c>, where "PennMUSH" is the absence of a signal, and the two halves of the list were
-    /// one set until a reader of <c>CODEBASE</c> arrived — for which "PennMUSH" is the answer itself
-    /// and this test would have deleted it. See <see cref="IsTemplate"/>.
+    /// For fields where a codebase's name is not an answer, e.g. <c>NAME</c>. Not for <c>CODEBASE</c>
+    /// itself, where "PennMUSH" is the answer — see <see cref="IsTemplate"/>.
     /// </remarks>
     public static bool IsPlaceholder(string? value)
     {
@@ -76,9 +60,8 @@ public static class MsspDefaults
     /// Whether a value is template text or blank, without treating a codebase's name as one.
     /// </summary>
     /// <remarks>
-    /// The test for a field whose whole purpose is to carry a codebase's name — <c>CODEBASE</c>,
-    /// <c>MUDLIB</c>, <c>FAMILY</c>, and the driver and mudlib an I3 mudlist entry carries.
-    /// <c>Unknown</c> there is still nothing; <c>FluffOS</c> there is the answer.
+    /// For fields whose purpose is to carry a codebase's name — <c>CODEBASE</c>, <c>MUDLIB</c>,
+    /// <c>FAMILY</c>. <c>FluffOS</c> is a valid answer there; <c>Unknown</c> still isn't.
     /// </remarks>
     public static bool IsTemplate(string? value) =>
         string.IsNullOrWhiteSpace(value) || Templates.Contains(value.Trim());
@@ -87,9 +70,7 @@ public static class MsspDefaults
     /// A game's name as declared, or null when the declaration is a default.
     /// </summary>
     /// <remarks>
-    /// Also refuses a name that merely restates the codebase — <c>NAME "PennMUSH 1.8.8p0"</c> is the
-    /// same non-answer as <c>NAME "PennMUSH"</c>, and the pair travels together often enough to be
-    /// worth catching without adding every version string to the list above.
+    /// Also refuses a name that merely restates the codebase, e.g. <c>NAME "PennMUSH 1.8.8p0"</c>.
     /// </remarks>
     public static string? MeaningfulName(string? name, string? codebase)
     {

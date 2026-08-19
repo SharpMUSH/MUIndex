@@ -88,12 +88,6 @@ public class I3CycleTests
     /// <summary>
     /// What the mudlist says a bound game runs, which arrived on every pass and was dropped.
     /// </summary>
-    /// <remarks>
-    /// <c>I3Mud.Driver</c>, <c>Mudlib</c> and <c>MudType</c> were modelled when the gateway was
-    /// written and nothing read them until now. Asked of the live network on 2026-08-17, 179 of 179
-    /// entries filled in all three, and 47 of the games bound to an I3 name had no codebase on
-    /// record at all.
-    /// </remarks>
     [Test]
     public async Task WhatABoundMudSaysItRunsIsRecordedAsTheClaimItIs()
     {
@@ -153,10 +147,9 @@ public class I3CycleTests
     /// One game under several I3 names binds once and the pass carries on.
     /// </summary>
     /// <remarks>
-    /// <b>This is a defect the end-to-end run found, not a hypothetical.</b> The live network lists
-    /// <c>The Zone</c>, <c>The Zone-dalet</c>, <c>The Zone-i4</c> and <c>The Zone-wpr</c> at one
-    /// address — one mud registered once per router — and the unique index that stops a game being
-    /// counted twice threw out of the cycle, so every pass died at the same mud on every retry.
+    /// A real failure mode, not a hypothetical: one game can register several I3 names (one per
+    /// router), and the unique index that stops a game being counted twice must be caught rather than
+    /// thrown out of the cycle, or every pass dies at the same mud on every retry.
     /// </remarks>
     [Test]
     public async Task AGameWithSeveralI3NamesBindsOnceAndTheRestDoNotStopThePass()
@@ -269,10 +262,9 @@ public class I3CycleTests
     /// mudlist already said.
     /// </summary>
     /// <remarks>
-    /// <c>I3PresenceChoice.MayAsk</c> has checked <c>IsUp</c> since the pass was first written, but
-    /// nothing carried it into the database, so a mud the router marked down kept being asked on the
-    /// ordinary 30-minute floor forever — I3 never removes a listing, only marks it down. Measured on
-    /// prod 2026-08-18: 8 of 87 bound muds had a 100% who-reply failure rate with this exact shape.
+    /// <c>I3PresenceChoice.MayAsk</c> checks <c>IsUp</c>, but that alone doesn't help unless the
+    /// database column is kept current — I3 never removes a listing, only marks it down, so a stale
+    /// <c>IsUp</c> would mean a down mud gets asked on the ordinary 30-minute floor forever.
     /// </remarks>
     [Test]
     public async Task AMudTheRouterReportsDownIsNotAsked()

@@ -4,17 +4,10 @@ namespace MUI.Catalog.Tests;
 /// Adult games leave the default listing and nothing else — the rule, and the counts it moves.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Two declarations put a game here and they are checked separately, because they catch different
-/// games: MSSP <c>GENRE Adult</c>, and MSSP's own <c>ADULT MATERIAL</c> flag, which a game may set
-/// while declaring any genre at all. One of the four games this catches in production does exactly
-/// that, so a rule reading only <c>GENRE</c> would list it.
-/// </para>
-/// <para>
-/// Both are <em>declared</em>. Nothing here is a measurement of what a game contains, and the
-/// exclusion is a default of ours over what a game typed about itself — which is why the checkbox
-/// that undoes it sits in the bar on every request rather than being hidden behind a preference.
-/// </para>
+/// Two declarations put a game here, checked separately because they catch different games: MSSP
+/// <c>GENRE Adult</c>, and the separate <c>ADULT MATERIAL</c> flag, which a game may set under any
+/// genre. Both are <em>declared</em>, never measured — the exclusion is our default over what a
+/// game typed about itself, which is why the checkbox that undoes it is always visible.
 /// </remarks>
 public class AdultListingTests
 {
@@ -35,9 +28,7 @@ public class AdultListingTests
             Genre: genre,
             IsAdult: adult,
 
-            // Every game here answered and was counted. The adult switch is what this suite is
-            // about, and a row that was also uncounted would put a second reason in front of the
-            // one being asserted.
+            // Uncounted always false: keeps the adult switch the only reason a row is excluded.
             Uncounted: false,
             Unreachable: false);
 
@@ -66,8 +57,6 @@ public class AdultListingTests
     [Test]
     public async Task TheFlagCatchesAGameWhoseGenreSaysSomethingElse()
     {
-        // The one that matters: a game declaring ADULT MATERIAL under GENRE Fantasy is exactly the
-        // case a rule reading only the genre would list, and it is a real row in production.
         var listing = FacetedSearch.Search(Catalogue, Listing);
 
         await Assert.That(Slugs(listing)).DoesNotContain("by-flag");
@@ -84,9 +73,7 @@ public class AdultListingTests
     [Test]
     public async Task NoCountOffersAGameTheListingWillNotShow()
     {
-        // The panel's standing promise, applied to the games this default removes. Both hidden rows
-        // would land in a facet value that is still on offer — "Adult" under genre, "Evennia" under
-        // codebase — so a count taken over anything wider than the visible set advertises them.
+        // A count taken over anything wider than the visible set would advertise a hidden row.
         var listing = FacetedSearch.Search(Catalogue, Listing);
 
         foreach (var group in listing.Facets)
@@ -103,9 +90,7 @@ public class AdultListingTests
     [Test]
     public async Task TheGenreFacetDoesNotOfferAValueTheDefaultHides()
     {
-        // Not a dead affordance left drawn at zero — the value is simply not there, because an
-        // open-ended facet offers only what its results contain. That is what makes the checkbox the
-        // one way in, and what keeps every other count in this dropdown a promise the listing keeps.
+        // Not drawn at zero — an open-ended facet offers only what its results contain.
         var genre = FacetedSearch.Search(Catalogue, Listing).Facets.Single(f => f.Key == FacetKeys.Genre);
 
         await Assert.That(genre.Values.Select(v => v.Token)).DoesNotContain("Adult");
@@ -145,10 +130,8 @@ public class AdultListingTests
     [Test]
     public async Task ProgrammaticCallersAreNotTouchedByTheListingDefault()
     {
-        // GameFilter defaults to including them, and the listing surface is where the default lives
-        // (GameFilterBinding). The data dump, the home page's counts and the reference figures build
-        // filters by hand and never see it — the same way they already include archived games while
-        // the listing hides them.
+        // The default lives in GameFilterBinding, not GameFilter — callers that build filters by
+        // hand (data dump, home page counts) never see it.
         await Assert.That(new GameFilter().IncludeAdult).IsTrue();
         await Assert.That(FacetedSearch.Search(Catalogue, new GameFilter()).Games.Count).IsEqualTo(4);
     }

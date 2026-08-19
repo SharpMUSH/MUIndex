@@ -26,10 +26,8 @@ public class WhoReadingTests
     [Test]
     public async Task NotAskedAndUnreadableAreDifferentByValue()
     {
-        // The bug this state exists to close. Both used to be new(WhoConfidence.Unknown), so they
-        // were equal as records — which means no writer downstream could tell "we never asked" from
-        // "we asked and could not read it" however carefully it was written. That is spec §5.4's
-        // named bug (a probed-but-uncountable hour is not an unreachable one) one level down.
+        // Both used to collapse to the same value, so no writer downstream could tell "we never
+        // asked" from "we asked and could not read it" — spec §5.4's named bug, one level down.
         await Assert.That(WhoReading.NotAsked).IsNotEqualTo(WhoReading.Unreadable);
         await Assert.That(WhoReading.NotAsked.Confidence).IsNotEqualTo(WhoReading.Unreadable.Confidence);
     }
@@ -63,7 +61,7 @@ public class WhoReadingTests
     {
         // The parser is only ever handed the answer to a WHO that went out, so "not asked" is not a
         // verdict available to it. Silence in the WHO window is an unreadable answer, not an absent
-        // question — alteraeon.com and realms.reichel.net both answer a pre-login WHO with nothing.
+        // question — real games do answer a pre-login WHO with nothing.
         var parser = new WhoParser();
 
         foreach (var response in new[] { null, "", "   ", "\r\n\r\n", "!!! nothing legible here !!!" })

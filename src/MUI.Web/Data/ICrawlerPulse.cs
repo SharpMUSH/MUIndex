@@ -7,29 +7,23 @@ namespace MUI.Web.Data;
 /// What the front page asks about the crawler.
 /// </summary>
 /// <remarks>
-/// Its own seam rather than a method on <c>IGameQueries</c>, because the fixture answers it
-/// differently in kind and not merely in value: a demo has no crawler at all, and folding that into
-/// the games interface would put a null-shaped special case in every implementation of it.
+/// Its own seam rather than a method on <c>IGameQueries</c>, since the fixture answers it differently
+/// in kind, not value: a demo has no crawler at all.
 /// </remarks>
 public interface ICrawlerPulse
 {
     Task<CrawlerPulse> ReadAsync(DateTimeOffset now, CancellationToken cancellationToken = default);
+
+    /// <summary>The newest completed cycles, newest first — the crawler status page's history table.</summary>
+    Task<IReadOnlyList<CrawlCycleRecord>> RecentAsync(int count, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Reads the pulse from what the crawler wrote.</summary>
 /// <remarks>
-/// <para>
-/// <b>A missing table and a failed query are both "we cannot say", never "it is not running".</b>
-/// This is on the path of the most-served document on the site, and it is a decoration on it: the
-/// front page's job is the games, and an unavailable strip may not cost a reader the page. The
-/// catch is therefore broad and the fallback is <see cref="CrawlerPulse.Unknown"/>, which renders as
-/// nothing at all rather than as an alarm.
-/// </para>
-/// <para>
-/// The schema check is cached after it first succeeds. It cannot go back to false — migrations only
-/// move forward — so asking Postgres on every front-page render would be a round trip to learn
-/// something that stopped being able to change.
-/// </para>
+/// A missing table and a failed query are both "we cannot say", never "it is not running" — the catch
+/// is broad and falls back to <see cref="CrawlerPulse.Unknown"/>, so an unavailable strip never costs
+/// a reader the front page. The schema check is cached after it first succeeds, since migrations only
+/// move forward.
 /// </remarks>
 public sealed class StoredCrawlerPulse(
     ICrawlCycles cycles,
@@ -58,6 +52,23 @@ public sealed class StoredCrawlerPulse(
             logger?.LogWarning(error, "Could not read the crawler pulse; the front page omits the strip");
 
             return CrawlerPulse.Unknown;
+        }
+    }
+
+    public async Task<IReadOnlyList<CrawlCycleRecord>> RecentAsync(
+        int count,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await cycles.RecentAsync(count, cancellationToken);
+        }
+        catch (Exception error) when (error is not OperationCanceledException
+            || !cancellationToken.IsCancellationRequested)
+        {
+            logger?.LogWarning(error, "Could not read the crawler's cycle history; the status page omits it");
+
+            return [];
         }
     }
 }

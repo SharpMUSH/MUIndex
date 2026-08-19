@@ -1,8 +1,6 @@
--- spec §5.3 — intervals, not samples. A game reachable for three years is one open row, not
--- twenty-six thousand samples, and "reachable over 90 days" and "longest outage" become arithmetic
--- over a handful of rows. Each probe either extends the open interval or closes it and opens a new
--- one, and ONLY A CHANGE OF STATE OR CAUSE WRITES A TRANSITION: a hundred consecutive timeouts are
--- one interval, not a hundred.
+-- availability_interval: intervals, not samples (§5.3) — a probe extends the open interval or
+-- closes it and opens a new one. Only a change of state or cause writes a transition; repeated
+-- identical failures extend the same interval.
 CREATE TABLE availability_interval (
     id      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     game_id uuid NOT NULL REFERENCES game (id),
@@ -11,20 +9,17 @@ CREATE TABLE availability_interval (
     to_at   timestamptz,
     cause   text NOT NULL,
 
-    -- Who measured the span. One value today, because the backfill contributes addresses and no
-    -- history at all (spec §7.6) and every interval here is therefore ours. The column stays anyway:
-    -- if another party's measurements are ever ingested, an undifferentiated total would already be
-    -- in this table and could not be split back apart. A column is cheap; the distinction is not
-    -- recoverable.
+    -- Single value today: the backfill (§7.6) contributes no history, so every interval here is
+    -- ours. Column kept in case another party's measurements are ever ingested — an
+    -- undifferentiated total could not be split back apart afterward.
     origin  text NOT NULL DEFAULT 'first_party',
 
-    -- §5.8's vocabulary, in the schema so the word cannot leak. Reachable, never up. `degraded` is
-    -- "we got in and could not finish" — the socket answered and the session did not complete
-    -- negotiation within the probe timeout — which is neither of its neighbours.
+    -- §5.8 vocabulary. `degraded` = socket answered but negotiation didn't complete within the
+    -- probe timeout; distinct from `unreachable`.
     CONSTRAINT availability_interval_state_vocabulary CHECK (state IN (
         'reachable', 'degraded', 'unreachable')),
 
-    -- 'none' is the cause a reachable interval carries; it is never a probe's answer.
+    -- 'none' is only valid for a reachable interval.
     CONSTRAINT availability_interval_cause_vocabulary CHECK (cause IN (
         'none', 'dns', 'refused', 'tls', 'timeout', 'handshake_stalled')),
 
@@ -35,11 +30,9 @@ CREATE TABLE availability_interval (
         to_at IS NULL OR to_at >= from_at)
 );
 
--- Every probe asks "what is this game's open interval", which is the one query on the hot path. As a
--- partial UNIQUE index it also enforces the invariant the whole design rests on: at most one interval
--- per game is open, so no caller can leave two running by forgetting to close the first.
+-- Hot-path lookup of a game's open interval. Partial UNIQUE also enforces the core invariant:
+-- at most one open interval per game.
 CREATE UNIQUE INDEX availability_interval_open_idx ON availability_interval (game_id) WHERE to_at IS NULL;
 
--- The availability arithmetic — cumulative reachable time, reachable fraction over a window, longest
--- outage — reads one game's intervals in time order.
+-- Serves the availability arithmetic (cumulative reachable time, longest outage, etc.).
 CREATE INDEX availability_interval_game_from_idx ON availability_interval (game_id, from_at);

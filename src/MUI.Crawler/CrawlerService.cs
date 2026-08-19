@@ -14,19 +14,11 @@ namespace MUI.Crawler;
 /// (spec §4.11, §12).
 /// </summary>
 /// <remarks>
-/// <para>
-/// One ASP.NET Core deployable serves the site and runs the crawler, which is the whole shape of §4.11
-/// — and the thing that makes it safe is that N replicas still run exactly one crawler.
-/// <see cref="AdvisoryLease"/> is that gate: every replica asks on every retry, one holds it for as long
-/// as its session lives, and the others do nothing but ask again.
-/// </para>
-/// <para>
-/// <b>Three properties this loop must have, all of which are about not taking the site down with
-/// it:</b> it never lets an exception escape <see cref="ExecuteAsync"/>, because a hosted service that
-/// faults takes the host with it and the crawl is not worth the site; it re-checks the lease every
-/// cycle rather than trusting a connection it took once; and it does every wait through the injected
-/// <see cref="TimeProvider"/>, so a test drives it without sleeping.
-/// </para>
+/// One ASP.NET Core deployable serves the site and runs the crawler; <see cref="AdvisoryLease"/> is
+/// what keeps N replicas from becoming N crawlers. This loop must never let an exception escape
+/// <see cref="ExecuteAsync"/> — a hosted service that faults takes the whole host down with it — must
+/// re-check the lease every cycle rather than trust a connection it took once, and must do every wait
+/// through the injected <see cref="TimeProvider"/> so a test can drive it without sleeping.
 /// </remarks>
 public sealed class CrawlerService(
     NpgsqlDataSource source,
@@ -142,17 +134,9 @@ public sealed class CrawlerService(
     /// Stores what the cycle just did, so the site can show its own instrument running.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Isolated, and it swallows everything.</b> This is telemetry about a crawl that has already
-    /// happened and whose measurements are already stored; a failure to describe the work must never
-    /// be able to stop the work. The failure mode it guards is the one that put this table here in
-    /// the first place — a peripheral concern throwing into a loop that then takes the host down.
-    /// </para>
-    /// <para>
-    /// Empty cycles are written too. "Nothing was due" is the answer to a reader asking whether the
-    /// crawler is alive, and skipping those rows would make a quiet registry indistinguishable from
-    /// a stopped loop — which is exactly the distinction the strip exists to draw.
-    /// </para>
+    /// Isolated and swallows everything: this is telemetry about a crawl already stored, and a
+    /// failure to describe the work must never stop the work. Empty cycles are written too — "nothing
+    /// was due" is how a reader tells a quiet registry from a stopped loop.
     /// </remarks>
     private async Task RecordAsync(
         DateTimeOffset startedAt,
@@ -218,14 +202,10 @@ public sealed class CrawlerService(
             "Holding the crawl lease. {Added} of {Total} configured seeds were new",
             added, options.Seeds.Count);
 
-        // Before the first cycle, because the question it answers is about the time up to now and
-        // the first cycle is what stops that being true. Here rather than once at startup so that it
-        // also covers a lease lost and taken again: the replica that picks the crawl back up is the
-        // one that should say how long nobody was holding it.
-        //
-        // Isolated like RecordAsync below, and for the same reason: this edits history rather than
-        // adding to it, and a guard that cannot run is a reason to crawl anyway. Failing here would
-        // trade a wrong reachability figure for no crawl at all.
+        // Before the first cycle, so it also covers a lease lost and retaken: whichever replica picks
+        // the crawl back up is the one that should record how long nobody was holding it. Isolated
+        // like RecordAsync: this edits history rather than adding to it, and a guard that can't run
+        // is a reason to crawl anyway, not to fail startup.
         if (gaps is not null)
         {
             try

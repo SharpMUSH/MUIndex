@@ -78,24 +78,21 @@ public interface IReferralRepository
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Verify, don't trust</b> (spec §7.2). A referral produces a <see cref="CrawlTarget"/> with a null
-/// <see cref="CrawlTarget.GameId"/> — a hostname somebody claimed is a game. It becomes a game only
-/// when it answers MSSP with its own <c>NAME</c>, which happens in the crawl loop and not here.
+/// <b>Verify, don't trust</b> (spec §7.2). A referral produces a <see cref="CrawlTarget"/> with a
+/// null <see cref="CrawlTarget.GameId"/> — a hostname somebody claimed is a game. It becomes a game
+/// only when it answers MSSP with its own <c>NAME</c>, in the crawl loop, not here.
 /// </para>
 /// <para>
-/// <b>Depth and fan-out are capped per source, and the referrer is recorded on the target.</b> A
-/// referral graph is unbounded by construction, so without the caps one hostile list walks as far as
-/// MSSP reaches, unattended. <see cref="CrawlTarget.DiscoveredFromGameId"/> plus the edges are what
-/// let a poisoned source's whole subtree be traced and pruned afterwards.
+/// Depth and fan-out are capped per source, and the referrer is recorded on the target — a referral
+/// graph is unbounded by construction, so without the caps one hostile list walks as far as MSSP
+/// reaches. <see cref="CrawlTarget.DiscoveredFromGameId"/> plus the edges let a poisoned source's
+/// whole subtree be traced and pruned afterwards.
 /// </para>
 /// <para>
-/// <b>A refused referral gets no edge either.</b> An edge is a claim the site is willing to render,
-/// and rendering "this game refers to 169.254.169.254" is publishing an attacker's payload.
-/// </para>
-/// <para>
-/// The literal-address check here is the weak half of §7.2 and is not the gate — see
-/// <see cref="ReferralCandidate.IsCrawlable"/> and <see cref="HostScopeGuard"/>. Both exist because an
-/// imported target never passes through this writer at all.
+/// <b>A refused referral gets no edge either</b> — an edge is a claim the site is willing to render,
+/// and rendering "this game refers to 169.254.169.254" is publishing an attacker's payload. The
+/// literal-address check here is the weak half of §7.2, not the gate; see
+/// <see cref="ReferralCandidate.IsCrawlable"/> and <see cref="HostScopeGuard"/>.
 /// </para>
 /// </remarks>
 public sealed class ReferralGraphWriter(

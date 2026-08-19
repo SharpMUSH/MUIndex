@@ -36,12 +36,10 @@ public sealed record ProbeResult
     /// produced no text at all.
     /// </summary>
     /// <remarks>
-    /// <b>Not the same fact as <see cref="Negotiation.Charset"/>, and kept apart for the usual
-    /// reason.</b> That one is what the session settled on — a declaration, and on
-    /// <c>mud.pkuxkx.net:8080</c> a true one about a state of the session the connect screen never
-    /// reaches. This one is what a strict UTF-8 decoder proved about the bytes, or what an operator
-    /// said they were. Where the two differ, that disagreement is the interesting fact and belongs
-    /// on the page (rule 1). See <see cref="WireEncoding"/>.
+    /// Not the same fact as <see cref="Negotiation.Charset"/>: that's what the session declared it
+    /// settled on, this is what a strict UTF-8 decoder proved about the actual bytes (or an operator
+    /// override). Where the two differ, the disagreement is the interesting fact (rule 1). See
+    /// <see cref="WireEncoding"/>.
     /// </remarks>
     public string? ReadAs { get; init; }
 
@@ -50,11 +48,10 @@ public sealed record ProbeResult
     /// or undetermined.
     /// </summary>
     /// <remarks>
-    /// <b>A writer must consult this before storing <see cref="ReadAs"/> anywhere.</b>
-    /// <see cref="WireCharset.Undetermined"/> means the bytes are not UTF-8 and nothing has said
-    /// what they are; the Latin-1 that produced the text is a way of keeping them, not a reading of
-    /// them, and storing it as though it were the latter records our own fallback as a fact about
-    /// the game.
+    /// A writer must consult this before storing <see cref="ReadAs"/> anywhere:
+    /// <see cref="WireCharset.Undetermined"/> means the Latin-1 fallback is a way of keeping the
+    /// bytes, not a reading of them, and storing it as the latter records our own fallback as a fact
+    /// about the game.
     /// </remarks>
     public WireCharset CharsetSource { get; init; } = WireCharset.Proven;
 
@@ -65,12 +62,9 @@ public sealed record ProbeResult
     /// Whether the server emitted MXP in anything it sent us.
     /// </summary>
     /// <remarks>
-    /// Separate from <see cref="OfferedOptions"/> because it is a different observation. MXP is
-    /// telnet option 91 and a server that negotiates it lands in that set like any other; a great
-    /// many never negotiate and simply start emitting MXP, whose line-mode sequences are ANSI-legal
-    /// and pass harmlessly through a client that has never heard of them. Both facts are worth
-    /// having and they are not the same fact, so this one is recorded under the source that
-    /// produced it rather than folded in beside the handshake's.
+    /// Separate from <see cref="OfferedOptions"/> because many servers emit MXP without ever
+    /// negotiating the option — its line-mode sequences are ANSI-legal and pass harmlessly through a
+    /// client that never heard of them. Both are real, distinct observations.
     /// </remarks>
     public bool MxpObserved { get; init; }
 
@@ -85,10 +79,8 @@ public sealed record ProbeResult
     /// The shape of the <c>WHO</c> response, for §11's replay window. Never its text.
     /// </summary>
     /// <remarks>
-    /// Redacted inside the probe rather than downstream, so "redacted before it touches disk"
-    /// is the stronger "redacted before it leaves the socket": the raw response exists as a local
-    /// in one method and is never a member of anything. See <see cref="PayloadRedaction"/> for why
-    /// a shape is what a replay needs and a name-finding redactor could not have produced one.
+    /// Redacted inside the probe, not downstream — the raw response exists only as a local in one
+    /// method and is never a member of anything. See <see cref="PayloadRedaction"/>.
     /// </remarks>
     public string? WhoShape { get; init; }
 
@@ -103,26 +95,11 @@ public sealed record ProbeResult
     /// in wire order.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>A value is a list because MSSP says it is.</b> "The same variable can be sent more than
-    /// once with different values", and two of the variables this project most depends on use that:
-    /// <c>REFERRAL</c>, which is the entire basis of crawl discovery and which a game may publish
-    /// several of, and <c>PORT</c>, which a game listening on 4201 and 4202 publishes twice. A flat
-    /// <c>string</c> map kept one of them.
-    /// </para>
-    /// <para>
-    /// Joining them into one string was worse than dropping them, which is what this replaced: a
-    /// value may legitimately contain a comma, so <c>string.Join(", ", …)</c> manufactured something
-    /// that looks like a value and cannot be split back apart — a fabrication, and the rule against
-    /// those does not stop at player counts.
-    /// </para>
-    /// <para>
-    /// <b>Nothing is filtered.</b> The probe used to hand-pick seven variables and discard the rest,
-    /// including <c>REFERRAL</c>, <c>WEBSITE</c>, <c>PORT</c>, <c>SSL</c>, <c>LANGUAGE</c> and every
-    /// name a codebase invented. A crawler whose premise is faithful measurement does not get to
-    /// decide which of a server's own answers were worth keeping; deciding what to display is the
-    /// catalogue's job, and it cannot display what was thrown away at the socket.
-    /// </para>
+    /// A value is a list because MSSP allows the same variable to be sent more than once with
+    /// different values — <c>REFERRAL</c> (crawl discovery's whole basis) and <c>PORT</c> (a game on
+    /// two ports) both do this, and a flat map or a comma-joined string would lose or fabricate data
+    /// (a value may itself contain a comma). Nothing is filtered: deciding what's worth displaying is
+    /// the catalogue's job, and it can't display what the probe already threw away.
     /// </remarks>
     public IReadOnlyDictionary<string, IReadOnlyList<string>> Mssp { get; init; } = MsspReport.Empty;
 
@@ -130,11 +107,9 @@ public sealed record ProbeResult
     /// The single value of an MSSP variable, or null when the server did not report it.
     /// </summary>
     /// <remarks>
-    /// The convenience half of the pair, so a caller after <c>NAME</c> is no worse off than it was
-    /// under a flat map. Where a variable carries several values this is the <em>last</em>, which is
-    /// the specification's own rule for reducing one to a scalar ("the last reported value should be
-    /// used as the default value"). Anything that cares about the others — discovery, reading
-    /// <c>REFERRAL</c> — must read <see cref="Mssp"/> rather than this.
+    /// Returns the <em>last</em> value where several were sent, per MSSP's own rule for reducing to
+    /// a scalar. Anything that cares about the others (e.g. reading <c>REFERRAL</c>) must read
+    /// <see cref="Mssp"/> instead.
     /// </remarks>
     public string? MsspField(string variable) =>
         Mssp.TryGetValue(variable, out var values) && values.Count > 0 ? values[^1] : null;
@@ -159,9 +134,8 @@ public sealed record ProbeResult
     /// A player count the connect screen stated about itself, when it did.
     /// </summary>
     /// <remarks>
-    /// The weakest of the three count sources and the only one that reaches a game with neither MSSP
-    /// nor a pre-login <c>WHO</c> — Aardwolf being the case in point. Ranked last deliberately: it is
-    /// pattern-matching a stranger's ASCII art, so it is read only when the other two have failed.
+    /// The weakest of the three count sources — pattern-matching a stranger's ASCII art — so it's
+    /// read only when MSSP and a pre-login <c>WHO</c> have both failed.
     /// </remarks>
     public int? BannerPlayerCount { get; init; }
 
@@ -178,12 +152,10 @@ public sealed record ProbeResult
 /// different meanings and only one of them is "this game has no MSSP".</b>
 /// </summary>
 /// <remarks>
-/// TelnetNegotiationCore 2.7.0 bounds the MSSP payload and, at the ceiling, <b>drops the report
-/// rather than truncating it</b> — a truncated report would be worse, since half a report parses
-/// cleanly and lies. The drop is surfaced through <c>OnMSSPMessageTooLarge</c>, and the crawler must
-/// carry it as its own outcome: recording a dropped report as an absent one would publish "this game
-/// does not support MSSP" on the strength of our own size limit, which is a decision of ours
-/// masquerading as a measurement of theirs.
+/// TelnetNegotiationCore bounds the MSSP payload and, at the ceiling, drops the report rather than
+/// truncating it — a truncated report would parse cleanly and lie. This outcome must be carried
+/// through rather than recorded as "no MSSP", or our own size limit gets published as a fact about
+/// the game.
 /// </remarks>
 public enum MsspOutcome
 {
@@ -213,12 +185,9 @@ public enum MsspTransport
 
     /// <summary>The plaintext <c>MSSP-REQUEST</c> reply, delimited by START/END markers.</summary>
     /// <remarks>
-    /// <b>Nothing produces this yet, deliberately.</b> The plaintext form belongs in
-    /// TelnetNegotiationCore, where it is filed as issue #61; implementing it here would duplicate a
-    /// first-party dependency and then have to be deleted. The member stays because the transport is
-    /// part of a value's provenance the moment there are two routes, and spec §6.4 describes both —
-    /// see <c>docs/codebase-survey-2026-07-30.md</c> for what the form actually reached when it was
-    /// measured against twenty live games.
+    /// Nothing produces this yet, deliberately — the plaintext form belongs in
+    /// TelnetNegotiationCore (first-party), and implementing it here would duplicate then have to be
+    /// deleted. The member stays because spec §6.4 describes both routes.
     /// </remarks>
     PlaintextRequest,
 }
@@ -247,9 +216,8 @@ public sealed record WhoReading(WhoConfidence Confidence, int? Count = null, int
     /// No <c>WHO</c> was ever sent, so there is nothing to have failed to read.
     /// </summary>
     /// <remarks>
-    /// The state a probe carries when it never got as far as asking — a dial that failed, a session
-    /// abandoned against the budget. <b>Distinct from <see cref="Unreadable"/> by value</b>, which is
-    /// the whole reason it exists.
+    /// The state a probe carries when it never got as far as asking. Distinct from
+    /// <see cref="Unreadable"/> by value — the whole reason it exists.
     /// </remarks>
     public static readonly WhoReading NotAsked = new(WhoConfidence.NotAsked);
 
@@ -266,23 +234,13 @@ public sealed record WhoReading(WhoConfidence Confidence, int? Count = null, int
     /// A <c>WHO</c> was sent, and what came back was the server's login prompt reacting to it.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Distinct from <see cref="Unreadable"/> because it names a different problem, and only one
-    /// of the two is ours.</b> Unreadable says our parser met a dialect it could not read — a defect
-    /// with an owner and a fix. This says the server never had a <c>WHO</c> to answer: its login
-    /// prompt takes a character name, so the word was consumed as one and what came back is
-    /// <c>Illegal name, try again.</c> There is nothing here for a parser to get better at.
-    /// </para>
-    /// <para>
-    /// Filing the second as the first is rule 5 in its quietest form: a limit of our own written into
-    /// a game's record as a fact about the game. Of 107 stored payloads read on 2026-08-17, 43 were
-    /// this — so the largest single population under <c>who_unparseable</c> was games with no
-    /// <c>WHO</c> to parse, and the figure was being read as a parser backlog.
-    /// </para>
-    /// <para>
-    /// It is <see cref="Attempted"/> and it has no count, so §5.4's hatched cell is unchanged: we
-    /// asked, and we cannot say how many people are on. Only the reason recorded beside it changes.
-    /// </para>
+    /// Distinct from <see cref="Unreadable"/> because only one of the two problems is ours: Unreadable
+    /// means our parser met a dialect it couldn't read, a defect with a fix. LoginPrompt means the
+    /// server never had a <c>WHO</c> to answer — its login prompt consumed the word as a character
+    /// name, so what came back was <c>Illegal name, try again.</c>. Filing the second as the first is
+    /// rule 5 in its quietest form: our own limit written into a game's record as a fact about the
+    /// game. Still <see cref="Attempted"/> with no count, so §5.4's hatched cell is unchanged — only
+    /// the reason recorded beside it does.
     /// </remarks>
     public static readonly WhoReading LoginPrompt = new(WhoConfidence.LoginPrompt);
 
@@ -298,11 +256,10 @@ public sealed record WhoReading(WhoConfidence Confidence, int? Count = null, int
     /// Whether the question was put to the server at all.
     /// </summary>
     /// <remarks>
-    /// The distinction §5.4 turns on one level down. A probe that asked and could not read the answer
-    /// has measured something about the game — it renders as the hatched, *probed but uncountable*
-    /// cell. A probe that never asked has measured nothing and must render as neither that nor zero.
-    /// While both states were <c>new(WhoConfidence.Unknown)</c> they were equal by value, so no
-    /// writer downstream could tell them apart however carefully it was written.
+    /// A probe that asked and couldn't read the answer has measured something (the hatched, *probed
+    /// but uncountable* cell); one that never asked has measured nothing. When both states shared
+    /// <c>new(WhoConfidence.Unknown)</c> they were equal by value, so no writer downstream could tell
+    /// them apart however carefully it was written.
     /// </remarks>
     public bool Attempted => Confidence is not WhoConfidence.NotAsked;
 }

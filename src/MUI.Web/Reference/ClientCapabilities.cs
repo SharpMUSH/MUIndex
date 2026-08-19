@@ -7,26 +7,11 @@ namespace MUI.Web.Reference;
 /// The rows every client page carries, in the order it carries them.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>The vocabulary is fixed here rather than per file</b> so that ten client pages are one table a
-/// reader can read across. A matrix whose rows are whatever each author happened to establish is a
-/// set of unrelated lists, and the comparison is the only reason to publish it.
-/// </para>
-/// <para>
-/// <b>Screen-reader support is the first row, and it is present on every page whether or not anyone
-/// established it.</b> Spec §9 names it specifically because no incumbent directory publishes it:
-/// for a substantial part of this hobby's audience it is the question, and it is currently answered
-/// by asking on a forum. Fixing it at the head of the table means a page cannot omit the row by
-/// saying nothing — an author who found nothing produces a visible <em>unknown</em>, which is a
-/// truthful and useful answer, and a reader can tell the difference between that and a no.
-/// </para>
-/// <para>
-/// The protocol rows are spelled the way <see cref="MUI.Catalog.Persistence.CapabilityFields"/>
-/// spells them, so a client's row and a game's measured capability are the same word. What a client
-/// claims and what a server was observed doing are different kinds of fact — the first is read off
-/// documentation, the second off a wire — and they are never mixed in one table; but they should at
-/// least be answering the same question.
-/// </para>
+/// The vocabulary is fixed here rather than per file so every client page is comparable. Screen
+/// reader support is always the first row (spec §9): an author who found nothing must produce a
+/// visible <em>unknown</em>, not a silently missing row. Protocol names match
+/// <see cref="MUI.Catalog.Persistence.CapabilityFields"/> so a claimed and a measured capability use
+/// the same word, even though the two are never mixed in one table.
 /// </remarks>
 public static class ClientCapabilities
 {
@@ -66,15 +51,13 @@ public static class ClientCapabilities
     }
 
     /// <summary>
-    /// The word for a state, in the reader's language. Never a glyph on its own, and
-    /// <em>unknown</em> is spelled out rather than left blank: a blank cell reads as a no to a human
-    /// exactly as it does to a parser.
+    /// The word for a state, in the reader's language. <em>Unknown</em> is spelled out rather than
+    /// left blank, since a blank cell reads as a no.
     /// </summary>
     /// <remarks>
-    /// Three ids rather than three literals, and they are this table's own rather than the game
-    /// pages' capability words: those answer <em>was it offered on a wire</em> and these answer
-    /// <em>does the project's documentation say so</em>. A locale that let the third collapse into
-    /// the second would publish our own failure to find a page as the client lacking the feature.
+    /// Uses this table's own message ids rather than the game pages' capability words: those answer
+    /// "was it offered on a wire", these answer "does the documentation say so" — collapsing the two
+    /// would publish a missed documentation search as the client lacking the feature.
     /// </remarks>
     public static string Word(string tag, CapabilityState state) => Messages.For(tag, state switch
     {

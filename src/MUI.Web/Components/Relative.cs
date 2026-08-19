@@ -40,16 +40,8 @@ public static class Relative
     /// months and years.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The rungs matter because a column of these is read by eye and <c>84m</c> sorts below
-    /// <c>1h</c> to anybody scanning it. Two days of hours rather than a day and a half is the
-    /// widest a rung can be before the number in it stops meaning anything — and it is where the
-    /// site's own probe cadence puts most ages that are not minutes.
-    /// </para>
-    /// <para>
-    /// A bare duration takes no register: it is a length of time and not a claim about anything.
-    /// <see cref="Ago"/> is where the register lives, because that is where a verb appears.
-    /// </para>
+    /// A bare duration carries no register — <see cref="Ago"/> is where the verb, and the claim,
+    /// live.
     /// </remarks>
     public static string Format(string tag, TimeSpan age) => Say(tag, "age.short", age);
 
@@ -57,11 +49,9 @@ public static class Relative
     /// The same age, as something that already happened.
     /// </summary>
     /// <remarks>
-    /// The freshest rung is the word "just now" rather than a duration with a suffix glued on. It
-    /// used to be exactly that, and a caller appending " ago" to <see cref="Format"/>'s "now" wrote
-    /// "last reached now ago" for the ninety seconds after every probe — which, on a listing
-    /// rendered while a crawl is running, was most of the rows on the page. Each rung now carries
-    /// its own whole phrase, so there is nowhere left to append one.
+    /// The freshest rung is the whole phrase "just now" rather than a duration with " ago" appended —
+    /// appending it to <see cref="Format"/>'s "now" used to produce "last reached now ago" for the
+    /// ninety seconds after every probe.
     /// </remarks>
     public static string Ago(string tag, TimeSpan age, AgeSense sense = AgeSense.Confirmed) =>
         Say(tag, sense is AgeSense.Reached ? "age.dark" : "age.ago", age);

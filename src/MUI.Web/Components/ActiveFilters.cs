@@ -13,20 +13,11 @@ public sealed record ActiveFilter(string Facet, string Value, string RemoveHref)
 /// Everything the current query asks for, read back out of the facets it was applied to.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The panel is not the only place the query is visible: what it is asking for is repeated above the
-/// results as a row of chips, each of which is a link that removes itself. That is what makes the
-/// third state legible — <c>?codebase=!Evennia</c> renders as <em>codebase · anything but
-/// Evennia</em>, where a <c>&lt;select&gt;</c> scrolled to an option in its second
-/// <c>&lt;optgroup&gt;</c> shows nothing at all until you open it — and it is the only affordance on
-/// the page that can undo one filter without disturbing the rest.
-/// </para>
-/// <para>
-/// Built from <see cref="FacetGroup"/> rather than from <see cref="GameFilter"/>, deliberately. The
-/// facets already carry each value's <see cref="FacetState"/>, computed by the same pass that
-/// produced the listing, so a chip cannot claim a selection the query did not apply — and a facet
-/// added to the catalogue gets a chip without anything here being told about it.
-/// </para>
+/// Rendered as a row of chips above the results, each a link that removes just that one filter —
+/// the only affordance that can undo one selection without disturbing the rest. Built from
+/// <see cref="FacetGroup"/> rather than <see cref="GameFilter"/>: the facets already carry each
+/// value's <see cref="FacetState"/> from the same pass that produced the listing, so a chip cannot
+/// claim a selection the query did not apply, and a new facet gets a chip automatically.
 /// </remarks>
 public static class ActiveFilters
 {
@@ -72,13 +63,10 @@ public static class ActiveFilters
             }
         }
 
-        // A selection the panel is not offering back.
-        //
-        // An open-ended facet's values come from what is in the results, so a selection that matches
-        // nothing left in them has no value to hang a chip on — ?codebase=!Evennia beside a search
-        // that returns no Evennia game at all is the ordinary case, not a corner. Left there, the one
-        // affordance for undoing a filter would go missing exactly when the filter is doing the most
-        // and the reader can see the least of why.
+        // A selection the panel is not offering back. An open-ended facet's values come from what
+        // is in the results, so a selection matching nothing left in them (e.g. ?codebase=!Evennia
+        // returning no Evennia game) has no value to hang a chip on otherwise — the ordinary case,
+        // not a corner, and exactly when the reader most needs a way to undo the filter.
         foreach (var (key, choice) in Open(filter))
         {
             if (choice is null || !drawn.Add(key))
@@ -99,9 +87,8 @@ public static class ActiveFilters
                 Href(ListingLinks.With(query, key, null))));
         }
 
-        // Last, because it widens the answer rather than narrowing it and reads oddly among the
-        // things that narrow it — but present, because it is a thing the URL is asking for and a
-        // reader who cannot see it asked has no way to stop asking.
+        // Last, since it widens rather than narrows — but present, since it's an active filter and
+        // needs a way to be undone.
         var included = Messages.For(tag, "facet.value.included");
 
         if (filter.IncludeArchived)

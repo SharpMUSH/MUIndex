@@ -42,19 +42,11 @@ public sealed record IconCandidate(
 /// The icon cache (migration 0013).
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>The one store here that holds no fact.</b> Everything else in this namespace persists something
-/// about a game that a reader is shown with its provenance and its age. These are bytes fetched from
-/// the URL an <c>ICON</c> field names — the field is the fact, and it is an ordinary
-/// <see cref="GameField"/> row. Emptying this table loses nothing that cannot be fetched again, which
-/// is what makes it a cache rather than an exception to §7.5.
-/// </para>
-/// <para>
-/// <b>A failed fetch writes nothing.</b> No row, no marker, no attempt counter. That we could not
-/// reach somebody's web server is a fact about our afternoon and not about their game (rule 5), so it
-/// does not enter the game's record — and the page renders no element at all rather than a broken
-/// image or an apology.
-/// </para>
+/// The one store here that holds no fact: the <c>ICON</c> field is the fact (an ordinary
+/// <see cref="GameField"/> row), these are just bytes fetched from the URL it names. Emptying this
+/// table loses nothing that can't be fetched again — a cache, not an exception to §7.5. A failed
+/// fetch writes nothing (no row, no marker, no attempt counter): that we couldn't reach somebody's
+/// web server is a fact about our afternoon, not their game (rule 5).
 /// </remarks>
 public interface IIconStore
 {
@@ -68,9 +60,8 @@ public interface IIconStore
     /// Games whose <c>ICON</c> field names a URL we have not fetched, or fetched longest ago.
     /// </summary>
     /// <remarks>
-    /// A URL that has changed since we cached it sorts first, because that is an icon we are
-    /// currently serving from the wrong address. Everything else is oldest-first, so one slow game
-    /// cannot starve the rest.
+    /// A URL that changed since we cached it sorts first — we're serving from the wrong address.
+    /// Everything else is oldest-first, so one slow game can't starve the rest.
     /// </remarks>
     Task<IReadOnlyList<IconCandidate>> DueAsync(
         int limit, DateTimeOffset staleBefore, CancellationToken cancellationToken = default);
@@ -123,10 +114,8 @@ public sealed class NpgsqlIconStore(NpgsqlDataSource source) : IIconStore
     }
 
     /// <remarks>
-    /// The <c>ICON</c> field is read through the same precedence the page uses, so an owner's
-    /// override is the URL we fetch — which is the whole point of it being in §8.5's overridable set.
-    /// <c>DISTINCT ON</c> with the source ordering does that in one pass rather than reading every
-    /// row of every game to pick one each.
+    /// Read through the same precedence the page uses, so an owner's override is the URL we fetch.
+    /// <c>DISTINCT ON</c> with the source ordering does that in one pass.
     /// </remarks>
     public async Task<IReadOnlyList<IconCandidate>> DueAsync(
         int limit,
@@ -170,10 +159,9 @@ public sealed class NpgsqlIconStore(NpgsqlDataSource source) : IIconStore
     /// Dapper's view of a row, which is not the record's.
     /// </summary>
     /// <remarks>
-    /// A settable class rather than the positional record, because Dapper materialises by
-    /// constructor signature and a <c>timestamptz</c> arrives as a <c>DateTime</c> — so a record
-    /// taking <see cref="DateTimeOffset"/> matches nothing and fails at run time with a message about
-    /// parameterless constructors. The same shape every other store here uses, for the same reason.
+    /// A settable class, not the positional record: Dapper materialises by constructor signature and
+    /// a <c>timestamptz</c> arrives as <c>DateTime</c>, so a record taking
+    /// <see cref="DateTimeOffset"/> fails at run time.
     /// </remarks>
     private sealed class IconRow
     {

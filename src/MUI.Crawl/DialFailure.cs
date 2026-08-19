@@ -6,9 +6,8 @@ namespace MUI.Crawl;
 /// Reads why a dial failed, as a cause the catalogue has a word for.
 /// </summary>
 /// <remarks>
-/// Extracted from <see cref="TelnetProbe"/> so the mapping can be asserted directly. It cannot be
-/// exercised through a socket: three of the errors below cannot be provoked on demand from a test,
-/// and they are exactly the ones that were being read wrongly.
+/// Extracted from <see cref="TelnetProbe"/> so the mapping can be asserted directly, including the
+/// errors that cannot be provoked on demand from a socket test.
 /// </remarks>
 public static class DialFailure
 {
@@ -24,11 +23,8 @@ public static class DialFailure
 
         return error switch
         {
-            // Every way getaddrinfo can fail, not just the one. EAI_AGAIN (TryAgain) is the
-            // transient one and was the costly omission: it fell to the catch-all, which
-            // FailureReading turns into "timeout", so our own resolver giving up was published as
-            // the game not answering. Measured on the production host, a cold lookup for these
-            // domains takes 1.6s to 10s and sometimes returns nothing at all.
+            // TryAgain (EAI_AGAIN) is the transient DNS failure; without it here, a resolver retry
+            // falls to the catch-all and our own lookup giving up gets published as the game timing out.
             SocketException
             {
                 SocketErrorCode: SocketError.HostNotFound
@@ -39,10 +35,8 @@ public static class DialFailure
             SocketException { SocketErrorCode: SocketError.ConnectionRefused } => new("refused", error.Message),
             SocketException { SocketErrorCode: SocketError.TimedOut } => new("timeout", error.Message),
 
-            // No path from here to there. One word for all three because that is the fact the
-            // catalogue publishes — reachable is measured from one vantage point, so "no route from
-            // here" is the honest sentence — and the errno that separates a missing route from a
-            // router's host-unreachable stays in the message beside it.
+            // One word for all three: reachability is measured from one vantage point, so "no route
+            // from here" is the honest sentence regardless of which errno produced it.
             SocketException
             {
                 SocketErrorCode: SocketError.NetworkUnreachable

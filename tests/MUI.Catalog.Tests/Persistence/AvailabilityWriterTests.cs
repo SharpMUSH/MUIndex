@@ -57,16 +57,15 @@ public class AvailabilityWriterTests
         await Assert.That(second).IsEqualTo(AvailabilityOutcome.Extended);
         await Assert.That(store.Intervals).Count().IsEqualTo(1);
 
-        // The open interval's from_at is untouched, which is what makes its duration the length of
-        // the outage rather than the length of the last probe cycle.
+        // from_at is untouched, so duration is the length of the outage, not of the last probe cycle.
         await Assert.That(store.Intervals[0].FromAt).IsEqualTo(Start);
     }
 
     [Test]
     public async Task AChangeOfCauseAloneWritesATransition()
     {
-        // Unreachable throughout, but the reason moved from "the host is gone" to "the host is
-        // there and refusing". Those are different facts about a game and the series must show both.
+        // Unreachable throughout, but the reason moved from "host is gone" to "host is refusing" —
+        // different facts, both must show.
         var store = new InMemoryAvailabilityStore();
         var writer = new AvailabilityWriter(store);
 

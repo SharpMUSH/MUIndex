@@ -5,18 +5,7 @@ namespace MUI.Web.Tests;
 /// <summary>
 /// The two files a crawler asks for before it asks for anything else.
 /// </summary>
-/// <remarks>
-/// <para>
-/// A game page nobody can find is a measurement nobody reads, and the archive is the part of this
-/// catalogue no incumbent kept — so it is the part least likely to be indexed from links alone and
-/// the part most worth submitting deliberately. Rule 3 says an archived game's page survives; the
-/// sitemap is where that promise stops being internal.
-/// </para>
-/// <para>
-/// Both are endpoints rather than files in <c>wwwroot</c>, because the sitemap enumerates the
-/// catalogue and a static one would be a second copy of it, stale from the first crawl cycle.
-/// </para>
-/// </remarks>
+/// <remarks>Rule 3 says an archived game's page survives; the sitemap is where that promise stops being internal. Both are endpoints, not static files, since a static one would be stale from the first crawl cycle.</remarks>
 public class SiteIndexTests
 {
     private static readonly XNamespace Sitemap = "http://www.sitemaps.org/schemas/sitemap/0.9";
@@ -24,8 +13,7 @@ public class SiteIndexTests
     [Test]
     public async Task RobotsNamesTheSitemapWithAnAbsoluteUrl()
     {
-        // The Sitemap directive is specified as taking a full URL, and a crawler that reads a
-        // relative one simply skips it — silently, which is the failure mode that survives for years.
+        // The Sitemap directive takes a full URL; a relative one is silently skipped by a crawler.
         await using var site = await SiteHost.StartAsync();
 
         var robots = await site.Client.GetStringAsync("/robots.txt");
@@ -37,8 +25,6 @@ public class SiteIndexTests
     [Test]
     public async Task RobotsKeepsCrawlersOffTheRoutesThatAreNotDocuments()
     {
-        // /games/random answers a different game every time, so a crawler following it indexes
-        // nothing and re-fetches for ever. The account and claim routes are somebody's session.
         await using var site = await SiteHost.StartAsync();
 
         var robots = await site.Client.GetStringAsync("/robots.txt");
@@ -78,8 +64,6 @@ public class SiteIndexTests
     [Test]
     public async Task EveryReferencePageIsInTheSitemap()
     {
-        // The reference section is hand-written prose with no inbound links from anywhere but its
-        // own index, which is exactly the shape a crawler under-visits.
         await using var site = await SiteHost.StartAsync();
 
         var document = XDocument.Parse(await site.Client.GetStringAsync("/sitemap.xml"));
@@ -94,8 +78,7 @@ public class SiteIndexTests
     [Test]
     public async Task ArchivedGamesAreListedBesideLiveOnes()
     {
-        // Rule 3, on the one surface where omission is invisible. Gaslight Row stopped answering in
-        // 2023 and its page is still the record of it having existed.
+        // Rule 3: Gaslight Row stopped answering in 2023 and its page is still the record it existed.
         await using var site = await SiteHost.StartAsync(measured: true);
 
         var document = XDocument.Parse(await site.Client.GetStringAsync("/sitemap.xml"));
@@ -108,9 +91,6 @@ public class SiteIndexTests
     [Test]
     public async Task TheFixtureSubmitsNoGameUrls()
     {
-        // A sitemap is a list of pages we are asking a search engine to index, and there is no way
-        // to attach "these games are invented" to an entry in it. The static pages are ours and
-        // true either way; the game URLs are not.
         await using var site = await SiteHost.StartAsync();
 
         var document = XDocument.Parse(await site.Client.GetStringAsync("/sitemap.xml"));
@@ -150,11 +130,8 @@ public class SiteIndexTests
     [Test]
     public async Task TheSitemapDeclaresTheEncodingItIsActuallyIn()
     {
-        // XmlWriter takes the encoding it declares from the writer it was handed, and a StringWriter
-        // says UTF-16 because a .NET string is — so the obvious spelling of this ships UTF-8 bytes
-        // under an encoding="utf-16" declaration. A strict parser rejects the document and a lenient
-        // one guesses, and no test that reads the response as a string can see either happen. Read
-        // as bytes here for exactly that reason.
+        // A StringWriter declares UTF-16 (since a .NET string is), so the obvious spelling ships
+        // UTF-8 bytes under an encoding="utf-16" declaration.
         await using var site = await SiteHost.StartAsync();
 
         var bytes = await site.Client.GetByteArrayAsync("/sitemap.xml");

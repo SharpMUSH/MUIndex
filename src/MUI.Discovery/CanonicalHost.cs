@@ -7,19 +7,10 @@ namespace MUI.Discovery;
 /// compares with.
 /// </summary>
 /// <remarks>
-/// <para>
-/// "One address, one row" is only a guarantee if one host has one spelling. <c>MUD.Example.ORG.</c>
-/// and <c>mud.example.org</c> are different strings and would be two targets for one machine — which
-/// is two probes, twice the traffic at somebody else's server, and eventually the duplicate listing
-/// spec §7.3 exists to prevent. The same argument applies to <c>[2001:db8::1]</c> against
+/// One host must have one spelling, or <c>MUD.Example.ORG.</c> and <c>mud.example.org</c> become two
+/// crawl targets for one machine — double probing, and the duplicate-listing failure spec §7.3
+/// exists to prevent. The same argument applies to <c>[2001:db8::1]</c> against
 /// <c>2001:0db8:0000::1</c>.
-/// </para>
-/// <para>
-/// <b>Owed to Plan 02.</b> Plan 02 gives <c>MUI.Catalog.HostName.Normalize</c> the same job for
-/// <c>game_endpoint</c>, and two implementations of one rule that no compiler checks against each
-/// other is exactly the shape that goes wrong quietly. When that type lands this one delegates to it
-/// and keeps only the crawl-registry-specific parts; until then the rule lives here, stated once.
-/// </para>
 /// </remarks>
 public static class CanonicalHost
 {

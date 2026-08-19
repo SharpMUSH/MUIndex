@@ -345,6 +345,9 @@
   <data name="nav.about" xml:space="preserve">
     <value>über uns</value>
   </data>
+  <data name="nav.discord" xml:space="preserve">
+    <value>Discord</value>
+  </data>
   <data name="nav.submit" xml:space="preserve">
     <value>eintragen</value>
   </data>
@@ -544,7 +547,7 @@
     <value>Spiele, die Erwachseneninhalte angeben, {shown, select, true {angezeigt} other {verborgen}}</value>
   </data>
   <data name="facet.countsNote" xml:space="preserve">
-    <value>Zahlen sind gemessene Spiele, nie Schätzungen.</value>
+    <value>Jede Zahl hier stammt von einem Spiel, das wir gemessen haben — keine Schätzung.</value>
   </data>
   <data name="facet.key.summary" xml:space="preserve">
     <value>was die Kennzeichen und die Leerstellen bedeuten</value>
@@ -991,7 +994,7 @@
     <value>Entweder ein WHO oder DOING, am Verbindungsbildschirm gelesen und von uns gezählt, oder das MSSP-Feld PLAYERS des Spiels selbst, das es veröffentlicht hat. Niemals zusammengeführt.</value>
   </data>
   <data name="about.measures.unknown.lead" xml:space="preserve">
-    <value>Eine Antwort, die wir nicht lesen können, ist unbekannt, niemals null.</value>
+    <value>Nur ein vollständig gelesener Wert kann eine Null sein. Alles andere ist unbekannt.</value>
   </data>
   <data name="about.measures.unknown.body" xml:space="preserve">
     <value>Server passen ihre WHO-Kopfzeilen frei an, und ab einem gewissen Punkt kann unser Parser eine solche nicht mehr lesen. Das ist unzählbar, ein eigener Zustand. Eine gemessene Null — wir sind hineingekommen, und niemand war da — ist eine Zählung und wird als solche ausgegeben.</value>
@@ -1084,7 +1087,7 @@
     <value>Ein Spiel, das in seinem MSSP-Bericht einen bevorzugten Mindestabstand nennt, bekommt ihn — in beide Richtungen vor unserem eigenen Zeitplan: 720 Stunden heißt monatlich, nicht wöchentlich. Ein verstummtes Spiel wird im längeren Abstand für immer weiter versucht; so trägt es sich selbst wieder ein, wenn es zurückkommt.</value>
   </data>
   <data name="about.crawler.referral.lead" xml:space="preserve">
-    <value>Eine per Verweis genannte Adresse wird geprüft, nie geglaubt.</value>
+    <value>Wir prüfen, wohin ein Verweis zeigt. Die Angabe eines Spiels allein reicht uns nicht.</value>
   </data>
   <data name="about.crawler.referral.body" xml:space="preserve">
     <value>MSSP erlaubt es einem Spiel, andere Spiele zu nennen. Jeder Name wird aufgelöst, bevor irgendetwas angewählt wird, und abgelehnt, sofern nicht jede Adresse, auf die er auflöst, global routbar ist. Eine gemischte Antwort lehnt das ganze Ziel ab. Unsere Ablehnung wird als unsere verbucht und erscheint nie als Ausfallzeit im Datensatz eines Spiels.</value>
@@ -1501,7 +1504,7 @@
     <value>Das Ökosystem</value>
   </data>
   <data name="ecosystem.noTotals" xml:space="preserve">
-    <value>Anteile, niemals Gesamtzahlen. Wir veröffentlichen keine Zahl dazu, wie viele Menschen MU* spielen: Ein Verhältnis über die von uns gemessenen Spiele übersteht die, die wir nicht erreichen können; eine Kopfzahl nicht.</value>
+    <value>Wir veröffentlichen einen Anteil, keine Kopfzahl: Ein Verhältnis über die von uns gemessenen Spiele übersteht die, die wir nicht erreichen können, deshalb gibt es hier keine Zahl dazu, wie viele Menschen insgesamt MU* spielen.</value>
   </data>
   <data name="ecosystem.listed" xml:space="preserve">
     <value>{count, plural, one {{value} Spiel eingetragen} other {{value} Spiele eingetragen}}</value>
@@ -1693,7 +1696,7 @@
     <value>Längste durchgehende Erreichbarkeit</value>
   </data>
   <data name="rankings.spells.basis" xml:space="preserve">
-    <value>Jede Abfrage seit dem genannten Datum hat das Spiel erreichbar vorgefunden. Erreichbar, nicht online: Wir messen einen Socket von einem einzigen Host aus, und ein Spiel, zu dem wir keine Route finden, ist dennoch völlig lebendig. Eine solche Strecke kann nicht länger sein, als wir zusehen, deshalb ist das Datum die Tatsache und die Dauer folgt daraus.</value>
+    <value>Jede Abfrage seit dem genannten Datum hat das Spiel erreichbar vorgefunden — ein Socket hat geantwortet, was keine Aussage darüber ist, ob das Spiel durchgehend lief. Eine solche Strecke kann nicht länger sein, als wir zusehen, deshalb ist das Datum die Tatsache und die Dauer folgt daraus.</value>
   </data>
   <data name="rankings.spells.empty" xml:space="preserve">
     <value>Zurzeit ist kein eingetragenes Spiel durchgehend erreichbar.</value>
@@ -2245,7 +2248,7 @@
     <value>Demodaten — nichts davon wurde gemessen. {description}</value>
   </data>
   <data name="preview.cardAlt" xml:space="preserve">
-    <value>{site} — gemessen, nicht behauptet</value>
+    <value>{site} — gemessen, nicht angegeben</value>
   </data>
   <data name="preview.cardAlt.named" xml:space="preserve">
     <value>{title} auf {site}</value>
@@ -2401,7 +2404,7 @@
     <value>{count, plural, one {# archiviert} other {# archiviert}}</value>
   </data>
   <data name="reference.measuredNeverAsserted" xml:space="preserve">
-    <value>gemessen, nie behauptet</value>
+    <value>gemessen, nicht angegeben</value>
   </data>
   <data name="reference.codebase.note" xml:space="preserve">
     <value>Bei dieser Anfrage aus dem Katalog gezählt, über denselben Filter, den der Link oben trägt — diese Zahl und jenes Verzeichnis stammen also aus einer einzigen Abfrage und können nicht auseinanderlaufen.</value>

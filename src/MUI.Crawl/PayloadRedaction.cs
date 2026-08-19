@@ -7,38 +7,16 @@ namespace MUI.Crawl;
 /// found in (spec §11).
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>§11 asks for two things that cannot both be had, and this is the resolution.</b> It wants raw
-/// payloads kept briefly so parser improvements can be replayed, and it wants them redacted of names
-/// before they touch disk. The payload worth replaying is the <c>WHO</c> — that is where the parser
-/// fails — and it is also the only place a player name appears. Redacting names out of it means
-/// locating them, which means parsing it correctly, which is exactly what failed. <b>The payloads
-/// most worth keeping are the ones a name-finding redactor cannot clean.</b>
-/// </para>
-/// <para>
-/// So the text is not kept at all. What is kept is its <em>shape</em>: every column position, every
-/// run of whitespace, every digit and every punctuation mark exactly where it was, with each run of
-/// letters replaced by a mask of the same length unless it is a word the parser itself reads. The
-/// parser is structural (see <see cref="WhoParser"/>) — it finds a summary sentence, a column header
-/// and the rows beneath — so structure is the whole of what a replay needs, and a name is never part
-/// of it.
-/// </para>
-/// <para>
-/// <b>Digits survive only where a count can be.</b> "There are 16 players connected" is the
-/// statement the parser most wants to re-read, and masking the 16 would keep the sentence and
-/// destroy the measurement in it — a number of players is not a person. But a digit is not
-/// automatically a count: <c>12345</c> is a perfectly ordinary MU* name, and <c>A1ice</c> is a name
-/// with a digit in it. So a run of characters containing any letter is masked whole, digits
-/// included, and a run of bare digits survives only on a line that also carries a word the parser
-/// reads. A summary sentence has such a word; a row of players does not.
-/// </para>
-/// <para>
-/// <b>The honest limit:</b> a player calling themselves <c>Connected</c> keeps their name, because
-/// the word is in the vocabulary and the mask cannot tell the two apart. What survives is one
-/// dictionary word in a column, attributable to nobody, and the alternative — dropping the
-/// vocabulary — costs every summary sentence the parser exists to read. It is stated here rather
-/// than papered over.
-/// </para>
+/// §11 wants raw payloads kept briefly to replay parser improvements against, but redacted of names
+/// before they touch disk — and the only payload worth replaying (<c>WHO</c>) is also the only place
+/// a name appears, so a name-finding redactor would have to parse it correctly first, which is
+/// exactly what failed. The resolution: keep the <em>shape</em> instead of the text — every column
+/// position, whitespace run and punctuation mark intact, with letter runs masked to the same length
+/// unless they're a word the parser itself reads (see <see cref="WhoParser"/>, which is structural).
+/// Digits survive only on a line that also carries a vocabulary word (a count needs its sentence,
+/// e.g. "16 players connected"), since a bare number elsewhere is as likely to be a name
+/// (<c>12345</c>) as a count. Honest limit: a player named <c>Connected</c> keeps their name, because
+/// the mask can't distinguish a vocabulary word from a name that happens to match one.
 /// </remarks>
 public static class PayloadRedaction
 {
@@ -69,12 +47,8 @@ public static class PayloadRedaction
         "name", "idle", "for", "doing", "room", "level", "class", "race", "since", "location",
         "status", "port", "host", "flags",
 
-        // Login prompts. A payload that is one of these must go on being recognisable as one.
-        //
-        // The second line was added with WhoReading.LoginPrompt, and for the reason this list exists
-        // at all: a stored shape has to replay to the same verdict the live parser reached, and
-        // "Illegal name, try again." masked to "Aaaaaaa name, aaa aaaaaaa." replays as unreadable —
-        // the parser backlog those 43 games were being counted into, reproduced in the archive.
+        // Login prompts: a stored shape must replay to the same verdict the live parser reached, or
+        // e.g. "Illegal name, try again." masks to unreadable and the login-prompt verdict is lost.
         "by", "that", "found", "enter", "the", "create", "a", "new", "what", "your", "password",
         "type", "welcome", "please", "and", "of", "to",
         "illegal", "reserved", "did", "i", "get", "right",
@@ -89,19 +63,16 @@ public static class PayloadRedaction
     /// <summary>
     /// The character a masked digit becomes.
     /// </summary>
-    /// <remarks>
-    /// Digits are masked wherever they could be part of a name — inside a run that has letters in
-    /// it, and on any line that names no countable thing. <c>12345</c> is an ordinary MU* name.
-    /// </remarks>
+    /// <remarks>Masked wherever a digit could be part of a name rather than a count.</remarks>
     private const char Digit = '0';
 
     /// <summary>
     /// The payload with every name-shaped run masked and every structural feature intact.
     /// </summary>
     /// <remarks>
-    /// Length-preserving, character for character, because a MU* <c>WHO</c> is a column layout and a
-    /// redaction that changed a run's length would move every column after it — replaying a
-    /// positional parser against that would measure the redactor.
+    /// Length-preserving, character for character — a <c>WHO</c> is a column layout, and shifting a
+    /// run's length would move every column after it and make a positional parser measure the
+    /// redactor instead of the server.
     /// </remarks>
     public static string Structural(string? payload)
     {

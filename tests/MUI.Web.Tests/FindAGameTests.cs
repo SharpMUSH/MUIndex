@@ -13,14 +13,8 @@ namespace MUI.Web.Tests;
 /// §9's find-a-game wizard, and the properties that make a page of counts safe to have.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Two things are being guarded. The first is the old one: the page does not translate, so a control
-/// whose name or value the listing's binding would refuse teaches a reader that the site does not
-/// work. The second is new and larger — this page now publishes a number for a combination of
-/// answers, and the whole product is that a number here came from a query rather than from
-/// arithmetic. The prototype it was drawn from multiplied marginal ratios; these tests are what
-/// stops that arriving by any route.
-/// </para>
+/// Every count on this page must come from a real query, never from multiplying marginal ratios
+/// (which is what the handoff's prototype does and gives plausible wrong numbers).
 /// </remarks>
 public class FindAGameTests
 {
@@ -43,18 +37,9 @@ public class FindAGameTests
     /// in production.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// This is the whole of a live 500. <c>ComponentBase</c> calls <c>StateHasChanged</c>
-    /// after starting <c>OnParametersSetAsync</c> and before awaiting it, so the page renders once
-    /// with the fields it had before the load. Every other test on this page passes the fixture,
-    /// whose tasks are already complete when that first render happens, so the first frame and the
-    /// last are the same frame and no test had ever seen the page mid-load. Against Postgres they
-    /// are different frames, and the first one dereferenced a screen that was not built yet.
-    /// </para>
-    /// <para>
-    /// Asserting only that a heading came back, deliberately: what broke was not the markup but
-    /// whether there was any. A test that checked the finished page here would have gone on passing.
-    /// </para>
+    /// <c>ComponentBase</c> renders once before <c>OnParametersSetAsync</c> is awaited; every other
+    /// test here uses the fixture, whose tasks are already complete, so the mid-load frame (a screen
+    /// field dereferenced before it's built) was never exercised.
     /// </remarks>
     [Test]
     public async Task ThePageRendersBeforeItsScreenHasArrived()
@@ -70,12 +55,7 @@ public class FindAGameTests
     /// <summary>
     /// The unlock: an answered Find page is a page, not a moment between two form submissions.
     /// </summary>
-    /// <remarks>
-    /// It rendered every option unselected whatever the URL said, because it read no querystring at
-    /// all — so an answered page could not be linked, did not survive reload, and, the reason it had
-    /// to change, could not be counted: there was no server-side instant at which a set of answers
-    /// existed.
-    /// </remarks>
+    /// <remarks>Previously read no querystring at all, so an answered page couldn't be linked, survive reload, or be counted server-side.</remarks>
     [Test]
     public async Task AnAnsweredPageIsLinkable()
     {
@@ -94,12 +74,7 @@ public class FindAGameTests
     /// <summary>
     /// The count is a count of games, not a product of the numbers beside the options.
     /// </summary>
-    /// <remarks>
-    /// Asserted against the listing the same answers produce, because that is the only definition of
-    /// "right" that matters: the button says "show these N games" and the page it opens has to hold
-    /// N of them. Multiplying marginal ratios — what the handoff's prototype does — gives 2 here and
-    /// would give a plausible wrong number on every combination where two answers correlate.
-    /// </remarks>
+    /// <remarks>Asserted against the listing the same answers produce — the only definition of "right" that matters.</remarks>
     [Test]
     public async Task TheCountIsTheListingTheAnswersProduce()
     {
@@ -119,19 +94,7 @@ public class FindAGameTests
     /// <summary>
     /// Every option's number is what choosing it returns, with the other answers still applied.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The failure this prevents is the page's original one in a subtler dress: a marginal count
-    /// beside an option in a form that already has three other answers is a promise about a listing
-    /// nobody will ever see. Checked by following the option's own link and counting what comes
-    /// back — the same route a reader takes.
-    /// </para>
-    /// <para>
-    /// A chosen option is the one case where the number and the link point different ways, and
-    /// deliberately: its link <em>clears</em> the answer, because a control a reader cannot undo is
-    /// a trap, while its number is still what the answer returns — which is the count in the panel.
-    /// </para>
-    /// </remarks>
+    /// <remarks>Checked by following the option's own link and counting what comes back. A chosen option's link deliberately <em>clears</em> the answer, while its number stays what the answer returns.</remarks>
     [Test]
     public async Task AnOptionPromisesWhatItsOwnLinkReturns()
     {
@@ -165,12 +128,7 @@ public class FindAGameTests
         }
     }
 
-    /// <summary>The figure on the loosen button is the listing that dropping the answer returns.</summary>
-    /// <remarks>
-    /// The handoff picks the answer with the smallest marginal count and shows what it thinks
-    /// dropping it returns. Both halves are estimates; both are replaced here by a set the query
-    /// already counted, and this is what proves it.
-    /// </remarks>
+    /// <summary>The figure on the loosen button is the listing that dropping the answer returns, not an estimate.</summary>
     [Test]
     public async Task TheLoosenButtonCarriesACountedNumber()
     {
@@ -186,12 +144,7 @@ public class FindAGameTests
         await Assert.That(screen.Loosen.Count).IsGreaterThan(screen.Matching);
     }
 
-    /// <summary>Nothing offers a way to see nothing.</summary>
-    /// <remarks>
-    /// A control that cannot do what it offers is worse than one that is not there, and at zero the
-    /// affordance the reader needs is the answer responsible rather than a button onto an empty
-    /// listing.
-    /// </remarks>
+    /// <summary>Nothing offers a way to see nothing — at zero the affordance is the answer responsible, not a button onto an empty listing.</summary>
     [Test]
     public async Task AtZeroThePageOffersTheWayOutAndNotTheEmptyListing()
     {
@@ -209,14 +162,7 @@ public class FindAGameTests
     /// <summary>
     /// Every control is named for a facet the binding reads, and no control invents one.
     /// </summary>
-    /// <remarks>
-    /// Read off the rendered markup rather than off the source, because what matters is the name
-    /// that reaches the browser. A control named for a key <see cref="FacetKeys"/> does not define
-    /// would be dropped on the floor by the listing, and the reader would see a filter they set
-    /// having no effect at all — the silent no-op this codebase refuses everywhere else. The one
-    /// form left on this page is the name field, and the answers already given ride with it as
-    /// hidden inputs, so this is also what stops a typed name silently discarding the other five.
-    /// </remarks>
+    /// <remarks>Read off the rendered markup, not the source — a control named for a key <see cref="FacetKeys"/> doesn't define would be silently dropped by the listing.</remarks>
     [Test]
     public async Task EveryControlIsNamedForAFacetTheListingReads()
     {
@@ -252,12 +198,7 @@ public class FindAGameTests
     /// <summary>
     /// No answer is offered that the listing cannot apply.
     /// </summary>
-    /// <remarks>
-    /// Every link on the page is walked through the listing's own binding. A refused querystring is
-    /// what a reader would meet as a 400 or, worse, as a filter that silently did nothing — and the
-    /// long tail's disclosure makes this bigger than it looks, because a folded option that could
-    /// not be applied would be invisible until somebody opened it.
-    /// </remarks>
+    /// <remarks>Every link is walked through the listing's own binding — a refused querystring would meet a reader as a 400 or a silent no-op.</remarks>
     [Test]
     public async Task NoAnswerIsOfferedThatTheListingCannotApply()
     {
@@ -277,13 +218,7 @@ public class FindAGameTests
     /// <summary>
     /// The silent bucket is an option, and it keeps the word its own facet spells absence with.
     /// </summary>
-    /// <remarks>
-    /// The page filtered it out while the query layer answered it and the plain surface offered it,
-    /// so two surfaces of one page disagreed about what could be asked. The handoff wants every one
-    /// of them labelled <em>unknown</em>; they stay three sentences, because a genre nobody declared
-    /// and a codebase we could not identify are a fact about the game and a fact about our reach, and
-    /// that difference is the thing the site is for.
-    /// </remarks>
+    /// <remarks>A genre nobody declared and a codebase we couldn't identify stay distinct words rather than one "unknown" — the difference is the thing the site is for.</remarks>
     [Test]
     public async Task SilenceIsSelectableAndKeepsItsOwnWord()
     {
@@ -300,13 +235,7 @@ public class FindAGameTests
     /// <summary>
     /// Archiving removes a game from the default listing and from nothing else — including here.
     /// </summary>
-    /// <remarks>
-    /// The handoff asks for this question to default to <em>include them</em> so that "none of these
-    /// questions are required" becomes true. Inverting it would give one reader two different result
-    /// sets from two doors into one query. What was taken instead is the branch the handoff offers
-    /// itself: keep the default, delete the claim, and say what is applied — which this page does by
-    /// putting the number each answer returns on both of them.
-    /// </remarks>
+    /// <remarks>Keeps the listing's default (excluded) rather than inverting it, which would give one reader two different result sets from two doors into one query.</remarks>
     [Test]
     public async Task TheDarkQuestionDefaultsTheSameWayTheListingDoes()
     {
@@ -329,13 +258,7 @@ public class FindAGameTests
         await Assert.That(all.Count).IsEqualTo(listing.Games.Count);
     }
 
-    /// <summary>TLS is one row, and the acronyms all read the same shape.</summary>
-    /// <remarks>
-    /// It reached the page twice — the dedicated <c>tls</c> facet and a <c>protocol=TLS</c> value
-    /// falling through to the generic gloss — so one acronym named two controls with two meanings.
-    /// And Razor ate the space after the conditional that wrote the name, which shipped
-    /// <c>MSSP— server self-description</c> to a screen reader as one word.
-    /// </remarks>
+    /// <summary>TLS is one row, and every acronym carries its gloss.</summary>
     [Test]
     public async Task TheClientQuestionNamesTlsOnceAndGlossesEveryAcronym()
     {
@@ -353,13 +276,11 @@ public class FindAGameTests
         }
     }
 
-    /// <summary>Six questions, one answer at a time, and each one a labelled group with a heading.</summary>
-    /// <remarks>
-    /// The drawing asks for six <c>fieldset</c>/<c>legend</c> pairs. Our options are links, and a
-    /// legend is announced when focus enters a form control in its group — with no controls to
-    /// enter it would name the group for nobody. A heading is announced, is navigable by a screen
-    /// reader's own heading key, and is the substitution the handoff explicitly allows.
-    /// </remarks>
+    /// <summary>
+    /// Six questions, one answer at a time, each a labelled group with a heading — a heading rather
+    /// than a <c>fieldset</c>/<c>legend</c>, since our options are links and a legend needs a form
+    /// control in its group to be announced.
+    /// </summary>
     [Test]
     public async Task EveryQuestionIsALabelledGroupWithAHeading()
     {
@@ -381,14 +302,10 @@ public class FindAGameTests
         await Assert.That(Regex.Matches(html, @"<h2 id=""find-q\d""").Count).IsEqualTo(6);
     }
 
-    /// <summary>Every question says what kind of statement its answers are.</summary>
-    /// <remarks>
-    /// "What kind of game?" is the load-bearing one: it asks the derived lineage facet rather than
-    /// the declared <c>family</c> string, so the option a reader picks is a grouping of ours — and
-    /// rule 5 is what the badge exists to satisfy, not decoration. The alternative the handoff
-    /// proposes is a raw-string-to-group map authored in the web layer, which would be a second copy
-    /// of a vocabulary the catalogue owns.
-    /// </remarks>
+    /// <summary>
+    /// Every question says what kind of statement its answers are. "What kind of game?" asks the
+    /// derived lineage facet, not the declared <c>family</c> string — rule 5.
+    /// </summary>
     [Test]
     public async Task TheGroupedQuestionSaysTheGroupingIsOurs()
     {
@@ -409,13 +326,7 @@ public class FindAGameTests
         await Assert.That(html).Contains("evidence declared");
     }
 
-    /// <summary>No rating, no score, no recommendation — here least of all.</summary>
-    /// <remarks>
-    /// A page that asks somebody what they want is the most natural place on this site for a
-    /// "best match" to appear, and the absence of one is the thing worth guarding. Rankings are
-    /// computed from measured data; a wizard that scored games against a questionnaire would be the
-    /// vote this project exists without.
-    /// </remarks>
+    /// <summary>No rating, no score, no recommendation — here least of all, since rankings are computed from measured data, never a questionnaire score.</summary>
     [Test]
     public async Task TheWizardRecommendsNothing()
     {
@@ -427,12 +338,7 @@ public class FindAGameTests
         }
     }
 
-    /// <summary>A querystring we cannot read is refused, on both surfaces.</summary>
-    /// <remarks>
-    /// The listing already refuses one. This page used to ignore its URL entirely, so it could not
-    /// refuse anything — and now that it reads one, answering <c>?band=nonsense</c> with the
-    /// unfiltered catalogue would present our own parse failure as somebody's answer.
-    /// </remarks>
+    /// <summary>A querystring we cannot read is refused, on both surfaces — answering with the unfiltered catalogue would present our own parse failure as somebody's answer.</summary>
     [Test]
     public async Task AQueryWeCannotReadIsRefusedRatherThanIgnored()
     {
@@ -449,12 +355,7 @@ public class FindAGameTests
     /// <summary>
     /// The plain surface is the same page: same questions, same options, same counts, same words.
     /// </summary>
-    /// <remarks>
-    /// It was a different page. Plain dumped ten facet groups as querystring recipes while the
-    /// rendered page asked six questions, and the two disagreed about what could be asked at all —
-    /// plain offered the silent bucket the rendered page hid. Both are now one construction with two
-    /// renderers, and this walks the model to prove the text carries every option and every number.
-    /// </remarks>
+    /// <remarks>Both surfaces are now one construction with two renderers; this walks the model to prove the text carries every option and every number.</remarks>
     [Test]
     public async Task ThePlainSurfaceCarriesEveryQuestionEveryOptionAndTheCount()
     {
@@ -486,12 +387,6 @@ public class FindAGameTests
     }
 
     /// <summary>Following a link on the plain surface stays on the plain surface.</summary>
-    /// <remarks>
-    /// It falls out of the construction rather than being arranged — every address on both surfaces
-    /// is this page's own URL with one parameter changed — and it is worth asserting because a
-    /// reader who lands back on the rendered page after answering one question has lost the surface
-    /// they chose.
-    /// </remarks>
     [Test]
     public async Task ThePlainSurfaceLinksStayPlain()
     {
@@ -519,18 +414,9 @@ public class FindAGameTests
     /// The long tail folds, and every option in it is still a real answer.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The catalogue this is drawn from has nine of twelve genres matching two games or fewer, and an
-    /// option that returns one result is a piece of trivia in a list somebody has to read. The
-    /// fixture is six games and cannot produce that shape, so the tail is exercised over a catalogue
-    /// made for it — which is also the only way to prove the thing that matters: what is behind the
-    /// disclosure is the values themselves, never a "3 more genres" bucket of its own. A submittable
-    /// bucket would be Find offering a choice the listing cannot express.
-    /// </para>
-    /// <para>
-    /// The reader's own answer is never in the tail. A selection folded out of sight is the defect
-    /// the disclosure would introduce, and it is the one option they need to be able to undo.
-    /// </para>
+    /// Exercised over a built catalogue (the fixture can't produce a long tail) to prove what's behind
+    /// the disclosure is real values, never a "3 more" bucket the listing can't express. The reader's
+    /// own answer is never in the tail — folded out of sight it would be undoable.
     /// </remarks>
     [Test]
     public async Task TheLongTailFoldsAndHoldsRealAnswers()
@@ -569,19 +455,9 @@ public class FindAGameTests
     /// A chosen capability outside the commonest six is still on the page, and can still be undone.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The client question does not go through <see cref="FindScreen"/>'s <c>Split</c> — its options
-    /// are two facets welded into one control — so the rule that a reader's own answer is never
-    /// folded away had to be carried across by hand, and was not. The shown list was the first six
-    /// by popularity and the tail was the remainder with every chosen option filtered out, so a
-    /// capability ranking seventh or lower was in neither: the answer in force was invisible and the
-    /// only affordance that clears it went with it. A single-choice control that can enter a state
-    /// it cannot leave is the worst shape a question on this page can have.
-    /// </para>
-    /// <para>
-    /// Exercised over a catalogue built to rank the chosen capability last, because the six-game
-    /// fixture measures one protocol and cannot produce a seventh option at all.
-    /// </para>
+    /// The client question doesn't go through <see cref="FindScreen"/>'s <c>Split</c> (its options
+    /// weld two facets into one control), so "a chosen answer is never folded away" had to be carried
+    /// across by hand. Exercised over a catalogue built to rank the chosen capability last.
     /// </remarks>
     [Test]
     public async Task AChosenCapabilityOutsideTheCommonestSixIsStillShownAndStillClearable()
@@ -594,7 +470,6 @@ public class FindAGameTests
         var before = await FindScreen.BuildAsync(many, string.Empty);
         var offered = before.Questions.Single(q => q.Key == FacetKeys.Protocol);
 
-        // The premise: it really is in the tail before anybody chooses it.
         await Assert.That(offered.Options.Any(o => o.Label.StartsWith(rare, StringComparison.Ordinal)))
             .IsFalse();
         await Assert.That(offered.Tail.Any(o => o.Label.StartsWith(rare, StringComparison.Ordinal)))
@@ -603,21 +478,18 @@ public class FindAGameTests
         var screen = await FindScreen.BuildAsync(many, $"?{FacetKeys.Protocol}={rare}");
         var client = screen.Questions.Single(q => q.Key == FacetKeys.Protocol);
 
-        // Shown, not folded: promoted into the open list exactly as Split promotes one elsewhere.
         var chosen = client.Options.Single(o => o.IsChosen);
 
         await Assert.That(chosen.Label).StartsWith(rare);
         await Assert.That(client.Tail.Any(o => o.IsChosen)).IsFalse();
 
-        // And clearable: its own link drops the answer rather than setting it again, so the control
-        // is reachable in both directions with no second affordance.
+        // Clearable: its own link drops the answer rather than setting it again.
         await Assert.That(chosen.Href).DoesNotContain($"{FacetKeys.Protocol}={rare}");
 
         GameFilterBinding.TryRead(QueryOf(chosen.Href), out var cleared, out _);
 
         await Assert.That(cleared.Filter.MeasuredProtocols).IsEmpty();
 
-        // The plain surface carries it too, or the graphical fix is half a fix (§9).
         await Assert.That(PlainText.RenderFind(screen)).Contains($"[x] {rare}");
     }
 
@@ -632,8 +504,6 @@ public class FindAGameTests
             "MSSP", "MCCP", "GMCP", "MXP", "MSDP", "TTYPE", "ATCP", "MSP", "EOR",
         ];
 
-        // Nine games offer the first, one offers the last: a strict popularity order with no ties,
-        // so which options fall outside the shown six is a fact rather than a sort artefact.
         private static readonly IReadOnlyList<GameFacetRow> Rows =
         [
             .. Protocols.SelectMany((protocol, rank) => Enumerable
@@ -685,11 +555,7 @@ public class FindAGameTests
     /// <summary>
     /// A catalogue with a long tail, which the six-game fixture has no way to have.
     /// </summary>
-    /// <remarks>
-    /// Built out of <see cref="GameFacetRow"/> and answered through <see cref="FacetedSearch"/> —
-    /// the same arithmetic the database and the fixture both go through — so this exercises the real
-    /// counting rather than a hand-written listing that could agree with nothing.
-    /// </remarks>
+    /// <remarks>Answered through <see cref="FacetedSearch"/>, the same arithmetic the database and fixture use.</remarks>
     private sealed class WideCatalogue : IGameQueries
     {
         internal static readonly string[] Genres =
@@ -749,15 +615,11 @@ public class FindAGameTests
             Unreachable: false);
     }
 
-    /// <summary>The count and the noun it agrees with are one message, never two strings.</summary>
-    /// <remarks>
-    /// The page these replace read "1 games" in the client question, on every protocol whose count
-    /// happened to be one. English is nearly the only language that would have survived even that,
-    /// and a number glued to an English fragment in English word order is exactly what the i18n
-    /// review named. "0 games" is not the same fault and is correct English — zero takes the plural
-    /// here and the singular in French — which is the reason the branch is a message and not an
-    /// <c>if</c>.
-    /// </remarks>
+    /// <summary>
+    /// The count and the noun it agrees with are one ICU message, never a number glued to an English
+    /// fragment (which used to read "1 games") — plural rules vary by locale, so the branch can't be
+    /// an <c>if</c>.
+    /// </summary>
     [Test]
     public async Task NoCountIsGluedToAnEnglishNoun()
     {
@@ -774,14 +636,7 @@ public class FindAGameTests
     /// <summary>
     /// Nothing here needs script, which is the constraint the whole design bends around.
     /// </summary>
-    /// <remarks>
-    /// The drawing this page comes from is a debounced <c>aria-live</c> region recomputing a count
-    /// as answers change. There is no script on this site, so the count is computed on the server
-    /// and every answer is an address: a link applies on click with nothing listening, and the one
-    /// form left is the name field, which a browser submits as a GET on its own. Asserted rather
-    /// than assumed because "it happens to work without JS today" and "it cannot stop working
-    /// without JS" are different properties, and only the second one is the design.
-    /// </remarks>
+    /// <remarks>No script anywhere on this site — every answer is a plain link, and the one form left is a GET the browser submits on its own.</remarks>
     [Test]
     public async Task NothingOnThisPageNeedsScript()
     {
@@ -796,10 +651,7 @@ public class FindAGameTests
 
         var rendered = await FindAsync("?genre=Fantasy");
 
-        // Every form this page owns is a GET, and every answer is an anchor: a POST would be a
-        // change of state with no address, which is the one thing this page has never had. The
-        // shared language switcher is deliberately not one of them — choosing a language writes a
-        // cookie rather than asking the catalogue a question, and it belongs to the chrome.
+        // The shared language switcher is excluded — it writes a cookie, not a catalogue question.
         var forms = Regex.Matches(rendered, "<form[^>]*>")
             .Select(m => m.Value)
             .Where(f => !f.Contains("class=\"locale\"", StringComparison.Ordinal))
@@ -816,18 +668,9 @@ public class FindAGameTests
 
     /// <summary>Every word this page owns is in the bundle, questions included.</summary>
     /// <remarks>
-    /// <para>
-    /// This is the one surface written in a reader's language rather than in the catalogue's — six
-    /// questions, the answer that un-asks each one, and a three-word gloss per capability — so it is
-    /// the page with the most prose and the least of it reachable by a translator if it is spelled
-    /// in C#. The facet <em>values</em> are deliberately not checked here: those come from
-    /// <see cref="FacetWords"/>, which the listing shares, and a second vocabulary for them on this
-    /// page is the drift the page's own header comment warns about.
-    /// </para>
-    /// <para>
-    /// Asserted by identity against the bundle rather than against English text, so the test says
-    /// "this string came from that id" and keeps saying it after somebody edits the English.
-    /// </para>
+    /// Facet <em>values</em> are deliberately not checked here — those come from
+    /// <see cref="FacetWords"/>, shared with the listing. Asserted by identity against the bundle
+    /// rather than English text, so this keeps holding after the English copy is edited.
     /// </remarks>
     [Test]
     public async Task EveryWordThisPageOwnsComesFromTheMessageBundle()
@@ -856,9 +699,8 @@ public class FindAGameTests
                 .Because($"{id} is what un-asks its question");
         }
 
-        // The acronym and its gloss are one message and not a name with three words glued to it:
-        // "MSSP— server self-description" shipped from exactly that concatenation, and a language
-        // that puts the gloss first has nowhere to say so if the two are joined in C#.
+        // The acronym and its gloss are one message, not concatenated in C# — a language that puts
+        // the gloss first needs to be able to.
         var client = screen.Questions.Single(q => q.Key == FacetKeys.Protocol);
 
         await Assert.That(client.Options.Concat(client.Tail).Select(o => o.Label))
@@ -869,14 +711,10 @@ public class FindAGameTests
     }
 
     /// <summary>
-    /// One locale reaches the words and the mirror alike, because it is built into the screen.
+    /// One locale reaches the words and the mirror alike: the locale is a parameter of the screen's
+    /// construction, not applied after the fact, so the plain surface can't fall out of sync with the
+    /// rendered page.
     /// </summary>
-    /// <remarks>
-    /// The locale is a parameter of the construction rather than something applied to the result:
-    /// the plain surface reads its question texts and its option labels straight off the screen, so
-    /// a translation applied after the fact would reach the rendered page and not this one — the
-    /// same split, in the same place, that this page was rebuilt to close.
-    /// </remarks>
     [Test]
     public async Task TheTextMirrorSpeaksTheLocaleTheScreenWasBuiltIn()
     {

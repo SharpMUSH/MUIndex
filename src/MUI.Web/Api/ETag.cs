@@ -8,18 +8,10 @@ namespace MUI.Web.Api;
 /// Strong ETags, hashed over the exact bytes the response carries (spec §10).
 /// </summary>
 /// <remarks>
-/// <para>
-/// Strong rather than weak, and over the body rather than over a version stamp, because a 304 is a
-/// promise that the bytes a client already holds are still the bytes we would send. A stamp derived
-/// from "the newest row we know about" is a guess at that promise, and it is wrong in exactly the
-/// case it matters — a value re-confirmed with no row changing, or a field changed by a writer whose
-/// timestamp the stamp does not read.
-/// </para>
-/// <para>
-/// The streamed dump is hashed the same way and not with a stamp: it is written twice, once into
-/// <see cref="HashSink"/> and once into the response, so the hash is still of the exact bytes and
-/// memory stays constant. See <c>DumpEndpoints</c>.
-/// </para>
+/// Strong, over the body rather than a version stamp: a 304 promises the bytes a client holds are
+/// still what we'd send, and a stamp derived from "the newest row we know about" can be wrong exactly
+/// when it matters. The streamed dump is hashed the same way via <see cref="HashSink"/>, written
+/// twice (once into the sink, once into the response) so memory stays constant. See <c>DumpEndpoints</c>.
 /// </remarks>
 public static class ETag
 {
@@ -32,11 +24,9 @@ public static class ETag
     /// Whether an <c>If-None-Match</c> header matches, and the response is therefore a 304.
     /// </summary>
     /// <remarks>
-    /// The header is a comma-separated list, may be <c>*</c>, and its members may be weak. A weak
-    /// tag whose opaque part equals ours is a match under RFC 9110's weak comparison, which is the
-    /// comparison <c>If-None-Match</c> is defined to use — so <c>W/</c> is stripped rather than
-    /// treated as a mismatch. Anything unparseable simply does not match, which costs a caller a
-    /// body and never a wrong answer.
+    /// A comma-separated list, may be <c>*</c>, and members may be weak — <c>W/</c> is stripped
+    /// rather than treated as a mismatch, per RFC 9110's weak comparison. Anything unparseable simply
+    /// does not match.
     /// </remarks>
     public static bool Matches(string? ifNoneMatch, string etag)
     {
@@ -71,11 +61,9 @@ public static class ETag
     /// A sink that keeps nothing but the hash of what went through it.
     /// </summary>
     /// <remarks>
-    /// An <see cref="IBufferWriter{T}"/> and not a <see cref="Stream"/>, because that is what the
-    /// streamed dump writes into on the real path too — <c>Response.BodyWriter</c> is one — and a
-    /// hash pass that went through a different kind of sink would be hashing a different code path
-    /// than the one that produces the body. It hands out the same fixed buffer every time and hashes
-    /// what was written into it, so a catalogue of any size costs one buffer.
+    /// An <see cref="IBufferWriter{T}"/>, matching what the real response path writes into
+    /// (<c>Response.BodyWriter</c>), so the hash pass exercises the same code path as the body it
+    /// hashes. Hands out the same fixed buffer every time, so a catalogue of any size costs one buffer.
     /// </remarks>
     public sealed class HashSink : IBufferWriter<byte>, IDisposable
     {

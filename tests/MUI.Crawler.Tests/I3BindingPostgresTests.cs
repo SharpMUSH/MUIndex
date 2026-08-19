@@ -59,12 +59,10 @@ public class I3BindingPostgresTests
     /// One game, one mud — and the second name is turned away with an answer rather than an exception.
     /// </summary>
     /// <remarks>
-    /// <b>Measured on the live network, not imagined.</b> One game routinely holds several I3 names:
-    /// <c>The Zone</c> is also <c>The Zone-dalet</c>, <c>The Zone-i4</c> and <c>The Zone-wpr</c> — one
-    /// mud registered once per router — and <c>Battlespace MUD</c> is also <c>Battlespace_MUD</c>.
-    /// Two names claiming one game would double-count it, so the index refuses; letting that refusal
-    /// throw meant every game with a second name tore down the whole pass, for ever, on every retry.
-    /// The index is still the guarantee. What changed is that a caller learns somebody else has it.
+    /// One game routinely holds several I3 names (one mud registered once per router). Two names
+    /// claiming one game would double-count it, so the index refuses; letting that refusal throw would
+    /// tear down the whole pass on every game with a second name. The index is still the guarantee —
+    /// what changed is that a caller learns somebody else has it.
     /// </remarks>
     [Test]
     public async Task ASecondNameForOneGameIsTurnedAwayRatherThanThrowing()

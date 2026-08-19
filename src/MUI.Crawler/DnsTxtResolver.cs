@@ -9,35 +9,17 @@ namespace MUI.Crawler;
 /// The live TXT lookup behind spec §11's DNS opt-out.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Three answers, not two</b>, and the whole reason this type is not a one-liner. A name with
-/// records and a name with none are both answers and both may be acted on; a resolver that timed out,
-/// refused or SERVFAILed is <em>not</em> an answer and may not be. Collapsing the third into the
-/// second would let one bad minute at a nameserver withdraw an opt-out somebody meant, which is the
-/// same class of mistake as §8.4's "absence never revokes".
-/// </para>
-/// <para>
-/// <b>NXDOMAIN is an answer.</b> It is what a host with no opt-out record replies, which is nearly
-/// every host, so treating DnsClient's error flag as failure across the board would mean never
-/// concluding anything about anybody.
-/// </para>
-/// <para>
-/// The library's cache is left on and respects the record's own TTL, which is the operator saying how
-/// often they want to be asked. Failures are cached too, briefly: the answer for nearly every host is
-/// "no such record", and re-asking a nameserver that has just refused us, once per due target per
-/// cycle, is traffic somebody else pays for. This is not §7.2's resolution, where a cache would
-/// <em>widen</em> the time-of-check-to-time-of-use window — nothing here decides where a socket goes.
-/// </para>
-/// <para>
-/// <b>Every failure is "we heard nothing", including the ones that are not exceptions from the
-/// network.</b> DnsClient rejects a name it will not put on the wire — a label over 63 bytes, a name
-/// over 255 — with <see cref="ArgumentException"/> before any packet is sent, and both arrive from a
-/// stranger's <c>REFERRAL</c>: the second needs only a legal 243-byte name, because our own
-/// <c>_muindex.</c> prefix pushes it past the limit. This gate runs before
-/// <see cref="MUI.Discovery.HostScopeGuard"/>, which fails closed on anything, so an escape here
-/// would land in the crawl loop's catch-all, which counts an error and never records the attempt —
-/// leaving the target due for ever and burning a batch slot every cycle on a name an attacker chose.
-/// </para>
+/// Three answers, not two: a name with records and a name with none are both answers and may be acted
+/// on, but a resolver that timed out, refused or SERVFAILed is <em>not</em> an answer — collapsing
+/// that into "no record" would let one bad minute at a nameserver withdraw an opt-out somebody meant.
+/// NXDOMAIN counts as an answer, since that's what nearly every host without an opt-out record
+/// replies. The library's cache respects the record's TTL; failures are cached too, briefly, so a
+/// nameserver that just refused us isn't re-asked every target every cycle.
+/// <b>Every failure — including a local <see cref="ArgumentException"/> DnsClient throws before any
+/// packet is sent, e.g. for a too-long name a stranger's <c>REFERRAL</c> can trigger — must return "we
+/// heard nothing" rather than escape.</b> An escape here lands in the crawl loop's catch-all, which
+/// counts an error and never records the attempt, leaving the target due forever and burning a batch
+/// slot every cycle on a name an attacker chose.
 /// </remarks>
 public sealed class DnsTxtResolver : IDnsTxtResolver
 {
@@ -50,9 +32,8 @@ public sealed class DnsTxtResolver : IDnsTxtResolver
     public DnsTxtResolver()
         : this(new LookupClient(new LookupClientOptions
         {
-            // Short and un-retried, because this runs inside a crawl cycle's concurrency slot and a
-            // slow nameserver must not hold one. A lookup that does not finish is "we heard nothing",
-            // which changes no standing opt-out and is therefore safe to give up on.
+            // Short and un-retried: this runs inside a crawl cycle's concurrency slot, and a slow
+            // nameserver must not hold one.
             Timeout = TimeSpan.FromMilliseconds(1500),
             Retries = 0,
             ThrowDnsErrors = false,
@@ -67,10 +48,9 @@ public sealed class DnsTxtResolver : IDnsTxtResolver
     /// exercise the real wire format without depending on anybody's zone file.
     /// </param>
     /// <param name="bound">
-    /// <b>The bound this class applies on top of whatever the client promises</b>, for the reason
-    /// <c>CrawlCycle</c> applies its own on top of <c>ProbeOptions.Timeout</c>: the crawler shares a
-    /// process with the web tier (§12), and the caller does not get to trust a collaborator for the
-    /// one bound that keeps the site up.
+    /// The bound this class applies on top of whatever the client promises — the crawler shares a
+    /// process with the web tier (§12), so a collaborator isn't trusted for the one bound that keeps
+    /// the site up.
     /// </param>
     public DnsTxtResolver(ILookupClient client, TimeSpan? bound = null)
     {
@@ -101,14 +81,11 @@ public sealed class DnsTxtResolver : IDnsTxtResolver
         }
         catch (Exception error) when (error is not OperationCanceledException || budget.IsCancellationRequested)
         {
-            // A caller that stopped us is not a fact about anybody's nameserver, and some failures
-            // arrive from the library as its own exception type rather than as a cancellation.
+            // A caller that stopped us is not a fact about anybody's nameserver.
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Everything else is "we heard nothing": a refusal, a timeout, our own budget running
-            // out, or a name DnsClient would not send. None of them may withdraw a standing opt-out,
-            // and none of them may escape into a crawl loop that would then stop rescheduling this
-            // target.
+            // Everything else — refusal, timeout, budget expiry, a name DnsClient won't send — is
+            // "we heard nothing" (see class remarks).
             return DnsTxtAnswer.NoAnswer;
         }
 

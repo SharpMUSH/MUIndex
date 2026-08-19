@@ -14,18 +14,11 @@ namespace MUI.Crawl;
 /// One telnet session against one game, yielding a <see cref="ProbeResult"/>.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>This client never authenticates.</b> Everything it reads is what a server hands an anonymous
-/// connection: the banner it sends unprompted, the options it negotiates, the MSSP report it
-/// publishes for crawlers, and the pre-login commands games may answer before login.
-/// <see cref="PermittedCommands"/> is the complete list of what may go on the wire, and
-/// <c>connect</c> and <c>create</c> are not on it — enforced by test, not by good intentions.
-/// </para>
-/// <para>
-/// <b>Layer 1 comes from the library's own callbacks, not from parsing bytes.</b> Each plugin below
-/// fires only when the server actually negotiated that option, so being told by the thing that did
-/// the negotiating is both simpler and more truthful than decoding the same exchange a second time.
-/// </para>
+/// Never authenticates — everything read is what a server hands an anonymous connection (banner,
+/// negotiated options, MSSP, pre-login commands). <see cref="PermittedCommands"/> is the complete
+/// list of what may go on the wire; <c>connect</c> and <c>create</c> are not on it, enforced by test.
+/// Protocol support is recorded from the library's own negotiation callbacks rather than by
+/// re-parsing bytes it already decoded.
 /// </remarks>
 public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = null) : IProbe
 {
@@ -39,16 +32,9 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// changes server state is absent by construction.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The bare line terminator the probe sends between the banner and the <c>WHO</c> is deliberately
-    /// not on this list, because it is not a command: it carries no text, names nothing, and asks for
-    /// nothing. What it does is described at its call site.
-    /// </para>
-    /// <para>
-    /// <c>MSSP-REQUEST</c> is not on it either, and that is a decision rather than an omission — see
-    /// <see cref="ProbeOptions"/>. MSSP is asked for by negotiation, which a server that does not
-    /// implement it simply ignores.
-    /// </para>
+    /// The bare line terminator sent between the banner and <c>WHO</c> is not on this list — it's not
+    /// a command, it carries no text. <c>MSSP-REQUEST</c> is also absent by design (see
+    /// <see cref="ProbeOptions"/>): MSSP is asked for by negotiation, which a server without it ignores.
     /// </remarks>
     public static readonly IReadOnlyList<string> PermittedCommands = [WhoCommand, InfoCommand, VersionCommand];
 
@@ -84,42 +70,19 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
             var built = await Build(seen, lines).BuildAndStartAsync(client, budget.Token);
 
-            // Disposed, and disposed *before* the socket it reads. The interpreter is not a view
-            // onto the connection: it owns a byte channel, the task draining it, the inbound and
-            // outbound byte transforms, and every plugin registered in Build — and MCCP's plugin
-            // holds zlib streams, which no collection reclaims on our behalf. Nothing here used to
-            // dispose it at all, so each probe abandoned one whole set, which is the six megabytes
-            // an hour of drift the deployment was carrying.
-            //
-            // Declared here rather than beside `client` so that the interpreter goes first: this
-            // block ends on the return below and on every exception that leaves it, while `client`
-            // is scoped to the whole method and is disposed after. DisposeAsync completes the byte
-            // channel and then *waits* for the processing task, so the interpreter is the party
-            // still doing work during teardown and the transport it was handed should outlive it —
-            // shutting a thing down while demolishing what it was built on is the wrong way round
-            // whether or not it happens to survive it.
-            //
-            // It does happen to survive it, measured: with the two disposals swapped by hand the
-            // transcript is identical and nothing faults, because the processing task is fed from a
-            // channel rather than from the socket and never touches the transport on the way out.
-            // That is a detail of how the library is put together today and not a promise, so this
-            // is written as the order that cannot go wrong rather than as the only one that works.
+            // Must be disposed *before* the socket it reads. The interpreter owns a byte channel, the
+            // draining task, and every plugin — MCCP's holds zlib streams that nothing else reclaims,
+            // and an undisposed interpreter per probe was measured leaking megabytes an hour.
+            // Declared here (not beside `client`, which is disposed after this method returns) so the
+            // interpreter — still doing work during its own teardown — goes first, before the
+            // transport it depends on is torn down under it.
             await using var telnet = built.Interpreter;
 
-            // The read loop is observed rather than awaited, and awaiting it here is not an option.
-            // It ends when the budget is cancelled or when the pipe under it completes, and on a
-            // server that is simply sitting there — which is most of them, since the probe stops
-            // asking long before the far end stops listening — that means when `client` is disposed
-            // on the way out of this method, after this block. Waiting for it here would be waiting
-            // for something only our own exit can cause.
-            //
-            // Dropping it entirely, which is what happened before, is the other half of the same
-            // omission: a read loop that dies of a defect in the interpreter looks from out here
-            // exactly like one that died of the socket being torn down under it, and only the second
-            // is ordinary. The teardown shapes are the ones HungUp already names — a write racing
-            // the transport's own disposal surfaces as ObjectDisposedException rather than as a
-            // socket error — so those are expected and stay quiet; anything else is a fault that was
-            // previously reaching nobody, and it is written down.
+            // Observed rather than awaited — on a server that just sits there (most of them), the
+            // loop only ends when `client` is disposed on the way out of this method, so awaiting it
+            // here would wait on our own exit. Not dropped entirely either: a defect in the
+            // interpreter would otherwise look identical to an ordinary socket teardown from out
+            // here, so it's logged if it's not one of the expected HungUp shapes.
             _ = ObserveReadLoopAsync(built.ReadTask, target);
 
             int Arrived()
@@ -152,21 +115,16 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
             // Phase 2 — an empty line, and everything it produces is thrown away.
             //
-            // The IAC DO above is well-formed telnet, and a server that does not implement telnet at
-            // its login screen does not know that: it takes the three bytes as typing and leaves them
-            // sitting in its line buffer. The next thing we send is then not WHO but
-            // "\xff\xfd\x46WHO", which is not a command it has, so it answers by redisplaying the
-            // connect screen and the count is lost. Measured on chaos.caile.org:4444 (TinyMUSH),
-            // where IAC DO 70 poisons the following line and IAC WILL NAWS does not.
+            // A server that does not implement telnet at its login screen does not recognise our own
+            // IAC DO negotiation bytes as telnet: it takes them as typing and leaves them in its line
+            // buffer, so the next thing we send is read as garbage-prefixed and not as WHO — the
+            // count is lost. A bare terminator flushes that residue as its own line first. What comes
+            // back is a reaction to bytes *we* sent, not the game's connect screen or its WHO answer,
+            // so it must not be recorded as either (rule 5) — dropped deliberately, which is what the
+            // gap between bannerLines and flushLines is.
             //
-            // A bare terminator flushes that residue as a line of its own. What the server says back
-            // is a reaction to a byte sequence *we* chose to send, so it is neither the game's
-            // connect screen nor its answer to WHO, and recording it as either would be recording a
-            // decision of ours as a measurement of theirs. It is dropped on the floor deliberately —
-            // that is what the gap between bannerLines and flushLines is.
-            //
-            // It also ends the session outright on every DIKU descendant, which reads an empty line
-            // at its name prompt as a goodbye — see HungUp for what that costs and what it must not.
+            // This also ends the session outright on every DIKU descendant, which reads an empty line
+            // at its name prompt as a goodbye — see HungUp for what that costs.
             var flushLines = bannerLines;
             var whoLines = bannerLines;
             var infoLines = bannerLines;
@@ -176,11 +134,9 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // Phases 3 to 5 — the questions we are allowed to ask, in order. SendAsync appends the
             // line ending itself, so each command is handed over bare.
             //
-            // `sent` fires between the write and the wait, which is the only place it can be honest:
-            // a question is asked when its bytes have gone, not when we decided to ask it. Live()
-            // above narrows the window rather than closing it — the peer can still go in the moment
-            // between the check and the write — and a flag set before the send would survive that as
-            // a claim to have asked something that never left.
+            // `sent` fires between the write and the wait: a question is asked when its bytes have
+            // gone, not when we decided to ask it, so a flag set before the send could claim to have
+            // asked something that never left.
             async Task<int> AskAsync(string command, int baseline, Action? sent = null)
             {
                 await telnet.SendAsync(Encoding.ASCII.GetBytes(command));
@@ -191,33 +147,42 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
             try
             {
+                // MSDP's request vocabulary — SEND, REPORT, LIST, RESET, UNREPORT — has no plaintext
+                // form, so it is not on PermittedCommands for the same reason MSSP-REQUEST is not: it
+                // is asked for by protocol, not by typing. Gated on TelnetNegotiationCore 2.9.0's
+                // IsNegotiated (see Watched.Msdp), which reflects the peer's real WILL/DO acceptance —
+                // unlike the pre-2.9.0 OnEnabledAsync, which was true from plugin construction
+                // regardless of the wire (TelnetNegotiationCore#85). By this point in the probe the
+                // banner phase above has already given negotiation time to settle, so a server that
+                // never agreed to MSDP is not asked at all: no bytes go to a peer that said nothing
+                // about this option, one connect screen fewer that might read a subnegotiation as
+                // literal typing. PLAYERS is MSDP's conventional variable name for a player count; see
+                // docs/codebase-survey-2026-07-30.md for what asking real servers for it found — every
+                // server tested answered with an unsolicited SERVER_ID instead, never PLAYERS.
+                if (telnet.PluginManager?.GetPlugin<MSDPProtocol>() is { IsNegotiated: true })
+                {
+                    await telnet.SendMSDPCommand("SEND", "PLAYERS");
+                }
+
                 await telnet.SendAsync([]);
                 await SettleAsync(telnet, Arrived, bannerLines, _options.QuietPeriod, budget.Token);
                 flushLines = whoLines = infoLines = versionLines = Arrived();
 
                 // …unless the connect screen was a question, in which case the terminator answered
-                // it and what arrived is the screen the game meant to show. Seventeen active games
-                // gate their whole screen behind one keystroke — see BannerGate for the three that
-                // were dialled by hand, where 23, 101 and 29 characters of prompt were being stored
-                // as the connect screen of a game with 3033, 2826 and 2197 characters behind it.
-                //
-                // Moving the boundary rather than concatenating: the banner is a contiguous run of
-                // lines from the start of the session, and it stays one. What changes is where it
-                // ends. The flush window closes to nothing, which is correct — on a gated server
-                // there was no discarded reaction, because the reaction was the screen.
+                // it and what arrived is the screen the game meant to show — some games gate their
+                // whole screen behind one keystroke (see BannerGate). Moving the boundary rather than
+                // concatenating: the banner stays one contiguous run from the start of the session,
+                // and the flush window correctly closes to nothing, since there was no discarded
+                // reaction — the reaction was the screen.
                 if (gated)
                 {
                     bannerLines = Arrived();
                 }
 
                 // Asking a socket that has already been closed is not asking. A write to a peer that
-                // has sent FIN succeeds — the bytes go to a kernel buffer nobody will ever read, and
-                // only the write *after* the RST throws — so an unguarded WHO here would come back
-                // unanswered and be recorded as a WHO the game answered unreadably. That is a hatched
-                // cell on the heatmap, and hatched means "we asked and could not read it", which
-                // would be our own dead socket published as a fact about their parser (rule 5).
-                // Checking costs nothing and also returns three silence graces of crawl budget that
-                // were being spent waiting on a connection that had already gone.
+                // sent FIN still succeeds — only the write *after* the RST throws — so an unguarded
+                // WHO here would come back unanswered and be recorded as unreadable, publishing our
+                // own dead socket as a fact about their parser (rule 5).
                 if (Live(client))
                 {
                     whoLines = infoLines = versionLines =
@@ -236,16 +201,11 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             }
             catch (Exception error) when (HungUp(error) && Measured(lines, bannerLines, seen))
             {
-                // The server said its piece and then dropped us, which is a fact about the session
-                // and not about the host: the connect screen, the handshake and any MSSP report are
-                // all already in hand, and every one of them was measured before the socket died.
-                //
-                // Reporting the whole probe as Failed threw them away and wrote the game down as
-                // unreachable — a game that answered, recorded as one that did not, on the strength
-                // of a line *we* sent. That is the fifth rule, and it is why this is not a rescue of
-                // a broken probe but the correct reading of a complete one: what we could obtain, we
-                // obtained. The phases we never reached keep their pre-loop counts, so they yield
-                // nothing rather than an empty answer, and `asked` keeps WHO honest about which.
+                // The server said its piece and then dropped us — a fact about the session, not the
+                // host. Everything already measured (connect screen, handshake, MSSP) stays; failing
+                // the whole probe here would record an answering game as unreachable (rule 5). Phases
+                // never reached keep their pre-loop counts, yielding nothing rather than an empty
+                // answer, and `asked` keeps WHO honest about which.
                 _logger.LogDebug(
                     "{Host}:{Port} closed the session after its connect screen ({Error}); keeping what it said",
                     target.Host, target.Port, error.Message);
@@ -304,20 +264,12 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // OUR CALLER IS GOING AWAY, WHICH IS NOT A MEASUREMENT OF ANYTHING (rule 5).
-            //
-            // `budget` links the caller's token to this probe's own timeout, and by the time an
-            // exception arrives both look identical: an OperationCanceledException, which Classify
-            // reads as ("timeout", "probe budget exhausted"). That reading is right for the budget
-            // and a lie for the caller. Returning Failed here hands CrawlCycle a result it has every
-            // reason to store, so a host that was killed mid-cycle published a timeout against every
-            // game it happened to be dialling — twenty of them inside one minute, each perfectly
-            // reachable, each then held at that verdict for six hours by the failure backoff.
-            //
-            // Rethrowing puts it back on the path that already knows what it means: VisitAsync's
-            // `catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)`,
-            // which writes nothing and leaves the target due. Ask the token which one cancelled,
-            // never the exception.
+            // Our caller going away is not a measurement of anything (rule 5). `budget` links the
+            // caller's token to this probe's own timeout, so by the time the exception arrives both
+            // look like the same OperationCanceledException — but returning Failed here would record
+            // a false timeout against every game a killed crawl cycle happened to be dialling.
+            // Rethrowing lets VisitAsync's own cancellation check write nothing and leave the target
+            // due. Ask the token which one cancelled, never the exception.
             throw;
         }
         catch (Exception error)
@@ -341,20 +293,10 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// somewhere instead of being collected in silence.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// This is fire-and-forget on purpose and it outlives <c>ProbeAsync</c> by design — the loop
-    /// only ends once the socket goes, which is the last thing the probe does. Nothing downstream
-    /// waits on it and nothing it finds can change a <see cref="ProbeResult"/>: by the time it has
-    /// anything to say, the measurement is already made and returned. It exists so the ending is
-    /// visible, not so it can be acted on.
-    /// </para>
-    /// <para>
-    /// The ordinary ending is the connection being torn down under the loop, which arrives as one
-    /// of the <see cref="HungUp"/> shapes or as the probe's budget being cancelled, and neither is
-    /// a fact about anything. Everything else is a defect — in the interpreter, in a plugin, or in
-    /// how this class drives them — and it is logged at debug against the host it happened on,
-    /// which is where a leak or a stall would first show a symptom.
-    /// </para>
+    /// Fire-and-forget on purpose and outlives <c>ProbeAsync</c> — the loop only ends once the socket
+    /// goes, by which point the measurement is already made and returned; nothing it finds can change
+    /// a <see cref="ProbeResult"/>. The ordinary ending is one of the <see cref="HungUp"/> shapes or
+    /// the probe's budget being cancelled; anything else is a defect, logged at debug.
     /// </remarks>
     private async Task ObserveReadLoopAsync(Task readLoop, ProbeTarget target)
     {
@@ -376,11 +318,10 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
     /// <summary>Whether the far end is still there to be asked anything.</summary>
     /// <remarks>
-    /// A readable socket with nothing readable on it is a socket the peer has closed, which is the
-    /// only way to tell the difference before writing into it — TCP accepts the first write after a
-    /// FIN and reports nothing. Every read the probe cares about has already been drained by the
-    /// interpreter's own loop by the time this is called, between phases, so "readable" here means
-    /// the close and not a pending line.
+    /// A readable socket with nothing to read on it is one the peer has closed — TCP accepts the
+    /// first write after a FIN silently, so this is the only way to tell beforehand. Called between
+    /// phases, after the interpreter's own loop has drained every pending line, so "readable" here
+    /// means the close.
     /// </remarks>
     private static bool Live(TcpClient client)
     {
@@ -396,17 +337,10 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
     /// <summary>Whether an exception is the far end having gone, rather than us having given up.</summary>
     /// <remarks>
-    /// <para>
     /// Deliberately not <see cref="OperationCanceledException"/>, which is the probe budget expiring
-    /// and belongs on the failure path where <c>FailureReading</c> can read it as a stalled handshake
-    /// (spec §5.3). A closed socket is the opposite case: the session is over rather than overrunning,
-    /// and there is nothing left to wait for.
-    /// </para>
-    /// <para>
-    /// <see cref="ObjectDisposedException"/> is here because the interpreter's own transport is what
-    /// gets torn down when the peer goes, so a write racing that teardown surfaces as a disposal
-    /// rather than as the underlying socket error.
-    /// </para>
+    /// and belongs on the failure path instead (spec §5.3) — a closed socket means the session is
+    /// over, not overrunning. <see cref="ObjectDisposedException"/> is included because a write racing
+    /// the interpreter's transport teardown surfaces as a disposal rather than a socket error.
     /// </remarks>
     private static bool HungUp(Exception error) => error
         is IOException
@@ -417,10 +351,9 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// Whether the session yielded anything before it ended.
     /// </summary>
     /// <remarks>
-    /// The guard on carrying evidence forward, and the reason a hang-up is not a blanket amnesty. A
-    /// host that accepts a connection and drops it without a word has told us nothing, and calling
-    /// that <c>Answered</c> would fabricate a measurement out of a TCP handshake. Either a connect
-    /// screen arrived or the far end spoke telnet back; with neither, the probe failed.
+    /// A hang-up is not blanket amnesty: a host that accepts a connection and drops it without a word
+    /// has told us nothing, and calling that <c>Answered</c> would fabricate a measurement out of a
+    /// bare TCP handshake.
     /// </remarks>
     private static bool Measured(List<byte[]> lines, int bannerLines, Observations seen)
     {
@@ -437,11 +370,10 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
     /// <summary>The connect screen as it stands part-way through the phase that is collecting it.</summary>
     /// <remarks>
-    /// Read with the Latin-1 fallback rather than the session's eventual encoding, because the
-    /// session does not have one yet and this is not the text anybody will see. Its only reader is
-    /// <see cref="LooksUnfinished"/>, which measures a length and looks at one ASCII punctuation
-    /// mark — questions whose answers no 8-bit byte changes. The decision proper is taken once, at
-    /// the end, in <see cref="WireEncoding.Read"/>.
+    /// Read with the Latin-1 fallback, not the session's eventual encoding — there isn't one yet, and
+    /// this text is never shown to anyone. Its only reader, <see cref="LooksUnfinished"/>, only checks
+    /// length and one ASCII punctuation mark, questions no 8-bit byte changes the answer to. The real
+    /// decoding decision happens once, at the end, in <see cref="WireEncoding.Read"/>.
     /// </remarks>
     private static string BannerSoFar(List<byte[]> lines, int count)
     {
@@ -455,12 +387,9 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// Whether what we have is a screen that has not finished arriving.
     /// </summary>
     /// <remarks>
-    /// Two conditions, and both are needed. <b>Slight</b> is measured on the text rather than the
-    /// bytes, so a screenful of colour codes carrying one word counts as one word. <b>Not at a
-    /// prompt</b> is what keeps the wait off servers whose screen really is that short: a screen
-    /// ending in <c>Please enter a name:</c> has reached the point where it is waiting for us, and
-    /// there is nothing more to wait for. tbaMUD's placeholder ends <c>Please Wait...</c>, which is
-    /// the opposite statement.
+    /// Both conditions are needed: short (measured on flattened text, so a screenful of colour codes
+    /// carrying one word counts as one word) and not already at a prompt — a screen ending in
+    /// <c>Please enter a name:</c> is waiting for us, not still arriving.
     /// </remarks>
     private bool LooksUnfinished(string banner)
     {
@@ -479,18 +408,10 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// <param name="grace">How long to wait for this phase to say anything at all.</param>
     /// <param name="cancellationToken">The probe's overall budget.</param>
     /// <remarks>
-    /// <para>
-    /// Two fixed delays used to make every probe cost six seconds regardless of how fast the game
-    /// answered. Settling on a gap gets that back: a phase ends when nothing new has arrived for
-    /// <see cref="ProbeOptions.QuietPeriod"/>, bounded above by <see cref="ProbeOptions.MaxPhase"/>
-    /// so a server that never stops talking cannot stall the crawl, and by the caller's
-    /// <see cref="ProbeOptions.Timeout"/> beyond that.
-    /// </para>
-    /// <para>
-    /// Silence and a gap are different facts and get different budgets. A gap between lines means
-    /// the server has finished; silence from the start of a phase means it has not begun, and the
-    /// answer may still be in flight over a slow link.
-    /// </para>
+    /// A phase ends when nothing new has arrived for <see cref="ProbeOptions.QuietPeriod"/>, bounded
+    /// above by <see cref="ProbeOptions.MaxPhase"/> so a server that never stops talking can't stall
+    /// the crawl. Silence from the start of a phase gets a separate, longer budget (<c>grace</c>) than
+    /// a gap between lines — the answer may still be in flight over a slow link.
     /// </remarks>
     private async Task SettleAsync(
         TelnetInterpreter telnet,
@@ -529,29 +450,14 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// waiting for.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Unterminated output is normal in this hobby and a line-oriented callback loses it
-    /// systematically.</b> TelnetNegotiationCore submits a line only on entering its <c>Act</c>
-    /// state, which nothing but a newline reaches, so a trailing partial line sits in the
-    /// interpreter's buffer until the connection closes and <c>OnSubmit</c> never fires for it.
-    /// Measured: <c>aardmud.org:4000</c> ends its connect screen with
-    /// <c>What be thy name, adventurer?</c> and its <c>WHO</c> reply with <c>Name:</c>,
-    /// <c>realms.reichel.net:4000</c> with <c>By what name do you wish to be known?</c>, and
-    /// <c>resort.org:2323</c> ends <em>both</em> with <c>Please enter a name:</c> — five of twelve
-    /// reference servers leave the last line hanging.
-    /// </para>
-    /// <para>
-    /// Losing those is not cosmetic. The guard that stops a busy DIKU being read as a measured zero
-    /// works by recognising a login prompt, and a login prompt is exactly the kind of line a server
-    /// leaves unterminated.
-    /// </para>
-    /// <para>
-    /// The newline goes in through <c>InterpretAsync</c>, which is the same channel the read loop
-    /// feeds, so it is ordered behind every byte already received and races with nothing. Nothing
-    /// goes on the wire, and line assembly, IAC handling and encoding all stay the library's — this
-    /// is not a second decoder, it is the terminator the server omitted. When the buffer is empty,
-    /// which is the common case, the library discards it and no line is produced.
-    /// </para>
+    /// Unterminated output is normal in this hobby, and a line-oriented callback loses it
+    /// systematically: TelnetNegotiationCore submits a line only on a newline, so a trailing partial
+    /// line (often a login prompt like <c>Name:</c> with no line ending) sits in the buffer until the
+    /// connection closes and never fires. Losing it is not cosmetic — the guard that stops a busy DIKU
+    /// being read as a measured zero depends on recognising exactly that kind of unterminated prompt.
+    /// The newline goes in through <c>InterpretAsync</c>, the same channel the read loop feeds, so
+    /// nothing goes on the wire and line assembly/IAC/encoding stay the library's; when the buffer is
+    /// empty the library discards it and no line is produced.
     /// </remarks>
     private static async Task FlushPendingLineAsync(TelnetInterpreter telnet)
     {
@@ -563,17 +469,11 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// Registers every protocol worth observing and hooks the callback that proves it engaged.
     /// </summary>
     /// <remarks>
-    /// Each plugin is here to be <em>watched</em>, not used. This client renders nothing, so MXP and
-    /// MCCP buy it no features — what they buy is the knowledge that this server offers them, which
-    /// is what the capability matrix is made of.
-    /// <para>
-    /// A protocol is recorded from inside its own callback, because that is the event that proves it
-    /// ran. The <c>OnEnabledAsync</c> overrides in <see cref="Watched"/> are a second, cheaper signal
-    /// for the same thing — but they are not sufficient on their own: measured against live servers
-    /// they did not fire, while <c>OnMSSP</c> and <c>OnCharsetChange</c> did. Keeping both means a
-    /// protocol counts as supported if either the library says it enabled or it demonstrably did
-    /// something, and neither route can silently become the only one.
-    /// </para>
+    /// Each plugin is here to be <em>watched</em>, not used — this client renders nothing, so MXP and
+    /// MCCP buy it only the knowledge that a server offers them. A protocol is recorded from inside
+    /// its own callback, which is the event that proves it ran; <see cref="Watched"/>'s
+    /// <c>OnEnabledAsync</c> overrides are a second, cheaper signal that was measured not firing on
+    /// its own for every protocol, so both routes are kept.
     /// </remarks>
     private TelnetInterpreterBuilder Build(Observations seen, List<byte[]> lines)
     {
@@ -609,6 +509,12 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
         var msdp = new Watched.Msdp(Note);
         msdp.WithMaxMessageSize(_options.MaxSubnegotiationBytes);
+        msdp.OnMSDPMessage((_, message) =>
+        {
+            seen.Msdp(message);
+            Note("MSDP");
+            return ValueTask.CompletedTask;
+        });
 
         var newEnviron = new Watched.NewEnviron(Note);
         newEnviron.OnEnvironmentVariables((requested, _) =>
@@ -659,13 +565,10 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             .WithClientIdentity(_options.TerminalTypes.Count > 0 ? _options.TerminalTypes[0] : "MUINDEX-CRAWLER")
             .OnSubmit((bytes, _, _) =>
             {
-                // The encoding this callback offers is deliberately ignored. It is whatever CHARSET
-                // settled on, which is a declaration about the session and not a measurement of
-                // these bytes — pkuxkx negotiates UTF-8 and sends GBK — and decoding on it here used
-                // the *replacing* fallback, so a byte it could not read became U+FFFD before anybody
-                // downstream could object. The bytes are kept whole and read once, at the end of the
-                // session, by WireEncoding. The declaration is still recorded; it is just recorded
-                // as a declaration.
+                // The encoding this callback offers is ignored deliberately: it's whatever CHARSET
+                // declared, not a measurement of these bytes — pkuxkx negotiates UTF-8 but sends GBK.
+                // Bytes are kept whole and decoded once, at the end, by WireEncoding; the declaration
+                // is still recorded, just as a declaration.
                 lock (lines)
                 {
                     lines.Add(bytes);
@@ -690,9 +593,18 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// <summary>Mutable scratch for one probe. Callbacks arrive on the read loop, so it locks.</summary>
     private sealed class Observations
     {
+        // A ceiling on how many distinct MSDP messages one probe keeps, not on any one message's
+        // size — WithMaxMessageSize (ProbeOptions.MaxSubnegotiationBytes) already bounds that. MSDP
+        // messages are deliberately not deduplicated (see Msdp below), so nothing else stops a
+        // hostile or broken server from sending an unbounded number of small, distinct messages for
+        // as long as the probe's phase budget allows. No real server measured has sent more than one;
+        // this is headroom for legitimate variety, not a number anything has approached.
+        private const int MaxMsdpMessages = 64;
+
         private readonly HashSet<string> _supported = new(StringComparer.Ordinal);
         private readonly List<string> _environment = [];
         private readonly List<string> _gmcp = [];
+        private readonly List<string> _msdp = [];
 
         public MSSPConfig? Mssp;
         public MsspOutcome MsspOutcome = MsspOutcome.NotOffered;
@@ -737,24 +649,63 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             }
         }
 
-        public Negotiation ToNegotiation()
+        /// <summary>
+        /// Records one MSDP message exactly as TelnetNegotiationCore delivered it. Not deduplicated,
+        /// unlike <see cref="Gmcp"/>'s package names — each message is a distinct answer rather than a
+        /// repeated declaration, and collapsing "PLAYERS":"3" and "PLAYERS":"4" as duplicates because
+        /// their JSON differs only in value would be silently correct today and silently wrong the
+        /// moment two different answers arrived. Bounded at <see cref="MaxMsdpMessages"/>: further
+        /// messages are dropped rather than grown into, the same "stop rather than fabricate a
+        /// smaller version of the truth" choice <see cref="Gmcp"/>'s dedup makes for repetition.
+        /// </summary>
+        public void Msdp(string message)
         {
-            lock (_environment)
+            lock (_msdp)
             {
-                lock (_gmcp)
+                if (_msdp.Count < MaxMsdpMessages)
                 {
-                    return new Negotiation
-                    {
-                        Supported = Supported,
-                        Charset = Charset,
-                        CompressionVersion = CompressionVersion,
-                        CharsetNegotiated = CharsetNegotiated,
-                        EnvironmentRequested = _environment.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
-                        GmcpPackages = _gmcp.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
-                        SendsPromptMarkers = Prompts,
-                    };
+                    _msdp.Add(message);
                 }
             }
+        }
+
+        /// <remarks>
+        /// Each collection is snapshotted under its own lock, released before the next is taken —
+        /// not nested, so this can never wait on a lock order some future caller takes in reverse.
+        /// </remarks>
+        public Negotiation ToNegotiation()
+        {
+            var supported = Supported;
+
+            List<string> environment;
+            lock (_environment)
+            {
+                environment = [.. _environment];
+            }
+
+            List<string> gmcp;
+            lock (_gmcp)
+            {
+                gmcp = [.. _gmcp];
+            }
+
+            List<string> msdp;
+            lock (_msdp)
+            {
+                msdp = [.. _msdp];
+            }
+
+            return new Negotiation
+            {
+                Supported = supported,
+                Charset = Charset,
+                CompressionVersion = CompressionVersion,
+                CharsetNegotiated = CharsetNegotiated,
+                EnvironmentRequested = environment.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                GmcpPackages = gmcp.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                MsdpMessages = msdp,
+                SendsPromptMarkers = Prompts,
+            };
         }
     }
 }

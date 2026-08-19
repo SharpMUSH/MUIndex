@@ -12,11 +12,9 @@ namespace MUI.Crawler.Tests;
 /// §8.1's on-demand check, against the table that decides what gets probed.
 /// </summary>
 /// <remarks>
-/// The claimant-facing half of this was written first and moved nothing: <c>RequestCheckAsync</c>
-/// wrote <c>last_checked_at</c> and a <c>check_requested</c> event, due-ness comes only from
-/// <c>crawl_target.next_probe_at</c>, and the page told the operator the button dialled their
-/// server. A rate limiter on an action that does not happen is the most convincing possible no-op,
-/// so these assert on the schedule rather than on the audit log.
+/// Due-ness comes only from <c>crawl_target.next_probe_at</c>, so these assert on the schedule rather
+/// than on any audit log — a rate limiter on an action that doesn't move the schedule is a convincing
+/// no-op.
 /// </remarks>
 public class OnDemandProbePostgresTests
 {
@@ -39,9 +37,8 @@ public class OnDemandProbePostgresTests
     /// An ask can only make a probe sooner, never later.
     /// </summary>
     /// <remarks>
-    /// <c>LEAST</c> rather than an assignment. A target already overdue keeps its place in the queue
-    /// — pushing it back to "now" would let a claimant pressing the button walk their own game
-    /// backwards, and would let a busy game's ordinary schedule be reset by anyone who claimed it.
+    /// <c>LEAST</c> rather than an assignment — pushing an overdue target back to "now" would let a
+    /// claimant pressing the button walk their own game backwards.
     /// </remarks>
     [Test]
     public async Task AnAskNeverPushesAProbeBack()
@@ -62,9 +59,8 @@ public class OnDemandProbePostgresTests
     /// Every address of the game moves, because a game is claimed and a target is an address.
     /// </summary>
     /// <remarks>
-    /// A game may have several endpoints (§5.5) and an operator does not know or care which of them
-    /// we happen to hold a row for. Moving one would make the button work or not depending on which
-    /// listener the crawler had found first.
+    /// A game may have several endpoints (§5.5); moving only one would make the button work or not
+    /// depending on which listener the crawler found first.
     /// </remarks>
     [Test]
     public async Task EveryTargetForTheGameMoves()
@@ -85,9 +81,7 @@ public class OnDemandProbePostgresTests
     /// A game the registry has no target for is not an error, and says so by answering false.
     /// </summary>
     /// <remarks>
-    /// It happens: a game merged away under §7.3, or one added to the catalogue by a path that never
-    /// minted a target. The claimant's ask is still recorded — it is a thing that happened — and the
-    /// caller learns nothing moved rather than being handed an exception to render.
+    /// It happens: a game merged away under §7.3, or one added by a path that never minted a target.
     /// </remarks>
     [Test]
     public async Task AGameWithNoTargetMovesNothingAndDoesNotThrow()

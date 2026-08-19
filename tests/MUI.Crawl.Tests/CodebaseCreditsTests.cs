@@ -6,10 +6,9 @@ namespace MUI.Crawl.Tests;
 /// The licence notice a connect screen carries, read as the codebase it credits.
 /// </summary>
 /// <remarks>
-/// <b>Every positive fixture here is a verbatim connect screen from the live catalogue</b>, taken on
-/// 2026-08-16 from games that had no codebase on record. Inventing them would have produced a tidy
-/// "Powered by SMAUG 1.4" and missed the shape that actually dominates: three licences stacked in
-/// three consecutive sentences, oldest last.
+/// Every positive fixture here is a verbatim connect screen from the live catalogue. Inventing them
+/// would have produced a tidy "Powered by SMAUG 1.4" and missed the shape that actually dominates:
+/// three licences stacked in three consecutive sentences, oldest last.
 /// </remarks>
 public class CodebaseCreditsTests
 {
@@ -57,9 +56,8 @@ public class CodebaseCreditsTests
     [Test]
     public async Task TheVersionIsNeverLiftedOutOfTheProse()
     {
-        // addictmud says "Based on CircleMUD 3.0bpl10" and this reads CircleMUD and stops. PR #51 is
-        // why: a value parsed out of free text is the one the page shows and nobody thinks to doubt,
-        // and a version picked out of a sentence is a guess wearing a decimal point.
+        // A value parsed out of free text is the one the page shows and nobody thinks to doubt, and a
+        // version picked out of a sentence is a guess wearing a decimal point.
         var read = CodebaseCredits.Named("Based on CircleMUD 3.0bpl10, a derivative of DikuMUD.");
 
         await Assert.That(read).IsEqualTo("CircleMUD");
@@ -70,10 +68,9 @@ public class CodebaseCreditsTests
     /// The <c>RetroMUX</c> bug, at the reader that would have reintroduced it.
     /// </summary>
     /// <remarks>
-    /// darcness.net:4201 once had <c>ROM MUX 2.12.0.10</c> published against it because a substring
-    /// search found <c>rom</c> inside <c>RetroMUX</c>. <c>rom</c> is not a marker in this file at any
-    /// tier — three letters that occur inside ordinary words — and its family is reachable through
-    /// Russ Taylor's name instead, which appears on a MU* connect screen for exactly one reason.
+    /// A real game once had <c>ROM MUX 2.12.0.10</c> published against it because a substring search
+    /// found <c>rom</c> inside <c>RetroMUX</c>. <c>rom</c> is not a marker in this file at any tier;
+    /// its family is reachable through Russ Taylor's name instead.
     /// </remarks>
     [Test]
     [Arguments("Welcome to RetroMUX, running MUX 2.12.0.10")]
@@ -106,8 +103,8 @@ public class CodebaseCreditsTests
     [Test]
     public async Task AnAuthorIsCreditEnoughOnItsOwn()
     {
-        // The first tier. avendar.net's screen names the Diku authors with no "based on" anywhere
-        // near them, and there is no other reason for those five names to be on a MU* login screen.
+        // The first tier: a real screen names the Diku authors with no "based on" anywhere near them,
+        // and there is no other reason for those five names to be on a MU* login screen.
         await Assert.That(CodebaseCredits.Named(
                 "Original DikuMUD by Hans Staerfeldt, Katja Nyboe,\nTom Madsen, Michael Seifert"))
             .IsEqualTo("DikuMUD");

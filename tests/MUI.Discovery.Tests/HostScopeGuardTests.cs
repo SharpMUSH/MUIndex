@@ -51,10 +51,8 @@ public class HostScopeGuardTests
     [Arguments("::ffff:10.0.0.5")]
     public async Task ANameResolvingIntoOurOwnNetworkIsRefused(string address)
     {
-        // The whole point. Every one of these passes a name check when it arrives as
-        // "internal.example.org", because a name says nothing until DNS answers. Publishing the A
-        // record costs an attacker nothing; 169.254.169.254 is the cloud metadata address and hands
-        // out credentials.
+        // Every one of these passes a name check when it arrives as "internal.example.org" — a name
+        // says nothing until DNS answers. 169.254.169.254 is the cloud metadata address.
         var guard = new HostScopeGuard(new FakeHostResolver().Resolving("internal.example.org", address));
 
         var decision = await guard.RuleOnAsync(Target("internal.example.org"), None);
@@ -96,12 +94,8 @@ public class HostScopeGuardTests
     [Test]
     public async Task AnOperatorSeedPointingAtLoopbackIsAllowedWithoutAskingDns()
     {
-        // Operator seeds may be exempted and nothing else may. Somebody running the crawler against
-        // their own test server has said what they mean — and the exemption short-circuits, because
-        // there is nothing to verify about an address a human typed.
-        //
-        // This is the one place in the suite where 127.0.0.1 appears as a thing we would dial, and it
-        // is explicitly the operator-seed exemption doing its job.
+        // Operator seeds may be exempted and nothing else may. The exemption short-circuits: there is
+        // nothing to verify about an address a human typed.
         var resolver = new FakeHostResolver();
         var guard = new HostScopeGuard(resolver);
 
@@ -115,9 +109,8 @@ public class HostScopeGuardTests
     [Test]
     public async Task TheExemptionIsNeverInferredFromTheAddress()
     {
-        // The same loopback address without the flag is refused. The exemption is a stored property
-        // that defaults to not-exempt and is never granted by a referral or an import, so the dangerous
-        // paths are guarded by not having to remember to guard them.
+        // The same loopback address without the flag is refused: the exemption defaults to
+        // not-exempt and is never granted by a referral or an import.
         var guard = new HostScopeGuard(new FakeHostResolver());
 
         var decision = await guard.RuleOnAsync(Target("127.0.0.1"), None);
@@ -165,14 +158,9 @@ public class HostScopeGuardTests
     [Test]
     public async Task ARefusalCannotBecomeAProbeResultBecauseThereIsNoOutcomeForIt()
     {
-        // §7.2: "a refusal writes no availability sample". This is satisfied structurally rather than
-        // by a check somebody has to remember — the guard returns a decision, never a ProbeResult, and
-        // ProbeOutcome has exactly two members, both of which mean the socket was opened.
-        //
-        // The tempting shortcut is ProbeResult.Failed(refused, …), and it is wrong twice:
-        // FailureCause.Refused already means the far end sent an RST — a real measurement of a real
-        // host — so dressing a policy refusal as a probe failure makes the two permanently inseparable
-        // downstream, and it writes our own security policy into a game's public reachability history.
+        // §7.2: "a refusal writes no availability sample" — satisfied structurally: the guard returns
+        // a decision, never a ProbeResult, and both ProbeOutcome members mean the socket was opened.
+        // See HostScopeGuard's own remarks on why ProbeResult.Failed(refused, …) is the wrong shortcut.
         var outcomes = Enum.GetNames<ProbeOutcome>();
 
         await Assert.That(outcomes.Length).IsEqualTo(2);

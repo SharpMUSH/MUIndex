@@ -8,26 +8,10 @@ namespace MUI.Web.Components;
 /// One absolute date format for the whole site, and the machine spelling beside it.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The site had three: <c>2026-08-17</c> in a game's change list, <c>31 July 2026</c> in the
-/// rankings, <c>Aug 2026</c> beside an address. Three spellings of one kind of fact is three things
-/// to learn on a site whose whole argument is that its facts are comparable, and the ISO one reads
-/// as a log line rather than as a date somebody would say out loud.
-/// </para>
-/// <para>
-/// <b>The words come from CLDR and the order comes from a message.</b> These were rendered under
-/// <see cref="CultureInfo.InvariantCulture"/>, which made a German page say <c>30 Jul 2026</c> — the
-/// month name was not in any file a translator is ever sent, exactly as the heatmap's seven English
-/// day names were not. The month is now <see cref="Locales.CultureOf"/>'s, and the arrangement of
-/// day, month and year is <c>date.absolute</c>, because no .NET format string chosen here can say
-/// <c>2026年7月30日</c> for a language it is never asked about.
-/// </para>
-/// <para>
-/// <b>UTC, always, and in the site's own 24-hour spelling.</b> Every time here is UTC — a crawler's
-/// clock is the only one it has — so the zone is named rather than implied, and the clock is one
-/// shape everywhere rather than the host's or the reader's. The suffix is a zone and not a word to
-/// translate.
-/// </para>
+/// One format everywhere rather than three inconsistent ones. Month names come from
+/// <see cref="Locales.CultureOf"/> and the day/month/year order from the <c>date.absolute</c>
+/// message, because no single .NET format string can render every locale's ordering. Every time here
+/// is UTC — a crawler's clock is the only one it has — so the zone is named rather than implied.
 /// </remarks>
 public static class Dates
 {

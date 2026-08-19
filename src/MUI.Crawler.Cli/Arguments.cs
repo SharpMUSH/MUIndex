@@ -1,4 +1,5 @@
 using MUI.Crawl;
+using MUI.Crawler;
 
 namespace MUI.Crawler.Cli;
 
@@ -60,6 +61,14 @@ public sealed record Arguments
                                   0018). Reversible later by hand against merge_log — nothing here
                                   moves an endpoint, a field or any history, only the redirect.
                                   Needs --because.
+          --rename <slug> <newName>
+                                  Rename a game and mint it a new, unique slug at once, and exit.
+                                  <slug> may be a slug or a game id. Writes NAME as staff first (so
+                                  the value has provenance and reaches the change feed), then takes
+                                  the same immediate, no-grace mint-and-rename path a verified
+                                  owner's own rename does (spec §5.7) — not the fourteen-day grace a
+                                  measured rename waits for. The old slug redirects to the new page
+                                  for ever. Needs --because.
           -v, --verbose           Debug logging.
           -h, --help              This.
 
@@ -72,11 +81,9 @@ public sealed record Arguments
     /// Where the catalogue is.
     /// </summary>
     /// <remarks>
-    /// <c>MUI_CRAWL_POSTGRES</c> first, because a person pointing this at a scratch database on their
-    /// laptop should not have to unset the deployment's variable to do it — and then
-    /// <c>MUI_POSTGRES</c>, which is what <c>MUI.Web</c> reads. The second is for running this
-    /// <em>inside</em> the deployment, where the connection string is already in the environment and
-    /// asking an operator to paste it onto a command line makes a secret into shell history.
+    /// <c>MUI_CRAWL_POSTGRES</c> first, so pointing this at a scratch database doesn't require unsetting
+    /// the deployment's variable; then <c>MUI_POSTGRES</c> (what <c>MUI.Web</c> reads), for running
+    /// this inside the deployment without pasting a secret onto a command line.
     /// </remarks>
     public string? Connection { get; init; } =
         Environment.GetEnvironmentVariable("MUI_CRAWL_POSTGRES")
@@ -88,10 +95,9 @@ public sealed record Arguments
     /// What this crawl tells the servers it dials about who is dialling them (spec §11).
     /// </summary>
     /// <remarks>
-    /// Read from the same variable the deployable reads, because <c>mui-crawl</c> opens sockets to
-    /// other people's machines exactly as the site does and an admin cannot tell the two apart from
-    /// their logs. It is a placeholder when nothing is set, which is honest for a dry run on a
-    /// laptop and would be rude against a real crawl — <c>Program</c> says so on the way past.
+    /// Read from the same variable the deployable reads, since <c>mui-crawl</c> opens sockets to other
+    /// people's machines exactly as the site does. A placeholder when nothing is set — honest for a
+    /// dry run, rude against a real crawl (<c>Program</c> warns on the way past).
     /// </remarks>
     public string InfoUrl { get; init; } =
         Environment.GetEnvironmentVariable("MUI_CRAWL_INFO_URL") is { Length: > 0 } url
@@ -122,10 +128,9 @@ public sealed record Arguments
     /// Who asked, and how.
     /// </summary>
     /// <remarks>
-    /// Required with <see cref="OptOut"/> and deliberately not defaulted. Recording a request is this
-    /// deployment's operator making a claim about somebody else's wishes, which is the exact shape of
-    /// the <c>ContactedMaintainer</c> defect: a gate like that is satisfied by a caller who can make
-    /// the claim, never by a default.
+    /// Required with <see cref="OptOut"/> and deliberately not defaulted: recording a request is this
+    /// operator making a claim about somebody else's wishes, and a gate like that is satisfied by a
+    /// caller who can make the claim, never by a default.
     /// </remarks>
     public string? Because { get; init; }
 
@@ -139,11 +144,10 @@ public sealed record Arguments
     /// Consider every game for a re-mint with §5.7's grace waived, and exit.
     /// </summary>
     /// <remarks>
-    /// The grace answers "is this name settled or is it flapping", and a person reading the change
-    /// feed can answer it for a catalogue in one sitting where the rule has to answer it blind. That
-    /// is the only judgement this switch carries — <see cref="SlugMinter"/> does the rest of the
-    /// deciding, so a codebase default, an owner's override and a name no source has declared are
-    /// refused here exactly as they are on a cycle.
+    /// The grace answers "is this name settled or flapping"; a person reading the change feed can
+    /// answer that for the whole catalogue in one sitting. That's the only judgement this switch
+    /// carries — <see cref="SlugMinter"/> does the rest, so a codebase default or an owner's override
+    /// is refused here exactly as on a normal cycle.
     /// </remarks>
     public bool MintNow { get; init; }
 
@@ -151,6 +155,9 @@ public sealed record Arguments
     /// The pair to resolve by hand, winner named first (spec §7.3). Null when nothing was asked.
     /// </summary>
     public MergeRequest? Merge { get; init; }
+
+    /// <summary>The game to rename and the name to give it (spec §5.7). Null when nothing was asked.</summary>
+    public RenameRequest? Rename { get; init; }
 
     /// <summary>An address to ask DNS about, without touching a database or a game server.</summary>
     public CrawlAddress? OptOutCheck { get; init; }
@@ -226,7 +233,7 @@ public sealed record Arguments
                     break;
 
                 case "--opt-out":
-                    parsed = parsed with { OptOut = ParseAddress(Next(args, ref i, "--opt-out")) };
+                    parsed = parsed with { OptOut = CrawlAddress.Parse(Next(args, ref i, "--opt-out")) };
                     break;
 
                 case "--submissions":
@@ -247,12 +254,18 @@ public sealed record Arguments
                     parsed = parsed with { Merge = new MergeRequest(winner, loser) };
                     break;
 
+                case "--rename":
+                    var renameSlug = Next(args, ref i, "--rename");
+                    var renameName = Next(args, ref i, "--rename");
+                    parsed = parsed with { Rename = new RenameRequest(renameSlug, renameName) };
+                    break;
+
                 case "--because":
                     parsed = parsed with { Because = Next(args, ref i, "--because") };
                     break;
 
                 case "--opt-out-check":
-                    parsed = parsed with { OptOutCheck = ParseAddress(Next(args, ref i, "--opt-out-check")) };
+                    parsed = parsed with { OptOutCheck = CrawlAddress.Parse(Next(args, ref i, "--opt-out-check")) };
                     break;
 
                 default:
@@ -266,30 +279,37 @@ public sealed record Arguments
                 $"--opt-out needs --because: say who asked and how.{Environment.NewLine}{Usage}");
         }
 
-        // The same rule as --opt-out's, for the same reason. A release publishes somebody's game on
-        // our judgement rather than on a measurement, and a judgement nobody wrote down beside the
-        // row is one nobody can review later.
+        // Same rule as --opt-out's: a release publishes on our judgement, not a measurement, and an
+        // unrecorded judgement can't be reviewed later.
         if (parsed.Release is not null && string.IsNullOrWhiteSpace(parsed.Because))
         {
             throw new ArgumentException(
                 $"--release needs --because: say what convinced you.{Environment.NewLine}{Usage}");
         }
 
-        // The third of the same rule. Waiving the grace mints URLs the catalogue then keeps for ever,
-        // on somebody's reading of the change feed rather than on the passage of time, and the log
-        // line each rename writes should say whose reading it was.
+        // Same rule again: waiving the grace mints URLs the catalogue keeps forever, on somebody's
+        // reading of the change feed rather than the passage of time.
         if (parsed.MintNow && string.IsNullOrWhiteSpace(parsed.Because))
         {
             throw new ArgumentException(
                 $"--mint-now needs --because: say what settled these names.{Environment.NewLine}{Usage}");
         }
 
-        // The fourth. A merge folds a live listing into another and is not a thing anybody undoes
-        // lightly; the reason belongs on the row next to the score and signals it may be carrying.
+        // Same rule again: a merge folds a live listing into another, and the reason belongs on the
+        // row beside the score and signals.
         if (parsed.Merge is not null && string.IsNullOrWhiteSpace(parsed.Because))
         {
             throw new ArgumentException(
                 $"--merge needs --because: say what convinced you these are one game.{Environment.NewLine}{Usage}");
+        }
+
+        // The fifth. A rename mints a URL the catalogue keeps for ever, on somebody's judgement that
+        // the name has settled rather than on §5.7's usual fourteen-day wait; the reason belongs
+        // beside the row it lands on, same as the other three consequential writes above.
+        if (parsed.Rename is not null && string.IsNullOrWhiteSpace(parsed.Because))
+        {
+            throw new ArgumentException(
+                $"--rename needs --because: say why this name is worth a new URL.{Environment.NewLine}{Usage}");
         }
 
         // Before a socket rather than after one: an address nobody can open is worth catching while
@@ -297,46 +317,6 @@ public sealed record Arguments
         new ProbeOptions { InfoUrl = parsed.InfoUrl }.Validate();
 
         return parsed with { Seeds = seeds };
-    }
-
-    /// <summary>
-    /// <c>host</c> or <c>host:port</c>, where leaving the port off means every port on that host.
-    /// </summary>
-    /// <remarks>
-    /// A bare IPv6 literal is read as a host rather than as an address with a port, because
-    /// <c>2001:db8::1</c> ends in something that parses as a number and guessing wrong here would file
-    /// an opt-out under an address nobody dials.
-    /// </remarks>
-    private static CrawlAddress ParseAddress(string value)
-    {
-        var text = value.Trim();
-
-        if (text.Length == 0)
-        {
-            throw new ArgumentException("An address is needed.");
-        }
-
-        if (text.StartsWith('[') && text.Contains("]:", StringComparison.Ordinal))
-        {
-            var bracket = text.IndexOf("]:", StringComparison.Ordinal);
-            return new CrawlAddress(text[1..bracket], Port(text[(bracket + 2)..]));
-        }
-
-        if (System.Net.IPAddress.TryParse(text.Trim('[', ']'), out var literal))
-        {
-            return new CrawlAddress(literal.ToString(), null);
-        }
-
-        var colon = text.LastIndexOf(':');
-
-        return colon > 0
-            ? new CrawlAddress(text[..colon], Port(text[(colon + 1)..]))
-            : new CrawlAddress(text, null);
-
-        static int Port(string text) =>
-            int.TryParse(text, out var port) && port is >= 1 and <= 65535
-                ? port
-                : throw new ArgumentException($"'{text}' is not a port.");
     }
 
     private static string Next(string[] args, ref int i, string name) =>
@@ -348,14 +328,11 @@ public sealed record Arguments
             : throw new ArgumentException($"{name} needs a positive number.");
 }
 
-/// <summary>One address, with the port optional — "every port on this host" is a thing to be able to say.</summary>
-public sealed record CrawlAddress(string Host, int? Port)
-{
-    public override string ToString() => Port is { } port ? $"{Host}:{port}" : $"{Host} (every port)";
-}
-
 /// <summary>
 /// A pair to resolve by hand, exactly as typed — a slug or a game id, either identifier read the same
 /// way <see cref="Program"/> already reads one for any other operator surface.
 /// </summary>
 public sealed record MergeRequest(string Winner, string Loser);
+
+/// <summary>A game to rename and the name to give it, exactly as typed (spec §5.7).</summary>
+public sealed record RenameRequest(string Slug, string NewName);

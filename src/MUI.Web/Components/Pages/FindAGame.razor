@@ -8,31 +8,20 @@
 @inject NavigationManager Nav
 
 @*
-    §9's find-a-game wizard.
+    §9's find-a-game wizard. The listing's facet panel is exhaustive and assumes MSSP-taxonomy
+    knowledge; this asks in a reader's language and answers in facets.
 
-    The listing's own facet panel is exhaustive and assumes you already know the MSSP taxonomy — it
-    is the right surface for somebody narrowing a result set and the wrong one for somebody who has
-    never played a MU* and does not know whether they want a MUSH or a MUD. This asks in a reader's
-    language and answers in facets.
+    THE QUERYSTRING IS THE STATE, and every control's name is a FacetKeys constant — this page reads
+    its own URL through the listing's own binding, so an answered Find page is linkable, reloadable
+    and countable (there is now a server-side moment where a set of answers exists).
 
-    THE QUERYSTRING IS THE STATE, and every control's name is a FacetKeys constant. This page reads
-    its own URL through the listing's own binding, so there is no translation step between an answer
-    here and the query it produces, and an answered Find page is a page: linkable, reloadable, and —
-    the reason it had to change — countable, because there is now a server-side moment at which a set
-    of answers exists. It used to be a form aimed at /games and nothing else, so every number on it
-    was marginal and no two of them could be combined by eye.
+    EVERY OPTION IS A LINK: the only scriptless control that applies on click. No script means the
+    count is server-rendered, so the handoff's debounced aria-live region is unnecessary — a page
+    load announces its own heading.
 
-    EVERY OPTION IS A LINK, which is the only scriptless control that applies on click. There is no
-    script on this site: the count is computed on the server and rendered statically, so the
-    handoff's debounced aria-live region is unnecessary rather than unimplemented — a page load
-    announces its own heading, which is what the debounce was approximating.
-
-    NOT SIX FIELDSETS. The drawing's options are aria-pressed buttons and its questions are
-    fieldset/legend pairs; ours are links, and a <legend> is announced when focus enters a form
-    control in its group. With no controls to enter, the legend would name the group for nobody. A
-    heading is announced, is navigable by a screen reader's own heading key, and puts the six
-    questions in the document outline — so each question is a labelled group with a real <h2>, which
-    the handoff explicitly allows as the substitution.
+    NOT SIX FIELDSETS. A <legend> is announced when focus enters a form control in its group; with
+    no controls to enter, it would name the group for nobody. Each question is instead a labelled
+    group with a real <h2>, which the handoff explicitly allows as the substitution.
 *@
 
 <PageTitle>@Say("find.title") — mu*index</PageTitle>
@@ -46,34 +35,25 @@ else
 <div class="card-page find-page">
 
 <header class="listing-head">
-    @*
-        The heading, and nothing under it. Two paragraphs explained that the answers filter rather
-        than rank and that every number was measured; the live count says the first by demonstration,
-        and the second is the claim the whole site makes rather than a fact about this page. The
-        escape hatch that was buried in the first of them is in the footer row below, where every
-        other page keeps its way out.
-    *@
+    @* The heading, and nothing under it: the live count demonstrates that answers filter rather
+       than rank, and the escape hatch is in the footer row below, like every other page. *@
     <h1>@Say("find.title")</h1>
 </header>
 
 @if (Screen.Error is { } problem)
 {
-    @*
-        A querystring we cannot read is refused rather than dropped, exactly as the listing refuses
-        it. Offering the unfiltered catalogue under a filter that did not apply would present our own
-        parse failure as the answer to somebody's question.
-    *@
+    @* A querystring we cannot read is refused rather than dropped, exactly as the listing refuses
+       it — offering the unfiltered catalogue would present our own parse failure as an answer. *@
     <p class="problem" role="alert">@problem</p>
     <p><a href="@Http.Link("/find")">@Say("find.startAgain")</a></p>
 }
 else
 {
 @*
-    Free text first, because somebody arriving with a name in mind should not have to read past five
-    taxonomies to type it — and above the two columns rather than in the left one, so the panel's
-    first line lands on the first question's heading. It is the one thing on this page that is still
-    a form, since a field has nothing to click. Every answer already given rides along as a hidden
-    input, so typing a name refines what is on screen instead of replacing it.
+    Free text first, so a reader with a name in mind need not read past five taxonomies to type it —
+    above the two columns rather than in the left one, so the panel's first line lands on the first
+    question's heading. Every answer already given rides along as a hidden input, so typing a name
+    refines rather than replaces.
 *@
 <form class="find-name" method="get" action="@Http.Link("/find")">
     @foreach (var (key, value) in Carried)
@@ -101,21 +81,14 @@ else
         <div class="find-q" role="group" aria-labelledby="@Heading(index)">
             <div class="find-q-head">
                 <h2 id="@Heading(index)">@question.Text</h2>
-                @*
-                    On every question, not once at the foot of the page. Whether a filter reads
-                    something we watched, something a game typed into its config, or a grouping of
-                    ours is what a reader needs before they trust a count enough to answer with it —
-                    and the derived badge is the sentence that says a grouped option is our judgement
-                    about their string rather than a measurement of it.
-                *@
+                @* On every question, not once at the foot of the page: a reader needs to know
+                   whether a filter reads a measurement, a config value, or our own grouping before
+                   trusting a count enough to answer with it. *@
                 <EvidenceChip Evidence="question.Evidence" />
             </div>
 
             <div class="find-opts">
-                @*
-                    Always first, always the widest: a question you cannot un-answer is a trap, and
-                    "doesn't matter" is an answer to the same question the options after it answer.
-                *@
+                @* Always first, always the widest: a question you cannot un-answer is a trap. *@
                 @if (question.Any is { } any)
                 {
                     @Option(any)
@@ -128,12 +101,9 @@ else
 
             @if (question.Tail is { Count: > 0 } tail)
             {
-                @*
-                    The long tail, behind a native disclosure holding the real values. An option
-                    returning one game is trivia rather than a filter, and a submittable "3 more
-                    genres" bucket would be this page offering a choice /games cannot express — the
-                    first thing this page's own design says would drift.
-                *@
+                @* The long tail, behind a native disclosure: an option returning one game is trivia
+                   rather than a filter, and a submittable "3 more genres" bucket would offer a
+                   choice /games cannot express. *@
                 <details class="find-tail">
                     <summary>@Say("find.more", ("count", tail.Count))</summary>
                     <div class="find-opts">
@@ -148,22 +118,15 @@ else
     }
 </div>
 
-@*
-    The count, and everything that acts on it. The outer cell carries the fill and the edge at full
-    height; the inner wrapper is what sticks, so the number stays in view while the last questions
-    are answered — which is the whole premise of the page and the one thing worth asserting after a
-    change to this stylesheet.
-*@
+@* The count, and everything that acts on it. The inner wrapper sticks, so the number stays in view
+   while the last questions are answered — the whole premise of the page. *@
 <div class="find-panel">
     <div class="find-panel-inner">
         <p class="kicker">@Say("find.kicker")</p>
 
-        @*
-            One number, and it is a count of games from the pass that would list them — never the
-            product of the marginals beside the options, which assumes the answers are independent
-            and is wrong whenever they are not. The sentence beside it is what a screen reader gets:
-            a bare "19" is the one thing on this page nobody can act on.
-        *@
+        @* One number, counted from the pass that would list them — never a product of the marginals
+           beside the options, which assumes independence and is usually wrong. The sentence beside
+           it is what a screen reader gets; a bare "19" is unusable. *@
         <p class="find-count">
             <span class="find-n mono" aria-hidden="true">@Screen.Matching</span>
             <span class="find-noun" aria-hidden="true">@Say("find.noun", ("count", Screen.Matching))</span>
@@ -179,11 +142,8 @@ else
             <div class="find-chips">
                 @foreach (var chip in Screen.Answers)
                 {
-                    @*
-                        One chip per answer given, each undoing exactly that one — which no single
-                        "clear" can do. The × alone is not a description, so the accessible name says
-                        which question it clears.
-                    *@
+                    @* One chip per answer given, each undoing exactly that one. The × alone is not a
+                       description, so the accessible name says which question it clears. *@
                     <a class="find-chip" href="@Http.Link(chip.ClearHref)"
                        aria-label="@Say("find.clear", ("question", chip.Question))">
                         <span class="chip-value">@chip.Label</span>
@@ -195,12 +155,8 @@ else
 
         @if (Screen.Loosen is { } loosen)
         {
-            @*
-                A way out, not a diagnosis. No warning box and no sentence telling the reader their
-                result is narrow — they can see the count; what they cannot work out is which of six
-                answers produced it and what dropping that one returns. The figure on it is the size
-                of the listing with exactly this answer lifted, counted rather than estimated.
-            *@
+            @* A way out, not a diagnosis: no warning box, just the count they can already see and
+               which answer to drop, counted rather than estimated. *@
             <a class="find-loosen" href="@Http.Link(loosen.Href)">
                 <span aria-hidden="true">×</span>
                 @Say("find.drop", ("answer", loosen.Label), ("count", loosen.Count))
@@ -209,12 +165,8 @@ else
 
         @if (Screen.Matching > 0)
         {
-            @*
-                The listing, asked exactly what this page was asked — the same querystring, handed to
-                the surface that can keep adjusting it. Drawn only where there is something to show:
-                a control that cannot do what it offers is worse than one that is not there, and the
-                loosen button above is the affordance that case needs.
-            *@
+            @* The listing, asked exactly what this page was asked. Drawn only where there's
+               something to show — a control that can't do what it offers is worse than none. *@
             <a class="find-go" href="@Http.Link(Screen.ShowHref)">@Say("find.show", ("count", Screen.Matching))</a>
         }
 
@@ -234,10 +186,8 @@ else
 @code {
     /// <summary>The querystring this render is answering, exactly as the request carried it.</summary>
     /// <remarks>
-    /// Read off <c>Nav.Uri</c> once per render rather than on every access. It was a computed
-    /// property that allocated a <see cref="Uri"/> each time it was touched, and four members read
-    /// it — one of them, <see cref="Carried"/>, from inside a <c>foreach</c> — so a page whose whole
-    /// state is its querystring reparsed that querystring several times to draw one screen.
+    /// Read off <c>Nav.Uri</c> once per render rather than on every access — it used to be a computed
+    /// property allocating a <see cref="Uri"/> on each of several reads per render.
     /// </remarks>
     private string Query { get; set; } = string.Empty;
 
@@ -249,10 +199,10 @@ else
 
     /// <summary>The six questions and their counts, once the catalogue has answered.</summary>
     /// <remarks>
-    /// <see cref="FindScreen.Empty"/> rather than <c>null!</c>: the first render of this page
-    /// happens before <see cref="OnParametersSetAsync"/> has finished, and the null it used to hold
-    /// was dereferenced on line 59 of this file every time the load actually suspended — which is
-    /// every request against a real database, and none against the fixture the tests use.
+    /// <see cref="FindScreen.Empty"/> rather than <c>null!</c>: the first render happens before
+    /// <see cref="OnParametersSetAsync"/> finishes, and the null it used to hold was dereferenced
+    /// whenever the load actually suspended — every request against a real database, none against
+    /// the test fixture.
     /// </remarks>
     private FindScreen Screen { get; set; } = FindScreen.Empty;
 
@@ -263,10 +213,9 @@ else
     /// The locale the whole page is built in, screen included.
     /// </summary>
     /// <remarks>
-    /// Handed to <see cref="FindScreen.BuildAsync"/> rather than applied to what it returns. The
-    /// question texts, the answer labels and the capability glosses are part of the screen, and the
-    /// plain rendering reads them straight off it — so a locale applied afterwards would reach one
-    /// surface and not the other, which is the exact split this page was rebuilt to close.
+    /// Handed to <see cref="FindScreen.BuildAsync"/> rather than applied to what it returns, since
+    /// question texts, labels and glosses are part of the screen and the plain rendering reads them
+    /// straight off it — a locale applied afterwards would reach one surface and not the other.
     /// </remarks>
     private string Tag => Http.LocaleOf().Tag;
 
@@ -274,10 +223,8 @@ else
     /// One sentence, as a message rather than as English fragments glued round a number.
     /// </summary>
     /// <remarks>
-    /// Every count on this page is a plural agreement somewhere: Russian has three forms, Arabic
-    /// six, and several languages put the noun before the number. "1 games" shipped on the version
-    /// of this page these replace, in two places, because nothing between the count and the noun
-    /// could tell them apart.
+    /// Every count here is a plural agreement somewhere (Russian: three forms, Arabic: six). "1
+    /// games" shipped twice on the version of this page these replace.
     /// </remarks>
     private string Say(string id, params (string Key, object? Value)[] args) =>
         Messages.For(
@@ -294,11 +241,10 @@ else
     /// Every answer the name field has to carry with it, as hidden inputs.
     /// </summary>
     /// <remarks>
-    /// Read off the live querystring rather than from a list of parameters kept by hand. That list
-    /// is what the plain-text link used to be built from — it held <c>q</c> and <c>archived</c> and
-    /// nothing else — so the day a facet arrived, submitting a name would quietly have dropped every
-    /// other answer and called the result the same question. <c>q</c> itself is excluded because the
-    /// field supplies it, and a second copy would reach the binding as <c>old,new</c>.
+    /// Read off the live querystring rather than a hand-kept list of parameters, which used to hold
+    /// only <c>q</c> and <c>archived</c> and would quietly drop any new facet on submit. <c>q</c>
+    /// itself is excluded since the field supplies it and a second copy would reach the binding as
+    /// <c>old,new</c>.
     /// </remarks>
     private IEnumerable<KeyValuePair<string, string>> Carried =>
         Parsed
@@ -307,16 +253,10 @@ else
 
     /// <summary>One answer, as the state it is in and the address that changes it.</summary>
     /// <remarks>
-    /// The glyph is the second carrier of the same fact the pressed state has, because colour is
-    /// never the only one; the count is the number choosing it returns, which is what makes the
-    /// option a promise rather than a label. A chosen option's own link clears it, so the control
-    /// is reachable in both directions with no second affordance.
-    /// <para>
-    /// The class is written whole rather than interpolated round a null: Razor renders a null branch
-    /// as an empty string and leaves the space around it, so an attribute assembled inline ships as
-    /// <c>class="find-opt "</c> — harmless to a browser and one more thing every selector, test and
-    /// diff has to know to tolerate.
-    /// </para>
+    /// The glyph carries the pressed state a second way, since colour is never the only one. A
+    /// chosen option's own link clears it, reachable in both directions with no second affordance.
+    /// The class is written whole rather than interpolated round a null — Razor renders a null
+    /// branch as empty and leaves the surrounding space, shipping <c>class="find-opt "</c>.
     /// </remarks>
     private RenderFragment Option(FindOption option) =>
         @<a class="@(option.IsChosen ? "find-opt on" : "find-opt")" href="@Http.Link(option.Href)"

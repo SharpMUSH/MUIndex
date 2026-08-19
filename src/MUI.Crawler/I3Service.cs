@@ -13,12 +13,10 @@ namespace MUI.Crawler;
 /// Opens a connection to the Intermud-3 sidecar for the length of one pass.
 /// </summary>
 /// <remarks>
-/// <b>Per pass, not per process, and that is the simplification the whole service rests on.</b> The
-/// long-lived thing is the sidecar's own TCP session to the router — it holds the password, the
-/// mudlist and the reconnect machinery, and it is the piece that must survive. Ours is a socket to
-/// localhost that costs nothing to make and nothing to lose, so there is no reconnect logic here, no
-/// backoff, and no half-open connection to detect: a pass either connects or does not, and the next
-/// one tries again.
+/// Per pass, not per process: the long-lived thing is the sidecar's own TCP session to the router,
+/// which holds the password, mudlist and reconnect machinery. Ours is a cheap socket to localhost, so
+/// there's no reconnect logic or backoff here — a pass either connects or doesn't, and the next tries
+/// again.
 /// </remarks>
 public sealed class I3GatewayFactory(GatewayOptions options, ILoggerFactory? loggers = null)
 {
@@ -45,11 +43,8 @@ public sealed record I3ServiceOptions
     /// Whether this deployable runs the I3 pass at all. <b>Off by default</b>, unlike the crawler.
     /// </summary>
     /// <remarks>
-    /// The pass needs a sidecar that is not part of the default deployment — it sits behind a compose
-    /// profile, because joining I3 registers a name on somebody else's network permanently and must
-    /// never happen as a side effect of <c>compose up</c>. A default of true would make every
-    /// deployment without that container log a connection failure every few minutes for a feature
-    /// nobody asked for.
+    /// The pass needs a sidecar behind a compose profile, since joining I3 registers a name on
+    /// somebody else's network permanently and must never happen as a side effect of <c>compose up</c>.
     /// </remarks>
     public bool Enabled { get; init; }
 
@@ -60,10 +55,9 @@ public sealed record I3ServiceOptions
     /// How often a pass runs.
     /// </summary>
     /// <remarks>
-    /// Five minutes, which is about the mudlist and not about the counts. The router pushes mudlist
-    /// deltas continuously and the gateway caches them, so a pass is reading a local cache and then
-    /// asking a handful of muds; the per-mud floor in <see cref="I3Options.AskEvery"/> is what
-    /// actually bounds what we send, and it is half an hour.
+    /// Five minutes, about the mudlist rather than the counts: the router pushes deltas continuously
+    /// and the gateway caches them, so a pass reads a local cache. <see cref="I3Options.AskEvery"/>
+    /// (half an hour) is what actually bounds what we send.
     /// </remarks>
     public TimeSpan Interval { get; init; } = TimeSpan.FromMinutes(5);
 
@@ -87,9 +81,7 @@ public sealed record I3ServiceOptions
         if (Enabled && string.IsNullOrWhiteSpace(Gateway.ApiKey))
         {
             // Refused at startup rather than discovered as an authentication failure every five
-            // minutes. The gateway's own configuration ships example keys; a deployment that turned
-            // this on without setting one has not finished, and saying so once is kinder than a log
-            // that repeats forever.
+            // minutes.
             throw new InvalidOperationException(
                 "The I3 pass is enabled but no gateway API key is configured.");
         }
@@ -101,21 +93,12 @@ public sealed record I3ServiceOptions
 /// (spec §12).
 /// </summary>
 /// <remarks>
-/// <para>
 /// The same shape as <see cref="CrawlerService"/> and <see cref="PresenceMaintenanceService"/>, and
-/// for the same reason: N web replicas must run exactly one of these. Two would ask every mud on the
-/// network twice as often as we said we would, and would race to seed the same addresses.
-/// </para>
-/// <para>
-/// <b>Its own key, not the crawl lease's.</b> A long crawl cycle must not delay an I3 pass and an I3
-/// pass must not delay a crawl — they touch different tables and send to different places — and a
-/// deployment that has turned the crawler off may still want its I3 bindings kept current.
-/// </para>
-/// <para>
-/// It never lets an exception escape <c>ExecuteAsync</c>, because a hosted service that faults takes
-/// the web tier with it and no player count is worth the site. Every wait goes through the injected
-/// <see cref="TimeProvider"/>, so a test drives it without sleeping.
-/// </para>
+/// for the same reason: N web replicas must run exactly one of these, or two would ask every mud
+/// twice as often as promised. Its own key, not the crawl lease's, so neither pass can delay the
+/// other and a deployment with the crawler off can still keep I3 bindings current. Never lets an
+/// exception escape <c>ExecuteAsync</c>, and every wait goes through the injected
+/// <see cref="TimeProvider"/>.
 /// </remarks>
 public sealed class I3Service(
     NpgsqlDataSource source,

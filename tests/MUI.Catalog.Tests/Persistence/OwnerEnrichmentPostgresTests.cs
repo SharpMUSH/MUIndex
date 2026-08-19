@@ -10,10 +10,9 @@ namespace MUI.Catalog.Tests.Persistence;
 /// the measurements while they do it.
 /// </summary>
 /// <remarks>
-/// The property under test throughout is that an owner's answer is a <em>row of its own</em>. It is
-/// keyed <c>(game, field, source)</c>, so a declared value and a measured one cannot contend; these
-/// assert that the second half of that key is doing its job rather than that somebody remembered to
-/// pass <c>FieldSource.Owner</c>.
+/// The property under test throughout: an owner's answer is a row of its own, keyed
+/// <c>(game, field, source)</c>, so a declared value and a measured one can't contend. These assert
+/// the second half of that key does its job.
 /// </remarks>
 public class OwnerEnrichmentPostgresTests
 {
@@ -21,19 +20,10 @@ public class OwnerEnrichmentPostgresTests
 
     /// <summary>The fields MSSP has no variable for, and not one more.</summary>
     /// <remarks>
-    /// <para>
-    /// Pinned as a list because the writable set is derived from a flag: a field marked
-    /// <c>ownerEnrichable</c> becomes editable on the dashboard and writable through the endpoint in
-    /// one edit, with no second review anywhere. This is that review.
-    /// </para>
-    /// <para>
-    /// The six addresses join §3.2's four on the same argument rather than on a new one. MSSP added
-    /// <c>DISCORD</c> and stopped: there is no <c>FORUM</c>, <c>WIKI</c>, <c>MASTODON</c>,
-    /// <c>BLUESKY</c>, <c>X</c> or <c>TELEGRAM</c> variable in the specification, and none in the
-    /// wild either — every URL-valued field in this catalogue is <c>WEBSITE</c>, <c>ICON</c> or
-    /// <c>DISCORD</c>. A crawler will never fill one in, so the owner is the only source there could
-    /// be, which is the whole of what Enrichment means.
-    /// </para>
+    /// Pinned because the writable set is derived from a flag: marking a field <c>ownerEnrichable</c>
+    /// makes it editable with no second review. This is that review. The six addresses join §3.2's
+    /// four on the same argument: MSSP has no <c>FORUM</c>, <c>WIKI</c>, <c>MASTODON</c>,
+    /// <c>BLUESKY</c>, <c>X</c> or <c>TELEGRAM</c> variable, so the owner is the only possible source.
     /// </remarks>
     [Test]
     public async Task TheWritableSetIsExactlyWhatMsspHasNoRoomFor()
@@ -50,9 +40,8 @@ public class OwnerEnrichmentPostgresTests
     /// A field that holds an address gets one or nothing, and the refusal names the field.
     /// </summary>
     /// <remarks>
-    /// Gated on the write and not only on the render. A value stored and then quietly declined by
-    /// the page is the worst of both: the owner sees their address in the self-description below the
-    /// fold, no icon beside the title, and nothing anywhere telling them which of the two is broken.
+    /// Gated on the write, not only the render — a value stored and then quietly declined by the page
+    /// looks like success to the owner who typed it.
     /// </remarks>
     [Test]
     [Arguments("WIKI", "javascript:alert(1)")]
@@ -127,9 +116,8 @@ public class OwnerEnrichmentPostgresTests
     /// §8.5's line. A write to a measured field is refused out loud, and takes the submission with it.
     /// </summary>
     /// <remarks>
-    /// The form never offers <c>CODEBASE</c>, so this is a hand-assembled post — which is exactly the
-    /// case that must not get half of what it asked for. A silent drop would teach an owner the site
-    /// is broken; a success would make the whole site a self-report with extra steps.
+    /// The form never offers <c>CODEBASE</c>, so this is a hand-assembled post — exactly the case
+    /// that must not get half of what it asked for.
     /// </remarks>
     [Test]
     public async Task AnOwnerMayNotEditAMeasurementAndIsToldWhichFieldItWas()
@@ -178,9 +166,8 @@ public class OwnerEnrichmentPostgresTests
     /// An owner's value sits beside the measurements rather than over them.
     /// </summary>
     /// <remarks>
-    /// Asserted over every non-owner row rather than over the one field the test wrote, because the
-    /// failure this guards against is not "the wrong field moved" — it is a write path that
-    /// confirmed, restamped or replaced rows it was never asked about.
+    /// Asserted over every non-owner row, not just the one field written — the failure this guards
+    /// against is a write path that confirmed, restamped or replaced rows it was never asked about.
     /// </remarks>
     [Test]
     public async Task AnOwnersWriteLeavesEveryMeasuredRowExactlyWhereItWas()
@@ -209,9 +196,9 @@ public class OwnerEnrichmentPostgresTests
     /// fills in about the connection.
     /// </summary>
     /// <remarks>
-    /// Pinned for the same reason the enrichment list above is, and with more at stake: this half has
-    /// MSSP counterparts, so a field added here starts outranking something a game reports about
-    /// itself the moment somebody marks it. That is the review.
+    /// Pinned for the same reason as the enrichable list, with more at stake: this half has MSSP
+    /// counterparts, so a field added here starts outranking a game's own report the moment it's
+    /// marked. That is the review.
     /// </remarks>
     [Test]
     public async Task TheOverridableSetIsTheHandTypedHalfOfMssp()
@@ -229,11 +216,10 @@ public class OwnerEnrichmentPostgresTests
     /// An override and the report it overrides are two rows, and both survive.
     /// </summary>
     /// <remarks>
-    /// This is the property the whole widening rests on. <c>GameField</c> is keyed
-    /// <c>(game, field, source)</c>, so an owner answering <c>GENRE</c> cannot overwrite what their
-    /// game reports even by accident — the page shows theirs first because §5.1's ladder puts
-    /// <c>owner</c> above <c>mssp</c>, and it shows the report beside it with its own age. A site
-    /// whose claim is that its data is measured may not quietly replace one fact with another.
+    /// The property the whole widening rests on: <c>GameField</c> is keyed
+    /// <c>(game, field, source)</c>, so an owner answering <c>GENRE</c> can't overwrite their game's
+    /// report even by accident — §5.1's ladder puts <c>owner</c> above <c>mssp</c>, and both survive
+    /// with their own age.
     /// </remarks>
     [Test]
     public async Task AnOverrideSitsBesideTheReportRatherThanOverIt()
@@ -265,12 +251,10 @@ public class OwnerEnrichmentPostgresTests
     /// An override is <em>declared</em>, and widening the writable set did not move that line.
     /// </summary>
     /// <remarks>
-    /// The failure this guards against is the plausible one: having decided an owner may answer
-    /// <c>GENRE</c>, it would be easy to start treating their answer as authoritative in the sense
-    /// the site reserves for a socket. <see cref="FieldSources.IsMeasured"/> is the one spelling of
-    /// that line — it decides the word on every chip, the state the API names, and whether a badge on
-    /// somebody else's site shows a number — and <c>owner</c> is on the declared side of it exactly
-    /// as <c>mssp</c> is.
+    /// The plausible failure: having decided an owner may answer <c>GENRE</c>, it would be easy to
+    /// start treating that answer as authoritative in the sense reserved for a socket.
+    /// <see cref="FieldSources.IsMeasured"/> is the one spelling of that line, and <c>owner</c> sits
+    /// on the declared side of it exactly as <c>mssp</c> does.
     /// </remarks>
     [Test]
     public async Task AnOverrideIsDeclaredJustAsTheReportIs()
@@ -283,12 +267,10 @@ public class OwnerEnrichmentPostgresTests
     /// The connection-describing half is refused out loud, like a measurement.
     /// </summary>
     /// <remarks>
-    /// <c>CODEBASE</c> is hand-typeable in principle and is still not an owner's to answer: it names
-    /// the software rather than the game, the crawler reads it off the login replies, and an owner
-    /// correcting it there corrects it for the reference pages and the ecosystem figures that count
-    /// it. <c>capability.gmcp.declared</c> is refused for a sharper reason — the matrix exists to
-    /// show a claim beside a handshake, and this would be editing one half of a comparison about
-    /// oneself.
+    /// <c>CODEBASE</c> is hand-typeable but still not an owner's to answer — it names the software,
+    /// not the game, and the crawler reads it off the login replies. <c>capability.gmcp.declared</c>
+    /// is refused for a sharper reason: the matrix exists to show a claim beside a handshake, and this
+    /// would edit one half of a comparison about oneself.
     /// </remarks>
     [Test]
     [Arguments("CODEBASE")]
@@ -312,10 +294,9 @@ public class OwnerEnrichmentPostgresTests
     /// Answering <c>NAME</c> stores a row and asks for the listing and the URL to follow it.
     /// </summary>
     /// <remarks>
-    /// The listed name is a denormalised column and the URL minted from it is a promise to everybody
-    /// holding the old one, so this is the one writable field whose write has a second half. What the
-    /// second half <em>does</em> is <c>SlugMinter</c>'s to prove; what this asserts is that it is
-    /// asked for at all, and asked for with the name the owner typed.
+    /// The listed name is denormalised and the URL minted from it is a promise to everyone holding
+    /// the old one, so this is the one writable field whose write has a second half. Asserts only
+    /// that it's asked for, with the name the owner typed.
     /// </remarks>
     [Test]
     public async Task AnsweringTheNameAsksForTheListingAndTheUrlToFollow()
@@ -343,9 +324,8 @@ public class OwnerEnrichmentPostgresTests
     /// Withdrawing the name renames nothing, because giving one up is not asking for another.
     /// </summary>
     /// <remarks>
-    /// The empty row goes on existing — nothing is deleted — and simply stops outranking the game's
-    /// own report, so the crawler's ordinary grace decides what it is called from the next cycle.
-    /// Renaming to an empty string here would take a game's listing away on a form submission.
+    /// The empty row goes on existing and simply stops outranking the game's own report, so the
+    /// crawler's ordinary grace decides the name from the next cycle.
     /// </remarks>
     [Test]
     public async Task WithdrawingTheNameRenamesNothing()
@@ -377,8 +357,8 @@ public class OwnerEnrichmentPostgresTests
     /// A deployment with no minter behind it stores the name and does less, rather than refusing.
     /// </summary>
     /// <remarks>
-    /// The row is the fact; the URL is a convenience built on it. Refusing the write would make the
-    /// absence of one collaborator look to an owner like a rule about what they may say.
+    /// The row is the fact; the URL is a convenience built on it. Refusing the write would make a
+    /// missing collaborator look like a rule about what an owner may say.
     /// </remarks>
     [Test]
     public async Task WithNoMinterTheNameIsStillStored()
@@ -461,14 +441,10 @@ public class OwnerEnrichmentPostgresTests
     /// Clearing an owner value reveals what is under it, and never silences it.
     /// </summary>
     /// <remarks>
-    /// The one way an owner could still edit a measurement, and it took a form nobody would think to
-    /// look at. <c>owner</c> outranks <c>mssp</c> in §5.1's ladder for enrichment fields, so a
-    /// <em>cleared</em> owner row — empty value, still the precedence winner — was chosen as the
-    /// winner and then dropped for being empty, taking the whole field with it. A game that publishes
-    /// an unofficial <c>FANDOM</c> in its own MSSP could have had it removed from the page, the plain
-    /// surface and the API by the owner typing a space into a box.
-    ///
-    /// Emptiness is absence, so it is filtered before the ladder runs rather than after.
+    /// The one way an owner could still edit a measurement: <c>owner</c> outranks <c>mssp</c> in
+    /// §5.1's ladder, so a cleared owner row — empty value, still the precedence winner — was chosen
+    /// as winner and then dropped for being empty, taking the whole field with it. Emptiness is
+    /// filtered before the ladder runs, not after.
     /// </remarks>
     [Test]
     public async Task ClearingAnOwnerValueUncoversTheMeasurementRatherThanHidingIt()
@@ -519,10 +495,8 @@ public class OwnerEnrichmentPostgresTests
     /// Re-saving a form whose box is already empty touches nothing at all.
     /// </summary>
     /// <remarks>
-    /// A withdrawn field keeps its row, and every subsequent save was reconciling that row and
-    /// confirming it — walking <c>last_confirmed_at</c> forward, so a field withdrawn a year ago
-    /// read on the dashboard as touched this morning. There is nothing to confirm: nobody declared
-    /// anything.
+    /// A withdrawn field keeps its row, and re-confirming it would walk <c>last_confirmed_at</c>
+    /// forward for nothing declared — a field withdrawn a year ago would read as touched this morning.
     /// </remarks>
     [Test]
     public async Task ResavingAnAlreadyWithdrawnFieldDoesNotWalkItsAgeForward()
@@ -551,9 +525,8 @@ public class OwnerEnrichmentPostgresTests
     /// The dashboard's read asks for owner rows, and does not drag a connect screen back to get them.
     /// </summary>
     /// <remarks>
-    /// It read every row of the game and filtered in memory, so one claimed game cost a connect
-    /// screen — thousands of characters, 9,376 at the longest here — across the wire per page load,
-    /// to be discarded.
+    /// Reading every row and filtering in memory cost one claimed game a connect screen — thousands
+    /// of characters — across the wire per page load, to be discarded.
     /// </remarks>
     [Test]
     public async Task TheDashboardReadsOnlyWhatItEdits()
@@ -637,12 +610,10 @@ public class OwnerEnrichmentPostgresTests
     /// A privacy decision is not an event on the game's public page.
     /// </summary>
     /// <remarks>
-    /// <c>connect_screen_suppressed</c> is machinery — a decision of ours about what to display —
-    /// and <c>InternalFields</c> exists to keep exactly these off the surfaces. The declared panel
-    /// already filtered them; the change feed filtered nothing, so reversing suppression published
-    /// "connect_screen_suppressed changed from true to false (owner)" on the game page, in plain
-    /// text and in the API. It would have been the first internal field ever to reach those
-    /// surfaces, and what it announces is a choice §11 grants with no questions asked.
+    /// <c>connect_screen_suppressed</c> is machinery — a decision of ours, not the game's — and
+    /// <c>InternalFields</c> exists to keep it off the surfaces. The change feed wasn't filtering it,
+    /// so reversing suppression published "connect_screen_suppressed changed from true to false
+    /// (owner)" in plain text and the API.
     /// </remarks>
     [Test]
     public async Task TogglingSuppressionIsNotPublishedInTheChangeFeed()
@@ -720,13 +691,10 @@ public class OwnerEnrichmentPostgresTests
             .IsEqualTo("Write to us. We read weekly.");
     }
 
-    /// <summary>A game, an owner who proved it, and the services that let them write.</summary>
-    /// <summary>
-    /// How many transitions the ledger holds for one field, read past every surface.
-    /// </summary>
+    /// <summary>How many transitions the ledger holds for one field, read past every surface.</summary>
     /// <remarks>
-    /// Raw SQL on purpose: <c>ChangesAsync</c> is the game page's feed and filters machinery out of
-    /// it, so asking it whether a row survives would be asking the thing under test.
+    /// Raw SQL on purpose — <c>ChangesAsync</c> filters machinery out of the feed, so asking it would
+    /// be asking the thing under test.
     /// </remarks>
     private static async Task<int> LedgerCountAsync(TestDatabase db, Guid game, string field)
     {
@@ -738,8 +706,8 @@ public class OwnerEnrichmentPostgresTests
     }
 
     /// <summary>
-    /// A minter that records rather than mints. What a real one does to a URL is
-    /// <c>SlugMinterTests</c>'s to prove; this suite's question is whether it is asked.
+    /// A minter that records rather than mints — what a real one does to a URL is
+    /// <c>SlugMinterTests</c>'s to prove; this suite only asks whether it's called.
     /// </summary>
     private sealed class RecordedRenames : IOwnerRenames
     {
@@ -753,6 +721,7 @@ public class OwnerEnrichmentPostgresTests
         }
     }
 
+    /// <summary>A game, an owner who proved it, and the services that let them write.</summary>
     private sealed record World(
         TestDatabase Db,
         Guid Game,

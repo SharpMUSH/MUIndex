@@ -7,25 +7,10 @@ namespace MUI.Web.Components;
 /// Every sentence the ecosystem dashboard and the rankings say, in one place.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The graphical page and the plain surface render the same numbers, and on these two pages the
-/// numbers are almost entirely made of their qualifications: a share is meaningless without its
-/// denominator, and a protocol column is misleading without the sentence saying that a protocol we
-/// did not see is not a protocol a game lacks. Sentences that load-bearing cannot be written twice —
-/// the plain copy would drift into being the honest one and the graphic into being the quotable one,
-/// which is precisely the failure mode §9 says plain mode exists to catch.
-/// </para>
-/// <para>
-/// So the wording lives here and both surfaces read it. What differs between them is layout: one has
-/// a bar beside the number and the other does not, and the bar is an illustration of a sentence that
-/// is already complete without it.
-/// </para>
-/// <para>
-/// <b>Every member takes the locale first.</b> These are sentences rather than fragments and the
-/// numbers inside them agree with the language they are spoken in, so there is no locale-free form
-/// of any of them to fall back on — the same convention <see cref="FacetWords"/> and
-/// <see cref="ActiveFilters"/> already keep.
-/// </para>
+/// Shared by the graphical and plain surfaces so the wording cannot drift between them — a share is
+/// meaningless without its denominator, and duplicating that qualification risks the two disagreeing.
+/// Every member takes the locale first, the same convention <see cref="FacetWords"/> and
+/// <see cref="ActiveFilters"/> keep.
 /// </remarks>
 public static class EcosystemCopy
 {
@@ -42,12 +27,10 @@ public static class EcosystemCopy
     /// A share as a number over the set it was counted in, always in that order.
     /// </summary>
     /// <remarks>
-    /// The count and the denominator come first and the percentage second, because the percentage is
-    /// the derived figure and the one that travels when somebody quotes the page. An empty
-    /// denominator reads as nothing measured rather than as nought per cent — 0 of 0 is not 0%.
-    /// The percentage goes through the message formatter rather than through a format string,
-    /// because a decimal comma and the space some locales put before the sign are part of the
-    /// language and not of the number.
+    /// Count and denominator come first, percentage second — it is the derived, quotable figure. An
+    /// empty denominator reads as nothing measured, not as 0% (0 of 0 is not 0%). The percentage goes
+    /// through the message formatter rather than a format string, since its decimal separator and
+    /// sign spacing are locale-dependent.
     /// </remarks>
     public static string Share(string tag, MeasuredShare share)
     {
@@ -64,12 +47,8 @@ public static class EcosystemCopy
     /// What the codebase shares are a fraction of, with the listing beside it.
     /// </summary>
     /// <remarks>
-    /// <b>Both numbers, because one of them read as the other.</b> This said "Share of the 144
-    /// listed games that told us what they run", which puts the identified count exactly where the
-    /// size of the catalogue belongs — and a reader with no reason to doubt it came away believing
-    /// the site lists 144 games rather than 418. That is the denominator rule failing in the one
-    /// direction it exists to catch, on the page that argues for it, so the denominator and the set
-    /// it was drawn from are now in the same sentence and neither can be mistaken for the other.
+    /// Both numbers, deliberately: showing only the identified count let a reader mistake it for the
+    /// full catalogue size — the denominator rule failing in the one direction it exists to catch.
     /// </remarks>
     public static string CodebaseBasis(string tag, CodebaseUsage codebases)
     {
@@ -84,16 +63,9 @@ public static class EcosystemCopy
     /// The line that folds away the codebases only one game runs, and says what it folded.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The number comes first and the reason second, so the sentence is complete before it is
-    /// justified: this is the panel's second-largest figure and it may not read as a footnote.
-    /// </para>
-    /// <para>
-    /// <b>It says "folded", and the games are listed under it.</b> A page that quietly dropped
-    /// fifty rows and left a chart that no longer adds up would be hiding our own editorial decision
-    /// inside somebody else's numbers, which is the move this site exists to refuse. What the fold
-    /// claims — one game each, still inside the denominator — is checkable against the list it opens.
-    /// </para>
+    /// Says "folded" and lists the games under it, rather than quietly dropping them — an editorial
+    /// decision must not be hidden inside somebody else's numbers. The fold's claim (one game each,
+    /// still inside the denominator) stays checkable against the list it opens.
     /// </remarks>
     public static string SoleUse(string tag, CodebaseUsage codebases)
     {
@@ -106,10 +78,9 @@ public static class EcosystemCopy
     /// How to read the MSSP row, whose two counts differ and whose declared cell is empty.
     /// </summary>
     /// <remarks>
-    /// The gap is the honest half of "nothing is ever deleted" showing through: a report we read
-    /// once is kept when the game stops publishing one, so the set we hold reports from is larger
-    /// than the set offering MSSP today. Two numbers a reader can subtract have to be reconciled on
-    /// the page — left alone they read as an arithmetic error, which is how this one was found.
+    /// The gap is "nothing is ever deleted" showing through: a report is kept after a game stops
+    /// publishing one, so the reports we hold outnumber the games offering MSSP today. Left
+    /// unreconciled, the two numbers read as an arithmetic error.
     /// </remarks>
     public static string MsspBasis(string tag, ProtocolAdoption mssp, int reports)
     {
@@ -147,9 +118,8 @@ public static class EcosystemCopy
     /// The measured side of one protocol, including the case where there is no measurement.
     /// </summary>
     /// <remarks>
-    /// Four ids and not a share with clauses appended. "· 6 games neither offered nor asked" is a
-    /// fragment in English word order, and a language that puts the qualification first or inflects
-    /// the noun for the clause it sits in has nowhere to say so if the sentence arrives in pieces.
+    /// Four whole ids rather than a share with clauses appended — assembling fragments in English
+    /// word order leaves other languages nowhere to reorder or inflect them.
     /// </remarks>
     public static string Measured(string tag, ProtocolAdoption protocol)
     {
@@ -157,9 +127,8 @@ public static class EcosystemCopy
 
         if (protocol.Measured is not { } share)
         {
-            // Never "0%". Nothing has ever been observed to offer this, which is a statement about
-            // our reach and not about the hobby — TLS is the standing case, because the crawler dials
-            // plain telnet and TLS is not a telnet option.
+            // Never "0%" — nothing observed is a statement about our reach, not the hobby. TLS is
+            // the standing case: the crawler dials plain telnet, so TLS is never offered to it.
             return Messages.Say(tag, "ecosystem.measured.never");
         }
 
@@ -181,10 +150,9 @@ public static class EcosystemCopy
     /// The declared side of one protocol. A share where there is one to state.
     /// </summary>
     /// <remarks>
-    /// A missing claim is not a claim, so a protocol nobody declared is 0% and not a blank. The
-    /// blank is reserved for the case where the denominator itself cannot carry the question, which
-    /// is MSSP and only MSSP: every game whose report we hold has proved it supports MSSP by
-    /// sending one, so there is no population left over to be a share of.
+    /// A missing claim is not a claim: a protocol nobody declared is 0%, not blank. Blank is reserved
+    /// for MSSP, where every report we hold already proves support, leaving no population to be a
+    /// share of.
     /// </remarks>
     public static string Declared(string tag, ProtocolAdoption protocol)
     {
@@ -199,19 +167,17 @@ public static class EcosystemCopy
     /// The sentence without which the measured column is a lie by omission.
     /// </summary>
     /// <remarks>
-    /// The crawler writes a capability down when it observes one and otherwise writes nothing, and it
-    /// is right to: it requests MSSP alone, declines MCCP outright, and has been measured against
-    /// live servers that plainly implement protocols they never offered our handshake. So the only
-    /// honest reading of the measured column is a floor, and a page that renders it without saying so
-    /// publishes our own instrumentation as a fact about somebody's game.
+    /// The measured column is a floor, not a ceiling: the crawler requests MSSP alone and declines
+    /// MCCP outright, so live servers implementing protocols they were never asked for read as
+    /// unmeasured. Rendered without this sentence, our own instrumentation reads as a fact about
+    /// somebody's game.
     /// </remarks>
     public static string Floor(string tag) => Messages.Say(tag, "ecosystem.protocols.floor");
 
     /// <summary>Why there is a snapshot here and not the curve §9 asks for.</summary>
     /// <remarks>
-    /// The alternative was available and is the reason this sentence exists: every observation
-    /// carries a <c>first_seen_at</c>, and plotting those would draw a confident rising line that
-    /// measures our crawler reaching more games and nothing whatever about adoption.
+    /// Plotting <c>first_seen_at</c> would draw a confident rising line measuring our crawler
+    /// reaching more games — nothing about adoption.
     /// </remarks>
     public static string NoCurve(string tag) => Messages.Say(tag, "ecosystem.snapshot");
 
@@ -219,11 +185,9 @@ public static class EcosystemCopy
     /// What a drawn curve does and does not measure, said beside the curve rather than under it.
     /// </summary>
     /// <remarks>
-    /// The same care <see cref="NoCurve"/> takes, applied to the thing that replaced it. A share over
-    /// the measured set moves for two reasons — a game changing its mind, and the set changing
-    /// composition — and only the first is adoption. A month in which the crawler found four hundred
-    /// DikuMUDs would move every share on this page without one game having changed anything, and a
-    /// reader deserves to be told that before they read a slope as a trend.
+    /// A share over the measured set moves for two reasons — a game changing its mind, and the set's
+    /// composition changing — and only the first is adoption. A month of finding four hundred
+    /// DikuMUDs would move every share here without one game changing anything.
     /// </remarks>
     public static string CurveCaveat(string tag) => Messages.Say(tag, "ecosystem.curve.caveat");
 
@@ -240,10 +204,8 @@ public static class EcosystemCopy
     {
         ArgumentNullException.ThrowIfNull(rankings);
 
-        // "0 of 519 games listed produced the 24 counted samples a median needs, on at least 4 days
-        // of the window" is arithmetic where a sentence would do. Where nothing qualifies, say that;
-        // where something does, the count is the fact and the threshold follows it. Three whole
-        // sentences joined by a space, so each one is a translator's unit rather than a clause.
+        // Three whole sentences joined by a space, rather than one arithmetic-heavy sentence, so
+        // each is a translator's unit.
         var days = (int)rankings.Window.TotalDays;
 
         var eligible = rankings.Eligible == 0
@@ -265,18 +227,13 @@ public static class EcosystemCopy
     /// Why the window can be changed, said once beside the selector.
     /// </summary>
     /// <remarks>
-    /// Each window is a different claim rather than the same one at three resolutions, and the
-    /// sentence says so — a reader comparing the tabs is comparing "busy now" with "busy for
-    /// months", and two games can honestly swap places between them.
+    /// Each window is a different claim, not the same one at three resolutions — two games can
+    /// honestly swap places between "busy now" and "busy for months".
     /// </remarks>
     public static string SpanChoice(string tag) => Messages.Say(tag, "rankings.spanChoice");
 
     /// <summary>The window as it is offered in the selector.</summary>
-    /// <remarks>
-    /// One message for all three and for the fallback alike, rather than three literals and a
-    /// format string: the agreement is the same job in every case, and the day count is the only
-    /// thing that differs.
-    /// </remarks>
+    /// <remarks>One message for all three spans and the fallback; only the day count differs.</remarks>
     public static string SpanLabel(string tag, RankingSpan span) =>
         Messages.Say(tag, "rankings.span", ("days", span.Days()));
 
@@ -287,10 +244,8 @@ public static class EcosystemCopy
     /// Said on the rankings page, because §2 makes it permanent rather than pending.
     /// </summary>
     /// <remarks>
-    /// Two sentences, not four. What vote-gaming did to the last directory that tried it is the
-    /// argument for the rule and it is told once, on /about, where the reasons live; here the rule
-    /// itself is the fact, and a reader who has arrived at a league table wants to know what it does
-    /// and does not measure before they want the history.
+    /// States the rule, not its history — the vote-gaming story lives once, on /about. A reader at a
+    /// league table wants to know what it measures before they want the reasoning.
     /// </remarks>
     public static string NoVote(string tag) => Messages.Say(tag, "rankings.noVote");
 }

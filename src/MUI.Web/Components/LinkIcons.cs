@@ -6,24 +6,10 @@ namespace MUI.Web.Components;
 /// The glyph for each kind of link, as inline SVG.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Inline, and not an icon font or nine files.</b> A font is a download that blocks the first
-/// paint to draw nine characters, and nine <c>&lt;img&gt;</c> elements are nine requests for a row
-/// that is decoration. These are markup, they inherit <c>currentColor</c>, and they cost nothing at
-/// runtime — which also means they are correct in both themes without a second asset.
-/// </para>
-/// <para>
-/// <b>Where they come from.</b> The five brand marks are Simple Icons, which publishes its icon set
-/// under CC0; the marks themselves remain their owners' trademarks and are used here to point at
-/// those owners' services, which is what they are for. The four generic glyphs — a globe, a book, two
-/// speech bubbles, an envelope — are drawn here, because nobody's trademark says what a forum looks
-/// like.
-/// </para>
-/// <para>
-/// <b>Every glyph is <c>aria-hidden</c> at the call site</b> and carries no title element. The
-/// accessible name is the link's own text, which is translated; a title inside the SVG would be a
-/// second name in English, announced beside it.
-/// </para>
+/// Inline rather than an icon font or separate image files: no blocking download, no extra requests,
+/// inherits <c>currentColor</c>. The five brand marks are Simple Icons (CC0); the four generic glyphs
+/// are drawn here since nobody's trademark defines them. Every glyph is <c>aria-hidden</c> at the call
+/// site and carries no title — the accessible name is the link's own translated text.
 /// </remarks>
 public static class LinkIcons
 {
@@ -31,10 +17,8 @@ public static class LinkIcons
 
     /// <summary>The glyph for one kind, as an <c>svg</c> element ready to be written into markup.</summary>
     /// <remarks>
-    /// Returns a fixed string per member and never interpolates anything a stranger typed, which is
-    /// what makes the <c>MarkupString</c> at the call site safe. A kind with no glyph returns empty
-    /// rather than a placeholder box: an icon we forgot is our omission, and a broken square on
-    /// somebody's page would look like their link was wrong.
+    /// A kind with no glyph returns empty rather than a placeholder box, so a missing icon does not
+    /// look like a broken link.
     /// </remarks>
     public static string Svg(LinkKind kind) => kind switch
     {

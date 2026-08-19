@@ -130,9 +130,8 @@ public class GameFieldStorePostgresTests
     [Test]
     public async Task WhenAValueLastMovedIsTheChangeFeedsQuestionAndNotTheRows()
     {
-        // §5.7 asks "has this name been stable for a grace period", and the row cannot answer it:
-        // first_seen_at is the age of the (game, field, source) row and survives a change on purpose.
-        // Folded on the field name, because MSSP spells it NAME and IdentityFields spells it name.
+        // §5.7 asks "has this name been stable for a grace period", and the row can't answer it:
+        // first_seen_at is the row's age and survives a change on purpose.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var store = new NpgsqlGameFieldStore(db.DataSource);

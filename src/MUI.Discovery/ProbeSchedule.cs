@@ -5,30 +5,24 @@ namespace MUI.Discovery;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>There is no retirement here, and there must never be.</b> This schedule serves a permanent
-/// registry that grows monotonically and outlives every process that touches it, so failure has only
-/// one effect: the interval lengthens, and it is clamped. Spec §7.4 is explicit that a game dark for
-/// two years is still probed weekly, forever, including after it has been archived — which is exactly
-/// what no incumbent managed (spec §3). A bounded single-run frontier can afford to give a host up
-/// because its run ends; this one has no such moment, so it has no such verdict. There is no
-/// <c>Never</c>, no <c>TimeSpan.MaxValue</c> and no sentinel meaning "stop" — that absence is asserted
-/// by <c>ProbeScheduleTests.ThereIsNoNeverInThisSchedule</c>.
+/// <b>There is no retirement here, and there must never be.</b> Failure has only one effect: the
+/// interval lengthens, and it is clamped. Spec §7.4 requires a game dark for years to still be probed
+/// weekly, forever, including after archiving. There is no <c>Never</c>, no
+/// <c>TimeSpan.MaxValue</c> and no sentinel meaning "stop" — asserted by
+/// <c>ProbeScheduleTests.ThereIsNoNeverInThisSchedule</c>.
 /// </para>
 /// <para>
-/// <b>The wording trap.</b> §7.4 calls the clamp a "floor". It means a floor under <em>frequency</em>
-/// — "still probed weekly" — which is a <em>ceiling</em> on the interval. Read the other way round it
-/// would mean "never probe more often than weekly", which is the opposite behaviour. The constant is
-/// therefore called <see cref="LongestInterval"/> and every comparison against it takes the smaller
-/// value.
+/// <b>The wording trap.</b> §7.4 calls the clamp a "floor" — a floor under <em>frequency</em> ("still
+/// probed weekly"), which is a <em>ceiling</em> on the interval. Read the other way it would mean the
+/// opposite. Hence <see cref="LongestInterval"/>'s name, and every comparison against it takes the
+/// smaller value.
 /// </para>
 /// <para>
-/// <b>Where §7.4 and §7.7/§11 disagree.</b> A server may ask, through <c>CRAWL DELAY</c>, for a gap
-/// longer than a week. §11 says that request is honoured as a floor; §7.4 wants a weekly ceiling.
-/// §7.7 resolves it in favour of politeness and this implements that resolution: the backoff is
-/// clamped to <see cref="LongestInterval"/> <em>first</em> and the server's request applied
-/// <em>afterwards</em>, composing as <c>max(CRAWL DELAY, backoff)</c>, so a server asking for thirty
-/// days gets thirty days. §7.4's point is that we never give up, not that we override the operator
-/// whose machine we are dialling.
+/// <b>Where §7.4 and §7.7/§11 disagree.</b> A server may ask, via <c>CRAWL DELAY</c>, for a gap
+/// longer than a week; §11 honours that as a floor, §7.4 wants a weekly ceiling. §7.7 resolves it in
+/// favour of politeness: the backoff is clamped to <see cref="LongestInterval"/> first and the
+/// server's request applied afterwards — <c>max(CRAWL DELAY, backoff)</c> — so a server asking for
+/// thirty days gets thirty days.
 /// </para>
 /// </remarks>
 public static class ProbeSchedule
@@ -43,12 +37,10 @@ public static class ProbeSchedule
     /// The gap after a first, unconfirmed failure — a question rather than a retreat.
     /// </summary>
     /// <remarks>
-    /// One failed probe is not evidence that a game is gone, and until 2026-08-18 it was treated as
-    /// if it were: the ladder below started at <see cref="BaseInterval"/>, so a single blip took the
-    /// next look six hours away and the game read as dark for all six. Measured over four days of
-    /// production, 173 of 182 dark episodes were exactly that — one failure, then an answer — and
-    /// they accounted for 86% of all published downtime. The ladder is unchanged; it now begins at
-    /// the second consecutive failure, which is the first one anything has confirmed.
+    /// One failed probe is not evidence a game is gone. Starting the backoff ladder at
+    /// <see cref="BaseInterval"/> on the first failure turned single blips into six hours of published
+    /// downtime; the ladder now begins at the second consecutive failure, the first one anything has
+    /// confirmed.
     /// </remarks>
     public static readonly TimeSpan RecheckInterval = TimeSpan.FromMinutes(10);
 

@@ -24,7 +24,7 @@ public class GameListingApiTests
 
         await Assert.That(slugs).DoesNotContain("gaslight-row");
 
-        // Out of the default listing and of nothing else (spec §7.5): its own route still answers.
+        // Out of the default listing and nothing else (spec §7.5).
         var page = await host.Client.GetAsync($"{ApiRoutes.Games}/gaslight-row");
         await Assert.That((int)page.StatusCode).IsEqualTo(200);
     }
@@ -32,8 +32,7 @@ public class GameListingApiTests
     [Test]
     public async Task TheListingTakesTheFacetPanelsOwnQuerystring()
     {
-        // q and archived are the names the GET form on /games already publishes. An API that
-        // invented a second spelling for the same question would let the two drift.
+        // q and archived are the same names the GET form on /games already publishes.
         await using var host = await ApiHost.StartAsync();
 
         var listing = await Json.ElementAsync(
@@ -46,7 +45,6 @@ public class GameListingApiTests
         await Assert.That(listing.GetProperty("games")[0].GetProperty("slug").GetString())
             .IsEqualTo("gaslight-row");
 
-        // The filter is echoed, so a cached body says what question it is the answer to.
         var echo = listing.GetProperty("filter");
         await Assert.That(echo.GetProperty("q").GetString()).IsEqualTo("gaslight");
         await Assert.That(echo.GetProperty("includeArchived").GetBoolean()).IsTrue();
@@ -55,9 +53,7 @@ public class GameListingApiTests
     [Test]
     public async Task TheAdultDefaultIsTheSameOnTheApiAsOnThePage()
     {
-        // One parser, two callers. /games and /api/games have to mean one thing by one URL, so a
-        // default the page applies and the API does not would make the two disagree about what the
-        // same link returns — and the API's answer is the one that ends up in somebody's cache.
+        // One parser, two callers — /games and /api/games must agree on the default.
         await using var host = await ApiHost.StartAsync();
 
         var hidden = await Json.ElementAsync(await host.Client.GetAsync(ApiRoutes.Games));
@@ -70,11 +66,9 @@ public class GameListingApiTests
         await Assert.That(Slugs(hidden)).DoesNotContain("cinder");
         await Assert.That(Slugs(shown)).Contains("cinder");
 
-        // Echoed either way, so a cached body says which of the two listings it is.
         await Assert.That(hidden.GetProperty("filter").GetProperty("includeAdult").GetBoolean()).IsFalse();
         await Assert.That(shown.GetProperty("filter").GetProperty("includeAdult").GetBoolean()).IsTrue();
 
-        // Out of the listing and of nothing else: the game's own route still answers.
         await Assert.That((int)(await host.Client.GetAsync($"{ApiRoutes.Games}/cinder")).StatusCode)
             .IsEqualTo(200);
     }
@@ -99,8 +93,7 @@ public class GameListingApiTests
             await Assert.That(measured).Contains("MSSP");
         }
 
-        // Every game in the fixture declares GMCP; only some were observed offering it. A facet that
-        // read the claim would return the whole catalogue.
+        // Every game in the fixture declares GMCP; only some were observed offering it.
         await Assert.That(games.Count).IsLessThan(
             (await new FixtureGameQueries().ListAsync(new GameFilter())).Count);
     }
@@ -151,7 +144,7 @@ public class GameListingApiTests
     [Test]
     public async Task AWeakValidatorAndAStarBothMatch()
     {
-        // If-None-Match is defined to compare weakly, so W/"x" and "x" are the same entity here.
+        // If-None-Match compares weakly, so W/"x" and "x" match here.
         var tag = ETag.Of("body"u8);
 
         await Assert.That(ETag.Matches($"W/{tag}", tag)).IsTrue();
@@ -164,9 +157,7 @@ public class GameListingApiTests
     [Test]
     public async Task ACountWeDidNotMeasureIsNullAndSaysSo()
     {
-        // The worst bug this codebase could ship is a missing count rendered as a zero. The API
-        // ships the null and names the state beside it, so a consumer that coerces cannot silently
-        // publish a claim we never made.
+        // A missing count rendered as a zero is the worst bug this codebase could ship.
         await using var host = await ApiHost.StartAsync();
 
         var listing = await Json.ElementAsync(await host.Client.GetAsync(ApiRoutes.Games));
@@ -177,7 +168,6 @@ public class GameListingApiTests
         await Assert.That(uncountable.GetProperty("playersNow").ValueKind).IsEqualTo(JsonValueKind.Null);
         await Assert.That(uncountable.GetProperty("playersNowState").GetString()).IsEqualTo("unknown");
 
-        // A measured zero is a measurement and must not wear the same state.
         var measuredZero = byslug["eldertale"];
         await Assert.That(measuredZero.GetProperty("playersNow").GetInt32()).IsEqualTo(0);
         await Assert.That(measuredZero.GetProperty("playersNowState").GetString()).IsEqualTo("measured");
@@ -186,9 +176,7 @@ public class GameListingApiTests
     [Test]
     public async Task ACountOnTheListingSaysHowItWasObtainedAndHowOldItIs()
     {
-        // The gap §10.1 named: the listing shipped bare values while the game route labelled every
-        // field. A consumer reading only the listing has to be able to tell a count somebody
-        // measured four minutes ago from one a game asserted about itself.
+        // §10.1: the listing must label its bare values the same way the game route does.
         await using var host = await ApiHost.StartAsync();
 
         var listing = await Json.ElementAsync(await host.Client.GetAsync(ApiRoutes.Games));
@@ -202,20 +190,16 @@ public class GameListingApiTests
         await Assert.That(measured.GetProperty("ageSeconds").GetDouble()).IsEqualTo(240d).Within(1d);
         await Assert.That(measured.GetProperty("stale").GetBoolean()).IsFalse();
 
-        // Aardwolf states its number on the connect screen and nowhere a machine can ask for it, so
-        // we parse it off the screen ourselves on every probe. Measured — the freshness is ours even
-        // where the arithmetic is theirs — and still its own source, because which of the three
-        // columns a count came out of is a fact a consumer may want.
+        // Aardwolf's count is parsed off its connect screen on every probe — measured, since the
+        // freshness is ours even though the arithmetic is theirs.
         var read = byslug["aardwolf"].GetProperty("playersNowProvenance");
         await Assert.That(read.GetProperty("source").GetString()).IsEqualTo("banner");
         await Assert.That(read.GetProperty("measured").GetBoolean()).IsTrue();
 
-        // The count a game reports in a structured field it maintains is the one that is declared.
         var asserted = byslug["ashen-court"].GetProperty("playersNowProvenance");
         await Assert.That(asserted.GetProperty("source").GetString()).IsEqualTo("mssp");
         await Assert.That(asserted.GetProperty("measured").GetBoolean()).IsFalse();
 
-        // The label describes the value beside it, on every row, or it is labelling nothing.
         foreach (var game in listing.GetProperty("games").EnumerateArray())
         {
             if (game.GetProperty("playersNow").ValueKind is JsonValueKind.Null)
@@ -231,19 +215,15 @@ public class GameListingApiTests
     [Test]
     public async Task TheNamedStateOfACountNeverContradictsTheLabelBesideIt()
     {
-        // playersNowState answered "measured" for any count that existed at all, so a game that
-        // asserts its own number in MSSP shipped playersNowState: measured next to
-        // playersNowProvenance.measured: false — the two halves of one object disagreeing about the
-        // one thing this site is for. The state names how the count was obtained, or says it cannot.
+        // Regression guard: playersNowState once said "measured" for any count that existed at all,
+        // disagreeing with playersNowProvenance.measured on the same object.
         await using var host = await ApiHost.StartAsync();
 
         var listing = await Json.ElementAsync(await host.Client.GetAsync(ApiRoutes.Games));
         var byslug = listing.GetProperty("games").EnumerateArray()
             .ToDictionary(g => g.GetProperty("slug").GetString()!, g => g);
 
-        // Three sources, two verdicts, and the verdict turns on who read the number rather than on
-        // who authored it: a WHO answer and a connect screen are both text we parsed off the wire
-        // this probe, and MSSP PLAYERS is a field the game maintains and reports.
+        // Three sources, two verdicts: the verdict turns on who read the number, not who authored it.
         await Assert.That(byslug["m-u-s-h"].GetProperty("playersNowState").GetString())
             .IsEqualTo("measured");
         await Assert.That(byslug["aardwolf"].GetProperty("playersNowState").GetString())
@@ -251,13 +231,11 @@ public class GameListingApiTests
         await Assert.That(byslug["ashen-court"].GetProperty("playersNowState").GetString())
             .IsEqualTo("declared");
 
-        // No count at all is still its own state, and a measured zero is still a measurement.
         await Assert.That(byslug["midnight-sun"].GetProperty("playersNowState").GetString())
             .IsEqualTo("unknown");
         await Assert.That(byslug["eldertale"].GetProperty("playersNowState").GetString())
             .IsEqualTo("measured");
 
-        // The invariant, on every row: the state and the label are two spellings of one fact.
         foreach (var game in listing.GetProperty("games").EnumerateArray())
         {
             var state = game.GetProperty("playersNowState").GetString();
@@ -277,8 +255,7 @@ public class GameListingApiTests
     [Test]
     public async Task ACodebaseNobodyHasConfirmedInYearsSaysSoOnTheListingItself()
     {
-        // Gaslight Row stopped answering in 2023 and its codebase has not been confirmed since. The
-        // value is still worth publishing; publishing it as though it were current is not.
+        // Gaslight Row stopped answering in 2023; the value is still worth publishing, but not as current.
         await using var host = await ApiHost.StartAsync();
 
         var listing = await Json.ElementAsync(
@@ -294,7 +271,6 @@ public class GameListingApiTests
         await Assert.That(codebase.GetProperty("ageSeconds").GetDouble())
             .IsGreaterThan(365d * 24 * 60 * 60);
 
-        // And a game confirmed minutes ago is not dressed in the same label.
         var fresh = await Json.ElementAsync(await host.Client.GetAsync(ApiRoutes.Games));
         var current = fresh.GetProperty("games").EnumerateArray()
             .Single(g => g.GetProperty("slug").GetString() == "m-u-s-h")
@@ -306,8 +282,6 @@ public class GameListingApiTests
     [Test]
     public async Task AFactWeDoNotHaveCarriesNoLabelRatherThanAnInventedOne()
     {
-        // A null count and a null codebase are the absence of a measurement, and a provenance chip
-        // over nothing would be a label attesting to a value nobody produced.
         await using var host = await ApiHost.StartAsync();
 
         var listing = await Json.ElementAsync(await host.Client.GetAsync(ApiRoutes.Games));
@@ -319,8 +293,7 @@ public class GameListingApiTests
         await Assert.That(byslug["aardwolf"].GetProperty("codebaseProvenance").ValueKind)
             .IsEqualTo(JsonValueKind.Null);
 
-        // Still shipped as a key, because a consumer must not have to tell a missing property from
-        // a null one to learn that we did not measure something.
+        // Still shipped as a key: missing property vs. null must not both mean "unmeasured".
         await Assert.That(byslug["midnight-sun"].TryGetProperty("playersNowProvenance", out _)).IsTrue();
     }
 

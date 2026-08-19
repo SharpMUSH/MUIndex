@@ -8,24 +8,13 @@ namespace MUI.Web.Localization;
 /// Which of a game's self-descriptions answers a browser's own language, if any of them do.
 /// </summary>
 /// <remarks>
-/// <para>
 /// A game may report <c>DESCRIPTION</c> and any number of <c>DESCRIPTION-&lt;lang&gt;</c> variants
-/// of its own choosing — MSSP ingestion is not gated by a fixed vocabulary
-/// (<see cref="MUI.Catalog.Persistence.FieldRegistry"/>), so the set of languages on offer is
-/// whatever the operator typed, not a set MUIndex ships translations for.
-/// </para>
-/// <para>
-/// <b>This deliberately does not reuse <see cref="LocaleRouting.Preferred"/>.</b> That method scores
-/// only <see cref="Locales.Offered"/> — the UI's own shipped interface languages — and excludes
-/// English on purpose, as "where the reader already is". Both are the wrong question to ask about a
-/// game's own prose: a game may publish a description in a language MUIndex has no interface strings
-/// for at all, and an <c>EN</c> variant is a legitimate answer distinct from the un-suffixed default,
-/// not a redirect to where the reader already is.
-/// </para>
-/// <para>
-/// The default <c>DESCRIPTION</c> is what a reader gets absent any match — this only ever narrows
-/// toward a variant the browser actually asked for, never away from having a description at all.
-/// </para>
+/// of its own choosing — the set of languages on offer is whatever the operator typed, not a set
+/// MUIndex ships translations for. This deliberately does not reuse
+/// <see cref="LocaleRouting.Preferred"/>: that method scores only MUIndex's own shipped interface
+/// languages and excludes English on purpose, which is the wrong question to ask about a game's own
+/// prose — an <c>EN</c> variant is a legitimate distinct answer here, not a redirect. The plain
+/// <c>DESCRIPTION</c> is the fallback; this only ever narrows toward a variant the browser asked for.
 /// </remarks>
 public static class LocalizedDescription
 {

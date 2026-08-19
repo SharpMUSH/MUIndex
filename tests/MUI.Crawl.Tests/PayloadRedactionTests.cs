@@ -12,10 +12,8 @@ public class PayloadRedactionTests
     /// A WHO in the shape a real one has, with invented people in it.
     /// </summary>
     /// <remarks>
-    /// Written rather than captured, deliberately. A fixture holding a real capture would put real
-    /// player names and real player-written text into source history, where they outlive the runtime
-    /// TTL this whole feature is built around — the file would keep for ever exactly what the table
-    /// drops in a fortnight. The layout is what matters here and the layout is reproducible.
+    /// Written rather than captured, deliberately: a real capture would put real player names into
+    /// source history forever, exactly what the runtime TTL this feature is built around drops.
     /// </remarks>
     private const string Who = """
         Player Name          On For   Idle  AndNowForSomethingCompletelyElse
@@ -65,11 +63,10 @@ public class PayloadRedactionTests
     /// A name made of digits is a name, and does not survive because it is numeric.
     /// </summary>
     /// <remarks>
-    /// <c>4815162342</c> is a perfectly ordinary MU* name and a bare digit run. The first draft let
-    /// every digit through on the grounds that a count is not a person, which is true of a count and
-    /// not of that. A digit survives only on a line that also carries a word the parser reads — a
-    /// summary sentence has one, a row of players does not — and a run with any letter in it is
-    /// masked whole, so <c>A1ice</c> keeps neither its letters nor its digit.
+    /// <c>4815162342</c> is a perfectly ordinary MU* name and also a bare digit run. A digit survives
+    /// only on a line that also carries a word the parser reads (a summary sentence has one, a row of
+    /// players does not), and a run with any letter in it is masked whole, so <c>A1ice</c> keeps
+    /// neither its letters nor its digit.
     /// </remarks>
     [Test]
     public async Task ANameMadeOfDigitsIsStillAName()

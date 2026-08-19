@@ -10,26 +10,21 @@ namespace MUI.Discovery;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Candidates are gathered by reverse lookup rather than by scanning: the endpoint, then every game
-/// sharing this probe's claim token, name, banner hash, website or contact. Each candidate is then
-/// scored over all seven signals, so a candidate found by one signal is still credited for the others.
+/// Candidates are gathered by reverse lookup, not by scanning: the endpoint, then every game sharing
+/// this probe's claim token, name, banner hash, website or contact. Each candidate is then scored
+/// over all seven signals, so a candidate found by one signal is still credited for the others.
 /// </para>
 /// <para>
-/// <b>Every signal is filtered through <see cref="MsspDefaults.IsPlaceholder"/> before it is weighed,
-/// on both sides of the comparison.</b> A codebase default is the absence of a signal, not a weak one:
-/// every unedited PennMUSH on the internet publishes <c>NAME "PennMUSH"</c>, and scored naively they
-/// all match each other on the strongest textual signal in the table. Two absences must never score as
-/// an agreement — including the empty banner, whose fingerprint is a perfectly stable hash of nothing.
+/// <b>Every signal is filtered through <see cref="MsspDefaults.IsPlaceholder"/> on both sides.</b> A
+/// codebase default is the absence of a signal, not a weak one — every unedited PennMUSH publishes
+/// <c>NAME "PennMUSH"</c>, and scored naively they'd all match on the strongest textual signal in the
+/// table. Two absences must never score as an agreement, including the empty banner, whose
+/// fingerprint is a stable hash of nothing.
 /// </para>
 /// <para>
-/// <b><c>CODEBASE</c> is scored but never gathered on, deliberately.</b> Nearly every MUSH in the
-/// catalogue reports the same string, so gathering on it would make every probe's candidate set the
-/// whole catalogue. At 0.15 it can corroborate a candidate found some other way and nothing else.
-/// </para>
-/// <para>
-/// Duplicate listings are the specific failure that clutters every incumbent catalogue. This is the
-/// component that prevents it, and the middle band is why: above threshold merge, middling open a
-/// suspected-duplicate pair with both pages live, below threshold a new game.
+/// <b><c>CODEBASE</c> is scored but never gathered on.</b> Nearly every MUSH in the catalogue reports
+/// the same string, so gathering on it would make every probe's candidate set the whole catalogue. At
+/// 0.15 it can only corroborate a candidate found some other way.
 /// </para>
 /// </remarks>
 public sealed class IdentityMatcher(
@@ -38,11 +33,9 @@ public sealed class IdentityMatcher(
     IGameFieldStore fields,
     IGameFieldIndex index,
     DiscoveryOptions options,
-    // Null on every caller that has not wired one, and that degrades rather than fails:
-    // IdentityWeights.ResolvedEndpoint simply never fires, exactly as ClaimToken never fires before
-    // §8's verification half lands. The real one is IHostScopeGuard's own SystemHostResolver — the
-    // one place live DNS is meant to be reached from — so production gets this signal by handing the
-    // same resolver to both, and no test performs a lookup by accident.
+    // Null on every caller that hasn't wired one; IdentityWeights.ResolvedEndpoint simply never
+    // fires then. Production passes IHostScopeGuard's own SystemHostResolver, so no test performs a
+    // live lookup by accident.
     IHostResolver? resolver = null)
 {
     public async Task<IdentityVerdict> ResolveAsync(ProbeResult result, CancellationToken ct)
@@ -51,8 +44,8 @@ public sealed class IdentityMatcher(
 
         if (result.Outcome is not ProbeOutcome.Answered)
         {
-            // No evidence of any kind. A refused connection carries no MSSP, no banner and nothing
-            // else; guessing from an address alone is how duplicates and mis-merges both happen.
+            // No evidence: a refused connection carries no MSSP or banner. Guessing from the address
+            // alone is how duplicates and mis-merges happen.
             return new IdentityVerdict.Fresh(null);
         }
 
@@ -78,18 +71,16 @@ public sealed class IdentityMatcher(
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b><see cref="ResolveAsync"/> cannot answer this question, and that is the whole reason this
-    /// exists.</b> A probe of an address we have already attributed scores its own game at 1.00 on the
-    /// endpoint signal alone, so the bound game is always the winner and a twin standing right behind
-    /// it is never returned. Attribution is settled for such a probe; what is not settled is whether
-    /// the catalogue is now listing one game twice.
+    /// <b><see cref="ResolveAsync"/> cannot answer this, and that's the whole reason this exists.</b>
+    /// A probe of an address we've already attributed scores its own game at 1.00 on the endpoint
+    /// signal alone, so the bound game always wins and a twin standing right behind it is never
+    /// returned.
     /// </para>
     /// <para>
-    /// <b>A rival is never a merge, however high it scores.</b> Above the merge threshold on first
-    /// sighting means "create nothing, this is that game"; the same score against an address already
-    /// bound elsewhere means "these two listings may be one", and folding a live listing into another
-    /// without a person looking is not a thing anybody undoes. So the ceiling here is a review, and
-    /// the score is carried onto the pair so the operator sees what it was.
+    /// <b>A rival is never a merge, however high it scores.</b> The same score that would create
+    /// nothing on first sighting means, against an already-bound address, "these two listings may be
+    /// one" — and folding a live listing into another without a person looking isn't undoable. So the
+    /// ceiling here is a review, with the score carried onto the pair.
     /// </para>
     /// </remarks>
     public async Task<IdentityScore?> RivalAsync(ProbeResult result, Guid bound, CancellationToken ct)
@@ -107,9 +98,7 @@ public sealed class IdentityMatcher(
 
         if (candidates.Count == 0)
         {
-            // The common case by a wide margin, and the reason this is affordable on every probe of
-            // every bound target: reverse lookups on the index found nobody else, so no candidate is
-            // scored and no field row — connect screens included — is read.
+            // Common case: reverse lookups found nobody else, so nothing further is scored or read.
             return null;
         }
 
@@ -222,17 +211,12 @@ public sealed class IdentityMatcher(
     /// question entirely.
     /// </summary>
     /// <remarks>
-    /// <b>An owner's answer is the one to show and the wrong one to match on.</b> <c>Owner</c> outranks
-    /// <c>Mssp</c> in <see cref="FieldPrecedence"/>, correctly, for a page: §8.5 lets a verified owner
-    /// override anything MSSP could declare about their own game. Scored here that would let them type
-    /// <c>NAME</c> and <c>CREATED</c> to match a game they have nothing to do with — and §7.3 merges
-    /// above threshold, which is not a thing anybody undoes. De-duplication asks which host is which
-    /// game, and it answers by comparing what servers said to each other.
-    ///
-    /// <see cref="FieldSource.Staff"/> stays in, and the difference is not that we trust ourselves more.
-    /// A staff row is the curator's correction — it exists to fix a catalogue that has merged two games
-    /// or split one — so it is exactly the value identity should be steered by, and there is no surface
-    /// through which anybody else can write one.
+    /// <b>An owner's answer is the one to show and the wrong one to match on.</b> <c>Owner</c>
+    /// outranks <c>Mssp</c> in <see cref="FieldPrecedence"/> for display — §8.5 lets a verified owner
+    /// override what MSSP says about their own game — but scored here that would let them type
+    /// <c>NAME</c>/<c>CREATED</c> to match an unrelated game and trigger an unreviewable merge.
+    /// <see cref="FieldSource.Staff"/> stays in: a staff row is the curator's correction, and there's
+    /// no surface through which anybody else can write one.
     /// </remarks>
     private async Task<IReadOnlyDictionary<string, string>> StoredAsync(Guid gameId, CancellationToken ct)
     {
@@ -262,13 +246,10 @@ public sealed class IdentityMatcher(
     /// endpoints, resolved by name (spec §7.3, <see cref="IdentityWeights.ResolvedEndpoint"/>).
     /// </summary>
     /// <remarks>
-    /// <b>Bounded on every side that matters.</b> No resolver wired: never fires. The probed host is
-    /// itself a hostname rather than a literal: never fires — a hostname-to-hostname comparison is
-    /// <see cref="IdentityWeights.Endpoint"/>'s job and this is not a second, looser way to reach the
-    /// same credit. A candidate endpoint that is itself a literal: skipped — literal-to-literal is also
-    /// <see cref="IdentityWeights.Endpoint"/>'s comparison, made at the top of <see cref="ResolveAsync"/>
-    /// already. A port that does not match: skipped, because a different port is a different listener
-    /// even on one machine.
+    /// Bounded on every side: no resolver wired never fires; the probed host being a hostname (not a
+    /// literal) never fires — that's <see cref="IdentityWeights.Endpoint"/>'s job; a candidate
+    /// endpoint that's itself a literal is skipped, same reason; a mismatched port is skipped, since a
+    /// different port is a different listener even on one machine.
     /// </remarks>
     private async Task<bool> ResolvesToKnownEndpointAsync(Guid gameId, Observation observed, CancellationToken ct)
     {
@@ -291,11 +272,8 @@ public sealed class IdentityMatcher(
             }
             catch (Exception error) when (error is not OperationCanceledException)
             {
-                // HostScopeGuard's own idiom for the identical failure: a candidate's hostname not
-                // resolving is not evidence either way, only a resolver having a bad minute, and it
-                // must not crash a probe that happened to arrive by IP rather than by name. Rule 5's
-                // shape in code — our resolver's failure is not a measurement of anybody — so this
-                // candidate simply does not corroborate through this signal and the loop moves on.
+                // A resolver failure is not evidence either way (rule 5: our failure isn't a
+                // measurement of anybody) — this candidate just doesn't corroborate, and we move on.
                 continue;
             }
 
@@ -339,13 +317,8 @@ public sealed class IdentityMatcher(
             ClaimTokenBeacon.Read(result));
 
         /// <summary>
-        /// The banner's fingerprint, or null when the connect screen carried too little text to be
-        /// about this game rather than about its engine. A server that sends nothing before the first
-        /// prompt is common, and the hash of an empty string is a perfectly stable value that every
-        /// such server would share — an absence scoring as an agreement, at half the merge threshold.
-        /// A stock "Do you want ANSI?" is the same absence with a few more characters in it, which is
-        /// what <see cref="BannerFingerprint.MinimumIdentifyingLength"/> measures and why it is a
-        /// length rather than the emptiness check this used to be.
+        /// The banner's fingerprint, or null when the connect screen is too short to identify the
+        /// game rather than its engine (see <see cref="BannerFingerprint.MinimumIdentifyingLength"/>).
         /// </summary>
         private static string? FingerprintOf(string? banner) =>
             banner is { Length: > 0 }

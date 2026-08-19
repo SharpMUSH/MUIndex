@@ -27,17 +27,10 @@ namespace MUI.Web.Tests;
 /// the order that makes both true.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A real server rather than a called handler, because what is being asserted is not the service —
-/// that is pinned against Postgres in <c>OwnerEnrichmentPostgresTests</c> — but the wiring around it:
-/// route, anti-forgery, authentication, redirect. Every one of those is invisible to a unit test and
-/// every one of them ships broken silently.
-/// </para>
-/// <para>
-/// The pipeline below is <c>Program</c>'s, through <c>Program</c>'s own
+/// A real server rather than a called handler: what's under test is the wiring — route,
+/// anti-forgery, authentication, redirect — not the service (pinned against Postgres in
+/// <c>OwnerEnrichmentPostgresTests</c>). The pipeline below is <c>Program</c>'s own, through
 /// <see cref="SiteComposition.UseMuiAntiforgeryAfterAuthentication"/>, and the order is the point.
-/// See <see cref="TheTokenIsCheckedAgainstTheSignedInOperatorSoTheOrderOfTheMiddlewareMatters"/>.
-/// </para>
 /// </remarks>
 public class OwnerEndpointTests
 {
@@ -88,9 +81,8 @@ public class OwnerEndpointTests
     /// The two writes are two different things, and the dashboard is told which one happened.
     /// </summary>
     /// <remarks>
-    /// Both endpoints redirected with <c>?saved=</c> and nothing else, so hiding a connect screen
-    /// came back as the enrichment sentence — "your page now shows it as owner-declared" — about an
-    /// action nobody took. On the surface whose whole job is to say what happened.
+    /// Both endpoints used to redirect with only <c>?saved=</c>, so hiding a connect screen came back
+    /// as the enrichment sentence about an action nobody took.
     /// </remarks>
     [Test]
     public async Task HidingAScreenAndSavingAFieldDoNotReportTheSameThing()
@@ -168,12 +160,9 @@ public class OwnerEndpointTests
     /// The token carries who it was issued to, so anti-forgery must run after authentication.
     /// </summary>
     /// <remarks>
-    /// This is the evidence for the ordering rule in <see cref="SiteComposition"/>, and it is
-    /// asserted rather
-    /// than believed because the failure it prevents is total and silent: validated before the
-    /// authentication middleware, every signed-in operator's form post is compared against an
-    /// anonymous user and rejected as forged, while every public page — all of them GET — goes on
-    /// working perfectly.
+    /// Evidence for the ordering rule in <see cref="SiteComposition"/>: validated before
+    /// authentication, every signed-in operator's form post compares against an anonymous user and
+    /// is rejected as forged, while every public GET page keeps working — a total, silent failure.
     /// </remarks>
     [Test]
     public async Task TheTokenIsCheckedAgainstTheSignedInOperatorSoTheOrderOfTheMiddlewareMatters()
@@ -187,17 +176,10 @@ public class OwnerEndpointTests
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
     }
 
-    /// <summary>
-    /// The two endpoints on a loopback port, behind the pipeline <c>Program</c> builds.
-    /// </summary>
-    /// <summary>
-    /// An owner's stop covers exactly the addresses their game answers on — and no more.
-    /// </summary>
+    /// <summary>An owner's stop covers exactly the addresses their game answers on — and no more.</summary>
     /// <remarks>
-    /// The one thing worth getting right here. A record with a null port means <em>every port on
-    /// this host</em>, and a shared machine — a hosting provider, somebody running four games on one
-    /// box — would then have three other people's games delisted by one owner's button. So the rows
-    /// name ports, and the game with two of them gets two rows.
+    /// A null port would mean <em>every port on this host</em>, delisting other people's games on a
+    /// shared machine. So opt-out rows name ports, and a game with two of them gets two rows.
     /// </remarks>
     [Test]
     public async Task StoppingCoversTheGamesOwnPortsAndNeverTheWholeHost()
@@ -218,8 +200,8 @@ public class OwnerEndpointTests
         // Never the whole host, however convenient that would have been to write.
         await Assert.That(recorded.Any(o => o.Port is null)).IsFalse();
 
-        // And never an address the game has left. The fixture's m-u-s-h has a third, departed
-        // endpoint; somebody else may be answering there now, and this owner does not speak for it.
+        // And never an address the game has left — the fixture's m-u-s-h has a third, departed
+        // endpoint somebody else may now be answering on.
         await Assert.That(recorded.Any(o => o.Host == "mush.example.net")).IsFalse();
         await Assert.That(recorded.All(o => o.Source is OptOutSource.Request)).IsTrue();
 
@@ -282,10 +264,8 @@ public class OwnerEndpointTests
     /// The second decision is offered only under the first, and the endpoint enforces it.
     /// </summary>
     /// <remarks>
-    /// Unlisting a game we are still dialling produces the one state nothing on this site can
-    /// describe: a page no reader can find, filling up with fresh measurements. So it is refused, and
-    /// refused out loud — an owner who pressed the button and was told nothing would reasonably
-    /// conclude their game had come out of the listing.
+    /// Unlisting a game we're still dialling would produce a page no reader can find that keeps
+    /// filling with fresh measurements — refused out loud, since silence here would read as success.
     /// </remarks>
     [Test]
     public async Task AGameWeAreStillDiallingCannotBeUnlisted()
@@ -350,9 +330,7 @@ public class OwnerEndpointTests
         await Assert.That(response.Headers.Location!.ToString())
             .IsEqualTo($"/account?saved={Mush}&did=unlisted");
 
-        // The account that held a verified claim when the button was pressed, stored rather than
-        // inferred. It is the whole authorisation story, and the defect this repository already has
-        // in its history is a claim about somebody else's wishes that nobody could trace to an asker.
+        // Stored rather than inferred, so the unlisting is traceable to who asked for it.
         await Assert.That(host.Games.Unlisted[Mush]).IsEqualTo(host.Owner.Id);
     }
 
@@ -361,10 +339,9 @@ public class OwnerEndpointTests
     /// trap.
     /// </summary>
     /// <remarks>
-    /// An owner who has already deleted the TXT record is no longer opted out, and is waiting out
-    /// §7.4's floor for the probe that would relist them automatically. A button that refused them on
-    /// the grounds that they were not opted out would strand exactly the person who had done the
-    /// documented thing.
+    /// An owner who already deleted the TXT record is no longer opted out but is still waiting on
+    /// §7.4's floor for the probe that would relist them automatically; gating "come back" on still
+    /// being opted out would strand exactly that person.
     /// </remarks>
     [Test]
     public async Task ComingBackDoesNotRequireStillBeingOptedOut()
@@ -396,9 +373,8 @@ public class OwnerEndpointTests
     /// The two lifecycle writes the listing endpoint makes, recorded rather than performed.
     /// </summary>
     /// <remarks>
-    /// Everything else on <see cref="IGameStore"/> throws. What is under test here is the route, the
-    /// gate and the redirect; a double that quietly answered every other call would let a change to
-    /// one of them arrive through this file without a failure.
+    /// Everything else on <see cref="IGameStore"/> throws — a double that quietly answered every
+    /// other call would let a change to the route or gate slip past unnoticed.
     /// </remarks>
     private sealed class RecordingGameStore : IGameStore
     {
@@ -511,13 +487,10 @@ public class OwnerEndpointTests
             Task.FromResult<IReadOnlyList<CrawlOptOut>>(_rows);
     }
 
-    /// <summary>
-    /// No zone to read.
-    /// </summary>
+    /// <summary>No zone to read.</summary>
     /// <remarks>
     /// Answers <see cref="DnsTxtAnswer.NoRecord"/> rather than <see cref="DnsTxtAnswer.NoAnswer"/>:
-    /// DNS replying "no such record" is a fact, and a lookup that failed is not one. The owner route
-    /// asks DNS nothing either way, and this says so honestly rather than by silence.
+    /// the owner route never asks DNS, and this says so honestly rather than by a lookup failure.
     /// </remarks>
     private sealed class NoDns : IDnsTxtResolver
     {
@@ -558,9 +531,8 @@ public class OwnerEndpointTests
         public MuiUser Owner { get; }
 
         /// <param name="game">
-        /// Which game the claim is on. Defaults to the one the enrichment tests use; the opt-out
-        /// tests name the fixture game with two listeners, because one address cannot demonstrate
-        /// that a stop is scoped to ports rather than to a whole host.
+        /// Which game the claim is on. The opt-out tests use the fixture game with two listeners, so
+        /// a stop can be shown as scoped to ports rather than to a whole host.
         /// </param>
         public static async Task<Harness> StartAsync(
             bool verified = true,
@@ -589,8 +561,7 @@ public class OwnerEndpointTests
             builder.Services.AddSingleton<OwnerEnrichment>(_ => new OwnerEnrichment(
                 claims, fields, new FieldReconciler(fields), FieldRegistry.Instance, TimeProvider.System));
 
-            // §11's register, in memory, behind the real OptOutGate — the recording path under test
-            // is the deployed one rather than a second implementation of it written here.
+            // §11's register, in memory, behind the real OptOutGate.
             var optOuts = new InMemoryOptOuts();
 
             builder.Services.AddSingleton(optOuts);
@@ -600,8 +571,7 @@ public class OwnerEndpointTests
                 optOuts, new NoDns(), TimeProvider.System));
             builder.Services.AddSingleton<OwnerOptOut>();
 
-            // Migration 0025's second decision, behind the real service — the gate under test is the
-            // deployed one and not a second copy of its rule written here.
+            // Migration 0025's second decision, behind the real service.
             var games = new RecordingGameStore();
 
             builder.Services.AddSingleton(games);
@@ -611,11 +581,9 @@ public class OwnerEndpointTests
 
             var app = builder.Build();
 
-            // The site's own order, through the site's own call — not a copy of it. A harness that
-            // restated these three lines would assert its own ordering and go on passing through the
-            // edit that reordered the deployed one, which is precisely the failure the test below
-            // exists to prevent. Only the WRONG order is built by hand here, because there is no
-            // other way to build a thing that is not supposed to exist.
+            // The site's own order, through the site's own call — restating these lines by hand would
+            // pass through an edit that reorders the deployed pipeline. Only the WRONG order below is
+            // built by hand, since it isn't supposed to exist elsewhere.
             if (antiforgeryBeforeAuthentication)
             {
                 app.UseAntiforgery();
@@ -627,8 +595,8 @@ public class OwnerEndpointTests
                 app.UseMuiAntiforgeryAfterAuthentication(withAccounts: true);
             }
 
-            // What <AntiforgeryToken /> does while a page renders, which is to say after the
-            // authentication middleware has run and with the operator signed in.
+            // What <AntiforgeryToken /> does after the authentication middleware has run, with the
+            // operator signed in.
             app.MapGet("/token", (HttpContext context, IAntiforgery antiforgery) =>
                 antiforgery.GetAndStoreTokens(context).RequestToken);
 
@@ -734,14 +702,10 @@ public class OwnerEndpointTests
         }
     }
 
-    /// <summary>
-    /// The field store, keyed as the real table is.
-    /// </summary>
+    /// <summary>The field store, keyed as the real table is.</summary>
     /// <remarks>
-    /// A fake must never be more lenient than the real thing: this is keyed
-    /// <c>(game, field, source)</c> like <c>game_field</c>, because one keyed on <c>(game, field)</c>
-    /// would collapse a declared value onto a measured one and hide the property these tests exist
-    /// to protect.
+    /// Keyed <c>(game, field, source)</c> like <c>game_field</c> — a fake keyed on <c>(game, field)</c>
+    /// alone would collapse a declared value onto a measured one.
     /// </remarks>
     private sealed class InMemoryFieldStore : IGameFieldStore
     {
@@ -769,15 +733,8 @@ public class OwnerEndpointTests
         public Task RecordChangeAsync(FieldChange change, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
 
-        /// <summary>
-        /// Never, because this store does not keep the changes §5.7's rename grace reads.
-        /// </summary>
-        /// <remarks>
-        /// Null is the honest answer and not a stub: <see cref="RecordChangeAsync"/> above already
-        /// discards what it is handed, so "no change has been recorded for this field" is exactly
-        /// true of this store. Nothing on the owner write path asks — the caller is
-        /// <c>SlugMinter</c>, which these tests do not exercise.
-        /// </remarks>
+        /// <summary>Never, because this store does not keep the changes §5.7's rename grace reads.</summary>
+        /// <remarks>Null is honest, not a stub — nothing on the owner write path calls this; the caller is <c>SlugMinter</c>, which these tests don't exercise.</remarks>
         public Task<DateTimeOffset?> LastChangedAtAsync(
             Guid gameId,
             string field,

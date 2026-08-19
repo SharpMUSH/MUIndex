@@ -6,19 +6,10 @@ namespace MUI.Crawl;
 /// A player count published in the connect screen itself.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The fourth place a count can live, and the one no incumbent crawler appears to read. Aardwolf —
-/// among the largest MUDs in the hobby — supports no MSSP and answers no pre-login <c>WHO</c>, so an
-/// MSSP-only directory records no count for it at all. Its connect screen says
-/// <c>Players Currently Online: 218</c> to every visitor.
-/// </para>
-/// <para>
-/// <b>This is the weakest source and is ranked accordingly.</b> It is pattern-matching a stranger's
-/// ASCII art, where a number may be decoration, a high score, an uptime, or last week's figure left
-/// in a static file. So it is used only when MSSP and WHO have both failed, it demands an explicit
-/// label rather than any bare number, and it refuses anything implausible. When in doubt it returns
-/// nothing — an unknown count is honest, and a wrong one is not.
-/// </para>
+/// The weakest of the count sources — pattern-matching a stranger's ASCII art, where a number may be
+/// decoration, a high score, or a stale figure. Used only when MSSP and WHO have both failed; demands
+/// an explicit label rather than any bare number, and refuses anything implausible. When in doubt it
+/// returns nothing — an unknown count is honest, a wrong one is not.
 /// </remarks>
 public static partial class BannerCount
 {
@@ -66,15 +57,11 @@ public static partial class BannerCount
     /// Every count this screen states about itself, in either of the two ways a screen states one.
     /// </summary>
     /// <remarks>
-    /// <b>The second way was the whole of what this reader was missing.</b> A connect screen states a
-    /// count either as a label — <c>Players Currently Online: 218</c> — or as a sentence:
-    /// <c>erion-mud</c> says <c>There are 41 players and 3 immortals online.</c> and
-    /// <c>telehack.com:23</c> says <c>There are 122 local users.</c>, and neither is a label. The
-    /// sentence reader is <see cref="WhoParser.TryStatedCount"/>, which is the same one a <c>WHO</c>
-    /// reply goes through, because a server stating its own figure writes the same sentence wherever
-    /// it prints it — telehack prints that one in both places, and it was unreadable in both for two
-    /// unrelated reasons. <b>Nothing is reimplemented here</b>; the whole of that parser's vocabulary,
-    /// including the ceiling rule that keeps <c>11 out of 200</c> from reading as 200, arrives with it.
+    /// A connect screen states a count either as a label (<c>Players Currently Online: 218</c>) or as
+    /// a sentence (<c>There are 41 players and 3 immortals online.</c>). The sentence form reuses
+    /// <see cref="WhoParser.TryStatedCount"/> rather than reimplementing it, since a server writes the
+    /// same sentence wherever it prints it — including its ceiling rule that keeps <c>11 out of 200</c>
+    /// from reading as 200.
     /// </remarks>
     private static IEnumerable<int> Candidates(string text)
     {

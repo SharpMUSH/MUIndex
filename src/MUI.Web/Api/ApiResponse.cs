@@ -9,25 +9,15 @@ namespace MUI.Web.Api;
 /// <summary>
 /// The one place an API payload becomes bytes: serialise, hash, honour <c>If-None-Match</c>, write.
 /// </summary>
-/// <remarks>
-/// Every route goes through this rather than returning <c>Results.Ok</c>, because "ETagged and
-/// conditionally cacheable" is a property of the whole surface and not of the endpoints somebody
-/// remembered. A route that forgot would be indistinguishable from one that could not be cached.
-/// </remarks>
+/// <remarks>Every route goes through this rather than returning <c>Results.Ok</c> directly, so ETag/conditional caching is a property of the whole surface, not of endpoints that remembered to add it.</remarks>
 public static class ApiResponse
 {
-    /// <summary>
-    /// A minute, which is the interval within which the bytes are provably identical
-    /// (see <see cref="ApiClock"/>). Beyond it the ages really have moved, so a revalidation is a
-    /// real question rather than a wasted round trip.
-    /// </summary>
+    /// <summary>A minute — the window within which the bytes are provably identical (see <see cref="ApiClock"/>).</summary>
     public const string CacheControl = "public, max-age=60";
 
     /// <param name="cacheControl">
-    /// A lifetime other than the default minute, for a route that can justify one. It is passed in
-    /// rather than assigned by the caller afterwards because <see cref="WriteAsync"/> starts the
-    /// response, and a header set after that is either discarded or throws — which is exactly how
-    /// the badge's five minutes were being silently dropped back to sixty seconds.
+    /// A lifetime other than the default minute. Must be passed in, not set by the caller afterwards
+    /// — <see cref="WriteAsync"/> starts the response, and a header set after that is discarded or throws.
     /// </param>
     public static Task WriteJsonAsync<T>(HttpContext http, T payload, string? cacheControl = null)
     {
@@ -64,17 +54,13 @@ public static class ApiResponse
         headers[HeaderNames.ETag] = etag;
         headers[HeaderNames.CacheControl] = cacheControl ?? CacheControl;
 
-        // The JSON is served relaxed-escaped, so a browser must not be allowed to guess it is a
-        // document. See ApiJson.
+        // Relaxed-escaped JSON must not be sniffed as a document by a browser. See ApiJson.
         headers[HeaderNames.XContentTypeOptions] = "nosniff";
 
-        // A read-only public dataset. Republishing rather than siloing means a rival directory's
-        // browser-side code can read this, which is the whole point of §10.
+        // Open CORS: a read-only public dataset, browser-side code elsewhere may read it (§10).
         headers[HeaderNames.AccessControlAllowOrigin] = "*";
 
-        // The terms travel with every response and not only with the bulk dump. Somebody
-        // republishing three fields off the listing is under the same licence as somebody taking the
-        // whole catalogue, and a consumer should not have to fetch a different route to learn it.
+        // Licence travels with every response, not just the bulk dump, so no route ships unlabelled.
         if (http.RequestServices.GetService<IOptions<DatasetLicenceOptions>>()?.Value is { } licence)
         {
             headers["X-MUIndex-Licence"] = licence.LicenceId;
@@ -88,8 +74,8 @@ public static class ApiResponse
     }
 
     /// <summary>
-    /// Turns the response into a 304 when the caller already holds these bytes, and says whether it
-    /// did so. Call after <see cref="Prepare"/> — a 304 must repeat the validator it matched.
+    /// Turns the response into a 304 when the caller already holds these bytes. Call after
+    /// <see cref="Prepare"/> — a 304 must repeat the validator it matched.
     /// </summary>
     public static bool NotModified(HttpContext http, string etag)
     {
@@ -100,15 +86,13 @@ public static class ApiResponse
 
         http.Response.StatusCode = StatusCodes.Status304NotModified;
 
-        // A 304 carries no body, and RFC 9110 forbids it a Content-Length describing one.
+        // RFC 9110: a 304 carries no body and must not have a Content-Length.
         http.Response.Headers.Remove(HeaderNames.ContentType);
         http.Response.ContentLength = null;
         return true;
     }
 
-    /// <summary>
-    /// A refusal in the same shape as everything else, so a consumer parses one error type.
-    /// </summary>
+    /// <summary>A refusal in the same shape as every other error, so a consumer parses one type.</summary>
     public static async Task ProblemAsync(HttpContext http, int status, string title, string detail)
     {
         http.Response.StatusCode = status;

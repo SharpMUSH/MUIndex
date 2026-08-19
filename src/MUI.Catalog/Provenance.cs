@@ -21,19 +21,10 @@ public enum FieldSource
     /// counted them (spec §5.2).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Presence only, like <see cref="Info"/>, and it ranks beside <see cref="Who"/> because it is
-    /// the same kind of answer — a list of people rather than a figure. The remote mud stated no
-    /// number; the arithmetic is ours, on a list it built when we asked, which is what separates this
-    /// from an MSSP <c>PLAYERS</c> the codebase may have cached.
-    /// </para>
-    /// <para>
-    /// <b>The caveat, stated rather than buried:</b> the reply crosses a router we do not run, and it
-    /// contains whoever the remote mud's own visibility rules chose to list. So does a telnet
-    /// <c>WHO</c>, which is why this is not a reason to rank it lower — but it does mean an I3 count
-    /// and a telnet count for one game may legitimately differ, and a mismatch between them is not a
-    /// defect in either.
-    /// </para>
+    /// Presence only, ranked beside <see cref="Who"/>: the remote mud stated no number, the arithmetic
+    /// is ours, on a list it built when we asked. The reply crosses a router we do not run and reflects
+    /// the remote mud's own visibility rules — same as telnet <c>WHO</c> — so an I3 count and a
+    /// telnet count for one game may legitimately differ; a mismatch is not a defect in either.
     /// </remarks>
     I3,
     Mssp,
@@ -43,12 +34,10 @@ public enum FieldSource
     /// <c>Connected:</c> count (spec §5.2).
     /// </summary>
     /// <remarks>
-    /// Presence only. Nothing writes an <c>info</c> <c>GameField</c> — the name and codebase read out
-    /// of the same block go in under <see cref="Banner"/>, because they are parsed out of free text
-    /// rather than lifted off a labelled line the codebase generates — so <c>game_field</c>'s
-    /// vocabulary does not carry it, in the same way <c>presence_sample</c>'s does not carry
-    /// <see cref="Staff"/>. Its rank here is the one it would take if that ever changed: below the
-    /// game's structured self-description, above a number found in ASCII art.
+    /// Presence only. Nothing writes an <c>info</c> <c>GameField</c> — the name and codebase parsed
+    /// out of the same block go in under <see cref="Banner"/> instead, since they're free text rather
+    /// than a labelled line. Ranked here for if that ever changes: below the game's structured
+    /// self-description, above a number found in ASCII art.
     /// </remarks>
     Info,
 
@@ -56,28 +45,19 @@ public enum FieldSource
     /// A value the Intermud-3 mudlist carried: the mud told a router, and the router told us.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Separate from <see cref="I3"/>, and the gap between them is the measured/declared line.</b>
-    /// A who-reply is a list the mud built when we asked and whose rows we counted ourselves; a
-    /// mudlist entry is a value handed to a third party at some past startup and repeated onward,
-    /// undated. Same network, two different kinds of claim.
-    /// </para>
-    /// <para>
-    /// It ranks here — below <see cref="Mssp"/>, above <see cref="Banner"/> — because a game filling
-    /// in its own MSSP is speaking to us directly and now, while a name lifted out of ASCII art is a
-    /// guess at where the title is and this is a field the mud filled in. It does not outrank
-    /// <see cref="Staff"/>: the network does not police what a mud calls itself, and the live list
-    /// carries <c>Your MUD Name</c> and <c>test</c> beside the real ones.
-    /// </para>
+    /// Separate from <see cref="I3"/> — the gap between them is the measured/declared line. A
+    /// who-reply is a list the mud built when we asked and whose rows we counted ourselves; a mudlist
+    /// entry is a value handed to a third party at some past startup and repeated onward, undated.
+    /// Ranks below <see cref="Mssp"/> (a direct, current self-report beats an indirect, undated one)
+    /// and above <see cref="Banner"/>, but never above <see cref="Staff"/>: the network doesn't police
+    /// what a mud calls itself, and the live list carries <c>Your MUD Name</c> and <c>test</c> beside
+    /// the real ones.
     /// </remarks>
     I3Mudlist,
     Banner,
 
-    // There is deliberately no imported source here, and there was: ImportedMeasured for a directory
-    // that ran its own probe, ImportedAsserted for a hand-maintained list. The backfill contributes
-    // *addresses* and nothing else now (spec §7.6) — every value about a game is measured by this
-    // crawler — so an imported field is a row that can no longer be written, and a source nothing can
-    // produce is a ladder rung that only invites somebody to reach for it.
+    // Deliberately no imported source: the backfill contributes addresses only (spec §7.6). A source
+    // nothing can produce is a ladder rung that only invites reuse.
 }
 
 /// <summary>
@@ -85,34 +65,26 @@ public enum FieldSource
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The one spelling of the measured/declared line.</b> It decides the word on every chip, the
-/// state the API names beside every count, and whether a badge on somebody else's site shows a
-/// number or says the count is unknown — and it lived in two records that each wrote it out for
-/// themselves, so a decision about one source had to be remembered in two files.
+/// The one spelling of the measured/declared line: decides the word on every chip, the state the API
+/// names beside every count, and whether a badge on somebody else's site shows a number or unknown.
 /// </para>
 /// <para>
-/// <b>The line is who read the value, not who authored it.</b> A telnet handshake and a pre-login
-/// <c>WHO</c> are ours to have observed. So is <see cref="FieldSource.Banner"/>: several games
-/// publish their player count only on the connect screen, and we open a socket and parse that text
-/// ourselves on every probe — its freshness is ours even where its arithmetic is theirs. Migration
-/// 0003 has said exactly that since the presence table was written.
+/// The line is who read the value, not who authored it. A telnet handshake, a pre-login <c>WHO</c>,
+/// and <see cref="FieldSource.Banner"/> are all ours to have observed — several games publish their
+/// player count only on the connect screen, and we parse that text ourselves on every probe, so its
+/// freshness is ours even where its arithmetic is theirs.
 /// </para>
 /// <para>
-/// <see cref="FieldSource.Mssp"/> stays on the declared side, and the pairing is not a contradiction:
-/// a game filling in a structured self-description is reporting rather than being read, and its
-/// <c>PLAYERS</c> may be whatever the codebase last cached. <see cref="FieldSource.Info"/> joins it
-/// there for the identical reason and against the identical temptation: we do open the socket and
-/// read the block ourselves, but what we read is a labelled line the codebase generated about itself
-/// — the same class of statement as an MSSP variable, arriving down a different pipe. The line is
-/// who read the value <em>where a value was read</em>; a game handing us its own figure has reported
-/// it however it was delivered. <see cref="FieldSource.Owner"/> and <see cref="FieldSource.Staff"/>
-/// are people typing, one of them us.
+/// <see cref="FieldSource.Mssp"/> and <see cref="FieldSource.Info"/> stay on the declared side even
+/// though we open the socket for both: what we read is a labelled line the codebase generated about
+/// itself, the same class of statement as any self-report, just arriving down a different pipe. A
+/// game handing us its own figure has reported it however it was delivered.
 /// </para>
 /// <para>
-/// This is a different axis from precedence and the two disagree on purpose. <c>banner</c> is the
-/// <em>lowest</em> rung of both ladders — a number in a stranger's ASCII art may be a high score or
-/// last week's figure, so it is picked last (see <c>PresenceChoice</c>) — and it is still an
-/// observation when it is what we have. Least trusted to be the right number, still measured.
+/// This is a different axis from precedence, and the two disagree on purpose: <c>banner</c> is the
+/// lowest rung of both ladders — a number in a stranger's ASCII art may be stale or a high score, so
+/// it's picked last (see <c>PresenceChoice</c>) — yet still an observation when it's what we have.
+/// Least trusted to be the right number, still measured.
 /// </para>
 /// </remarks>
 public static class FieldSources

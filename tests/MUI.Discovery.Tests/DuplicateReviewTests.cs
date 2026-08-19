@@ -34,9 +34,8 @@ public class DuplicateReviewTests
     [Test]
     public async Task NeitherGameIsHiddenOrRedirected()
     {
-        // The whole point of the middle band, and it is a claim about what this type does *not* carry:
-        // there is no state on a review that could archive, hide or redirect either side. If it had
-        // one, a review would be an unreviewed merge wearing a review's name.
+        // The middle band's core guarantee: no property here may archive, hide or redirect either
+        // side, or a review would be an unreviewed merge wearing a review's name.
         var properties = typeof(DuplicateReview).GetProperties().Select(p => p.Name).ToList();
         var forbidden = new[] { "archiv", "hidden", "hide", "redirect", "merged", "suppress", "winner" };
 

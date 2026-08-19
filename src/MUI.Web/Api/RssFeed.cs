@@ -17,17 +17,10 @@ public enum FeedRegister
 /// RSS 2.0 for the three liveness feeds — the status-change notification v1 ships (spec §10).
 /// </summary>
 /// <remarks>
-/// <para>
-/// RSS and not webhooks: §14 defers webhooks deliberately, and a feed is the version of the same
-/// promise that costs a reader no infrastructure and costs us no delivery guarantees. There is no
-/// callback surface anywhere in this API and a test says so.
-/// </para>
-/// <para>
-/// The item GUID is derived from the register, the game and the instant, and is marked
-/// <c>isPermaLink="false"</c>. It has to be stable across rebuilds or every reader re-notifies on
-/// every poll; it has to include the instant because a game that goes dark, comes back and goes dark
-/// again is three events about one game and a reader must see all three.
-/// </para>
+/// RSS, not webhooks — §14 defers webhooks deliberately. The item GUID is derived from the register,
+/// game and instant, marked <c>isPermaLink="false"</c>: stable across rebuilds so readers don't
+/// re-notify on every poll, and including the instant so a game that goes dark, comes back, and goes
+/// dark again produces three distinct events.
 /// </remarks>
 public static class RssFeed
 {
@@ -123,20 +116,15 @@ public static class RssFeed
                 new XAttribute(XNamespace.Xmlns + "atom", atom.NamespaceName),
                 channel));
 
-        // A literal newline rather than Environment.NewLine: these bytes are hashed into an ETag, and
-        // a feed that changed validator between a Linux host and a Windows one would invalidate every
-        // reader's cache for nothing.
+        // A literal newline, not Environment.NewLine: these bytes are hashed into an ETag, and must
+        // not vary by host OS.
         return document.Declaration + "\n" + document;
     }
 
     /// <summary>
     /// Origin plus a rooted path, by concatenation rather than <see cref="Uri"/> resolution.
     /// </summary>
-    /// <remarks>
-    /// <c>new Uri(origin, "/g/x")</c> discards the origin's path, which silently drops the path base
-    /// when this deployable is mounted under one — and RSS is the one surface where a relative link
-    /// is not an option, so a wrong absolute link is what a reader would get.
-    /// </remarks>
+    /// <remarks><c>new Uri(origin, "/g/x")</c> discards the origin's path, silently dropping the path base when this deployable is mounted under one.</remarks>
     private static string Absolute(Uri origin, string path) =>
         origin.ToString().TrimEnd('/') + path;
 

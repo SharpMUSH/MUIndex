@@ -7,31 +7,21 @@ namespace MUI.Crawl;
 /// Reads a pre-login <c>WHO</c> / <c>DOING</c> response structurally rather than per-codebase.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Penn, MUX, Rhost and the TinyMUD family all let operators rewrite the <c>DOING</c> header in
-/// softcode. A real example, from the first server this crawler probed:
-/// </para>
-/// <code>
-/// Player Name          On For   Idle  ThereIsNoSpoonButIWantYogurt
-/// </code>
-/// <para>
-/// A dialect table keyed on the word "Doing" reads nothing there, which is why parsing is
-/// structural: find the summary the server prints for itself, and only fall back to counting rows.
-/// </para>
+/// Operators can rewrite the <c>DOING</c> header in softcode (e.g. <c>Player Name  On For  Idle
+/// ThereIsNoSpoonButIWantYogurt</c>), so a dialect table keyed on the word "Doing" isn't reliable.
+/// Parsing instead finds the summary the server prints for itself, falling back to counting rows.
 /// </remarks>
 public sealed partial class WhoParser : IWhoParser
 {
     /// <summary>
-    /// Reads a <c>WHO</c> response. Every unreadable outcome is <see cref="WhoReading.Unreadable"/>
-    /// or <see cref="WhoReading.LoginPrompt"/> and never <see cref="WhoReading.NotAsked"/>: this
-    /// method is only ever handed the answer to a question that was put, so "we could not read it"
-    /// is the most this parser is ever entitled to say. Deciding that nothing was asked belongs to
-    /// whoever owns the socket.
+    /// Reads a <c>WHO</c> response. Never returns <see cref="WhoReading.NotAsked"/> — this method is
+    /// only ever handed the answer to a question that was put, so deciding nothing was asked belongs
+    /// to whoever owns the socket.
     /// </summary>
     public WhoReading Parse(string? response)
     {
-        // Silence in the WHO window is still an answer to a WHO that went out — servers that eat the
-        // word at a login prompt say nothing at all (alteraeon.com, realms.reichel.net, measured).
+        // Silence in the WHO window is still an answer — some servers eat the word at a login prompt
+        // and reply with nothing at all.
         if (string.IsNullOrWhiteSpace(response))
         {
             return WhoReading.Unreadable;
@@ -50,22 +40,18 @@ public sealed partial class WhoParser : IWhoParser
             return WhoReading.Unreadable;
         }
 
-        // A server that did not understand WHO must never be read as an answer to it. DIKU-family
-        // games treat the login prompt as a character-name prompt, so "WHO" comes back as
-        // "No character by that name found." — which is one careless regex away from being reported
-        // as a measured zero for a game with hundreds of players online. Observed on alteraeon.com.
+        // A server that did not understand WHO must never be read as an answer to it: DIKU-family
+        // games treat the login prompt as a character-name prompt, so "WHO" comes back as "No
+        // character by that name found." — one careless regex away from a false zero on a game with
+        // hundreds of players online.
         var loginPrompt = meaningful.Any(LooksLikeLoginPrompt);
 
         // 1. The server's own summary, which is the only statement here it makes deliberately.
         //
-        // **A positive summary outranks the veto, and that is the whole of what the veto is for.**
-        // The danger it guards is a *fabricated zero* — "No character by that name" read as nobody
-        // being on — so it has to beat a zero and must not beat a number. Several games print their
-        // count on the connect screen and then re-prompt for a name in the same breath: the-burbs
-        // answers "There are three people connected to the game." and then "Please enter a name:",
-        // and suppressing that reading loses a count the server volunteered. Observed in production
-        // when this veto's vocabulary was widened and a game that had been reporting three players
-        // went dark.
+        // A positive summary outranks the loginPrompt veto — it must beat a zero but never beat a
+        // number. Some games print a count on the connect screen and then re-prompt for a name in
+        // the same breath ("There are three people connected to the game." / "Please enter a name:"),
+        // and suppressing that reading would lose a count the server volunteered.
         foreach (var line in Enumerable.Reverse(meaningful).Take(6))
         {
             if (TrySummary(line, out var counted) && (counted > 0 || !loginPrompt))
@@ -78,11 +64,8 @@ public sealed partial class WhoParser : IWhoParser
         // none of it is safe on a payload that is really a login prompt: a refusal message split
         // over four lines is four rows to anything counting rows.
         //
-        // LoginPrompt and not Unreadable, and the difference is which of us the problem belongs to.
-        // Unreadable says our parser met a dialect it could not read, which is a defect with a fix;
-        // this says the server never had a WHO to answer, which no parser work will ever change. Of
-        // 107 payloads stored under who_unparseable and read on 2026-08-17, 43 were this — the
-        // largest population under the word, counted as our backlog.
+        // LoginPrompt rather than Unreadable: Unreadable says our parser met a dialect it could not
+        // read (a defect with a fix); this says the server never had a WHO to answer at all.
         if (loginPrompt)
         {
             return WhoReading.LoginPrompt;
@@ -103,11 +86,10 @@ public sealed partial class WhoParser : IWhoParser
         var headerIndex = meaningful.FindIndex(IsColumnHeader);
         if (headerIndex >= 0)
         {
-            // A rule drawn straight under the header is part of the header, not the first player.
-            // Measured on moo.demetro.nl:8888, whose rule begins `- ------…` — one column marker and
-            // then dashes — so the existing "starts with ---" terminator does not see it and the
-            // table read one player too many. Skipped rather than terminated on, because at the top
-            // of a table a rule opens the rows and terminating there would count none of them.
+            // A rule drawn straight under the header is part of the header, not the first player —
+            // some rules (e.g. `- ------…`) don't match the "starts with ---" terminator, so they'd
+            // otherwise count as a row. Skipped rather than terminated on, since a rule at the top of
+            // a table opens the rows rather than ending them.
             var first = headerIndex + 1;
             if (first < meaningful.Count && IsRule(meaningful[first]))
             {
@@ -133,19 +115,9 @@ public sealed partial class WhoParser : IWhoParser
     /// A server's own count, in the shapes real servers actually print it.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b><c>no players</c> means zero, not unparseable.</b> Observed on eldertaleonline.com:7705,
-    /// which prints "There are no players connected." A number-only pattern reads that as a failure
-    /// and stores "we could not tell" — throwing away a genuine measured zero, which is precisely
-    /// the distinction rule 2 exists to protect.
-    /// </para>
-    /// <para>
-    /// <b>Public because a connect screen states its count in exactly these words too.</b>
-    /// <c>BannerCount</c> had its own, narrower idea of what a stated count looks like — a label and
-    /// nothing else — and <c>telehack.com:23</c> prints <c>There are 122 local users.</c> in its
-    /// connect screen and again in its <c>WHO</c>, unreadable in both places for two unrelated
-    /// reasons. One reader with two callers cannot drift; two did.
-    /// </para>
+    /// "There are no players connected." must read as a measured zero, not unparseable — a
+    /// number-only pattern would throw that away (rule 2). Public because a connect screen states a
+    /// count the same way; sharing this reader with <c>BannerCount</c> keeps the two from drifting.
     /// </remarks>
     public static bool TryStatedCount(string line, out int count)
     {
@@ -158,16 +130,11 @@ public sealed partial class WhoParser : IWhoParser
     {
         count = 0;
 
-        // **"N of M" is answered first, because every pattern below it answers M.**
-        //
-        // retromud.org:3000 prints "There are currently 11 out of 200 users playing." — eleven people
-        // and a licence for two hundred — and a pattern looking for a number in front of a People
-        // noun finds "200 users playing" and records the ceiling as the population. That is not an
-        // unreadable line; it is a line read backwards, which is worse, because it arrives looking
-        // like a measurement and sat in the catalogue as one.
-        //
-        // Both spellings, because the MOO shape "one of three players are active" has the same
-        // trap in words.
+        // "N of M" is checked first, because every pattern below it would otherwise match M: "There
+        // are currently 11 out of 200 users playing." would record the 200-user licence ceiling as
+        // the population — read backwards, and worse than unreadable because it looks like a real
+        // measurement. Both spellings, since the MOO shape "one of three players are active" has the
+        // same trap in words.
         var outOfWords = WordedOutOfPattern().Match(line);
         if (outOfWords.Success
             && Words.TryGetValue(outOfWords.Groups["w"].Value.ToLowerInvariant(), out count))
@@ -181,10 +148,9 @@ public sealed partial class WhoParser : IWhoParser
             return true;
         }
 
-        // Spelled-out counts are real. resort.org:2323 says "There are seven people connected." and
-        // a MOO says "one of three players are active." — both would read as unparseable against a
-        // digits-only pattern, losing a count we could have had. Bounded to twenty because past that
-        // no server spells it out, and an open-ended word-number parser is a liability.
+        // Spelled-out counts are real ("There are seven people connected.") and would otherwise be
+        // unparseable against a digits-only pattern. Bounded to twenty — past that no server spells
+        // it out, and an open-ended word-number parser is a liability.
         var worded = WordedPattern().Match(line);
         if (worded.Success && Words.TryGetValue(worded.Groups["w"].Value.ToLowerInvariant(), out count))
         {
@@ -234,21 +200,10 @@ public sealed partial class WhoParser : IWhoParser
     /// A reply that lists who is on and never says how many, read as the count of the list.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>The header is the whole of the licence to count commas.</b> A line reading
-    /// "<c>Connected players: A, B, C</c>" states what its list is; a bare comma-separated line
-    /// states nothing, and counting one would be reading a sentence's punctuation as a measurement.
-    /// So the same <c>People</c>-beside-<c>Connectivity</c> guard the numeric shapes use has to hold
-    /// before the first item is looked at, and every item then has to look like a name — a list of
-    /// anything else is something we do not understand wearing a header we do.
-    /// </para>
-    /// <para>
-    /// Wrapping is followed only while the text so far ends in a comma. A server that wrapped its
-    /// list mid-item has plainly not finished it; one whose line ends anywhere else has, and the next
-    /// line is a footer, a prompt or the rest of the screen. Guessing wider would undercount or
-    /// overcount silently, and an undercount is a fabricated measurement exactly as much as an
-    /// invented zero is.
-    /// </para>
+    /// A header naming the list ("Connected players: A, B, C") is the whole licence to count commas —
+    /// a bare comma-separated line states nothing, and every item still has to look like a name.
+    /// Wrapping is followed only while the text so far ends in a comma; guessing wider risks an
+    /// undercount, which is as much a fabricated measurement as an invented zero.
     /// </remarks>
     private static bool TryNameList(IReadOnlyList<string> lines, out int count)
     {
@@ -294,9 +249,8 @@ public sealed partial class WhoParser : IWhoParser
 
         if (items.Count == 1)
         {
-            // "Connected players: 15" is a labelled count wearing a connectivity word rather than a
-            // list of one, and "Connected players: none" is a measured zero. Both are the server
-            // stating its own figure, which outranks anything we could infer from punctuation.
+            // "Connected players: 15" is a labelled count, not a list of one, and "Connected
+            // players: none" is a measured zero — both outrank anything inferred from punctuation.
             if (int.TryParse(items[0], NumberStyles.None, CultureInfo.InvariantCulture, out count))
             {
                 return true;
@@ -322,12 +276,9 @@ public sealed partial class WhoParser : IWhoParser
     /// Whether this line is the rule a table's rows begin under.
     /// </summary>
     /// <remarks>
-    /// <b>The third shape is a game that is not in English.</b> <c>moo.demetro.nl:8888</c> heads its
-    /// table <c>R Naam … Online Idle Bezig</c> — a perfectly ordinary column layout, unreadable to a
-    /// rule that demands the English word <c>Name</c>, and recorded unmeasurable for it.
-    /// <c>Online</c> beside <c>Idle</c> is the same header in any language, because those two are
-    /// borrowed rather than translated, and requiring both is what keeps the pair from matching a
-    /// sentence that merely uses one of them.
+    /// The third shape covers non-English tables (e.g. Dutch <c>R Naam … Online Idle Bezig</c>):
+    /// <c>Online</c> and <c>Idle</c> are borrowed rather than translated in most codebases, and
+    /// requiring both keeps the pair from matching a sentence that merely uses one of them.
     /// </remarks>
     private static bool IsColumnHeader(string line) =>
         line.Contains("Player Name", StringComparison.OrdinalIgnoreCase)
@@ -338,13 +289,11 @@ public sealed partial class WhoParser : IWhoParser
             && line.Contains("Idle", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
-    /// Whether this line is nothing but rule — dashes, equals signs and the whitespace that breaks
-    /// them into columns, and no text of any kind.
+    /// Whether this line is nothing but rule — dashes, equals signs and whitespace, no text.
     /// </summary>
     /// <remarks>
-    /// Stricter than the <c>---</c> prefix <see cref="IsTerminator"/> looks for, because it has to
-    /// be: this decides whether to skip a line, and skipping a line that turned out to be a player
-    /// undercounts a game. A row has a name in it, so anything with a letter or a digit is a row.
+    /// Stricter than <see cref="IsTerminator"/>'s <c>---</c> prefix check, since skipping a line that
+    /// turned out to be a player would undercount a game — any letter or digit means it's a row.
     /// </remarks>
     private static bool IsRule(string line) =>
         line.Any(ch => ch is '-' or '=' or '+')
@@ -366,18 +315,10 @@ public sealed partial class WhoParser : IWhoParser
     /// A count only counts when the sentence is about people being <em>connected</em>.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The qualifier is the whole defence. Without it, <c>no\s+characters?</c> matches "No character
-    /// by that name found." and a busy DIKU reports zero players — a fabricated measurement, which
-    /// is worse than admitting we could not tell. <b>Every shape below is guarded by it</b>, on one
-    /// side of the noun or the other, and nothing here reads a number that is not next to one.
-    /// </para>
-    /// <para>
-    /// <b>Bare <c>logged</c> is admitted, and <c>logged out</c>/<c>logged off</c> are refused by
-    /// name.</b> "There are no logged players." is a real payload and a real measured zero; the
-    /// opposite claim is one word away, so it is excluded here rather than left to the shape that
-    /// happens to be reading.
-    /// </para>
+    /// Without this qualifier, <c>no\s+characters?</c> matches "No character by that name found."
+    /// and a busy DIKU reports a fabricated zero player count. Every shape below is guarded by it.
+    /// Bare <c>logged</c> is admitted, but <c>logged out</c>/<c>logged off</c> are refused by name —
+    /// "There are no logged players." is a real measured zero, and the opposite claim is one word away.
     /// </remarks>
     private const string Connectivity =
         @"(?:connected|online|logged(?!\s+(?:out|off))(?:\s*(?:in|on))?|playing|active|in\s+the\s+game)";
@@ -386,13 +327,10 @@ public sealed partial class WhoParser : IWhoParser
     private const string People = @"(?:players?|users?|characters?|people|persons?|folks?)";
 
     /// <summary>
-    /// Words a server may put between the number and the noun it counts.
+    /// Words a server may put between the number and the noun it counts (e.g. "39 connected
+    /// players" vs. "currently 39 connected players"). Bounded to two, lazily, so a whole clause
+    /// can't be swallowed on the way to a noun that means something else.
     /// </summary>
-    /// <remarks>
-    /// "There are currently 39 connected players." was recorded unmeasurable because the noun was
-    /// not where the pattern insisted it be. Two words, lazily, so the shortest reading wins and a
-    /// whole clause cannot be swallowed on the way to a noun that means something else.
-    /// </remarks>
     private const string Intervening = @"(?:\w+\s+){0,2}?";
 
     /// <summary>How a listed <c>WHO</c> says the list is empty. A measured zero, not a name.</summary>
@@ -432,40 +370,25 @@ public sealed partial class WhoParser : IWhoParser
         RegexOptions.IgnoreCase)]
     private static partial Regex NumberedAdjectivePattern();
 
-    // "There are 11 characters on, of which are visible to you."
-    //
-    // The loosest word this parser admits, and deliberately the narrowest rule: bare `on` counts
-    // only where it directly follows a noun that already means people. Anywhere else it is a
-    // preposition — "3 messages on the board" — and reading one as a player count would be the
-    // fabrication every other guard here exists to prevent.
+    // "There are 11 characters on, of which are visible to you." — the loosest word admitted, and
+    // deliberately the narrowest rule: bare `on` counts only directly after a people-noun, since
+    // elsewhere it's a preposition ("3 messages on the board").
     [GeneratedRegex(
         @"\b(?<n>\d+)\s+" + Intervening + People + @"\s+on\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex NumberedOnPattern();
 
     /// <summary>
-    /// A server announcing its own figure with no connectivity word anywhere near it.
+    /// A server announcing its own figure with no connectivity word anywhere near it (e.g.
+    /// <c>There are 122 local users.</c>).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Measured on <c>telehack.com:23</c>, which says <c>There are 122 local users.</c></b> — a
-    /// deliberate statement of its population with no word in it that any shape above admits.
-    /// </para>
-    /// <para>
-    /// Two anchors take the place of the connectivity qualifier, and both are needed. <c>There
-    /// are …</c> is what a server writes about the population in front of it and not about a rule:
-    /// <c>akanbar</c>'s screen says <c>Your name must be between 6 and 12 characters long.</c>, which
-    /// is the false positive this file exists to refuse, and the three conjunctions are excluded so
-    /// that a range cannot get in through the adjective slot either. <b>The full stop after the noun
-    /// is the second anchor and it is the stricter one</b>: a sentence that ends at the noun has
-    /// finished counting, while <c>There are 20 new players registered today.</c> carries on into a
-    /// qualifier that means something else entirely, and is refused for it.
-    /// </para>
-    /// <para>
-    /// It sits below <see cref="NumberedOnPattern"/> and the ceiling shapes on purpose, so that
-    /// <c>There are currently 11 out of 200 users playing.</c> is answered by the pattern that knows
-    /// which of its two numbers is the population.
-    /// </para>
+    /// Two anchors replace the connectivity qualifier: <c>There are …</c> must lead straight into the
+    /// number (conjunctions excluded, so a range like "between 6 and 12 characters long" can't sneak
+    /// in through the adjective slot), and the sentence must end right after the noun — "There are 20
+    /// new players registered today." carries on into an unrelated qualifier and is refused. Checked
+    /// after <see cref="NumberedOnPattern"/> and the ceiling shapes so a "N out of M" sentence is
+    /// read by the pattern that knows which number is the population.
     /// </remarks>
     [GeneratedRegex(
         @"\bthere\s+(?:are|is)\s+(?<n>\d+)\s+(?:(?!and\b|or\b|to\b)[a-z]+\s+)?" + People + @"\s*[.!]",
@@ -473,16 +396,11 @@ public sealed partial class WhoParser : IWhoParser
     private static partial Regex AnnouncedPattern();
 
     /// <summary>
-    /// The rule a Fuzzball MUCK draws under its <c>WHO</c> table, which carries the total.
+    /// The rule a Fuzzball MUCK draws under its <c>WHO</c> table, which carries the total (e.g.
+    /// <c>--[…]--[0 users; 0d 00h]--</c>). The bracketed <c>N users;</c> shape is an unambiguous
+    /// anchor across the whole codebase family, avoiding a row count for a table this parser already
+    /// reads a header for.
     /// </summary>
-    /// <remarks>
-    /// Measured on <c>moo.ghostmoo.org:6969</c>, whose last line is
-    /// <c>--[Sat Aug 19 03:14:07 2696]--------------------------------[0 users; 0d 00h]--</c>. The
-    /// brackets are the anchor and they are unambiguous: nothing else prints a number and the word
-    /// <c>users</c> inside square brackets closed by a semicolon. This is a whole codebase family's
-    /// footer rather than one game's, and it is the answer for a MUCK whose column header this
-    /// parser reads and whose rows it would otherwise have to count.
-    /// </remarks>
     [GeneratedRegex(@"\[\s*(?<n>\d+)\s+users?\s*[;\]]", RegexOptions.IgnoreCase)]
     private static partial Regex MuckFooterPattern();
 
@@ -517,20 +435,10 @@ public sealed partial class WhoParser : IWhoParser
     /// The words that mark the <em>second</em> number as a ceiling rather than a population.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>A bare <c>of</c> is deliberately not enough, because the two readings are opposite and the
-    /// grammar is identical.</b> retromud prints "There are currently 11 out of 200 users playing",
-    /// where 200 is what the game is licensed for and 11 are on it. A MOO prints "one of three
-    /// players are active", where <em>three</em> are connected and one of them is doing something.
-    /// Both are "N ? M People Connectivity"; only the first is a ceiling.
-    /// </para>
-    /// <para>
-    /// So the marker has to be explicit: <c>out of</c>, or an <c>of</c> that names a maximum. That
-    /// splits the two observed sentences exactly and leaves the MOO reading — which this parser has
-    /// always had right — untouched. It will misread "1 out of 3 players are active" if a server
-    /// ever prints it; no server observed does, and the alternative is to keep misreading a server
-    /// that does.
-    /// </para>
+    /// A bare <c>of</c> is not enough: "There are currently 11 out of 200 users playing" has a
+    /// ceiling (200 licensed, 11 connected), but "one of three players are active" doesn't (three
+    /// connected, one active) — identical grammar, opposite meaning. The marker must be explicit:
+    /// <c>out of</c>, or an <c>of</c> that names a maximum.
     /// </remarks>
     private const string Ceiling =
         @"\s+(?:out\s+of\s+(?:a\s+)?(?:max(?:imum)?\s+(?:of\s+)?)?|of\s+(?:a\s+)?max(?:imum)?\s+(?:of\s+)?)";
@@ -552,18 +460,11 @@ public sealed partial class WhoParser : IWhoParser
         RegexOptions.IgnoreCase)]
     private static partial Regex WordedOutOfPattern();
 
-    // Login prompts that mean WHO was eaten as a character name. Roughly ninety of the 122 payloads
-    // stored `who_unparseable` in the first months of real crawling are one of these, and the
-    // vocabulary is wider than one codebase: a game may ask for an *account* name rather than a
-    // character's, and may print nothing but "Name:" after refusing the one it was given.
-    //
-    // The last four shapes were added on 2026-08-17 from the stored payloads of the 107 games still
-    // recorded unmeasurable, where they are the four commonest ways a server says no to a name it
-    // dislikes without using any of the words above: "Illegal name, try again." (tharel.net and
-    // eight others, verbatim), "No record found for WHO on Aug 16." (3k.org), "That name is reserved
-    // for a senior member of the mud." (deeper-trouble), and "Did I get that right, Who (Y/N)?"
-    // (tharel.net again) — a server that took the word as a name and asked us to confirm its
-    // spelling. Every one of them is a game with no pre-login WHO, and none of them was recognised.
+    // Login prompts that mean WHO was eaten as a character name. Vocabulary is wider than one
+    // codebase: a game may ask for an *account* name rather than a character's, print nothing but
+    // "Name:", refuse a disliked name outright ("Illegal name, try again.", "That name is reserved
+    // for a senior member of the mud."), or ask us to confirm the spelling ("Did I get that right,
+    // Who (Y/N)?").
     [GeneratedRegex(
         @"no\s+character\s+by\s+that\s+name|enter\s+(?:the\s+|your\s+)?(?:\w+\s+)?name"
         + @"|create\s+a\s+new\s+(?:character|account|player)"

@@ -11,13 +11,7 @@ namespace MUI.Web.Tests.Api;
 /// <summary>
 /// §10's time series: presence over time, and reachability over time.
 /// </summary>
-/// <remarks>
-/// The hard part of publishing a series is not the arithmetic, it is the silence. An hour nobody
-/// measured, an hour probed and uncountable, and an hour in which nobody was logged in are three
-/// different facts, and a JSON array is the format most likely to flatten them into one — a consumer
-/// plotting this will draw a line through whatever it is handed. So the assertions here are mostly
-/// about what is <em>absent</em> and what is <em>null</em>.
-/// </remarks>
+/// <remarks>§5.4's three states are easy for a JSON array to flatten into one, so the assertions here are mostly about what is <em>absent</em> and what is <em>null</em>.</remarks>
 public class SeriesApiTests
 {
     private static readonly Guid Game = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
@@ -25,11 +19,7 @@ public class SeriesApiTests
     /// <summary>
     /// A bucket nobody measured is absent, and an uncountable one is present with a null count.
     /// </summary>
-    /// <remarks>
-    /// The whole reason the rollup keeps two tallies. If the uncountable bucket came back as a zero
-    /// the series would say the game was empty for an hour we could not read, and if it were dropped
-    /// entirely it would say we never looked — §5.4's middle state erased in either direction.
-    /// </remarks>
+    /// <remarks>Why the rollup keeps two tallies: a zero would say the hour was empty, dropping it would say we never looked — §5.4's middle state erased either way.</remarks>
     [Test]
     public async Task AnUncountableBucketIsNullAndAnUnmeasuredOneIsAbsent()
     {
@@ -55,7 +45,6 @@ public class SeriesApiTests
         await Assert.That(uncountable.GetProperty("mean").ValueKind).IsEqualTo(JsonValueKind.Null);
         await Assert.That(uncountable.GetProperty("min").ValueKind).IsEqualTo(JsonValueKind.Null);
 
-        // And the sentence that stops a consumer inferring the rest.
         await Assert.That(body).Contains("absent rather than zero");
     }
 
@@ -79,10 +68,7 @@ public class SeriesApiTests
     /// <summary>
     /// A window too wide to serve is refused, and never quietly narrowed.
     /// </summary>
-    /// <remarks>
-    /// A silent clamp answers a different question from the one asked and says so nowhere, so a
-    /// consumer paging through history would take short pages for the end of the record.
-    /// </remarks>
+    /// <remarks>A silent clamp answers a different question and says so nowhere — a consumer paging through history would take short pages for the end of the record.</remarks>
     [Test]
     public async Task AWindowWiderThanWeServeIsRefusedRatherThanTruncated()
     {
@@ -115,11 +101,7 @@ public class SeriesApiTests
     /// <summary>
     /// A former slug redirects here too, keeping the sub-route and the question that was asked.
     /// </summary>
-    /// <remarks>
-    /// §5.7's promise is about URLs, and a series URL is the one most likely to be sitting in
-    /// somebody's scheduled job rather than in a browser. A redirect that dropped the querystring
-    /// would send a job asking for hourly data to a day-grained answer, silently.
-    /// </remarks>
+    /// <remarks>A redirect that dropped the querystring would silently send a scheduled job asking for hourly data to a day-grained answer.</remarks>
     [Test]
     public async Task AFormerSlugRedirectsAndKeepsTheRouteAndTheQuery()
     {
@@ -149,12 +131,7 @@ public class SeriesApiTests
     /// <summary>
     /// The span running when the window opened is in the answer, though it began before it.
     /// </summary>
-    /// <remarks>
-    /// Overlap and not containment. A game that went dark three months ago and has been dark since
-    /// is one span starting outside every window anybody would ask for, and a containment filter
-    /// would answer "no spans" — which reads as "we never measured" for the game whose availability
-    /// is the most worth knowing.
-    /// </remarks>
+    /// <remarks>Overlap, not containment — a containment filter would answer "no spans" for exactly the long-dark game whose availability is most worth knowing.</remarks>
     [Test]
     public async Task ASpanThatStartedBeforeTheWindowIsStillInIt()
     {
@@ -199,10 +176,7 @@ public class SeriesApiTests
     /// <summary>
     /// A series that answers with what it was given, and records what it was asked.
     /// </summary>
-    /// <remarks>
-    /// The rollup's own SQL is tested against a real PostgreSQL in the catalogue suite. What is worth
-    /// asserting here is the part above it: what the route asks for, and what it publishes.
-    /// </remarks>
+    /// <remarks>The rollup's own SQL is tested against real PostgreSQL in the catalogue suite; this covers the route above it.</remarks>
     private sealed class StubSeries(
         IReadOnlyList<PresenceRollup> buckets,
         Action<PresenceGrain>? asked = null) : IPresenceSeries

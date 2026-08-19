@@ -448,6 +448,10 @@
     <value>about</value>
     <comment>site chrome</comment>
   </data>
+  <data name="nav.discord" xml:space="preserve">
+    <value>Discord</value>
+    <comment>site chrome</comment>
+  </data>
   <data name="nav.submit" xml:space="preserve">
     <value>submit</value>
     <comment>site chrome</comment>
@@ -713,7 +717,7 @@
     <comment>the filter panel</comment>
   </data>
   <data name="facet.countsNote" xml:space="preserve">
-    <value>Counts are games we measured, never estimates.</value>
+    <value>Every count here comes from a game we measured — not an estimate.</value>
     <comment>the filter panel</comment>
   </data>
   <data name="facet.key.summary" xml:space="preserve">
@@ -1309,7 +1313,7 @@
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.unknown.lead" xml:space="preserve">
-    <value>An answer we cannot read is unknown, never zero.</value>
+    <value>Only a completed read can be a zero. Anything else is unknown.</value>
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.unknown.body" xml:space="preserve">
@@ -1317,7 +1321,7 @@
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.reachable.lead" xml:space="preserve">
-    <value>Reachable, never uptime.</value>
+    <value>We call this reachable. We never call it uptime.</value>
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.reachable.body" xml:space="preserve">
@@ -1433,7 +1437,7 @@
     <comment>about: the crawler, and how to make it stop</comment>
   </data>
   <data name="about.crawler.referral.lead" xml:space="preserve">
-    <value>A referred address is verified, never trusted.</value>
+    <value>We check where a referral points. A game's word for it is not enough.</value>
     <comment>about: the crawler, and how to make it stop</comment>
   </data>
   <data name="about.crawler.referral.body" xml:space="preserve">
@@ -1989,7 +1993,7 @@
     <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
   </data>
   <data name="ecosystem.noTotals" xml:space="preserve">
-    <value>Shares, never totals. We do not publish a figure for how many people play MU*: a ratio over the games we measured survives the ones we cannot reach, and a headcount does not.</value>
+    <value>We publish a share, not a headcount: a ratio over the games we measured survives the ones we cannot reach, so there is no figure here for how many people play MU* overall.</value>
     <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
   </data>
   <data name="ecosystem.listed" xml:space="preserve">
@@ -2245,7 +2249,7 @@
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
   <data name="rankings.spells.basis" xml:space="preserve">
-    <value>Every probe since the date given found the game reachable. Reachable, not up: we measure a socket from one host, and a game we cannot route to is perfectly alive. A spell cannot be longer than we have been watching, so the date is the fact and the duration follows.</value>
+    <value>Every probe since the date given found the game reachable — a socket answered, which is not a claim the game was up throughout. A spell cannot be longer than we have been watching, so the date is the fact and the duration follows.</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
   <data name="rankings.spells.empty" xml:space="preserve">
@@ -2968,6 +2972,50 @@
     <value>{targets, plural, one {# address in the registry} other {# addresses in the registry}}, {due, plural, one {# due now} other {# due now}}</value>
     <comment>the crawler strip, whose sentence was English around a localized age</comment>
   </data>
+  <data name="crawler.page.title" xml:space="preserve">
+    <value>The crawler</value>
+    <comment>the crawler status page's heading</comment>
+  </data>
+  <data name="crawler.page.lede" xml:space="preserve">
+    <value>MUINDEX-CRAWLER is the automated probe behind every measurement on this site — what it has been doing, and how often.</value>
+    <comment>the crawler status page's introduction</comment>
+  </data>
+  <data name="crawler.page.aboutLink" xml:space="preserve">
+    <value>who is this, and how to opt out</value>
+    <comment>the crawler status page's link to the identity/etiquette section of About</comment>
+  </data>
+  <data name="crawler.page.empty" xml:space="preserve">
+    <value>No crawl cycle has completed here yet.</value>
+    <comment>the crawler status page, before the first cycle — names no cause</comment>
+  </data>
+  <data name="crawler.page.statusLabel" xml:space="preserve">
+    <value>status</value>
+    <comment>the crawler status page's dl kicker label</comment>
+  </data>
+  <data name="crawler.page.registryLabel" xml:space="preserve">
+    <value>registry</value>
+    <comment>the crawler status page's dl kicker label</comment>
+  </data>
+  <data name="crawler.page.cycleLabel" xml:space="preserve">
+    <value>last cycle</value>
+    <comment>the crawler status page's dl kicker label</comment>
+  </data>
+  <data name="crawler.cycle.full" xml:space="preserve">
+    <value>{considered, plural, one {# due} other {# due}} · {probed, plural, one {# probed} other {# probed}} · {answered, plural, one {# answered} other {# answered}} · {failed, plural, one {# failed} other {# failed}} · {errored, plural, one {# errored} other {# errored}} · {optedOut, plural, one {# opted out} other {# opted out}}</value>
+    <comment>the crawler status page's per-cycle breakdown, six of the thirteen stored counters</comment>
+  </data>
+  <data name="crawler.cycle.finishedAt" xml:space="preserve">
+    <value>last cycle finished {when} · took {took}</value>
+    <comment>the crawler status page; {when} and {took} arrive pre-formatted (Dates.Stamp, Wording.Duration)</comment>
+  </data>
+  <data name="crawler.history.title" xml:space="preserve">
+    <value>recent cycles</value>
+    <comment>the crawler status page's history list heading</comment>
+  </data>
+  <data name="crawler.history.empty" xml:space="preserve">
+    <value>No completed cycles are recorded yet.</value>
+    <comment>the crawler status page's history list, before any cycle has completed</comment>
+  </data>
   <data name="preview.documentTitle" xml:space="preserve">
     <value>{page} — {site}</value>
     <comment>what this site says about itself where it is not this site</comment>
@@ -2981,7 +3029,7 @@
     <comment>what this site says about itself where it is not this site</comment>
   </data>
   <data name="preview.cardAlt" xml:space="preserve">
-    <value>{site} — measured, not asserted</value>
+    <value>{site} — measured, not declared</value>
     <comment>what this site says about itself where it is not this site</comment>
   </data>
   <data name="preview.cardAlt.named" xml:space="preserve">
@@ -3189,7 +3237,7 @@
     <comment>a codebase page's measured half</comment>
   </data>
   <data name="reference.measuredNeverAsserted" xml:space="preserve">
-    <value>measured, never asserted</value>
+    <value>measured, not declared</value>
     <comment>a codebase page's measured half</comment>
   </data>
   <data name="reference.codebase.note" xml:space="preserve">

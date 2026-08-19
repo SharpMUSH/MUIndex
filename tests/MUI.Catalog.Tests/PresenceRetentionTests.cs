@@ -5,9 +5,9 @@ namespace MUI.Catalog.Tests;
 /// defaults are what a project ships while a question is open.
 /// </summary>
 /// <remarks>
-/// The same shape as the dataset licence (§15.2), for the same reason: a constant in the source
-/// settles by accident a question the design deliberately left open, and is then wrong in every
-/// deployment that answered it differently. The difference is that this one deletes things.
+/// Same shape as the dataset licence (§15.2), for the same reason: a constant in the source settles
+/// an intentionally open question by accident, and is wrong wherever a deployment answered it
+/// differently. The difference is that this one deletes things.
 /// </remarks>
 public class PresenceRetentionTests
 {

@@ -625,6 +625,9 @@ header.site nav.account a.action {
 }
 header.site nav.account a.action:hover { border-color: var(--dim); text-decoration: none; }
 
+/* Icon-only, so the SVG's own inline baseline gap doesn't add a sliver of extra pill height. */
+header.site nav.account a.discord .reach-icon { display: block; line-height: 0; }
+
 /* The accent button: ring and tint together, as the handoff draws it — the fill is what tells it
    apart from the bordered one beside it at a glance. */
 header.site nav.account a.action.primary {
@@ -1393,7 +1396,7 @@ ul.legend li { display: inline-flex; align-items: center; gap: 6px; }
    is the one NOT expressed here: a day nobody measured has no bar, and it has none because the
    geometry emits none rather than because anything below hides it. See TrendGeometry.           */
 
-.trend-wrap { margin: var(--cpad) 0 8px; }
+.trend-wrap { position: relative; margin: var(--cpad) 0 8px; }
 svg.trend { width: 100%; height: 168px; display: block; overflow: visible; }
 /* The plot is a surface, not a hole: ninety unmeasured days on the page's own background read as a
    fault rather than as a question nobody has answered yet. */
@@ -1429,6 +1432,16 @@ svg.trend .hit { fill: transparent; }
    out here because the canvas is stretched to the page width and text inside it stretches too. */
 .trend-axis { position: relative; height: 15px; font-size: var(--fs-2xs); }
 .trend-axis span { position: absolute; top: 0; white-space: nowrap; }
+
+/* The value beside each line TrendGeometry.Gridlines already draws. Positioned the same way as the
+   month labels above: outside the SVG, because a y-coordinate maps to a CSS pixel 1:1 (only the
+   width stretches) and text inside the canvas would distort with it. A chip behind each number so a
+   bar or the band passing under the left edge doesn't erase it. */
+.trend-yaxis { position: absolute; top: 0; left: 2px; font-size: var(--fs-2xs); pointer-events: none; }
+.trend-yaxis span {
+    position: absolute; left: 0; transform: translateY(-50%);
+    padding: 0 3px; background: var(--bg); white-space: nowrap;
+}
 
 .trend-scale { display: flex; justify-content: space-between; font-size: var(--fs-2xs); margin: 2px 0 8px; }
 

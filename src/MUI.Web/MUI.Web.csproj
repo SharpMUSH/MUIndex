@@ -14,6 +14,12 @@
 
   <ItemGroup>
     <PackageReference Include="Markdig" />
+
+    <!--
+      The authenticated MCP endpoint (MUI.Web.Mcp), which reuses the crawler's own services — see
+      MuiMcp.cs and Directory.Packages.props for why this version.
+    -->
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
   </ItemGroup>
 
   <!--

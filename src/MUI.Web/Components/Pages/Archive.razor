@@ -6,14 +6,9 @@
 @inject TimeProvider Clock
 
 @*
-    The archive, as a first-class section rather than a hidden flag.
-
-    This is the historical record every incumbent threw away, and it is worth presenting as an asset
-    rather than as a bin. Dimmed one step, no red, no "dead", no strikethrough: the word is
-    "archived" and the tone is a library catalogue entry for a periodical that ceased publication.
-
-    Every URL here still works, every page is intact, and every game is still probed weekly forever.
-    One successful probe puts a game back in the listing (spec §7.5).
+    The archive is a first-class section, not a hidden flag. Nothing is deleted (spec §7.5): every
+    URL still works, every game is still probed weekly, and one successful probe restores it to the
+    listing. Tone stays dimmed, not "dead" — a catalogue entry, not an obituary.
 *@
 
 @if (Plain)
@@ -26,9 +21,8 @@ else
                  Card="PreviewCard.Archive" />
 
     <h1>@L("archive.title")</h1>
-    @* Three facts and no fourth: they stopped answering, nothing was deleted, and one probe puts
-       them back. Said as one message so no locale can drop the second or the third and leave a
-       page that reads as an obituary. *@
+    @* One message stating all three facts (stopped answering / nothing deleted / one probe restores)
+       so no locale can drop one and leave this reading as an obituary. *@
     <p class="dim">@L("archive.lede")</p>
 
     <form method="get" action="@Http.Link("/archive")" role="search">
@@ -56,8 +50,7 @@ else
                             <div class="dim">@tagline</div>
                         }
                         <div class="meta mono">
-                            @* The same chip the listing row wears. An archived game's codebase is
-                               the oldest value on the site and the one most in need of saying so. *@
+                            @* Same chip the listing row wears, for provenance. *@
                             @if (entry.Summary.CodebaseProvenance is { } codebase)
                             {
                                 <Chip Fact="codebase" Now="Now" />
@@ -103,8 +96,7 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        // The archived band, not "everything with the archived flag filtered client-side" — the
-        // facet is a real query the store answers, and the archive is what it is for.
+        // Queried as the archived band, not filtered client-side from the full set.
         var games = await Queries.ListAsync(new GameFilter
         {
             Text = Query,
@@ -118,7 +110,7 @@ else
             entries.Add(ArchiveEntry.For(game, await History.ForGameAsync(game.Id), Now));
         }
 
-        // Most recently lost first: a game that stopped last month is the one a reader came for.
+        // Most recently lost first.
         Entries = [.. entries.OrderByDescending(e => e.LastReachableAt ?? DateTimeOffset.MinValue)];
     }
 

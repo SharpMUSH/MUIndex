@@ -1,11 +1,6 @@
 namespace MUI.Web.Localization;
 
-/// <summary>The CLDR plural categories.</summary>
-/// <remarks>
-/// Six of them exist across all languages; no single language uses more than five, and most use one
-/// or two. <see cref="Other"/> is the one every language has and the only one a message must
-/// declare.
-/// </remarks>
+/// <summary>The CLDR plural categories. <see cref="Other"/> is the only one every language has.</summary>
 public enum PluralCategory
 {
     Zero,
@@ -16,57 +11,32 @@ public enum PluralCategory
     Other,
 }
 
-/// <summary>Cardinal counts one thing; ordinal ranks it.</summary>
-/// <remarks>
-/// They are different rule sets and getting them from one table is a bug rather than a shortcut. In
-/// English the cardinal rule has two forms — <em>1 game, 2 games</em> — and the ordinal rule has
-/// four — <em>1st, 2nd, 3rd, 4th</em> — and neither can produce the other's answers.
-/// </remarks>
+/// <summary>Cardinal counts one thing (1 game, 2 games); ordinal ranks it (1st, 2nd, 3rd, 4th).</summary>
+/// <remarks>Different rule sets — getting them from one table is a bug, not a shortcut.</remarks>
 public enum PluralKind
 {
     Cardinal,
     Ordinal,
 }
 
-/// <summary>
-/// Which plural form a number takes, per locale, per kind.
-/// </summary>
+/// <summary>Which plural form a number takes, per locale, per kind.</summary>
 /// <remarks>
-/// <para>
-/// <b>Transcribed from CLDR 46's plural charts, in the operands CLDR states them in.</b> Each rule
-/// below is written the way the chart writes it — <c>i = 1 and v = 0</c> rather than
-/// <c>count == 1</c> — so it can be checked against the source line by line. A transcription into a
-/// different vocabulary is a transcription nobody can verify.
-/// </para>
-/// <para>
-/// <b>Hand-written rather than taken from a library, and that is a judgement rather than a
-/// preference.</b> The .NET options are thin: ICU4N is an alpha pinned to ICU 60, whose CLDR data
-/// predates several of the rules below, and the MessageFormat ports are 0.1.x forks of an abandoned
-/// project. Neither is a dependency worth the credibility of a site whose entire product is being
-/// right about what it knows. The cost is that this table has to be maintained against CLDR when a
-/// locale is added, which is why <see cref="LocalesCovered"/> exists and is asserted against the
-/// locales the site actually commits to.
-/// </para>
-/// <para>
-/// <b>An unlisted language answers <see cref="PluralCategory.Other"/>.</b> That is correct for a
-/// language with one form and safe for one whose rule is not written here — the message still
-/// renders, in the form every language has. What stops that being a silent wrong answer is the test
-/// that walks every offered locale and refuses one this table does not cover.
-/// </para>
+/// Transcribed from CLDR 46's plural charts in the operands CLDR states them in (<c>i = 1 and
+/// v = 0</c> rather than <c>count == 1</c>) so each rule can be checked against the source line by
+/// line. Hand-written rather than via a library — the .NET options (ICU4N alpha pinned to ICU 60;
+/// abandoned 0.1.x MessageFormat forks) aren't worth the dependency risk. An unlisted language falls
+/// back to <see cref="PluralCategory.Other"/>, which is correct for one-form languages and a safe
+/// default otherwise; the test suite walks every offered locale and refuses one this table doesn't
+/// cover.
 /// </remarks>
 public static class PluralRules
 {
     /// <summary>The CLDR release these rules were transcribed from.</summary>
     public const string CldrVersion = "46";
 
-    /// <summary>
-    /// The languages this table states a rule for, cardinal or ordinal.
-    /// </summary>
-    /// <remarks>
-    /// The gate on adding a locale: a tag whose language is not here falls back to <c>other</c> for
-    /// every count, which is right for Chinese and wrong for German. Asserted in the tests against
-    /// <see cref="Locales.All"/>.
-    /// </remarks>
+    /// <summary>The languages this table states a rule for, cardinal or ordinal.</summary>
+    /// <remarks>An uncovered language falls back to <c>other</c> for every count — right for Chinese,
+    /// wrong for German. Asserted in tests against <see cref="Locales.All"/>.</remarks>
     public static IReadOnlyList<string> LocalesCovered { get; } =
     [
         "en", "de", "nl", "sv", "da", "no", "fi", "et", "el", "it", "es", "fr", "pt",
@@ -91,27 +61,18 @@ public static class PluralRules
     private static PluralCategory Cardinal(string language, PluralOperands o) => language switch
     {
         // one: i = 1 and v = 0
-        //
-        // The v = 0 is why this file carries operands at all: "1.0 stars" is other, not one, and
-        // the two quantities are equal. `qps` is the pseudolocale and is English underneath, so it
-        // has to select exactly what English selects or it exercises the wrong branch.
+        // "1.0 stars" is `other`, not `one`, despite being numerically equal to 1 — the v = 0 clause
+        // is why this table carries operands instead of a bare count.
         "en" or "de" or "nl" or "sv" or "fi" or "et" or "qps" =>
             o is { I: 1, V: 0 } ? PluralCategory.One : PluralCategory.Other,
 
         // one: n = 1
-        //
-        // <b>Not the line above, and 1.0 is the whole of the difference.</b> Greek, Norwegian,
-        // Spanish and Turkish say `one` for it where English says `other`. All four had been given
-        // English's rule, because on the integers the two agree — and the integers are all anybody
-        // checks. Turkish had `n = 0..1` besides, which is a real CLDR rule belonging to Akan and
-        // Punjabi and puts zero in the form Turkish keeps for exactly one thing.
+        // Not the rule above — 1.0 is `one` here (Greek, Norwegian, Spanish, Turkish) but `other` in
+        // English; they agree on integers only, which is why this must not be folded with English's.
         "el" or "no" or "tr" => o.N == 1m ? PluralCategory.One : PluralCategory.Other,
 
         // one: n = 1 or t != 0 and i = 0,1
-        //
-        // Danish alone, and the only `one` in this table that reaches a quantity which is not 1:
-        // "0,5 stjerne" rather than "0,5 stjerner". Copied from Swedish, it loses that clause
-        // silently — the integers, again, agree.
+        // Danish is the only `one` here reaching a non-1 quantity: "0,5 stjerne" not "0,5 stjerner".
         "da" => o.N == 1m || (o.T != 0 && o.I is 0 or 1)
             ? PluralCategory.One
             : PluralCategory.Other,
@@ -121,10 +82,8 @@ public static class PluralRules
         //       i = 0,1                                           (fr, pt)
         // many: e = 0 and i != 0 and i % 1000000 = 0 and v = 0    (all four)
         //
-        // The Romance millions rule — "un millón de juegos", with the preposition the other forms
-        // do not take. fr and pt carried it; it and es were folded into English's rule above and so
-        // had no `many` at all, which is a form a translator would have been asked to write and
-        // never given anywhere to put.
+        // The Romance millions rule ("un millón de juegos") must not be dropped for it/es by folding
+        // them into English's rule — that silently removes the `many` branch a translator needs.
         "it" => Millions(o) ? PluralCategory.Many
             : o is { I: 1, V: 0 } ? PluralCategory.One
             : PluralCategory.Other,
@@ -142,8 +101,7 @@ public static class PluralRules
         // many: v = 0 and (i % 10 = 0 or i % 10 = 5..9 or i % 100 = 11..14)
         // other: everything with a visible fraction
         //
-        // 11 and 12 end in 1 and 2 and take neither `one` nor `few`. A rule written from the first
-        // three examples anybody tries is wrong for both.
+        // 11 and 12 end in 1 and 2 but take neither `one` nor `few` — the %100 exclusions matter.
         "ru" or "uk" => o.V != 0 ? PluralCategory.Other
             : (o.I % 10, o.I % 100) switch
             {
@@ -156,9 +114,8 @@ public static class PluralRules
         // few:  n % 10 = 2..4 and n % 100 != 12..14
         // many: n % 10 = 0 or n % 10 = 5..9 or n % 100 = 11..14
         //
-        // Belarusian states Russian's shape on `n` rather than on `i` with `v = 0`, so 1.0 is
-        // `one` here and `other` there. It had been folded in with Russian above: right for every
-        // integer, wrong for every number written with a decimal place.
+        // Belarusian states this on `n`, not on `i` with `v = 0` as Russian does — so 1.0 is `one`
+        // here and `other` in Russian. Must not be folded with the Russian rule above.
         "be" => !Whole(o) ? PluralCategory.Other
             : (o.I % 10, o.I % 100) switch
             {
@@ -195,10 +152,8 @@ public static class PluralRules
         // one: i = 1 and v = 0 or i = 0 and v != 0
         // two: i = 2 and v = 0
         //
-        // The `many` this rule used to carry for multiples of ten was withdrawn from CLDR before
-        // 46, and so was every one of Hebrew's ordinals. A table still stating them selects a
-        // branch nobody was ever asked to translate — which the `other` fallback cannot catch,
-        // because the branch is present and simply wrong.
+        // Hebrew's old `many` (multiples of ten) and all its ordinals were withdrawn from CLDR
+        // before 46 — do not reintroduce them; a present-but-wrong branch isn't caught by fallback.
         "he" => o switch
         {
             { I: 1, V: 0 } or { I: 0, V: not 0 } => PluralCategory.One,
@@ -209,8 +164,8 @@ public static class PluralRules
         // zero: n = 0        one: n = 1        two: n = 2
         // few:  n % 100 = 3..10                many: n % 100 = 11..99
         //
-        // Six categories, which is the count the review cites — and Arabic is render-only here, so
-        // this rule exists for correctness of the table rather than for a locale that ships.
+        // Arabic is render-only (not a shipped locale); the full six-category rule is kept for
+        // table correctness regardless.
         "ar" => o.N switch
         {
             0 => PluralCategory.Zero,
@@ -225,8 +180,8 @@ public static class PluralRules
             },
         },
 
-        // No plural inflection at all. This is exactly why Chinese cannot be the locale a string
-        // architecture is validated against: it agrees with any shape, including a wrong one.
+        // No plural inflection at all — so these locales agree with any shape, including a wrong
+        // one, and cannot validate a message's plural branches.
         "zh" or "ja" or "ko" or "th" or "vi" or "id" or "ms" => PluralCategory.Other,
 
         _ => PluralCategory.Other,
@@ -290,49 +245,31 @@ public static class PluralRules
         // one: n = 1
         "vi" or "ms" => o.N == 1m ? PluralCategory.One : PluralCategory.Other,
 
-        // Every other language this site knows about has one ordinal form: German, Spanish, Danish,
-        // Norwegian, Greek, Dutch, Finnish, Estonian, Polish, Czech, Slovak, Russian, Portuguese,
-        // Thai, Indonesian, Chinese, Japanese, Korean, Turkish, Arabic — and Hebrew, whose six-way
-        // ordinal table CLDR withdrew before 46.
+        // Every other covered language has one ordinal form, including Hebrew (its ordinal table
+        // was withdrawn from CLDR before 46).
         _ => PluralCategory.Other,
     };
 
-    /// <summary>The Romance millions rule, which CLDR states identically for all four languages.</summary>
-    /// <remarks>
-    /// <c>many: e = 0 and i != 0 and i % 1000000 = 0 and v = 0</c>. <c>e</c> is the compact-decimal
-    /// exponent and is zero for everything this site formats, so the clause CLDR adds for compact
-    /// notation cannot be reached from here.
-    /// </remarks>
+    /// <summary>The Romance millions rule (CLDR: <c>e = 0 and i != 0 and i % 1000000 = 0 and v = 0</c>).</summary>
+    /// <remarks><c>e</c> (compact-decimal exponent) is always zero for what this site formats.</remarks>
     private static bool Millions(PluralOperands o) =>
         o is { E: 0, V: 0, I: not 0 } && o.I % 1_000_000 == 0;
 
-    /// <summary>Whether the number is a whole one, which is all a CLDR range can ever match.</summary>
-    /// <remarks>
-    /// <c>n % 100 = 3..10</c> is a range over integers: 3.5 is not in it, however its integer part
-    /// reads. Testing <c>i</c> in its place gives every fraction the category of the whole number
-    /// below it — the wrong form for a rate and for an average alike, and invisible in a table
-    /// exercised only with counts.
-    /// </remarks>
+    /// <summary>Whether the number is whole — a CLDR integer range (e.g. <c>n % 100 = 3..10</c>) never
+    /// matches a fraction, even one whose integer part would fall in range.</summary>
     private static bool Whole(PluralOperands o) => o.N == o.I;
 
-    /// <summary>
-    /// Every category a locale can produce, which is what a message has to cover.
-    /// </summary>
+    /// <summary>Every category a locale can produce, which is what a message must cover.</summary>
     /// <remarks>
-    /// The assertion the Russian canary is for. A message declaring only <c>one</c> and <c>other</c>
-    /// is complete in English and silently wrong in Russian, where a count of two takes a form
-    /// neither branch supplies — and a wrong plural does not read as a typo to a native speaker, it
-    /// reads as illiterate.
+    /// A message declaring only <c>one</c>/<c>other</c> is complete in English but silently wrong in
+    /// Russian, where a count of two needs a branch neither supplies.
     /// </remarks>
     public static IReadOnlyList<PluralCategory> CategoriesOf(
         string tag, PluralKind kind = PluralKind.Cardinal)
     {
         ArgumentNullException.ThrowIfNull(tag);
 
-        // Derived by exercising the rule rather than by keeping a second table beside it, so the
-        // two cannot disagree. The probes cover every boundary the rules above test — the teens,
-        // the tens, the millions, and a fraction, which is the case that separates `one` from
-        // `other` in English.
+        // Derived by exercising the rule rather than a second table, so the two cannot disagree.
         var seen = new List<PluralCategory>();
 
         foreach (var probe in Probes)
@@ -385,13 +322,10 @@ public static class PluralRules
         return LocalesCovered.Contains(Language(tag), StringComparer.Ordinal);
     }
 
-    /// <summary>
-    /// The language subtag, which is what a plural rule is keyed on.
-    /// </summary>
+    /// <summary>The language subtag, which is what a plural rule is keyed on.</summary>
     /// <remarks>
-    /// <c>zh-Hans</c> and <c>zh-Hant</c> pluralise identically, and so do <c>ru</c> and the CI
-    /// canary's <c>ru-x-canary</c> — the script and the private-use subtag change which glyphs are
-    /// drawn and which bundle is read, never how a number agrees.
+    /// <c>zh-Hans</c>/<c>zh-Hant</c> and <c>ru</c>/<c>ru-x-canary</c> pluralise identically — script
+    /// and private-use subtags never affect number agreement.
     /// </remarks>
     private static string Language(string tag)
     {

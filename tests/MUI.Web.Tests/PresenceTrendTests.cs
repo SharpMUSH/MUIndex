@@ -8,11 +8,9 @@ namespace MUI.Web.Tests;
 /// The trend chart, and the one rule it exists to keep.
 /// </summary>
 /// <remarks>
-/// Every chart of this kind on every other site draws one continuous polyline, which interpolates
-/// across the days nobody measured — and an interpolated gap is our crawl schedule drawn as their
-/// quiet fortnight. §5.4's third state is the absence of a measurement, so here it must be the
-/// absence of ink, and that is a property of the geometry rather than of any style. It is asserted
-/// as arithmetic below, which is why the geometry is a plain type and not markup.
+/// Unlike a typical polyline chart, which interpolates across unmeasured days (drawing our crawl
+/// schedule as their quiet fortnight), §5.4's third state must be the absence of ink — a property of
+/// the geometry, asserted as arithmetic below rather than through markup.
 /// </remarks>
 public class PresenceTrendTests
 {
@@ -24,9 +22,8 @@ public class PresenceTrendTests
     [Test]
     public async Task ADayNobodyMeasuredGetsNoInkAtAll()
     {
-        // Three measured days, a four-day hole, three more. A line would draw a slope across the
-        // hole and say a game emptied out over a week nobody looked at it; a bar cannot, because a
-        // bar is a statement about its own day and says nothing about the day beside it.
+        // A line would draw a slope across the hole, saying a game emptied out over a week nobody
+        // looked at; a bar says nothing about the day beside it.
         var series = Series(
             Counted(0, 10), Counted(1, 11), Counted(2, 12),
             Gap(3), Gap(4), Gap(5), Gap(6),
@@ -38,8 +35,7 @@ public class PresenceTrendTests
             .IsEquivalentTo(series.Days.Where(d => d.IsCounted).Select(d => d.Date))
             .Because("a bar exists for every counted day and for no other day");
 
-        // And nothing is drawn across the hole: the four gap columns own a stretch of canvas that
-        // no bar touches.
+        // The four gap columns own a stretch of canvas that no bar touches.
         var columns = TrendGeometry.Columns(series);
         var holeFrom = columns[3].X;
         var holeTo = columns[6].X + columns[6].Width;
@@ -50,9 +46,7 @@ public class PresenceTrendTests
     [Test]
     public async Task ASingleMeasuredDayIsAWholeBarRatherThanASpeck()
     {
-        // This is what the form is for. As a line, a run of one day is one point — no path at all —
-        // and the fallback was a two-pixel dot, which on a ninety-day range measured three times is
-        // a chart of nothing. A column does not need its neighbours to exist.
+        // As a line, one measured day is one point with no path; a column doesn't need neighbours to exist.
         var series = Series(Gap(0), Counted(1, 14), Gap(2));
 
         var bars = TrendGeometry.Bars(series);
@@ -67,9 +61,7 @@ public class PresenceTrendTests
     [Test]
     public async Task AnUncountableDayIsNotDrawnOnTheZeroLine()
     {
-        // §5.4's middle state. A mark on the baseline reads as a measured empty game, which is the
-        // collapse this codebase may never ship — so it sits in its own gutter beneath the plot and
-        // never gets a bar.
+        // §5.4's middle state — a mark on the baseline would read as a measured empty game, so it sits in its own gutter and never gets a bar.
         var series = Series(
             Counted(0, 5), Counted(1, 6),
             Uncountable(2),
@@ -78,9 +70,6 @@ public class PresenceTrendTests
         var ticks = TrendGeometry.Ticks(English, series);
 
         await Assert.That(ticks).Count().IsEqualTo(1);
-        // The gutter mark carries the "probed, no count could be read" sentence and never the
-        // "no measurement" one — the middle state of §5.4 said as itself, in whatever language the
-        // reader asked for.
         var uncountableDay = Start.AddDays(2);
 
         await Assert.That(ticks[0].Label).IsEqualTo(Say("trend.day.notCounted", uncountableDay));
@@ -93,9 +82,7 @@ public class PresenceTrendTests
     [Test]
     public async Task AMeasuredZeroIsAMeasurementAndKeepsItsInk()
     {
-        // The other half of the same rule, and the easy one to get wrong in the opposite direction:
-        // we got in and nobody was there is a count, so it is drawn — and a bar of no height is
-        // indistinguishable from the day beside it that nobody looked at.
+        // A measured zero is a count and is drawn — a bar of no height would be indistinguishable from an unmeasured day.
         var series = Series(Counted(0, 4), Counted(1, 0), Counted(2, 3));
 
         var zero = TrendGeometry.Bars(series).Single(b => b.Day.Date == Start.AddDays(1));
@@ -109,8 +96,7 @@ public class PresenceTrendTests
     [Test]
     public async Task TheSpreadOfADayRidesAboveItsMeanAndOnlyWhenThereIsOne()
     {
-        // The shape a mean alone hides: a game that peaks at forty and idles at two has the same
-        // mean as one that sat at twenty-one all evening, and they are not the same game.
+        // A game peaking at forty and idling at two has the same mean as one that sat at twenty-one all evening.
         var series = Series(Counted(0, 2, 40, 21), Counted(1, 21, 21, 21));
 
         var bars = TrendGeometry.Bars(series);
@@ -128,13 +114,9 @@ public class PresenceTrendTests
     [Test]
     public async Task CoordinatesAreInvariantWhateverTheCulture()
     {
-        // SVG path data is space separated and a machine writing "0,5" emits coordinates every
-        // renderer reads as two numbers. The chart would not be subtly wrong; it would be gibberish,
-        // and only on somebody else's server.
-        // A culture built by hand rather than looked up by name: the test host runs in
-        // globalization-invariant mode, where "de-DE" does not exist — and a test that silently did
-        // not run would be worse than none, since this failure only ever appears on somebody else's
-        // server.
+        // SVG path data is space separated; "0,5" would be read as two numbers — gibberish, and only
+        // on somebody else's server. Culture built by hand since the test host runs in
+        // globalization-invariant mode, where "de-DE" doesn't exist.
         var original = System.Globalization.CultureInfo.CurrentCulture;
         var comma = (System.Globalization.CultureInfo)
             System.Globalization.CultureInfo.InvariantCulture.Clone();
@@ -149,7 +131,7 @@ public class PresenceTrendTests
 
             await Assert.That(path).DoesNotContain(",");
 
-            // And the same for what the component writes into the markup.
+            // Same check for what the component writes into the markup.
             await Assert.That(0.5.ToString("0.##", System.Globalization.CultureInfo.CurrentCulture))
                 .IsEqualTo("0,5")
                 .Because("the culture has to actually be in force, or this test proves nothing");
@@ -161,11 +143,28 @@ public class PresenceTrendTests
     }
 
     [Test]
+    public async Task TheVerticalAxisIsLabelledWithTheValueEachGridlineStandsFor()
+    {
+        // The lines were already drawn (TrendGeometry.Gridlines); a reader still can't turn "a bar
+        // this tall" into a number without a printed value beside each one.
+        var series = Series(Counted(0, 4), Counted(1, 8), Counted(2, 20));
+
+        var html = await Render.ComponentAsync<PresenceTrend>(
+            new Dictionary<string, object?> { ["Series"] = series });
+
+        await Assert.That(html).Contains("class=\"trend-yaxis")
+            .Because("the value belongs beside the line it labels, not only in the caption below the chart");
+
+        foreach (var (value, _) in TrendGeometry.Gridlines(series))
+        {
+            await Assert.That(html).Contains($">{value}<");
+        }
+    }
+
+    [Test]
     public async Task TheCalendarIsLabelledWhereAMonthStartsAndIsNeverCrowded()
     {
-        // Ninety columns with nothing under them are ninety columns of nothing in particular. But a
-        // five-year range has sixty month starts in it, and sixty labels is a grey smear rather than
-        // an axis, so they thin instead of overprinting.
+        // A five-year range has sixty month starts, and sixty labels is a grey smear, so they thin instead of overprinting.
         var quarter = TrendSeries.Over(new DateOnly(2026, 5, 19), new DateOnly(2026, 8, 16), []);
 
         await Assert.That(TrendGeometry.Months(English, quarter).Select(m => m.Label))
@@ -184,8 +183,7 @@ public class PresenceTrendTests
     [Test]
     public async Task TheRangeIsFilledSoAnAbsentBucketStaysAbsent()
     {
-        // The rollup returns only the buckets it has. A chart drawn straight off that list would
-        // space eleven measured days evenly across a quarter and draw a gap as a gentle slope.
+        // The rollup returns only the buckets it has; drawn straight off that list, this would space measured days evenly and draw a gap as a gentle slope.
         var buckets = new List<PresenceRollup>
         {
             Bucket(Start, 4, 10),
@@ -202,9 +200,7 @@ public class PresenceTrendTests
     [Test]
     public async Task APlayerCountIsNeverReportedWithADecimal()
     {
-        // "Typically 666.1 on" is arithmetic printed where a measurement was asked for. Players are
-        // whole, and a tenth of one is not a finer answer than 666 — it is a sillier one. Down
-        // rather than nearest, so the figure is one we are sure of.
+        // Players are whole; a tenth of one is a sillier answer than 666, not a finer one. Floored, not rounded, so the figure is one we're sure of.
         var series = Series(Counted(0, 601, 731, 666.1m), Counted(1, 590, 640, 620.4m));
 
         await Assert.That(series.Sentence(English)).Contains("Typically 666 on");
@@ -214,23 +210,20 @@ public class PresenceTrendTests
         await Assert.That(series.PerWeek(English).Single()).Contains("typically 666");
         await Assert.That(series.PerWeek(English).Single()).DoesNotContain("666.1");
 
-        // The wording is floored; the geometry is not, or the bar would be shortened by a sentence.
+        // The wording is floored; the geometry isn't, or the bar would be shortened by a sentence.
         await Assert.That(series.Days[0].Average).IsEqualTo(666.1d);
     }
 
     [Test]
     public async Task TheSentenceNamesTheThreeStatesApart()
     {
-        // A range probed all through and never countable is a different fact from a range nobody
-        // looked at, and neither is an empty game. The summary is the accessible answer, so it is
-        // the one place the distinction cannot be carried by a cell shape.
+        // A range probed but never countable is a different fact from one nobody looked at; the
+        // summary is the accessible answer, so the distinction can't be carried by a cell shape here.
         var nothing = Series(Gap(0), Gap(1), Gap(2));
         var probed = Series(Uncountable(0), Uncountable(1));
         var measured = Series(Counted(0, 6), Counted(1, 6), Counted(2, 8));
 
-        // The fact, through the bundle: a range with nothing in it says exactly the "no measurement"
-        // message and never the "probed and uncountable" one. Written this way the assertion still
-        // holds after a translation, which is the point — the two must stay two in every locale.
+        // Through the bundle so the assertion still holds after translation — the two must stay two in every locale.
         await Assert.That(nothing.Sentence(English))
             .IsEqualTo(Messages.For(English, "trend.none.notMeasured"));
         await Assert.That(nothing.Sentence(English))
@@ -239,8 +232,7 @@ public class PresenceTrendTests
         await Assert.That(measured.Sentence(English)).Contains("Typically 6");
         await Assert.That(measured.Sentence(English)).Contains("peaking at 8");
 
-        // And none of them names a cause: a failed probe writes no presence row, so silence here
-        // cannot tell an outage of theirs from a gap of ours.
+        // None names a cause: a failed probe writes no presence row.
         foreach (var sentence in new[] { nothing.Sentence(English), probed.Sentence(English) })
         {
             await Assert.That(sentence).DoesNotContain("unreachable");
@@ -251,8 +243,7 @@ public class PresenceTrendTests
     [Test]
     public async Task ADirectionIsOnlyClaimedWhenBothEndsWereMeasured()
     {
-        // A range measured at one end is not a trend, and calling it one would publish our sampling
-        // as their decline.
+        // A range measured at one end is not a trend — calling it one would publish our sampling as their decline.
         var lopsided = Series(
             Counted(0, 20), Counted(1, 20), Counted(2, 20),
             Gap(3), Gap(4), Gap(5), Gap(6), Gap(7));
@@ -264,8 +255,7 @@ public class PresenceTrendTests
             Counted(0, 30), Counted(1, 30), Counted(2, 28),
             Counted(3, 20), Counted(4, 12), Counted(5, 10));
 
-        // And the change is a percentage a person reads, not the fraction behind it: the sign and
-        // its spacing come off the locale's number format rather than being a literal in a template.
+        // Sign and spacing come off the locale's number format, not a literal in a template.
         await Assert.That(falling.Sentence(English)).Contains("Down about");
         await Assert.That(falling.Sentence(English)).Contains("63%");
         await Assert.That(falling.Sentence(English)).DoesNotContain("0.63");
@@ -274,8 +264,7 @@ public class PresenceTrendTests
     [Test]
     public async Task PerWeekSaysWhichOfTheThreeStatesAWeekWas()
     {
-        // The "read as text" disclosure and the plain rendering are the same lines, so a week with
-        // nothing in it has to say which kind of nothing it was.
+        // A week with nothing in it has to say which kind of nothing it was.
         var series = Series(Enumerable.Range(0, 21)
             .Select(i => i switch
             {
@@ -310,9 +299,7 @@ public class PresenceTrendTests
     [Test]
     public async Task AWeekWithAllThreeStatesInItKeepsThemApart()
     {
-        // The collapse this line is most likely to make, because it is the one that reads as tidy:
-        // "5 days of 7" puts two days a probe could not count and two days nobody looked into the
-        // same missing bucket, and they are different facts about a game.
+        // "5 days of 7" would put uncountable days and unmeasured days into the same bucket — different facts about a game.
         var series = Series(
             Counted(0, 8), Counted(1, 9), Counted(2, 7), Counted(3, 8),
             Uncountable(4), Uncountable(5),
@@ -328,14 +315,7 @@ public class PresenceTrendTests
     /// <summary>
     /// A German request gets German month names, from CLDR rather than from an array in a component.
     /// </summary>
-    /// <remarks>
-    /// This is the whole reason the date became a <c>{d, date}</c> argument instead of a
-    /// <c>ToString("d MMM yyyy")</c> at the call site. The old spelling read the month name off
-    /// whatever culture the thread happened to carry — the request's in one place and the invariant
-    /// one in the headless renderer — so a German page said "21 May 2026" in the middle of a German
-    /// sentence, and no translator could have fixed it because the word was not in a file they are
-    /// ever sent.
-    /// </remarks>
+    /// <remarks>The date is a <c>{d, date}</c> argument rather than <c>ToString("d MMM yyyy")</c> at the call site — the old spelling read the month off the thread's culture, so no translator could fix a wrong month name.</remarks>
     [Test]
     public async Task ADateIsNamedInTheLanguageThePageWasAskedFor()
     {
@@ -348,7 +328,6 @@ public class PresenceTrendTests
             .Contains(System.Globalization.CultureInfo
                 .GetCultureInfo("en").DateTimeFormat.AbbreviatedMonthNames[4]);
 
-        // And the axis label under the chart, which is the same data through a different message.
         var year = TrendSeries.Over(new DateOnly(2026, 4, 20), new DateOnly(2026, 6, 10), []);
 
         await Assert.That(TrendGeometry.Months("de", year).Select(m => m.Label))
@@ -358,14 +337,7 @@ public class PresenceTrendTests
     /// <summary>
     /// The two absences stay two, in every locale this site offers.
     /// </summary>
-    /// <remarks>
-    /// A day probed all through that produced no count is a measurement of a game that was
-    /// answering; a day with no measurement is a statement about our crawl. Collapsing them is the
-    /// worst bug §5.4 can carry, and it is a collapse a translator makes silently — both English
-    /// sentences begin with a date and end in a negative — so it is asserted per locale rather than
-    /// once against the source bundle. Neither may reach for a cause: a failed probe writes no
-    /// presence row at all, so an empty day cannot tell an outage of theirs from a gap of ours.
-    /// </remarks>
+    /// <remarks>An uncountable day is a measurement of an answering game; a gap day is a statement about our crawl. Collapsing them is §5.4's worst bug, and a translator could do it silently — checked per locale.</remarks>
     [Test]
     public async Task NoMeasurementAndNoReadableCountStayTwoDifferentStringsInEveryLocale()
     {
@@ -382,8 +354,7 @@ public class PresenceTrendTests
                 .IsNotEqualTo(Messages.Pattern(locale.Tag, "trend.day.notCounted"))
                 .Because($"{locale.Tag} translated the two absences to one pattern");
 
-            // And neither names a cause, in any of them. "unreachable" is a locked id with its own
-            // translation in every bundle, and a day with no presence row is not one.
+            // Neither names a cause: a day with no presence row is not "unreachable".
             foreach (var absence in new[] { gap.Label(locale.Tag), uncountable.Label(locale.Tag) })
             {
                 await Assert.That(absence)

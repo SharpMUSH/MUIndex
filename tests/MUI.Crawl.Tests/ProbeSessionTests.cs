@@ -1,8 +1,13 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using MUI.Crawl;
+using TelnetNegotiationCore.Builders;
+using TelnetNegotiationCore.Interpreters;
+using TelnetNegotiationCore.Protocols;
 
 namespace MUI.Crawl.Tests;
 
@@ -10,17 +15,10 @@ namespace MUI.Crawl.Tests;
 /// The probe driven end to end against a server in this process.
 /// </summary>
 /// <remarks>
-/// <para>
-/// These pin the parts of a session that no fixture can reach, because they are properties of the
-/// conversation rather than of any one string: that a line the server never terminated is still
-/// delivered, that the banner and the <c>WHO</c> answer stay separate evidence, and that what the
-/// server says in reply to the probe's own bookkeeping is counted as neither.
-/// </para>
-/// <para>
-/// A socket rather than a mock, deliberately — the behaviour under test is TelnetNegotiationCore's
-/// line assembly meeting real timing, and a fake that hands the probe pre-split lines would agree
-/// with the code while the wire disagreed.
-/// </para>
+/// These pin properties of the conversation that no fixture can reach: an unterminated line is still
+/// delivered, banner and <c>WHO</c> stay separate evidence, and the probe's own bookkeeping is never
+/// counted as either. A real socket rather than a mock, because the behaviour under test is
+/// TelnetNegotiationCore's line assembly meeting real timing.
 /// </remarks>
 public class ProbeSessionTests
 {
@@ -38,12 +36,9 @@ public class ProbeSessionTests
     [Test]
     public async Task ALineTheServerNeverTerminatedIsStillDelivered()
     {
-        // The defect this closes. TelnetNegotiationCore submits a line only when a newline arrives,
-        // so a trailing partial line sits in its buffer for ever and OnSubmit never fires for it.
-        // Unterminated output is normal in this hobby: five of the twelve reference servers end
-        // their connect screen or their WHO reply with a hanging prompt — aardmud.org:4000 with
-        // "What be thy name, adventurer?", realms.reichel.net:4000 with "By what name do you wish
-        // to be known?", resort.org:2323 with "Please enter a name:" on both.
+        // TelnetNegotiationCore submits a line only when a newline arrives, so a trailing partial
+        // line sits in its buffer forever and OnSubmit never fires for it. Unterminated output —
+        // a hanging name prompt — is common among real servers.
         await using var game = new FakeGame
         {
             Banner = "Welcome to Nowhere\r\nA quiet little place.\r\n",
@@ -62,11 +57,9 @@ public class ProbeSessionTests
     /// GBK is read losslessly, and an operator's override makes it right.
     /// </summary>
     /// <remarks>
-    /// Measured on <c>mud.pkuxkx.net:8080</c>, which offers CHARSET, answers the REQUEST with a list
-    /// containing UTF-8 and nothing else, accepts our ACCEPTED, and then sends its whole connect
-    /// screen in GBK — the encoding on that game is chosen from a menu on the login screen
-    /// (<c>Input 1 for GBK, 2 for UTF8, 3 for BIG5</c>) rather than from the option just negotiated.
-    /// Neither side negotiated anything wrongly. What was wrong was decoding on the strength of it.
+    /// Real case: a server negotiates CHARSET UTF-8 cleanly but then sends its connect screen in GBK,
+    /// because the actual encoding is chosen from an in-game menu rather than the negotiated option.
+    /// Neither side negotiated wrongly — decoding on the strength of it was the bug.
     /// </remarks>
     [Test]
     public async Task AServerThatDeclaresOneEncodingAndSendsAnotherIsNotDestroyedOnTheWayIn()
@@ -75,7 +68,7 @@ public class ProbeSessionTests
         // the game's own name, "北大侠客行", as GBK.
         const string titleInGbk = "\u00b1\u00b1  \u00b4\u00f3  \u00cf\u00c0  \u00bf\u00cd  \u00d0\u00d0";
 
-        // Two servers rather than two probes of one, because FakeGame serves a single connection.
+        // Two servers, not two probes of one: FakeGame serves a single connection.
         await using var untold = new FakeGame
         {
             Banner = $"----====   {titleInGbk}  ====----\r\n",
@@ -89,9 +82,8 @@ public class ProbeSessionTests
 
         var asSent = await new TelnetProbe(Fast()).ProbeAsync(untold.Target);
 
-        // Nothing lost. The old code decoded on the negotiated encoding with a replacing fallback,
-        // and every one of these bytes came back as U+FFFD — permanently, because the bytes are gone
-        // by the time anything downstream sees the string.
+        // The old code decoded on the negotiated encoding with a replacing fallback, so every one of
+        // these bytes came back as U+FFFD, permanently — the source bytes are gone by then.
         await Assert.That(asSent.Outcome).IsEqualTo(ProbeOutcome.Answered);
         await Assert.That(asSent.Banner).DoesNotContain("\ufffd");
         await Assert.That(asSent.ReadAs).IsEqualTo("iso-8859-1");
@@ -107,14 +99,10 @@ public class ProbeSessionTests
     [Test]
     public async Task AServerThatHangsUpOnTheFlushLineStillCountsAsHavingAnswered()
     {
-        // Measured on game.mortalrealms.com:4321 (MrMud 1.4), and on five of fourteen live servers
-        // sampled beside it — alteraeon, tbamud, ageofinsanity, addictmud and avatar.outland. Every
-        // DIKU descendant reads an empty line at "Who art thou:" as a goodbye and closes, so the
-        // probe's own flush line ends the session and the WHO after it writes into a dead socket.
-        //
-        // The banner is already in hand when that happens. Reporting the whole probe as Failed threw
-        // it away and wrote the game down as unreachable, which is our flush line recorded as a fact
-        // about their server — the thing CLAUDE.md's fifth rule forbids. The server answered.
+        // Every DIKU descendant reads an empty line at "Who art thou:" as a goodbye and closes, so
+        // the probe's own flush line ends the session and the WHO after it writes into a dead socket.
+        // The banner is already in hand when that happens — reporting the whole probe as Failed would
+        // record our own flush line as a fact about their server (CLAUDE.md rule 5). The server answered.
         await using var game = new FakeGame
         {
             Banner = "Welcome to Mortal Realms\r\nMrMud 1.4\r\n",
@@ -137,11 +125,9 @@ public class ProbeSessionTests
     [Test]
     public async Task AnAnswerAlreadyGivenSurvivesTheServerClosingRightAfterIt()
     {
-        // A count is the most expensive thing a probe collects, so the phase boundary that delimits
-        // it must be recorded before anything that can throw. It is: SettleAsync only awaits a
-        // timer, and the flush feeds the interpreter a local byte, so a peer that goes away is not
-        // heard from until the *next* send — by which point whoLines is already committed and
-        // Live() declines to make that send at all.
+        // A count is the most expensive thing a probe collects, so it must be recorded before
+        // anything that can throw: a peer that goes away is not heard from until the *next* send,
+        // by which point whoLines is already committed.
         await using var game = new FakeGame
         {
             Banner = "Welcome to Nowhere\r\n",
@@ -161,8 +147,8 @@ public class ProbeSessionTests
     [Test]
     public async Task AServerThatCloseBeforeSayingAnythingIsStillAFailure()
     {
-        // The other side of the line above: no banner, no negotiation, nothing measured. Carrying
-        // evidence forward must not turn an empty session into an answered one.
+        // No banner, no negotiation, nothing measured — carrying evidence forward must not turn an
+        // empty session into an answered one.
         await using var game = new FakeGame { ClosesImmediately = true };
 
         var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
@@ -174,8 +160,7 @@ public class ProbeSessionTests
     [Test]
     public async Task AnUnterminatedWhoReplyIsReadRatherThanLost()
     {
-        // chaos.caile.org:4444's shape, with the summary line left hanging. A count that only
-        // arrives when the server happens to add a newline is a count we lose at random.
+        // A count that only arrives when the server happens to add a newline is a count we lose at random.
         await using var game = new FakeGame
         {
             Banner = "Welcome.\r\n",
@@ -192,9 +177,8 @@ public class ProbeSessionTests
     [Test]
     public async Task TheBannerAndTheWhoAnswerStayDifferentEvidence()
     {
-        // Layer 2 is a display asset and a codebase fingerprint; layer 3 is a measurement. Merging
-        // them would let connect-screen prose reach a parser whose job is to count people, and let
-        // a WHO listing into a banner hash that is supposed to identify the game.
+        // Merging the two would let connect-screen prose reach a parser whose job is counting
+        // people, and let a WHO listing into a banner hash meant to identify the game.
         await using var game = new FakeGame
         {
             Banner = "Welcome to Nowhere\r\nPlayers Currently Online: 42\r\n",
@@ -212,11 +196,9 @@ public class ProbeSessionTests
     [Test]
     public async Task WhatTheServerSaysBackToOurOwnFlushIsCountedAsNeither()
     {
-        // The probe sends a bare line terminator between the banner and the WHO, to clear its own
-        // IAC DO bytes out of a server that buffered them as text. Whatever that produces is a
-        // reaction to a byte sequence we chose to send, so it is neither the game's connect screen
-        // nor its answer to WHO — recording it as either would be recording a decision of ours as a
-        // measurement of theirs.
+        // The probe sends a bare line terminator between banner and WHO, to clear its own IAC DO
+        // bytes out of a server that buffered them as text. Whatever that produces is a reaction to
+        // our own byte sequence and must not be recorded as either the connect screen or the WHO answer.
         await using var game = new FakeGame
         {
             Banner = "Welcome to Nowhere\r\n",
@@ -234,11 +216,8 @@ public class ProbeSessionTests
     /// The one case where the flush is an answer rather than a stray line.
     /// </summary>
     /// <remarks>
-    /// <b>Measured on three live games.</b> tharel.net:5005 stored 23 characters —
-    /// <c>Do you want ANSI? (Y/n)</c> — as its connect screen, and one Return produces 3033;
-    /// mdhoria.net:6996 stored 101 and has 2826 behind it; cleftofdimension.com:9000 stored 29 and
-    /// has 2197. Seventeen active games gate their whole screen behind that keystroke, and the probe
-    /// was already sending it and throwing the answer away.
+    /// Several real games gate their whole connect screen behind an ANSI keystroke prompt; the probe
+    /// was already sending the keystroke and throwing the resulting screen away.
     /// </remarks>
     [Test]
     public async Task AScreenBehindAColourQuestionIsTheConnectScreen()
@@ -258,8 +237,8 @@ public class ProbeSessionTests
         await Assert.That(result.Banner).Contains("Welcome to Adventures Unlimited");
         await Assert.That(result.BannerPlayerCount).IsEqualTo(7);
 
-        // And the WHO window still begins after all of it, so the game's refusal is read as the
-        // refusal it is rather than as part of its connect screen.
+        // The WHO window still begins after all of it, so the game's refusal reads as a refusal
+        // rather than part of its connect screen.
         await Assert.That(result.Banner).DoesNotContain("Illegal name");
         await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.LoginPrompt);
     }
@@ -267,9 +246,8 @@ public class ProbeSessionTests
     [Test]
     public async Task AServerThatSimplyRepaintsIsStillCountedAsNeither()
     {
-        // The negative that pays for the case above. A screen that has already painted is not a
-        // gate however it ends, so what a stray Return produces stays discarded — which on a
-        // TinyMUSH is the screen repeated and on a DIKU is a goodbye.
+        // A screen that has already painted is not a gate however it ends, so what a stray Return
+        // produces stays discarded.
         await using var game = new FakeGame
         {
             Banner = "Welcome to Nowhere\r\nBy what name do you wish to be known? \r\n",
@@ -281,6 +259,120 @@ public class ProbeSessionTests
 
         await Assert.That(result.Banner).Contains("Welcome to Nowhere");
         await Assert.That(result.Who.Count).IsEqualTo(5);
+    }
+
+    /// <summary>
+    /// Wiring proof for TelnetNegotiationCore PR #84 (v2.8.3): once MSDP negotiates, the probe asks
+    /// for <c>PLAYERS</c> and captures whatever comes back, through <c>SendMSDPCommand</c> and the
+    /// new <c>OnMSDPMessage</c> hook.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="MsdpTestServer"/> is TelnetNegotiationCore itself, run in Server mode — not a
+    /// hand-rolled byte parser reimplementing MSDP's wire framing, which is exactly the kind of
+    /// compensating logic CLAUDE.md says belongs upstream rather than here. The library already
+    /// implements both ends of the protocol; this proves the client side against the real server side.
+    /// <para>
+    /// Live testing across the DIKU/ROM/EmpireMUD-family and custom-coded servers sampled for
+    /// <c>docs/codebase-survey-2026-07-30.md</c> found nothing exposing a pre-login player-count
+    /// variable, so this fake exists to prove the request/response plumbing works end to end
+    /// (negotiate, ask, capture), not to claim any real server answers this way.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AServerOfferingMsdpIsAskedForPlayersAndTheAnswerIsCaptured()
+    {
+        await using var server = new MsdpTestServer { PlayersReply = "7" };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(server.Target);
+
+        await Assert.That(server.ReceivedMessages).Count().IsEqualTo(1);
+        var sent = JsonSerializer.Deserialize<Dictionary<string, string>>(
+            server.ReceivedMessages[0]);
+        await Assert.That(sent!["SEND"]).IsEqualTo("PLAYERS");
+
+        await Assert.That(result.Negotiation.Supported).Contains("MSDP");
+        await Assert.That(result.Negotiation.MsdpMessages).IsNotEmpty();
+
+        var received = JsonSerializer.Deserialize<Dictionary<string, string>>(
+            result.Negotiation.MsdpMessages[0]);
+        await Assert.That(received!["PLAYERS"]).IsEqualTo("7");
+    }
+
+    /// <summary>
+    /// The more realistic case, per the live sample: MSDP negotiates but the server never answers
+    /// <c>SEND PLAYERS</c> because it never advertised that variable. Nothing times out waiting for an
+    /// answer that was never coming, and nothing is fabricated in its place (rule 4) — including
+    /// <c>Supported</c> itself. TelnetNegotiationCore's <c>OnEnabledAsync</c> (see <c>Watched.Msdp</c>
+    /// and <c>Build</c>'s remarks) is wired to a manual enable/disable API that nothing in negotiation
+    /// ever calls, so it is not a signal this codebase can read as "the server offered MSDP" — the only
+    /// signal that is, an MSDP message actually arriving, never arrives here. <c>MSDP</c> is absent
+    /// from <c>Supported</c> for the same reason a game that never speaks is absent from any other
+    /// protocol's capability set: not observed, not claimed.
+    /// </summary>
+    [Test]
+    public async Task AServerThatNegotiatesMsdpButHasNoPlayersVariableAnswersNothing()
+    {
+        await using var server = new MsdpTestServer { PlayersReply = null };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(server.Target);
+
+        await Assert.That(server.ReceivedMessages).Count().IsEqualTo(1);
+        var sent = JsonSerializer.Deserialize<Dictionary<string, string>>(
+            server.ReceivedMessages[0]);
+        await Assert.That(sent!["SEND"]).IsEqualTo("PLAYERS");
+
+        await Assert.That(result.Negotiation.Supported).DoesNotContain("MSDP");
+        await Assert.That(result.Negotiation.MsdpMessages).IsEmpty();
+    }
+
+    /// <summary>
+    /// The probe cannot know in advance whether a server offered MSDP — see the request's own remarks
+    /// in <c>TelnetProbe.ProbeAsync</c> for why — so it is sent speculatively to every server, the same
+    /// way MSSP is asked for by negotiation regardless of whether the far end implements it. A
+    /// compliant server that never negotiated MSDP still recognises <c>IAC SB … IAC SE</c> as telnet
+    /// subnegotiation framing (RFC 855) and discards the unknown option without incident, so nothing is
+    /// recorded as supported and the rest of the session is unaffected.
+    /// </summary>
+    [Test]
+    public async Task ATelnetCompliantServerThatDoesNotOfferMsdpIsUnaffectedByBeingAsked()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "Welcome to Nowhere\r\n",
+            WhoReply = "There are 5 players connected.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Negotiation.Supported).DoesNotContain("MSDP");
+        await Assert.That(result.Negotiation.MsdpMessages).IsEmpty();
+        await Assert.That(result.Who.Count).IsEqualTo(5);
+        await Assert.That(result.Banner).Contains("Welcome to Nowhere");
+    }
+
+    /// <summary>
+    /// The regression this design is built to avoid. chaos.caile.org:4444 (TinyMUSH) does not parse
+    /// telnet at its login screen at all — <see cref="AServerThatBuffersOurNegotiationAsTextStillAnswersWho"/>
+    /// covers the same shape for the client's own automatic negotiation replies. The MSDP request is
+    /// sent before the probe's existing flush line for exactly this reason: whatever a server like this
+    /// makes of six-plus bytes of raw subnegotiation it cannot parse lands in the same discarded window
+    /// as any other stray reaction, and <c>WHO</c> comes back uncorrupted regardless.
+    /// </summary>
+    [Test]
+    public async Task AServerThatSwallowsTelnetAsTextStillAnswersWhoDespiteTheMsdpRequest()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "Welcome to Nowhere\r\n",
+            WhoReply = "0 Players logged in, 22 record, no maximum.\r\n",
+            SwallowsNegotiationAsText = true,
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Count);
+        await Assert.That(result.Who.Count).IsEqualTo(0);
+        await Assert.That(result.Negotiation.Supported).DoesNotContain("MSDP");
     }
 
     [Test]
@@ -305,10 +397,9 @@ public class ProbeSessionTests
     [Test]
     public async Task AServerThatBuffersOurNegotiationAsTextStillAnswersWho()
     {
-        // chaos.caile.org:4444 (TinyMUSH) exactly: it does not parse telnet at its login screen, so
-        // IAC DO 70 lands in its line buffer and the next line it reads is "\xff\xfd\x46WHO", which
-        // is not a command it has. Before the flush the probe reported Unknown for a game that
-        // answers WHO perfectly well.
+        // A server that doesn't parse telnet at its login screen: our IAC DO bytes land in its line
+        // buffer and poison the next command. Before the flush the probe reported Unknown for a
+        // game that answers WHO perfectly well.
         await using var game = new FakeGame
         {
             Banner = "Welcome to Nowhere\r\n",
@@ -325,10 +416,8 @@ public class ProbeSessionTests
     [Test]
     public async Task TheProbeNeverSendsAnythingButItsPermittedCommands()
     {
-        // The restraint test with a wire under it. Everything the probe types must be the permitted
-        // command or an empty line; nothing that logs in, creates or changes anything — and, since
-        // the plaintext form belongs upstream rather than here, nothing that a login screen would
-        // read as a character name.
+        // Everything the probe types must be a permitted command or an empty line — nothing that
+        // logs in, creates, or changes anything, and nothing a login screen would read as a character name.
         await using var game = new FakeGame
         {
             Banner = "Welcome to Nowhere\r\n",
@@ -362,8 +451,7 @@ public class ProbeSessionTests
     [Test]
     public async Task APromptGameSettlesInFarLessThanTheOldFixedDelays()
     {
-        // Task 4's point, measured rather than asserted about the options record: a server that
-        // answers immediately must not be charged for the slow case.
+        // A server that answers immediately must not be charged for the slow case.
         await using var game = new FakeGame
         {
             Banner = "Welcome to Nowhere\r\n",
@@ -376,16 +464,13 @@ public class ProbeSessionTests
         await Assert.That(result.Elapsed).IsLessThan(TimeSpan.FromSeconds(3));
     }
 
-    /// <summary>A MU* server, to the extent the probe can tell.</summary>
     /// <summary>
     /// A server that says it is not ready, then pauses for longer than a gap between lines.
     /// </summary>
     /// <remarks>
-    /// tbaMUD's shape, measured on <c>tbamud.com:4000</c>: <c>Attempting to Detect Client, Please
-    /// Wait...</c>, then about a second and a half of silence, then the real screen. Under a plain
-    /// quiet period the placeholder <em>was</em> the connect screen — it became the stored banner and
-    /// its hash became the game's identity, so two unrelated tbaMUDs fingerprinted alike and the
-    /// second went into a duplicate review instead of onto the site.
+    /// tbaMUD's shape: a "Please Wait..." placeholder, then real silence, then the real screen. Under
+    /// a plain quiet period the placeholder <em>was</em> the connect screen — its hash became the
+    /// game's identity, so two unrelated tbaMUDs fingerprinted alike and collided as duplicates.
     /// </remarks>
     [Test]
     public async Task AScreenThatSaidItWasNotReadyIsWaitedFor()
@@ -409,8 +494,8 @@ public class ProbeSessionTests
     /// The patience is conditional, so a server that has already painted is not made to wait.
     /// </summary>
     /// <remarks>
-    /// This is the cost side of the fix. Every probe pays it if the condition is wrong, and a crawler
-    /// spending two extra seconds per game is a different program.
+    /// The cost side of the fix above: every probe pays it if the condition is wrong, and a crawler
+    /// spending extra seconds per game is a different program.
     /// </remarks>
     [Test]
     public async Task AScreenThatIsAlreadyThereIsNotWaitedFor()
@@ -435,21 +520,11 @@ public class ProbeSessionTests
     /// A host being taken down is not a measurement, and must not come back as one.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>This shipped, and it is the fifth rule's worst case: our own outage published as theirs.</b>
-    /// The caller's token is linked into this probe's budget, so by the time an exception reaches the
-    /// bottom of <c>ProbeAsync</c> a stopping host and an expired budget look identical — both are an
-    /// <see cref="OperationCanceledException"/>, and <c>Classify</c> read either as
-    /// <c>("timeout", "probe budget exhausted")</c>. Returning that as a <see cref="ProbeResult"/>
-    /// handed <c>CrawlCycle</c> something it had every reason to store.
-    /// </para>
-    /// <para>
-    /// On the one deployment, a crash loop in an unrelated background service stopped the host every
-    /// ninety seconds. One cycle's worth of in-flight probes — <b>twenty games in fifty-six
-    /// seconds</b> — were written down as unreachable with cause <c>timeout</c>, and the failure
-    /// backoff then held each of them at that verdict for six hours. Fourteen of fifteen spot-checked
-    /// afterwards answered a socket from that same host in under a second.
-    /// </para>
+    /// A real production incident, and rule 5's worst case: our own outage published as theirs. The
+    /// caller's token is linked into the probe's budget, so a stopping host and an expired budget both
+    /// throw <see cref="OperationCanceledException"/> and <c>Classify</c> read either as
+    /// <c>("timeout", "probe budget exhausted")</c> — returning that as a <see cref="ProbeResult"/>
+    /// wrote healthy games down as unreachable for hours on an unrelated host restart.
     /// </remarks>
     [Test]
     public async Task AStoppingHostIsNotRecordedAsTheGameTimingOut()
@@ -463,8 +538,8 @@ public class ProbeSessionTests
         using var stopping = new CancellationTokenSource();
         await stopping.CancelAsync();
 
-        // Thrown, not returned. VisitAsync already knows what a cancelled cycle means and writes
-        // nothing for it; a ProbeResult is a measurement and there was none to make.
+        // Thrown, not returned: VisitAsync already knows what a cancelled cycle means, and a
+        // ProbeResult is a measurement — there was none to make.
         await Assert.That(async () => await new TelnetProbe(Fast()).ProbeAsync(game.Target, stopping.Token))
             .Throws<OperationCanceledException>();
     }
@@ -474,10 +549,9 @@ public class ProbeSessionTests
     /// distinction the fix turns on rather than a case it suppresses.
     /// </summary>
     /// <remarks>
-    /// A game that accepts a connection and then says nothing until our ceiling runs out has been
-    /// measured: we dialled it, we waited, and it did not finish. That is a fact about the far end
-    /// and it belongs in the record — the bug was never that timeouts are recorded, it was that our
-    /// shutdown was dressed as one.
+    /// A game that accepts a connection and says nothing until our ceiling runs out has been
+    /// measured — that's a fact about the far end. The bug above was never that timeouts get
+    /// recorded, it was our own shutdown dressed as one.
     /// </remarks>
     [Test]
     public async Task TheProbesOwnBudgetExpiringIsStillATimeoutWeMeasured()
@@ -504,10 +578,9 @@ public class ProbeSessionTests
     public async Task TheProbeDialsTheAddressTheGuardApprovedRatherThanResolvingTheNameAgain()
     {
         // Every probe used to resolve its host twice: once in HostScopeGuard, which vetted the
-        // addresses, and once inside TcpClient.ConnectAsync, which dialled the name and could land
-        // somewhere the guard never saw. Two chances to fail on a transient lookup, and a hole in
-        // the guard. The name here cannot resolve (RFC 2606), so the probe can only answer if it
-        // dialled what it was handed.
+        // addresses, and once inside TcpClient.ConnectAsync, which could land somewhere the guard
+        // never saw. The name here cannot resolve (RFC 2606), so the probe can only answer if it
+        // dialled the address it was handed.
         await using var game = new FakeGame
         {
             Banner = "Welcome to Nowhere\r\n",
@@ -530,28 +603,12 @@ public class ProbeSessionTests
     /// garbage collector to notice.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The defect this closes. <c>BuildAndStartAsync</c> hands back an interpreter that owns a byte
-    /// channel, a byte-processing task and a dozen protocol plugins, and the probe took it, held a
-    /// session with it and walked away without a word. <c>TelnetInterpreter.DisposeAsync</c> is the
-    /// only place any of that is given back — it completes the channel, cancels the processing task,
-    /// waits for it, retires the byte transforms and disposes every plugin — and MCCP's plugin holds
-    /// zlib streams, which are the part that is not simply a managed object waiting its turn. One
-    /// abandoned session per probe, measured on the deployment at roughly six megabytes an hour.
-    /// </para>
-    /// <para>
-    /// Asserted against the library's own transcript rather than against a memory reading, because
-    /// a drift of megabytes per hour is invisible over the life of a test and any threshold able to
-    /// see it would be a coin toss. The interpreter says <c>All plugins initialized successfully</c>
-    /// when it starts and <c>Disposing all plugins</c> when it is shut down; before the fix, the
-    /// transcript of a complete and successful probe carried the first and never the second.
-    /// </para>
-    /// <para>
-    /// That nothing was logged as an error is the second half of the claim, and it is about the
-    /// shutdown being orderly rather than merely having happened. Disposal completes the byte
-    /// channel and then waits for the processing task to drain it, and a probe that tore its
-    /// session down while that was still in flight would have the library saying so here.
-    /// </para>
+    /// <c>BuildAndStartAsync</c> hands back an interpreter owning a byte channel, a processing task
+    /// and a dozen protocol plugins, including MCCP's zlib streams — real unmanaged resources, not
+    /// just a managed object waiting its turn. A probe that walked away without disposing it leaked
+    /// one session's worth of those per run. Asserted against the library's own transcript rather
+    /// than a memory reading, since a slow per-run leak is invisible over the life of a single test:
+    /// the interpreter logs <c>Disposing all plugins</c> on a clean shutdown and nothing before the fix.
     /// </remarks>
     [Test]
     public async Task AFinishedSessionIsShutDownRatherThanAbandoned()
@@ -567,8 +624,7 @@ public class ProbeSessionTests
 
         var result = await new TelnetProbe(Fast(), transcript).ProbeAsync(game.Target);
 
-        // The session really happened, so the shutdown assertion below is about a probe that had
-        // something to shut down rather than about one that never got that far.
+        // Confirms the session really happened, so the shutdown assertion below is meaningful.
         await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
         await Assert.That(transcript.Says("All plugins initialized successfully")).IsTrue();
 
@@ -581,9 +637,8 @@ public class ProbeSessionTests
     /// read loop as well as on the caller's thread, so it locks.
     /// </summary>
     /// <remarks>
-    /// Trace is declined deliberately: TelnetNegotiationCore traces every byte it processes with a
-    /// formatted message, and paying for that on a whole connect screen would make this the slowest
-    /// test in the suite for nothing — every line these assertions read is Debug or above.
+    /// Trace is declined deliberately: TelnetNegotiationCore traces every byte with a formatted
+    /// message, and every line these assertions read is Debug or above anyway.
     /// </remarks>
     private sealed class Transcript : ILogger
     {
@@ -653,10 +708,7 @@ public class ProbeSessionTests
             _serving = ServeAsync();
         }
 
-        /// <summary>
-        /// What the server says before it is ready, if anything — tbaMUD's "Attempting to Detect
-        /// Client, Please Wait...".
-        /// </summary>
+        /// <summary>What the server says before it is ready, if anything.</summary>
         public string? Preamble { get; init; }
 
         /// <summary>How long after the preamble the real screen arrives.</summary>
@@ -664,7 +716,7 @@ public class ProbeSessionTests
 
         public string Banner { get; init; } = string.Empty;
 
-        /// <summary>A last line with no terminator — a hanging prompt, as five of twelve real servers send.</summary>
+        /// <summary>A last line with no terminator — a hanging prompt, as real servers often send.</summary>
         public string? BannerTail { get; init; }
 
         public string WhoReply { get; init; } = string.Empty;
@@ -677,8 +729,8 @@ public class ProbeSessionTests
         public string? BlankLineReply { get; init; }
 
         /// <summary>
-        /// Whether an empty line at the name prompt is a goodbye. Every DIKU descendant reads one
-        /// that way, which is what makes the probe's own flush line fatal to them.
+        /// Whether an empty line at the name prompt is a goodbye — true for every DIKU descendant,
+        /// which is what makes the probe's own flush line fatal to them.
         /// </summary>
         public bool HangsUpOnBlankLine { get; init; }
 
@@ -690,7 +742,7 @@ public class ProbeSessionTests
 
         /// <summary>
         /// Whether this server fails to strip telnet negotiation at its login screen, so our IAC
-        /// bytes end up prefixed to the next command we type. TinyMUSH does exactly this.
+        /// bytes end up prefixed to the next command we type.
         /// </summary>
         public bool SwallowsNegotiationAsText { get; init; }
 
@@ -714,7 +766,6 @@ public class ProbeSessionTests
             try
             {
                 using var client = await _listener.AcceptTcpClientAsync(_stopping.Token);
-                await using var stream = client.GetStream();
 
                 if (ClosesImmediately)
                 {
@@ -722,59 +773,13 @@ public class ProbeSessionTests
                     return;
                 }
 
-                if (Preamble is not null)
+                if (SwallowsNegotiationAsText)
                 {
-                    await SendAsync(stream, Preamble);
+                    await ServeRawAsync(client);
                 }
-
-                if (BannerDelay > TimeSpan.Zero)
+                else
                 {
-                    await Task.Delay(BannerDelay, _stopping.Token);
-                }
-
-                await SendAsync(stream, Banner);
-                if (BannerTail is not null)
-                {
-                    await SendAsync(stream, BannerTail);
-                }
-
-                var pending = new StringBuilder();
-                var buffer = new byte[4096];
-
-                while (!_stopping.IsCancellationRequested)
-                {
-                    var read = await stream.ReadAsync(buffer, _stopping.Token);
-                    if (read == 0)
-                    {
-                        break;
-                    }
-
-                    var text = SwallowsNegotiationAsText
-                        ? Encoding.Latin1.GetString(buffer, 0, read)
-                        : Encoding.Latin1.GetString(StripNegotiation(buffer.AsSpan(0, read)));
-
-                    pending.Append(text);
-
-                    var farewell = false;
-                    while (!farewell)
-                    {
-                        var whole = pending.ToString();
-                        var breakAt = whole.IndexOf('\n');
-                        if (breakAt < 0)
-                        {
-                            break;
-                        }
-
-                        var line = whole[..breakAt].TrimEnd('\r');
-                        pending.Remove(0, breakAt + 1);
-                        farewell = !await HandleAsync(stream, line);
-                    }
-
-                    if (farewell)
-                    {
-                        client.Client.Shutdown(SocketShutdown.Both);
-                        break;
-                    }
+                    await ServeOverTelnetAsync(client);
                 }
             }
             catch (OperationCanceledException)
@@ -788,8 +793,132 @@ public class ProbeSessionTests
             }
         }
 
-        /// <summary>Handles one line, and says whether the connection survives it.</summary>
-        private async Task<bool> HandleAsync(NetworkStream stream, string line)
+        /// <summary>
+        /// The naive path — no telnet awareness at all, matching a server that does not implement RFC
+        /// 854 at its login screen and reads our negotiation bytes as typed text. TinyMUSH's shape,
+        /// and the one case in this fixture that must not go through TelnetNegotiationCore: a real
+        /// interpreter is telnet-compliant by construction, so it cannot stand in for a peer whose
+        /// entire defining trait is that it isn't.
+        /// </summary>
+        private async Task ServeRawAsync(TcpClient client)
+        {
+            await using var stream = client.GetStream();
+
+            if (Preamble is not null)
+            {
+                await SendAsync(stream, Preamble);
+            }
+
+            if (BannerDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(BannerDelay, _stopping.Token);
+            }
+
+            await SendAsync(stream, Banner);
+            if (BannerTail is not null)
+            {
+                await SendAsync(stream, BannerTail);
+            }
+
+            var pending = new StringBuilder();
+            var buffer = new byte[4096];
+
+            while (!_stopping.IsCancellationRequested)
+            {
+                var read = await stream.ReadAsync(buffer, _stopping.Token);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                pending.Append(Encoding.Latin1.GetString(buffer, 0, read));
+
+                var farewell = false;
+                while (!farewell)
+                {
+                    var whole = pending.ToString();
+                    var breakAt = whole.IndexOf('\n');
+                    if (breakAt < 0)
+                    {
+                        break;
+                    }
+
+                    var line = whole[..breakAt].TrimEnd('\r');
+                    pending.Remove(0, breakAt + 1);
+                    farewell = !await HandleAsync(line, text => new ValueTask(SendAsync(stream, text)));
+                }
+
+                if (farewell)
+                {
+                    client.Client.Shutdown(SocketShutdown.Both);
+                    break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The compliant path — a real TelnetNegotiationCore Server-mode interpreter, no plugins
+        /// attached, in place of a hand-rolled reimplementation of RFC 855 framing. The same reasoning
+        /// <see cref="MsdpTestServer"/> already applies to MSDP specifically applies to every option
+        /// the client might negotiate here: a real interpreter reassembles a subnegotiation frame
+        /// correctly regardless of how the peer's writes land across TCP reads, which a hand-rolled
+        /// scanner over one buffer at a time cannot promise and, once, did not (a request sent as its
+        /// own write ahead of the probe's main flush could arrive as two reads, and the old scanner
+        /// read the frame's tail back as literal text). No plugin is attached because none is
+        /// needed — <c>OnSubmit</c> only ever sees genuine typed text once the interpreter has done
+        /// its own job, whether or not it recognises what was negotiated.
+        /// </summary>
+        private async Task ServeOverTelnetAsync(TcpClient client)
+        {
+            var built = await new TelnetInterpreterBuilder()
+                .UseMode(TelnetInterpreter.TelnetMode.Server)
+                .UseLogger(NullLogger.Instance)
+                .OnSubmit(async (bytes, encoding, telnet) =>
+                {
+                    var line = encoding.GetString(bytes).TrimEnd('\r');
+                    var alive = await HandleAsync(line, text => WriteRawAsync(telnet, text));
+
+                    if (!alive)
+                    {
+                        client.Client.Shutdown(SocketShutdown.Both);
+                    }
+                })
+                .BuildAndStartAsync(client, _stopping.Token);
+
+            await using var telnet = built.Interpreter;
+
+            if (Preamble is not null)
+            {
+                await WriteRawAsync(telnet, Preamble);
+            }
+
+            if (BannerDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(BannerDelay, _stopping.Token);
+            }
+
+            await WriteRawAsync(telnet, Banner);
+            if (BannerTail is not null)
+            {
+                await WriteRawAsync(telnet, BannerTail);
+            }
+
+            await built.ReadTask;
+        }
+
+        /// <summary>
+        /// Writes exactly the bytes given, with nothing appended. <c>TelnetInterpreter.SendAsync</c>
+        /// always adds a trailing CR LF (right for the client's own bare one-line commands, wrong
+        /// here — <see cref="BannerTail"/> and <see cref="WhoTail"/> exist specifically to test a line
+        /// the peer never terminated, and <see cref="Banner"/> is already a complete multi-line block
+        /// with whatever terminators the test gave it). <c>WriteToNetworkAsync</c> is the primitive
+        /// every <c>Send*</c> method builds on before adding its own framing.
+        /// </summary>
+        private static ValueTask WriteRawAsync(TelnetInterpreter telnet, string text) =>
+            text.Length == 0 ? default : telnet.WriteToNetworkAsync(Encoding.Latin1.GetBytes(text));
+
+        /// <summary>Handles one already-assembled line, and says whether the connection survives it.</summary>
+        private async Task<bool> HandleAsync(string line, Func<string, ValueTask> reply)
         {
             lock (_received)
             {
@@ -798,6 +927,8 @@ public class ProbeSessionTests
 
             // A line carrying anything the server did not recognise — including our negotiation
             // bytes, when it is the kind of server that swallows them — is not a command it has.
+            // Unreachable via ServeOverTelnetAsync, where a submitted line is never anything else,
+            // but the check is the same either way rather than a second copy of what "clean" means.
             var command = line.Trim();
             var clean = command.All(c => c is >= ' ' and <= '~');
 
@@ -810,7 +941,7 @@ public class ProbeSessionTests
 
                 if (BlankLineReply is not null)
                 {
-                    await SendAsync(stream, BlankLineReply);
+                    await reply(BlankLineReply);
                 }
 
                 return true;
@@ -819,16 +950,16 @@ public class ProbeSessionTests
             if (!clean)
             {
                 // What TinyMUSH does: redisplay the connect screen and answer nothing.
-                await SendAsync(stream, Banner);
+                await reply(Banner);
                 return true;
             }
 
             if (command.Equals("WHO", StringComparison.OrdinalIgnoreCase))
             {
-                await SendAsync(stream, WhoReply);
+                await reply(WhoReply);
                 if (WhoTail is not null)
                 {
-                    await SendAsync(stream, WhoTail);
+                    await reply(WhoTail);
                 }
 
                 return !HangsUpAfterWho;
@@ -838,7 +969,7 @@ public class ProbeSessionTests
             {
                 if (InfoReply is not null)
                 {
-                    await SendAsync(stream, InfoReply);
+                    await reply(InfoReply);
                 }
 
                 return true;
@@ -848,7 +979,7 @@ public class ProbeSessionTests
             {
                 if (VersionReply is not null)
                 {
-                    await SendAsync(stream, VersionReply);
+                    await reply(VersionReply);
                 }
             }
 
@@ -867,23 +998,139 @@ public class ProbeSessionTests
             await stream.FlushAsync(_stopping.Token);
         }
 
-        /// <summary>What a server that does implement telnet does with an option request.</summary>
-        private static byte[] StripNegotiation(ReadOnlySpan<byte> data)
+        public async ValueTask DisposeAsync()
         {
-            var kept = new List<byte>(data.Length);
-            for (var i = 0; i < data.Length; i++)
-            {
-                if (data[i] != 255)
-                {
-                    kept.Add(data[i]);
-                    continue;
-                }
+            await _stopping.CancelAsync();
+            _listener.Stop();
 
-                // IAC WILL/WONT/DO/DONT <option> is three bytes; anything else, skip two.
-                i += i + 1 < data.Length && data[i + 1] is >= 251 and <= 254 ? 2 : 1;
+            try
+            {
+                await _serving;
+            }
+            catch (OperationCanceledException)
+            {
             }
 
-            return [.. kept];
+            _stopping.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// The server side of an MSDP round trip, built from TelnetNegotiationCore's own Server-mode
+    /// interpreter rather than a hand-rolled reimplementation of MSDP's wire framing.
+    /// </summary>
+    /// <remarks>
+    /// Negotiation (<c>IAC WILL MSDP</c>, unprompted, and the <c>IAC DO MSDP</c> that answers it) is
+    /// entirely the library's own — <c>MSDPProtocol.ConfigureStateMachine</c> registers it as an
+    /// initial negotiation in Server mode, the same as it does for every other option. This exists to
+    /// answer <c>SEND PLAYERS</c> the way a real MSDP-speaking server would, over the actual
+    /// subnegotiation channel, so the test proves the client side against protocol-correct behaviour
+    /// rather than against a guess at what that behaviour is.
+    /// </remarks>
+    private sealed class MsdpTestServer : IAsyncDisposable
+    {
+        private readonly TcpListener _listener;
+        private readonly CancellationTokenSource _stopping = new();
+        private readonly Task _serving;
+        private readonly List<string> _received = [];
+
+        public MsdpTestServer()
+        {
+            _listener = new TcpListener(IPAddress.Loopback, 0);
+            _listener.Start();
+            _serving = ServeAsync();
+        }
+
+        /// <summary>
+        /// What to answer a <c>SEND PLAYERS</c> request with. Null means MSDP negotiates but the
+        /// server never answers — the shape every server sampled in
+        /// <c>docs/codebase-survey-2026-07-30.md</c> turned out to have, pre-login.
+        /// </summary>
+        public string? PlayersReply { get; init; }
+
+        public ProbeTarget Target => new(
+            IPAddress.Loopback.ToString(),
+            ((IPEndPoint)_listener.LocalEndpoint).Port);
+
+        /// <summary>Every raw MSDP message this server received, exactly as the library delivered it.</summary>
+        public IReadOnlyList<string> ReceivedMessages
+        {
+            get
+            {
+                lock (_received)
+                {
+                    return [.. _received];
+                }
+            }
+        }
+
+        private async Task ServeAsync()
+        {
+            try
+            {
+                using var client = await _listener.AcceptTcpClientAsync(_stopping.Token);
+
+                var msdp = new MSDPProtocol();
+                msdp.OnMSDPMessage((telnet, message) =>
+                {
+                    lock (_received)
+                    {
+                        _received.Add(message);
+                    }
+
+                    return HandleAsync(telnet, message);
+                });
+
+                var built = await new TelnetInterpreterBuilder()
+                    .UseMode(TelnetInterpreter.TelnetMode.Server)
+                    .UseLogger(NullLogger.Instance)
+                    .OnSubmit((_, _, _) => ValueTask.CompletedTask)
+                    .AddPlugin(msdp)
+                    .BuildAndStartAsync(client, _stopping.Token);
+
+                await using var telnet = built.Interpreter;
+                await built.ReadTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (IOException)
+            {
+            }
+            catch (SocketException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+
+        /// <summary>Answers a <c>SEND PLAYERS</c> request, over MSDP's own wire shape, if asked to.</summary>
+        /// <remarks>
+        /// Answered with <c>SendMSDPCommand</c> — the same client-side method under test, reused here
+        /// because it is mode-agnostic (it is a raw <c>IAC SB MSDP MSDP_VAR … MSDP_VAL … IAC SE</c>
+        /// write with no client/server branch) and it is the shape MSDP defines for one variable's
+        /// value, which is what a <c>SEND PLAYERS</c> reply is. <c>MSDPLibrary.Report</c> — the
+        /// function <see cref="Handlers.MSDPServerHandler"/> uses — wraps a JSON *object* in
+        /// <c>MSDP_TABLE_OPEN</c>/<c>CLOSE</c>, which is right for reporting a table of variables but
+        /// wrong for this flat single-pair answer, so it is not used here.
+        /// </remarks>
+        private async ValueTask HandleAsync(TelnetInterpreter telnet, string message)
+        {
+            if (PlayersReply is null)
+            {
+                return;
+            }
+
+            var request = JsonSerializer.Deserialize<Dictionary<string, string>>(message);
+            if (request is not { } fields
+                || !fields.TryGetValue("SEND", out var wanted)
+                || !wanted.Equals("PLAYERS", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            await telnet.SendMSDPCommand("PLAYERS", PlayersReply);
         }
 
         public async ValueTask DisposeAsync()

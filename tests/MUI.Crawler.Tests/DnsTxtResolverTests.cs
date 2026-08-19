@@ -12,18 +12,10 @@ namespace MUI.Crawler.Tests;
 /// The live TXT resolver, against a nameserver this test runs itself.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Real UDP, real wire format, and no dependence on anybody's zone file.</b> The rest of the
-/// opt-out is tested against fakes, which proves the rules; this proves that the thing which actually
-/// reads DNS reads it — that a record published as three tokens comes back as one string, that
-/// NXDOMAIN is an answer and a dead resolver is not, and that the name we ask for is the name we
-/// print on the about page. Five of the six real defects this project has found came from running
-/// against a real server rather than reasoning about one, and a resolver is a server.
-/// </para>
-/// <para>
-/// The stub answers on loopback with an ephemeral port, so this needs no privileges, no container and
-/// no network beyond the machine it runs on.
-/// </para>
+/// Real UDP, real wire format, no dependence on anybody's zone file. The rest of the opt-out is
+/// tested against fakes, which proves the rules; this proves the thing that actually reads DNS reads
+/// it correctly. The stub answers on loopback with an ephemeral port, so this needs no privileges, no
+/// container and no network beyond the machine it runs on.
 /// </remarks>
 public class DnsTxtResolverTests
 {
@@ -119,12 +111,10 @@ public class DnsTxtResolverTests
         + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.example.org")]
     public async Task ANameDnsCannotEvenBeAskedAboutIsNoAnswerRatherThanAThrow(string host)
     {
-        // Both of these come off the wire: a REFERRAL naming a 64-byte label, and a name that is
-        // legal at 243 bytes until our own "_muindex." prefix pushes it over 255. DnsClient rejects
-        // them with ArgumentException before any packet is sent, and this gate now runs before the
-        // scope guard — so an escape lands in the crawl loop's catch-all, which counts an error and
-        // never reaches RecordAttemptAsync. The target would then be due for ever and burn a batch
-        // slot every cycle, on a name an attacker chose. Failing to ask is "we heard nothing".
+        // A REFERRAL naming a 64-byte label, and a name legal at 243 bytes until our own "_muindex."
+        // prefix pushes it over 255. DnsClient rejects both with ArgumentException before any packet
+        // is sent; an escape here would land in the crawl loop's catch-all and leave the target due
+        // forever.
         using var server = new StubNameServer();
 
         var answer = await Against(server).LookupAsync(OptOutVocabulary.DnsNameFor(host));
@@ -137,9 +127,8 @@ public class DnsTxtResolverTests
     public async Task AResolverThatReceivesAndNeverAnswersIsBoundedByUsRatherThanWaitedOut()
     {
         // §12: the crawler shares a process with the web tier, so a bound on I/O is a correctness
-        // requirement rather than hygiene — and the loop does not get to trust a collaborator for it.
-        // The client here is given thirty seconds on purpose; the resolver's own budget is what has
-        // to end this.
+        // requirement, not hygiene. The client is given thirty seconds on purpose — the resolver's
+        // own budget is what has to end this.
         using var server = new StubNameServer { Silent = true };
 
         var resolver = new DnsTxtResolver(

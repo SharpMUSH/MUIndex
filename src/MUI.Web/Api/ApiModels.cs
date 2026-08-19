@@ -7,11 +7,9 @@ namespace MUI.Web.Api;
 /// cleverness a consumer would have to reverse-engineer.
 /// </summary>
 /// <remarks>
-/// These are separate types from <see cref="MUI.Catalog"/>'s view models on purpose. The view models
-/// are what a page renders and may be reshaped whenever a page is; these are a published contract
-/// that a MUD client or a rival directory has already written code against. The mapping between them
-/// is one file (<see cref="ApiMapper"/>), which is where a change to one becomes a decision about
-/// the other rather than an accident.
+/// Separate types from <see cref="MUI.Catalog"/>'s view models on purpose: those may be reshaped
+/// whenever a page is, these are a published contract a client has already written code against.
+/// <see cref="ApiMapper"/> is the one file mapping between them.
 /// </remarks>
 public static class ApiVersion
 {
@@ -22,16 +20,8 @@ public static class ApiVersion
 /// A value, where it came from, and how old it is — the atom of the whole product (spec §5.1).
 /// </summary>
 /// <remarks>
-/// <para>
-/// An API that flattened this to <c>"codebase": "PennMUSH 1.8.8p0"</c> would be a different product
-/// from the site: the site's whole claim is that it tells you <em>how it knows</em>, and a consumer
-/// republishing a bare string cannot pass that on.
-/// </para>
-/// <para>
-/// <see cref="Stale"/> is the catalogue's answer, carried through untouched. Staleness is a property
-/// of the field's own expected-refresh window (spec §5.6) and nothing downstream re-derives it — an
-/// API that recomputed it from <see cref="AgeSeconds"/> and a guess would disagree with the page.
-/// </para>
+/// <see cref="Stale"/> is the catalogue's answer, carried through untouched (spec §5.6) — recomputing
+/// it here from <see cref="AgeSeconds"/> and a guess would let this disagree with the page.
 /// </remarks>
 public sealed record ProvenanceView(
     string Value,
@@ -46,10 +36,9 @@ public sealed record ProvenanceView(
 /// One capability, measured beside declared, never merged (spec §3.1).
 /// </summary>
 /// <remarks>
-/// Two fields and not one flag, because "declared GMCP, never offered in any handshake" is the most
-/// useful thing a capability matrix can say and a single boolean cannot hold it. Each side is three
-/// states — <c>present</c>, <c>absent</c>, <c>unknown</c> — because "we never saw it said either
-/// way" is not "it is not there".
+/// Two fields, not one flag: "declared GMCP, never offered in any handshake" is the point of a
+/// capability matrix and a boolean can't hold it. Each side is three states — <c>present</c>,
+/// <c>absent</c>, <c>unknown</c> — because never having seen it said is not the same as absent.
 /// </remarks>
 public sealed record CapabilityView(
     string Protocol,
@@ -92,24 +81,11 @@ public sealed record PresenceView(
 /// How a player count was obtained, or that it was not. Never inferred from 0.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Three members, because there were two and the missing one was being answered with
-/// <see cref="Measured"/>. A game that publishes <c>PLAYERS</c> in MSSP has reported a number about
-/// itself; calling that a measurement of ours is rule 5, and it shipped in the same object as a
-/// <c>playersNowProvenance.measured</c> of <c>false</c> saying the opposite.
-/// </para>
-/// <para>
-/// A count read off a connect screen is <see cref="Measured"/>, not <see cref="Declared"/> — we open
-/// a socket and parse that text ourselves on every probe. <c>playersNowProvenance.source</c> still
-/// tells the three apart (<c>who</c>, <c>banner</c>, <c>mssp</c>) for a consumer who cares which,
-/// and <c>MUI.Catalog.FieldSources</c> is the one place the line is drawn.
-/// </para>
-/// <para>
-/// <see cref="Unknown"/> is "we cannot say it was measured", which covers the ordinary case of no
-/// count at all — a null <c>playersNow</c> beside it, which is how absence is detected — and would
-/// also cover a count that arrived without a label. Neither implementation can produce the second,
-/// and guessing at one would be the fabrication this member exists to avoid.
-/// </para>
+/// A game publishing <c>PLAYERS</c> in MSSP has reported a number about itself; calling that
+/// <see cref="Measured"/> would violate rule 5 (measured vs. declared). A count read off a connect
+/// screen counts as <see cref="Measured"/> — we open a socket and parse it ourselves on every probe.
+/// <see cref="Unknown"/> is "we cannot say it was measured", covering the ordinary case of no count
+/// at all (a null <c>playersNow</c> beside it).
 /// </remarks>
 public enum PlayerCountState
 {
@@ -121,11 +97,7 @@ public enum PlayerCountState
 /// <summary>
 /// An address, and how long it has answered there (spec §9).
 /// </summary>
-/// <remarks>
-/// A consumer holding an address that stopped working is the one this is for. <c>state</c> is the
-/// catalogue's own word — <c>active</c>, <c>stale</c>, <c>gone</c> — rather than a threshold applied
-/// here, so this cannot disagree with the page about when an address has been left.
-/// </remarks>
+/// <remarks><c>state</c> is the catalogue's own word (<c>active</c>/<c>stale</c>/<c>gone</c>), not a threshold applied here, so this can't disagree with the page.</remarks>
 public sealed record EndpointView(
     string Host,
     int Port,
@@ -141,9 +113,9 @@ public sealed record ChangeView(DateTimeOffset At, string Summary);
 /// One referral edge, resolved to a game (spec §9).
 /// </summary>
 /// <remarks>
-/// <c>direction</c> is <c>lists</c> or <c>listed-by</c> and is not decoration: the two are different
-/// people's claims, and a consumer merging them would attribute each game's referral list to the
-/// other. <c>present</c> false means the list stopped naming it, never that the edge was deleted.
+/// <c>direction</c> (<c>lists</c>/<c>listed-by</c>) matters: the two are different people's claims,
+/// and merging them would attribute each game's referral list to the other. <c>present</c> false
+/// means the list stopped naming it, never that the edge was deleted.
 /// </remarks>
 public sealed record NeighbourView(
     string Slug,
@@ -171,10 +143,7 @@ public sealed record AvailabilitySpanView(
 /// Reachability over a window. <b>Reachable, never uptime</b> (spec §5.8) — we measured a socket
 /// from one vantage point and did not measure whether the game was up.
 /// </summary>
-/// <remarks>
-/// Every member is nullable because a game nothing overlaps the window for is unmeasured, and
-/// unmeasured is not zero per cent.
-/// </remarks>
+/// <remarks>Every member is nullable: a game nothing overlaps the window for is unmeasured, not zero per cent.</remarks>
 public sealed record ReachabilityView(
     int WindowDays,
     double? Fraction,
@@ -190,19 +159,9 @@ public sealed record ConnectScreenView(bool Suppressed, string? Text);
 /// A game as the listing publishes it — and, for the two facts a row leads with, how we know them.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <see cref="PlayersNowProvenance"/> and <see cref="CodebaseProvenance"/> label the bare values
-/// they sit beside. Spec §10.1 recorded their absence as <em>the one place the API contradicts the
-/// rule the whole project exists to serve</em>: the game route labelled every field with a source,
-/// an age and a staleness while <c>/api/games</c> shipped a count and a codebase as
-/// though a number were a number. A consumer republishing this listing could not tell a count read
-/// out of a <c>WHO</c> four minutes ago from one a game asserted about itself six years ago, which is
-/// precisely the confusion the incumbents' directories thrive on.
-/// </para>
-/// <para>
-/// Null exactly where the value beside it is null. A chip over an absent count would attest to a
-/// measurement nobody took, and "we did not measure this" is the label in that case.
-/// </para>
+/// <see cref="PlayersNowProvenance"/> and <see cref="CodebaseProvenance"/> label the bare values they
+/// sit beside (spec §10.1) — without them a consumer can't tell a count read off a live <c>WHO</c>
+/// from one a game merely asserted. Null exactly where the value beside it is null.
 /// </remarks>
 public sealed record GameSummaryView(
     Guid Id,
@@ -219,38 +178,24 @@ public sealed record GameSummaryView(
     ProvenanceView? CodebaseProvenance,
     IReadOnlyList<string> MeasuredProtocols,
 
-    // Null means never once reached, which is not "reached a long time ago" — the last-seen facet
-    // (spec §9) keeps them apart and a consumer reading only the listing has to be able to as well.
+    // Null means never once reached — distinct from "reached a long time ago" (spec §9's last-seen facet).
     DateTimeOffset? LastReachableAt,
     string Url,
     string ApiUrl,
 
-    // What a window sort ranked this row on, present only when one was asked for. It is the basis
-    // for the order rather than a standing fact about the game, and publishing it on every response
-    // would mean computing an aggregate over the presence series for consumers reading the alphabet.
+    // What a window sort ranked this row on; present only when one was asked for, not on every response.
     PresenceWindowView? PlayersOverWindow = null);
 
 /// <summary>
 /// One game's counts over one window, as <c>?sort=medianWeek</c> and its neighbours rank on them.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <see cref="Median"/> and not a mean, which is the same choice <c>/rankings</c> makes: a mean is
-/// pulled around by the one evening a game was linked from somewhere. It is an <b>observed</b>
-/// count — the first value whose running frequency reaches the half-way position, never the average
-/// of two — so a consumer republishing it is republishing a number a server reported.
-/// </para>
-/// <para>
-/// <see cref="Samples"/> is published beside it and is not optional: a figure whose basis is hidden
-/// is exactly what §15.7 refuses, and it is the only thing here that tells a game measured three
-/// hundred times from one found on Friday. A consumer that ranks on <see cref="Median"/> without
-/// reading it will rank our crawl schedule.
-/// </para>
-/// <para>
-/// Both figures are over <b>counted</b> samples alone. A probe that got in and could not read a
-/// number contributes to neither (§5.4's middle state, rule 4), so a game with no countable probe in
-/// the window is absent from this field rather than present with zeroes in it.
-/// </para>
+/// <see cref="Median"/>, not a mean — same choice <c>/rankings</c> makes, since a mean is pulled
+/// around by one busy evening. It is an <b>observed</b> count, the first value whose running
+/// frequency reaches the half-way mark. <see cref="Samples"/> ships beside it so a figure's basis
+/// isn't hidden (§15.7): ranking on <see cref="Median"/> without it ranks our crawl schedule. Both
+/// figures are over <b>counted</b> samples alone; a game with no countable probe in the window is
+/// absent from this field, never present with zeroes.
 /// </remarks>
 public sealed record PresenceWindowView(int WindowDays, int Median, int Peak, int Samples);
 
@@ -266,10 +211,8 @@ public sealed record GameView(
     int? PlayersNow,
     PlayerCountState PlayersNowState,
 
-    // The same two labels the listing carries, so a consumer that moved from one route to the other
-    // does not have to learn a second way of asking how a fact was obtained. The codebase's label is
-    // also in Fields, where every registry field's is; these two are lifted out because they are the
-    // two values this API publishes bare.
+    // Same two labels the listing carries; lifted out because they're the two values this API
+    // publishes bare (the codebase's label also lives in Fields, with every other registry field's).
     ProvenanceView? PlayersNowProvenance,
     string? Codebase,
     ProvenanceView? CodebaseProvenance,
@@ -293,21 +236,11 @@ public sealed record GameView(
 /// What the listing was asked for, echoed so a cached response says what it answers.
 /// </summary>
 /// <remarks>
-/// <para>
-/// One property per facet, named for the querystring parameter that sets it, built by
-/// <see cref="Of"/> from the filter itself rather than from the raw query — so an echo cannot claim
-/// a filter the query did not apply, and a facet added to <see cref="GameFilter"/> and forgotten
-/// here fails to compile rather than silently vanishing from the answer.
-/// </para>
-/// <para>
-/// <see cref="CodebaseFamily"/> is the exception and is deliberately not one facet. It is the old
-/// name for <see cref="Codebase"/>, carried at the same value, because this record is a published
-/// contract on API version <c>1</c> that a client or a rival directory has already written code
-/// against — and a field that disappears from a version that did not change reads to that code as
-/// "the filter was not applied" rather than as "the filter was renamed". The querystring accepts
-/// both spellings for the same reason; the echo has to answer in both or the round trip is a lie
-/// for exactly the callers who used the older one.
-/// </para>
+/// Built by <see cref="Of"/> from the filter itself, not the raw query, so a facet added to
+/// <see cref="GameFilter"/> and forgotten here fails to compile rather than silently vanishing.
+/// <see cref="CodebaseFamily"/> is the old name for <see cref="Codebase"/>, carried at the same
+/// value: this is a published API-v1 contract, so a field disappearing from an unchanged version
+/// would read as "filter not applied" rather than "filter renamed".
 /// </remarks>
 public sealed record FilterView(
     string? Q,
@@ -327,11 +260,8 @@ public sealed record FilterView(
     /// Whether the games we hold no readable count for were asked for, or dropped.
     /// </summary>
     /// <remarks>
-    /// <c>yes</c> is only those games, <c>!yes</c> is the listing with them dropped, and null is the
-    /// listing that did not ask — which contains them. <b>Not a claim about any game either way</b>:
-    /// <c>!yes</c> echoes a decision this request made about its own answer, and a consumer that
-    /// rendered it as "these games are empty" would be making exactly the inference the facet exists
-    /// to prevent.
+    /// <b>Not a claim about any game either way</b> — <c>!yes</c> echoes a decision this request made
+    /// about its own answer, not that "these games are empty".
     /// </remarks>
     string? Uncounted,
 
@@ -382,10 +312,8 @@ public sealed record FacetValueView(string Value, int Count, bool Selected, bool
 /// One facet: its querystring name, whether it reads a measurement or a claim, and its values.
 /// </summary>
 /// <remarks>
-/// <c>evidence</c> is published rather than left for a consumer to infer, for the same reason the
-/// page prints it: a facet reading <c>capability.gmcp.measured</c> and one reading MSSP's
-/// <c>GENRE</c> are not the same kind of statement, and a client that presented them identically
-/// would be making the claim this whole site exists to stop making.
+/// <c>evidence</c> is published rather than left to inference: a facet reading measured GMCP and one
+/// reading MSSP's declared <c>GENRE</c> are not the same kind of statement.
 /// </remarks>
 public sealed record FacetGroupView(
     string Key,
@@ -408,11 +336,7 @@ public sealed record GameListView(
 /// <summary>
 /// One event in a liveness register. <see cref="Id"/> is the durable key and is never absent.
 /// </summary>
-/// <remarks>
-/// It was nullable while <c>FeedEntry</c> carried only a slug and the endpoint joined ids on out of
-/// the listing — an identifier that went missing whenever the join did. The query supplies it now,
-/// so a reader may store it (spec §5.7) without a fallback path for the times we could not say.
-/// </remarks>
+/// <remarks>The query supplies it directly now (previously joined in and occasionally missing), so a reader may store it (spec §5.7) without a fallback path.</remarks>
 public sealed record FeedEntryView(
     Guid Id,
     string Slug,
@@ -459,17 +383,10 @@ public sealed record RouteView(string Method, string Path, string Returns);
 /// One bucket of measured presence (spec §10, §5.2).
 /// </summary>
 /// <remarks>
-/// <para>
-/// <see cref="CountedSamples"/> and <see cref="UncountableSamples"/> are counts of <em>probes</em>
-/// and never of players. They are separate because a bucket probed three times and uncountable every
-/// time is a different fact from one in which nobody was logged in, and a consumer that added them
-/// together would erase §5.4's middle state.
-/// </para>
-/// <para>
-/// <see cref="Min"/>, <see cref="Max"/> and <see cref="Mean"/> are over the counted probes alone and
-/// are null when there were none. <b>Null is not zero</b>: this series never answers "how many
-/// players" with a number it inferred.
-/// </para>
+/// <see cref="CountedSamples"/> and <see cref="UncountableSamples"/> are counts of <em>probes</em>,
+/// never of players — kept separate so summing them can't erase §5.4's middle state.
+/// <see cref="Min"/>/<see cref="Max"/>/<see cref="Mean"/> are over counted probes alone and null when
+/// there were none. <b>Null is not zero.</b>
 /// </remarks>
 public sealed record PresenceBucketView(
     DateTimeOffset At,
@@ -484,9 +401,8 @@ public sealed record PresenceBucketView(
 /// </summary>
 /// <remarks>
 /// <b>A bucket nobody measured is absent from <see cref="Buckets"/>, never present as a zero.</b>
-/// The gaps are the third state of §5.4 and they mean "not measured" — they do not mean the game was
-/// empty and they do not mean it was unreachable, which is what <c>/availability</c> answers. Filling
-/// them in would publish our crawl schedule as though it were somebody's quiet hours.
+/// A gap is §5.4's third state ("not measured"), not "empty" and not "unreachable" — that's what
+/// <c>/availability</c> answers.
 /// </remarks>
 public sealed record PresenceSeriesView(
     string ApiVersion,
@@ -503,10 +419,7 @@ public sealed record PresenceSeriesView(
 /// <summary>
 /// A game's reachability over time (spec §10), as spans rather than samples.
 /// </summary>
-/// <remarks>
-/// The spans are <see cref="AvailabilitySpanView"/> — the same shape the game route already
-/// publishes, not a second one meaning the same thing, so a consumer that can read one can read both.
-/// </remarks>
+/// <remarks>Reuses <see cref="AvailabilitySpanView"/>, the same shape the game route publishes, so a consumer that can read one can read both.</remarks>
 public sealed record AvailabilitySeriesView(
     string ApiVersion,
     DateTimeOffset GeneratedAt,

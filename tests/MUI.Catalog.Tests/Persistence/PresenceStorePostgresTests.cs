@@ -81,10 +81,9 @@ public class PresenceStorePostgresTests
     /// The I3 pipe's silence, stored and read back under its own name and its own source.
     /// </summary>
     /// <remarks>
-    /// Two vocabularies widen together in migration 0020 and this is what proves both against a real
-    /// database: <c>i3</c> as a source, <c>i3_no_reply</c> as a reason. Filing this row under
-    /// <c>who</c> — which the parameterless <c>Unmeasurable</c> overload would have done — would
-    /// record a game as having failed to answer a telnet command nobody sent it.
+    /// Two vocabularies widen together in migration 0020: <c>i3</c> as a source, <c>i3_no_reply</c>
+    /// as a reason. Filing this under <c>who</c> — what the parameterless <c>Unmeasurable</c>
+    /// overload would do — would record a game as failing to answer a telnet command nobody sent it.
     /// </remarks>
     [Test]
     public async Task I3SilenceRoundTripsUnderTheSourceItFailedOn()
@@ -109,11 +108,10 @@ public class PresenceStorePostgresTests
     /// Migration 0026's word, proved against a real database rather than against SqlEnums alone.
     /// </summary>
     /// <remarks>
-    /// The C# spelling and the SQL CHECK constraint are two halves of one decision, and a member
-    /// added on one side and forgotten on the other has to fail here rather than at three in the
-    /// morning against production. <c>who_login_prompt</c> separates a game with no pre-login
-    /// <c>WHO</c> from a <c>WHO</c> our parser could not read — 43 of 107 stored payloads were the
-    /// first, filed as the second.
+    /// The C# spelling and the SQL CHECK constraint are two halves of one decision; a member added on
+    /// one side and forgotten on the other must fail here, not at three in the morning against
+    /// production. <c>who_login_prompt</c> separates a game with no pre-login <c>WHO</c> from a
+    /// <c>WHO</c> our parser couldn't read.
     /// </remarks>
     [Test]
     public async Task ALoginPromptRoundTripsAsItsOwnReason()
@@ -139,9 +137,8 @@ public class PresenceStorePostgresTests
     [Arguments(FieldSource.Banner)]
     public async Task EverySourceTheLadderCanChooseIsOneTheTableAccepts(FieldSource source)
     {
-        // The C# spelling and the CHECK constraint are two halves of one decision (SqlEnums), and a
-        // rung added to §5.2's ladder without a migration fails here rather than in production at the
-        // first MUSH that publishes an INFO block.
+        // The C# spelling and the CHECK constraint are two halves of one decision (SqlEnums); a rung
+        // added to §5.2's ladder without a migration fails here, not in production.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var store = new NpgsqlPresenceStore(db.DataSource);
@@ -180,14 +177,9 @@ public class PresenceStorePostgresTests
     [Test]
     public async Task NothingHereIsDerivedFromAPlayersIdentity()
     {
-        // The guard that replaced §11's unique-player estimate. The estimate was removed because a
-        // player who renames hashes to two values inside one epoch and is counted twice, and no salt
-        // rotation can fix that — correcting it needs the very link between one person's two names
-        // the rotation existed to prevent. So the type holds one thing, derived from times.
-        //
-        // A member added here that came from a name would be re-opening that, which is why this reads
-        // the shape rather than a value: it fails when somebody adds the field, not later when
-        // somebody publishes it.
+        // The guard that replaced §11's unique-player estimate: a player who renames hashes to two
+        // values inside one epoch and is counted twice, and no salt rotation can fix that. This reads
+        // the shape rather than a value, so it fails when a field is added, not later when it ships.
         var members = typeof(PresenceAggregates)
             .GetProperties()
             .Select(p => p.Name)
@@ -200,8 +192,7 @@ public class PresenceStorePostgresTests
     public async Task ASeriesCrossingAMonthBoundaryLandsInTwoPartitions()
     {
         // The table is partitioned monthly and a missing partition is an insert error, so the store
-        // makes the month before every append. A crawler is not entitled to lose a measurement to a
-        // calendar rollover.
+        // creates the month before every append.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db);
         var store = new NpgsqlPresenceStore(db.DataSource);

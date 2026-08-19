@@ -8,11 +8,10 @@ namespace MUI.Catalog.Persistence;
 /// The <c>game_claim</c> and <c>claim_event</c> tables (spec §8).
 /// </summary>
 /// <remarks>
-/// Nothing here decides whether a claim is legitimate. It stores what the layer above concluded, and
-/// the two guarantees it does enforce are the ones a handler cannot be trusted with: a claim always
-/// carries the account that asked for it (the column is <c>NOT NULL</c>), and one account holds at
-/// most one pending claim per game (a partial unique index). Both are §8.1's ordering made
-/// unavoidable rather than remembered.
+/// Nothing here decides whether a claim is legitimate; it stores what the layer above concluded.
+/// Two invariants are enforced in schema rather than trusted to callers: a claim always carries the
+/// account that asked for it (<c>NOT NULL</c>), and one account holds at most one pending claim per
+/// game (a partial unique index) — both required by spec §8.1.
 /// </remarks>
 public sealed class NpgsqlClaimStore(NpgsqlDataSource source) : IClaimStore
 {
@@ -67,9 +66,8 @@ public sealed class NpgsqlClaimStore(NpgsqlDataSource source) : IClaimStore
     /// The live pending claim on <paramref name="gameId"/> holding <paramref name="token"/>.
     /// </summary>
     /// <remarks>
-    /// Expiry is applied in SQL rather than by the caller. A token that outlived its window is not a
-    /// match, and leaving that to a downstream <c>if</c> would make an expired token complete a claim
-    /// on any path that forgot it.
+    /// Expiry is checked in SQL, not by the caller — leaving it to a downstream <c>if</c> would let
+    /// an expired token complete a claim on any path that forgot the check.
     /// </remarks>
     public async Task<GameClaim?> FindPendingByTokenAsync(
         Guid gameId,
@@ -193,11 +191,10 @@ public sealed class NpgsqlClaimStore(NpgsqlDataSource source) : IClaimStore
         claim.LastCheckedAt,
     };
 
-    // A class with settable properties rather than a positional record, matching every other store
-    // here. Dapper materialises a positional record by finding a constructor whose parameter types
-    // match the reader's, and Npgsql hands back `DateTime` for `timestamptz` — so the record wants a
-    // `DateTime` constructor and refuses to use a `DateTimeOffset` one. Properties are set
-    // individually, with the conversion applied per column.
+    // A class with settable properties, not a positional record: Dapper matches a positional
+    // record's constructor to the reader's types, but Npgsql returns `DateTime` for `timestamptz`,
+    // so a `DateTimeOffset`-typed constructor won't bind. Properties are set individually instead,
+    // with the conversion applied per column.
     private sealed class Row
     {
         public Guid Id { get; init; }

@@ -71,14 +71,9 @@ public sealed record GameEndpoint(
 /// Who measured an availability interval.
 /// </summary>
 /// <remarks>
-/// One member, and it is kept as an enum on purpose. It had a second — <c>ImportedMeasured</c>, for a
-/// span a third-party directory had probed, credited toward archive grace at half weight because we
-/// could not audit their prober. The backfill no longer imports history (spec §7.6), so every
-/// interval in the table is ours and the weighting has nothing to weigh.
-///
-/// The column stays because the day some other party's measurements are ingested, an undifferentiated
-/// total would already be in the table and unsplittable. A one-member enum costs a column; losing the
-/// distinction costs the history.
+/// One member, kept as an enum on purpose: if another party's measurements are ever ingested, an
+/// undifferentiated total already in the table could not be split back apart. A one-member enum
+/// costs a column now to preserve that split later.
 /// </remarks>
 public enum IntervalOrigin
 {

@@ -7,10 +7,9 @@ namespace MUI.Crawl.Tests;
 /// An MSSP report is a name → value-<b>list</b> map, and the probe records all of it.
 /// </summary>
 /// <remarks>
-/// Two separate losses used to happen here and both were ours rather than the library's.
-/// TelnetNegotiationCore models multi-valued variables properly (upstream PR #56 made
-/// <c>MSSPConfig.Variables</c> the lossless record its typed properties are projected from); the
-/// probe flattened that into one string per name, and then kept only seven names.
+/// Two separate losses used to happen here and both were ours rather than the library's:
+/// <c>MSSPConfig.Variables</c> is a lossless multi-valued record, but the probe used to flatten it
+/// into one string per name and then keep only seven names.
 /// </remarks>
 public class MsspReportTests
 {
@@ -46,10 +45,8 @@ public class MsspReportTests
     [Test]
     public async Task NoValueIsEverJoinedIntoOneString()
     {
-        // Joining was worse than dropping. An MSSP value may legitimately contain a comma —
-        // alteraeon.com reports GAMEPLAY as "Social", "Hack and Slash", "Adventure" — so a joined
-        // string manufactures something that looks like a value and cannot be split back apart.
-        // That is a fabrication, and the rule against those does not stop at player counts.
+        // Joining was worse than dropping: an MSSP value may legitimately contain a comma, so a
+        // joined string manufactures something that looks like a value and cannot be split apart.
         var config = new MSSPConfig();
         config.Variables.Add("REFERRAL", "first.example 4201, still the first one");
         config.Variables.Add("REFERRAL", "second.example 4202");
@@ -64,10 +61,8 @@ public class MsspReportTests
     [Test]
     public async Task NothingTheServerSentIsFilteredOut()
     {
-        // The projection used to hand-pick NAME, PLAYERS, UPTIME, CODEBASE, CONTACT, CRAWL DELAY and
-        // CHARSET, and discard the rest — REFERRAL, WEBSITE, HOSTNAME, PORT, SSL, ICON, LANGUAGE and
-        // every name a codebase invented. A crawler whose premise is faithful measurement does not
-        // get to decide which of a server's own answers were worth keeping.
+        // The projection used to hand-pick a handful of names and discard the rest. A crawler whose
+        // premise is faithful measurement does not get to decide which of a server's answers matter.
         var config = new MSSPConfig();
         config.Variables.Add("NAME", "The Game");
         config.Variables.Add("REFERRAL", "elsewhere.example 4201");

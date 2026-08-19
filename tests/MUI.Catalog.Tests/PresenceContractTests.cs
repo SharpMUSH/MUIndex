@@ -8,9 +8,9 @@ namespace MUI.Catalog.Tests;
 /// rather than any implementation of it.
 /// </summary>
 /// <remarks>
-/// These are the most important tests in the catalogue. Collapsing "probed but uncountable" into
-/// either neighbour renders a healthy game as permanently dark, and it is the failure the first cut
-/// of the spec actually shipped.
+/// These are the most important tests in the catalogue: collapsing "probed but uncountable" into
+/// either neighbour renders a healthy game as permanently dark — the failure the first cut of the
+/// spec actually shipped.
 /// </remarks>
 public class PresenceContractTests
 {

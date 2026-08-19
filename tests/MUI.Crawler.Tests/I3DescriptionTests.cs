@@ -10,7 +10,7 @@ namespace MUI.Crawler.Tests;
 /// Mapping an Intermud-3 mudlist entry's three self-description fields onto <c>game_field</c>.
 /// </summary>
 /// <remarks>
-/// Every fixture is a verbatim entry from the live network, taken from the gateway on 2026-08-17.
+/// Every fixture is a verbatim entry from the live network.
 /// </remarks>
 public class I3DescriptionTests
 {

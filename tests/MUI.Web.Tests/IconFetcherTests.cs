@@ -11,15 +11,9 @@ namespace MUI.Web.Tests;
 /// Fetching an icon from a URL somebody else chose (spec §7.2, §11).
 /// </summary>
 /// <remarks>
-/// <para>
-/// Almost every test here is a refusal, which is the right shape for this component: it exists to
-/// take a URL an owner typed and reach for it from our network, and the interesting question is what
-/// it declines to do. The one positive case is the last.
-/// </para>
-/// <para>
-/// No live network anywhere — the handler is stubbed and the resolver is stubbed — so a test that
-/// passes because something on the internet was reachable is not possible here.
-/// </para>
+/// Almost every test here is a refusal, which is the right shape for this component — it exists to
+/// take a URL an owner typed and reach for it from our network. No live network anywhere: both the
+/// handler and the resolver are stubbed.
 /// </remarks>
 public class IconFetcherTests
 {
@@ -31,10 +25,9 @@ public class IconFetcherTests
     /// §7.2, in a new place. The gate is on the resolved address and not on the name.
     /// </summary>
     /// <remarks>
-    /// A name check would pass this: <c>icons.example.org</c> is a perfectly ordinary hostname, and
-    /// publishing an A record pointing at the metadata service costs an attacker nothing. The socket
-    /// is never opened, which is what the second assertion is for — a refusal that still made the
-    /// request would be no refusal at all.
+    /// A name check would pass this: <c>icons.example.org</c> is an ordinary hostname, and pointing
+    /// its A record at the metadata service costs an attacker nothing. The socket is never opened —
+    /// the second assertion checks that.
     /// </remarks>
     [Test]
     [Arguments("169.254.169.254")]
@@ -178,9 +171,8 @@ public class IconFetcherTests
     /// Nothing about a failed fetch is a fact about the game, so nothing is returned to store.
     /// </summary>
     /// <remarks>
-    /// Rule 5, applied to a picture. A server that is down, slow or angry is our afternoon and not
-    /// their game — there is no row, no marker and no attempt counter, and the page renders no
-    /// element rather than a broken image.
+    /// Rule 5, applied to a picture: a server that's down, slow or angry is our afternoon and not
+    /// their game — no row, no marker, no attempt counter.
     /// </remarks>
     [Test]
     [Arguments(HttpStatusCode.InternalServerError)]
@@ -209,20 +201,13 @@ public class IconFetcherTests
     /// exception thrown at whoever called us.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>This is the one that stopped the site.</b> <c>HttpClient</c> reports its own
-    /// <c>Timeout</c> elapsing as a <see cref="TaskCanceledException"/>, which <em>is</em> an
-    /// <see cref="OperationCanceledException"/> — so a filter reading "everything except a
-    /// cancellation" lets it straight through, on the reasoning that a cancellation means our host
-    /// is stopping. Nobody had cancelled anything: a stranger's web server had simply not answered
-    /// in ten seconds. It escaped <see cref="IconRefresher"/>, and .NET's default
-    /// <c>BackgroundServiceExceptionBehavior.StopHost</c> then stopped the whole process — the
-    /// crawler with it — three hundred times in one afternoon.
-    /// </para>
-    /// <para>
-    /// The handler here stalls and the client is given a short timeout, so the exception is the real
-    /// one raised by the real code path rather than one this test invented the shape of.
-    /// </para>
+    /// <c>HttpClient</c> reports its own <c>Timeout</c> elapsing as a
+    /// <see cref="TaskCanceledException"/>, which <em>is</em> an <see cref="OperationCanceledException"/>
+    /// — so a filter reading "everything except a cancellation" lets it through as though our host
+    /// were stopping. It escaped <see cref="IconRefresher"/>, and .NET's default
+    /// <c>BackgroundServiceExceptionBehavior.StopHost</c> then killed the whole process — crawler
+    /// included — whenever one stranger's server stalled. The handler here stalls and the client gets
+    /// a short timeout, so this is the real exception on the real path.
     /// </remarks>
     [Test]
     public async Task AServerThatStallsPastOurOwnTimeoutIsAMissingIconAndNotAnException()
@@ -238,8 +223,8 @@ public class IconFetcherTests
     /// stops the fetch, and hears about it.
     /// </summary>
     /// <remarks>
-    /// A host shutting down is not an icon that could not be fetched, and swallowing it here would
-    /// leave <see cref="IconRefresher"/> looping through twenty more addresses on the way out.
+    /// A host shutting down is not an icon that could not be fetched — swallowing it here would leave
+    /// <see cref="IconRefresher"/> looping through twenty more addresses on the way out.
     /// </remarks>
     [Test]
     public async Task AHostThatIsStoppingStopsTheFetch()

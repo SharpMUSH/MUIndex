@@ -8,10 +8,9 @@ namespace MUI.Web.Tests;
 /// That the numbers on a reference page come from the catalogue and from nowhere else.
 /// </summary>
 /// <remarks>
-/// The failure being guarded against is the one that makes a directory worthless: a page that says
-/// "47 games run this" because somebody typed 47. It looks exactly like the honest version, it ages
-/// silently, and no reader can tell. So the count is asserted to <em>move when the catalogue moves</em>
-/// — a fixed number would pass any test that only checked the page rendered a number at all.
+/// Guards against a hand-typed count that looks honest but ages silently. So the count is asserted to
+/// <em>move when the catalogue moves</em> — a fixed number would pass a test that only checked a
+/// number rendered at all.
 /// </remarks>
 public class ReferenceFiguresTests
 {
@@ -34,8 +33,6 @@ public class ReferenceFiguresTests
     [Test]
     public async Task ACodebaseCountIsWhateverTheQueryWasGivenAndNeverWhatTheFileSays()
     {
-        // Deliberately absurd: a query answering with fifty TinyMUX games makes the TinyMUX page say
-        // fifty. Nothing in the content file has a say in it.
         var page = Library.Find(ReferenceKind.Codebase, "tinymux")!;
         var games = Enumerable.Range(0, 50).Select(i => Game($"g{i}", "TinyMUX 2.12")).ToArray();
 
@@ -47,8 +44,7 @@ public class ReferenceFiguresTests
     [Test]
     public async Task ArchivedGamesAreCountedSeparatelyRatherThanDropped()
     {
-        // Archiving removes a game from the default listing and from nothing else. A codebase with
-        // four live games and thirty archived ones is a fact about the hobby, not a smaller number.
+        // Rule 3: archiving removes a game from the default listing and from nothing else.
         var figures = await CodebaseFigures.ReadAsync(
             new StubQueries(
                 Game("live", "SMAUG 1.4"),
@@ -79,9 +75,8 @@ public class ReferenceFiguresTests
     [Test]
     public async Task AProtocolFigureCountsOnlyMeasuredHandshakes()
     {
-        // GameSummary.MeasuredProtocols carries what a server offered. A game's own MSSP claim never
-        // reaches this list, and that is the whole difference between this matrix and every protocol
-        // table the hobby already has.
+        // Measured vs. declared (rule 1): MeasuredProtocols carries what a server offered, never a
+        // game's own MSSP claim.
         var queries = new StubQueries(
             Game("a", "PennMUSH 1.8.8p0", "MSSP", "GMCP"),
             Game("b", "PennMUSH 1.8.8p0", "MSSP"),
@@ -101,9 +96,8 @@ public class ReferenceFiguresTests
     [Test]
     public async Task AProtocolMatrixNeverPublishesTheComplementAsAnAbsence()
     {
-        // ProtocolByCodebase carries Identified and Offering and no third number, so there is no
-        // "does not support" for a renderer to reach for. The remainder mixes servers that lack the
-        // protocol with servers whose handshake we have not read, and we cannot tell them apart.
+        // No third number: the remainder mixes servers lacking the protocol with servers whose
+        // handshake we haven't read, and we can't tell them apart.
         var properties = typeof(ProtocolByCodebase).GetProperties().Select(p => p.Name.ToLowerInvariant());
 
         foreach (var name in properties)
@@ -117,8 +111,8 @@ public class ReferenceFiguresTests
     [Test]
     public async Task TheCodebaseLinkAndTheCountAreOneFilter()
     {
-        // The page prints a number and offers a link, and a reader who follows the link counts the
-        // rows. If those two came from different questions the page would be lying by arithmetic.
+        // The printed count and the linked listing must come from the same question, or the page
+        // lies by arithmetic.
         var page = Library.Find(ReferenceKind.Codebase, "evennia")!;
         var queries = new FixtureGameQueries();
 
@@ -133,11 +127,7 @@ public class ReferenceFiguresTests
         Guid.NewGuid(), slug, slug, null, LifecycleState.Active, IsClaimed: false,
         PlayersNow: 0, codebase, protocols);
 
-    /// <summary>
-    /// A catalogue that answers with exactly what a test handed it, applying the same filter the
-    /// real one does. It exists so a count can be shown to <em>track</em> the query rather than
-    /// merely to be a number.
-    /// </summary>
+    /// <summary>A catalogue that answers with exactly what a test handed it, applying the same filter the real one does.</summary>
     private sealed class StubQueries(params GameSummary[] games) : IGameQueries
     {
         public Task<IReadOnlyList<GameSummary>> ListAsync(

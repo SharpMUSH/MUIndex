@@ -7,11 +7,8 @@
    for that keystroke to land. *@
 <a class="skip" href="#content">@L("a11y.skipToContent")</a>
 
-@*
-    A site whose whole claim is that its data is measured may not show invented data silently. This
-    is deliberately not dismissible and not subtle: a reader who cannot tell demo data from a
-    measurement is being misled by exactly the mechanism this project exists to replace.
-*@
+@* Not dismissible, not subtle: a reader who cannot tell demo data from a measurement is being
+   misled by exactly the mechanism this project exists to replace. *@
 @if (!Catalogue.IsMeasured)
 {
     <p class="demo-banner" role="status">
@@ -19,33 +16,20 @@
     </p>
 }
 
-@*
-    Nine links in one flat row, in no order anybody could name, and no mark on the one you were
-    reading. They are two ideas and two odd ones out: games · archive · find · random are places to
-    browse, reference · ecosystem · rankings are things to read about the hobby — and submit is an
-    action rather than a category, about is site meta. The first two are labelled groups, the last
-    two moved to the far end beside sign in, where a reader looks for what to *do*.
-*@
+@* Two labelled groups — browse (games/find/random/archive) and learn (reference/ecosystem/
+   rankings) — with submit and about moved to the far end beside sign in, where a reader looks
+   for what to *do*. *@
 <div class="shell">
 <header class="site">
     <a class="mark" href="@HttpContext.Link("/")">mu<span class="star">*</span>index</a>
-    @*
-        The bar degrades through a defined order rather than through whatever flexbox decides
-        (i18n S2): group labels first, then submit's border, then both groups into one disclosure.
-        Width triggers each step, never language — a German reader on a wide monitor never leaves
-        step 0 and an English reader in a narrow window reaches step 2.
-
-        Every destination survives all three steps. That is what makes the disclosure a `details`
-        holding the same seven links rather than a shorter bar: a step that dropped a link would be
-        a navigation that changes what the site contains depending on the window.
-    *@
-    @*
-        **Every link exists exactly once.** Step 3 is a disclosure wrapping the same two groups, not
-        a second copy of them beside the first — a duplicate set would put two `aria-current="page"`
-        markers in one document and hand a screen reader the catalogue twice. Above the collapse
-        width the summary is hidden and the disclosure's content is forced visible, so one markup is
-        a bar on a laptop and a menu on a phone with no script and no second rendering.
-    *@
+    @* The bar degrades through a defined order rather than whatever flexbox decides (i18n S2):
+       group labels first, then submit's border, then both groups into one disclosure. Width
+       triggers each step, never language. Every destination survives every step — a step that
+       dropped a link would make the site's contents depend on window size. *@
+    @* Every link exists exactly once: the disclosure wraps the same two groups rather than
+       duplicating them, since two copies would put two `aria-current="page"` markers in one
+       document. Above the collapse width the summary is hidden and the panel forced visible, so
+       one markup is a bar on a laptop and a menu on a phone with no script. *@
     <nav class="site-nav" aria-label="@L("nav.catalogues")">
         <details class="nav-menu">
             <summary>@L("nav.menu") <span aria-hidden="true">▾</span></summary>
@@ -65,30 +49,17 @@
                     @Item("/rankings", L("nav.rankings"))
                 </span>
 
-                @*
-                    Step 4. On a phone the right cluster runs out of room too, so submit comes in
-                    here rather than being dropped — the rule is still that a step loses decoration
-                    and never a destination. About and sign in stay in the bar: the first is two
-                    words, and the second is the only item at that end that changes what the site
-                    will let a reader do.
-                *@
+                @* Step 4: submit moves in here rather than being dropped — a step loses decoration,
+                   never a destination. About and sign in stay in the bar. *@
                 <span class="menu-tail">
                     <span class="nav-label" aria-hidden="true">@L("nav.thisSite")</span>
                     <a href="@HttpContext.Link("/submit")">@L("nav.submitGame")</a>
                 </span>
 
-                @*
-                    Step 5. The two reading controls, at the width where the bar has no room left
-                    for them — the same move `submit` makes one step earlier, for the same reason.
-                    The theme control stays in the bar at every width: it is three short words and
-                    the ladder already spends its type size on them.
-
-                    Rendered here *and* in the bar, with CSS showing exactly one, which is what
-                    `menu-tail` above already does. The alternative — one copy moved by CSS — is not
-                    available: the panel and the trailing cluster are different flex containers and
-                    nothing moves a box between two of those. The switcher carries no `id` for that
-                    reason; see LanguageSwitcher on the label that used to need one.
-                *@
+                @* Step 5: the two reading controls, same move as `submit`. Theme stays in the bar
+                   at every width. Rendered here *and* in the bar with CSS showing exactly one — the
+                   panel and the trailing cluster are different flex containers, so nothing can move
+                   a single box between them. *@
                 <span class="menu-reading">
                     <span class="nav-label" aria-hidden="true">@L("nav.reading")</span>
                     @Mirror
@@ -97,16 +68,16 @@
             </div>
         </details>
     </nav>
-    @*
-        The account, in a slot of its own rather than as a tenth entry above — that list names places
-        to browse and an operator's own page is not one of them. Last, so it sits at the far end of
-        the bar where a reader looks for it.
-
-        It was missing entirely, and everything §8.5 grants was behind it: the enrichment fields, the
-        connect-screen decision, the opt-out. All of them rendered, tested and reachable only by
-        somebody who remembered to type /account.
-    *@
+    @* The account, in its own slot rather than a tenth entry above — that list names places to
+       browse, and an operator's own page is not one of them. *@
     <nav class="account" aria-label="@L("nav.account")">
+        @* Reuses the same non-primary `.action` treatment and 40em/62.5em collapse as submit
+           below, so this costs nothing new against the width ladder above — it degrades exactly
+           where submit already does, rather than opening a fresh breakpoint to tune. *@
+        <a class="action discord" href="https://discord.gg/KNRGZnQGpa" target="_blank" rel="noopener" title="@L("nav.discord")">
+            <span class="reach-icon" aria-hidden="true">@((MarkupString)LinkIcons.Svg(LinkKind.Discord))</span>
+            <span class="sr-only">@L("nav.discord")</span>
+        </a>
         @Item("/about", L("nav.about"))
         <a class="action" href="@HttpContext.Link("/submit")">@L("nav.submit")</a>
         @if (HttpContext?.User is { Identity.IsAuthenticated: true })
@@ -118,35 +89,17 @@
             <a class="action primary" href="@HttpContext.Link("/account/sign-in")">@L("nav.signIn")</a>
         }
     </nav>
-    @*
-        Last in the bar, because these are the controls that do not go anywhere: everything to their
-        left names a page, and these three change the one you are on — as text, in another language,
-        against another background.
-
-        They used to be a footer. It said "all games · archive · submit · plain text" under a bar
-        that already carried the first three, so on every page the last thing a reader met was the
-        navigation they had already been given, and the two controls that were *not* duplicates were
-        buried at the end of it. The duplicates are gone and the two survivors came up here.
-    *@
+    @* Last in the bar: everything to their left names a page, these three change the one you're
+       on — as text, in another language, against another background. *@
     <div class="reading">
-        @*
-            Two of the three behind a caret, and the reason is a measurement rather than a taste.
-
-            Drawn in the bar they cost 406px, and every threshold in this ladder is a pixel count
-            taken in English with `flex-wrap` as the escape valve. Swept from 340 to 1440 that valve
-            opened: a second row under German and Dutch at 1020–1220 and again at 1410, under
-            Japanese at 1020–1200. A caret and a panel cost about thirty, so the bar is never wider
-            than the one this branch started from — see app.css on why the numbers were left alone.
-
-            The theme is not in here. It is the control a reader reaches for *because* they cannot
-            comfortably read the page, and a click is the wrong thing to put in front of that.
-        *@
+        @* Two of the three behind a caret: drawn in the bar they cost 406px, and a width sweep
+           (340–1440px) found a second row forming under German/Dutch and Japanese at that size —
+           see app.css. Theme stays outside the caret; it's the control a reader reaches for
+           *because* they can't comfortably read the page, so it can't be one more click away. *@
         <details class="read-menu">
-            @*
-                The caret is the glyph; the word is for whoever is not looking at it. A summary whose
-                whole content is `▾` has no accessible name at all — a screen reader announces
-                "disclosure triangle, collapsed" and nothing about what it holds.
-            *@
+            @* The caret is the glyph; the word is for whoever isn't looking at it. A summary whose
+               whole content is `▾` has no accessible name — a screen reader announces "disclosure
+               triangle, collapsed" and nothing about what it holds. *@
             <summary>
                 <span class="sr-only">@L("nav.reading")</span>
                 <span aria-hidden="true">▾</span>
@@ -167,24 +120,12 @@
     /// One nav item, marked when it is the page being read.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <c>aria-current="page"</c> is the fact; the underline is the drawing of it. The marker is an
-    /// inset box-shadow rather than a border or a padding change, because either of those adds a
-    /// pixel to the item's box and shifts every link beside it the moment it becomes current — a
-    /// bar that moves when you arrive is a bar you cannot aim at.
-    /// </para>
-    /// <para>
-    /// A section matches its own root and everything under it, so a reference article marks
-    /// "reference" — but "/" matches only itself, or every item on the site would be current on the
-    /// home page.
-    /// </para>
-    /// <para>
-    /// <b>The item is named by the path it has in every language and written in the one this page
-    /// is being read in.</b> Those are two different strings and only the first can be compared
-    /// against the request: the middleware moves the locale into <c>PathBase</c>, so
-    /// <c>Request.Path</c> on <c>/de/games</c> is <c>/games</c> — and a nav that marked the current
-    /// page by its written form would mark nothing at all outside English.
-    /// </para>
+    /// The marker is an inset box-shadow rather than a border or padding change, since either would
+    /// add a pixel to the box and shift every link beside it the moment it becomes current. A
+    /// section matches its own root and everything under it, but "/" matches only itself, or every
+    /// item would be current on the home page. Matching is done against <c>Request.Path</c> (the
+    /// locale-invariant path — the locale routing middleware moves the locale into
+    /// <c>PathBase</c>), never against the translated link text.
     /// </remarks>
     private RenderFragment Item(string href, string text) =>
         @<a href="@HttpContext.Link(href)" class="@(IsCurrent(href) ? "on" : null)"
@@ -194,16 +135,10 @@
     /// The offer to read this page as text, where there is one.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Conditional, because six of the site's routes have no text mirror and a bar that offered one
-    /// on all of them would be advertising a link that answers with the page you are already on.
-    /// <see cref="TextMirror"/> holds which are which, and why the page cannot be the one to say so.
-    /// </para>
-    /// <para>
-    /// The href carries the query. Four of the eleven footers this replaces wrote a bare
-    /// <c>?plain=1</c>, so asking a filtered listing for text threw the filter away and answered
-    /// with the whole catalogue.
-    /// </para>
+    /// Conditional: not every route has a text mirror (<see cref="TextMirror"/> holds which do), and
+    /// offering one everywhere would link back to the page you're already on. The href carries the
+    /// existing query string, or asking a filtered listing for text would answer with the whole
+    /// catalogue instead.
     /// </remarks>
     private RenderFragment Mirror =>
         TextMirror.Offers(HttpContext)
@@ -214,11 +149,8 @@
     /// Every destination this bar offers, longest first, so the most specific match wins.
     /// </summary>
     /// <remarks>
-    /// <b>Two items were marked at once.</b> A section matches its own root and everything under it,
-    /// which is what makes a reference article mark "reference" — but <c>/games/random</c> is its own
-    /// destination in the same bar, so standing on it matched <c>/games</c> as well and a screen
-    /// reader was handed two "current page" markers in one document. `aria-current` names the page
-    /// you are on, and there is one of those.
+    /// Ordered by length so a request under both <c>/games/random</c> and <c>/games</c> matches only
+    /// the longer one — otherwise a screen reader gets two "current page" markers in one document.
     /// </remarks>
     private static readonly string[] Destinations =
     [
@@ -235,8 +167,8 @@
             path = "/";
         }
 
-        // The best match, not merely a match: the first destination this path sits under is the one
-        // that gets the marker, and every shorter one that also contains it gets nothing.
+        // Best match, not merely a match: only the first (longest) destination this path sits
+        // under gets the marker.
         var best = Destinations.FirstOrDefault(d => Matches(d, path));
 
         return best is not null && best == href;
@@ -250,10 +182,8 @@
     /// The request, for the one question this layout asks it: is anybody signed in.
     /// </summary>
     /// <remarks>
-    /// Every page on the site renders this header, so anything read here is read once per page view
-    /// for ever. The operator's display name would be pleasant and would cost a query against the
-    /// user store on the listing, the rankings and every game page to render four words — so the
-    /// link says where it goes rather than who is holding it, and the dashboard does the greeting.
+    /// Every page renders this header, so a display name here would cost a user-store query on
+    /// every page view just to render four words — the link says where it goes, not who's signed in.
     /// </remarks>
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }

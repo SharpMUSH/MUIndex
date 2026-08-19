@@ -18,16 +18,10 @@ namespace MUI.Web.Tests;
 /// The about page, which is an obligation this project incurred by crawling rather than a feature.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The load-bearing test here is not that the page renders: it is that the attribution list names
-/// every directory <c>docs/import-sources.md</c> says was read. That file is the record §7.6 leaves
-/// behind on <c>main</c> when the importer goes, and a credit that drifts from it is a credit that
-/// quietly drops whoever was added last.
-/// </para>
-/// <para>
-/// The rest assert sentences rather than markup, for the reason the whole plain surface exists: a
-/// limitation that only survives in the graphical page is a limitation stated to the layout.
-/// </para>
+/// The load-bearing test is that the attribution list names every directory
+/// <c>docs/import-sources.md</c> records as read (spec §7.6) — drift there silently drops a credit.
+/// The rest assert sentences rather than markup, since a claim only present in the graphical layout
+/// isn't really stated.
 /// </remarks>
 public class AboutPageTests
 {
@@ -39,22 +33,19 @@ public class AboutPageTests
     /// The English a message id carries, which is what this page is asserted against.
     /// </summary>
     /// <remarks>
-    /// The copy lives in <see cref="Messages"/> now, so a sentence pasted into a test would be a
-    /// third copy of it — and the one nothing checks. Asking the bundle asserts the fact this page
-    /// makes a claim about ("the archive-grace limitation is stated") rather than the spelling of
-    /// it, and still fails if the id stops reaching the page. Where a claim is a <em>rule</em>
-    /// rather than a sentence — the refusal to say "no automated opt-out" — the literal stays,
-    /// because there the wording is the rule. A rule about the site's <em>vocabulary</em> is the one
-    /// case where a literal on this page is wrong: it belongs over the whole bundle in every locale,
-    /// which is where <see cref="NoMessageOutsideTheseTwoRefusalsUsesTheWordUptime"/> puts it.
+    /// Reads the message bundle rather than a pasted sentence, so this still fails if the id stops
+    /// reaching the page. Where a claim is a rule rather than a sentence (e.g. "no automated
+    /// opt-out"), the literal wording stays instead — see
+    /// <see cref="NoMessageOutsideTheseTwoRefusalsUsesTheWordUptime"/> for the one vocabulary rule
+    /// checked across the whole bundle instead.
     /// </remarks>
     private static string Says(string id) => Messages.For(Locales.SourceTag, id);
 
     [Test]
     public async Task EveryDirectoryTheBackfillReadIsCreditedByNameAndByAddress()
     {
-        // Parsed from the record rather than pasted from it. A source added to the document and not
-        // to the page is the failure this exists to catch, and a copied list cannot catch it.
+        // Parsed from the record, not pasted from it, so a source added to the doc and not the page
+        // fails here.
         var documented = DocumentedSources();
 
         await Assert.That(documented).IsNotEmpty();
@@ -70,15 +61,13 @@ public class AboutPageTests
     [Test]
     public async Task ASourceWeChoseNotToFetchIsCreditedAndSaidToBeUnread()
     {
-        // MudVerse is written, tested and deliberately never run. Leaving it off would read as
-        // completeness; crediting it as read would be the same lie the other way round.
+        // MudVerse is deliberately never fetched; crediting it as read would misrepresent that.
         var mudverse = Page.Sources.Single(s => s.Name == "MudVerse");
 
         await Assert.That(mudverse.State).IsEqualTo(ImportSourceState.Withheld);
         await Assert.That(Plain).Contains(Says("about.source.withheld"));
 
-        // And the badge for one we did read is a different string, not a negation of this one: a
-        // reader meets the difference between "we chose not to" and "we could not" only here.
+        // A distinct string, not a negation — "we chose not to" vs. "we could not".
         await Assert.That(Says("about.source.read")).IsNotEqualTo(Says("about.source.withheld"));
     }
 
@@ -93,8 +82,6 @@ public class AboutPageTests
     [Test]
     public async Task TheCrawlOfMudStatsThatWentOutUnaskedIsOnThePage()
     {
-        // The record matters more than the tidy version, and it matters most on the page that asks
-        // to be trusted about everything else.
         var text = Render.Words(Plain);
 
         await Assert.That(text).Contains("143 of their pages");
@@ -122,9 +109,8 @@ public class AboutPageTests
     [Test]
     public async Task TheCrawlerIdentityIsReadOffTheProbeRatherThanWrittenOut()
     {
-        // A name typed into the page is a description of the source tree. This one has to be the
-        // object the probe is constructed from, or a deployment that configures it gets a page that
-        // confidently names somebody else.
+        // Must read off the actual probe object, or a deployment that configures it gets a page
+        // confidently naming somebody else.
         var probe = new ProbeOptions { TerminalTypes = ["EXAMPLE-CRAWLER"], InfoUrl = "https://example.test/bot" };
         var text = PlainText.RenderAbout(AboutPage.Build(probe, new DatasetLicenceOptions()));
 
@@ -136,9 +122,8 @@ public class AboutPageTests
     [Test]
     public async Task TheCrawlerIsAnnouncedNowThatTncSupportsClientIdentity()
     {
-        // TelnetNegotiationCore 2.8.1 added WithClientIdentity and WithTerminalTypes, which wire
-        // the configured name into TTYPE responses and MNES CLIENT_NAME. The probe sets both, so
-        // what an administrator reads in their logs is the name in ProbeOptions.TerminalTypes.
+        // TelnetNegotiationCore wires the configured name into TTYPE and MNES CLIENT_NAME, so what an
+        // administrator sees in their logs is ProbeOptions.TerminalTypes.
         var identity = Page.Sections.Single(s => s.Id == "crawler").Identity;
 
         await Assert.That(identity).IsNotNull();
@@ -149,8 +134,7 @@ public class AboutPageTests
     [Test]
     public async Task AnUnconfiguredContactAddressIsMarkedAsThePlaceholderItIs()
     {
-        // The built-in URL is on a domain nobody has chosen. Printed unmarked it would read as the
-        // way to reach us, which is the one thing this section exists to provide.
+        // Printed unmarked, the built-in URL would read as our real contact address.
         await Assert.That(Render.Words(Plain)).Contains(Says("about.identity.placeholder.plain"));
 
         var configured = PlainText.RenderAbout(AboutPage.Build(
@@ -163,10 +147,8 @@ public class AboutPageTests
     [Test]
     public async Task TheOptOutIsPublishedWithTheExactWordsThatWork()
     {
-        // The page used to say there was no automated opt-out, which was true and was the honest
-        // thing to print. Now that one exists, the page has to name the two spellings an operator
-        // would type — and name them off the reader that consumes them, so an edit on either side
-        // cannot leave this page advertising a switch wired to something else.
+        // Names both spellings an operator would type, read off the same vocabulary the reader
+        // consumes, so the two can't drift apart.
         var text = Render.Words(Plain);
 
         await Assert.That(text).DoesNotContain("no automated opt-out");
@@ -179,8 +161,7 @@ public class AboutPageTests
         await Assert.That(text).Contains("TXT record");
         await Assert.That(text).Contains("write to a person");
 
-        // Honoured within one cycle, and the way back out is on the page — an opt-out whose exit is
-        // undocumented is a trap.
+        // An opt-out with no documented exit is a trap.
         await Assert.That(text).Contains("within one crawl cycle");
         await Assert.That(text).Contains("undo without asking us");
     }
@@ -188,9 +169,7 @@ public class AboutPageTests
     [Test]
     public async Task ThePageSaysWhatAnOptedOutGamesPageStillShows()
     {
-        // Nothing is ever deleted, and the third state of an hour names no cause. A reader who opted
-        // out has to be able to find out what happens to what we already measured, and the answer is
-        // "it stays, and nothing new arrives".
+        // Rule 3: an opted-out game keeps its history, only new measurement stops.
         var text = Render.Words(Plain);
 
         await Assert.That(text).Contains("Stopping is not deleting");
@@ -211,8 +190,8 @@ public class AboutPageTests
     [Test]
     public async Task ThePermittedCommandIsReadOffTheProbeAndNotDescribedFromMemory()
     {
-        // "It sends one WHO" is a claim about the probe. The probe publishes the list, so the page
-        // cannot understate it when a second command is ever added.
+        // Read off the probe's own published list, so the page can't understate it if a second
+        // command is added.
         foreach (var command in TelnetProbe.PermittedCommands)
         {
             await Assert.That(Plain).Contains(command);
@@ -227,29 +206,16 @@ public class AboutPageTests
         await Assert.That(text).Contains(Says("about.measures.declared.lead"));
         await Assert.That(text).Contains("MSSP PLAYERS field");
         await Assert.That(text).Contains("WHO or DOING read at the connect screen");
-        await Assert.That(text).Contains("unknown, never zero");
+        await Assert.That(text).Contains("Only a completed read can be a zero");
     }
 
     /// <summary>
     /// The page explains what reachability is, in whatever language it is being read in.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>This used to count the English word "uptime" and require exactly two of it.</b> That was a
-    /// reasonable guard while the page was a C# string and an unreasonable one the moment it became
-    /// a translation: a Japanese or Chinese rendering of the same two refusals contains the token
-    /// zero times and would fail, and a German one contains it twice by a coincidence of loanwords
-    /// rather than because the rule held. Worse, the assertion made the *presence* of the forbidden
-    /// word the thing under test, so the page's vocabulary rule was guarded by requiring the
-    /// vocabulary to be broken.
-    /// </para>
-    /// <para>
-    /// The rule survives, split from the spelling. Here: the two refusal ids reach the page, asked
-    /// of the bundle, so this holds in every locale. And in
-    /// <see cref="NoMessageOutsideTheseTwoRefusalsUsesTheWordUptime"/>: the word appears in no other
-    /// message, in no locale — which is the rule itself ("reachable, never uptime", in copy),
-    /// checked over the whole bundle rather than inferred from one page's word count.
-    /// </para>
+    /// Asserts the message ids rather than counting the English word "uptime" — a literal word count
+    /// breaks under translation. <see cref="NoMessageOutsideTheseTwoRefusalsUsesTheWordUptime"/>
+    /// checks the vocabulary rule ("reachable, never uptime") itself, across every locale.
     /// </remarks>
     [Test]
     public async Task ReachableIsExplainedInWhateverLanguageThePageIsRead()
@@ -259,8 +225,6 @@ public class AboutPageTests
         await Assert.That(text).Contains(Says("about.measures.reachable.lead"));
         await Assert.That(text).Contains(Says("about.measures.reachable.body"));
 
-        // The substance of the refusal, which is what the rule is for: the measurement is of our
-        // socket from our host, and an unreachable game may be perfectly alive.
         await Assert.That(text).Contains("unreachable and perfectly alive");
         await Assert.That(text).Contains("nothing here measured it");
     }
@@ -269,11 +233,8 @@ public class AboutPageTests
     /// "Reachable, never uptime" — over the bundle, in every locale, rather than over one page.
     /// </summary>
     /// <remarks>
-    /// The two about-page ids are the whole exemption: they are the sentences that name the word in
-    /// order to refuse it, and they are the only place on the site allowed to. Every other id is
-    /// checked in every bundle a reader can be served, so a translator who reaches for the loanword
-    /// in a reachability string fails this rather than shipping it — which a rendered-English word
-    /// count could never have caught.
+    /// The two about-page ids are the only place "uptime" is allowed to appear, since they exist to
+    /// refuse it. Every other id, in every locale, is checked for the word.
     /// </remarks>
     [Test]
     public async Task NoMessageOutsideTheseTwoRefusalsUsesTheWordUptime()
@@ -300,16 +261,15 @@ public class AboutPageTests
             }
         }
 
-        // And the exemption is real rather than vacuous: the English refusals do use the word, which
-        // is what makes them refusals and not silence.
+        // The exemption is real, not vacuous: the English refusals do use the word.
         await Assert.That(Says("about.measures.reachable.lead").ToLowerInvariant()).Contains("uptime");
     }
 
     [Test]
     public async Task TheThingsThisSiteWillNotDoAreStatedRatherThanImplied()
     {
-        // The one page where these words are allowed to appear, because it is the page that says
-        // they are absent. PlainParityTests asserts the opposite about every other surface.
+        // The one page where these words appear, because it's the page saying they're absent
+        // elsewhere; PlainParityTests asserts the opposite about every other surface.
         var text = Render.Words(Plain);
 
         await Assert.That(text).Contains(Says("about.never.votes.lead"));
@@ -327,8 +287,7 @@ public class AboutPageTests
         await Assert.That(text).Contains("licence for the data is an open question");
         await Assert.That(text).Contains("not yet taken");
 
-        // What the deployment serves is still shown — a consumer needs the terms — but framed as
-        // this deployment's answer rather than as the project's.
+        // Framed as this deployment's answer, not the project's.
         await Assert.That(text).Contains("this deployment serves");
         await Assert.That(text).Contains(new DatasetLicenceOptions().LicenceName);
     }
@@ -336,8 +295,7 @@ public class AboutPageTests
     [Test]
     public async Task NoPlainLineIsWiderThanEightyColumns()
     {
-        // The over-long lines rather than the first one, because a width failure is usually a whole
-        // block that was built without the wrapper and the count is the diagnosis.
+        // All the over-long lines, not just the first — the count is the diagnosis.
         var wide = Plain.Split('\n')
             .Select(l => l.TrimEnd())
             .Where(l => l.Length > PlainText.Columns)
@@ -349,8 +307,7 @@ public class AboutPageTests
     [Test]
     public async Task TheGraphicalPageCarriesEverySentenceThePlainOneDoes()
     {
-        // The parity that matters: both surfaces render one view model, so nothing can exist on one
-        // and not the other. Read off the rendered frame, because that is what a browser receives.
+        // Both surfaces render one view model; read off the rendered frame, what a browser receives.
         var markup = await RenderAboutAsync();
         var text = Text(markup);
 
@@ -368,9 +325,7 @@ public class AboutPageTests
                 await Assert.That(text).Contains(source.Name);
                 await Assert.That(text).Contains(Render.Words(source.Note));
 
-                // The address is the link here and a printed line there. Asserted against the
-                // markup rather than the reading text, because a graphical page that spelled its
-                // URLs out as well would be the plain page with worse typography.
+                // The URL is a link here, not printed text — asserted against markup, not text.
                 await Assert.That(markup).Contains(source.Url);
             }
         }
@@ -380,19 +335,10 @@ public class AboutPageTests
     /// Every sentence on this page comes out of the bundle, and the machine voice does not.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The pseudolocale accents and brackets every string that reached a reader through
-    /// <see cref="Messages"/>, so anything still legible as English here is a sentence typed into a
-    /// page — which is what the whole of this page was until it was moved. This was the largest
-    /// untranslated surface on the site, and the one it would be worst to leave: it is where the
-    /// site explains what a measurement here proves, to a reader who by definition does not yet
-    /// trust it.
-    /// </para>
-    /// <para>
-    /// The directories' names and addresses go the other way. They are somebody else's name and
-    /// somebody else's URL, they are the credit §7.6 owes, and translating either would destroy the
-    /// acknowledgement rather than localize it — so they are asserted to be <em>unchanged</em>.
-    /// </para>
+    /// The pseudolocale marks every string that passed through <see cref="Messages"/>; anything still
+    /// legible as English here was hard-coded. Directory names and URLs are asserted
+    /// <em>unchanged</em> instead — translating someone else's name would misattribute the credit
+    /// §7.6 owes.
     /// </remarks>
     [Test]
     public async Task EverySentenceComesFromTheBundleAndTheDirectoriesOwnNamesDoNot()
@@ -416,8 +362,7 @@ public class AboutPageTests
             }
         }
 
-        // The crawler's own name and the licence a deployment configured are machine voice too, and
-        // are read off the objects that own them rather than out of the bundle.
+        // Machine voice too; read off the objects that own them rather than out of the bundle.
         await Assert.That(pseudo).Contains(page.Sections.Single(s => s.Id == "crawler").Identity!.Name);
         await Assert.That(pseudo).Contains(new DatasetLicenceOptions().LicenceName);
 
@@ -432,10 +377,8 @@ public class AboutPageTests
     /// The graphical page needs no scripting to be read.
     /// </summary>
     /// <remarks>
-    /// It used to assert the offer of the text mirror here too. That offer is in the bar now — it
-    /// was the one thing in each page's footer worth keeping, and eleven pages each carried their
-    /// own copy of it. <see cref="ReadingControlsTests"/> holds the claim, over every route rather
-    /// than over this one.
+    /// The text-mirror-offer assertion lives in <see cref="ReadingControlsTests"/> now, checked once
+    /// across every route rather than duplicated per page.
     /// </remarks>
     [Test]
     public async Task TheGraphicalPageIsReachableWithoutScripting()
@@ -464,9 +407,7 @@ public class AboutPageTests
         services.AddSingleton<IOptions<DatasetLicenceOptions>>(
             Options.Create(new DatasetLicenceOptions()));
 
-        // Whether a catalogue is configured, which the page's preview metadata switches on: over a
-        // fixture the description says so, because no unfurler renders the banner that says it in
-        // the body. Not measured, matching the rest of this harness.
+        // Fixture mode, matching the rest of this harness.
         services.AddSingleton(new MUI.Web.Data.CatalogueSource(IsMeasured: false));
 
         await using var provider = services.BuildServiceProvider();

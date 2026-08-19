@@ -5,23 +5,15 @@ namespace MUI.Web.Localization;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Some sentences have a link or an emphasised word inside them. Gluing English round an anchor
-/// gives a language that wants the link first, or a different preposition before it, nowhere to say
-/// so; formatting the anchor <em>into</em> the string and trusting the result through a
-/// <c>MarkupString</c> would make every bundle a place a tag could be put. So the message places a
-/// marker, this walks it, and what a translator writes is text either way.
+/// Some sentences carry a link or emphasised word. Gluing English round an anchor gives a language
+/// with different word order nowhere to say so, and letting a bundle embed markup via
+/// <c>MarkupString</c> would make every translation a place a tag could be put. So the message places
+/// a marker, this walks it, and a translator only ever writes text.
 /// </para>
 /// <para>
-/// The markers are private-use code points, which no translation contains by accident and no script
-/// the site offers uses. They are assigned in the order the slots are passed and never appear in
-/// what a reader is shown: a marker that survives into the output is a slot the message did not
-/// place, and the run for it is simply absent — which is visible rather than silent.
-/// </para>
-/// <para>
-/// This was two copies before it was one file. The random-game empty state placed two links this
-/// way and the reference section needed the same thing for its own two sentences, at which point the
-/// marker constant, the walk and the "translator writes no markup" argument were about to exist
-/// twice.
+/// Markers are private-use code points, so no translation contains one by accident. They are
+/// assigned in slot order and never appear in the output — a marker that survives is a slot the
+/// message didn't place, and the run for it is simply absent.
 /// </para>
 /// </remarks>
 public static class Sentences

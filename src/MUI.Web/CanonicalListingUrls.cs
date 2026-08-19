@@ -8,31 +8,12 @@ namespace MUI.Web;
 /// Sends a listing request on to the URL that says only what was asked for.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Why a redirect and not a fix at the form.</b> A browser submits every named control in a GET
-/// form, and the panel has nine <c>&lt;select&gt;</c>s that are usually on "any"; no markup says
-/// "submit this one only if it holds something", and the panel deliberately runs no script (spec
-/// §9). So the empty parameters exist by the time we see them, and the honest thing to do with a URL
-/// that means the same as a shorter one is to say so. <see cref="ListingQuery"/> holds the rule; this
-/// is the two lines that apply it.
-/// </para>
-/// <para>
-/// <b>Middleware rather than a branch inside the page</b>, for the same reason
-/// <see cref="FormerSlugRedirects"/> is: a component cannot answer with a status line, and this one
-/// should cost nothing beyond the redirect — no catalogue read, no facet count, no render of a page
-/// nobody is going to be shown.
-/// </para>
-/// <para>
-/// <b>302 and not 301.</b> Half of what this drops is the default sort, and which order is default
-/// is a decision of ours that may move. A permanent redirect asserting that <c>?sort=players</c> is
-/// redundant is one a reader's browser caches and neither of us can withdraw — the same argument
-/// <see cref="CrawlerContact"/> makes for its own.
-/// </para>
-/// <para>
-/// <b>Pages only.</b> §10's read API is handed whatever URL a consumer built and answers it: a
-/// client library that follows the redirect has spent a round trip for nothing, and one that does
-/// not — a perfectly ordinary way to write one — reads a bodiless 302 as a failure.
-/// </para>
+/// A browser submits every named control in the panel's GET form regardless of value (spec §9, no
+/// script to omit blanks), so empty params exist by the time we see them; <see cref="ListingQuery"/>
+/// holds the canonicalization rule, this applies it via middleware since a component can't answer
+/// with a status line. <b>302, not 301</b>: which sort is default is a decision that may move, and a
+/// cached permanent redirect couldn't be withdrawn. <b>Pages only</b> — §10's read API answers
+/// whatever URL a consumer built rather than redirecting it.
 /// </remarks>
 public static class CanonicalListingUrls
 {
@@ -64,12 +45,7 @@ public static class CanonicalListingUrls
     /// <summary>
     /// A GET or HEAD of one of the listing pages.
     /// </summary>
-    /// <remarks>
-    /// HEAD as well as GET, because a link checker asking whether a URL still works is a caller this
-    /// should answer the same way as a reader. A trailing slash is tolerated because routing
-    /// tolerates it, so <c>/games/</c> and <c>/games</c> cannot disagree about which URLs are
-    /// equivalent.
-    /// </remarks>
+    /// <remarks>HEAD as well as GET, for link checkers. A trailing slash is tolerated because routing tolerates it.</remarks>
     private static bool IsListingPage(HttpRequest request) =>
         (HttpMethods.IsGet(request.Method) || HttpMethods.IsHead(request.Method))
         && request.Path.HasValue

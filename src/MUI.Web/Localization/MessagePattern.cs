@@ -40,30 +40,14 @@ public sealed record ArgumentPart(
     IReadOnlyDictionary<string, MessagePattern> Branches) : MessagePart;
 
 /// <summary>
-/// One ICU MessageFormat pattern, parsed once and formattable many times.
+/// One ICU MessageFormat 1.0 pattern, parsed once and formattable many times.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Parsed rather than interpreted, because parsing is when a message can be refused.</b> A
-/// pattern that names a branch keyword no plural category uses, or a <c>select</c> with no
-/// <c>other</c>, is broken in a way that only shows up for the one reader whose count happens to
-/// reach it. Parsing every bundle at startup — and in a test that walks all of them — turns that
-/// into a failure somebody sees before a reader does.
-/// </para>
-/// <para>
-/// <b>The whole of MessageFormat 1.0's grammar</b>: simple arguments, <c>number</c>, <c>date</c> and
-/// <c>time</c> with their styles and skeletons, <c>plural</c> and <c>selectordinal</c> with
-/// <c>offset:</c> and <c>=value</c> matches, <c>select</c>, nesting to any depth, and ICU's
-/// apostrophe quoting in its default DOUBLE_OPTIONAL mode. <c>choice</c> is refused: it is
-/// deprecated in ICU itself, its syntax is ambiguous with <c>plural</c>, and every use of it is
-/// better written as one of the two selectors above.
-/// </para>
-/// <para>
-/// <b>Not MessageFormat 2.0.</b> MF2 reached stable in CLDR 47 and is where this is going, but its
-/// syntax is a different language, no .NET implementation exists, and the translation tools this
-/// pipeline has to hand strings to — every one of them — speak MF1. Choosing MF2 today would trade
-/// a pipeline that works for a spec with nowhere to send the strings.
-/// </para>
+/// Parsed rather than interpreted so a broken pattern — an unused plural branch, a <c>select</c>
+/// with no <c>other</c> — fails at startup (and in a test that walks every bundle) rather than only
+/// for the one reader whose count happens to reach it. <c>choice</c> is refused: deprecated in ICU,
+/// ambiguous with <c>plural</c>. Not MessageFormat 2.0 — no .NET implementation exists yet and the
+/// translation tooling here speaks MF1.
 /// </remarks>
 public sealed record MessagePattern(IReadOnlyList<MessagePart> Parts)
 {
@@ -83,12 +67,7 @@ public sealed record MessagePattern(IReadOnlyList<MessagePart> Parts)
         return parsed;
     }
 
-    /// <summary>Every argument this pattern reads, and what it does with each.</summary>
-    /// <remarks>
-    /// Walks nested branches too, so a message can be checked against the values a caller will
-    /// actually pass without rendering it — which is what lets a test assert that every argument a
-    /// bundle names is one the site supplies.
-    /// </remarks>
+    /// <summary>Every argument this pattern reads, and what it does with each — walks nested branches too.</summary>
     public IEnumerable<ArgumentPart> Arguments()
     {
         foreach (var part in Parts)
@@ -173,18 +152,9 @@ public sealed record MessagePattern(IReadOnlyList<MessagePart> Parts)
     /// ICU's apostrophe rules, in the DOUBLE_OPTIONAL mode ICU uses by default.
     /// </summary>
     /// <remarks>
-    /// <para>
     /// An apostrophe only starts quoted text when it immediately precedes <c>{</c>, <c>}</c>,
-    /// <c>|</c>, or <c>#</c> inside a plural. Anywhere else it is what it looks like — a literal
-    /// apostrophe — which is what makes <c>doesn't</c> safe to write without thinking about it. A
-    /// doubled apostrophe is always one literal apostrophe.
-    /// </para>
-    /// <para>
-    /// This replaces the doubled-brace escape an earlier version carried, which was ambiguous with
-    /// the syntax it appeared in: every argument ends <c>...}}</c> when its last branch closes, and
-    /// a reader treating those two characters as one literal walked straight past the end of the
-    /// message. That was a real bug and this is the spec's own answer to it.
-    /// </para>
+    /// <c>|</c>, or <c>#</c> inside a plural — elsewhere it's literal, so <c>doesn't</c> needs no
+    /// escaping. A doubled apostrophe is always one literal apostrophe.
     /// </remarks>
     private static void Quote(string s, ref int at, bool inPlural, System.Text.StringBuilder text)
     {
@@ -260,8 +230,7 @@ public sealed record MessagePattern(IReadOnlyList<MessagePart> Parts)
             "selectordinal" => ArgumentKind.SelectOrdinal,
             "select" => ArgumentKind.Select,
 
-            // Deprecated in ICU, ambiguous with plural, and better written as one. Refusing it is
-            // the whole reason this parser exists rather than a regular expression.
+            // Deprecated in ICU and ambiguous with plural; every use is better written as one.
             "choice" => throw new FormatException(
                 $"'choice' is deprecated in ICU and is not supported — use plural or select: {s}"),
 
@@ -385,16 +354,9 @@ public sealed record MessagePattern(IReadOnlyList<MessagePart> Parts)
     /// A branch selector: a category keyword, or <c>=</c> and the number it matches exactly.
     /// </summary>
     /// <remarks>
-    /// <b>A bare <c>=</c> is a parse error and not a selector.</b> It was accepted — the <c>=</c>
-    /// was consumed, nothing had to follow it, and the category check above skips anything starting
-    /// with one — so <c>{n, plural, = {none} other {#}}</c> stored a branch under a key no number
-    /// written any way can equal. That is exactly the dead branch this parser exists to refuse
-    /// rather than to keep quietly, and it is the one shape that got past the check.
-    /// <para>
-    /// ICU parses an explicit value as a number, so a leading sign and a fraction are both legal
-    /// after the <c>=</c> and a word is not: <c>=x</c> is a typo for a keyword, and a keyword is
-    /// what the branch above it would have checked.
-    /// </para>
+    /// A bare <c>=</c> must be a parse error, not a selector: without this check it was accepted
+    /// and stored a branch under a key no number could ever match — a dead branch nothing selects.
+    /// A leading sign and a fraction are legal after <c>=</c>; a word is not.
     /// </remarks>
     private static string Selector(string s, ref int at)
     {

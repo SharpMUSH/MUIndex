@@ -1,47 +1,32 @@
--- A game that asked to be left alone, and then asked to be taken out of the listing too (spec §11).
+-- A game that asked to be left alone, and then asked to be taken off the listing too (§11).
 --
--- **Why this is not the opt-out, which is the distinction the whole feature turns on.** §11's
--- opt-out is a decision about *dialling*: we stop connecting, and the page keeps everything measured
--- before the ask. That is what the about page and the README have always promised, and it stays
--- true for everyone who only wanted the crawler to stop. Some operators want more than that, and
--- until now the answer was that there was nothing more to give them.
+-- Distinct from the opt-out: opt-out (§11) stops dialling and leaves everything already
+-- measured on the page. This additionally removes the listing for operators who want more than
+-- that.
 --
--- **Why it is not `excluded` (migration 0024), which is the nearer neighbour.** Exclusion says "this
--- answers like a game and is not one" — our judgement about what a thing *is*, stored as ours,
--- carrying an argument a reader can disagree with. A game that asks to be unlisted is a game. Filing
--- it under `excluded` would put a false statement about it in the one column readers filter on, and
--- the word is visible: it reaches the facets, the plain-text surface and the read API.
+-- Distinct from `excluded` (0024): exclusion is our judgement that something isn't a game.
+-- Unlisting is a game that asked not to be shown — filing it under `excluded` would put a false
+-- claim in the column readers filter on.
 --
--- **There is no reason column here, and its absence is deliberate.** `excluded_reason` exists
--- because an exclusion is our claim and an unarguable claim is the thing 0024 was written to
--- prevent. This is not our claim. The reason is that they asked, `unlisted_by` records the account
--- that pressed the button, and `crawl_opt_out` already holds who asked and how — writing our own
--- prose about somebody's request would be inventing a third version of it.
+-- No reason column, deliberately: `excluded_reason` exists because exclusion is our unarguable
+-- claim about what a thing is; this isn't our claim. `unlisted_by` plus crawl_opt_out.detail
+-- already record who asked and how, without us inventing our own prose about it.
 --
--- **`unlisted_by` is not audit decoration.** It is the whole authorisation story in one column: the
--- account that asked for this, here. Through `OwnerListing` — the only writer in the shipped tree —
--- that is by construction the account holding a verified claim on the game at the moment the button
--- was pressed. **An operator writing this row by hand records their own account**, which is §11's
--- third route arriving at the listing: a person at our end recording what somebody asked for, with
--- `crawl_opt_out.detail` holding who asked and how. Neither case may be inferred and neither may be
--- defaulted. This repository has already shipped one claim about a third party's wishes that was
--- compiled in by whoever typed it (`ContactedMaintainer`, defaulted to true); a NOT NULL reference
--- to somebody is what that defect did not have.
+-- unlisted_by is the authorization story, not audit decoration: through OwnerListing (the only
+-- writer in the shipped tree) it's by construction the account holding a verified claim at the
+-- time the button was pressed. A hand-written row records the operator's own account. NOT NULL
+-- so nobody's wishes can be inferred or defaulted (cf. the ContactedMaintainer defect).
 --
--- **Reversible by a probe, unlike an exclusion.** `ArchiveSweeper.RestoreAsync` relists this state
--- on the first answered probe, and that is safe by construction rather than by a check: an
--- opted-out address is refused before the dial, so a probe that answers is proof that no opt-out
--- stands any more. It means the documented exit an operator can work alone — delete the TXT record,
--- be dialled again within a week on §7.4's permanent floor — brings the listing back with it. An
--- unlisting with no exit but ours would be the trap the about page warns about.
+-- Reversible by a probe, unlike an exclusion: an opted-out address is refused before the dial, so
+-- any probe that answers proves no opt-out stands any more, and ArchiveSweeper.RestoreAsync
+-- relists on the first one. Deleting the TXT record and waiting out §7.4's probe floor is
+-- sufficient to relist.
 --
--- **Nothing is deleted and nothing stops.** §7.5's guarantees are unchanged: the page, the URL, the
--- history and the change feed all survive, and the address keeps its schedule for ever. What it
--- loses is the default listing, the rankings and the "active today" figure.
+-- §7.5's guarantees are unchanged — page, URL, history, change feed all survive, schedule
+-- continues. Only the default listing, rankings, and "active today" are affected.
 --
--- No BEGIN/COMMIT here: MigrationRunner opens a transaction around each script and writes the ledger
--- entry inside it, so a script opening its own commits half the work and then fails the ledger
--- insert with "transaction is already completed".
+-- No BEGIN/COMMIT: MigrationRunner opens its own transaction per script and writes the ledger
+-- entry inside it.
 
 ALTER TABLE game
     DROP CONSTRAINT game_state_vocabulary,
@@ -50,13 +35,10 @@ ALTER TABLE game
 
     ADD COLUMN unlisted_at timestamptz,
 
-    -- No ON DELETE clause, so the default refuses the delete rather than blanking the column: an
-    -- account cannot be removed out from under a standing unlisting and leave the row saying nobody
-    -- asked for it. That is the shape game_claim already uses for the same reference.
+    -- No ON DELETE clause: refuses the delete rather than blanking the column, so an account
+    -- can't be removed out from under a standing unlisting (same shape as game_claim's reference).
     ADD COLUMN unlisted_by uuid REFERENCES app_user (id),
 
-    -- Both together or neither, and only in the state they describe — 0024's shape, for 0024's
-    -- reason. An unlisting with no date, or a date with no state, is a row nobody can read back.
     ADD CONSTRAINT game_unlisting_is_attributed CHECK (
         (state = 'unlisted') = (unlisted_at IS NOT NULL)
         AND (unlisted_at IS NULL) = (unlisted_by IS NULL));

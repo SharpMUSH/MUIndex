@@ -13,18 +13,10 @@ namespace MUI.Crawler.Tests;
 /// The residue §7.8 leaves, and the one lever an operator has over it.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>This exists because the rule it backs stops short on purpose.</b> The rubric publishes what a
-/// probe can prove and refuses everything else, and half the live catalogue answers a login screen
-/// with nothing but a banner — Achaea among them. Those submissions are real games that no
-/// measurement of ours reaches, and before this there was no code path in the entire project that
-/// could ever make one visible: the only writer of the visibility rule was a verified claim.
-/// </para>
-/// <para>
-/// A queue nobody can see is the same failure in a nicer shape, so the reader comes first and the
-/// release is a second act, taken by a person, recorded as <c>staff</c> beside the signals a probe
-/// would have written.
-/// </para>
+/// Exists because the rule it backs stops short on purpose: the rubric publishes what a probe can
+/// prove and refuses the rest, so some real games no measurement of ours reaches are stuck unless a
+/// person can look and release them by hand, recorded as <c>staff</c> beside the signals a probe would
+/// have written.
 /// </remarks>
 public class SubmissionQueuePostgresTests
 {

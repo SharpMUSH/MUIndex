@@ -5,19 +5,10 @@ namespace MUI.Web.Reference;
 /// <c>---</c> rules.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Hand-rolled, and that is a decision rather than an omission. There are eight keys, no nesting,
-/// and no value that is not a string — a YAML parser would be a second dependency, a second syntax
-/// for an author to get wrong, and a surface with a decade of parser CVEs behind it, all to read
-/// <c>title: Mudlet</c>.
-/// </para>
-/// <para>
-/// <b>An unknown key is an error, not a shrug.</b> The failure this guards against is a mistyped
-/// <c>capabilty:</c> silently dropping a row from a matrix — a page that then reports nothing where
-/// it meant to report something, which on this site is the one kind of wrong that looks right.
-/// Loading happens at startup over our own embedded files, so throwing here cannot be triggered by
-/// anything a reader sends, and the content test fails long before a deployment would.
-/// </para>
+/// Hand-rolled rather than YAML: eight flat string keys don't need a second parser dependency and
+/// syntax. An unknown key throws rather than being silently dropped — a mistyped <c>capabilty:</c>
+/// would otherwise vanish a row from a matrix with no visible sign. Loading happens at startup over
+/// embedded files, so this can only fail a build, never a request.
 /// </remarks>
 public static class ReferenceFrontMatter
 {
@@ -98,10 +89,8 @@ public static class ReferenceFrontMatter
     }
 
     /// <summary>
-    /// <c>capability: NAME | yes | https://source</c> — three fields, and the third is not optional
-    /// in any sense that matters. A claim arriving without it is demoted to unknown by
-    /// <see cref="CapabilityClaim.Read"/>, which is why the pipe with nothing after it is a legal and
-    /// useful thing to write: it records that we looked and did not establish it.
+    /// <c>capability: NAME | yes | https://source</c> — a claim with no source is demoted to unknown
+    /// by <see cref="CapabilityClaim.Read"/>, so a trailing empty pipe is legal and means "looked, found nothing".
     /// </summary>
     private static CapabilityClaim Capability(string origin, string value)
     {
