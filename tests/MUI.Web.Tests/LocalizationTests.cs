@@ -496,11 +496,14 @@ public class LocalizationTests
         await Assert.That(setCookie).Contains($"{Locales.CookieName}=en");
         await Assert.That(setCookie).DoesNotContain("1970");
 
-        // A browser header that would otherwise win must not move a reader off the choice they just
-        // made — the whole point of pinning it.
+        // A header whose own top preference is a different, offered locale must not move a reader off
+        // the English they just pinned — the whole point of pinning it. Ranked above English (not
+        // just present), so this is a genuine conflict Preferred() would resolve away from English.
+        var competing = Locales.Offered.First(locale => locale.Tag != Locales.SourceTag);
+
         var revisit = new HttpRequestMessage(HttpMethod.Get, "/games");
         revisit.Headers.Add("Cookie", $"{Locales.CookieName}=en");
-        revisit.Headers.Add("Accept-Language", "en-US,en;q=0.9,ja;q=0.2");
+        revisit.Headers.Add("Accept-Language", $"{competing.Tag};q=1,en;q=0.9");
 
         var answered = await site.Client.SendAsync(revisit);
 
