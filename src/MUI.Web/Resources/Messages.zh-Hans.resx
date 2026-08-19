@@ -345,6 +345,9 @@
   <data name="nav.about" xml:space="preserve">
     <value>关于</value>
   </data>
+  <data name="nav.discord" xml:space="preserve">
+    <value>Discord</value>
+  </data>
   <data name="nav.submit" xml:space="preserve">
     <value>提交</value>
   </data>

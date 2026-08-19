@@ -71,6 +71,13 @@
     @* The account, in its own slot rather than a tenth entry above — that list names places to
        browse, and an operator's own page is not one of them. *@
     <nav class="account" aria-label="@L("nav.account")">
+        @* Reuses the same non-primary `.action` treatment and 40em/62.5em collapse as submit
+           below, so this costs nothing new against the width ladder above — it degrades exactly
+           where submit already does, rather than opening a fresh breakpoint to tune. *@
+        <a class="action discord" href="https://discord.gg/KNRGZnQGpa" target="_blank" rel="noopener" title="@L("nav.discord")">
+            <span class="reach-icon" aria-hidden="true">@((MarkupString)LinkIcons.Svg(LinkKind.Discord))</span>
+            <span class="sr-only">@L("nav.discord")</span>
+        </a>
         @Item("/about", L("nav.about"))
         <a class="action" href="@HttpContext.Link("/submit")">@L("nav.submit")</a>
         @if (HttpContext?.User is { Identity.IsAuthenticated: true })

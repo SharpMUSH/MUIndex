@@ -151,6 +151,7 @@ public static class Messages
         ["nav.ecosystem"] = "ecosystem",
         ["nav.rankings"] = "rankings",
         ["nav.about"] = "about",
+        ["nav.discord"] = "Discord",
         ["nav.submit"] = "submit",
         ["nav.submitGame"] = "submit a game",
         ["nav.signIn"] = "sign in",

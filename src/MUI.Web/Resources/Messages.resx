@@ -448,6 +448,10 @@
     <value>about</value>
     <comment>site chrome</comment>
   </data>
+  <data name="nav.discord" xml:space="preserve">
+    <value>Discord</value>
+    <comment>site chrome</comment>
+  </data>
   <data name="nav.submit" xml:space="preserve">
     <value>submit</value>
     <comment>site chrome</comment>
