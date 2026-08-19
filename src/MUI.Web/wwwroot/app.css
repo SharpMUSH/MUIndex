@@ -426,7 +426,15 @@ header.site .mark .star { color: var(--accent); text-shadow: var(--glow); }
    Not a box. At rest it is the value, one state glyph and a relative age — no border, no fill,
    because it appears hundreds of times and a chip shape at that density is noise.               */
 
-.chip { white-space: nowrap; }
+/* A chip holds somebody else's text, and somebody else's text can be a paragraph: Beutelland's
+   MSSP DESCRIPTION is 1,421 characters, and `white-space: nowrap` turned that one field into a
+   9,971-pixel page — every other column on /g dragged out behind a horizontal scroll bar, with the
+   game's own writing off the right-hand edge where nothing reaches it. So a value wraps, and it
+   wraps mid-word when a word is longer than the column (a URL, a run-on address) rather than
+   pushing the page out again. The chip's own furniture still cannot come apart: the markup puts no
+   whitespace between the value, the state glyph and the age — those gaps are margins — so the only
+   break opportunities in a chip are inside the value's own words. */
+.chip { overflow-wrap: anywhere; }
 .chip .glyph { font-family: var(--mono); }
 
 /* The gap between a value and the glyph that qualifies it. A margin and not a space in the markup,

@@ -47,4 +47,18 @@ public class StylesheetAddressTests
 
         await Assert.That(await flat.Content.ReadAsStringAsync()).IsEqualTo(css);
     }
+
+    [Test]
+    public async Task AChipHoldingAParagraphWrapsRatherThanWideningThePage()
+    {
+        // A game's MSSP DESCRIPTION is as long as the game feels like making it — 1,421 characters
+        // on Beutelland — and a chip that refuses to break took the whole of /g out to 9,971 pixels.
+        await using var site = await SiteHost.StartAsync();
+
+        var css = await site.Client.GetStringAsync("/app.css");
+
+        await Assert.That(css).Contains(".chip { overflow-wrap: anywhere; }");
+        await Assert.That(Regex.IsMatch(css, @"\.chip\s*\{[^}]*white-space:\s*nowrap")).IsFalse()
+            .Because("a value that cannot wrap is a page that scrolls sideways");
+    }
 }
