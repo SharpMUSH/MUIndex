@@ -269,6 +269,131 @@ public class ClaimPostgresTests
             .Throws<PostgresException>();
     }
 
+    /// <summary>
+    /// One clock decides whether a token is still pending, and it is the injected one.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="GameClaim.IsPending"/> asks the <see cref="TimeProvider"/> and the store asked the
+    /// database, so the same claim could be pending in C# and expired in SQL. Two consequences, both
+    /// real: a fixture dated far enough in the past verifies nothing however carefully it sets its
+    /// clock, and every test in this file that dates a claim near the wall clock is on a fuse that
+    /// burns down thirty days after somebody wrote the literal. Time comes from the service.
+    /// </remarks>
+    [Test]
+    public async Task WhetherATokenIsStillPendingIsDecidedByTheInjectedClock()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var user = await UserAsync(db, "owner");
+
+        // Long enough ago that the database's own now() considers the token expired the moment it
+        // is minted, which is exactly what a fixed fixture date becomes as it ages.
+        var clock = new MovableClock(new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        var service = Service(db, clock);
+
+        var claim = await service.IssueAsync(game, user);
+
+        await Assert.That(await service.OfferBeaconAsync(game, claim.Token, ClaimChannel.Mssp))
+            .IsEqualTo(ClaimVerdict.Verified);
+    }
+
+    /// <summary>§8.3's third channel: a TXT record, port-qualified, read off the operator's own zone.</summary>
+    [Test]
+    public async Task ADnsTxtBeaconVerifiesAClaimAndTheChannelSurvivesTheRoundTrip()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var user = await UserAsync(db, "owner");
+        var service = Service(db);
+
+        var claim = await service.IssueAsync(game, user);
+
+        var verdict = await service.OfferBeaconAsync(game, claim.Token, ClaimChannel.DnsTxt);
+
+        await Assert.That(verdict).IsEqualTo(ClaimVerdict.Verified);
+        await Assert.That(await IsClaimedAsync(db, game)).IsTrue();
+
+        var settled = (await new NpgsqlClaimStore(db.DataSource).ForGameAsync(game)).Single();
+
+        // Through the schema and back, not just through the service: the channel vocabulary is a
+        // CHECK constraint, so a member the migration does not know about fails on write.
+        await Assert.That(settled.VerifiedVia).IsEqualTo(ClaimChannel.DnsTxt);
+    }
+
+    /// <summary>
+    /// §8.3, §8.4 — DNS may join a game's owners and may never displace them.
+    /// </summary>
+    /// <remarks>
+    /// The two other channels are published by the listener being claimed, so proving one proves
+    /// control of that game. A TXT record is published by whoever controls the domain, and on shared
+    /// MU* hosting that is the host's operator rather than the game's. Joining on that evidence is a
+    /// listing gaining an owner; a takeover on it is somebody who proved control of the actual server
+    /// losing theirs, so the destructive half of the flow stays on the wire.
+    /// </remarks>
+    [Test]
+    public async Task ADnsTxtBeaconCannotCompleteATakeover()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var owner = await UserAsync(db, "owner");
+        var newcomer = await UserAsync(db, "newcomer");
+        var service = Service(db);
+
+        var theirs = await service.IssueAsync(game, owner);
+        await service.OfferBeaconAsync(game, theirs.Token, ClaimChannel.Mssp);
+
+        var takeover = await service.IssueAsync(game, newcomer, ClaimIntent.Assume);
+
+        await Assert.That(await service.OfferBeaconAsync(game, takeover.Token, ClaimChannel.DnsTxt))
+            .IsEqualTo(ClaimVerdict.NothingToDo);
+
+        var store = new NpgsqlClaimStore(db.DataSource);
+
+        await Assert.That((await store.ForGameAsync(game)).Single(c => c.Id == takeover.Id).IsVerified)
+            .IsFalse();
+        await Assert.That((await store.ForGameAsync(game)).Single(c => c.Id == theirs.Id).IsVerified)
+            .IsTrue();
+
+        // The same pending claim still completes over a channel that proves control of the listener,
+        // so the rule bounds the evidence rather than the intent.
+        await Assert.That(await service.OfferBeaconAsync(game, takeover.Token, ClaimChannel.Mssp))
+            .IsEqualTo(ClaimVerdict.Assumed);
+    }
+
+    /// <summary>
+    /// A DNS-verified claim's beacon still refreshes, and a verified takeover's still does too.
+    /// </summary>
+    /// <remarks>
+    /// The Join-only rule guards the pending-to-verified transition and nothing else. Refusing to
+    /// move <c>beacon_last_seen_at</c> for an already-verified Assume claim would make the sweep
+    /// report a live record as unseen — §8.4's two timestamps exist to keep those apart.
+    /// </remarks>
+    [Test]
+    public async Task DnsStillRefreshesTheBeaconOfAClaimItCouldNotHaveVerified()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var owner = await UserAsync(db, "owner");
+        var newcomer = await UserAsync(db, "newcomer");
+        var clock = new MovableClock(Now);
+        var service = Service(db, clock);
+
+        await service.OfferBeaconAsync(game, (await service.IssueAsync(game, owner)).Token, ClaimChannel.Mssp);
+
+        var takeover = await service.IssueAsync(game, newcomer, ClaimIntent.Assume);
+        await service.OfferBeaconAsync(game, takeover.Token, ClaimChannel.Mssp);
+
+        clock.Advance(TimeSpan.FromHours(1));
+
+        await Assert.That(await service.OfferBeaconAsync(game, takeover.Token, ClaimChannel.DnsTxt))
+            .IsEqualTo(ClaimVerdict.StillSeen);
+
+        var settled = (await new NpgsqlClaimStore(db.DataSource).ForGameAsync(game))
+            .Single(c => c.Id == takeover.Id);
+
+        await Assert.That(settled.BeaconLastSeenAt).IsEqualTo(Now.AddHours(1));
+    }
+
     private static GameClaim Claim(Guid game, Guid user, string token) => new()
     {
         Id = Guid.CreateVersion7(),

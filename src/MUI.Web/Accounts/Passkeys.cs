@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
 using MUI.Crawler;
+using MUI.Discovery;
 
 using Npgsql;
 
@@ -262,6 +263,12 @@ public static class Passkeys
         // connect to a stranger's server on demand: the rate limit is per claim, and a claim can't
         // exist for a game nobody has been offered. See ClaimService.RequestCheckAsync.
         //
+        // §8.3's DNS channel is the exception, and settles here and now: reading a TXT record opens
+        // no socket to the game, so there is nothing to schedule and nothing for CRAWL DELAY to
+        // bind. It runs only when RequestCheckAsync said yes, so the lookup carries the same
+        // per-claim rate limit as the probe it sits beside rather than a second one of its own —
+        // and an operator who has just edited their zone sees the answer on the redirect.
+        //
         // IGameStore, not IGameQueries: a submitted game is hidden from every public read until
         // claimed (migration 0010), and the public read would make this the second thing a hidden
         // game couldn't do.
@@ -271,7 +278,11 @@ public static class Passkeys
             IGameStore games,
             IClaimStore claims,
             ClaimService service,
-            string slug) =>
+            string slug,
+            // Service-located, because a site with no database behind it has no resolver either and
+            // must still render the button rather than 500 on it. CompositionTests asserts the real
+            // graph does have one — a null here is a deployment shape, not a missing registration.
+            DnsClaimVerifier? dns = null) =>
         {
             var user = await users.GetUserAsync(context.User);
 
@@ -284,9 +295,9 @@ public static class Passkeys
             var mine = (await claims.ForUserAsync(user.Id))
                 .FirstOrDefault(c => c.GameId == game.Id && c.RevokedAt is null);
 
-            if (mine is not null)
+            if (mine is not null && await service.RequestCheckAsync(mine.Id) && dns is not null)
             {
-                await service.RequestCheckAsync(mine.Id);
+                await dns.CheckAsync(game.Id);
             }
 
             return Results.Redirect(

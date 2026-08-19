@@ -1003,11 +1003,36 @@ name does not reliably survive a config file, and an operator who did exactly wh
 not be told their claim failed) and **the connect screen** (`MUINDEX-CLAIM: muidx-…`). Both are read
 by the probe that already exists.
 
-**DNS TXT is deferred, and not merely for lack of a resolver.** A TXT record proves control of a
-*hostname*, and a hostname is not a game: MU\* hosting routinely puts many unrelated games on one
-domain, separated only by port. The host's operator could claim all of them, and a game running on
-somebody else's domain could never use the channel at all. If it returns it needs a port qualifier.
-The two channels above prove control of *that listener*, which is the thing being claimed.
+**DNS TXT is the third channel, and it came back with the port qualifier this section asked for.**
+A record at `_muindex.<host>` carrying `muidx-…=4201` — the same underscore label §11's opt-out
+already uses, because a deployment gets one of those. The objection that deferred it was real and is
+answered by three rules rather than by exclusion:
+
+- **The qualifier is required.** A TXT record proves control of a *hostname*, and a hostname is not a
+  game: MU\* hosting routinely puts unrelated games on one domain, separated only by port. Naming the
+  port is how a publisher says which listener they speak for, and an unqualified token verifies
+  nothing — the opposite of the opt-out grammar, where bare means the whole host, because the safe
+  direction reverses. There, guessing wrong means crawling somebody who asked us to stop; here it
+  means handing over a listing.
+- **The token is already per-(account, game).** A host's operator cannot publish one record and take
+  everything on the domain: each claim has its own token, minted only after that account asked for
+  that game.
+- **It may join and may never displace.** A `dns_txt` beacon completes a `join` and is refused for an
+  `assume` (§8.4's counter-claim), in `ClaimService.OfferBeaconAsync` and nowhere else. What remains
+  after the first two rules is that on shared hosting the publisher is the hosting operator rather
+  than the game's — the ordinary trust boundary of every DNS-verification scheme, and **this is not
+  claimed to be airtight**. Bounding it to the non-destructive half is what the rule buys: gaining an
+  owner is recoverable, and an owner who proved control of the actual server losing theirs is not.
+
+**Nothing about this channel dials the game**, which is its point: an operator whose server is down,
+firewalled from us, or on a codebase whose connect screen they cannot edit can still prove they run
+it. Two paths read it and both go through `DnsClaimVerifier` — §8.1's *check now* button, where the
+lookup runs inside the existing per-claim rate limit and answers on the redirect, and a sweep on its
+own advisory lease so that "publish it and we notice" holds here as it does on the wire. A lookup is
+spent only where a live claim could be changed by one; sweeping the catalogue would put a standing
+query load on strangers' nameservers for a channel almost none of them use. Endpoints a game has
+moved off are excluded, or the next tenant of an expired hostname could claim a game that left it
+years ago.
 
 ### 8.4 Presence establishes; absence never revokes
 
@@ -1278,9 +1303,12 @@ probe can know about is still doing something legitimate.
     that answered, so it speaks for that listener and no further — MU\* hosting puts unrelated games
     on one domain separated only by a port, and one of them must never be able to silence another. A
     TXT record is the domain operator speaking about a machine they run, so it covers the host. That
-    asymmetry is exactly why DNS is deferred for *claiming* and kept for *opting out*: the failure
-    mode of a hostname-scoped claim is somebody taking a game that is not theirs, and the failure
-    mode of a hostname-scoped opt-out is us not dialling a machine whose owner told us not to.
+    asymmetry is why an *unqualified* record means opposite things on the two channels: here it
+    covers every port, and for a claim (§8.3) it verifies nothing. The failure mode of a
+    hostname-scoped claim is somebody taking a game that is not theirs; the failure mode of a
+    hostname-scoped opt-out is us not dialling a machine whose owner told us not to. Same record
+    shape, opposite safe direction — and `ClaimTokenBeacon.ReadDns` and `OptOutVocabulary.ReadDns`
+    are deliberately two readers rather than one, because a shared one would have to pick.
   - **Only DNS can withdraw itself**, and it is re-read before every dial, so an operator can take the
     opt-out back alone and be crawled again at that address's next check — at most a week, since a
     refused address is still scheduled at §7.4's permanent floor. An MSSP field cannot be re-read

@@ -52,6 +52,16 @@ public sealed class AdvisoryLease : IAsyncDisposable
     public const long I3Key = 0x4D55495F494D_5544L;
 
     /// <summary>
+    /// The §8.3 DNS claim sweep's key. <c>MUI_DNSC</c>.
+    /// </summary>
+    /// <remarks>
+    /// Its own key rather than the crawl lease's: the sweep opens no sockets to games and must not
+    /// queue behind a cycle that does, since what it is keeping short is the wait between an operator
+    /// editing their zone and their listing saying so.
+    /// </remarks>
+    public const long DnsClaimKey = 0x4D55495F444E_5343L;
+
+    /// <summary>
     /// Takes the lock if it is free, or returns null. Never waits: a replica that cannot have the
     /// lock has nothing to wait for, and <c>pg_advisory_lock</c> would block a hosted service's
     /// startup indefinitely.

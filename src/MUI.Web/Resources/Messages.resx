@@ -3649,7 +3649,7 @@
     <comment>claiming a game you run</comment>
   </data>
   <data name="claim.either.heading" xml:space="preserve">
-    <value>Either of these will do</value>
+    <value>Any of these will do</value>
     <comment>claiming a game you run</comment>
   </data>
   <data name="claim.mssp.heading" xml:space="preserve">
@@ -3670,6 +3670,26 @@
   </data>
   <data name="claim.screen.note" xml:space="preserve">
     <value>Anywhere in the screen, and colour codes around it are fine.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.dns.heading" xml:space="preserve">
+    <value>A DNS TXT record</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.dns.note" xml:space="preserve">
+    <value>The port is not optional. It says which listener on this host the record speaks for, and one without it proves nothing — a domain can carry several unrelated games. We read this without connecting to your game, so it works while the server is down, and the button below reads it on the spot.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.dns.noAssume" xml:space="preserve">
+    <value>A TXT record cannot complete a transfer. Whoever controls a domain is not always whoever runs the game on it, so taking a game over has to be proved from the server itself — use one of the two above.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.verified.viaDns" xml:space="preserve">
+    <value>We read your token from a TXT record in your DNS on {date}.</value>
+    <comment>claiming a game you run</comment>
+  </data>
+  <data name="claim.verified.leaveItDns" xml:space="preserve">
+    <value>Leave the record where it is. Removing it will not un-claim you, and while it is there we can see you still run this game without connecting to it.</value>
     <comment>claiming a game you run</comment>
   </data>
   <data name="claim.then.heading" xml:space="preserve">

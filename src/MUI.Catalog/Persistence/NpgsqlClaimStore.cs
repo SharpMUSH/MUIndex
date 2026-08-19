@@ -62,6 +62,27 @@ public sealed class NpgsqlClaimStore(NpgsqlDataSource source) : IClaimStore
         return [.. rows.Select(r => r.ToRecord())];
     }
 
+    public async Task<IReadOnlyList<GameClaim>> PendingOrDnsVerifiedAsync(
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<Row>(new CommandDefinition(
+            $"""
+            SELECT {Columns}
+              FROM game_claim
+             WHERE revoked_at IS NULL
+               AND ((claimed_at IS NULL AND expires_at > @now)
+                 OR (claimed_at IS NOT NULL AND verified_via = 'dns_txt'))
+             ORDER BY issued_at
+            """,
+            new { now },
+            cancellationToken: cancellationToken));
+
+        return [.. rows.Select(r => r.ToRecord())];
+    }
+
     /// <summary>
     /// The live pending claim on <paramref name="gameId"/> holding <paramref name="token"/>.
     /// </summary>
@@ -72,6 +93,7 @@ public sealed class NpgsqlClaimStore(NpgsqlDataSource source) : IClaimStore
     public async Task<GameClaim?> FindPendingByTokenAsync(
         Guid gameId,
         string token,
+        DateTimeOffset now,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(token);
@@ -86,9 +108,9 @@ public sealed class NpgsqlClaimStore(NpgsqlDataSource source) : IClaimStore
                AND token = @token
                AND claimed_at IS NULL
                AND revoked_at IS NULL
-               AND expires_at > now()
+               AND expires_at > @now
             """,
-            new { gameId, token },
+            new { gameId, token, now },
             cancellationToken: cancellationToken));
 
         return row?.ToRecord();

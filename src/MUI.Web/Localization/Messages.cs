@@ -1457,13 +1457,22 @@ public static class Messages
             + " They will see why in their own history. Nothing is deleted, and they can prove "
             + "control again the same way you are about to.",
 
-        // Two ids, not one with a {channel} hole — the two sources decline differently.
+        // One id per channel, not one with a {channel} hole — the three sources decline differently.
         ["claim.verified.lead"] = "Verified.",
         ["claim.verified.viaMssp"] = "We read your token from the game's MSSP report on {date}.",
         ["claim.verified.viaScreen"] = "We read your token from the connect screen on {date}.",
+        ["claim.verified.viaDns"] = "We read your token from a TXT record in your DNS on {date}.",
         ["claim.verified.leaveIt"] = "Leave the token where it is. It doubles as an identity "
             + "signal, so this game stays recognisable if it moves host or changes name. Removing "
             + "it will not un-claim you.",
+
+        // Its own id rather than the one above, because the sentence above is not true of DNS: a
+        // TXT record is never read off a probe, so it is not §7.3's identity beacon. Telling a DNS
+        // claimant their record keeps the game recognisable would be the site claiming a mechanism
+        // it does not have.
+        ["claim.verified.leaveItDns"] = "Leave the record where it is. Removing it will not "
+            + "un-claim you, and while it is there we can see you still run this game without "
+            + "connecting to it.",
 
         ["claim.publish"] = "Publish this token anywhere the game shows it to an anonymous "
             + "connection. The next probe picks it up, which proves you can write to that server.",
@@ -1471,13 +1480,29 @@ public static class Messages
         ["claim.transfer.body"] = "{count, plural,"
             + " one {When we read this token, the current owner's claim on this game is revoked and it becomes yours.}"
             + " other {When we read this token, the current owners' claims on this game are revoked and it becomes yours.}}",
-        ["claim.either.heading"] = "Either of these will do",
+        ["claim.either.heading"] = "Any of these will do",
         ["claim.mssp.heading"] = "An MSSP variable",
         ["claim.mssp.note"] = "In {codebase} that is a line in {file}; every codebase with MSSP has "
             + "an equivalent.",
         ["claim.mssp.aliases"] = "{aliases} are accepted too.",
         ["claim.screen.heading"] = "A line on the connect screen",
         ["claim.screen.note"] = "Anywhere in the screen, and colour codes around it are fine.",
+
+        // §8.3's third channel. The port qualifier gets a sentence of its own because it is the
+        // whole reason the channel is sound: a TXT record proves control of a hostname, and naming
+        // the port is how the publisher says which listener they are speaking for.
+        ["claim.dns.heading"] = "A DNS TXT record",
+        // The "on the spot" half lives here rather than on claim.check.can, which is rendered for
+        // every game including the ones with no address on record and therefore no DNS section — a
+        // button that promised to read a TXT record beside instructions that never mentioned one
+        // would be the page describing a channel it did not offer.
+        ["claim.dns.note"] = "The port is not optional. It says which listener on this host the "
+            + "record speaks for, and one without it proves nothing — a domain can carry several "
+            + "unrelated games. We read this without connecting to your game, so it works while "
+            + "the server is down, and the button below reads it on the spot.",
+        ["claim.dns.noAssume"] = "A TXT record cannot complete a transfer. Whoever controls a "
+            + "domain is not always whoever runs the game on it, so taking a game over has to be "
+            + "proved from the server itself — use one of the two above.",
         ["claim.then.heading"] = "Then",
         ["claim.then.body"] = "We check on the ordinary crawl schedule. This token is good until "
             + "{date}. Come back any time; nothing needs writing down.",

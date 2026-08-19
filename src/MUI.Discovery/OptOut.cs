@@ -38,7 +38,7 @@ public static class OptOutVocabulary
     public static readonly IReadOnlyList<string> AcceptedMsspVariables =
         [MsspVariable, "MUINDEX_OPT_OUT", "MUINDEX OPTOUT", "CRAWL_OPT_OUT"];
 
-    /// <summary>The DNS label the record lives under — the same one §8's deferred claim channel names.</summary>
+    /// <summary>The DNS label the record lives under — the same one §8.3's claim channel uses.</summary>
     public const string DnsLabel = ClaimTokenBeacon.DnsLabel;
 
     /// <summary>The token a TXT record carries, e.g. <c>_muindex.example.org. IN TXT "opt-out"</c>.</summary>

@@ -95,13 +95,20 @@ public class ClaimSurfaceTests
     }
 
     /// <summary>
-    /// The channels a token may be published in are the two a probe can read, and DNS is not one.
+    /// The channels a token may be published in are three, and they are not equally strong.
     /// </summary>
-    /// <remarks>§8.3: a TXT record proves control of a hostname only, and hosting routinely puts unrelated games on one domain by port — DNS is excluded to stop a host's operator claiming every game on it.</remarks>
+    /// <remarks>
+    /// Pinned as a list because each member is a published contract with operators and a value in a
+    /// CHECK constraint. §8.3's objection to DNS is answered by two rules rather than by exclusion —
+    /// the record must name the port it speaks for, and it may never complete a takeover — and both
+    /// are asserted where they are enforced, in <c>MUI.Discovery.Tests</c> and
+    /// <c>ClaimPostgresTests</c>. What this pins is that a fourth member cannot arrive unnoticed.
+    /// </remarks>
     [Test]
-    public async Task OnlyChannelsAProbeCanReadAreClaimChannels()
+    public async Task TheClaimChannelsAreTheThreeOperatorsAreToldAbout()
     {
-        await Assert.That(Enum.GetNames<ClaimChannel>()).IsEquivalentTo(new[] { "Mssp", "ConnectScreen" });
+        await Assert.That(Enum.GetNames<ClaimChannel>())
+            .IsEquivalentTo(new[] { "Mssp", "ConnectScreen", "DnsTxt" });
     }
 
     // ── the language the claim page is answered in ────────────────────────────
@@ -113,8 +120,8 @@ public class ClaimSurfaceTests
     [Test]
     public async Task EveryWordOfClaimingComesFromTheBundle()
     {
-        var english = Render.Text(await ClaimWorld.Pending(Locales.SourceTag));
-        var pseudo = Render.Text(await ClaimWorld.Pending("qps-ploc"));
+        var english = Render.Text(await ClaimWorld.PendingWithEverySection(Locales.SourceTag));
+        var pseudo = Render.Text(await ClaimWorld.PendingWithEverySection("qps-ploc"));
 
         await Assert.That(pseudo).Contains("⟦");
 
@@ -143,8 +150,8 @@ public class ClaimSurfaceTests
     [Test]
     public async Task AGermanRequestGetsGermanOnTheClaimPage()
     {
-        var english = Render.Text(await ClaimWorld.Pending(Locales.SourceTag));
-        var german = Render.Text(await ClaimWorld.Pending("de"));
+        var english = Render.Text(await ClaimWorld.PendingWithEverySection(Locales.SourceTag));
+        var german = Render.Text(await ClaimWorld.PendingWithEverySection("de"));
 
         foreach (var id in Sayable("claim.").Where(i => Messages.HasOwn("de", i)))
         {
@@ -198,6 +205,82 @@ public class ClaimSurfaceTests
             Messages.Say(tag, "claim.title", ("game", ClaimWorld.GameName))));
     }
 
+    /// <summary>
+    /// §8.3's record is printed ready to paste, one line per host, ports and all.
+    /// </summary>
+    /// <remarks>
+    /// The exact bytes matter more here than on the other two channels: a token in a config file is
+    /// read back by a person who can see it went wrong, and a zone file that does not parse is
+    /// rejected by a nameserver with no idea what we meant. Derived from
+    /// <see cref="ClaimTokenBeacon"/> rather than retyped, so the page cannot drift from the reader.
+    /// </remarks>
+    [Test]
+    public async Task TheDnsSectionPrintsOneRecordPerHostWithEveryPortOnIt()
+    {
+        var page = Render.Text(await ClaimWorld.PendingWithAddresses(
+            Locales.SourceTag,
+            ClaimIntent.Join,
+            ClaimWorld.At("ashen-court.example.org", 4201),
+            ClaimWorld.At("ashen-court.example.org", 4202),
+            ClaimWorld.At("mirror.example.net", 5000)));
+
+        await Assert.That(page).Contains(
+            $"{ClaimTokenBeacon.DnsNameFor("ashen-court.example.org")}. IN TXT \"{ClaimWorld.Token}=4201,4202\"");
+
+        await Assert.That(page).Contains(
+            $"{ClaimTokenBeacon.DnsNameFor("mirror.example.net")}. IN TXT \"{ClaimWorld.Token}=5000\"");
+    }
+
+    /// <summary>An address the game has moved off is not one it can be claimed at (§5.5, §8.3).</summary>
+    /// <remarks>
+    /// The page and <see cref="DnsClaimVerifier"/> have to agree about this or the instructions are
+    /// ones that cannot work: telling somebody to publish under a hostname the verifier will not
+    /// read is worse than not offering the channel.
+    /// </remarks>
+    [Test]
+    public async Task TheDnsSectionLeavesOutAnAddressTheGameHasMovedOffOf()
+    {
+        var page = Render.Text(await ClaimWorld.PendingWithAddresses(
+            Locales.SourceTag,
+            ClaimIntent.Join,
+            ClaimWorld.At("ashen-court.example.org", 4201),
+            ClaimWorld.At("old.example.org", 4201, EndpointState.Gone)));
+
+        await Assert.That(page).Contains(ClaimTokenBeacon.DnsNameFor("ashen-court.example.org"));
+        await Assert.That(page).DoesNotContain(ClaimTokenBeacon.DnsNameFor("old.example.org"));
+    }
+
+    /// <summary>
+    /// A takeover is told before it publishes anything that DNS cannot complete one (§8.3, §8.4).
+    /// </summary>
+    /// <remarks>
+    /// Said instead of the record, not beside it. An operator who has already created a TXT record
+    /// and come back to find nothing happened has been let down by the page.
+    /// </remarks>
+    [Test]
+    public async Task ATakeoverIsNotOfferedTheDnsChannelAtAll()
+    {
+        var page = Render.Text(await ClaimWorld.PendingWithAddresses(
+            Locales.SourceTag,
+            ClaimIntent.Assume,
+            ClaimWorld.At("ashen-court.example.org", 4201)));
+
+        await Assert.That(page).Contains(
+            Render.Words(Messages.For(Locales.SourceTag, "claim.dns.noAssume")));
+        await Assert.That(page).DoesNotContain($"{ClaimWorld.Token}=4201");
+    }
+
+    /// <summary>A site that does not know where a game answers offers the two channels it can.</summary>
+    [Test]
+    public async Task WithNoAddressOnRecordTheOtherTwoChannelsAreStillOffered()
+    {
+        var page = Render.Text(await ClaimWorld.Pending(Locales.SourceTag));
+
+        await Assert.That(page).Contains(ClaimTokenBeacon.MsspVariable);
+        await Assert.That(page).DoesNotContain(
+            Render.Words(Messages.For(Locales.SourceTag, "claim.dns.heading")));
+    }
+
     /// <summary>Ids under a prefix that can be rendered without arguments.</summary>
     private static IEnumerable<string> Sayable(string prefix) =>
         Messages.Ids
@@ -224,6 +307,34 @@ public class ClaimSurfaceTests
         /// <summary>A signed-in operator with a token outstanding: the page an owner works from.</summary>
         public static Task<string> Pending(string tag) => RenderAsync(tag, withGame: true, withClaims: true);
 
+        /// <summary>
+        /// The same, for a game whose addresses we know — the state §8.3's channel needs.
+        /// </summary>
+        /// <remarks>
+        /// Separate from <see cref="Pending"/> rather than folded into it, because "we know where
+        /// this game answers" is exactly the condition the DNS section is gated on: a site with no
+        /// endpoint store, or a game with no endpoint row, must render the other two channels and
+        /// not a record with a blank name.
+        /// </remarks>
+        public static Task<string> PendingWithAddresses(
+            string tag,
+            ClaimIntent intent = ClaimIntent.Join,
+            params GameEndpoint[] endpoints) =>
+            RenderAsync(tag, withGame: true, withClaims: true, intent, endpoints);
+
+        /// <summary>
+        /// The state with the most words in it: a pending join on a game we know the address of.
+        /// </summary>
+        /// <remarks>
+        /// What the language tests drive, so §8.3's copy is held to the same two rules as the rest —
+        /// every word comes out of the bundle, and every word that has a translation gets it.
+        /// </remarks>
+        public static Task<string> PendingWithEverySection(string tag) =>
+            PendingWithAddresses(tag, ClaimIntent.Join, At("ashen-court.example.org", 4201));
+
+        public static GameEndpoint At(string host, int port, EndpointState state = EndpointState.Active) =>
+            new(GameId, host, port, EndpointKind.Telnet, Now, Now, state);
+
         /// <summary>A slug that names nothing.</summary>
         public static Task<string> NoGame(string tag) => RenderAsync(tag, withGame: false, withClaims: true);
 
@@ -231,7 +342,12 @@ public class ClaimSurfaceTests
         public static Task<string> NoDatabase(string tag) =>
             RenderAsync(tag, withGame: true, withClaims: false);
 
-        private static Task<string> RenderAsync(string tag, bool withGame, bool withClaims)
+        private static Task<string> RenderAsync(
+            string tag,
+            bool withGame,
+            bool withClaims,
+            ClaimIntent intent = ClaimIntent.Join,
+            IReadOnlyList<GameEndpoint>? endpoints = null)
         {
             var user = new MuiUser { DisplayName = "corvid-admin", CreatedAt = Now };
 
@@ -241,6 +357,7 @@ public class ClaimSurfaceTests
                 GameId = GameId,
                 UserId = user.Id,
                 Token = Token,
+                Intent = intent,
                 IssuedAt = Now.AddDays(-2),
                 ExpiresAt = Now.AddDays(12),
             };
@@ -266,6 +383,13 @@ public class ClaimSurfaceTests
                     {
                         services.AddSingleton<IClaimStore>(claims);
                         services.AddSingleton(new ClaimService(claims, games, new Frozen(Now)));
+                    }
+
+                    // Absent unless a test asks for it, matching a site with no database: the page
+                    // service-locates this and renders the first two channels without it.
+                    if (endpoints is { Count: > 0 })
+                    {
+                        services.AddSingleton<IEndpointStore>(new Endpoints(endpoints));
                     }
 
                     services.AddSingleton<IUserStore<MuiUser>>(new Accounts([user], Now));
@@ -337,6 +461,18 @@ public class ClaimSurfaceTests
                 throw new NotSupportedException();
         }
 
+        private sealed class Endpoints(IReadOnlyList<GameEndpoint> rows) : IEndpointStore
+        {
+            public Task<IReadOnlyList<GameEndpoint>> ForGameAsync(Guid game, CancellationToken ct = default) =>
+                Task.FromResult<IReadOnlyList<GameEndpoint>>([.. rows.Where(e => e.GameId == game)]);
+
+            public Task<GameEndpoint?> ByAddressAsync(string host, int port, CancellationToken ct = default) =>
+                throw new NotSupportedException();
+
+            public Task UpsertAsync(GameEndpoint endpoint, CancellationToken ct = default) =>
+                throw new NotSupportedException();
+        }
+
         private sealed class Claims(List<GameClaim> claims) : IClaimStore
         {
             public Task<GameClaim?> FindAsync(Guid id, CancellationToken ct = default) =>
@@ -348,7 +484,17 @@ public class ClaimSurfaceTests
             public Task<IReadOnlyList<GameClaim>> ForUserAsync(Guid user, CancellationToken ct = default) =>
                 Task.FromResult<IReadOnlyList<GameClaim>>([.. claims.Where(c => c.UserId == user)]);
 
-            public Task<GameClaim?> FindPendingByTokenAsync(Guid g, string t, CancellationToken ct = default) =>
+            public Task<IReadOnlyList<GameClaim>> PendingOrDnsVerifiedAsync(
+                DateTimeOffset now,
+                CancellationToken ct = default) =>
+                Task.FromResult<IReadOnlyList<GameClaim>>(
+                    [.. claims.Where(c => c.IsPending(now) || (c.IsVerified && c.VerifiedVia is ClaimChannel.DnsTxt))]);
+
+            public Task<GameClaim?> FindPendingByTokenAsync(
+                Guid g,
+                string t,
+                DateTimeOffset now,
+                CancellationToken ct = default) =>
                 Task.FromResult<GameClaim?>(null);
 
             public Task InsertAsync(GameClaim claim, CancellationToken ct = default)

@@ -2713,7 +2713,7 @@
     <value>{count, plural, one {Sobald wir diesen Token lesen, wird der Anspruch des bisherigen Betreibers auf dieses Spiel widerrufen und es gehört Ihnen.} other {Sobald wir diesen Token lesen, werden die Ansprüche der bisherigen Betreiber auf dieses Spiel widerrufen und es gehört Ihnen.}}</value>
   </data>
   <data name="claim.either.heading" xml:space="preserve">
-    <value>Eines von beidem genügt</value>
+    <value>Eines davon genügt</value>
   </data>
   <data name="claim.mssp.heading" xml:space="preserve">
     <value>Eine MSSP-Variable</value>
@@ -2729,6 +2729,21 @@
   </data>
   <data name="claim.screen.note" xml:space="preserve">
     <value>Irgendwo im Bildschirm, und Farbcodes darum herum sind kein Problem.</value>
+  </data>
+  <data name="claim.dns.heading" xml:space="preserve">
+    <value>Ein DNS-TXT-Eintrag</value>
+  </data>
+  <data name="claim.dns.note" xml:space="preserve">
+    <value>Der Port ist nicht optional. Er sagt, für welchen Dienst auf diesem Host der Eintrag spricht; ohne ihn beweist er nichts — eine Domain kann mehrere Spiele tragen, die nichts miteinander zu tun haben. Wir lesen das, ohne uns mit Ihrem Spiel zu verbinden, es funktioniert also auch bei ausgefallenem Server, und die Schaltfläche unten liest es sofort.</value>
+  </data>
+  <data name="claim.dns.noAssume" xml:space="preserve">
+    <value>Ein TXT-Eintrag kann keine Übernahme abschließen. Wer eine Domain kontrolliert, betreibt nicht zwangsläufig auch das Spiel darauf; eine Übernahme muss deshalb vom Server selbst nachgewiesen werden — nehmen Sie einen der beiden Wege oben.</value>
+  </data>
+  <data name="claim.verified.viaDns" xml:space="preserve">
+    <value>Wir haben Ihren Token am {date} aus einem TXT-Eintrag in Ihrem DNS gelesen.</value>
+  </data>
+  <data name="claim.verified.leaveItDns" xml:space="preserve">
+    <value>Lassen Sie den Eintrag, wo er ist. Ihn wegzunehmen hebt Ihren Anspruch nicht auf, und solange er dort steht, sehen wir ohne Verbindung zum Server, dass Sie dieses Spiel weiterhin betreiben.</value>
   </data>
   <data name="claim.then.heading" xml:space="preserve">
     <value>Dann</value>

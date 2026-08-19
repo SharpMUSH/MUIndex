@@ -180,6 +180,12 @@ public static class CrawlerServiceCollectionExtensions
         services.TryAddSingleton<IDnsTxtResolver, DnsTxtResolver>();
         services.TryAddSingleton<OptOutGate>();
 
+        // §8.3's DNS claim channel, which reuses the resolver above. Registered here rather than
+        // with the web tier for the same reason claim settling is: the web tier mints tokens and
+        // this reads what an operator published. The verifier is the piece the claim page's check
+        // button also resolves, so both paths reach one set of rules.
+        services.TryAddSingleton<DnsClaimVerifier>();
+
         services.TryAddSingleton<IProbe>(s => new TelnetProbe(s.GetRequiredService<ProbeOptions>()));
 
         // §5.7's re-mint. The default grace, because how long a name must hold before it earns a new
@@ -218,6 +224,16 @@ public static class CrawlerServiceCollectionExtensions
         if (options.Maintenance.Enabled)
         {
             services.AddHostedService<PresenceMaintenanceService>();
+        }
+
+        // Not gated on options.Enabled either, and for a stronger reason than the pass above: this
+        // opens no socket to any game, so a deployment running with the crawler off has every reason
+        // to let an operator finish a claim. Its own advisory lease keeps N replicas to one sweep.
+        services.TryAddSingleton(options.DnsClaims);
+
+        if (options.DnsClaims.Enabled)
+        {
+            services.AddHostedService<DnsClaimSweeper>();
         }
 
         // Gated on Enabled, unlike the two above, because this needs a sidecar that isn't part of the
@@ -284,6 +300,12 @@ public sealed class CrawlerOptionsBuilder
     public I3ServiceOptions I3 { get; set; } = new();
 
     /// <summary>
+    /// The §8.3 sweep that reads TXT records for games somebody is mid-claim on. On by default; it
+    /// costs one lookup per host with a live claim and dials nothing.
+    /// </summary>
+    public DnsClaimSweepOptions DnsClaims { get; set; } = new();
+
+    /// <summary>
     /// Adds an address the crawler knows on day one.
     /// </summary>
     /// <param name="host">The host name or literal address.</param>
@@ -309,6 +331,7 @@ public sealed class CrawlerOptionsBuilder
         Maintenance = Maintenance,
         Submissions = Submissions,
         I3 = I3,
+        DnsClaims = DnsClaims,
         Seeds = _seeds,
     };
 }

@@ -28,6 +28,20 @@ public sealed class ScriptedDns : IDnsTxtResolver
         return this;
     }
 
+    /// <summary>
+    /// A resolver that did not answer — a timeout or a SERVFAIL, not an absence.
+    /// </summary>
+    /// <remarks>
+    /// The third of the three answers, and the reason <see cref="DnsTxtAnswer.Answered"/> exists: it
+    /// is the only one that may neither withdraw an opt-out nor be read as a claim record having been
+    /// deleted, so a fake that could not express it would make both distinctions untestable.
+    /// </remarks>
+    public ScriptedDns Silent(string host)
+    {
+        _answers[OptOutVocabulary.DnsNameFor(host)] = DnsTxtAnswer.NoAnswer;
+        return this;
+    }
+
     public Task<DnsTxtAnswer> LookupAsync(string name, CancellationToken cancellationToken = default)
     {
         Asked.Enqueue(name);

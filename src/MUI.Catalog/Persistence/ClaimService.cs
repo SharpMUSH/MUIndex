@@ -74,10 +74,18 @@ public sealed class ClaimService(
     /// Offers a token read off <paramref name="gameId"/> to the claim store.
     /// </summary>
     /// <remarks>
-    /// Called on every probe that read a beacon at all, so <see cref="ClaimVerdict.NothingToDo"/> is
-    /// the ordinary answer, not a failure. An already-verified claim is refreshed, never re-verified
-    /// (§8.4): seeing the beacon updates <c>beacon_last_seen_at</c> and nothing else; not seeing it
-    /// does nothing — absence must never revoke.
+    /// Called on every probe that read a beacon at all, and on every DNS lookup that found one, so
+    /// <see cref="ClaimVerdict.NothingToDo"/> is the ordinary answer, not a failure. An
+    /// already-verified claim is refreshed, never re-verified (§8.4): seeing the beacon updates
+    /// <c>beacon_last_seen_at</c> and nothing else; not seeing it does nothing — absence must never
+    /// revoke.
+    /// <para>
+    /// <b>One channel is weaker than the others and is bounded here</b>, in the one place every
+    /// caller goes through: <see cref="ClaimChannel.DnsTxt"/> cannot complete a
+    /// <see cref="ClaimIntent.Assume"/>. See <see cref="ClaimChannel"/> for why. The refresh path
+    /// below is deliberately not bounded — a takeover already verified on the wire may still have
+    /// its beacon seen in DNS, and refusing to record that would report a live record as unseen.
+    /// </para>
     /// </remarks>
     public async Task<ClaimVerdict> OfferBeaconAsync(
         Guid gameId,
@@ -92,8 +100,21 @@ public sealed class ClaimService(
 
         var now = time.GetUtcNow();
 
-        if (await claims.FindPendingByTokenAsync(gameId, token!, cancellationToken) is { } pending)
+        if (await claims.FindPendingByTokenAsync(gameId, token!, now, cancellationToken) is { } pending)
         {
+            // §8.3, §8.4 — DNS may add an owner and may never displace one. A TXT record is
+            // published by whoever controls the domain, which on shared MU* hosting is the host's
+            // operator rather than the game's; the other two channels are published by the listener
+            // being claimed. Joining on the weaker evidence costs a listing an extra owner, and a
+            // takeover on it costs somebody who proved control of the actual server theirs. Guarding
+            // the transition rather than the issue, so the rule cannot be sidestepped by minting the
+            // token as a join and publishing it as one: the intent is stored, and this reads it at
+            // the moment it would take effect.
+            if (channel is ClaimChannel.DnsTxt && pending.Intent is ClaimIntent.Assume)
+            {
+                return ClaimVerdict.NothingToDo;
+            }
+
             await claims.UpdateAsync(
                 pending with
                 {

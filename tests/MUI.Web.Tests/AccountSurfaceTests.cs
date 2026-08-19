@@ -700,7 +700,17 @@ public class AccountSurfaceTests
         public Task<IReadOnlyList<GameClaim>> ForUserAsync(Guid user, CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<GameClaim>>([.. claims.Where(c => c.UserId == user)]);
 
-        public Task<GameClaim?> FindPendingByTokenAsync(Guid game, string token, CancellationToken ct = default) =>
+        public Task<IReadOnlyList<GameClaim>> PendingOrDnsVerifiedAsync(
+            DateTimeOffset now,
+            CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<GameClaim>>(
+                [.. claims.Where(c => c.IsPending(now) || (c.IsVerified && c.VerifiedVia is ClaimChannel.DnsTxt))]);
+
+        public Task<GameClaim?> FindPendingByTokenAsync(
+            Guid game,
+            string token,
+            DateTimeOffset now,
+            CancellationToken ct = default) =>
             Task.FromResult<GameClaim?>(null);
 
         public Task InsertAsync(GameClaim claim, CancellationToken ct = default) => Task.CompletedTask;

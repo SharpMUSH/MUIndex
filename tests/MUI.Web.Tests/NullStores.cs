@@ -67,7 +67,16 @@ internal sealed class NullClaimStore : IClaimStore
     public Task<IReadOnlyList<GameClaim>> ForUserAsync(Guid userId, CancellationToken ct = default) =>
         throw new NotSupportedException();
 
-    public Task<GameClaim?> FindPendingByTokenAsync(Guid gameId, string token, CancellationToken ct = default) =>
+    public Task<IReadOnlyList<GameClaim>> PendingOrDnsVerifiedAsync(
+        DateTimeOffset now,
+        CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<GameClaim>>([]);
+
+    public Task<GameClaim?> FindPendingByTokenAsync(
+        Guid gameId,
+        string token,
+        DateTimeOffset now,
+        CancellationToken ct = default) =>
         throw new NotSupportedException();
 
     public Task InsertAsync(GameClaim claim, CancellationToken ct = default) =>

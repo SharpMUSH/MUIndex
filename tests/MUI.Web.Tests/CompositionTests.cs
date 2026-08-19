@@ -9,6 +9,7 @@ using MUI.Catalog;
 using MUI.Catalog.Persistence;
 using MUI.Crawl;
 using MUI.Crawler;
+using MUI.Discovery;
 using MUI.Web;
 using MUI.Web.Data;
 using MUI.Web.Fixtures;
@@ -50,6 +51,30 @@ public class CompositionTests
 
         await Assert.That(provider.GetService<IClaimStore>()).IsNotNull();
         await Assert.That(provider.GetService<ClaimService>()).IsNotNull();
+    }
+
+    /// <summary>
+    /// §8.3's DNS channel is reachable from both paths that read it, and from neither by accident.
+    /// </summary>
+    /// <remarks>
+    /// Two service-located dependencies and a hosted service, which is three of the shapes §8.5
+    /// records this codebase silently mis-wiring: the check endpoint takes
+    /// <see cref="DnsClaimVerifier"/> as an optional parameter and would quietly do half its job
+    /// without one, and the sweep is a <c>BackgroundService</c> that logs nothing when it is simply
+    /// not registered. Both are asserted against the graph <c>Program</c> builds.
+    /// </remarks>
+    [Test]
+    public async Task TheDnsClaimChannelIsWiredOnBothPathsThatReadIt()
+    {
+        await using var site = Site();
+        var provider = site.Services;
+
+        await Assert.That(provider.GetService<DnsClaimVerifier>()).IsNotNull();
+        await Assert.That(provider.GetService<IDnsTxtResolver>()).IsNotNull();
+
+        await Assert.That(provider.GetServices<IHostedService>().OfType<DnsClaimSweeper>())
+            .IsNotEmpty()
+            .Because("the sweep is what makes \"publish it and we notice\" true for this channel");
     }
 
     /// <summary>
@@ -224,6 +249,7 @@ public class CompositionTests
         await Assert.That(provider.GetService<ClaimService>()).IsNull();
         await Assert.That(provider.GetService<IClaimStore>()).IsNull();
         await Assert.That(provider.GetService<CrawlCycle>()).IsNull();
+        await Assert.That(provider.GetService<DnsClaimVerifier>()).IsNull();
 
         await Assert.That(provider.GetRequiredService<CatalogueSource>().IsMeasured).IsFalse();
     }

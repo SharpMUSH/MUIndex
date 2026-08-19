@@ -770,9 +770,15 @@ public class OwnerEndpointTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<GameClaim>>(_claim.UserId == userId ? [_claim] : []);
 
+        public Task<IReadOnlyList<GameClaim>> PendingOrDnsVerifiedAsync(
+            DateTimeOffset now,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<GameClaim>>([]);
+
         public Task<GameClaim?> FindPendingByTokenAsync(
             Guid gameId,
             string token,
+            DateTimeOffset now,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<GameClaim?>(null);
 

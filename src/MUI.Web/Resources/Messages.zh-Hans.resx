@@ -2713,7 +2713,7 @@
     <value>{count, plural, other {我们读到这个令牌时，当前所有者对这个游戏的认领会被撤销，它归你。}}</value>
   </data>
   <data name="claim.either.heading" xml:space="preserve">
-    <value>两种方式都可以</value>
+    <value>任一方式都可以</value>
   </data>
   <data name="claim.mssp.heading" xml:space="preserve">
     <value>一个 MSSP 变量</value>
@@ -2729,6 +2729,21 @@
   </data>
   <data name="claim.screen.note" xml:space="preserve">
     <value>画面中任何位置都行，周围有颜色代码也没关系。</value>
+  </data>
+  <data name="claim.dns.heading" xml:space="preserve">
+    <value>一条 DNS TXT 记录</value>
+  </data>
+  <data name="claim.dns.note" xml:space="preserve">
+    <value>端口不可省略。它说明这条记录代表本主机上的哪个监听端；没有端口就什么也证明不了 — 一个域名上可能跑着好几个互不相干的游戏。我们读取它时不会连接你的游戏，所以服务器停机时也能用；点下面的按钮会当场读取。</value>
+  </data>
+  <data name="claim.dns.noAssume" xml:space="preserve">
+    <value>TXT 记录无法完成接管。控制域名的人未必就是运营这个游戏的人，所以接管必须从服务器本身证明 — 请用上面两种方式之一。</value>
+  </data>
+  <data name="claim.verified.viaDns" xml:space="preserve">
+    <value>我们在 {date} 从你 DNS 里的一条 TXT 记录中读到了你的令牌。</value>
+  </data>
+  <data name="claim.verified.leaveItDns" xml:space="preserve">
+    <value>把记录留在原处。把它撤掉不会取消你的认领；只要它还在，我们不用连接就能看到你仍在运营这个游戏。</value>
   </data>
   <data name="claim.then.heading" xml:space="preserve">
     <value>然后</value>
