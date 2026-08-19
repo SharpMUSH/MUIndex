@@ -443,16 +443,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        var currentFrom = now - SortWindows.Week;
-
-        // The exact instant PlayersOverWindowAsync's own from-side day-snap would floor currentFrom
-        // to — so the prior week's upper bound and the current week's lower bound are the same value,
-        // and a sample at that instant lands on exactly one side.
-        var boundary = FloorToUtcDay(currentFrom);
-        var priorFrom = currentFrom - SortWindows.Week;
-
-        var current = await WindowStatsAsync(connection, ids, currentFrom, now, cancellationToken);
-        var prior = await WindowStatsAsync(connection, ids, priorFrom, boundary, cancellationToken);
+        var bounds = WeekBounds(now);
+        var current = await WindowStatsAsync(connection, ids, bounds.CurrentFrom, now, cancellationToken);
+        var prior = await WindowStatsAsync(connection, ids, bounds.PriorFrom, bounds.Boundary, cancellationToken);
 
         return ids.ToDictionary(
             id => id,
@@ -463,6 +456,42 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
                 return GrowthTrend.Of(c?.Median, c?.Samples, p?.Median, p?.Samples);
             });
+    }
+
+    /// <summary>
+    /// Reads the current and prior week's stats for every game in <paramref name="ids"/>, without
+    /// judging eligibility or ranking — the two callers (<see cref="WeekOverWeekGrowthAsync"/>, whose
+    /// question is "which direction", and <see cref="RankingsAsync"/>'s trending board, whose question
+    /// is "by how much, in order") each apply their own floor and shape to the same two windows.
+    /// </summary>
+    private static async Task<(Dictionary<Guid, WindowRow> Current, Dictionary<Guid, WindowRow> Prior)>
+        CurrentAndPriorWeekAsync(
+            NpgsqlConnection connection, Guid[] ids, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var bounds = WeekBounds(now);
+        var current = await WindowStatsAsync(connection, ids, bounds.CurrentFrom, now, cancellationToken);
+        var prior = await WindowStatsAsync(connection, ids, bounds.PriorFrom, bounds.Boundary, cancellationToken);
+
+        return (current, prior);
+    }
+
+    /// <summary>
+    /// The current week's span and the prior week's, pinned at one shared boundary so a sample at
+    /// that exact instant lands on exactly one side of the two.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Boundary"/> is the exact instant <see cref="WindowStatsAsync"/>'s own from-side
+    /// day-snap would floor <see cref="CurrentFrom"/> to — computed once here rather than reasoned
+    /// about at each call site.
+    /// </remarks>
+    private static (DateTimeOffset CurrentFrom, DateTimeOffset PriorFrom, DateTimeOffset Boundary) WeekBounds(
+        DateTimeOffset now)
+    {
+        var currentFrom = now - SortWindows.Week;
+        var boundary = FloorToUtcDay(currentFrom);
+        var priorFrom = currentFrom - SortWindows.Week;
+
+        return (currentFrom, priorFrom, boundary);
     }
 
     private static DateTimeOffset FloorToUtcDay(DateTimeOffset at) =>
@@ -1027,6 +1056,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             new { limit = RankingLimit },
             cancellationToken: cancellationToken))).ToList();
 
+        var trending = await TrendingThisWeekAsync(connection, now, cancellationToken);
+
         return new Rankings(
             now,
             span.Window(),
@@ -1036,10 +1067,52 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             busiest
                 .Select(r => new BusiestGame(r.Slug, r.Name, r.Median, r.Peak, r.Samples, r.Days))
                 .ToList(),
-            spells.Select(r => new ReachableSpell(r.Slug, r.Name, r.Since)).ToList())
+            spells.Select(r => new ReachableSpell(r.Slug, r.Name, r.Since)).ToList(),
+            trending)
         {
             Span = span,
         };
+    }
+
+    /// <summary>
+    /// The games trending up this week against last week — the same classification the listing row's
+    /// own arrow uses (<see cref="GrowthTrend.Of"/>), so a game the board calls trending is exactly
+    /// one whose arrow agrees, never a decliner or a steady game caught by a bare sort on the number.
+    /// </summary>
+    private async Task<IReadOnlyList<TrendingGame>> TrendingThisWeekAsync(
+        NpgsqlConnection connection, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var eligible = (await connection.QueryAsync<EligibleGameRow>(new CommandDefinition(
+            $"SELECT id AS Id, slug AS Slug, name AS Name FROM game WHERE state NOT IN {ListedStates} AND {Public}",
+            cancellationToken: cancellationToken))).ToList();
+
+        var ids = eligible.Select(g => g.Id).ToArray();
+        var (current, prior) = await CurrentAndPriorWeekAsync(connection, ids, now, cancellationToken);
+
+        return
+        [
+            .. eligible
+                .Select(g => (Game: g, Current: current.GetValueOrDefault(g.Id), Prior: prior.GetValueOrDefault(g.Id)))
+                .Where(row => GrowthTrend.Of(
+                    row.Current?.Median, row.Current?.Samples, row.Prior?.Median, row.Prior?.Samples)
+                    == GrowthDirection.Up)
+                .Select(row => new TrendingGame(
+                    row.Game.Slug, row.Game.Name,
+                    row.Current!.Median, row.Prior!.Median, row.Current.Samples, row.Prior.Samples))
+                .OrderByDescending(r => r.Change)
+                .ThenByDescending(r => r.Median)
+                .ThenBy(r => r.Name, StringComparer.Ordinal)
+                .Take(RankingLimit),
+        ];
+    }
+
+    private sealed class EligibleGameRow
+    {
+        public Guid Id { get; init; }
+
+        public string Slug { get; init; } = string.Empty;
+
+        public string Name { get; init; } = string.Empty;
     }
 
     /// <summary>

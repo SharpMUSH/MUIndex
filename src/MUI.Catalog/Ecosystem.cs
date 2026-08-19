@@ -318,6 +318,32 @@ public static class RankingSpans
 public sealed record BusiestGame(string Slug, string Name, int Median, int Peak, int Samples, int Days = 0);
 
 /// <summary>
+/// One game in the "trending this week" board — always the current week against the one before it,
+/// unlike <see cref="BusiestGame"/> which reads whichever span the selector asks for.
+/// </summary>
+/// <remarks>
+/// Both medians are carried, not only the direction <see cref="GrowthDirection"/> already gives the
+/// listing row: a board that only said "up" would be repeating the arrow, and the point of a board is
+/// the two numbers a reader would otherwise have to visit two game pages to compare.
+/// </remarks>
+public sealed record TrendingGame(string Slug, string Name, int Median, int PriorMedian, int Samples, int PriorSamples)
+{
+    /// <summary>
+    /// How much higher this week's median is than last week's, as a fraction of the larger — the
+    /// same basis <see cref="GrowthTrend.Of"/> classifies up/steady/down from, so the board's order
+    /// agrees with the arrow's own reading of the same two numbers.
+    /// </summary>
+    public double Change
+    {
+        get
+        {
+            var basis = Math.Max(Median, PriorMedian);
+            return basis == 0 ? 0 : (Median - PriorMedian) / (double)basis;
+        }
+    }
+}
+
+/// <summary>
 /// A game's current unbroken run of measured reachability.
 /// </summary>
 /// <remarks>
@@ -347,7 +373,14 @@ public sealed record Rankings(
     int ListedGames,
     int Eligible,
     IReadOnlyList<BusiestGame> Busiest,
-    IReadOnlyList<ReachableSpell> LongestUnbroken)
+    IReadOnlyList<ReachableSpell> LongestUnbroken,
+
+    /// <summary>
+    /// The top gainers this week against last week — always the week span, unlike
+    /// <see cref="Busiest"/>, since "trending" is inherently a fresh-vs-recent comparison and a
+    /// 90-day version of it would be answering a different question under the same word.
+    /// </summary>
+    IReadOnlyList<TrendingGame> TrendingThisWeek)
 {
     /// <summary>Which of the three windows this table was computed over.</summary>
     /// <remarks>
@@ -360,5 +393,5 @@ public sealed record Rankings(
     public int MinimumDays => Span.MinimumDays();
 
     public static Rankings Empty(DateTimeOffset asOf, TimeSpan window, int minimumSamples) =>
-        new(asOf, window, minimumSamples, 0, 0, [], []);
+        new(asOf, window, minimumSamples, 0, 0, [], [], []);
 }

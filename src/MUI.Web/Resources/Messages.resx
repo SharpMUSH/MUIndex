@@ -2136,6 +2136,34 @@
     <value>days measured</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
+  <data name="rankings.trending.title" xml:space="preserve">
+    <value>Trending this week</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.trending.basis" xml:space="preserve">
+    <value>This week's median measured players against the week before it, among games with enough samples for a median in both weeks — always the current week, whichever ranking window is shown above.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.trending.empty" xml:space="preserve">
+    <value>No listed game is trending up this week — a statement about how many games clear the sample floor in both weeks, not about the hobby.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.trending.caption" xml:space="preserve">
+    <value>Games whose measured median this week is enough higher than the week before to call it a rise rather than noise, both weeks with enough samples for a median.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.column.thisWeek" xml:space="preserve">
+    <value>this week</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.column.lastWeek" xml:space="preserve">
+    <value>last week</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.column.change" xml:space="preserve">
+    <value>change</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
   <data name="rankings.spells.title" xml:space="preserve">
     <value>Longest unbroken reachable spell</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
@@ -2182,6 +2210,14 @@
   </data>
   <data name="rankings.plain.spellRow" xml:space="preserve">
     <value>reachable on every probe since {date} · {duration}</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.plain.trending" xml:space="preserve">
+    <value>Trending this week</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.plain.trendRow" xml:space="preserve">
+    <value>{median, number} this week, {prior, number} last week ({percent, number}% up)</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
   <data name="archive.title" xml:space="preserve">

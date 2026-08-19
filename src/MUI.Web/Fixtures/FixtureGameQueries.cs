@@ -731,12 +731,23 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
             .OrderBy(spell => spell.Since)
             .ToList();
 
+        // Only the game the row arrow already marks Up — matching NpgsqlGameQueries.TrendingThisWeekAsync,
+        // which reads the same classification the arrow does rather than a bare sort on the numbers.
+        var trending = listed
+            .Where(g => g.Growth == GrowthDirection.Up)
+            .Select(TrendingRow)
+            .OrderByDescending(row => row.Change)
+            .ToList();
+
         return Task.FromResult(new Rankings(
-            Now, span.Window(), MinimumSamples, listed.Count, busiest.Count, busiest, spells)
+            Now, span.Window(), MinimumSamples, listed.Count, busiest.Count, busiest, spells, trending)
         {
             Span = span,
         });
     }
+
+    private static TrendingGame TrendingRow(GameSummary g) =>
+        new(g.Slug, g.Name, Median: 15, PriorMedian: 8, Samples: 40, PriorSamples: 38);
 
     public Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(new LivenessFeeds(

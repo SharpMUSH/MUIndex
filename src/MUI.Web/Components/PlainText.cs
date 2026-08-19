@@ -1140,6 +1140,27 @@ public static class PlainText
                 ("window", days)) + $" · {Path(tag, $"/g/{game.Slug}")}", "       ");
         }
 
+        Heading(b, Say(tag, "rankings.plain.trending").ToUpperInvariant());
+        Wrap(b, Say(tag, "rankings.trending.basis"));
+        b.AppendLine();
+
+        if (rankings.TrendingThisWeek.Count == 0)
+        {
+            Wrap(b, Say(tag, "rankings.trending.empty"), "  ");
+        }
+
+        place = 0;
+
+        foreach (var game in rankings.TrendingThisWeek)
+        {
+            place++;
+            b.AppendLine($"  {place,3}  {game.Name}");
+            Wrap(b, Say(tag, "rankings.plain.trendRow",
+                ("median", game.Median),
+                ("prior", game.PriorMedian),
+                ("percent", (int)Math.Round(game.Change * 100))) + $" · {Path(tag, $"/g/{game.Slug}")}", "       ");
+        }
+
         Heading(b, Say(tag, "rankings.spells.title").ToUpperInvariant());
         Wrap(b, EcosystemCopy.SpellBasis(tag));
         b.AppendLine();
