@@ -61,6 +61,17 @@ EXPOSE 8080
 # one moment it exists for — which is how it was found: by trying, in production, after the fact.
 RUN mkdir -p /dumps && chown $APP_UID:$APP_UID /dumps
 
+# The same gotcha, for the Data Protection key ring compose.yaml mounts at /home/app/.aspnet: the
+# path does not exist in the image, so an empty named volume mounted there lands root-owned and the
+# app user cannot write to it. Data Protection catches the failure and falls back to an ephemeral,
+# in-process key ring instead of raising — silently, with only a startup warning — so every restart,
+# and every request that lands on a different replica than the one that issued its antiforgery
+# cookie, gets a key the current process never minted. That surfaced as a 400 on POST /submit: the
+# game submission form's antiforgery token, decrypted by whichever of the two web replicas Traefik
+# happened to route the POST to. Found by reading both replicas' logs after reproducing the 400 by
+# hand and seeing `CryptographicException: The key {...} was not found in the key ring`.
+RUN mkdir -p /home/app/.aspnet && chown $APP_UID:$APP_UID /home/app/.aspnet
+
 # curl, for the HEALTHCHECK below. The aspnet runtime image ships neither curl nor wget — it is
 # Ubuntu underneath, not distroless — so this is the smallest addition that lets something inside the
 # container ask the process itself whether it is ready, in the same vocabulary Docker/Podman's own
