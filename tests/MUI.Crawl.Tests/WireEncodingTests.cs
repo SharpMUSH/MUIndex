@@ -120,6 +120,29 @@ public class WireEncodingTests
     }
 
     /// <summary>
+    /// The session is the unit, not the screen: bytes that never appear on the connect screen still
+    /// decide how the connect screen is read.
+    /// </summary>
+    /// <remarks>
+    /// A game can have an ASCII login prompt and a name in GBK, and MSSP is where that name arrives.
+    /// Deciding from the screen alone would call this session UTF-8 on the strength of the ASCII —
+    /// true of those bytes, wrong about the connection — and every MSSP value would then be read with
+    /// an encoding the evidence for was never consulted.
+    /// </remarks>
+    [Test]
+    public async Task BytesFromElsewhereInTheSessionDecideItToo()
+    {
+        var reading = WireEncoding.Read([Ascii], alsoFromThisSession: [PkuxkxTitle]);
+
+        await Assert.That(reading.Charset).IsEqualTo("iso-8859-1");
+
+        // Only the screen is handed back; the other bytes informed the decision and are the caller's
+        // to decode with it.
+        await Assert.That(reading.Lines).Count().IsEqualTo(1);
+        await Assert.That(reading.Encoding.WebName).IsEqualTo("iso-8859-1");
+    }
+
+    /// <summary>
     /// A screen with nothing but ASCII in it is UTF-8, which is true and says nothing about the
     /// server — the point is that it does not fall to the 8-bit path for want of evidence.
     /// </summary>
