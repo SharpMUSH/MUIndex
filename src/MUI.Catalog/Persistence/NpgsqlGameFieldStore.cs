@@ -156,21 +156,34 @@ public sealed class NpgsqlGameFieldStore(NpgsqlDataSource source) : IGameFieldSt
     /// after the limit would spend it on rows nobody may see. Nothing is deleted: the rows stay in
     /// <c>field_change</c> and are simply not events about the game.
     /// </para>
+    /// <para>
+    /// <paramref name="perFieldLimit"/> caps how many of the newest rows any one field may
+    /// contribute, ranked before the overall <paramref name="limit"/> is applied — a field like
+    /// <c>NAME</c> or <c>PLAYERNAMES</c> that flaps every crawl still gets one row per genuine
+    /// transition in the table, but cannot crowd the rest of the game's history off the page.
+    /// </para>
     /// </remarks>
     public async Task<IReadOnlyList<FieldChange>> ChangesAsync(
         Guid gameId,
         int limit,
+        int perFieldLimit = 3,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
 
         var rows = await connection.QueryAsync<ChangeRow>(new CommandDefinition(
             """
+            WITH ranked AS (
+                SELECT game_id, field, source, old_value, new_value, at, id,
+                       ROW_NUMBER() OVER (PARTITION BY field ORDER BY at DESC, id DESC) AS rn
+                  FROM field_change
+                 WHERE game_id = @gameId
+                   AND NOT (field = ANY(@internal) OR field LIKE @internalPrefix)
+            )
             SELECT game_id AS GameId, field AS Field, source AS Source,
                    old_value AS OldValue, new_value AS NewValue, at AS At
-              FROM field_change
-             WHERE game_id = @gameId
-               AND NOT (field = ANY(@internal) OR field LIKE @internalPrefix)
+              FROM ranked
+             WHERE rn <= @perFieldLimit
              ORDER BY at DESC, id DESC
              LIMIT @limit
             """,
@@ -178,6 +191,7 @@ public sealed class NpgsqlGameFieldStore(NpgsqlDataSource source) : IGameFieldSt
             {
                 gameId,
                 limit,
+                perFieldLimit,
                 @internal = InternalFields.ExactNames.ToArray(),
                 internalPrefix = InternalFields.ConnectScreen + "%",
             },
