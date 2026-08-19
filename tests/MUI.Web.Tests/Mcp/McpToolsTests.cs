@@ -353,6 +353,58 @@ public class McpToolsTests
         await Assert.That((await fields.ForGameAsync(gameId, CancellationToken.None)).Count).IsEqualTo(0);
     }
 
+    /// <summary>
+    /// MSSP ingestion is not gated by <c>FieldRegistry</c> — a game may report any variable it likes
+    /// (<c>DESCRIPTION-DE</c> is a real one) and it is stored and rendered like any other. Staff must
+    /// be able to correct what the site displays, so a field the game itself already reported counts
+    /// as known even though the registry has never heard of it.
+    /// </summary>
+    [Test]
+    public async Task GameFieldSetAcceptsAFieldTheGameItselfReported()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        await using var source = NpgsqlDataSource.Create(database.ConnectionString);
+        var now = DateTimeOffset.UtcNow;
+        var gameId = await SeedGameAsync(source, "reported-field-game", now);
+
+        var fields = new NpgsqlGameFieldStore(source);
+
+        // What a probe would have stored: an unregistered MSSP variable, decoded badly.
+        await fields.UpsertAsync(
+            new GameField(gameId, "DESCRIPTION-DE", FieldSource.Mssp, "Es l�sst sich", now, now),
+            CancellationToken.None);
+
+        await using var site = await SiteHost.StartAsync(
+            settings: Settings(), connectionString: database.ConnectionString, clock: new FixedClock(now));
+        await using var client = await McpTestClient.ConnectAsync(site, Token);
+
+        var result = await client.CallAsync<GameFieldSetResult>("game_field_set", new Dictionary<string, object?>
+        {
+            ["gameSlug"] = "reported-field-game",
+            // Lower-cased on purpose: the match is case-insensitive, and the STORED spelling is what
+            // has to be written, or the staff row lands beside the mssp one instead of above it.
+            ["field"] = "description-de",
+            ["value"] = "Es lässt sich",
+        });
+
+        await Assert.That(result.Field).IsEqualTo("DESCRIPTION-DE");
+        await Assert.That(result.NewValue).IsEqualTo("Es lässt sich");
+
+        var everyRow = (await fields.ForGameAsync(gameId, CancellationToken.None))
+            .Where(f => f.Field == "DESCRIPTION-DE")
+            .ToList();
+
+        // One row per source, not a second spelling of the field: the staff write has to land on the
+        // name the game reported, or the two never meet in the precedence ladder.
+        await Assert.That(everyRow.Count).IsEqualTo(2);
+
+        var winner = FieldPrecedence.Winner(everyRow);
+
+        await Assert.That(winner).IsNotNull();
+        await Assert.That(winner!.Source).IsEqualTo(FieldSource.Staff);
+        await Assert.That(winner.Value).IsEqualTo("Es lässt sich");
+    }
+
     [Test]
     public async Task GameFieldSetRefusesAnUnknownGame()
     {

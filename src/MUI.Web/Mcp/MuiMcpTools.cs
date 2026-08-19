@@ -259,10 +259,12 @@ public sealed class MuiMcpTools(
     [Description("""
         Staff override of one field of one game -- e.g. fixing a mis-parsed NAME or CHARSET, or hand-
         setting a DESCRIPTION. Writes through FieldSource.Staff (spec section 5.1), which outranks
-        every other source and is always recorded to the change feed. `field` must be a name
-        FieldRegistry knows (matched case-insensitively); an unknown field is refused rather than
-        written as garbage, and so are PLAYERS/UPTIME, which spec section 5.2 requires to live only in
-        the presence series and never as a GameField row.
+        every other source and is always recorded to the change feed. `field` must be either a name
+        FieldRegistry knows or one this game has already reported (both matched case-insensitively) --
+        MSSP ingestion is not registry-gated, so a game can publish its own variables (DESCRIPTION-DE
+        is a real one) and those are rendered and must stay correctable. A name that is neither is
+        refused rather than written as garbage, and so are PLAYERS/UPTIME, which spec section 5.2
+        requires to live only in the presence series and never as a GameField row.
 
         Out of scope: renaming a game's slug. If field is NAME, the value still lands and will affect
         what the site displays and what the identity matcher sees -- but this does NOT run the
@@ -271,7 +273,11 @@ public sealed class MuiMcpTools(
         """)]
     public async Task<GameFieldSetResult> GameFieldSetAsync(
         [Description("The game's slug, e.g. pennmush.")] string gameSlug,
-        [Description("A field name FieldRegistry knows, e.g. NAME, DESCRIPTION, CHARSET, GENRE.")]
+        [Description(
+            "Either a field name FieldRegistry knows (e.g. NAME, DESCRIPTION, CHARSET, GENRE) or one "
+            + "this game has already reported (e.g. an ungated MSSP variable like DESCRIPTION-DE). "
+            + "Matched case-insensitively; the stored spelling is the one written. PLAYERS and UPTIME "
+            + "are refused.")]
         string field,
         [Description(
             "The new value. An empty string withdraws it -- still recorded to the change feed, "
@@ -292,33 +298,46 @@ public sealed class MuiMcpTools(
 
         var trimmedField = field.Trim();
 
+        // The registry is the ordinary gate, and it is what stops a typo becoming a row. It is not
+        // the whole vocabulary, though: MSSP ingestion is deliberately ungated, so a game may report
+        // any variable it likes — DESCRIPTION-DE is a real one — and the site stores and renders it
+        // like any other. A field the game itself reported is therefore known too, or the one thing
+        // staff could never correct would be what a reader is actually looking at.
         var definition = registry.Find(trimmedField)
             ?? FieldRegistry.All.FirstOrDefault(d =>
-                string.Equals(d.Name, trimmedField, StringComparison.OrdinalIgnoreCase))
-            ?? throw new McpException(
-                $"'{field}' is not a field FieldRegistry knows. See FieldRegistry.All for the list.");
+                string.Equals(d.Name, trimmedField, StringComparison.OrdinalIgnoreCase));
 
-        if (FieldReconciler.VolatileFields.Contains(definition.Name))
+        // The stored spelling wins over the caller's: the primary key is (game, field, source), so a
+        // second casing would be a second row that never meets the first in the precedence ladder.
+        var fieldName = definition?.Name
+            ?? (await fields.ForGameAsync(game.Id, cancellationToken))
+                .FirstOrDefault(row =>
+                    string.Equals(row.Field, trimmedField, StringComparison.OrdinalIgnoreCase))?.Field
+            ?? throw new McpException(
+                $"'{field}' is not a field FieldRegistry knows, and '{game.Slug}' has never reported "
+                + "one by that name. See FieldRegistry.All for the list.");
+
+        if (FieldReconciler.VolatileFields.Contains(fieldName))
         {
             throw new McpException(
-                $"'{definition.Name}' is measured per-probe (presence/uptime) and is never stored as "
-                + "a GameField row -- see FieldReconciler.VolatileFields.");
+                $"'{fieldName}' is measured per-probe (it belongs to the presence series) and is never "
+                + "stored as a GameField row -- see FieldReconciler.VolatileFields.");
         }
 
         var now = time.GetUtcNow();
-        var previousValue = await WriteStaffFieldAsync(game.Id, definition.Name, value, now, cancellationToken);
+        var previousValue = await WriteStaffFieldAsync(game.Id, fieldName, value, now, cancellationToken);
 
         logger?.LogInformation(
-            "game_field_set: {Slug}.{Field} := {Value} (staff)", game.Slug, definition.Name, value);
+            "game_field_set: {Slug}.{Field} := {Value} (staff)", game.Slug, fieldName, value);
 
-        var warning = string.Equals(definition.Name, "NAME", StringComparison.OrdinalIgnoreCase)
+        var warning = string.Equals(fieldName, "NAME", StringComparison.OrdinalIgnoreCase)
             ? "NAME was written, but the slug was NOT re-minted (this tool does not run "
                 + "IGameStore.RenameAsync's rename/CTE dance) -- the page will show the new name "
                 + "under the OLD url until a re-mint happens some other way. Use game_rename instead "
                 + "if the slug should move too."
             : null;
 
-        return new GameFieldSetResult(game.Slug, definition.Name, previousValue, value, warning);
+        return new GameFieldSetResult(game.Slug, fieldName, previousValue, value, warning);
     }
 
     [McpServerTool(Name = "game_rename")]
