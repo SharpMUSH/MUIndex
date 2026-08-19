@@ -470,7 +470,7 @@ else
 
         Keys = await Users.GetPasskeysAsync(User);
 
-        var now = DateTimeOffset.UtcNow;
+        var now = Now;
 
         foreach (var claim in await claims.ForUserAsync(User.Id))
         {

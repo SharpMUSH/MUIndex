@@ -1,9 +1,8 @@
 # CLAUDE.md — MUIndex agent brief
 
-Read this first, then [`docs/specs/2026-07-30-mu-directory-design.md`](docs/specs/2026-07-30-mu-directory-design.md),
-which is the authoritative design. [`docs/design-handoff.html`](docs/design-handoff.html) is the
-delivered visual design — open it in a browser; it is JS-bundled, so extract the text rather than
-reading the file raw.
+Read this first. [`docs/design-handoff.html`](docs/design-handoff.html) is the delivered visual
+design — open it in a browser; it is JS-bundled, so extract the text rather than reading the file
+raw.
 
 ## What this is
 
@@ -79,7 +78,6 @@ our host is unreachable and perfectly alive.
   parsers for third-party sites, no etiquette gate. Four parsers for sites we intend never to fetch
   again, carried in CI for ever, rot silently and read as a supported feature. **The importer lives
   on the local `import/one-time` branch**; running the import means checking it out.
-  - What *stays* is `docs/import-sources.md` — which sources were read, which were refused and why.
   - Test fixtures were never the problem: a handful of hand-written rows exercising a parser is a
     test input, and a copy of a third party's catalogue is not, whatever it is named.
 - **Import a value, or record where a game came from.** The backfill takes **host and port and

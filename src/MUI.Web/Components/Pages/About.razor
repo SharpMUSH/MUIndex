@@ -1,16 +1,12 @@
 @page "/about"
-@using Microsoft.Extensions.Options
 @using MUI.Crawl
-@using MUI.Web.Api
 @using MUI.Web.Localization
-@inject IOptions<DatasetLicenceOptions> Dataset
 @inject IServiceProvider Services
 
 @*
-    The page this project owes the sites it read and the servers it dials (spec §7.6, §11):
-    crediting backfill sources, publishing who is knocking and how to stop it, and stating the
-    limits of what a measurement here proves. Deliberately the plainest page on the site — a poor
-    place to contradict the argument that provenance beats presentation.
+    Spec §11: publishing who is knocking and how to stop it, and stating the limits of what a
+    measurement here proves. Deliberately the plainest page on the site — a poor place to
+    contradict the argument that provenance beats presentation.
 *@
 
 @if (Plain)
@@ -56,50 +52,6 @@ else
                     </dd>
                 </dl>
             }
-
-            @if (section.Sources.Count > 0)
-            {
-                <ul class="sources">
-                    @foreach (var source in section.Sources)
-                    {
-                        @* Name and state on one line, the note under both — a note is a paragraph
-                           rather than a facts column, so the listing's two-column row is wrong here. *@
-                        <li>
-                            <p class="source-head">
-                                <a class="name" href="@source.Url" rel="external">@source.Name</a>
-                                <span class="badge">@source.StatusWording(Tag)</span>
-                            </p>
-                            <p class="dim">@source.Note</p>
-                        </li>
-                    }
-                </ul>
-            }
-
-            @if (section.Licence is { } licence)
-            {
-                <dl class="identity mono">
-                    <dt class="kicker" translate="yes">@L("about.licence.codeLabel")</dt>
-                    <dd>@licence.CodeLicence</dd>
-                    <dt class="kicker" translate="yes">@L("about.licence.dataLabel")</dt>
-                    <dd>
-                        @if (licence.DataLicenceUrl is { } url)
-                        {
-                            <a href="@url">@licence.DataLicenceName</a>
-                        }
-                        else
-                        {
-                            @licence.DataLicenceName
-                        }
-                    </dd>
-                    <dt class="kicker" translate="yes">@L("about.licence.creditLabel")</dt>
-                    <dd>@licence.Attribution</dd>
-                </dl>
-
-                @* Configuration, not chrome, and so not a message: the read API serves the same
-                   notice to the bulk dump, so a translated copy here would be a second, differing
-                   statement of one deployment's terms. `translate="no"` for the same reason. *@
-                <p class="note dim" translate="no">@licence.Notice</p>
-            }
         </section>
     }
 }
@@ -120,6 +72,5 @@ else
     // identity the probe was actually built from, not a default that drifted from configuration.
     private AboutPage Page => AboutPage.Build(
         Services.GetService(typeof(ProbeOptions)) as ProbeOptions ?? new ProbeOptions(),
-        Dataset.Value,
         Tag);
 }

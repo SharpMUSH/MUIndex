@@ -4,8 +4,7 @@
 filled-in result is a complete handoff: enough for implementation to begin on the front end without
 further design questions.
 
-**Read first:** [`specs/2026-07-30-mu-directory-design.md`](specs/2026-07-30-mu-directory-design.md).
-The system design is settled; this brief covers only how it is presented.
+This brief covers only how the (already-settled) system design is presented.
 
 ---
 
