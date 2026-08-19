@@ -30,6 +30,15 @@ public interface ICrawlCycles
     Task<int> SweepAsync(DateTimeOffset before, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// The newest completed cycles, newest first.
+    /// </summary>
+    /// <remarks>
+    /// A different question from <see cref="PulseAsync"/>'s single newest row — the crawler status
+    /// page's history table, asked for on its own path so the front page's one-row query stays cheap.
+    /// </remarks>
+    Task<IReadOnlyList<CrawlCycleRecord>> RecentAsync(int count, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Whether migration 0017 has been applied.
     /// </summary>
     /// <remarks>
@@ -146,6 +155,55 @@ public sealed class NpgsqlCrawlCycles(NpgsqlDataSource source) : ICrawlCycles
                     row.Unmeasurable!.Value,
                     row.Transitions!.Value,
                     row.Referrals!.Value));
+    }
+
+    public async Task<IReadOnlyList<CrawlCycleRecord>> RecentAsync(
+        int count,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<PulseRow>(new CommandDefinition(
+            """
+            SELECT started_at   AS StartedAt,
+                   finished_at  AS FinishedAt,
+                   considered   AS Considered,
+                   probed       AS Probed,
+                   answered     AS Answered,
+                   failed       AS Failed,
+                   refused      AS Refused,
+                   opted_out    AS OptedOut,
+                   errored      AS Errored,
+                   listed       AS Listed,
+                   reviews      AS Reviews,
+                   counted      AS Counted,
+                   unmeasurable AS Unmeasurable,
+                   transitions  AS Transitions,
+                   referrals    AS Referrals
+              FROM crawl_cycle
+             ORDER BY finished_at DESC
+             LIMIT @count
+            """,
+            new { count },
+            cancellationToken: cancellationToken));
+
+        return rows.Select(row => new CrawlCycleRecord(
+                row.StartedAt!.Value,
+                row.FinishedAt!.Value,
+                row.Considered!.Value,
+                row.Probed!.Value,
+                row.Answered!.Value,
+                row.Failed!.Value,
+                row.Refused!.Value,
+                row.OptedOut!.Value,
+                row.Errored!.Value,
+                row.Listed!.Value,
+                row.Reviews!.Value,
+                row.Counted!.Value,
+                row.Unmeasurable!.Value,
+                row.Transitions!.Value,
+                row.Referrals!.Value))
+            .ToList();
     }
 
     public async Task<int> SweepAsync(DateTimeOffset before, CancellationToken cancellationToken = default)

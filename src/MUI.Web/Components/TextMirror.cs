@@ -21,7 +21,7 @@ public static class TextMirror
     /// </remarks>
     private static readonly string[] Mirrored =
     [
-        "/", "/games", "/archive", "/find", "/ecosystem", "/rankings", "/about", "/submit",
+        "/", "/games", "/archive", "/find", "/ecosystem", "/rankings", "/about", "/submit", "/crawler",
     ];
 
     /// <summary>Whether this request is looking at a page that can be read as text instead.</summary>

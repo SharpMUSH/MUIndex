@@ -102,6 +102,35 @@ public class CrawlCyclePostgresTests
         await Assert.That(pulse.State(Now)).IsEqualTo(CrawlState.Working);
     }
 
+    /// <summary>The newest cycles first, and no more than asked for.</summary>
+    /// <remarks>The crawler status page's history table — a different question from the pulse's
+    /// single newest row, so its own query rather than a limit bolted onto <c>PulseAsync</c>.</remarks>
+    [Test]
+    public async Task RecentReturnsTheNewestCyclesFirstAndStopsAtTheLimit()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var cycles = new NpgsqlCrawlCycles(database.DataSource);
+
+        await cycles.RecordAsync(Cycle(Now.AddMinutes(-30), considered: 5, answered: 5));
+        await cycles.RecordAsync(Cycle(Now.AddMinutes(-20), considered: 6, answered: 6));
+        await cycles.RecordAsync(Cycle(Now.AddMinutes(-10), considered: 7, answered: 7));
+
+        var recent = await cycles.RecentAsync(2);
+
+        await Assert.That(recent.Select(c => c.Considered)).IsEquivalentTo([7, 6])
+            .Because("newest first, and the limit keeps only two of the three recorded");
+    }
+
+    /// <summary>An empty table answers an empty list, not an exception.</summary>
+    [Test]
+    public async Task RecentOnAFreshDeploymentIsAnEmptyListRatherThanAFault()
+    {
+        await using var database = await PostgresFixture.MigratedAsync();
+        var cycles = new NpgsqlCrawlCycles(database.DataSource);
+
+        await Assert.That(await cycles.RecentAsync(10)).IsEmpty();
+    }
+
     /// <summary>
     /// The TTL drops old cycles and keeps the window.
     /// </summary>

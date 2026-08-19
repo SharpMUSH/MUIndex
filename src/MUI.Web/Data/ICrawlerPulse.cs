@@ -13,6 +13,9 @@ namespace MUI.Web.Data;
 public interface ICrawlerPulse
 {
     Task<CrawlerPulse> ReadAsync(DateTimeOffset now, CancellationToken cancellationToken = default);
+
+    /// <summary>The newest completed cycles, newest first — the crawler status page's history table.</summary>
+    Task<IReadOnlyList<CrawlCycleRecord>> RecentAsync(int count, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Reads the pulse from what the crawler wrote.</summary>
@@ -49,6 +52,23 @@ public sealed class StoredCrawlerPulse(
             logger?.LogWarning(error, "Could not read the crawler pulse; the front page omits the strip");
 
             return CrawlerPulse.Unknown;
+        }
+    }
+
+    public async Task<IReadOnlyList<CrawlCycleRecord>> RecentAsync(
+        int count,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await cycles.RecentAsync(count, cancellationToken);
+        }
+        catch (Exception error) when (error is not OperationCanceledException
+            || !cancellationToken.IsCancellationRequested)
+        {
+            logger?.LogWarning(error, "Could not read the crawler's cycle history; the status page omits it");
+
+            return [];
         }
     }
 }

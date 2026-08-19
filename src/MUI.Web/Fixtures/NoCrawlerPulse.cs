@@ -17,4 +17,9 @@ public sealed class NoCrawlerPulse : ICrawlerPulse
         DateTimeOffset now,
         CancellationToken cancellationToken = default) =>
         Task.FromResult(CrawlerPulse.Unknown);
+
+    public Task<IReadOnlyList<CrawlCycleRecord>> RecentAsync(
+        int count,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<CrawlCycleRecord>>([]);
 }

@@ -1139,6 +1139,25 @@ public static class Messages
         ["crawler.registry"] = "{targets, plural, one {# address in the registry} other {# addresses in the registry}}"
             + ", {due, plural, one {# due now} other {# due now}}",
 
+        // ── the crawler status page ───────────────────────────────────────────────────────────
+        ["crawler.page.title"] = "The crawler",
+        ["crawler.page.lede"] = "MUINDEX-CRAWLER is the automated probe behind every measurement on"
+            + " this site — what it has been doing, and how often.",
+        ["crawler.page.aboutLink"] = "who is this, and how to opt out",
+        ["crawler.page.empty"] = "No crawl cycle has completed here yet.",
+        ["crawler.page.statusLabel"] = "status",
+        ["crawler.page.registryLabel"] = "registry",
+        ["crawler.page.cycleLabel"] = "last cycle",
+        ["crawler.cycle.full"] = "{considered, plural, one {# due} other {# due}}"
+            + " · {probed, plural, one {# probed} other {# probed}}"
+            + " · {answered, plural, one {# answered} other {# answered}}"
+            + " · {failed, plural, one {# failed} other {# failed}}"
+            + " · {errored, plural, one {# errored} other {# errored}}"
+            + " · {optedOut, plural, one {# opted out} other {# opted out}}",
+        ["crawler.cycle.finishedAt"] = "last cycle finished {when} · took {took}",
+        ["crawler.history.title"] = "recent cycles",
+        ["crawler.history.empty"] = "No completed cycles are recorded yet.",
+
         // ── what this site says about itself where it is not this site ────────────────────────
         // <title>, meta description and Open Graph tags. "mu*index" arrives as {site}, machine
         // voice like a hostname, rather than editable text.

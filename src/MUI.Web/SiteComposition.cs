@@ -192,10 +192,6 @@ public static class SiteComposition
         // URL before the pages, so a redirected request never costs a catalogue read.
         app.UseCanonicalListingUrls();
 
-        // §11's contact address, mapped before the pages: the crawler has already published this URL
-        // to dialled admins.
-        app.MapMuiCrawlerContact();
-
         app.MapRazorComponents<App>();
         app.MapMuiApi();
 
