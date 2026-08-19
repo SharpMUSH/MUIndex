@@ -19,7 +19,7 @@ MUIndex fixes each of those directly:
   *discovered, unclaimed*. No queue to rot in.
 - **No voting.** Rankings are computed from measured data only.
 - **Nothing is deleted.** A dark game keeps being probed on a permanent floor interval and moves to
-  the archive rather than vanishing. One successful probe brings it back, automatically.
+  the archive, not the void. One successful probe brings it back.
 
 ### Opting out
 
@@ -38,14 +38,18 @@ the only ways to reach a human.
 
 One telnet connection, four independent signals:
 
-- **Handshake** — which options the server offers (GMCP, MSDP, MCCP, MXP, MSP, EOR, NAWS, CHARSET,
-  MTTS, MNES), observed rather than declared.
+- **Handshake** — which options the server actually offers (GMCP, MSDP, MCCP, MXP, MSP, EOR, NAWS,
+  CHARSET, MTTS, MNES), not what it claims to support.
 - **Connect screen** — banner and codebase fingerprint.
-- **WHO / DOING** at the login screen — often a better player count than MSSP, and reports *unknown*
-  rather than a fabricated zero.
-- **MSSP** (telnet option 70) — asked for explicitly rather than waited on.
+- **WHO / DOING** at the login screen — often a better player count than MSSP, and it says *unknown*
+  instead of guessing zero.
+- **MSSP** (telnet option 70) — we ask for it with `IAC DO 70`, since plenty of servers support it
+  without ever offering it first.
 
 Discovery follows the MSSP `REFERRAL` graph and verifies every referred host before trusting it.
+
+MUIndex also joins **Intermud-3**, the inter-MUD gossip network, to count players on LP-family games
+— pre-MSSP, name-prompt login screens telnet can't parse a `WHO` from.
 
 ## Shape
 
