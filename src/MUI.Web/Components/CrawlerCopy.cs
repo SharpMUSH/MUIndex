@@ -75,6 +75,56 @@ public static class CrawlerCopy
                 });
     }
 
+    /// <summary>
+    /// The full breakdown of the last cycle, for the status page rather than the front-page strip.
+    /// </summary>
+    /// <remarks>Six of the thirteen stored counters — the rest are in the API and the log, same
+    /// restraint as <see cref="LastCycle"/> for the same reason, just a wider six.</remarks>
+    public static string? FullCycle(string tag, CrawlerPulse pulse)
+    {
+        ArgumentNullException.ThrowIfNull(pulse);
+
+        return pulse.LastCycle is { } cycle ? Cycle(tag, cycle) : null;
+    }
+
+    /// <summary>
+    /// One cycle's six-counter breakdown — what <see cref="FullCycle"/> prints for the newest, and
+    /// what the status page's history list prints per row so the two never state it two ways.
+    /// </summary>
+    public static string Cycle(string tag, CrawlCycleRecord cycle)
+    {
+        ArgumentNullException.ThrowIfNull(cycle);
+
+        return cycle.Considered == 0
+            ? Messages.For(tag, "crawler.cycle.nothingDue")
+            : Messages.For(
+                tag,
+                "crawler.cycle.full",
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["considered"] = cycle.Considered,
+                    ["probed"] = cycle.Probed,
+                    ["answered"] = cycle.Answered,
+                    ["failed"] = cycle.Failed,
+                    ["errored"] = cycle.Errored,
+                    ["optedOut"] = cycle.OptedOut,
+                });
+    }
+
+    /// <summary>When the last cycle finished and how long it took, both already formatted.</summary>
+    public static string? CycleFinishedAt(string tag, CrawlerPulse pulse)
+    {
+        ArgumentNullException.ThrowIfNull(pulse);
+
+        return pulse.LastCycle is not { } cycle
+            ? null
+            : Messages.Say(
+                tag,
+                "crawler.cycle.finishedAt",
+                ("when", Dates.Stamp(tag, cycle.FinishedAt)),
+                ("took", Wording.Duration(cycle.Took)));
+    }
+
     /// <summary>The backlog, for the plain rendering, which has room for it.</summary>
     public static string Registry(string tag, CrawlerPulse pulse)
     {

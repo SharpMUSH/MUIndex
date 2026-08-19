@@ -100,6 +100,11 @@ public sealed class FakeCrawlCycles(DateTimeOffset? lastFinishedAt) : ICrawlCycl
     public Task<int> SweepAsync(DateTimeOffset before, CancellationToken cancellationToken = default) =>
         Task.FromResult(0);
 
+    public Task<IReadOnlyList<CrawlCycleRecord>> RecentAsync(
+        int count,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<CrawlCycleRecord>>([]);
+
     public Task<bool> IsInstalledAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(true);
 }

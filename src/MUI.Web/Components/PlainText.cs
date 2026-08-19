@@ -611,6 +611,61 @@ public static class PlainText
         return b.ToString();
     }
 
+    /// <summary>The crawler status page: the same pulse the strip carries, plus the history it has no room for.</summary>
+    public static string RenderCrawler(
+        string tag,
+        CrawlerPulse pulse,
+        IReadOnlyList<CrawlCycleRecord> recent,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(pulse);
+        ArgumentNullException.ThrowIfNull(recent);
+
+        var b = new StringBuilder();
+
+        b.AppendLine(Messages.For(tag, "crawler.page.title"));
+        b.AppendLine();
+        Wrap(b, Messages.For(tag, "crawler.page.lede"), string.Empty);
+        b.AppendLine(Messages.For(tag, "crawler.page.aboutLink") + ": " + Path(tag, "/about"));
+        b.AppendLine();
+
+        if (pulse.State(now) is CrawlState.NotYet)
+        {
+            b.AppendLine(Messages.For(tag, "crawler.page.empty"));
+            return b.ToString();
+        }
+
+        b.AppendLine(CrawlerCopy.State(tag, pulse, now));
+        b.AppendLine(CrawlerCopy.Registry(tag, pulse));
+
+        if (CrawlerCopy.FullCycle(tag, pulse) is { } cycle)
+        {
+            b.AppendLine(cycle);
+
+            if (CrawlerCopy.CycleFinishedAt(tag, pulse) is { } finished)
+            {
+                b.AppendLine(finished);
+            }
+        }
+
+        b.AppendLine();
+        b.AppendLine(Messages.For(tag, "crawler.history.title"));
+
+        if (recent.Count == 0)
+        {
+            b.AppendLine(Messages.For(tag, "crawler.history.empty"));
+        }
+        else
+        {
+            foreach (var past in recent)
+            {
+                b.AppendLine($"  {Dates.Stamp(tag, past.FinishedAt)} — {CrawlerCopy.Cycle(tag, past)}");
+            }
+        }
+
+        return b.ToString();
+    }
+
     /// <summary>The archive. Past tense, no alarm, and the run of years given as a fact.</summary>
     /// <remarks>
     /// The label column is measured rather than hard-spaced: a fixed width holds for exactly one

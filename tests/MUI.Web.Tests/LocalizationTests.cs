@@ -750,10 +750,6 @@ public class LocalizationTests
         await Assert.That((int)themed.StatusCode).IsEqualTo(303);
         await Assert.That(themed.Headers.Location?.OriginalString).IsEqualTo("/de/games");
 
-        var crawler = await site.Client.GetAsync("/de/crawler");
-
-        await Assert.That(Where(crawler)).StartsWith("/de/about");
-
         var english = await site.Client.GetAsync("/games/random");
 
         await Assert.That(Where(english)).StartsWith("/g/");

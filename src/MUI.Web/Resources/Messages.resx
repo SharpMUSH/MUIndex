@@ -2972,6 +2972,50 @@
     <value>{targets, plural, one {# address in the registry} other {# addresses in the registry}}, {due, plural, one {# due now} other {# due now}}</value>
     <comment>the crawler strip, whose sentence was English around a localized age</comment>
   </data>
+  <data name="crawler.page.title" xml:space="preserve">
+    <value>The crawler</value>
+    <comment>the crawler status page's heading</comment>
+  </data>
+  <data name="crawler.page.lede" xml:space="preserve">
+    <value>MUINDEX-CRAWLER is the automated probe behind every measurement on this site — what it has been doing, and how often.</value>
+    <comment>the crawler status page's introduction</comment>
+  </data>
+  <data name="crawler.page.aboutLink" xml:space="preserve">
+    <value>who is this, and how to opt out</value>
+    <comment>the crawler status page's link to the identity/etiquette section of About</comment>
+  </data>
+  <data name="crawler.page.empty" xml:space="preserve">
+    <value>No crawl cycle has completed here yet.</value>
+    <comment>the crawler status page, before the first cycle — names no cause</comment>
+  </data>
+  <data name="crawler.page.statusLabel" xml:space="preserve">
+    <value>status</value>
+    <comment>the crawler status page's dl kicker label</comment>
+  </data>
+  <data name="crawler.page.registryLabel" xml:space="preserve">
+    <value>registry</value>
+    <comment>the crawler status page's dl kicker label</comment>
+  </data>
+  <data name="crawler.page.cycleLabel" xml:space="preserve">
+    <value>last cycle</value>
+    <comment>the crawler status page's dl kicker label</comment>
+  </data>
+  <data name="crawler.cycle.full" xml:space="preserve">
+    <value>{considered, plural, one {# due} other {# due}} · {probed, plural, one {# probed} other {# probed}} · {answered, plural, one {# answered} other {# answered}} · {failed, plural, one {# failed} other {# failed}} · {errored, plural, one {# errored} other {# errored}} · {optedOut, plural, one {# opted out} other {# opted out}}</value>
+    <comment>the crawler status page's per-cycle breakdown, six of the thirteen stored counters</comment>
+  </data>
+  <data name="crawler.cycle.finishedAt" xml:space="preserve">
+    <value>last cycle finished {when} · took {took}</value>
+    <comment>the crawler status page; {when} and {took} arrive pre-formatted (Dates.Stamp, Wording.Duration)</comment>
+  </data>
+  <data name="crawler.history.title" xml:space="preserve">
+    <value>recent cycles</value>
+    <comment>the crawler status page's history list heading</comment>
+  </data>
+  <data name="crawler.history.empty" xml:space="preserve">
+    <value>No completed cycles are recorded yet.</value>
+    <comment>the crawler status page's history list, before any cycle has completed</comment>
+  </data>
   <data name="preview.documentTitle" xml:space="preserve">
     <value>{page} — {site}</value>
     <comment>what this site says about itself where it is not this site</comment>
