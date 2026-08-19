@@ -125,6 +125,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
     private const int ChangeLimit = 20;
 
+    private const int ChangePerFieldLimit = 3;
+
     private const int RankingLimit = 20;
 
     /// <summary>
@@ -575,7 +577,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         var intervals = await new NpgsqlAvailabilityStore(source).ForGameAsync(row.Id, cancellationToken);
         var endpoints = await new NpgsqlEndpointStore(source).ForGameAsync(row.Id, cancellationToken);
         var neighbours = await NeighboursAsync(connection, row.Id, cancellationToken);
-        var changes = await new NpgsqlGameFieldStore(source).ChangesAsync(row.Id, ChangeLimit, cancellationToken);
+        var changes = await new NpgsqlGameFieldStore(source)
+            .ChangesAsync(row.Id, ChangeLimit, ChangePerFieldLimit, cancellationToken);
         var activity = await ActivityAsync(connection, row.Id, now, cancellationToken);
 
         var codebase = Winner(fields, "CODEBASE");

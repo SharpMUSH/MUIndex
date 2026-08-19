@@ -147,4 +147,34 @@ public class GameFieldStorePostgresTests
 
         await Assert.That(await store.LastChangedAtAsync(game, "name")).IsEqualTo(Noon.AddYears(-1));
     }
+
+    [Test]
+    public async Task AFlappingFieldShowsOnlyItsThreeNewestTransitions()
+    {
+        // NAME/PLAYERNAMES/MOBILES-style fields can flip every crawl; the feed caps each field at its
+        // three newest rows so one noisy field cannot crowd the rest off the game page, while every
+        // transition still lands in field_change forever (spec §7.5).
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db);
+        var store = new NpgsqlGameFieldStore(db.DataSource);
+        var reconciler = new FieldReconciler(store);
+
+        string[] values = ["one", "two", "one", "two", "one", "two"];
+        for (var probe = 0; probe < values.Length; probe++)
+        {
+            await reconciler.ApplyAsync(
+                game, [new FieldObservation("PLAYERNAMES", FieldSource.Mssp, values[probe])], Noon.AddHours(probe));
+        }
+        await reconciler.ApplyAsync(
+            game, [new FieldObservation("GENRE", FieldSource.Mssp, "Fantasy")], Noon.AddHours(10));
+        await reconciler.ApplyAsync(
+            game, [new FieldObservation("GENRE", FieldSource.Mssp, "Historical")], Noon.AddHours(11));
+
+        var changes = await store.ChangesAsync(game, 10);
+
+        await Assert.That(changes.Count(c => c.Field == "PLAYERNAMES")).IsEqualTo(3);
+        await Assert.That(changes.Where(c => c.Field == "PLAYERNAMES").Select(c => c.At))
+            .IsEquivalentTo([Noon.AddHours(5), Noon.AddHours(4), Noon.AddHours(3)]);
+        await Assert.That(changes.Count(c => c.Field == "GENRE")).IsEqualTo(1);
+    }
 }
