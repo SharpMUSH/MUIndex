@@ -1293,15 +1293,15 @@
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.heading" xml:space="preserve">
-    <value>What we gather</value>
+    <value>What a fact here is</value>
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.declared.lead" xml:space="preserve">
-    <value>We show what a game declares.</value>
+    <value>Measured beats declared, and both are shown.</value>
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.declared.body" xml:space="preserve">
-    <value>A game's MSSP report, Intermud data, INFO, version and MSDP encoding all describe the game as it describes itself. We keep it, and label it as declared.</value>
+    <value>A game's MSSP report is the game describing itself. The telnet handshake is what we watched it do. Both appear on its page, labelled with how and when. Where they disagree, we show the disagreement.</value>
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.count.lead" xml:space="preserve">
@@ -1309,7 +1309,7 @@
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.count.body" xml:space="preserve">
-    <value>Either a WHO or DOING read at the connect screen, or the game's own MSSP PLAYERS field, or its Intermud players list. Never merged.</value>
+    <value>Either a WHO or DOING read at the connect screen, which we counted, or the game's own MSSP PLAYERS field, which it published. Never merged.</value>
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.unknown.lead" xml:space="preserve">
@@ -1317,7 +1317,7 @@
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.unknown.body" xml:space="preserve">
-    <value>Servers customise their WHO headers freely, or don't publish player data at all. Past that point we call it unknown rather than guess.</value>
+    <value>Servers customise their WHO headers freely, and past a point our parser cannot read one. That is uncountable, its own state. A measured zero — we got in, nobody was there — is a count, and prints as one.</value>
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.reachable.lead" xml:space="preserve">
@@ -1333,7 +1333,7 @@
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.hour.body" xml:space="preserve">
-    <value>The activity grid has three states. A probed hour with a count is filled, even a measured zero. An hour we could not read is different from an hour we never checked, and neither one means the game was down.</value>
+    <value>The activity grid has three states. The third is empty and names no cause: an hour we could not reach and an hour we never probed are the same absence, and neither is that server's downtime.</value>
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.limits.heading" xml:space="preserve">
@@ -1353,7 +1353,7 @@
     <comment>about: what we know we get wrong</comment>
   </data>
   <data name="about.limits.created.body" xml:space="preserve">
-    <value>It is one hand-typed line in a config file with no standard format, so it is hard to parse reliably — and crediting it would make the archive threshold gameable regardless.</value>
+    <value>It is one hand-typed line in a config file, so crediting it would make the archive threshold gameable. It is shown as a declaration and buys nothing.</value>
     <comment>about: what we know we get wrong</comment>
   </data>
   <data name="about.limits.claim.lead" xml:space="preserve">
@@ -1361,15 +1361,15 @@
     <comment>about: what we know we get wrong</comment>
   </data>
   <data name="about.limits.claim.body" xml:space="preserve">
-    <value>Proving server access is worth the full year of grace before archival, however long we have been watching.</value>
+    <value>Proving server access is worth the full year of grace, however long we have been watching.</value>
     <comment>about: what we know we get wrong</comment>
   </data>
   <data name="about.limits.oneHost.lead" xml:space="preserve">
-    <value>Everything here comes from one host, checking at intervals.</value>
+    <value>Everything here is one host, looking at intervals.</value>
     <comment>about: what we know we get wrong</comment>
   </data>
   <data name="about.limits.oneHost.body" xml:space="preserve">
-    <value>A percentage of reachable time is a share of the time we actually watched, never of the time we did not. No graphic here fills in the rest.</value>
+    <value>A percentage of reachable time is a fraction of the window we observed, never of one we did not. No graphic here fills in the rest.</value>
     <comment>about: what we know we get wrong</comment>
   </data>
   <data name="about.limits.deletion.lead" xml:space="preserve">
@@ -1389,7 +1389,7 @@
     <comment>about: what this site will not do</comment>
   </data>
   <data name="about.never.votes.body" xml:space="preserve">
-    <value>Rankings are computed from measured data only. A directory ranked by who can mobilise the most clicks describes the campaigning, not the hobby, and that is what killed the incumbents.</value>
+    <value>Rankings are computed from measured data only.</value>
     <comment>about: what this site will not do</comment>
   </data>
   <data name="about.never.forums.lead" xml:space="preserve">
@@ -1405,15 +1405,15 @@
     <comment>about: what this site will not do</comment>
   </data>
   <data name="about.never.names.body" xml:space="preserve">
-    <value>A WHO reply is parsed in memory for a count and the shape of the header. The names are not written down; aggregates use a salted hash with a rotating salt, so we can't reconstruct who was online even if we wanted to. MSSP values are exempt, since a game publishes those itself.</value>
+    <value>A WHO reply is parsed in memory for a count and the shape of the header. The names are not written down; aggregates use a salted hash with a rotating salt. We don't derive a unique-player estimate from it either — renames make that unmeasurable in principle.</value>
     <comment>about: what this site will not do</comment>
   </data>
   <data name="about.never.population.lead" xml:space="preserve">
-    <value>No total player count is published.</value>
+    <value>No absolute population figure is published.</value>
     <comment>about: what this site will not do</comment>
   </data>
   <data name="about.never.population.body" xml:space="preserve">
-    <value>Per-codebase and per-protocol shares ship, because those hold up even for the games we cannot count. A single "how many people play MU*" number would not survive being quoted.</value>
+    <value>Per-codebase and per-protocol shares ship: a ratio over the measured set survives the games we cannot count. "How many people play MU*" does not, because that number would not survive being quoted.</value>
     <comment>about: what this site will not do</comment>
   </data>
   <data name="about.crawler.heading" xml:space="preserve">
@@ -1449,7 +1449,7 @@
     <comment>about: the crawler, and how to make it stop</comment>
   </data>
   <data name="about.crawler.screens.body" xml:space="preserve">
-    <value>A server paints its connect screen, unauthenticated, to every anonymous connection. We display it as evidence and label it. Ask and it comes down.</value>
+    <value>A server paints its connect screen, unauthenticated, to every anonymous connection. We display it as evidence and label it. Claiming a game gives its owner the option to stop it being shown.</value>
     <comment>about: the crawler, and how to make it stop</comment>
   </data>
   <data name="about.crawler.stop.lead" xml:space="preserve">
@@ -1949,11 +1949,11 @@
     <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
   </data>
   <data name="ecosystem.protocols.floor" xml:space="preserve">
-    <value>Read every measured figure below as a floor. We ask for MSSP by name, so silence there is an answer. Nothing else here is requested, and a server may support a protocol without ever offering it.</value>
+    <value>Read every measured figure below as a floor. Nothing else here is requested, and a server may support a protocol without ever offering it.</value>
     <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
   </data>
   <data name="ecosystem.mssp.instrument" xml:space="preserve">
-    <value>{instrument} is the one row below that is not a floor: we ask every server for it by name, so the games that did not offer it were asked and declined. It is also the only one with no declared figure, because every game whose report we hold supports it by demonstration and a count of the ones that also listed it would measure a habit against that.</value>
+    <value>{instrument} is the one row below that is not a floor: we ask every server for it by name, so the games that did not offer it were asked and declined.</value>
     <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
   </data>
   <data name="ecosystem.mssp.gap" xml:space="preserve">
@@ -1961,7 +1961,7 @@
     <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
   </data>
   <data name="ecosystem.protocols.caption" xml:space="preserve">
-    <value>Protocol adoption. Measured is what a server offered in a completed handshake; declared is what its MSSP claims. Two sets of games, so two denominators.</value>
+    <value>Protocol adoption. 'Measured' is what a server offered in a completed handshake; 'declared' is what its MSSP claims.</value>
     <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
   </data>
   <data name="ecosystem.column.protocol" xml:space="preserve">
