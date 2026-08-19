@@ -47,8 +47,11 @@ else
             Four tiles: a label and a value, no sub-label. There is no "reachable this week" tile
             because the store can't answer it, and an estimate here would undo the argument.
 
-            "Connected now", not "with players on": the crawler counts open connections, not
-            people — one player with two clients is two connections, and a bot is a connection.
+            All four figures are counts of games, not of players — "populated" means "this many
+            games have someone connected right now" (a connection, not a headcount: one player
+            with two clients is two connections, and a bot is a connection). "Unknown population"
+            is not "answering, but no count" — PlayersNow is also null for a game we simply
+            couldn't reach just now, so the tile covers both.
         *@
         <ul class="tiles">
             <li>
