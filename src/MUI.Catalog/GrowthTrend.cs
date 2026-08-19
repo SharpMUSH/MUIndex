@@ -71,18 +71,28 @@ public static class GrowthTrend
     /// <summary>
     /// How many counted samples <paramref name="windowFrom"/>–<paramref name="windowTo"/> needs
     /// before its median may enter a comparison — the full <see cref="SortWindows.MinimumSamples"/>
-    /// for a game that existed for the whole window, scaled down for one that only overlapped part of
-    /// it, so a game short of two weeks old gets a best-effort read rather than a permanent
-    /// <c>null</c> for its whole first fortnight.
+    /// for a game we were already measuring for the whole window, scaled down for one whose
+    /// measurement history only overlapped part of it, so a game short of two weeks of real
+    /// presence data gets a best-effort read rather than a permanent <c>null</c>.
     /// </summary>
     /// <remarks>
-    /// A null <paramref name="firstSeenAt"/> is treated as "existed for the whole window" — every real
-    /// row has the column set, and a caller with no better data must not be handed a floor lower than
-    /// it has actually earned.
+    /// <paramref name="firstMeasuredAt"/> is the earliest presence sample on record for the game, not
+    /// <c>game.first_seen_at</c> — a catalogue row can predate real crawling by weeks (a backfilled
+    /// import, or a crawler outage), and scaling by the row's age rather than by when measurement
+    /// actually began would demand a full floor from a window that predates any data at all. A null
+    /// value (never measured) is treated as "existed for the whole window": harmless, since a game
+    /// with no measurement also has no samples to clear whatever floor this returns.
+    /// <para>
+    /// The floor scales against a fixed <see cref="SortWindows.Week"/>, never against
+    /// <paramref name="windowTo"/>–<paramref name="windowFrom"/> itself — <c>NpgsqlGameQueries</c>'s
+    /// bounds can themselves be an adaptive split shorter than a week when the whole batch is young,
+    /// and scaling against that shrunken span would ask for the full 24 out of, say, two days —
+    /// several times denser than the rate the floor was ever calibrated to.
+    /// </para>
     /// </remarks>
-    public static int RequiredSamples(DateTimeOffset windowFrom, DateTimeOffset windowTo, DateTimeOffset? firstSeenAt)
+    public static int RequiredSamples(DateTimeOffset windowFrom, DateTimeOffset windowTo, DateTimeOffset? firstMeasuredAt)
     {
-        var overlapFrom = firstSeenAt is { } seen && seen > windowFrom ? seen : windowFrom;
+        var overlapFrom = firstMeasuredAt is { } seen && seen > windowFrom ? seen : windowFrom;
         var overlap = windowTo - overlapFrom;
 
         if (overlap < MinimumOverlap)
@@ -90,8 +100,6 @@ public static class GrowthTrend
             return int.MaxValue;
         }
 
-        var span = windowTo - windowFrom;
-
-        return Math.Max(MinimumFloor, (int)Math.Ceiling(SortWindows.MinimumSamples * (overlap / span)));
+        return Math.Max(MinimumFloor, (int)Math.Ceiling(SortWindows.MinimumSamples * (overlap / SortWindows.Week)));
     }
 }

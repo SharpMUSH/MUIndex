@@ -137,26 +137,48 @@ public class WeeklyGrowthPostgresTests
     }
 
     [Test]
-    public async Task AGameYoungerThanTheWindowGetsAProportionallyScaledFloorInsteadOfNull()
+    public async Task AGameMeasuredForLessThanTheWindowGetsAProportionallyScaledFloorInsteadOfNull()
     {
-        // Discovered 10 days ago: only the prior week's last 3 days (day 10 through day 7) were ever
-        // reachable, so 11 samples there clears the scaled floor though it is far short of the full
-        // week's 24 — the "best effort" this game gets rather than a permanent null for its first
-        // fortnight.
+        // The catalogue row can be much older than the game's real measurement history — a backfilled
+        // import predates the crawler catching up to it by weeks. What has to drive the floor is when
+        // we actually started measuring (the earliest presence sample), not game.first_seen_at: only
+        // the prior week's last 3.5 days have any presence data here, so 15 samples clears the scaled
+        // floor (12) though it is far short of the full week's 24 — the "best effort" this game gets
+        // rather than a permanent null.
         await using var db = await PostgresFixture.MigratedAsync();
-        var game = await Seed.GameAsync(db, "toddler", "Toddler", firstSeenAt: Now.AddDays(-10));
+        var game = await Seed.GameAsync(db, "toddler", "Toddler", firstSeenAt: Now.AddYears(-1));
 
-        await WriteWeekAsync(db, game, Now.AddDays(-9), count: 10, samples: 11);
+        await WriteWeekAsync(db, game, Now.AddDays(-11), count: 10, samples: 15);
         await WriteWeekAsync(db, game, Now.AddDays(-6), count: 20);
 
         await Assert.That(await GrowthOf(db, "toddler")).IsEqualTo(GrowthDirection.Up);
     }
 
     [Test]
-    public async Task AGameSeenLessThanTwoDaysAgoStillHasNoDirectionEvenAtTheScaledFloor()
+    public async Task AWholeBatchYoungerThanTwoWeeksSplitsWhateverHistoryExistsInsteadOfLeavingThePriorWeekEmpty()
     {
+        // The load-bearing case a floor-only fix cannot reach: every game's real measurement history
+        // starts inside the fixed split's *current* week (day 6 back, not day 14), so the fixed prior
+        // window — day 14 to day 7 — has exactly zero real samples no matter how far its floor
+        // scales. The window itself has to move: split the 6 days of actual history into two
+        // comparable halves instead, each with its own floor scaled off its own span (spec's "best
+        // effort" ask, taken to its actual endpoint — a brand-new deployment's first fortnight).
         await using var db = await PostgresFixture.MigratedAsync();
-        var game = await Seed.GameAsync(db, "newborn", "Newborn", firstSeenAt: Now.AddHours(-30));
+        var game = await Seed.GameAsync(db, "sapling", "Sapling", firstSeenAt: Now.AddYears(-1));
+
+        await WriteWeekAsync(db, game, Now.AddDays(-6), count: 10, samples: 15);
+        await WriteWeekAsync(db, game, Now.AddDays(-2), count: 20);
+
+        await Assert.That(await GrowthOf(db, "sapling")).IsEqualTo(GrowthDirection.Up);
+    }
+
+    [Test]
+    public async Task AGameMeasuredForLessThanTwoDaysStillHasNoDirectionEvenAtTheScaledFloor()
+    {
+        // An old catalogue row (a year-old backfill) must not rescue this either — the floor scales
+        // off measurement history, not the row's age.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, "newborn", "Newborn", firstSeenAt: Now.AddYears(-1));
 
         await WriteWeekAsync(db, game, Now.AddDays(-1), count: 10, samples: 24);
 

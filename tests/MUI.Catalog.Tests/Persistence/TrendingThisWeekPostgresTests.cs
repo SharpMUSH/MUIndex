@@ -85,16 +85,34 @@ public class TrendingThisWeekPostgresTests
     }
 
     [Test]
-    public async Task AGameYoungerThanTwoWeeksCanStillAppearOnTheBoardAtAScaledFloor()
+    public async Task AGameMeasuredForLessThanTwoWeeksCanStillAppearOnTheBoardAtAScaledFloor()
     {
+        // A year-old catalogue row (backfill) whose real measurement history only goes back 11 days —
+        // the floor has to scale off the presence data, not game.first_seen_at, or this never appears.
         await using var db = await PostgresFixture.MigratedAsync();
-        var game = await Seed.GameAsync(db, "toddler", "Toddler", firstSeenAt: Now.AddDays(-10));
+        var game = await Seed.GameAsync(db, "toddler", "Toddler", firstSeenAt: Now.AddYears(-1));
 
-        await WriteWeekAsync(db, game, Now.AddDays(-9), count: 10, samples: 11);
+        await WriteWeekAsync(db, game, Now.AddDays(-11), count: 10, samples: 15);
         await WriteWeekAsync(db, game, Now.AddDays(-6), count: 20);
 
         var trending = (await QueriesOn(db).RankingsAsync()).TrendingThisWeek;
 
         await Assert.That(trending.Any(g => g.Slug == "toddler")).IsTrue();
+    }
+
+    [Test]
+    public async Task AWholeBatchYoungerThanTwoWeeksCanStillAppearOnTheBoard()
+    {
+        // Every game's history starts inside the fixed split's current week — the fixed prior window
+        // has zero real samples for anyone, so this only works once the window itself adapts.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, "sapling", "Sapling", firstSeenAt: Now.AddYears(-1));
+
+        await WriteWeekAsync(db, game, Now.AddDays(-6), count: 10, samples: 15);
+        await WriteWeekAsync(db, game, Now.AddDays(-2), count: 20);
+
+        var trending = (await QueriesOn(db).RankingsAsync()).TrendingThisWeek;
+
+        await Assert.That(trending.Any(g => g.Slug == "sapling")).IsTrue();
     }
 }

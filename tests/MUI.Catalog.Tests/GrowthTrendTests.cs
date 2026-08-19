@@ -90,9 +90,8 @@ public class GrowthTrendRequiredSamplesTests
             .IsEqualTo(SortWindows.MinimumSamples);
 
     [Test]
-    public async Task NoFirstSeenDateStillNeedsTheFullFloor() =>
-        // Every real row has the column set (not nullable); a caller with no better data must not be
-        // handed a lowered floor it never earned.
+    public async Task NoMeasurementOnRecordStillNeedsTheFullFloor() =>
+        // Harmless: a game never measured has no samples to clear whatever floor this returns.
         await Assert.That(GrowthTrend.RequiredSamples(WindowFrom, WindowTo, null))
             .IsEqualTo(SortWindows.MinimumSamples);
 
