@@ -625,6 +625,9 @@ header.site nav.account a.action {
 }
 header.site nav.account a.action:hover { border-color: var(--dim); text-decoration: none; }
 
+/* Icon-only, so the SVG's own inline baseline gap doesn't add a sliver of extra pill height. */
+header.site nav.account a.discord .reach-icon { display: block; line-height: 0; }
+
 /* The accent button: ring and tint together, as the handoff draws it — the fill is what tells it
    apart from the bordered one beside it at a glance. */
 header.site nav.account a.action.primary {
