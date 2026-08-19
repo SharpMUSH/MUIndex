@@ -425,11 +425,11 @@ public static class Messages
         ["about.measures.count.lead"] = "A player count says where it came from.",
         ["about.measures.count.body"] = "Either a WHO or DOING read at the connect screen, which we "
             + "counted, or the game's own MSSP PLAYERS field, which it published. Never merged.",
-        ["about.measures.unknown.lead"] = "An answer we cannot read is unknown, never zero.",
+        ["about.measures.unknown.lead"] = "Only a completed read can be a zero. Anything else is unknown.",
         ["about.measures.unknown.body"] = "Servers customise their WHO headers freely, and past a "
             + "point our parser cannot read one. That is uncountable, its own state. A measured zero "
             + "— we got in, nobody was there — is a count, and prints as one.",
-        ["about.measures.reachable.lead"] = "Reachable, never uptime.",
+        ["about.measures.reachable.lead"] = "We call this reachable. We never call it uptime.",
         ["about.measures.reachable.body"] = "We open a socket from one host at intervals. A game we "
             + "cannot route to is unreachable and perfectly alive. Nothing here claims a game's "
             + "uptime, because nothing here measured it.",
@@ -780,7 +780,7 @@ public static class Messages
         // §15.7 withholds an absolute population figure; every id here carries its denominator in
         // the same string as the percentage.
         ["ecosystem.title"] = "The ecosystem",
-        ["ecosystem.noTotals"] = "Shares, never totals. We do not publish a figure for how many people play MU*: a ratio over the games we measured survives the ones we cannot reach, and a headcount does not.",
+        ["ecosystem.noTotals"] = "We publish a share, not a headcount: a ratio over the games we measured survives the ones we cannot reach, so there is no figure here for how many people play MU* overall.",
 
         // {value} is the drawn numeral, passed as an argument rather than embedded in markup.
         ["ecosystem.listed"] = "{count, plural, one {{value} game listed} other {{value} games listed}}",
@@ -866,7 +866,7 @@ public static class Messages
 
         ["rankings.spells.title"] = "Longest unbroken reachable spell",
         // Reachable, never uptime.
-        ["rankings.spells.basis"] = "Every probe since the date given found the game reachable. Reachable, not up: we measure a socket from one host, and a game we cannot route to is perfectly alive. A spell cannot be longer than we have been watching, so the date is the fact and the duration follows.",
+        ["rankings.spells.basis"] = "Every probe since the date given found the game reachable — a socket answered, which is not a claim the game was up throughout. A spell cannot be longer than we have been watching, so the date is the fact and the duration follows.",
         ["rankings.spells.empty"] = "No listed game is in an unbroken reachable spell right now.",
         ["rankings.spells.caption"] = "Games whose every probe since the date given found them reachable. Games reachable since the same date share a place; nothing here breaks the tie.",
         ["rankings.column.since"] = "reachable since",
@@ -1248,7 +1248,7 @@ public static class Messages
         // Rule 1, in three words, and its own id in every register it appears in. It must not soften
         // into "verified" or "from our data": what it says is that nothing on this line was taken
         // from anybody's self-description.
-        ["reference.measuredNeverAsserted"] = "measured, never asserted",
+        ["reference.measuredNeverAsserted"] = "measured, not declared",
         ["reference.codebase.note"] = "Counted from the catalogue on this request, over the same "
             + "filter the link above carries — so this number and that listing are one query and "
             + "cannot drift apart.",

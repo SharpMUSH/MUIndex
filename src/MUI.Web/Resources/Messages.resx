@@ -1313,7 +1313,7 @@
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.unknown.lead" xml:space="preserve">
-    <value>An answer we cannot read is unknown, never zero.</value>
+    <value>Only a completed read can be a zero. Anything else is unknown.</value>
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.unknown.body" xml:space="preserve">
@@ -1321,7 +1321,7 @@
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.reachable.lead" xml:space="preserve">
-    <value>Reachable, never uptime.</value>
+    <value>We call this reachable. We never call it uptime.</value>
     <comment>about: the page, and what a fact here is</comment>
   </data>
   <data name="about.measures.reachable.body" xml:space="preserve">
@@ -1993,7 +1993,7 @@
     <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
   </data>
   <data name="ecosystem.noTotals" xml:space="preserve">
-    <value>Shares, never totals. We do not publish a figure for how many people play MU*: a ratio over the games we measured survives the ones we cannot reach, and a headcount does not.</value>
+    <value>We publish a share, not a headcount: a ratio over the games we measured survives the ones we cannot reach, so there is no figure here for how many people play MU* overall.</value>
     <comment>the ecosystem dashboard: shares, never totals, and never a share without its set</comment>
   </data>
   <data name="ecosystem.listed" xml:space="preserve">
@@ -2249,7 +2249,7 @@
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
   <data name="rankings.spells.basis" xml:space="preserve">
-    <value>Every probe since the date given found the game reachable. Reachable, not up: we measure a socket from one host, and a game we cannot route to is perfectly alive. A spell cannot be longer than we have been watching, so the date is the fact and the duration follows.</value>
+    <value>Every probe since the date given found the game reachable — a socket answered, which is not a claim the game was up throughout. A spell cannot be longer than we have been watching, so the date is the fact and the duration follows.</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
   <data name="rankings.spells.empty" xml:space="preserve">
@@ -3193,7 +3193,7 @@
     <comment>a codebase page's measured half</comment>
   </data>
   <data name="reference.measuredNeverAsserted" xml:space="preserve">
-    <value>measured, never asserted</value>
+    <value>measured, not declared</value>
     <comment>a codebase page's measured half</comment>
   </data>
   <data name="reference.codebase.note" xml:space="preserve">

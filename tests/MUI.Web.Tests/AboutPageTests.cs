@@ -206,7 +206,7 @@ public class AboutPageTests
         await Assert.That(text).Contains(Says("about.measures.declared.lead"));
         await Assert.That(text).Contains("MSSP PLAYERS field");
         await Assert.That(text).Contains("WHO or DOING read at the connect screen");
-        await Assert.That(text).Contains("unknown, never zero");
+        await Assert.That(text).Contains("Only a completed read can be a zero");
     }
 
     /// <summary>
