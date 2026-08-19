@@ -27,10 +27,12 @@ MUIndex fixes each of those directly:
 |---|---|---|
 | MSSP | `MUINDEX OPT-OUT 1` | The listener that published it |
 | DNS | `_muindex.your.host. IN TXT "opt-out"` (or `"opt-out=4201"` for one port) | The whole host unless a port is named |
-| Request | Email a person | Whatever was asked for |
+| Claim | [Claim](https://mu-index.com) the game, then flip it off from the owner dashboard | Whatever you claimed |
+| Ask | [Discord](https://discord.gg/KNRGZnQGpa) | Whatever was asked for |
 
 Honoured within one crawl cycle. The page, address, and everything measured before the opt-out stay
-up — stopping isn't deletion and isn't downtime.
+up — stopping isn't deletion and isn't downtime. There's no email support — Discord or a claim are
+the only ways to reach a human.
 
 ## What gets measured
 
