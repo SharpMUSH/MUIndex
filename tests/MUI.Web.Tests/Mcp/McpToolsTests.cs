@@ -381,7 +381,9 @@ public class McpToolsTests
         var result = await client.CallAsync<GameFieldSetResult>("game_field_set", new Dictionary<string, object?>
         {
             ["gameSlug"] = "reported-field-game",
-            ["field"] = "DESCRIPTION-DE",
+            // Lower-cased on purpose: the match is case-insensitive, and the STORED spelling is what
+            // has to be written, or the staff row lands beside the mssp one instead of above it.
+            ["field"] = "description-de",
             ["value"] = "Es lässt sich",
         });
 

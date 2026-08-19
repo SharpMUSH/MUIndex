@@ -273,7 +273,11 @@ public sealed class MuiMcpTools(
         """)]
     public async Task<GameFieldSetResult> GameFieldSetAsync(
         [Description("The game's slug, e.g. pennmush.")] string gameSlug,
-        [Description("A field name FieldRegistry knows, e.g. NAME, DESCRIPTION, CHARSET, GENRE.")]
+        [Description(
+            "Either a field name FieldRegistry knows (e.g. NAME, DESCRIPTION, CHARSET, GENRE) or one "
+            + "this game has already reported (e.g. an ungated MSSP variable like DESCRIPTION-DE). "
+            + "Matched case-insensitively; the stored spelling is the one written. PLAYERS and UPTIME "
+            + "are refused.")]
         string field,
         [Description(
             "The new value. An empty string withdraws it -- still recorded to the change feed, "
@@ -316,8 +320,8 @@ public sealed class MuiMcpTools(
         if (FieldReconciler.VolatileFields.Contains(fieldName))
         {
             throw new McpException(
-                $"'{fieldName}' is measured per-probe (presence/uptime) and is never stored as "
-                + "a GameField row -- see FieldReconciler.VolatileFields.");
+                $"'{fieldName}' is measured per-probe (it belongs to the presence series) and is never "
+                + "stored as a GameField row -- see FieldReconciler.VolatileFields.");
         }
 
         var now = time.GetUtcNow();
