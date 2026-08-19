@@ -209,6 +209,17 @@ else
                             <span class="sr-only">@Messages.For(Tag, "listing.row.connected")&#160;</span>@CountText(g)
                         </p>
 
+                        @* This week's median against last week's — its own cell, never folded into
+                           row-count, which stays a bare figure or the words for none. Absent, not a
+                           steady drawn from nothing, below the sample floor either week (rule 4). *@
+                        @if (g.Growth is { } growth)
+                        {
+                            <p class="row-trend @TrendState(growth)">
+                                <span role="img" aria-label="@FacetWords.TrendingWord(Tag, growth)"
+                                      title="@FacetWords.TrendingWord(Tag, growth)">@TrendGlyph(growth)</span>
+                            </p>
+                        }
+
                         @* Never-reached is its own sentence, never dated from our first sighting. *@
                         <p class="row-seen mono">
                             <span class="sr-only">@Messages.For(Tag, "listing.row.reached")&#160;</span>
@@ -354,6 +365,24 @@ else
     /// <summary>The span and the sample tally behind a statistic, in the row's own machine voice.</summary>
     private static string Sampled(PresenceWindow window) =>
         $"{window.Window.TotalDays:0}d · {window.Samples} count{(window.Samples == 1 ? string.Empty : "s")}";
+
+    /// <summary>
+    /// The growth arrow's shape. A triangle rather than an ASCII arrow, so it reads at the row's own
+    /// small size without anti-aliasing into a smudge the way ↑/↓ can at 13px.
+    /// </summary>
+    private static string TrendGlyph(GrowthDirection direction) => direction switch
+    {
+        GrowthDirection.Up => "▲",
+        GrowthDirection.Down => "▼",
+        _ => "●",
+    };
+
+    private static string TrendState(GrowthDirection direction) => direction switch
+    {
+        GrowthDirection.Up => "up",
+        GrowthDirection.Down => "down",
+        _ => "steady",
+    };
 
     protected override async Task OnParametersSetAsync()
     {

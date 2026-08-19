@@ -71,6 +71,9 @@ public static class FacetKeys
 
     public const string Genre = "genre";
 
+    /// <summary>This week's median against last week's — ours, not a claim from the game (spec §5).</summary>
+    public const string Trending = "trending";
+
     /// <summary>
     /// Games we reached and hold no readable count for — <b>never games we counted at nought</b>.
     /// </summary>
@@ -581,7 +584,10 @@ public sealed record GameFacetRow(
     /// (see <see cref="FacetKeys.Unreachable"/>). A game never reached is included here; the
     /// last-seen facet is where that stays separately visible as <see cref="LastSeenBand.Never"/>.
     /// </remarks>
-    bool Unreachable);
+    bool Unreachable,
+
+    /// <summary>This week's median against last week's (<see cref="FacetKeys.Trending"/>).</summary>
+    GrowthDirection? Growth = null);
 
 /// <summary>
 /// Turns a filter and a set of games into the listing plus every facet's counts.
@@ -992,6 +998,12 @@ public static class FacetedSearch
             r => [r.Codebase],
             f => f.CodebaseVersion),
         new(FacetKeys.Family, FacetEvidence.Declared, r => [r.Family], f => f.Family),
+        new(
+            FacetKeys.Trending,
+            FacetEvidence.Derived,
+            r => [r.Growth is { } growth ? FacetTokens.Of(growth) : null],
+            f => f.Trending,
+            FacetTokens.GrowthDirections),
         new(FacetKeys.Genre, FacetEvidence.Declared, r => [r.Genre], f => f.Genre),
         new(FacetKeys.Language, FacetEvidence.Declared, r => [r.Language], f => f.Language),
     ];
@@ -1029,6 +1041,9 @@ public static class FacetTokens
     public static IReadOnlyList<string> Sorts { get; } =
         [.. Enum.GetValues<GameSort>().Select(Of)];
 
+    public static IReadOnlyList<string> GrowthDirections { get; } =
+        [.. Enum.GetValues<GrowthDirection>().Select(Of)];
+
     /// <summary>The three windows that nest, widest last.</summary>
     private static readonly string?[] Nested =
         [Of(LastSeenBand.Day), Of(LastSeenBand.Week), Of(LastSeenBand.Month)];
@@ -1057,11 +1072,16 @@ public static class FacetTokens
 
     public static string Of(GameSort sort) => Camel(sort.ToString());
 
+    public static string Of(GrowthDirection direction) => Camel(direction.ToString());
+
     public static bool TryBand(string? text, out ActivityBand band) => TryRead(text, out band);
 
     public static bool TryLastSeen(string? text, out LastSeenBand band) => TryRead(text, out band);
 
     public static bool TrySort(string? text, out GameSort sort) => TryRead(text, out sort);
+
+    public static bool TryGrowthDirection(string? text, out GrowthDirection direction) =>
+        TryRead(text, out direction);
 
     /// <summary>
     /// Reads one of the derived vocabularies, forgivingly about separators and strictly about

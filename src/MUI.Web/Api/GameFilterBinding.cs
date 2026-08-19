@@ -59,6 +59,7 @@ public static class GameFilterBinding
             || !TryLastSeen(read, out var seen, out error)
             || !TryToggle(read, FacetKeys.Uncounted, out var uncounted, out error)
             || !TryToggle(read, FacetKeys.Unreachable, out var unreachable, out error)
+            || !TryTrending(read, out var trending, out error)
             || !TrySort(read, out var sort, out error))
         {
             return false;
@@ -94,6 +95,7 @@ public static class GameFilterBinding
             CodebaseVersion = Choice(read, FacetKeys.CodebaseVersion),
             Lineage = Choice(read, FacetKeys.Lineage),
             Family = Choice(read, FacetKeys.Family),
+            Trending = trending,
             Genre = Choice(read, FacetKeys.Genre),
             Language = Choice(read, FacetKeys.Language),
             Sort = sort,
@@ -162,6 +164,34 @@ public static class GameFilterBinding
             error = $"'{text}' is not a value of '{key}'. "
                 + $"Accepted: {FacetTokens.Yes}, {FacetChoice.ExcludeToken}{FacetTokens.Yes}, "
                 + $"{FacetChoice.UnknownToken}.";
+            return false;
+        }
+
+        choice = parsed;
+        return true;
+    }
+
+    /// <summary>
+    /// <c>trending</c>: <c>up</c>, <c>steady</c>, <c>down</c>, negated or <c>~unknown</c>, or not
+    /// asked. Refused on anything else, same as every other bounded vocabulary here.
+    /// </summary>
+    private static bool TryTrending(Func<string, StringValues> read, out FacetChoice? choice, out string? error)
+    {
+        choice = null;
+        error = null;
+        var text = read(FacetKeys.Trending).ToString();
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return true;
+        }
+
+        var parsed = FacetChoice.Parse(text.Trim());
+
+        if (!parsed.IsUnknown && !FacetTokens.TryGrowthDirection(parsed.Value, out _))
+        {
+            error = $"'{text}' is not a trending direction. "
+                + $"Accepted: {string.Join(", ", FacetTokens.GrowthDirections)}.";
             return false;
         }
 

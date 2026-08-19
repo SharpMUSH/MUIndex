@@ -245,6 +245,7 @@ public static class Messages
         ["facet.group.version"] = "version",
         ["facet.group.lineage"] = "lineage",
         ["facet.group.family"] = "family",
+        ["facet.group.trending"] = "trending",
         ["facet.group.genre"] = "genre",
         ["facet.group.language"] = "language",
 
@@ -263,12 +264,19 @@ public static class Messages
         ["facet.seen.never"] = "never reached",
         ["facet.unknown.charset"] = "nothing negotiated",
         ["facet.unknown.codebase"] = "not identified",
+        ["facet.unknown.trending"] = "not enough measurement yet",
         ["facet.unknown.other"] = "not declared",
         ["facet.tls.yes"] = "connected over TLS",
         ["facet.excluded"] = "not {value}",
         ["facet.known.charset"] = "something negotiated",
         ["facet.known.codebase"] = "identified at all",
+        ["facet.known.trending"] = "measured both weeks",
         ["facet.known.other"] = "declared at all",
+
+        // ── trending, this week's median against last week's ─────────────────────────────────────
+        ["facet.trending.up"] = "trending up",
+        ["facet.trending.steady"] = "steady",
+        ["facet.trending.down"] = "trending down",
 
         // ── evidence, and what each word means ────────────────────────────────────────────────
         ["evidence.measured.meaning"] = "we watched this happen",

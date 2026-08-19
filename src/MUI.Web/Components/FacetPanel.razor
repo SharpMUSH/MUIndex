@@ -216,8 +216,12 @@
     /// <see cref="FacetKeys.Codebase"/> rather than behind the "more filters" disclosure: it is the
     /// coarser, more legible question of the two, and a reader deciding what kind of game they want
     /// asks it before they ask which codebase implements it.
+    /// <see cref="FacetKeys.Trending"/> sits beside <see cref="FacetKeys.Band"/> — both are "what is
+    /// this game doing lately" questions — rather than behind the disclosure, since a facet a reader
+    /// can't discover without opening "more filters" first is a facet they can't find at all.
     /// </remarks>
-    private static readonly string[] Lead = [FacetKeys.Band, FacetKeys.Family, FacetKeys.Codebase, FacetKeys.LastSeen];
+    private static readonly string[] Lead =
+        [FacetKeys.Band, FacetKeys.Trending, FacetKeys.Family, FacetKeys.Codebase, FacetKeys.LastSeen];
 
     /// <summary>Two independent facet groups sharing one heading and note (see <c>FacetKeys.Unreachable</c>).</summary>
     private static readonly string[] Measured = [FacetKeys.Uncounted, FacetKeys.Unreachable];

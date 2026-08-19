@@ -426,6 +426,13 @@ public static class PlainText
                 b.AppendLine($"  Ranked on:   {FacetWords.Window(tag, window, filter.Sort)}");
             }
 
+            // Absent, not "not enough data" spelled out — same as every other unknown here (rule 4):
+            // a game too new or too thin for the sample floor prints no line at all.
+            if (g.Growth is { } growth)
+            {
+                b.AppendLine($"  Trending:    {FacetWords.TrendingWord(tag, growth)}");
+            }
+
             // Never blank: "we could not identify it" is a measurement, a missing line is not.
             b.AppendLine((g.Codebase is { } codebase
                 ? $"  Codebase:    {codebase}  {Label(tag, g.CodebaseProvenance, now)}"

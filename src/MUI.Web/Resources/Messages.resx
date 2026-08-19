@@ -776,6 +776,10 @@
     <value>family</value>
     <comment>facet groups</comment>
   </data>
+  <data name="facet.group.trending" xml:space="preserve">
+    <value>trending</value>
+    <comment>facet groups</comment>
+  </data>
   <data name="facet.group.genre" xml:space="preserve">
     <value>genre</value>
     <comment>facet groups</comment>
@@ -832,6 +836,10 @@
     <value>not identified</value>
     <comment>facet values</comment>
   </data>
+  <data name="facet.unknown.trending" xml:space="preserve">
+    <value>not enough measurement yet</value>
+    <comment>facet values</comment>
+  </data>
   <data name="facet.unknown.other" xml:space="preserve">
     <value>not declared</value>
     <comment>facet values</comment>
@@ -852,9 +860,25 @@
     <value>identified at all</value>
     <comment>facet values</comment>
   </data>
+  <data name="facet.known.trending" xml:space="preserve">
+    <value>measured both weeks</value>
+    <comment>facet values</comment>
+  </data>
   <data name="facet.known.other" xml:space="preserve">
     <value>declared at all</value>
     <comment>facet values</comment>
+  </data>
+  <data name="facet.trending.up" xml:space="preserve">
+    <value>trending up</value>
+    <comment>trending, this week's median against last week's</comment>
+  </data>
+  <data name="facet.trending.steady" xml:space="preserve">
+    <value>steady</value>
+    <comment>trending, this week's median against last week's</comment>
+  </data>
+  <data name="facet.trending.down" xml:space="preserve">
+    <value>trending down</value>
+    <comment>trending, this week's median against last week's</comment>
   </data>
   <data name="evidence.measured.meaning" xml:space="preserve">
     <value>we watched this happen</value>

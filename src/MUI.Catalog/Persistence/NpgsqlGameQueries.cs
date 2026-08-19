@@ -199,6 +199,11 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             ? await PlayersOverWindowAsync(connection, ids, span, now, cancellationToken)
             : [];
 
+        // Unlike windows, always computed: trending is a facet now (Games list), not only a figure a
+        // window sort happens to show, so a reader has to be able to filter on it without first
+        // having to sort by a typical count.
+        var growth = await WeekOverWeekGrowthAsync(connection, ids, now, cancellationToken);
+
         var facetRows = new List<GameFacetRow>(rows.Count);
 
         foreach (var row in rows)
@@ -224,7 +229,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 CountChip(digest, now),
                 Chip(codebase, now),
                 icons.Contains(row.Id),
-                windows.GetValueOrDefault(row.Id));
+                windows.GetValueOrDefault(row.Id),
+                growth.GetValueOrDefault(row.Id));
 
             facetRows.Add(new GameFacetRow(
                 summary,
@@ -247,7 +253,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
                 // From the availability series, never the presence one — a hole there can't tell an
                 // hour we missed from an hour we could not reach (rule 2).
-                Unreachable: FacetedSearch.NotReachedRecently(row.LastReachableAt, now)));
+                Unreachable: FacetedSearch.NotReachedRecently(row.LastReachableAt, now),
+
+                Growth: summary.Growth));
         }
 
         return FacetedSearch.Search(facetRows, filter);
@@ -416,6 +424,127 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         return rows.ToDictionary(
             r => r.GameId,
             r => new PresenceWindow(window, r.Median, r.Peak, r.Samples));
+    }
+
+    /// <summary>
+    /// This week's median against last week's, for every game — always computed, unlike
+    /// <see cref="PlayersOverWindowAsync"/>, because <c>trending</c> is a facet a reader can filter on
+    /// without first sorting by a typical count.
+    /// </summary>
+    /// <remarks>
+    /// Two calls to <see cref="WindowStatsAsync"/> rather than one query with a <c>CASE</c> bucket,
+    /// so each half is exactly the query <see cref="WindowSortPostgresTests"/> already proves correct
+    /// for a single window — the only new surface is the boundary between the two, which is pinned
+    /// once here rather than reasoned about twice.
+    /// </remarks>
+    private static async Task<Dictionary<Guid, GrowthDirection?>> WeekOverWeekGrowthAsync(
+        NpgsqlConnection connection,
+        Guid[] ids,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var currentFrom = now - SortWindows.Week;
+
+        // The exact instant PlayersOverWindowAsync's own from-side day-snap would floor currentFrom
+        // to — so the prior week's upper bound and the current week's lower bound are the same value,
+        // and a sample at that instant lands on exactly one side.
+        var boundary = FloorToUtcDay(currentFrom);
+        var priorFrom = currentFrom - SortWindows.Week;
+
+        var current = await WindowStatsAsync(connection, ids, currentFrom, now, cancellationToken);
+        var prior = await WindowStatsAsync(connection, ids, priorFrom, boundary, cancellationToken);
+
+        return ids.ToDictionary(
+            id => id,
+            id =>
+            {
+                current.TryGetValue(id, out var c);
+                prior.TryGetValue(id, out var p);
+
+                return GrowthTrend.Of(c?.Median, c?.Samples, p?.Median, p?.Samples);
+            });
+    }
+
+    private static DateTimeOffset FloorToUtcDay(DateTimeOffset at) =>
+        new(DateOnly.FromDateTime(at.UtcDateTime).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+
+    /// <summary>
+    /// One game's median, peak and sample tally over an explicit <paramref name="from"/>/
+    /// <paramref name="to"/> span — the same frequency-and-walk shape <see cref="PlayersOverWindowAsync"/>
+    /// uses for a window ending "now", generalised to an arbitrary bounded span so two non-overlapping
+    /// weeks can be read with the one query.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="from"/> is floored to the UTC day it falls in, same as
+    /// <see cref="PlayersOverWindowAsync"/>, so the far end of a window keeps the whole day rather
+    /// than dropping part of it. <paramref name="to"/> is used exactly as given — never floored —
+    /// because the caller is responsible for handing it the same value the adjoining window floored
+    /// its own <c>from</c> to, and flooring it a second time here would be a second, possibly
+    /// different, opinion about where that instant falls.
+    /// </remarks>
+    private static async Task<Dictionary<Guid, WindowRow>> WindowStatsAsync(
+        NpgsqlConnection connection,
+        Guid[] ids,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken)
+    {
+        var rows = await connection.QueryAsync<WindowRow>(new CommandDefinition(
+            """
+            WITH boundary AS (
+                SELECT coalesce(
+                    (SELECT rolled_up_through FROM presence_rollup_state WHERE scope = 'day'),
+                    '-infinity'::timestamptz) AS at
+            ),
+            span AS (
+                SELECT date_trunc('day', @from AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS from_at
+            ),
+            frequency AS (
+                SELECT p.game_id, p.count AS value, count(*)::bigint AS times
+                  FROM presence_sample p
+                 WHERE p.game_id = ANY(@ids)
+                   AND p.count IS NOT NULL
+                   AND p.at >= (SELECT from_at FROM span)
+                   AND p.at >= (SELECT at FROM boundary)
+                   AND p.at < @to
+                 GROUP BY 1, 2
+
+                UNION ALL
+
+                SELECT r.game_id, e.key::int, sum(e.value::bigint)
+                  FROM presence_rollup_day r
+                  CROSS JOIN LATERAL jsonb_each_text(r.count_histogram) AS e(key, value)
+                 WHERE r.game_id = ANY(@ids)
+                   AND r.count_histogram IS NOT NULL
+                   AND r.day >= (SELECT from_at FROM span)
+                   AND r.day < LEAST((SELECT at FROM boundary), @to)
+                 GROUP BY 1, 2
+            ),
+            counted AS (
+                SELECT game_id, value, sum(times) AS times
+                  FROM frequency
+                 GROUP BY 1, 2
+            ),
+            walked AS (
+                SELECT game_id, value,
+                       sum(times) OVER (PARTITION BY game_id ORDER BY value) AS running,
+                       ceil(sum(times) OVER (PARTITION BY game_id) / 2.0)    AS half,
+                       sum(times) OVER (PARTITION BY game_id)                AS samples,
+                       max(value)  OVER (PARTITION BY game_id)               AS peak
+                  FROM counted
+            )
+            SELECT game_id        AS GameId,
+                   min(value)::int AS Median,
+                   max(peak)::int  AS Peak,
+                   max(samples)::int AS Samples
+              FROM walked
+             WHERE running >= half
+             GROUP BY 1
+            """,
+            new { ids, from = from.ToUniversalTime(), to = to.ToUniversalTime() },
+            cancellationToken: cancellationToken));
+
+        return rows.ToDictionary(r => r.GameId, r => r);
     }
 
     /// <summary>

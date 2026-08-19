@@ -427,6 +427,53 @@ public class PlainParityTests
     }
 
     [Test]
+    public async Task TheGrowthArrowMatchesTheDirectionAndNeverAppearsWithoutOne()
+    {
+        var html = await Render.PageAsync<Games>([]);
+        var rows = html.Split("class=\"game-row").Skip(1)
+            .Select(r => r[..r.IndexOf("</li>", StringComparison.Ordinal)])
+            .ToList();
+
+        // M*U*S*H is fixed at Growth: GrowthDirection.Up in the fixture.
+        var mush = rows.Single(r => r.Contains("href=\"/g/m-u-s-h\"", StringComparison.Ordinal));
+
+        await Assert.That(mush).Contains("class=\"row-trend");
+        await Assert.That(Render.Words(mush))
+            .Contains(Messages.For(Locales.SourceTag, "facet.trending.up"));
+
+        // Eldertale carries no Growth in the fixture — no direction was ever measured for it, and
+        // the row must not invent one.
+        var eldertale = rows.Single(r => r.Contains("href=\"/g/eldertale\"", StringComparison.Ordinal));
+
+        await Assert.That(eldertale).DoesNotContain("class=\"row-trend");
+    }
+
+    [Test]
+    public async Task TheGrowthArrowNeverLivesInsideTheCountColumn()
+    {
+        // The count column's own rule (TheCountColumnCarriesANumberAndNothingElse) is a bare figure
+        // or the words for none — a second fact folded into that cell would break both promises.
+        var html = await Render.PageAsync<Games>([]);
+        var counts = html.Split("class=\"row-count").Skip(1);
+
+        foreach (var cell in counts)
+        {
+            await Assert.That(cell[..cell.IndexOf("</p>", StringComparison.Ordinal)])
+                .DoesNotContain("row-trend");
+        }
+    }
+
+    [Test]
+    public async Task ThePlainListingSaysTheSameTrendTheRowDraws()
+    {
+        var listing = await Queries.SearchAsync(new GameFilter());
+        var text = PlainText.RenderListing(listing, new GameFilter(), Now);
+
+        await Assert.That(text)
+            .Contains($"Trending:    {Messages.For(Locales.SourceTag, "facet.trending.up")}");
+    }
+
+    [Test]
     public async Task OneCountWearsOneGlyphAndNotTwo()
     {
         // Previously printed the glyph twice (pip and chip) — one fact told as two.

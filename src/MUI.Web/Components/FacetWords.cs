@@ -35,6 +35,7 @@ public static class FacetWords
         FacetKeys.CodebaseVersion => "facet.group.version",
         FacetKeys.Lineage => "facet.group.lineage",
         FacetKeys.Family => "facet.group.family",
+        FacetKeys.Trending => "facet.group.trending",
         FacetKeys.Genre => "facet.group.genre",
         FacetKeys.Language => "facet.group.language",
 
@@ -166,6 +167,7 @@ public static class FacetWords
         {
             FacetKeys.Band => Band(tag, value.Token),
             FacetKeys.LastSeen => LastSeen(tag, value.Token),
+            FacetKeys.Trending => Trending(tag, value.Token),
             FacetKeys.Tls => Messages.For(tag, "facet.tls.yes"),
 
             // Reuses the glossary's own reviewed strings rather than minting a second translation of
@@ -216,6 +218,7 @@ public static class FacetWords
     {
         FacetKeys.Charset => "facet.known.charset",
         FacetKeys.Codebase => "facet.known.codebase",
+        FacetKeys.Trending => "facet.known.trending",
         _ => "facet.known.other",
     });
 
@@ -231,6 +234,7 @@ public static class FacetWords
     {
         FacetKeys.Charset => "facet.unknown.charset",
         FacetKeys.Codebase => "facet.unknown.codebase",
+        FacetKeys.Trending => "facet.unknown.trending",
         _ => "facet.unknown.other",
     });
 
@@ -256,6 +260,20 @@ public static class FacetWords
     /// wording; the band names its threshold, not the reason.
     /// </remarks>
     public static string BandWord(string tag, string token) => Band(tag, token);
+
+    /// <summary>
+    /// What a growth direction is called, from its token — shared by the panel's row and the
+    /// listing's own arrow, so the two surfaces can never name the same computed direction two ways.
+    /// </summary>
+    public static string TrendingWord(string tag, GrowthDirection direction) =>
+        Trending(tag, FacetTokens.Of(direction));
+
+    private static string Trending(string tag, string token) => Messages.For(tag, token switch
+    {
+        "up" => "facet.trending.up",
+        "down" => "facet.trending.down",
+        _ => "facet.trending.steady",
+    });
 
     private static string Band(string tag, string token) => Messages.For(tag, token switch
     {

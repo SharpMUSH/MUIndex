@@ -107,7 +107,15 @@ public sealed record GameSummary(
     ProvenanceChip? PlayersNowProvenance = null,
     ProvenanceChip? CodebaseProvenance = null,
     bool HasIcon = false,
-    PresenceWindow? PlayersOverWindow = null);
+    PresenceWindow? PlayersOverWindow = null,
+
+    /// <summary>This week's median against last week's, or null below the sample floor either side.</summary>
+    /// <remarks>
+    /// Independent of <see cref="PlayersOverWindow"/> and always computed, not only when a window
+    /// sort is active — a reader has to be able to filter on <c>trending</c> without having to also
+    /// sort by a typical count first. See <c>NpgsqlGameQueries.WeekOverWeekGrowthAsync</c>.
+    /// </remarks>
+    GrowthDirection? Growth = null);
 
 /// <summary>
 /// What a game's counts added up to over one window — the basis a window sort ranks on (spec §9).
@@ -342,6 +350,12 @@ public sealed record GameFilter
 
     /// <summary>MSSP's own <c>FAMILY</c> variable, as the game published it. See <see cref="Lineage"/>.</summary>
     public FacetChoice? Family { get; init; }
+
+    /// <summary>
+    /// This week's median against last week's (<see cref="FacetKeys.Trending"/>) — ours, carried as
+    /// <see cref="FacetEvidence.Derived"/>, same as <see cref="Lineage"/>.
+    /// </summary>
+    public FacetChoice? Trending { get; init; }
 
     public FacetChoice? Genre { get; init; }
 

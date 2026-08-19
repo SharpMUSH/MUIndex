@@ -34,7 +34,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), "m-u-s-h", "M*U*S*H",
         "The PennMUSH development server.", LifecycleState.Active, IsClaimed: false,
         PlayersNow: 15, Codebase: "PennMUSH 1.8.8p0", MeasuredProtocols: ["MSSP", "CHARSET"],
-        LastReachableAt: Now.AddMinutes(-4));
+        LastReachableAt: Now.AddMinutes(-4), Growth: GrowthDirection.Up);
 
     private static readonly GameSummary Eldertale = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000002"), "eldertale", "Eldertale Online",
@@ -48,7 +48,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         "Counted from the connect screen, which is the only place this game publishes a number.",
         LifecycleState.Active, IsClaimed: false,
         PlayersNow: 219, Codebase: null, MeasuredProtocols: ["MSSP", "GMCP", "MCCP", "MSDP"],
-        LastReachableAt: Now.AddMinutes(-40));
+        LastReachableAt: Now.AddMinutes(-40), Growth: GrowthDirection.Down);
 
     // Answers, but nothing we can count. Renders "count unknown" — never a zero.
     private static readonly GameSummary MidnightSun = new(
@@ -69,7 +69,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000007"), "ashen-court", "Ashen Court",
         "Courtly intrigue, low fantasy. Application required.", LifecycleState.Active,
         IsClaimed: true, PlayersNow: 9, Codebase: "Evennia", MeasuredProtocols: ["MSSP", "GMCP", "TLS"],
-        LastReachableAt: Now.AddMinutes(-9));
+        LastReachableAt: Now.AddMinutes(-9), Growth: GrowthDirection.Steady);
 
     /// <summary>
     /// Stopped answering six weeks ago and has not been archived: unreachable, and not uncounted.
@@ -233,7 +233,8 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         // Through the same predicate the database reads, not a slug test of its own.
         IsAdult: AdultContent.Declared(Genre(game), AdultMaterial(game)),
         Uncounted: Uncounted(game),
-        Unreachable: FacetedSearch.NotReachedRecently(game.LastReachableAt, Now));
+        Unreachable: FacetedSearch.NotReachedRecently(game.LastReachableAt, Now),
+        Growth: game.Growth);
 
     /// <summary>
     /// Whether every hour this game answered in produced no number.
