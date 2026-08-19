@@ -316,7 +316,7 @@ public class FacetSurfaceTests
 
         await Assert.That(words).Contains("A blank is a gap in our measurement, not a no");
         await Assert.That(words).Contains("not identified");
-        await Assert.That(words).Contains("Counts are games we measured, never estimates");
+        await Assert.That(words).Contains("Every count here comes from a game we measured");
         await Assert.That(words).Contains("An unknown count is not a zero");
     }
 
