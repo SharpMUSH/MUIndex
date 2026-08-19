@@ -62,7 +62,6 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
             Point(tag, "about.limits.grace"),
             Point(tag, "about.limits.created"),
             Point(tag, "about.limits.claim"),
-            Point(tag, "about.limits.oneHost"),
             Point(tag, "about.limits.deletion"),
         ]);
 
@@ -73,7 +72,6 @@ public sealed record AboutPage(string Lede, IReadOnlyList<AboutSection> Sections
             Point(tag, "about.never.votes"),
             Point(tag, "about.never.forums"),
             Point(tag, "about.never.names"),
-            Point(tag, "about.never.population"),
         ]);
 
     private static AboutSection Crawler(string tag, ProbeOptions probe) => new(

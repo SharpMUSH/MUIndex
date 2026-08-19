@@ -760,7 +760,8 @@ public static class Messages
         ["ecosystem.plain.denominators"] = "Measured is of {measured}; declared is of {declared}. Two sets of games, so two denominators.",
         ["ecosystem.plain.counts"] = "{listed} · {handshakes} · {mssp}.",
         ["ecosystem.plain.oldestHandshake"] = "The oldest handshake in this picture was last confirmed {age} ago.",
-        ["ecosystem.plain.lineages"] = "The same games, grouped by the tradition their server descends from. This is {evidence} — {meaning} — and not anything a game published: no game reports \"MUSH\", because MSSP has no such value and most of the MUSH world publishes no MSSP at all.",
+        ["ecosystem.plain.lineages"] = "The same games, grouped by the tradition their server descends from. This is {evidence} — {meaning} — and not anything a game published: no game reports \"MUSH\", " +
+                                       "because MSSP has no such value and most of the MUSH world publishes no MSSP at all.",
         ["ecosystem.plain.measured"] = "measured: {value}",
         ["ecosystem.plain.declared"] = "declared: {value}",
 
