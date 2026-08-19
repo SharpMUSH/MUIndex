@@ -5,6 +5,11 @@ using MUI.Crawl;
 var host = args.Length > 0 ? args[0] : "mush.pennmush.org";
 var port = args.Length > 1 && int.TryParse(args[1], out var p) ? p : 4201;
 
+// The third argument is the CHARSET override a staff row would carry, so the encoding a game needs
+// can be tried against the real server before anybody writes it down. Names are .NET's:
+// gbk, big5, euc-kr, iso-8859-1. Anything this runtime does not know is ignored, not fatal.
+var charset = args.Length > 2 ? args[2] : null;
+
 // §11: the same contact address the deployable announces, so a probe run by hand still identifies us.
 var options = Environment.GetEnvironmentVariable("MUI_CRAWL_INFO_URL") is { Length: > 0 } contact
     ? new ProbeOptions { InfoUrl = contact }
@@ -12,7 +17,7 @@ var options = Environment.GetEnvironmentVariable("MUI_CRAWL_INFO_URL") is { Leng
 
 options.Validate();
 
-var result = await new TelnetProbe(options).ProbeAsync(new ProbeTarget(host, port));
+var result = await new TelnetProbe(options).ProbeAsync(new ProbeTarget(host, port) { Charset = charset });
 
 Console.WriteLine($"target        {result.Host}:{result.Port}");
 Console.WriteLine($"outcome       {result.Outcome}");
@@ -38,6 +43,15 @@ if (result.BannerPlayerCount is { } fromBanner)
 }
 
 Console.WriteLine($"charset       {result.Negotiation.Charset ?? "(unset)"}{(result.Negotiation.CharsetNegotiated ? " (negotiated)" : " (default)")}");
+
+// What was negotiated and what the bytes were read as are two different facts, and the gap between
+// them is the whole point of the override — print both rather than letting one stand for the other.
+Console.WriteLine($"read as       {result.ReadAs} ({result.CharsetSource})");
+
+foreach (var (variable, values) in result.Mssp)
+{
+    Console.WriteLine($"  mssp        {variable} = {string.Join(" | ", values)}");
+}
 
 // §6.2 — printed even when empty, since the gap between the raw reply and the reading is the
 // diagnostic: an INFO that plainly names an engine with an empty reading means the parser needs work.
