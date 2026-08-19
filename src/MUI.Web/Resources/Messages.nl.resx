@@ -547,7 +547,7 @@
     <value>spellen die inhoud voor volwassenen opgeven, {shown, select, true {getoond} other {verborgen}}</value>
   </data>
   <data name="facet.countsNote" xml:space="preserve">
-    <value>Aantallen zijn spellen die we gemeten hebben, nooit schattingen.</value>
+    <value>Elk aantal hier komt van een spel dat we gemeten hebben — geen schatting.</value>
   </data>
   <data name="facet.key.summary" xml:space="preserve">
     <value>wat de badges en de lege plekken betekenen</value>
@@ -994,7 +994,7 @@
     <value>Ofwel een WHO of DOING die bij het verbindingsscherm gelezen is en door ons geteld, ofwel het eigen MSSP PLAYERS-veld van het spel, dat het zelf publiceerde. Nooit samengevoegd.</value>
   </data>
   <data name="about.measures.unknown.lead" xml:space="preserve">
-    <value>Een antwoord dat we niet kunnen lezen is onbekend, nooit nul.</value>
+    <value>Alleen een volledige aflezing kan een nul zijn. Al het andere is onbekend.</value>
   </data>
   <data name="about.measures.unknown.body" xml:space="preserve">
     <value>Servers passen hun WHO-koppen naar believen aan, en voorbij een zeker punt kan onze parser er geen meer lezen. Dat is niet telbaar, een toestand op zichzelf. Een gemeten nul — we kwamen binnen, er was niemand — is een telling, en wordt ook als telling weergegeven.</value>
@@ -1087,7 +1087,7 @@
     <value>Een spel dat in zijn MSSP-rapport een gewenste minimale tussenpoos opgeeft, krijgt die, boven ons eigen schema in beide richtingen: 720 uur betekent maandelijks, niet wekelijks. Bij een stilgevallen spel wordt voor altijd op de langere tussenpoos aangeklopt, en zo zet het zichzelf weer in de lijst wanneer het terugkomt.</value>
   </data>
   <data name="about.crawler.referral.lead" xml:space="preserve">
-    <value>Een doorverwezen adres wordt geverifieerd, nooit vertrouwd.</value>
+    <value>We controleren waar een verwijzing naartoe wijst. De opgave van een spel alleen is niet genoeg.</value>
   </data>
   <data name="about.crawler.referral.body" xml:space="preserve">
     <value>Met MSSP kan een spel andere spellen noemen. Elke naam wordt opgelost voordat er ergens wordt aangeklopt, en geweigerd tenzij elk adres waarnaar hij oplost wereldwijd routeerbaar is. Een gemengd antwoord weigert het hele doel. Onze weigering wordt als de onze vastgelegd en verschijnt nooit als downtime in het dossier van een spel.</value>
@@ -1504,7 +1504,7 @@
     <value>Het ecosysteem</value>
   </data>
   <data name="ecosystem.noTotals" xml:space="preserve">
-    <value>Aandelen, nooit totalen. We publiceren geen cijfer voor hoeveel mensen MU* spelen: een verhouding over de spellen die we gemeten hebben overleeft de spellen die we niet kunnen bereiken, en een koppentelling niet.</value>
+    <value>We publiceren een aandeel, geen koppentelling: een verhouding over de spellen die we gemeten hebben overleeft de spellen die we niet kunnen bereiken, dus er staat hier geen cijfer voor hoeveel mensen er in totaal MU* spelen.</value>
   </data>
   <data name="ecosystem.listed" xml:space="preserve">
     <value>{count, plural, one {{value} spel vermeld} other {{value} spellen vermeld}}</value>
@@ -1696,7 +1696,7 @@
     <value>Langste ononderbroken bereikbaarheid</value>
   </data>
   <data name="rankings.spells.basis" xml:space="preserve">
-    <value>Elke peiling sinds de genoemde datum trof het spel bereikbaar aan. Bereikbaar, niet ‘up’: we meten een socket vanaf één host, en een spel waarheen we geen route hebben is volkomen springlevend. Zo’n reeks kan niet langer zijn dan we al meekijken, dus de datum is het feit en de duur volgt daaruit.</value>
+    <value>Elke peiling sinds de genoemde datum trof het spel bereikbaar aan — een socket antwoordde, wat geen uitspraak is over of het spel de hele tijd door heeft gedraaid. Zo’n reeks kan niet langer zijn dan we al meekijken, dus de datum is het feit en de duur volgt daaruit.</value>
   </data>
   <data name="rankings.spells.empty" xml:space="preserve">
     <value>Geen vermeld spel zit op dit moment in een ononderbroken reeks bereikbaarheid.</value>
@@ -2248,7 +2248,7 @@
     <value>Demogegevens — niets hiervan is gemeten. {description}</value>
   </data>
   <data name="preview.cardAlt" xml:space="preserve">
-    <value>{site} — gemeten, niet beweerd</value>
+    <value>{site} — gemeten, niet opgegeven</value>
   </data>
   <data name="preview.cardAlt.named" xml:space="preserve">
     <value>{title} op {site}</value>
@@ -2404,7 +2404,7 @@
     <value>{count, plural, one {# gearchiveerd} other {# gearchiveerd}}</value>
   </data>
   <data name="reference.measuredNeverAsserted" xml:space="preserve">
-    <value>gemeten, nooit beweerd</value>
+    <value>gemeten, niet opgegeven</value>
   </data>
   <data name="reference.codebase.note" xml:space="preserve">
     <value>Geteld uit de catalogus bij dit verzoek, over hetzelfde filter als de link hierboven — dus dit getal en die lijst zijn één zoekopdracht en kunnen niet uit elkaar lopen.</value>

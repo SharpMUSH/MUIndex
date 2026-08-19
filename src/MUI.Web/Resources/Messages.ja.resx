@@ -547,7 +547,7 @@
     <value>アダルト指定を自己申告したゲーム、{shown, select, true {表示} other {非表示}}</value>
   </data>
   <data name="facet.countsNote" xml:space="preserve">
-    <value>件数は実測したゲーム数であり、推定値ではない。</value>
+    <value>ここにある数はすべて、実測したゲームによるもの——推定ではない。</value>
   </data>
   <data name="facet.key.summary" xml:space="preserve">
     <value>バッジと空欄の意味</value>
@@ -994,7 +994,7 @@
     <value>接続画面で読み取ったWHOかDOING（当サイトが数えたもの）、あるいはゲーム自身が公開したMSSPのPLAYERSフィールドのいずれか。両者を混ぜることはない。</value>
   </data>
   <data name="about.measures.unknown.lead" xml:space="preserve">
-    <value>読み取れなかった応答は不明であって、ゼロではない。</value>
+    <value>読み切れたときだけゼロになる。それ以外は不明。</value>
   </data>
   <data name="about.measures.unknown.body" xml:space="preserve">
     <value>サーバーはWHOのヘッダーを自由に書き換えるので、ある程度を超えると当サイトのパーサーは読み取れない。それは接続数読み取り不可という、それ自体で一つの状態。実測のゼロ — 接続でき、誰もいなかった — は計数であり、計数として表示する。</value>
@@ -1087,7 +1087,7 @@
     <value>MSSPレポートで希望する最小間隔を示したゲームには、そのとおりにする。当サイト自身のスケジュールより双方向に優先する：720時間なら週次ではなく月次。消息不明のゲームも、その長い間隔で永久に試し続ける。復帰したときに自力で一覧に戻るのは、そのおかげ。</value>
   </data>
   <data name="about.crawler.referral.lead" xml:space="preserve">
-    <value>紹介されたアドレスは検証する。信用はしない。</value>
+    <value>参照先がどこを指すかは当サイトが確かめる。ゲーム側の申告だけでは足りない。</value>
   </data>
   <data name="about.crawler.referral.body" xml:space="preserve">
     <value>MSSPでは、ゲームが他のゲームを名指しできる。名前はダイヤルする前にすべて解決し、解決先のアドレスがすべてグローバルに到達可能でなければ拒否する。混在した応答は、その対象全体を拒否する。この拒否は当サイトの判断として記録し、ゲームの記録に停止時間として現れることはない。</value>
@@ -1504,7 +1504,7 @@
     <value>エコシステム</value>
   </data>
   <data name="ecosystem.noTotals" xml:space="preserve">
-    <value>示すのはシェアであって、総数ではない。MU*を遊んでいる人数の数値は公表しない：実測したゲームに対する比率は、到達できないゲームがあっても意味を保つが、人数の総計は保たない。</value>
+    <value>示すのは比率であって、人数の総計ではない：実測したゲームに対する比率は、到達できないゲームがあっても意味を保つので、MU*全体でどれだけの人が遊んでいるかという数字はここには出さない。</value>
   </data>
   <data name="ecosystem.listed" xml:space="preserve">
     <value>{count, plural, other {掲載ゲーム{value}件}}</value>
@@ -1696,7 +1696,7 @@
     <value>到達可能が途切れなかった最長期間</value>
   </data>
   <data name="rankings.spells.basis" xml:space="preserve">
-    <value>示した日付以降、すべての探査でそのゲームは到達可能だった。稼働ではなく到達可能：1台のホストからソケットを実測しているだけで、経路が通らないゲームも健在。この期間が観測してきた期間より長くなることはないので、事実は日付のほうであり、長さはそこから導かれる。</value>
+    <value>示した日付以降、すべての探査でそのゲームは到達可能だった——ソケットが応答しただけで、その間ずっと稼働していたと言っているわけではない。この期間が観測してきた期間より長くなることはないので、事実は日付のほうであり、長さはそこから導かれる。</value>
   </data>
   <data name="rankings.spells.empty" xml:space="preserve">
     <value>現在、到達可能が途切れずに続いている掲載ゲームはない。</value>
@@ -2248,7 +2248,7 @@
     <value>デモデータ — ここにある値は実測ではない。{description}</value>
   </data>
   <data name="preview.cardAlt" xml:space="preserve">
-    <value>{site} — 実測であって、申告ではない</value>
+    <value>{site} — 実測であって、自己申告ではない</value>
   </data>
   <data name="preview.cardAlt.named" xml:space="preserve">
     <value>{site}の{title}</value>
@@ -2404,7 +2404,7 @@
     <value>{count, plural, other {アーカイブ済み#件}}</value>
   </data>
   <data name="reference.measuredNeverAsserted" xml:space="preserve">
-    <value>実測であって、申告ではない</value>
+    <value>実測であって、自己申告ではない</value>
   </data>
   <data name="reference.codebase.note" xml:space="preserve">
     <value>このリクエストの時点でカタログから数えたもので、上のリンクが持つのと同じフィルターによる — この数値とその一覧は一つのクエリであり、食い違うことはない。</value>

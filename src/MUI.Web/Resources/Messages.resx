@@ -717,7 +717,7 @@
     <comment>the filter panel</comment>
   </data>
   <data name="facet.countsNote" xml:space="preserve">
-    <value>Counts are games we measured, never estimates.</value>
+    <value>Every count here comes from a game we measured — not an estimate.</value>
     <comment>the filter panel</comment>
   </data>
   <data name="facet.key.summary" xml:space="preserve">
@@ -1437,7 +1437,7 @@
     <comment>about: the crawler, and how to make it stop</comment>
   </data>
   <data name="about.crawler.referral.lead" xml:space="preserve">
-    <value>A referred address is verified, never trusted.</value>
+    <value>We check where a referral points. A game's word for it is not enough.</value>
     <comment>about: the crawler, and how to make it stop</comment>
   </data>
   <data name="about.crawler.referral.body" xml:space="preserve">
@@ -2985,7 +2985,7 @@
     <comment>what this site says about itself where it is not this site</comment>
   </data>
   <data name="preview.cardAlt" xml:space="preserve">
-    <value>{site} — measured, not asserted</value>
+    <value>{site} — measured, not declared</value>
     <comment>what this site says about itself where it is not this site</comment>
   </data>
   <data name="preview.cardAlt.named" xml:space="preserve">

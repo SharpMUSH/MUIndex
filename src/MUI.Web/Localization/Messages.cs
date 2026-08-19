@@ -228,7 +228,7 @@ public static class Messages
         ["facet.adult"] = "adult",
         ["facet.archived.state"] = "archived games, {shown, select, true {shown} other {hidden}}",
         ["facet.adult.state"] = "games declaring adult content, {shown, select, true {shown} other {hidden}}",
-        ["facet.countsNote"] = "Counts are games we measured, never estimates.",
+        ["facet.countsNote"] = "Every count here comes from a game we measured — not an estimate.",
         ["facet.key.summary"] = "what the badges and the blanks mean",
         ["facet.key.blank"] = "A blank is a gap in our measurement, not a no. Each facet spells its own: not identified, not declared, nothing negotiated.",
         ["facet.key.zero"] = "A measured zero is a count. An unknown count is not a zero and never sorts as one.",
@@ -492,7 +492,7 @@ public static class Messages
             + "report gets it, over our own schedule in both directions: 720 hours means monthly, "
             + "not weekly. A dark game is still tried for ever at the longer interval, which is how "
             + "it re-lists itself when it comes back.",
-        ["about.crawler.referral.lead"] = "A referred address is verified, never trusted.",
+        ["about.crawler.referral.lead"] = "We check where a referral points. A game's word for it is not enough.",
         ["about.crawler.referral.body"] = "MSSP lets a game name other games. Every name is resolved "
             + "before anything is dialled, and refused unless every address it resolves to is "
             + "globally routable. A mixed answer refuses the whole target. Our refusal is filed as "
@@ -1146,7 +1146,7 @@ public static class Messages
         ["preview.site"] = "A directory of the MU* hobby — MUSHes, MUDs, MUCKs, MOOs — where every "
             + "fact carries how it was obtained and how old it is.",
         ["preview.demo"] = "Demo data — nothing here was measured. {description}",
-        ["preview.cardAlt"] = "{site} — measured, not asserted",
+        ["preview.cardAlt"] = "{site} — measured, not declared",
         ["preview.cardAlt.named"] = "{title} on {site}",
 
         // One id per page, title and description apart: a title is a noun phrase and a description
