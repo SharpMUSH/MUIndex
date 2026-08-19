@@ -400,10 +400,10 @@
     <value>bekende spellen</value>
   </data>
   <data name="tile.connectedNow" xml:space="preserve">
-    <value>nu verbonden</value>
+    <value>bevolkt</value>
   </data>
   <data name="tile.answeringUncounted" xml:space="preserve">
-    <value>antwoordt, ongeteld</value>
+    <value>onbekende bevolking</value>
   </data>
   <data name="tile.archived" xml:space="preserve">
     <value>gearchiveerd</value>
@@ -2338,10 +2338,10 @@
     <value>{count, plural, one {# bekend spel} other {# bekende spellen}}</value>
   </data>
   <data name="home.plain.connectedNow" xml:space="preserve">
-    <value>{count, plural, one {# nu verbonden (gemeten)} other {# nu verbonden (gemeten)}}</value>
+    <value>{count, plural, one {# bevolkt (gemeten)} other {# bevolkt (gemeten)}}</value>
   </data>
   <data name="home.plain.uncounted" xml:space="preserve">
-    <value>{count, plural, one {# antwoordt, ongeteld} other {# antwoorden, ongeteld}}</value>
+    <value>{count, plural, one {# onbekende bevolking} other {# onbekende bevolking}}</value>
   </data>
   <data name="home.plain.archived" xml:space="preserve">
     <value>{count, plural, one {# gearchiveerd, wordt nog gepeild} other {# gearchiveerd, worden nog gepeild}}</value>
