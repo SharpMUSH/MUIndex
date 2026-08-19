@@ -363,12 +363,17 @@ public class LocalizationTests
     [Arguments("*", null)]
     [Arguments("", null)]
     [Arguments("kl,fo", null)]                        // nothing offered answers
+    [Arguments("en;q=0.9,ja;q=0.2", null)]            // English was the actual top preference
+    [Arguments("en-US,en;q=0.9,ja;q=0.2", null)]      // same, with a region on the English tag
     public async Task AcceptLanguageIsReadForTheFirstVisitOnly(string header, string? expected)
     {
         // A header is a standing preference, worth one redirect and no more. Matches on the language
         // subtag so zh-CN reaches zh-Hans. Every case answers null today (English is the only offered
         // locale); asserted against the offered set rather than a hard-coded answer, so this starts
         // biting the day a locale ships.
+        //
+        // English must be scored against every other candidate, not excluded from scoring: a browser
+        // that lists a second language at a low q is not asking to be moved there ahead of English.
         var chosen = LocaleRouting.Preferred(header);
 
         if (expected is null || Locales.Find(expected) is not { IsOffered: true })
@@ -464,6 +469,42 @@ public class LocalizationTests
         await Assert.That(moved.Headers.TryGetValues("Set-Cookie", out var localeCookies)).IsTrue();
         await Assert.That(string.Join(' ', localeCookies!)).Contains($"{Locales.CookieName}=nl");
         await Assert.That(moved.Headers.Location?.OriginalString).IsEqualTo("/nl/games");
+    }
+
+    /// <summary>
+    /// Picking English pins it exactly like every other locale, rather than clearing the cookie and
+    /// leaving a later <c>Accept-Language</c> guess free to move the reader again.
+    /// </summary>
+    [Test]
+    public async Task AChoiceOfEnglishSticksInsteadOfClearingTheCookie()
+    {
+        await using var site = await SiteHost.StartAsync();
+
+        var switched = new HttpRequestMessage(HttpMethod.Post, Locales.Path)
+        {
+            Content = new FormUrlEncodedContent([
+                new KeyValuePair<string, string>(Locales.Field, "en"),
+                new KeyValuePair<string, string>(Locales.ReturnField, "/games"),
+            ]),
+        };
+        switched.Headers.Add("Cookie", $"{Locales.CookieName}=de");
+
+        var moved = await site.Client.SendAsync(switched);
+
+        await Assert.That(moved.Headers.TryGetValues("Set-Cookie", out var localeCookies)).IsTrue();
+        var setCookie = string.Join(' ', localeCookies!);
+        await Assert.That(setCookie).Contains($"{Locales.CookieName}=en");
+        await Assert.That(setCookie).DoesNotContain("1970");
+
+        // A browser header that would otherwise win must not move a reader off the choice they just
+        // made — the whole point of pinning it.
+        var revisit = new HttpRequestMessage(HttpMethod.Get, "/games");
+        revisit.Headers.Add("Cookie", $"{Locales.CookieName}=en");
+        revisit.Headers.Add("Accept-Language", "en-US,en;q=0.9,ja;q=0.2");
+
+        var answered = await site.Client.SendAsync(revisit);
+
+        await Assert.That((int)answered.StatusCode).IsEqualTo(200);
     }
 
     /// <summary>A document still follows the reader's choice, which is the rule the guard protects.</summary>
