@@ -867,6 +867,69 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             cameBack.Select(r => new FeedEntry(r.Id, r.Slug, r.Name, r.At, string.Empty)).ToList());
     }
 
+    /// <summary>The crawler status page's "recently updated" — the newest field transitions site-wide.</summary>
+    /// <remarks>
+    /// Ranked with a per-game cap before the overall limit, same two-stage shape
+    /// <c>NpgsqlGameFieldStore.ChangesAsync</c> uses per field on one game's own page — a game whose
+    /// <c>NAME</c> or <c>PLAYERNAMES</c> flaps every crawl still contributes one row per genuine
+    /// transition, but cannot crowd the rest of the catalogue off a page meant to show what the
+    /// instrument has been doing broadly.
+    /// </remarks>
+    public async Task<IReadOnlyList<RecentGameChange>> RecentFieldChangesAsync(
+        int limit, int perGameLimit = 3, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<RecentChangeRow>(new CommandDefinition(
+            $"""
+            WITH ranked AS (
+                SELECT c.game_id, g.slug, g.name, c.field, c.source, c.old_value, c.new_value, c.at, c.id,
+                       ROW_NUMBER() OVER (PARTITION BY c.game_id ORDER BY c.at DESC, c.id DESC) AS rn
+                  FROM field_change c
+                  JOIN game g ON g.id = c.game_id
+                 WHERE NOT (c.field = ANY(@internal) OR c.field LIKE @internalPrefix)
+                   AND {PublicG} AND g.state NOT IN {NeverBrowsable}
+            )
+            SELECT game_id AS GameId, slug AS Slug, name AS Name, field AS Field, source AS Source,
+                   old_value AS OldValue, new_value AS NewValue, at AS At
+              FROM ranked
+             WHERE rn <= @perGameLimit
+             ORDER BY at DESC, id DESC
+             LIMIT @limit
+            """,
+            new
+            {
+                limit,
+                perGameLimit,
+                @internal = InternalFields.ExactNames.ToArray(),
+                internalPrefix = InternalFields.ConnectScreen + "%",
+            },
+            cancellationToken: cancellationToken));
+
+        return [.. rows.Select(r => new RecentGameChange(
+            r.GameId, r.Slug, r.Name, r.Field, SqlEnums.ToFieldSource(r.Source),
+            r.OldValue, r.NewValue, r.At))];
+    }
+
+    private sealed class RecentChangeRow
+    {
+        public Guid GameId { get; init; }
+
+        public string Slug { get; init; } = string.Empty;
+
+        public string Name { get; init; } = string.Empty;
+
+        public string Field { get; init; } = string.Empty;
+
+        public string Source { get; init; } = string.Empty;
+
+        public string? OldValue { get; init; }
+
+        public string NewValue { get; init; } = string.Empty;
+
+        public DateTimeOffset At { get; init; }
+    }
+
     /// <summary>
     /// Codebase share and protocol adoption over the listed games (spec §9).
     /// </summary>

@@ -447,6 +447,23 @@ public interface IGameQueries
     Task<Rankings> RankingsAsync(
         RankingSpan span = RankingSpan.Week,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The newest field changes across every public, listed game — <c>/crawler</c>'s "recently
+    /// updated", newest first.
+    /// </summary>
+    /// <remarks>
+    /// The same exclusions <see cref="FeedsAsync"/> applies (never <c>excluded</c>/<c>unlisted</c>,
+    /// never a submission nobody has vouched for) and the same internal-field filter
+    /// <c>NpgsqlGameFieldStore.ChangesAsync</c> applies to one game's own feed — an owner's
+    /// suppression toggle or the connect screen must not leak here either. <paramref name="perGameLimit"/>
+    /// caps how many of the newest rows any one game may contribute, so a game whose fields flap on
+    /// every crawl cannot crowd the rest of the catalogue off the page.
+    /// </remarks>
+    Task<IReadOnlyList<RecentGameChange>> RecentFieldChangesAsync(
+        int limit,
+        int perGameLimit = 3,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record LivenessFeeds(
@@ -462,3 +479,14 @@ public sealed record LivenessFeeds(
 /// from the query that built the entry rather than joined on afterwards.
 /// </remarks>
 public sealed record FeedEntry(Guid Id, string Slug, string Name, DateTimeOffset At, string Detail);
+
+/// <summary>One field's newest transition, on a game named so the crawler-wide feed can link to it.</summary>
+public sealed record RecentGameChange(
+    Guid GameId,
+    string Slug,
+    string Name,
+    string Field,
+    FieldSource Source,
+    string? OldValue,
+    string NewValue,
+    DateTimeOffset At);

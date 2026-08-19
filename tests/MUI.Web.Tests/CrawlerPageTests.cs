@@ -141,6 +141,55 @@ public class CrawlerPageTests
         await Assert.That(response.StatusCode).IsEqualTo(System.Net.HttpStatusCode.OK);
     }
 
+    /// <summary>The status page draws what changed recently and what is queued next, each with its own heading.</summary>
+    [Test]
+    public async Task ThePageDrawsRecentChangesAndDueTargets()
+    {
+        var pulse = Pulse(Cycle(1, 1, 1, 0, 0, 0));
+        var stub = new StubCrawlerPulse(pulse, [Cycle(1, 1, 1, 0, 0, 0)])
+        {
+            Due = [new DueTarget("soonest.example", 4201, Now.AddMinutes(-2))],
+        };
+
+        var html = await Render.ComponentAsync<Components.Pages.Crawler>(
+            new Dictionary<string, object?>(),
+            services =>
+            {
+                services.AddSingleton<ICrawlerPulse>(stub);
+                services.AddSingleton<TimeProvider>(new FixedClock(Now));
+                services.AddSingleton<IGameQueries>(new StubChangeQueries(
+                    new RecentGameChange(
+                        Guid.NewGuid(), "m-u-s-h", "M*U*S*H", "CODEBASE", FieldSource.Mssp,
+                        "PennMUSH 1.8.7p0", "PennMUSH 1.8.8p0", Now.AddMinutes(-4))));
+            });
+
+        var text = Render.Text(html);
+
+        await Assert.That(text).Contains("M*U*S*H");
+        await Assert.That(text).Contains("PennMUSH 1.8.7p0");
+        await Assert.That(text).Contains("PennMUSH 1.8.8p0");
+        await Assert.That(text).Contains("soonest.example:4201");
+    }
+
+    /// <summary>Absent, not a fabricated "nothing changed" claim with an implied cause.</summary>
+    [Test]
+    public async Task WithNothingRecentOrDueThePageSaysSoRatherThanShowingEmptyLists()
+    {
+        var pulse = Pulse(Cycle(1, 1, 1, 0, 0, 0));
+
+        var html = await Render.ComponentAsync<Components.Pages.Crawler>(
+            new Dictionary<string, object?>(),
+            services =>
+            {
+                services.AddSingleton<ICrawlerPulse>(new StubCrawlerPulse(pulse, [Cycle(1, 1, 1, 0, 0, 0)]));
+                services.AddSingleton<TimeProvider>(new FixedClock(Now));
+                services.AddSingleton<IGameQueries>(new StubChangeQueries());
+            });
+
+        await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "crawler.recent.empty"));
+        await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "crawler.due.empty"));
+    }
+
     /// <summary>The plain mirror carries the same facts as the rendered page.</summary>
     [Test]
     public async Task ThePlainRenderingCarriesTheSameFacts()
@@ -161,11 +210,14 @@ public class CrawlerPageTests
             {
                 services.AddSingleton(pulse);
                 services.AddSingleton<TimeProvider>(new FixedClock(Now));
+                services.AddSingleton<IGameQueries>(new FixtureGameQueries());
             });
 
     /// <summary>A fixed pulse and a fixed history, so a test controls both without a database.</summary>
     private sealed class StubCrawlerPulse(CrawlerPulse pulse, IReadOnlyList<CrawlCycleRecord> recent) : ICrawlerPulse
     {
+        public IReadOnlyList<DueTarget> Due { get; init; } = [];
+
         public Task<CrawlerPulse> ReadAsync(DateTimeOffset now, CancellationToken cancellationToken = default) =>
             Task.FromResult(pulse);
 
@@ -173,5 +225,43 @@ public class CrawlerPageTests
             int count,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(recent);
+
+        public Task<IReadOnlyList<DueTarget>> DueSoonAsync(
+            DateTimeOffset now,
+            int count,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Due);
+    }
+
+    /// <summary>Answers only <see cref="RecentFieldChangesAsync"/>, which is all this page asks of it.</summary>
+    private sealed class StubChangeQueries(params RecentGameChange[] changes) : IGameQueries
+    {
+        public Task<IReadOnlyList<RecentGameChange>> RecentFieldChangesAsync(
+            int limit, int perGameLimit = 3, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<RecentGameChange>>(changes);
+
+        public Task<GameListing> SearchAsync(GameFilter filter, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<GameSummary>> ListAsync(GameFilter filter, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<GamePage?> FindAsync(string slug, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<GamePage?> FindAsync(Guid id, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<GameSummary?> FindByIdAsync(Guid id, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<LivenessFeeds> FeedsAsync(CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<EcosystemDashboard> EcosystemAsync(CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<Rankings> RankingsAsync(RankingSpan span = RankingSpan.Week, CancellationToken ct = default) =>
+            throw new NotSupportedException();
     }
 }

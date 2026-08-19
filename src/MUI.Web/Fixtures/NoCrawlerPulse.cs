@@ -22,4 +22,10 @@ public sealed class NoCrawlerPulse : ICrawlerPulse
         int count,
         CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<CrawlCycleRecord>>([]);
+
+    public Task<IReadOnlyList<DueTarget>> DueSoonAsync(
+        DateTimeOffset now,
+        int count,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<DueTarget>>([]);
 }

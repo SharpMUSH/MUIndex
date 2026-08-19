@@ -2944,6 +2944,30 @@
     <value>No completed cycles are recorded yet.</value>
     <comment>the crawler status page's history list, before any cycle has completed</comment>
   </data>
+  <data name="crawler.recent.title" xml:space="preserve">
+    <value>recently updated</value>
+    <comment>the crawler status page's recently-updated list heading</comment>
+  </data>
+  <data name="crawler.recent.lede" xml:space="preserve">
+    <value>The newest field changes the crawler has written, across every listed game.</value>
+    <comment>the crawler status page's recently-updated list</comment>
+  </data>
+  <data name="crawler.recent.empty" xml:space="preserve">
+    <value>No field has changed recently.</value>
+    <comment>the crawler status page's recently-updated list, when nothing has changed</comment>
+  </data>
+  <data name="crawler.due.title" xml:space="preserve">
+    <value>next up</value>
+    <comment>the crawler status page's next-up list heading</comment>
+  </data>
+  <data name="crawler.due.lede" xml:space="preserve">
+    <value>The soonest-due addresses in the registry, whether or not they have resolved to a named game yet.</value>
+    <comment>the crawler status page's next-up list</comment>
+  </data>
+  <data name="crawler.due.empty" xml:space="preserve">
+    <value>Nothing is due.</value>
+    <comment>the crawler status page's next-up list, when nothing is due</comment>
+  </data>
   <data name="preview.documentTitle" xml:space="preserve">
     <value>{page} — {site}</value>
     <comment>what this site says about itself where it is not this site</comment>

@@ -780,4 +780,25 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         var game = All.Single(g => g.Slug == slug);
         return new FeedEntry(game.Id, game.Slug, game.Name, at, detail);
     }
+
+    public Task<IReadOnlyList<RecentGameChange>> RecentFieldChangesAsync(
+        int limit, int perGameLimit = 3, CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<RecentGameChange> changes =
+        [
+            Change("m-u-s-h", "CODEBASE", FieldSource.Mssp, "PennMUSH 1.8.7p0", "PennMUSH 1.8.8p0", Now.AddMinutes(-4)),
+            Change("ashen-court", "PLAYERS", FieldSource.Mssp, "6", "9", Now.AddMinutes(-9)),
+            Change("aardwolf", "PLAYERS", FieldSource.Banner, null, "219", Now.AddMinutes(-40)),
+            Change("cinder", "GENRE", FieldSource.Mssp, null, "Adult", Now.AddMinutes(-25)),
+        ];
+
+        return Task.FromResult<IReadOnlyList<RecentGameChange>>([.. changes.Take(limit)]);
+    }
+
+    private static RecentGameChange Change(
+        string slug, string field, FieldSource source, string? oldValue, string newValue, DateTimeOffset at)
+    {
+        var game = All.Single(g => g.Slug == slug);
+        return new RecentGameChange(game.Id, game.Slug, game.Name, field, source, oldValue, newValue, at);
+    }
 }

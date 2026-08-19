@@ -1,5 +1,6 @@
 using System.Text;
 using MUI.Catalog;
+using MUI.Web.Data;
 using MUI.Web.Localization;
 
 namespace MUI.Web.Components;
@@ -623,10 +624,14 @@ public static class PlainText
         string tag,
         CrawlerPulse pulse,
         IReadOnlyList<CrawlCycleRecord> recent,
+        IReadOnlyList<RecentGameChange> recentChanges,
+        IReadOnlyList<DueTarget> dueSoon,
         DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(pulse);
         ArgumentNullException.ThrowIfNull(recent);
+        ArgumentNullException.ThrowIfNull(recentChanges);
+        ArgumentNullException.ThrowIfNull(dueSoon);
 
         var b = new StringBuilder();
 
@@ -667,6 +672,44 @@ public static class PlainText
             foreach (var past in recent)
             {
                 b.AppendLine($"  {Dates.Stamp(tag, past.FinishedAt)} — {CrawlerCopy.Cycle(tag, past)}");
+            }
+        }
+
+        b.AppendLine();
+        b.AppendLine(Messages.For(tag, "crawler.recent.title"));
+        Wrap(b, Messages.For(tag, "crawler.recent.lede"), string.Empty);
+
+        if (recentChanges.Count == 0)
+        {
+            b.AppendLine(Messages.For(tag, "crawler.recent.empty"));
+        }
+        else
+        {
+            foreach (var change in recentChanges)
+            {
+                var value = change.OldValue is { } old ? $"{old} → {change.NewValue}" : change.NewValue;
+
+                Wrap(
+                    b,
+                    $"{Dates.Stamp(tag, change.At)} — {change.Name} {change.Field}: {value}"
+                        + $" · {Path(tag, $"/g/{change.Slug}")}",
+                    "  ");
+            }
+        }
+
+        b.AppendLine();
+        b.AppendLine(Messages.For(tag, "crawler.due.title"));
+        Wrap(b, Messages.For(tag, "crawler.due.lede"), string.Empty);
+
+        if (dueSoon.Count == 0)
+        {
+            b.AppendLine(Messages.For(tag, "crawler.due.empty"));
+        }
+        else
+        {
+            foreach (var target in dueSoon)
+            {
+                b.AppendLine($"  {Dates.Stamp(tag, target.NextProbeAt)} — {target.Host}:{target.Port}");
             }
         }
 

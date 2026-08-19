@@ -169,6 +169,14 @@ public static class Render
 
             return await inner.RankingsAsync(span, cancellationToken);
         }
+
+        public async Task<IReadOnlyList<RecentGameChange>> RecentFieldChangesAsync(
+            int limit, int perGameLimit = 3, CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+
+            return await inner.RecentFieldChangesAsync(limit, perGameLimit, cancellationToken);
+        }
     }
 
     /// <summary>

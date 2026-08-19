@@ -1100,6 +1100,12 @@ public static class Messages
         ["crawler.cycle.finishedAt"] = "last cycle finished {when} · took {took}",
         ["crawler.history.title"] = "recent cycles",
         ["crawler.history.empty"] = "No completed cycles are recorded yet.",
+        ["crawler.recent.title"] = "recently updated",
+        ["crawler.recent.lede"] = "The newest field changes the crawler has written, across every listed game.",
+        ["crawler.recent.empty"] = "No field has changed recently.",
+        ["crawler.due.title"] = "next up",
+        ["crawler.due.lede"] = "The soonest-due addresses in the registry, whether or not they have resolved to a named game yet.",
+        ["crawler.due.empty"] = "Nothing is due.",
 
         // ── what this site says about itself where it is not this site ────────────────────────
         // <title>, meta description and Open Graph tags. "mu*index" arrives as {site}, machine

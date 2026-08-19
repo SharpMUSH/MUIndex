@@ -1,5 +1,6 @@
 @page "/crawler"
 @inject ICrawlerPulse Pulses
+@inject IGameQueries Queries
 @inject TimeProvider Clock
 
 @*
@@ -14,7 +15,7 @@
 
 @if (Plain)
 {
-    <pre class="mono plain">@PlainText.RenderCrawler(Tag, Pulse, Recent, Now)</pre>
+    <pre class="mono plain">@PlainText.RenderCrawler(Tag, Pulse, Recent, RecentChanges, DueSoon, Now)</pre>
 }
 else
 {
@@ -64,6 +65,44 @@ else
                     }
                 </ul>
             }
+
+            <h2 class="kicker">@L("crawler.recent.title")</h2>
+            <p class="faint">@L("crawler.recent.lede")</p>
+
+            @if (RecentChanges.Count == 0)
+            {
+                <p class="faint">@L("crawler.recent.empty")</p>
+            }
+            else
+            {
+                <ul class="mono">
+                    @foreach (var change in RecentChanges)
+                    {
+                        <li>
+                            @Dates.Stamp(Tag, change.At) —
+                            <a href="@Http.Link($"/g/{change.Slug}")">@change.Name</a>
+                            @change.Field: @(change.OldValue is { } old ? $"{old} → {change.NewValue}" : change.NewValue)
+                        </li>
+                    }
+                </ul>
+            }
+
+            <h2 class="kicker">@L("crawler.due.title")</h2>
+            <p class="faint">@L("crawler.due.lede")</p>
+
+            @if (DueSoon.Count == 0)
+            {
+                <p class="faint">@L("crawler.due.empty")</p>
+            }
+            else
+            {
+                <ul class="mono">
+                    @foreach (var target in DueSoon)
+                    {
+                        <li>@Dates.Stamp(Tag, target.NextProbeAt) — @($"{target.Host}:{target.Port}")</li>
+                    }
+                </ul>
+            }
         }
     </section>
 }
@@ -86,11 +125,17 @@ else
 
     private IReadOnlyList<CrawlCycleRecord> Recent = [];
 
+    private IReadOnlyList<RecentGameChange> RecentChanges = [];
+
+    private IReadOnlyList<DueTarget> DueSoon = [];
+
     protected override async Task OnParametersSetAsync()
     {
-        // Neither call can throw: both answer the demo-safe fallback (Unknown / empty) for a missing
-        // table or a failed query, so this page never costs a reader a 500.
+        // None of the four calls can throw: each answers its own demo-safe fallback (Unknown / empty)
+        // for a missing table or a failed query, so this page never costs a reader a 500.
         Pulse = await Pulses.ReadAsync(Now);
         Recent = await Pulses.RecentAsync(10);
+        RecentChanges = await Queries.RecentFieldChangesAsync(10);
+        DueSoon = await Pulses.DueSoonAsync(Now, 10);
     }
 }
