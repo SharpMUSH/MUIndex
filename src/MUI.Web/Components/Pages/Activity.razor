@@ -1,0 +1,71 @@
+@page "/activity"
+@using MUI.Web.Localization
+@inject IGameQueries Queries
+@inject TimeProvider Clock
+
+@*
+    The two liveness feeds the front page no longer carries (spec §9's differentiator, still —
+    moving where it's read doesn't undo what it measures). Home.razor's own doc comment explains
+    why: went dark and came back answer "what happened to a game I already know", a different visit
+    from the front page's "what's new, what's growing".
+*@
+
+@if (Plain)
+{
+    <pre class="mono plain">@PlainText.RenderActivity(Tag, Feeds, Now)</pre>
+}
+else
+{
+    <SitePreview Title="@PreviewCopy.Titles.Activity(Tag)" Description="@PreviewCopy.Pages.Activity(Tag)" />
+
+    <h1>@L("activity.title")</h1>
+    <p class="lede">@L("activity.lede")</p>
+
+    @* Same two registers Home used to draw side by side — accent for a return, amber for dark —
+       kept in the same two-column shape rather than reinvented for this page. *@
+    <div class="feeds">
+        <section class="feed feed-dark" aria-labelledby="feed-dark">
+            @* "Still probed" belongs here once, not under every row — nothing is ever deleted (§7.5). *@
+            <h2 id="feed-dark" class="kicker">@L("feed.wentDark")</h2>
+            @if (Feeds.WentDark.Count == 0)
+            {
+                <p class="faint">@L("feed.nothingDark")</p>
+            }
+            @foreach (var entry in Feeds.WentDark)
+            {
+                <FeedCard Entry="entry" Kind="FeedKind.WentDark" Now="Now" ShowRegister="false" />
+            }
+        </section>
+
+        <section class="feed feed-lit" aria-labelledby="feed-back">
+            <h2 id="feed-back" class="kicker">@L("feed.cameBack")</h2>
+            @if (Feeds.CameBack.Count == 0)
+            {
+                <p class="faint">@L("feed.nothingBack")</p>
+            }
+            @foreach (var entry in Feeds.CameBack)
+            {
+                <FeedCard Entry="entry" Kind="FeedKind.CameBack" Now="Now" ShowRegister="false" />
+            }
+        </section>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "plain")] private string? PlainFlag { get; set; }
+
+    private bool Plain => Truthy.Is(PlainFlag);
+
+    private DateTimeOffset Now => Clock.GetUtcNow();
+
+    private LivenessFeeds Feeds = new([], [], []);
+
+    protected override async Task OnParametersSetAsync() => Feeds = await Queries.FeedsAsync();
+
+    /// <summary>The locale this page is being answered in.</summary>
+    [CascadingParameter] private HttpContext? Http { get; set; }
+
+    private string Tag => Http.LocaleOf().Tag;
+
+    private string L(string id) => Messages.For(Tag, id);
+}

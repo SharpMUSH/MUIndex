@@ -546,7 +546,8 @@ public class PlainParityTests
     public async Task TheHomePageCountsOnlyWhatWasMeasured()
     {
         var counts = SiteCounts.From(await Queries.ListAsync(new GameFilter { IncludeArchived = true }));
-        var text = PlainText.RenderHome(Locales.SourceTag, counts, await Queries.FeedsAsync(), CrawlerPulse.Unknown, Now);
+        var text = PlainText.RenderHome(
+            Locales.SourceTag, counts, await Queries.FeedsAsync(), [], CrawlerPulse.Unknown, Now);
 
         await Assert.That(text).Contains("games known");
         await Assert.That(text).Contains("populated (measured)");
@@ -565,7 +566,7 @@ public class PlainParityTests
             Now.AddMinutes(-2), Now.AddMinutes(-1), 8, 8, 6, 2, 0, 0, 0, 0, 0, 6, 0, 0, 0);
         var pulse = new CrawlerPulse(Now.AddMinutes(-1), Now.AddMinutes(3), 4, 710, cycle);
 
-        var pseudo = PlainText.RenderHome("qps-ploc", counts, await Queries.FeedsAsync(), pulse, Now);
+        var pseudo = PlainText.RenderHome("qps-ploc", counts, await Queries.FeedsAsync(), [], pulse, Now);
 
         // The wordmark is the one line that must not go through the bundle.
         await Assert.That(pseudo).Contains("MU*INDEX");
@@ -584,7 +585,7 @@ public class PlainParityTests
             .Contains(CrawlerCopy.Registry("qps-ploc", pulse))
             .And.DoesNotContain($"\n{pulse.TargetsKnown} addresses in the registry");
 
-        var german = PlainText.RenderHome("de", counts, await Queries.FeedsAsync(), pulse, Now);
+        var german = PlainText.RenderHome("de", counts, await Queries.FeedsAsync(), [], pulse, Now);
 
         foreach (var id in new[]
                  {
@@ -622,7 +623,8 @@ public class PlainParityTests
         var surfaces = new[]
         {
             await GameAsync("m-u-s-h"),
-            PlainText.RenderHome(Locales.SourceTag, counts, await Queries.FeedsAsync(), CrawlerPulse.Unknown, Now),
+            PlainText.RenderHome(
+                Locales.SourceTag, counts, await Queries.FeedsAsync(), [], CrawlerPulse.Unknown, Now),
             PlainText.RenderListing(await Queries.SearchAsync(new GameFilter()), new GameFilter(), Now),
         };
 

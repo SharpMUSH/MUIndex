@@ -40,6 +40,7 @@
                     @Item("/games", L("nav.games"))
                     @Item("/find", L("nav.find"))
                     @Item("/games/random", L("nav.random"))
+                    @Item("/activity", L("nav.activity"))
                     @Item("/archive", L("nav.archive"))
                 </span>
                 <span class="nav-rule" aria-hidden="true"></span>
@@ -156,7 +157,7 @@
     /// </remarks>
     private static readonly string[] Destinations =
     [
-        .. new[] { "/games/random", "/games", "/find", "/archive", "/reference", "/ecosystem", "/rankings", "/about", "/" }
+        .. new[] { "/games/random", "/games", "/find", "/activity", "/archive", "/reference", "/ecosystem", "/rankings", "/about", "/" }
             .OrderByDescending(d => d.Length),
     ];
 

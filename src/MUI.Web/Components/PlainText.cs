@@ -546,35 +546,40 @@ public static class PlainText
         Feed(b, tag, "feed.plain.cameBack", feeds.CameBack, "feed.nothingBack", now);
 
         return b.ToString();
+    }
 
-        static void Feed(
-            StringBuilder b,
-            string tag,
-            string title,
-            IReadOnlyList<FeedEntry> entries,
-            string empty,
-            DateTimeOffset now)
+    /// <summary>
+    /// One liveness feed's rows, in the shape every caller of <see cref="RenderFeeds"/> and the
+    /// pages that render a subset of the three (<see cref="RenderHome"/>, <c>RenderActivity</c>)
+    /// share.
+    /// </summary>
+    private static void Feed(
+        StringBuilder b,
+        string tag,
+        string title,
+        IReadOnlyList<FeedEntry> entries,
+        string empty,
+        DateTimeOffset now)
+    {
+        // Uppercased here rather than in the bundle, like every other heading on this surface: a
+        // script with no case is left exactly as its translator wrote it.
+        b.AppendLine(Say(tag, title).ToUpperInvariant());
+
+        if (entries.Count == 0)
         {
-            // Uppercased here rather than in the bundle, like every other heading on this surface: a
-            // script with no case is left exactly as its translator wrote it.
-            b.AppendLine(Say(tag, title).ToUpperInvariant());
-
-            if (entries.Count == 0)
-            {
-                b.AppendLine($"  {Say(tag, empty)}");
-                b.AppendLine();
-                return;
-            }
-
-            foreach (var e in entries)
-            {
-                b.AppendLine(
-                    $"  {e.Name}  ({Relative.Ago(tag, now - e.At)})  {Path(tag, $"/g/{e.Slug}")}");
-                Wrap(b, e.Detail, "    ");
-            }
-
+            b.AppendLine($"  {Say(tag, empty)}");
             b.AppendLine();
+            return;
         }
+
+        foreach (var e in entries)
+        {
+            b.AppendLine(
+                $"  {e.Name}  ({Relative.Ago(tag, now - e.At)})  {Path(tag, $"/g/{e.Slug}")}");
+            Wrap(b, e.Detail, "    ");
+        }
+
+        b.AppendLine();
     }
 
     /// <summary>The home page: what we know, then what changed.</summary>
@@ -582,10 +587,12 @@ public static class PlainText
         string tag,
         SiteCounts counts,
         LivenessFeeds feeds,
+        IReadOnlyList<TrendingGame> trending,
         CrawlerPulse pulse,
         DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(pulse);
+        ArgumentNullException.ThrowIfNull(trending);
 
         var b = new StringBuilder();
 
@@ -615,7 +622,45 @@ public static class PlainText
 
         b.AppendLine();
 
-        b.Append(RenderFeeds(tag, feeds, now));
+        Feed(b, tag, "feed.plain.newlyDiscovered", feeds.NewlyDiscovered, "feed.nothingNew", now);
+
+        b.AppendLine(Say(tag, "home.plain.trending").ToUpperInvariant());
+
+        if (trending.Count == 0)
+        {
+            b.AppendLine($"  {Say(tag, "rankings.trending.empty")}");
+        }
+        else
+        {
+            foreach (var game in trending)
+            {
+                b.AppendLine($"  {game.Name}  (+{(int)Math.Round(game.Change * 100)}%)"
+                    + $"  {Path(tag, $"/g/{game.Slug}")}");
+            }
+        }
+
+        b.AppendLine();
+        b.AppendLine(Say(tag, "home.plain.activityLink") + ": " + Path(tag, "/activity"));
+
+        return b.ToString();
+    }
+
+    /// <summary>
+    /// The activity page: the two feeds the front page no longer carries — went dark, came back.
+    /// </summary>
+    public static string RenderActivity(string tag, LivenessFeeds feeds, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(feeds);
+
+        var b = new StringBuilder();
+
+        b.AppendLine(Say(tag, "activity.title").ToUpperInvariant());
+        Wrap(b, Say(tag, "activity.lede"), string.Empty);
+        b.AppendLine();
+
+        Feed(b, tag, "feed.plain.wentDark", feeds.WentDark, "feed.nothingDark", now);
+        Feed(b, tag, "feed.plain.cameBack", feeds.CameBack, "feed.nothingBack", now);
+
         return b.ToString();
     }
 

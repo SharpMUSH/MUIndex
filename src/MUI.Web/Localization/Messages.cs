@@ -146,6 +146,7 @@ public static class Messages
         ["nav.games"] = "games",
         ["nav.find"] = "find",
         ["nav.random"] = "random",
+        ["nav.activity"] = "activity",
         ["nav.archive"] = "archive",
         ["nav.reference"] = "reference",
         ["nav.ecosystem"] = "ecosystem",
@@ -183,6 +184,14 @@ public static class Messages
         ["feed.nothingDark"] = "Nothing went dark.",
         ["feed.nothingBack"] = "Nothing came back. We keep knocking.",
         ["feed.live"] = "live",
+        ["home.trending.title"] = "trending this week",
+        ["home.trending.empty"] = "No game is trending up this week.",
+        ["home.activityLink"] = "went dark or came back recently",
+
+        // ── activity: went dark and came back, moved off the front page ──────────────────────────
+        ["activity.title"] = "Activity",
+        ["activity.lede"] = "Which games stopped answering, and which came back — moved here from the "
+            + "front page, which now leads with what's new and what's growing.",
 
         // ── the listing ───────────────────────────────────────────────────────────────────────
         ["games.title"] = "Games",
@@ -1121,6 +1130,7 @@ public static class Messages
         // is a sentence, and a language that declines the first differently from the second has
         // nowhere to stand if they share an id.
         ["preview.title.games"] = "Games",
+        ["preview.title.activity"] = "Activity",
         ["preview.title.archive"] = "The archive",
         ["preview.title.rankings"] = "Rankings",
         ["preview.title.ecosystem"] = "The ecosystem",
@@ -1134,6 +1144,8 @@ public static class Messages
         ["preview.desc.games"] = "Every MU* we have reached, faceted on what we measured: codebase, "
             + "the protocols a server offered in the handshake, TLS, charset, language, and when we "
             + "last got in.",
+        ["preview.desc.activity"] = "Which games stopped answering, and which came back — measured, "
+            + "not asserted, and never described as an outage or a claim that a game is down for good.",
         ["preview.desc.archive"] = "The games that went dark, kept. Each keeps its page, history and "
             + "URL, is still probed weekly, and returns to the listing on one successful connection.",
         ["preview.desc.rankings"] = "Busiest, most reachable, longest running — computed from "
@@ -1169,6 +1181,8 @@ public static class Messages
         ["home.plain.connectedNow"] = "{count, plural, one {# populated (measured)} other {# populated (measured)}}",
         ["home.plain.uncounted"] = "{count, plural, one {# unknown population} other {# unknown population}}",
         ["home.plain.archived"] = "{count, plural, one {# archived, still probed} other {# archived, still probed}}",
+        ["home.plain.trending"] = "Trending this week",
+        ["home.plain.activityLink"] = "went dark or came back recently",
 
         // ── THE REFERENCE SECTION'S CHROME ────────────────────────────────────────────────────
         // ═════════════════════════════════════════════════════════════════════════════════════
