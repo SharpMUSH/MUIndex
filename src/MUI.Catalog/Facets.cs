@@ -605,7 +605,7 @@ public static class FacetedSearch
     /// that needs this cap now: a reader scanning for a codebase wants families; one wanting a
     /// specific patchlevel already knows its name.
     /// </remarks>
-    public const int MaxValues = 12;
+    public const int MaxValues = 20;
 
     public static GameListing Search(IReadOnlyList<GameFacetRow> rows, GameFilter filter)
     {

@@ -210,8 +210,14 @@
 }
 
 @code {
-    /// <summary>The three facets drawn first; the rest go behind a disclosure.</summary>
-    private static readonly string[] Lead = [FacetKeys.Band, FacetKeys.Codebase, FacetKeys.LastSeen];
+    /// <summary>The facets drawn first; the rest go behind a disclosure.</summary>
+    /// <remarks>
+    /// <see cref="FacetKeys.Family"/> — MSSP's own <c>FAMILY</c> line — sits ahead of
+    /// <see cref="FacetKeys.Codebase"/> rather than behind the "more filters" disclosure: it is the
+    /// coarser, more legible question of the two, and a reader deciding what kind of game they want
+    /// asks it before they ask which codebase implements it.
+    /// </remarks>
+    private static readonly string[] Lead = [FacetKeys.Band, FacetKeys.Family, FacetKeys.Codebase, FacetKeys.LastSeen];
 
     /// <summary>Two independent facet groups sharing one heading and note (see <c>FacetKeys.Unreachable</c>).</summary>
     private static readonly string[] Measured = [FacetKeys.Uncounted, FacetKeys.Unreachable];

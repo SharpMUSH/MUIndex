@@ -206,6 +206,28 @@ public class FacetSurfaceTests
     }
 
     [Test]
+    public async Task FamilyIsDrawnAheadOfCodebaseInThePrimaryFacets()
+    {
+        // Family (MSSP's own FAMILY line) is promoted beside Band/Codebase/LastSeen so a reader
+        // sees it before opening "more filters" — it used to sit behind that disclosure.
+        var html = await PanelAsync(new GameFilter());
+
+        var familyMarker = $"<span class=\"facet-name\">{FacetWords.Group(Locales.SourceTag, FacetKeys.Family)}</span>";
+        var codebaseMarker = $"<span class=\"facet-name\">{FacetWords.Group(Locales.SourceTag, FacetKeys.Codebase)}</span>";
+        const string MoreDisclosure = "<details class=\"facet-more-groups\"";
+
+        var familyAt = html.IndexOf(familyMarker, StringComparison.Ordinal);
+        var codebaseAt = html.IndexOf(codebaseMarker, StringComparison.Ordinal);
+        var moreAt = html.IndexOf(MoreDisclosure, StringComparison.Ordinal);
+
+        await Assert.That(familyAt).IsGreaterThanOrEqualTo(0).Because("family has no fieldset of its own");
+        await Assert.That(codebaseAt).IsGreaterThanOrEqualTo(0).Because("codebase has no fieldset of its own");
+        await Assert.That(moreAt).IsGreaterThanOrEqualTo(0).Because("the more-filters disclosure is missing");
+        await Assert.That(familyAt).IsLessThan(codebaseAt).Because("family should draw ahead of codebase");
+        await Assert.That(codebaseAt).IsLessThan(moreAt).Because("both should draw ahead of \"more filters\"");
+    }
+
+    [Test]
     public async Task ThePanelIsAPlainGetFormWithAControlPerFacet()
     {
         // No script, so the querystring is the state: the back button works, a filtered listing is

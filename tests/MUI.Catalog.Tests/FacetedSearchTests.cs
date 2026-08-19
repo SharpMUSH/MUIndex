@@ -486,6 +486,21 @@ public class FacetedSearchTests
         _ => throw new ArgumentOutOfRangeException(nameof(key), key, "no filter for this facet"),
     };
 
+    [Test]
+    public async Task TheVersionFacetShowsMoreThanTheOldTwelveValueCap()
+    {
+        // Sixteen distinct patchlevels, one game each — more than the panel used to show. Raising
+        // the cap is what surfaces the difference here, not deduping happening to land under it.
+        var rows = Enumerable.Range(1, 16)
+            .Select(i => Row($"game-{i}", codebase: $"PennMUSH 1.8.{i}"))
+            .ToArray();
+
+        var listing = FacetedSearch.Search(rows, new GameFilter());
+        var group = Group(listing, FacetKeys.CodebaseVersion);
+
+        await Assert.That(group.Values.Count).IsGreaterThan(12);
+    }
+
     private static ActivityBand Band(string token)
     {
         FacetTokens.TryBand(token, out var band);
