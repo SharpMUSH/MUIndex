@@ -10,19 +10,24 @@ namespace MUI.Web.Components;
 /// <remarks>
 /// Foreign colour is <em>quoted, not hosted</em>: indexed colours resolve against one locked
 /// 16-colour table identical in both themes, and the frame keeps its own fixed black ground, so
-/// nothing bleeds either way. The art is laid out at exactly <see cref="Columns"/> columns and never
-/// scaled; wrapped rows are counted, since the caption's row count has to match what a reader
-/// actually scrolls past.
+/// nothing bleeds either way. The art is laid out at the width the screen itself was drawn for
+/// (<see cref="Ansi.Grid"/>) and never scaled; wrapped rows are counted, since the caption's row
+/// count has to match what a reader actually scrolls past.
 /// </remarks>
 public static class Ansi
 {
     /// <summary>
-    /// The grid the art was drawn for. Games assume it; scaling breaks the box-drawing. 80 clipped
-    /// a real cluster of AresMUSH-family banners mid-glyph; 100 clears their widest observed line
-    /// (97) without absorbing the much longer lines that are cursor-addressed screens misread as
-    /// one row, not honest width.
+    /// The grid a screen is laid out at when it asks for nothing wider — and the width anything
+    /// wider than the screen's own grid is folded at. 80 clipped a real cluster of AresMUSH-family
+    /// banners mid-glyph; 100 clears the widest line on 809 of the 865 screens we hold.
     /// </summary>
-    public const int Columns = 100;
+    public const int DefaultColumns = 100;
+
+    /// <summary>
+    /// The widest grid a screen can ask for. The widest art anyone has actually drawn us is 243
+    /// columns; past 256 a screen is not wide, it is a horizontal scroll bar with a picture in it.
+    /// </summary>
+    public const int MaximumColumns = 256;
 
     /// <summary>Below this there is not enough screen to be worth a frame, so the hero collapses.</summary>
     public const int MinimumRows = 3;
@@ -88,7 +93,7 @@ public static class Ansi
             return new AnsiScreen(AnsiScreenState.Absent, [], 0);
         }
 
-        var rows = Layout(raw);
+        var rows = Layout(raw, Grid(raw));
         var substantial = rows.Count(r => r.Text.Trim().Length > 0);
 
         // Below three rows there is nothing to show, and a frame around it would be a layout hole
@@ -98,7 +103,108 @@ public static class Ansi
             : new AnsiScreen(AnsiScreenState.Rendered, rows, rows.Count);
     }
 
-    private static List<AnsiRow> Layout(string raw)
+    /// <summary>
+    /// The width this screen was drawn for: the widest line another line comes near, folded at
+    /// <see cref="DefaultColumns"/> below and <see cref="MaximumColumns"/> above.
+    /// </summary>
+    /// <remarks>
+    /// The widest line alone is not it. A game that sends a paragraph unwrapped — one line of 1,444
+    /// characters on a screen where nothing else passes 77 — is leaving the folding to the client,
+    /// not declaring a width, and taking it at its word would drag every short line on that screen
+    /// out behind a scroll bar. So the measurement walks down from the widest and keeps stepping
+    /// over any line more than half again the next one below it: a width no other line comes near
+    /// is one line's accident, and the first corroborated width is the grid.
+    /// </remarks>
+    internal static int Grid(string raw)
+    {
+        var widths = LineWidths(raw);
+
+        if (widths.Count < 2)
+        {
+            // One line corroborates nothing — not even itself.
+            return DefaultColumns;
+        }
+
+        widths.Sort(static (a, b) => b.CompareTo(a));
+
+        var i = 0;
+        while (i + 1 < widths.Count && widths[i] > widths[i + 1] * 3 / 2)
+        {
+            i++;
+        }
+
+        return Math.Clamp(widths[i], DefaultColumns, MaximumColumns);
+    }
+
+    /// <summary>
+    /// Every drawn line's width in cells, blank lines left out: they draw nothing and so vouch for
+    /// no width. Measured over the same runes <see cref="Layout"/> lays out, so the grid a screen
+    /// asks for is one its own longest line fits inside.
+    /// </summary>
+    private static List<int> LineWidths(string raw)
+    {
+        var widths = new List<int>();
+        var width = 0;
+        var drawn = false;
+        var ignored = SgrState.Default;
+
+        void FlushLine()
+        {
+            if (drawn)
+            {
+                widths.Add(width);
+            }
+
+            width = 0;
+            drawn = false;
+        }
+
+        for (var i = 0; i < raw.Length; i++)
+        {
+            var c = raw[i];
+
+            if (c == Escape)
+            {
+                i = ReadEscape(raw, i, ref ignored);
+                continue;
+            }
+
+            switch (c)
+            {
+                case '\r':
+                    continue;
+                case '\n':
+                    FlushLine();
+                    continue;
+                case '\t':
+                    width = ((width / 8) + 1) * 8;
+                    continue;
+            }
+
+            if (char.IsControl(c))
+            {
+                continue;
+            }
+
+            if (Rune.DecodeFromUtf16(raw.AsSpan(i), out var rune, out var consumed) is OperationStatus.Done)
+            {
+                width += CellWidth(rune);
+                drawn |= !Rune.IsWhiteSpace(rune);
+                i += consumed - 1;
+            }
+            else
+            {
+                width++;
+                drawn = true;
+            }
+        }
+
+        FlushLine();
+
+        return widths;
+    }
+
+    private static List<AnsiRow> Layout(string raw, int columns)
     {
         var rows = new List<AnsiRow>();
         var runs = new List<AnsiRun>();
@@ -146,7 +252,7 @@ public static class Ansi
                 case '\t':
                 {
                     var stop = ((column / 8) + 1) * 8;
-                    while (column < stop && column < Columns)
+                    while (column < stop && column < columns)
                     {
                         Append(" ", 1);
                     }
@@ -195,20 +301,17 @@ public static class Ansi
                 emitted = style;
             }
 
-            // A wide glyph that won't fit in the last cell moves to the next row — a terminal does
-            // not split a character across the wrap.
-            if (cells > 1 && column + cells > Columns)
+            // The wrap happens when the next glyph arrives, not when the last cell is filled —
+            // a terminal defers it the same way, and flushing eagerly gave every line that filled
+            // the grid exactly a blank row after it. A wide glyph that won't fit in the last cell
+            // moves whole for the same reason: a terminal does not split a character across a wrap.
+            if (column + cells > columns)
             {
                 FlushRow();
             }
 
             text.Append(glyph);
             column += cells;
-
-            if (column >= Columns)
-            {
-                FlushRow();
-            }
         }
     }
 
@@ -532,7 +635,7 @@ public sealed record AnsiScreen(AnsiScreenState State, IReadOnlyList<AnsiRow> Ro
     /// The width this screen occupies in terminal cells: the widest row, measured cell by cell.
     /// </summary>
     /// <remarks>
-    /// The widest row, not a screen-wide halving. <see cref="Ansi.Columns"/> is the layout grid in
+    /// The widest row, not a screen-wide halving. <see cref="Ansi.Grid"/> is the layout grid in
     /// characters; this is what those characters cost a terminal, and the two differ row by row on
     /// a screen that mixes scripts.
     /// </remarks>

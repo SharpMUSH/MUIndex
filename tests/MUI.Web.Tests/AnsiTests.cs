@@ -54,10 +54,78 @@ public class AnsiTests
     [Test]
     public async Task LinesWrapAtTheColumnGridAndTheWrappedRowIsCounted()
     {
-        var screen = Ansi.Parse(new string('x', Ansi.Columns * 2 + 40) + "\na\nb", suppressedByOwner: false);
+        var screen = Ansi.Parse(new string('x', Ansi.DefaultColumns * 2 + 40) + "\na\nb", suppressedByOwner: false);
 
-        await Assert.That(screen.Rows[0].Text.Length).IsEqualTo(Ansi.Columns);
+        await Assert.That(screen.Rows[0].Text.Length).IsEqualTo(Ansi.DefaultColumns);
         await Assert.That(screen.RowCount).IsEqualTo(5);
+    }
+
+    [Test]
+    public async Task ArtDrawnWiderThanTheDefaultGridIsLaidOutAtItsOwnWidth()
+    {
+        // The complaint the default was written against: a screen drawn at 150 columns folded at
+        // 100 is not the picture the game sent, it is that picture cut in half and stacked.
+        var art = string.Join('\n', Enumerable.Repeat(new string('x', 150), 12));
+        var screen = Ansi.Parse(art, suppressedByOwner: false);
+
+        await Assert.That(screen.RowCount).IsEqualTo(12);
+        await Assert.That(screen.Rows[0].Text.Length).IsEqualTo(150);
+        await Assert.That(screen.CellColumns).IsEqualTo(150);
+    }
+
+    [Test]
+    public async Task OneRunawayLineIsFoldedRatherThanStretchingTheGridToFitIt()
+    {
+        // A game that sends a paragraph unwrapped and leaves the folding to the client states no
+        // width: nothing else on its screen comes near, so the grid stays where the rest of the
+        // screen agrees and the paragraph folds.
+        var screen = Ansi.Parse(
+            string.Join('\n', Enumerable.Repeat(new string('x', 70), 20)) + "\n" + new string('y', 900),
+            suppressedByOwner: false);
+
+        await Assert.That(screen.Rows.Count(r => r.Text.StartsWith('y'))).IsEqualTo(9);
+        await Assert.That(screen.CellColumns).IsEqualTo(Ansi.DefaultColumns);
+    }
+
+    [Test]
+    public async Task OneLineAloneOnAScreenSetsNoWidthOfItsOwn()
+    {
+        // Corroboration is the whole rule, and a screen of one line has none to offer.
+        var screen = Ansi.Parse(new string('x', 380), suppressedByOwner: false);
+
+        await Assert.That(screen.Rows[0].Text.Length).IsEqualTo(Ansi.DefaultColumns);
+    }
+
+    [Test]
+    public async Task TheGridIsCappedSoAPathologicalScreenCannotStretchTheFrame()
+    {
+        var screen = Ansi.Parse(
+            string.Join('\n', Enumerable.Repeat(new string('x', 4000), 6)),
+            suppressedByOwner: false);
+
+        await Assert.That(screen.Rows[0].Text.Length).IsEqualTo(Ansi.MaximumColumns);
+    }
+
+    [Test]
+    public async Task TheGridIsMeasuredInCellsSoAWideRuneScreenIsNotDoubleCounted()
+    {
+        // 90 Han glyphs are 180 cells: the grid the screen asks for, not 90 columns of anything.
+        var art = string.Join('\n', Enumerable.Repeat(new string('\u6f22', 90), 12));
+        var screen = Ansi.Parse(art, suppressedByOwner: false);
+
+        await Assert.That(screen.RowCount).IsEqualTo(12);
+        await Assert.That(screen.Rows[0].Cells).IsEqualTo(180);
+    }
+
+    [Test]
+    public async Task ColourAndTabsAreNotCountedAsWidthWhenTheGridIsMeasured()
+    {
+        // The escape bytes are not glyphs; a tab is what a terminal advances it to.
+        var line = $"{Esc}32m\t{new string('x', 150)}{Esc}0m";
+        var screen = Ansi.Parse(string.Join('\n', Enumerable.Repeat(line, 12)), suppressedByOwner: false);
+
+        await Assert.That(screen.RowCount).IsEqualTo(12);
+        await Assert.That(screen.Rows[0].Cells).IsEqualTo(158);
     }
 
     [Test]
@@ -97,22 +165,22 @@ public class AnsiTests
     [Test]
     public async Task AWidthIsCountedInTerminalCellsAndPerRowRatherThanPerScreen()
     {
-        var mixed = new string('x', Ansi.Columns - 2) + "漢";
+        var mixed = new string('x', Ansi.DefaultColumns - 2) + "漢";
         var screen = Ansi.Parse($"{mixed}\nplain\nplain", suppressedByOwner: false);
 
-        await Assert.That(screen.Rows[0].Text.Length).IsEqualTo(Ansi.Columns - 1);
-        await Assert.That(screen.Rows[0].Cells).IsEqualTo(Ansi.Columns);
-        await Assert.That(screen.CellColumns).IsEqualTo(Ansi.Columns);
+        await Assert.That(screen.Rows[0].Text.Length).IsEqualTo(Ansi.DefaultColumns - 1);
+        await Assert.That(screen.Rows[0].Cells).IsEqualTo(Ansi.DefaultColumns);
+        await Assert.That(screen.CellColumns).IsEqualTo(Ansi.DefaultColumns);
         await Assert.That(screen.HasWideRunes).IsTrue();
 
         // A double-width glyph straddling the right margin moves whole to the next line, matching a
         // real terminal. Layout counts cells now, not UTF-16 units.
-        var straddling = Ansi.Parse(new string('x', Ansi.Columns - 1) + "漢\nplain", suppressedByOwner: false);
+        var straddling = Ansi.Parse(new string('x', Ansi.DefaultColumns - 1) + "漢\nplain", suppressedByOwner: false);
 
-        await Assert.That(straddling.Rows[0].Cells).IsEqualTo(Ansi.Columns - 1);
+        await Assert.That(straddling.Rows[0].Cells).IsEqualTo(Ansi.DefaultColumns - 1);
         await Assert.That(straddling.Rows[1].Text).IsEqualTo("漢");
 
-        var halfGrid = Ansi.Columns / 2;
+        var halfGrid = Ansi.DefaultColumns / 2;
         var wide = Ansi.Parse(
             $"{new string('漢', halfGrid)}\n{new string('漢', halfGrid)}\n{new string('漢', halfGrid)}",
             suppressedByOwner: false);
@@ -183,11 +251,11 @@ public class AnsiTests
     {
         var html = Render.Words(await Render.ComponentAsync<AnsiQuote>(new()
         {
-            ["Screen"] = Ansi.Parse(new string('x', Ansi.Columns - 2) + "漢\nplain\nplain", suppressedByOwner: false),
+            ["Screen"] = Ansi.Parse(new string('x', Ansi.DefaultColumns - 2) + "漢\nplain\nplain", suppressedByOwner: false),
         }));
 
-        await Assert.That(html).Contains($"{Ansi.Columns}×");
-        await Assert.That(html).DoesNotContain($"{Ansi.Columns / 2}×");
+        await Assert.That(html).Contains($"{Ansi.DefaultColumns}×");
+        await Assert.That(html).DoesNotContain($"{Ansi.DefaultColumns / 2}×");
     }
 
     [Test]
