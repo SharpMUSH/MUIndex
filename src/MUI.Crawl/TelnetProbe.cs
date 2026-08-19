@@ -212,11 +212,13 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             }
 
             // One decision, over the whole session, taken here because here is the first moment
-            // there is a whole session to decide from.
+            // there is a whole session to decide from — and MSSP is part of that session, not a
+            // second one. A game whose connect screen is ASCII and whose name is GBK says so only in
+            // its report, so the report's bytes decide alongside the screen's.
             WireReading reading;
             lock (lines)
             {
-                reading = WireEncoding.Read(lines, target.Charset);
+                reading = WireEncoding.Read(lines, target.Charset, MsspReport.RawValues(seen.Mssp));
             }
 
             var read = reading.Lines;
@@ -255,7 +257,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Info = infoText.Length == 0 ? null : infoText,
                 Version = versionText.Length == 0 ? null : versionText,
                 BannerPlayerCount = BannerCount.Find(banner),
-                Mssp = viaOption ? MsspReport.From(seen.Mssp) : MsspReport.Empty,
+                Mssp = viaOption ? MsspReport.From(seen.Mssp, reading.Encoding) : MsspReport.Empty,
                 MsspOutcome = seen.MsspOutcome,
                 MsspBytesRejected = seen.MsspRejectedBytes,
                 MsspTransport = viaOption ? MsspTransport.TelnetOption70 : MsspTransport.None,

@@ -69,30 +69,47 @@ public static class WireEncoding
     /// </summary>
     /// <param name="lines">Every line the session produced, as it came off the wire.</param>
     /// <param name="overrideName">The operator's <c>CHARSET</c> override for this game, if any.</param>
+    /// <param name="alsoFromThisSession">
+    /// More bytes the same server sent that are not part of the ordered screen — MSSP values, which
+    /// arrive in a subnegotiation rather than in the stream. They decide the encoding along with
+    /// <paramref name="lines"/> and are not returned; the caller decodes them with
+    /// <see cref="WireReading.Encoding"/>.
+    /// </param>
     /// <remarks>
     /// Decided once for all lines, not per line — a single line of pure ASCII is well-formed under
-    /// every candidate and would let the same server be read two ways within one screen.
+    /// every candidate and would let the same server be read two ways within one screen. The unit is
+    /// the <em>session</em> rather than the screen for the same reason one step out: a game with an
+    /// ASCII login prompt and a GBK name in MSSP would otherwise be called UTF-8 on the strength of
+    /// the prompt, and its name read with an encoding nothing ever tested.
     /// </remarks>
-    public static WireReading Read(IReadOnlyList<byte[]> lines, string? overrideName = null)
+    public static WireReading Read(
+        IReadOnlyList<byte[]> lines,
+        string? overrideName = null,
+        IReadOnlyList<byte[]>? alsoFromThisSession = null)
     {
         ArgumentNullException.ThrowIfNull(lines);
 
         if (Override(overrideName) is { } forced)
         {
-            return new WireReading(Decode(lines, forced), forced.WebName, WireCharset.Overridden);
+            return new WireReading(Decode(lines, forced), forced.WebName, WireCharset.Overridden, forced);
         }
 
-        if (IsUtf8(lines))
+        if (IsUtf8(lines) && IsUtf8(alsoFromThisSession))
         {
-            return new WireReading(Decode(lines, Utf8), Utf8.WebName, WireCharset.Proven);
+            return new WireReading(Decode(lines, Utf8), Utf8.WebName, WireCharset.Proven, Utf8);
         }
 
-        return new WireReading(Decode(lines, Fallback), Fallback.WebName, WireCharset.Undetermined);
+        return new WireReading(Decode(lines, Fallback), Fallback.WebName, WireCharset.Undetermined, Fallback);
     }
 
-    /// <summary>Whether every line is well-formed UTF-8.</summary>
-    private static bool IsUtf8(IReadOnlyList<byte[]> lines)
+    /// <summary>Whether every line is well-formed UTF-8. Nothing to read is nothing against it.</summary>
+    private static bool IsUtf8(IReadOnlyList<byte[]>? lines)
     {
+        if (lines is null)
+        {
+            return true;
+        }
+
         foreach (var line in lines)
         {
             try
@@ -159,7 +176,17 @@ public enum WireCharset
 /// page 936 and are recorded as <c>gb2312</c>, so one encoding is one value in the catalogue.
 /// </param>
 /// <param name="Source">How much is known about that choice. Read this before storing anything.</param>
-public sealed record WireReading(IReadOnlyList<string> Lines, string Charset, WireCharset Source)
+/// <param name="Encoding">
+/// The encoding itself, for the rest of the session's bytes. Anything this server sent that is not
+/// in <paramref name="Lines"/> — an MSSP value, which arrives in a subnegotiation — has to be read
+/// with the decision the whole session produced rather than with one taken again over a single
+/// field, which is usually a handful of bytes and decides nothing.
+/// </param>
+public sealed record WireReading(
+    IReadOnlyList<string> Lines,
+    string Charset,
+    WireCharset Source,
+    Encoding Encoding)
 {
     /// <summary>Whether an operator's override drove the decode, rather than the bytes or a fallback.</summary>
     public bool Overridden => Source is WireCharset.Overridden;
