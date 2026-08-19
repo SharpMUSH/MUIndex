@@ -976,7 +976,7 @@
     <value>关于 mu*index</value>
   </data>
   <data name="about.lede" xml:space="preserve">
-    <value>这里的每一个游戏，都由一台连入其中的机器实测得出，每一项数值都标明它的来源与时间。本页说明这能证明什么、我们哪里会出错、我们读了谁的目录，以及如何让爬虫停下。</value>
+    <value>这里的每一个游戏，都由爬虫实测得出，每一项数值都标明它的来源与时间。本页说明我们采集什么、其局限所在、我们不做什么，以及如何让爬虫停下。</value>
   </data>
   <data name="about.measures.heading" xml:space="preserve">
     <value>本站所说的事实是什么</value>
@@ -1012,7 +1012,7 @@
     <value>活跃度网格有三种状态。第三种是空白，并且不指明原因：我们连不上的那个小时，和我们从未探测过的那个小时，是同一种缺失，两者都不是那台服务器的停机时间。</value>
   </data>
   <data name="about.limits.heading" xml:space="preserve">
-    <value>我们知道自己哪里会出错</value>
+    <value>我们如何采集与调整数据</value>
   </data>
   <data name="about.limits.grace.lead" xml:space="preserve">
     <value>归档宽限期从我们发现你的那天算起。</value>
@@ -1024,19 +1024,13 @@
     <value>MSSP CREATED 不计入这段宽限期。</value>
   </data>
   <data name="about.limits.created.body" xml:space="preserve">
-    <value>它只是配置文件里手打的一行，若予采信，归档门槛就会变得可以操纵。它以自述的身份显示，换不来任何东西。</value>
+    <value>它只是配置文件里手打的一行，若予采信，归档门槛就会变得可以操纵。而且我们也猜不出它的格式。</value>
   </data>
   <data name="about.limits.claim.lead" xml:space="preserve">
     <value>认领游戏可以拿到上限。</value>
   </data>
   <data name="about.limits.claim.body" xml:space="preserve">
-    <value>只要证明拥有服务器访问权，无论我们观察了多久，都值整整一年的宽限期。</value>
-  </data>
-  <data name="about.limits.oneHost.lead" xml:space="preserve">
-    <value>本站的一切，都出自一台主机的间隔观测。</value>
-  </data>
-  <data name="about.limits.oneHost.body" xml:space="preserve">
-    <value>可连通时间的百分比，是我们观测过的那段窗口内的比例，绝不是我们没观测过的窗口的比例。本站的任何图形都不会替其余部分补上数据。</value>
+    <value>只要证明拥有服务器访问权，就值整整一年的归档宽限期。</value>
   </data>
   <data name="about.limits.deletion.lead" xml:space="preserve">
     <value>任何内容都不会被删除。</value>
@@ -1051,25 +1045,19 @@
     <value>没有投票、星级、评分或推荐。</value>
   </data>
   <data name="about.never.votes.body" xml:space="preserve">
-    <value>排行仅由实测数据算出。一个按谁能动员最多点击来排名的目录，描述的是拉票活动，而不是这个爱好本身——前辈们正是这样倒下的。</value>
+    <value>排行仅由实测数据算出。</value>
   </data>
   <data name="about.never.forums.lead" xml:space="preserve">
     <value>没有论坛、评测、维基、评论或玩家资料页。</value>
   </data>
   <data name="about.never.forums.body" xml:space="preserve">
-    <value>入门资料——什么是 MUSH、哪种代码库适合协作扮演——和本站其余内容一样，由人撰写、署名，并纳入版本管理。</value>
+    <value>本站只致力于提供数据和信息。</value>
   </data>
   <data name="about.never.names.lead" xml:space="preserve">
     <value>玩家名称从不留存。</value>
   </data>
   <data name="about.never.names.body" xml:space="preserve">
-    <value>WHO 的回复只在内存中解析，取出一个计数和表头的形状。名称不会被记录下来；汇总使用加盐哈希，盐值会轮换。</value>
-  </data>
-  <data name="about.never.population.lead" xml:space="preserve">
-    <value>不发布任何绝对人口数字。</value>
-  </data>
-  <data name="about.never.population.body" xml:space="preserve">
-    <value>我们发布按代码库和按协议的占比：在实测集合上算出的比例，即使还有我们数不出来的游戏也依然成立。“有多少人在玩 MU*”则不然，因为那个数字一经引用就站不住脚。</value>
+    <value>WHO 的回复会在内存中解析，从中或其他来源取得计数并纳入统计。游戏自行发布的 MSSP 数值是这条规则的例外。</value>
   </data>
   <data name="about.crawler.heading" xml:space="preserve">
     <value>爬虫，以及如何让它停下</value>
@@ -1084,19 +1072,19 @@
     <value>CRAWL DELAY 说了算。</value>
   </data>
   <data name="about.crawler.delay.body" xml:space="preserve">
-    <value>游戏若在 MSSP 报告中给出希望的最小间隔，我们就照办，并在两个方向上都优先于我们自己的排期：720 小时就是每月一次，而不是每周一次。失联的游戏仍会按这个更长的间隔被一直尝试下去，它恢复之后，正是这样重新回到列表的。</value>
+    <value>游戏若在 MSSP 报告中给出希望的最小间隔，我们就会遵从。失联的游戏仍会按这个更长的间隔被一直尝试下去，它恢复之后，正是这样重新回到列表的。</value>
   </data>
   <data name="about.crawler.referral.lead" xml:space="preserve">
-    <value>推荐地址指向哪里，由我们自己核实。仅凭游戏自己的说法是不够的。</value>
+    <value>REFERRAL 指向哪里，由我们核实。</value>
   </data>
   <data name="about.crawler.referral.body" xml:space="preserve">
-    <value>MSSP 允许一个游戏点名其他游戏。任何拨号之前，每个名称都先做解析；除非它解析出的每一个地址都是全球可路由的，否则一律拒绝。解析结果混杂时，整个目标都被拒绝。这种拒绝记在我们自己名下，绝不会作为停机出现在某个游戏的记录里。</value>
+    <value>MSSP 允许一个游戏点名其他游戏。但我们以实际连接端点为准。</value>
   </data>
   <data name="about.crawler.screens.lead" xml:space="preserve">
     <value>展示连接画面，是因为它本来就发给所有人。</value>
   </data>
   <data name="about.crawler.screens.body" xml:space="preserve">
-    <value>服务器会向每一个匿名连接、无需认证地绘出自己的连接画面。我们把它作为证据展示，并加以标注。你若开口，我们就撤下。</value>
+    <value>认领该游戏后，所有者可以选择不再显示连接画面。</value>
   </data>
   <data name="about.crawler.stop.lead" xml:space="preserve">
     <value>说停我们就停——有三种方式。</value>
@@ -1130,9 +1118,6 @@
   </data>
   <data name="about.identity.announced" xml:space="preserve">
     <value>服务器询问来者何人时，爬虫自报为 {name}。</value>
-  </data>
-  <data name="about.identity.unannounced" xml:space="preserve">
-    <value>爬虫已配置为自称 {name}，但目前还说不出口。它使用的 telnet 库没有给客户端设置终端类型的途径，所以你的日志里看到的是那个库的默认值，而 NEW-ENVIRON 是用爬虫主机的环境作答的。这两处都是那个库的缺口，该由我们去那里修补。在此之前，请靠形态辨认一次探测：一个连接，不登录，一组简短的只读命令，然后就走。</value>
   </data>
   <data name="about.identity.crawler" xml:space="preserve">
     <value>爬虫</value>
@@ -1420,7 +1405,7 @@
     <value>生态</value>
   </data>
   <data name="ecosystem.noTotals" xml:space="preserve">
-    <value>我们发布的是占比，不是人头总数：基于我们实测过的游戏算出的比例，即使还有连不上的游戏也依然成立，所以这里不给出全体在玩 MU* 的人数。</value>
+    <value>我们发布的是占比：基于我们实测过的游戏算出的比例，即使还有连不上的游戏也依然成立。</value>
   </data>
   <data name="ecosystem.listed" xml:space="preserve">
     <value>{count, plural, other {已列出的游戏 {value} 个}}</value>
@@ -1447,13 +1432,13 @@
     <value>代码库</value>
   </data>
   <data name="ecosystem.codebases.basis" xml:space="preserve">
-    <value>在已列出的{listed, plural, other {#个游戏}}中，有 {identified, number} 个告诉了我们它们运行的是什么，下面每一项占比都是相对这 {identified, number} 个算出来的。读不出代码库的游戏被排除在分母之外，绝不会被算作别的东西。</value>
+    <value>在已列出的{listed, plural, other {#个游戏}}中，有 {identified, number} 个告诉了我们它们运行的是什么，下面每一项占比都是相对这 {identified, number} 个算出来的。读不出代码库的游戏被排除在分母之外</value>
   </data>
   <data name="ecosystem.codebases.none" xml:space="preserve">
     <value>还没有已列出的游戏告诉过我们它的代码库。</value>
   </data>
   <data name="ecosystem.soleUse" xml:space="preserve">
-    <value>{share} 运行的代码库，没有任何其他已列出的游戏在用——每种各一个游戏，那是一个名字，而不是一份占比。它们计入上面的分母，只是从条形图中折叠起来，并没有被丢弃：</value>
+    <value>{share} 运行的代码库，没有任何其他已列出的游戏在用——每种各一个游戏，就当它是那个游戏本身。它们计入上面的分母：</value>
   </data>
   <data name="ecosystem.lineages.title" xml:space="preserve">
     <value>谱系</value>
@@ -1471,16 +1456,16 @@
     <value>协议</value>
   </data>
   <data name="ecosystem.protocols.floor" xml:space="preserve">
-    <value>下面每一个实测数字都应读作下限。MSSP 是我们指名索取的，所以在这一项上，沉默本身就是一种回答。其余各项我们都不索取，服务器可能支持某个协议，却从不主动提供。</value>
+    <value>下面每一个实测数字都应读作下限。其余各项我们都不索取，服务器可能支持某个协议，却从不主动提供。</value>
   </data>
   <data name="ecosystem.mssp.instrument" xml:space="preserve">
-    <value>{instrument} 是下面唯一不算下限的一行：我们向每台服务器指名索取它，所以没有提供它的游戏，是被问过之后拒绝的。它也是唯一没有自述数字的一项，因为凡是我们持有其报告的游戏，都已用行动证明支持它，再去数其中有多少同时把它列了出来，量到的只是一种习惯。</value>
+    <value>{instrument} 是下面唯一不算下限的一行：我们向每台服务器指名索取它，所以没有提供它的游戏，是被问过之后拒绝的。</value>
   </data>
   <data name="ecosystem.mssp.gap" xml:space="preserve">
     <value>我们持有 {reports, number} 份报告，而今天提供 MSSP 的有{offered, plural, other {#个游戏}}：另外 {gap, number} 个在我们读过之后就不再发布了，一份报告不会因为不再重发而被丢弃。</value>
   </data>
   <data name="ecosystem.protocols.caption" xml:space="preserve">
-    <value>协议采用情况。实测是服务器在一次完成的握手中提供的内容，自述是它的 MSSP 所声称的内容。两组不同的游戏，因此有两个分母。</value>
+    <value>协议采用情况。「实测」是服务器在一次完成的握手中提供的内容，「自述」是它的 MSSP 所声称的内容。</value>
   </data>
   <data name="ecosystem.column.protocol" xml:space="preserve">
     <value>协议</value>

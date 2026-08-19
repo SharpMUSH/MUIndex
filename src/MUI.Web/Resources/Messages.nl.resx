@@ -976,7 +976,7 @@
     <value>Over mu*index</value>
   </data>
   <data name="about.lede" xml:space="preserve">
-    <value>Elk spel hier is gemeten door een machine die er verbinding mee maakte, en elke waarde vermeldt waar hij vandaan komt en wanneer. Deze pagina behandelt wat dat bewijst, wat we fout doen, wiens gidsen we lezen, en hoe de crawler te stoppen is.</value>
+    <value>Elk spel hier wordt gemeten door de crawler, en elke waarde vermeldt waar hij vandaan komt en wanneer. Deze pagina behandelt wat we verzamelen, de grenzen daarvan, wat we niet doen, en hoe de crawler te stoppen is.</value>
   </data>
   <data name="about.measures.heading" xml:space="preserve">
     <value>Wat een feit hier is</value>
@@ -1012,7 +1012,7 @@
     <value>Het activiteitenraster heeft drie toestanden. De derde is leeg en noemt geen oorzaak: een uur dat we niet konden bereiken en een uur dat we nooit gepeild hebben zijn dezelfde afwezigheid, en geen van beide is downtime van die server.</value>
   </data>
   <data name="about.limits.heading" xml:space="preserve">
-    <value>Wat we weten dat we fout doen</value>
+    <value>Hoe we gegevens verzamelen en aanpassen</value>
   </data>
   <data name="about.limits.grace.lead" xml:space="preserve">
     <value>Het archiefrespijt wordt gemeten vanaf de dag dat we je vonden.</value>
@@ -1024,19 +1024,13 @@
     <value>We laten MSSP CREATED niet meetellen voor dat respijt.</value>
   </data>
   <data name="about.limits.created.body" xml:space="preserve">
-    <value>Het is één met de hand ingetypte regel in een configuratiebestand, dus meetellen zou de archiefdrempel manipuleerbaar maken. Het wordt als opgave getoond en koopt niets.</value>
+    <value>Het is één met de hand ingetypte regel in een configuratiebestand, dus meetellen zou de archiefdrempel manipuleerbaar maken. Bovendien kunnen we het formaat ervan niet raden.</value>
   </data>
   <data name="about.limits.claim.lead" xml:space="preserve">
     <value>Een spel claimen levert de bovengrens op.</value>
   </data>
   <data name="about.limits.claim.body" xml:space="preserve">
-    <value>Aantonen dat er servertoegang is, is het volle jaar respijt waard, hoe lang we ook al meekijken.</value>
-  </data>
-  <data name="about.limits.oneHost.lead" xml:space="preserve">
-    <value>Alles hier is één host die met tussenpozen kijkt.</value>
-  </data>
-  <data name="about.limits.oneHost.body" xml:space="preserve">
-    <value>Een percentage bereikbare tijd is een deel van de periode die we waarnamen, nooit van een periode die we niet waarnamen. Geen enkele grafiek hier vult de rest in.</value>
+    <value>Aantonen dat er servertoegang is, is het volle jaar archiefrespijt waard.</value>
   </data>
   <data name="about.limits.deletion.lead" xml:space="preserve">
     <value>Er wordt nooit iets verwijderd.</value>
@@ -1051,25 +1045,19 @@
     <value>Geen stemmen, sterren, beoordelingen of aanbevelingen.</value>
   </data>
   <data name="about.never.votes.body" xml:space="preserve">
-    <value>Ranglijsten worden alleen uit gemeten gegevens berekend. Een gids die gerangschikt is naar wie de meeste klikken kan mobiliseren, beschrijft de campagne en niet de hobby, en daaraan zijn de gevestigde gidsen ten onder gegaan.</value>
+    <value>Ranglijsten worden alleen uit gemeten gegevens berekend.</value>
   </data>
   <data name="about.never.forums.lead" xml:space="preserve">
     <value>Geen forums, recensies, wiki’s, reacties of spelersprofielen.</value>
   </data>
   <data name="about.never.forums.body" xml:space="preserve">
-    <value>Oriënterend materiaal — wat een MUSH is, welke codebase past bij gezamenlijk rollenspel — wordt geschreven, ondertekend en van versies voorzien zoals de rest van de site.</value>
+    <value>We willen uitsluitend gegevens en informatie aanbieden.</value>
   </data>
   <data name="about.never.names.lead" xml:space="preserve">
     <value>Spelersnamen worden nooit bewaard.</value>
   </data>
   <data name="about.never.names.body" xml:space="preserve">
-    <value>Een WHO-antwoord wordt in het geheugen ontleed op een telling en de vorm van de kop. De namen worden niet vastgelegd; aggregaten gebruiken een gezouten hash met een roulerende salt.</value>
-  </data>
-  <data name="about.never.population.lead" xml:space="preserve">
-    <value>Er wordt geen absoluut spelersaantal gepubliceerd.</value>
-  </data>
-  <data name="about.never.population.body" xml:space="preserve">
-    <value>Aandelen per codebase en per protocol gaan wel de deur uit: een verhouding over de gemeten verzameling overleeft de spellen die we niet kunnen tellen. ‘Hoeveel mensen spelen MU*’ overleeft dat niet, want dat getal zou het niet houden zodra het geciteerd werd.</value>
+    <value>Een WHO-antwoord wordt in het geheugen ontleed om daaruit of uit andere bronnen een telling te halen, die wordt geteld. Zelf gepubliceerde MSSP-waarden zijn de uitzondering op deze regel.</value>
   </data>
   <data name="about.crawler.heading" xml:space="preserve">
     <value>De crawler, en hoe die te stoppen is</value>
@@ -1084,19 +1072,19 @@
     <value>CRAWL DELAY wint.</value>
   </data>
   <data name="about.crawler.delay.body" xml:space="preserve">
-    <value>Een spel dat in zijn MSSP-rapport een gewenste minimale tussenpoos opgeeft, krijgt die, boven ons eigen schema in beide richtingen: 720 uur betekent maandelijks, niet wekelijks. Bij een stilgevallen spel wordt voor altijd op de langere tussenpoos aangeklopt, en zo zet het zichzelf weer in de lijst wanneer het terugkomt.</value>
+    <value>Geeft een spel in zijn MSSP-rapport een gewenste minimale tussenpoos op, dan wordt die gevolgd. Bij een stilgevallen spel wordt voor altijd op de langere tussenpoos aangeklopt, en zo zet het zichzelf weer in de lijst wanneer het terugkomt.</value>
   </data>
   <data name="about.crawler.referral.lead" xml:space="preserve">
-    <value>We controleren waar een verwijzing naartoe wijst. De opgave van een spel alleen is niet genoeg.</value>
+    <value>We controleren waar REFERRAL naartoe wijst.</value>
   </data>
   <data name="about.crawler.referral.body" xml:space="preserve">
-    <value>Met MSSP kan een spel andere spellen noemen. Elke naam wordt opgelost voordat er ergens wordt aangeklopt, en geweigerd tenzij elk adres waarnaar hij oplost wereldwijd routeerbaar is. Een gemengd antwoord weigert het hele doel. Onze weigering wordt als de onze vastgelegd en verschijnt nooit als downtime in het dossier van een spel.</value>
+    <value>Met MSSP kan een spel andere spellen noemen. Wij houden echter het eindpunt zelf aan als bron van waarheid.</value>
   </data>
   <data name="about.crawler.screens.lead" xml:space="preserve">
     <value>Verbindingsschermen worden getoond omdat ze naar iedereen gestuurd worden.</value>
   </data>
   <data name="about.crawler.screens.body" xml:space="preserve">
-    <value>Een server tekent zijn verbindingsscherm, zonder authenticatie, naar elke anonieme verbinding. We tonen het als bewijs en labelen het. Eén verzoek en het gaat eraf.</value>
+    <value>Door het spel te claimen krijgt de eigenaar de optie om het verbindingsscherm niet meer te tonen.</value>
   </data>
   <data name="about.crawler.stop.lead" xml:space="preserve">
     <value>Zeg stop, en we stoppen — op drie manieren.</value>
@@ -1130,9 +1118,6 @@
   </data>
   <data name="about.identity.announced" xml:space="preserve">
     <value>De crawler noemt zichzelf {name} wanneer een server vraagt wat hij is.</value>
-  </data>
-  <data name="about.identity.unannounced" xml:space="preserve">
-    <value>De crawler is ingesteld om zichzelf {name} te noemen, maar kan dat nog niet zeggen. Zijn telnet-bibliotheek biedt een client geen manier om het terminaltype in te stellen, dus je logboeken zien de standaardwaarde van die bibliotheek, en NEW-ENVIRON wordt beantwoord vanuit de omgeving van de crawlerhost. Beide zijn gaten in de bibliotheek en aan ons om ze daar te dichten. Tot die tijd: herken een peiling aan de vorm ervan — één verbinding, geen login, een korte set alleen-lezen-commando’s, weg.</value>
   </data>
   <data name="about.identity.crawler" xml:space="preserve">
     <value>crawler</value>
@@ -1420,7 +1405,7 @@
     <value>Het ecosysteem</value>
   </data>
   <data name="ecosystem.noTotals" xml:space="preserve">
-    <value>We publiceren een aandeel, geen koppentelling: een verhouding over de spellen die we gemeten hebben overleeft de spellen die we niet kunnen bereiken, dus er staat hier geen cijfer voor hoeveel mensen er in totaal MU* spelen.</value>
+    <value>We publiceren het aandeel: een verhouding over de spellen die we gemeten hebben overleeft de spellen die we niet kunnen bereiken.</value>
   </data>
   <data name="ecosystem.listed" xml:space="preserve">
     <value>{count, plural, one {{value} spel vermeld} other {{value} spellen vermeld}}</value>
@@ -1447,13 +1432,13 @@
     <value>Codebases</value>
   </data>
   <data name="ecosystem.codebases.basis" xml:space="preserve">
-    <value>Van de {listed, plural, one {# vermelde spel} other {# vermelde spellen}} hebben er {identified, number} ons verteld waarop ze draaien, en elk aandeel hieronder gaat over die {identified, number}. Een codebase die we niet konden lezen valt buiten de noemer, en wordt nooit als iets anders geteld.</value>
+    <value>Van de {listed, plural, one {# vermelde spel} other {# vermelde spellen}} hebben er {identified, number} ons verteld waarop ze draaien, en elk aandeel hieronder gaat over die {identified, number}. Een codebase die we niet konden lezen valt buiten de noemer</value>
   </data>
   <data name="ecosystem.codebases.none" xml:space="preserve">
     <value>Nog geen vermeld spel heeft ons zijn codebase verteld.</value>
   </data>
   <data name="ecosystem.soleUse" xml:space="preserve">
-    <value>{share} draait op een codebase die geen enkel ander vermeld spel draait — één spel per stuk, wat een naam is en geen aandeel. Ze vallen binnen de noemer hierboven en zijn uit de balken gevouwen, niet weggelaten:</value>
+    <value>{share} draait op een codebase die geen enkel ander vermeld spel draait — één spel per stuk, waarvan wordt aangenomen dat het gewoon dat spel is. Ze vallen binnen de noemer hierboven:</value>
   </data>
   <data name="ecosystem.lineages.title" xml:space="preserve">
     <value>Afstammingen</value>
@@ -1471,16 +1456,16 @@
     <value>Protocollen</value>
   </data>
   <data name="ecosystem.protocols.floor" xml:space="preserve">
-    <value>Lees elk gemeten cijfer hieronder als een ondergrens. We vragen MSSP met name aan, dus stilte daar is een antwoord. Om de rest hier wordt niet gevraagd, en een server kan een protocol ondersteunen zonder het ooit aan te bieden.</value>
+    <value>Lees elk gemeten cijfer hieronder als een ondergrens. Om de rest hier wordt niet gevraagd, en een server kan een protocol ondersteunen zonder het ooit aan te bieden.</value>
   </data>
   <data name="ecosystem.mssp.instrument" xml:space="preserve">
-    <value>{instrument} is de enige rij hieronder die geen ondergrens is: we vragen elke server er met name om, dus de spellen die het niet aanboden zijn gevraagd en hebben geweigerd. Het is ook de enige zonder opgegeven cijfer, want elk spel waarvan we het rapport hebben ondersteunt het bij wijze van bewijs, en een telling van de spellen die het ook vermeldden zou daartegen een gewoonte meten.</value>
+    <value>{instrument} is de enige rij hieronder die geen ondergrens is: we vragen elke server er met name om, dus de spellen die het niet aanboden zijn gevraagd en hebben geweigerd.</value>
   </data>
   <data name="ecosystem.mssp.gap" xml:space="preserve">
     <value>We hebben {reports, number} rapporten en {offered, plural, one {# spel biedt} other {# spellen bieden}} MSSP vandaag aan: de andere {gap, number} zijn gestopt met publiceren nadat we het gelezen hadden, en een rapport wordt niet weggegooid omdat het niet meer opnieuw uitgegeven wordt.</value>
   </data>
   <data name="ecosystem.protocols.caption" xml:space="preserve">
-    <value>Protocoladoptie. Gemeten is wat een server aanbood in een voltooide handshake; opgegeven is wat zijn MSSP beweert. Twee verzamelingen spellen, dus twee noemers.</value>
+    <value>Protocoladoptie. 'Gemeten' is wat een server aanbood in een voltooide handshake; 'opgegeven' is wat zijn MSSP beweert.</value>
   </data>
   <data name="ecosystem.column.protocol" xml:space="preserve">
     <value>protocol</value>

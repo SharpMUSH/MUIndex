@@ -976,7 +976,7 @@
     <value>mu*indexについて</value>
   </data>
   <data name="about.lede" xml:space="preserve">
-    <value>ここにあるゲームはすべて、接続した機械が実測したもの。どの値にも、出所といつのものかが記されている。このページでは、それが何を証明するのか、何を誤ると分かっているのか、誰のディレクトリを読んでいるのか、そしてクローラーを止める方法を扱う。</value>
+    <value>ここにあるゲームはすべて、クローラーが実測したもの。どの値にも、出所といつのものかが記されている。このページでは、何を集めているか、その限界、何をしないか、そしてクローラーを止める方法を扱う。</value>
   </data>
   <data name="about.measures.heading" xml:space="preserve">
     <value>ここでの事実とは何か</value>
@@ -1012,7 +1012,7 @@
     <value>活動グリッドには3つの状態がある。3つ目は空欄であり、原因を名指ししない：到達できなかった時間も、一度も探査しなかった時間も、同じ欠落であって、どちらもそのサーバーの停止時間ではない。</value>
   </data>
   <data name="about.limits.heading" xml:space="preserve">
-    <value>誤ると分かっていること</value>
+    <value>データの収集と調整のしかた</value>
   </data>
   <data name="about.limits.grace.lead" xml:space="preserve">
     <value>アーカイブまでの猶予は、こちらが見つけた日から数える。</value>
@@ -1024,19 +1024,13 @@
     <value>MSSPのCREATEDはその猶予に算入しない。</value>
   </data>
   <data name="about.limits.created.body" xml:space="preserve">
-    <value>設定ファイルに手で書かれた1行にすぎず、算入すればアーカイブのしきい値を操作できてしまう。自己申告として表示するが、それで得られるものはない。</value>
+    <value>設定ファイルに手で書かれた1行にすぎず、算入すればアーカイブのしきい値を操作できてしまう。しかもその書式は推測できない。</value>
   </data>
   <data name="about.limits.claim.lead" xml:space="preserve">
     <value>ゲームを申請すれば上限が得られる。</value>
   </data>
   <data name="about.limits.claim.body" xml:space="preserve">
-    <value>サーバーへのアクセスを証明すれば、観測してきた期間の長さにかかわらず、猶予は満1年になる。</value>
-  </data>
-  <data name="about.limits.oneHost.lead" xml:space="preserve">
-    <value>ここにあるものはすべて、1台のホストが一定間隔で見た結果。</value>
-  </data>
-  <data name="about.limits.oneHost.body" xml:space="preserve">
-    <value>到達可能時間の割合は、観測した期間に対する割合であって、観測しなかった期間に対するものではない。ここにあるどの図も、残りを埋めることはしない。</value>
+    <value>サーバーへのアクセスを証明すれば、アーカイブ猶予は満1年になる。</value>
   </data>
   <data name="about.limits.deletion.lead" xml:space="preserve">
     <value>削除は一切しない。</value>
@@ -1051,25 +1045,19 @@
     <value>投票も、星も、評価も、おすすめもない。</value>
   </data>
   <data name="about.never.votes.body" xml:space="preserve">
-    <value>ランキングは実測データのみから算出する。最も多くクリックを動員できた者で順位が決まるディレクトリが表すのは、その動員活動であってこのホビーではない。先行したディレクトリを滅ぼしたのはそれだ。</value>
+    <value>ランキングは実測データのみから算出する。</value>
   </data>
   <data name="about.never.forums.lead" xml:space="preserve">
     <value>フォーラムも、レビューも、ウィキも、コメントも、プレイヤープロフィールもない。</value>
   </data>
   <data name="about.never.forums.body" xml:space="preserve">
-    <value>入門的な解説 — MUSHとは何か、共同ロールプレイにはどのコードベースが向くか — は、サイトの他の部分と同じく、執筆され、署名され、バージョン管理される。</value>
+    <value>当サイトはデータと情報の提供のみを目指す。</value>
   </data>
   <data name="about.never.names.lead" xml:space="preserve">
     <value>プレイヤー名は一切保存しない。</value>
   </data>
   <data name="about.never.names.body" xml:space="preserve">
-    <value>WHOの応答は、人数とヘッダーの形を得るためにメモリ上で解析する。名前は書き出さない。集計には、ローテーションするソルトを用いたソルト付きハッシュを使う。</value>
-  </data>
-  <data name="about.never.population.lead" xml:space="preserve">
-    <value>人口の絶対数は公表しない。</value>
-  </data>
-  <data name="about.never.population.body" xml:space="preserve">
-    <value>コードベース別・プロトコル別のシェアは公開する：実測した集合に対する比率は、計数できないゲームがあっても意味を保つ。「MU*を遊んでいる人は何人か」は保たない。その数字は引用に耐えないから。</value>
+    <value>WHOの応答はメモリ上で解析され、そこから、あるいは他の情報源から人数を得て数える。ゲーム自身が公開するMSSPの値は、このルールの例外にあたる。</value>
   </data>
   <data name="about.crawler.heading" xml:space="preserve">
     <value>クローラーと、その止め方</value>
@@ -1084,19 +1072,19 @@
     <value>CRAWL DELAYが優先する。</value>
   </data>
   <data name="about.crawler.delay.body" xml:space="preserve">
-    <value>MSSPレポートで希望する最小間隔を示したゲームには、そのとおりにする。当サイト自身のスケジュールより双方向に優先する：720時間なら週次ではなく月次。消息不明のゲームも、その長い間隔で永久に試し続ける。復帰したときに自力で一覧に戻るのは、そのおかげ。</value>
+    <value>MSSPレポートで希望する最小間隔を示したゲームには、それが尊重される。消息不明のゲームも、その長い間隔で永久に試し続ける。復帰したときに自力で一覧に戻るのは、そのおかげ。</value>
   </data>
   <data name="about.crawler.referral.lead" xml:space="preserve">
-    <value>参照先がどこを指すかは当サイトが確かめる。ゲーム側の申告だけでは足りない。</value>
+    <value>REFERRALがどこを指すかは当サイトが確かめる。</value>
   </data>
   <data name="about.crawler.referral.body" xml:space="preserve">
-    <value>MSSPでは、ゲームが他のゲームを名指しできる。名前はダイヤルする前にすべて解決し、解決先のアドレスがすべてグローバルに到達可能でなければ拒否する。混在した応答は、その対象全体を拒否する。この拒否は当サイトの判断として記録し、ゲームの記録に停止時間として現れることはない。</value>
+    <value>MSSPでは、ゲームが他のゲームを名指しできる。ただし、当サイトが真とみなすのは接続先そのものである。</value>
   </data>
   <data name="about.crawler.screens.lead" xml:space="preserve">
     <value>接続画面を表示するのは、それが誰にでも送られるものだから。</value>
   </data>
   <data name="about.crawler.screens.body" xml:space="preserve">
-    <value>サーバーは接続画面を、認証なしで、すべての匿名接続に描き出す。当サイトはそれを証拠として表示し、ラベルを付ける。求められれば取り下げる。</value>
+    <value>ゲームを申請すれば、所有者は接続画面を非表示にする選択肢を得る。</value>
   </data>
   <data name="about.crawler.stop.lead" xml:space="preserve">
     <value>止めろと言われれば止める — 方法は3つ。</value>
@@ -1130,9 +1118,6 @@
   </data>
   <data name="about.identity.announced" xml:space="preserve">
     <value>サーバーから何者かと尋ねられたとき、クローラーは自らを{name}と名乗る。</value>
-  </data>
-  <data name="about.identity.unannounced" xml:space="preserve">
-    <value>クローラーは自らを{name}と名乗るよう設定されているが、まだそう伝えられない。使っているtelnetライブラリには、クライアント側から端末種別を設定する手段がなく、そちらのログにはそのライブラリの既定値が見える。NEW-ENVIRONもクローラーホストの環境から応答される。どちらもライブラリ側の欠落であり、そこを直すのは当方の仕事。それまでは、探査はその形で見分けられる：1本の接続、ログインなし、読み取り専用の短いコマンド列、そして退出。</value>
   </data>
   <data name="about.identity.crawler" xml:space="preserve">
     <value>クローラー</value>
@@ -1420,7 +1405,7 @@
     <value>エコシステム</value>
   </data>
   <data name="ecosystem.noTotals" xml:space="preserve">
-    <value>示すのは比率であって、人数の総計ではない：実測したゲームに対する比率は、到達できないゲームがあっても意味を保つので、MU*全体でどれだけの人が遊んでいるかという数字はここには出さない。</value>
+    <value>示すのは比率のみ：実測したゲームに対する比率は、到達できないゲームがあっても意味を保つ。</value>
   </data>
   <data name="ecosystem.listed" xml:space="preserve">
     <value>{count, plural, other {掲載ゲーム{value}件}}</value>
@@ -1447,13 +1432,13 @@
     <value>コードベース</value>
   </data>
   <data name="ecosystem.codebases.basis" xml:space="preserve">
-    <value>掲載している{listed, plural, other {#件のゲーム}}のうち、{identified, number}件が動かしているものを伝えてきた。以下のシェアはすべてその{identified, number}件に対するもの。読み取れなかったコードベースは分母から外し、別の何かとして数えることはしない。</value>
+    <value>掲載している{listed, plural, other {#件のゲーム}}のうち、{identified, number}件が動かしているものを伝えてきた。以下のシェアはすべてその{identified, number}件に対するもの。読み取れなかったコードベースは分母から外れる</value>
   </data>
   <data name="ecosystem.codebases.none" xml:space="preserve">
     <value>コードベースを伝えてきた掲載ゲームはまだない。</value>
   </data>
   <data name="ecosystem.soleUse" xml:space="preserve">
-    <value>{share}は、他のどの掲載ゲームも使っていないコードベースを動かしている — それぞれ1件ずつで、シェアというより名前。上の分母には含まれており、棒グラフからまとめて外してあるだけで、除外はしていない：</value>
+    <value>{share}は、他のどの掲載ゲームも使っていないコードベースを動かしている — それぞれ1件ずつで、そのままそのゲームだと見なす。上の分母には含まれている：</value>
   </data>
   <data name="ecosystem.lineages.title" xml:space="preserve">
     <value>系統</value>
@@ -1471,16 +1456,16 @@
     <value>プロトコル</value>
   </data>
   <data name="ecosystem.protocols.floor" xml:space="preserve">
-    <value>以下の実測値はいずれも下限として読むこと。MSSPは名指しで要求するので、そこでの沈黙は一つの答え。それ以外は要求していないので、サーバーが一度も提供しないまま対応していることもありうる。</value>
+    <value>以下の実測値はいずれも下限として読むこと。それ以外は要求していないので、サーバーが一度も提供しないまま対応していることもありうる。</value>
   </data>
   <data name="ecosystem.mssp.instrument" xml:space="preserve">
-    <value>{instrument}は、以下で唯一、下限ではない行：すべてのサーバーに名指しで要求しているので、提供しなかったゲームは訊かれたうえで断ったことになる。自己申告の数値がない唯一の行でもある。レポートを保有しているゲームは実演によって対応を示しており、そのうえで自ら列挙したゲームを数えても、測れるのは習慣のほうだから。</value>
+    <value>{instrument}は、以下で唯一、下限ではない行：すべてのサーバーに名指しで要求しているので、提供しなかったゲームは訊かれたうえで断ったことになる。</value>
   </data>
   <data name="ecosystem.mssp.gap" xml:space="preserve">
     <value>保有しているレポートは{reports, number}件で、現在MSSPを提供しているのは{offered, plural, other {#件のゲーム}}：残る{gap, number}件は、こちらが読んだあとに公開をやめたもの。再発行されなくなったからといって、レポートを捨てることはしない。</value>
   </data>
   <data name="ecosystem.protocols.caption" xml:space="preserve">
-    <value>プロトコルの採用状況。実測は完了したハンドシェイクでサーバーが提供したもの、自己申告はそのMSSPが主張するもの。ゲームの集合が2つなので、分母も2つ。</value>
+    <value>プロトコルの採用状況。「実測」は完了したハンドシェイクでサーバーが提供したもの、「自己申告」はそのMSSPが主張するもの。</value>
   </data>
   <data name="ecosystem.column.protocol" xml:space="preserve">
     <value>プロトコル</value>

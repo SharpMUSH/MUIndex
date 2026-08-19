@@ -976,7 +976,7 @@
     <value>Über mu*index</value>
   </data>
   <data name="about.lede" xml:space="preserve">
-    <value>Jedes Spiel hier wurde von einer Maschine gemessen, die sich mit ihm verbunden hat, und jeder Wert nennt seine Herkunft und seinen Zeitpunkt. Diese Seite behandelt, was das belegt, was wir falsch machen, wessen Verzeichnisse wir lesen und wie sich der Crawler stoppen lässt.</value>
+    <value>Jedes Spiel hier wird vom Crawler gemessen, und jeder Wert nennt seine Herkunft und seinen Zeitpunkt. Diese Seite behandelt, was wir erfassen, wo die Grenzen liegen, was wir nicht tun, und wie sich der Crawler stoppen lässt.</value>
   </data>
   <data name="about.measures.heading" xml:space="preserve">
     <value>Was hier eine Tatsache ist</value>
@@ -1012,7 +1012,7 @@
     <value>Das Aktivitätsraster hat drei Zustände. Der dritte ist leer und nennt keine Ursache: eine Stunde, die wir nicht erreichen konnten, und eine Stunde, die wir nie abgefragt haben, sind dieselbe Leerstelle, und keine von beiden ist die Ausfallzeit dieses Servers.</value>
   </data>
   <data name="about.limits.heading" xml:space="preserve">
-    <value>Was wir falsch machen, soweit wir es wissen</value>
+    <value>Wie wir Daten erfassen und anpassen</value>
   </data>
   <data name="about.limits.grace.lead" xml:space="preserve">
     <value>Die Schonfrist bis zum Archiv wird ab dem Tag gemessen, an dem wir Sie gefunden haben.</value>
@@ -1024,19 +1024,13 @@
     <value>MSSP CREATED wird auf diese Schonfrist nicht angerechnet.</value>
   </data>
   <data name="about.limits.created.body" xml:space="preserve">
-    <value>Es ist eine von Hand getippte Zeile in einer Konfigurationsdatei; sie anzurechnen würde die Archivschwelle manipulierbar machen. Sie wird als Angabe gezeigt und bringt nichts ein.</value>
+    <value>Es ist eine von Hand getippte Zeile in einer Konfigurationsdatei; sie anzurechnen würde die Archivschwelle manipulierbar machen. Zudem können wir ihr Format nicht erraten.</value>
   </data>
   <data name="about.limits.claim.lead" xml:space="preserve">
     <value>Ein beanspruchtes Spiel erhält das Maximum.</value>
   </data>
   <data name="about.limits.claim.body" xml:space="preserve">
-    <value>Der Nachweis von Serverzugriff ist das volle Jahr Schonfrist wert, gleich wie lange wir schon zusehen.</value>
-  </data>
-  <data name="about.limits.oneHost.lead" xml:space="preserve">
-    <value>Alles hier ist ein einziger Host, der in Abständen hinsieht.</value>
-  </data>
-  <data name="about.limits.oneHost.body" xml:space="preserve">
-    <value>Ein Prozentsatz erreichbarer Zeit ist ein Anteil des von uns beobachteten Zeitraums, nie eines anderen. Keine Grafik hier füllt den Rest auf.</value>
+    <value>Der Nachweis von Serverzugriff ist das volle Jahr Archiv-Schonfrist wert.</value>
   </data>
   <data name="about.limits.deletion.lead" xml:space="preserve">
     <value>Nichts wird jemals gelöscht.</value>
@@ -1051,25 +1045,19 @@
     <value>Keine Stimmen, Sterne, Bewertungen oder Empfehlungen.</value>
   </data>
   <data name="about.never.votes.body" xml:space="preserve">
-    <value>Ranglisten werden ausschließlich aus gemessenen Daten berechnet. Ein Verzeichnis, das danach sortiert, wer die meisten Klicks mobilisieren kann, beschreibt den Wahlkampf und nicht das Hobby — und genau daran sind die Vorgänger zugrunde gegangen.</value>
+    <value>Ranglisten werden ausschließlich aus gemessenen Daten berechnet.</value>
   </data>
   <data name="about.never.forums.lead" xml:space="preserve">
     <value>Keine Foren, Rezensionen, Wikis, Kommentare oder Spielerprofile.</value>
   </data>
   <data name="about.never.forums.body" xml:space="preserve">
-    <value>Einführendes Material — was ein MUSH ist, welche Codebase zu gemeinsamem Rollenspiel passt — wird geschrieben, namentlich gezeichnet und versioniert wie der Rest der Website.</value>
+    <value>Wir wollen ausschließlich Daten und Informationen bereitstellen.</value>
   </data>
   <data name="about.never.names.lead" xml:space="preserve">
     <value>Spielernamen werden nie gespeichert.</value>
   </data>
   <data name="about.never.names.body" xml:space="preserve">
-    <value>Eine WHO-Antwort wird im Arbeitsspeicher auf eine Zahl und die Form der Kopfzeile hin ausgewertet. Die Namen werden nicht festgehalten; Aggregate verwenden einen gesalzenen Hash mit rotierendem Salt.</value>
-  </data>
-  <data name="about.never.population.lead" xml:space="preserve">
-    <value>Es wird keine absolute Spielerzahl veröffentlicht.</value>
-  </data>
-  <data name="about.never.population.body" xml:space="preserve">
-    <value>Anteile pro Codebase und pro Protokoll werden veröffentlicht: Ein Verhältnis über die gemessene Menge übersteht die Spiele, die wir nicht zählen können. „Wie viele Menschen spielen MU*“ übersteht das nicht, denn diese Zahl würde es nicht überstehen, zitiert zu werden.</value>
+    <value>Eine WHO-Antwort wird im Arbeitsspeicher ausgewertet, um daraus oder aus anderen Quellen eine Zahl zu gewinnen, die gezählt wird. Selbst veröffentlichte MSSP-Werte sind die Ausnahme von dieser Regel.</value>
   </data>
   <data name="about.crawler.heading" xml:space="preserve">
     <value>Der Crawler und wie er sich stoppen lässt</value>
@@ -1084,19 +1072,19 @@
     <value>CRAWL DELAY hat Vorrang.</value>
   </data>
   <data name="about.crawler.delay.body" xml:space="preserve">
-    <value>Ein Spiel, das in seinem MSSP-Bericht einen bevorzugten Mindestabstand nennt, bekommt ihn — in beide Richtungen vor unserem eigenen Zeitplan: 720 Stunden heißt monatlich, nicht wöchentlich. Ein verstummtes Spiel wird im längeren Abstand für immer weiter versucht; so trägt es sich selbst wieder ein, wenn es zurückkommt.</value>
+    <value>Nennt ein Spiel in seinem MSSP-Bericht einen bevorzugten Mindestabstand, wird dieser befolgt. Ein verstummtes Spiel wird im längeren Abstand für immer weiter versucht; so trägt es sich selbst wieder ein, wenn es zurückkommt.</value>
   </data>
   <data name="about.crawler.referral.lead" xml:space="preserve">
-    <value>Wir prüfen, wohin ein Verweis zeigt. Die Angabe eines Spiels allein reicht uns nicht.</value>
+    <value>Wir prüfen, wohin REFERRAL zeigt.</value>
   </data>
   <data name="about.crawler.referral.body" xml:space="preserve">
-    <value>MSSP erlaubt es einem Spiel, andere Spiele zu nennen. Jeder Name wird aufgelöst, bevor irgendetwas angewählt wird, und abgelehnt, sofern nicht jede Adresse, auf die er auflöst, global routbar ist. Eine gemischte Antwort lehnt das ganze Ziel ab. Unsere Ablehnung wird als unsere verbucht und erscheint nie als Ausfallzeit im Datensatz eines Spiels.</value>
+    <value>MSSP erlaubt es einem Spiel, andere Spiele zu nennen. Als maßgeblich gilt für uns jedoch der Endpunkt selbst.</value>
   </data>
   <data name="about.crawler.screens.lead" xml:space="preserve">
     <value>Verbindungsbildschirme werden gezeigt, weil sie an alle gesendet werden.</value>
   </data>
   <data name="about.crawler.screens.body" xml:space="preserve">
-    <value>Ein Server malt seinen Verbindungsbildschirm ohne Anmeldung an jede anonyme Verbindung. Wir zeigen ihn als Beleg und kennzeichnen ihn. Auf Bitte hin verschwindet er.</value>
+    <value>Wer das Spiel beansprucht, kann den Verbindungsbildschirm ausblenden lassen.</value>
   </data>
   <data name="about.crawler.stop.lead" xml:space="preserve">
     <value>Ein Stopp genügt, und wir hören auf — auf drei Wegen.</value>
@@ -1130,9 +1118,6 @@
   </data>
   <data name="about.identity.announced" xml:space="preserve">
     <value>Der Crawler nennt sich {name}, wenn ein Server fragt, was er ist.</value>
-  </data>
-  <data name="about.identity.unannounced" xml:space="preserve">
-    <value>Der Crawler ist so konfiguriert, dass er sich {name} nennt, kann das aber noch nicht mitteilen. Seine Telnet-Bibliothek bietet einem Client keine Möglichkeit, den Terminaltyp zu setzen; deshalb steht in Ihren Logs der Standardwert dieser Bibliothek, und NEW-ENVIRON wird aus der Umgebung des Crawler-Hosts beantwortet. Beides sind Lücken in der Bibliothek und von uns dort zu beheben. Bis dahin erkennen Sie eine Abfrage an ihrer Form: eine Verbindung, keine Anmeldung, ein kurzer, nur lesender Befehlssatz, weg.</value>
   </data>
   <data name="about.identity.crawler" xml:space="preserve">
     <value>Crawler</value>
@@ -1420,7 +1405,7 @@
     <value>Das Ökosystem</value>
   </data>
   <data name="ecosystem.noTotals" xml:space="preserve">
-    <value>Wir veröffentlichen einen Anteil, keine Kopfzahl: Ein Verhältnis über die von uns gemessenen Spiele übersteht die, die wir nicht erreichen können, deshalb gibt es hier keine Zahl dazu, wie viele Menschen insgesamt MU* spielen.</value>
+    <value>Wir veröffentlichen den Anteil: Ein Verhältnis über die von uns gemessenen Spiele übersteht die, die wir nicht erreichen können.</value>
   </data>
   <data name="ecosystem.listed" xml:space="preserve">
     <value>{count, plural, one {{value} Spiel eingetragen} other {{value} Spiele eingetragen}}</value>
@@ -1447,13 +1432,13 @@
     <value>Codebases</value>
   </data>
   <data name="ecosystem.codebases.basis" xml:space="preserve">
-    <value>Von {listed, plural, one {# eingetragenen Spiel} other {# eingetragenen Spielen}} haben uns {identified, number} mitgeteilt, was sie ausführen, und jeder Anteil unten bezieht sich auf diese {identified, number}. Eine Codebase, die wir nicht lesen konnten, bleibt aus dem Nenner heraus und wird nie als etwas anderes gezählt.</value>
+    <value>Von {listed, plural, one {# eingetragenen Spiel} other {# eingetragenen Spielen}} haben uns {identified, number} mitgeteilt, was sie ausführen, und jeder Anteil unten bezieht sich auf diese {identified, number}. Eine Codebase, die wir nicht lesen konnten, bleibt aus dem Nenner heraus</value>
   </data>
   <data name="ecosystem.codebases.none" xml:space="preserve">
     <value>Noch kein eingetragenes Spiel hat uns seine Codebase mitgeteilt.</value>
   </data>
   <data name="ecosystem.soleUse" xml:space="preserve">
-    <value>{share} führen eine Codebase aus, die kein anderes eingetragenes Spiel ausführt — je ein Spiel, was ein Name ist und kein Anteil. Sie stecken im Nenner oben und sind aus den Balken herausgefaltet, nicht entfernt:</value>
+    <value>{share} führen eine Codebase aus, die kein anderes eingetragenes Spiel ausführt — je ein Spiel, wovon einfach ausgegangen wird, dass es genau dieses Spiel ist. Sie stecken im Nenner oben:</value>
   </data>
   <data name="ecosystem.lineages.title" xml:space="preserve">
     <value>Abstammungen</value>
@@ -1471,16 +1456,16 @@
     <value>Protokolle</value>
   </data>
   <data name="ecosystem.protocols.floor" xml:space="preserve">
-    <value>Jede gemessene Zahl unten ist als Untergrenze zu lesen. MSSP fragen wir namentlich an, dort ist Schweigen also eine Antwort. Sonst wird hier nichts angefragt, und ein Server kann ein Protokoll unterstützen, ohne es je anzubieten.</value>
+    <value>Jede gemessene Zahl unten ist als Untergrenze zu lesen. Sonst wird hier nichts angefragt, und ein Server kann ein Protokoll unterstützen, ohne es je anzubieten.</value>
   </data>
   <data name="ecosystem.mssp.instrument" xml:space="preserve">
-    <value>{instrument} ist die einzige Zeile unten, die keine Untergrenze ist: Wir fragen jeden Server namentlich danach, die Spiele, die es nicht angeboten haben, wurden also gefragt und haben abgelehnt. Es ist zugleich die einzige ohne angegebene Zahl, denn jedes Spiel, dessen Bericht uns vorliegt, unterstützt es durch Vorführung, und eine Zählung derer, die es zusätzlich aufgeführt haben, würde daran nur eine Gewohnheit messen.</value>
+    <value>{instrument} ist die einzige Zeile unten, die keine Untergrenze ist: Wir fragen jeden Server namentlich danach, die Spiele, die es nicht angeboten haben, wurden also gefragt und haben abgelehnt.</value>
   </data>
   <data name="ecosystem.mssp.gap" xml:space="preserve">
     <value>Uns liegen {reports, number} Berichte vor, und {offered, plural, one {# Spiel bietet} other {# Spiele bieten}} MSSP heute an: Die übrigen {gap, number} haben nach unserem Lesen aufgehört, einen zu veröffentlichen, und ein Bericht wird nicht verworfen, weil er nicht mehr neu ausgegeben wird.</value>
   </data>
   <data name="ecosystem.protocols.caption" xml:space="preserve">
-    <value>Verbreitung der Protokolle. Gemessen ist, was ein Server in einem abgeschlossenen Handshake angeboten hat; angegeben ist, was sein MSSP behauptet. Zwei Mengen von Spielen, also zwei Nenner.</value>
+    <value>Verbreitung der Protokolle. „Gemessen“ ist, was ein Server in einem abgeschlossenen Handshake angeboten hat; „angegeben“ ist, was sein MSSP behauptet.</value>
   </data>
   <data name="ecosystem.column.protocol" xml:space="preserve">
     <value>Protokoll</value>

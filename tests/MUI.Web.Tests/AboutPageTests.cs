@@ -71,14 +71,13 @@ public class AboutPageTests
     }
 
     [Test]
-    public async Task TheCrawlerIsAnnouncedNowThatTncSupportsClientIdentity()
+    public async Task TheCrawlerNamesItselfOnThePage()
     {
         // TelnetNegotiationCore wires the configured name into TTYPE and MNES CLIENT_NAME, so what an
         // administrator sees in their logs is ProbeOptions.TerminalTypes.
         var identity = Page.Sections.Single(s => s.Id == "crawler").Identity;
 
         await Assert.That(identity).IsNotNull();
-        await Assert.That(identity!.Announced).IsTrue();
         await Assert.That(Render.Words(Plain)).Contains("names itself");
     }
 
@@ -134,8 +133,7 @@ public class AboutPageTests
         var text = Render.Words(Plain);
 
         await Assert.That(text).Contains(Says("about.crawler.delay.lead"));
-        await Assert.That(text).Contains("resolved before anything is dialled");
-        await Assert.That(text).Contains("globally routable");
+        await Assert.That(text).Contains(Says("about.crawler.referral.lead"));
     }
 
     [Test]
@@ -226,7 +224,6 @@ public class AboutPageTests
         await Assert.That(text).Contains(Says("about.never.votes.lead"));
         await Assert.That(text).Contains(Says("about.never.forums.lead"));
         await Assert.That(text).Contains(Says("about.never.names.lead"));
-        await Assert.That(text).Contains(Says("about.never.population.lead"));
     }
 
     [Test]
