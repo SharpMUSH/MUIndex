@@ -242,15 +242,8 @@ public static class LocaleRouting
                 MaxAge = TimeSpan.FromDays(365),
             };
 
-            if (chosen.Tag == Locales.SourceTag)
-            {
-                // The source language is the absence of a choice, so picking English does not pin a
-                // reader out of a future Accept-Language redirect. Same shape as theme's "auto".
-                context.Response.Cookies.Delete(Locales.CookieName, options);
-                context.Response.Redirect(back);
-                return;
-            }
-
+            // English is pinned exactly like every other locale: a reader who explicitly picked it
+            // stays in it, rather than being left for a future Accept-Language guess to move again.
             context.Response.Cookies.Append(Locales.CookieName, chosen.Tag, options);
             context.Response.Redirect(Link(chosen.Tag, back));
         });
@@ -333,8 +326,10 @@ public static class LocaleRouting
     /// <remarks>
     /// Quality values are honoured (<c>de;q=0.9, en;q=0.8</c> prefers German), a match on the
     /// language subtag alone counts (<c>zh-CN</c> reaches <c>zh-Hans</c>), and anything scoring zero
-    /// is treated as explicitly refused. English never wins, since returning it would be a redirect
-    /// to the page already being served.
+    /// is treated as explicitly refused. English is scored exactly like every other candidate — a
+    /// header naming a second language at a low <c>q</c> is not asking to be moved there ahead of a
+    /// higher-scoring English — and only excluded once it has already won, since returning it would
+    /// be a redirect to the page already being served.
     /// </remarks>
     public static Locale? Preferred(string? acceptLanguage)
     {
@@ -370,7 +365,7 @@ public static class LocaleRouting
 
             var match = Locales.Offered.FirstOrDefault(l => Matches(l.Tag, tag));
 
-            if (match is null || match.Tag == Locales.SourceTag)
+            if (match is null)
             {
                 continue;
             }
@@ -382,7 +377,7 @@ public static class LocaleRouting
             }
         }
 
-        return best;
+        return best is null || best.Tag == Locales.SourceTag ? null : best;
     }
 
     /// <summary>Whether an offered tag answers to what a browser asked for.</summary>
