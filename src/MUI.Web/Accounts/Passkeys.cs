@@ -27,6 +27,12 @@ public static class Passkeys
     /// <summary>Where a signed-in operator lands, and where sign-in returns to.</summary>
     public const string DashboardPath = "/account";
 
+    /// <summary>
+    /// The sign-in page, as <c>SignIn.razor</c>'s <c>@page</c> directive spells it.
+    /// </summary>
+    /// <remarks>The cookie handler's <c>LoginPath</c>, the links that offer sign-in and <see cref="ReturnPath"/> all read it from here; a <c>@page</c> directive cannot, which is what <c>SiteHeaderTests</c> walking the route table is for.</remarks>
+    public const string SignInPath = DashboardPath + "/sign-in";
+
     public static IServiceCollection AddMuiAccounts(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -104,7 +110,11 @@ public static class Passkeys
 
         services.ConfigureApplicationCookie(options =>
         {
-            options.LoginPath = "/account/sign-in";
+            options.LoginPath = SignInPath;
+
+            // One spelling of "where do I go back to", shared with the links that offer sign-in.
+            options.ReturnUrlParameter = ReturnPath.Parameter;
+
             options.Cookie.HttpOnly = true;
             options.Cookie.SameSite = SameSiteMode.Lax;
             options.SlidingExpiration = true;

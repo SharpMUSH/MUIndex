@@ -38,7 +38,9 @@ else if (User is null)
     <section class="prose">
         <h1>@Title</h1>
         <p>@L("claim.needAccount")</p>
-        <p><a class="button" href="@HttpContext.Link("/account/sign-in")">@L("claim.signIn")</a></p>
+        @* Carries this page's address, so signing in comes back here rather than to the dashboard —
+           the operator is on this page because they want to claim this game. *@
+        <p><a class="button" href="@ReturnPath.SignInFrom(HttpContext)">@L("claim.signIn")</a></p>
     </section>
 }
 else if (Pending is null)

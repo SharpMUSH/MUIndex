@@ -135,6 +135,10 @@ public static class SiteComposition
         // many proxies are in front of it (Submissions:TrustedProxyHops).
         app.UseSubmitterAddress();
 
+        // Outermost of the things that touch a response: every page below renders who is reading it,
+        // so none of them may be stored and replayed after that changes. See PageCacheHeaders.
+        app.UseMuiPageCacheHeaders();
+
         // Before routing: the locale is a path segment every @page directive omits, and this
         // middleware moves the prefix into PathBase so one route table serves every language. Also
         // before the not-found page, so a mistyped URL inside a locale stays in that locale.
