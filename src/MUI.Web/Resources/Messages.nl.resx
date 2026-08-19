@@ -976,7 +976,7 @@
     <value>Over mu*index</value>
   </data>
   <data name="about.lede" xml:space="preserve">
-    <value>Elk spel hier is gemeten door een machine die er verbinding mee maakte, en elke waarde vermeldt waar hij vandaan komt en wanneer. Deze pagina behandelt wat dat bewijst, wat we fout doen, wiens gidsen we lezen, en hoe de crawler te stoppen is.</value>
+    <value>Elk spel hier wordt gemeten door de crawler, en elke waarde vermeldt waar hij vandaan komt en wanneer. Deze pagina behandelt wat we verzamelen, de grenzen daarvan, wat we niet doen, en hoe de crawler te stoppen is.</value>
   </data>
   <data name="about.measures.heading" xml:space="preserve">
     <value>Wat een feit hier is</value>
@@ -1051,19 +1051,19 @@
     <value>Geen stemmen, sterren, beoordelingen of aanbevelingen.</value>
   </data>
   <data name="about.never.votes.body" xml:space="preserve">
-    <value>Ranglijsten worden alleen uit gemeten gegevens berekend. Een gids die gerangschikt is naar wie de meeste klikken kan mobiliseren, beschrijft de campagne en niet de hobby, en daaraan zijn de gevestigde gidsen ten onder gegaan.</value>
+    <value>Ranglijsten worden alleen uit gemeten gegevens berekend.</value>
   </data>
   <data name="about.never.forums.lead" xml:space="preserve">
     <value>Geen forums, recensies, wiki’s, reacties of spelersprofielen.</value>
   </data>
   <data name="about.never.forums.body" xml:space="preserve">
-    <value>Oriënterend materiaal — wat een MUSH is, welke codebase past bij gezamenlijk rollenspel — wordt geschreven, ondertekend en van versies voorzien zoals de rest van de site.</value>
+    <value>Oriënterend materiaal — wat een MUSH is, welke codebase past bij gezamenlijk rollenspel — wordt geschreven, ondertekend en van versies voorzien zoals de rest van de site, en niet overgelaten aan een reactiesectie.</value>
   </data>
   <data name="about.never.names.lead" xml:space="preserve">
     <value>Spelersnamen worden nooit bewaard.</value>
   </data>
   <data name="about.never.names.body" xml:space="preserve">
-    <value>Een WHO-antwoord wordt in het geheugen ontleed op een telling en de vorm van de kop. De namen worden niet vastgelegd; aggregaten gebruiken een gezouten hash met een roulerende salt.</value>
+    <value>Een WHO-antwoord wordt in het geheugen ontleed op een telling en de vorm van de kop. De namen worden niet vastgelegd; aggregaten gebruiken een gezouten hash met een roulerende salt. Ook leiden we er geen schatting van unieke spelers uit af — naamswijzigingen maken dat in principe onmeetbaar.</value>
   </data>
   <data name="about.never.population.lead" xml:space="preserve">
     <value>Er wordt geen absoluut spelersaantal gepubliceerd.</value>
@@ -1096,7 +1096,7 @@
     <value>Verbindingsschermen worden getoond omdat ze naar iedereen gestuurd worden.</value>
   </data>
   <data name="about.crawler.screens.body" xml:space="preserve">
-    <value>Een server tekent zijn verbindingsscherm, zonder authenticatie, naar elke anonieme verbinding. We tonen het als bewijs en labelen het. Eén verzoek en het gaat eraf.</value>
+    <value>Een server tekent zijn verbindingsscherm, zonder authenticatie, naar elke anonieme verbinding. We tonen het als bewijs en labelen het. Door het spel te claimen krijgt de eigenaar de optie om het niet meer te tonen.</value>
   </data>
   <data name="about.crawler.stop.lead" xml:space="preserve">
     <value>Zeg stop, en we stoppen — op drie manieren.</value>
@@ -1471,16 +1471,16 @@
     <value>Protocollen</value>
   </data>
   <data name="ecosystem.protocols.floor" xml:space="preserve">
-    <value>Lees elk gemeten cijfer hieronder als een ondergrens. We vragen MSSP met name aan, dus stilte daar is een antwoord. Om de rest hier wordt niet gevraagd, en een server kan een protocol ondersteunen zonder het ooit aan te bieden.</value>
+    <value>Lees elk gemeten cijfer hieronder als een ondergrens. Om de rest hier wordt niet gevraagd, en een server kan een protocol ondersteunen zonder het ooit aan te bieden.</value>
   </data>
   <data name="ecosystem.mssp.instrument" xml:space="preserve">
-    <value>{instrument} is de enige rij hieronder die geen ondergrens is: we vragen elke server er met name om, dus de spellen die het niet aanboden zijn gevraagd en hebben geweigerd. Het is ook de enige zonder opgegeven cijfer, want elk spel waarvan we het rapport hebben ondersteunt het bij wijze van bewijs, en een telling van de spellen die het ook vermeldden zou daartegen een gewoonte meten.</value>
+    <value>{instrument} is de enige rij hieronder die geen ondergrens is: we vragen elke server er met name om, dus de spellen die het niet aanboden zijn gevraagd en hebben geweigerd.</value>
   </data>
   <data name="ecosystem.mssp.gap" xml:space="preserve">
     <value>We hebben {reports, number} rapporten en {offered, plural, one {# spel biedt} other {# spellen bieden}} MSSP vandaag aan: de andere {gap, number} zijn gestopt met publiceren nadat we het gelezen hadden, en een rapport wordt niet weggegooid omdat het niet meer opnieuw uitgegeven wordt.</value>
   </data>
   <data name="ecosystem.protocols.caption" xml:space="preserve">
-    <value>Protocoladoptie. Gemeten is wat een server aanbood in een voltooide handshake; opgegeven is wat zijn MSSP beweert. Twee verzamelingen spellen, dus twee noemers.</value>
+    <value>Protocoladoptie. 'Gemeten' is wat een server aanbood in een voltooide handshake; 'opgegeven' is wat zijn MSSP beweert.</value>
   </data>
   <data name="ecosystem.column.protocol" xml:space="preserve">
     <value>protocol</value>

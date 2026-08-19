@@ -976,7 +976,7 @@
     <value>mu*indexについて</value>
   </data>
   <data name="about.lede" xml:space="preserve">
-    <value>ここにあるゲームはすべて、接続した機械が実測したもの。どの値にも、出所といつのものかが記されている。このページでは、それが何を証明するのか、何を誤ると分かっているのか、誰のディレクトリを読んでいるのか、そしてクローラーを止める方法を扱う。</value>
+    <value>ここにあるゲームはすべて、クローラーが実測したもの。どの値にも、出所といつのものかが記されている。このページでは、何を集めているか、その限界、何をしないか、そしてクローラーを止める方法を扱う。</value>
   </data>
   <data name="about.measures.heading" xml:space="preserve">
     <value>ここでの事実とは何か</value>
@@ -1051,19 +1051,19 @@
     <value>投票も、星も、評価も、おすすめもない。</value>
   </data>
   <data name="about.never.votes.body" xml:space="preserve">
-    <value>ランキングは実測データのみから算出する。最も多くクリックを動員できた者で順位が決まるディレクトリが表すのは、その動員活動であってこのホビーではない。先行したディレクトリを滅ぼしたのはそれだ。</value>
+    <value>ランキングは実測データのみから算出する。</value>
   </data>
   <data name="about.never.forums.lead" xml:space="preserve">
     <value>フォーラムも、レビューも、ウィキも、コメントも、プレイヤープロフィールもない。</value>
   </data>
   <data name="about.never.forums.body" xml:space="preserve">
-    <value>入門的な解説 — MUSHとは何か、共同ロールプレイにはどのコードベースが向くか — は、サイトの他の部分と同じく、執筆され、署名され、バージョン管理される。</value>
+    <value>入門的な解説 — MUSHとは何か、共同ロールプレイにはどのコードベースが向くか — は、サイトの他の部分と同じく、執筆され、署名され、バージョン管理される。コメント欄任せにはしない。</value>
   </data>
   <data name="about.never.names.lead" xml:space="preserve">
     <value>プレイヤー名は一切保存しない。</value>
   </data>
   <data name="about.never.names.body" xml:space="preserve">
-    <value>WHOの応答は、人数とヘッダーの形を得るためにメモリ上で解析する。名前は書き出さない。集計には、ローテーションするソルトを用いたソルト付きハッシュを使う。</value>
+    <value>WHOの応答は、人数とヘッダーの形を得るためにメモリ上で解析する。名前は書き出さない。集計には、ローテーションするソルトを用いたソルト付きハッシュを使う。そこから固有プレイヤー数の推定も行わない — 改名がある以上、原理的に測定不能だから。</value>
   </data>
   <data name="about.never.population.lead" xml:space="preserve">
     <value>人口の絶対数は公表しない。</value>
@@ -1096,7 +1096,7 @@
     <value>接続画面を表示するのは、それが誰にでも送られるものだから。</value>
   </data>
   <data name="about.crawler.screens.body" xml:space="preserve">
-    <value>サーバーは接続画面を、認証なしで、すべての匿名接続に描き出す。当サイトはそれを証拠として表示し、ラベルを付ける。求められれば取り下げる。</value>
+    <value>サーバーは接続画面を、認証なしで、すべての匿名接続に描き出す。当サイトはそれを証拠として表示し、ラベルを付ける。ゲームを申請すれば、所有者はそれを非表示にする選択肢を得る。</value>
   </data>
   <data name="about.crawler.stop.lead" xml:space="preserve">
     <value>止めろと言われれば止める — 方法は3つ。</value>
@@ -1471,16 +1471,16 @@
     <value>プロトコル</value>
   </data>
   <data name="ecosystem.protocols.floor" xml:space="preserve">
-    <value>以下の実測値はいずれも下限として読むこと。MSSPは名指しで要求するので、そこでの沈黙は一つの答え。それ以外は要求していないので、サーバーが一度も提供しないまま対応していることもありうる。</value>
+    <value>以下の実測値はいずれも下限として読むこと。それ以外は要求していないので、サーバーが一度も提供しないまま対応していることもありうる。</value>
   </data>
   <data name="ecosystem.mssp.instrument" xml:space="preserve">
-    <value>{instrument}は、以下で唯一、下限ではない行：すべてのサーバーに名指しで要求しているので、提供しなかったゲームは訊かれたうえで断ったことになる。自己申告の数値がない唯一の行でもある。レポートを保有しているゲームは実演によって対応を示しており、そのうえで自ら列挙したゲームを数えても、測れるのは習慣のほうだから。</value>
+    <value>{instrument}は、以下で唯一、下限ではない行：すべてのサーバーに名指しで要求しているので、提供しなかったゲームは訊かれたうえで断ったことになる。</value>
   </data>
   <data name="ecosystem.mssp.gap" xml:space="preserve">
     <value>保有しているレポートは{reports, number}件で、現在MSSPを提供しているのは{offered, plural, other {#件のゲーム}}：残る{gap, number}件は、こちらが読んだあとに公開をやめたもの。再発行されなくなったからといって、レポートを捨てることはしない。</value>
   </data>
   <data name="ecosystem.protocols.caption" xml:space="preserve">
-    <value>プロトコルの採用状況。実測は完了したハンドシェイクでサーバーが提供したもの、自己申告はそのMSSPが主張するもの。ゲームの集合が2つなので、分母も2つ。</value>
+    <value>プロトコルの採用状況。「実測」は完了したハンドシェイクでサーバーが提供したもの、「自己申告」はそのMSSPが主張するもの。</value>
   </data>
   <data name="ecosystem.column.protocol" xml:space="preserve">
     <value>プロトコル</value>

@@ -976,7 +976,7 @@
     <value>Über mu*index</value>
   </data>
   <data name="about.lede" xml:space="preserve">
-    <value>Jedes Spiel hier wurde von einer Maschine gemessen, die sich mit ihm verbunden hat, und jeder Wert nennt seine Herkunft und seinen Zeitpunkt. Diese Seite behandelt, was das belegt, was wir falsch machen, wessen Verzeichnisse wir lesen und wie sich der Crawler stoppen lässt.</value>
+    <value>Jedes Spiel hier wird vom Crawler gemessen, und jeder Wert nennt seine Herkunft und seinen Zeitpunkt. Diese Seite behandelt, was wir erfassen, wo die Grenzen liegen, was wir nicht tun, und wie sich der Crawler stoppen lässt.</value>
   </data>
   <data name="about.measures.heading" xml:space="preserve">
     <value>Was hier eine Tatsache ist</value>
@@ -1051,19 +1051,19 @@
     <value>Keine Stimmen, Sterne, Bewertungen oder Empfehlungen.</value>
   </data>
   <data name="about.never.votes.body" xml:space="preserve">
-    <value>Ranglisten werden ausschließlich aus gemessenen Daten berechnet. Ein Verzeichnis, das danach sortiert, wer die meisten Klicks mobilisieren kann, beschreibt den Wahlkampf und nicht das Hobby — und genau daran sind die Vorgänger zugrunde gegangen.</value>
+    <value>Ranglisten werden ausschließlich aus gemessenen Daten berechnet.</value>
   </data>
   <data name="about.never.forums.lead" xml:space="preserve">
     <value>Keine Foren, Rezensionen, Wikis, Kommentare oder Spielerprofile.</value>
   </data>
   <data name="about.never.forums.body" xml:space="preserve">
-    <value>Einführendes Material — was ein MUSH ist, welche Codebase zu gemeinsamem Rollenspiel passt — wird geschrieben, namentlich gezeichnet und versioniert wie der Rest der Website.</value>
+    <value>Einführendes Material — was ein MUSH ist, welche Codebase zu gemeinsamem Rollenspiel passt — wird geschrieben, namentlich gezeichnet und versioniert wie der Rest der Website, statt einem Kommentarbereich überlassen zu werden.</value>
   </data>
   <data name="about.never.names.lead" xml:space="preserve">
     <value>Spielernamen werden nie gespeichert.</value>
   </data>
   <data name="about.never.names.body" xml:space="preserve">
-    <value>Eine WHO-Antwort wird im Arbeitsspeicher auf eine Zahl und die Form der Kopfzeile hin ausgewertet. Die Namen werden nicht festgehalten; Aggregate verwenden einen gesalzenen Hash mit rotierendem Salt.</value>
+    <value>Eine WHO-Antwort wird im Arbeitsspeicher auf eine Zahl und die Form der Kopfzeile hin ausgewertet. Die Namen werden nicht festgehalten; Aggregate verwenden einen gesalzenen Hash mit rotierendem Salt. Auch eine Schätzung eindeutiger Spieler leiten wir daraus nicht ab — Umbenennungen machen das grundsätzlich unmessbar.</value>
   </data>
   <data name="about.never.population.lead" xml:space="preserve">
     <value>Es wird keine absolute Spielerzahl veröffentlicht.</value>
@@ -1096,7 +1096,7 @@
     <value>Verbindungsbildschirme werden gezeigt, weil sie an alle gesendet werden.</value>
   </data>
   <data name="about.crawler.screens.body" xml:space="preserve">
-    <value>Ein Server malt seinen Verbindungsbildschirm ohne Anmeldung an jede anonyme Verbindung. Wir zeigen ihn als Beleg und kennzeichnen ihn. Auf Bitte hin verschwindet er.</value>
+    <value>Ein Server malt seinen Verbindungsbildschirm ohne Anmeldung an jede anonyme Verbindung. Wir zeigen ihn als Beleg und kennzeichnen ihn. Wer das Spiel beansprucht, kann ihn ausblenden lassen.</value>
   </data>
   <data name="about.crawler.stop.lead" xml:space="preserve">
     <value>Ein Stopp genügt, und wir hören auf — auf drei Wegen.</value>
@@ -1471,16 +1471,16 @@
     <value>Protokolle</value>
   </data>
   <data name="ecosystem.protocols.floor" xml:space="preserve">
-    <value>Jede gemessene Zahl unten ist als Untergrenze zu lesen. MSSP fragen wir namentlich an, dort ist Schweigen also eine Antwort. Sonst wird hier nichts angefragt, und ein Server kann ein Protokoll unterstützen, ohne es je anzubieten.</value>
+    <value>Jede gemessene Zahl unten ist als Untergrenze zu lesen. Sonst wird hier nichts angefragt, und ein Server kann ein Protokoll unterstützen, ohne es je anzubieten.</value>
   </data>
   <data name="ecosystem.mssp.instrument" xml:space="preserve">
-    <value>{instrument} ist die einzige Zeile unten, die keine Untergrenze ist: Wir fragen jeden Server namentlich danach, die Spiele, die es nicht angeboten haben, wurden also gefragt und haben abgelehnt. Es ist zugleich die einzige ohne angegebene Zahl, denn jedes Spiel, dessen Bericht uns vorliegt, unterstützt es durch Vorführung, und eine Zählung derer, die es zusätzlich aufgeführt haben, würde daran nur eine Gewohnheit messen.</value>
+    <value>{instrument} ist die einzige Zeile unten, die keine Untergrenze ist: Wir fragen jeden Server namentlich danach, die Spiele, die es nicht angeboten haben, wurden also gefragt und haben abgelehnt.</value>
   </data>
   <data name="ecosystem.mssp.gap" xml:space="preserve">
     <value>Uns liegen {reports, number} Berichte vor, und {offered, plural, one {# Spiel bietet} other {# Spiele bieten}} MSSP heute an: Die übrigen {gap, number} haben nach unserem Lesen aufgehört, einen zu veröffentlichen, und ein Bericht wird nicht verworfen, weil er nicht mehr neu ausgegeben wird.</value>
   </data>
   <data name="ecosystem.protocols.caption" xml:space="preserve">
-    <value>Verbreitung der Protokolle. Gemessen ist, was ein Server in einem abgeschlossenen Handshake angeboten hat; angegeben ist, was sein MSSP behauptet. Zwei Mengen von Spielen, also zwei Nenner.</value>
+    <value>Verbreitung der Protokolle. „Gemessen“ ist, was ein Server in einem abgeschlossenen Handshake angeboten hat; „angegeben“ ist, was sein MSSP behauptet.</value>
   </data>
   <data name="ecosystem.column.protocol" xml:space="preserve">
     <value>Protokoll</value>
