@@ -67,11 +67,6 @@ real zero), hatched (measured but uncountable), or empty (not measured) — neve
 No forums, reviews, comments, ratings, or player profiles. No hosting, no web client. Player names
 are never persisted — `WHO` is parsed in memory and aggregates use salted, rotating hashes.
 
-## Docs
-
-[`docs/specs/2026-07-30-mu-directory-design.md`](docs/specs/2026-07-30-mu-directory-design.md) is
-the system design and the authoritative source for anything below.
-
 ## Build & test
 
 .NET 10, `TreatWarningsAsErrors` on.
