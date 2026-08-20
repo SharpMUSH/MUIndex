@@ -828,7 +828,7 @@ public static class Messages
         ["rankings.plain.row"] = "median {median, number} · peak {peak, number} · {samples, plural, one {# counted sample} other {# counted samples}} over {days, number} of {window, number} days",
         ["rankings.plain.spellRow"] = "reachable on every probe since {date} · {duration}",
         ["rankings.plain.trending"] = "Trending",
-        ["rankings.plain.trendRow"] = "{median, number} latest, {prior, number} earliest ({percent, number}% up)",
+        ["rankings.plain.trendRow"] = "{median, number} latest, {prior, number} earliest (+{players, number})",
 
         // ── the archive: removed from the default listing, and from nothing else ──────────────
         // §7.5: nothing here is deleted, closed, dead or defunct.

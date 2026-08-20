@@ -431,11 +431,14 @@ public static class PlainText
             // a game too new or too thin for the sample floor prints no line at all.
             if (g.Growth is { } growth)
             {
-                var percent = g.GrowthChange is { } change
-                    ? $" ({(change > 0 ? "+" : string.Empty)}{Math.Round(change * 100)}%)"
+                // In players, and only where the row itself shows one: a steady game's figure is
+                // withheld on both surfaces alike, since "steady (+5)" would claim the change the
+                // word just declined to call one. See Games.razor's TrendFigure.
+                var players = growth is GrowthDirection.Up or GrowthDirection.Down && g.GrowthPlayers is { } moved
+                    ? $" ({(moved > 0 ? "+" : string.Empty)}{moved})"
                     : string.Empty;
 
-                b.AppendLine($"  Trending:    {FacetWords.TrendingWord(tag, growth)}{percent}");
+                b.AppendLine($"  Trending:    {FacetWords.TrendingWord(tag, growth)}{players}");
             }
 
             // Never blank: "we could not identify it" is a measurement, a missing line is not.
@@ -638,7 +641,7 @@ public static class PlainText
         {
             foreach (var game in trending)
             {
-                b.AppendLine($"  {game.Name}  (+{(int)Math.Round(game.Change * 100)}%)"
+                b.AppendLine($"  {game.Name}  (+{game.ChangePlayers})"
                     + $"  {Path(tag, $"/g/{game.Slug}")}");
             }
         }
@@ -1237,7 +1240,7 @@ public static class PlainText
             Wrap(b, Say(tag, "rankings.plain.trendRow",
                 ("median", game.LatestMedian),
                 ("prior", game.EarliestMedian),
-                ("percent", (int)Math.Round(game.Change * 100))) + $" · {Path(tag, $"/g/{game.Slug}")}", "       ");
+                ("players", game.ChangePlayers)) + $" · {Path(tag, $"/g/{game.Slug}")}", "       ");
         }
 
         Heading(b, Say(tag, "rankings.spells.title").ToUpperInvariant());

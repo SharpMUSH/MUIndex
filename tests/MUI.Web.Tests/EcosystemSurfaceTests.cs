@@ -346,6 +346,19 @@ public class EcosystemSurfaceTests
     }
 
     [Test]
+    public async Task ThePlainRankingsCarryTheSameSignedFigureTheTableColumnPrints()
+    {
+        // The row's own template used to spell the direction as a word ("1 up") where the table
+        // printed a sign ("+1"), leaving the two mirrors of one board stating the same rise two
+        // different ways. The figure is a signed player count on both.
+        var rankings = await Queries.RankingsAsync();
+        var mush = rankings.TrendingThisWeek.Single(g => g.Slug == "m-u-s-h");
+        var text = await RankingsAsync();
+
+        await Assert.That(text).Contains($"+{mush.ChangePlayers}");
+    }
+
+    [Test]
     public async Task TheRankingsPageDrawsTheTrendingBoardWithALinkToTheGame()
     {
         var html = await Render.PageAsync<RankingsPage>([]);

@@ -461,18 +461,20 @@ public class PlainParityTests
     }
 
     [Test]
-    public async Task TheGrowthArrowCarriesTheFittedLinesOwnPercentageAndSitsBesideTheCountNotBelowIt()
+    public async Task TheGrowthArrowCarriesTheFittedLinesOwnPlayerCountAndSitsBesideTheCountNotBelowIt()
     {
         var html = await Render.PageAsync<Games>([]);
         var rows = html.Split("class=\"game-row").Skip(1)
             .Select(r => r[..r.IndexOf("</li>", StringComparison.Ordinal)])
             .ToList();
 
-        // M*U*S*H is fixed at Growth: GrowthDirection.Up, GrowthChange: 0.25 in the fixture — a bare
-        // glyph said "up" without saying by how much.
+        // M*U*S*H is fixed at Growth: GrowthDirection.Up, GrowthPlayers: 1 in the fixture — a bare
+        // glyph said "up" without saying by how much, and a percentage said it in the units that made
+        // one player becoming three look like the bigger event.
         var mush = rows.Single(r => r.Contains("href=\"/g/m-u-s-h\"", StringComparison.Ordinal));
 
-        await Assert.That(Render.Words(mush)).Contains("+25%");
+        await Assert.That(Render.Words(mush)).Contains("+1");
+        await Assert.That(Render.Words(mush)).DoesNotContain("%");
 
         // row-main's own grid places row-trend in row-count's row rather than the implicit row below
         // it that an unpositioned grid item falls to — the count and the trend read on one line.
@@ -486,9 +488,9 @@ public class PlainParityTests
     }
 
     [Test]
-    public async Task TheAccessibleNameForTheTrendCarriesTheSamePercentageASightedReaderSees()
+    public async Task TheAccessibleNameForTheTrendCarriesTheSameFigureASightedReaderSees()
     {
-        // aria-label used to name only the direction ("trending up"), leaving the +25% a screen
+        // aria-label used to name only the direction ("trending up"), leaving the +1 a screen
         // reader's own listener never hears — the number sighted readers see right beside it.
         var html = await Render.PageAsync<Games>([]);
         var rows = html.Split("class=\"game-row").Skip(1)
@@ -499,7 +501,27 @@ public class PlainParityTests
         var trend = mush[mush.IndexOf("class=\"row-trend", StringComparison.Ordinal)..];
         var ariaLabel = Render.Words(trend[..trend.IndexOf('>')]);
 
-        await Assert.That(ariaLabel).Contains("+25%");
+        await Assert.That(ariaLabel).Contains("+1");
+    }
+
+    [Test]
+    public async Task ASteadyRowShowsItsGlyphAloneRatherThanAFigureItJustDeclinedToCall()
+    {
+        // Ashen Court is Steady with GrowthPlayers: 1 in the fixture — a fit that rose a fraction of a
+        // player and rounded up, while staying well inside the band. Direction is decided on the
+        // percentage and the figure is in players, so the two can part company on a large game;
+        // printing "steady, +1" would assert the change the glyph just declined to call.
+        var html = await Render.PageAsync<Games>([]);
+        var rows = html.Split("class=\"game-row").Skip(1)
+            .Select(r => r[..r.IndexOf("</li>", StringComparison.Ordinal)])
+            .ToList();
+
+        var ashen = rows.Single(r => r.Contains("href=\"/g/ashen-court\"", StringComparison.Ordinal));
+        var trend = ashen[ashen.IndexOf("class=\"row-trend", StringComparison.Ordinal)..];
+        var cell = Render.Words(trend[..trend.IndexOf("</p>", StringComparison.Ordinal)]);
+
+        await Assert.That(cell).Contains("steady");
+        await Assert.That(cell).DoesNotContain("+1");
     }
 
     [Test]

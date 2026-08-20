@@ -2245,7 +2245,7 @@
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
   <data name="rankings.plain.trendRow" xml:space="preserve">
-    <value>{median, number} latest, {prior, number} earliest ({percent, number}% up)</value>
+    <value>{median, number} latest, {prior, number} earliest (+{players, number})</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
   <data name="archive.title" xml:space="preserve">

@@ -38,7 +38,7 @@ public class HomePageTests
         var section = html[html.IndexOf("id=\"feed-trending\"", StringComparison.Ordinal)..];
 
         await Assert.That(section).Contains("M*U*S*H");
-        await Assert.That(Render.Words(section)).Contains("+33%");
+        await Assert.That(Render.Words(section)).Contains("+1");
     }
 
     [Test]

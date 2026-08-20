@@ -116,4 +116,52 @@ public class GrowthTrendTests
     [Test]
     public async Task ChangeFractionIsNullBelowTheMinimumJustLikeOf() =>
         await Assert.That(GrowthTrend.ChangeFraction([On(0, 10), On(1, 20)])).IsNull();
+
+    [Test]
+    public async Task ABigGameGainingManyPlayersOutranksATinyOneThatMerelyDoubled()
+    {
+        // The whole reason this figure is players rather than a percentage. As a fraction the small
+        // game wins by a mile — 1 to 3 is +200%, 50 to 100 only +100% — which reads as though two
+        // extra players were the larger event. Ranked on the players actually gained, they order the
+        // way a reader means the question.
+        var tiny = new[] { On(0, 1), On(1, 2), On(2, 3) };
+        var big = new[] { On(0, 50), On(1, 75), On(2, 100) };
+
+        await Assert.That(GrowthTrend.ChangePlayers(tiny)).IsEqualTo(2);
+        await Assert.That(GrowthTrend.ChangePlayers(big)).IsEqualTo(50);
+        await Assert.That(GrowthTrend.ChangeFraction(tiny)!.Value)
+            .IsGreaterThan(GrowthTrend.ChangeFraction(big)!.Value);
+    }
+
+    [Test]
+    public async Task APartialPlayerRoundsAwayFromZeroSoARealMoveNeverPrintsAsNone()
+    {
+        // Four flat-ish days ending one player higher fit a line rising 0.9 of a player across the
+        // three days it spans — still a rise, and the arrow beside it says so, so it may not print
+        // "0" and contradict its own glyph. Rounded away from zero in both directions, so the mirror
+        // series falls to -1 rather than being rounded towards nothing.
+        await Assert.That(GrowthTrend.ChangePlayers([On(0, 10), On(1, 10), On(2, 10), On(3, 11)])).IsEqualTo(1);
+        await Assert.That(GrowthTrend.ChangePlayers([On(0, 11), On(1, 11), On(2, 11), On(3, 10)])).IsEqualTo(-1);
+    }
+
+    [Test]
+    public async Task ChangePlayersReadsTheSameFitTheFractionDoes()
+    {
+        // Both numbers come off one fitted line: the fraction is that line's rise over the series'
+        // own average level, so multiplying it back by that level has to land on the same rise.
+        var days = new[] { On(0, 10), On(1, 15), On(2, 20) };
+
+        // Mean 15, fraction 2/3 — a rise of ten players across the two days the line spans.
+        await Assert.That(GrowthTrend.ChangeFraction(days)!.Value).IsEqualTo(2.0 / 3.0).Within(0.0001);
+        await Assert.That(GrowthTrend.ChangePlayers(days)).IsEqualTo(10);
+    }
+
+    [Test]
+    public async Task ChangePlayersIsNullBelowTheMinimumJustLikeTheFraction() =>
+        await Assert.That(GrowthTrend.ChangePlayers([On(0, 10), On(1, 20)])).IsNull();
+
+    [Test]
+    public async Task AFlatSeriesGainsNoPlayersRatherThanRoundingUpToOne() =>
+        // Away-from-zero rounding may not manufacture a player out of a line that did not move.
+        await Assert.That(GrowthTrend.ChangePlayers([On(0, 10), On(1, 10), On(2, 10)])).IsEqualTo(0);
 }

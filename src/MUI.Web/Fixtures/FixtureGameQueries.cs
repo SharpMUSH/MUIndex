@@ -34,7 +34,11 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), "m-u-s-h", "M*U*S*H",
         "The PennMUSH development server.", LifecycleState.Active, IsClaimed: false,
         PlayersNow: 15, Codebase: "PennMUSH 1.8.8p0", MeasuredProtocols: ["MSSP", "CHARSET"],
-        LastReachableAt: Now.AddMinutes(-4), Growth: GrowthDirection.Up, GrowthChange: 0.25, FirstSeenAt: Now.AddYears(-2));
+        // A chosen fixture literal, not a fitted result — nothing here builds a daily median series or
+        // calls GrowthTrend. Picked to stay coherent with the grid Activity() does build, whose median
+        // for this game is 3: a one-player rise against that is about a third, clear of SteadyBand and
+        // so consistent with the Up beside it.
+        LastReachableAt: Now.AddMinutes(-4), Growth: GrowthDirection.Up, GrowthPlayers: 1, FirstSeenAt: Now.AddYears(-2));
 
     private static readonly GameSummary Eldertale = new(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000002"), "eldertale", "Eldertale Online",
@@ -48,7 +52,11 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         "Counted from the connect screen, which is the only place this game publishes a number.",
         LifecycleState.Active, IsClaimed: false,
         PlayersNow: 219, Codebase: null, MeasuredProtocols: ["MSSP", "GMCP", "MCCP", "MSDP"],
-        LastReachableAt: Now.AddMinutes(-40), Growth: GrowthDirection.Down, GrowthChange: -0.30, FirstSeenAt: Now.AddMonths(-8));
+        // Another chosen literal, picked against the same grid: Activity()'s median for this game is 39,
+        // so thirteen players lost is about a third of it, matching the Down beside it. It is also why
+        // the figure is in players — thirteen lost here dwarfs M*U*S*H gaining one, where the
+        // percentages this replaced (-30% against +25%) made the two look comparable.
+        LastReachableAt: Now.AddMinutes(-40), Growth: GrowthDirection.Down, GrowthPlayers: -13, FirstSeenAt: Now.AddMonths(-8));
 
     // Answers, but nothing we can count. Renders "count unknown" — never a zero.
     private static readonly GameSummary MidnightSun = new(
@@ -69,7 +77,11 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000007"), "ashen-court", "Ashen Court",
         "Courtly intrigue, low fantasy. Application required.", LifecycleState.Active,
         IsClaimed: true, PlayersNow: 9, Codebase: "Evennia", MeasuredProtocols: ["MSSP", "GMCP", "TLS"],
-        LastReachableAt: Now.AddMinutes(-9), Growth: GrowthDirection.Steady, GrowthChange: 0.03, FirstSeenAt: Now.AddDays(-10));
+        // Chosen to exercise the seam between the two figures on purpose. Activity()'s median here is 2,
+        // and a rise of a fifth of a player against that is inside SteadyBand while still rounding away
+        // from zero to 1 — so this row carries a figure and classifies Steady at the same time, which is
+        // exactly the case the surfaces must withhold rather than print as "steady, +1".
+        LastReachableAt: Now.AddMinutes(-9), Growth: GrowthDirection.Steady, GrowthPlayers: 1, FirstSeenAt: Now.AddDays(-10));
 
     /// <summary>
     /// Stopped answering six weeks ago and has not been archived: unreachable, and not uncounted.
@@ -738,7 +750,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         var trending = listed
             .Where(g => g.Growth == GrowthDirection.Up)
             .Select(TrendingRow)
-            .OrderByDescending(row => row.Change)
+            .OrderByDescending(row => row.ChangePlayers)
             .ThenByDescending(row => row.LatestMedian)
             .ThenBy(row => row.Name, StringComparer.Ordinal)
             .ToList();
@@ -751,20 +763,30 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     }
 
     /// <summary>
-    /// <see cref="TrendingGame.LatestMedian"/> reads off the same counted grid the busiest table ranks
-    /// on, so the board and the listing row cannot print two different numbers for one game.
-    /// <see cref="TrendingGame.EarliestMedian"/> has no such real counterpart in a fixture with one
-    /// invented week rather than a measured history — stated as a fraction of the real median instead
-    /// of an unrelated literal, so it is at least consistent with the game it names.
+    /// Assembles a demo board row. Nothing here is measured and no trend is fitted: the numbers are
+    /// derived from the fixture's own invented week so that the surfaces have something self-consistent
+    /// to render.
     /// </summary>
+    /// <remarks>
+    /// <see cref="TrendingGame.LatestMedian"/> is taken from the same counted grid the busiest table
+    /// ranks on, and <see cref="TrendingGame.ChangePlayers"/> from the same
+    /// <see cref="GameSummary.GrowthPlayers"/> the listing row's arrow prints, so the board and the row
+    /// cannot state two different figures for one game — which they would if this row carried a second
+    /// literal of its own. <see cref="TrendingGame.EarliestMedian"/> is then whatever the other two
+    /// imply, because against a real database those three are the two ends of one series and the rise
+    /// between them.
+    /// <para>
+    /// A game whose growth exceeded its own median would imply a negative earliest median, which no
+    /// measured series could produce; the fixture's literals are chosen to stay inside that.
+    /// </para>
+    /// </remarks>
     private static TrendingGame TrendingRow(GameSummary g)
     {
         var counted = Activity(g).Where(c => c.IsCounted).Select(c => c.Count!.Value).Order().ToList();
         var median = counted[counted.Count / 2];
-        var earliest = (int)Math.Round(median * 0.6);
+        var rise = g.GrowthPlayers ?? 0;
 
-        return new TrendingGame(
-            g.Slug, g.Name, earliest, median, (median - earliest) / (double)median);
+        return new TrendingGame(g.Slug, g.Name, median - rise, median, rise);
     }
 
     public Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default) =>
