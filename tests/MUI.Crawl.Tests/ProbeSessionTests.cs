@@ -484,6 +484,42 @@ public class ProbeSessionTests
     }
 
     /// <summary>
+    /// The real shape a Go-Ahead arrives in, taken off the wire from <c>tdome.nukefire.org:4000</c>.
+    /// </summary>
+    /// <remarks>
+    /// NukeFire sends no GA in its banner. It sends one in reply to <c>WHO</c>: reading the word as a
+    /// character name, it answers <c>Password: </c> with no line ending, hides the reply with
+    /// <c>IAC WILL ECHO</c>, and marks the boundary with <c>IAC GA</c> — captured verbatim as
+    /// <c>50 61 73 73 77 6f 72 64 3a 20 ff fb 01 ff f9</c>. The GA is the only delimiter that line
+    /// ever gets, which is precisely why it has to be read as one: the payload is what tells
+    /// <see cref="WhoParser"/> the server ate our word instead of answering it, and that reading is
+    /// what keeps a busy DIKU from being published as a measured zero.
+    /// </remarks>
+    [Test]
+    public async Task TheGoAheadOnAPasswordPromptIsReadAsABoundary()
+    {
+        // "Password: " then IAC WILL ECHO then IAC GA, byte for byte as NukeFire sends it.
+        const string nukefireWhoReply = "Password: \u00ff\u00fb\u0001\u00ff\u00f9";
+
+        await using var game = new FakeGame
+        {
+            SwallowsNegotiationAsText = true,
+            Banner = "Welcome to:\r\nNukeFire : Beyond THUNDERDOME\r\n",
+            BannerTail = "What's your name, freejack?",
+            WhoReply = nukefireWhoReply,
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Negotiation.SendsPromptMarkers).IsTrue();
+
+        // The payload reached the parser, which is how the login prompt is recognised for what it is
+        // rather than counted as a roster row.
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.LoginPrompt);
+    }
+
+    /// <summary>
     /// Answering a charset menu's UTF-8 option is a request, not a fact — WireEncoding still
     /// independently proves the encoding from the bytes that actually arrive afterward (rule 5).
     /// </summary>
