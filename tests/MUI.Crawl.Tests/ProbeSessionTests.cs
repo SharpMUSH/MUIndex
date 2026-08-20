@@ -29,6 +29,7 @@ public class ProbeSessionTests
         SilenceGrace = TimeSpan.FromMilliseconds(300),
         MaxPhase = TimeSpan.FromSeconds(3),
         BannerPatience = TimeSpan.FromMilliseconds(300),
+        WhoGrace = TimeSpan.FromMilliseconds(700),
         PollInterval = TimeSpan.FromMilliseconds(15),
         Timeout = TimeSpan.FromSeconds(20),
     };
@@ -376,6 +377,39 @@ public class ProbeSessionTests
         // The session is still alive to be asked, because no blank line went to the name prompt.
         await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Count);
         await Assert.That(result.Who.Count).IsEqualTo(7);
+    }
+
+    /// <summary>
+    /// A server that throttles its login-screen commands still has its <c>WHO</c> read, rather than
+    /// having the answer land in the next question's window.
+    /// </summary>
+    /// <remarks>
+    /// Measured on twyst.org:3333 and rupert.twyst.org:6666, two EW-too talkers that answer WHO after
+    /// a fixed 5.05s — identical to two decimal places, so it is a deliberate throttle rather than
+    /// network weather. Under one grace for every phase the probe gave up at 2.5s, sent INFO, and the
+    /// WHO table arrived inside the INFO window: the count was lost *and* a WHO roster was filed as
+    /// the game's INFO block. WhoGrace buys the count back without slowing a game that answers
+    /// promptly, since a phase that produces a line settles on QuietPeriod instead.
+    /// </remarks>
+    [Test]
+    public async Task AThrottledWhoIsStillReadRatherThanLandingInTheNextPhase()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "Welcome to the talker.\r\n",
+            BannerTail = "Please enter a name: ",
+            WhoDelay = TimeSpan.FromMilliseconds(450),
+            WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
+            InfoReply = "This is the INFO block, and it is not a WHO table.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Count);
+        await Assert.That(result.Who.Count).IsEqualTo(7);
+
+        // The other half of the defect: the roster must not be filed as the INFO block.
+        await Assert.That(result.Info ?? string.Empty).DoesNotContain("Players logged in");
     }
 
     /// <summary>
@@ -939,6 +973,12 @@ public class ProbeSessionTests
         /// <summary>The tail of the WHO reply, unterminated.</summary>
         public string? WhoTail { get; init; }
 
+        /// <summary>
+        /// How long the server sits on a <c>WHO</c> before answering it — the EW-too talkers throttle
+        /// login-screen commands by a fixed five seconds.
+        /// </summary>
+        public TimeSpan WhoDelay { get; init; }
+
         public string? BlankLineReply { get; init; }
 
         /// <summary>
@@ -1183,6 +1223,11 @@ public class ProbeSessionTests
 
             if (command.Equals("WHO", StringComparison.OrdinalIgnoreCase))
             {
+                if (WhoDelay > TimeSpan.Zero)
+                {
+                    await Task.Delay(WhoDelay, _stopping.Token);
+                }
+
                 await reply(WhoReply);
                 if (WhoTail is not null)
                 {

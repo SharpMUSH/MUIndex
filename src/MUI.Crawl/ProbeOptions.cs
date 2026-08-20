@@ -8,7 +8,16 @@ public sealed record ProbeOptions
     /// A hard bound, not a courtesy. The crawler runs in-process with the web tier, so a probe that
     /// wedges against a black-holed host would otherwise starve request threads (spec §12).
     /// </remarks>
-    public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(20);
+    /// <remarks>
+    /// Raised from 20s when <see cref="WhoGrace"/> was introduced: the worst-case run of graces is now
+    /// about 16.5s (banner 2.5 + patience 2.5 + flush 0.5 + WHO 6 + INFO 2.5 + VERSION 2.5), and a
+    /// budget that expires mid-session is not a soft landing — it leaves the <c>try</c> as an
+    /// <see cref="OperationCanceledException"/>, which is deliberately not one of the
+    /// <c>HungUp</c> shapes, so the whole probe is recorded <c>Failed</c> and a connect screen already
+    /// in hand is thrown away. The headroom is what keeps a slow-but-answering server from being
+    /// published as unreachable.
+    /// </remarks>
+    public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(25);
 
     /// <summary>
     /// How long the server must say nothing before a phase is treated as finished.
@@ -31,6 +40,29 @@ public sealed record ProbeOptions
     /// no connect screen at all pays this once.
     /// </remarks>
     public TimeSpan SilenceGrace { get; init; } = TimeSpan.FromMilliseconds(2500);
+
+    /// <summary>
+    /// How long to wait for a <c>WHO</c> answer specifically, before concluding the server has none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Longer than <see cref="SilenceGrace"/> because some codebases throttle login-screen commands on
+    /// purpose. <c>twyst.org:3333</c> and <c>rupert.twyst.org:6666</c> — two EW-too talkers — both
+    /// answer <c>WHO</c> after <b>5.05 seconds</b>, identical to two decimal places, which is a
+    /// deliberate delay rather than network weather. Under one grace for every phase the probe gave up
+    /// at 2.5s and sent <c>INFO</c>, and the roster arrived inside the <c>INFO</c> window: the count
+    /// was lost, and a <c>WHO</c> table was recorded as the game's <c>INFO</c> block — a fact about our
+    /// timing published as a fact about their server (rule 5).
+    /// </para>
+    /// <para>
+    /// This is spent only where it buys something. A phase that produces even one line settles on
+    /// <see cref="QuietPeriod"/> instead, so a game that answers promptly pays nothing; the cost falls
+    /// on games with no <c>WHO</c> at all, and it is why <c>WHO</c> has this and <c>INFO</c>/
+    /// <c>VERSION</c> do not — <c>WHO</c> is the top rung of the count ladder (spec §5.2) and the other
+    /// two are read only when it and MSSP have already failed.
+    /// </para>
+    /// </remarks>
+    public TimeSpan WhoGrace { get; init; } = TimeSpan.FromMilliseconds(6000);
 
     /// <summary>
     /// The ceiling on any one phase, so a server that talks forever cannot outlast

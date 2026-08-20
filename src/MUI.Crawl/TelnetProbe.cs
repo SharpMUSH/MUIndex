@@ -184,11 +184,11 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // `sent` fires between the write and the wait: a question is asked when its bytes have
             // gone, not when we decided to ask it, so a flag set before the send could claim to have
             // asked something that never left.
-            async Task<int> AskAsync(string command, int baseline, Action? sent = null)
+            async Task<int> AskAsync(string command, int baseline, TimeSpan grace, Action? sent = null)
             {
                 await telnet.SendAsync(Encoding.ASCII.GetBytes(command));
                 sent?.Invoke();
-                await SettleAsync(telnet, Arrived, baseline, _options.SilenceGrace, budget.Token);
+                await SettleAsync(telnet, Arrived, baseline, grace, budget.Token);
                 return Arrived();
             }
 
@@ -237,18 +237,23 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 // or be read as a character name, corrupting a good reading with a worse one.
                 if (Live(client) && whoFromMenu is null)
                 {
+                    // WhoGrace, not SilenceGrace: some codebases sit on a login-screen WHO for
+                    // seconds on purpose, and giving up early does not merely lose the count — it
+                    // sends INFO while the roster is still in flight, so the roster lands in INFO's
+                    // window and is recorded as the game's INFO block.
                     whoLines = infoLines = versionLines =
-                        await AskAsync(WhoCommand, flushLines, () => asked = true);
+                        await AskAsync(WhoCommand, flushLines, _options.WhoGrace, () => asked = true);
                 }
 
                 if (Live(client))
                 {
-                    infoLines = versionLines = await AskAsync(InfoCommand, whoLines);
+                    infoLines = versionLines =
+                        await AskAsync(InfoCommand, whoLines, _options.SilenceGrace);
                 }
 
                 if (Live(client))
                 {
-                    versionLines = await AskAsync(VersionCommand, infoLines);
+                    versionLines = await AskAsync(VersionCommand, infoLines, _options.SilenceGrace);
                 }
             }
             catch (Exception error) when (HungUp(error) && Measured(lines, bannerLines, seen))
