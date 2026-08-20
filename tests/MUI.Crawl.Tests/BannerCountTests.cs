@@ -189,4 +189,29 @@ public class BannerCountTests
 
         await Assert.That(BannerCount.Find(conflicting)).IsNull();
     }
+
+    /// <summary>
+    /// Every role-split shape the 2026-08-20 sweep found, read the same way: the mortal/player figure
+    /// is the count, whichever side of the sentence it falls on.
+    /// </summary>
+    /// <remarks>
+    /// A staff noun the parser does not know cannot collide with the player figure, so the sentence
+    /// resolves instead of being refused. realmsmud is the case that proves order does not matter —
+    /// it states its wizards first.
+    /// </remarks>
+    [Test]
+    // zombiemud.org:3000 — players first, staff second.
+    [Arguments("There are currently 33 mortals and 4 wizards online.", 33)]
+    // realmsmud.org:1501 — staff FIRST, players second.
+    [Arguments("There are 1 wizards and 2 mortals online.", 2)]
+    // erionmud.com:1234 — the player noun is "players" and the staff noun is "immortals".
+    [Arguments("There are 43 players and 3 immortals online.", 43)]
+    // mud.morchronium.com:7770 — a measured zero on both sides is still a measured zero.
+    [Arguments("Currently there are 0 Mortals and 0 Developer(s) Online.", 0)]
+    // nirvana.beanos.com:3500 — "developers" as the staff noun.
+    [Arguments("There are currently 0 players and 0 developers logged in.", 0)]
+    public async Task ARoleSplitCountIsReadAsItsPlayerHalf(string line, int expected)
+    {
+        await Assert.That(BannerCount.Find(line)).IsEqualTo(expected);
+    }
 }
