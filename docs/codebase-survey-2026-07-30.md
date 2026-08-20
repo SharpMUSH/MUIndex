@@ -349,3 +349,67 @@ fresh inflater meets mid-stream bytes where it expects a header.
 **MCCP stays registered.** This is materially better than 2.7.0 — the handshake and the MSSP report
 arrive intact and the first chunk of text is readable, where before the whole stream was noise. What
 is lost is the tail. Not worked around here, for the same reason as last time.
+
+## 2026-08-20 — pre-login prompts (`LoginPromptGate`)
+
+A survey of all 900 `connect_screen`/`banner` rows in production found ~95 games gating their real
+connect screen behind a question or menu a blind Return does not reliably answer, followed by a
+second, dedicated sweep of the same 900 rows specifically for player-count reveal mechanisms (full
+detail, quoted per game, in the branch-local `docs/login-prompt-scan/` — not committed, see the plan
+at `docs/superpowers/plans/2026-08-20-crawler-login-prompt-negotiation.md`). Measured examples driving
+each `LoginPromptGate` category: **Colour** — `cthulhumud.com:8889`, `mud.arcadia.net:4000` (both
+require the explicit letter `y`, not a blank default — the reason a blind Return was never enough).
+**ScreenReader** — `mud.harshlands.net:5555` and `eotmud.com:4000` (the two live phrasings map Y/N to
+opposite meanings, which is why this category still only ever sends blank). **PressEnter** —
+`play.ropmud.com:4443`, `vormud.genesismuds.com:7777`, plus a cluster of Korean `toox.co.kr`/
+`dolba.net` games using "엔터를 누르십시오" idioms. **AgeGate** — `202.103.21.247:8888` and
+`112.124.8.59:6666`, both asking the identical Chinese question, suggesting a shared codebase or
+operator. **Charset (UTF-8 only)** — `dreamland.rocks:9000`, `hiervard.ru:4000`. **WhoMenu** —
+`batmud.bat.org:23`, `zombiemud.org:3000`, `discworld.starturtle.net:4242`, and (after the second
+sweep widened the pattern) `eternitymud.com:23` (numbered, not lettered — `2. who is playing`),
+`taurosmud.com:5005` (dot-leader separator — `[2]....See who is currently logged in.`), and
+`legendmud.org:9999` (connectivity word before "who" rather than after — `[4] List immortals online
+who can help`).
+
+**Deliberately not covered, and why:**
+- Charset menus offering only non-UTF-8 encodings (roughly half the 29 surveyed, e.g.
+  `mud.pkuxkx.net:8080`'s GBK/UTF8/BIG5 toggle with no per-line menu structure, and every
+  Cyrillic-codepage-only menu) — picking between two non-UTF-8 encodings is a guess, which rule 5
+  forbids recording as a fact; these stay on the existing staff `CHARSET` override.
+- `LoginPromptGate.PressEnterPattern`'s Korean branch matches "누르" (press) but not "입력" (input) —
+  `3-third-eye-harmony` (`toox.co.kr:6000`, "[엔터]를 입력하세요") is not recognised. Low volume (one
+  game surveyed); add the alternation if a second example turns up.
+- Who's-online menu options whose label doesn't say "who" (or doesn't pair it with an
+  online/playing/logged-in/on-line word) at all: `midnightsun2.org:3000`'s `w  -  Shows the current
+  users.` and `20.61.5.183:8008` (mythosmud)'s themed `U - See who walks the Isles` (has "who", but no
+  connectivity word follows it — "walks the Isles" isn't one). Not widened: relaxing either
+  requirement risks matching an ordinary sentence that merely mentions "who" or "users" in passing,
+  which is exactly what `AWhoMentionThatIsNotAMenuOptionIsNotAWhoMenu` guards against — the fix would
+  need per-game label vocabulary, which is a maintenance treadmill this parser has deliberately stayed
+  off of (see `WhoParser`'s own remarks on why it reads structure rather than per-dialect wording).
+- **Prose command hints are not a gap.** By far the most common WHO-adjacent shape in the survey —
+  dozens of TinyMUX/PennMUSH-family games print a sentence like "Use the WHO command to find out who
+  is online currently" (`furrymuck.com:8888`) or a RhostMUSH-style `)) To see who is on ----------=>
+  WHO ((` (`galaxy.silvren.com:*`, several games) instead of a selectable menu. These need no new
+  code: `TelnetProbe` already sends the literal `WHO` command unconditionally in Phase 3 regardless of
+  what the banner says, so every one of these games is already asked. Recorded here so a future reader
+  doesn't mistake the volume of this shape in the survey for an uncovered case.
+- **Banner-stated player counts with vocabulary `WhoParser`/`BannerCount` don't recognise — a separate,
+  larger piece of work than this plan's scope, not attempted here.** The player-count sweep found this
+  is common enough to be its own follow-up:
+  - Nouns outside the existing `players?|users?|characters?|people|persons?|folks?` list: "atmai"
+    (`lostsouls.org:23`), "mortals"/"immortals" (`zombiemud.org:3000`: "25 mortals and 4 wizards
+    online"), "adventurers" is covered but "souls"/"heroes" are not.
+  - Label-before-number order the existing `LabelledCountPattern` doesn't match because the
+    connectivity word isn't adjacent to the number in the right order: `nannymud`
+    (`mud.lysator.liu.se:2000`)'s "Number of players on:   8", `opalmoo`
+    (`moo.opal.org:7878`)'s "Number of connected players: 2".
+  - A hyphenated `on-line`/bare `on` never reaching a people-noun: `lusternia.com:5000`'s
+    "Current On-Line: 12", `zombiemud`-family "N players on." (no "line"/"connected").
+  - Counts spelled out in Chinese numerals rather than digits — `xianlv-qingyuan`
+    (`112.124.8.59:6666`): "二百一十八位玩家" (218, written as characters, not `218`) — `WordedPattern`
+    only spells English number-words up to twenty.
+  - Split-by-role counts where neither clause alone states a total (`dbu-mmo`,
+    `mud.morchronium.com:7770`: "0 Mortals and 0 Developer(s) Online") — `BannerCount.Find` already
+    refuses two conflicting numbers rather than guessing which is "the" count, which is correct
+    behaviour, not a bug; a fix here would mean *summing* recognised role-clauses, a different feature.
