@@ -117,6 +117,22 @@ public class GameQueriesPostgresTests
         await Assert.That(neighbours).IsEmpty();
     }
 
+    [Test]
+    public async Task TheNewlyDiscoveredFeedShowsFifteenRatherThanTen()
+    {
+        await using var db = await PostgresFixture.MigratedAsync();
+        var seen = Now.AddDays(-1);
+
+        for (var i = 0; i < 16; i++)
+        {
+            await Seed.GameAsync(db, $"discovered-{i}", $"Discovered {i}", firstSeenAt: seen.AddSeconds(-i));
+        }
+
+        var feeds = await QueriesOn(db).FeedsAsync();
+
+        await Assert.That(feeds.NewlyDiscovered.Count).IsEqualTo(15);
+    }
+
     /// <summary>The argument behind an exclusion reaches the page that carries the decision.</summary>
     /// <remarks>
     /// An unlisting has no counterpart here on purpose: it is not our argument to print.
