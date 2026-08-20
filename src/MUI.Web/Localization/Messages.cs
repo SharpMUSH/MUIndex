@@ -184,8 +184,8 @@ public static class Messages
         ["feed.nothingDark"] = "Nothing went dark.",
         ["feed.nothingBack"] = "Nothing came back. We keep knocking.",
         ["feed.live"] = "live",
-        ["home.trending.title"] = "trending this week",
-        ["home.trending.empty"] = "No game is trending up this week.",
+        ["home.trending.title"] = "trending",
+        ["home.trending.empty"] = "No game is trending up right now.",
 
         // ── the listing ───────────────────────────────────────────────────────────────────────
         ["games.title"] = "Games",
@@ -803,12 +803,12 @@ public static class Messages
         ["rankings.column.samples"] = "counted samples",
         ["rankings.column.days"] = "days measured",
 
-        ["rankings.trending.title"] = "Trending this week",
-        ["rankings.trending.basis"] = "This week's median measured players against the week before it, among games with enough samples for a median in both weeks — always the current week, whichever ranking window is shown above.",
-        ["rankings.trending.empty"] = "No listed game is trending up this week — a statement about how many games clear the sample floor in both weeks, not about the hobby.",
-        ["rankings.trending.caption"] = "Games whose measured median this week is enough higher than the week before to call it a rise rather than noise, both weeks with enough samples for a median.",
-        ["rankings.column.thisWeek"] = "this week",
-        ["rankings.column.lastWeek"] = "last week",
+        ["rankings.trending.title"] = "Trending",
+        ["rankings.trending.basis"] = "A line fitted through each game's own daily measured median over its last 14 days, among games with at least 3 days that had enough samples for a median — always this fitted trend, whichever ranking window is shown above.",
+        ["rankings.trending.empty"] = "No listed game is trending up — a statement about how many games clear the sample floor on enough days, not about the hobby.",
+        ["rankings.trending.caption"] = "Games whose fitted trend over their last 14 measured days rises enough to call it a rise rather than noise, each with at least 3 days that had enough samples for a median.",
+        ["rankings.column.latest"] = "latest",
+        ["rankings.column.earliest"] = "earliest",
         ["rankings.column.change"] = "change",
 
         ["rankings.spells.title"] = "Longest unbroken reachable spell",
@@ -826,8 +826,8 @@ public static class Messages
         ["rankings.plain.thisOne"] = "this one",
         ["rankings.plain.row"] = "median {median, number} · peak {peak, number} · {samples, plural, one {# counted sample} other {# counted samples}} over {days, number} of {window, number} days",
         ["rankings.plain.spellRow"] = "reachable on every probe since {date} · {duration}",
-        ["rankings.plain.trending"] = "Trending this week",
-        ["rankings.plain.trendRow"] = "{median, number} this week, {prior, number} last week ({percent, number}% up)",
+        ["rankings.plain.trending"] = "Trending",
+        ["rankings.plain.trendRow"] = "{median, number} latest, {prior, number} earliest ({percent, number}% up)",
 
         // ── the archive: removed from the default listing, and from nothing else ──────────────
         // §7.5: nothing here is deleted, closed, dead or defunct.

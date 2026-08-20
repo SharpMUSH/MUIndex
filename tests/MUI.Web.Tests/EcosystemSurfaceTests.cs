@@ -322,7 +322,7 @@ public class EcosystemSurfaceTests
 
         var mush = rankings.TrendingThisWeek.Single(g => g.Slug == "m-u-s-h");
 
-        await Assert.That(mush.Median).IsGreaterThan(mush.PriorMedian);
+        await Assert.That(mush.LatestMedian).IsGreaterThan(mush.EarliestMedian);
     }
 
     [Test]

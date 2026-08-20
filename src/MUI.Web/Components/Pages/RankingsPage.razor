@@ -103,8 +103,8 @@ else
                         <tr>
                             <th scope="col" class="place">@L("rankings.column.place")</th>
                             <th scope="col">@L("rankings.column.game")</th>
-                            <th scope="col">@L("rankings.column.thisWeek")</th>
-                            <th scope="col">@L("rankings.column.lastWeek")</th>
+                            <th scope="col">@L("rankings.column.latest")</th>
+                            <th scope="col">@L("rankings.column.earliest")</th>
                             <th scope="col">@L("rankings.column.change")</th>
                         </tr>
                     </thead>
@@ -114,8 +114,8 @@ else
                             <tr>
                                 <td class="place mono">@Place(Table.TrendingThisWeek.Select(g => g.Change), game.Change)</td>
                                 <th scope="row"><a href="@Http.Link($"/g/{game.Slug}")">@game.Name</a></th>
-                                <td class="mono state-present">@game.Median</td>
-                                <td class="mono faint">@game.PriorMedian</td>
+                                <td class="mono state-present">@game.LatestMedian</td>
+                                <td class="mono faint">@game.EarliestMedian</td>
                                 <td class="mono state-present">+@Percent(game.Change)%</td>
                             </tr>
                         }

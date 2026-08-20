@@ -1,9 +1,9 @@
 namespace MUI.Catalog;
 
 /// <summary>
-/// A week's median against the week before it, in three words. Never a member for "not enough data"
-/// — that is <c>null</c>, the same absence every other derived facet uses, so a reader who filters on
-/// it can ask for it the same way they ask for an unidentified codebase.
+/// A trend fitted across a game's own measured history, in three words. Never a member for "not
+/// enough data" — that is <c>null</c>, the same absence every other derived facet uses, so a reader
+/// who filters on it can ask for it the same way they ask for an unidentified codebase.
 /// </summary>
 public enum GrowthDirection
 {
@@ -12,53 +12,58 @@ public enum GrowthDirection
     Up,
 }
 
+/// <summary>One day's measured median, for whichever day the crawler had enough samples to take one.</summary>
+/// <remarks>
+/// A day with too few counted samples for its own median has no row at all (rule 4) — it is absent
+/// from the series a game's trend is fitted over, never a zero or a repeat of its neighbour.
+/// </remarks>
+public sealed record DailyMedian(DateOnly Day, int Median, int Samples);
+
 /// <summary>
-/// Turns two windows' medians into the one direction the growth arrow and the <c>trending</c> facet
-/// both read — computed once so the two can never disagree about the same pair of numbers.
+/// Turns a game's own daily medians into the one direction the growth arrow and the <c>trending</c>
+/// facet both read — computed once so the two can never disagree about the same series.
 /// </summary>
+/// <remarks>
+/// Not a two-bucket comparison (this week against last week): a fixed pair of buckets has no answer
+/// for a game whose measured history is younger than the buckets themselves — the older bucket is
+/// simply empty, no matter how its floor is scaled, for as long as the game (or the whole
+/// deployment) is under two weeks old. A least-squares line through however many days of median the
+/// game actually has works with as few as <see cref="MinimumDays"/> — noisily at first, more surely
+/// as more days accumulate, rather than being unusable until a fixed calendar boundary passes.
+/// </remarks>
 public static class GrowthTrend
 {
     /// <summary>
-    /// How far apart two medians must be, as a fraction of the larger, before the panel calls it a
-    /// change rather than noise. Below this a difference of one or two players on a small game reads
-    /// as "up" for no reason a probe interval could support.
+    /// How far apart the fitted line's endpoints must be, as a fraction of the series' average level,
+    /// before the panel calls it a change rather than noise. Below this a difference of one or two
+    /// players on a small game reads as "up" for no reason a probe interval could support.
     /// </summary>
     public const double SteadyBand = 0.10;
 
     /// <summary>
-    /// How little of a window a game must have existed in before there is no such thing as a trend to
-    /// read off it — no floor, however scaled, rescues a game seen for a few hours.
+    /// The fewest distinct days with a median a line may be fit through. Two points always fit a line
+    /// exactly, which is indistinguishable from noise; three is the first count where the line says
+    /// anything about the days between its ends.
     /// </summary>
-    public static readonly TimeSpan MinimumOverlap = TimeSpan.FromDays(2);
+    public const int MinimumDays = 3;
 
-    /// <summary>The floor <see cref="RequiredSamples"/> never scales below, even for a sliver of a window.</summary>
-    private const int MinimumFloor = 6;
+    /// <summary>How many counted samples one day needs before that day contributes its own median.</summary>
+    public const int MinimumSamplesPerDay = 6;
+
+    /// <summary>How far back a trend looks, at most — <c>NpgsqlGameQueries</c>'s query window.</summary>
+    public static readonly TimeSpan Span = TimeSpan.FromDays(14);
 
     /// <summary>
-    /// The direction, or <c>null</c> where either window falls short of the sample floor every
-    /// median needs before it ranks (<see cref="SortWindows.MinimumSamples"/> by default —
-    /// <see cref="RequiredSamples"/> scales it down for a game younger than the window). A thin
-    /// current week, a thin prior week, or no prior week at all leaves nothing to compare.
+    /// The direction, or <c>null</c> below <see cref="MinimumDays"/> distinct days of median.
     /// </summary>
-    public static GrowthDirection? Of(
-        int? median, int? samples, int? priorMedian, int? priorSamples,
-        int requiredSamples = SortWindows.MinimumSamples, int requiredPriorSamples = SortWindows.MinimumSamples)
+    public static GrowthDirection? Of(IReadOnlyList<DailyMedian> days)
     {
-        if (median is not { } current || samples is not { } n || n < requiredSamples
-            || priorMedian is not { } prior || priorSamples is not { } priorN
-            || priorN < requiredPriorSamples)
+        var change = ChangeFraction(days);
+
+        if (change is not { } delta)
         {
             return null;
         }
-
-        var basis = Math.Max(current, prior);
-
-        if (basis == 0)
-        {
-            return GrowthDirection.Steady;
-        }
-
-        var delta = (current - prior) / (double)basis;
 
         return delta switch
         {
@@ -69,37 +74,45 @@ public static class GrowthTrend
     }
 
     /// <summary>
-    /// How many counted samples <paramref name="windowFrom"/>–<paramref name="windowTo"/> needs
-    /// before its median may enter a comparison — the full <see cref="SortWindows.MinimumSamples"/>
-    /// for a game we were already measuring for the whole window, scaled down for one whose
-    /// measurement history only overlapped part of it, so a game short of two weeks of real
-    /// presence data gets a best-effort read rather than a permanent <c>null</c>.
+    /// How far the fitted line rises (or falls) across the days it was fit over, as a fraction of
+    /// their average level — the one number <see cref="Of"/>'s direction and the trending board's
+    /// ranked "by how much" both read, so the two can never disagree about the same series.
     /// </summary>
     /// <remarks>
-    /// <paramref name="firstMeasuredAt"/> is the earliest presence sample on record for the game, not
-    /// <c>game.first_seen_at</c> — a catalogue row can predate real crawling by weeks (a backfilled
-    /// import, or a crawler outage), and scaling by the row's age rather than by when measurement
-    /// actually began would demand a full floor from a window that predates any data at all. A null
-    /// value (never measured) is treated as "existed for the whole window": harmless, since a game
-    /// with no measurement also has no samples to clear whatever floor this returns.
-    /// <para>
-    /// The floor scales against a fixed <see cref="SortWindows.Week"/>, never against
-    /// <paramref name="windowTo"/>–<paramref name="windowFrom"/> itself — <c>NpgsqlGameQueries</c>'s
-    /// bounds can themselves be an adaptive split shorter than a week when the whole batch is young,
-    /// and scaling against that shrunken span would ask for the full 24 out of, say, two days —
-    /// several times denser than the rate the floor was ever calibrated to.
-    /// </para>
+    /// An ordinary least-squares slope against the day a sample fell on, not a bare first-day-versus-
+    /// last-day difference — two noisy endpoints would make exactly the two-bucket mistake this
+    /// replaced. The slope is read over the full span between the earliest and latest day actually
+    /// present, so a gap where the crawler missed a day (too few samples for that day's own median)
+    /// still contributes its true calendar distance rather than being silently compressed out.
     /// </remarks>
-    public static int RequiredSamples(DateTimeOffset windowFrom, DateTimeOffset windowTo, DateTimeOffset? firstMeasuredAt)
+    public static double? ChangeFraction(IReadOnlyList<DailyMedian> days)
     {
-        var overlapFrom = firstMeasuredAt is { } seen && seen > windowFrom ? seen : windowFrom;
-        var overlap = windowTo - overlapFrom;
+        ArgumentNullException.ThrowIfNull(days);
 
-        if (overlap < MinimumOverlap)
+        if (days.Count < MinimumDays)
         {
-            return int.MaxValue;
+            return null;
         }
 
-        return Math.Max(MinimumFloor, (int)Math.Ceiling(SortWindows.MinimumSamples * (overlap / SortWindows.Week)));
+        var earliest = days.Min(d => d.Day);
+        var points = days.Select(d => (X: (double)(d.Day.DayNumber - earliest.DayNumber), Y: (double)d.Median)).ToList();
+
+        var meanX = points.Average(p => p.X);
+        var meanY = points.Average(p => p.Y);
+        var covariance = points.Sum(p => (p.X - meanX) * (p.Y - meanY));
+        var variance = points.Sum(p => (p.X - meanX) * (p.X - meanX));
+
+        // Every day in the series distinct by construction, so this is unreachable in practice — a
+        // defensive read rather than a crash if a caller ever hands in duplicate days.
+        if (variance == 0)
+        {
+            return 0;
+        }
+
+        var slope = covariance / variance;
+        var span = points.Max(p => p.X) - points.Min(p => p.X);
+        var predictedChange = slope * span;
+
+        return meanY == 0 ? 0 : predictedChange / meanY;
     }
 }

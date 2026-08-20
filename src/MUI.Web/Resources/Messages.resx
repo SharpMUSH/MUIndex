@@ -565,11 +565,11 @@
     <comment>home</comment>
   </data>
   <data name="home.trending.title" xml:space="preserve">
-    <value>trending this week</value>
+    <value>trending</value>
     <comment>home</comment>
   </data>
   <data name="home.trending.empty" xml:space="preserve">
-    <value>No game is trending up this week.</value>
+    <value>No game is trending up right now.</value>
     <comment>home</comment>
   </data>
   <data name="games.title" xml:space="preserve">
@@ -2161,27 +2161,27 @@
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
   <data name="rankings.trending.title" xml:space="preserve">
-    <value>Trending this week</value>
+    <value>Trending</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
   <data name="rankings.trending.basis" xml:space="preserve">
-    <value>This week's median measured players against the week before it, among games with enough samples for a median in both weeks — always the current week, whichever ranking window is shown above.</value>
+    <value>A line fitted through each game's own daily measured median over its last 14 days, among games with at least 3 days that had enough samples for a median — always this fitted trend, whichever ranking window is shown above.</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
   <data name="rankings.trending.empty" xml:space="preserve">
-    <value>No listed game is trending up this week — a statement about how many games clear the sample floor in both weeks, not about the hobby.</value>
+    <value>No listed game is trending up — a statement about how many games clear the sample floor on enough days, not about the hobby.</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
   <data name="rankings.trending.caption" xml:space="preserve">
-    <value>Games whose measured median this week is enough higher than the week before to call it a rise rather than noise, both weeks with enough samples for a median.</value>
+    <value>Games whose fitted trend over their last 14 measured days rises enough to call it a rise rather than noise, each with at least 3 days that had enough samples for a median.</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
-  <data name="rankings.column.thisWeek" xml:space="preserve">
-    <value>this week</value>
+  <data name="rankings.column.latest" xml:space="preserve">
+    <value>latest</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
-  <data name="rankings.column.lastWeek" xml:space="preserve">
-    <value>last week</value>
+  <data name="rankings.column.earliest" xml:space="preserve">
+    <value>earliest</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
   <data name="rankings.column.change" xml:space="preserve">
@@ -2237,11 +2237,11 @@
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
   <data name="rankings.plain.trending" xml:space="preserve">
-    <value>Trending this week</value>
+    <value>Trending</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
   <data name="rankings.plain.trendRow" xml:space="preserve">
-    <value>{median, number} this week, {prior, number} last week ({percent, number}% up)</value>
+    <value>{median, number} latest, {prior, number} earliest ({percent, number}% up)</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
   <data name="archive.title" xml:space="preserve">

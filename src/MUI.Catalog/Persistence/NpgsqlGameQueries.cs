@@ -203,7 +203,10 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         // Unlike windows, always computed: trending is a facet now (Games list), not only a figure a
         // window sort happens to show, so a reader has to be able to filter on it without first
         // having to sort by a typical count.
-        var growth = await WeekOverWeekGrowthAsync(connection, ids, now, cancellationToken);
+        var dailyMedians = await DailyMediansAsync(connection, ids, now, cancellationToken);
+        var growth = ids.ToDictionary(
+            id => id,
+            id => GrowthTrend.Of(dailyMedians.GetValueOrDefault(id, [])));
 
         var facetRows = new List<GameFacetRow>(rows.Count);
 
@@ -429,168 +432,21 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     }
 
     /// <summary>
-    /// This week's median against last week's, for every game — always computed, unlike
-    /// <see cref="PlayersOverWindowAsync"/>, because <c>trending</c> is a facet a reader can filter on
-    /// without first sorting by a typical count.
+    /// Every day a game has enough presence samples for its own median, over the last
+    /// <see cref="GrowthTrend.Span"/> — what <see cref="GrowthTrend.Of"/> fits a trend line through.
     /// </summary>
     /// <remarks>
-    /// Two calls to <see cref="WindowStatsAsync"/> rather than one query with a <c>CASE</c> bucket,
-    /// so each half is exactly the query <see cref="WindowSortPostgresTests"/> already proves correct
-    /// for a single window — the only new surface is the boundary between the two, which is pinned
-    /// once here rather than reasoned about twice.
+    /// One frequency table per (game, day) rather than per game — the same walk
+    /// <see cref="PlayersOverWindowAsync"/> uses to find one window's median, run once per day instead
+    /// of once over the whole span, so a day the crawler barely touched a game is absent rather than
+    /// diluting a pooled figure or being read as a zero (rule 4). Raw samples cover today, since the
+    /// day rollup only reaches back through <c>presence_rollup_state</c>'s high-water mark; older days
+    /// read the rollup's own histogram, which survives retention dropping raw partitions (§5.2).
     /// </remarks>
-    private static async Task<Dictionary<Guid, GrowthDirection?>> WeekOverWeekGrowthAsync(
-        NpgsqlConnection connection,
-        Guid[] ids,
-        DateTimeOffset now,
-        CancellationToken cancellationToken)
+    private static async Task<Dictionary<Guid, List<DailyMedian>>> DailyMediansAsync(
+        NpgsqlConnection connection, Guid[] ids, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        var firstMeasured = await FirstMeasuredAsync(connection, ids, cancellationToken);
-        var bounds = WeekBounds(now, EarliestMeasuredAt(firstMeasured));
-        var (current, prior) = await CurrentAndPriorWeekAsync(connection, ids, bounds, now, cancellationToken);
-
-        return ids.ToDictionary(
-            id => id,
-            id =>
-            {
-                current.TryGetValue(id, out var c);
-                prior.TryGetValue(id, out var p);
-                var seen = firstMeasured.GetValueOrDefault(id);
-
-                return GrowthTrend.Of(
-                    c?.Median, c?.Samples, p?.Median, p?.Samples,
-                    GrowthTrend.RequiredSamples(bounds.CurrentFrom, now, seen),
-                    GrowthTrend.RequiredSamples(bounds.PriorFrom, bounds.Boundary, seen));
-            });
-    }
-
-    /// <summary>
-    /// The earliest presence sample on record for each of <paramref name="ids"/> — what
-    /// <see cref="GrowthTrend.RequiredSamples"/> scales its floor from, rather than
-    /// <c>game.first_seen_at</c>. The two can diverge widely: a backfilled catalogue row exists weeks
-    /// before the crawler ever measures it, and scaling by the row's age would demand a full week's
-    /// floor from a window that predates real measurement entirely — the exact shape of the "still
-    /// null after the fix" bug this replaced.
-    /// </summary>
-    private static async Task<Dictionary<Guid, DateTimeOffset?>> FirstMeasuredAsync(
-        NpgsqlConnection connection, Guid[] ids, CancellationToken cancellationToken)
-    {
-        var rows = await connection.QueryAsync<FirstMeasuredRow>(new CommandDefinition(
-            "SELECT game_id AS GameId, min(at) AS FirstMeasuredAt FROM presence_sample WHERE game_id = ANY(@ids) GROUP BY game_id",
-            new { ids },
-            cancellationToken: cancellationToken));
-
-        return rows.ToDictionary(r => r.GameId, r => (DateTimeOffset?)r.FirstMeasuredAt);
-    }
-
-    private sealed class FirstMeasuredRow
-    {
-        public Guid GameId { get; init; }
-
-        public DateTimeOffset FirstMeasuredAt { get; init; }
-    }
-
-    /// <summary>The earliest measurement across the whole batch, or null where none of them has one yet.</summary>
-    private static DateTimeOffset? EarliestMeasuredAt(IReadOnlyDictionary<Guid, DateTimeOffset?> firstMeasured)
-    {
-        var known = firstMeasured.Values.OfType<DateTimeOffset>().ToList();
-
-        return known.Count == 0 ? null : known.Min();
-    }
-
-    /// <summary>
-    /// Reads the current and prior week's stats for every game in <paramref name="ids"/>, without
-    /// judging eligibility or ranking — the two callers (<see cref="WeekOverWeekGrowthAsync"/>, whose
-    /// question is "which direction", and <see cref="RankingsAsync"/>'s trending board, whose question
-    /// is "by how much, in order") each apply their own floor and shape to the same two windows.
-    /// </summary>
-    private static async Task<(Dictionary<Guid, WindowRow> Current, Dictionary<Guid, WindowRow> Prior)>
-        CurrentAndPriorWeekAsync(
-            NpgsqlConnection connection,
-            Guid[] ids,
-            (DateTimeOffset CurrentFrom, DateTimeOffset PriorFrom, DateTimeOffset Boundary) bounds,
-            DateTimeOffset now,
-            CancellationToken cancellationToken)
-    {
-        var current = await WindowStatsAsync(connection, ids, bounds.CurrentFrom, now, cancellationToken);
-        var prior = await WindowStatsAsync(connection, ids, bounds.PriorFrom, bounds.Boundary, cancellationToken);
-
-        return (current, prior);
-    }
-
-    /// <summary>
-    /// The current week's span and the prior week's, pinned at one shared boundary so a sample at
-    /// that exact instant lands on exactly one side of the two.
-    /// </summary>
-    /// <remarks>
-    /// Fixed at 7/14 days back once the batch has that much measurement history —
-    /// <see cref="Boundary"/> is the exact instant <see cref="WindowStatsAsync"/>'s own from-side
-    /// day-snap would floor <see cref="CurrentFrom"/> to, computed once here rather than reasoned
-    /// about at each call site. Below two weeks of history the fixed split leaves the prior window
-    /// entirely before any measurement exists — no per-game floor can rescue that, since the samples
-    /// genuinely are not there. Adapts instead: splits whatever history the batch actually has into
-    /// two comparable halves around a shared midpoint, the bootstrap condition a new deployment (or a
-    /// restored copy of one) is in until its second week of crawling.
-    /// </remarks>
-    private static (DateTimeOffset CurrentFrom, DateTimeOffset PriorFrom, DateTimeOffset Boundary) WeekBounds(
-        DateTimeOffset now, DateTimeOffset? earliestMeasuredAt)
-    {
-        var currentFrom = now - SortWindows.Week;
-        var priorFrom = currentFrom - SortWindows.Week;
-        var fixedBoundary = FloorToUtcDay(currentFrom);
-
-        // The fixed split still works — RequiredSamples already scales its floor gracefully for
-        // partial overlap — right up until the batch's earliest measurement falls inside the current
-        // week entirely, leaving the prior window with exactly zero real samples. No floor, however
-        // scaled, rescues a window with nothing measured in it at all; only re-splitting can.
-        if (earliestMeasuredAt is not { } earliest || earliest < fixedBoundary)
-        {
-            return (currentFrom, priorFrom, fixedBoundary);
-        }
-
-        // The boundary has to land on a UTC day (WindowStatsAsync floors the current window's own
-        // `from` regardless of what's passed, and the prior window's `to` must match it exactly or a
-        // sample near the seam gets double-counted or dropped) — but flooring the true midpoint down
-        // always shrinks the *prior* half specifically, since that's the only side day-alignment can
-        // take from. With only a handful of days of history total, rounding the same direction every
-        // time can cost the prior half most of a day it didn't have to lose. Try the day on both
-        // sides of the true midpoint and keep whichever leaves the smaller of the two halves larger.
-        var rawMid = earliest + (now - earliest) / 2;
-        var floorDown = FloorToUtcDay(rawMid);
-        var floorUp = floorDown.AddDays(1);
-        var worstOf = (DateTimeOffset b) => TimeSpanMin(b - earliest, now - b);
-        var boundary = worstOf(floorUp) > worstOf(floorDown) ? floorUp : floorDown;
-
-        return (boundary, earliest, boundary);
-    }
-
-    private static TimeSpan TimeSpanMin(TimeSpan a, TimeSpan b) => a < b ? a : b;
-
-    private static DateTimeOffset FloorToUtcDay(DateTimeOffset at) =>
-        new(DateOnly.FromDateTime(at.UtcDateTime).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
-
-    /// <summary>
-    /// One game's median, peak and sample tally over an explicit <paramref name="from"/>/
-    /// <paramref name="to"/> span — the same frequency-and-walk shape <see cref="PlayersOverWindowAsync"/>
-    /// uses for a window ending "now", generalised to an arbitrary bounded span so two non-overlapping
-    /// weeks can be read with the one query.
-    /// </summary>
-    /// <remarks>
-    /// <paramref name="from"/> is floored to the UTC day it falls in, same as
-    /// <see cref="PlayersOverWindowAsync"/>, so the far end of a window keeps the whole day rather
-    /// than dropping part of it. <paramref name="to"/> is used exactly as given — never floored —
-    /// because the caller is responsible for handing it the same value the adjoining window floored
-    /// its own <c>from</c> to, and flooring it a second time here would be a second, possibly
-    /// different, opinion about where that instant falls.
-    /// </remarks>
-    private static async Task<Dictionary<Guid, WindowRow>> WindowStatsAsync(
-        NpgsqlConnection connection,
-        Guid[] ids,
-        DateTimeOffset from,
-        DateTimeOffset to,
-        CancellationToken cancellationToken)
-    {
-        var rows = await connection.QueryAsync<WindowRow>(new CommandDefinition(
+        var rows = await connection.QueryAsync<DailyMedianRow>(new CommandDefinition(
             """
             WITH boundary AS (
                 SELECT coalesce(
@@ -601,51 +457,73 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 SELECT date_trunc('day', @from AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS from_at
             ),
             frequency AS (
-                SELECT p.game_id, p.count AS value, count(*)::bigint AS times
+                SELECT p.game_id,
+                       date_trunc('day', p.at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS day,
+                       p.count AS value, count(*)::bigint AS times
                   FROM presence_sample p
                  WHERE p.game_id = ANY(@ids)
                    AND p.count IS NOT NULL
                    AND p.at >= (SELECT from_at FROM span)
                    AND p.at >= (SELECT at FROM boundary)
-                   AND p.at < @to
-                 GROUP BY 1, 2
+                 GROUP BY 1, 2, 3
 
                 UNION ALL
 
-                SELECT r.game_id, e.key::int, sum(e.value::bigint)
+                SELECT r.game_id, r.day, e.key::int, e.value::bigint
                   FROM presence_rollup_day r
                   CROSS JOIN LATERAL jsonb_each_text(r.count_histogram) AS e(key, value)
                  WHERE r.game_id = ANY(@ids)
                    AND r.count_histogram IS NOT NULL
                    AND r.day >= (SELECT from_at FROM span)
-                   AND r.day < LEAST((SELECT at FROM boundary), @to)
-                 GROUP BY 1, 2
+                   AND r.day < (SELECT at FROM boundary)
             ),
             counted AS (
-                SELECT game_id, value, sum(times) AS times
+                SELECT game_id, day, value, sum(times) AS times
                   FROM frequency
-                 GROUP BY 1, 2
+                 GROUP BY 1, 2, 3
             ),
             walked AS (
-                SELECT game_id, value,
-                       sum(times) OVER (PARTITION BY game_id ORDER BY value) AS running,
-                       ceil(sum(times) OVER (PARTITION BY game_id) / 2.0)    AS half,
-                       sum(times) OVER (PARTITION BY game_id)                AS samples,
-                       max(value)  OVER (PARTITION BY game_id)               AS peak
+                SELECT game_id, day, value,
+                       sum(times) OVER (PARTITION BY game_id, day ORDER BY value) AS running,
+                       ceil(sum(times) OVER (PARTITION BY game_id, day) / 2.0)    AS half,
+                       sum(times) OVER (PARTITION BY game_id, day)                AS samples
                   FROM counted
             )
             SELECT game_id        AS GameId,
+                   day             AS Day,
                    min(value)::int AS Median,
-                   max(peak)::int  AS Peak,
                    max(samples)::int AS Samples
               FROM walked
              WHERE running >= half
-             GROUP BY 1
+             GROUP BY 1, 2
+            HAVING max(samples) >= @minimumSamplesPerDay
             """,
-            new { ids, from = from.ToUniversalTime(), to = to.ToUniversalTime() },
+            new
+            {
+                ids,
+                from = (now - GrowthTrend.Span).ToUniversalTime(),
+                minimumSamplesPerDay = GrowthTrend.MinimumSamplesPerDay,
+            },
             cancellationToken: cancellationToken));
 
-        return rows.ToDictionary(r => r.GameId, r => r);
+        return rows
+            .GroupBy(r => r.GameId)
+            .ToDictionary(
+                g => g.Key,
+                g => g
+                    .Select(r => new DailyMedian(DateOnly.FromDateTime(r.Day.UtcDateTime), r.Median, r.Samples))
+                    .ToList());
+    }
+
+    private sealed class DailyMedianRow
+    {
+        public Guid GameId { get; init; }
+
+        public DateTimeOffset Day { get; init; }
+
+        public int Median { get; init; }
+
+        public int Samples { get; init; }
     }
 
     /// <summary>
@@ -1212,7 +1090,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     }
 
     /// <summary>
-    /// The games trending up this week against last week — the same classification the listing row's
+    /// The games trending up over their measured history — the same classification the listing row's
     /// own arrow uses (<see cref="GrowthTrend.Of"/>), so a game the board calls trending is exactly
     /// one whose arrow agrees, never a decliner or a steady game caught by a bare sort on the number.
     /// </summary>
@@ -1224,28 +1102,20 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             cancellationToken: cancellationToken))).ToList();
 
         var ids = eligible.Select(g => g.Id).ToArray();
-        var firstMeasured = await FirstMeasuredAsync(connection, ids, cancellationToken);
-        var bounds = WeekBounds(now, EarliestMeasuredAt(firstMeasured));
-        var (current, prior) = await CurrentAndPriorWeekAsync(connection, ids, bounds, now, cancellationToken);
+        var dailyMedians = await DailyMediansAsync(connection, ids, now, cancellationToken);
 
         return
         [
             .. eligible
-                .Select(g => (
-                    Game: g,
-                    Current: current.GetValueOrDefault(g.Id),
-                    Prior: prior.GetValueOrDefault(g.Id),
-                    Seen: firstMeasured.GetValueOrDefault(g.Id)))
-                .Where(row => GrowthTrend.Of(
-                    row.Current?.Median, row.Current?.Samples, row.Prior?.Median, row.Prior?.Samples,
-                    GrowthTrend.RequiredSamples(bounds.CurrentFrom, now, row.Seen),
-                    GrowthTrend.RequiredSamples(bounds.PriorFrom, bounds.Boundary, row.Seen))
-                    == GrowthDirection.Up)
+                .Select(g => (Game: g, Days: dailyMedians.GetValueOrDefault(g.Id, [])))
+                .Where(row => GrowthTrend.Of(row.Days) == GrowthDirection.Up)
                 .Select(row => new TrendingGame(
                     row.Game.Slug, row.Game.Name,
-                    row.Current!.Median, row.Prior!.Median, row.Current.Samples, row.Prior.Samples))
+                    EarliestMedian: row.Days.MinBy(d => d.Day)!.Median,
+                    LatestMedian: row.Days.MaxBy(d => d.Day)!.Median,
+                    Change: GrowthTrend.ChangeFraction(row.Days)!.Value))
                 .OrderByDescending(r => r.Change)
-                .ThenByDescending(r => r.Median)
+                .ThenByDescending(r => r.LatestMedian)
                 .ThenBy(r => r.Name, StringComparer.Ordinal)
                 .Take(RankingLimit),
         ];

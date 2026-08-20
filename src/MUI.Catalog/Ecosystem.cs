@@ -318,30 +318,18 @@ public static class RankingSpans
 public sealed record BusiestGame(string Slug, string Name, int Median, int Peak, int Samples, int Days = 0);
 
 /// <summary>
-/// One game in the "trending this week" board — always the current week against the one before it,
-/// unlike <see cref="BusiestGame"/> which reads whichever span the selector asks for.
+/// One game trending up over its own measured history (<see cref="GrowthTrend.Span"/>) — always that
+/// fitted trend, unlike <see cref="BusiestGame"/> which reads whichever span the selector asks for.
 /// </summary>
 /// <remarks>
-/// Both medians are carried, not only the direction <see cref="GrowthDirection"/> already gives the
-/// listing row: a board that only said "up" would be repeating the arrow, and the point of a board is
-/// the two numbers a reader would otherwise have to visit two game pages to compare.
+/// <see cref="EarliestMedian"/> and <see cref="LatestMedian"/> are the real measured endpoints of the
+/// series a trend was fit through, not the fitted line's own predicted values — carried so a board
+/// that only said "up" isn't repeating the listing row's arrow, and so a reader can see the two real
+/// numbers behind the claim rather than a derived statistic dressed as one. <see cref="Change"/> is
+/// the fitted line's own reading, computed once by <see cref="GrowthTrend.ChangeFraction"/> so the
+/// board's order can never disagree with the arrow's classification of the same series.
 /// </remarks>
-public sealed record TrendingGame(string Slug, string Name, int Median, int PriorMedian, int Samples, int PriorSamples)
-{
-    /// <summary>
-    /// How much higher this week's median is than last week's, as a fraction of the larger — the
-    /// same basis <see cref="GrowthTrend.Of"/> classifies up/steady/down from, so the board's order
-    /// agrees with the arrow's own reading of the same two numbers.
-    /// </summary>
-    public double Change
-    {
-        get
-        {
-            var basis = Math.Max(Median, PriorMedian);
-            return basis == 0 ? 0 : (Median - PriorMedian) / (double)basis;
-        }
-    }
-}
+public sealed record TrendingGame(string Slug, string Name, int EarliestMedian, int LatestMedian, double Change);
 
 /// <summary>
 /// A game's current unbroken run of measured reachability.

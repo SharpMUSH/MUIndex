@@ -1231,8 +1231,8 @@ public static class PlainText
             place++;
             b.AppendLine($"  {place,3}  {game.Name}");
             Wrap(b, Say(tag, "rankings.plain.trendRow",
-                ("median", game.Median),
-                ("prior", game.PriorMedian),
+                ("median", game.LatestMedian),
+                ("prior", game.EarliestMedian),
                 ("percent", (int)Math.Round(game.Change * 100))) + $" · {Path(tag, $"/g/{game.Slug}")}", "       ");
         }
 

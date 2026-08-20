@@ -113,7 +113,8 @@ public sealed record GameSummary(
     /// <remarks>
     /// Independent of <see cref="PlayersOverWindow"/> and always computed, not only when a window
     /// sort is active — a reader has to be able to filter on <c>trending</c> without having to also
-    /// sort by a typical count first. See <c>NpgsqlGameQueries.WeekOverWeekGrowthAsync</c>.
+    /// sort by a typical count first. See <c>NpgsqlGameQueries.DailyMediansAsync</c> and
+    /// <see cref="GrowthTrend"/>.
     /// </remarks>
     GrowthDirection? Growth = null,
 

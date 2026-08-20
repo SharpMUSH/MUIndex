@@ -747,7 +747,7 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
     }
 
     private static TrendingGame TrendingRow(GameSummary g) =>
-        new(g.Slug, g.Name, Median: 15, PriorMedian: 8, Samples: 40, PriorSamples: 38);
+        new(g.Slug, g.Name, EarliestMedian: 8, LatestMedian: 15, Change: (15 - 8) / 15.0);
 
     public Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(new LivenessFeeds(
