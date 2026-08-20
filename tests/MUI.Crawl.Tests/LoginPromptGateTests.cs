@@ -206,6 +206,27 @@ public class LoginPromptGateTests
         await Assert.That(answer.Answer).IsEqualTo(expectedToken);
     }
 
+    /// <summary>
+    /// Several real menus pack every option onto one line, and the who's-online option is rarely the
+    /// first of them. Measured live: sending BatMUD the token of the option *before* the one we meant
+    /// put "2" (visit the game) on the wire instead of "w".
+    /// </summary>
+    [Test]
+    // batmud.bat.org:23's real menu line, both options as the server prints them.
+    [Arguments("  2 - visit the game                    w - who is playing at the moment", "w")]
+    // zombiemud.org:3000's real menu line.
+    [Arguments("\t    [C]reate a new character     [W]ho is playing", "W")]
+    // The who's-online option last of three, so a greedy reader has two chances to take the wrong one.
+    [Arguments("(N)ew character  (V)isit the game  (W)ho is online", "W")]
+    public async Task TheTokenTakenIsTheOneWhoseOwnLabelSaysWho(string banner, string expectedToken)
+    {
+        var answer = LoginPromptGate.Classify(banner);
+
+        await Assert.That(answer).IsNotNull();
+        await Assert.That(answer!.Category).IsEqualTo(LoginPromptCategory.WhoMenu);
+        await Assert.That(answer.Answer).IsEqualTo(expectedToken);
+    }
+
     [Test]
     // The ordinary command a login screen might mention in passing must never trip this — WhoMenu is
     // only ever a lettered *menu option*, not any sentence containing the word "who".

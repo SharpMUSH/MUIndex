@@ -119,6 +119,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // answered once, separately, against the settled screen below rather than as one more round
             // here (see the block after bannerLines is taken).
             var roundStart = 0;
+            var answeredAPrompt = false;
             for (var round = 0; round < _options.MaxPromptRounds; round++)
             {
                 if (LoginPromptGate.Classify(BannerSoFar(lines, roundStart, Arrived()))
@@ -129,6 +130,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 }
 
                 roundStart = Arrived();
+                answeredAPrompt = true;
                 await telnet.SendAsync(Encoding.ASCII.GetBytes(prompt.Answer));
                 await SettleAsync(telnet, Arrived, roundStart, _options.QuietPeriod, budget.Token);
             }
@@ -209,8 +211,20 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                     await telnet.SendMSDPCommand("SEND", "PLAYERS");
                 }
 
-                await telnet.SendAsync([]);
-                await SettleAsync(telnet, Arrived, bannerLines, _options.QuietPeriod, budget.Token);
+                // …unless a prompt above was already answered, in which case that answer was itself a
+                // line through the server's buffer and has already flushed whatever residue this
+                // exists to clear. Sending a second, empty one buys nothing — and costs a count, since
+                // a game that gated its screen behind a question is sitting at its *name* prompt by
+                // now, where a DIKU reads an empty line as a goodbye. Measured on
+                // mud.arcadia.net:4000: the flush ended the session and WHO was never asked, where
+                // before the prompt loop existed the flush had been the answer to the colour question
+                // and the session survived it.
+                if (!answeredAPrompt)
+                {
+                    await telnet.SendAsync([]);
+                    await SettleAsync(telnet, Arrived, bannerLines, _options.QuietPeriod, budget.Token);
+                }
+
                 flushLines = whoLines = infoLines = versionLines = Arrived();
 
                 // Asking a socket that has already been closed is not asking. A write to a peer that

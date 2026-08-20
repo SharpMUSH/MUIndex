@@ -121,19 +121,11 @@ public static partial class LoginPromptGate
     /// </remarks>
     private static LoginPromptAnswer? ClassifyWhoMenu(string bannerSoFar)
     {
-        var lines = bannerSoFar
-            .Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Replace('\r', '\n')
-            .Split('\n')
-            .Select(BannerText.Flatten)
-            .Where(line => line.Length > 0);
-
-        foreach (var line in lines)
+        foreach (var (token, label) in MenuOptions(bannerSoFar))
         {
-            var option = WhoMenuOptionLinePattern().Match(line);
-            if (option.Success)
+            if (WhoLabelPattern().IsMatch(label))
             {
-                return new LoginPromptAnswer(option.Groups["token"].Value, LoginPromptCategory.WhoMenu);
+                return new LoginPromptAnswer(token, LoginPromptCategory.WhoMenu);
             }
         }
 
@@ -153,6 +145,37 @@ public static partial class LoginPromptGate
     /// </remarks>
     private static LoginPromptAnswer? ClassifyCharsetMenu(string bannerSoFar)
     {
+        foreach (var (token, label) in MenuOptions(bannerSoFar))
+        {
+            if (Utf8LabelPattern().IsMatch(label))
+            {
+                return new LoginPromptAnswer(token, LoginPromptCategory.Charset);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Every <c>(token, label)</c> pair a menu offers, read one line at a time.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A label runs from the end of its own token to the start of the next one, which is the whole
+    /// point: several real menus put every option on one line — <c>batmud.bat.org:23</c> prints
+    /// <c>2 - visit the game    w - who is playing at the moment</c> and <c>zombiemud.org:3000</c>
+    /// prints <c>[C]reate a new character     [W]ho is playing</c>. Reading the line as one string and
+    /// searching it for a keyword picks the *first* token on it, so both games were sent the token for
+    /// the option before the one meant — measured live, and the reason this segments rather than scans.
+    /// </para>
+    /// <para>
+    /// Lines are flattened individually rather than as one blob, unlike every other category here:
+    /// <see cref="BannerText.Flatten"/> collapses newlines into spaces, which would run every option
+    /// of a one-per-line menu together into a single label.
+    /// </para>
+    /// </remarks>
+    private static IEnumerable<(string Token, string Label)> MenuOptions(string bannerSoFar)
+    {
         var lines = bannerSoFar
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Replace('\r', '\n')
@@ -162,14 +185,29 @@ public static partial class LoginPromptGate
 
         foreach (var line in lines)
         {
-            var option = CharsetOptionLinePattern().Match(line);
-            if (option.Success && Utf8LabelPattern().IsMatch(option.Groups["label"].Value))
+            var tokens = MenuTokenPattern().Matches(line);
+
+            for (var at = 0; at < tokens.Count; at++)
             {
-                return new LoginPromptAnswer(option.Groups["token"].Value, LoginPromptCategory.Charset);
+                var token = tokens[at].Groups["token"].Value;
+                var labelFrom = tokens[at].Index + tokens[at].Length;
+                var labelTo = at + 1 < tokens.Count ? tokens[at + 1].Index : line.Length;
+
+                if (labelTo <= labelFrom)
+                {
+                    continue;
+                }
+
+                var label = line[labelFrom..labelTo];
+
+                // "[W]ho is playing" — the bracketed letter is the token *and* the first letter of the
+                // label's own first word, so on its own the label reads "ho is playing" and matches
+                // nothing. Nothing separates them, which is what says to put the word back together.
+                yield return (
+                    token,
+                    tokens[at].Groups["gap"].Length == 0 ? token + label : label);
             }
         }
-
-        return null;
     }
 
     /// <summary>
@@ -220,28 +258,38 @@ public static partial class LoginPromptGate
         RegexOptions.IgnoreCase)]
     private static partial Regex AgeGatePattern();
 
-    // "7. UTF-8" / "[7] UTF-8" / "7) UTF-8 encoding" — a short leading token introducing a label.
-    [GeneratedRegex(@"^\[?(?<token>[0-9]{1,2}|[A-Za-z])[\]\).:]\s*[-:]?\s*(?<label>.+)$")]
-    private static partial Regex CharsetOptionLinePattern();
+    /// <summary>
+    /// How a menu introduces one option: a token — a single letter, or one or two digits — set off by
+    /// a bracket, a full stop, a colon, or a spaced dash.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not anchored to the start of a line, so the options of a one-line menu are all
+    /// found; the lookbehind (no letter or digit immediately before the token) is what keeps it from
+    /// matching inside a word instead. Digits are admitted because both menu kinds use them —
+    /// charset menus almost always, and <c>eternitymud.com:23</c>/<c>taurosmud.com:5005</c> number
+    /// their who's-online option rather than lettering it.
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?<![\p{L}\p{N}])[\[\(]?(?<token>[0-9]{1,2}|[A-Za-z])(?:[\]\).:]|\s+-)(?<gap>[\s.]*)")]
+    private static partial Regex MenuTokenPattern();
 
     [GeneratedRegex(@"\bUTF-?8\b", RegexOptions.IgnoreCase)]
     private static partial Regex Utf8LabelPattern();
 
-    // "w - who is playing at the moment" / "W - See who is online" / "U - Short list of who is
-    // on-line" / "2. who is playing" / "[2]....See who is currently logged in." / "[4] List immortals
-    // online who can help" — a menu token (a single letter, or one/two digits — charset menus use
-    // digits too, and eternitymud-com/tauros-rebirth number their who's-online option rather than
-    // lettering it), then a label about who is connected. Not anchored to the start of the line —
-    // several real menus (e.g. daedal-macabre's "(N)ew  (C)onnect  (W)ho is online  (Q)uit") pack every
-    // option onto one line, so the token's own boundary (no letter/digit immediately before it) is what
-    // stops this matching mid-word instead of position. "Who" and the connectivity word are matched as
-    // two independent lookaheads rather than one ordered sequence, because legendmud's real label puts
-    // them the other way round ("...online who can help").
+    /// <summary>
+    /// A menu label that offers to show who is connected — "who is playing at the moment", "See who is
+    /// online", "Short list of who is on-line", "List immortals online who can help".
+    /// </summary>
+    /// <remarks>
+    /// Both halves are required and their order is not: the label must name <c>who</c> <em>and</em> a
+    /// connectivity word, because either alone is an ordinary English word a non-menu label uses
+    /// freely. <c>legendmud.org:9999</c> puts them the other way round ("...online who can help"),
+    /// which is why this is two independent lookaheads rather than one sequence.
+    /// </remarks>
     [GeneratedRegex(
-        @"(?<![\p{L}\p{N}])[\[\(]?(?<token>[0-9]{1,2}|[A-Za-z])(?:[\]\).:]|\s+-\s*)[\s.]*"
-        + @"(?=.{0,40}\bwho\b)(?=.{0,40}\b(?:online|playing|on[- ]?line|logged\s*(?:in|on))\b)",
+        @"^(?=.*\bwho\b)(?=.*\b(?:online|playing|on[- ]?line|logged\s*(?:in|on))\b)",
         RegexOptions.IgnoreCase)]
-    private static partial Regex WhoMenuOptionLinePattern();
+    private static partial Regex WhoLabelPattern();
 }
 
 /// <summary>Which kind of pre-login question or menu a screen turned out to be.</summary>

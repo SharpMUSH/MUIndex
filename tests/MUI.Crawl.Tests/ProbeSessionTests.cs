@@ -343,6 +343,42 @@ public class ProbeSessionTests
     }
 
     /// <summary>
+    /// A gated DIKU must not lose its <c>WHO</c> to the flush line that answering the gate made
+    /// redundant.
+    /// </summary>
+    /// <remarks>
+    /// Measured against <c>mud.arcadia.net:4000</c>, which asks a colour question and is a DIKU
+    /// descendant. Before the prompt loop existed, the flush line *was* the answer to the question, so
+    /// the session survived it and <c>WHO</c> was asked. Once the loop answers with an explicit "y",
+    /// the game paints its screen and sits at its name prompt — where the flush that follows is read
+    /// as a goodbye, and the probe recorded <c>NotAsked</c> where it used to record an attempt. The
+    /// answer already flushed the negotiation residue the flush line exists for, so sending a second
+    /// one buys nothing and costs the count.
+    /// </remarks>
+    [Test]
+    public async Task AnsweringAGateSpendsTheFlushSoADikuKeepsItsWho()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "Do you want ANSI? (Y/n) ",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["y"] = "Welcome to Arcadia!\r\nBy what name shall you be known? ",
+            },
+            HangsUpOnBlankLine = true,
+            WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Banner).Contains("Welcome to Arcadia!");
+
+        // The session is still alive to be asked, because no blank line went to the name prompt.
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Count);
+        await Assert.That(result.Who.Count).IsEqualTo(7);
+    }
+
+    /// <summary>
     /// Answering a charset menu's UTF-8 option is a request, not a fact — WireEncoding still
     /// independently proves the encoding from the bytes that actually arrive afterward (rule 5).
     /// </summary>
