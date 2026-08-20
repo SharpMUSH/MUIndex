@@ -493,13 +493,19 @@ look and find nothing, so keying on its existence reports every game as negotiat
 
 ### The conditional skip, implemented and measured — 2026-08-20
 
-The flush is now withheld from a server that has **positively demonstrated** it parsed our
-negotiation, and sent to every other. Two things count as demonstration: a prompt answer already went
-out on this session (that line did the flushing), or a protocol was observed active — `Observations.Supported`, the internal set that
-reaches callers as `ProbeResult.OfferedOptions`.
+The flush is now withheld from a server that has **reported active protocol activity**, and sent to
+every other. Two things count: a prompt answer already went out on this session (that line did the
+flushing), or a protocol was observed active — `Observations.Supported`, the internal set that reaches
+callers as `ProbeResult.OfferedOptions`.
 
-Isolated crawl of exactly the affected population — the 35 games that answered, negotiated a
-protocol, and had never been asked `WHO` because the flush ended the session first:
+That is evidence of parsing, not proof of it, and the distinction is the caveat at the end of this
+section rather than a quibble: the signal is *activity we happened to observe by then*, so a server
+that parses telnet perfectly well but announces nothing early is indistinguishable from one that
+parses nothing, and is flushed.
+
+Isolated crawl of exactly the affected population — 35 crawl targets across **34 games** (one game is
+listed on two endpoints) that answered, negotiated a protocol, and had never been asked `WHO` because
+the flush ended the session first:
 
 | after | games |
 |---|---|
@@ -508,8 +514,8 @@ protocol, and had never been asked `WHO` because the flush ended the session fir
 | **counted** | **2** |
 | `who_not_offered` — still never asked | 12 |
 
-**22 of 35 now reach `WHO`, two of them yielding a player count, and nothing was lost** — every one of
-the 35 already had no count to lose. A separate 250-game random crawl over the same build lost two
+**22 of the 34 now reach `WHO`, two of them yielding a player count, and nothing was lost** — every one
+of them already had no count to lose. A separate 250-game random crawl over the same build lost two
 counts, both `coffeemud.net` ports, and both returned `PLAYERS = 17` when probed alone: that is our
 own concurrency against five ports of one host, not the change.
 
