@@ -995,6 +995,24 @@ pre.plain { white-space: pre-wrap; font-size: var(--fs-sm2); line-height: 1.6; c
 .page-flow { display: flex; flex-direction: column; gap: 22px; }
 
 /*
+  On a standard desktop screen, the feed lists fill exactly what is left below the fold rather than
+  push the page taller than one viewport — the row count varies with real data (a longer run of
+  names, a wider font), so a fixed row cap alone can't guarantee that the way a CSS constraint can.
+  Past that height .feeds scrolls within itself (overflow-y, not hidden — nothing becomes unreachable,
+  it just stops pushing everything below it off the bottom of the screen). Narrower than the
+  breakpoint, the page scrolls as a whole the way every other page on the site does; the "standard
+  full desktop view" this is scoped to is exactly the width where that trade reads as a page fitting
+  the screen rather than as a box within a box. main:has(> .card-page) above is the same :has()
+  scoping already in use for a page-specific override, so a home-page wrapper class was not needed.
+*/
+@media (min-width: 56.3125em) {
+    .shell:has(main > .page-flow) { display: flex; flex-direction: column; height: 100dvh; }
+    .shell:has(main > .page-flow) main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+    .shell:has(main > .page-flow) .page-flow { flex: 1 1 auto; min-height: 0; }
+    .shell:has(main > .page-flow) .feeds { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+}
+
+/*
   The heading runs to whatever width it has. It carried a 24ch clamp, which broke "A directory of
   the MU* hobby" across two lines at every width including 1440 — a measure is for paragraphs, and
   this is one short line whose whole job is to be read at a glance.
