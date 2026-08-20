@@ -169,6 +169,14 @@ public static class Render
 
             return await inner.RankingsAsync(span, cancellationToken);
         }
+
+        public async Task<IReadOnlyList<RecentGameChange>> RecentFieldChangesAsync(
+            int limit, int perGameLimit = 3, CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+
+            return await inner.RecentFieldChangesAsync(limit, perGameLimit, cancellationToken);
+        }
     }
 
     /// <summary>
@@ -258,6 +266,11 @@ public static class Render
     {
         var services = new ServiceCollection();
         services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
+
+        // A component that injects ILogger<TComponent> directly (rather than taking ILoggerFactory
+        // and calling CreateLogger itself) needs the generic closed over its own type resolvable —
+        // ILoggerFactory alone does not make that resolution happen.
+        services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         configure?.Invoke(services);
         await using var provider = services.BuildServiceProvider();
 

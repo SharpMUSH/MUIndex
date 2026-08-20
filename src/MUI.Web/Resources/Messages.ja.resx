@@ -522,9 +522,6 @@
   <data name="facet.anyValue" xml:space="preserve">
     <value>問わない</value>
   </data>
-  <data name="facet.more" xml:space="preserve">
-    <value>他のフィルター（{count}）</value>
-  </data>
   <data name="facet.moreValues" xml:space="preserve">
     <value>{count, plural, other {他#件}}</value>
   </data>

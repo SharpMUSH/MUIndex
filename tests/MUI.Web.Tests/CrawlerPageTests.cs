@@ -1,7 +1,10 @@
 using MUI.Web.Localization;
 
+using Microsoft.AspNetCore.Http;
+
 using MUI.Catalog;
 using MUI.Web.Components;
+using MUI.Web.Components.Layout;
 using MUI.Web.Data;
 using MUI.Web.Fixtures;
 using Microsoft.Extensions.DependencyInjection;
@@ -141,6 +144,135 @@ public class CrawlerPageTests
         await Assert.That(response.StatusCode).IsEqualTo(System.Net.HttpStatusCode.OK);
     }
 
+    /// <summary>The status page draws what changed recently and what is queued next, each with its own heading.</summary>
+    [Test]
+    public async Task ThePageDrawsRecentChangesAndDueTargets()
+    {
+        var pulse = Pulse(Cycle(1, 1, 1, 0, 0, 0));
+        var stub = new StubCrawlerPulse(pulse, [Cycle(1, 1, 1, 0, 0, 0)])
+        {
+            Due = [new DueTarget("soonest.example", 4201, Now.AddMinutes(-2))],
+        };
+
+        var html = await Render.ComponentAsync<Components.Pages.Crawler>(
+            new Dictionary<string, object?>(),
+            services =>
+            {
+                services.AddSingleton<ICrawlerPulse>(stub);
+                services.AddSingleton<TimeProvider>(new FixedClock(Now));
+                services.AddSingleton<IGameQueries>(new StubChangeQueries(
+                    new RecentGameChange(
+                        Guid.NewGuid(), "m-u-s-h", "M*U*S*H", "CODEBASE", FieldSource.Mssp,
+                        "PennMUSH 1.8.7p0", "PennMUSH 1.8.8p0", Now.AddMinutes(-4))));
+            });
+
+        var text = Render.Text(html);
+
+        await Assert.That(text).Contains("M*U*S*H");
+        await Assert.That(text).Contains("PennMUSH 1.8.7p0");
+        await Assert.That(text).Contains("PennMUSH 1.8.8p0");
+        await Assert.That(text).Contains("soonest.example:4201");
+    }
+
+    /// <summary>The page draws went-dark and came-back too, the two liveness feeds Home no longer carries.</summary>
+    [Test]
+    public async Task ThePageDrawsWentDarkAndCameBack()
+    {
+        var pulse = Pulse(Cycle(1, 1, 1, 0, 0, 0));
+        var dark = new FeedEntry(Guid.NewGuid(), "verdigris", "Verdigris", Now.AddHours(-3), "connection refused");
+        var back = new FeedEntry(Guid.NewGuid(), "aardwolf", "Aardwolf MUD", Now.AddMinutes(-40), string.Empty);
+
+        var html = await Render.ComponentAsync<Components.Pages.Crawler>(
+            new Dictionary<string, object?>(),
+            services =>
+            {
+                services.AddSingleton<ICrawlerPulse>(new StubCrawlerPulse(pulse, [Cycle(1, 1, 1, 0, 0, 0)]));
+                services.AddSingleton<TimeProvider>(new FixedClock(Now));
+                services.AddSingleton<IGameQueries>(new StubChangeQueries
+                {
+                    Feeds = new LivenessFeeds([], [dark], [back]),
+                });
+            });
+
+        var text = Render.Text(html);
+
+        await Assert.That(text).Contains(Messages.For(Locales.SourceTag, "feed.wentDark"));
+        await Assert.That(text).Contains(Messages.For(Locales.SourceTag, "feed.cameBack"));
+        await Assert.That(text).Contains("Verdigris");
+        await Assert.That(text).Contains("connection refused");
+        await Assert.That(text).Contains("Aardwolf MUD");
+    }
+
+    /// <summary>Absent, not a fabricated "nothing changed" claim with an implied cause.</summary>
+    [Test]
+    public async Task WithNothingRecentOrDueThePageSaysSoRatherThanShowingEmptyLists()
+    {
+        var pulse = Pulse(Cycle(1, 1, 1, 0, 0, 0));
+
+        var html = await Render.ComponentAsync<Components.Pages.Crawler>(
+            new Dictionary<string, object?>(),
+            services =>
+            {
+                services.AddSingleton<ICrawlerPulse>(new StubCrawlerPulse(pulse, [Cycle(1, 1, 1, 0, 0, 0)]));
+                services.AddSingleton<TimeProvider>(new FixedClock(Now));
+                services.AddSingleton<IGameQueries>(new StubChangeQueries());
+            });
+
+        await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "crawler.recent.empty"));
+        await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "crawler.due.empty"));
+        await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "feed.nothingDark"));
+        await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "feed.nothingBack"));
+    }
+
+    /// <summary>A failed catalogue query costs the page one section, never the whole render.</summary>
+    [Test]
+    public async Task AFailedQueryCostsThePageOneSectionRatherThanFailingTheWholeRender()
+    {
+        var pulse = Pulse(Cycle(1, 1, 1, 0, 0, 0));
+
+        var html = await Render.ComponentAsync<Components.Pages.Crawler>(
+            new Dictionary<string, object?>(),
+            services =>
+            {
+                services.AddSingleton<ICrawlerPulse>(new StubCrawlerPulse(pulse, [Cycle(1, 1, 1, 0, 0, 0)])
+                {
+                    Due = [new DueTarget("soonest.example", 4201, Now.AddMinutes(-2))],
+                });
+                services.AddSingleton<TimeProvider>(new FixedClock(Now));
+                services.AddSingleton<IGameQueries>(new StubChangeQueries { ThrowOnRecentFieldChanges = true, ThrowOnFeeds = true });
+            });
+
+        // The two sections a failed IGameQueries costs the page read as "nothing found", the same
+        // words an empty-but-successful answer uses — not an error, since our own query failing is not
+        // a fact about the games (rule 5).
+        await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "crawler.recent.empty"));
+        await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "feed.nothingDark"));
+
+        // What the crawler pulse itself answered survives a catalogue query failing beside it.
+        await Assert.That(html).Contains("soonest.example:4201");
+    }
+
+    /// <summary>The nav offers the crawler page directly, where went dark/came back moved to.</summary>
+    [Test]
+    public async Task TheNavOffersTheCrawlerPageAlongsideTheOtherBrowseDestinations()
+    {
+        var markup = await Render.ComponentAsync<MainLayout>(new Dictionary<string, object?>(), services =>
+        {
+            services.AddSingleton(new CatalogueSource(IsMeasured: true));
+            services.AddCascadingValue(_ =>
+            {
+                var context = new DefaultHttpContext();
+
+                context.Request.Path = "/games";
+
+                return (HttpContext)context;
+            });
+        });
+
+        await Assert.That(markup).Contains("href=\"/crawler\"");
+        await Assert.That(Render.Words(markup)).Contains(Messages.For(Locales.SourceTag, "nav.crawler"));
+    }
+
     /// <summary>The plain mirror carries the same facts as the rendered page.</summary>
     [Test]
     public async Task ThePlainRenderingCarriesTheSameFacts()
@@ -161,11 +293,14 @@ public class CrawlerPageTests
             {
                 services.AddSingleton(pulse);
                 services.AddSingleton<TimeProvider>(new FixedClock(Now));
+                services.AddSingleton<IGameQueries>(new FixtureGameQueries());
             });
 
     /// <summary>A fixed pulse and a fixed history, so a test controls both without a database.</summary>
     private sealed class StubCrawlerPulse(CrawlerPulse pulse, IReadOnlyList<CrawlCycleRecord> recent) : ICrawlerPulse
     {
+        public IReadOnlyList<DueTarget> Due { get; init; } = [];
+
         public Task<CrawlerPulse> ReadAsync(DateTimeOffset now, CancellationToken cancellationToken = default) =>
             Task.FromResult(pulse);
 
@@ -173,5 +308,53 @@ public class CrawlerPageTests
             int count,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(recent);
+
+        public Task<IReadOnlyList<DueTarget>> DueSoonAsync(
+            DateTimeOffset now,
+            int count,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Due);
+    }
+
+    /// <summary>Answers only <see cref="RecentFieldChangesAsync"/> and <see cref="FeedsAsync"/>, which is all this page asks of it.</summary>
+    private sealed class StubChangeQueries(params RecentGameChange[] changes) : IGameQueries
+    {
+        public LivenessFeeds Feeds { get; init; } = new([], [], []);
+
+        public bool ThrowOnRecentFieldChanges { get; init; }
+
+        public bool ThrowOnFeeds { get; init; }
+
+        public Task<IReadOnlyList<RecentGameChange>> RecentFieldChangesAsync(
+            int limit, int perGameLimit = 3, CancellationToken cancellationToken = default) =>
+            ThrowOnRecentFieldChanges
+                ? throw new InvalidOperationException("simulated database failure")
+                : Task.FromResult<IReadOnlyList<RecentGameChange>>(changes);
+
+        public Task<LivenessFeeds> FeedsAsync(CancellationToken ct = default) =>
+            ThrowOnFeeds
+                ? throw new InvalidOperationException("simulated database failure")
+                : Task.FromResult(Feeds);
+
+        public Task<GameListing> SearchAsync(GameFilter filter, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<GameSummary>> ListAsync(GameFilter filter, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<GamePage?> FindAsync(string slug, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<GamePage?> FindAsync(Guid id, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<GameSummary?> FindByIdAsync(Guid id, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<EcosystemDashboard> EcosystemAsync(CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<Rankings> RankingsAsync(RankingSpan span = RankingSpan.Week, CancellationToken ct = default) =>
+            throw new NotSupportedException();
     }
 }

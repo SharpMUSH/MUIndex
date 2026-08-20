@@ -318,6 +318,20 @@ public static class RankingSpans
 public sealed record BusiestGame(string Slug, string Name, int Median, int Peak, int Samples, int Days = 0);
 
 /// <summary>
+/// One game trending up over its own measured history (<see cref="GrowthTrend.Span"/>) — always that
+/// fitted trend, unlike <see cref="BusiestGame"/> which reads whichever span the selector asks for.
+/// </summary>
+/// <remarks>
+/// <see cref="EarliestMedian"/> and <see cref="LatestMedian"/> are the real measured endpoints of the
+/// series a trend was fit through, not the fitted line's own predicted values — carried so a board
+/// that only said "up" isn't repeating the listing row's arrow, and so a reader can see the two real
+/// numbers behind the claim rather than a derived statistic dressed as one. <see cref="Change"/> is
+/// the fitted line's own reading, computed once by <see cref="GrowthTrend.ChangeFraction"/> so the
+/// board's order can never disagree with the arrow's classification of the same series.
+/// </remarks>
+public sealed record TrendingGame(string Slug, string Name, int EarliestMedian, int LatestMedian, double Change);
+
+/// <summary>
 /// A game's current unbroken run of measured reachability.
 /// </summary>
 /// <remarks>
@@ -347,7 +361,14 @@ public sealed record Rankings(
     int ListedGames,
     int Eligible,
     IReadOnlyList<BusiestGame> Busiest,
-    IReadOnlyList<ReachableSpell> LongestUnbroken)
+    IReadOnlyList<ReachableSpell> LongestUnbroken,
+
+    /// <summary>
+    /// The top gainers this week against last week — always the week span, unlike
+    /// <see cref="Busiest"/>, since "trending" is inherently a fresh-vs-recent comparison and a
+    /// 90-day version of it would be answering a different question under the same word.
+    /// </summary>
+    IReadOnlyList<TrendingGame> TrendingThisWeek)
 {
     /// <summary>Which of the three windows this table was computed over.</summary>
     /// <remarks>
@@ -360,5 +381,5 @@ public sealed record Rankings(
     public int MinimumDays => Span.MinimumDays();
 
     public static Rankings Empty(DateTimeOffset asOf, TimeSpan window, int minimumSamples) =>
-        new(asOf, window, minimumSamples, 0, 0, [], []);
+        new(asOf, window, minimumSamples, 0, 0, [], [], []);
 }

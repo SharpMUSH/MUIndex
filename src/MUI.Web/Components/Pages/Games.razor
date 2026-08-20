@@ -84,8 +84,13 @@ else
                     }
                 </nav>
 
-                @* Column names said once, here, rather than repeated on every row. *@
-                <p class="kicker column-head" aria-hidden="true">@Messages.For(Tag, "listing.columns")</p>
+                @* Column names said once, here, rather than repeated on every row. Decorative — a
+                   screen reader gets the same names per row instead (each cell's own sr-only label),
+                   so this exists for a sighted reader scanning the head, and has to name what that
+                   reader actually sees below it: the trend column added beside the count, and the
+                   last column reading as a discovery date rather than "reached" while that sort is
+                   active. *@
+                <p class="kicker column-head" aria-hidden="true">@ColumnsHeading()</p>
             </div>
         </div>
 
@@ -209,16 +214,52 @@ else
                             <span class="sr-only">@Messages.For(Tag, "listing.row.connected")&#160;</span>@CountText(g)
                         </p>
 
-                        @* Never-reached is its own sentence, never dated from our first sighting. *@
+                        @* Its own column, same grid row as row-count rather than falling to an
+                           implicit row below it (row-main's grid-template-columns carries four now,
+                           not three) — a reader scans the row once, left to right, rather than
+                           finding the count and then hunting a line down for what it did lately. The
+                           fitted line's own percentage is the value shown, not just its direction: a
+                           bare glyph said "up" without saying by how much. *@
+                        @if (g.Growth is { } growth)
+                        {
+                            <p class="row-trend @TrendState(growth)" role="img"
+                               aria-label="@TrendLabel(growth, g.GrowthChange)"
+                               title="@FacetWords.TrendingWord(Tag, growth)">
+                                @TrendGlyph(growth)@if (g.GrowthChange is { } change)
+                                {
+                                    <text>&#160;@TrendPercent(change)</text>
+                                }
+                            </p>
+                        }
+
+                        @* Never-reached is its own sentence, never dated from our first sighting.
+                           The column reads whichever date the active sort ranks on — reached by
+                           default, first-seen while sorting by discovery — rather than showing
+                           reached even when the row order says something else. *@
                         <p class="row-seen mono">
-                            <span class="sr-only">@Messages.For(Tag, "listing.row.reached")&#160;</span>
-                            @if (g.LastReachableAt is { } seen)
+                            @if (Filter.Sort == GameSort.Discovered)
                             {
-                                <Moment At="seen" Now="Now" />
+                                <span class="sr-only">@Messages.For(Tag, "listing.row.discovered")&#160;</span>
+                                @if (g.FirstSeenAt is { } discovered)
+                                {
+                                    <Moment At="discovered" Now="Now" />
+                                }
+                                else
+                                {
+                                    <span class="state-unknown">@Messages.For(Tag, "listing.never")</span>
+                                }
                             }
                             else
                             {
-                                <span class="state-unknown">@Messages.For(Tag, "listing.never")</span>
+                                <span class="sr-only">@Messages.For(Tag, "listing.row.reached")&#160;</span>
+                                @if (g.LastReachableAt is { } seen)
+                                {
+                                    <Moment At="seen" Now="Now" />
+                                }
+                                else
+                                {
+                                    <span class="state-unknown">@Messages.For(Tag, "listing.never")</span>
+                                }
                             }
                         </p>
                     </div>
@@ -248,6 +289,10 @@ else
     private DateTimeOffset Now => Clock.GetUtcNow();
 
     private GameFilter Filter { get; set; } = new();
+
+    /// <summary>Names the columns a sighted reader actually sees below it — see the caller's own comment.</summary>
+    private string ColumnsHeading() => Messages.For(
+        Tag, Filter.Sort == GameSort.Discovered ? "listing.columns.discovered" : "listing.columns");
 
     private GameListing Listing { get; set; } = GameListing.Empty;
 
@@ -289,6 +334,7 @@ else
         new(GameSort.PeakWeek, Messages.For(Tag, "switch.peak")),
         new(GameSort.Name, Messages.For(Tag, "switch.name"), Rule: true),
         new(GameSort.Reached, Messages.For(Tag, "switch.reached")),
+        new(GameSort.Discovered, Messages.For(Tag, "switch.discovered")),
     ];
 
     /// <summary>
@@ -354,6 +400,41 @@ else
     /// <summary>The span and the sample tally behind a statistic, in the row's own machine voice.</summary>
     private static string Sampled(PresenceWindow window) =>
         $"{window.Window.TotalDays:0}d · {window.Samples} count{(window.Samples == 1 ? string.Empty : "s")}";
+
+    /// <summary>
+    /// The growth arrow's shape. A triangle rather than an ASCII arrow, so it reads at the row's own
+    /// small size without anti-aliasing into a smudge the way ↑/↓ can at 13px.
+    /// </summary>
+    private static string TrendGlyph(GrowthDirection direction) => direction switch
+    {
+        GrowthDirection.Up => "▲",
+        GrowthDirection.Down => "▼",
+        _ => "●",
+    };
+
+    private static string TrendState(GrowthDirection direction) => direction switch
+    {
+        GrowthDirection.Up => "up",
+        GrowthDirection.Down => "down",
+        _ => "steady",
+    };
+
+    /// <summary>The fitted line's own reading, signed rather than only coloured — a screen reader has no colour.</summary>
+    private static string TrendPercent(double change)
+    {
+        var percent = (int)Math.Round(change * 100);
+
+        return percent > 0 ? $"+{percent}%" : $"{percent}%";
+    }
+
+    /// <summary>
+    /// The accessible name for the trend cell — the direction word alone said "trending up" and left
+    /// the number a sighted reader sees right beside it unannounced.
+    /// </summary>
+    private string TrendLabel(GrowthDirection growth, double? change) =>
+        change is { } value
+            ? $"{FacetWords.TrendingWord(Tag, growth)}, {TrendPercent(value)}"
+            : FacetWords.TrendingWord(Tag, growth);
 
     protected override async Task OnParametersSetAsync()
     {

@@ -1,6 +1,8 @@
 @page "/crawler"
 @inject ICrawlerPulse Pulses
+@inject IGameQueries Queries
 @inject TimeProvider Clock
+@inject ILogger<Crawler> Logger
 
 @*
     /crawler used to be a 302 to About's crawler-identity section — deliberately a redirect rather
@@ -14,7 +16,7 @@
 
 @if (Plain)
 {
-    <pre class="mono plain">@PlainText.RenderCrawler(Tag, Pulse, Recent, Now)</pre>
+    <pre class="mono plain">@PlainText.RenderCrawler(Tag, Pulse, Recent, RecentChanges, DueSoon, Feeds, Now)</pre>
 }
 else
 {
@@ -64,6 +66,73 @@ else
                     }
                 </ul>
             }
+
+            <h2 class="kicker">@L("crawler.liveness.title")</h2>
+            <p class="faint">@L("crawler.liveness.lede")</p>
+
+            <div class="feeds">
+                <section class="feed feed-dark" aria-labelledby="feed-dark">
+                    <h3 id="feed-dark" class="kicker">@L("feed.wentDark")</h3>
+                    @if (Feeds.WentDark.Count == 0)
+                    {
+                        <p class="faint">@L("feed.nothingDark")</p>
+                    }
+                    @foreach (var entry in Feeds.WentDark)
+                    {
+                        <FeedCard Entry="entry" Kind="FeedKind.WentDark" Now="Now" ShowRegister="false" />
+                    }
+                </section>
+
+                <section class="feed feed-lit" aria-labelledby="feed-back">
+                    <h3 id="feed-back" class="kicker">@L("feed.cameBack")</h3>
+                    @if (Feeds.CameBack.Count == 0)
+                    {
+                        <p class="faint">@L("feed.nothingBack")</p>
+                    }
+                    @foreach (var entry in Feeds.CameBack)
+                    {
+                        <FeedCard Entry="entry" Kind="FeedKind.CameBack" Now="Now" ShowRegister="false" />
+                    }
+                </section>
+            </div>
+
+            <h2 class="kicker">@L("crawler.recent.title")</h2>
+            <p class="faint">@L("crawler.recent.lede")</p>
+
+            @if (RecentChanges.Count == 0)
+            {
+                <p class="faint">@L("crawler.recent.empty")</p>
+            }
+            else
+            {
+                <ul class="mono">
+                    @foreach (var change in RecentChanges)
+                    {
+                        <li>
+                            @Dates.Stamp(Tag, change.At) —
+                            <a href="@Http.Link($"/g/{change.Slug}")">@change.Name</a>
+                            @change.Field: @(change.OldValue is { } old ? $"{old} → {change.NewValue}" : change.NewValue)
+                        </li>
+                    }
+                </ul>
+            }
+
+            <h2 class="kicker">@L("crawler.due.title")</h2>
+            <p class="faint">@L("crawler.due.lede")</p>
+
+            @if (DueSoon.Count == 0)
+            {
+                <p class="faint">@L("crawler.due.empty")</p>
+            }
+            else
+            {
+                <ul class="mono">
+                    @foreach (var target in DueSoon)
+                    {
+                        <li>@Dates.Stamp(Tag, target.NextProbeAt) — @($"{target.Host}:{target.Port}")</li>
+                    }
+                </ul>
+            }
         }
     </section>
 }
@@ -86,11 +155,39 @@ else
 
     private IReadOnlyList<CrawlCycleRecord> Recent = [];
 
+    private IReadOnlyList<RecentGameChange> RecentChanges = [];
+
+    private IReadOnlyList<DueTarget> DueSoon = [];
+
+    private LivenessFeeds Feeds = new([], [], []);
+
     protected override async Task OnParametersSetAsync()
     {
-        // Neither call can throw: both answer the demo-safe fallback (Unknown / empty) for a missing
-        // table or a failed query, so this page never costs a reader a 500.
+        // The three Pulses calls answer their own demo-safe fallback (Unknown / empty) for a missing
+        // table or a failed query — see StoredCrawlerPulse. The two IGameQueries calls have no such
+        // wrapper (production is NpgsqlGameQueries, and a query failing there throws), so they are
+        // caught here on the same terms: a failed section reads as "nothing found", never a 500 for
+        // the whole page over one section's query.
         Pulse = await Pulses.ReadAsync(Now);
         Recent = await Pulses.RecentAsync(10);
+        DueSoon = await Pulses.DueSoonAsync(Now, 10);
+
+        try
+        {
+            RecentChanges = await Queries.RecentFieldChangesAsync(10);
+        }
+        catch (Exception error)
+        {
+            Logger.LogWarning(error, "Could not read the crawler's recent field changes; the status page omits them");
+        }
+
+        try
+        {
+            Feeds = await Queries.FeedsAsync();
+        }
+        catch (Exception error)
+        {
+            Logger.LogWarning(error, "Could not read the crawler's liveness feeds; the status page omits them");
+        }
     }
 }

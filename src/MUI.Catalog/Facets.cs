@@ -71,6 +71,9 @@ public static class FacetKeys
 
     public const string Genre = "genre";
 
+    /// <summary>This week's median against last week's — ours, not a claim from the game (spec §5).</summary>
+    public const string Trending = "trending";
+
     /// <summary>
     /// Games we reached and hold no readable count for — <b>never games we counted at nought</b>.
     /// </summary>
@@ -131,6 +134,9 @@ public enum GameSort
 
     /// <summary>Most recently reached first.</summary>
     Reached,
+
+    /// <summary>Most recently discovered first — when we first saw this address, not when it answered.</summary>
+    Discovered,
 
     /// <summary>Highest median count over the last 7 days, first.</summary>
     MedianWeek,
@@ -243,6 +249,7 @@ public static class GameSorting
         {
             GameSort.Players => game.PlayersNow is null,
             GameSort.Reached => game.LastReachableAt is null,
+            GameSort.Discovered => game.FirstSeenAt is null,
             _ => false,
         };
     }
@@ -252,15 +259,20 @@ public static class GameSorting
         ArgumentNullException.ThrowIfNull(games);
 
         // Ranked before unranked always, then the sort's own key, then name — a total order so
-        // identical requests don't reshuffle. Each key reads zero for sorts it doesn't belong to;
-        // that's safe only because unranked games are already pushed below ranked ones by the first
-        // clause — zero here means "this sort ignores this column," never "measured nothing."
+        // identical requests don't reshuffle. Each key reads zero (or MinValue) for sorts it doesn't
+        // belong to; that's safe only because unranked games are already pushed below ranked ones by
+        // the first clause — zero here means "this sort ignores this column," never "measured
+        // nothing." Reached and Discovered share one date-typed clause since exactly one is active at
+        // a time.
         var ordered = games
             .OrderBy(g => IsUnranked(g, sort) ? 1 : 0)
             .ThenByDescending(g => sort is GameSort.Players ? g.PlayersNow ?? 0 : 0)
-            .ThenByDescending(g => sort is GameSort.Reached
-                ? g.LastReachableAt ?? DateTimeOffset.MinValue
-                : DateTimeOffset.MinValue)
+            .ThenByDescending(g => sort switch
+            {
+                GameSort.Reached => g.LastReachableAt ?? DateTimeOffset.MinValue,
+                GameSort.Discovered => g.FirstSeenAt ?? DateTimeOffset.MinValue,
+                _ => DateTimeOffset.MinValue,
+            })
             .ThenByDescending(g => Ranked(g, sort))
             .ThenBy(g => g.Name, StringComparer.OrdinalIgnoreCase);
 
@@ -581,7 +593,10 @@ public sealed record GameFacetRow(
     /// (see <see cref="FacetKeys.Unreachable"/>). A game never reached is included here; the
     /// last-seen facet is where that stays separately visible as <see cref="LastSeenBand.Never"/>.
     /// </remarks>
-    bool Unreachable);
+    bool Unreachable,
+
+    /// <summary>This week's median against last week's (<see cref="FacetKeys.Trending"/>).</summary>
+    GrowthDirection? Growth = null);
 
 /// <summary>
 /// Turns a filter and a set of games into the listing plus every facet's counts.
@@ -605,7 +620,7 @@ public static class FacetedSearch
     /// that needs this cap now: a reader scanning for a codebase wants families; one wanting a
     /// specific patchlevel already knows its name.
     /// </remarks>
-    public const int MaxValues = 12;
+    public const int MaxValues = 20;
 
     public static GameListing Search(IReadOnlyList<GameFacetRow> rows, GameFilter filter)
     {
@@ -992,6 +1007,12 @@ public static class FacetedSearch
             r => [r.Codebase],
             f => f.CodebaseVersion),
         new(FacetKeys.Family, FacetEvidence.Declared, r => [r.Family], f => f.Family),
+        new(
+            FacetKeys.Trending,
+            FacetEvidence.Derived,
+            r => [r.Growth is { } growth ? FacetTokens.Of(growth) : null],
+            f => f.Trending,
+            FacetTokens.GrowthDirections),
         new(FacetKeys.Genre, FacetEvidence.Declared, r => [r.Genre], f => f.Genre),
         new(FacetKeys.Language, FacetEvidence.Declared, r => [r.Language], f => f.Language),
     ];
@@ -1029,6 +1050,9 @@ public static class FacetTokens
     public static IReadOnlyList<string> Sorts { get; } =
         [.. Enum.GetValues<GameSort>().Select(Of)];
 
+    public static IReadOnlyList<string> GrowthDirections { get; } =
+        [.. Enum.GetValues<GrowthDirection>().Select(Of)];
+
     /// <summary>The three windows that nest, widest last.</summary>
     private static readonly string?[] Nested =
         [Of(LastSeenBand.Day), Of(LastSeenBand.Week), Of(LastSeenBand.Month)];
@@ -1057,11 +1081,16 @@ public static class FacetTokens
 
     public static string Of(GameSort sort) => Camel(sort.ToString());
 
+    public static string Of(GrowthDirection direction) => Camel(direction.ToString());
+
     public static bool TryBand(string? text, out ActivityBand band) => TryRead(text, out band);
 
     public static bool TryLastSeen(string? text, out LastSeenBand band) => TryRead(text, out band);
 
     public static bool TrySort(string? text, out GameSort sort) => TryRead(text, out sort);
+
+    public static bool TryGrowthDirection(string? text, out GrowthDirection direction) =>
+        TryRead(text, out direction);
 
     /// <summary>
     /// Reads one of the derived vocabularies, forgivingly about separators and strictly about

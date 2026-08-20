@@ -86,6 +86,45 @@ else
         }
     </section>
 
+    <section aria-labelledby="trending">
+        <h2 id="trending">@L("rankings.trending.title")</h2>
+        <p class="dim">@L("rankings.trending.basis")</p>
+
+        @if (Table.TrendingThisWeek.Count == 0)
+        {
+            <p class="faint">@L("rankings.trending.empty")</p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="ranking">
+                    <caption class="sr-only">@L("rankings.trending.caption")</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col" class="place">@L("rankings.column.place")</th>
+                            <th scope="col">@L("rankings.column.game")</th>
+                            <th scope="col">@L("rankings.column.latest")</th>
+                            <th scope="col">@L("rankings.column.earliest")</th>
+                            <th scope="col">@L("rankings.column.change")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var game in Table.TrendingThisWeek)
+                        {
+                            <tr>
+                                <td class="place mono">@Place(Table.TrendingThisWeek.Select(g => g.Change), game.Change)</td>
+                                <th scope="row"><a href="@Http.Link($"/g/{game.Slug}")">@game.Name</a></th>
+                                <td class="mono state-present">@game.LatestMedian</td>
+                                <td class="mono faint">@game.EarliestMedian</td>
+                                <td class="mono state-present">+@Percent(game.Change)%</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
     <section aria-labelledby="spells">
         <h2 id="spells">@L("rankings.spells.title")</h2>
         <p class="dim">@EcosystemCopy.SpellBasis(Tag)</p>
@@ -164,6 +203,9 @@ else
     /// </remarks>
     private static int Place<T>(IEnumerable<T> values, T value) where T : IComparable<T> =>
         1 + values.Count(v => v.CompareTo(value) > 0);
+
+    /// <summary>A fraction of change, as the whole number the column prints.</summary>
+    private static int Percent(double change) => (int)Math.Round(change * 100);
 
     /// <summary>The same place, for a column where the smallest value is the best one.</summary>
     /// <remarks>

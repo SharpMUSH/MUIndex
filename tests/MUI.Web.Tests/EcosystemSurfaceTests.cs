@@ -1,5 +1,6 @@
 using MUI.Catalog;
 using MUI.Web.Components;
+using MUI.Web.Components.Pages;
 using MUI.Web.Fixtures;
 using MUI.Web.Localization;
 
@@ -308,6 +309,49 @@ public class EcosystemSurfaceTests
         await Assert.That(rankings.Busiest.Any(g => slugs.Contains(g.Slug))).IsFalse();
         await Assert.That(rankings.LongestUnbroken.Any(s => slugs.Contains(s.Slug))).IsFalse();
         await Assert.That(dashboard.ListedGames).IsEqualTo(catalogue.Count - slugs.Count);
+    }
+
+    [Test]
+    public async Task TheTrendingBoardNamesAGameTheListingRowAlreadyMarksUp()
+    {
+        // M*U*S*H is fixed at Growth: GrowthDirection.Up in the fixture — the board has to agree
+        // with the arrow, not compute its own opinion of the same fact.
+        var rankings = await Queries.RankingsAsync();
+
+        await Assert.That(rankings.TrendingThisWeek.Any(g => g.Slug == "m-u-s-h")).IsTrue();
+
+        var mush = rankings.TrendingThisWeek.Single(g => g.Slug == "m-u-s-h");
+
+        await Assert.That(mush.LatestMedian).IsGreaterThan(mush.EarliestMedian);
+    }
+
+    [Test]
+    public async Task ADecliningOrSteadyGameNeverAppearsOnTheTrendingBoard()
+    {
+        // Aardwolf and Ashen Court are fixed at Down and Steady respectively.
+        var rankings = await Queries.RankingsAsync();
+
+        await Assert.That(rankings.TrendingThisWeek.Any(g => g.Slug == "aardwolf")).IsFalse();
+        await Assert.That(rankings.TrendingThisWeek.Any(g => g.Slug == "ashen-court")).IsFalse();
+    }
+
+    [Test]
+    public async Task ThePlainRankingsNameTheSameTrendingGameTheTableHolds()
+    {
+        var rankings = await Queries.RankingsAsync();
+        var text = await RankingsAsync();
+
+        await Assert.That(text).Contains(Say("rankings.plain.trending").ToUpperInvariant());
+        await Assert.That(text).Contains(rankings.TrendingThisWeek.Single(g => g.Slug == "m-u-s-h").Name);
+    }
+
+    [Test]
+    public async Task TheRankingsPageDrawsTheTrendingBoardWithALinkToTheGame()
+    {
+        var html = await Render.PageAsync<RankingsPage>([]);
+
+        await Assert.That(html).Contains("id=\"trending\"");
+        await Assert.That(html).Contains("href=\"/g/m-u-s-h\"");
     }
 
     [Test]

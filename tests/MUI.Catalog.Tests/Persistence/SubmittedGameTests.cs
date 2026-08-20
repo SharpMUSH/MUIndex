@@ -70,6 +70,13 @@ public class SubmittedGameTests
         await Assert.That(ecosystem.Handshakes).IsEqualTo(1);
         await Assert.That(ecosystem.MsspReports).IsEqualTo(1);
         await Assert.That(ecosystem.Codebases.Identified).IsEqualTo(1);
+
+        // Nor the crawler status page's "recently updated" — FurnishAsync wrote a CODEBASE transition
+        // on both games, so a missing filter here would surface the submission by name.
+        var changes = await queries.RecentFieldChangesAsync(10);
+
+        await Assert.That(changes.Select(c => c.Slug)).DoesNotContain("submitted");
+        await Assert.That(changes.Select(c => c.Slug)).Contains("found");
     }
 
     /// <summary>Claiming it lists it, by the same rule and with nothing else changed.</summary>
@@ -147,6 +154,7 @@ public class SubmittedGameTests
             nameof(IGameQueries.FindByIdAsync),
             nameof(IGameQueries.EcosystemAsync),
             nameof(IGameQueries.RankingsAsync),
+            nameof(IGameQueries.RecentFieldChangesAsync),
         };
 
         var declared = typeof(IGameQueries).GetMethods().Select(m => m.Name).ToHashSet(StringComparer.Ordinal);
@@ -198,6 +206,11 @@ public class SubmittedGameTests
         await fields.UpsertAsync(new GameField(
             gameId, CapabilityFields.Measured("GMCP"), FieldSource.Handshake, "true",
             Now.AddDays(-30), Now.AddMinutes(-5)));
+
+        // A transition, for the crawler status page's "recently updated" — UpsertAsync alone writes
+        // no field_change row.
+        await fields.RecordChangeAsync(new FieldChange(
+            gameId, "CODEBASE", FieldSource.Mssp, "PennMUSH 1.8.7", "PennMUSH", Now.AddMinutes(-5)));
 
         // Enough counted samples to clear the ranking's minimum, all inside its window.
         var presence = new NpgsqlPresenceStore(db.DataSource);

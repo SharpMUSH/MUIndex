@@ -1651,20 +1651,25 @@ ul.games > li.game-row { min-height: 46px; padding: var(--row-pad) var(--gutter)
 */
 .row-main {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
     gap: 3px 20px;
     align-items: baseline;
 }
 
 /*
   `contents` so the name and the metadata are grid items of the row itself rather than of a box
-  inside column one — that is what lets the metadata span all three columns while the name occupies
+  inside column one — that is what lets the metadata span all four columns while the name occupies
   only the first.
 */
 .row-main .row-text { display: contents; }
 .row-main .row-head  { grid-column: 1; grid-row: 1; min-width: 0; }
 .row-main .row-count { grid-column: 2; grid-row: 1; }
-.row-main .row-seen  { grid-column: 3; grid-row: 1; }
+
+/* Explicit, not left to the grid's own auto-flow — an item with no placement of its own falls to a
+   new implicit row once every explicit column in row 1 is taken, putting the trend on a line below
+   the count it describes rather than beside it. */
+.row-main .row-trend { grid-column: 3; grid-row: 1; }
+.row-main .row-seen  { grid-column: 4; grid-row: 1; }
 .row-main .meta      { grid-column: 1 / -1; grid-row: 2; min-width: 0; }
 
 /* The row's own plate. Same recessed square, same border, same monogram treatment as the game
@@ -1751,6 +1756,19 @@ ul.games .meta .protocol.more { color: var(--dim); }
 
 /* Not a number at all, so it is not set as one: smaller, faint, and in words. */
 .row-count.unknown { color: var(--faint); font-size: var(--fs-sm2); font-variant-numeric: normal; }
+
+/* The growth arrow and its own percentage: its own column beside the count, its own colour rather
+   than the count's, so a rising game with a currently-empty "now" cell still reads as rising. */
+.row-trend {
+    margin: 0;
+    text-align: right;
+    white-space: nowrap;
+    font-size: var(--fs-sm2);
+    font-variant-numeric: tabular-nums;
+}
+.row-trend.up { color: var(--accent); }
+.row-trend.down { color: var(--danger); }
+.row-trend.steady { color: var(--dim); }
 
 .row-seen {
     margin: 0;
@@ -2406,24 +2424,25 @@ select {
 /* The radios are hidden, so the focus ring belongs to the row that holds them. */
 .facet-row a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* The tail. A summary is a control, so it gets the row's own height and hit area. */
-.facet .facet-tail { margin-top: 2px; }
+/* The tail. A summary is a control, so it gets the row's own height and hit area. Ordered below the
+   revealed rows (order: 2 against the rows' order: 1) rather than above them — order has no effect
+   while closed, since a closed <details> renders nothing but the summary regardless, but once open
+   the control that just revealed a run of rows sits right after them, where a reader's eye already
+   is, not still pinned above where it was before they clicked. The label swaps for "show fewer" the
+   same way the arrow above flips — an attribute selector on [open], no script. */
+.facet .facet-tail { display: flex; flex-direction: column; margin-top: 2px; }
 .facet .facet-tail summary {
+    order: 2;
     cursor: pointer; padding: 4px 8px; font-size: var(--fs-sm); color: var(--faint); border-radius: 9px;
 }
 .facet .facet-tail summary:hover { color: var(--text); background: var(--raised); }
+.facet .facet-tail .rows { order: 1; }
+.facet .facet-tail .tail-fewer { display: none; }
+.facet .facet-tail[open] .tail-more { display: none; }
+.facet .facet-tail[open] .tail-fewer { display: inline; }
 
 /* Said once, under the groups it applies to. */
 .facet-hint { margin: 12px 0 0; font-size: var(--fs-xs); color: var(--dim); }
-
-/* The facets a reader goes looking for, rather than the three they arrive with. */
-.facet-more-groups { margin: 0; border-top: 1px solid var(--line-soft); padding-top: 14px; }
-.facet-more-groups > summary {
-    cursor: pointer; font: var(--fs-2xs)/1 var(--kick); letter-spacing: 0.16em; text-transform: uppercase;
-    color: var(--faint); padding: 4px 8px; border-radius: var(--radius);
-}
-.facet-more-groups > summary:hover { color: var(--text); background: var(--raised); }
-.facet-more-groups .facet-grid { margin-top: 14px; }
 
 /* ── the presence facet ──────────────────────────────────────────────────── */
 

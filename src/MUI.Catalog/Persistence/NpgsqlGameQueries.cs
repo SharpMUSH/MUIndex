@@ -121,7 +121,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// </remarks>
     public const int MinimumRankingSamples = SortWindows.MinimumSamples;
 
-    private const int FeedLimit = 10;
+    private const int FeedLimit = 11;
 
     private const int ChangeLimit = 20;
 
@@ -172,7 +172,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         var rows = (await connection.QueryAsync<GameRow>(new CommandDefinition(
             $"""
             SELECT g.id AS Id, g.slug AS Slug, g.name AS Name, g.tagline AS Tagline,
-                   g.state AS State, g.is_claimed AS IsClaimed, g.last_reachable_at AS LastReachableAt
+                   g.state AS State, g.is_claimed AS IsClaimed, g.last_reachable_at AS LastReachableAt,
+                   g.first_seen_at AS FirstSeenAt
               FROM game g
              WHERE g.state NOT IN {NeverBrowsable}
                AND (@includeArchived OR g.state <> 'archived')
@@ -199,6 +200,19 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             ? await PlayersOverWindowAsync(connection, ids, span, now, cancellationToken)
             : [];
 
+        // Unlike windows, always computed: trending is a facet now (Games list), not only a figure a
+        // window sort happens to show, so a reader has to be able to filter on it without first
+        // having to sort by a typical count.
+        var dailyMedians = await DailyMediansAsync(connection, ids, now, cancellationToken);
+        var growth = ids.ToDictionary(
+            id => id,
+            id =>
+            {
+                var days = dailyMedians.GetValueOrDefault(id, []);
+
+                return (Direction: GrowthTrend.Of(days), Change: GrowthTrend.ChangeFraction(days));
+            });
+
         var facetRows = new List<GameFacetRow>(rows.Count);
 
         foreach (var row in rows)
@@ -224,7 +238,10 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 CountChip(digest, now),
                 Chip(codebase, now),
                 icons.Contains(row.Id),
-                windows.GetValueOrDefault(row.Id));
+                windows.GetValueOrDefault(row.Id),
+                growth.GetValueOrDefault(row.Id).Direction,
+                growth.GetValueOrDefault(row.Id).Change,
+                row.FirstSeenAt);
 
             facetRows.Add(new GameFacetRow(
                 summary,
@@ -247,7 +264,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
 
                 // From the availability series, never the presence one — a hole there can't tell an
                 // hour we missed from an hour we could not reach (rule 2).
-                Unreachable: FacetedSearch.NotReachedRecently(row.LastReachableAt, now)));
+                Unreachable: FacetedSearch.NotReachedRecently(row.LastReachableAt, now),
+
+                Growth: summary.Growth));
         }
 
         return FacetedSearch.Search(facetRows, filter);
@@ -419,6 +438,101 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     }
 
     /// <summary>
+    /// Every day a game has enough presence samples for its own median, over the last
+    /// <see cref="GrowthTrend.Span"/> — what <see cref="GrowthTrend.Of"/> fits a trend line through.
+    /// </summary>
+    /// <remarks>
+    /// One frequency table per (game, day) rather than per game — the same walk
+    /// <see cref="PlayersOverWindowAsync"/> uses to find one window's median, run once per day instead
+    /// of once over the whole span, so a day the crawler barely touched a game is absent rather than
+    /// diluting a pooled figure or being read as a zero (rule 4). Raw samples cover today, since the
+    /// day rollup only reaches back through <c>presence_rollup_state</c>'s high-water mark; older days
+    /// read the rollup's own histogram, which survives retention dropping raw partitions (§5.2).
+    /// </remarks>
+    private static async Task<Dictionary<Guid, List<DailyMedian>>> DailyMediansAsync(
+        NpgsqlConnection connection, Guid[] ids, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var rows = await connection.QueryAsync<DailyMedianRow>(new CommandDefinition(
+            """
+            WITH boundary AS (
+                SELECT coalesce(
+                    (SELECT rolled_up_through FROM presence_rollup_state WHERE scope = 'day'),
+                    '-infinity'::timestamptz) AS at
+            ),
+            span AS (
+                SELECT date_trunc('day', @from AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS from_at
+            ),
+            frequency AS (
+                SELECT p.game_id,
+                       date_trunc('day', p.at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS day,
+                       p.count AS value, count(*)::bigint AS times
+                  FROM presence_sample p
+                 WHERE p.game_id = ANY(@ids)
+                   AND p.count IS NOT NULL
+                   AND p.at >= (SELECT from_at FROM span)
+                   AND p.at >= (SELECT at FROM boundary)
+                 GROUP BY 1, 2, 3
+
+                UNION ALL
+
+                SELECT r.game_id, r.day, e.key::int, e.value::bigint
+                  FROM presence_rollup_day r
+                  CROSS JOIN LATERAL jsonb_each_text(r.count_histogram) AS e(key, value)
+                 WHERE r.game_id = ANY(@ids)
+                   AND r.count_histogram IS NOT NULL
+                   AND r.day >= (SELECT from_at FROM span)
+                   AND r.day < (SELECT at FROM boundary)
+            ),
+            counted AS (
+                SELECT game_id, day, value, sum(times) AS times
+                  FROM frequency
+                 GROUP BY 1, 2, 3
+            ),
+            walked AS (
+                SELECT game_id, day, value,
+                       sum(times) OVER (PARTITION BY game_id, day ORDER BY value) AS running,
+                       ceil(sum(times) OVER (PARTITION BY game_id, day) / 2.0)    AS half,
+                       sum(times) OVER (PARTITION BY game_id, day)                AS samples
+                  FROM counted
+            )
+            SELECT game_id        AS GameId,
+                   day             AS Day,
+                   min(value)::int AS Median,
+                   max(samples)::int AS Samples
+              FROM walked
+             WHERE running >= half
+             GROUP BY 1, 2
+            HAVING max(samples) >= @minimumSamplesPerDay
+            """,
+            new
+            {
+                ids,
+                from = (now - GrowthTrend.Span).ToUniversalTime(),
+                minimumSamplesPerDay = GrowthTrend.MinimumSamplesPerDay,
+            },
+            cancellationToken: cancellationToken));
+
+        return rows
+            .GroupBy(r => r.GameId)
+            .ToDictionary(
+                g => g.Key,
+                g => g
+                    .Select(r => new DailyMedian(DateOnly.FromDateTime(r.Day.UtcDateTime), r.Median, r.Samples))
+                    .ToList());
+    }
+
+    private sealed class DailyMedianRow
+    {
+        public Guid GameId { get; init; }
+
+        public DateTimeOffset Day { get; init; }
+
+        public int Median { get; init; }
+
+        public int Samples { get; init; }
+    }
+
+    /// <summary>
     /// §9's referral neighbours, in both directions, resolved to games we can name.
     /// </summary>
     /// <remarks>
@@ -484,7 +598,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         $"""
         SELECT id AS Id, slug AS Slug, name AS Name, tagline AS Tagline, state AS State,
                is_claimed AS IsClaimed, last_reachable_at AS LastReachableAt,
-               excluded_reason AS ExcludedReason
+               excluded_reason AS ExcludedReason, first_seen_at AS FirstSeenAt
           FROM game
          WHERE {Public}
         """;
@@ -525,7 +639,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             row.LastReachableAt,
             CountChip(digest, now),
             Chip(codebase, now),
-            (await IconsForAsync(connection, ids, cancellationToken)).Contains(row.Id));
+            (await IconsForAsync(connection, ids, cancellationToken)).Contains(row.Id),
+            FirstSeenAt: row.FirstSeenAt);
     }
 
     public async Task<GamePage?> FindAsync(string slug, CancellationToken cancellationToken = default)
@@ -596,7 +711,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             row.LastReachableAt,
             CountChip(digest, now),
             Chip(codebase, now),
-            (await IconsForAsync(connection, ids, cancellationToken)).Contains(row.Id));
+            (await IconsForAsync(connection, ids, cancellationToken)).Contains(row.Id),
+            FirstSeenAt: row.FirstSeenAt);
 
         return new GamePage(
             summary,
@@ -707,6 +823,77 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             wentDark.Select(r => new FeedEntry(
                 r.Id, r.Slug, r.Name, r.At, r.Cause ?? "unknown")).ToList(),
             cameBack.Select(r => new FeedEntry(r.Id, r.Slug, r.Name, r.At, string.Empty)).ToList());
+    }
+
+    /// <summary>The crawler status page's "recently updated" — the newest field transitions site-wide.</summary>
+    /// <remarks>
+    /// Ranked with a per-game cap before the overall limit, same two-stage shape
+    /// <c>NpgsqlGameFieldStore.ChangesAsync</c> uses per field on one game's own page — a game whose
+    /// <c>NAME</c> or <c>PLAYERNAMES</c> flaps every crawl still contributes one row per genuine
+    /// transition, but cannot crowd the rest of the catalogue off a page meant to show what the
+    /// instrument has been doing broadly.
+    /// <para>
+    /// Bounded to <see cref="FacetedSearch.RecentlyReachable"/> before ranking — <c>field_change</c> is
+    /// append-only and never pruned (rule 3), so an unbounded window function would scan every
+    /// transition ever written, for every listed game, on every render of a page that only ever shows
+    /// a handful of rows.
+    /// </para>
+    /// </remarks>
+    public async Task<IReadOnlyList<RecentGameChange>> RecentFieldChangesAsync(
+        int limit, int perGameLimit = 3, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await source.OpenConnectionAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<RecentChangeRow>(new CommandDefinition(
+            $"""
+            WITH ranked AS (
+                SELECT c.game_id, g.slug, g.name, c.field, c.source, c.old_value, c.new_value, c.at, c.id,
+                       ROW_NUMBER() OVER (PARTITION BY c.game_id ORDER BY c.at DESC, c.id DESC) AS rn
+                  FROM field_change c
+                  JOIN game g ON g.id = c.game_id
+                 WHERE c.at >= @since
+                   AND NOT (c.field = ANY(@internal) OR c.field LIKE @internalPrefix)
+                   AND {PublicG} AND g.state NOT IN {NeverBrowsable}
+            )
+            SELECT game_id AS GameId, slug AS Slug, name AS Name, field AS Field, source AS Source,
+                   old_value AS OldValue, new_value AS NewValue, at AS At
+              FROM ranked
+             WHERE rn <= @perGameLimit
+             ORDER BY at DESC, id DESC
+             LIMIT @limit
+            """,
+            new
+            {
+                limit,
+                perGameLimit,
+                since = (Clock() - FacetedSearch.RecentlyReachable).ToUniversalTime(),
+                @internal = InternalFields.ExactNames.ToArray(),
+                internalPrefix = InternalFields.ConnectScreen + "%",
+            },
+            cancellationToken: cancellationToken));
+
+        return [.. rows.Select(r => new RecentGameChange(
+            r.GameId, r.Slug, r.Name, r.Field, SqlEnums.ToFieldSource(r.Source),
+            r.OldValue, r.NewValue, r.At))];
+    }
+
+    private sealed class RecentChangeRow
+    {
+        public Guid GameId { get; init; }
+
+        public string Slug { get; init; } = string.Empty;
+
+        public string Name { get; init; } = string.Empty;
+
+        public string Field { get; init; } = string.Empty;
+
+        public string Source { get; init; } = string.Empty;
+
+        public string? OldValue { get; init; }
+
+        public string NewValue { get; init; } = string.Empty;
+
+        public DateTimeOffset At { get; init; }
     }
 
     /// <summary>
@@ -898,6 +1085,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             new { limit = RankingLimit },
             cancellationToken: cancellationToken))).ToList();
 
+        var trending = await TrendingThisWeekAsync(connection, now, cancellationToken);
+
         return new Rankings(
             now,
             span.Window(),
@@ -907,10 +1096,53 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             busiest
                 .Select(r => new BusiestGame(r.Slug, r.Name, r.Median, r.Peak, r.Samples, r.Days))
                 .ToList(),
-            spells.Select(r => new ReachableSpell(r.Slug, r.Name, r.Since)).ToList())
+            spells.Select(r => new ReachableSpell(r.Slug, r.Name, r.Since)).ToList(),
+            trending)
         {
             Span = span,
         };
+    }
+
+    /// <summary>
+    /// The games trending up over their measured history — the same classification the listing row's
+    /// own arrow uses (<see cref="GrowthTrend.Of"/>), so a game the board calls trending is exactly
+    /// one whose arrow agrees, never a decliner or a steady game caught by a bare sort on the number.
+    /// </summary>
+    private async Task<IReadOnlyList<TrendingGame>> TrendingThisWeekAsync(
+        NpgsqlConnection connection, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var eligible = (await connection.QueryAsync<EligibleGameRow>(new CommandDefinition(
+            $"SELECT id AS Id, slug AS Slug, name AS Name FROM game WHERE state NOT IN {ListedStates} AND {Public}",
+            cancellationToken: cancellationToken))).ToList();
+
+        var ids = eligible.Select(g => g.Id).ToArray();
+        var dailyMedians = await DailyMediansAsync(connection, ids, now, cancellationToken);
+
+        return
+        [
+            .. eligible
+                .Select(g => (Game: g, Days: dailyMedians.GetValueOrDefault(g.Id, [])))
+                .Select(row => (row.Game, row.Days, Change: GrowthTrend.ChangeFraction(row.Days)))
+                .Where(row => row.Change > GrowthTrend.SteadyBand)
+                .Select(row => new TrendingGame(
+                    row.Game.Slug, row.Game.Name,
+                    EarliestMedian: row.Days.MinBy(d => d.Day)!.Median,
+                    LatestMedian: row.Days.MaxBy(d => d.Day)!.Median,
+                    Change: row.Change!.Value))
+                .OrderByDescending(r => r.Change)
+                .ThenByDescending(r => r.LatestMedian)
+                .ThenBy(r => r.Name, StringComparer.Ordinal)
+                .Take(RankingLimit),
+        ];
+    }
+
+    private sealed class EligibleGameRow
+    {
+        public Guid Id { get; init; }
+
+        public string Slug { get; init; } = string.Empty;
+
+        public string Name { get; init; } = string.Empty;
     }
 
     /// <summary>
@@ -1362,6 +1594,9 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         /// not select it — the listing has no excluded games in it to explain.
         /// </summary>
         public string? ExcludedReason { get; init; }
+
+        /// <summary>When we first saw this address, for <see cref="GameSort.Discovered"/>.</summary>
+        public DateTimeOffset? FirstSeenAt { get; init; }
     }
 
     private sealed class FieldRow

@@ -23,7 +23,8 @@ public class FacetedSearchTests
         DateTimeOffset? lastReachableAt = null,
         string[]? protocols = null,
         bool uncounted = false,
-        bool unreachable = false)
+        bool unreachable = false,
+        GrowthDirection? growth = null)
     {
         var summary = new GameSummary(
             Guid.NewGuid(), slug, slug, Tagline: null, LifecycleState.Active, IsClaimed: false,
@@ -45,7 +46,8 @@ public class FacetedSearchTests
 
             // Default false: a row is reached and counted unless a test says otherwise.
             uncounted,
-            unreachable);
+            unreachable,
+            growth);
     }
 
     private static FacetGroup Group(GameListing listing, string key) =>
@@ -478,6 +480,7 @@ public class FacetedSearchTests
         FacetKeys.CodebaseVersion => new GameFilter { CodebaseVersion = FacetChoice.Parse(token) },
         FacetKeys.Lineage => new GameFilter { Lineage = FacetChoice.Parse(token) },
         FacetKeys.Family => new GameFilter { Family = FacetChoice.Parse(token) },
+        FacetKeys.Trending => new GameFilter { Trending = FacetChoice.Parse(token) },
         FacetKeys.Genre => new GameFilter { Genre = FacetChoice.Parse(token) },
         FacetKeys.Language => new GameFilter { Language = FacetChoice.Parse(token) },
 
@@ -485,6 +488,55 @@ public class FacetedSearchTests
         // a language filter and quietly assert the wrong thing about the wrong key.
         _ => throw new ArgumentOutOfRangeException(nameof(key), key, "no filter for this facet"),
     };
+
+    [Test]
+    public async Task TrendingFiltersToExactlyTheGamesInThatDirection()
+    {
+        GameFacetRow[] rows =
+        [
+            Row("rising", growth: GrowthDirection.Up),
+            Row("falling", growth: GrowthDirection.Down),
+            Row("flat", growth: GrowthDirection.Steady),
+            Row("too-new", growth: null),
+        ];
+
+        var listing = FacetedSearch.Search(rows, new GameFilter());
+        var up = FacetedSearch.Search(rows, new GameFilter { Trending = FacetChoice.Of("up") });
+
+        await Assert.That(Value(listing, FacetKeys.Trending, "up").Count).IsEqualTo(1);
+        await Assert.That(up.Games.Select(g => g.Slug)).IsEquivalentTo(new[] { "rising" });
+
+        var group = Group(listing, FacetKeys.Trending);
+        await Assert.That(group.Evidence).IsEqualTo(FacetEvidence.Derived);
+    }
+
+    [Test]
+    public async Task AGameWithNoPriorWeekIsFindableAsTrendingUnknown()
+    {
+        GameFacetRow[] rows = [Row("rising", growth: GrowthDirection.Up), Row("too-new", growth: null)];
+
+        var unknown = FacetedSearch.Search(
+            rows, new GameFilter { Trending = FacetChoice.Parse(FacetChoice.UnknownToken) });
+
+        await Assert.That(unknown.Games.Select(g => g.Slug)).IsEquivalentTo(new[] { "too-new" });
+    }
+
+    [Test]
+    public async Task TheVersionFacetShowsMoreThanTheOldTwelveValueCap()
+    {
+        // Twenty-five distinct patchlevels, one game each — comfortably past both the old cap and the
+        // new one, so the assertion pins the new cap's actual value rather than merely exceeding the
+        // old one (which a regression that raised the cap to some other value, or removed it, would
+        // still pass).
+        var rows = Enumerable.Range(1, 25)
+            .Select(i => Row($"game-{i}", codebase: $"PennMUSH 1.8.{i}"))
+            .ToArray();
+
+        var listing = FacetedSearch.Search(rows, new GameFilter());
+        var group = Group(listing, FacetKeys.CodebaseVersion);
+
+        await Assert.That(group.Values.Count).IsEqualTo(FacetedSearch.MaxValues);
+    }
 
     private static ActivityBand Band(string token)
     {

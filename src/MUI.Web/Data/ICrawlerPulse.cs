@@ -1,5 +1,6 @@
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
+using MUI.Discovery;
 
 namespace MUI.Web.Data;
 
@@ -16,7 +17,22 @@ public interface ICrawlerPulse
 
     /// <summary>The newest completed cycles, newest first — the crawler status page's history table.</summary>
     Task<IReadOnlyList<CrawlCycleRecord>> RecentAsync(int count, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The soonest-due targets, soonest first — the crawler status page's "next up".
+    /// </summary>
+    /// <remarks>
+    /// The registry's own address, never a game name: most due targets have not resolved to a game at
+    /// all, and one that has may still be a submission nobody has vouched for — this is operator
+    /// diagnostics (the page's own framing), not a public listing, so it is not filtered the way
+    /// <see cref="IGameQueries.FeedsAsync"/> is.
+    /// </remarks>
+    Task<IReadOnlyList<DueTarget>> DueSoonAsync(
+        DateTimeOffset now, int count, CancellationToken cancellationToken = default);
 }
+
+/// <summary>One address queued for its next probe, as the status page shows it.</summary>
+public sealed record DueTarget(string Host, int Port, DateTimeOffset NextProbeAt);
 
 /// <summary>Reads the pulse from what the crawler wrote.</summary>
 /// <remarks>
@@ -27,6 +43,7 @@ public interface ICrawlerPulse
 /// </remarks>
 public sealed class StoredCrawlerPulse(
     ICrawlCycles cycles,
+    ICrawlTargetRepository targets,
     ILogger<StoredCrawlerPulse>? logger = null) : ICrawlerPulse
 {
     private bool _installed;
@@ -67,6 +84,26 @@ public sealed class StoredCrawlerPulse(
             || !cancellationToken.IsCancellationRequested)
         {
             logger?.LogWarning(error, "Could not read the crawler's cycle history; the status page omits it");
+
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyList<DueTarget>> DueSoonAsync(
+        DateTimeOffset now,
+        int count,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var due = await targets.DueAsync(now, count, cancellationToken);
+
+            return [.. due.Select(t => new DueTarget(t.Host, t.Port, t.NextProbeAt))];
+        }
+        catch (Exception error) when (error is not OperationCanceledException
+            || !cancellationToken.IsCancellationRequested)
+        {
+            logger?.LogWarning(error, "Could not read the crawler's due targets; the status page omits them");
 
             return [];
         }

@@ -44,6 +44,7 @@ public class FacetSurfaceTests
         FacetKeys.Uncounted => "yes",
         FacetKeys.Unreachable => "yes",
         FacetKeys.Protocol => "GMCP",
+        FacetKeys.Trending => "up",
         // Not the default. The point of the check below is that the parameter changed something,
         // and asking for the order the filter already arrives in changes nothing by construction.
         FacetKeys.Sort => "name",
@@ -91,7 +92,7 @@ public class FacetSurfaceTests
         // A filtered listing has to be linkable, so the URL is the state and nothing else is. What
         // goes in comes back out, including ~unknown, which is a selection and not an empty one.
         const string Url = "?q=corvid&archived=true&band=quiet&seen=week&protocol=GMCP,MSSP"
-            + "&tls=true&charset=UTF-8&codebase=Evennia&family=PennMUSH&genre=Fantasy&language=~unknown";
+            + "&tls=true&charset=UTF-8&codebase=Evennia&family=PennMUSH&trending=up&genre=Fantasy&language=~unknown";
 
         await Assert.That(GameFilterBinding.TryRead(Url, out var query, out _)).IsTrue();
 
@@ -105,6 +106,7 @@ public class FacetSurfaceTests
         await Assert.That(f.Charset!.Value).IsEqualTo("UTF-8");
         await Assert.That(f.Codebase!.Value).IsEqualTo("Evennia");
         await Assert.That(f.Family!.Value).IsEqualTo("PennMUSH");
+        await Assert.That(f.Trending!.Value).IsEqualTo("up");
         await Assert.That(f.Genre!.Value).IsEqualTo("Fantasy");
         await Assert.That(f.Language!.IsUnknown).IsTrue();
 
@@ -203,6 +205,36 @@ public class FacetSurfaceTests
 
         await Assert.That(GameFilterBinding.TryRead("?seen=someday", out _, out var seen)).IsFalse();
         await Assert.That(seen).Contains("never");
+
+        await Assert.That(GameFilterBinding.TryRead("?trending=sideways", out _, out var trending)).IsFalse();
+        await Assert.That(trending).Contains("up");
+    }
+
+    [Test]
+    public async Task FamilyIsDrawnAheadOfCodebaseInThePrimaryFacets()
+    {
+        // Family (MSSP's own FAMILY line) is promoted beside Band/Codebase/LastSeen.
+        var html = await PanelAsync(new GameFilter());
+
+        var familyMarker = $"<span class=\"facet-name\">{FacetWords.Group(Locales.SourceTag, FacetKeys.Family)}</span>";
+        var codebaseMarker = $"<span class=\"facet-name\">{FacetWords.Group(Locales.SourceTag, FacetKeys.Codebase)}</span>";
+
+        var familyAt = html.IndexOf(familyMarker, StringComparison.Ordinal);
+        var codebaseAt = html.IndexOf(codebaseMarker, StringComparison.Ordinal);
+
+        await Assert.That(familyAt).IsGreaterThanOrEqualTo(0).Because("family has no fieldset of its own");
+        await Assert.That(codebaseAt).IsGreaterThanOrEqualTo(0).Because("codebase has no fieldset of its own");
+        await Assert.That(familyAt).IsLessThan(codebaseAt).Because("family should draw ahead of codebase");
+    }
+
+    [Test]
+    public async Task EveryChoiceFacetIsDrawnWithNoMoreFiltersDisclosureHidingAny()
+    {
+        // Every facet the panel can filter on is in the page a reader already has, not behind a
+        // second click first — the "more filters (N)" disclosure that used to hold the rest is gone.
+        var html = await PanelAsync(new GameFilter());
+
+        await Assert.That(html).DoesNotContain("facet-more-groups");
     }
 
     [Test]

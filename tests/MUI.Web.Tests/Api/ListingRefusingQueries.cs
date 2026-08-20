@@ -44,4 +44,8 @@ internal sealed class ListingRefusingQueries(IGameQueries inner) : IGameQueries
         RankingSpan span = RankingSpan.Week,
         CancellationToken cancellationToken = default) =>
         inner.RankingsAsync(span, cancellationToken);
+
+    public Task<IReadOnlyList<RecentGameChange>> RecentFieldChangesAsync(
+        int limit, int perGameLimit = 3, CancellationToken cancellationToken = default) =>
+        inner.RecentFieldChangesAsync(limit, perGameLimit, cancellationToken);
 }

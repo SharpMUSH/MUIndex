@@ -428,6 +428,10 @@
     <value>random</value>
     <comment>site chrome</comment>
   </data>
+  <data name="nav.crawler" xml:space="preserve">
+    <value>crawler</value>
+    <comment>site chrome</comment>
+  </data>
   <data name="nav.archive" xml:space="preserve">
     <value>archive</value>
     <comment>site chrome</comment>
@@ -560,6 +564,14 @@
     <value>live</value>
     <comment>home</comment>
   </data>
+  <data name="home.trending.title" xml:space="preserve">
+    <value>trending</value>
+    <comment>home</comment>
+  </data>
+  <data name="home.trending.empty" xml:space="preserve">
+    <value>No game is trending up right now.</value>
+    <comment>home</comment>
+  </data>
   <data name="games.title" xml:space="preserve">
     <value>Games</value>
     <comment>the listing</comment>
@@ -573,7 +585,11 @@
     <comment>the listing</comment>
   </data>
   <data name="listing.columns" xml:space="preserve">
-    <value>connected · reached</value>
+    <value>connected · trending · reached</value>
+    <comment>the listing</comment>
+  </data>
+  <data name="listing.columns.discovered" xml:space="preserve">
+    <value>connected · trending · discovered</value>
     <comment>the listing</comment>
   </data>
   <data name="listing.fromHere" xml:space="preserve">
@@ -644,6 +660,10 @@
     <value>reached</value>
     <comment>the order switch</comment>
   </data>
+  <data name="switch.discovered" xml:space="preserve">
+    <value>discovered</value>
+    <comment>the order switch</comment>
+  </data>
   <data name="window.7" xml:space="preserve">
     <value>7 days</value>
     <comment>the order switch</comment>
@@ -684,12 +704,12 @@
     <value>any</value>
     <comment>the filter panel</comment>
   </data>
-  <data name="facet.more" xml:space="preserve">
-    <value>more filters ({count})</value>
-    <comment>the filter panel</comment>
-  </data>
   <data name="facet.moreValues" xml:space="preserve">
     <value>{count, plural, one {# more} other {# more}}</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.fewerValues" xml:space="preserve">
+    <value>show fewer</value>
     <comment>the filter panel</comment>
   </data>
   <data name="facet.alsoShow" xml:space="preserve">
@@ -776,6 +796,10 @@
     <value>family</value>
     <comment>facet groups</comment>
   </data>
+  <data name="facet.group.trending" xml:space="preserve">
+    <value>trending</value>
+    <comment>facet groups</comment>
+  </data>
   <data name="facet.group.genre" xml:space="preserve">
     <value>genre</value>
     <comment>facet groups</comment>
@@ -832,6 +856,10 @@
     <value>not identified</value>
     <comment>facet values</comment>
   </data>
+  <data name="facet.unknown.trending" xml:space="preserve">
+    <value>not enough measurement yet</value>
+    <comment>facet values</comment>
+  </data>
   <data name="facet.unknown.other" xml:space="preserve">
     <value>not declared</value>
     <comment>facet values</comment>
@@ -852,9 +880,25 @@
     <value>identified at all</value>
     <comment>facet values</comment>
   </data>
+  <data name="facet.known.trending" xml:space="preserve">
+    <value>measured enough days</value>
+    <comment>facet values</comment>
+  </data>
   <data name="facet.known.other" xml:space="preserve">
     <value>declared at all</value>
     <comment>facet values</comment>
+  </data>
+  <data name="facet.trending.up" xml:space="preserve">
+    <value>trending up</value>
+    <comment>trending, this week's median against last week's</comment>
+  </data>
+  <data name="facet.trending.steady" xml:space="preserve">
+    <value>steady</value>
+    <comment>trending, this week's median against last week's</comment>
+  </data>
+  <data name="facet.trending.down" xml:space="preserve">
+    <value>trending down</value>
+    <comment>trending, this week's median against last week's</comment>
   </data>
   <data name="evidence.measured.meaning" xml:space="preserve">
     <value>we watched this happen</value>
@@ -878,6 +922,10 @@
   </data>
   <data name="sort.reached" xml:space="preserve">
     <value>last reached</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.discovered" xml:space="preserve">
+    <value>newest discovered</value>
     <comment>sort orders</comment>
   </data>
   <data name="sort.medianWeek" xml:space="preserve">
@@ -922,6 +970,10 @@
   </data>
   <data name="sort.unranked.reached" xml:space="preserve">
     <value>never once reached — not reached long ago</value>
+    <comment>sort orders</comment>
+  </data>
+  <data name="sort.unranked.discovered" xml:space="preserve">
+    <value>when we first saw this address is not on record</value>
     <comment>sort orders</comment>
   </data>
   <data name="sort.unranked.median" xml:space="preserve">
@@ -2112,6 +2164,34 @@
     <value>days measured</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
+  <data name="rankings.trending.title" xml:space="preserve">
+    <value>Trending</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.trending.basis" xml:space="preserve">
+    <value>A line fitted through each game's own daily measured median over its last 14 days, among games with at least 3 days that had enough samples for a median — always this fitted trend, whichever ranking window is shown above.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.trending.empty" xml:space="preserve">
+    <value>No listed game is trending up — a statement about how many games clear the sample floor on enough days, not about the hobby.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.trending.caption" xml:space="preserve">
+    <value>Games whose fitted trend over their last 14 measured days rises enough to call it a rise rather than noise, each with at least 3 days that had enough samples for a median.</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.column.latest" xml:space="preserve">
+    <value>latest</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.column.earliest" xml:space="preserve">
+    <value>earliest</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.column.change" xml:space="preserve">
+    <value>change</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
   <data name="rankings.spells.title" xml:space="preserve">
     <value>Longest unbroken reachable spell</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
@@ -2158,6 +2238,14 @@
   </data>
   <data name="rankings.plain.spellRow" xml:space="preserve">
     <value>reachable on every probe since {date} · {duration}</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.plain.trending" xml:space="preserve">
+    <value>Trending</value>
+    <comment>the rankings: computed from measured data only, and it says so first</comment>
+  </data>
+  <data name="rankings.plain.trendRow" xml:space="preserve">
+    <value>{median, number} latest, {prior, number} earliest ({percent, number}% up)</value>
     <comment>the rankings: computed from measured data only, and it says so first</comment>
   </data>
   <data name="archive.title" xml:space="preserve">
@@ -2788,6 +2876,10 @@
     <value>reached</value>
     <comment>appended block: the listing row's own labels and the last three chips</comment>
   </data>
+  <data name="listing.row.discovered" xml:space="preserve">
+    <value>discovered</value>
+    <comment>appended block: the listing row's own labels and the last three chips</comment>
+  </data>
   <data name="facet.group.search" xml:space="preserve">
     <value>search</value>
     <comment>appended block: the listing row's own labels and the last three chips</comment>
@@ -2883,6 +2975,38 @@
   <data name="crawler.history.empty" xml:space="preserve">
     <value>No completed cycles are recorded yet.</value>
     <comment>the crawler status page's history list, before any cycle has completed</comment>
+  </data>
+  <data name="crawler.liveness.title" xml:space="preserve">
+    <value>went dark, came back</value>
+    <comment>the crawler status page's went-dark/came-back section</comment>
+  </data>
+  <data name="crawler.liveness.lede" xml:space="preserve">
+    <value>The other two liveness feeds — newly discovered stays on the front page.</value>
+    <comment>the crawler status page's went-dark/came-back section</comment>
+  </data>
+  <data name="crawler.recent.title" xml:space="preserve">
+    <value>recently updated</value>
+    <comment>the crawler status page's recently-updated list heading</comment>
+  </data>
+  <data name="crawler.recent.lede" xml:space="preserve">
+    <value>The newest field changes the crawler has written in the last 30 days, across every listed game.</value>
+    <comment>the crawler status page's recently-updated list</comment>
+  </data>
+  <data name="crawler.recent.empty" xml:space="preserve">
+    <value>No field has changed recently.</value>
+    <comment>the crawler status page's recently-updated list, when nothing has changed</comment>
+  </data>
+  <data name="crawler.due.title" xml:space="preserve">
+    <value>next up</value>
+    <comment>the crawler status page's next-up list heading</comment>
+  </data>
+  <data name="crawler.due.lede" xml:space="preserve">
+    <value>The soonest-due addresses in the registry, whether or not they have resolved to a named game yet.</value>
+    <comment>the crawler status page's next-up list</comment>
+  </data>
+  <data name="crawler.due.empty" xml:space="preserve">
+    <value>Nothing is due.</value>
+    <comment>the crawler status page's next-up list, when nothing is due</comment>
   </data>
   <data name="preview.documentTitle" xml:space="preserve">
     <value>{page} — {site}</value>
@@ -3026,6 +3150,10 @@
   </data>
   <data name="home.plain.archived" xml:space="preserve">
     <value>{count, plural, one {# archived, still probed} other {# archived, still probed}}</value>
+    <comment>the plain mirror's feed headings and home counts</comment>
+  </data>
+  <data name="home.plain.trending" xml:space="preserve">
+    <value>Trending</value>
     <comment>the plain mirror's feed headings and home counts</comment>
   </data>
   <data name="reference.title" xml:space="preserve">

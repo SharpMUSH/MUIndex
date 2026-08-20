@@ -581,6 +581,10 @@ public class FindAGameTests
         public Task<Rankings> RankingsAsync(RankingSpan span, CancellationToken ct = default) =>
             throw new NotSupportedException();
 
+        public Task<IReadOnlyList<RecentGameChange>> RecentFieldChangesAsync(
+            int limit, int perGameLimit = 3, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
         private static GameFacetRow Row(string slug, string protocol) => new(
             new GameSummary(
                 Guid.NewGuid(), slug, slug, null, LifecycleState.Active, IsClaimed: false,
@@ -642,6 +646,10 @@ public class FindAGameTests
             throw new NotSupportedException();
 
         public Task<Rankings> RankingsAsync(RankingSpan span, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<RecentGameChange>> RecentFieldChangesAsync(
+            int limit, int perGameLimit = 3, CancellationToken ct = default) =>
             throw new NotSupportedException();
 
         private static GameFacetRow Row(string slug, string? genre) => new(

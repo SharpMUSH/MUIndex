@@ -146,6 +146,7 @@ public static class Messages
         ["nav.games"] = "games",
         ["nav.find"] = "find",
         ["nav.random"] = "random",
+        ["nav.crawler"] = "crawler",
         ["nav.archive"] = "archive",
         ["nav.reference"] = "reference",
         ["nav.ecosystem"] = "ecosystem",
@@ -183,12 +184,15 @@ public static class Messages
         ["feed.nothingDark"] = "Nothing went dark.",
         ["feed.nothingBack"] = "Nothing came back. We keep knocking.",
         ["feed.live"] = "live",
+        ["home.trending.title"] = "trending",
+        ["home.trending.empty"] = "No game is trending up right now.",
 
         // ── the listing ───────────────────────────────────────────────────────────────────────
         ["games.title"] = "Games",
         ["listing.sortedBy"] = "sorted by {order}",
         ["listing.random"] = "random",
-        ["listing.columns"] = "connected · reached",
+        ["listing.columns"] = "connected · trending · reached",
+        ["listing.columns.discovered"] = "connected · trending · discovered",
         ["listing.fromHere"] = "from here",
         ["listing.empty.head"] = "Nothing matched.",
         ["listing.empty.hint"] = "Try fewer words, or drop a filter.",
@@ -208,6 +212,7 @@ public static class Messages
         ["switch.peak"] = "peak",
         ["switch.name"] = "name",
         ["switch.reached"] = "reached",
+        ["switch.discovered"] = "discovered",
         ["window.7"] = "7 days",
         ["window.30"] = "30 days",
         ["window.90"] = "90 days",
@@ -220,8 +225,8 @@ public static class Messages
         ["filters.clearAll"] = "clear all",
         ["filters.stopFiltering"] = "— stop filtering by this",
         ["facet.anyValue"] = "any",
-        ["facet.more"] = "more filters ({count})",
         ["facet.moreValues"] = "{count, plural, one {# more} other {# more}}",
+        ["facet.fewerValues"] = "show fewer",
         ["facet.alsoShow"] = "also show",
         ["facet.alsoShow.note"] = "Off by default. Neither is a judgement about the game.",
         ["facet.archived"] = "archived",
@@ -245,6 +250,7 @@ public static class Messages
         ["facet.group.version"] = "version",
         ["facet.group.lineage"] = "lineage",
         ["facet.group.family"] = "family",
+        ["facet.group.trending"] = "trending",
         ["facet.group.genre"] = "genre",
         ["facet.group.language"] = "language",
 
@@ -263,12 +269,19 @@ public static class Messages
         ["facet.seen.never"] = "never reached",
         ["facet.unknown.charset"] = "nothing negotiated",
         ["facet.unknown.codebase"] = "not identified",
+        ["facet.unknown.trending"] = "not enough measurement yet",
         ["facet.unknown.other"] = "not declared",
         ["facet.tls.yes"] = "connected over TLS",
         ["facet.excluded"] = "not {value}",
         ["facet.known.charset"] = "something negotiated",
         ["facet.known.codebase"] = "identified at all",
+        ["facet.known.trending"] = "measured enough days",
         ["facet.known.other"] = "declared at all",
+
+        // ── trending, a line fitted through a game's own daily medians ───────────────────────────
+        ["facet.trending.up"] = "trending up",
+        ["facet.trending.steady"] = "steady",
+        ["facet.trending.down"] = "trending down",
 
         // ── evidence, and what each word means ────────────────────────────────────────────────
         ["evidence.measured.meaning"] = "we watched this happen",
@@ -280,6 +293,7 @@ public static class Messages
         ["sort.name"] = "name",
         ["sort.players"] = "connected now",
         ["sort.reached"] = "last reached",
+        ["sort.discovered"] = "newest discovered",
         ["sort.medianWeek"] = "typically on · 7 days",
         ["sort.medianMonth"] = "typically on · 30 days",
         ["sort.medianQuarter"] = "typically on · 90 days",
@@ -291,6 +305,7 @@ public static class Messages
         ["sort.group.peak"] = "peak",
         ["sort.unranked.players"] = "Unknown count",
         ["sort.unranked.reached"] = "never once reached — not reached long ago",
+        ["sort.unranked.discovered"] = "when we first saw this address is not on record",
         ["sort.unranked.median"] = "fewer than {minimum} counts in the window, or none at all — not a typical count of zero",
         ["sort.unranked.window"] = "nothing we could count in the window — not a game nobody was on",
         ["sort.window.median"] = "median {value} · {days, plural, one {#d} other {#d}}"
@@ -789,6 +804,14 @@ public static class Messages
         ["rankings.column.samples"] = "counted samples",
         ["rankings.column.days"] = "days measured",
 
+        ["rankings.trending.title"] = "Trending",
+        ["rankings.trending.basis"] = "A line fitted through each game's own daily measured median over its last 14 days, among games with at least 3 days that had enough samples for a median — always this fitted trend, whichever ranking window is shown above.",
+        ["rankings.trending.empty"] = "No listed game is trending up — a statement about how many games clear the sample floor on enough days, not about the hobby.",
+        ["rankings.trending.caption"] = "Games whose fitted trend over their last 14 measured days rises enough to call it a rise rather than noise, each with at least 3 days that had enough samples for a median.",
+        ["rankings.column.latest"] = "latest",
+        ["rankings.column.earliest"] = "earliest",
+        ["rankings.column.change"] = "change",
+
         ["rankings.spells.title"] = "Longest unbroken reachable spell",
         // Reachable, never uptime.
         ["rankings.spells.basis"] = "Every probe since the date given found the game reachable — a socket answered, which is not a claim the game was up throughout. A spell cannot be longer than we have been watching, so the date is the fact and the duration follows.",
@@ -804,6 +827,8 @@ public static class Messages
         ["rankings.plain.thisOne"] = "this one",
         ["rankings.plain.row"] = "median {median, number} · peak {peak, number} · {samples, plural, one {# counted sample} other {# counted samples}} over {days, number} of {window, number} days",
         ["rankings.plain.spellRow"] = "reachable on every probe since {date} · {duration}",
+        ["rankings.plain.trending"] = "Trending",
+        ["rankings.plain.trendRow"] = "{median, number} latest, {prior, number} earliest ({percent, number}% up)",
 
         // ── the archive: removed from the default listing, and from nothing else ──────────────
         // §7.5: nothing here is deleted, closed, dead or defunct.
@@ -1040,6 +1065,7 @@ public static class Messages
         // and a screen-reader-only row needs its own "12"/"2h ago" labelled.
         ["listing.row.connected"] = "connected",
         ["listing.row.reached"] = "reached",
+        ["listing.row.discovered"] = "discovered",
 
         ["facet.group.search"] = "search",
         ["facet.group.archived"] = "archived",
@@ -1082,6 +1108,14 @@ public static class Messages
         ["crawler.cycle.finishedAt"] = "last cycle finished {when} · took {took}",
         ["crawler.history.title"] = "recent cycles",
         ["crawler.history.empty"] = "No completed cycles are recorded yet.",
+        ["crawler.liveness.title"] = "went dark, came back",
+        ["crawler.liveness.lede"] = "The other two liveness feeds — newly discovered stays on the front page.",
+        ["crawler.recent.title"] = "recently updated",
+        ["crawler.recent.lede"] = "The newest field changes the crawler has written in the last 30 days, across every listed game.",
+        ["crawler.recent.empty"] = "No field has changed recently.",
+        ["crawler.due.title"] = "next up",
+        ["crawler.due.lede"] = "The soonest-due addresses in the registry, whether or not they have resolved to a named game yet.",
+        ["crawler.due.empty"] = "Nothing is due.",
 
         // ── what this site says about itself where it is not this site ────────────────────────
         // <title>, meta description and Open Graph tags. "mu*index" arrives as {site}, machine
@@ -1145,6 +1179,7 @@ public static class Messages
         ["home.plain.connectedNow"] = "{count, plural, one {# populated (measured)} other {# populated (measured)}}",
         ["home.plain.uncounted"] = "{count, plural, one {# unknown population} other {# unknown population}}",
         ["home.plain.archived"] = "{count, plural, one {# archived, still probed} other {# archived, still probed}}",
+        ["home.plain.trending"] = "Trending",
 
         // ── THE REFERENCE SECTION'S CHROME ────────────────────────────────────────────────────
         // ═════════════════════════════════════════════════════════════════════════════════════

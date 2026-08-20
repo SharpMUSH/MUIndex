@@ -423,7 +423,108 @@ public class PlainParityTests
             await Assert.That(text).DoesNotContain("◇");
         }
 
-        await Assert.That(Render.Words(html)).Contains("connected · reached");
+        await Assert.That(Render.Words(html)).Contains("connected · trending · reached");
+    }
+
+    [Test]
+    public async Task TheColumnHeadingNamesDiscoveredRatherThanReachedUnderThatSort()
+    {
+        // Decorative and aria-hidden, but still the only column guide a sighted reader sees — it has
+        // to say what the last column actually shows while GameSort.Discovered is active, not the
+        // "reached" wording that sort leaves behind.
+        var html = await Render.PageAsync<Games>([], "?sort=discovered");
+
+        await Assert.That(Render.Words(html)).Contains("connected · trending · discovered");
+        await Assert.That(Render.Words(html)).DoesNotContain("connected · trending · reached");
+    }
+
+    [Test]
+    public async Task TheGrowthArrowMatchesTheDirectionAndNeverAppearsWithoutOne()
+    {
+        var html = await Render.PageAsync<Games>([]);
+        var rows = html.Split("class=\"game-row").Skip(1)
+            .Select(r => r[..r.IndexOf("</li>", StringComparison.Ordinal)])
+            .ToList();
+
+        // M*U*S*H is fixed at Growth: GrowthDirection.Up in the fixture.
+        var mush = rows.Single(r => r.Contains("href=\"/g/m-u-s-h\"", StringComparison.Ordinal));
+
+        await Assert.That(mush).Contains("class=\"row-trend");
+        await Assert.That(Render.Words(mush))
+            .Contains(Messages.For(Locales.SourceTag, "facet.trending.up"));
+
+        // Eldertale carries no Growth in the fixture — no direction was ever measured for it, and
+        // the row must not invent one.
+        var eldertale = rows.Single(r => r.Contains("href=\"/g/eldertale\"", StringComparison.Ordinal));
+
+        await Assert.That(eldertale).DoesNotContain("class=\"row-trend");
+    }
+
+    [Test]
+    public async Task TheGrowthArrowCarriesTheFittedLinesOwnPercentageAndSitsBesideTheCountNotBelowIt()
+    {
+        var html = await Render.PageAsync<Games>([]);
+        var rows = html.Split("class=\"game-row").Skip(1)
+            .Select(r => r[..r.IndexOf("</li>", StringComparison.Ordinal)])
+            .ToList();
+
+        // M*U*S*H is fixed at Growth: GrowthDirection.Up, GrowthChange: 0.25 in the fixture — a bare
+        // glyph said "up" without saying by how much.
+        var mush = rows.Single(r => r.Contains("href=\"/g/m-u-s-h\"", StringComparison.Ordinal));
+
+        await Assert.That(Render.Words(mush)).Contains("+25%");
+
+        // row-main's own grid places row-trend in row-count's row rather than the implicit row below
+        // it that an unpositioned grid item falls to — the count and the trend read on one line.
+        var countAt = mush.IndexOf("class=\"row-count", StringComparison.Ordinal);
+        var trendAt = mush.IndexOf("class=\"row-trend", StringComparison.Ordinal);
+        var countCell = mush[countAt..mush.IndexOf("</p>", countAt, StringComparison.Ordinal)];
+
+        await Assert.That(countAt).IsGreaterThanOrEqualTo(0);
+        await Assert.That(trendAt).IsGreaterThan(countAt);
+        await Assert.That(countCell).DoesNotContain("row-trend");
+    }
+
+    [Test]
+    public async Task TheAccessibleNameForTheTrendCarriesTheSamePercentageASightedReaderSees()
+    {
+        // aria-label used to name only the direction ("trending up"), leaving the +25% a screen
+        // reader's own listener never hears — the number sighted readers see right beside it.
+        var html = await Render.PageAsync<Games>([]);
+        var rows = html.Split("class=\"game-row").Skip(1)
+            .Select(r => r[..r.IndexOf("</li>", StringComparison.Ordinal)])
+            .ToList();
+
+        var mush = rows.Single(r => r.Contains("href=\"/g/m-u-s-h\"", StringComparison.Ordinal));
+        var trend = mush[mush.IndexOf("class=\"row-trend", StringComparison.Ordinal)..];
+        var ariaLabel = Render.Words(trend[..trend.IndexOf('>')]);
+
+        await Assert.That(ariaLabel).Contains("+25%");
+    }
+
+    [Test]
+    public async Task TheGrowthArrowNeverLivesInsideTheCountColumn()
+    {
+        // The count column's own rule (TheCountColumnCarriesANumberAndNothingElse) is a bare figure
+        // or the words for none — a second fact folded into that cell would break both promises.
+        var html = await Render.PageAsync<Games>([]);
+        var counts = html.Split("class=\"row-count").Skip(1);
+
+        foreach (var cell in counts)
+        {
+            await Assert.That(cell[..cell.IndexOf("</p>", StringComparison.Ordinal)])
+                .DoesNotContain("row-trend");
+        }
+    }
+
+    [Test]
+    public async Task ThePlainListingSaysTheSameTrendTheRowDraws()
+    {
+        var listing = await Queries.SearchAsync(new GameFilter());
+        var text = PlainText.RenderListing(listing, new GameFilter(), Now);
+
+        await Assert.That(text)
+            .Contains($"Trending:    {Messages.For(Locales.SourceTag, "facet.trending.up")}");
     }
 
     [Test]
@@ -499,7 +600,8 @@ public class PlainParityTests
     public async Task TheHomePageCountsOnlyWhatWasMeasured()
     {
         var counts = SiteCounts.From(await Queries.ListAsync(new GameFilter { IncludeArchived = true }));
-        var text = PlainText.RenderHome(Locales.SourceTag, counts, await Queries.FeedsAsync(), CrawlerPulse.Unknown, Now);
+        var text = PlainText.RenderHome(
+            Locales.SourceTag, counts, await Queries.FeedsAsync(), [], CrawlerPulse.Unknown, Now);
 
         await Assert.That(text).Contains("games known");
         await Assert.That(text).Contains("populated (measured)");
@@ -518,7 +620,7 @@ public class PlainParityTests
             Now.AddMinutes(-2), Now.AddMinutes(-1), 8, 8, 6, 2, 0, 0, 0, 0, 0, 6, 0, 0, 0);
         var pulse = new CrawlerPulse(Now.AddMinutes(-1), Now.AddMinutes(3), 4, 710, cycle);
 
-        var pseudo = PlainText.RenderHome("qps-ploc", counts, await Queries.FeedsAsync(), pulse, Now);
+        var pseudo = PlainText.RenderHome("qps-ploc", counts, await Queries.FeedsAsync(), [], pulse, Now);
 
         // The wordmark is the one line that must not go through the bundle.
         await Assert.That(pseudo).Contains("MU*INDEX");
@@ -537,7 +639,7 @@ public class PlainParityTests
             .Contains(CrawlerCopy.Registry("qps-ploc", pulse))
             .And.DoesNotContain($"\n{pulse.TargetsKnown} addresses in the registry");
 
-        var german = PlainText.RenderHome("de", counts, await Queries.FeedsAsync(), pulse, Now);
+        var german = PlainText.RenderHome("de", counts, await Queries.FeedsAsync(), [], pulse, Now);
 
         foreach (var id in new[]
                  {
@@ -575,7 +677,8 @@ public class PlainParityTests
         var surfaces = new[]
         {
             await GameAsync("m-u-s-h"),
-            PlainText.RenderHome(Locales.SourceTag, counts, await Queries.FeedsAsync(), CrawlerPulse.Unknown, Now),
+            PlainText.RenderHome(
+                Locales.SourceTag, counts, await Queries.FeedsAsync(), [], CrawlerPulse.Unknown, Now),
             PlainText.RenderListing(await Queries.SearchAsync(new GameFilter()), new GameFilter(), Now),
         };
 

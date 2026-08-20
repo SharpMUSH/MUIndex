@@ -56,6 +56,35 @@ public class SortingTests
     }
 
     [Test]
+    public async Task AGameNeverSeenIsNotAGameFoundLongAgo()
+    {
+        // Every real game has a first-seen date (the column is not nullable), but the model allows
+        // null so a test double that doesn't set it isn't silently dated to now.
+        var never = Summary("never", players: null, reached: null);
+        var ancient = Summary("ancient", players: null, reached: null) with
+        {
+            FirstSeenAt = FixtureGameQueries.Now.AddYears(-4),
+        };
+
+        var order = GameSorting.Apply([never, ancient], GameSort.Discovered);
+
+        await Assert.That(order[0].Name).IsEqualTo("ancient");
+        await Assert.That(GameSorting.IsUnranked(never, GameSort.Discovered)).IsTrue();
+        await Assert.That(GameSorting.IsUnranked(ancient, GameSort.Discovered)).IsFalse();
+    }
+
+    [Test]
+    public async Task NewestDiscoveredSortsFirstAndTheListingCanBeAskedForIt()
+    {
+        var listing = await Queries.SearchAsync(new GameFilter { Sort = GameSort.Discovered, IncludeArchived = true });
+
+        var dates = listing.Games.Select(g => g.FirstSeenAt).Where(d => d is not null).Cast<DateTimeOffset>().ToList();
+
+        await Assert.That(dates).IsNotEmpty();
+        await Assert.That(dates.SequenceEqual(dates.OrderByDescending(d => d))).IsTrue();
+    }
+
+    [Test]
     public async Task TheDefaultOrderLeadsWithTheMeasurementRatherThanTheSpelling()
     {
         // Default was previously the alphabet — an order too, but one ranking by spelling instead of

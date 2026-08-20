@@ -107,7 +107,29 @@ public sealed record GameSummary(
     ProvenanceChip? PlayersNowProvenance = null,
     ProvenanceChip? CodebaseProvenance = null,
     bool HasIcon = false,
-    PresenceWindow? PlayersOverWindow = null);
+    PresenceWindow? PlayersOverWindow = null,
+
+    /// <summary>
+    /// The direction of a line fitted through this game's own daily medians, or null below
+    /// <see cref="GrowthTrend.MinimumDays"/> days of measured history.
+    /// </summary>
+    /// <remarks>
+    /// Independent of <see cref="PlayersOverWindow"/> and always computed, not only when a window
+    /// sort is active — a reader has to be able to filter on <c>trending</c> without having to also
+    /// sort by a typical count first. See <c>NpgsqlGameQueries.DailyMediansAsync</c> and
+    /// <see cref="GrowthTrend"/>.
+    /// </remarks>
+    GrowthDirection? Growth = null,
+
+    /// <summary>
+    /// The same fitted line's predicted change as a fraction, computed once by
+    /// <see cref="GrowthTrend.ChangeFraction"/> so the row's own figure can never disagree with
+    /// <see cref="Growth"/>'s classification of the same series.
+    /// </summary>
+    double? GrowthChange = null,
+
+    /// <summary>When we first saw this address, for <see cref="GameSort.Discovered"/>.</summary>
+    DateTimeOffset? FirstSeenAt = null);
 
 /// <summary>
 /// What a game's counts added up to over one window — the basis a window sort ranks on (spec §9).
@@ -343,6 +365,12 @@ public sealed record GameFilter
     /// <summary>MSSP's own <c>FAMILY</c> variable, as the game published it. See <see cref="Lineage"/>.</summary>
     public FacetChoice? Family { get; init; }
 
+    /// <summary>
+    /// This week's median against last week's (<see cref="FacetKeys.Trending"/>) — ours, carried as
+    /// <see cref="FacetEvidence.Derived"/>, same as <see cref="Lineage"/>.
+    /// </summary>
+    public FacetChoice? Trending { get; init; }
+
     public FacetChoice? Genre { get; init; }
 
     public FacetChoice? Language { get; init; }
@@ -433,6 +461,23 @@ public interface IGameQueries
     Task<Rankings> RankingsAsync(
         RankingSpan span = RankingSpan.Week,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The newest field changes across every public, listed game — <c>/crawler</c>'s "recently
+    /// updated", newest first.
+    /// </summary>
+    /// <remarks>
+    /// The same exclusions <see cref="FeedsAsync"/> applies (never <c>excluded</c>/<c>unlisted</c>,
+    /// never a submission nobody has vouched for) and the same internal-field filter
+    /// <c>NpgsqlGameFieldStore.ChangesAsync</c> applies to one game's own feed — an owner's
+    /// suppression toggle or the connect screen must not leak here either. <paramref name="perGameLimit"/>
+    /// caps how many of the newest rows any one game may contribute, so a game whose fields flap on
+    /// every crawl cannot crowd the rest of the catalogue off the page.
+    /// </remarks>
+    Task<IReadOnlyList<RecentGameChange>> RecentFieldChangesAsync(
+        int limit,
+        int perGameLimit = 3,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record LivenessFeeds(
@@ -448,3 +493,14 @@ public sealed record LivenessFeeds(
 /// from the query that built the entry rather than joined on afterwards.
 /// </remarks>
 public sealed record FeedEntry(Guid Id, string Slug, string Name, DateTimeOffset At, string Detail);
+
+/// <summary>One field's newest transition, on a game named so the crawler-wide feed can link to it.</summary>
+public sealed record RecentGameChange(
+    Guid GameId,
+    string Slug,
+    string Name,
+    string Field,
+    FieldSource Source,
+    string? OldValue,
+    string NewValue,
+    DateTimeOffset At);

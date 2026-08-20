@@ -1,5 +1,6 @@
 using System.Text;
 using MUI.Catalog;
+using MUI.Web.Data;
 using MUI.Web.Localization;
 
 namespace MUI.Web.Components;
@@ -426,6 +427,17 @@ public static class PlainText
                 b.AppendLine($"  Ranked on:   {FacetWords.Window(tag, window, filter.Sort)}");
             }
 
+            // Absent, not "not enough data" spelled out — same as every other unknown here (rule 4):
+            // a game too new or too thin for the sample floor prints no line at all.
+            if (g.Growth is { } growth)
+            {
+                var percent = g.GrowthChange is { } change
+                    ? $" ({(change > 0 ? "+" : string.Empty)}{Math.Round(change * 100)}%)"
+                    : string.Empty;
+
+                b.AppendLine($"  Trending:    {FacetWords.TrendingWord(tag, growth)}{percent}");
+            }
+
             // Never blank: "we could not identify it" is a measurement, a missing line is not.
             b.AppendLine((g.Codebase is { } codebase
                 ? $"  Codebase:    {codebase}  {Label(tag, g.CodebaseProvenance, now)}"
@@ -538,35 +550,40 @@ public static class PlainText
         Feed(b, tag, "feed.plain.cameBack", feeds.CameBack, "feed.nothingBack", now);
 
         return b.ToString();
+    }
 
-        static void Feed(
-            StringBuilder b,
-            string tag,
-            string title,
-            IReadOnlyList<FeedEntry> entries,
-            string empty,
-            DateTimeOffset now)
+    /// <summary>
+    /// One liveness feed's rows, in the shape every caller of <see cref="RenderFeeds"/> and the
+    /// pages that render a subset of the three (<see cref="RenderHome"/>, <see cref="RenderCrawler"/>)
+    /// share.
+    /// </summary>
+    private static void Feed(
+        StringBuilder b,
+        string tag,
+        string title,
+        IReadOnlyList<FeedEntry> entries,
+        string empty,
+        DateTimeOffset now)
+    {
+        // Uppercased here rather than in the bundle, like every other heading on this surface: a
+        // script with no case is left exactly as its translator wrote it.
+        b.AppendLine(Say(tag, title).ToUpperInvariant());
+
+        if (entries.Count == 0)
         {
-            // Uppercased here rather than in the bundle, like every other heading on this surface: a
-            // script with no case is left exactly as its translator wrote it.
-            b.AppendLine(Say(tag, title).ToUpperInvariant());
-
-            if (entries.Count == 0)
-            {
-                b.AppendLine($"  {Say(tag, empty)}");
-                b.AppendLine();
-                return;
-            }
-
-            foreach (var e in entries)
-            {
-                b.AppendLine(
-                    $"  {e.Name}  ({Relative.Ago(tag, now - e.At)})  {Path(tag, $"/g/{e.Slug}")}");
-                Wrap(b, e.Detail, "    ");
-            }
-
+            b.AppendLine($"  {Say(tag, empty)}");
             b.AppendLine();
+            return;
         }
+
+        foreach (var e in entries)
+        {
+            b.AppendLine(
+                $"  {e.Name}  ({Relative.Ago(tag, now - e.At)})  {Path(tag, $"/g/{e.Slug}")}");
+            Wrap(b, e.Detail, "    ");
+        }
+
+        b.AppendLine();
     }
 
     /// <summary>The home page: what we know, then what changed.</summary>
@@ -574,10 +591,12 @@ public static class PlainText
         string tag,
         SiteCounts counts,
         LivenessFeeds feeds,
+        IReadOnlyList<TrendingGame> trending,
         CrawlerPulse pulse,
         DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(pulse);
+        ArgumentNullException.ThrowIfNull(trending);
 
         var b = new StringBuilder();
 
@@ -607,7 +626,23 @@ public static class PlainText
 
         b.AppendLine();
 
-        b.Append(RenderFeeds(tag, feeds, now));
+        Feed(b, tag, "feed.plain.newlyDiscovered", feeds.NewlyDiscovered, "feed.nothingNew", now);
+
+        b.AppendLine(Say(tag, "home.plain.trending").ToUpperInvariant());
+
+        if (trending.Count == 0)
+        {
+            b.AppendLine($"  {Say(tag, "rankings.trending.empty")}");
+        }
+        else
+        {
+            foreach (var game in trending)
+            {
+                b.AppendLine($"  {game.Name}  (+{(int)Math.Round(game.Change * 100)}%)"
+                    + $"  {Path(tag, $"/g/{game.Slug}")}");
+            }
+        }
+
         return b.ToString();
     }
 
@@ -616,10 +651,16 @@ public static class PlainText
         string tag,
         CrawlerPulse pulse,
         IReadOnlyList<CrawlCycleRecord> recent,
+        IReadOnlyList<RecentGameChange> recentChanges,
+        IReadOnlyList<DueTarget> dueSoon,
+        LivenessFeeds feeds,
         DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(pulse);
         ArgumentNullException.ThrowIfNull(recent);
+        ArgumentNullException.ThrowIfNull(recentChanges);
+        ArgumentNullException.ThrowIfNull(dueSoon);
+        ArgumentNullException.ThrowIfNull(feeds);
 
         var b = new StringBuilder();
 
@@ -660,6 +701,51 @@ public static class PlainText
             foreach (var past in recent)
             {
                 b.AppendLine($"  {Dates.Stamp(tag, past.FinishedAt)} — {CrawlerCopy.Cycle(tag, past)}");
+            }
+        }
+
+        b.AppendLine();
+        b.AppendLine(Messages.For(tag, "crawler.liveness.title"));
+        Wrap(b, Messages.For(tag, "crawler.liveness.lede"), string.Empty);
+        b.AppendLine();
+
+        Feed(b, tag, "feed.plain.wentDark", feeds.WentDark, "feed.nothingDark", now);
+        Feed(b, tag, "feed.plain.cameBack", feeds.CameBack, "feed.nothingBack", now);
+
+        b.AppendLine(Messages.For(tag, "crawler.recent.title"));
+        Wrap(b, Messages.For(tag, "crawler.recent.lede"), string.Empty);
+
+        if (recentChanges.Count == 0)
+        {
+            b.AppendLine(Messages.For(tag, "crawler.recent.empty"));
+        }
+        else
+        {
+            foreach (var change in recentChanges)
+            {
+                var value = change.OldValue is { } old ? $"{old} → {change.NewValue}" : change.NewValue;
+
+                Wrap(
+                    b,
+                    $"{Dates.Stamp(tag, change.At)} — {change.Name} {change.Field}: {value}"
+                        + $" · {Path(tag, $"/g/{change.Slug}")}",
+                    "  ");
+            }
+        }
+
+        b.AppendLine();
+        b.AppendLine(Messages.For(tag, "crawler.due.title"));
+        Wrap(b, Messages.For(tag, "crawler.due.lede"), string.Empty);
+
+        if (dueSoon.Count == 0)
+        {
+            b.AppendLine(Messages.For(tag, "crawler.due.empty"));
+        }
+        else
+        {
+            foreach (var target in dueSoon)
+            {
+                b.AppendLine($"  {Dates.Stamp(tag, target.NextProbeAt)} — {target.Host}:{target.Port}");
             }
         }
 
@@ -1131,6 +1217,27 @@ public static class PlainText
                 ("samples", game.Samples),
                 ("days", game.Days),
                 ("window", days)) + $" · {Path(tag, $"/g/{game.Slug}")}", "       ");
+        }
+
+        Heading(b, Say(tag, "rankings.plain.trending").ToUpperInvariant());
+        Wrap(b, Say(tag, "rankings.trending.basis"));
+        b.AppendLine();
+
+        if (rankings.TrendingThisWeek.Count == 0)
+        {
+            Wrap(b, Say(tag, "rankings.trending.empty"), "  ");
+        }
+
+        place = 0;
+
+        foreach (var game in rankings.TrendingThisWeek)
+        {
+            place++;
+            b.AppendLine($"  {place,3}  {game.Name}");
+            Wrap(b, Say(tag, "rankings.plain.trendRow",
+                ("median", game.LatestMedian),
+                ("prior", game.EarliestMedian),
+                ("percent", (int)Math.Round(game.Change * 100))) + $" · {Path(tag, $"/g/{game.Slug}")}", "       ");
         }
 
         Heading(b, Say(tag, "rankings.spells.title").ToUpperInvariant());

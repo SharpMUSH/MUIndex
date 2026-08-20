@@ -153,6 +153,10 @@ public class LocalizedDescriptionTests
             RankingSpan span = RankingSpan.Week, CancellationToken cancellationToken = default) =>
             _inner.RankingsAsync(span, cancellationToken);
 
+        public Task<IReadOnlyList<RecentGameChange>> RecentFieldChangesAsync(
+            int limit, int perGameLimit = 3, CancellationToken cancellationToken = default) =>
+            _inner.RecentFieldChangesAsync(limit, perGameLimit, cancellationToken);
+
         private static GamePage? WithGerman(GamePage? page) =>
             page is null || page.Summary.Slug != "m-u-s-h"
                 ? page

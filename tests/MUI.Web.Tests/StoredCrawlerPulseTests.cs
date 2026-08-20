@@ -1,5 +1,6 @@
 using MUI.Catalog;
 using MUI.Catalog.Persistence;
+using MUI.Discovery;
 using MUI.Web.Data;
 using MUI.Web.Fixtures;
 
@@ -25,7 +26,7 @@ public class StoredCrawlerPulseTests
     public async Task RecentAsyncPassesThroughWhatTheStoreHolds()
     {
         var store = new FakeCrawlCycles { Recent = [Cycle(4), Cycle(3)] };
-        var pulse = new StoredCrawlerPulse(store);
+        var pulse = new StoredCrawlerPulse(store, new FakeCrawlTargets());
 
         await Assert.That(await pulse.RecentAsync(10)).IsEquivalentTo(store.Recent);
     }
@@ -35,7 +36,7 @@ public class StoredCrawlerPulseTests
     public async Task RecentAsyncFallsBackToEmptyRatherThanThrowing()
     {
         var store = new FakeCrawlCycles { Throws = true };
-        var pulse = new StoredCrawlerPulse(store);
+        var pulse = new StoredCrawlerPulse(store, new FakeCrawlTargets());
 
         await Assert.That(await pulse.RecentAsync(10)).IsEmpty();
     }
@@ -45,6 +46,41 @@ public class StoredCrawlerPulseTests
     public async Task NoCrawlerPulseHasNoHistoryEither()
     {
         await Assert.That(await new NoCrawlerPulse().RecentAsync(10)).IsEmpty();
+    }
+
+    [Test]
+    public async Task DueSoonAsyncPassesThroughTheRegistrysOwnAddresses()
+    {
+        var due = new[]
+        {
+            new CrawlTarget
+            {
+                Id = Guid.NewGuid(), Host = "soonest.example", Port = 4201,
+                NextProbeAt = Now.AddMinutes(-2), FirstSeenAt = Now.AddDays(-1),
+            },
+        };
+        var targets = new FakeCrawlTargets { Due = due };
+        var pulse = new StoredCrawlerPulse(new FakeCrawlCycles(), targets);
+
+        var soon = await pulse.DueSoonAsync(Now, 10);
+
+        await Assert.That(soon).IsEquivalentTo(new[] { new DueTarget("soonest.example", 4201, Now.AddMinutes(-2)) });
+    }
+
+    /// <summary>Same fallback rule as the cycle history: a failed read is "we cannot say", not a 500.</summary>
+    [Test]
+    public async Task DueSoonAsyncFallsBackToEmptyRatherThanThrowing()
+    {
+        var pulse = new StoredCrawlerPulse(new FakeCrawlCycles(), new FakeCrawlTargets { Throws = true });
+
+        await Assert.That(await pulse.DueSoonAsync(Now, 10)).IsEmpty();
+    }
+
+    /// <summary>The demo path has no crawler and no invented queue either.</summary>
+    [Test]
+    public async Task NoCrawlerPulseHasNoDueTargetsEither()
+    {
+        await Assert.That(await new NoCrawlerPulse().DueSoonAsync(Now, 10)).IsEmpty();
     }
 
     private sealed class FakeCrawlCycles : ICrawlCycles
@@ -69,5 +105,29 @@ public class StoredCrawlerPulseTests
 
         public Task<bool> IsInstalledAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(true);
+    }
+
+    private sealed class FakeCrawlTargets : ICrawlTargetRepository
+    {
+        public IReadOnlyList<CrawlTarget> Due { get; set; } = [];
+
+        public bool Throws { get; set; }
+
+        public Task<CrawlTarget?> ByAddressAsync(string host, int port, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public Task<Guid> AddAsync(CrawlTarget target, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<CrawlTarget>> DueAsync(DateTimeOffset now, int limit, CancellationToken ct) =>
+            Throws ? throw new InvalidOperationException("no database in this test") : Task.FromResult(Due);
+
+        public Task RecordAttemptAsync(
+            Guid id, DateTimeOffset at, bool succeeded, TimeSpan? crawlDelay,
+            DateTimeOffset nextProbeAt, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public Task AttachGameAsync(Guid id, Guid gameId, CancellationToken ct) =>
+            throw new NotSupportedException();
     }
 }
