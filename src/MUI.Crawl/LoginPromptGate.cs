@@ -58,6 +58,16 @@ public static partial class LoginPromptGate
             return null;
         }
 
+        // An imperative, not a question — checked unconditionally (within the wider LongestMenu
+        // ceiling) because the phrase itself is specific enough ("press" immediately before
+        // "enter"/"return", or the Korean idiom) not to need the question-mark guard the categories
+        // below do, and because a long, fully-painted splash screen that ends in a press-enter cue is
+        // exactly the case this exists to get past.
+        if (PressEnterPattern().IsMatch(flat))
+        {
+            return new LoginPromptAnswer(string.Empty, LoginPromptCategory.PressEnter);
+        }
+
         if (flat.Length <= LongestQuestion)
         {
             // A question mark (ASCII or full-width, for CJK phrasings), or a trailing ":"/">" prompt
@@ -78,6 +88,11 @@ public static partial class LoginPromptGate
                 if (ScreenReaderQuestionPattern().IsMatch(flat))
                 {
                     return new LoginPromptAnswer(string.Empty, LoginPromptCategory.ScreenReader);
+                }
+
+                if (AgeGatePattern().IsMatch(flat))
+                {
+                    return new LoginPromptAnswer("no", LoginPromptCategory.AgeGate);
                 }
             }
         }
@@ -106,6 +121,32 @@ public static partial class LoginPromptGate
     /// </remarks>
     [GeneratedRegex(@"\bscreen\s*-?\s*reader\b", RegexOptions.IgnoreCase)]
     private static partial Regex ScreenReaderQuestionPattern();
+
+    /// <summary>
+    /// A server telling us to press a key, in the shapes live servers ask it — English ("press" right
+    /// before "enter"/"return", so "Please enter a name" never matches) and the Korean idiom (either
+    /// the Hangul "엔터" or a literal Latin "Enter" followed within a few characters by "누르", "press").
+    /// </summary>
+    /// <remarks>
+    /// Known gap, deliberately not covered: the "[엔터]를 입력하세요" phrasing (3-third-eye-harmony) uses
+    /// "입력" ("input") rather than "누르" ("press") and is not matched — see the survey doc note this
+    /// plan adds in its final task.
+    /// </remarks>
+    [GeneratedRegex(
+        @"\bpress\s+(?:the\s+)?\[?(?:enter|return)\]?\b|\benter\b.{0,15}누르|엔터.{0,15}누르",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PressEnterPattern();
+
+    /// <summary>
+    /// An age check. Narrow by design — only the exact live phrasing measured
+    /// (menghui-xiyou/xianlv-qingyuan's "are you a primary/secondary school student or younger?") plus
+    /// the generic English shape a game might use for the same check. "No" is the crawler's honest
+    /// answer to every phrasing surveyed; none asks the inverse ("are you an adult?").
+    /// </summary>
+    [GeneratedRegex(
+        @"学生.{0,10}年龄|年龄更小|are\s+you\s+(?:a\s+)?(?:minor|under\s+\d+|of\s+legal\s+age)",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AgeGatePattern();
 }
 
 /// <summary>Which kind of pre-login question or menu a screen turned out to be.</summary>

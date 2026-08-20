@@ -105,4 +105,46 @@ public class LoginPromptGateTests
         await Assert.That(answer).IsNotNull();
         await Assert.That(answer!.Category).IsEqualTo(LoginPromptCategory.Colour);
     }
+
+    [Test]
+    [Arguments("Press Enter to log in...")]
+    [Arguments("[Press Return to continue]")]
+    [Arguments("Please wait while your computer's DNS name is being resolved. Press RETURN for more information.")]
+    [Arguments("Press [Enter] to login...")]
+    [Arguments("[엔터]를 누르십시요.")]
+    [Arguments("엔터를 누르십시오.")]
+    [Arguments("[Enter]를 누르세요.")]
+    public async Task APressEnterGateIsAnsweredWithABlankReturn(string banner)
+    {
+        var answer = LoginPromptGate.Classify(banner);
+
+        await Assert.That(answer).IsNotNull();
+        await Assert.That(answer!.Category).IsEqualTo(LoginPromptCategory.PressEnter);
+        await Assert.That(answer.Answer).IsEqualTo(string.Empty);
+    }
+
+    [Test]
+    // menghui-xiyou and xianlv-qingyuan both ask this exact question — "Are you a primary/secondary
+    // school student or younger? (yes/no)" — using the full-width Chinese question mark.
+    [Arguments("您是否是中小学学生或年龄更小？(yes/no)")]
+    [Arguments("Are you a minor?")]
+    [Arguments("Are you under 18?")]
+    public async Task AnAgeGateIsAnsweredNo(string banner)
+    {
+        var answer = LoginPromptGate.Classify(banner);
+
+        await Assert.That(answer).IsNotNull();
+        await Assert.That(answer!.Category).IsEqualTo(LoginPromptCategory.AgeGate);
+        await Assert.That(answer.Answer).IsEqualTo("no");
+    }
+
+    [Test]
+    // "Please enter a character name" must never trip the press-enter gate — it is an ordinary login
+    // prompt that happens to contain the word "enter" as a verb, not an instruction to press a key.
+    [Arguments("Please enter a character name >")]
+    [Arguments("Enter your name: ")]
+    public async Task AnOrdinaryEnterPromptIsNotAPressEnterGate(string banner)
+    {
+        await Assert.That(LoginPromptGate.Classify(banner)).IsNull();
+    }
 }
