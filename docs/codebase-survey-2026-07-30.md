@@ -491,3 +491,43 @@ One caution for whoever picks that up: the discriminator must be `OfferedOptions
 look and find nothing, so keying on its existence reports every game as negotiating —
 `chaos.caile.org` included, which is the one server this section proves must keep the flush.
 
+### The conditional skip, implemented and measured — 2026-08-20
+
+The flush is now withheld from a server that has **positively demonstrated** it parsed our
+negotiation, and sent to every other. Two things count as demonstration: a prompt answer already went
+out on this session (that line did the flushing), or a protocol was observed active
+(`Observations.Supported` non-empty).
+
+Isolated crawl of exactly the affected population — the 35 games that answered, negotiated a
+protocol, and had never been asked `WHO` because the flush ended the session first:
+
+| after | games |
+|---|---|
+| `who_unparseable` — asked, answer unreadable | 17 |
+| `who_login_prompt` — asked, and eaten as a character name | 3 |
+| **counted** | **2** |
+| `who_not_offered` — still never asked | 12 |
+
+**22 of 35 now reach `WHO`, two of them yielding a player count, and nothing was lost** — every one of
+the 35 already had no count to lose. A separate 250-game random crawl over the same build lost two
+counts, both `coffeemud.net` ports, and both returned `PLAYERS = 17` when probed alone: that is our
+own concurrency against five ports of one host, not the change.
+
+`tdome.nukefire.org:4000` is the worked example end to end. Before: `who NotAsked`, session over in
+1.7s. After: the flush is withheld, the session survives, `WHO` is asked, and the server answers
+`Password: ` + `IAC WILL ECHO` + `IAC GA` — read as `who_login_prompt`, and **the first live
+observation of a Go-Ahead prompt marker this crawler has ever recorded** (`prompts marked`).
+
+**Two cautions for anyone changing this.**
+
+The signal is *observed protocol activity*, not a clean "did it parse IAC" fact, so it is
+timing-sensitive: a server whose only protocol announces itself late reads as no evidence and is
+flushed. That is why the test is written as positive evidence — every uncertain case falls to today's
+behaviour, and the 12 games above that still say `who_not_offered` are that fallback working rather
+than failing.
+
+And the empty flush is no longer empty in the only case it is still sent. A server that did not parse
+our negotiation is holding those IAC bytes as typing, so the line it receives carries them — which is
+why `AServerThatHangsUpOnTheFlushLineStillCountsAsHavingAnswered` now models a server dropping us on
+an *unrecognisable* line rather than a blank one. A genuinely blank line is no longer reachable.
+

@@ -245,15 +245,27 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                     await telnet.SendMSDPCommand("SEND", "PLAYERS");
                 }
 
-                // …unless a prompt above was already answered, in which case that answer was itself a
-                // line through the server's buffer and has already flushed whatever residue this
-                // exists to clear. Sending a second, empty one buys nothing — and costs a count, since
-                // a game that gated its screen behind a question is sitting at its *name* prompt by
-                // now, where a DIKU reads an empty line as a goodbye. Measured on
-                // mud.arcadia.net:4000: the flush ended the session and WHO was never asked, where
-                // before the prompt loop existed the flush had been the answer to the colour question
-                // and the session survived it.
-                if (!answeredAPrompt)
+                // …unless there is no residue for it to clear, which is the only thing it is for.
+                //
+                // Two ways to know that. A prompt answer above was itself a line through the server's
+                // buffer and has already done the flushing. And a server that negotiated an option
+                // *interpreted* our IAC bytes rather than leaving them in its line buffer as typing —
+                // so nothing is stuck behind them. Either way the empty line buys nothing, and it is
+                // not free: a game sitting at its name prompt reads it as a goodbye and ends the
+                // session before WHO can be asked.
+                //
+                // Measured both ways across sixteen live games (docs/codebase-survey-2026-07-30.md):
+                // none of the eight that negotiate an option needed the flush, while four of the
+                // twelve that negotiate nothing could not answer WHO without it —
+                // chaos.caile.org:4444 still returns its connect screen instead of a count, four
+                // TelnetNegotiationCore versions after that was first written down.
+                //
+                // The test is positive evidence, so the uncertain cases fall the safe way: a server
+                // that negotiated late, or declined everything, is indistinguishable from one that
+                // parsed nothing, and is flushed exactly as it is today.
+                var parsedOurNegotiation = seen.Supported.Count > 0;
+
+                if (!answeredAPrompt && !parsedOurNegotiation)
                 {
                     await telnet.SendAsync([]);
                     await SettleAsync(telnet, Arrived, bannerLines, _options.QuietPeriod, budget.Token);

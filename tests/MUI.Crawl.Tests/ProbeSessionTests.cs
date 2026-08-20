@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using MUI.Crawl;
 using TelnetNegotiationCore.Builders;
 using TelnetNegotiationCore.Interpreters;
+using TelnetNegotiationCore.Models;
 using TelnetNegotiationCore.Protocols;
 
 namespace MUI.Crawl.Tests;
@@ -100,15 +101,21 @@ public class ProbeSessionTests
     [Test]
     public async Task AServerThatHangsUpOnTheFlushLineStillCountsAsHavingAnswered()
     {
-        // Every DIKU descendant reads an empty line at "Who art thou:" as a goodbye and closes, so
-        // the probe's own flush line ends the session and the WHO after it writes into a dead socket.
-        // The banner is already in hand when that happens — reporting the whole probe as Failed would
-        // record our own flush line as a fact about their server (CLAUDE.md rule 5). The server answered.
+        // The probe's own flush line ends the session on some servers, and the WHO after it writes
+        // into a dead socket. The banner is already in hand when that happens — reporting the whole
+        // probe as Failed would record our own flush line as a fact about their server (rule 5).
+        //
+        // The flush now only reaches a server that has not demonstrably parsed our negotiation, and
+        // for exactly those servers it is not an empty line at all: it carries the IAC bytes they had
+        // been holding as typing. So this models what such a server really receives — an
+        // unrecognisable line at its name prompt — and drops us on it, the way a DIKU refusing an
+        // illegal name does.
         await using var game = new FakeGame
         {
+            SwallowsNegotiationAsText = true,
             Banner = "Welcome to Mortal Realms\r\nMrMud 1.4\r\n",
             BannerTail = "Who art thou: ",
-            HangsUpOnBlankLine = true,
+            HangsUpOnUnrecognisedLine = true,
         };
 
         var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
@@ -517,6 +524,76 @@ public class ProbeSessionTests
         // The payload reached the parser, which is how the login prompt is recognised for what it is
         // rather than counted as a roster row.
         await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.LoginPrompt);
+    }
+
+    /// <summary>
+    /// A server that has demonstrably parsed our negotiation is not sent the residue flush, so a DIKU
+    /// that would read it as a goodbye survives to be asked <c>WHO</c>.
+    /// </summary>
+    /// <remarks>
+    /// The flush clears our own IAC bytes out of the line buffer of a server that did not interpret
+    /// them at its login screen. A server that negotiated an option interpreted them, so there is no
+    /// residue for it to clear — and sending it anyway costs the whole session on the DIKU family,
+    /// which reads an empty line at a name prompt as a goodbye. Measured across sixteen live games:
+    /// none of the eight that negotiate an option needed the flush, while four of the twelve that
+    /// negotiate nothing could not answer <c>WHO</c> without it (see docs/codebase-survey-2026-07-30.md).
+    /// <c>tdome.nukefire.org:4000</c> is the worked example — it negotiates GMCP, MSDP and MSSP, and
+    /// before this the probe hung up on itself before ever asking.
+    /// </remarks>
+    [Test]
+    public async Task AServerThatParsedOurNegotiationIsNotSentTheFlush()
+    {
+        await using var game = new FakeGame
+        {
+            AnnouncesMssp = true,
+            Banner = "Welcome to:\r\nNukeFire : Beyond THUNDERDOME\r\n",
+            BannerTail = "What's your name, freejack?",
+            HangsUpOnBlankLine = true,
+            WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        // Diagnostic first: if this is empty the fixture never negotiated, which is a different
+        // problem from the flush decision.
+        await Assert.That(result.OfferedOptions.Count).IsGreaterThan(0);
+
+        // FakeGame's telnet mode negotiates, so the flush is withheld and the goodbye never happens.
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Count);
+        await Assert.That(result.Who.Count).IsEqualTo(7);
+        await Assert.That(game.Received).DoesNotContain(string.Empty);
+    }
+
+    /// <summary>
+    /// A server that did <em>not</em> parse our negotiation still gets the flush, because its line
+    /// buffer is holding our IAC bytes and the next thing we type would arrive glued to them.
+    /// </summary>
+    /// <remarks>
+    /// Still reproducible on <c>chaos.caile.org:4444</c> four TelnetNegotiationCore versions after it
+    /// was first measured: <c>IAC DO 70</c> then <c>WHO</c> returns 1644 bytes of connect screen,
+    /// while the same with a blank line between returns "0 Players logged in, 22 record, no maximum."
+    /// FakeGame's raw path models it exactly — an unclean line is answered with a redisplay.
+    /// </remarks>
+    [Test]
+    public async Task AServerThatSwallowedOurNegotiationStillGetsTheFlush()
+    {
+        await using var game = new FakeGame
+        {
+            SwallowsNegotiationAsText = true,
+            Banner = "Welcome to Nowhere\r\n",
+            BannerTail = "Please enter a name: ",
+            WhoReply = "Player Name        On For Idle\r\n3 Players logged in, 22 record, no maximum.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        // Without the flush the WHO arrives as \xff\xfd\x46WHO and is answered with a redisplay.
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Count);
+        await Assert.That(result.Who.Count).IsEqualTo(3);
+
+        // The flush line is not empty when it lands: it carries the IAC bytes the server had been
+        // holding as typing, which is the whole reason it is sent. WHO arrives clean behind it.
+        await Assert.That(game.Received.Any(line => line.Contains('\u00ff'))).IsTrue();
     }
 
     /// <summary>
@@ -1138,6 +1215,12 @@ public class ProbeSessionTests
         /// <summary>Whether the server accepts the connection and drops it without a word.</summary>
         public bool ClosesImmediately { get; init; }
 
+        /// <summary>
+        /// Whether a line the server cannot make sense of ends the session, as a DIKU that does not
+        /// parse telnet does when our IAC bytes reach its name prompt as typing.
+        /// </summary>
+        public bool HangsUpOnUnrecognisedLine { get; init; }
+
         /// <summary>Whether the server answers <c>WHO</c> and then closes on us.</summary>
         public bool HangsUpAfterWho { get; init; }
 
@@ -1146,6 +1229,17 @@ public class ProbeSessionTests
         /// bytes end up prefixed to the next command we type.
         /// </summary>
         public bool SwallowsNegotiationAsText { get; init; }
+
+        /// <summary>
+        /// Whether the server negotiates a protocol rather than merely framing telnet correctly.
+        /// </summary>
+        /// <remarks>
+        /// The default <see cref="ServeOverTelnetAsync"/> attaches no plugins, so it parses telnet and
+        /// agrees to nothing — which the probe reads, correctly, as no positive evidence that our IAC
+        /// bytes were interpreted. Attaching one is what makes a fixture a server that demonstrably
+        /// negotiated, and so one the residue flush may be withheld from.
+        /// </remarks>
+        public bool AnnouncesMssp { get; init; }
 
         public ProbeTarget Target => new(
             IPAddress.Loopback.ToString(),
@@ -1271,7 +1365,7 @@ public class ProbeSessionTests
         /// </summary>
         private async Task ServeOverTelnetAsync(TcpClient client)
         {
-            var built = await new TelnetInterpreterBuilder()
+            var builder = new TelnetInterpreterBuilder()
                 .UseMode(TelnetInterpreter.TelnetMode.Server)
                 .UseLogger(NullLogger.Instance)
                 .OnSubmit(async (bytes, encoding, telnet) =>
@@ -1283,8 +1377,20 @@ public class ProbeSessionTests
                     {
                         client.Client.Shutdown(SocketShutdown.Both);
                     }
-                })
-                .BuildAndStartAsync(client, _stopping.Token);
+                });
+
+            if (AnnouncesMssp)
+            {
+                // MSSP because it is the protocol real servers announce *early* — the report arrives
+                // during the option handshake, well before the flush decision. A plugin that merely
+                // negotiates and then says nothing would leave Supported empty, which the probe reads
+                // (correctly) as no evidence at all.
+                var mssp = new MSSPProtocol();
+                mssp.SetMSSPConfig(() => new MSSPConfig { Name = "NukeFire", Players = 7 });
+                builder = builder.AddPlugin(mssp);
+            }
+
+            var built = await builder.BuildAndStartAsync(client, _stopping.Token);
 
             await using var telnet = built.Interpreter;
 
@@ -1350,6 +1456,11 @@ public class ProbeSessionTests
 
             if (!clean)
             {
+                if (HangsUpOnUnrecognisedLine)
+                {
+                    return false;
+                }
+
                 // What TinyMUSH does: redisplay the connect screen and answer nothing.
                 await reply(Banner);
                 return true;
