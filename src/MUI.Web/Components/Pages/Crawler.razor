@@ -2,6 +2,7 @@
 @inject ICrawlerPulse Pulses
 @inject IGameQueries Queries
 @inject TimeProvider Clock
+@inject ILogger<Crawler> Logger
 
 @*
     /crawler used to be a 302 to About's crawler-identity section — deliberately a redirect rather
@@ -162,12 +163,31 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        // None of the five calls can throw: each answers its own demo-safe fallback (Unknown / empty)
-        // for a missing table or a failed query, so this page never costs a reader a 500.
+        // The three Pulses calls answer their own demo-safe fallback (Unknown / empty) for a missing
+        // table or a failed query — see StoredCrawlerPulse. The two IGameQueries calls have no such
+        // wrapper (production is NpgsqlGameQueries, and a query failing there throws), so they are
+        // caught here on the same terms: a failed section reads as "nothing found", never a 500 for
+        // the whole page over one section's query.
         Pulse = await Pulses.ReadAsync(Now);
         Recent = await Pulses.RecentAsync(10);
-        RecentChanges = await Queries.RecentFieldChangesAsync(10);
         DueSoon = await Pulses.DueSoonAsync(Now, 10);
-        Feeds = await Queries.FeedsAsync();
+
+        try
+        {
+            RecentChanges = await Queries.RecentFieldChangesAsync(10);
+        }
+        catch (Exception error)
+        {
+            Logger.LogWarning(error, "Could not read the crawler's recent field changes; the status page omits them");
+        }
+
+        try
+        {
+            Feeds = await Queries.FeedsAsync();
+        }
+        catch (Exception error)
+        {
+            Logger.LogWarning(error, "Could not read the crawler's liveness feeds; the status page omits them");
+        }
     }
 }

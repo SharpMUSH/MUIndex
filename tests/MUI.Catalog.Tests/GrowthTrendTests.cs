@@ -87,6 +87,21 @@ public class GrowthTrendTests
     }
 
     [Test]
+    public async Task ADayBelowTheSampleFloorIsExcludedEvenWhenTheCallerDidNotFilterItOut()
+    {
+        // DailyMediansAsync is the only production caller today, and its own SQL already excludes a
+        // thin day before this ever sees it — but the floor is part of this method's own contract
+        // (rule 4: a day the crawler barely touched contributes no median), not something every future
+        // caller must remember to re-implement. Three days, one of them a one-sample outlier: with the
+        // floor enforced here, only two qualifying days remain — below MinimumDays — so this returns
+        // null rather than a value skewed by the outlier.
+        var days = new[] { On(0, 10), On(1, 999, samples: 1), On(2, 12) };
+
+        await Assert.That(GrowthTrend.ChangeFraction(days)).IsNull();
+        await Assert.That(GrowthTrend.Of(days)).IsNull();
+    }
+
+    [Test]
     public async Task ChangeFractionIsNullBelowTheMinimumJustLikeOf() =>
         await Assert.That(GrowthTrend.ChangeFraction([On(0, 10), On(1, 20)])).IsNull();
 }

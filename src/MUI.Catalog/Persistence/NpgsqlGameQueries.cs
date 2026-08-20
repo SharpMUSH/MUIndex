@@ -832,6 +832,12 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// <c>NAME</c> or <c>PLAYERNAMES</c> flaps every crawl still contributes one row per genuine
     /// transition, but cannot crowd the rest of the catalogue off a page meant to show what the
     /// instrument has been doing broadly.
+    /// <para>
+    /// Bounded to <see cref="FacetedSearch.RecentlyReachable"/> before ranking — <c>field_change</c> is
+    /// append-only and never pruned (rule 3), so an unbounded window function would scan every
+    /// transition ever written, for every listed game, on every render of a page that only ever shows
+    /// a handful of rows.
+    /// </para>
     /// </remarks>
     public async Task<IReadOnlyList<RecentGameChange>> RecentFieldChangesAsync(
         int limit, int perGameLimit = 3, CancellationToken cancellationToken = default)
@@ -845,7 +851,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                        ROW_NUMBER() OVER (PARTITION BY c.game_id ORDER BY c.at DESC, c.id DESC) AS rn
                   FROM field_change c
                   JOIN game g ON g.id = c.game_id
-                 WHERE NOT (c.field = ANY(@internal) OR c.field LIKE @internalPrefix)
+                 WHERE c.at >= @since
+                   AND NOT (c.field = ANY(@internal) OR c.field LIKE @internalPrefix)
                    AND {PublicG} AND g.state NOT IN {NeverBrowsable}
             )
             SELECT game_id AS GameId, slug AS Slug, name AS Name, field AS Field, source AS Source,
@@ -859,6 +866,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             {
                 limit,
                 perGameLimit,
+                since = (Clock() - FacetedSearch.RecentlyReachable).ToUniversalTime(),
                 @internal = InternalFields.ExactNames.ToArray(),
                 internalPrefix = InternalFields.ConnectScreen + "%",
             },
@@ -1114,12 +1122,13 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         [
             .. eligible
                 .Select(g => (Game: g, Days: dailyMedians.GetValueOrDefault(g.Id, [])))
-                .Where(row => GrowthTrend.Of(row.Days) == GrowthDirection.Up)
+                .Select(row => (row.Game, row.Days, Change: GrowthTrend.ChangeFraction(row.Days)))
+                .Where(row => row.Change > GrowthTrend.SteadyBand)
                 .Select(row => new TrendingGame(
                     row.Game.Slug, row.Game.Name,
                     EarliestMedian: row.Days.MinBy(d => d.Day)!.Median,
                     LatestMedian: row.Days.MaxBy(d => d.Day)!.Median,
-                    Change: GrowthTrend.ChangeFraction(row.Days)!.Value))
+                    Change: row.Change!.Value))
                 .OrderByDescending(r => r.Change)
                 .ThenByDescending(r => r.LatestMedian)
                 .ThenBy(r => r.Name, StringComparer.Ordinal)

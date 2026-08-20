@@ -123,6 +123,7 @@ public class GameQueriesPostgresTests
         await using var db = await PostgresFixture.MigratedAsync();
         var seen = Now.AddDays(-1);
 
+        // discovered-0 is the newest (the smallest offset back from seen), discovered-15 the oldest.
         for (var i = 0; i < 16; i++)
         {
             await Seed.GameAsync(db, $"discovered-{i}", $"Discovered {i}", firstSeenAt: seen.AddSeconds(-i));
@@ -130,7 +131,14 @@ public class GameQueriesPostgresTests
 
         var feeds = await QueriesOn(db).FeedsAsync();
 
-        await Assert.That(feeds.NewlyDiscovered.Count).IsEqualTo(11);
+        // Not just a count: the eleven newest, in first_seen_at descending order, and the oldest five
+        // excluded — a query that returned an unordered or older subset of eleven would still pass a
+        // count-only assertion.
+        var expected = Enumerable.Range(0, 11).Select(i => $"discovered-{i}").ToList();
+        var actual = feeds.NewlyDiscovered.Select(f => f.Slug).ToList();
+
+        await Assert.That(actual.SequenceEqual(expected)).IsTrue();
+        await Assert.That(feeds.NewlyDiscovered.Any(f => f.Slug == "discovered-15")).IsFalse();
     }
 
     /// <summary>The argument behind an exclusion reaches the page that carries the decision.</summary>

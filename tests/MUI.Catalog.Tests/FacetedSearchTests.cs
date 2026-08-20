@@ -524,16 +524,18 @@ public class FacetedSearchTests
     [Test]
     public async Task TheVersionFacetShowsMoreThanTheOldTwelveValueCap()
     {
-        // Sixteen distinct patchlevels, one game each — more than the panel used to show. Raising
-        // the cap is what surfaces the difference here, not deduping happening to land under it.
-        var rows = Enumerable.Range(1, 16)
+        // Twenty-five distinct patchlevels, one game each — comfortably past both the old cap and the
+        // new one, so the assertion pins the new cap's actual value rather than merely exceeding the
+        // old one (which a regression that raised the cap to some other value, or removed it, would
+        // still pass).
+        var rows = Enumerable.Range(1, 25)
             .Select(i => Row($"game-{i}", codebase: $"PennMUSH 1.8.{i}"))
             .ToArray();
 
         var listing = FacetedSearch.Search(rows, new GameFilter());
         var group = Group(listing, FacetKeys.CodebaseVersion);
 
-        await Assert.That(group.Values.Count).IsGreaterThan(12);
+        await Assert.That(group.Values.Count).IsEqualTo(FacetedSearch.MaxValues);
     }
 
     private static ActivityBand Band(string token)

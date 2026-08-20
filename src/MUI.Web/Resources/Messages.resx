@@ -877,7 +877,7 @@
     <comment>facet values</comment>
   </data>
   <data name="facet.known.trending" xml:space="preserve">
-    <value>measured both weeks</value>
+    <value>measured enough days</value>
     <comment>facet values</comment>
   </data>
   <data name="facet.known.other" xml:space="preserve">
@@ -2985,7 +2985,7 @@
     <comment>the crawler status page's recently-updated list heading</comment>
   </data>
   <data name="crawler.recent.lede" xml:space="preserve">
-    <value>The newest field changes the crawler has written, across every listed game.</value>
+    <value>The newest field changes the crawler has written in the last 30 days, across every listed game.</value>
     <comment>the crawler status page's recently-updated list</comment>
   </data>
   <data name="crawler.recent.empty" xml:space="preserve">
@@ -3149,7 +3149,7 @@
     <comment>the plain mirror's feed headings and home counts</comment>
   </data>
   <data name="home.plain.trending" xml:space="preserve">
-    <value>Trending this week</value>
+    <value>Trending</value>
     <comment>the plain mirror's feed headings and home counts</comment>
   </data>
   <data name="reference.title" xml:space="preserve">

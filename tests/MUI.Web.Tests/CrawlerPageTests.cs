@@ -224,6 +224,34 @@ public class CrawlerPageTests
         await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "feed.nothingBack"));
     }
 
+    /// <summary>A failed catalogue query costs the page one section, never the whole render.</summary>
+    [Test]
+    public async Task AFailedQueryCostsThePageOneSectionRatherThanFailingTheWholeRender()
+    {
+        var pulse = Pulse(Cycle(1, 1, 1, 0, 0, 0));
+
+        var html = await Render.ComponentAsync<Components.Pages.Crawler>(
+            new Dictionary<string, object?>(),
+            services =>
+            {
+                services.AddSingleton<ICrawlerPulse>(new StubCrawlerPulse(pulse, [Cycle(1, 1, 1, 0, 0, 0)])
+                {
+                    Due = [new DueTarget("soonest.example", 4201, Now.AddMinutes(-2))],
+                });
+                services.AddSingleton<TimeProvider>(new FixedClock(Now));
+                services.AddSingleton<IGameQueries>(new StubChangeQueries { ThrowOnRecentFieldChanges = true, ThrowOnFeeds = true });
+            });
+
+        // The two sections a failed IGameQueries costs the page read as "nothing found", the same
+        // words an empty-but-successful answer uses — not an error, since our own query failing is not
+        // a fact about the games (rule 5).
+        await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "crawler.recent.empty"));
+        await Assert.That(html).Contains(Messages.For(Locales.SourceTag, "feed.nothingDark"));
+
+        // What the crawler pulse itself answered survives a catalogue query failing beside it.
+        await Assert.That(html).Contains("soonest.example:4201");
+    }
+
     /// <summary>The nav offers the crawler page directly, where went dark/came back moved to.</summary>
     [Test]
     public async Task TheNavOffersTheCrawlerPageAlongsideTheOtherBrowseDestinations()
@@ -293,11 +321,20 @@ public class CrawlerPageTests
     {
         public LivenessFeeds Feeds { get; init; } = new([], [], []);
 
+        public bool ThrowOnRecentFieldChanges { get; init; }
+
+        public bool ThrowOnFeeds { get; init; }
+
         public Task<IReadOnlyList<RecentGameChange>> RecentFieldChangesAsync(
             int limit, int perGameLimit = 3, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<RecentGameChange>>(changes);
+            ThrowOnRecentFieldChanges
+                ? throw new InvalidOperationException("simulated database failure")
+                : Task.FromResult<IReadOnlyList<RecentGameChange>>(changes);
 
-        public Task<LivenessFeeds> FeedsAsync(CancellationToken ct = default) => Task.FromResult(Feeds);
+        public Task<LivenessFeeds> FeedsAsync(CancellationToken ct = default) =>
+            ThrowOnFeeds
+                ? throw new InvalidOperationException("simulated database failure")
+                : Task.FromResult(Feeds);
 
         public Task<GameListing> SearchAsync(GameFilter filter, CancellationToken ct = default) =>
             throw new NotSupportedException();

@@ -274,10 +274,10 @@ public static class Messages
         ["facet.excluded"] = "not {value}",
         ["facet.known.charset"] = "something negotiated",
         ["facet.known.codebase"] = "identified at all",
-        ["facet.known.trending"] = "measured both weeks",
+        ["facet.known.trending"] = "measured enough days",
         ["facet.known.other"] = "declared at all",
 
-        // ── trending, this week's median against last week's ─────────────────────────────────────
+        // ── trending, a line fitted through a game's own daily medians ───────────────────────────
         ["facet.trending.up"] = "trending up",
         ["facet.trending.steady"] = "steady",
         ["facet.trending.down"] = "trending down",
@@ -1110,7 +1110,7 @@ public static class Messages
         ["crawler.liveness.title"] = "went dark, came back",
         ["crawler.liveness.lede"] = "The other two liveness feeds — newly discovered stays on the front page.",
         ["crawler.recent.title"] = "recently updated",
-        ["crawler.recent.lede"] = "The newest field changes the crawler has written, across every listed game.",
+        ["crawler.recent.lede"] = "The newest field changes the crawler has written in the last 30 days, across every listed game.",
         ["crawler.recent.empty"] = "No field has changed recently.",
         ["crawler.due.title"] = "next up",
         ["crawler.due.lede"] = "The soonest-due addresses in the registry, whether or not they have resolved to a named game yet.",
@@ -1178,7 +1178,7 @@ public static class Messages
         ["home.plain.connectedNow"] = "{count, plural, one {# populated (measured)} other {# populated (measured)}}",
         ["home.plain.uncounted"] = "{count, plural, one {# unknown population} other {# unknown population}}",
         ["home.plain.archived"] = "{count, plural, one {# archived, still probed} other {# archived, still probed}}",
-        ["home.plain.trending"] = "Trending this week",
+        ["home.plain.trending"] = "Trending",
 
         // ── THE REFERENCE SECTION'S CHROME ────────────────────────────────────────────────────
         // ═════════════════════════════════════════════════════════════════════════════════════

@@ -89,13 +89,19 @@ public static class GrowthTrend
     {
         ArgumentNullException.ThrowIfNull(days);
 
-        if (days.Count < MinimumDays)
+        // The floor is this method's own contract, not something every caller must remember to
+        // re-apply — DailyMediansAsync's SQL already excludes a thin day before this ever sees it,
+        // but a day another caller (a fixture, a future query) hands in unfiltered must not fit a
+        // line through it either.
+        var counted = days.Where(d => d.Samples >= MinimumSamplesPerDay).ToList();
+
+        if (counted.Count < MinimumDays)
         {
             return null;
         }
 
-        var earliest = days.Min(d => d.Day);
-        var points = days.Select(d => (X: (double)(d.Day.DayNumber - earliest.DayNumber), Y: (double)d.Median)).ToList();
+        var earliest = counted.Min(d => d.Day);
+        var points = counted.Select(d => (X: (double)(d.Day.DayNumber - earliest.DayNumber), Y: (double)d.Median)).ToList();
 
         var meanX = points.Average(p => p.X);
         var meanY = points.Average(p => p.Y);

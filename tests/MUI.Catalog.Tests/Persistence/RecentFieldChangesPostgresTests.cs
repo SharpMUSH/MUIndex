@@ -57,6 +57,35 @@ public class RecentFieldChangesPostgresTests
     }
 
     [Test]
+    public async Task AConnectScreenVariantFieldNeverReachesTheFeed()
+    {
+        // The LIKE-prefix branch, not the exact-name branch AnInternalFieldNeverReachesTheFeed
+        // already covers — a per-encoding connect-screen variant shares InternalFields.ConnectScreen's
+        // prefix without matching it exactly.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, "screeny", "Screeny");
+
+        await TransitionAsync(
+            db, game, InternalFields.ConnectScreen + "_2", "old screen", "new screen", Now.AddMinutes(-5));
+
+        await Assert.That((await QueriesOn(db).RecentFieldChangesAsync(10)).Any(c => c.Slug == "screeny")).IsFalse();
+    }
+
+    [Test]
+    public async Task AChangeOlderThanTheRecentWindowIsExcluded()
+    {
+        // field_change is append-only and never pruned (rule 3) — without a lower bound, ranking it
+        // scans every transition the crawler has ever written for every listed game, on every render
+        // of a page that only ever shows a handful of rows.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, "ancient", "Ancient");
+
+        await TransitionAsync(db, game, "CODEBASE", "A", "B", Now - FacetedSearch.RecentlyReachable - TimeSpan.FromDays(1));
+
+        await Assert.That((await QueriesOn(db).RecentFieldChangesAsync(10)).Any(c => c.Slug == "ancient")).IsFalse();
+    }
+
+    [Test]
     public async Task AnExcludedGamesChangesDoNotReachTheFeed()
     {
         // Same rule the liveness feeds apply: "recently updated" is ops diagnostics, not a public
