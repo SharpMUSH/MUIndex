@@ -89,11 +89,16 @@ public static class GrowthTrend
     {
         ArgumentNullException.ThrowIfNull(days);
 
-        // The floor is this method's own contract, not something every caller must remember to
-        // re-apply — DailyMediansAsync's SQL already excludes a thin day before this ever sees it,
-        // but a day another caller (a fixture, a future query) hands in unfiltered must not fit a
-        // line through it either.
-        var counted = days.Where(d => d.Samples >= MinimumSamplesPerDay).ToList();
+        // Both the floor and the one-row-per-day rule are this method's own contract, not something
+        // every caller must remember to re-apply — DailyMediansAsync's SQL already excludes a thin day
+        // and never emits two rows for one (its GROUP BY sees to that), but a day another caller (a
+        // fixture, a future query) hands in unfiltered, or hands in twice, must not fit a line through
+        // it either, or cast that day an extra vote in the regression by counting it as two points.
+        var counted = days
+            .Where(d => d.Samples >= MinimumSamplesPerDay)
+            .GroupBy(d => d.Day)
+            .Select(g => g.First())
+            .ToList();
 
         if (counted.Count < MinimumDays)
         {

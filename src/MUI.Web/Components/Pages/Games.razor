@@ -84,8 +84,13 @@ else
                     }
                 </nav>
 
-                @* Column names said once, here, rather than repeated on every row. *@
-                <p class="kicker column-head" aria-hidden="true">@Messages.For(Tag, "listing.columns")</p>
+                @* Column names said once, here, rather than repeated on every row. Decorative — a
+                   screen reader gets the same names per row instead (each cell's own sr-only label),
+                   so this exists for a sighted reader scanning the head, and has to name what that
+                   reader actually sees below it: the trend column added beside the count, and the
+                   last column reading as a discovery date rather than "reached" while that sort is
+                   active. *@
+                <p class="kicker column-head" aria-hidden="true">@ColumnsHeading()</p>
             </div>
         </div>
 
@@ -218,7 +223,7 @@ else
                         @if (g.Growth is { } growth)
                         {
                             <p class="row-trend @TrendState(growth)" role="img"
-                               aria-label="@FacetWords.TrendingWord(Tag, growth)"
+                               aria-label="@TrendLabel(growth, g.GrowthChange)"
                                title="@FacetWords.TrendingWord(Tag, growth)">
                                 @TrendGlyph(growth)@if (g.GrowthChange is { } change)
                                 {
@@ -284,6 +289,10 @@ else
     private DateTimeOffset Now => Clock.GetUtcNow();
 
     private GameFilter Filter { get; set; } = new();
+
+    /// <summary>Names the columns a sighted reader actually sees below it — see the caller's own comment.</summary>
+    private string ColumnsHeading() => Messages.For(
+        Tag, Filter.Sort == GameSort.Discovered ? "listing.columns.discovered" : "listing.columns");
 
     private GameListing Listing { get; set; } = GameListing.Empty;
 
@@ -417,6 +426,15 @@ else
 
         return percent > 0 ? $"+{percent}%" : $"{percent}%";
     }
+
+    /// <summary>
+    /// The accessible name for the trend cell — the direction word alone said "trending up" and left
+    /// the number a sighted reader sees right beside it unannounced.
+    /// </summary>
+    private string TrendLabel(GrowthDirection growth, double? change) =>
+        change is { } value
+            ? $"{FacetWords.TrendingWord(Tag, growth)}, {TrendPercent(value)}"
+            : FacetWords.TrendingWord(Tag, growth);
 
     protected override async Task OnParametersSetAsync()
     {

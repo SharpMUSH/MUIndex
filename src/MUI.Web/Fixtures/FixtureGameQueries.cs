@@ -733,10 +733,14 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
 
         // Only the game the row arrow already marks Up — matching NpgsqlGameQueries.TrendingThisWeekAsync,
         // which reads the same classification the arrow does rather than a bare sort on the numbers.
+        // Same tie-breakers as the real query too, so a second Up game added to the fixture later
+        // sorts the same way it would against a real database.
         var trending = listed
             .Where(g => g.Growth == GrowthDirection.Up)
             .Select(TrendingRow)
             .OrderByDescending(row => row.Change)
+            .ThenByDescending(row => row.LatestMedian)
+            .ThenBy(row => row.Name, StringComparer.Ordinal)
             .ToList();
 
         return Task.FromResult(new Rankings(
@@ -746,8 +750,22 @@ public sealed class FixtureGameQueries : IGameQueries, IAvailabilityHistory
         });
     }
 
-    private static TrendingGame TrendingRow(GameSummary g) =>
-        new(g.Slug, g.Name, EarliestMedian: 8, LatestMedian: 15, Change: (15 - 8) / 15.0);
+    /// <summary>
+    /// <see cref="TrendingGame.LatestMedian"/> reads off the same counted grid the busiest table ranks
+    /// on, so the board and the listing row cannot print two different numbers for one game.
+    /// <see cref="TrendingGame.EarliestMedian"/> has no such real counterpart in a fixture with one
+    /// invented week rather than a measured history — stated as a fraction of the real median instead
+    /// of an unrelated literal, so it is at least consistent with the game it names.
+    /// </summary>
+    private static TrendingGame TrendingRow(GameSummary g)
+    {
+        var counted = Activity(g).Where(c => c.IsCounted).Select(c => c.Count!.Value).Order().ToList();
+        var median = counted[counted.Count / 2];
+        var earliest = (int)Math.Round(median * 0.6);
+
+        return new TrendingGame(
+            g.Slug, g.Name, earliest, median, (median - earliest) / (double)median);
+    }
 
     public Task<LivenessFeeds> FeedsAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(new LivenessFeeds(

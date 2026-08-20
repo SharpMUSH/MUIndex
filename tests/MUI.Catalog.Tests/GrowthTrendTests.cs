@@ -102,6 +102,18 @@ public class GrowthTrendTests
     }
 
     [Test]
+    public async Task ThreeRowsAcrossOnlyTwoDistinctDaysCountAsTwoDaysNotThree()
+    {
+        // A second row for a day already in the series (never produced by DailyMediansAsync's own
+        // GROUP BY, but not this method's job to assume) must not let that day cast an extra vote in
+        // the fit, or let three rows across two real days pass a floor stated in days.
+        var days = new[] { On(0, 10), On(0, 14), On(1, 12) };
+
+        await Assert.That(GrowthTrend.ChangeFraction(days)).IsNull();
+        await Assert.That(GrowthTrend.Of(days)).IsNull();
+    }
+
+    [Test]
     public async Task ChangeFractionIsNullBelowTheMinimumJustLikeOf() =>
         await Assert.That(GrowthTrend.ChangeFraction([On(0, 10), On(1, 20)])).IsNull();
 }

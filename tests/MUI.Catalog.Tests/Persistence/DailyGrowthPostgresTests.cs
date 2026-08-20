@@ -66,7 +66,9 @@ public class DailyGrowthPostgresTests
 
         await Assert.That(row.Growth).IsEqualTo(GrowthDirection.Up);
         await Assert.That(row.GrowthChange).IsNotNull();
-        await Assert.That(row.GrowthChange!.Value).IsGreaterThan(0.10);
+        // The exact OLS fit through (0,10), (7,15), (13,20) — see GrowthTrendTests for the fraction
+        // in isolation; this is the same arithmetic read back off a real listing row.
+        await Assert.That(row.GrowthChange!.Value).IsEqualTo(169.0 / 254.0).Within(0.0001);
     }
 
     [Test]
@@ -79,7 +81,12 @@ public class DailyGrowthPostgresTests
         await WriteDayAsync(db, game, Today(-6), count: 15);
         await WriteDayAsync(db, game, Today(0), count: 10);
 
-        await Assert.That(await GrowthOf(db, "falling")).IsEqualTo(GrowthDirection.Down);
+        var listing = await QueriesOn(db).ListAsync(new GameFilter { IncludeArchived = true });
+        var row = listing.Single(g => g.Slug == "falling");
+
+        await Assert.That(row.Growth).IsEqualTo(GrowthDirection.Down);
+        await Assert.That(row.GrowthChange).IsNotNull();
+        await Assert.That(row.GrowthChange!.Value).IsLessThan(0);
     }
 
     [Test]

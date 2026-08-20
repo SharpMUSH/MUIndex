@@ -423,7 +423,19 @@ public class PlainParityTests
             await Assert.That(text).DoesNotContain("◇");
         }
 
-        await Assert.That(Render.Words(html)).Contains("connected · reached");
+        await Assert.That(Render.Words(html)).Contains("connected · trending · reached");
+    }
+
+    [Test]
+    public async Task TheColumnHeadingNamesDiscoveredRatherThanReachedUnderThatSort()
+    {
+        // Decorative and aria-hidden, but still the only column guide a sighted reader sees — it has
+        // to say what the last column actually shows while GameSort.Discovered is active, not the
+        // "reached" wording that sort leaves behind.
+        var html = await Render.PageAsync<Games>([], "?sort=discovered");
+
+        await Assert.That(Render.Words(html)).Contains("connected · trending · discovered");
+        await Assert.That(Render.Words(html)).DoesNotContain("connected · trending · reached");
     }
 
     [Test]
@@ -471,6 +483,23 @@ public class PlainParityTests
         await Assert.That(countAt).IsGreaterThanOrEqualTo(0);
         await Assert.That(trendAt).IsGreaterThan(countAt);
         await Assert.That(countCell).DoesNotContain("row-trend");
+    }
+
+    [Test]
+    public async Task TheAccessibleNameForTheTrendCarriesTheSamePercentageASightedReaderSees()
+    {
+        // aria-label used to name only the direction ("trending up"), leaving the +25% a screen
+        // reader's own listener never hears — the number sighted readers see right beside it.
+        var html = await Render.PageAsync<Games>([]);
+        var rows = html.Split("class=\"game-row").Skip(1)
+            .Select(r => r[..r.IndexOf("</li>", StringComparison.Ordinal)])
+            .ToList();
+
+        var mush = rows.Single(r => r.Contains("href=\"/g/m-u-s-h\"", StringComparison.Ordinal));
+        var trend = mush[mush.IndexOf("class=\"row-trend", StringComparison.Ordinal)..];
+        var ariaLabel = Render.Words(trend[..trend.IndexOf('>')]);
+
+        await Assert.That(ariaLabel).Contains("+25%");
     }
 
     [Test]

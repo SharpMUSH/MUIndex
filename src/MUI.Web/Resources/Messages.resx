@@ -585,7 +585,11 @@
     <comment>the listing</comment>
   </data>
   <data name="listing.columns" xml:space="preserve">
-    <value>connected · reached</value>
+    <value>connected · trending · reached</value>
+    <comment>the listing</comment>
+  </data>
+  <data name="listing.columns.discovered" xml:space="preserve">
+    <value>connected · trending · discovered</value>
     <comment>the listing</comment>
   </data>
   <data name="listing.fromHere" xml:space="preserve">
