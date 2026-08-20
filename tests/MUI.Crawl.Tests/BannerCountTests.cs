@@ -133,4 +133,60 @@ public class BannerCountTests
         await Assert.That(BannerCount.Find("Players online: 5\nThere are 60 users connected."))
             .IsNull();
     }
+
+    /// <summary>
+    /// Connect-screen counts in the vocabulary real games actually use, gathered by a manual sweep of
+    /// all 900 stored banners (see docs/codebase-survey-2026-07-30.md, 2026-08-20).
+    /// </summary>
+    [Test]
+    // nannymud (mud.lysator.liu.se:2000) — the label leads and the number trails it.
+    [Arguments("Number of players on:   8", 8)]
+    // opalmoo (moo.opal.org:7878).
+    [Arguments("Number of connected players: 2", 2)]
+    // lusternia.com:5000 — a bare hyphenated label, no people-noun anywhere.
+    [Arguments("Currently On-Line: 12", 12)]
+    // ckmud.com:8500 — label-first, and a second unrelated statistic on the same line.
+    [Arguments("Players Online: 36     Current Bonus: 5.0x", 36)]
+    // merentha.com:10000 — "adventurers", a people-noun the parser did not know.
+    [Arguments("There are currently 18 adventurers playing", 18)]
+    // primaldarkness.com:5000 — "people in the realm".
+    [Arguments("There are currently 3 people in the realm.", 3)]
+    // theforestsedge.com:4000 — bare "on", no "line" and no "connected".
+    [Arguments("17 players on.", 17)]
+    // vikingmud.org:2001 — the number is a word, and above the existing twenty-word ceiling is not.
+    [Arguments("There are currently nine players on.", 9)]
+    public async Task ACountInTheWordsRealGamesUseIsRead(string line, int expected)
+    {
+        await Assert.That(BannerCount.Find(line)).IsEqualTo(expected);
+    }
+
+    /// <summary>
+    /// A screen that counts its staff apart from its players is read as the player figure, not as a
+    /// conflict and not as a sum.
+    /// </summary>
+    /// <remarks>
+    /// zombiemud.org:3000 prints this verbatim, and before the 2026-08-20 vocabulary sweep the whole
+    /// screen yielded nothing. "Wizards" is not a people-noun this parser knows, which is what keeps
+    /// the two numbers from colliding and being refused — see WhoParser.People for why that absence is
+    /// deliberate rather than an oversight, and why the two are never added together.
+    /// </remarks>
+    [Test]
+    public async Task StaffCountedApartFromPlayersIsReadAsThePlayerCount()
+    {
+        var zombie = "There are currently 33 mortals and 4 wizards online.";
+
+        await Assert.That(BannerCount.Find(zombie)).IsEqualTo(33);
+    }
+
+    /// <summary>
+    /// The refusal that guards all of the above: two genuinely competing player figures on one screen
+    /// are still refused rather than picked between.
+    /// </summary>
+    [Test]
+    public async Task TwoCompetingPlayerCountsAreStillRefused()
+    {
+        var conflicting = "Players online: 12\nUsers connected: 40";
+
+        await Assert.That(BannerCount.Find(conflicting)).IsNull();
+    }
 }

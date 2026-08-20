@@ -82,11 +82,18 @@ public static partial class BannerCount
         }
     }
 
-    // "Players Currently Online: 218" / "Players online: 42" / "Currently connected: 7"
+    // "Players Currently Online: 218" / "Players online: 42" / "Currently connected: 7" /
+    // "Currently On-Line: 12" / "Number of players on: 8"
     // The label is mandatory. A bare number in ASCII art is never a count.
+    //
+    // The third alternative is the one shape where a bare "on" is admitted, and it is narrow on
+    // purpose: the people-noun must be present, immediately followed by "on", immediately followed by
+    // a colon or dash and the number (nannymud's "Number of players on:   8"). Without all three
+    // anchors "on" is a preposition and would read "3 messages on the board" as a population.
     [GeneratedRegex(
-        @"\b(?:players?|users?|characters?|adventurers?)?\s*(?:currently\s+)?(?:online|connected|playing|logged\s*(?:in|on))\s*[:\-]?\s*(?<n>\d{1,5})\b"
-        + @"|\b(?:players?|users?)\s*(?:currently\s+)?[:\-]\s*(?<n>\d{1,5})\b",
+        @"\b(?:players?|users?|characters?|adventurers?)?\s*(?:currently\s+)?(?:on-?line|connected|playing|logged\s*(?:in|on))\s*[:\-]?\s*(?<n>\d{1,5})\b"
+        + @"|\b(?:players?|users?)\s*(?:currently\s+)?[:\-]\s*(?<n>\d{1,5})\b"
+        + @"|\b(?:players?|users?|characters?|adventurers?)\s+on\s*[:\-]\s*(?<n>\d{1,5})\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex LabelledCountPattern();
 

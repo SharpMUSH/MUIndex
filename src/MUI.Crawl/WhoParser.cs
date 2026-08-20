@@ -180,6 +180,13 @@ public sealed partial class WhoParser : IWhoParser
             return true;
         }
 
+        var wordedOn = WordedOnPattern().Match(line);
+        if (wordedOn.Success
+            && Words.TryGetValue(wordedOn.Groups["w"].Value.ToLowerInvariant(), out count))
+        {
+            return true;
+        }
+
         var announced = AnnouncedPattern().Match(line);
         if (announced.Success && int.TryParse(announced.Groups["n"].Value, out count))
         {
@@ -320,11 +327,34 @@ public sealed partial class WhoParser : IWhoParser
     /// Bare <c>logged</c> is admitted, but <c>logged out</c>/<c>logged off</c> are refused by name —
     /// "There are no logged players." is a real measured zero, and the opposite claim is one word away.
     /// </remarks>
+    /// <remarks>
+    /// <c>on-line</c> is admitted beside <c>online</c>, and <c>in the realm</c> beside <c>in the
+    /// game</c> — both measured on live connect screens in the 2026-08-20 sweep
+    /// (<c>lusternia.com:5000</c>, <c>primaldarkness.com:5000</c>).
+    /// </remarks>
     private const string Connectivity =
-        @"(?:connected|online|logged(?!\s+(?:out|off))(?:\s*(?:in|on))?|playing|active|in\s+the\s+game)";
+        @"(?:connected|on-?line|logged(?!\s+(?:out|off))(?:\s*(?:in|on))?|playing|active"
+        + @"|in\s+the\s+(?:game|realm))";
 
     /// <summary>Nouns a server uses for the people on it.</summary>
-    private const string People = @"(?:players?|users?|characters?|people|persons?|folks?)";
+    /// <remarks>
+    /// <para>
+    /// <c>adventurers</c> and <c>mortals</c> were added from the 2026-08-20 sweep
+    /// (<c>merentha.com:10000</c> "18 adventurers playing", <c>zombiemud.org:3000</c> "33 mortals and
+    /// 4 wizards online").
+    /// </para>
+    /// <para>
+    /// <b><c>wizards</c>, <c>immortals</c> and <c>staff</c> are deliberately absent.</b> A game that
+    /// counts its staff separately is stating two numbers, and the one this project means by "players"
+    /// is the mortal one — so leaving the staff noun unknown reads "33 mortals and 4 wizards online" as
+    /// 33 rather than as a conflict. Adding them would make the two figures collide and
+    /// <see cref="BannerCount.Find"/> would refuse the screen entirely, which is how that sentence read
+    /// before this. Summing them is not on offer either: that would be our arithmetic presented as
+    /// their statement.
+    /// </para>
+    /// </remarks>
+    private const string People =
+        @"(?:players?|users?|characters?|people|persons?|folks?|adventurers?|mortals?)";
 
     /// <summary>
     /// Words a server may put between the number and the noun it counts (e.g. "39 connected
@@ -377,6 +407,16 @@ public sealed partial class WhoParser : IWhoParser
         @"\b(?<n>\d+)\s+" + Intervening + People + @"\s+on\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex NumberedOnPattern();
+
+    /// <summary>
+    /// The same narrow bare-<c>on</c> shape with the number spelled out — <c>vikingmud.org:2001</c>
+    /// prints "There are currently nine players on."
+    /// </summary>
+    [GeneratedRegex(
+        @"\b(?<w>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen"
+        + @"|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\s+" + Intervening + People + @"\s+on\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex WordedOnPattern();
 
     /// <summary>
     /// A server announcing its own figure with no connectivity word anywhere near it (e.g.
