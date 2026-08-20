@@ -121,7 +121,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
     /// </remarks>
     public const int MinimumRankingSamples = SortWindows.MinimumSamples;
 
-    private const int FeedLimit = 12;
+    private const int FeedLimit = 11;
 
     private const int ChangeLimit = 20;
 

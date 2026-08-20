@@ -118,7 +118,7 @@ public class GameQueriesPostgresTests
     }
 
     [Test]
-    public async Task TheNewlyDiscoveredFeedShowsTwelve()
+    public async Task TheNewlyDiscoveredFeedShowsEleven()
     {
         await using var db = await PostgresFixture.MigratedAsync();
         var seen = Now.AddDays(-1);
@@ -130,7 +130,7 @@ public class GameQueriesPostgresTests
 
         var feeds = await QueriesOn(db).FeedsAsync();
 
-        await Assert.That(feeds.NewlyDiscovered.Count).IsEqualTo(12);
+        await Assert.That(feeds.NewlyDiscovered.Count).IsEqualTo(11);
     }
 
     /// <summary>The argument behind an exclusion reaches the page that carries the decision.</summary>
