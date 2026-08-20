@@ -214,4 +214,54 @@ public class BannerCountTests
     {
         await Assert.That(BannerCount.Find(line)).IsEqualTo(expected);
     }
+
+    /// <summary>
+    /// A zero the screen spells out is a measured zero — we got in and nobody was there — and must
+    /// never be read as unparseable.
+    /// </summary>
+    [Test]
+    // icewindmud.org:2021
+    [Arguments("There is nobody playing right now!", 0)]
+    // 44.230.15.218:5005 (pd-builders)
+    [Arguments("There is currently nobody in the realm.", 0)]
+    // arcanetides.net:3000 (tides-of-darkness) — hyphenated "No-one".
+    [Arguments("No-one is playing at the moment.", 0)]
+    public async Task AWordedZeroIsAMeasuredZero(string line, int expected)
+    {
+        await Assert.That(BannerCount.Find(line)).IsEqualTo(expected);
+    }
+
+    [Test]
+    // atlasmud.com:4445 — a measured zero whose connectivity word is "in the world".
+    [Arguments("There are currently 0 players in the world of Atlas.", 0)]
+    // ansiblemoo.org:6000 — zero mid-sentence, after unrelated lag text.
+    [Arguments("The lag is low; there are 0 players connected.", 0)]
+    // mud.chalacyn.com:1000
+    [Arguments("There are 0 players online.", 0)]
+    public async Task ADigitZeroIsAMeasuredZeroHoweverItIsPhrased(string line, int expected)
+    {
+        await Assert.That(BannerCount.Find(line)).IsEqualTo(expected);
+    }
+
+    /// <summary>
+    /// A count over a past time window is not a count of who is here now, and must never be read as
+    /// one.
+    /// </summary>
+    /// <remarks>
+    /// down.moo.midgard.org:8888 prints all three of these lines together. The current figure is 1;
+    /// the trailing 0 is a twelve-hour total. Reading the screen bottom-up, or taking the last number
+    /// on it, publishes a false zero for a game with somebody in it. The refusal is what protects
+    /// this: two different figures on one screen are never picked between.
+    /// </remarks>
+    [Test]
+    public async Task AWindowedTotalIsNeverReadAsThePresentCount()
+    {
+        var downmoo = """
+            1 players are connected.
+            1 players have connected over the past twenty-four hours.
+            0 players have connected over the past twelve hours.
+            """;
+
+        await Assert.That(BannerCount.Find(downmoo)).IsNull();
+    }
 }

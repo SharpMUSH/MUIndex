@@ -328,13 +328,15 @@ public sealed partial class WhoParser : IWhoParser
     /// "There are no logged players." is a real measured zero, and the opposite claim is one word away.
     /// </remarks>
     /// <remarks>
-    /// <c>on-line</c> is admitted beside <c>online</c>, and <c>in the realm</c> beside <c>in the
-    /// game</c> — both measured on live connect screens in the 2026-08-20 sweep
-    /// (<c>lusternia.com:5000</c>, <c>primaldarkness.com:5000</c>).
+    /// <c>on-?line</c> is admitted beside <c>online</c>, and <c>realm</c> and <c>world</c> beside
+    /// <c>in the game</c> — all measured on live connect screens in the 2026-08-20 sweep
+    /// (<c>lusternia.com:5000</c>, <c>primaldarkness.com:5000</c>, <c>atlasmud.com:4445</c>'s
+    /// "There are currently 0 players in the world of Atlas.", which was a measured zero being
+    /// discarded as unreadable).
     /// </remarks>
     private const string Connectivity =
         @"(?:connected|on-?line|logged(?!\s+(?:out|off))(?:\s*(?:in|on))?|playing|active"
-        + @"|in\s+the\s+(?:game|realm))";
+        + @"|in\s+the\s+(?:game|realm|world))";
 
     /// <summary>Nouns a server uses for the people on it.</summary>
     /// <remarks>
@@ -375,9 +377,21 @@ public sealed partial class WhoParser : IWhoParser
         ["sixteen"] = 16, ["seventeen"] = 17, ["eighteen"] = 18, ["nineteen"] = 19, ["twenty"] = 20,
     };
 
-    // "There are no players connected." / "No players are online." / "Nobody is logged in."
+    /// <summary>
+    /// A zero the screen spells out rather than printing as a digit — and it is a <em>measured</em>
+    /// zero, so it must parse rather than fall through to unreadable.
+    /// </summary>
+    /// <remarks>
+    /// The separator after <c>no</c> admits a hyphen as well as a space: <c>arcanetides.net:3000</c>
+    /// writes "No-one is playing at the moment.", which a whitespace-only separator read as
+    /// unparseable — a live game with nobody in it, filed as a game we could not count. It cannot run
+    /// away into <c>non-</c> or <c>none</c>-prefixed words, since at least one space or hyphen must
+    /// follow <c>no</c> for it to match at all.
+    /// </remarks>
+    // "There are no players connected." / "No players are online." / "Nobody is logged in." /
+    // "No-one is playing at the moment."
     [GeneratedRegex(
-        @"\bno(?:body)?\s+(?:" + People + @"|one)?\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
+        @"\bno(?:body)?[\s-]+(?:" + People + @"|one)?\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex NoPlayersPattern();
 
