@@ -394,22 +394,48 @@ who can help`).
   code: `TelnetProbe` already sends the literal `WHO` command unconditionally in Phase 3 regardless of
   what the banner says, so every one of these games is already asked. Recorded here so a future reader
   doesn't mistake the volume of this shape in the survey for an uncovered case.
-- **Banner-stated player counts with vocabulary `WhoParser`/`BannerCount` don't recognise — a separate,
-  larger piece of work than this plan's scope, not attempted here.** The player-count sweep found this
-  is common enough to be its own follow-up:
-  - Nouns outside the existing `players?|users?|characters?|people|persons?|folks?` list: "atmai"
-    (`lostsouls.org:23`), "mortals"/"immortals" (`zombiemud.org:3000`: "25 mortals and 4 wizards
-    online"), "adventurers" is covered but "souls"/"heroes" are not.
-  - Label-before-number order the existing `LabelledCountPattern` doesn't match because the
-    connectivity word isn't adjacent to the number in the right order: `nannymud`
-    (`mud.lysator.liu.se:2000`)'s "Number of players on:   8", `opalmoo`
-    (`moo.opal.org:7878`)'s "Number of connected players: 2".
-  - A hyphenated `on-line`/bare `on` never reaching a people-noun: `lusternia.com:5000`'s
-    "Current On-Line: 12", `zombiemud`-family "N players on." (no "line"/"connected").
-  - Counts spelled out in Chinese numerals rather than digits — `xianlv-qingyuan`
-    (`112.124.8.59:6666`): "二百一十八位玩家" (218, written as characters, not `218`) — `WordedPattern`
-    only spells English number-words up to twenty.
-  - Split-by-role counts where neither clause alone states a total (`dbu-mmo`,
-    `mud.morchronium.com:7770`: "0 Mortals and 0 Developer(s) Online") — `BannerCount.Find` already
-    refuses two conflicting numbers rather than guessing which is "the" count, which is correct
-    behaviour, not a bug; a fix here would mean *summing* recognised role-clauses, a different feature.
+- **~~Banner-stated player counts in vocabulary the parsers don't recognise~~ — done, and measured
+  rather than guessed.** Eight real banner strings were put to the parser before anything changed;
+  three already read, five did not. `Connectivity` gained `on-line` and `in the realm`, `People` gained
+  `adventurers` and `mortals`, a worded twin of the bare-`on` shape was added, and `BannerCount` gained
+  one narrow labelled alternative requiring noun + `on` + separator + digits (so `on` cannot read as a
+  preposition — "3 messages on the board" is not a population). Verified live: `zombiemud.org:3000`
+  yields 33 and `lusternia.com:5000` yields 11, both of which yielded nothing before.
+
+  **`wizards`, `immortals` and `staff` are deliberately still not people-nouns.** That absence is
+  load-bearing: it is what makes zombiemud's "There are currently 33 mortals and 4 wizards online."
+  read as 33 rather than as two competing figures `BannerCount.Find` would refuse. Summing them is not
+  on offer — that would be our arithmetic presented as their statement.
+
+- **Still not read, and left that way on purpose:** counts spelled in Chinese numerals
+  (`112.124.8.59:6666`'s "二百一十八位玩家"), game-specific nouns with no general meaning
+  (`lostsouls.org:23`'s "atmai"), and counts split across roles where neither clause states a total.
+
+- **A paginated `WHO` roster must never be row-counted.** `batmud.bat.org:23` answers its menu with a
+  roster carrying no total and a pager — `More (18%) [qpbns?]`. Counting the rows we can see would
+  publish 24 of roughly 130 as a measurement. `WhoParser` returns `Unknown` for it, which is rule 4
+  working, not a gap to close: an unreadable count is honest, a truncated one is a fabrication that
+  looks exactly like a real number.
+
+### Verified against live servers, 2026-08-20
+
+Every category was run against a real game and diffed against a build of `origin/main`. Two defects
+surfaced that no fixture had reached — a menu line with several options on it was answered with the
+wrong token (`batmud.bat.org:23`, `zombiemud.org:3000`), and the blank flush line ended the session on
+a gated DIKU that had just been sent its answer (`mud.arcadia.net:4000`). Both fixed and re-verified.
+
+| game | category | before | after |
+|---|---|---|---|
+| `mud.harshlands.net:5555` | screen-reader | 95 chars, still gated | 293 chars, cleared |
+| `vormud.genesismuds.com:7777` | press-enter | 272 chars / 7 lines | 4221 chars / 43 lines |
+| `mud.arcadia.net:4000` | colour | 870 chars, `LoginPrompt` | 1382 chars, `LoginPrompt` |
+| `zombiemud.org:3000` | who-menu + count | no count | banner count 33 |
+| `lusternia.com:5000` | banner count | no count | banner count 11 |
+| `mush.pennmush.org:4201` | control | `Count` 19 | `Count` 19 |
+| `chaos.caile.org:4444` | control | `Count` 0 | `Count` 0 |
+| `aardmud.org:4000` | control | banner count | banner count |
+
+Probing the same hosts repeatedly in quick succession gets connections refused — the failures that
+produces are the remote end rate-limiting, not a probe defect. Space repeat runs out, or read a batch
+of simultaneous `Failed` results with suspicion before believing them.
+
