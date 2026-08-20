@@ -1648,10 +1648,23 @@ ul.games > li.game-row { min-height: 46px; padding: var(--row-pad) var(--gutter)
   facts spanning beneath. The count and the age are siblings on one baseline — they were a nested
   two-row grid in the third column, which stacked the age under the count and left neither able to
   line up down the page.
+
+  The three measurement tracks are fixed lengths, not `auto`. Every row builds its own grid, so an
+  `auto` track is sized by that row's content alone and nothing lines up with the row above: "219"
+  and "9" and "no count" each put the count's left edge somewhere different, and a row with no trend
+  at all moved it again. Measured down a seven-row listing, the count began at five different x
+  positions across a 53px spread and the trend at three across 27px, which is the movement a reader
+  sees when scanning the column rather than the row.
+
+  Fixed rather than a shared track sizing (subgrid, or one grid over the whole list) because those
+  size to whatever is on screen: a page whose busiest game has four digits would draw its columns
+  differently from the next page, which is the same movement one scroll further away. The widths
+  below hold the widest thing each column can carry — "no count" at 62px, a six-glyph trend, and
+  "never" — so the geometry is a property of the listing rather than of a page of it.
 */
 .row-main {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    grid-template-columns: minmax(0, 1fr) 6.4rem 5.2rem 4rem;
     gap: 3px 20px;
     align-items: baseline;
 }
@@ -1772,7 +1785,6 @@ ul.games .meta .protocol.more { color: var(--dim); }
 
 .row-seen {
     margin: 0;
-    grid-column: 3;
     text-align: right;
     white-space: nowrap;
     font-size: var(--fs-sm);
