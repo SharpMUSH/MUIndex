@@ -58,6 +58,10 @@
             {
                 @Group(group)
             }
+            @foreach (var group in Secondary)
+            {
+                @Group(group)
+            }
         </div>
 
         @*
@@ -85,20 +89,6 @@
                     }
                 </div>
             </fieldset>
-        }
-
-        @* Everything else, behind one disclosure that opens itself when one of them is active. *@
-        @if (Secondary is { Count: > 0 } more)
-        {
-            <details class="facet-more-groups" open="@more.Any(g => g.IsFiltered)">
-                <summary>@Messages.For(Tag, "facet.more", new Dictionary<string, object?> { ["count"] = more.Count })</summary>
-                <div class="facet-grid">
-                    @foreach (var group in more)
-                    {
-                        @Group(group)
-                    }
-                </div>
-            </details>
         }
 
         @foreach (var group in Facets.Where(g => g.Kind is FacetKind.Presence))
@@ -210,15 +200,16 @@
 }
 
 @code {
-    /// <summary>The facets drawn first; the rest go behind a disclosure.</summary>
+    /// <summary>
+    /// The facets drawn first, ahead of everything in <see cref="Secondary"/> — every choice facet is
+    /// drawn now (no "more filters" disclosure hides any of them), but a reader scanning the panel
+    /// still meets the coarser, more legible questions before the finer ones.
+    /// </summary>
     /// <remarks>
     /// <see cref="FacetKeys.Family"/> — MSSP's own <c>FAMILY</c> line — sits ahead of
-    /// <see cref="FacetKeys.Codebase"/> rather than behind the "more filters" disclosure: it is the
-    /// coarser, more legible question of the two, and a reader deciding what kind of game they want
-    /// asks it before they ask which codebase implements it.
-    /// <see cref="FacetKeys.Trending"/> sits beside <see cref="FacetKeys.Band"/> — both are "what is
-    /// this game doing lately" questions — rather than behind the disclosure, since a facet a reader
-    /// can't discover without opening "more filters" first is a facet they can't find at all.
+    /// <see cref="FacetKeys.Codebase"/>: a reader deciding what kind of game they want asks it before
+    /// they ask which codebase implements it. <see cref="FacetKeys.Trending"/> sits beside
+    /// <see cref="FacetKeys.Band"/> — both are "what is this game doing lately" questions.
     /// </remarks>
     private static readonly string[] Lead =
         [FacetKeys.Band, FacetKeys.Trending, FacetKeys.Family, FacetKeys.Codebase, FacetKeys.LastSeen];
@@ -242,6 +233,7 @@
         [.. Choices.Where(g => Measured.Contains(g.Key, StringComparer.Ordinal) && g.Values.Count > 0)
             .OrderBy(g => Array.IndexOf(Measured, g.Key))];
 
+    /// <summary>Every other choice facet, drawn right after <see cref="Primary"/> in the same grid.</summary>
     private IReadOnlyList<FacetGroup> Secondary =>
         [.. Choices.Where(g => !Lead.Contains(g.Key, StringComparer.Ordinal)
             && !Measured.Contains(g.Key, StringComparer.Ordinal))];
@@ -278,9 +270,16 @@
     
                         @if (Rest(group) is { Count: > 0 } rest)
                         {
-                            @* The tail, behind a native disclosure — open when it holds the reader's own selection. *@
+                            @* The tail, behind a native disclosure — open when it holds the reader's own
+                               selection. The summary trades places with the rows once open (CSS order,
+                               below) and its own label swaps for "show fewer", so the control that just
+                               revealed a run of rows is the one sitting right after them, not still
+                               pinned above where a reader's eye has already left. *@
                             <details class="facet-tail" open="@rest.Any(v => v.IsSelected)">
-                                <summary>@Messages.For(Tag, "facet.moreValues", new Dictionary<string, object?> { ["count"] = rest.Count })</summary>
+                                <summary>
+                                    <span class="tail-more">@Messages.For(Tag, "facet.moreValues", new Dictionary<string, object?> { ["count"] = rest.Count })</span>
+                                    <span class="tail-fewer">@Messages.For(Tag, "facet.fewerValues")</span>
+                                </summary>
                                 <div class="rows">
                                     @foreach (var value in rest)
                                     {

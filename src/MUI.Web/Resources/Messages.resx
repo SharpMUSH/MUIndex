@@ -700,12 +700,12 @@
     <value>any</value>
     <comment>the filter panel</comment>
   </data>
-  <data name="facet.more" xml:space="preserve">
-    <value>more filters ({count})</value>
-    <comment>the filter panel</comment>
-  </data>
   <data name="facet.moreValues" xml:space="preserve">
     <value>{count, plural, one {# more} other {# more}}</value>
+    <comment>the filter panel</comment>
+  </data>
+  <data name="facet.fewerValues" xml:space="preserve">
+    <value>show fewer</value>
     <comment>the filter panel</comment>
   </data>
   <data name="facet.alsoShow" xml:space="preserve">

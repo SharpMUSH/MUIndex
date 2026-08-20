@@ -522,9 +522,6 @@
   <data name="facet.anyValue" xml:space="preserve">
     <value>alle</value>
   </data>
-  <data name="facet.more" xml:space="preserve">
-    <value>meer filters ({count})</value>
-  </data>
   <data name="facet.moreValues" xml:space="preserve">
     <value>{count, plural, one {# meer} other {# meer}}</value>
   </data>
