@@ -484,7 +484,7 @@ one — skip it where the server has *positively demonstrated* it parses telnet,
 clears cannot exist there. Measured upside for that: 32 games, of which most would gain a more precise
 unmeasurable *reason* (`who_login_prompt` rather than `who_not_offered`) rather than a count, since
 they are the DIKU family that reads `WHO` as a character name. `tdome.nukefire.org:4000` is the worked
-example — skip the flush, ask `WHO`, and it answers `Password: ` + `IAC WILL ECHO` + `IAC GA`.
+example — skip the flush, ask `WHO`, and it answers `Password:` followed by a space, then `IAC WILL ECHO` and `IAC GA`.
 
 One caution for whoever picks that up: the discriminator must be `OfferedOptions` (protocols observed
 **active**), not the presence of a `capability.*.measured` field. That field is written `false` when we
@@ -495,8 +495,8 @@ look and find nothing, so keying on its existence reports every game as negotiat
 
 The flush is now withheld from a server that has **positively demonstrated** it parsed our
 negotiation, and sent to every other. Two things count as demonstration: a prompt answer already went
-out on this session (that line did the flushing), or a protocol was observed active
-(`Observations.Supported` non-empty).
+out on this session (that line did the flushing), or a protocol was observed active — `Observations.Supported`, the internal set that
+reaches callers as `ProbeResult.OfferedOptions`.
 
 Isolated crawl of exactly the affected population — the 35 games that answered, negotiated a
 protocol, and had never been asked `WHO` because the flush ended the session first:
@@ -515,7 +515,7 @@ own concurrency against five ports of one host, not the change.
 
 `tdome.nukefire.org:4000` is the worked example end to end. Before: `who NotAsked`, session over in
 1.7s. After: the flush is withheld, the session survives, `WHO` is asked, and the server answers
-`Password: ` + `IAC WILL ECHO` + `IAC GA` — read as `who_login_prompt`, and **the first live
+`Password:` followed by a space, then `IAC WILL ECHO` and `IAC GA` — read as `who_login_prompt`, and **the first live
 observation of a Go-Ahead prompt marker this crawler has ever recorded** (`prompts marked`).
 
 **Two cautions for anyone changing this.**

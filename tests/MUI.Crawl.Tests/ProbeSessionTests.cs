@@ -561,6 +561,14 @@ public class ProbeSessionTests
         // FakeGame's telnet mode negotiates, so the flush is withheld and the goodbye never happens.
         await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Count);
         await Assert.That(result.Who.Count).IsEqualTo(7);
+
+        // Pin *which* branch withheld the flush. Both `answeredAPrompt` and `parsedOurNegotiation`
+        // suppress it, and only the second is under test here — so assert nothing but the permitted
+        // commands went out. Were this banner ever classified as a prompt, the probe would answer it,
+        // the flush would be withheld for the other reason, and this test would stay green while the
+        // negotiation branch it guards quietly stopped being exercised.
+        await Assert.That(game.Received.Where(line => line.Trim().Length > 0)
+            .All(line => TelnetProbe.PermittedCommands.Contains(line.Trim()))).IsTrue();
         await Assert.That(game.Received).DoesNotContain(string.Empty);
     }
 
@@ -1386,7 +1394,9 @@ public class ProbeSessionTests
                 // negotiates and then says nothing would leave Supported empty, which the probe reads
                 // (correctly) as no evidence at all.
                 var mssp = new MSSPProtocol();
-                mssp.SetMSSPConfig(() => new MSSPConfig { Name = "NukeFire", Players = 7 });
+                // Deliberately not the WHO fixture's 7: if MSSP ever leaked into the WHO reading, two
+                // matching numbers would hide it.
+                mssp.SetMSSPConfig(() => new MSSPConfig { Name = "NukeFire", Players = 99 });
                 builder = builder.AddPlugin(mssp);
             }
 

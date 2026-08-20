@@ -277,6 +277,11 @@ public class BannerCountTests
     [Test]
     [Arguments("Wizards online: 4")]
     [Arguments("Immortals connected: 12")]
+    // The role may sit further from the connectivity word than one space: an intervening
+    // "currently", or simply more whitespace, must not walk the guard off the end.
+    [Arguments("Wizards currently online: 4")]
+    [Arguments("Immortals   currently   connected: 12")]
+    [Arguments("Wizards      online: 4")]
     [Arguments("No wizards online")]
     [Arguments("There are no wizards online.")]
     public async Task AStaffOnlyLineIsNotAPlayerCount(string line)
