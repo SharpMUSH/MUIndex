@@ -191,6 +191,12 @@ public class LoginPromptGateTests
     [Arguments("U - Short list of who is on-line", "U")]
     // way-of-the-force's real menu line.
     [Arguments("w - Who is online?", "w")]
+    // eternitymud-com's real menu line — a numbered, not lettered, option.
+    [Arguments("2. who is playing", "2")]
+    // tauros-rebirth's real menu line — numbered with a dot-leader separator ("[2]....").
+    [Arguments("[2]....See who is currently logged in.", "2")]
+    // legendmud's real menu line — "online" precedes "who" rather than following it.
+    [Arguments("[4] List immortals online who can help", "4")]
     public async Task AWhosOnlineMenuOptionIsRecognised(string banner, string expectedToken)
     {
         var answer = LoginPromptGate.Classify(banner);

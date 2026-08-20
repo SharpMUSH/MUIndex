@@ -228,13 +228,18 @@ public static partial class LoginPromptGate
     private static partial Regex Utf8LabelPattern();
 
     // "w - who is playing at the moment" / "W - See who is online" / "U - Short list of who is
-    // on-line" / "(W)ho is online" — a single-letter menu token (bracketed, parenthesised, or
-    // dash-separated), then a label about who is connected. Not anchored to the start of the line —
+    // on-line" / "2. who is playing" / "[2]....See who is currently logged in." / "[4] List immortals
+    // online who can help" — a menu token (a single letter, or one/two digits — charset menus use
+    // digits too, and eternitymud-com/tauros-rebirth number their who's-online option rather than
+    // lettering it), then a label about who is connected. Not anchored to the start of the line —
     // several real menus (e.g. daedal-macabre's "(N)ew  (C)onnect  (W)ho is online  (Q)uit") pack every
     // option onto one line, so the token's own boundary (no letter/digit immediately before it) is what
-    // stops this matching mid-word instead of position.
+    // stops this matching mid-word instead of position. "Who" and the connectivity word are matched as
+    // two independent lookaheads rather than one ordered sequence, because legendmud's real label puts
+    // them the other way round ("...online who can help").
     [GeneratedRegex(
-        @"(?<![\p{L}\p{N}])[\[\(]?(?<token>[A-Za-z])(?:[\]\).:]|\s+-\s*)\s*.{0,25}\bwho\b.{0,25}(?:online|playing|on[- ]?line)",
+        @"(?<![\p{L}\p{N}])[\[\(]?(?<token>[0-9]{1,2}|[A-Za-z])(?:[\]\).:]|\s+-\s*)[\s.]*"
+        + @"(?=.{0,40}\bwho\b)(?=.{0,40}\b(?:online|playing|on[- ]?line|logged\s*(?:in|on))\b)",
         RegexOptions.IgnoreCase)]
     private static partial Regex WhoMenuOptionLinePattern();
 }
