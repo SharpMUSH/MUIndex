@@ -111,7 +111,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
             // Whether the flush below is a stray line or the answer to a question. Decided here,
             // before it is sent, because after it there is no way to tell the two apart.
-            var gated = BannerGate.IsAnsweredByReturn(BannerSoFar(lines, bannerLines));
+            var gated = LoginPromptGate.Classify(BannerSoFar(lines, bannerLines)) is not null;
 
             // Phase 2 — an empty line, and everything it produces is thrown away.
             //

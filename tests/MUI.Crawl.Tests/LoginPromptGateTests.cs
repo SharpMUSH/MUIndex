@@ -3,12 +3,14 @@ using MUI.Crawl;
 namespace MUI.Crawl.Tests;
 
 /// <summary>
-/// Telling a connect screen from the one question a server asks before it paints one.
+/// Telling a connect screen from the one or more questions a server asks before it paints one, and
+/// what answers each.
 /// </summary>
 /// <remarks>
-/// Every fixture is a stored connect screen from the live catalogue, most under thirty characters.
+/// Every fixture is a stored connect screen from the live catalogue (see
+/// docs/login-prompt-scan/pre_login_prompts_report.md), most under thirty characters.
 /// </remarks>
-public class BannerGateTests
+public class LoginPromptGateTests
 {
     [Test]
     [Arguments("Do you want ANSI? (Y/n)")]
@@ -24,17 +26,33 @@ public class BannerGateTests
     [Arguments("Would you like to use ANSI color [Y/n]?")]
     [Arguments("Welcome to Cities of M'Dhoria\n-----------------\n\nDo you want ANSI color (Y/N)?")]
     [Arguments("Greetings traveller!  Welcome to Tempora Heroica!\nWould you like to use ANSI color [Y/n]?")]
+    public async Task AColourQuestionIsAnsweredWithAnExplicitYes(string banner)
+    {
+        var answer = LoginPromptGate.Classify(banner);
+
+        await Assert.That(answer).IsNotNull();
+        await Assert.That(answer!.Category).IsEqualTo(LoginPromptCategory.Colour);
+        await Assert.That(answer.Answer).IsEqualTo("y");
+    }
+
+    [Test]
     [Arguments("Screen reader user? Yes or No")]
     [Arguments("View End of Time in full (Y) or screen reader (N) mode?")]
-    public async Task AScreenThatIsOnlyAQuestionIsAnsweredByTheFlush(string banner)
+    public async Task AScreenReaderQuestionIsAnsweredWithABlankReturn(string banner)
     {
-        await Assert.That(BannerGate.IsAnsweredByReturn(banner)).IsTrue();
+        // The two live phrasings map Y/N to opposite meanings — see the class-level remarks on
+        // LoginPromptGate for why guessing a letter here is unsafe and blank is the only sure answer.
+        var answer = LoginPromptGate.Classify(banner);
+
+        await Assert.That(answer).IsNotNull();
+        await Assert.That(answer!.Category).IsEqualTo(LoginPromptCategory.ScreenReader);
+        await Assert.That(answer.Answer).IsEqualTo(string.Empty);
     }
 
     /// <summary>
     /// A server saying "please wait" is <em>not</em> waiting for us — it paints on its own, and
-    /// <c>ProbeOptions.BannerPatience</c> already covers that. Reading it as a gate would send a
-    /// stray Return to a server that never asked anything.
+    /// <c>ProbeOptions.BannerPatience</c> already covers that. Classifying it as a gate would send a
+    /// stray answer to a server that never asked anything.
     /// </summary>
     [Test]
     [Arguments("Detecting client, please wait...")]
@@ -45,17 +63,15 @@ public class BannerGateTests
     [Arguments("Welcome to Medieval Times MUD. If you are using a screen reader\nplease type yes, else, enter no.")]
     public async Task AServerThatIsNotWaitingForUsIsNotAGate(string banner)
     {
-        await Assert.That(BannerGate.IsAnsweredByReturn(banner)).IsFalse();
+        await Assert.That(LoginPromptGate.Classify(banner)).IsNull();
     }
 
     [Test]
-    public async Task AScreenThatHasAlreadyPaintedIsNeverAGateHoweverItEnds()
+    public async Task AScreenThatHasAlreadyPaintedIsNeverAColourGateHoweverItEnds()
     {
-        // A game that painted a screen and *then* asked about colour has already told us everything
-        // the gate exists to recover; extending its banner would sweep in a reply to a stray Return.
         var painted = new string('=', 300) + "\nDo you want ANSI colour? (Y/n)";
 
-        await Assert.That(BannerGate.IsAnsweredByReturn(painted)).IsFalse();
+        await Assert.That(LoginPromptGate.Classify(painted)).IsNull();
     }
 
     [Test]
@@ -65,18 +81,15 @@ public class BannerGateTests
     [Arguments("What is your name: ")]
     public async Task AnOrdinaryPromptIsNotAGate(string banner)
     {
-        // A question mark is not enough on its own: "By what name do you wish to be known?" is a
-        // server that has finished painting and is asking for a login, and answering it with a bare
-        // Return produces a refusal rather than a screen.
-        await Assert.That(BannerGate.IsAnsweredByReturn(banner)).IsFalse();
+        await Assert.That(LoginPromptGate.Classify(banner)).IsNull();
     }
 
     [Test]
     public async Task NothingIsAGate()
     {
-        await Assert.That(BannerGate.IsAnsweredByReturn(null)).IsFalse();
-        await Assert.That(BannerGate.IsAnsweredByReturn("")).IsFalse();
-        await Assert.That(BannerGate.IsAnsweredByReturn("   \n\n  ")).IsFalse();
+        await Assert.That(LoginPromptGate.Classify(null)).IsNull();
+        await Assert.That(LoginPromptGate.Classify("")).IsNull();
+        await Assert.That(LoginPromptGate.Classify("   \n\n  ")).IsNull();
     }
 
     [Test]
@@ -85,8 +98,11 @@ public class BannerGateTests
         // legends-of-krynn writes "Do you see COLOR?" with the question mark in the middle of the
         // escape sequences, so the flattened text ends on the coloured word rather than on the
         // punctuation. The question mark is looked for anywhere for exactly this.
-        var krynn = "\e[1;37mDo you see\e[0m? \e[1;31mC\e[1;32mO\e[1;33mL\e[1;34mO\e[1;35mR\e[1;37m ";
+        var krynn = "\e[1;37mDo you see\e[0m? \e[1;31mC\e[1;32mO\e[1;33mL\e[1;34mO\e[1;35mR\e[1;37m \e[0m";
 
-        await Assert.That(BannerGate.IsAnsweredByReturn(krynn)).IsTrue();
+        var answer = LoginPromptGate.Classify(krynn);
+
+        await Assert.That(answer).IsNotNull();
+        await Assert.That(answer!.Category).IsEqualTo(LoginPromptCategory.Colour);
     }
 }

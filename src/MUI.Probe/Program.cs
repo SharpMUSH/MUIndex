@@ -35,7 +35,7 @@ if (result.MsspBytesRejected is { } rejected)
 Console.WriteLine($"negotiated    {(result.OfferedOptions.Count == 0 ? "(none observed)" : string.Join(", ", result.OfferedOptions.Order()))}");
 
 Console.WriteLine($"banner        {result.Banner?.Length ?? 0} chars"
-    + (BannerGate.IsAnsweredByReturn(result.Banner) ? " — still a gate, unanswered" : string.Empty));
+    + (LoginPromptGate.Classify(result.Banner) is not null ? " — still a gate, unanswered" : string.Empty));
 
 if (result.BannerPlayerCount is { } fromBanner)
 {
