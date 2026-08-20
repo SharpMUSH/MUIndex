@@ -342,6 +342,32 @@ public class ProbeSessionTests
         await Assert.That(game.Received.Count(line => line == "y")).IsEqualTo(2);
     }
 
+    /// <summary>
+    /// Answering a charset menu's UTF-8 option is a request, not a fact — WireEncoding still
+    /// independently proves the encoding from the bytes that actually arrive afterward (rule 5).
+    /// </summary>
+    [Test]
+    public async Task AnsweringTheCharsetMenuLetsWireEncodingProveUtf8()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "1. KOI8-U\n2. ALT (CP866)\n3. WIN (CP1251)\n4. ISO (ISO-8859-5)\n5. MAC\n"
+                + "6. Translit\n7. UTF-8\nPlease select your Ukrainian or Russian codepage: ",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["7"] = "Ласкаво просимо до Dreamland\r\n",
+            },
+            WhoReply = "Illegal name, try again.\r\nName: \r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(game.Received).Contains("7");
+        await Assert.That(result.Banner).Contains("Dreamland");
+        await Assert.That(result.ReadAs).IsEqualTo("utf-8");
+        await Assert.That(result.CharsetSource).IsEqualTo(WireCharset.Proven);
+    }
+
     [Test]
     public async Task AServerThatSimplyRepaintsIsStillCountedAsNeither()
     {

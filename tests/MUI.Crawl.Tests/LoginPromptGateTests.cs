@@ -147,4 +147,38 @@ public class LoginPromptGateTests
     {
         await Assert.That(LoginPromptGate.Classify(banner)).IsNull();
     }
+
+    [Test]
+    // dreamland's real menu (docs/login-prompt-scan chunk_5): seven options, the seventh legibly UTF-8.
+    public async Task ANumberedCharsetMenuWithAUtf8OptionPicksIt()
+    {
+        var banner = "1. KOI8-U\n2. ALT (CP866)\n3. WIN (CP1251)\n4. ISO (ISO-8859-5)\n5. MAC\n"
+            + "6. Translit\n7. UTF-8\nPlease select your Ukrainian or Russian codepage: ";
+
+        var answer = LoginPromptGate.Classify(banner);
+
+        await Assert.That(answer).IsNotNull();
+        await Assert.That(answer!.Category).IsEqualTo(LoginPromptCategory.Charset);
+        await Assert.That(answer.Answer).IsEqualTo("7");
+    }
+
+    [Test]
+    // sowmud's real menu shape (docs/login-prompt-scan chunk_5) — bracketed tokens, no UTF-8 offered.
+    public async Task ANumberedCharsetMenuWithNoUtf8OptionIsLeftAlone()
+    {
+        var banner = "0. Windows zMUD\n1. Windows JMC, Telnet\n"
+            + "2. Windows JMC (old versions or #IAC send single)\n3. KOI-8R\nEnter Charset: ";
+
+        await Assert.That(LoginPromptGate.Classify(banner)).IsNull();
+    }
+
+    [Test]
+    // gulong-qunxia's real toggle shape — a single-line GB/BIG5 choice, not one option per line, and
+    // no UTF-8 anywhere. Never guessed between the two.
+    public async Task AGbBig5ToggleWithNoUtf8OptionIsLeftAlone()
+    {
+        var banner = "目前的字符集是简体，请输入GB/BIG5改变字符集，或直接登录用户。";
+
+        await Assert.That(LoginPromptGate.Classify(banner)).IsNull();
+    }
 }

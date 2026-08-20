@@ -97,6 +97,43 @@ public static partial class LoginPromptGate
             }
         }
 
+        if (ClassifyCharsetMenu(bannerSoFar ?? string.Empty) is { } charset)
+        {
+            return charset;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// A numbered or lettered menu with a legibly UTF-8 option, or null when none of its options is
+    /// one — never a guess between two non-UTF-8 encodings (rule 5): a game offering only GB/BIG5 or
+    /// only Cyrillic codepages stays on the existing staff <c>CHARSET</c> override, unchanged.
+    /// </summary>
+    /// <remarks>
+    /// Read one option per <em>line</em>, unlike every other category here, which is why this does not
+    /// go through the whole-blob <see cref="BannerText.Flatten"/> — that collapses newlines into
+    /// spaces, which would destroy the menu's structure. Each line is flattened individually instead,
+    /// which still strips ANSI/whitespace but keeps the lines apart.
+    /// </remarks>
+    private static LoginPromptAnswer? ClassifyCharsetMenu(string bannerSoFar)
+    {
+        var lines = bannerSoFar
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Split('\n')
+            .Select(BannerText.Flatten)
+            .Where(line => line.Length > 0);
+
+        foreach (var line in lines)
+        {
+            var option = CharsetOptionLinePattern().Match(line);
+            if (option.Success && Utf8LabelPattern().IsMatch(option.Groups["label"].Value))
+            {
+                return new LoginPromptAnswer(option.Groups["token"].Value, LoginPromptCategory.Charset);
+            }
+        }
+
         return null;
     }
 
@@ -147,6 +184,13 @@ public static partial class LoginPromptGate
         @"学生.{0,10}年龄|年龄更小|are\s+you\s+(?:a\s+)?(?:minor|under\s+\d+|of\s+legal\s+age)",
         RegexOptions.IgnoreCase)]
     private static partial Regex AgeGatePattern();
+
+    // "7. UTF-8" / "[7] UTF-8" / "7) UTF-8 encoding" — a short leading token introducing a label.
+    [GeneratedRegex(@"^\[?(?<token>[0-9]{1,2}|[A-Za-z])[\]\).:]\s*[-:]?\s*(?<label>.+)$")]
+    private static partial Regex CharsetOptionLinePattern();
+
+    [GeneratedRegex(@"\bUTF-?8\b", RegexOptions.IgnoreCase)]
+    private static partial Regex Utf8LabelPattern();
 }
 
 /// <summary>Which kind of pre-login question or menu a screen turned out to be.</summary>
