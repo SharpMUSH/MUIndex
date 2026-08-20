@@ -443,6 +443,47 @@ public class ProbeSessionTests
     }
 
     /// <summary>
+    /// A prompt the server ends with <c>IAC GA</c> instead of a newline is still captured as text.
+    /// </summary>
+    /// <remarks>
+    /// TelnetNegotiationCore 2.11 (#90) reads <c>IAC GA</c> as the prompt boundary RFC 854 defines,
+    /// which is the shape a DIKU login prompt actually arrives in: "What is your name:" with no line
+    /// ending and a Go-Ahead behind it. The payload has to reach us as ordinary line content — the
+    /// guard that stops a busy DIKU being read as a measured zero works by recognising that prompt,
+    /// so a boundary marker that consumed the text instead of delimiting it would take the guard with
+    /// it. Written on the raw-socket path so the GA bytes (0xFF 0xF9) go on the wire exactly as
+    /// stated, rather than through a server-side interpreter that might reframe them.
+    /// </remarks>
+    [Test]
+    public async Task APromptEndedByGoAheadIsCapturedAsText()
+    {
+        const string goAhead = "\u00ff\u00f9";
+
+        await using var game = new FakeGame
+        {
+            SwallowsNegotiationAsText = true,
+            Banner = "Welcome to Mortal Realms\r\nMrMud 1.4\r\n",
+            BannerTail = $"By what name do you wish to be known? {goAhead}",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Banner).Contains("Welcome to Mortal Realms");
+
+        // The payload, not just the lines before it.
+        await Assert.That(result.Banner).Contains("By what name do you wish to be known?");
+
+        // And the marker itself is a measurement, not something to store as screen content.
+        await Assert.That(result.Banner).DoesNotContain(goAhead);
+
+        // The load-bearing half: this must pass *because the Go-Ahead was understood*, not because
+        // our own end-of-phase flush happened to rescue the line. If GA were being ignored, the text
+        // would still arrive by that route and every assertion above would pass while #90 did nothing.
+        await Assert.That(result.Negotiation.SendsPromptMarkers).IsTrue();
+    }
+
+    /// <summary>
     /// Answering a charset menu's UTF-8 option is a request, not a fact — WireEncoding still
     /// independently proves the encoding from the bytes that actually arrive afterward (rule 5).
     /// </summary>

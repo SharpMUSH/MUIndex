@@ -34,6 +34,11 @@ if (result.MsspBytesRejected is { } rejected)
 
 Console.WriteLine($"negotiated    {(result.OfferedOptions.Count == 0 ? "(none observed)" : string.Join(", ", result.OfferedOptions.Order()))}");
 
+// Whether the server marks where its prompts end — EOR, or the bare IAC GA that a default NVT uses.
+// Worth printing beside the options because GA is *not* an option: a server can mark every prompt
+// and negotiate nothing at all, which is the ordinary case in this hobby.
+Console.WriteLine($"prompts       {(result.Negotiation.SendsPromptMarkers ? "marked (EOR or GA)" : "unmarked")}");
+
 // A WhoMenu is not an unanswered gate: the menu *is* this game's permanent connect screen, and the
 // probe has already selected its who's-online option and kept the reading. Saying "unanswered" of it
 // would report a working harvest as a failure.

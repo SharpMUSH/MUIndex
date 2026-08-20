@@ -637,6 +637,23 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             return ValueTask.CompletedTask;
         });
 
+        // The other prompt marker, and the one most of this hobby actually uses. RFC 854 makes a bare
+        // IAC GA the server-to-user prompt boundary, so a default NVT — negotiating neither EOR nor
+        // SUPPRESS-GO-AHEAD, which is most MU* servers — ends every prompt with it and nothing else.
+        // TelnetNegotiationCore 2.11 (#90) started delivering that; before, it was discarded as noise
+        // and SendsPromptMarkers could only ever be true for the EOR minority.
+        //
+        // Deliberately not Note()d as a protocol. `Supported` means "observed active", and receiving a
+        // GA means SUPPRESS-GO-AHEAD is *not* in effect (RFC 858 makes a suppressed GA a NOP) — so
+        // recording its name here would assert the opposite of what the byte proves. The plugin's own
+        // OnEnabledAsync still notes it if the option is actually negotiated.
+        var goAhead = new Watched.SuppressGoAhead(Note);
+        goAhead.OnPrompt(() =>
+        {
+            seen.Prompts = true;
+            return ValueTask.CompletedTask;
+        });
+
         // CharsetProtocol takes its order as a property rather than a builder call, and exposes
         // OnCharsetChange on the instance — so the settled encoding is captured here rather than
         // read off the interpreter afterwards, where a default is indistinguishable from a result.
@@ -681,7 +698,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             .AddPlugin(eor)
             .AddPlugin(mccp)
             .AddPlugin(new Watched.Mxp(Note))
-            .AddPlugin(new Watched.SuppressGoAhead(Note))
+            .AddPlugin(goAhead)
             .AddPlugin(new Watched.Naws(Note))
             .AddPlugin(terminalType)
             .AddPlugin(new Watched.Echo(Note));
