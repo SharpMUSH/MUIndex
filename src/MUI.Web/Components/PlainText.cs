@@ -431,7 +431,11 @@ public static class PlainText
             // a game too new or too thin for the sample floor prints no line at all.
             if (g.Growth is { } growth)
             {
-                b.AppendLine($"  Trending:    {FacetWords.TrendingWord(tag, growth)}");
+                var percent = g.GrowthChange is { } change
+                    ? $" ({(change > 0 ? "+" : string.Empty)}{Math.Round(change * 100)}%)"
+                    : string.Empty;
+
+                b.AppendLine($"  Trending:    {FacetWords.TrendingWord(tag, growth)}{percent}");
             }
 
             // Never blank: "we could not identify it" is a measurement, a missing line is not.

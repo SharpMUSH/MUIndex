@@ -449,6 +449,31 @@ public class PlainParityTests
     }
 
     [Test]
+    public async Task TheGrowthArrowCarriesTheFittedLinesOwnPercentageAndSitsBesideTheCountNotBelowIt()
+    {
+        var html = await Render.PageAsync<Games>([]);
+        var rows = html.Split("class=\"game-row").Skip(1)
+            .Select(r => r[..r.IndexOf("</li>", StringComparison.Ordinal)])
+            .ToList();
+
+        // M*U*S*H is fixed at Growth: GrowthDirection.Up, GrowthChange: 0.25 in the fixture — a bare
+        // glyph said "up" without saying by how much.
+        var mush = rows.Single(r => r.Contains("href=\"/g/m-u-s-h\"", StringComparison.Ordinal));
+
+        await Assert.That(Render.Words(mush)).Contains("+25%");
+
+        // row-main's own grid places row-trend in row-count's row rather than the implicit row below
+        // it that an unpositioned grid item falls to — the count and the trend read on one line.
+        var countAt = mush.IndexOf("class=\"row-count", StringComparison.Ordinal);
+        var trendAt = mush.IndexOf("class=\"row-trend", StringComparison.Ordinal);
+        var countCell = mush[countAt..mush.IndexOf("</p>", countAt, StringComparison.Ordinal)];
+
+        await Assert.That(countAt).IsGreaterThanOrEqualTo(0);
+        await Assert.That(trendAt).IsGreaterThan(countAt);
+        await Assert.That(countCell).DoesNotContain("row-trend");
+    }
+
+    [Test]
     public async Task TheGrowthArrowNeverLivesInsideTheCountColumn()
     {
         // The count column's own rule (TheCountColumnCarriesANumberAndNothingElse) is a bare figure

@@ -209,14 +209,21 @@ else
                             <span class="sr-only">@Messages.For(Tag, "listing.row.connected")&#160;</span>@CountText(g)
                         </p>
 
-                        @* This week's median against last week's — its own cell, never folded into
-                           row-count, which stays a bare figure or the words for none. Absent, not a
-                           steady drawn from nothing, below the sample floor either week (rule 4). *@
+                        @* Its own column, same grid row as row-count rather than falling to an
+                           implicit row below it (row-main's grid-template-columns carries four now,
+                           not three) — a reader scans the row once, left to right, rather than
+                           finding the count and then hunting a line down for what it did lately. The
+                           fitted line's own percentage is the value shown, not just its direction: a
+                           bare glyph said "up" without saying by how much. *@
                         @if (g.Growth is { } growth)
                         {
-                            <p class="row-trend @TrendState(growth)">
-                                <span role="img" aria-label="@FacetWords.TrendingWord(Tag, growth)"
-                                      title="@FacetWords.TrendingWord(Tag, growth)">@TrendGlyph(growth)</span>
+                            <p class="row-trend @TrendState(growth)" role="img"
+                               aria-label="@FacetWords.TrendingWord(Tag, growth)"
+                               title="@FacetWords.TrendingWord(Tag, growth)">
+                                @TrendGlyph(growth)@if (g.GrowthChange is { } change)
+                                {
+                                    <text>&#160;@TrendPercent(change)</text>
+                                }
                             </p>
                         }
 
@@ -402,6 +409,14 @@ else
         GrowthDirection.Down => "down",
         _ => "steady",
     };
+
+    /// <summary>The fitted line's own reading, signed rather than only coloured — a screen reader has no colour.</summary>
+    private static string TrendPercent(double change)
+    {
+        var percent = (int)Math.Round(change * 100);
+
+        return percent > 0 ? $"+{percent}%" : $"{percent}%";
+    }
 
     protected override async Task OnParametersSetAsync()
     {

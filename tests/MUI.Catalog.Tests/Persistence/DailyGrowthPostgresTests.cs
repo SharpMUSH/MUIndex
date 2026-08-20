@@ -50,6 +50,26 @@ public class DailyGrowthPostgresTests
     }
 
     [Test]
+    public async Task TheGrowthChangeFractionIsPopulatedAlongsideTheDirection()
+    {
+        // GameSummary.GrowthChange is what a listing row's own percentage reads — a bare direction
+        // says "up" without saying by how much.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, "rising", "Rising");
+
+        await WriteDayAsync(db, game, Today(-13), count: 10);
+        await WriteDayAsync(db, game, Today(-6), count: 15);
+        await WriteDayAsync(db, game, Today(0), count: 20);
+
+        var listing = await QueriesOn(db).ListAsync(new GameFilter { IncludeArchived = true });
+        var row = listing.Single(g => g.Slug == "rising");
+
+        await Assert.That(row.Growth).IsEqualTo(GrowthDirection.Up);
+        await Assert.That(row.GrowthChange).IsNotNull();
+        await Assert.That(row.GrowthChange!.Value).IsGreaterThan(0.10);
+    }
+
+    [Test]
     public async Task AFallingSeriesTrendsDown()
     {
         await using var db = await PostgresFixture.MigratedAsync();

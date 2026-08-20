@@ -109,7 +109,10 @@ public sealed record GameSummary(
     bool HasIcon = false,
     PresenceWindow? PlayersOverWindow = null,
 
-    /// <summary>This week's median against last week's, or null below the sample floor either side.</summary>
+    /// <summary>
+    /// The direction of a line fitted through this game's own daily medians, or null below
+    /// <see cref="GrowthTrend.MinimumDays"/> days of measured history.
+    /// </summary>
     /// <remarks>
     /// Independent of <see cref="PlayersOverWindow"/> and always computed, not only when a window
     /// sort is active — a reader has to be able to filter on <c>trending</c> without having to also
@@ -117,6 +120,13 @@ public sealed record GameSummary(
     /// <see cref="GrowthTrend"/>.
     /// </remarks>
     GrowthDirection? Growth = null,
+
+    /// <summary>
+    /// The same fitted line's predicted change as a fraction, computed once by
+    /// <see cref="GrowthTrend.ChangeFraction"/> so the row's own figure can never disagree with
+    /// <see cref="Growth"/>'s classification of the same series.
+    /// </summary>
+    double? GrowthChange = null,
 
     /// <summary>When we first saw this address, for <see cref="GameSort.Discovered"/>.</summary>
     DateTimeOffset? FirstSeenAt = null);

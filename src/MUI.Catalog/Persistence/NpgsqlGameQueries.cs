@@ -206,7 +206,12 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         var dailyMedians = await DailyMediansAsync(connection, ids, now, cancellationToken);
         var growth = ids.ToDictionary(
             id => id,
-            id => GrowthTrend.Of(dailyMedians.GetValueOrDefault(id, [])));
+            id =>
+            {
+                var days = dailyMedians.GetValueOrDefault(id, []);
+
+                return (Direction: GrowthTrend.Of(days), Change: GrowthTrend.ChangeFraction(days));
+            });
 
         var facetRows = new List<GameFacetRow>(rows.Count);
 
@@ -234,7 +239,8 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 Chip(codebase, now),
                 icons.Contains(row.Id),
                 windows.GetValueOrDefault(row.Id),
-                growth.GetValueOrDefault(row.Id),
+                growth.GetValueOrDefault(row.Id).Direction,
+                growth.GetValueOrDefault(row.Id).Change,
                 row.FirstSeenAt);
 
             facetRows.Add(new GameFacetRow(
