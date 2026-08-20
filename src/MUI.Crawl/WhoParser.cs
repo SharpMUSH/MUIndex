@@ -180,6 +180,13 @@ public sealed partial class WhoParser : IWhoParser
             return true;
         }
 
+        var wordedOn = WordedOnPattern().Match(line);
+        if (wordedOn.Success
+            && Words.TryGetValue(wordedOn.Groups["w"].Value.ToLowerInvariant(), out count))
+        {
+            return true;
+        }
+
         var announced = AnnouncedPattern().Match(line);
         if (announced.Success && int.TryParse(announced.Groups["n"].Value, out count))
         {
@@ -320,11 +327,36 @@ public sealed partial class WhoParser : IWhoParser
     /// Bare <c>logged</c> is admitted, but <c>logged out</c>/<c>logged off</c> are refused by name —
     /// "There are no logged players." is a real measured zero, and the opposite claim is one word away.
     /// </remarks>
+    /// <remarks>
+    /// <c>on-?line</c> is admitted beside <c>online</c>, and <c>realm</c> and <c>world</c> beside
+    /// <c>in the game</c> — all measured on live connect screens in the 2026-08-20 sweep
+    /// (<c>lusternia.com:5000</c>, <c>primaldarkness.com:5000</c>, <c>atlasmud.com:4445</c>'s
+    /// "There are currently 0 players in the world of Atlas.", which was a measured zero being
+    /// discarded as unreadable).
+    /// </remarks>
     private const string Connectivity =
-        @"(?:connected|online|logged(?!\s+(?:out|off))(?:\s*(?:in|on))?|playing|active|in\s+the\s+game)";
+        @"(?:connected|on-?line|logged(?!\s+(?:out|off))(?:\s*(?:in|on))?|playing|active"
+        + @"|in\s+the\s+(?:game|realm|world))";
 
     /// <summary>Nouns a server uses for the people on it.</summary>
-    private const string People = @"(?:players?|users?|characters?|people|persons?|folks?)";
+    /// <remarks>
+    /// <para>
+    /// <c>adventurers</c> and <c>mortals</c> were added from the 2026-08-20 sweep
+    /// (<c>merentha.com:10000</c> "18 adventurers playing", <c>zombiemud.org:3000</c> "33 mortals and
+    /// 4 wizards online").
+    /// </para>
+    /// <para>
+    /// <b><c>wizards</c>, <c>immortals</c> and <c>staff</c> are deliberately absent.</b> A game that
+    /// counts its staff separately is stating two numbers, and the one this project means by "players"
+    /// is the mortal one — so leaving the staff noun unknown reads "33 mortals and 4 wizards online" as
+    /// 33 rather than as a conflict. Adding them would make the two figures collide and
+    /// <see cref="BannerCount.Find"/> would refuse the screen entirely, which is how that sentence read
+    /// before this. Summing them is not on offer either: that would be our arithmetic presented as
+    /// their statement.
+    /// </para>
+    /// </remarks>
+    private const string People =
+        @"(?:players?|users?|characters?|people|persons?|folks?|adventurers?|mortals?)";
 
     /// <summary>
     /// Words a server may put between the number and the noun it counts (e.g. "39 connected
@@ -345,9 +377,26 @@ public sealed partial class WhoParser : IWhoParser
         ["sixteen"] = 16, ["seventeen"] = 17, ["eighteen"] = 18, ["nineteen"] = 19, ["twenty"] = 20,
     };
 
-    // "There are no players connected." / "No players are online." / "Nobody is logged in."
+    /// <summary>
+    /// A zero the screen spells out rather than printing as a digit — and it is a <em>measured</em>
+    /// zero, so it must parse rather than fall through to unreadable.
+    /// </summary>
+    /// <remarks>
+    /// The separator after <c>no</c> admits a hyphen as well as a space: <c>arcanetides.net:3000</c>
+    /// writes "No-one is playing at the moment.", which a whitespace-only separator read as
+    /// unparseable — a live game with nobody in it, filed as a game we could not count. It cannot run
+    /// away into <c>non-</c> or <c>none</c>-prefixed words, since at least one space or hyphen must
+    /// follow <c>no</c> for it to match at all.
+    /// </remarks>
+    // "There are no players connected." / "No players are online." / "Nobody is logged in." /
+    // "No-one is playing at the moment."
+    //
+    // A bare "no" must be followed by "one" or by a people-noun. It was previously allowed to stand
+    // alone with the noun optional, which let "No wizards online" read as a measured zero — a game
+    // whose staff are all present, published as empty. Whoever is absent has to be somebody this
+    // parser counts.
     [GeneratedRegex(
-        @"\bno(?:body)?\s+(?:" + People + @"|one)?\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
+        @"\b(?:nobody|no[\s-]+(?:one|" + People + @"))\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex NoPlayersPattern();
 
@@ -377,6 +426,16 @@ public sealed partial class WhoParser : IWhoParser
         @"\b(?<n>\d+)\s+" + Intervening + People + @"\s+on\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex NumberedOnPattern();
+
+    /// <summary>
+    /// The same narrow bare-<c>on</c> shape with the number spelled out — <c>vikingmud.org:2001</c>
+    /// prints "There are currently nine players on."
+    /// </summary>
+    [GeneratedRegex(
+        @"\b(?<w>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen"
+        + @"|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\s+" + Intervening + People + @"\s+on\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex WordedOnPattern();
 
     /// <summary>
     /// A server announcing its own figure with no connectivity word anywhere near it (e.g.

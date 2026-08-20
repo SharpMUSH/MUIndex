@@ -349,3 +349,191 @@ fresh inflater meets mid-stream bytes where it expects a header.
 **MCCP stays registered.** This is materially better than 2.7.0 — the handshake and the MSSP report
 arrive intact and the first chunk of text is readable, where before the whole stream was noise. What
 is lost is the tail. Not worked around here, for the same reason as last time.
+
+## 2026-08-20 — pre-login prompts (`LoginPromptGate`)
+
+A survey of all 900 `connect_screen`/`banner` rows in production found ~95 games gating their real
+connect screen behind a question or menu a blind Return does not reliably answer, followed by a
+second, dedicated sweep of the same 900 rows specifically for player-count reveal mechanisms (full
+detail, quoted per game, in the branch-local `docs/login-prompt-scan/` — not committed, see the plan
+at `docs/superpowers/plans/2026-08-20-crawler-login-prompt-negotiation.md`). Measured examples driving
+each `LoginPromptGate` category: **Colour** — `cthulhumud.com:8889`, `mud.arcadia.net:4000` (both
+require the explicit letter `y`, not a blank default — the reason a blind Return was never enough).
+**ScreenReader** — `mud.harshlands.net:5555` and `eotmud.com:4000` (the two live phrasings map Y/N to
+opposite meanings, which is why this category still only ever sends blank). **PressEnter** —
+`play.ropmud.com:4443`, `vormud.genesismuds.com:7777`, plus a cluster of Korean `toox.co.kr`/
+`dolba.net` games using "엔터를 누르십시오" idioms. **AgeGate** — `202.103.21.247:8888` and
+`112.124.8.59:6666`, both asking the identical Chinese question, suggesting a shared codebase or
+operator. **Charset (UTF-8 only)** — `dreamland.rocks:9000`, `hiervard.ru:4000`. **WhoMenu** —
+`batmud.bat.org:23`, `zombiemud.org:3000`, `discworld.starturtle.net:4242`, and (after the second
+sweep widened the pattern) `eternitymud.com:23` (numbered, not lettered — `2. who is playing`),
+`taurosmud.com:5005` (dot-leader separator — `[2]....See who is currently logged in.`), and
+`legendmud.org:9999` (connectivity word before "who" rather than after — `[4] List immortals online
+who can help`).
+
+**Deliberately not covered, and why:**
+- Charset menus offering only non-UTF-8 encodings (e.g. the Cyrillic-codepage-only menus, and the
+  GB/BIG5 toggles) — picking between two non-UTF-8 encodings is a guess, which rule 5 forbids
+  recording as a fact; these stay on the existing staff `CHARSET` override.
+- Charset menus that *do* offer UTF-8 but not as a per-line option — `mud.pkuxkx.net:8080` prints
+  `Input 1 for GBK, 2 for UTF8, 3 for BIG5`, all on one line with no token punctuation, so
+  `MenuOptions` finds no options to read. It is left alone for want of a parseable structure, not for
+  want of a UTF-8 choice; it too stays on the staff override.
+- `LoginPromptGate.PressEnterPattern`'s Korean branch matches "누르" (press) but not "입력" (input) —
+  `3-third-eye-harmony` (`toox.co.kr:6000`, "[엔터]를 입력하세요") is not recognised. Low volume (one
+  game surveyed); add the alternation if a second example turns up.
+- Who's-online menu options whose label doesn't say "who" (or doesn't pair it with an
+  online/playing/logged-in/on-line word) at all: `midnightsun2.org:3000`'s `w  -  Shows the current
+  users.` and `20.61.5.183:8008` (mythosmud)'s themed `U - See who walks the Isles` (has "who", but no
+  connectivity word follows it — "walks the Isles" isn't one). Not widened: relaxing either
+  requirement risks matching an ordinary sentence that merely mentions "who" or "users" in passing,
+  which is exactly what `AWhoMentionThatIsNotAMenuOptionIsNotAWhoMenu` guards against — the fix would
+  need per-game label vocabulary, which is a maintenance treadmill this parser has deliberately stayed
+  off of (see `WhoParser`'s own remarks on why it reads structure rather than per-dialect wording).
+- **Prose command hints are not a gap.** By far the most common WHO-adjacent shape in the survey —
+  dozens of TinyMUX/PennMUSH-family games print a sentence like "Use the WHO command to find out who
+  is online currently" (`furrymuck.com:8888`) or a RhostMUSH-style `)) To see who is on ----------=>
+  WHO ((` (`galaxy.silvren.com:*`, several games) instead of a selectable menu. These need no new
+  code: a prose hint does not classify as `WhoMenu`, so `TelnetProbe` reaches its ordinary Phase 3 and
+  sends the literal `WHO` exactly as it always did — every one of these games is already asked. (The
+  one session that does *not* send a literal `WHO` is one where a `WhoMenu` option was selected and
+  has already answered the question.) Recorded here so a future reader
+  doesn't mistake the volume of this shape in the survey for an uncovered case.
+- **~~Banner-stated player counts in vocabulary the parsers don't recognise~~ — done, and measured
+  rather than guessed.** Eight real banner strings were put to the parser before anything changed;
+  three already read, five did not. `Connectivity` gained `on-line` and `in the realm`, `People` gained
+  `adventurers` and `mortals`, a worded twin of the bare-`on` shape was added, and `BannerCount` gained
+  one narrow labelled alternative requiring noun + `on` + separator + digits (so `on` cannot read as a
+  preposition — "3 messages on the board" is not a population). Verified live: `zombiemud.org:3000`
+  yields 33 and `lusternia.com:5000` yields 11, both of which yielded nothing before.
+
+  **`wizards`, `immortals` and `staff` are deliberately still not people-nouns.** That absence is
+  load-bearing: it is what makes zombiemud's "There are currently 33 mortals and 4 wizards online."
+  read as 33 rather than as two competing figures `BannerCount.Find` would refuse. Summing them is not
+  on offer — that would be our arithmetic presented as their statement.
+
+- **Still not read, and left that way on purpose:** counts spelled in Chinese numerals
+  (`112.124.8.59:6666`'s "二百一十八位玩家"), game-specific nouns with no general meaning
+  (`lostsouls.org:23`'s "atmai"), and counts split across roles where neither clause states a total.
+
+- **A paginated `WHO` roster must never be row-counted.** `batmud.bat.org:23` answers its menu with a
+  roster carrying no total and a pager — `More (18%) [qpbns?]`. Counting the rows we can see would
+  publish 24 of roughly 130 as a measurement. `WhoParser` returns `Unknown` for it, which is rule 4
+  working, not a gap to close: an unreadable count is honest, a truncated one is a fabrication that
+  looks exactly like a real number.
+
+### Verified against live servers, 2026-08-20
+
+Every category was run against a real game and diffed against a build of `origin/main`. Two defects
+surfaced that no fixture had reached — a menu line with several options on it was answered with the
+wrong token (`batmud.bat.org:23`, `zombiemud.org:3000`), and the blank flush line ended the session on
+a gated DIKU that had just been sent its answer (`mud.arcadia.net:4000`). Both fixed and re-verified.
+
+| game | category | before | after |
+|---|---|---|---|
+| `mud.harshlands.net:5555` | screen-reader | 95 chars, still gated | 293 chars, cleared |
+| `vormud.genesismuds.com:7777` | press-enter | 272 chars / 7 lines | 4221 chars / 43 lines |
+| `mud.arcadia.net:4000` | colour | 870 chars, `LoginPrompt` | 1382 chars, `LoginPrompt` |
+| `zombiemud.org:3000` | who-menu + count | no count | banner count 33 |
+| `lusternia.com:5000` | banner count | no count | banner count 11 |
+| `mush.pennmush.org:4201` | control | `Count` 19 | `Count` 19 |
+| `chaos.caile.org:4444` | control | `Count` 0 | `Count` 0 |
+| `aardmud.org:4000` | control | banner count | banner count |
+
+Probing the same hosts repeatedly in quick succession gets connections refused — the failures that
+it produces are caused by remote-end rate limiting, not by a probe defect. Space repeat runs out, or read a batch
+of simultaneous `Failed` results with suspicion before believing them.
+
+## The empty flush is load-bearing for far more than TinyMUSH — measured 2026-08-20
+
+This file has said since July that the flush exists because `chaos.caile.org:4444` leaves our
+`IAC DO 70` in its line buffer, so the next line reads as `\xff\xfd\x46WHO`. That is true, and it is
+where the fix came from — but it was an origin story, never a census, and it has been quoted since as
+though one server were the whole reason. It is not.
+
+**The defect still reproduces**, four TelnetNegotiationCore versions later. Against
+`chaos.caile.org:4444`, sending `IAC DO 70` and then `WHO`:
+
+| | reply |
+|---|---|
+| no flush | 1644 bytes — the connect screen again; the command was never understood |
+| blank line first | 85 bytes — `0 Players logged in, 22 record, no maximum.` |
+
+**And it is not one server.** Eight games were sampled at random from those that currently yield a
+`who`-sourced count *and* negotiate no telnet option at all (480 games negotiate nothing; 128 of them
+produce a WHO count). Each was dialled twice, once with the flush and once without:
+
+| host | without | with |
+|---|---|---|
+| `darkgift.mushpark.com:6251` | 2352 B, redisplay | **117 B, WHO answer** |
+| `wackymoo.jellybean.co.uk:7777` | no answer | **227 B, WHO answer** |
+| `pegasusmuck.com:4242` | no answer | **215 B, WHO answer** |
+| `lit.klfree.cz:7680` | answers | answers |
+| `moo.srtmoo.net:8492` | answers | answers |
+| `galaxy.silvren.com:6666` | answers | answers |
+| `ranmamuck.dyndns.org:1212` | answers | answers |
+| `scalesmuck.com:8887` | answers | answers |
+
+Three of eight, across MUSH, MOO and MUCK — a cross-family behaviour, not a TinyMUSH quirk. At that
+rate the 128 non-negotiating games with WHO counts imply **roughly 40–50 counts lost** if the flush
+were removed. The sample is small enough that the number is indicative rather than exact; the
+direction is not in doubt.
+
+**So the flush stays, and deleting it is off the table.** The only safe refinement is the conditional
+one — skip it where the server has *positively demonstrated* it parses telnet, since the residue it
+clears cannot exist there. Measured upside for that: 32 games, of which most would gain a more precise
+unmeasurable *reason* (`who_login_prompt` rather than `who_not_offered`) rather than a count, since
+they are the DIKU family that reads `WHO` as a character name. `tdome.nukefire.org:4000` is the worked
+example — skip the flush, ask `WHO`, and it answers `Password:` followed by a space, then `IAC WILL ECHO` and `IAC GA`.
+
+One caution for whoever picks that up: the discriminator must be `OfferedOptions` (protocols observed
+**active**), not the presence of a `capability.*.measured` field. That field is written `false` when we
+look and find nothing, so keying on its existence reports every game as negotiating —
+`chaos.caile.org` included, which is the one server this section proves must keep the flush.
+
+### The conditional skip, implemented and measured — 2026-08-20
+
+The flush is now withheld from a server that has **reported active protocol activity**, and sent to
+every other. Two things count: a prompt answer already went out on this session (that line did the
+flushing), or a protocol was observed active — `Observations.Supported`, the internal set that reaches
+callers as `ProbeResult.OfferedOptions`.
+
+That is evidence of parsing, not proof of it, and the distinction is the caveat at the end of this
+section rather than a quibble: the signal is *activity we happened to observe by then*, so a server
+that parses telnet perfectly well but announces nothing early is indistinguishable from one that
+parses nothing, and is flushed.
+
+Isolated crawl of exactly the affected population — 35 crawl targets across **34 games** (one game is
+listed on two endpoints) that answered, negotiated a protocol, and had never been asked `WHO` because
+the flush ended the session first:
+
+| after | games |
+|---|---|
+| `who_unparseable` — asked, answer unreadable | 17 |
+| `who_login_prompt` — asked, and eaten as a character name | 3 |
+| **counted** | **2** |
+| `who_not_offered` — still never asked | 12 |
+
+**22 of the 34 now reach `WHO`, two of them yielding a player count, and nothing was lost** — every one
+of them already had no count to lose. A separate 250-game random crawl over the same build lost two
+counts, both `coffeemud.net` ports, and both returned `PLAYERS = 17` when probed alone: that is our
+own concurrency against five ports of one host, not the change.
+
+`tdome.nukefire.org:4000` is the worked example end to end. Before: `who NotAsked`, session over in
+1.7s. After: the flush is withheld, the session survives, `WHO` is asked, and the server answers
+`Password:` followed by a space, then `IAC WILL ECHO` and `IAC GA` — read as `who_login_prompt`, and **the first live
+observation of a Go-Ahead prompt marker this crawler has ever recorded** (`prompts marked`).
+
+**Two cautions for anyone changing this.**
+
+The signal is *observed protocol activity*, not a clean "did it parse IAC" fact, so it is
+timing-sensitive: a server whose only protocol announces itself late reads as no evidence and is
+flushed. That is why the test is written as positive evidence — every uncertain case falls to today's
+behaviour, and the 12 games above that still say `who_not_offered` are that fallback working rather
+than failing.
+
+And the empty flush is no longer empty in the only case it is still sent. A server that did not parse
+our negotiation is holding those IAC bytes as typing, so the line it receives carries them — which is
+why `AServerThatHangsUpOnTheFlushLineStillCountsAsHavingAnswered` now models a server dropping us on
+an *unrecognisable* line rather than a blank one. A genuinely blank line is no longer reachable.
+

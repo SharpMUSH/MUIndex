@@ -34,8 +34,22 @@ if (result.MsspBytesRejected is { } rejected)
 
 Console.WriteLine($"negotiated    {(result.OfferedOptions.Count == 0 ? "(none observed)" : string.Join(", ", result.OfferedOptions.Order()))}");
 
+// Whether the server marks where its prompts end — EOR, or the bare IAC GA that a default NVT uses.
+// Worth printing beside the options because GA is *not* an option: a server can mark every prompt
+// and negotiate nothing at all, which is the ordinary case in this hobby.
+Console.WriteLine($"prompts       {(result.Negotiation.SendsPromptMarkers ? "marked (EOR or GA)" : "unmarked")}");
+
+// A WhoMenu is not an unanswered gate: the menu *is* this game's permanent connect screen. Reported
+// as detected rather than as taken, because that is all this can honestly know — the probe selects the
+// option only while the socket is live, and a server that closed after printing its menu was never
+// asked. Read the `who` line above for what the selection actually yielded.
 Console.WriteLine($"banner        {result.Banner?.Length ?? 0} chars"
-    + (BannerGate.IsAnsweredByReturn(result.Banner) ? " — still a gate, unanswered" : string.Empty));
+    + (LoginPromptGate.Classify(result.Banner) switch
+    {
+        { Category: LoginPromptCategory.WhoMenu } => " — a menu with a who's-online option",
+        not null => " — still a gate, unanswered",
+        _ => string.Empty,
+    }));
 
 if (result.BannerPlayerCount is { } fromBanner)
 {

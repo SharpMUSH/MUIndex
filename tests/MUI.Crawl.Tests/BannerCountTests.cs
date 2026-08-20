@@ -133,4 +133,160 @@ public class BannerCountTests
         await Assert.That(BannerCount.Find("Players online: 5\nThere are 60 users connected."))
             .IsNull();
     }
+
+    /// <summary>
+    /// Connect-screen counts in the vocabulary real games actually use, gathered by a manual sweep of
+    /// all 900 stored banners (see docs/codebase-survey-2026-07-30.md, 2026-08-20).
+    /// </summary>
+    [Test]
+    // nannymud (mud.lysator.liu.se:2000) — the label leads and the number trails it.
+    [Arguments("Number of players on:   8", 8)]
+    // opalmoo (moo.opal.org:7878).
+    [Arguments("Number of connected players: 2", 2)]
+    // lusternia.com:5000 — a bare hyphenated label, no people-noun anywhere.
+    [Arguments("Currently On-Line: 12", 12)]
+    // ckmud.com:8500 — label-first, and a second unrelated statistic on the same line.
+    [Arguments("Players Online: 36     Current Bonus: 5.0x", 36)]
+    // merentha.com:10000 — "adventurers", a people-noun the parser did not know.
+    [Arguments("There are currently 18 adventurers playing", 18)]
+    // primaldarkness.com:5000 — "people in the realm".
+    [Arguments("There are currently 3 people in the realm.", 3)]
+    // theforestsedge.com:4000 — bare "on", no "line" and no "connected".
+    [Arguments("17 players on.", 17)]
+    // vikingmud.org:2001 — the number is a word, and above the existing twenty-word ceiling is not.
+    [Arguments("There are currently nine players on.", 9)]
+    public async Task ACountInTheWordsRealGamesUseIsRead(string line, int expected)
+    {
+        await Assert.That(BannerCount.Find(line)).IsEqualTo(expected);
+    }
+
+    /// <summary>
+    /// A screen that counts its staff apart from its players is read as the player figure, not as a
+    /// conflict and not as a sum.
+    /// </summary>
+    /// <remarks>
+    /// zombiemud.org:3000 prints this verbatim, and before the 2026-08-20 vocabulary sweep the whole
+    /// screen yielded nothing. "Wizards" is not a people-noun this parser knows, which is what keeps
+    /// the two numbers from colliding and being refused — see WhoParser.People for why that absence is
+    /// deliberate rather than an oversight, and why the two are never added together.
+    /// </remarks>
+    [Test]
+    public async Task StaffCountedApartFromPlayersIsReadAsThePlayerCount()
+    {
+        var zombie = "There are currently 33 mortals and 4 wizards online.";
+
+        await Assert.That(BannerCount.Find(zombie)).IsEqualTo(33);
+    }
+
+    /// <summary>
+    /// The refusal that guards all of the above: two genuinely competing player figures on one screen
+    /// are still refused rather than picked between.
+    /// </summary>
+    [Test]
+    public async Task TwoCompetingPlayerCountsAreStillRefused()
+    {
+        var conflicting = "Players online: 12\nUsers connected: 40";
+
+        await Assert.That(BannerCount.Find(conflicting)).IsNull();
+    }
+
+    /// <summary>
+    /// Every role-split shape the 2026-08-20 sweep found, read the same way: the mortal/player figure
+    /// is the count, whichever side of the sentence it falls on.
+    /// </summary>
+    /// <remarks>
+    /// A staff noun the parser does not know cannot collide with the player figure, so the sentence
+    /// resolves instead of being refused. realmsmud is the case that proves order does not matter —
+    /// it states its wizards first.
+    /// </remarks>
+    [Test]
+    // zombiemud.org:3000 — players first, staff second.
+    [Arguments("There are currently 33 mortals and 4 wizards online.", 33)]
+    // realmsmud.org:1501 — staff FIRST, players second.
+    [Arguments("There are 1 wizards and 2 mortals online.", 2)]
+    // erionmud.com:1234 — the player noun is "players" and the staff noun is "immortals".
+    [Arguments("There are 43 players and 3 immortals online.", 43)]
+    // mud.morchronium.com:7770 — a measured zero on both sides is still a measured zero.
+    [Arguments("Currently there are 0 Mortals and 0 Developer(s) Online.", 0)]
+    // nirvana.beanos.com:3500 — "developers" as the staff noun.
+    [Arguments("There are currently 0 players and 0 developers logged in.", 0)]
+    public async Task ARoleSplitCountIsReadAsItsPlayerHalf(string line, int expected)
+    {
+        await Assert.That(BannerCount.Find(line)).IsEqualTo(expected);
+    }
+
+    /// <summary>
+    /// A zero the screen spells out is a measured zero — we got in and nobody was there — and must
+    /// never be read as unparseable.
+    /// </summary>
+    [Test]
+    // icewindmud.org:2021
+    [Arguments("There is nobody playing right now!", 0)]
+    // 44.230.15.218:5005 (pd-builders)
+    [Arguments("There is currently nobody in the realm.", 0)]
+    // arcanetides.net:3000 (tides-of-darkness) — hyphenated "No-one".
+    [Arguments("No-one is playing at the moment.", 0)]
+    public async Task AWordedZeroIsAMeasuredZero(string line, int expected)
+    {
+        await Assert.That(BannerCount.Find(line)).IsEqualTo(expected);
+    }
+
+    [Test]
+    // atlasmud.com:4445 — a measured zero whose connectivity word is "in the world".
+    [Arguments("There are currently 0 players in the world of Atlas.", 0)]
+    // ansiblemoo.org:6000 — zero mid-sentence, after unrelated lag text.
+    [Arguments("The lag is low; there are 0 players connected.", 0)]
+    // mud.chalacyn.com:1000
+    [Arguments("There are 0 players online.", 0)]
+    public async Task ADigitZeroIsAMeasuredZeroHoweverItIsPhrased(string line, int expected)
+    {
+        await Assert.That(BannerCount.Find(line)).IsEqualTo(expected);
+    }
+
+    /// <summary>
+    /// A count over a past time window is not a count of who is here now, and must never be read as
+    /// one.
+    /// </summary>
+    /// <remarks>
+    /// down.moo.midgard.org:8888 prints all three of these lines together. The current figure is 1;
+    /// the trailing 0 is a twelve-hour total. Reading the screen bottom-up, or taking the last number
+    /// on it, publishes a false zero for a game with somebody in it. The refusal is what protects
+    /// this: two different figures on one screen are never picked between.
+    /// </remarks>
+    [Test]
+    public async Task AWindowedTotalIsNeverReadAsThePresentCount()
+    {
+        var downmoo = """
+            1 players are connected.
+            1 players have connected over the past twenty-four hours.
+            0 players have connected over the past twelve hours.
+            """;
+
+        await Assert.That(BannerCount.Find(downmoo)).IsNull();
+    }
+
+    /// <summary>
+    /// A staff-only line must yield no player count at all — neither a number nor a zero.
+    /// </summary>
+    /// <remarks>
+    /// The whole mortals-versus-wizards design rests on a staff noun being unrecognised. If an
+    /// optional people-noun lets a pattern match from the connectivity word alone, "Wizards online: 4"
+    /// publishes four *players* and "No wizards online" publishes a measured zero for a game whose
+    /// staff are all present — the false zero rule 2 exists to prevent.
+    /// </remarks>
+    [Test]
+    [Arguments("Wizards online: 4")]
+    [Arguments("Immortals connected: 12")]
+    // The role may sit further from the connectivity word than one space: an intervening
+    // "currently", or simply more whitespace, must not walk the guard off the end.
+    [Arguments("Wizards currently online: 4")]
+    [Arguments("Immortals   currently   connected: 12")]
+    [Arguments("Wizards      online: 4")]
+    [Arguments("No wizards online")]
+    [Arguments("There are no wizards online.")]
+    public async Task AStaffOnlyLineIsNotAPlayerCount(string line)
+    {
+        await Assert.That(BannerCount.Find(line)).IsNull();
+    }
+
 }

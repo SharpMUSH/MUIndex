@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using MUI.Crawl;
 using TelnetNegotiationCore.Builders;
 using TelnetNegotiationCore.Interpreters;
+using TelnetNegotiationCore.Models;
 using TelnetNegotiationCore.Protocols;
 
 namespace MUI.Crawl.Tests;
@@ -29,6 +30,7 @@ public class ProbeSessionTests
         SilenceGrace = TimeSpan.FromMilliseconds(300),
         MaxPhase = TimeSpan.FromSeconds(3),
         BannerPatience = TimeSpan.FromMilliseconds(300),
+        WhoGrace = TimeSpan.FromMilliseconds(700),
         PollInterval = TimeSpan.FromMilliseconds(15),
         Timeout = TimeSpan.FromSeconds(20),
     };
@@ -99,15 +101,21 @@ public class ProbeSessionTests
     [Test]
     public async Task AServerThatHangsUpOnTheFlushLineStillCountsAsHavingAnswered()
     {
-        // Every DIKU descendant reads an empty line at "Who art thou:" as a goodbye and closes, so
-        // the probe's own flush line ends the session and the WHO after it writes into a dead socket.
-        // The banner is already in hand when that happens — reporting the whole probe as Failed would
-        // record our own flush line as a fact about their server (CLAUDE.md rule 5). The server answered.
+        // The probe's own flush line ends the session on some servers, and the WHO after it writes
+        // into a dead socket. The banner is already in hand when that happens — reporting the whole
+        // probe as Failed would record our own flush line as a fact about their server (rule 5).
+        //
+        // The flush now only reaches a server that has not demonstrably parsed our negotiation, and
+        // for exactly those servers it is not an empty line at all: it carries the IAC bytes they had
+        // been holding as typing. So this models what such a server really receives — an
+        // unrecognisable line at its name prompt — and drops us on it, the way a DIKU refusing an
+        // illegal name does.
         await using var game = new FakeGame
         {
+            SwallowsNegotiationAsText = true,
             Banner = "Welcome to Mortal Realms\r\nMrMud 1.4\r\n",
             BannerTail = "Who art thou: ",
-            HangsUpOnBlankLine = true,
+            HangsUpOnUnrecognisedLine = true,
         };
 
         var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
@@ -213,11 +221,14 @@ public class ProbeSessionTests
     }
 
     /// <summary>
-    /// The one case where the flush is an answer rather than a stray line.
+    /// The one case where the loop's answer is itself the trigger for the real screen, rather than a
+    /// stray line.
     /// </summary>
     /// <remarks>
     /// Several real games gate their whole connect screen behind an ANSI keystroke prompt; the probe
-    /// was already sending the keystroke and throwing the resulting screen away.
+    /// now sends the explicit letter LoginPromptGate says answers a colour question ("y"), not a blank
+    /// line — see AColourGateThatRequiresAnExplicitLetterIsAnsweredCorrectly below for why a blind
+    /// Return was never enough against every real server.
     /// </remarks>
     [Test]
     public async Task AScreenBehindAColourQuestionIsTheConnectScreen()
@@ -225,10 +236,13 @@ public class ProbeSessionTests
         await using var game = new FakeGame
         {
             BannerTail = "Do you want ANSI? (Y/n) ",
-            BlankLineReply =
-                "Ansi enabled!\r\nWelcome to Adventures Unlimited\r\n"
-                + "Based on CircleMUD 3.0, created by Jeremy Elson\r\n"
-                + "Players Currently Online: 7\r\n",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["y"] =
+                    "Ansi enabled!\r\nWelcome to Adventures Unlimited\r\n"
+                    + "Based on CircleMUD 3.0, created by Jeremy Elson\r\n"
+                    + "Players Currently Online: 7\r\n",
+            },
             WhoReply = "Illegal name, try again.\r\nName: \r\n",
         };
 
@@ -241,6 +255,431 @@ public class ProbeSessionTests
         // rather than part of its connect screen.
         await Assert.That(result.Banner).DoesNotContain("Illegal name");
         await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.LoginPrompt);
+    }
+
+    /// <summary>
+    /// A server that requires the literal letter, not a blank default — a blind Return against this
+    /// fixture would just see the same question echoed back, which is what production stored before
+    /// this fix (see docs/login-prompt-scan/pre_login_prompts_report.md, cthulhumud/arcadia-mud-style
+    /// strict colour gates).
+    /// </summary>
+    [Test]
+    public async Task AColourGateThatRequiresAnExplicitLetterIsAnsweredCorrectly()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "Do you want ANSI color (Y/N)?",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["y"] = "Welcome to Arcadia MUD\r\nBased on Merc 2.1\r\n",
+            },
+            WhoReply = "Illegal name, try again.\r\nName: \r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Banner).Contains("Welcome to Arcadia MUD");
+        await Assert.That(game.Received).Contains("y");
+    }
+
+    /// <summary>
+    /// A press-enter gate the old BannerGate never recognised — the real screen behind it was thrown
+    /// away as flush residue and the raw "Press Enter..." line stored as the connect screen instead.
+    /// </summary>
+    [Test]
+    public async Task APressEnterGateRevealsTheRealScreenBehindIt()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "Press Enter to log in...",
+            BlankLineReply = "Rites of Passage\r\nA game of legend.\r\n",
+            WhoReply = "Illegal name, try again.\r\nName: \r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Banner).Contains("Rites of Passage");
+        await Assert.That(result.Banner).DoesNotContain("Illegal name");
+    }
+
+    /// <summary>
+    /// Two gates in a row — colour, then a press-enter — both answered before the real screen is
+    /// treated as settled. Proves the loop, not just one round of it.
+    /// </summary>
+    [Test]
+    public async Task StackedGatesAreAnsweredInOrder()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "Do you want ANSI? (Y/n)",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["y"] = "Ansi enabled!\r\nPress Enter to continue...",
+            },
+            BlankLineReply = "Welcome to New Haven\r\n",
+            WhoReply = "Illegal name, try again.\r\nName: \r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Banner).Contains("Welcome to New Haven");
+        await Assert.That(game.Received).Contains("y");
+    }
+
+    /// <summary>
+    /// A misclassified/runaway gate must not be able to spin the probe past MaxPromptRounds.
+    /// </summary>
+    [Test]
+    public async Task ARepeatingGateStopsAtTheRoundBound()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "Do you want ANSI? (Y/n)",
+            // "y" always gets the same question back — an adversarial/broken server that never
+            // actually accepts an answer. The loop must still terminate.
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["y"] = "Do you want ANSI? (Y/n)",
+            },
+        };
+
+        var options = Fast() with { MaxPromptRounds = 2 };
+        var result = await new TelnetProbe(options).ProbeAsync(game.Target);
+
+        // Bounded: exactly MaxPromptRounds "y"s went out, not an unbounded stream of them.
+        await Assert.That(game.Received.Count(line => line == "y")).IsEqualTo(2);
+    }
+
+    /// <summary>
+    /// A gated DIKU must not lose its <c>WHO</c> to the flush line that answering the gate made
+    /// redundant.
+    /// </summary>
+    /// <remarks>
+    /// Measured against <c>mud.arcadia.net:4000</c>, which asks a colour question and is a DIKU
+    /// descendant. Before the prompt loop existed, the flush line *was* the answer to the question, so
+    /// the session survived it and <c>WHO</c> was asked. Once the loop answers with an explicit "y",
+    /// the game paints its screen and sits at its name prompt — where the flush that follows is read
+    /// as a goodbye, and the probe recorded <c>NotAsked</c> where it used to record an attempt. The
+    /// answer already flushed the negotiation residue the flush line exists for, so sending a second
+    /// one buys nothing and costs the count.
+    /// </remarks>
+    [Test]
+    public async Task AnsweringAGateSpendsTheFlushSoADikuKeepsItsWho()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "Do you want ANSI? (Y/n) ",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["y"] = "Welcome to Arcadia!\r\nBy what name shall you be known? ",
+            },
+            HangsUpOnBlankLine = true,
+            WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Banner).Contains("Welcome to Arcadia!");
+
+        // The session is still alive to be asked, because no blank line went to the name prompt.
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Count);
+        await Assert.That(result.Who.Count).IsEqualTo(7);
+    }
+
+    /// <summary>
+    /// A server that throttles its login-screen commands still has its <c>WHO</c> read, rather than
+    /// having the answer land in the next question's window.
+    /// </summary>
+    /// <remarks>
+    /// Measured on twyst.org:3333 and rupert.twyst.org:6666, two EW-too talkers that answer WHO after
+    /// a fixed 5.05s — identical to two decimal places, so it is a deliberate throttle rather than
+    /// network weather. Under one grace for every phase the probe gave up at 2.5s, sent INFO, and the
+    /// WHO table arrived inside the INFO window: the count was lost *and* a WHO roster was filed as
+    /// the game's INFO block. WhoGrace buys the count back without slowing a game that answers
+    /// promptly, since a phase that produces a line settles on QuietPeriod instead.
+    /// </remarks>
+    [Test]
+    public async Task AThrottledWhoIsStillReadRatherThanLandingInTheNextPhase()
+    {
+        await using var game = new FakeGame
+        {
+            Banner = "Welcome to the talker.\r\n",
+            BannerTail = "Please enter a name: ",
+            WhoDelay = TimeSpan.FromMilliseconds(450),
+            WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
+            InfoReply = "This is the INFO block, and it is not a WHO table.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Count);
+        await Assert.That(result.Who.Count).IsEqualTo(7);
+
+        // The other half of the defect: the roster must not be filed as the INFO block.
+        await Assert.That(result.Info ?? string.Empty).DoesNotContain("Players logged in");
+    }
+
+    /// <summary>
+    /// A gate on a server that does not implement telnet at its login screen is still answered, and
+    /// the negotiation residue still gets cleared.
+    /// </summary>
+    /// <remarks>
+    /// The worry the round loop has to survive: such a server takes our IAC bytes as typing, so the
+    /// first line we send arrives garbage-prefixed and the gate answer does not match. Skipping the
+    /// blank flush after sending an answer would then leave both problems in place. It does not,
+    /// because that first line still flushed the residue the same way the blank one would have, and
+    /// the loop gets another round — the second "y" arrives clean and opens the screen.
+    /// </remarks>
+    [Test]
+    public async Task AGateOnAServerThatSwallowsNegotiationIsStillAnswered()
+    {
+        await using var game = new FakeGame
+        {
+            SwallowsNegotiationAsText = true,
+            Banner = "Do you want ANSI color (Y/N)?",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["y"] = "Welcome to the game behind the question\r\n",
+            },
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Banner).Contains("Welcome to the game behind the question");
+    }
+
+    /// <summary>
+    /// A prompt the server ends with <c>IAC GA</c> instead of a newline is still captured as text.
+    /// </summary>
+    /// <remarks>
+    /// TelnetNegotiationCore 2.11 (#90) reads <c>IAC GA</c> as the prompt boundary RFC 854 defines,
+    /// which is the shape a DIKU login prompt actually arrives in: "What is your name:" with no line
+    /// ending and a Go-Ahead behind it. The payload has to reach us as ordinary line content — the
+    /// guard that stops a busy DIKU being read as a measured zero works by recognising that prompt,
+    /// so a boundary marker that consumed the text instead of delimiting it would take the guard with
+    /// it. Written on the raw-socket path so the GA bytes (0xFF 0xF9) go on the wire exactly as
+    /// stated, rather than through a server-side interpreter that might reframe them.
+    /// </remarks>
+    [Test]
+    public async Task APromptEndedByGoAheadIsCapturedAsText()
+    {
+        const string goAhead = "\u00ff\u00f9";
+
+        await using var game = new FakeGame
+        {
+            SwallowsNegotiationAsText = true,
+            Banner = "Welcome to Mortal Realms\r\nMrMud 1.4\r\n",
+            BannerTail = $"By what name do you wish to be known? {goAhead}",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Banner).Contains("Welcome to Mortal Realms");
+
+        // The payload, not just the lines before it.
+        await Assert.That(result.Banner).Contains("By what name do you wish to be known?");
+
+        // And the marker itself is a measurement, not something to store as screen content.
+        await Assert.That(result.Banner).DoesNotContain(goAhead);
+
+        // The load-bearing half: this must pass *because the Go-Ahead was understood*, not because
+        // our own end-of-phase flush happened to rescue the line. If GA were being ignored, the text
+        // would still arrive by that route and every assertion above would pass while #90 did nothing.
+        await Assert.That(result.Negotiation.SendsPromptMarkers).IsTrue();
+    }
+
+    /// <summary>
+    /// The real shape a Go-Ahead arrives in, taken off the wire from <c>tdome.nukefire.org:4000</c>.
+    /// </summary>
+    /// <remarks>
+    /// NukeFire sends no GA in its banner. It sends one in reply to <c>WHO</c>: reading the word as a
+    /// character name, it answers <c>Password: </c> with no line ending, hides the reply with
+    /// <c>IAC WILL ECHO</c>, and marks the boundary with <c>IAC GA</c> — captured verbatim as
+    /// <c>50 61 73 73 77 6f 72 64 3a 20 ff fb 01 ff f9</c>. The GA is the only delimiter that line
+    /// ever gets, which is precisely why it has to be read as one: the payload is what tells
+    /// <see cref="WhoParser"/> the server ate our word instead of answering it, and that reading is
+    /// what keeps a busy DIKU from being published as a measured zero.
+    /// </remarks>
+    [Test]
+    public async Task TheGoAheadOnAPasswordPromptIsReadAsABoundary()
+    {
+        // "Password: " then IAC WILL ECHO then IAC GA, byte for byte as NukeFire sends it.
+        const string nukefireWhoReply = "Password: \u00ff\u00fb\u0001\u00ff\u00f9";
+
+        await using var game = new FakeGame
+        {
+            SwallowsNegotiationAsText = true,
+            Banner = "Welcome to:\r\nNukeFire : Beyond THUNDERDOME\r\n",
+            BannerTail = "What's your name, freejack?",
+            WhoReply = nukefireWhoReply,
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Negotiation.SendsPromptMarkers).IsTrue();
+
+        // The payload reached the parser, which is how the login prompt is recognised for what it is
+        // rather than counted as a roster row.
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.LoginPrompt);
+    }
+
+    /// <summary>
+    /// A server that has demonstrably parsed our negotiation is not sent the residue flush, so a DIKU
+    /// that would read it as a goodbye survives to be asked <c>WHO</c>.
+    /// </summary>
+    /// <remarks>
+    /// The flush clears our own IAC bytes out of the line buffer of a server that did not interpret
+    /// them at its login screen. A server that negotiated an option interpreted them, so there is no
+    /// residue for it to clear — and sending it anyway costs the whole session on the DIKU family,
+    /// which reads an empty line at a name prompt as a goodbye. Measured across sixteen live games:
+    /// none of the eight that negotiate an option needed the flush, while four of the twelve that
+    /// negotiate nothing could not answer <c>WHO</c> without it (see docs/codebase-survey-2026-07-30.md).
+    /// <c>tdome.nukefire.org:4000</c> is the worked example — it negotiates GMCP, MSDP and MSSP, and
+    /// before this the probe hung up on itself before ever asking.
+    /// </remarks>
+    [Test]
+    public async Task AServerThatParsedOurNegotiationIsNotSentTheFlush()
+    {
+        await using var game = new FakeGame
+        {
+            AnnouncesMssp = true,
+            Banner = "Welcome to:\r\nNukeFire : Beyond THUNDERDOME\r\n",
+            BannerTail = "What's your name, freejack?",
+            HangsUpOnBlankLine = true,
+            WhoReply = "Player Name        On For Idle\r\n7 Players logged in, 22 record, no maximum.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        // Diagnostic first: if this is empty the fixture never negotiated, which is a different
+        // problem from the flush decision.
+        await Assert.That(result.OfferedOptions.Count).IsGreaterThan(0);
+
+        // FakeGame's telnet mode negotiates, so the flush is withheld and the goodbye never happens.
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Count);
+        await Assert.That(result.Who.Count).IsEqualTo(7);
+
+        // Pin *which* branch withheld the flush. Both `answeredAPrompt` and `parsedOurNegotiation`
+        // suppress it, and only the second is under test here — so assert nothing but the permitted
+        // commands went out. Were this banner ever classified as a prompt, the probe would answer it,
+        // the flush would be withheld for the other reason, and this test would stay green while the
+        // negotiation branch it guards quietly stopped being exercised.
+        await Assert.That(game.Received.Where(line => line.Trim().Length > 0)
+            .All(line => TelnetProbe.PermittedCommands.Contains(line.Trim()))).IsTrue();
+        await Assert.That(game.Received).DoesNotContain(string.Empty);
+    }
+
+    /// <summary>
+    /// A server that did <em>not</em> parse our negotiation still gets the flush, because its line
+    /// buffer is holding our IAC bytes and the next thing we type would arrive glued to them.
+    /// </summary>
+    /// <remarks>
+    /// Still reproducible on <c>chaos.caile.org:4444</c> four TelnetNegotiationCore versions after it
+    /// was first measured: <c>IAC DO 70</c> then <c>WHO</c> returns 1644 bytes of connect screen,
+    /// while the same with a blank line between returns "0 Players logged in, 22 record, no maximum."
+    /// FakeGame's raw path models it exactly — an unclean line is answered with a redisplay.
+    /// </remarks>
+    [Test]
+    public async Task AServerThatSwallowedOurNegotiationStillGetsTheFlush()
+    {
+        await using var game = new FakeGame
+        {
+            SwallowsNegotiationAsText = true,
+            Banner = "Welcome to Nowhere\r\n",
+            BannerTail = "Please enter a name: ",
+            WhoReply = "Player Name        On For Idle\r\n3 Players logged in, 22 record, no maximum.\r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        // Without the flush the WHO arrives as \xff\xfd\x46WHO and is answered with a redisplay.
+        await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.Count);
+        await Assert.That(result.Who.Count).IsEqualTo(3);
+
+        // The flush line is not empty when it lands: it carries the IAC bytes the server had been
+        // holding as typing, which is the whole reason it is sent. WHO arrives clean behind it.
+        await Assert.That(game.Received.Any(line => line.Contains('\u00ff'))).IsTrue();
+    }
+
+    /// <summary>
+    /// Answering a charset menu's UTF-8 option is a request, not a fact — WireEncoding still
+    /// independently proves the encoding from the bytes that actually arrive afterward (rule 5).
+    /// </summary>
+    [Test]
+    public async Task AnsweringTheCharsetMenuLetsWireEncodingProveUtf8()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "1. KOI8-U\n2. ALT (CP866)\n3. WIN (CP1251)\n4. ISO (ISO-8859-5)\n5. MAC\n"
+                + "6. Translit\n7. UTF-8\nPlease select your Ukrainian or Russian codepage: ",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["7"] = "Ласкаво просимо до Dreamland\r\n",
+            },
+            WhoReply = "Illegal name, try again.\r\nName: \r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(game.Received).Contains("7");
+        await Assert.That(result.Banner).Contains("Dreamland");
+        await Assert.That(result.ReadAs).IsEqualTo("utf-8");
+        await Assert.That(result.CharsetSource).IsEqualTo(WireCharset.Proven);
+    }
+
+    /// <summary>
+    /// Selecting a who's-online menu option feeds the exact same WhoReading pipeline the literal WHO
+    /// command does — PresenceChoice.From does not need to know which route produced it.
+    /// </summary>
+    [Test]
+    public async Task AWhosOnlineMenuOptionIsHarvestedAsTheWhoReading()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "(C)onnect\r\n(N)ew character\r\nW - See who is online\r\n(Q)uit",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["W"] = "There are 12 players connected.\r\n",
+            },
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(game.Received).Contains("W");
+        await Assert.That(result.Who.HasCount).IsTrue();
+        await Assert.That(result.Who.Count).IsEqualTo(12);
+        // The menu itself is this game's actual connect screen and stays in Banner; the roster
+        // reply harvested from selecting "W" must not pollute it.
+        await Assert.That(result.Banner).Contains("who is online");
+        await Assert.That(result.Banner).DoesNotContain("12 players connected");
+    }
+
+    /// <summary>
+    /// Once the menu has already answered WHO, the later literal WHO phase must not run and
+    /// overwrite a good reading with whatever a stray "WHO" typed at this screen produces.
+    /// </summary>
+    [Test]
+    public async Task TheLiteralWhoPhaseIsSkippedOnceTheMenuAlreadyAnsweredIt()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "(C)onnect\r\nW - See who is online\r\n(Q)uit",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["W"] = "There are 12 players connected.\r\n",
+                // If the probe wrongly also sent the literal word WHO at this menu, FakeGame's ordinary
+                // WHO handler would reply with this and the count would be corrupted to 0.
+                ["WHO"] = "That is not a valid choice.\r\n",
+            },
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Who.Count).IsEqualTo(12);
+        await Assert.That(game.Received).DoesNotContain("WHO");
     }
 
     [Test]
@@ -414,13 +853,19 @@ public class ProbeSessionTests
     }
 
     [Test]
-    public async Task TheProbeNeverSendsAnythingButItsPermittedCommands()
+    [Arguments("Welcome to Nowhere\r\n")]
+    // A gated screen, so the run includes the classified answers as well as the commands. Without
+    // this the guarantee was only ever checked on a session that never answered a prompt.
+    [Arguments("Do you want ANSI color (Y/N)?")]
+    [Arguments("1. KOI8-U\n2. ALT (CP866)\n7. UTF-8\nEnter Charset: ")]
+    [Arguments("w - who is playing at the moment")]
+    public async Task TheProbeNeverSendsAnythingButItsPermittedCommands(string banner)
     {
-        // Everything the probe types must be a permitted command or an empty line — nothing that
-        // logs in, creates, or changes anything, and nothing a login screen would read as a character name.
+        // Everything the probe types must be a permitted command, a bounded prompt answer, or an
+        // empty line — nothing that logs in, creates, or changes anything.
         await using var game = new FakeGame
         {
-            Banner = "Welcome to Nowhere\r\n",
+            Banner = banner,
             WhoReply = "There are 2 players connected.\r\n",
             SwallowsNegotiationAsText = true,
         };
@@ -444,8 +889,35 @@ public class ProbeSessionTests
                 continue;
             }
 
-            await Assert.That(TelnetProbe.PermittedCommands).Contains(spoken);
+            var permitted = TelnetProbe.PermittedCommands.Contains(spoken)
+                || TelnetProbe.IsPermittedPromptAnswer(spoken);
+
+            await Assert.That(permitted).IsTrue();
         }
+    }
+
+    /// <summary>
+    /// Nothing <see cref="LoginPromptGate"/> can classify produces an answer the probe is not allowed
+    /// to type — the bound holds over the whole corpus, not just the categories that exist today.
+    /// </summary>
+    [Test]
+    [Arguments("Do you want ANSI color (Y/N)?")]
+    [Arguments("Screen reader user? Yes or No")]
+    [Arguments("Press Enter to log in...")]
+    [Arguments("您是否是中小学学生或年龄更小？(yes/no)")]
+    [Arguments("1. KOI8-U\n2. ALT (CP866)\n7. UTF-8\nEnter Charset: ")]
+    [Arguments("w - who is playing at the moment")]
+    [Arguments("[2]....See who is currently logged in.")]
+    public async Task EveryClassifiedAnswerIsWithinTheWireBound(string banner)
+    {
+        var answer = LoginPromptGate.Classify(banner);
+
+        await Assert.That(answer).IsNotNull();
+        await Assert.That(TelnetProbe.IsPermittedPromptAnswer(answer!.Answer)).IsTrue();
+
+        // And it is emphatically not a command that would log in or create.
+        await Assert.That(answer.Answer).DoesNotContain("connect", StringComparison.OrdinalIgnoreCase);
+        await Assert.That(answer.Answer).DoesNotContain("create", StringComparison.OrdinalIgnoreCase);
     }
 
     [Test]
@@ -726,7 +1198,21 @@ public class ProbeSessionTests
         /// <summary>The tail of the WHO reply, unterminated.</summary>
         public string? WhoTail { get; init; }
 
+        /// <summary>
+        /// How long the server sits on a <c>WHO</c> before answering it — the EW-too talkers throttle
+        /// login-screen commands by a fixed five seconds.
+        /// </summary>
+        public TimeSpan WhoDelay { get; init; }
+
         public string? BlankLineReply { get; init; }
+
+        /// <summary>
+        /// What a specific command gets back, keyed case-insensitively — the general-purpose sibling
+        /// of <see cref="BlankLineReply"/>, for fixtures that need to prove the probe sent a specific
+        /// answer (e.g. "y" to a colour question) rather than a blank line.
+        /// </summary>
+        public IReadOnlyDictionary<string, string> Replies { get; init; } =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Whether an empty line at the name prompt is a goodbye — true for every DIKU descendant,
@@ -737,6 +1223,12 @@ public class ProbeSessionTests
         /// <summary>Whether the server accepts the connection and drops it without a word.</summary>
         public bool ClosesImmediately { get; init; }
 
+        /// <summary>
+        /// Whether a line the server cannot make sense of ends the session, as a DIKU that does not
+        /// parse telnet does when our IAC bytes reach its name prompt as typing.
+        /// </summary>
+        public bool HangsUpOnUnrecognisedLine { get; init; }
+
         /// <summary>Whether the server answers <c>WHO</c> and then closes on us.</summary>
         public bool HangsUpAfterWho { get; init; }
 
@@ -745,6 +1237,17 @@ public class ProbeSessionTests
         /// bytes end up prefixed to the next command we type.
         /// </summary>
         public bool SwallowsNegotiationAsText { get; init; }
+
+        /// <summary>
+        /// Whether the server negotiates a protocol rather than merely framing telnet correctly.
+        /// </summary>
+        /// <remarks>
+        /// The default <see cref="ServeOverTelnetAsync"/> attaches no plugins, so it parses telnet and
+        /// agrees to nothing — which the probe reads, correctly, as no positive evidence that our IAC
+        /// bytes were interpreted. Attaching one is what makes a fixture a server that demonstrably
+        /// negotiated, and so one the residue flush may be withheld from.
+        /// </remarks>
+        public bool AnnouncesMssp { get; init; }
 
         public ProbeTarget Target => new(
             IPAddress.Loopback.ToString(),
@@ -870,7 +1373,7 @@ public class ProbeSessionTests
         /// </summary>
         private async Task ServeOverTelnetAsync(TcpClient client)
         {
-            var built = await new TelnetInterpreterBuilder()
+            var builder = new TelnetInterpreterBuilder()
                 .UseMode(TelnetInterpreter.TelnetMode.Server)
                 .UseLogger(NullLogger.Instance)
                 .OnSubmit(async (bytes, encoding, telnet) =>
@@ -882,8 +1385,22 @@ public class ProbeSessionTests
                     {
                         client.Client.Shutdown(SocketShutdown.Both);
                     }
-                })
-                .BuildAndStartAsync(client, _stopping.Token);
+                });
+
+            if (AnnouncesMssp)
+            {
+                // MSSP because it is the protocol real servers announce *early* — the report arrives
+                // during the option handshake, well before the flush decision. A plugin that merely
+                // negotiates and then says nothing would leave Supported empty, which the probe reads
+                // (correctly) as no evidence at all.
+                var mssp = new MSSPProtocol();
+                // Deliberately not the WHO fixture's 7: if MSSP ever leaked into the WHO reading, two
+                // matching numbers would hide it.
+                mssp.SetMSSPConfig(() => new MSSPConfig { Name = "NukeFire", Players = 99 });
+                builder = builder.AddPlugin(mssp);
+            }
+
+            var built = await builder.BuildAndStartAsync(client, _stopping.Token);
 
             await using var telnet = built.Interpreter;
 
@@ -949,13 +1466,29 @@ public class ProbeSessionTests
 
             if (!clean)
             {
+                if (HangsUpOnUnrecognisedLine)
+                {
+                    return false;
+                }
+
                 // What TinyMUSH does: redisplay the connect screen and answer nothing.
                 await reply(Banner);
                 return true;
             }
 
+            if (Replies.TryGetValue(command, out var configured))
+            {
+                await reply(configured);
+                return true;
+            }
+
             if (command.Equals("WHO", StringComparison.OrdinalIgnoreCase))
             {
+                if (WhoDelay > TimeSpan.Zero)
+                {
+                    await Task.Delay(WhoDelay, _stopping.Token);
+                }
+
                 await reply(WhoReply);
                 if (WhoTail is not null)
                 {
