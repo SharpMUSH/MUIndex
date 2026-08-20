@@ -218,16 +218,24 @@ else
                            implicit row below it (row-main's grid-template-columns carries four now,
                            not three) — a reader scans the row once, left to right, rather than
                            finding the count and then hunting a line down for what it did lately. The
-                           fitted line's own percentage is the value shown, not just its direction: a
-                           bare glyph said "up" without saying by how much. *@
+                           fitted line's own figure is shown beside the glyph, not just its direction:
+                           a bare glyph said "up" without saying by how much. Players rather than a
+                           percentage, because one player becoming three is a 200% rise and fifty
+                           becoming a hundred only 100%, which reads as though two extra players were
+                           the bigger event.
+
+                           A steady row gets the glyph alone. "Steady" is precisely the finding that
+                           the move was too small to call a change, and a number printed beside it
+                           would re-assert the change the glyph just declined to claim — a big game
+                           can sit several players from flat and still be inside the band. *@
                         @if (g.Growth is { } growth)
                         {
                             <p class="row-trend @TrendState(growth)" role="img"
-                               aria-label="@TrendLabel(growth, g.GrowthChange)"
+                               aria-label="@TrendLabel(growth, TrendFigure(g))"
                                title="@FacetWords.TrendingWord(Tag, growth)">
-                                @TrendGlyph(growth)@if (g.GrowthChange is { } change)
+                                @TrendGlyph(growth)@if (TrendFigure(g) is { } players)
                                 {
-                                    <text>&#160;@TrendPercent(change)</text>
+                                    <text>&#160;@TrendPlayers(players)</text>
                                 }
                             </p>
                         }
@@ -419,21 +427,31 @@ else
         _ => "steady",
     };
 
-    /// <summary>The fitted line's own reading, signed rather than only coloured — a screen reader has no colour.</summary>
-    private static string TrendPercent(double change)
-    {
-        var percent = (int)Math.Round(change * 100);
+    /// <summary>
+    /// The figure the trend cell prints, or null where it prints the glyph alone.
+    /// </summary>
+    /// <remarks>
+    /// Withheld on a steady row on purpose. The direction is decided on the fitted line's percentage
+    /// and the figure is in players, so the two can part company on a large game — fifty-odd players
+    /// moving five is inside <see cref="GrowthTrend.SteadyBand"/> and steady, and "steady, +5" would
+    /// have the row assert a change in the same breath it declined to call one.
+    /// </remarks>
+    private static int? TrendFigure(GameSummary g) =>
+        g.Growth is GrowthDirection.Up or GrowthDirection.Down ? g.GrowthPlayers : null;
 
-        return percent > 0 ? $"+{percent}%" : $"{percent}%";
-    }
+    /// <summary>
+    /// The fitted line's own reading in players, signed rather than only coloured — a screen reader
+    /// has no colour, and the sign is the whole of what the glyph says in text.
+    /// </summary>
+    private static string TrendPlayers(int players) => players > 0 ? $"+{players}" : $"{players}";
 
     /// <summary>
     /// The accessible name for the trend cell — the direction word alone said "trending up" and left
     /// the number a sighted reader sees right beside it unannounced.
     /// </summary>
-    private string TrendLabel(GrowthDirection growth, double? change) =>
-        change is { } value
-            ? $"{FacetWords.TrendingWord(Tag, growth)}, {TrendPercent(value)}"
+    private string TrendLabel(GrowthDirection growth, int? players) =>
+        players is { } value
+            ? $"{FacetWords.TrendingWord(Tag, growth)}, {TrendPlayers(value)}"
             : FacetWords.TrendingWord(Tag, growth);
 
     protected override async Task OnParametersSetAsync()

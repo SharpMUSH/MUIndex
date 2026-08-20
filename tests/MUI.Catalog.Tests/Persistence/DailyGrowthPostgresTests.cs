@@ -50,10 +50,10 @@ public class DailyGrowthPostgresTests
     }
 
     [Test]
-    public async Task TheGrowthChangeFractionIsPopulatedAlongsideTheDirection()
+    public async Task TheGrowthPlayerCountIsPopulatedAlongsideTheDirection()
     {
-        // GameSummary.GrowthChange is what a listing row's own percentage reads — a bare direction
-        // says "up" without saying by how much.
+        // GameSummary.GrowthPlayers is what a listing row's own figure reads — a bare direction says
+        // "up" without saying by how much.
         await using var db = await PostgresFixture.MigratedAsync();
         var game = await Seed.GameAsync(db, "rising", "Rising");
 
@@ -65,10 +65,10 @@ public class DailyGrowthPostgresTests
         var row = listing.Single(g => g.Slug == "rising");
 
         await Assert.That(row.Growth).IsEqualTo(GrowthDirection.Up);
-        await Assert.That(row.GrowthChange).IsNotNull();
-        // The exact OLS fit through (0,10), (7,15), (13,20) — see GrowthTrendTests for the fraction
-        // in isolation; this is the same arithmetic read back off a real listing row.
-        await Assert.That(row.GrowthChange!.Value).IsEqualTo(169.0 / 254.0).Within(0.0001);
+        // The exact OLS fit through (0,10), (7,15), (13,20) rises 9.98 players across its 13-day
+        // span, rounded away from zero — see GrowthTrendTests for the same arithmetic in isolation;
+        // this is it read back off a real listing row.
+        await Assert.That(row.GrowthPlayers).IsEqualTo(10);
     }
 
     [Test]
@@ -85,8 +85,29 @@ public class DailyGrowthPostgresTests
         var row = listing.Single(g => g.Slug == "falling");
 
         await Assert.That(row.Growth).IsEqualTo(GrowthDirection.Down);
-        await Assert.That(row.GrowthChange).IsNotNull();
-        await Assert.That(row.GrowthChange!.Value).IsLessThan(0);
+        // The mirror of the rising series, rounded away from zero in the other direction.
+        await Assert.That(row.GrowthPlayers).IsEqualTo(-10);
+    }
+
+    [Test]
+    public async Task ABigGameMovingSeveralPlayersInsideTheBandIsStillSteadyAndStillCountsThem()
+    {
+        // The deliberate seam between the two figures. Direction is decided on the fraction, so a
+        // hundred-player game drifting five players is under SteadyBand and steady — while the player
+        // count beside it is a truthful 5. The surfaces are what withhold that figure on a steady row
+        // (Games.razor's TrendFigure); the query's job is only to report both honestly.
+        await using var db = await PostgresFixture.MigratedAsync();
+        var game = await Seed.GameAsync(db, "large", "Large");
+
+        await WriteDayAsync(db, game, Today(-13), count: 98);
+        await WriteDayAsync(db, game, Today(-6), count: 100);
+        await WriteDayAsync(db, game, Today(0), count: 103);
+
+        var listing = await QueriesOn(db).ListAsync(new GameFilter { IncludeArchived = true });
+        var row = listing.Single(g => g.Slug == "large");
+
+        await Assert.That(row.Growth).IsEqualTo(GrowthDirection.Steady);
+        await Assert.That(row.GrowthPlayers).IsEqualTo(5);
     }
 
     [Test]

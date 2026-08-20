@@ -210,7 +210,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
             {
                 var days = dailyMedians.GetValueOrDefault(id, []);
 
-                return (Direction: GrowthTrend.Of(days), Change: GrowthTrend.ChangeFraction(days));
+                return (Direction: GrowthTrend.Of(days), Players: GrowthTrend.ChangePlayers(days));
             });
 
         var facetRows = new List<GameFacetRow>(rows.Count);
@@ -240,7 +240,7 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
                 icons.Contains(row.Id),
                 windows.GetValueOrDefault(row.Id),
                 growth.GetValueOrDefault(row.Id).Direction,
-                growth.GetValueOrDefault(row.Id).Change,
+                growth.GetValueOrDefault(row.Id).Players,
                 row.FirstSeenAt);
 
             facetRows.Add(new GameFacetRow(
@@ -1122,14 +1122,17 @@ public sealed class NpgsqlGameQueries(NpgsqlDataSource source, IFieldRegistry? r
         [
             .. eligible
                 .Select(g => (Game: g, Days: dailyMedians.GetValueOrDefault(g.Id, [])))
+                // Selected on the fraction, ranked on the players. The band is what keeps a big game's
+                // two-player wobble off the board at all; the ordering is what stops a game that gained
+                // two players outranking one that gained fifty once both are on it.
                 .Select(row => (row.Game, row.Days, Change: GrowthTrend.ChangeFraction(row.Days)))
                 .Where(row => row.Change > GrowthTrend.SteadyBand)
                 .Select(row => new TrendingGame(
                     row.Game.Slug, row.Game.Name,
                     EarliestMedian: row.Days.MinBy(d => d.Day)!.Median,
                     LatestMedian: row.Days.MaxBy(d => d.Day)!.Median,
-                    Change: row.Change!.Value))
-                .OrderByDescending(r => r.Change)
+                    ChangePlayers: GrowthTrend.ChangePlayers(row.Days)!.Value))
+                .OrderByDescending(r => r.ChangePlayers)
                 .ThenByDescending(r => r.LatestMedian)
                 .ThenBy(r => r.Name, StringComparer.Ordinal)
                 .Take(RankingLimit),

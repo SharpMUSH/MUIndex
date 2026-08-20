@@ -112,11 +112,14 @@ else
                         @foreach (var game in Table.TrendingThisWeek)
                         {
                             <tr>
-                                <td class="place mono">@Place(Table.TrendingThisWeek.Select(g => g.Change), game.Change)</td>
+                                <td class="place mono">@Place(Table.TrendingThisWeek.Select(g => g.ChangePlayers), game.ChangePlayers)</td>
                                 <th scope="row"><a href="@Http.Link($"/g/{game.Slug}")">@game.Name</a></th>
                                 <td class="mono state-present">@game.LatestMedian</td>
                                 <td class="mono faint">@game.EarliestMedian</td>
-                                <td class="mono state-present">+@Percent(game.Change)%</td>
+                                @* In players, and beside the two medians it was fitted through, so a
+                                   reader can check the claim against the numbers next to it rather
+                                   than take a percentage on trust. *@
+                                <td class="mono state-present">+@game.ChangePlayers</td>
                             </tr>
                         }
                     </tbody>
@@ -203,9 +206,6 @@ else
     /// </remarks>
     private static int Place<T>(IEnumerable<T> values, T value) where T : IComparable<T> =>
         1 + values.Count(v => v.CompareTo(value) > 0);
-
-    /// <summary>A fraction of change, as the whole number the column prints.</summary>
-    private static int Percent(double change) => (int)Math.Round(change * 100);
 
     /// <summary>The same place, for a column where the smallest value is the best one.</summary>
     /// <remarks>

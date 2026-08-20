@@ -122,11 +122,16 @@ public sealed record GameSummary(
     GrowthDirection? Growth = null,
 
     /// <summary>
-    /// The same fitted line's predicted change as a fraction, computed once by
-    /// <see cref="GrowthTrend.ChangeFraction"/> so the row's own figure can never disagree with
-    /// <see cref="Growth"/>'s classification of the same series.
+    /// How many players that same fitted line rises or falls by, from
+    /// <see cref="GrowthTrend.ChangePlayers"/> — read off the one fit <see cref="Growth"/> classifies,
+    /// so the row's figure can never describe a different line from the row's arrow.
     /// </summary>
-    double? GrowthChange = null,
+    /// <remarks>
+    /// Players, not the percentage <see cref="Growth"/> is decided on: a game going from one player to
+    /// three has grown by more of itself than one going from fifty to a hundred, and printing that as
+    /// the headline figure ranks two extra players above fifty.
+    /// </remarks>
+    int? GrowthPlayers = null,
 
     /// <summary>When we first saw this address, for <see cref="GameSort.Discovered"/>.</summary>
     DateTimeOffset? FirstSeenAt = null);

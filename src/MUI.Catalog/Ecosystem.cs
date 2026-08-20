@@ -325,11 +325,15 @@ public sealed record BusiestGame(string Slug, string Name, int Median, int Peak,
 /// <see cref="EarliestMedian"/> and <see cref="LatestMedian"/> are the real measured endpoints of the
 /// series a trend was fit through, not the fitted line's own predicted values — carried so a board
 /// that only said "up" isn't repeating the listing row's arrow, and so a reader can see the two real
-/// numbers behind the claim rather than a derived statistic dressed as one. <see cref="Change"/> is
-/// the fitted line's own reading, computed once by <see cref="GrowthTrend.ChangeFraction"/> so the
-/// board's order can never disagree with the arrow's classification of the same series.
+/// numbers behind the claim rather than a derived statistic dressed as one.
+/// <see cref="ChangePlayers"/> is the fitted line's own reading, from
+/// <see cref="GrowthTrend.ChangePlayers"/> — in players, so the board ranks a game that gained fifty
+/// above one that gained two, where a percentage would have ranked them the other way round. Which
+/// games reach the board at all is still decided on <see cref="GrowthTrend.ChangeFraction"/> against
+/// <see cref="GrowthTrend.SteadyBand"/>, so the board and the listing arrow still agree on who is
+/// trending; this is only what the trend is worth once it is one.
 /// </remarks>
-public sealed record TrendingGame(string Slug, string Name, int EarliestMedian, int LatestMedian, double Change);
+public sealed record TrendingGame(string Slug, string Name, int EarliestMedian, int LatestMedian, int ChangePlayers);
 
 /// <summary>
 /// A game's current unbroken run of measured reachability.

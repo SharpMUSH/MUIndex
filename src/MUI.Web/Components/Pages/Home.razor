@@ -111,7 +111,7 @@ else
                 <article class="feed-row">
                     <a class="feed-name" href="@Http.Link($"/g/{game.Slug}")"><GameName Name="@game.Name" /></a>
                     <span class="feed-state mono">
-                        <span class="state-present">+@Percent(game.Change)%</span>
+                        <span class="state-present">+@game.ChangePlayers</span>
                     </span>
                 </article>
             }
@@ -152,8 +152,6 @@ else
 
     /// <summary>Matches the liveness feeds' own row cap (NpgsqlGameQueries.FeedLimit).</summary>
     private const int FeedLimit = 11;
-
-    private static int Percent(double change) => (int)Math.Round(change * 100);
 
     /// <summary>The locale this page is being answered in.</summary>
     [CascadingParameter] private HttpContext? Http { get; set; }

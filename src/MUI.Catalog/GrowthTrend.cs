@@ -87,6 +87,52 @@ public static class GrowthTrend
     /// </remarks>
     public static double? ChangeFraction(IReadOnlyList<DailyMedian> days)
     {
+        if (Fit(days) is not { } fit)
+        {
+            return null;
+        }
+
+        return fit.MeanY == 0 ? 0 : fit.Rise / fit.MeanY;
+    }
+
+    /// <summary>
+    /// How many players the fitted line rises (or falls) by across the days it was fit over, rounded
+    /// away from zero — the figure the listing row and the trending board both print.
+    /// </summary>
+    /// <remarks>
+    /// Players rather than <see cref="ChangeFraction"/>'s percentage because a percentage answers a
+    /// question almost nobody is asking: a game going from one player to three has grown 200% and a
+    /// game going from fifty to a hundred only 100%, which ranks two extra players above fifty. The
+    /// fraction still decides the <em>direction</em> (see <see cref="Of"/> and <see cref="SteadyBand"/>),
+    /// so a big game's two-player wobble is still steady; this is what that direction is worth once
+    /// it has cleared the band.
+    /// <para>
+    /// Away from zero, not to nearest: a fitted rise of a third of a player is still a rise, and the
+    /// glyph beside it already says so — printing "0" next to an up arrow would have the two halves of
+    /// one measurement contradict each other. A line that did not move at all is still 0, since
+    /// rounding may not manufacture a player out of nothing.
+    /// </para>
+    /// </remarks>
+    public static int? ChangePlayers(IReadOnlyList<DailyMedian> days)
+    {
+        if (Fit(days) is not { } fit)
+        {
+            return null;
+        }
+
+        return (int)(fit.Rise >= 0 ? Math.Ceiling(fit.Rise) : Math.Floor(fit.Rise));
+    }
+
+    /// <summary>
+    /// The one least-squares fit both public figures read, so the percentage and the player count can
+    /// never describe different lines through the same series.
+    /// </summary>
+    /// <returns>
+    /// The line's total rise in players across the span it covers, and the series' own average level
+    /// — <c>null</c> below <see cref="MinimumDays"/> qualifying days.
+    /// </returns>
+    private static (double Rise, double MeanY)? Fit(IReadOnlyList<DailyMedian> days)
+    {
         ArgumentNullException.ThrowIfNull(days);
 
         // Both the floor and the one-row-per-day rule are this method's own contract, not something
@@ -117,13 +163,12 @@ public static class GrowthTrend
         // defensive read rather than a crash if a caller ever hands in duplicate days.
         if (variance == 0)
         {
-            return 0;
+            return (0, meanY);
         }
 
         var slope = covariance / variance;
         var span = points.Max(p => p.X) - points.Min(p => p.X);
-        var predictedChange = slope * span;
 
-        return meanY == 0 ? 0 : predictedChange / meanY;
+        return (slope * span, meanY);
     }
 }
