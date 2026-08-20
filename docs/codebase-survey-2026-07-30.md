@@ -444,3 +444,50 @@ Probing the same hosts repeatedly in quick succession gets connections refused �
 it produces are caused by remote-end rate limiting, not by a probe defect. Space repeat runs out, or read a batch
 of simultaneous `Failed` results with suspicion before believing them.
 
+## The empty flush is load-bearing for far more than TinyMUSH — measured 2026-08-20
+
+This file has said since July that the flush exists because `chaos.caile.org:4444` leaves our
+`IAC DO 70` in its line buffer, so the next line reads as `\xff\xfd\x46WHO`. That is true, and it is
+where the fix came from — but it was an origin story, never a census, and it has been quoted since as
+though one server were the whole reason. It is not.
+
+**The defect still reproduces**, four TelnetNegotiationCore versions later. Against
+`chaos.caile.org:4444`, sending `IAC DO 70` and then `WHO`:
+
+| | reply |
+|---|---|
+| no flush | 1644 bytes — the connect screen again; the command was never understood |
+| blank line first | 85 bytes — `0 Players logged in, 22 record, no maximum.` |
+
+**And it is not one server.** Eight games were sampled at random from those that currently yield a
+`who`-sourced count *and* negotiate no telnet option at all (480 games negotiate nothing; 128 of them
+produce a WHO count). Each was dialled twice, once with the flush and once without:
+
+| host | without | with |
+|---|---|---|
+| `darkgift.mushpark.com:6251` | 2352 B, redisplay | **117 B, WHO answer** |
+| `wackymoo.jellybean.co.uk:7777` | no answer | **227 B, WHO answer** |
+| `pegasusmuck.com:4242` | no answer | **215 B, WHO answer** |
+| `lit.klfree.cz:7680` | answers | answers |
+| `moo.srtmoo.net:8492` | answers | answers |
+| `galaxy.silvren.com:6666` | answers | answers |
+| `ranmamuck.dyndns.org:1212` | answers | answers |
+| `scalesmuck.com:8887` | answers | answers |
+
+Three of eight, across MUSH, MOO and MUCK — a cross-family behaviour, not a TinyMUSH quirk. At that
+rate the 128 non-negotiating games with WHO counts imply **roughly 40–50 counts lost** if the flush
+were removed. The sample is small enough that the number is indicative rather than exact; the
+direction is not in doubt.
+
+**So the flush stays, and deleting it is off the table.** The only safe refinement is the conditional
+one — skip it where the server has *positively demonstrated* it parses telnet, since the residue it
+clears cannot exist there. Measured upside for that: 32 games, of which most would gain a more precise
+unmeasurable *reason* (`who_login_prompt` rather than `who_not_offered`) rather than a count, since
+they are the DIKU family that reads `WHO` as a character name. `tdome.nukefire.org:4000` is the worked
+example — skip the flush, ask `WHO`, and it answers `Password: ` + `IAC WILL ECHO` + `IAC GA`.
+
+One caution for whoever picks that up: the discriminator must be `OfferedOptions` (protocols observed
+**active**), not the presence of a `capability.*.measured` field. That field is written `false` when we
+look and find nothing, so keying on its existence reports every game as negotiating —
+`chaos.caile.org` included, which is the one server this section proves must keep the flush.
+
