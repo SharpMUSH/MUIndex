@@ -248,13 +248,26 @@ public static partial class LoginPromptGate
     private static partial Regex PressEnterPattern();
 
     /// <summary>
-    /// An age check. Narrow by design — only the exact live phrasing measured
-    /// (menghui-xiyou/xianlv-qingyuan's "are you a primary/secondary school student or younger?") plus
-    /// the generic English shape a game might use for the same check. "No" is the crawler's honest
-    /// answer to every phrasing surveyed; none asks the inverse ("are you an adult?").
+    /// An age check whose honest answer is <em>no</em>.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Narrow by design: the live phrasing measured (menghui-xiyou/xianlv-qingyuan's "are you a
+    /// primary/secondary school student or younger?") and the generic English shape of the same
+    /// question. Every phrasing here asks whether the connecting user is <em>under</em> age, so a
+    /// single fixed "no" is truthful for all of them.
+    /// </para>
+    /// <para>
+    /// <b>The inverse question is deliberately not matched.</b> "Are you of legal age?" and "Are you
+    /// 18 or over?" ask the opposite, and this category has one answer — "no" would decline the game
+    /// rather than reach its connect screen, which is a worse outcome than not recognising the prompt
+    /// at all. Matching those needs a per-phrasing answer rather than a per-category one, and no
+    /// surveyed game asks it; <see cref="LoginPromptGate"/> does not get to guess which way round a
+    /// question is.
+    /// </para>
+    /// </remarks>
     [GeneratedRegex(
-        @"学生.{0,10}年龄|年龄更小|are\s+you\s+(?:a\s+)?(?:minor|under\s+\d+|of\s+legal\s+age)",
+        @"学生.{0,10}年龄|年龄更小|are\s+you\s+(?:a\s+)?(?:minor|under\s+\d+)",
         RegexOptions.IgnoreCase)]
     private static partial Regex AgeGatePattern();
 

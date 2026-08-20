@@ -372,10 +372,13 @@ sweep widened the pattern) `eternitymud.com:23` (numbered, not lettered — `2. 
 who can help`).
 
 **Deliberately not covered, and why:**
-- Charset menus offering only non-UTF-8 encodings (roughly half the 29 surveyed, e.g.
-  `mud.pkuxkx.net:8080`'s GBK/UTF8/BIG5 toggle with no per-line menu structure, and every
-  Cyrillic-codepage-only menu) — picking between two non-UTF-8 encodings is a guess, which rule 5
-  forbids recording as a fact; these stay on the existing staff `CHARSET` override.
+- Charset menus offering only non-UTF-8 encodings (e.g. the Cyrillic-codepage-only menus, and the
+  GB/BIG5 toggles) — picking between two non-UTF-8 encodings is a guess, which rule 5 forbids
+  recording as a fact; these stay on the existing staff `CHARSET` override.
+- Charset menus that *do* offer UTF-8 but not as a per-line option — `mud.pkuxkx.net:8080` prints
+  `Input 1 for GBK, 2 for UTF8, 3 for BIG5`, all on one line with no token punctuation, so
+  `MenuOptions` finds no options to read. It is left alone for want of a parseable structure, not for
+  want of a UTF-8 choice; it too stays on the staff override.
 - `LoginPromptGate.PressEnterPattern`'s Korean branch matches "누르" (press) but not "입력" (input) —
   `3-third-eye-harmony` (`toox.co.kr:6000`, "[엔터]를 입력하세요") is not recognised. Low volume (one
   game surveyed); add the alternation if a second example turns up.
@@ -391,8 +394,10 @@ who can help`).
   dozens of TinyMUX/PennMUSH-family games print a sentence like "Use the WHO command to find out who
   is online currently" (`furrymuck.com:8888`) or a RhostMUSH-style `)) To see who is on ----------=>
   WHO ((` (`galaxy.silvren.com:*`, several games) instead of a selectable menu. These need no new
-  code: `TelnetProbe` already sends the literal `WHO` command unconditionally in Phase 3 regardless of
-  what the banner says, so every one of these games is already asked. Recorded here so a future reader
+  code: a prose hint does not classify as `WhoMenu`, so `TelnetProbe` reaches its ordinary Phase 3 and
+  sends the literal `WHO` exactly as it always did — every one of these games is already asked. (The
+  one session that does *not* send a literal `WHO` is one where a `WhoMenu` option was selected and
+  has already answered the question.) Recorded here so a future reader
   doesn't mistake the volume of this shape in the survey for an uncovered case.
 - **~~Banner-stated player counts in vocabulary the parsers don't recognise~~ — done, and measured
   rather than guessed.** Eight real banner strings were put to the parser before anything changed;
@@ -436,6 +441,6 @@ a gated DIKU that had just been sent its answer (`mud.arcadia.net:4000`). Both f
 | `aardmud.org:4000` | control | banner count | banner count |
 
 Probing the same hosts repeatedly in quick succession gets connections refused — the failures that
-produces are the remote end rate-limiting, not a probe defect. Space repeat runs out, or read a batch
+it produces are caused by remote-end rate limiting, not by a probe defect. Space repeat runs out, or read a batch
 of simultaneous `Failed` results with suspicion before believing them.
 

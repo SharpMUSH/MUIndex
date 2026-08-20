@@ -15,8 +15,11 @@ namespace MUI.Crawl;
 /// </summary>
 /// <remarks>
 /// Never authenticates — everything read is what a server hands an anonymous connection (banner,
-/// negotiated options, MSSP, pre-login commands). <see cref="PermittedCommands"/> is the complete
-/// list of what may go on the wire; <c>connect</c> and <c>create</c> are not on it, enforced by test.
+/// negotiated options, MSSP, pre-login commands). Two things go on the wire and both are bounded by
+/// test: <see cref="PermittedCommands"/>, the commands it may ask, which <c>connect</c> and
+/// <c>create</c> are not on; and a classified answer to a pre-login prompt, which is not a command and
+/// is held to <see cref="IsPermittedPromptAnswer"/> — at most two alphanumeric characters, checked at
+/// the send rather than trusted from the classifier.
 /// Protocol support is recorded from the library's own negotiation callbacks rather than by
 /// re-parsing bytes it already decoded.
 /// </remarks>
@@ -35,8 +38,37 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// The bare line terminator sent between the banner and <c>WHO</c> is not on this list — it's not
     /// a command, it carries no text. <c>MSSP-REQUEST</c> is also absent by design (see
     /// <see cref="ProbeOptions"/>): MSSP is asked for by negotiation, which a server without it ignores.
+    /// The other thing that goes on the wire is a classified prompt answer, which is not a command
+    /// either and is bounded separately by <see cref="IsPermittedPromptAnswer"/>.
     /// </remarks>
     public static readonly IReadOnlyList<string> PermittedCommands = [WhoCommand, InfoCommand, VersionCommand];
+
+    /// <summary>
+    /// The longest a classified prompt answer may be. Two characters covers every answer
+    /// <see cref="LoginPromptGate"/> can produce — <c>y</c>, <c>no</c>, and a one- or two-character
+    /// menu token — and is far short of anything that could log in.
+    /// </summary>
+    public const int LongestPromptAnswer = 2;
+
+    /// <summary>
+    /// Whether text is a prompt answer this probe may send, as opposed to a command.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Enforced at the send, not merely described here, so the guarantee survives a category being
+    /// added to <see cref="LoginPromptGate"/> later: an answer that fails this is dropped and the
+    /// round ends rather than putting unvetted text on somebody's login screen.
+    /// </para>
+    /// <para>
+    /// The bound is what makes the answers safe to type at a prompt whose meaning we inferred. Two
+    /// alphanumeric characters cannot be <c>connect</c>, <c>create</c> or a password; the worst a
+    /// misclassification can do is offer a one-letter character name, which no server accepts as a
+    /// login and which is the same exposure the bare line terminator already carried.
+    /// </para>
+    /// </remarks>
+    public static bool IsPermittedPromptAnswer(string? answer) =>
+        string.IsNullOrEmpty(answer)
+        || (answer.Length <= LongestPromptAnswer && answer.All(char.IsLetterOrDigit));
 
     private const byte NewLine = (byte)'\n';
 
@@ -124,6 +156,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             {
                 if (LoginPromptGate.Classify(BannerSoFar(lines, roundStart, Arrived()))
                         is not { Category: not LoginPromptCategory.WhoMenu } prompt
+                    || !IsPermittedPromptAnswer(prompt.Answer)
                     || !Live(client))
                 {
                     break;
@@ -149,7 +182,8 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             string? whoFromMenuShape = null;
             if (Live(client)
                 && LoginPromptGate.Classify(BannerSoFar(lines, 0, bannerLines))
-                    is { Category: LoginPromptCategory.WhoMenu } menu)
+                    is { Category: LoginPromptCategory.WhoMenu } menu
+                && IsPermittedPromptAnswer(menu.Answer))
             {
                 var menuBaseline = Arrived();
                 await telnet.SendAsync(Encoding.ASCII.GetBytes(menu.Answer));

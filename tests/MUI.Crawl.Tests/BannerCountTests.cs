@@ -264,4 +264,24 @@ public class BannerCountTests
 
         await Assert.That(BannerCount.Find(downmoo)).IsNull();
     }
+
+    /// <summary>
+    /// A staff-only line must yield no player count at all — neither a number nor a zero.
+    /// </summary>
+    /// <remarks>
+    /// The whole mortals-versus-wizards design rests on a staff noun being unrecognised. If an
+    /// optional people-noun lets a pattern match from the connectivity word alone, "Wizards online: 4"
+    /// publishes four *players* and "No wizards online" publishes a measured zero for a game whose
+    /// staff are all present — the false zero rule 2 exists to prevent.
+    /// </remarks>
+    [Test]
+    [Arguments("Wizards online: 4")]
+    [Arguments("Immortals connected: 12")]
+    [Arguments("No wizards online")]
+    [Arguments("There are no wizards online.")]
+    public async Task AStaffOnlyLineIsNotAPlayerCount(string line)
+    {
+        await Assert.That(BannerCount.Find(line)).IsNull();
+    }
+
 }

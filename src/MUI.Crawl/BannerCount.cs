@@ -90,8 +90,24 @@ public static partial class BannerCount
     // purpose: the people-noun must be present, immediately followed by "on", immediately followed by
     // a colon or dash and the number (nannymud's "Number of players on:   8"). Without all three
     // anchors "on" is a preposition and would read "3 messages on the board" as a population.
+    /// <summary>
+    /// The roles a game counts <em>apart</em> from its players, which must never be read as one.
+    /// </summary>
+    /// <remarks>
+    /// A negative lookbehind rather than an absent vocabulary, because the people-noun in the first
+    /// alternative below is optional — <c>lusternia.com:5000</c> writes a bare "Currently On-Line: 12"
+    /// with no noun at all, so the pattern has to be able to start at the connectivity word. Without
+    /// this guard that same licence let "Wizards online: 4" publish four <em>players</em>. Kept in step
+    /// with <see cref="WhoParser"/>'s People list: a word belongs in exactly one of the two.
+    /// </remarks>
+    private const string NotStaff =
+        @"(?<!\b(?:wizards?|imm(?:ortal)?s?|gods?|admins?|administrators?|staff|developers?|devs?"
+        + @"|builders?|creators?|coders?|immortals?)\s{1,4})";
+
     [GeneratedRegex(
-        @"\b(?:players?|users?|characters?|adventurers?)?\s*(?:currently\s+)?(?:on-?line|connected|playing|logged\s*(?:in|on))\s*[:\-]?\s*(?<n>\d{1,5})\b"
+        @"\b(?:players?|users?|characters?|adventurers?)?\s*(?:currently\s+)?"
+        + NotStaff
+        + @"(?:on-?line|connected|playing|logged\s*(?:in|on))\s*[:\-]?\s*(?<n>\d{1,5})\b"
         + @"|\b(?:players?|users?)\s*(?:currently\s+)?[:\-]\s*(?<n>\d{1,5})\b"
         + @"|\b(?:players?|users?|characters?|adventurers?)\s+on\s*[:\-]\s*(?<n>\d{1,5})\b",
         RegexOptions.IgnoreCase)]

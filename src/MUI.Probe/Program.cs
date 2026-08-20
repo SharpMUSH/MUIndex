@@ -34,8 +34,16 @@ if (result.MsspBytesRejected is { } rejected)
 
 Console.WriteLine($"negotiated    {(result.OfferedOptions.Count == 0 ? "(none observed)" : string.Join(", ", result.OfferedOptions.Order()))}");
 
+// A WhoMenu is not an unanswered gate: the menu *is* this game's permanent connect screen, and the
+// probe has already selected its who's-online option and kept the reading. Saying "unanswered" of it
+// would report a working harvest as a failure.
 Console.WriteLine($"banner        {result.Banner?.Length ?? 0} chars"
-    + (LoginPromptGate.Classify(result.Banner) is not null ? " — still a gate, unanswered" : string.Empty));
+    + (LoginPromptGate.Classify(result.Banner) switch
+    {
+        { Category: LoginPromptCategory.WhoMenu } => " — a menu; its who's-online option was taken",
+        not null => " — still a gate, unanswered",
+        _ => string.Empty,
+    }));
 
 if (result.BannerPlayerCount is { } fromBanner)
 {

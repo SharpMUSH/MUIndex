@@ -413,6 +413,36 @@ public class ProbeSessionTests
     }
 
     /// <summary>
+    /// A gate on a server that does not implement telnet at its login screen is still answered, and
+    /// the negotiation residue still gets cleared.
+    /// </summary>
+    /// <remarks>
+    /// The worry the round loop has to survive: such a server takes our IAC bytes as typing, so the
+    /// first line we send arrives garbage-prefixed and the gate answer does not match. Skipping the
+    /// blank flush after sending an answer would then leave both problems in place. It does not,
+    /// because that first line still flushed the residue the same way the blank one would have, and
+    /// the loop gets another round — the second "y" arrives clean and opens the screen.
+    /// </remarks>
+    [Test]
+    public async Task AGateOnAServerThatSwallowsNegotiationIsStillAnswered()
+    {
+        await using var game = new FakeGame
+        {
+            SwallowsNegotiationAsText = true,
+            Banner = "Do you want ANSI color (Y/N)?",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["y"] = "Welcome to the game behind the question\r\n",
+            },
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Outcome).IsEqualTo(ProbeOutcome.Answered);
+        await Assert.That(result.Banner).Contains("Welcome to the game behind the question");
+    }
+
+    /// <summary>
     /// Answering a charset menu's UTF-8 option is a request, not a fact — WireEncoding still
     /// independently proves the encoding from the bytes that actually arrive afterward (rule 5).
     /// </summary>
@@ -661,13 +691,19 @@ public class ProbeSessionTests
     }
 
     [Test]
-    public async Task TheProbeNeverSendsAnythingButItsPermittedCommands()
+    [Arguments("Welcome to Nowhere\r\n")]
+    // A gated screen, so the run includes the classified answers as well as the commands. Without
+    // this the guarantee was only ever checked on a session that never answered a prompt.
+    [Arguments("Do you want ANSI color (Y/N)?")]
+    [Arguments("1. KOI8-U\n2. ALT (CP866)\n7. UTF-8\nEnter Charset: ")]
+    [Arguments("w - who is playing at the moment")]
+    public async Task TheProbeNeverSendsAnythingButItsPermittedCommands(string banner)
     {
-        // Everything the probe types must be a permitted command or an empty line — nothing that
-        // logs in, creates, or changes anything, and nothing a login screen would read as a character name.
+        // Everything the probe types must be a permitted command, a bounded prompt answer, or an
+        // empty line — nothing that logs in, creates, or changes anything.
         await using var game = new FakeGame
         {
-            Banner = "Welcome to Nowhere\r\n",
+            Banner = banner,
             WhoReply = "There are 2 players connected.\r\n",
             SwallowsNegotiationAsText = true,
         };
@@ -691,8 +727,35 @@ public class ProbeSessionTests
                 continue;
             }
 
-            await Assert.That(TelnetProbe.PermittedCommands).Contains(spoken);
+            var permitted = TelnetProbe.PermittedCommands.Contains(spoken)
+                || TelnetProbe.IsPermittedPromptAnswer(spoken);
+
+            await Assert.That(permitted).IsTrue();
         }
+    }
+
+    /// <summary>
+    /// Nothing <see cref="LoginPromptGate"/> can classify produces an answer the probe is not allowed
+    /// to type — the bound holds over the whole corpus, not just the categories that exist today.
+    /// </summary>
+    [Test]
+    [Arguments("Do you want ANSI color (Y/N)?")]
+    [Arguments("Screen reader user? Yes or No")]
+    [Arguments("Press Enter to log in...")]
+    [Arguments("您是否是中小学学生或年龄更小？(yes/no)")]
+    [Arguments("1. KOI8-U\n2. ALT (CP866)\n7. UTF-8\nEnter Charset: ")]
+    [Arguments("w - who is playing at the moment")]
+    [Arguments("[2]....See who is currently logged in.")]
+    public async Task EveryClassifiedAnswerIsWithinTheWireBound(string banner)
+    {
+        var answer = LoginPromptGate.Classify(banner);
+
+        await Assert.That(answer).IsNotNull();
+        await Assert.That(TelnetProbe.IsPermittedPromptAnswer(answer!.Answer)).IsTrue();
+
+        // And it is emphatically not a command that would log in or create.
+        await Assert.That(answer.Answer).DoesNotContain("connect", StringComparison.OrdinalIgnoreCase);
+        await Assert.That(answer.Answer).DoesNotContain("create", StringComparison.OrdinalIgnoreCase);
     }
 
     [Test]

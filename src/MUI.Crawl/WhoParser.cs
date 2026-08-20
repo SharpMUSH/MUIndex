@@ -390,8 +390,13 @@ public sealed partial class WhoParser : IWhoParser
     /// </remarks>
     // "There are no players connected." / "No players are online." / "Nobody is logged in." /
     // "No-one is playing at the moment."
+    //
+    // A bare "no" must be followed by "one" or by a people-noun. It was previously allowed to stand
+    // alone with the noun optional, which let "No wizards online" read as a measured zero — a game
+    // whose staff are all present, published as empty. Whoever is absent has to be somebody this
+    // parser counts.
     [GeneratedRegex(
-        @"\bno(?:body)?[\s-]+(?:" + People + @"|one)?\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
+        @"\b(?:nobody|no[\s-]+(?:one|" + People + @"))\b[^.\n]{0,40}?\b" + Connectivity + @"\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex NoPlayersPattern();
 

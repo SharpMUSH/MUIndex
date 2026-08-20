@@ -138,6 +138,21 @@ public class LoginPromptGateTests
         await Assert.That(answer.Answer).IsEqualTo("no");
     }
 
+    /// <summary>
+    /// The inverse of an age gate is not an age gate — this category has one answer, and "no" to
+    /// "are you of legal age?" declines the game instead of reaching its connect screen.
+    /// </summary>
+    [Test]
+    [Arguments("Are you of legal age?")]
+    [Arguments("Are you 18 or over?")]
+    [Arguments("Are you an adult?")]
+    public async Task AnAdultConfirmationIsNotAnsweredWithTheMinorAnswer(string banner)
+    {
+        var answer = LoginPromptGate.Classify(banner);
+
+        await Assert.That(answer is { Category: LoginPromptCategory.AgeGate }).IsFalse();
+    }
+
     [Test]
     // "Please enter a character name" must never trip the press-enter gate — it is an ordinary login
     // prompt that happens to contain the word "enter" as a verb, not an instruction to press a key.
