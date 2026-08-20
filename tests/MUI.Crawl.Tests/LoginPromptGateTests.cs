@@ -181,4 +181,33 @@ public class LoginPromptGateTests
 
         await Assert.That(LoginPromptGate.Classify(banner)).IsNull();
     }
+
+    [Test]
+    // batmud's real menu line (docs/login-prompt-scan chunk_1).
+    [Arguments("w - who is playing at the moment", "w")]
+    // archipelago's real menu line.
+    [Arguments("W - See who is online", "W")]
+    // discworld/epitaph's real menu line.
+    [Arguments("U - Short list of who is on-line", "U")]
+    // way-of-the-force's real menu line.
+    [Arguments("w - Who is online?", "w")]
+    public async Task AWhosOnlineMenuOptionIsRecognised(string banner, string expectedToken)
+    {
+        var answer = LoginPromptGate.Classify(banner);
+
+        await Assert.That(answer).IsNotNull();
+        await Assert.That(answer!.Category).IsEqualTo(LoginPromptCategory.WhoMenu);
+        await Assert.That(answer.Answer).IsEqualTo(expectedToken);
+    }
+
+    [Test]
+    // The ordinary command a login screen might mention in passing must never trip this — WhoMenu is
+    // only ever a lettered *menu option*, not any sentence containing the word "who".
+    [Arguments("Type WHO to see who is connected before you log in.")]
+    public async Task AWhoMentionThatIsNotAMenuOptionIsNotAWhoMenu(string banner)
+    {
+        var answer = LoginPromptGate.Classify(banner);
+
+        await Assert.That(answer is not { Category: LoginPromptCategory.WhoMenu }).IsTrue();
+    }
 }

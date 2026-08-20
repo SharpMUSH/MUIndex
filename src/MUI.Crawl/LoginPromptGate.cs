@@ -102,6 +102,41 @@ public static partial class LoginPromptGate
             return charset;
         }
 
+        if (ClassifyWhoMenu(bannerSoFar ?? string.Empty) is { } who)
+        {
+            return who;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// A menu option whose label is unmistakably "see who is online", found the same
+    /// one-line-at-a-time way <see cref="ClassifyCharsetMenu"/> does.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from the ordinary <c>WHO</c> command this probe already sends for free at Phase 3
+    /// (<c>TelnetProbe.WhoCommand</c>) — this is a *menu letter* a server prints on its permanent
+    /// connect screen (BatMUD, ZombieMUD), not the command itself.
+    /// </remarks>
+    private static LoginPromptAnswer? ClassifyWhoMenu(string bannerSoFar)
+    {
+        var lines = bannerSoFar
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Split('\n')
+            .Select(BannerText.Flatten)
+            .Where(line => line.Length > 0);
+
+        foreach (var line in lines)
+        {
+            var option = WhoMenuOptionLinePattern().Match(line);
+            if (option.Success)
+            {
+                return new LoginPromptAnswer(option.Groups["token"].Value, LoginPromptCategory.WhoMenu);
+            }
+        }
+
         return null;
     }
 
@@ -191,6 +226,17 @@ public static partial class LoginPromptGate
 
     [GeneratedRegex(@"\bUTF-?8\b", RegexOptions.IgnoreCase)]
     private static partial Regex Utf8LabelPattern();
+
+    // "w - who is playing at the moment" / "W - See who is online" / "U - Short list of who is
+    // on-line" / "(W)ho is online" — a single-letter menu token (bracketed, parenthesised, or
+    // dash-separated), then a label about who is connected. Not anchored to the start of the line —
+    // several real menus (e.g. daedal-macabre's "(N)ew  (C)onnect  (W)ho is online  (Q)uit") pack every
+    // option onto one line, so the token's own boundary (no letter/digit immediately before it) is what
+    // stops this matching mid-word instead of position.
+    [GeneratedRegex(
+        @"(?<![\p{L}\p{N}])[\[\(]?(?<token>[A-Za-z])(?:[\]\).:]|\s+-\s*)\s*.{0,25}\bwho\b.{0,25}(?:online|playing|on[- ]?line)",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex WhoMenuOptionLinePattern();
 }
 
 /// <summary>Which kind of pre-login question or menu a screen turned out to be.</summary>

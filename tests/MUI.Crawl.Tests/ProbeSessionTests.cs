@@ -368,6 +368,58 @@ public class ProbeSessionTests
         await Assert.That(result.CharsetSource).IsEqualTo(WireCharset.Proven);
     }
 
+    /// <summary>
+    /// Selecting a who's-online menu option feeds the exact same WhoReading pipeline the literal WHO
+    /// command does — PresenceChoice.From does not need to know which route produced it.
+    /// </summary>
+    [Test]
+    public async Task AWhosOnlineMenuOptionIsHarvestedAsTheWhoReading()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "(C)onnect\r\n(N)ew character\r\nW - See who is online\r\n(Q)uit",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["W"] = "There are 12 players connected.\r\n",
+            },
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(game.Received).Contains("W");
+        await Assert.That(result.Who.HasCount).IsTrue();
+        await Assert.That(result.Who.Count).IsEqualTo(12);
+        // The menu itself is this game's actual connect screen and stays in Banner; the roster
+        // reply harvested from selecting "W" must not pollute it.
+        await Assert.That(result.Banner).Contains("who is online");
+        await Assert.That(result.Banner).DoesNotContain("12 players connected");
+    }
+
+    /// <summary>
+    /// Once the menu has already answered WHO, the later literal WHO phase must not run and
+    /// overwrite a good reading with whatever a stray "WHO" typed at this screen produces.
+    /// </summary>
+    [Test]
+    public async Task TheLiteralWhoPhaseIsSkippedOnceTheMenuAlreadyAnsweredIt()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "(C)onnect\r\nW - See who is online\r\n(Q)uit",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["W"] = "There are 12 players connected.\r\n",
+                // If the probe wrongly also sent the literal word WHO at this menu, FakeGame's ordinary
+                // WHO handler would reply with this and the count would be corrupted to 0.
+                ["WHO"] = "That is not a valid choice.\r\n",
+            },
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Who.Count).IsEqualTo(12);
+        await Assert.That(game.Received).DoesNotContain("WHO");
+    }
+
     [Test]
     public async Task AServerThatSimplyRepaintsIsStillCountedAsNeither()
     {

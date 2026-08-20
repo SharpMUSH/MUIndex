@@ -135,6 +135,29 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
             var bannerLines = Arrived();
 
+            // A who's-online menu option is different from every category the loop above answers:
+            // selecting it doesn't reveal a second screen behind this one — for every real game
+            // measured (BatMUD, ZombieMUD, discworld.starturtle.net) the menu already settled into
+            // bannerLines above *is* the game's permanent connect screen. So it is classified once here
+            // rather than as one more round of that loop, and its own answer/reply are kept out of
+            // Banner entirely, the same way the ordinary WHO phase below never becomes part of it —
+            // parsed through the identical WhoParser a literal WHO answer would be, so
+            // PresenceChoice.From (spec §5.2) cannot tell which route produced the reading.
+            WhoReading? whoFromMenu = null;
+            string? whoFromMenuShape = null;
+            if (Live(client)
+                && LoginPromptGate.Classify(BannerSoFar(lines, 0, bannerLines))
+                    is { Category: LoginPromptCategory.WhoMenu } menu)
+            {
+                var menuBaseline = Arrived();
+                await telnet.SendAsync(Encoding.ASCII.GetBytes(menu.Answer));
+                await SettleAsync(telnet, Arrived, menuBaseline, _options.QuietPeriod, budget.Token);
+
+                var menuReply = BannerSoFar(lines, menuBaseline, Arrived());
+                whoFromMenu = new WhoParser().Parse(menuReply);
+                whoFromMenuShape = PayloadRedaction.Replayable(menuReply);
+            }
+
             // Phase 2 — an empty line, and everything it produces is thrown away.
             //
             // A server that does not implement telnet at its login screen does not recognise our own
@@ -151,7 +174,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             var whoLines = bannerLines;
             var infoLines = bannerLines;
             var versionLines = bannerLines;
-            var asked = false;
+            var asked = whoFromMenu is not null;
 
             // Phases 3 to 5 — the questions we are allowed to ask, in order. SendAsync appends the
             // line ending itself, so each command is handed over bare.
@@ -194,7 +217,11 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 // sent FIN still succeeds — only the write *after* the RST throws — so an unguarded
                 // WHO here would come back unanswered and be recorded as unreadable, publishing our
                 // own dead socket as a fact about their parser (rule 5).
-                if (Live(client))
+                //
+                // A who's-online menu already answered this probe's WHO question — asking the literal
+                // word WHO at whatever this game's screen looks like now would either repeat the menu
+                // or be read as a character name, corrupting a good reading with a worse one.
+                if (Live(client) && whoFromMenu is null)
                 {
                     whoLines = infoLines = versionLines =
                         await AskAsync(WhoCommand, flushLines, () => asked = true);
@@ -263,8 +290,10 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                     || MxpSignal.IsPresent(whoText)
                     || MxpSignal.IsPresent(infoText)
                     || MxpSignal.IsPresent(versionText),
-                Who = asked ? new WhoParser().Parse(whoText) : WhoReading.NotAsked,
-                WhoShape = asked ? PayloadRedaction.Replayable(whoText) : null,
+                Who = whoFromMenu ?? (asked ? new WhoParser().Parse(whoText) : WhoReading.NotAsked),
+                WhoShape = whoFromMenu is not null
+                    ? whoFromMenuShape
+                    : (asked ? PayloadRedaction.Replayable(whoText) : null),
                 Info = infoText.Length == 0 ? null : infoText,
                 Version = versionText.Length == 0 ? null : versionText,
                 BannerPlayerCount = BannerCount.Find(banner),
