@@ -79,6 +79,18 @@ public sealed record ProbeOptions
     /// </remarks>
     public TimeSpan BannerPatience { get; init; } = TimeSpan.FromMilliseconds(2500);
 
+    /// <summary>
+    /// How many pre-login prompts (colour, charset menu, press-enter, age-gate) one probe will answer
+    /// in a row before treating whatever it has as the connect screen.
+    /// </summary>
+    /// <remarks>
+    /// A misclassified screen must not be able to spin the probe through its whole <see
+    /// cref="MaxPhase"/> answering itself — bounded well above anything measured (New Haven stacks a
+    /// colour question and a press-enter gate; nothing surveyed stacks more than two), so an honest
+    /// multi-step gate still resolves and a runaway false positive still stops quickly.
+    /// </remarks>
+    public int MaxPromptRounds { get; init; } = 4;
+
     // Deliberately no option here for the plaintext MSSP-REQUEST form — it belongs in
     // TelnetNegotiationCore, and a compensating implementation here would duplicate a first-party
     // dependency and then have to be deleted once that lands. Every surveyed game that answered the

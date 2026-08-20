@@ -213,11 +213,14 @@ public class ProbeSessionTests
     }
 
     /// <summary>
-    /// The one case where the flush is an answer rather than a stray line.
+    /// The one case where the loop's answer is itself the trigger for the real screen, rather than a
+    /// stray line.
     /// </summary>
     /// <remarks>
     /// Several real games gate their whole connect screen behind an ANSI keystroke prompt; the probe
-    /// was already sending the keystroke and throwing the resulting screen away.
+    /// now sends the explicit letter LoginPromptGate says answers a colour question ("y"), not a blank
+    /// line — see AColourGateThatRequiresAnExplicitLetterIsAnsweredCorrectly below for why a blind
+    /// Return was never enough against every real server.
     /// </remarks>
     [Test]
     public async Task AScreenBehindAColourQuestionIsTheConnectScreen()
@@ -225,10 +228,13 @@ public class ProbeSessionTests
         await using var game = new FakeGame
         {
             BannerTail = "Do you want ANSI? (Y/n) ",
-            BlankLineReply =
-                "Ansi enabled!\r\nWelcome to Adventures Unlimited\r\n"
-                + "Based on CircleMUD 3.0, created by Jeremy Elson\r\n"
-                + "Players Currently Online: 7\r\n",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["y"] =
+                    "Ansi enabled!\r\nWelcome to Adventures Unlimited\r\n"
+                    + "Based on CircleMUD 3.0, created by Jeremy Elson\r\n"
+                    + "Players Currently Online: 7\r\n",
+            },
             WhoReply = "Illegal name, try again.\r\nName: \r\n",
         };
 
@@ -241,6 +247,99 @@ public class ProbeSessionTests
         // rather than part of its connect screen.
         await Assert.That(result.Banner).DoesNotContain("Illegal name");
         await Assert.That(result.Who.Confidence).IsEqualTo(WhoConfidence.LoginPrompt);
+    }
+
+    /// <summary>
+    /// A server that requires the literal letter, not a blank default — a blind Return against this
+    /// fixture would just see the same question echoed back, which is what production stored before
+    /// this fix (see docs/login-prompt-scan/pre_login_prompts_report.md, cthulhumud/arcadia-mud-style
+    /// strict colour gates).
+    /// </summary>
+    [Test]
+    public async Task AColourGateThatRequiresAnExplicitLetterIsAnsweredCorrectly()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "Do you want ANSI color (Y/N)?",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["y"] = "Welcome to Arcadia MUD\r\nBased on Merc 2.1\r\n",
+            },
+            WhoReply = "Illegal name, try again.\r\nName: \r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Banner).Contains("Welcome to Arcadia MUD");
+        await Assert.That(game.Received).Contains("y");
+    }
+
+    /// <summary>
+    /// A press-enter gate the old BannerGate never recognised — the real screen behind it was thrown
+    /// away as flush residue and the raw "Press Enter..." line stored as the connect screen instead.
+    /// </summary>
+    [Test]
+    public async Task APressEnterGateRevealsTheRealScreenBehindIt()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "Press Enter to log in...",
+            BlankLineReply = "Rites of Passage\r\nA game of legend.\r\n",
+            WhoReply = "Illegal name, try again.\r\nName: \r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Banner).Contains("Rites of Passage");
+        await Assert.That(result.Banner).DoesNotContain("Illegal name");
+    }
+
+    /// <summary>
+    /// Two gates in a row — colour, then a press-enter — both answered before the real screen is
+    /// treated as settled. Proves the loop, not just one round of it.
+    /// </summary>
+    [Test]
+    public async Task StackedGatesAreAnsweredInOrder()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "Do you want ANSI? (Y/n)",
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["y"] = "Ansi enabled!\r\nPress Enter to continue...",
+            },
+            BlankLineReply = "Welcome to New Haven\r\n",
+            WhoReply = "Illegal name, try again.\r\nName: \r\n",
+        };
+
+        var result = await new TelnetProbe(Fast()).ProbeAsync(game.Target);
+
+        await Assert.That(result.Banner).Contains("Welcome to New Haven");
+        await Assert.That(game.Received).Contains("y");
+    }
+
+    /// <summary>
+    /// A misclassified/runaway gate must not be able to spin the probe past MaxPromptRounds.
+    /// </summary>
+    [Test]
+    public async Task ARepeatingGateStopsAtTheRoundBound()
+    {
+        await using var game = new FakeGame
+        {
+            BannerTail = "Do you want ANSI? (Y/n)",
+            // "y" always gets the same question back — an adversarial/broken server that never
+            // actually accepts an answer. The loop must still terminate.
+            Replies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["y"] = "Do you want ANSI? (Y/n)",
+            },
+        };
+
+        var options = Fast() with { MaxPromptRounds = 2 };
+        var result = await new TelnetProbe(options).ProbeAsync(game.Target);
+
+        // Bounded: exactly MaxPromptRounds "y"s went out, not an unbounded stream of them.
+        await Assert.That(game.Received.Count(line => line == "y")).IsEqualTo(2);
     }
 
     [Test]
@@ -729,6 +828,14 @@ public class ProbeSessionTests
         public string? BlankLineReply { get; init; }
 
         /// <summary>
+        /// What a specific command gets back, keyed case-insensitively — the general-purpose sibling
+        /// of <see cref="BlankLineReply"/>, for fixtures that need to prove the probe sent a specific
+        /// answer (e.g. "y" to a colour question) rather than a blank line.
+        /// </summary>
+        public IReadOnlyDictionary<string, string> Replies { get; init; } =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
         /// Whether an empty line at the name prompt is a goodbye — true for every DIKU descendant,
         /// which is what makes the probe's own flush line fatal to them.
         /// </summary>
@@ -951,6 +1058,12 @@ public class ProbeSessionTests
             {
                 // What TinyMUSH does: redisplay the connect screen and answer nothing.
                 await reply(Banner);
+                return true;
+            }
+
+            if (Replies.TryGetValue(command, out var configured))
+            {
+                await reply(configured);
                 return true;
             }
 

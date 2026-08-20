@@ -102,16 +102,38 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // more is conditional on there being almost nothing there, so a server that has already
             // painted pays nothing — see ProbeOptions.BannerPatience for the server this is measured
             // against and for what recording the placeholder cost.
-            if (LooksUnfinished(BannerSoFar(lines, Arrived())))
+            if (LooksUnfinished(BannerSoFar(lines, 0, Arrived())))
             {
                 await SettleAsync(telnet, Arrived, Arrived(), _options.BannerPatience, budget.Token);
             }
 
-            var bannerLines = Arrived();
+            // Some connect screens are not the screen at all, but one or more questions the server
+            // asks before it paints one — colour, a press-enter gate, an age check. Each round
+            // classifies whatever newly arrived since the last answer and sends the specific reply
+            // LoginPromptGate says resolves it, then settles again; bounded by MaxPromptRounds so a
+            // misread screen cannot spin the probe against itself. A blind Return sent unconditionally
+            // here — the whole of what this loop replaces — was never enough: several real games only
+            // accept an explicit letter, and a server that did not recognise a blind Return simply
+            // re-printed the same question, which a probe run before this fix stored as the connect
+            // screen. LoginPromptCategory.WhoMenu is excluded from this loop on purpose — it is
+            // answered once, separately, against the settled screen below rather than as one more round
+            // here (see the block after bannerLines is taken).
+            var roundStart = 0;
+            for (var round = 0; round < _options.MaxPromptRounds; round++)
+            {
+                if (LoginPromptGate.Classify(BannerSoFar(lines, roundStart, Arrived()))
+                        is not { Category: not LoginPromptCategory.WhoMenu } prompt
+                    || !Live(client))
+                {
+                    break;
+                }
 
-            // Whether the flush below is a stray line or the answer to a question. Decided here,
-            // before it is sent, because after it there is no way to tell the two apart.
-            var gated = LoginPromptGate.Classify(BannerSoFar(lines, bannerLines)) is not null;
+                roundStart = Arrived();
+                await telnet.SendAsync(Encoding.ASCII.GetBytes(prompt.Answer));
+                await SettleAsync(telnet, Arrived, roundStart, _options.QuietPeriod, budget.Token);
+            }
+
+            var bannerLines = Arrived();
 
             // Phase 2 — an empty line, and everything it produces is thrown away.
             //
@@ -167,17 +189,6 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 await telnet.SendAsync([]);
                 await SettleAsync(telnet, Arrived, bannerLines, _options.QuietPeriod, budget.Token);
                 flushLines = whoLines = infoLines = versionLines = Arrived();
-
-                // …unless the connect screen was a question, in which case the terminator answered
-                // it and what arrived is the screen the game meant to show — some games gate their
-                // whole screen behind one keystroke (see BannerGate). Moving the boundary rather than
-                // concatenating: the banner stays one contiguous run from the start of the session,
-                // and the flush window correctly closes to nothing, since there was no discarded
-                // reaction — the reaction was the screen.
-                if (gated)
-                {
-                    bannerLines = Arrived();
-                }
 
                 // Asking a socket that has already been closed is not asking. A write to a peer that
                 // sent FIN still succeeds — only the write *after* the RST throws — so an unguarded
@@ -373,15 +384,17 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// <summary>The connect screen as it stands part-way through the phase that is collecting it.</summary>
     /// <remarks>
     /// Read with the Latin-1 fallback, not the session's eventual encoding — there isn't one yet, and
-    /// this text is never shown to anyone. Its only reader, <see cref="LooksUnfinished"/>, only checks
-    /// length and one ASCII punctuation mark, questions no 8-bit byte changes the answer to. The real
-    /// decoding decision happens once, at the end, in <see cref="WireEncoding.Read"/>.
+    /// this text is never shown to anyone. Its readers (<see cref="LooksUnfinished"/>,
+    /// <see cref="LoginPromptGate.Classify"/>) only check length, punctuation and a handful of
+    /// vocabulary words, none of which an 8-bit byte changes the answer to. The real decoding decision
+    /// happens once, at the end, in <see cref="WireEncoding.Read"/>.
     /// </remarks>
-    private static string BannerSoFar(List<byte[]> lines, int count)
+    private static string BannerSoFar(List<byte[]> lines, int from, int to)
     {
         lock (lines)
         {
-            return string.Join("\n", lines.Take(count).Select(WireEncoding.Fallback.GetString));
+            return string.Join(
+                "\n", lines.Skip(from).Take(to - from).Select(WireEncoding.Fallback.GetString));
         }
     }
 
