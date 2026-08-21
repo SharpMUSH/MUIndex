@@ -128,71 +128,26 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // Phase 1 — the connect screen. Banner and WHO answer are kept apart because they are
             // different evidence: one is a display asset and codebase fingerprint, the other is a
             // measurement.
-            await SettleAsync(telnet, Arrived, 0, _options.SilenceGrace, budget.Token);
+            await SettleInitialBannerAsync(telnet, Arrived, lines, budget.Token);
 
-            // A screen that has told us it is not ready has not settled, it has paused. Waiting once
-            // more is conditional on there being almost nothing there, so a server that has already
-            // painted pays nothing — see ProbeOptions.BannerPatience for the server this is measured
-            // against and for what recording the placeholder cost.
-            if (LooksUnfinished(BannerSoFar(lines, 0, Arrived())))
-            {
-                await SettleAsync(telnet, Arrived, Arrived(), _options.BannerPatience, budget.Token);
-            }
+            var answeredAPrompt = await AnswerPromptsAsync(telnet, Arrived, lines, client, budget.Token);
 
-            // Some connect screens are not the screen at all, but one or more questions the server
-            // asks before it paints one — colour, a press-enter gate, an age check. Each round
-            // classifies whatever newly arrived since the last answer and sends the specific reply
-            // LoginPromptGate says resolves it, then settles again; bounded by MaxPromptRounds so a
-            // misread screen cannot spin the probe against itself. A blind Return sent unconditionally
-            // here — the whole of what this loop replaces — was never enough: several real games only
-            // accept an explicit letter, and a server that did not recognise a blind Return simply
-            // re-printed the same question, which a probe run before this fix stored as the connect
-            // screen. LoginPromptCategory.WhoMenu is excluded from this loop on purpose — it is
-            // answered once, separately, against the settled screen below rather than as one more round
-            // here (see the block after bannerLines is taken).
-            var roundStart = 0;
-            var answeredAPrompt = false;
-            for (var round = 0; round < _options.MaxPromptRounds; round++)
-            {
-                if (LoginPromptGate.Classify(BannerSoFar(lines, roundStart, Arrived()))
-                        is not { Category: not LoginPromptCategory.WhoMenu } prompt
-                    || !IsPermittedPromptAnswer(prompt.Answer)
-                    || !Live(client))
-                {
-                    break;
-                }
+            // Every cursor below is a line count into the same `lines` list, marking where one
+            // phase's slice ends and the next begins. Named fields rather than a bag of same-typed
+            // locals: a phase method writes `cursors.Who`, never a bare `whoLines` that could be
+            // handed to the wrong parameter by a future edit that reorders phases.
+            var cursors = new PhaseCursors { Banner = Arrived() };
 
-                roundStart = Arrived();
-                answeredAPrompt = true;
-                await telnet.SendAsync(Encoding.ASCII.GetBytes(prompt.Answer));
-                await SettleAsync(telnet, Arrived, roundStart, _options.QuietPeriod, budget.Token);
-            }
-
-            var bannerLines = Arrived();
-
-            // A who's-online menu option is different from every category the loop above answers:
-            // selecting it doesn't reveal a second screen behind this one — for every real game
-            // measured (BatMUD, ZombieMUD, discworld.starturtle.net) the menu already settled into
-            // bannerLines above *is* the game's permanent connect screen. So it is classified once here
-            // rather than as one more round of that loop, and its own answer/reply are kept out of
-            // Banner entirely, the same way the ordinary WHO phase below never becomes part of it —
-            // parsed through the identical WhoParser a literal WHO answer would be, so
+            // A who's-online menu option is different from every category the prompt loop above
+            // answers: selecting it doesn't reveal a second screen behind this one — for every real
+            // game measured (BatMUD, ZombieMUD, discworld.starturtle.net) the menu already settled
+            // into cursors.Banner *is* the game's permanent connect screen. So it is classified once
+            // here rather than as one more round of that loop, and its own answer/reply are kept out
+            // of Banner entirely, the same way the ordinary WHO phase below never becomes part of it
+            // — parsed through the identical WhoParser a literal WHO answer would be, so
             // PresenceChoice.From (spec §5.2) cannot tell which route produced the reading.
-            WhoReading? whoFromMenu = null;
-            string? whoFromMenuShape = null;
-            if (Live(client)
-                && LoginPromptGate.Classify(BannerSoFar(lines, 0, bannerLines))
-                    is { Category: LoginPromptCategory.WhoMenu } menu
-                && IsPermittedPromptAnswer(menu.Answer))
-            {
-                var menuBaseline = Arrived();
-                await telnet.SendAsync(Encoding.ASCII.GetBytes(menu.Answer));
-                await SettleAsync(telnet, Arrived, menuBaseline, _options.QuietPeriod, budget.Token);
-
-                var menuReply = BannerSoFar(lines, menuBaseline, Arrived());
-                whoFromMenu = new WhoParser().Parse(menuReply);
-                whoFromMenuShape = PayloadRedaction.Replayable(menuReply);
-            }
+            var (whoFromMenu, whoFromMenuShape) =
+                await TryAnswerWhoMenuAsync(telnet, Arrived, lines, client, cursors.Banner, budget.Token);
 
             // Phase 2 — an empty line, and everything it produces is thrown away.
             //
@@ -202,117 +157,30 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             // count is lost. A bare terminator flushes that residue as its own line first. What comes
             // back is a reaction to bytes *we* sent, not the game's connect screen or its WHO answer,
             // so it must not be recorded as either (rule 5) — dropped deliberately, which is what the
-            // gap between bannerLines and flushLines is.
+            // gap between cursors.Banner and cursors.Flush is.
             //
             // This also ends the session outright on every DIKU descendant, which reads an empty line
             // at its name prompt as a goodbye — see HungUp for what that costs.
-            var flushLines = bannerLines;
-            var whoLines = bannerLines;
-            var infoLines = bannerLines;
-            var versionLines = bannerLines;
+            cursors.Flush = cursors.Who = cursors.Info = cursors.Version = cursors.Banner;
+
             var asked = whoFromMenu is not null;
 
-            // Phases 3 to 5 — the questions we are allowed to ask, in order. SendAsync appends the
-            // line ending itself, so each command is handed over bare.
-            //
-            // `sent` fires between the write and the wait: a question is asked when its bytes have
-            // gone, not when we decided to ask it, so a flag set before the send could claim to have
-            // asked something that never left.
-            async Task<int> AskAsync(string command, int baseline, TimeSpan grace, Action? sent = null)
-            {
-                await telnet.SendAsync(Encoding.ASCII.GetBytes(command));
-                sent?.Invoke();
-                await SettleAsync(telnet, Arrived, baseline, grace, budget.Token);
-                return Arrived();
-            }
-
-            try
-            {
-                // MSDP's request vocabulary — SEND, REPORT, LIST, RESET, UNREPORT — has no plaintext
-                // form, so it is not on PermittedCommands for the same reason MSSP-REQUEST is not: it
-                // is asked for by protocol, not by typing. Gated on TelnetNegotiationCore 2.9.0's
-                // IsNegotiated (see Watched.Msdp), which reflects the peer's real WILL/DO acceptance —
-                // unlike the pre-2.9.0 OnEnabledAsync, which was true from plugin construction
-                // regardless of the wire (TelnetNegotiationCore#85). By this point in the probe the
-                // banner phase above has already given negotiation time to settle, so a server that
-                // never agreed to MSDP is not asked at all: no bytes go to a peer that said nothing
-                // about this option, one connect screen fewer that might read a subnegotiation as
-                // literal typing. PLAYERS is MSDP's conventional variable name for a player count; see
-                // docs/codebase-survey-2026-07-30.md for what asking real servers for it found — every
-                // server tested answered with an unsolicited SERVER_ID instead, never PLAYERS.
-                if (telnet.PluginManager?.GetPlugin<MSDPProtocol>() is { IsNegotiated: true })
-                {
-                    await telnet.SendMSDPCommand("SEND", "PLAYERS");
-                }
-
-                // …unless there is no residue for it to clear, which is the only thing it is for.
-                //
-                // Two ways to know that. A prompt answer above was itself a line through the server's
-                // buffer and has already done the flushing. And a server that negotiated an option
-                // *interpreted* our IAC bytes rather than leaving them in its line buffer as typing —
-                // so nothing is stuck behind them. Either way the empty line buys nothing, and it is
-                // not free: a game sitting at its name prompt reads it as a goodbye and ends the
-                // session before WHO can be asked.
-                //
-                // Measured both ways across sixteen live games (docs/codebase-survey-2026-07-30.md):
-                // none of the eight that negotiate an option needed the flush, while four of the
-                // twelve that negotiate nothing could not answer WHO without it —
-                // chaos.caile.org:4444 still returns its connect screen instead of a count, four
-                // TelnetNegotiationCore versions after that was first written down.
-                //
-                // The test is positive evidence, so the uncertain cases fall the safe way: a server
-                // that negotiated late, or declined everything, is indistinguishable from one that
-                // parsed nothing, and is flushed exactly as it is today.
-                var parsedOurNegotiation = seen.Supported.Count > 0;
-
-                if (!answeredAPrompt && !parsedOurNegotiation)
-                {
-                    await telnet.SendAsync([]);
-                    await SettleAsync(telnet, Arrived, bannerLines, _options.QuietPeriod, budget.Token);
-                }
-
-                flushLines = whoLines = infoLines = versionLines = Arrived();
-
-                // Asking a socket that has already been closed is not asking. A write to a peer that
-                // sent FIN still succeeds — only the write *after* the RST throws — so an unguarded
-                // WHO here would come back unanswered and be recorded as unreadable, publishing our
-                // own dead socket as a fact about their parser (rule 5).
-                //
-                // A who's-online menu already answered this probe's WHO question — asking the literal
-                // word WHO at whatever this game's screen looks like now would either repeat the menu
-                // or be read as a character name, corrupting a good reading with a worse one.
-                if (Live(client) && whoFromMenu is null)
-                {
-                    // WhoGrace, not SilenceGrace: some codebases sit on a login-screen WHO for
-                    // seconds on purpose, and giving up early does not merely lose the count — it
-                    // sends INFO while the roster is still in flight, so the roster lands in INFO's
-                    // window and is recorded as the game's INFO block.
-                    whoLines = infoLines = versionLines =
-                        await AskAsync(WhoCommand, flushLines, _options.WhoGrace, () => asked = true);
-                }
-
-                if (Live(client))
-                {
-                    infoLines = versionLines =
-                        await AskAsync(InfoCommand, whoLines, _options.SilenceGrace);
-                }
-
-                if (Live(client))
-                {
-                    versionLines = await AskAsync(VersionCommand, infoLines, _options.SilenceGrace);
-                }
-            }
-            catch (Exception error) when (HungUp(error) && Measured(lines, bannerLines, seen))
-            {
-                // The server said its piece and then dropped us — a fact about the session, not the
-                // host. Everything already measured (connect screen, handshake, MSSP) stays; failing
-                // the whole probe here would record an answering game as unreachable (rule 5). Phases
-                // never reached keep their pre-loop counts, yielding nothing rather than an empty
-                // answer, and `asked` keeps WHO honest about which.
-                _logger.LogDebug(
-                    "{Host}:{Port} closed the session after its connect screen ({Error}); keeping what it said",
-                    target.Host, target.Port, error.Message);
-            }
+            // Phases 3 to 5 — the questions we are allowed to ask, in order — and everything that has
+            // to happen first for WHO to land cleanly (the MSDP ask, the residue flush). A hang-up
+            // partway through is not a failure (rule 5): whatever cursors already advanced stay where
+            // they are, and phases never reached keep the banner's cursor.
+            await AskFollowUpsAsync(
+                telnet,
+                Arrived,
+                client,
+                lines,
+                seen,
+                cursors,
+                answeredAPrompt,
+                whoAlreadyAnswered: whoFromMenu is not null,
+                markAsked: () => asked = true,
+                target,
+                budget.Token);
 
             // One decision, over the whole session, taken here because here is the first moment
             // there is a whole session to decide from — and MSSP is part of that session, not a
@@ -324,50 +192,9 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 reading = WireEncoding.Read(lines, target.Charset, MsspReport.RawValues(seen.Mssp));
             }
 
-            var read = reading.Lines;
-            var banner = string.Join("\n", read.Take(bannerLines));
-            var whoText = string.Join("\n", read.Skip(flushLines).Take(whoLines - flushLines));
-            var infoText = string.Join("\n", read.Skip(whoLines).Take(infoLines - whoLines));
-            var versionText = string.Join("\n", read.Skip(infoLines).Take(versionLines - infoLines));
-
-            if (telnet.CurrentEncoding is not null)
-            {
-                seen.Charset ??= telnet.CurrentEncoding.WebName;
-            }
-
-            var viaOption = seen.MsspOutcome is MsspOutcome.Received;
-
-            return new ProbeResult
-            {
-                Host = target.Host,
-                Port = target.Port,
-                ObservedAt = observedAt,
-                Outcome = ProbeOutcome.Answered,
-                OfferedOptions = seen.Supported,
-                Negotiation = seen.ToNegotiation(),
-                ReadAs = reading.Charset,
-                CharsetSource = reading.Source,
-                Banner = banner,
-
-                // Every phase, not just the banner: a server may answer the connect screen in plain
-                // text and then mark up its WHO table, and one occurrence anywhere is the same fact.
-                MxpObserved = MxpSignal.IsPresent(banner)
-                    || MxpSignal.IsPresent(whoText)
-                    || MxpSignal.IsPresent(infoText)
-                    || MxpSignal.IsPresent(versionText),
-                Who = whoFromMenu ?? (asked ? new WhoParser().Parse(whoText) : WhoReading.NotAsked),
-                WhoShape = whoFromMenu is not null
-                    ? whoFromMenuShape
-                    : (asked ? PayloadRedaction.Replayable(whoText) : null),
-                Info = infoText.Length == 0 ? null : infoText,
-                Version = versionText.Length == 0 ? null : versionText,
-                BannerPlayerCount = BannerCount.Find(banner),
-                Mssp = viaOption ? MsspReport.From(seen.Mssp, reading.Encoding) : MsspReport.Empty,
-                MsspOutcome = seen.MsspOutcome,
-                MsspBytesRejected = seen.MsspRejectedBytes,
-                MsspTransport = viaOption ? MsspTransport.TelnetOption70 : MsspTransport.None,
-                Elapsed = Stopwatch.GetElapsedTime(started),
-            };
+            return BuildAnsweredResult(
+                target, observedAt, started, seen, reading, cursors,
+                whoFromMenu, whoFromMenuShape, asked, telnet.CurrentEncoding);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -393,6 +220,278 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
                 Elapsed = Stopwatch.GetElapsedTime(started),
             };
         }
+    }
+
+    /// <summary>
+    /// Settles the connect screen, giving it a second, longer wait if the first pass looks like it
+    /// hasn't finished painting.
+    /// </summary>
+    /// <remarks>
+    /// A screen that has told us it is not ready has not settled, it has paused. Waiting once more is
+    /// conditional on there being almost nothing there, so a server that has already painted pays
+    /// nothing — see <see cref="ProbeOptions.BannerPatience"/> for the server this is measured against
+    /// and for what recording the placeholder cost.
+    /// </remarks>
+    private async Task SettleInitialBannerAsync(
+        TelnetInterpreter telnet, Func<int> arrived, List<byte[]> lines, CancellationToken cancellationToken)
+    {
+        await SettleAsync(telnet, arrived, 0, _options.SilenceGrace, cancellationToken);
+
+        if (LooksUnfinished(BannerSoFar(lines, 0, arrived())))
+        {
+            await SettleAsync(telnet, arrived, arrived(), _options.BannerPatience, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Answers whatever questions the server asks before it paints its connect screen — colour, a
+    /// press-enter gate, an age check — and reports whether it answered anything at all.
+    /// </summary>
+    /// <remarks>
+    /// Some connect screens are not the screen at all, but one or more of those questions. Each round
+    /// classifies whatever newly arrived since the last answer and sends the specific reply
+    /// <see cref="LoginPromptGate"/> says resolves it, then settles again; bounded by
+    /// <see cref="ProbeOptions.MaxPromptRounds"/> so a misread screen cannot spin the probe against
+    /// itself. A blind Return sent unconditionally — the whole of what this loop replaces — was never
+    /// enough: several real games only accept an explicit letter, and a server that did not recognise
+    /// a blind Return simply re-printed the same question, which a probe run before this fix stored as
+    /// the connect screen. <see cref="LoginPromptCategory.WhoMenu"/> is excluded from this loop on
+    /// purpose — it is answered once, separately, against the settled screen (see
+    /// <see cref="TryAnswerWhoMenuAsync"/>) rather than as one more round here.
+    /// </remarks>
+    private async Task<bool> AnswerPromptsAsync(
+        TelnetInterpreter telnet,
+        Func<int> arrived,
+        List<byte[]> lines,
+        TcpClient client,
+        CancellationToken cancellationToken)
+    {
+        var roundStart = 0;
+        var answeredAPrompt = false;
+
+        for (var round = 0; round < _options.MaxPromptRounds; round++)
+        {
+            if (LoginPromptGate.Classify(BannerSoFar(lines, roundStart, arrived()))
+                    is not { Category: not LoginPromptCategory.WhoMenu } prompt
+                || !IsPermittedPromptAnswer(prompt.Answer)
+                || !Live(client))
+            {
+                break;
+            }
+
+            roundStart = arrived();
+            answeredAPrompt = true;
+            await telnet.SendAsync(Encoding.ASCII.GetBytes(prompt.Answer));
+            await SettleAsync(telnet, arrived, roundStart, _options.QuietPeriod, cancellationToken);
+        }
+
+        return answeredAPrompt;
+    }
+
+    /// <summary>
+    /// Answers a who's-online menu option on the settled connect screen, if the screen offers one.
+    /// </summary>
+    /// <remarks>
+    /// Parsed through the identical <see cref="WhoParser"/> a literal <c>WHO</c> answer would be, so
+    /// <c>PresenceChoice.From</c> (spec §5.2) cannot tell which route produced the reading.
+    /// </remarks>
+    private async Task<(WhoReading? Who, string? Shape)> TryAnswerWhoMenuAsync(
+        TelnetInterpreter telnet,
+        Func<int> arrived,
+        List<byte[]> lines,
+        TcpClient client,
+        int bannerLines,
+        CancellationToken cancellationToken)
+    {
+        if (!Live(client)
+            || LoginPromptGate.Classify(BannerSoFar(lines, 0, bannerLines))
+                is not { Category: LoginPromptCategory.WhoMenu } menu
+            || !IsPermittedPromptAnswer(menu.Answer))
+        {
+            return (null, null);
+        }
+
+        var menuBaseline = arrived();
+        await telnet.SendAsync(Encoding.ASCII.GetBytes(menu.Answer));
+        await SettleAsync(telnet, arrived, menuBaseline, _options.QuietPeriod, cancellationToken);
+
+        var menuReply = BannerSoFar(lines, menuBaseline, arrived());
+        return (new WhoParser().Parse(menuReply), PayloadRedaction.Replayable(menuReply));
+    }
+
+    /// <summary>
+    /// MSDP, the residue flush, and the three login-screen questions this probe may ask — in order,
+    /// advancing <paramref name="cursors"/> as each one lands.
+    /// </summary>
+    /// <remarks>
+    /// A hang-up that has already yielded a measurement is a fact about the session, not the host
+    /// (rule 5): everything already measured (connect screen, handshake, MSSP) stays, and phases never
+    /// reached keep their pre-loop cursor rather than recording an empty answer.
+    /// </remarks>
+    private async Task AskFollowUpsAsync(
+        TelnetInterpreter telnet,
+        Func<int> arrived,
+        TcpClient client,
+        List<byte[]> lines,
+        Observations seen,
+        PhaseCursors cursors,
+        bool answeredAPrompt,
+        bool whoAlreadyAnswered,
+        Action markAsked,
+        ProbeTarget target,
+        CancellationToken cancellationToken)
+    {
+        // `sent` fires between the write and the wait: a question is asked when its bytes have gone,
+        // not when we decided to ask it, so a flag set before the send could claim to have asked
+        // something that never left.
+        async Task<int> AskAsync(string command, int baseline, TimeSpan grace, Action? sent = null)
+        {
+            await telnet.SendAsync(Encoding.ASCII.GetBytes(command));
+            sent?.Invoke();
+            await SettleAsync(telnet, arrived, baseline, grace, cancellationToken);
+            return arrived();
+        }
+
+        try
+        {
+            // MSDP's request vocabulary — SEND, REPORT, LIST, RESET, UNREPORT — has no plaintext
+            // form, so it is not on PermittedCommands for the same reason MSSP-REQUEST is not: it
+            // is asked for by protocol, not by typing. Gated on TelnetNegotiationCore 2.9.0's
+            // IsNegotiated (see Watched.Msdp), which reflects the peer's real WILL/DO acceptance —
+            // unlike the pre-2.9.0 OnEnabledAsync, which was true from plugin construction
+            // regardless of the wire (TelnetNegotiationCore#85). By this point in the probe the
+            // banner phase above has already given negotiation time to settle, so a server that
+            // never agreed to MSDP is not asked at all: no bytes go to a peer that said nothing
+            // about this option, one connect screen fewer that might read a subnegotiation as
+            // literal typing. PLAYERS is MSDP's conventional variable name for a player count; see
+            // docs/codebase-survey-2026-07-30.md for what asking real servers for it found — every
+            // server tested answered with an unsolicited SERVER_ID instead, never PLAYERS.
+            if (telnet.PluginManager?.GetPlugin<MSDPProtocol>() is { IsNegotiated: true })
+            {
+                await telnet.SendMSDPCommand("SEND", "PLAYERS");
+            }
+
+            // …unless there is no residue for it to clear, which is the only thing it is for.
+            //
+            // Two ways to know that. A prompt answer above was itself a line through the server's
+            // buffer and has already done the flushing. And a server that negotiated an option
+            // *interpreted* our IAC bytes rather than leaving them in its line buffer as typing —
+            // so nothing is stuck behind them. Either way the empty line buys nothing, and it is
+            // not free: a game sitting at its name prompt reads it as a goodbye and ends the
+            // session before WHO can be asked.
+            //
+            // Measured both ways across sixteen live games (docs/codebase-survey-2026-07-30.md):
+            // none of the eight that negotiate an option needed the flush, while four of the
+            // twelve that negotiate nothing could not answer WHO without it —
+            // chaos.caile.org:4444 still returns its connect screen instead of a count, four
+            // TelnetNegotiationCore versions after that was first written down.
+            //
+            // The test is positive evidence, so the uncertain cases fall the safe way: a server
+            // that negotiated late, or declined everything, is indistinguishable from one that
+            // parsed nothing, and is flushed exactly as it is today.
+            var parsedOurNegotiation = seen.Supported.Count > 0;
+
+            if (!answeredAPrompt && !parsedOurNegotiation)
+            {
+                await telnet.SendAsync([]);
+                await SettleAsync(telnet, arrived, cursors.Banner, _options.QuietPeriod, cancellationToken);
+            }
+
+            cursors.Flush = cursors.Who = cursors.Info = cursors.Version = arrived();
+
+            // Asking a socket that has already been closed is not asking. A write to a peer that
+            // sent FIN still succeeds — only the write *after* the RST throws — so an unguarded
+            // WHO here would come back unanswered and be recorded as unreadable, publishing our
+            // own dead socket as a fact about their parser (rule 5).
+            //
+            // A who's-online menu already answered this probe's WHO question — asking the literal
+            // word WHO at whatever this game's screen looks like now would either repeat the menu
+            // or be read as a character name, corrupting a good reading with a worse one.
+            if (Live(client) && !whoAlreadyAnswered)
+            {
+                // WhoGrace, not SilenceGrace: some codebases sit on a login-screen WHO for
+                // seconds on purpose, and giving up early does not merely lose the count — it
+                // sends INFO while the roster is still in flight, so the roster lands in INFO's
+                // window and is recorded as the game's INFO block.
+                cursors.Who = cursors.Info = cursors.Version =
+                    await AskAsync(WhoCommand, cursors.Flush, _options.WhoGrace, markAsked);
+            }
+
+            if (Live(client))
+            {
+                cursors.Info = cursors.Version = await AskAsync(InfoCommand, cursors.Who, _options.SilenceGrace);
+            }
+
+            if (Live(client))
+            {
+                cursors.Version = await AskAsync(VersionCommand, cursors.Info, _options.SilenceGrace);
+            }
+        }
+        catch (Exception error) when (HungUp(error) && Measured(lines, cursors.Banner, seen))
+        {
+            _logger.LogDebug(
+                "{Host}:{Port} closed the session after its connect screen ({Error}); keeping what it said",
+                target.Host, target.Port, error.Message);
+        }
+    }
+
+    /// <summary>Builds the <see cref="ProbeOutcome.Answered"/> result from a completed session.</summary>
+    private static ProbeResult BuildAnsweredResult(
+        ProbeTarget target,
+        DateTimeOffset observedAt,
+        long started,
+        Observations seen,
+        WireReading reading,
+        PhaseCursors cursors,
+        WhoReading? whoFromMenu,
+        string? whoFromMenuShape,
+        bool asked,
+        Encoding? negotiatedEncoding)
+    {
+        var read = reading.Lines;
+        var banner = string.Join("\n", read.Take(cursors.Banner));
+        var whoText = string.Join("\n", read.Skip(cursors.Flush).Take(cursors.Who - cursors.Flush));
+        var infoText = string.Join("\n", read.Skip(cursors.Who).Take(cursors.Info - cursors.Who));
+        var versionText = string.Join("\n", read.Skip(cursors.Info).Take(cursors.Version - cursors.Info));
+
+        if (negotiatedEncoding is not null)
+        {
+            seen.Charset ??= negotiatedEncoding.WebName;
+        }
+
+        var viaOption = seen.MsspOutcome is MsspOutcome.Received;
+
+        return new ProbeResult
+        {
+            Host = target.Host,
+            Port = target.Port,
+            ObservedAt = observedAt,
+            Outcome = ProbeOutcome.Answered,
+            OfferedOptions = seen.Supported,
+            Negotiation = seen.ToNegotiation(),
+            ReadAs = reading.Charset,
+            CharsetSource = reading.Source,
+            Banner = banner,
+
+            // Every phase, not just the banner: a server may answer the connect screen in plain
+            // text and then mark up its WHO table, and one occurrence anywhere is the same fact.
+            MxpObserved = MxpSignal.IsPresent(banner)
+                || MxpSignal.IsPresent(whoText)
+                || MxpSignal.IsPresent(infoText)
+                || MxpSignal.IsPresent(versionText),
+            Who = whoFromMenu ?? (asked ? new WhoParser().Parse(whoText) : WhoReading.NotAsked),
+            WhoShape = whoFromMenu is not null
+                ? whoFromMenuShape
+                : (asked ? PayloadRedaction.Replayable(whoText) : null),
+            Info = infoText.Length == 0 ? null : infoText,
+            Version = versionText.Length == 0 ? null : versionText,
+            BannerPlayerCount = BannerCount.Find(banner),
+            Mssp = viaOption ? MsspReport.From(seen.Mssp, reading.Encoding) : MsspReport.Empty,
+            MsspOutcome = seen.MsspOutcome,
+            MsspBytesRejected = seen.MsspRejectedBytes,
+            MsspTransport = viaOption ? MsspTransport.TelnetOption70 : MsspTransport.None,
+            Elapsed = Stopwatch.GetElapsedTime(started),
+        };
     }
 
     /// <summary>
@@ -583,71 +682,75 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
     /// its own callback, which is the event that proves it ran; <see cref="Watched"/>'s
     /// <c>OnEnabledAsync</c> overrides are a second, cheaper signal that was measured not firing on
     /// its own for every protocol, so both routes are kept.
+    /// Every <c>Watched.X</c> plugin is built and wired in one fluent expression — construction,
+    /// <c>WithMaxMessageSize</c> where the protocol has one, and its callbacks — rather than as a
+    /// separate statement apiece; the TelnetNegotiationCore plugin builders are already self-typed
+    /// fluent, so this is the shape the library wants, not a new abstraction layered over it.
     /// </remarks>
     private TelnetInterpreterBuilder Build(Observations seen, List<byte[]> lines)
     {
         void Note(string protocol) => seen.Note(protocol);
 
-        var mssp = new Watched.Mssp(Note);
-        mssp.WithMaxMessageSize(_options.MaxSubnegotiationBytes);
-        mssp.OnMSSP(config =>
-        {
-            seen.Mssp = config;
-            seen.MsspOutcome = MsspOutcome.Received;
-            Note("MSSP");
-            return ValueTask.CompletedTask;
-        });
-        // 2.7.0 drops an oversized report whole rather than truncating it. Kept as its own outcome:
-        // we asked, they answered, we declined to hold it — which is not "no MSSP".
-        mssp.OnMSSPMessageTooLarge(sizes =>
-        {
-            seen.MsspOutcome = MsspOutcome.RejectedTooLarge;
-            seen.MsspRejectedBytes = (int)Math.Min(sizes.Item1, int.MaxValue);
-            Note("MSSP");
-            return ValueTask.CompletedTask;
-        });
+        var mssp = new Watched.Mssp(Note)
+            .WithMaxMessageSize(_options.MaxSubnegotiationBytes)
+            .OnMSSP(config =>
+            {
+                seen.Mssp = config;
+                seen.MsspOutcome = MsspOutcome.Received;
+                Note("MSSP");
+                return ValueTask.CompletedTask;
+            })
+            // 2.7.0 drops an oversized report whole rather than truncating it. Kept as its own
+            // outcome: we asked, they answered, we declined to hold it — which is not "no MSSP".
+            .OnMSSPMessageTooLarge(sizes =>
+            {
+                seen.MsspOutcome = MsspOutcome.RejectedTooLarge;
+                seen.MsspRejectedBytes = (int)Math.Min(sizes.Item1, int.MaxValue);
+                Note("MSSP");
+                return ValueTask.CompletedTask;
+            });
 
-        var gmcp = new Watched.Gmcp(Note);
-        gmcp.WithMaxMessageSize(_options.MaxSubnegotiationBytes);
-        gmcp.OnGMCPMessage(message =>
-        {
-            seen.Gmcp(message.Item1);
-            Note("GMCP");
-            return ValueTask.CompletedTask;
-        });
+        var gmcp = new Watched.Gmcp(Note)
+            .WithMaxMessageSize(_options.MaxSubnegotiationBytes)
+            .OnGMCPMessage(message =>
+            {
+                seen.Gmcp(message.Item1);
+                Note("GMCP");
+                return ValueTask.CompletedTask;
+            });
 
-        var msdp = new Watched.Msdp(Note);
-        msdp.WithMaxMessageSize(_options.MaxSubnegotiationBytes);
-        msdp.OnMSDPMessage((_, message) =>
-        {
-            seen.Msdp(message);
-            Note("MSDP");
-            return ValueTask.CompletedTask;
-        });
+        var msdp = new Watched.Msdp(Note)
+            .WithMaxMessageSize(_options.MaxSubnegotiationBytes)
+            .OnMSDPMessage((_, message) =>
+            {
+                seen.Msdp(message);
+                Note("MSDP");
+                return ValueTask.CompletedTask;
+            });
 
-        var newEnviron = new Watched.NewEnviron(Note);
-        newEnviron.OnEnvironmentVariables((requested, _) =>
-        {
-            seen.Environment(requested.Keys);
-            Note("NEW-ENVIRON");
-            return ValueTask.CompletedTask;
-        });
+        var newEnviron = new Watched.NewEnviron(Note)
+            .OnEnvironmentVariables((requested, _) =>
+            {
+                seen.Environment(requested.Keys);
+                Note("NEW-ENVIRON");
+                return ValueTask.CompletedTask;
+            });
 
-        var mccp = new Watched.Mccp(Note);
-        mccp.OnCompressionEnabled((version, _) =>
-        {
-            seen.CompressionVersion = version;
-            Note($"MCCP{version}");
-            return ValueTask.CompletedTask;
-        });
+        var mccp = new Watched.Mccp(Note)
+            .OnCompressionEnabled((version, _) =>
+            {
+                seen.CompressionVersion = version;
+                Note($"MCCP{version}");
+                return ValueTask.CompletedTask;
+            });
 
-        var eor = new Watched.Eor(Note);
-        eor.OnPrompt(() =>
-        {
-            seen.Prompts = true;
-            Note("EOR");
-            return ValueTask.CompletedTask;
-        });
+        var eor = new Watched.Eor(Note)
+            .OnPrompt(() =>
+            {
+                seen.Prompts = true;
+                Note("EOR");
+                return ValueTask.CompletedTask;
+            });
 
         // The other prompt marker, and the one most of this hobby actually uses. RFC 854 makes a bare
         // IAC GA the server-to-user prompt boundary, so a default NVT — negotiating neither EOR nor
@@ -659,31 +762,30 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         // GA means SUPPRESS-GO-AHEAD is *not* in effect (RFC 858 makes a suppressed GA a NOP) — so
         // recording its name here would assert the opposite of what the byte proves. The plugin's own
         // OnEnabledAsync still notes it if the option is actually negotiated.
-        var goAhead = new Watched.SuppressGoAhead(Note);
-        goAhead.OnPrompt(() =>
-        {
-            seen.Prompts = true;
-            return ValueTask.CompletedTask;
-        });
+        var goAhead = new Watched.SuppressGoAhead(Note)
+            .OnPrompt(() =>
+            {
+                seen.Prompts = true;
+                return ValueTask.CompletedTask;
+            });
 
         // CharsetProtocol takes its order as a property rather than a builder call, and exposes
         // OnCharsetChange on the instance — so the settled encoding is captured here rather than
         // read off the interpreter afterwards, where a default is indistinguishable from a result.
-        var charset = new Watched.Charset(Note) { CharsetOrder = [Encoding.UTF8, Encoding.Latin1] };
-        charset.OnCharsetChange(encoding =>
-        {
-            seen.Charset = encoding.WebName;
-            seen.CharsetNegotiated = true;
-            Note("CHARSET");
-            return ValueTask.CompletedTask;
-        });
+        var charset = new Watched.Charset(Note) { CharsetOrder = [Encoding.UTF8, Encoding.Latin1] }
+            .OnCharsetChange(encoding =>
+            {
+                seen.Charset = encoding.WebName;
+                seen.CharsetNegotiated = true;
+                Note("CHARSET");
+                return ValueTask.CompletedTask;
+            });
 
         // The verbatim TTYPE list from options is passed to WithTerminalTypes so it reaches the
         // wire exactly as configured. WithClientIdentity on the builder feeds the same name into
         // the MNES/NEW-ENVIRON side (CLIENT_NAME), which reads it from shared state independently
         // of the TTYPE list.
-        var terminalType = new Watched.TerminalType(Note);
-        terminalType.WithTerminalTypes([.. _options.TerminalTypes]);
+        var terminalType = new Watched.TerminalType(Note).WithTerminalTypes([.. _options.TerminalTypes]);
 
         return new TelnetInterpreterBuilder()
             .UseMode(TelnetInterpreter.TelnetMode.Client)
@@ -716,6 +818,36 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
             .AddPlugin(new Watched.Echo(Note));
     }
 
+    /// <summary>
+    /// Where each phase's slice of the session's <c>lines</c> ends — a running line count into the
+    /// same list, one field per phase.
+    /// </summary>
+    /// <remarks>
+    /// Threading five same-typed <c>int</c> cursors through <c>ProbeAsync</c> as loose locals made it
+    /// possible to hand one phase's baseline to the wrong parameter and have the compiler say nothing
+    /// — they were all just <c>int</c>. A named field on this type doesn't stop that by construction,
+    /// but every write and read now says which phase's boundary it means (<c>cursors.Who</c>, not a
+    /// bare <c>whoLines</c> sitting next to four look-alikes), which is what made the original
+    /// transposition bug easy to introduce and hard to spot in review.
+    /// </remarks>
+    private sealed class PhaseCursors
+    {
+        /// <summary>Where the connect screen — banner, answered prompts, WHO menu reply — ends.</summary>
+        public int Banner;
+
+        /// <summary>Where the discarded flush-line reaction ends. Starts equal to <see cref="Banner"/>.</summary>
+        public int Flush;
+
+        /// <summary>Where the WHO answer ends. Starts equal to <see cref="Banner"/>.</summary>
+        public int Who;
+
+        /// <summary>Where the INFO answer ends. Starts equal to <see cref="Banner"/>.</summary>
+        public int Info;
+
+        /// <summary>Where the VERSION answer ends. Starts equal to <see cref="Banner"/>.</summary>
+        public int Version;
+    }
+
     /// <summary>Mutable scratch for one probe. Callbacks arrive on the read loop, so it locks.</summary>
     private sealed class Observations
     {
@@ -727,6 +859,13 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         // this is headroom for legitimate variety, not a number anything has approached.
         private const int MaxMsdpMessages = 64;
 
+        // One lock guards every mutable collection below. The four separate locks this replaced were
+        // never nested — each was acquired, used and released before the next was touched — but a
+        // snapshot in ToNegotiation still had to take and drop four locks one at a time to read
+        // values no caller ever contends over. A single lock keeps that same "never nested" property
+        // trivially (there is only one) and lets ToNegotiation take one critical section instead of
+        // four.
+        private readonly Lock _gate = new();
         private readonly HashSet<string> _supported = new(StringComparer.Ordinal);
         private readonly List<string> _environment = [];
         private readonly List<string> _gmcp = [];
@@ -744,7 +883,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         {
             get
             {
-                lock (_supported)
+                lock (_gate)
                 {
                     return _supported.ToHashSet(StringComparer.Ordinal);
                 }
@@ -753,7 +892,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
         public void Note(string protocol)
         {
-            lock (_supported)
+            lock (_gate)
             {
                 _supported.Add(protocol);
             }
@@ -761,7 +900,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
         public void Environment(IEnumerable<string> names)
         {
-            lock (_environment)
+            lock (_gate)
             {
                 _environment.AddRange(names);
             }
@@ -769,7 +908,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
 
         public void Gmcp(string package)
         {
-            lock (_gmcp)
+            lock (_gate)
             {
                 _gmcp.Add(package);
             }
@@ -786,7 +925,7 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         /// </summary>
         public void Msdp(string message)
         {
-            lock (_msdp)
+            lock (_gate)
             {
                 if (_msdp.Count < MaxMsdpMessages)
                 {
@@ -796,28 +935,22 @@ public sealed class TelnetProbe(ProbeOptions? options = null, ILogger? logger = 
         }
 
         /// <remarks>
-        /// Each collection is snapshotted under its own lock, released before the next is taken —
-        /// not nested, so this can never wait on a lock order some future caller takes in reverse.
+        /// One lock for the whole snapshot — see <see cref="_gate"/> — so the four collections are
+        /// read as they stood at a single instant rather than one at a time as a writer might still be
+        /// touching the next one.
         /// </remarks>
         public Negotiation ToNegotiation()
         {
-            var supported = Supported;
-
+            HashSet<string> supported;
             List<string> environment;
-            lock (_environment)
-            {
-                environment = [.. _environment];
-            }
-
             List<string> gmcp;
-            lock (_gmcp)
-            {
-                gmcp = [.. _gmcp];
-            }
-
             List<string> msdp;
-            lock (_msdp)
+
+            lock (_gate)
             {
+                supported = _supported.ToHashSet(StringComparer.Ordinal);
+                environment = [.. _environment];
+                gmcp = [.. _gmcp];
                 msdp = [.. _msdp];
             }
 
