@@ -18,7 +18,7 @@
     @* The provenance word is placed rather than written into the sentence, and is the SAME id the
        chip on the game's page uses — two ids for one word is how the promise and the page drift. *@
     <p class="faint">
-        @foreach (var part in Sentence.Place(Tag, "owner.declare.lede", ["declared"]))
+        @foreach (var part in SentenceMarkup.Place(Tag, "owner.declare.lede", ["declared"]))
         {
             @if (part.Slot is "declared")
             {
@@ -76,7 +76,7 @@
         @L("owner.override.lede")
         <strong>@L("owner.override.nothingMeasured")</strong>
         <span>
-            @foreach (var part in Sentence.Place(Tag, "owner.override.fixItThere", ["file"]))
+            @foreach (var part in SentenceMarkup.Place(Tag, "owner.override.fixItThere", ["file"]))
             {
                 @if (part.Slot is "file")
                 {
@@ -109,7 +109,7 @@
                         translated.
                     *@
                     <span class="faint">
-                        @foreach (var part in Sentence.Place(
+                        @foreach (var part in SentenceMarkup.Place(
                             Tag,
                             "owner.report.value",
                             ["value"],
@@ -172,7 +172,7 @@
         @* The empty hours this leaves may not be given a cause (rule 2, rule 5): "you asked us to
            stop" is OUR fact, not a measurement of the game. *@
         <p>
-            @foreach (var part in Sentence.Place(Tag, "owner.crawl.stopped", ["ourFact"], ("game", Name)))
+            @foreach (var part in SentenceMarkup.Place(Tag, "owner.crawl.stopped", ["ourFact"], ("game", Name)))
             {
                 @if (part.Slot is "ourFact")
                 {
@@ -223,7 +223,7 @@
             config spellings are the crawler's own tokens rather than words to translate.
         *@
         <p class="faint">
-            @foreach (var part in Sentence.Place(Tag, "owner.crawl.selfService", ["mssp", "dns"]))
+            @foreach (var part in SentenceMarkup.Place(Tag, "owner.crawl.selfService", ["mssp", "dns"]))
             {
                 @if (part.Slot is "mssp")
                 {

@@ -1,6 +1,6 @@
 using MUI.Web.Components;
 
-namespace MUI.Web.Tests;
+namespace MUI.Web.Tests.Trend;
 
 /// <summary>
 /// The calendar range in the address, which is what makes seeking work without a line of script.

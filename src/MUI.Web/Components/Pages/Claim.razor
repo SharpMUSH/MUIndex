@@ -125,7 +125,7 @@ else
                block, so a bare @foreach beside a sibling sentence would run the two together. *@
             <p class="faint">
                 <span>
-                    @foreach (var part in Sentence.Place(Tag, "claim.mssp.note", ["codebase", "file"]))
+                    @foreach (var part in SentenceMarkup.Place(Tag, "claim.mssp.note", ["codebase", "file"]))
                     {
                         @if (part.Slot is "codebase")
                         {
@@ -142,7 +142,7 @@ else
                     }
                 </span>
                 <span>
-                    @foreach (var part in Sentence.Place(Tag, "claim.mssp.aliases", ["aliases"]))
+                    @foreach (var part in SentenceMarkup.Place(Tag, "claim.mssp.aliases", ["aliases"]))
                     {
                         @if (part.Slot is "aliases")
                         {

@@ -12,7 +12,7 @@ using MUI.Web.Api;
 using MUI.Web.Components;
 using MUI.Web.Localization;
 
-namespace MUI.Web.Tests;
+namespace MUI.Web.Tests.Pages;
 
 /// <summary>
 /// The about page, which is an obligation this project incurred by crawling rather than a feature.

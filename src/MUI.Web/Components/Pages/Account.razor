@@ -50,7 +50,7 @@ else
             @* Places its own link and control rather than English glued round an anchor, so a
                translator can reorder the sentence. *@
             <p>
-                @foreach (var part in Sentence.Place(Tag, "account.empty.body", ["listing", "claimControl"]))
+                @foreach (var part in SentenceMarkup.Place(Tag, "account.empty.body", ["listing", "claimControl"]))
                 {
                     @if (part.Slot is "listing")
                     {
@@ -153,7 +153,7 @@ else
                         <p class="faint">
                             @L("account.badge.carries")
                             <span>
-                                @foreach (var part in Sentence.Place(Tag, "account.badge.states", ["unknown", "archived"]))
+                                @foreach (var part in SentenceMarkup.Place(Tag, "account.badge.states", ["unknown", "archived"]))
                                 {
                                     @if (part.Slot is "unknown")
                                     {
@@ -170,7 +170,7 @@ else
                                 }
                             </span>
                             <span>
-                                @foreach (var part in Sentence.Place(Tag, "account.badge.json", ["json"]))
+                                @foreach (var part in SentenceMarkup.Place(Tag, "account.badge.json", ["json"]))
                                 {
                                     @if (part.Slot is "json")
                                     {
@@ -209,7 +209,7 @@ else
                             @* Placed, not translated — the endpoint compares against this literal,
                                and a translated word is one the form would refuse. *@
                             <p class="faint">
-                                @foreach (var part in Sentence.Place(Tag, "account.resign.confirm", ["word"]))
+                                @foreach (var part in SentenceMarkup.Place(Tag, "account.resign.confirm", ["word"]))
                                 {
                                     @if (part.Slot is "word")
                                     {

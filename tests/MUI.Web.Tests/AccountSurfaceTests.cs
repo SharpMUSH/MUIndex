@@ -65,12 +65,12 @@ public class AccountSurfaceTests
     /// <summary>
     /// A placed sentence in the source language, with its slots filled as the page fills them.
     /// </summary>
-    /// <remarks>Reassembles <see cref="Sentence.Place"/>'s runs into the sentence a reader ends up with, so assertions read the same bundle the page does rather than a pasted English string.</remarks>
+    /// <remarks>Reassembles <see cref="SentenceMarkup.Place"/>'s runs into the sentence a reader ends up with, so assertions read the same bundle the page does rather than a pasted English string.</remarks>
     private static string EnPlaced(
         string id,
         IReadOnlyDictionary<string, string> fills,
         params (string Key, object? Value)[] args) =>
-        Render.Words(string.Concat(Sentence
+        Render.Words(string.Concat(SentenceMarkup
             .Place(Locales.SourceTag, id, [.. fills.Keys], args)
             .Select(part => part.Slot is null ? part.Text : fills[part.Slot])));
 

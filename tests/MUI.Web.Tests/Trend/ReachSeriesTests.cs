@@ -2,7 +2,7 @@ using MUI.Catalog;
 using MUI.Web.Components;
 using MUI.Web.Localization;
 
-namespace MUI.Web.Tests;
+namespace MUI.Web.Tests.Trend;
 
 /// <summary>
 /// The availability strip. Ninety bars, the worst state of each day, and the word is

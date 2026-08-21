@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 using MUI.Web.Components;
 
-namespace MUI.Web.Tests;
+namespace MUI.Web.Tests.Trend;
 
 /// <summary>
 /// The two things a reader chooses about the trend — how far back, and which drawing — and the one

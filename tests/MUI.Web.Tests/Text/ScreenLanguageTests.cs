@@ -1,6 +1,6 @@
 using MUI.Web.Components;
 
-namespace MUI.Web.Tests;
+namespace MUI.Web.Tests.Text;
 
 /// <summary>
 /// The language tag a connect screen is rendered under.

@@ -3,7 +3,7 @@ using System.Text.Json;
 using MUI.Catalog;
 using MUI.Web.Components;
 
-namespace MUI.Web.Tests;
+namespace MUI.Web.Tests.Pages;
 
 /// <summary>
 /// The graph a search engine reads, which is the one surface with no room for a chip.

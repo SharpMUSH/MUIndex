@@ -2,7 +2,7 @@ using MUI.Catalog;
 using MUI.Web.Components;
 using MUI.Web.Localization;
 
-namespace MUI.Web.Tests;
+namespace MUI.Web.Tests.Trend;
 
 /// <summary>
 /// The trend chart, and the one rule it exists to keep.

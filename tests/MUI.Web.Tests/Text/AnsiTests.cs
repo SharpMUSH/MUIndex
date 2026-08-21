@@ -1,6 +1,6 @@
 using MUI.Web.Components;
 
-namespace MUI.Web.Tests;
+namespace MUI.Web.Tests.Text;
 
 /// <summary>
 /// The ANSI quotation frame's parser: foreign colour resolved to a locked table, laid out at a
