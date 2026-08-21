@@ -1,8 +1,10 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
+using MUI.Web.Data;
+
 using Npgsql;
 
-namespace MUI.Web.Data;
+namespace MUI.Web;
 
 /// <summary>
 /// <c>GET /health</c>: whether this replica can serve traffic right now.

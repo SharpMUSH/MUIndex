@@ -1,5 +1,6 @@
 using System.Net;
 
+using MUI.Web;
 using MUI.Web.Data;
 using MUI.Web.Tests.Support;
 
